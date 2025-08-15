@@ -1,5 +1,9 @@
 # Local iTab Extension
 
+
+<img width="3806" height="1693" alt="image" src="https://github.com/user-attachments/assets/552c660a-cb0f-4ee8-b89e-2746ba938160" />
+
+
 A customizable new tab page Chrome extension that works completely offline.
 
 ## Features
