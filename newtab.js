@@ -1,15 +1,15 @@
 // New tab page JavaScript - with storage management
-document.addEventListener('DOMContentLoaded', async function() {
+document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
-    
+
     try {
         // Initialize dashboard components with stored data
         await initializeDashboard();
-        
+
         // Set up settings button
         const settingsButton = document.getElementById('open-options');
         if (settingsButton) {
-            settingsButton.addEventListener('click', function() {
+            settingsButton.addEventListener('click', function () {
                 chrome.runtime.openOptionsPage();
             });
         }
@@ -24,29 +24,29 @@ async function initializeDashboard() {
     try {
         // Load all configuration data from storage
         const config = await storageManager.getAll();
-        
+
         // Apply background settings
         await applyBackgroundSettings(config.bg);
-        
+
         // Apply module visibility settings
         applyModuleVisibility(config.show);
-        
+
         // Initialize components based on visibility settings
         if (config.show.clock) {
             initializeClockComponent(config.clock);
         }
-        
+
         if (config.show.search) {
             initializeSearchComponent(config.search);
         }
-        
+
         if (config.show.shortcuts) {
             initializeShortcutsComponent(config.links);
         }
-        
+
         // Initialize other components (always visible for now)
         initializeQuoteComponent(config.quote);
-        
+
         console.log('Dashboard initialized successfully');
     } catch (error) {
         console.error('Error in initializeDashboard:', error);
@@ -56,7 +56,7 @@ async function initializeDashboard() {
 
 async function applyBackgroundSettings(bgConfig) {
     const body = document.body;
-    
+
     // Clear existing background classes
     body.classList.remove('bg-gradient', 'bg-color', 'bg-image', 'bg-api');
     body.style.backgroundColor = '';
@@ -65,7 +65,7 @@ async function applyBackgroundSettings(bgConfig) {
     body.style.backgroundPosition = '';
     body.style.backgroundRepeat = '';
     body.style.backgroundAttachment = '';
-    
+
     switch (bgConfig.type) {
         case 'gradient':
             body.classList.add('bg-gradient');
@@ -102,7 +102,7 @@ async function loadApiBackground() {
     try {
         const apiUrl = 'https://api.paugram.com/wallpaper/';
         const response = await fetch(apiUrl, { redirect: 'follow', cache: 'no-cache' });
-        
+
         if (response.ok) {
             const imageUrl = response.url; // The API redirects to the actual image
             document.body.style.backgroundImage = `url(${imageUrl})`;
@@ -128,7 +128,7 @@ function applyModuleVisibility(showConfig) {
     const clockContainer = document.getElementById('clock-container');
     const searchContainer = document.getElementById('search-container');
     const shortcutsContainer = document.getElementById('shortcuts-container');
-    
+
     // Apply visibility settings with CSS classes
     if (clockContainer) {
         if (showConfig.clock) {
@@ -138,7 +138,7 @@ function applyModuleVisibility(showConfig) {
             clockContainer.classList.add('module-hidden');
         }
     }
-    
+
     if (searchContainer) {
         if (showConfig.search) {
             searchContainer.classList.remove('module-hidden');
@@ -147,7 +147,7 @@ function applyModuleVisibility(showConfig) {
             searchContainer.classList.add('module-hidden');
         }
     }
-    
+
     if (shortcutsContainer) {
         if (showConfig.shortcuts) {
             shortcutsContainer.classList.remove('module-hidden');
@@ -161,7 +161,7 @@ function applyModuleVisibility(showConfig) {
 function initializeClockComponent(clockConfig) {
     const clockContainer = document.getElementById('clock-container');
     if (!clockContainer) return;
-    
+
     // Create clock HTML structure
     clockContainer.innerHTML = `
         <div class="clock-display">
@@ -169,7 +169,7 @@ function initializeClockComponent(clockConfig) {
             <div class="date-display" id="date-display"></div>
         </div>
     `;
-    
+
     // Initialize clock with configuration
     const clockComponent = new ClockComponent(clockConfig);
     clockComponent.start();
@@ -186,20 +186,20 @@ class ClockComponent {
         this.timeElement = document.getElementById('time-display');
         this.dateElement = document.getElementById('date-display');
     }
-    
+
     /**
      * Start the clock with real-time updates
      */
     start() {
         // Update immediately
         this.updateDisplay();
-        
+
         // Set up interval for updates
         this.intervalId = setInterval(() => {
             this.updateDisplay();
         }, 1000);
     }
-    
+
     /**
      * Stop the clock updates
      */
@@ -209,22 +209,22 @@ class ClockComponent {
             this.intervalId = null;
         }
     }
-    
+
     /**
      * Update the time and date display
      */
     updateDisplay() {
         const now = new Date();
-        
+
         if (this.timeElement) {
             this.timeElement.textContent = this.formatTime(now);
         }
-        
+
         if (this.dateElement) {
             this.dateElement.textContent = this.formatDate(now);
         }
     }
-    
+
     /**
      * Format time according to configuration
      * @param {Date} date - Date object to format
@@ -236,14 +236,14 @@ class ClockComponent {
             minute: '2-digit',
             hour12: this.config.hour12
         };
-        
+
         if (this.config.showSeconds) {
             options.second = '2-digit';
         }
-        
+
         return date.toLocaleTimeString('en-US', options);
     }
-    
+
     /**
      * Format date with day of year and week number
      * @param {Date} date - Date object to format
@@ -254,13 +254,13 @@ class ClockComponent {
         const month = date.toLocaleDateString('en-US', { month: 'long' });
         const day = date.getDate();
         const year = date.getFullYear();
-        
+
         const dayOfYear = this.getDayOfYear(date);
         const weekNumber = this.getWeekNumber(date);
-        
+
         return `${dayOfWeek}, ${month} ${day}, ${year} • Day ${dayOfYear} • Week ${weekNumber}`;
     }
-    
+
     /**
      * Calculate day of year (1-366)
      * @param {Date} date - Date object
@@ -272,7 +272,7 @@ class ClockComponent {
         const oneDay = 1000 * 60 * 60 * 24;
         return Math.floor(diff / oneDay);
     }
-    
+
     /**
      * Calculate ISO week number (1-53)
      * @param {Date} date - Date object
@@ -285,7 +285,7 @@ class ClockComponent {
         const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
         return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     }
-    
+
     /**
      * Update configuration and refresh display
      * @param {Object} newConfig - New clock configuration
@@ -299,7 +299,7 @@ class ClockComponent {
 function initializeSearchComponent(searchConfig) {
     const searchContainer = document.getElementById('search-container');
     if (!searchContainer) return;
-    
+
     // Create search component
     const searchComponent = new SearchComponent(searchConfig);
     searchComponent.render();
@@ -308,7 +308,7 @@ function initializeSearchComponent(searchConfig) {
 function initializeShortcutsComponent(linksConfig) {
     const shortcutsContainer = document.getElementById('shortcuts-container');
     if (!shortcutsContainer) return;
-    
+
     // Create shortcuts component
     const shortcutsComponent = new ShortcutsComponent(linksConfig);
     shortcutsComponent.render();
@@ -353,13 +353,13 @@ class SearchComponent {
             }
         };
     }
-    
+
     /**
      * Render the search component
      */
     render() {
         if (!this.container) return;
-        
+
         this.container.innerHTML = `
             <div class="search-wrapper">
                 <form class="search-form" id="search-form">
@@ -392,10 +392,10 @@ class SearchComponent {
                 </form>
             </div>
         `;
-        
+
         this.attachEventListeners();
     }
-    
+
     /**
      * Render engine dropdown options
      */
@@ -408,7 +408,7 @@ class SearchComponent {
             </div>
         `).join('');
     }
-    
+
     /**
      * Attach event listeners
      */
@@ -418,75 +418,75 @@ class SearchComponent {
         if (searchForm) {
             searchForm.addEventListener('submit', (e) => this.handleSearchSubmit(e));
         }
-        
+
         // Engine selector button
         const engineButton = document.getElementById('engine-button');
         if (engineButton) {
             engineButton.addEventListener('click', (e) => this.toggleEngineDropdown(e));
         }
-        
+
         // Engine dropdown options
         const engineDropdown = document.getElementById('engine-dropdown');
         if (engineDropdown) {
             engineDropdown.addEventListener('click', (e) => this.handleEngineSelection(e));
         }
-        
+
         // Search input focus handling
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
             searchInput.addEventListener('focus', () => this.handleInputFocus());
             searchInput.addEventListener('blur', () => this.handleInputBlur());
         }
-        
+
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => this.handleDocumentClick(e));
-        
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
     }
-    
+
     /**
      * Handle search form submission
      */
     handleSearchSubmit(e) {
         e.preventDefault();
-        
+
         const searchInput = document.getElementById('search-input');
         const query = searchInput.value.trim();
-        
+
         if (!query) {
             searchInput.focus();
             return;
         }
-        
+
         // Generate search URL
         const searchUrl = this.generateSearchUrl(query);
-        
+
         // Navigate to search results
         window.open(searchUrl, '_blank');
-        
+
         // Clear search input
         searchInput.value = '';
         searchInput.blur();
     }
-    
+
     /**
      * Generate search URL based on selected engine and query
      */
     generateSearchUrl(query) {
         const engine = this.searchEngines[this.config.engine];
         let searchUrl = engine.url;
-        
+
         // For custom engine, use the custom URL if available
         if (this.config.engine === 'custom' && this.config.custom) {
             searchUrl = this.config.custom;
         }
-        
+
         // Replace %s placeholder with encoded query
         const encodedQuery = encodeURIComponent(query);
         return searchUrl.replace('%s', encodedQuery);
     }
-    
+
     /**
      * Toggle engine dropdown visibility
      */
@@ -497,59 +497,59 @@ class SearchComponent {
             dropdown.classList.toggle('active');
         }
     }
-    
+
     /**
      * Handle engine selection from dropdown
      */
     async handleEngineSelection(e) {
         const engineOption = e.target.closest('.engine-option');
         if (!engineOption) return;
-        
+
         const selectedEngine = engineOption.dataset.engine;
         if (selectedEngine === this.config.engine) {
             this.closeEngineDropdown();
             return;
         }
-        
+
         // Update configuration
         this.config.engine = selectedEngine;
-        
+
         // Update custom URL if needed
         if (selectedEngine === 'custom' && !this.config.custom) {
             this.config.custom = 'https://www.google.com/search?q=%s';
         }
-        
+
         // Save to storage
         try {
             await storageManager.set('search', this.config);
-            
+
             // Update UI
             this.updateEngineButton();
             this.updateEngineDropdown();
             this.closeEngineDropdown();
-            
+
         } catch (error) {
             console.error('Error saving search engine preference:', error);
             showErrorMessage('Failed to save search engine preference');
         }
     }
-    
+
     /**
      * Update engine button display
      */
     updateEngineButton() {
         const engineButton = document.getElementById('engine-button');
         const engineIcon = engineButton?.querySelector('.engine-icon');
-        
+
         if (engineIcon) {
             engineIcon.textContent = this.searchEngines[this.config.engine].icon;
         }
-        
+
         if (engineButton) {
             engineButton.title = `Search with ${this.searchEngines[this.config.engine].name}`;
         }
     }
-    
+
     /**
      * Update engine dropdown options
      */
@@ -559,7 +559,7 @@ class SearchComponent {
             engineDropdown.innerHTML = this.renderEngineOptions();
         }
     }
-    
+
     /**
      * Close engine dropdown
      */
@@ -569,7 +569,7 @@ class SearchComponent {
             dropdown.classList.remove('active');
         }
     }
-    
+
     /**
      * Handle input focus
      */
@@ -579,7 +579,7 @@ class SearchComponent {
             searchWrapper.classList.add('focused');
         }
     }
-    
+
     /**
      * Handle input blur
      */
@@ -592,7 +592,7 @@ class SearchComponent {
             }
         }, 150);
     }
-    
+
     /**
      * Handle document clicks to close dropdown
      */
@@ -602,7 +602,7 @@ class SearchComponent {
             this.closeEngineDropdown();
         }
     }
-    
+
     /**
      * Handle keyboard shortcuts
      */
@@ -616,7 +616,7 @@ class SearchComponent {
                 searchInput.select();
             }
         }
-        
+
         // Close dropdown with Escape
         if (e.key === 'Escape') {
             this.closeEngineDropdown();
@@ -626,18 +626,18 @@ class SearchComponent {
             }
         }
     }
-    
+
     /**
      * Update configuration and refresh component
      */
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
-        
+
         // Update custom engine URL if provided
         if (newConfig.custom) {
             this.searchEngines.custom.url = newConfig.custom;
         }
-        
+
         this.updateEngineButton();
         this.updateEngineDropdown();
     }
@@ -655,19 +655,19 @@ class ShortcutsComponent {
         this.modal = null;
         this.confirmDialog = null;
     }
-    
+
     /**
      * Render the shortcuts component
      */
     render() {
         if (!this.container) return;
-        
+
         this.container.innerHTML = `
             <div class="shortcuts-grid" id="shortcuts-grid">
                 ${this.renderShortcuts()}
             </div>
         `;
-        
+
         this.attachEventListeners();
         this.createModal();
 
@@ -678,7 +678,7 @@ class ShortcutsComponent {
             window.categoryNavigation.filterShortcuts();
         }
     }
-    
+
     /**
      * Render shortcuts grid
      */
@@ -715,7 +715,7 @@ class ShortcutsComponent {
 
         return items + addTile;
     }
-    
+
     /**
      * Attach event listeners
      */
@@ -725,7 +725,7 @@ class ShortcutsComponent {
         if (addBtn) {
             addBtn.addEventListener('click', () => this.openAddModal());
         }
-        
+
         // Shortcut grid events
         const grid = document.getElementById('shortcuts-grid');
         if (grid) {
@@ -738,7 +738,7 @@ class ShortcutsComponent {
             grid.addEventListener('dragend', (e) => this.handleDragEnd(e));
         }
     }
-    
+
     /**
      * Handle grid click events
      */
@@ -748,7 +748,7 @@ class ShortcutsComponent {
         const action = actionBtn?.dataset?.action || e.target.dataset.action;
         const indexStr = actionBtn?.dataset?.index || e.target.dataset.index;
         const index = indexStr !== undefined ? parseInt(indexStr) : NaN;
-        
+
         if (action === 'open-add' || e.target.closest('.add-shortcut')) {
             e.stopPropagation();
             this.openAddModal();
@@ -770,7 +770,7 @@ class ShortcutsComponent {
             }
         }
     }
-    
+
     /**
      * Open shortcut URL
      */
@@ -778,16 +778,16 @@ class ShortcutsComponent {
         if (index >= 0 && index < this.links.length) {
             const link = this.links[index];
             let url = link.url;
-            
+
             // Add protocol if missing
             if (!url.match(/^https?:\/\//)) {
                 url = 'https://' + url;
             }
-            
+
             window.open(url, '_blank');
         }
     }
-    
+
     /**
      * Open add shortcut modal
      */
@@ -795,7 +795,7 @@ class ShortcutsComponent {
         this.currentEditIndex = -1;
         this.showModal('Add Shortcut', '', '');
     }
-    
+
     /**
      * Open edit shortcut modal
      */
@@ -812,19 +812,19 @@ class ShortcutsComponent {
             }
         }
     }
-    
+
     /**
      * Show modal dialog
      */
     showModal(title, currentTitle = '', currentUrl = '', currentIcon = '🌐') {
         if (!this.modal) return;
-        
+
         const modalTitle = this.modal.querySelector('.modal-title');
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
         const iconInput = this.modal.querySelector('#shortcut-icon');
         const categorySelect = this.modal.querySelector('#shortcut-category');
-        
+
         modalTitle.textContent = title;
         titleInput.value = currentTitle;
         urlInput.value = currentUrl;
@@ -837,15 +837,15 @@ class ShortcutsComponent {
                 ? (this.links[this.currentEditIndex]?.category || 'work')
                 : (defaultCat === 'all' ? 'work' : defaultCat);
         }
-        
+
         // Clear previous errors
         this.clearFormErrors();
-        
+
         // Show modal
         this.modal.classList.add('active');
         titleInput.focus();
     }
-    
+
     /**
      * Hide modal dialog
      */
@@ -855,7 +855,7 @@ class ShortcutsComponent {
             this.currentEditIndex = -1;
         }
     }
-    
+
     /**
      * Create modal HTML
      */
@@ -865,7 +865,7 @@ class ShortcutsComponent {
         if (existingModal) {
             existingModal.remove();
         }
-        
+
         const modalHtml = `
             <div class="modal-overlay" id="shortcut-modal">
                 <div class="modal">
@@ -917,43 +917,43 @@ class ShortcutsComponent {
                 </div>
             </div>
         `;
-        
+
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         this.modal = document.getElementById('shortcut-modal');
-        
+
         // Attach modal event listeners
         this.attachModalEventListeners();
     }
-    
+
     /**
      * Attach modal event listeners
      */
     attachModalEventListeners() {
         if (!this.modal) return;
-        
+
         // Close button
         const closeBtn = this.modal.querySelector('#modal-close');
         closeBtn.addEventListener('click', () => this.hideModal());
-        
+
         // Cancel button
         const cancelBtn = this.modal.querySelector('#cancel-btn');
         cancelBtn.addEventListener('click', () => this.hideModal());
-        
+
         // Icon fetch button
         const fetchIconBtn = this.modal.querySelector('#fetch-icon-btn');
         fetchIconBtn.addEventListener('click', () => this.fetchWebsiteIcon());
-        
+
         // Form submission
         const form = this.modal.querySelector('#shortcut-form');
         form.addEventListener('submit', (e) => this.handleFormSubmit(e));
-        
+
         // Click outside to close
         this.modal.addEventListener('click', (e) => {
             if (e.target === this.modal) {
                 this.hideModal();
             }
         });
-        
+
         // Escape key to close
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.modal.classList.contains('active')) {
@@ -961,31 +961,31 @@ class ShortcutsComponent {
             }
         });
     }
-    
+
     /**
      * Handle form submission
      */
     async handleFormSubmit(e) {
         e.preventDefault();
-        
+
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
         const iconInput = this.modal.querySelector('#shortcut-icon');
         const categorySelect = this.modal.querySelector('#shortcut-category');
-        
+
         const title = titleInput.value.trim();
         const url = urlInput.value.trim();
         const icon = iconInput.value.trim() || '🌐';
         const category = (categorySelect?.value || 'work').trim();
-        
+
         // Validate form
         if (!this.validateForm(title, url)) {
             return;
         }
-        
+
         // Save shortcut
         const shortcut = { title, url, icon, category };
-        
+
         if (this.currentEditIndex >= 0) {
             // Edit existing shortcut
             this.links[this.currentEditIndex] = shortcut;
@@ -993,7 +993,7 @@ class ShortcutsComponent {
             // Add new shortcut
             this.links.push(shortcut);
         }
-        
+
         // Save to storage
         try {
             await storageManager.set('links', this.links);
@@ -1007,16 +1007,16 @@ class ShortcutsComponent {
             this.showFormError('url', 'Failed to save shortcut. Please try again.');
         }
     }
-    
+
     /**
      * Validate form inputs
      */
     validateForm(title, url) {
         let isValid = true;
-        
+
         // Clear previous errors
         this.clearFormErrors();
-        
+
         // Validate title
         if (!title) {
             this.showFormError('title', 'Title is required');
@@ -1025,7 +1025,7 @@ class ShortcutsComponent {
             this.showFormError('title', 'Title must be 50 characters or less');
             isValid = false;
         }
-        
+
         // Validate URL
         if (!url) {
             this.showFormError('url', 'URL is required');
@@ -1034,10 +1034,10 @@ class ShortcutsComponent {
             this.showFormError('url', 'Please enter a valid URL');
             isValid = false;
         }
-        
+
         return isValid;
     }
-    
+
     /**
      * Validate URL format
      */
@@ -1053,7 +1053,7 @@ class ShortcutsComponent {
             return false;
         }
     }
-    
+
     /**
      * Show form error
      */
@@ -1063,7 +1063,7 @@ class ShortcutsComponent {
             errorElement.textContent = message;
         }
     }
-    
+
     /**
      * Clear form errors
      */
@@ -1073,13 +1073,13 @@ class ShortcutsComponent {
             element.textContent = '';
         });
     }
-    
+
     /**
      * Confirm delete shortcut
      */
     confirmDelete(index) {
         if (index < 0 || index >= this.links.length) return;
-        
+
         const link = this.links[index];
         this.showConfirmDialog(
             'Delete Shortcut',
@@ -1088,14 +1088,14 @@ class ShortcutsComponent {
             () => this.deleteShortcut(index)
         );
     }
-    
+
     /**
      * Delete shortcut
      */
     async deleteShortcut(index) {
         if (index >= 0 && index < this.links.length) {
             this.links.splice(index, 1);
-            
+
             try {
                 await storageManager.set('links', this.links);
                 this.updateGrid();
@@ -1105,7 +1105,7 @@ class ShortcutsComponent {
             }
         }
     }
-    
+
     /**
      * Show confirmation dialog
      */
@@ -1115,7 +1115,7 @@ class ShortcutsComponent {
         if (existingDialog) {
             existingDialog.remove();
         }
-        
+
         const dialogHtml = `
             <div class="modal-overlay" id="confirm-dialog">
                 <div class="modal confirm-dialog">
@@ -1135,18 +1135,18 @@ class ShortcutsComponent {
                 </div>
             </div>
         `;
-        
+
         document.body.insertAdjacentHTML('beforeend', dialogHtml);
         this.confirmDialog = document.getElementById('confirm-dialog');
-        
+
         // Show dialog
         this.confirmDialog.classList.add('active');
-        
+
         // Attach event listeners
         const closeBtn = this.confirmDialog.querySelector('#confirm-close');
         const cancelBtn = this.confirmDialog.querySelector('#confirm-cancel');
         const deleteBtn = this.confirmDialog.querySelector('#confirm-delete');
-        
+
         const hideDialog = () => {
             this.confirmDialog.classList.remove('active');
             setTimeout(() => {
@@ -1156,14 +1156,14 @@ class ShortcutsComponent {
                 }
             }, 300);
         };
-        
+
         closeBtn.addEventListener('click', hideDialog);
         cancelBtn.addEventListener('click', hideDialog);
         deleteBtn.addEventListener('click', () => {
             onConfirm();
             hideDialog();
         });
-        
+
         // Click outside to close
         this.confirmDialog.addEventListener('click', (e) => {
             if (e.target === this.confirmDialog) {
@@ -1171,7 +1171,7 @@ class ShortcutsComponent {
             }
         });
     }
-    
+
     /**
      * Update shortcuts grid
      */
@@ -1181,64 +1181,69 @@ class ShortcutsComponent {
             grid.innerHTML = this.renderShortcuts();
         }
     }
-    
+
     /**
      * Handle drag start
      */
     handleDragStart(e) {
         if (!e.target.classList.contains('shortcut-item')) return;
-        
+
         const draggedItem = e.target;
         this.draggedIndex = parseInt(draggedItem.dataset.index);
-        
+
         // Add visual feedback
-        draggedItem.classList.add('dragging');
-        
+        // 使用一个延时来确保浏览器已经开始了拖拽操作
+        setTimeout(() => {
+            draggedItem.classList.add('dragging');
+        }, 0);
+
         // Set drag data
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.draggedIndex.toString());
-        
-        // Create drag image (optional - browser will use element by default)
+
+        // 移除创建自定义拖拽图像的代码，以避免闪烁
+        /*
         const dragImage = draggedItem.cloneNode(true);
         dragImage.style.transform = 'rotate(5deg)';
         dragImage.style.opacity = '0.8';
         document.body.appendChild(dragImage);
         e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
         
-        // Clean up drag image after a short delay
         setTimeout(() => {
             if (document.body.contains(dragImage)) {
                 document.body.removeChild(dragImage);
             }
         }, 0);
-        
+        */
+
         console.log('Drag started for item:', this.draggedIndex);
     }
-    
+
     /**
      * Handle drag over
      */
     handleDragOver(e) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        
+        /*
         const draggingItem = document.querySelector('.shortcut-item.dragging');
         if (!draggingItem) return;
-        
+
         const grid = document.getElementById('shortcuts-grid');
         const afterElement = this.getDragAfterElement(grid, e.clientX, e.clientY);
-        
+
         // Add visual feedback to drop zones
         this.updateDropZoneVisuals(e.target);
-        
+
         // Reorder DOM elements for visual feedback
         if (afterElement === null) {
             grid.appendChild(draggingItem);
         } else {
             grid.insertBefore(draggingItem, afterElement);
         }
+        */
     }
-    
+
     /**
      * Handle drop
      */
@@ -1246,53 +1251,47 @@ class ShortcutsComponent {
         e.preventDefault();
         
         const draggedIndex = this.draggedIndex;
-        if (draggedIndex === undefined || draggedIndex === null) return;
+        // 获取鼠标指针正下方的目标卡片
+        const dropTarget = e.target.closest('.shortcut-item:not(.add-shortcut)');
         
-        // Get current DOM order to determine new array order
-        const items = Array.from(document.querySelectorAll('.shortcut-item[data-index]'));
-        const newOrder = [];
+        // 清理拖动过程中的所有视觉样式 (如高亮框)
+        this.cleanupDragState();
         
-        // Build new order based on DOM positions
-        items.forEach(item => {
-            const originalIndex = parseInt(item.dataset.index);
-            if (!Number.isNaN(originalIndex)) {
-                newOrder.push(originalIndex);
-            }
-        });
-        
-        // Only proceed if order actually changed
-        const originalOrder = this.links.map((_, index) => index);
-        const orderChanged = !newOrder.every((val, index) => val === originalOrder[index]);
-        
-        if (orderChanged) {
-            // Reorder the links array
-            // Ensure length matches and indices are valid
-            if (newOrder.length !== this.links.length || newOrder.some(i => i < 0 || i >= this.links.length)) {
-                console.warn('Invalid drag order detected, ignoring.');
-            } else {
-                const newLinks = newOrder.map(index => this.links[index]);
-                this.links = newLinks;
-                try {
-                    const ok = await storageManager.set('links', this.links);
-                    if (!ok) {
-                        throw new Error('Storage set returned false');
-                    }
-                    console.log('Shortcuts reordered successfully');
-                    // Update the grid with new indices
-                    this.updateGrid();
-                } catch (error) {
-                    console.error('Error saving shortcut order:', error);
-                    showErrorMessage('Failed to save shortcut order. Please try again.');
-                    // Revert to original order on error
-                    this.updateGrid();
-                }
-            }
+        // 检查拖动操作是否有效 (有拖动起点，且落点是一个有效的卡片)
+        if (draggedIndex === undefined || draggedIndex === null || !dropTarget) {
+            this.draggedIndex = null; // 重置拖动状态
+            return;
         }
         
-        // Clean up drag state
-        this.cleanupDragState();
+        const dropIndex = parseInt(dropTarget.dataset.index);
+        
+        // 如果拖到了它自己原来的位置，则什么也不做
+        if (draggedIndex === dropIndex) {
+            this.draggedIndex = null; // 重置拖动状态
+            return;
+        }
+        
+        // --- 核心排序逻辑 ---
+        // 1. 从数组中把被拖拽的元素“拿出来”
+        const itemToMove = this.links.splice(draggedIndex, 1)[0];
+        // 2. 把拿出来的元素插入到目标位置
+        this.links.splice(dropIndex, 0, itemToMove);
+        
+        try {
+            // 3. 将重新排序后的数组保存到存储中
+            await storageManager.set('links', this.links);
+            console.log('Shortcuts reordered and saved successfully.');
+        } catch (error) {
+            console.error('Error saving shortcut order:', error);
+            showErrorMessage('Failed to save new shortcut order.');
+            // 如果保存失败，后续的 updateGrid 仍然会根据内存中的错误顺序刷新UI,
+            // 但在下次加载时会恢复，这里也可以选择重新加载原始数据来立即纠正。
+        } finally {
+            // 4. 重新渲染整个宫格，以确保所有卡片的 data-index 都更新为最新顺序
+            this.updateGrid();
+            this.draggedIndex = null; // 重置拖动状态
+        }
     }
-    
     /**
      * Handle drag enter
      */
@@ -1303,7 +1302,7 @@ class ShortcutsComponent {
             shortcutItem.classList.add('drag-over');
         }
     }
-    
+
     /**
      * Handle drag leave
      */
@@ -1314,13 +1313,13 @@ class ShortcutsComponent {
             const rect = shortcutItem.getBoundingClientRect();
             const x = e.clientX;
             const y = e.clientY;
-            
+
             if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
                 shortcutItem.classList.remove('drag-over');
             }
         }
     }
-    
+
     /**
      * Handle drag end
      */
@@ -1328,7 +1327,7 @@ class ShortcutsComponent {
         console.log('Drag ended');
         this.cleanupDragState();
     }
-    
+
     /**
      * Clean up drag state and visual feedback
      */
@@ -1338,19 +1337,19 @@ class ShortcutsComponent {
         draggingItems.forEach(item => {
             item.classList.remove('dragging');
         });
-        
+
         // Remove drop zone visual feedback
         const dropZones = document.querySelectorAll('.shortcut-item.drag-over');
         dropZones.forEach(zone => {
             zone.classList.remove('drag-over');
         });
-        
+
         // Reset drag state
         this.draggedIndex = null;
     }
 
 
-    
+
     /**
      * Update visual feedback for drop zones
      */
@@ -1360,61 +1359,61 @@ class ShortcutsComponent {
         prevDropZones.forEach(zone => {
             zone.classList.remove('drag-over');
         });
-        
+
         // Add highlight to current drop zone
         const dropZone = target.closest('.shortcut-item');
         if (dropZone && !dropZone.classList.contains('dragging')) {
             dropZone.classList.add('drag-over');
         }
     }
-    
+
     /**
      * Get element after drag position for grid layout
      */
     getDragAfterElement(container, x, y) {
         const draggableElements = [...container.querySelectorAll('.shortcut-item:not(.dragging):not(.add-shortcut)')];
-        
+
         // For grid layout, we need to consider both x and y positions
         let closestElement = null;
         let closestDistance = Number.POSITIVE_INFINITY;
-        
+
         draggableElements.forEach(element => {
             const box = element.getBoundingClientRect();
             const elementCenterX = box.left + box.width / 2;
             const elementCenterY = box.top + box.height / 2;
-            
+
             // Calculate distance from cursor to element center
             const distance = Math.sqrt(
                 Math.pow(x - elementCenterX, 2) + Math.pow(y - elementCenterY, 2)
             );
-            
+
             // Check if cursor is in the right half of the element (for insertion after)
             const isAfter = x > elementCenterX || (x === elementCenterX && y > elementCenterY);
-            
+
             if (distance < closestDistance) {
                 closestDistance = distance;
                 closestElement = isAfter ? element.nextElementSibling : element;
             }
         });
-        
+
         return closestElement;
     }
-    
+
     /**
      * Render icon - handle both emoji/text and data URLs (favicons)
      */
     renderIcon(icon) {
         if (!icon) return '🌐';
-        
+
         // Support data URL or remote http(s) icon URL
         if (icon.startsWith('data:image/') || icon.startsWith('http://') || icon.startsWith('https://')) {
             return `<img src="${icon}" alt="Site icon" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`;
         }
-        
+
         // Otherwise, it's emoji or text
         return this.escapeHtml(icon);
     }
-    
+
     /**
      * Escape HTML to prevent XSS
      */
@@ -1423,7 +1422,7 @@ class ShortcutsComponent {
         div.textContent = text;
         return div.innerHTML;
     }
-    
+
     /**
      * Fetch website icon automatically
      */
@@ -1432,13 +1431,13 @@ class ShortcutsComponent {
         const iconInput = this.modal.querySelector('#shortcut-icon');
         const titleInput = this.modal.querySelector('#shortcut-title');
         const fetchBtn = this.modal.querySelector('#fetch-icon-btn');
-        
+
         const url = urlInput.value.trim();
         if (!url) {
             this.showFormError('url', 'Please enter a URL first');
             return;
         }
-        
+
         // Validate URL format
         let validUrl;
         try {
@@ -1447,7 +1446,7 @@ class ShortcutsComponent {
             this.showFormError('url', 'Please enter a valid URL');
             return;
         }
-        
+
         // Disable button and show loading state
         fetchBtn.disabled = true;
         fetchBtn.innerHTML = `
@@ -1470,7 +1469,7 @@ class ShortcutsComponent {
                 if (resp.ok) {
                     htmlText = await resp.text();
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             if (htmlText) {
                 const parser = new DOMParser();
@@ -1501,7 +1500,7 @@ class ShortcutsComponent {
                     try {
                         const absUrl = new URL(href, validUrl).toString();
                         iconInput.value = absUrl;
-                    } catch (_) {}
+                    } catch (_) { }
                 }
             }
         } finally {
@@ -1517,7 +1516,7 @@ class ShortcutsComponent {
             `;
         }
     }
-    
+
     /**
      * Fetch favicon and convert to data URL
      */
@@ -1527,9 +1526,9 @@ class ShortcutsComponent {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const blob = await response.blob();
-            
+
             // Convert blob to data URL
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1559,9 +1558,9 @@ function showErrorMessage(message) {
         z-index: 1000;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
-    
+
     document.body.appendChild(errorDiv);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
         if (errorDiv.parentNode) {
@@ -1625,7 +1624,7 @@ class CategoryNavigation {
 
     filterShortcuts() {
         const shortcutItems = document.querySelectorAll('.shortcut-item:not(.add-shortcut)');
-        
+
         shortcutItems.forEach(item => {
             const index = parseInt(item.dataset.index);
             if (isNaN(index)) return;
@@ -1652,7 +1651,7 @@ class CategoryNavigation {
 }
 
 // 在页面加载完成后初始化分类导航
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // 延迟初始化以确保shortcuts组件已经渲染
     setTimeout(() => {
         if (!window.categoryNavigation) {
