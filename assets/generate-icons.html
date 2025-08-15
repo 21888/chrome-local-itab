@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Icons</title>
+    <style>
+        .icon {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Local iTab Icon Generator</h1>
+    <p>Right-click on each canvas and "Save image as" to create the icon files.</p>
+    
+    <div class="icon">
+        <h3>icon16.png</h3>
+        <canvas id="icon16" width="16" height="16"></canvas>
+    </div>
+    
+    <div class="icon">
+        <h3>icon48.png</h3>
+        <canvas id="icon48" width="48" height="48"></canvas>
+    </div>
+    
+    <div class="icon">
+        <h3>icon128.png</h3>
+        <canvas id="icon128" width="128" height="128"></canvas>
+    </div>
+
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            
+            // Fill background
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add white "T" for Tab
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('T', size / 2, size / 2);
+        }
+        
+        // Generate all icons and auto-download them
+        function generateAndDownloadIcons() {
+            const sizes = [
+                { id: 'icon16', size: 16, filename: 'icon16.png' },
+                { id: 'icon48', size: 48, filename: 'icon48.png' },
+                { id: 'icon128', size: 128, filename: 'icon128.png' }
+            ];
+            
+            sizes.forEach(({ id, size, filename }) => {
+                drawIcon(id, size);
+                
+                // Convert canvas to blob and download
+                const canvas = document.getElementById(id);
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 'image/png');
+            });
+        }
+        
+        // Generate all icons
+        drawIcon('icon16', 16);
+        drawIcon('icon48', 48);
+        drawIcon('icon128', 128);
+        
+        // Add download button
+        document.addEventListener('DOMContentLoaded', function() {
+            const downloadBtn = document.createElement('button');
+            downloadBtn.textContent = 'Download All Icons';
+            downloadBtn.style.cssText = 'margin: 20px; padding: 10px 20px; font-size: 16px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;';
+            downloadBtn.onclick = generateAndDownloadIcons;
+            document.body.appendChild(downloadBtn);
+        });
+    </script>
+</body>
+</html>

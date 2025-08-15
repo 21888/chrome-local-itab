@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Local iTab",
+  "version": "1.0.0",
+  "description": "A customizable new tab page extension that works completely offline",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.google.com/*",
+    "https://api.paugram.com/*",
+    "*://*/*"
+  ],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:"
+  }
+}
