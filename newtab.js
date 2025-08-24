@@ -36,9 +36,7 @@ async function initializeDashboard() {
             initializeClockComponent(config.clock);
         }
 
-        if (config.show.search) {
-            initializeSearchComponent(config.search);
-        }
+
 
         if (config.show.shortcuts) {
             initializeShortcutsComponent(config.links);
@@ -126,7 +124,6 @@ async function loadApiBackground() {
 function applyModuleVisibility(showConfig) {
     // Get module containers
     const clockContainer = document.getElementById('clock-container');
-    const searchContainer = document.getElementById('search-container');
     const shortcutsContainer = document.getElementById('shortcuts-container');
 
     // Apply visibility settings with CSS classes
@@ -136,15 +133,6 @@ function applyModuleVisibility(showConfig) {
             clockContainer.style.display = '';
         } else {
             clockContainer.classList.add('module-hidden');
-        }
-    }
-
-    if (searchContainer) {
-        if (showConfig.search) {
-            searchContainer.classList.remove('module-hidden');
-            searchContainer.style.display = '';
-        } else {
-            searchContainer.classList.add('module-hidden');
         }
     }
 
@@ -296,14 +284,7 @@ class ClockComponent {
     }
 }
 
-function initializeSearchComponent(searchConfig) {
-    const searchContainer = document.getElementById('search-container');
-    if (!searchContainer) return;
 
-    // Create search component
-    const searchComponent = new SearchComponent(searchConfig);
-    searchComponent.render();
-}
 
 function initializeShortcutsComponent(linksConfig) {
     const shortcutsContainer = document.getElementById('shortcuts-container');
@@ -322,326 +303,7 @@ function initializeQuoteComponent(quote) {
     }
 }
 
-/**
- * Search Component Class
- * Handles search form, engine selection, and URL generation
- */
-class SearchComponent {
-    constructor(config) {
-        this.config = config || { engine: 'google', custom: '' };
-        this.container = document.getElementById('search-container');
-        this.searchEngines = {
-            google: {
-                name: 'Google',
-                url: 'https://www.google.com/search?q=%s',
-                icon: 'G'
-            },
-            bing: {
-                name: 'Bing',
-                url: 'https://www.bing.com/search?q=%s',
-                icon: 'B'
-            },
-            duck: {
-                name: 'DuckDuckGo',
-                url: 'https://duckduckgo.com/?q=%s',
-                icon: 'D'
-            },
-            custom: {
-                name: 'Custom',
-                url: this.config.custom || 'https://www.google.com/search?q=%s',
-                icon: 'C'
-            }
-        };
-    }
 
-    /**
-     * Render the search component
-     */
-    render() {
-        if (!this.container) return;
-
-        this.container.innerHTML = `
-            <div class="search-wrapper">
-                <form class="search-form" id="search-form">
-                    <div class="search-input-group">
-                        <input 
-                            type="text" 
-                            class="search-input" 
-                            id="search-input" 
-                            placeholder="输入搜索内容" 
-                            autocomplete="off"
-                            spellcheck="false"
-                        >
-                        <div class="search-engine-selector">
-                            <button type="button" class="engine-button" id="engine-button" title="Select search engine">
-                                <span class="engine-icon">${this.searchEngines[this.config.engine].icon}</span>
-                                <svg class="engine-dropdown-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M7 10l5 5 5-5z"/>
-                                </svg>
-                            </button>
-                            <div class="engine-dropdown" id="engine-dropdown">
-                                ${this.renderEngineOptions()}
-                            </div>
-                        </div>
-                        <button type="submit" class="search-submit" title="Search">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        `;
-
-        this.attachEventListeners();
-    }
-
-    /**
-     * Render engine dropdown options
-     */
-    renderEngineOptions() {
-        return Object.entries(this.searchEngines).map(([key, engine]) => `
-            <div class="engine-option ${key === this.config.engine ? 'active' : ''}" data-engine="${key}">
-                <span class="engine-option-icon">${engine.icon}</span>
-                <span class="engine-option-name">${engine.name}</span>
-                ${key === this.config.engine ? '<span class="engine-check">✓</span>' : ''}
-            </div>
-        `).join('');
-    }
-
-    /**
-     * Attach event listeners
-     */
-    attachEventListeners() {
-        // Search form submission
-        const searchForm = document.getElementById('search-form');
-        if (searchForm) {
-            searchForm.addEventListener('submit', (e) => this.handleSearchSubmit(e));
-        }
-
-        // Engine selector button
-        const engineButton = document.getElementById('engine-button');
-        if (engineButton) {
-            engineButton.addEventListener('click', (e) => this.toggleEngineDropdown(e));
-        }
-
-        // Engine dropdown options
-        const engineDropdown = document.getElementById('engine-dropdown');
-        if (engineDropdown) {
-            engineDropdown.addEventListener('click', (e) => this.handleEngineSelection(e));
-        }
-
-        // Search input focus handling
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            searchInput.addEventListener('focus', () => this.handleInputFocus());
-            searchInput.addEventListener('blur', () => this.handleInputBlur());
-        }
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => this.handleDocumentClick(e));
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
-    }
-
-    /**
-     * Handle search form submission
-     */
-    handleSearchSubmit(e) {
-        e.preventDefault();
-
-        const searchInput = document.getElementById('search-input');
-        const query = searchInput.value.trim();
-
-        if (!query) {
-            searchInput.focus();
-            return;
-        }
-
-        // Generate search URL
-        const searchUrl = this.generateSearchUrl(query);
-
-        // Navigate to search results
-        window.open(searchUrl, '_blank');
-
-        // Clear search input
-        searchInput.value = '';
-        searchInput.blur();
-    }
-
-    /**
-     * Generate search URL based on selected engine and query
-     */
-    generateSearchUrl(query) {
-        const engine = this.searchEngines[this.config.engine];
-        let searchUrl = engine.url;
-
-        // For custom engine, use the custom URL if available
-        if (this.config.engine === 'custom' && this.config.custom) {
-            searchUrl = this.config.custom;
-        }
-
-        // Replace %s placeholder with encoded query
-        const encodedQuery = encodeURIComponent(query);
-        return searchUrl.replace('%s', encodedQuery);
-    }
-
-    /**
-     * Toggle engine dropdown visibility
-     */
-    toggleEngineDropdown(e) {
-        e.stopPropagation();
-        const dropdown = document.getElementById('engine-dropdown');
-        if (dropdown) {
-            dropdown.classList.toggle('active');
-        }
-    }
-
-    /**
-     * Handle engine selection from dropdown
-     */
-    async handleEngineSelection(e) {
-        const engineOption = e.target.closest('.engine-option');
-        if (!engineOption) return;
-
-        const selectedEngine = engineOption.dataset.engine;
-        if (selectedEngine === this.config.engine) {
-            this.closeEngineDropdown();
-            return;
-        }
-
-        // Update configuration
-        this.config.engine = selectedEngine;
-
-        // Update custom URL if needed
-        if (selectedEngine === 'custom' && !this.config.custom) {
-            this.config.custom = 'https://www.google.com/search?q=%s';
-        }
-
-        // Save to storage
-        try {
-            await storageManager.set('search', this.config);
-
-            // Update UI
-            this.updateEngineButton();
-            this.updateEngineDropdown();
-            this.closeEngineDropdown();
-
-        } catch (error) {
-            console.error('Error saving search engine preference:', error);
-            showErrorMessage('Failed to save search engine preference');
-        }
-    }
-
-    /**
-     * Update engine button display
-     */
-    updateEngineButton() {
-        const engineButton = document.getElementById('engine-button');
-        const engineIcon = engineButton?.querySelector('.engine-icon');
-
-        if (engineIcon) {
-            engineIcon.textContent = this.searchEngines[this.config.engine].icon;
-        }
-
-        if (engineButton) {
-            engineButton.title = `Search with ${this.searchEngines[this.config.engine].name}`;
-        }
-    }
-
-    /**
-     * Update engine dropdown options
-     */
-    updateEngineDropdown() {
-        const engineDropdown = document.getElementById('engine-dropdown');
-        if (engineDropdown) {
-            engineDropdown.innerHTML = this.renderEngineOptions();
-        }
-    }
-
-    /**
-     * Close engine dropdown
-     */
-    closeEngineDropdown() {
-        const dropdown = document.getElementById('engine-dropdown');
-        if (dropdown) {
-            dropdown.classList.remove('active');
-        }
-    }
-
-    /**
-     * Handle input focus
-     */
-    handleInputFocus() {
-        const searchWrapper = document.querySelector('.search-wrapper');
-        if (searchWrapper) {
-            searchWrapper.classList.add('focused');
-        }
-    }
-
-    /**
-     * Handle input blur
-     */
-    handleInputBlur() {
-        // Delay to allow dropdown clicks to register
-        setTimeout(() => {
-            const searchWrapper = document.querySelector('.search-wrapper');
-            if (searchWrapper) {
-                searchWrapper.classList.remove('focused');
-            }
-        }, 150);
-    }
-
-    /**
-     * Handle document clicks to close dropdown
-     */
-    handleDocumentClick(e) {
-        const searchWrapper = document.querySelector('.search-wrapper');
-        if (searchWrapper && !searchWrapper.contains(e.target)) {
-            this.closeEngineDropdown();
-        }
-    }
-
-    /**
-     * Handle keyboard shortcuts
-     */
-    handleKeyboardShortcuts(e) {
-        // Focus search input with Ctrl+K or Cmd+K
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-            e.preventDefault();
-            const searchInput = document.getElementById('search-input');
-            if (searchInput) {
-                searchInput.focus();
-                searchInput.select();
-            }
-        }
-
-        // Close dropdown with Escape
-        if (e.key === 'Escape') {
-            this.closeEngineDropdown();
-            const searchInput = document.getElementById('search-input');
-            if (searchInput && document.activeElement === searchInput) {
-                searchInput.blur();
-            }
-        }
-    }
-
-    /**
-     * Update configuration and refresh component
-     */
-    updateConfig(newConfig) {
-        this.config = { ...this.config, ...newConfig };
-
-        // Update custom engine URL if provided
-        if (newConfig.custom) {
-            this.searchEngines.custom.url = newConfig.custom;
-        }
-
-        this.updateEngineButton();
-        this.updateEngineDropdown();
-    }
-}
 
 /**
  * Shortcuts Component Class

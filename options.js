@@ -40,15 +40,7 @@ async function populateFormFields(config) {
     if (hour12Checkbox) hour12Checkbox.checked = config.clock.hour12;
     if (showSecondsCheckbox) showSecondsCheckbox.checked = config.clock.showSeconds;
     
-    // Search settings
-    const searchEngineSelect = document.getElementById('search-engine');
-    const customSearchInput = document.getElementById('custom-search-url');
-    
-    if (searchEngineSelect) {
-        searchEngineSelect.value = config.search.engine;
-        updateCustomSearchVisibility();
-    }
-    if (customSearchInput) customSearchInput.value = config.search.custom;
+
     
     // Background settings
     const bgTypeSelect = document.getElementById('bg-type');
@@ -71,11 +63,9 @@ async function populateFormFields(config) {
     
     // Visibility settings
     const showClockCheckbox = document.getElementById('show-clock');
-    const showSearchCheckbox = document.getElementById('show-search');
     const showShortcutsCheckbox = document.getElementById('show-shortcuts');
     
     if (showClockCheckbox) showClockCheckbox.checked = config.show.clock;
-    if (showSearchCheckbox) showSearchCheckbox.checked = config.show.search;
     if (showShortcutsCheckbox) showShortcutsCheckbox.checked = config.show.shortcuts;
     
 
@@ -143,13 +133,7 @@ function setupEventListeners() {
         });
     }
     
-    // Search engine selector
-    const searchEngineSelect = document.getElementById('search-engine');
-    if (searchEngineSelect) {
-        searchEngineSelect.addEventListener('change', function() {
-            updateCustomSearchVisibility();
-        });
-    }
+
     
     // Background type selector
     const bgTypeSelect = document.getElementById('bg-type');
@@ -296,10 +280,7 @@ async function collectFormData() {
     const showSeconds = document.getElementById('show-seconds')?.checked || true;
     settings.clock = { hour12, showSeconds };
     
-    // Search settings
-    const engine = document.getElementById('search-engine')?.value || 'google';
-    const custom = document.getElementById('custom-search-url')?.value || '';
-    settings.search = { engine, custom };
+
     
     // Background settings
     const bgType = document.getElementById('bg-type')?.value || 'gradient';
@@ -318,9 +299,8 @@ async function collectFormData() {
     
     // Visibility settings
     const showClock = document.getElementById('show-clock')?.checked !== false;
-    const showSearch = document.getElementById('show-search')?.checked !== false;
     const showShortcuts = document.getElementById('show-shortcuts')?.checked !== false;
-    settings.show = { clock: showClock, search: showSearch, shortcuts: showShortcuts };
+    settings.show = { clock: showClock, shortcuts: showShortcuts };
     
 
     
@@ -743,17 +723,7 @@ async function removeBackgroundImage() {
     }
 }
 
-/**
- * Update custom search URL visibility based on selected engine
- */
-function updateCustomSearchVisibility() {
-    const searchEngine = document.getElementById('search-engine')?.value;
-    const customSearchGroup = document.getElementById('custom-search-group');
-    
-    if (customSearchGroup) {
-        customSearchGroup.style.display = searchEngine === 'custom' ? 'block' : 'none';
-    }
-}
+
 
 /**
  * Populate hot topics lists from configuration
@@ -1055,8 +1025,8 @@ function setupAutoSave() {
     let saveTimeout;
     
     const autoSaveInputs = [
-        'hour12-format', 'show-seconds', 'search-engine', 'custom-search-url',
-        'show-clock', 'show-search', 'show-shortcuts',
+        'hour12-format', 'show-seconds',
+        'show-clock', 'show-shortcuts',
         'weather-city', 'weather-temp', 'weather-condition', 'weather-aqi-label', 'weather-aqi', 'weather-low', 'weather-high',
         'movie-title', 'movie-note', 'quote-text', 'hot-topics-tab'
     ];
