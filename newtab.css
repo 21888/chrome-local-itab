@@ -1364,6 +1364,10 @@ select.form-input option {
     margin-bottom: var(--spacing-lg);
     padding-bottom: var(--spacing-sm);
     border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
 }
 
 .category-title {
@@ -1372,6 +1376,27 @@ select.form-input option {
     color: var(--text-primary);
     margin: 0;
     text-align: left;
+}
+
+.category-manage-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    cursor: pointer;
+    backdrop-filter: var(--backdrop-blur-strong);
+    transition: all var(--transition-base);
+    padding: 0;
+}
+
+.category-manage-btn:hover {
+    box-shadow: var(--shadow-glass);
+    transform: translateY(-2px);
 }
 
 .category-list {

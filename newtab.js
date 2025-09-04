@@ -13,6 +13,18 @@ document.addEventListener('DOMContentLoaded', async function () {
                 chrome.runtime.openOptionsPage();
             });
         }
+
+        // Category management button in sidebar header
+        const manageBtn = document.getElementById('manage-categories');
+        if (manageBtn) {
+            manageBtn.addEventListener('click', () => {
+                if (chrome.runtime?.openOptionsPage) {
+                    chrome.runtime.openOptionsPage();
+                } else {
+                    window.open('options.html#category-settings', '_blank');
+                }
+            });
+        }
     } catch (error) {
         console.error('Error initializing dashboard:', error);
         // Show error message to user
@@ -1269,19 +1281,6 @@ class CategoryNavigation {
             const item = this.createNavItem(cat);
             list.appendChild(item);
         });
-
-        // Manage button opens options page
-        const manageBtn = document.createElement('button');
-        manageBtn.className = 'category-item';
-        manageBtn.innerHTML = '<span class="category-icon">⚙️</span><span class="category-name">管理</span>';
-        manageBtn.addEventListener('click', () => {
-            if (chrome.runtime?.openOptionsPage) {
-                chrome.runtime.openOptionsPage();
-            } else {
-                window.open('options.html', '_blank');
-            }
-        });
-        list.appendChild(manageBtn);
 
         this.updateCategoryUI();
     }
