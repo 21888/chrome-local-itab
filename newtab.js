@@ -1270,11 +1270,17 @@ class CategoryNavigation {
             list.appendChild(item);
         });
 
-        // Manage button
+        // Manage button opens options page
         const manageBtn = document.createElement('button');
         manageBtn.className = 'category-item';
         manageBtn.innerHTML = '<span class="category-icon">⚙️</span><span class="category-name">管理</span>';
-        manageBtn.addEventListener('click', () => this.openManageModal());
+        manageBtn.addEventListener('click', () => {
+            if (chrome.runtime?.openOptionsPage) {
+                chrome.runtime.openOptionsPage();
+            } else {
+                window.open('options.html', '_blank');
+            }
+        });
         list.appendChild(manageBtn);
 
         this.updateCategoryUI();
@@ -1334,94 +1340,6 @@ class CategoryNavigation {
 
     getCategoriesForSelect() {
         return this.categories;
-    }
-
-    createManageItem(cat) {
-        const li = document.createElement('li');
-        li.className = 'category-manage-item';
-        li.dataset.id = cat.id;
-        li.innerHTML = `
-            <input type="text" class="cat-icon" value="${cat.icon}">
-            <input type="text" class="cat-name" value="${cat.name}">
-            <div class="cat-item-actions">
-                <button class="cat-up" title="上移">↑</button>
-                <button class="cat-down" title="下移">↓</button>
-                <button class="cat-delete" title="删除">✕</button>
-            </div>
-        `;
-
-        li.querySelector('.cat-delete').addEventListener('click', () => li.remove());
-        li.querySelector('.cat-up').addEventListener('click', () => {
-            const prev = li.previousElementSibling;
-            if (prev) li.parentNode.insertBefore(li, prev);
-        });
-        li.querySelector('.cat-down').addEventListener('click', () => {
-            const next = li.nextElementSibling;
-            if (next) li.parentNode.insertBefore(next, li);
-        });
-
-        return li;
-    }
-
-    openManageModal() {
-        const existing = document.getElementById('category-modal');
-        if (existing) existing.remove();
-
-        const overlay = document.createElement('div');
-        overlay.className = 'modal-overlay';
-        overlay.id = 'category-modal';
-        overlay.innerHTML = `
-            <div class="modal">
-                <div class="modal-header">
-                    <h3 class="modal-title">管理分类</h3>
-                    <button class="modal-close" id="cat-modal-close">×</button>
-                </div>
-                <div class="modal-body">
-                    <ul class="category-manage-list" id="category-manage-list"></ul>
-                    <button type="button" class="modal-btn secondary" id="add-category-btn">添加分类</button>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="modal-btn secondary" id="cat-cancel-btn">取消</button>
-                    <button type="button" class="modal-btn primary" id="cat-save-btn">保存</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(overlay);
-
-        const list = overlay.querySelector('#category-manage-list');
-        this.categories.forEach(cat => list.appendChild(this.createManageItem(cat)));
-
-        overlay.classList.add('active');
-
-        const close = () => overlay.remove();
-        overlay.querySelector('#cat-modal-close').addEventListener('click', close);
-        overlay.querySelector('#cat-cancel-btn').addEventListener('click', close);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-
-        overlay.querySelector('#add-category-btn').addEventListener('click', () => {
-            const newCat = { id: `cat_${Date.now()}`, name: '新分类', icon: '📁' };
-            list.appendChild(this.createManageItem(newCat));
-        });
-
-        overlay.querySelector('#cat-save-btn').addEventListener('click', async () => {
-            const items = list.querySelectorAll('.category-manage-item');
-            const cats = [];
-            items.forEach(li => {
-                const id = li.dataset.id || `cat_${Date.now()}`;
-                const icon = li.querySelector('.cat-icon').value.trim() || '📁';
-                const name = li.querySelector('.cat-name').value.trim();
-                if (name) {
-                    cats.push({ id, icon, name });
-                }
-            });
-            this.categories = cats;
-            await storageManager.set('categories', this.categories);
-            close();
-            this.render();
-            this.filterShortcuts();
-            window.shortcutsComponentInstance?.updateCategoryOptions();
-        });
     }
 }
 

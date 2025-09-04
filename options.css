@@ -1202,6 +1202,45 @@ html {
     }
 }
 
+/* Category management styles */
+.category-manage-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.category-manage-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.category-manage-item .cat-icon {
+    width: 60px;
+    text-align: center;
+}
+
+.category-manage-item .cat-name {
+    flex: 1;
+}
+
+.category-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.category-add-btn {
+    margin-top: 8px;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
     * {

@@ -24,7 +24,8 @@ async function initializeOptionsPage() {
         
         // Populate form fields with current values
         await populateFormFields(config);
-        
+        setupCategoryManagement(config.categories);
+
         console.log('Options page initialized with config:', config);
     } catch (error) {
         console.error('Error in initializeOptionsPage:', error);
@@ -75,6 +76,75 @@ async function populateFormFields(config) {
     // Quote setting
     const quoteInput = document.getElementById('quote-text');
     if (quoteInput) quoteInput.value = config.quote;
+}
+
+function setupCategoryManagement(categories = []) {
+    const list = document.getElementById('category-manage-list');
+    const addBtn = document.getElementById('add-category');
+    if (!list || !addBtn) return;
+
+    const createItem = (cat) => {
+        const li = document.createElement('li');
+        li.className = 'category-manage-item';
+        li.dataset.id = cat.id;
+        li.innerHTML = `
+            <input type="text" class="form-input cat-icon" value="${cat.icon}" aria-label="icon">
+            <input type="text" class="form-input cat-name" value="${cat.name}" aria-label="name">
+            <div class="category-actions">
+                <button type="button" class="btn btn-secondary btn-sm cat-up" title="上移">↑</button>
+                <button type="button" class="btn btn-secondary btn-sm cat-down" title="下移">↓</button>
+                <button type="button" class="btn btn-danger btn-sm cat-delete" title="删除">✕</button>
+            </div>`;
+        return li;
+    };
+
+    const render = (cats) => {
+        list.innerHTML = '';
+        cats.forEach(c => list.appendChild(createItem(c)));
+    };
+
+    render(categories);
+
+    let saveTimeout;
+    const scheduleSave = () => {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => saveAllSettings(), 800);
+    };
+
+    addBtn.addEventListener('click', () => {
+        const newCat = { id: `cat_${Date.now()}`, name: '新分类', icon: '📁' };
+        list.appendChild(createItem(newCat));
+        scheduleSave();
+    });
+
+    list.addEventListener('click', (e) => {
+        const li = e.target.closest('.category-manage-item');
+        if (!li) return;
+        if (e.target.classList.contains('cat-delete')) {
+            li.remove();
+            scheduleSave();
+        } else if (e.target.classList.contains('cat-up')) {
+            const prev = li.previousElementSibling;
+            if (prev) list.insertBefore(li, prev);
+            scheduleSave();
+        } else if (e.target.classList.contains('cat-down')) {
+            const next = li.nextElementSibling;
+            if (next) list.insertBefore(next, li);
+            scheduleSave();
+        }
+    });
+
+    list.addEventListener('input', scheduleSave);
+}
+
+function getCategoriesFromDOM() {
+    const items = document.querySelectorAll('#category-manage-list .category-manage-item');
+    return Array.from(items).map(li => {
+        const id = li.dataset.id || `cat_${Date.now()}`;
+        const icon = li.querySelector('.cat-icon').value.trim() || '📁';
+        const name = li.querySelector('.cat-name').value.trim();
+        return { id, icon, name };
+    }).filter(c => c.name);
 }
 
 function setupEventListeners() {
@@ -296,12 +366,15 @@ async function collectFormData() {
     }
     
     settings.bg = { type: bgType, value: bgValue };
-    
+
     // Visibility settings
     const showClock = document.getElementById('show-clock')?.checked !== false;
     const showShortcuts = document.getElementById('show-shortcuts')?.checked !== false;
     settings.show = { clock: showClock, shortcuts: showShortcuts };
-    
+
+    // Category settings
+    settings.categories = getCategoriesFromDOM();
+
 
     
     // Hot topics settings

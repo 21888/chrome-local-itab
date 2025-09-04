@@ -898,6 +898,7 @@ body.bg-image .geometric-bg {
     font-size: var(--font-size-base);
     transition: all var(--transition-base);
     backdrop-filter: var(--backdrop-blur);
+    color-scheme: dark;
 }
 
 .form-input:focus {
@@ -909,6 +910,11 @@ body.bg-image .geometric-bg {
 
 .form-input::placeholder {
     color: var(--text-muted);
+}
+
+select.form-input option {
+    background-color: #0f172a;
+    color: #f8f9fa;
 }
 
 .icon-input-group {
@@ -1027,40 +1033,6 @@ body.bg-image .geometric-bg {
 
 .modal-btn.secondary:hover::before {
     left: 100%;
-}
-
-/* Category management modal */
-.category-manage-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
-
-.category-manage-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-}
-
-.category-manage-item .cat-icon {
-    width: 50px;
-    text-align: center;
-}
-
-.category-manage-item .cat-name {
-    flex: 1;
-}
-
-.cat-item-actions {
-    display: flex;
-    gap: var(--spacing-xs);
-}
-
-.cat-item-actions button {
-    padding: var(--spacing-xs) var(--spacing-sm);
 }
 
 .modal-btn:disabled {
