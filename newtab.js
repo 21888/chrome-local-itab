@@ -485,6 +485,7 @@ class ShortcutsComponent {
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
         const iconInput = this.modal.querySelector('#shortcut-icon');
+        this.updateCategoryOptions();
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
         modalTitle.textContent = title;
@@ -548,13 +549,7 @@ class ShortcutsComponent {
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-category">分类</label>
-                            <select class="form-input" id="shortcut-category">
-                                <option value="work" style="background-color:rgb(0, 0, 0);">💼 工作</option>
-                                <option value="social" style="background-color:rgb(0, 0, 0);">👥 社交</option>
-                                <option value="entertainment" style="background-color:rgb(0, 0, 0);">🎮 娱乐</option>
-                                <option value="tools" style="background-color:rgb(0, 0, 0);">🔧 工具</option>
-                                <option value="learning" style="background-color:rgb(0, 0, 0);">📚 学习</option>
-                            </select>
+                            <select class="form-input" id="shortcut-category"></select>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-icon">Icon</label>
@@ -582,6 +577,8 @@ class ShortcutsComponent {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         this.modal = document.getElementById('shortcut-modal');
+
+        this.updateCategoryOptions();
 
         // Attach modal event listeners
         this.attachModalEventListeners();
@@ -622,6 +619,13 @@ class ShortcutsComponent {
                 this.hideModal();
             }
         });
+    }
+
+    updateCategoryOptions() {
+        const categorySelect = this.modal?.querySelector('#shortcut-category');
+        if (!categorySelect) return;
+        const categories = window.categoryNavigation?.getCategoriesForSelect?.() || [];
+        categorySelect.innerHTML = categories.map(cat => `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`).join('');
     }
 
     /**
@@ -1234,47 +1238,67 @@ function showErrorMessage(message) {
 class CategoryNavigation {
     constructor() {
         this.currentCategory = 'all';
-        this.categories = {
-            all: { name: '全部', icon: '🌟' },
-            work: { name: '工作', icon: '💼' },
-            social: { name: '社交', icon: '👥' },
-            entertainment: { name: '娱乐', icon: '🎮' },
-            tools: { name: '工具', icon: '🔧' },
-            learning: { name: '学习', icon: '📚' }
-        };
+        this.categories = [];
+        this.defaultCategories = [
+            { id: 'work', name: '工作', icon: '💼' },
+            { id: 'social', name: '社交', icon: '👥' },
+            { id: 'entertainment', name: '娱乐', icon: '🎮' },
+            { id: 'tools', name: '工具', icon: '🔧' },
+            { id: 'learning', name: '学习', icon: '📚' }
+        ];
         this.init();
     }
 
-    init() {
-        this.attachEventListeners();
+    async init() {
+        this.categories = await storageManager.get('categories', this.defaultCategories);
+        this.render();
     }
 
-    attachEventListeners() {
-        const categoryItems = document.querySelectorAll('.category-item');
-        categoryItems.forEach(item => {
-            item.addEventListener('click', (e) => {
-                const category = e.currentTarget.dataset.category;
-                this.selectCategory(category);
-            });
+    render() {
+        const list = document.getElementById('category-list');
+        if (!list) return;
+
+        list.innerHTML = '';
+
+        // All category
+        const allItem = this.createNavItem({ id: 'all', name: '全部', icon: '🌟' });
+        list.appendChild(allItem);
+
+        // User categories
+        this.categories.forEach(cat => {
+            const item = this.createNavItem(cat);
+            list.appendChild(item);
         });
+
+        // Manage button
+        const manageBtn = document.createElement('button');
+        manageBtn.className = 'category-item';
+        manageBtn.innerHTML = '<span class="category-icon">⚙️</span><span class="category-name">管理</span>';
+        manageBtn.addEventListener('click', () => this.openManageModal());
+        list.appendChild(manageBtn);
+
+        this.updateCategoryUI();
+    }
+
+    createNavItem(cat) {
+        const btn = document.createElement('button');
+        btn.className = 'category-item';
+        btn.dataset.category = cat.id;
+        btn.innerHTML = `<span class="category-icon">${cat.icon}</span><span class="category-name">${cat.name}</span>`;
+        btn.addEventListener('click', () => this.selectCategory(cat.id));
+        return btn;
     }
 
     selectCategory(category) {
         if (this.currentCategory === category) return;
-
-        // 更新当前分类
         this.currentCategory = category;
-
-        // 更新UI状态
         this.updateCategoryUI();
-
-        // 过滤显示shortcuts
         this.filterShortcuts();
     }
 
     updateCategoryUI() {
-        const categoryItems = document.querySelectorAll('.category-item');
-        categoryItems.forEach(item => {
+        const items = document.querySelectorAll('.category-item');
+        items.forEach(item => {
             const itemCategory = item.dataset.category;
             if (itemCategory === this.currentCategory) {
                 item.classList.add('active');
@@ -1286,17 +1310,15 @@ class CategoryNavigation {
 
     filterShortcuts() {
         const shortcutItems = document.querySelectorAll('.shortcut-item:not(.add-shortcut)');
-
         shortcutItems.forEach(item => {
             const index = parseInt(item.dataset.index);
             if (isNaN(index)) return;
 
-            // 获取shortcuts组件实例
             const shortcutsComponent = window.shortcutsComponentInstance;
             if (!shortcutsComponent || !shortcutsComponent.links[index]) return;
 
             const link = shortcutsComponent.links[index];
-            const linkCategory = link.category || 'work'; // 默认分类为工作
+            const linkCategory = link.category || 'work';
 
             if (this.currentCategory === 'all' || linkCategory === this.currentCategory) {
                 item.style.display = 'flex';
@@ -1306,9 +1328,100 @@ class CategoryNavigation {
         });
     }
 
-    // 获取当前选中的分类
     getCurrentCategory() {
         return this.currentCategory;
+    }
+
+    getCategoriesForSelect() {
+        return this.categories;
+    }
+
+    createManageItem(cat) {
+        const li = document.createElement('li');
+        li.className = 'category-manage-item';
+        li.dataset.id = cat.id;
+        li.innerHTML = `
+            <input type="text" class="cat-icon" value="${cat.icon}">
+            <input type="text" class="cat-name" value="${cat.name}">
+            <div class="cat-item-actions">
+                <button class="cat-up" title="上移">↑</button>
+                <button class="cat-down" title="下移">↓</button>
+                <button class="cat-delete" title="删除">✕</button>
+            </div>
+        `;
+
+        li.querySelector('.cat-delete').addEventListener('click', () => li.remove());
+        li.querySelector('.cat-up').addEventListener('click', () => {
+            const prev = li.previousElementSibling;
+            if (prev) li.parentNode.insertBefore(li, prev);
+        });
+        li.querySelector('.cat-down').addEventListener('click', () => {
+            const next = li.nextElementSibling;
+            if (next) li.parentNode.insertBefore(next, li);
+        });
+
+        return li;
+    }
+
+    openManageModal() {
+        const existing = document.getElementById('category-modal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'category-modal';
+        overlay.innerHTML = `
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">管理分类</h3>
+                    <button class="modal-close" id="cat-modal-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <ul class="category-manage-list" id="category-manage-list"></ul>
+                    <button type="button" class="modal-btn secondary" id="add-category-btn">添加分类</button>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn secondary" id="cat-cancel-btn">取消</button>
+                    <button type="button" class="modal-btn primary" id="cat-save-btn">保存</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        const list = overlay.querySelector('#category-manage-list');
+        this.categories.forEach(cat => list.appendChild(this.createManageItem(cat)));
+
+        overlay.classList.add('active');
+
+        const close = () => overlay.remove();
+        overlay.querySelector('#cat-modal-close').addEventListener('click', close);
+        overlay.querySelector('#cat-cancel-btn').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+        overlay.querySelector('#add-category-btn').addEventListener('click', () => {
+            const newCat = { id: `cat_${Date.now()}`, name: '新分类', icon: '📁' };
+            list.appendChild(this.createManageItem(newCat));
+        });
+
+        overlay.querySelector('#cat-save-btn').addEventListener('click', async () => {
+            const items = list.querySelectorAll('.category-manage-item');
+            const cats = [];
+            items.forEach(li => {
+                const id = li.dataset.id || `cat_${Date.now()}`;
+                const icon = li.querySelector('.cat-icon').value.trim() || '📁';
+                const name = li.querySelector('.cat-name').value.trim();
+                if (name) {
+                    cats.push({ id, icon, name });
+                }
+            });
+            this.categories = cats;
+            await storageManager.set('categories', this.categories);
+            close();
+            this.render();
+            this.filterShortcuts();
+            window.shortcutsComponentInstance?.updateCategoryOptions();
+        });
     }
 }
 
