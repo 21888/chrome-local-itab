@@ -19,11 +19,18 @@ class StorageManager {
                 type: 'gradient', 
                 value: '' 
             },
-            show: { 
-                clock: true, 
-                search: true, 
-                shortcuts: true 
+            show: {
+                clock: true,
+                search: true,
+                shortcuts: true
             },
+            categories: [
+                { id: 'work', name: '\u5de5\u4f5c', icon: '\ud83d\udcbc' },
+                { id: 'social', name: '\u793e\u4ea4', icon: '\ud83d\udc65' },
+                { id: 'entertainment', name: '\u5a31\u4e50', icon: '\ud83c\udfae' },
+                { id: 'tools', name: '\u5de5\u5177', icon: '\ud83d\udd27' },
+                { id: 'learning', name: '\u5b66\u4e60', icon: '\ud83d\udcda' }
+            ],
             links: [],
             weather: {
                 city: 'Local',
@@ -251,6 +258,8 @@ class StorageManager {
                     return this.validateBackgroundConfig(value);
                 case 'show':
                     return this.validateShowConfig(value);
+                case 'categories':
+                    return this.validateCategoriesConfig(value);
                 case 'links':
                     return this.validateLinksConfig(value);
                 case 'weather':
@@ -327,6 +336,27 @@ class StorageManager {
             search: typeof value.search === 'boolean' ? value.search : this.defaultConfig.show.search,
             shortcuts: typeof value.shortcuts === 'boolean' ? value.shortcuts : this.defaultConfig.show.shortcuts
         };
+    }
+
+    /**
+     * Validate categories configuration
+     */
+    validateCategoriesConfig(value) {
+        if (!Array.isArray(value)) {
+            throw new Error('Categories must be an array');
+        }
+
+        return value.map(cat => {
+            if (typeof cat !== 'object' || cat === null) {
+                throw new Error('Each category must be an object');
+            }
+
+            return {
+                id: typeof cat.id === 'string' && cat.id ? cat.id : `cat_${Date.now()}`,
+                name: typeof cat.name === 'string' ? cat.name.trim() : '',
+                icon: typeof cat.icon === 'string' && cat.icon ? cat.icon : '\ud83d\udcc1'
+            };
+        }).filter(cat => cat.name);
     }
 
     /**

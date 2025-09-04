@@ -13,6 +13,18 @@ document.addEventListener('DOMContentLoaded', async function () {
                 chrome.runtime.openOptionsPage();
             });
         }
+
+        // Category management button in sidebar header
+        const manageBtn = document.getElementById('manage-categories');
+        if (manageBtn) {
+            manageBtn.addEventListener('click', () => {
+                if (chrome.runtime?.openOptionsPage) {
+                    chrome.runtime.openOptionsPage();
+                } else {
+                    window.open('options.html#category-settings', '_blank');
+                }
+            });
+        }
     } catch (error) {
         console.error('Error initializing dashboard:', error);
         // Show error message to user
@@ -485,6 +497,7 @@ class ShortcutsComponent {
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
         const iconInput = this.modal.querySelector('#shortcut-icon');
+        this.updateCategoryOptions();
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
         modalTitle.textContent = title;
@@ -548,13 +561,7 @@ class ShortcutsComponent {
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-category">分类</label>
-                            <select class="form-input" id="shortcut-category">
-                                <option value="work" style="background-color:rgb(0, 0, 0);">💼 工作</option>
-                                <option value="social" style="background-color:rgb(0, 0, 0);">👥 社交</option>
-                                <option value="entertainment" style="background-color:rgb(0, 0, 0);">🎮 娱乐</option>
-                                <option value="tools" style="background-color:rgb(0, 0, 0);">🔧 工具</option>
-                                <option value="learning" style="background-color:rgb(0, 0, 0);">📚 学习</option>
-                            </select>
+                            <select class="form-input" id="shortcut-category"></select>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-icon">Icon</label>
@@ -582,6 +589,8 @@ class ShortcutsComponent {
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
         this.modal = document.getElementById('shortcut-modal');
+
+        this.updateCategoryOptions();
 
         // Attach modal event listeners
         this.attachModalEventListeners();
@@ -622,6 +631,13 @@ class ShortcutsComponent {
                 this.hideModal();
             }
         });
+    }
+
+    updateCategoryOptions() {
+        const categorySelect = this.modal?.querySelector('#shortcut-category');
+        if (!categorySelect) return;
+        const categories = window.categoryNavigation?.getCategoriesForSelect?.() || [];
+        categorySelect.innerHTML = categories.map(cat => `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`).join('');
     }
 
     /**
@@ -1234,47 +1250,60 @@ function showErrorMessage(message) {
 class CategoryNavigation {
     constructor() {
         this.currentCategory = 'all';
-        this.categories = {
-            all: { name: '全部', icon: '🌟' },
-            work: { name: '工作', icon: '💼' },
-            social: { name: '社交', icon: '👥' },
-            entertainment: { name: '娱乐', icon: '🎮' },
-            tools: { name: '工具', icon: '🔧' },
-            learning: { name: '学习', icon: '📚' }
-        };
+        this.categories = [];
+        this.defaultCategories = [
+            { id: 'work', name: '工作', icon: '💼' },
+            { id: 'social', name: '社交', icon: '👥' },
+            { id: 'entertainment', name: '娱乐', icon: '🎮' },
+            { id: 'tools', name: '工具', icon: '🔧' },
+            { id: 'learning', name: '学习', icon: '📚' }
+        ];
         this.init();
     }
 
-    init() {
-        this.attachEventListeners();
+    async init() {
+        this.categories = await storageManager.get('categories', this.defaultCategories);
+        this.render();
     }
 
-    attachEventListeners() {
-        const categoryItems = document.querySelectorAll('.category-item');
-        categoryItems.forEach(item => {
-            item.addEventListener('click', (e) => {
-                const category = e.currentTarget.dataset.category;
-                this.selectCategory(category);
-            });
+    render() {
+        const list = document.getElementById('category-list');
+        if (!list) return;
+
+        list.innerHTML = '';
+
+        // All category
+        const allItem = this.createNavItem({ id: 'all', name: '全部', icon: '🌟' });
+        list.appendChild(allItem);
+
+        // User categories
+        this.categories.forEach(cat => {
+            const item = this.createNavItem(cat);
+            list.appendChild(item);
         });
+
+        this.updateCategoryUI();
+    }
+
+    createNavItem(cat) {
+        const btn = document.createElement('button');
+        btn.className = 'category-item';
+        btn.dataset.category = cat.id;
+        btn.innerHTML = `<span class="category-icon">${cat.icon}</span><span class="category-name">${cat.name}</span>`;
+        btn.addEventListener('click', () => this.selectCategory(cat.id));
+        return btn;
     }
 
     selectCategory(category) {
         if (this.currentCategory === category) return;
-
-        // 更新当前分类
         this.currentCategory = category;
-
-        // 更新UI状态
         this.updateCategoryUI();
-
-        // 过滤显示shortcuts
         this.filterShortcuts();
     }
 
     updateCategoryUI() {
-        const categoryItems = document.querySelectorAll('.category-item');
-        categoryItems.forEach(item => {
+        const items = document.querySelectorAll('.category-item');
+        items.forEach(item => {
             const itemCategory = item.dataset.category;
             if (itemCategory === this.currentCategory) {
                 item.classList.add('active');
@@ -1286,17 +1315,15 @@ class CategoryNavigation {
 
     filterShortcuts() {
         const shortcutItems = document.querySelectorAll('.shortcut-item:not(.add-shortcut)');
-
         shortcutItems.forEach(item => {
             const index = parseInt(item.dataset.index);
             if (isNaN(index)) return;
 
-            // 获取shortcuts组件实例
             const shortcutsComponent = window.shortcutsComponentInstance;
             if (!shortcutsComponent || !shortcutsComponent.links[index]) return;
 
             const link = shortcutsComponent.links[index];
-            const linkCategory = link.category || 'work'; // 默认分类为工作
+            const linkCategory = link.category || 'work';
 
             if (this.currentCategory === 'all' || linkCategory === this.currentCategory) {
                 item.style.display = 'flex';
@@ -1306,9 +1333,12 @@ class CategoryNavigation {
         });
     }
 
-    // 获取当前选中的分类
     getCurrentCategory() {
         return this.currentCategory;
+    }
+
+    getCategoriesForSelect() {
+        return this.categories;
     }
 }
 

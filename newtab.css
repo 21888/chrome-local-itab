@@ -898,6 +898,7 @@ body.bg-image .geometric-bg {
     font-size: var(--font-size-base);
     transition: all var(--transition-base);
     backdrop-filter: var(--backdrop-blur);
+    color-scheme: dark;
 }
 
 .form-input:focus {
@@ -909,6 +910,11 @@ body.bg-image .geometric-bg {
 
 .form-input::placeholder {
     color: var(--text-muted);
+}
+
+select.form-input option {
+    background-color: #0f172a;
+    color: #f8f9fa;
 }
 
 .icon-input-group {
@@ -1358,6 +1364,10 @@ body.bg-image .geometric-bg {
     margin-bottom: var(--spacing-lg);
     padding-bottom: var(--spacing-sm);
     border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
 }
 
 .category-title {
@@ -1366,6 +1376,27 @@ body.bg-image .geometric-bg {
     color: var(--text-primary);
     margin: 0;
     text-align: left;
+}
+
+.category-manage-btn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    cursor: pointer;
+    backdrop-filter: var(--backdrop-blur-strong);
+    transition: all var(--transition-base);
+    padding: 0;
+}
+
+.category-manage-btn:hover {
+    box-shadow: var(--shadow-glass);
+    transform: translateY(-2px);
 }
 
 .category-list {
