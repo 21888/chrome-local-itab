@@ -103,6 +103,9 @@ async function applyBackgroundSettings(bgConfig) {
         default:
             body.classList.add('bg-gradient');
     }
+
+    // adjust text color and overlay based on background type
+    updateTextContrast(bgConfig);
 }
 
 /**
@@ -131,6 +134,47 @@ async function loadApiBackground() {
         document.body.classList.remove('bg-api');
         document.body.classList.add('bg-gradient');
     }
+}
+
+// Update text color and overlay based on background settings
+function updateTextContrast(bgConfig) {
+    const root = document.documentElement;
+    const body = document.body;
+
+    body.classList.remove('has-overlay');
+
+    if (bgConfig.type === 'color') {
+        const hex = bgConfig.value || '#1a1a1a';
+        const { r, g, b } = hexToRgb(hex);
+        const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+        const isLight = brightness > 186;
+        const primary = isLight ? '#000000' : '#ffffff';
+        const secondary = isLight ? 'rgba(0, 0, 0, 0.85)' : 'rgba(248, 249, 250, 0.85)';
+        const muted = isLight ? 'rgba(0, 0, 0, 0.65)' : 'rgba(248, 249, 250, 0.65)';
+
+        root.style.setProperty('--text-primary', primary);
+        root.style.setProperty('--text-secondary', secondary);
+        root.style.setProperty('--text-muted', muted);
+    } else {
+        body.classList.add('has-overlay');
+        root.style.setProperty('--text-primary', '#f8f9fa');
+        root.style.setProperty('--text-secondary', 'rgba(248, 249, 250, 0.85)');
+        root.style.setProperty('--text-muted', 'rgba(248, 249, 250, 0.65)');
+    }
+}
+
+// helper to convert hex color to rgb components
+function hexToRgb(hex) {
+    let sanitized = hex.replace('#', '');
+    if (sanitized.length === 3) {
+        sanitized = sanitized.split('').map(ch => ch + ch).join('');
+    }
+    const intVal = parseInt(sanitized, 16);
+    return {
+        r: (intVal >> 16) & 255,
+        g: (intVal >> 8) & 255,
+        b: intVal & 255
+    };
 }
 
 function applyModuleVisibility(showConfig) {

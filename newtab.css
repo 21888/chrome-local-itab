@@ -202,6 +202,24 @@ body::after {
     }
 }
 
+/* Overlay to ensure readability on images or gradients */
+.background-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity var(--transition-base);
+}
+
+body.has-overlay .background-overlay {
+    opacity: 1;
+}
+
 /* Background Type Classes */
 body.bg-gradient {
     background: var(--primary-gradient);
@@ -227,62 +245,21 @@ body.bg-image {
     background-attachment: fixed;
 }
 
-/* Ensure content is readable over background images */
-body.bg-image .dashboard-container {
-    backdrop-filter: blur(1px);
-}
-
-body.bg-image .info-card,
-body.bg-image .clock-section,
-body.bg-image .search-section,
-body.bg-image .shortcuts-section,
-body.bg-image .quote-section {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: var(--backdrop-blur-strong);
-}
-
 /* API Background with semi-transparent overlay */
-body.bg-api::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    opacity: 0.3;
-    z-index: -4;
-    background: url('https://api.paugram.com/wallpaper/') center/cover no-repeat;
-    background-attachment: fixed;
-}
-
-/* Hide default backgrounds when using API background */
 body.bg-api .geometric-bg {
     display: none;
 }
 
-/* Enhanced readability for API background */
-body.bg-api .dashboard-container {
-    backdrop-filter: blur(1px);
-}
-
-body.bg-api .info-card,
-body.bg-api .clock-section,
-body.bg-api .search-section,
-body.bg-api .shortcuts-section,
-body.bg-api .quote-section {
-    background: rgba(255, 255, 255, 0.12);
-    backdrop-filter: var(--backdrop-blur-extreme);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-/* When using custom image or API, soften or remove animated overlays so image is visible */
-body.bg-image::before,
-body.bg-image::after,
-body.bg-api::after {
-    opacity: 0.0;
-}
 body.bg-image .geometric-bg {
     display: none;
+}
+
+/* When using custom image or API, remove animated overlays so image is visible */
+body.bg-image::before,
+body.bg-image::after,
+body.bg-api::before,
+body.bg-api::after {
+    opacity: 0.0;
 }
 
 /* Dashboard Container */
@@ -295,6 +272,8 @@ body.bg-image .geometric-bg {
     gap: var(--spacing-xl);
     max-width: var(--container-max-width);
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
 }
 
 /* 主内容包装器 */
@@ -914,7 +893,7 @@ body.bg-image .geometric-bg {
 
 select.form-input option {
     background-color: #0f172a;
-    color: #f8f9fa;
+    color: var(--text-primary);
 }
 
 .icon-input-group {
@@ -1133,7 +1112,7 @@ select.form-input option {
 
 .topic-tab.active .topic-count {
     background: rgba(231, 76, 60, 0.3);
-    color: #fff;
+    color: var(--text-primary);
 }
 
 .topics-content {
@@ -1203,19 +1182,19 @@ select.form-input option {
 
 .topic-item:nth-child(1) .topic-rank {
     background: linear-gradient(135deg, #ffd700, #ffed4e);
-    color: #333;
+    color: var(--text-primary);
     font-weight: 700;
 }
 
 .topic-item:nth-child(2) .topic-rank {
     background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
-    color: #333;
+    color: var(--text-primary);
     font-weight: 700;
 }
 
 .topic-item:nth-child(3) .topic-rank {
     background: linear-gradient(135deg, #cd7f32, #daa520);
-    color: #fff;
+    color: var(--text-primary);
     font-weight: 700;
 }
 
