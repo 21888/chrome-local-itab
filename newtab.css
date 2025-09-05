@@ -109,24 +109,6 @@ body::before {
     z-index: -3;
 }
 
-/* Gentle mesh gradient overlay or darkening layer */
-body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: -2;
-    background:
-        radial-gradient(circle at 25% 25%, rgba(74, 144, 226, 0.15) 0%, transparent 60%),
-        radial-gradient(circle at 75% 75%, rgba(123, 104, 238, 0.12) 0%, transparent 60%),
-        radial-gradient(circle at 50% 50%, rgba(93, 173, 226, 0.1) 0%, transparent 60%);
-    animation: meshMove 25s ease-in-out infinite;
-    transition: background var(--transition-base), z-index var(--transition-base);
-}
-
 /* Dark overlay for image or gradient backgrounds */
 .background-overlay {
     position: fixed;
@@ -187,27 +169,8 @@ body.has-overlay .background-overlay {
     animation-delay: -10s;
 }
 
-@keyframes meshMove {
-    0%, 100% { 
-        transform: translateX(0) translateY(0) rotate(0deg);
-        filter: hue-rotate(0deg);
-    }
-    25% { 
-        transform: translateX(20px) translateY(-20px) rotate(90deg);
-        filter: hue-rotate(90deg);
-    }
-    50% { 
-        transform: translateX(-10px) translateY(30px) rotate(180deg);
-        filter: hue-rotate(180deg);
-    }
-    75% { 
-        transform: translateX(-30px) translateY(-10px) rotate(270deg);
-        filter: hue-rotate(270deg);
-    }
-}
-
 @keyframes floatShape {
-    0%, 100% { 
+    0%, 100% {
         transform: translateY(0px) translateX(0px) rotate(0deg) scale(1);
         opacity: 0.3;
     }
