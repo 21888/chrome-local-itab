@@ -6,6 +6,14 @@
 
 A customizable new tab page Chrome extension that works completely offline.
 
+## New Additions
+
+- Custom themed context menu (dark/light, rounded corners, shadow, keyboard hints, touch-close)
+- Category right-click: Open all links (with confirmation and max concurrency)
+- Site card right-click: Open in new tab / Edit / Delete
+- Favicon persistent cache: IndexedDB first, fallback Cache API; 7-day TTL; rebuild/invalidate
+- Internationalization: `chrome.i18n` with `_locales/en` and `_locales/zh_CN`
+
 ## Features
 
 - **Offline First**: No network requests, all data stored locally
@@ -14,6 +22,8 @@ A customizable new tab page Chrome extension that works completely offline.
 - **Background Customization**: Upload images, solid colors, or gradients
 - **Import/Export**: Backup and restore settings via JSON
 - **Module Visibility**: Show/hide different dashboard components
+ - **Internationalization**: All menu items and dialogs are localized through chrome.i18n
+ - **Icon Caching**: Favicons are cached locally for performance and offline use
 
 ## Installation
 
@@ -21,6 +31,21 @@ A customizable new tab page Chrome extension that works completely offline.
 2. Enable "Developer mode" in the top right
 3. Click "Load unpacked" and select the `local-itab` folder
 4. The extension will override your new tab page
+
+## i18n Usage
+
+- Add messages under `_locales/<locale>/messages.json`
+- In HTML, use `data-i18n` and `data-i18n-title` attributes; in JS use `i18n.t('key')`
+
+## Favicon Cache
+
+- API: `faviconCache.getIconDataUrl(origin)`, `faviconCache.invalidate(origin)`, `faviconCache.prefetch(origin)`
+- Used automatically by shortcuts to resolve icons to data URLs
+
+## Context Menu
+
+- Initializes on the new tab page; only triggers on category header/list and shortcut items
+- Actions: `open_all` for categories; `open`, `edit`, `delete` for site cards
 
 ## Development
 

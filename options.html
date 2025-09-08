@@ -3,30 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local iTab Settings</title>
+    <title data-i18n="optionsTitle">Local iTab Settings</title>
     <link rel="stylesheet" href="options.css">
 </head>
 <body>
     <div class="options-container">
         <header class="options-header">
             <div class="header-top">
-                <button id="back-to-dashboard" class="back-button" title="Back to Dashboard">
+                <button id="back-to-dashboard" class="back-button" data-i18n-title="backToDashboard" title="Back to Dashboard">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
                     </svg>
-                    <span>Back to Dashboard</span>
+                    <span data-i18n="backToDashboard">Back to Dashboard</span>
                 </button>
             </div>
-            <h1 class="options-title">Local iTab Settings</h1>
-            <p class="options-subtitle">Customize your new tab experience</p>
+            <h1 class="options-title" data-i18n="optionsTitle">Local iTab Settings</h1>
+            <p class="options-subtitle" data-i18n="optionsSubtitle">Customize your new tab experience</p>
         </header>
         
         <main class="options-main">
             <!-- Time Display Settings -->
             <section class="settings-section" id="time-settings">
                 <div class="section-header">
-                    <h2 class="section-title">⏰ Time Display</h2>
-                    <p class="section-description">Configure how time and date are displayed</p>
+                    <h2 class="section-title">⏰ <span data-i18n="timeDisplay">Time Display</span></h2>
+                    <p class="section-description" data-i18n="timeDisplayDesc">Configure how time and date are displayed</p>
                 </div>
                 <div class="settings-grid">
                     <div class="setting-group">
@@ -34,8 +34,8 @@
                             <input type="checkbox" id="hour12-format" class="setting-checkbox">
                             <span class="checkbox-custom"></span>
                             <div class="setting-info">
-                                <span class="setting-name">12-Hour Format</span>
-                                <span class="setting-desc">Display time in AM/PM format</span>
+                                <span class="setting-name" data-i18n="hour12">12-Hour Format</span>
+                                <span class="setting-desc">&nbsp;</span>
                             </div>
                         </label>
                     </div>
@@ -44,8 +44,8 @@
                             <input type="checkbox" id="show-seconds" class="setting-checkbox">
                             <span class="checkbox-custom"></span>
                             <div class="setting-info">
-                                <span class="setting-name">Show Seconds</span>
-                                <span class="setting-desc">Include seconds in time display</span>
+                                <span class="setting-name" data-i18n="showSeconds">Show Seconds</span>
+                                <span class="setting-desc">&nbsp;</span>
                             </div>
                         </label>
                     </div>
@@ -57,17 +57,17 @@
             <!-- Background Settings -->
             <section class="settings-section" id="background-settings">
                 <div class="section-header">
-                    <h2 class="section-title">🎨 Background</h2>
-                    <p class="section-description">Customize your dashboard background</p>
+                    <h2 class="section-title">🎨 <span data-i18n="background">Background</span></h2>
+                    <p class="section-description" data-i18n="backgroundDesc">Customize your dashboard background</p>
                 </div>
                 <div class="settings-grid">
                     <div class="setting-group full-width">
-                        <label class="form-label">Background Type</label>
+                        <label class="form-label" data-i18n="bgType">Background Type</label>
                         <select id="bg-type" class="form-select">
-                            <option value="gradient">Default Gradient</option>
-                            <option value="color">Solid Color</option>
-                            <option value="image">Custom Image</option>
-                            <option value="api">Random Wallpaper (API)</option>
+                            <option value="gradient" data-i18n="bgGradient">Default Gradient</option>
+                            <option value="color" data-i18n="bgColor">Solid Color</option>
+                            <option value="image" data-i18n="bgImage">Custom Image</option>
+                            <option value="api" data-i18n="bgApi">Random Wallpaper (API)</option>
                         </select>
                         <div class="setting-hint" id="bg-api-hint" style="display: none;">
                             <span class="hint-icon">🌟</span>
@@ -75,14 +75,14 @@
                         </div>
                     </div>
                     <div class="setting-group full-width" id="bg-color-section" style="display: none;">
-                        <label class="form-label">Background Color</label>
+                        <label class="form-label" data-i18n="bgColor">Background Color</label>
                         <div class="color-input-group">
                             <input type="color" id="bg-color" class="form-color" value="#1a1a1a">
                             <input type="text" id="bg-color-text" class="form-input color-text" placeholder="#1a1a1a">
                         </div>
                     </div>
                     <div class="setting-group full-width" id="bg-image-section" style="display: none;">
-                        <label class="form-label">Background Image</label>
+                        <label class="form-label" data-i18n="bgImage">Background Image</label>
                         <div class="file-upload-area" id="bg-upload-area">
                             <input type="file" id="bg-image-upload" class="file-input" accept="image/jpeg,image/png,image/gif,image/webp">
                             <div class="upload-placeholder">
@@ -105,8 +105,8 @@
             <!-- Module Visibility Settings -->
             <section class="settings-section" id="visibility-settings">
                 <div class="section-header">
-                    <h2 class="section-title">👁️ Module Visibility</h2>
-                    <p class="section-description">Show or hide dashboard components</p>
+                    <h2 class="section-title">👁️ <span data-i18n="moduleVisibility">Module Visibility</span></h2>
+                    <p class="section-description">&nbsp;</p>
                 </div>
                 <div class="settings-grid">
                     <div class="setting-group">
@@ -114,8 +114,8 @@
                             <input type="checkbox" id="show-clock" class="setting-checkbox">
                             <span class="checkbox-custom"></span>
                             <div class="setting-info">
-                                <span class="setting-name">Clock Module</span>
-                                <span class="setting-desc">Show time and date display</span>
+                                <span class="setting-name" data-i18n="showClock">Clock Module</span>
+                                <span class="setting-desc">&nbsp;</span>
                             </div>
                         </label>
                     </div>
@@ -125,8 +125,8 @@
                             <input type="checkbox" id="show-shortcuts" class="setting-checkbox">
                             <span class="checkbox-custom"></span>
                             <div class="setting-info">
-                                <span class="setting-name">Shortcuts Module</span>
-                                <span class="setting-desc">Show bookmarks grid</span>
+                                <span class="setting-name" data-i18n="showShortcuts">Shortcuts Module</span>
+                                <span class="setting-desc">&nbsp;</span>
                             </div>
                         </label>
                     </div>
@@ -136,8 +136,8 @@
             <!-- Category Management -->
             <section class="settings-section" id="category-settings">
                 <div class="section-header">
-                    <h2 class="section-title">🗂️ Categories</h2>
-                    <p class="section-description">Add, edit, and reorder shortcut categories</p>
+                    <h2 class="section-title">🗂️ <span data-i18n="categories">Categories</span></h2>
+                    <p class="section-description" data-i18n="categoriesDesc">Add, edit, and reorder shortcut categories</p>
                 </div>
                 <div class="settings-grid">
                     <div class="setting-group full-width">
@@ -146,7 +146,7 @@
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                             </svg>
-                            <span>Add Category</span>
+                            <span data-i18n="addCategory">Add Category</span>
                         </button>
                     </div>
                 </div>
@@ -155,12 +155,12 @@
             <!-- Import/Export Settings -->
             <section class="settings-section" id="data-settings">
                 <div class="section-header">
-                    <h2 class="section-title">💾 Data Management</h2>
-                    <p class="section-description">Import, export, and manage your settings</p>
+                    <h2 class="section-title">💾 <span data-i18n="dataManagement">Data Management</span></h2>
+                    <p class="section-description" data-i18n="dataManagementDesc">Import, export, and manage your settings</p>
                 </div>
                 <div class="settings-grid">
                     <div class="setting-group full-width">
-                        <label class="form-label">Quote Text</label>
+                        <label class="form-label" data-i18n="quoteText">Quote Text</label>
                         <input type="text" id="quote-text" class="form-input" placeholder="Your inspirational quote">
                         <small class="form-hint">Displayed at the bottom of your dashboard</small>
                     </div>
@@ -168,12 +168,12 @@
                         <div class="data-actions">
                             <button id="export-settings" class="btn btn-primary">
                                 <span class="btn-icon">📤</span>
-                                Export Settings
+                                <span data-i18n="exportSettings">Export Settings</span>
                             </button>
                             <input type="file" id="import-settings" class="file-input" accept=".json" style="display: none;">
                             <button id="import-settings-btn" class="btn btn-secondary">
                                 <span class="btn-icon">📥</span>
-                                Import Settings
+                                <span data-i18n="importSettings">Import Settings</span>
                             </button>
                         </div>
                     </div>
@@ -190,11 +190,11 @@
             <div class="footer-actions">
                 <button id="save-settings" class="btn btn-primary btn-lg">
                     <span class="btn-icon">💾</span>
-                    Save Settings
+                    <span data-i18n="saveSettings">Save Settings</span>
                 </button>
                 <button id="reset-settings" class="btn btn-danger btn-lg">
                     <span class="btn-icon">🔄</span>
-                    Reset to Defaults
+                    <span data-i18n="resetSettings">Reset to Defaults</span>
                 </button>
             </div>
         </footer>
@@ -204,6 +204,7 @@
     <div id="toast-container" class="toast-container"></div>
     
     <script src="storage.js"></script>
+    <script src="i18n.js"></script>
     <script src="options.js"></script>
 </body>
 </html>

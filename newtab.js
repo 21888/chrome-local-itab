@@ -6,6 +6,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Initialize dashboard components with stored data
         await initializeDashboard();
 
+        // Apply i18n to static DOM
+        if (window.i18n) {
+            window.i18n.localizeDocument(document);
+        }
+
         // Set up settings button
         const settingsButton = document.getElementById('open-options');
         if (settingsButton) {
@@ -25,12 +30,95 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
             });
         }
+        // Initialize custom context menu
+        if (window.contextMenu) {
+            window.contextMenu.init({
+                theme: document.body.classList.contains('has-overlay') ? 'dark' : 'light',
+                onAction: handleContextAction
+            });
+        }
     } catch (error) {
         console.error('Error initializing dashboard:', error);
         // Show error message to user
-        showErrorMessage('Failed to load dashboard. Please try refreshing the page.');
+        showErrorMessage((window.i18n && i18n.t('failedToLoadDashboard')) || 'Failed to load dashboard. Please try refreshing the page.');
     }
 });
+
+// Handle custom context menu actions
+async function handleContextAction(action, payload) {
+    try {
+        if (payload?.type === 'category') {
+            if (action === 'open_all') {
+                await openAllInCategory(payload.id);
+            }
+            return;
+        }
+
+        if (payload?.type === 'site') {
+            const comp = window.shortcutsComponentInstance;
+            if (!comp) return;
+            const idx = payload.index;
+            if (idx == null || idx < 0 || idx >= comp.links.length) return;
+
+            switch (action) {
+                case 'open':
+                    comp.openShortcut(idx);
+                    break;
+                case 'edit':
+                    comp.openEditModal(idx);
+                    break;
+                case 'delete':
+                    comp.confirmDelete(idx);
+                    break;
+            }
+        }
+    } catch (e) {
+        console.error('Context action error:', e);
+    }
+}
+
+// Open all links in a category with user confirmation and limited concurrency
+async function openAllInCategory(categoryId) {
+    const comp = window.shortcutsComponentInstance;
+    if (!comp) return;
+    let links = comp.links || [];
+    if (categoryId && categoryId !== 'all') {
+        links = links.filter(l => (l.category || 'work') === categoryId);
+    }
+    if (!links.length) return;
+
+    const ok = confirm((window.i18n && i18n.t('openAllConfirm')) || 'Open all links in this category? This may open multiple tabs.');
+    if (!ok) return;
+
+    // Normalize URLs
+    const urls = links.map(l => {
+        let url = l.url || '';
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        return url;
+    });
+
+    const concurrency = 5;
+    const delayMs = 120;
+    let active = 0;
+    let i = 0;
+
+    return new Promise(resolve => {
+        const tick = () => {
+            if (i >= urls.length && active === 0) return resolve();
+            while (active < concurrency && i < urls.length) {
+                const url = urls[i++];
+                active++;
+                // Use window.open to avoid extra permissions
+                setTimeout(() => {
+                    try { window.open(url, '_blank'); } catch (_) {}
+                    active--;
+                    tick();
+                }, delayMs);
+            }
+        };
+        tick();
+    });
+}
 
 async function initializeDashboard() {
     try {
@@ -404,16 +492,16 @@ class ShortcutsComponent {
         const items = this.links.map((link, index) => `
             <div class="shortcut-item" data-index="${index}" draggable="true">
                 <div class="shortcut-content">
-                    <div class="shortcut-icon">${this.renderIcon(link.icon || '🌐')}</div>
+                    <div class="shortcut-icon">${this.renderIcon(link.icon || '🌐', link.url)}</div>
                     <h3 class="shortcut-title">${this.escapeHtml(link.title)}</h3>
                 </div>
                 <div class="shortcut-actions">
-                    <button class="shortcut-action-btn edit" data-action="edit" data-index="${index}" title="Edit">
+                    <button class="shortcut-action-btn edit" data-action="edit" data-index="${index}" title="${(window.i18n && i18n.t('edit')) || 'Edit'}">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                         </svg>
                     </button>
-                    <button class="shortcut-action-btn delete" data-action="delete" data-index="${index}" title="Delete">
+                    <button class="shortcut-action-btn delete" data-action="delete" data-index="${index}" title="${(window.i18n && i18n.t('remove')) || 'Delete'}">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                         </svg>
@@ -426,7 +514,7 @@ class ShortcutsComponent {
             <div class="shortcut-item add-shortcut" data-action="open-add" draggable="false">
                 <div class="shortcut-content">
                     <div class="shortcut-icon">+</div>
-                    <h3 class="shortcut-title">添加图标</h3>
+                    <h3 class="shortcut-title">${(window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'}</h3>
                 </div>
             </div>
         `;
@@ -511,7 +599,7 @@ class ShortcutsComponent {
      */
     openAddModal() {
         this.currentEditIndex = -1;
-        this.showModal('Add Shortcut', '', '');
+        this.showModal(((window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'), '', '');
     }
 
     /**
@@ -521,7 +609,7 @@ class ShortcutsComponent {
         if (index >= 0 && index < this.links.length) {
             this.currentEditIndex = index;
             const link = this.links[index];
-            this.showModal('Edit Shortcut', link.title, link.url, link.icon || '🌐');
+            this.showModal(((window.i18n && i18n.t('editShortcut')) || 'Edit Shortcut'), link.title, link.url, link.icon || '🌐');
 
             // 设置分类选择器
             const categorySelect = this.modal.querySelector('#shortcut-category');
@@ -589,29 +677,29 @@ class ShortcutsComponent {
             <div class="modal-overlay" id="shortcut-modal">
                 <div class="modal">
                     <div class="modal-header">
-                        <h3 class="modal-title">Add Shortcut</h3>
+                        <h3 class="modal-title">${(window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'}</h3>
                         <button class="modal-close" id="modal-close">×</button>
                     </div>
                     <form class="modal-form" id="shortcut-form">
                         <div class="form-group">
-                            <label class="form-label" for="shortcut-title">Title</label>
-                            <input type="text" class="form-input" id="shortcut-title" placeholder="Enter shortcut title" required>
+                            <label class="form-label" for="shortcut-title">${(window.i18n && i18n.t('title')) || 'Title'}</label>
+                            <input type="text" class="form-input" id="shortcut-title" placeholder="${(window.i18n && i18n.t('title')) || 'Title'}" required>
                             <div class="form-error" id="title-error"></div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="shortcut-url">URL</label>
+                            <label class="form-label" for="shortcut-url">${(window.i18n && i18n.t('url')) || 'URL'}</label>
                             <input type="url" class="form-input" id="shortcut-url" placeholder="https://example.com" required>
                             <div class="form-error" id="url-error"></div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="shortcut-category">分类</label>
+                            <label class="form-label" for="shortcut-category">${(window.i18n && i18n.t('categoryLabel')) || 'Category'}</label>
                             <select class="form-input" id="shortcut-category"></select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="shortcut-icon">Icon</label>
+                            <label class="form-label" for="shortcut-icon">${(window.i18n && i18n.t('icon')) || 'Icon'}</label>
                             <div class="icon-input-group">
                                 <input type="text" class="form-input" id="shortcut-icon" placeholder="🌐 or emoji/text" >
-                                <button type="button" class="icon-fetch-btn" id="fetch-icon-btn" title="Auto-fetch website icon">
+                                <button type="button" class="icon-fetch-btn" id="fetch-icon-btn" title="${(window.i18n && i18n.t('autoFetchIcon')) || 'Auto-fetch website icon'}">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M21 12c0 1-1 1-1 1s-1 0-1-1 1-1 1-1 1 0 1 1z"/>
                                         <path d="M16 12c0 1-1 1-1 1s-1 0-1-1 1-1 1-1 1 0 1 1z"/>
@@ -623,8 +711,8 @@ class ShortcutsComponent {
                             <div class="form-hint">Enter an emoji, text, or click the button to auto-fetch the website's icon</div>
                         </div>
                         <div class="modal-actions">
-                            <button type="button" class="modal-btn secondary" id="cancel-btn">Cancel</button>
-                            <button type="submit" class="modal-btn primary" id="save-btn">Save</button>
+                            <button type="button" class="modal-btn secondary" id="cancel-btn">${(window.i18n && i18n.t('cancel')) || 'Cancel'}</button>
+                            <button type="submit" class="modal-btn primary" id="save-btn">${(window.i18n && i18n.t('save')) || 'Save'}</button>
                         </div>
                     </form>
                 </div>
@@ -726,7 +814,7 @@ class ShortcutsComponent {
             }
         } catch (error) {
             console.error('Error saving shortcut:', error);
-            this.showFormError('url', 'Failed to save shortcut. Please try again.');
+            this.showFormError('url', ((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.'));
         }
     }
 
@@ -741,19 +829,19 @@ class ShortcutsComponent {
 
         // Validate title
         if (!title) {
-            this.showFormError('title', 'Title is required');
+            this.showFormError('title', ((window.i18n && i18n.t('titleRequired')) || 'Title is required'));
             isValid = false;
         } else if (title.length > 50) {
-            this.showFormError('title', 'Title must be 50 characters or less');
+            this.showFormError('title', ((window.i18n && i18n.t('titleTooLong')) || 'Title must be 50 characters or less'));
             isValid = false;
         }
 
         // Validate URL
         if (!url) {
-            this.showFormError('url', 'URL is required');
+            this.showFormError('url', ((window.i18n && i18n.t('urlRequired')) || 'URL is required'));
             isValid = false;
         } else if (!this.isValidUrl(url)) {
-            this.showFormError('url', 'Please enter a valid URL');
+            this.showFormError('url', ((window.i18n && i18n.t('urlInvalid')) || 'Please enter a valid URL'));
             isValid = false;
         }
 
@@ -804,8 +892,8 @@ class ShortcutsComponent {
 
         const link = this.links[index];
         this.showConfirmDialog(
-            'Delete Shortcut',
-            'Are you sure you want to delete this shortcut?',
+            ((window.i18n && i18n.t('deleteShortcut')) || 'Delete Shortcut'),
+            ((window.i18n && i18n.t('deleteShortcutConfirm')) || 'Are you sure you want to delete this shortcut?'),
             link,
             () => this.deleteShortcut(index)
         );
@@ -823,7 +911,7 @@ class ShortcutsComponent {
                 this.updateGrid();
             } catch (error) {
                 console.error('Error deleting shortcut:', error);
-                showErrorMessage('Failed to delete shortcut. Please try again.');
+                showErrorMessage(((window.i18n && i18n.t('failedToDelete')) || 'Failed to delete shortcut. Please try again.'));
             }
         }
     }
@@ -1124,12 +1212,29 @@ class ShortcutsComponent {
     /**
      * Render icon - handle both emoji/text and data URLs (favicons)
      */
-    renderIcon(icon) {
+    renderIcon(icon, url) {
         if (!icon) return '🌐';
 
         // Support data URL or remote http(s) icon URL
         if (icon.startsWith('data:image/') || icon.startsWith('http://') || icon.startsWith('https://')) {
             return `<img src="${icon}" alt="Site icon" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`;
+        }
+
+        // Try favicon cache with URL origin
+        if (window.faviconCache && url) {
+            const origin = window.faviconCache.getOriginFromUrl(url);
+            if (origin) {
+                window.faviconCache.getIconDataUrl(origin).then((dataUrl) => {
+                    if (!dataUrl) return;
+                    const grid = document.getElementById('shortcuts-grid');
+                    if (!grid) return;
+                    const idx = this.links.findIndex(l => l.url === url);
+                    if (idx >= 0) {
+                        const slot = grid.querySelector(`.shortcut-item[data-index="${idx}"] .shortcut-icon`);
+                        if (slot) slot.innerHTML = `<img src="${dataUrl}" alt="icon" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`;
+                    }
+                });
+            }
         }
 
         // Otherwise, it's emoji or text
@@ -1317,7 +1422,7 @@ class CategoryNavigation {
         list.innerHTML = '';
 
         // All category
-        const allItem = this.createNavItem({ id: 'all', name: '全部', icon: '🌟' });
+        const allItem = this.createNavItem({ id: 'all', name: (window.i18n && i18n.t('all')) || '全部', icon: '🌟' });
         list.appendChild(allItem);
 
         // User categories
