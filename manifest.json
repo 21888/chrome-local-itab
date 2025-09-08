@@ -4,13 +4,15 @@
   "version": "1.0.1",
   "description": "可定制的新标签页扩展，可完全离线工作 (A customizable new tab page extension that works completely offline)",
   "permissions": [
-    "storage"
+    "storage",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "https://www.google.com/*",
     "https://api.paugram.com/*",
     "*://*/*"
   ],
+  "default_locale": "en",
   "chrome_url_overrides": {
     "newtab": "newtab.html"
   },
@@ -21,6 +23,6 @@
     "128": "assets/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:; connect-src 'self' https: http:"
   }
 }

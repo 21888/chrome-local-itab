@@ -11,6 +11,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Display storage usage info
         await displayStorageInfo();
+
+        // Apply i18n to DOM
+        if (window.i18n) {
+            window.i18n.localizeDocument(document);
+        }
     } catch (error) {
         console.error('Error initializing options page:', error);
         showErrorMessage('Failed to load settings. Please try refreshing the page.');
