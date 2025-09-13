@@ -1398,7 +1398,8 @@ function showErrorMessage(message) {
 // 分类导航功能
 class CategoryNavigation {
     constructor() {
-        this.currentCategory = 'all';
+        this.storageKey = 'currentCategory';
+        this.currentCategory = localStorage.getItem(this.storageKey) || 'all';
         this.categories = [];
         this.defaultCategories = [
             { id: 'work', name: '工作', icon: '💼' },
@@ -1412,6 +1413,9 @@ class CategoryNavigation {
 
     async init() {
         this.categories = await storageManager.get('categories', this.defaultCategories);
+        if (this.currentCategory !== 'all' && !this.categories.some(c => c.id === this.currentCategory)) {
+            this.currentCategory = 'all';
+        }
         this.render();
     }
 
@@ -1432,6 +1436,7 @@ class CategoryNavigation {
         });
 
         this.updateCategoryUI();
+        this.filterShortcuts();
     }
 
     createNavItem(cat) {
@@ -1446,6 +1451,11 @@ class CategoryNavigation {
     selectCategory(category) {
         if (this.currentCategory === category) return;
         this.currentCategory = category;
+        try {
+            localStorage.setItem(this.storageKey, category);
+        } catch (e) {
+            console.warn('Failed to save category', e);
+        }
         this.updateCategoryUI();
         this.filterShortcuts();
     }
