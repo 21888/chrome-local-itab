@@ -237,7 +237,7 @@ body.bg-image {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-attachment: fixed;
+    background-attachment: scroll;
 }
 
 /* API Background with semi-transparent overlay */
@@ -332,7 +332,7 @@ body.bg-api::before {
     transition: opacity var(--transition-base);
     border-radius: inherit;
     z-index: -1;
-    animation: rotate 6s linear infinite;
+    animation: none;
 }
 
 /* Inner glass layer */
@@ -356,6 +356,7 @@ body.bg-api::before {
 
 .settings-button:hover::before {
     opacity: 1;
+    animation: rotate 6s linear infinite;
 }
 
 .settings-button:active {
@@ -2532,10 +2533,44 @@ Loading States and Micro-interactions */
     100% { transform: scale(1); }
 }
 
-/* Smooth transitions for all interactive elements */
-button, .shortcut-item, .info-card, .search-input-group, .modal {
-    will-change: transform;
+/* Smooth transitions for interactive elements (avoid global will-change for perf) */
+
+/* Performance control classes */
+.paused-animations *,
+.paused-animations *::before,
+.paused-animations *::after {
+    animation: none !important;
+    transition: none !important;
 }
+
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+}
+
+/* Minimal animations and effects mode */
+.animations-minimal .geometric-bg { display: none !important; }
+.animations-minimal .geometric-shape { animation: none !important; }
+.animations-minimal .settings-button::before { animation: none !important; }
+.animations-minimal .time-display { animation: none !important; }
+.animations-minimal .loading::after,
+.animations-minimal .pulse,
+.animations-minimal .trend-icon.hot,
+.animations-minimal .particle { animation: none !important; }
+.animations-minimal .dashboard-header,
+.animations-minimal .search-section,
+.animations-minimal .shortcuts-section,
+.animations-minimal .info-cards-grid,
+.animations-minimal .dashboard-footer,
+.animations-minimal .shortcut-item { animation: none !important; }
+/* Disable backdrop filters in minimal mode to reduce GPU load */
+.animations-minimal { --backdrop-blur: none; --backdrop-blur-strong: none; --backdrop-blur-extreme: none; }
+.animations-minimal *,
+.animations-minimal *::before,
+.animations-minimal *::after { backdrop-filter: none !important; }
 
 /* Focus states for accessibility */
 button:focus-visible,

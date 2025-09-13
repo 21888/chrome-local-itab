@@ -8,6 +8,9 @@ class ErrorHandler {
         this.messageContainer = null;
         this.messageQueue = [];
         this.isInitialized = false;
+        this._recentErrorHashes = new Map(); // hash -> timestamp
+        this._maxShown = 4; // limit concurrent toasts
+        this._dedupeWindowMs = 5000; // same error within 5s suppressed
         
         // Error types and their default messages
         this.errorTypes = {
@@ -115,6 +118,23 @@ class ErrorHandler {
         if (!displayMessage) {
             displayMessage = this.getFriendlyMessage(error, type);
         }
+
+        // Dedupe flood: drop identical errors within window
+        try {
+            const keyStr = `${type}:${typeof error === 'string' ? error : (error?.message || '')}:${displayMessage}`;
+            const hash = this.simpleHash(keyStr);
+            const now = Date.now();
+            const last = this._recentErrorHashes.get(hash) || 0;
+            if (now - last < this._dedupeWindowMs) {
+                return { type, message: displayMessage, originalError: error, suppressed: true, timestamp: new Date().toISOString() };
+            }
+            this._recentErrorHashes.set(hash, now);
+            // cleanup map periodically
+            if (this._recentErrorHashes.size > 200) {
+                const cutoff = now - this._dedupeWindowMs * 2;
+                for (const [k, t] of this._recentErrorHashes) { if (t < cutoff) this._recentErrorHashes.delete(k); }
+            }
+        } catch (_) {}
 
         // Show to user if requested
         if (showToUser) {
@@ -231,6 +251,16 @@ class ErrorHandler {
             persistent = false
         } = options;
 
+        // Limit concurrent messages
+        try {
+            const existing = this.messageContainer?.querySelectorAll('.message') || [];
+            if (existing.length >= this._maxShown) {
+                // remove the oldest one to make room
+                const oldest = existing[0];
+                this.removeMessage(oldest);
+            }
+        } catch (_) {}
+
         const messageElement = this.createMessageElement(message, type, actions, persistent);
         
         // Add to container
@@ -249,6 +279,20 @@ class ErrorHandler {
         }
 
         return messageElement;
+    }
+
+    // Simple string hash to dedupe errors
+    simpleHash(str) {
+        try {
+            let h = 0;
+            for (let i = 0; i < str.length; i++) {
+                h = (h << 5) - h + str.charCodeAt(i);
+                h |= 0;
+            }
+            return h;
+        } catch (_) {
+            return Math.random();
+        }
     }
 
     /**

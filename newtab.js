@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 onAction: handleContextAction
             });
         }
+        // Performance guards: pause animations when tab hidden; honor reduced motion
+        setupPerformanceGuards();
     } catch (error) {
         console.error('Error initializing dashboard:', error);
         // Show error message to user
@@ -161,6 +163,44 @@ async function initializeDashboard() {
         console.error('Error in initializeDashboard:', error);
         throw error;
     }
+}
+
+// Runtime performance guards to reduce CPU/GPU usage
+function setupPerformanceGuards() {
+    try {
+        // Default minimal animations on
+        document.body.classList.add('animations-minimal');
+        const applyVisibilityState = () => {
+            if (document.hidden) {
+                document.body.classList.add('paused-animations');
+            } else {
+                document.body.classList.remove('paused-animations');
+            }
+        };
+        document.addEventListener('visibilitychange', applyVisibilityState);
+        window.addEventListener('blur', () => {
+            document.body.classList.add('paused-animations');
+        });
+        window.addEventListener('focus', () => {
+            document.body.classList.remove('paused-animations');
+        });
+        applyVisibilityState();
+
+        // Honor user reduced-motion preference at runtime
+        const mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+        const applyReducedMotion = () => {
+            if (mq && mq.matches) {
+                document.body.classList.add('reduced-motion');
+            } else {
+                document.body.classList.remove('reduced-motion');
+            }
+        };
+        if (mq) {
+            if (mq.addEventListener) mq.addEventListener('change', applyReducedMotion);
+            else if (mq.addListener) mq.addListener(applyReducedMotion);
+            applyReducedMotion();
+        }
+    } catch (_) {}
 }
 
 async function applyBackgroundSettings(bgConfig) {
@@ -328,19 +368,28 @@ class ClockComponent {
         this.intervalId = null;
         this.timeElement = document.getElementById('time-display');
         this.dateElement = document.getElementById('date-display');
+        this._visBound = false;
+        this._onVisChange = null;
     }
 
     /**
      * Start the clock with real-time updates
      */
     start() {
-        // Update immediately
-        this.updateDisplay();
-
-        // Set up interval for updates
-        this.intervalId = setInterval(() => {
-            this.updateDisplay();
-        }, 1000);
+        this.resume();
+        if (!this._visBound) {
+            this._onVisChange = () => {
+                if (document.hidden) {
+                    this.stop();
+                } else {
+                    this.resume();
+                }
+            };
+            document.addEventListener('visibilitychange', this._onVisChange);
+            window.addEventListener('blur', this._onVisChange);
+            window.addEventListener('focus', this._onVisChange);
+            this._visBound = true;
+        }
     }
 
     /**
@@ -351,6 +400,19 @@ class ClockComponent {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
+    }
+
+    /**
+     * Resume periodic updates if not already running
+     */
+    resume() {
+        if (this.intervalId) return;
+        // Update immediately
+        this.updateDisplay();
+        // Set up interval for updates
+        this.intervalId = setInterval(() => {
+            this.updateDisplay();
+        }, 1000);
     }
 
     /**
