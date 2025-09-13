@@ -56,5 +56,12 @@
 	"exportSettings": { "message": "导出设置" },
 	"importSettings": { "message": "导入设置" },
 	"saveSettings": { "message": "保存设置" },
-	"resetSettings": { "message": "恢复默认" }
+	"resetSettings": { "message": "恢复默认" },
+	"autoArrangeIcons": { "message": "自动排列图标" },
+	"alignToGrid": { "message": "图标对齐网格" },
+	"iconLayout": { "message": "图标布局" },
+	"iconLayoutDesc": { "message": "桌面风格图标布局行为" },
+	"autoArrangeIconsDesc": { "message": "按行列自动重新排列图标" },
+	"alignToGridDesc": { "message": "拖拽释放后吸附到最近网格" },
+	"gridSize": { "message": "网格大小（像素）" }
 }

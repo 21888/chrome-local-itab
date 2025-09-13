@@ -1,3 +1,34 @@
+.shortcut-item.drag-free {
+	position: absolute;
+	z-index: 10;
+	opacity: 0.85;
+	transition: transform 120ms ease;
+}
+.shortcut-item.drop-target::after {
+	content: "";
+	position: absolute;
+	left: 0; top: 0; right: 0; bottom: 0;
+	border: 2px dashed rgba(255,255,255,0.6);
+	border-radius: 8px;
+}
+.shortcuts-grid.free-layout {
+	position: relative;
+	min-height: 320px;
+}
+
+.shortcuts-grid.free-layout .shortcut-item {
+	touch-action: none;
+}
+/* Disable transform-based animations and hovers in free layout */
+.shortcuts-grid.free-layout .shortcut-item,
+.shortcuts-grid.free-layout .shortcut-item:hover,
+.shortcuts-grid.free-layout .shortcut-icon,
+.shortcuts-grid.free-layout .shortcut-item:hover .shortcut-icon {
+	transition: none !important;
+}
+.shortcuts-grid.free-layout .shortcut-item:hover {
+	transform: none !important;
+}
 /* CSS Custom Properties for Comfortable Theming */
 :root {
     /* Comfortable Color Palette */

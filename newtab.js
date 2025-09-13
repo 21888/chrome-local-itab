@@ -54,6 +54,17 @@ async function handleContextAction(action, payload) {
             return;
         }
 
+        if (payload?.type === 'blank') {
+            const comp = window.shortcutsComponentInstance;
+            if (!comp) return;
+            if (action === 'layout_auto_arrange_toggle') {
+                await comp.setLayout({ autoArrange: !comp.layout?.autoArrange });
+            } else if (action === 'layout_align_grid_toggle') {
+                await comp.setLayout({ alignToGrid: !comp.layout?.alignToGrid });
+            }
+            return;
+        }
+
         if (payload?.type === 'site') {
             const comp = window.shortcutsComponentInstance;
             if (!comp) return;
@@ -139,7 +150,7 @@ async function initializeDashboard() {
 
 
         if (config.show.shortcuts) {
-            initializeShortcutsComponent(config.links);
+            initializeShortcutsComponent(config.links, config.layout);
         }
 
         // Initialize other components (always visible for now)
@@ -430,13 +441,28 @@ class ClockComponent {
 
 
 
-function initializeShortcutsComponent(linksConfig) {
+function initializeShortcutsComponent(linksConfig, layoutConfig) {
     const shortcutsContainer = document.getElementById('shortcuts-container');
     if (!shortcutsContainer) return;
 
     // Create shortcuts component
-    const shortcutsComponent = new ShortcutsComponent(linksConfig);
+    const shortcutsComponent = new ShortcutsComponent(linksConfig, layoutConfig);
     shortcutsComponent.render();
+
+    // Install a single capture listener to set default icon on error (CSP-safe)
+    const grid = document.getElementById('shortcuts-grid');
+    if (grid && !grid._iconErrorHandlerInstalled) {
+        grid.addEventListener('error', function(e) {
+            const target = e.target;
+            if (target && target.classList && target.classList.contains('shortcut-icon-img')) {
+                if (!target.dataset.fallbackApplied) {
+                    target.dataset.fallbackApplied = '1';
+                    target.src = 'assets/icon48.png';
+                }
+            }
+        }, true);
+        grid._iconErrorHandlerInstalled = true;
+    }
 }
 
 function initializeQuoteComponent(quote) {
@@ -454,12 +480,20 @@ function initializeQuoteComponent(quote) {
  * Handles shortcuts grid display and CRUD operations
  */
 class ShortcutsComponent {
-    constructor(links) {
+    constructor(links, layout) {
         this.links = links || [];
         this.container = document.getElementById('shortcuts-container');
         this.currentEditIndex = -1;
         this.modal = null;
         this.confirmDialog = null;
+        this._escListener = null;
+        this.layout = layout || { autoArrange: true, alignToGrid: true, gridSize: 96, positions: {} };
+        this.positions = (this.layout && this.layout.positions) || {};
+        this.gridEl = null;
+        this.dragState = null;
+        this._suppressClickUntil = 0;
+        this._dragMoved = false;
+        this._dragStartPos = null;
     }
 
     /**
@@ -476,6 +510,9 @@ class ShortcutsComponent {
 
         this.attachEventListeners();
         this.createModal();
+
+        this.gridEl = document.getElementById('shortcuts-grid');
+        this.applyLayoutMode();
 
         // 供分类导航使用
         window.shortcutsComponentInstance = this;
@@ -549,6 +586,11 @@ class ShortcutsComponent {
      * Handle grid click events
      */
     handleGridClick(e) {
+        if (this._suppressClickUntil && Date.now() < this._suppressClickUntil) {
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+        }
         // 统一从最近的按钮或卡片元素读取 data 属性，确保点击 SVG 子元素也能命中
         const actionBtn = e.target.closest('.shortcut-action-btn');
         const action = actionBtn?.dataset?.action || e.target.dataset.action;
@@ -707,6 +749,12 @@ class ShortcutsComponent {
                                         <path d="M6 12c0 1-1 1-1 1s-1 0-1-1 1-1 1-1 1 0 1 1z"/>
                                     </svg>
                                 </button>
+                                <button type="button" class="icon-fetch-btn" id="refresh-icon-btn" title="${(window.i18n && i18n.t('refreshIcon')) || 'Refresh icon from site'}" style="margin-left: 6px;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M23 4v6h-6"/>
+                                        <path d="M20.49 15A9 9 0 1 1 21 12"/>
+                                    </svg>
+                                </button>
                             </div>
                             <div class="form-hint">Enter an emoji, text, or click the button to auto-fetch the website's icon</div>
                         </div>
@@ -746,6 +794,30 @@ class ShortcutsComponent {
         const fetchIconBtn = this.modal.querySelector('#fetch-icon-btn');
         fetchIconBtn.addEventListener('click', () => this.fetchWebsiteIcon());
 
+        // Refresh icon button: clear site+URL cache and force next load to fetch again
+        const refreshIconBtn = this.modal.querySelector('#refresh-icon-btn');
+        if (refreshIconBtn) {
+            refreshIconBtn.addEventListener('click', async () => {
+                try {
+                    const urlInput = this.modal.querySelector('#shortcut-url');
+                    const iconInput = this.modal.querySelector('#shortcut-icon');
+                    const rawUrl = (urlInput?.value || '').trim();
+                    if (!rawUrl) return;
+                    if (window.faviconCache) {
+                        const origin = window.faviconCache.getOriginFromUrl(rawUrl);
+                        if (origin) await window.faviconCache.invalidate(origin);
+                        const iconVal = (iconInput?.value || '').trim();
+                        if (iconVal && (iconVal.startsWith('http://') || iconVal.startsWith('https://'))) {
+                            await window.faviconCache.invalidateByUrl(iconVal);
+                        }
+                    }
+                    // Also clear current icon field so user can重新获取
+                    iconInput.value = '';
+                    showErrorMessage('Icon cache cleared. Click auto-fetch to get a new one.');
+                } catch (e) {}
+            });
+        }
+
         // Form submission
         const form = this.modal.querySelector('#shortcut-form');
         form.addEventListener('submit', (e) => this.handleFormSubmit(e));
@@ -757,12 +829,16 @@ class ShortcutsComponent {
             }
         });
 
-        // Escape key to close
-        document.addEventListener('keydown', (e) => {
+        // Escape key to close (avoid duplicate listeners)
+        if (this._escListener) {
+            document.removeEventListener('keydown', this._escListener);
+        }
+        this._escListener = (e) => {
             if (e.key === 'Escape' && this.modal.classList.contains('active')) {
                 this.hideModal();
             }
-        });
+        };
+        document.addEventListener('keydown', this._escListener);
     }
 
     updateCategoryOptions() {
@@ -793,7 +869,7 @@ class ShortcutsComponent {
             return;
         }
 
-        // Save shortcut
+        // Save shortcut WITHOUT overwriting user's original icon field
         const shortcut = { title, url, icon, category };
 
         if (this.currentEditIndex >= 0) {
@@ -803,6 +879,14 @@ class ShortcutsComponent {
             // Add new shortcut
             this.links.push(shortcut);
         }
+
+        // Prefetch favicon to ensure cache is warmed for future loads (does not change stored icon)
+        try {
+            if (window.faviconCache) {
+                const origin = window.faviconCache.getOriginFromUrl(url);
+                if (origin) await window.faviconCache.prefetch(origin);
+            }
+        } catch (_) {}
 
         // Save to storage
         try {
@@ -883,6 +967,8 @@ class ShortcutsComponent {
             element.textContent = '';
         });
     }
+
+    // (Removed) automatic replacement of stored icon URLs to data URLs to preserve original icon values
 
     /**
      * Confirm delete shortcut
@@ -989,7 +1075,360 @@ class ShortcutsComponent {
         const grid = document.getElementById('shortcuts-grid');
         if (grid) {
             grid.innerHTML = this.renderShortcuts();
+            this.gridEl = grid;
+            this.applyLayoutMode();
         }
+    }
+
+    applyLayoutMode() {
+        const grid = this.gridEl;
+        if (!grid) return;
+        if (this.layout?.autoArrange) {
+            grid.classList.remove('free-layout');
+            // reset inline positions if any
+            grid.querySelectorAll('.shortcut-item').forEach(el => {
+                el.style.position = '';
+                el.style.transform = '';
+                el.style.left = '';
+                el.style.top = '';
+            });
+            this.detachFreeDrag();
+        } else {
+            grid.classList.add('free-layout');
+            // If we already have positions, just apply to visible; otherwise capture current visible positions as baseline
+            if (this.positions && Object.keys(this.positions).length > 0) {
+                this.applyVisibleTransformsFromPositions();
+            } else {
+                this.captureVisiblePositionsWithoutMove(true);
+            }
+            this.positionAddTile();
+            this.attachFreeDrag();
+        }
+    }
+
+    // Ensure items have initial positions in grid layout (non-overlapping)
+    layoutGridizeMissing() {
+        const grid = this.gridEl;
+        if (!grid) return;
+        const gs = Math.max(48, Math.min(240, this.layout.gridSize || 96));
+        const rect = grid.getBoundingClientRect();
+        const maxCols = Math.max(1, Math.floor(rect.width / gs));
+        const occupied = new Set();
+
+        const currentCategory = this.getCurrentCategory();
+        const items = Array.from(grid.querySelectorAll('.shortcut-item'));
+        items.forEach((el, idx) => {
+            const link = this.links[idx];
+            if (!el || el.classList.contains('add-shortcut')) return;
+            if (el.style.display === 'none') return; // skip hidden in current category
+            const key = this.getPositionKey(link, currentCategory);
+            let pos = this.positions[key];
+            if (!pos) {
+                // find next free cell
+                let r = 0, c = 0;
+                while (occupied.has(`${c}:${r}`)) {
+                    c++;
+                    if (c >= maxCols) { c = 0; r++; }
+                }
+                pos = { x: c * gs, y: r * gs };
+                occupied.add(`${c}:${r}`);
+                this.positions[key] = pos;
+            }
+            el.style.position = 'absolute';
+            el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
+        });
+        this.saveLayoutDebounced();
+    }
+
+    getPositionKey(link, category) {
+        const urlKey = (link && link.url) || `idx_${this.links.indexOf(link)}`;
+        const cat = category || this.getCurrentCategory();
+        return `${cat || 'all'}|${urlKey}`;
+    }
+
+    getCurrentCategory() {
+        try {
+            return window.categoryNavigation?.getCurrentCategory?.() || 'all';
+        } catch (_) {
+            return 'all';
+        }
+    }
+
+    attachFreeDrag() {
+        if (!this.gridEl || this._freeDragAttached) return;
+        this._onPointerDown = (e) => this.onPointerDown(e);
+        this.gridEl.addEventListener('pointerdown', this._onPointerDown);
+        // Prevent native drag of images inside shortcuts to allow dragging by icon
+        this.gridEl.addEventListener('dragstart', function(e) {
+            const img = e.target.closest('.shortcut-icon-img');
+            if (img) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+        this._freeDragAttached = true;
+    }
+
+    detachFreeDrag() {
+        if (this.gridEl && this._freeDragAttached) {
+            this.gridEl.removeEventListener('pointerdown', this._onPointerDown);
+            this._freeDragAttached = false;
+        }
+    }
+
+    onPointerDown(e) {
+        const item = e.target.closest('.shortcut-item');
+        if (!item || item.classList.contains('add-shortcut')) return;
+        if (!this.gridEl.contains(item)) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const idx = parseInt(item.dataset.index, 10);
+        const link = this.links[idx];
+        const key = this.getPositionKey(link);
+        const gs = Math.max(48, Math.min(240, this.layout.gridSize || 96));
+        const gridRect = this.gridEl.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const origLeft = itemRect.left - gridRect.left;
+        const origTop = itemRect.top - gridRect.top;
+        const offsetX = startX - itemRect.left;
+        const offsetY = startY - itemRect.top;
+
+        item.classList.add('drag-free');
+        this._dragStartPos = { x: startX, y: startY };
+        this._dragMoved = false;
+
+        // capture pointer to receive move events even if pointer leaves element
+        try { item.setPointerCapture?.(e.pointerId); } catch (_) {}
+
+        const onMove = (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const x = ev.clientX - gridRect.left - offsetX;
+            const y = ev.clientY - gridRect.top - offsetY;
+            const clamped = this.clampToBounds(x, y, itemRect.width, itemRect.height, gridRect.width, gridRect.height);
+            item.style.left = `${clamped.x}px`;
+            item.style.top = `${clamped.y}px`;
+            item.style.transform = 'none';
+            if (!this._dragMoved && this._dragStartPos) {
+                const dx = Math.abs(ev.clientX - this._dragStartPos.x);
+                const dy = Math.abs(ev.clientY - this._dragStartPos.y);
+                if (dx > 3 || dy > 3) this._dragMoved = true;
+            }
+        };
+        const onUp = (ev) => {
+            document.removeEventListener('pointermove', onMove);
+            document.removeEventListener('pointerup', onUp);
+            ev.preventDefault();
+            ev.stopPropagation();
+            // read back via inline left/top
+            const curX = isFinite(parseFloat(item.style.left)) ? parseFloat(item.style.left) : origLeft;
+            const curY = isFinite(parseFloat(item.style.top)) ? parseFloat(item.style.top) : origTop;
+            const finalLeft = isFinite(curX) ? curX : origLeft;
+            const finalTop = isFinite(curY) ? curY : origTop;
+
+            let target = { x: finalLeft, y: finalTop };
+            if (this.layout.alignToGrid) {
+                target = this.snapToGrid(target.x, target.y, gs);
+                const resolved = this.avoidOverlap(target.x, target.y, gs, gridRect.width);
+                target = resolved;
+            }
+            item.style.left = `${target.x}px`;
+            item.style.top = `${target.y}px`;
+            item.style.transform = 'none';
+            item.classList.remove('drag-free');
+
+            this.positions[key] = { x: target.x, y: target.y };
+            this.saveLayoutDebounced();
+
+            if (this._dragMoved) {
+                this._suppressClickUntil = Date.now() + 500;
+            }
+            this._dragMoved = false;
+            this._dragStartPos = null;
+        };
+        document.addEventListener('pointermove', onMove, { passive: false });
+        document.addEventListener('pointerup', onUp, { once: true });
+    }
+
+    clampToBounds(x, y, w, h, W, H) {
+        const nx = Math.max(0, Math.min(x, Math.max(0, W - w)));
+        const ny = Math.max(0, Math.min(y, Math.max(0, H - h)));
+        return { x: nx, y: ny };
+    }
+
+    snapToGrid(x, y, gs) {
+        const cx = Math.round(x / gs) * gs;
+        const cy = Math.round(y / gs) * gs;
+        return { x: Math.max(0, cx), y: Math.max(0, cy) };
+    }
+
+    avoidOverlap(x, y, gs, gridWidth) {
+        // Build occupancy from current positions
+        const occupied = new Set();
+        const currentCategory = this.getCurrentCategory();
+        const visibleKeys = new Set();
+        const grid = this.gridEl;
+        if (grid) {
+            Array.from(grid.querySelectorAll('.shortcut-item')).forEach((el, idx) => {
+                if (!el || el.classList.contains('add-shortcut')) return;
+                if (el.style.display === 'none') return;
+                const link = this.links[idx];
+                visibleKeys.add(this.getPositionKey(link, currentCategory));
+            });
+        }
+        for (const key of Object.keys(this.positions)) {
+            if (!visibleKeys.has(key)) continue;
+            const p = this.positions[key];
+            const c = Math.round(p.x / gs);
+            const r = Math.round(p.y / gs);
+            occupied.add(`${c}:${r}`);
+        }
+        let c0 = Math.round(x / gs);
+        let r0 = Math.round(y / gs);
+        const maxCols = Math.max(1, Math.floor(gridWidth / gs));
+        const keyCell = `${c0}:${r0}`;
+        if (!occupied.has(keyCell)) return { x: c0 * gs, y: r0 * gs };
+        // spiral search
+        const dirs = [ [1,0], [0,1], [-1,0], [0,-1] ];
+        let step = 1;
+        let c = c0, r = r0;
+        while (step < 200) {
+            for (let d=0; d<4; d++) {
+                const [dx, dy] = dirs[d];
+                const len = (d % 2 === 0) ? step : step;
+                for (let i=0; i<len; i++) {
+                    c += dx; r += dy;
+                    if (c < 0) c = 0;
+                    if (c >= maxCols) c = maxCols - 1;
+                    const cell = `${c}:${r}`;
+                    if (!occupied.has(cell)) return { x: c * gs, y: r * gs };
+                }
+            }
+            step++;
+        }
+        return { x: c0 * gs, y: (r0+1) * gs };
+    }
+
+    async setLayout(newLayout) {
+        const prevAuto = !!this.layout?.autoArrange;
+        this.layout = { ...this.layout, ...newLayout };
+        if (newLayout.autoArrange) {
+            // when turning on auto arrange, clear positions
+            this.positions = {};
+            this.layout.positions = {};
+        } else {
+            // Turning auto arrange OFF: freeze current visible positions as baseline without moving/snapping
+            // Defer capture to applyLayoutMode so parent grid has free-layout (position: relative)
+            this.layout.positions = this.positions;
+        }
+        try { await storageManager.set('layout', this.layout); } catch (_) {}
+        this.applyLayoutMode();
+    }
+
+    saveLayoutDebounced() {
+        clearTimeout(this._saveLayoutTimer);
+        this._saveLayoutTimer = setTimeout(async () => {
+            try {
+                const merged = { ...this.layout, positions: this.positions };
+                await storageManager.set('layout', merged);
+            } catch (_) {}
+        }, 250);
+    }
+
+    reflowVisibleLayout() {
+        if (this.layout?.autoArrange) return; // grid mode does not require reflow here
+        if (this.positions && Object.keys(this.positions).length > 0) {
+            this.applyVisibleTransformsFromPositions();
+            this.positionAddTile();
+        } else {
+            this.captureVisiblePositionsWithoutMove(true);
+        }
+    }
+
+    // Capture current visible items' positions relative to grid without moving them,
+    // two-phase: compute all positions first, then apply absolute left/top to avoid reflow side-effects
+    captureVisiblePositionsWithoutMove(persist) {
+        const grid = this.gridEl;
+        if (!grid) return;
+        const currentCategory = this.getCurrentCategory();
+        const gridRect = grid.getBoundingClientRect();
+        const items = Array.from(grid.querySelectorAll('.shortcut-item'));
+        const computed = [];
+        items.forEach((el, idx) => {
+            if (!el || el.classList.contains('add-shortcut')) return;
+            if (el.style.display === 'none') return;
+            const link = this.links[idx];
+            const key = this.getPositionKey(link, currentCategory);
+            const r = el.getBoundingClientRect();
+            const x = r.left - gridRect.left;
+            const y = r.top - gridRect.top;
+            computed.push({ el, key, x, y });
+        });
+        // Apply in second pass to avoid moving items during measurement
+        computed.forEach(({ el, key, x, y }) => {
+            el.style.position = 'absolute';
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            el.style.transform = 'none';
+            this.positions[key] = { x, y };
+        });
+        if (persist) {
+            try {
+                const merged = { ...this.layout, positions: this.positions };
+                storageManager.set('layout', merged);
+            } catch (_) {}
+        }
+    }
+
+    // Apply saved positions to visible items only (no snapping, no animation)
+    applyVisibleTransformsFromPositions() {
+        const grid = this.gridEl;
+        if (!grid) return;
+        const currentCategory = this.getCurrentCategory();
+        const items = Array.from(grid.querySelectorAll('.shortcut-item'));
+        items.forEach((el, idx) => {
+            if (!el || el.classList.contains('add-shortcut')) return;
+            if (el.style.display === 'none') return;
+            const link = this.links[idx];
+            const key = this.getPositionKey(link, currentCategory);
+            const pos = this.positions[key];
+            if (!pos) return;
+            el.style.position = 'absolute';
+            el.style.left = `${pos.x}px`;
+            el.style.top = `${pos.y}px`;
+            el.style.transform = 'none';
+        });
+    }
+
+    positionAddTile() {
+        const grid = this.gridEl;
+        if (!grid) return;
+        const addEl = grid.querySelector('.shortcut-item.add-shortcut');
+        if (!addEl) return;
+        const currentCategory = this.getCurrentCategory();
+        const gs = Math.max(48, Math.min(240, this.layout.gridSize || 96));
+        let maxY = -gs;
+        let found = false;
+        Array.from(grid.querySelectorAll('.shortcut-item')).forEach((el, idx) => {
+            if (!el || el.classList.contains('add-shortcut')) return;
+            if (el.style.display === 'none') return;
+            const link = this.links[idx];
+            const key = this.getPositionKey(link, currentCategory);
+            const pos = this.positions[key];
+            if (pos) {
+                found = true;
+                if (pos.y > maxY) maxY = pos.y;
+            }
+        });
+        const targetX = 0;
+        const targetY = found ? (maxY + gs) : 0;
+        addEl.style.position = 'absolute';
+        addEl.style.left = `${targetX}px`;
+        addEl.style.top = `${targetY}px`;
+        addEl.style.transform = 'none';
     }
 
     /**
@@ -1082,7 +1521,7 @@ class ShortcutsComponent {
         }
         
         // --- 核心排序逻辑 ---
-        // 1. 从数组中把被拖拽的元素“拿出来”
+        // 1. 从数组中把被拖拽的元素"拿出来"
         const itemToMove = this.links.splice(draggedIndex, 1)[0];
         // 2. 把拿出来的元素插入到目标位置
         this.links.splice(dropIndex, 0, itemToMove);
@@ -1215,12 +1654,36 @@ class ShortcutsComponent {
     renderIcon(icon, url) {
         if (!icon) return '🌐';
 
-        // Support data URL or remote http(s) icon URL
-        if (icon.startsWith('data:image/') || icon.startsWith('http://') || icon.startsWith('https://')) {
-            return `<img src="${icon}" alt="Site icon" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`;
+        const imgAttrs = 'style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" loading="lazy" decoding="async" referrerpolicy="no-referrer"';
+
+        // Treat tiny data URLs as invalid (likely 1x1 placeholders)
+        if (icon.startsWith('data:image/')) {
+            if (icon.length < 200) {
+                // fall through to cache/remote resolution below
+            } else {
+                return `<img class="shortcut-icon-img" src="${icon}" alt="Site icon" ${imgAttrs}>`;
+            }
         }
 
-        // Try favicon cache with URL origin
+        // Remote URL provided by user: try URL-based cache first; fallback to rendering remote URL
+        if (icon.startsWith('http://') || icon.startsWith('https://')) {
+            if (window.faviconCache) {
+                window.faviconCache.getIconDataUrlByUrl(icon).then((dataUrl) => {
+                    if (!dataUrl || (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/') && dataUrl.length < 200)) return;
+                    const grid = document.getElementById('shortcuts-grid');
+                    if (!grid) return;
+                    const idx = this.links.findIndex(l => l.url === url);
+                    if (idx >= 0) {
+                        const slot = grid.querySelector(`.shortcut-item[data-index="${idx}"] .shortcut-icon`);
+                        if (slot) slot.innerHTML = `<img class=\"shortcut-icon-img\" src=\"${dataUrl}\" alt=\"icon\" ${imgAttrs}>`;
+                    }
+                });
+            }
+            // Render remote URL immediately for UX; background cache will handle future loads
+            return `<img class="shortcut-icon-img" src="${icon}" alt="Site icon" ${imgAttrs}>`;
+        }
+
+        // Otherwise, it's emoji/text or invalid data URL; try cache by URL origin first
         if (window.faviconCache && url) {
             const origin = window.faviconCache.getOriginFromUrl(url);
             if (origin) {
@@ -1231,13 +1694,21 @@ class ShortcutsComponent {
                     const idx = this.links.findIndex(l => l.url === url);
                     if (idx >= 0) {
                         const slot = grid.querySelector(`.shortcut-item[data-index="${idx}"] .shortcut-icon`);
-                        if (slot) slot.innerHTML = `<img src="${dataUrl}" alt="icon" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;">`;
+                        if (slot) slot.innerHTML = `<img class=\"shortcut-icon-img\" src=\"${dataUrl}\" alt=\"icon\" ${imgAttrs}>`;
                     }
                 });
             }
         }
 
-        // Otherwise, it's emoji or text
+        // As a last resort, build a Google S2 URL from page URL
+        try {
+            if (url) {
+                const u = new URL(url.startsWith('http') ? url : 'https://' + url);
+                const s2 = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
+                return `<img class="shortcut-icon-img" src="${s2}" alt="Site icon" ${imgAttrs}>`;
+            }
+        } catch (_) {}
+
         return this.escapeHtml(icon);
     }
 
@@ -1286,7 +1757,8 @@ class ShortcutsComponent {
         try {
             // 方式一：直接用 Google S2 获取 icon；并尝试抓取页面标题
             const faviconUrl = `https://www.google.com/s2/favicons?domain=${validUrl.hostname}&sz=64`;
-            iconInput.value = faviconUrl;
+            const s2DataUrl = await this.fetchFaviconAsDataUrl(faviconUrl);
+            iconInput.value = s2DataUrl || faviconUrl;
 
             // 方式二：尝试抓取网页 HTML，解析 <title> 与 <link rel="icon">
             // 说明：在扩展页面中 fetch 跨域网站通常受限，不保证都成功；尽力而为
@@ -1326,7 +1798,8 @@ class ShortcutsComponent {
                     // 处理相对路径
                     try {
                         const absUrl = new URL(href, validUrl).toString();
-                        iconInput.value = absUrl;
+                        const absDataUrl = await this.fetchFaviconAsDataUrl(absUrl);
+                        iconInput.value = absDataUrl || absUrl;
                     } catch (_) { }
                 }
             }
@@ -1490,6 +1963,8 @@ class CategoryNavigation {
                 item.style.display = 'none';
             }
         });
+        // trigger layout reflow in free layout mode to avoid chaos when switching categories
+        try { window.shortcutsComponentInstance?.reflowVisibleLayout?.(); } catch (_) {}
     }
 
     getCurrentCategory() {

@@ -81,6 +81,14 @@ async function populateFormFields(config) {
     // Quote setting
     const quoteInput = document.getElementById('quote-text');
     if (quoteInput) quoteInput.value = config.quote;
+
+    // Layout settings
+    const autoArrange = document.getElementById('layout-auto-arrange');
+    const alignGrid = document.getElementById('layout-align-grid');
+    const gridSizeInput = document.getElementById('layout-grid-size');
+    if (autoArrange) autoArrange.checked = !!config.layout?.autoArrange;
+    if (alignGrid) alignGrid.checked = !!config.layout?.alignToGrid;
+    if (gridSizeInput) gridSizeInput.value = config.layout?.gridSize || 96;
 }
 
 function setupCategoryManagement(categories = []) {
@@ -406,6 +414,18 @@ async function collectFormData() {
     
     // Get existing data for fields not managed in options page
     settings.links = existingConfig.links;
+
+    // Layout settings
+    const autoArrange = document.getElementById('layout-auto-arrange')?.checked ?? existingConfig.layout.autoArrange;
+    const alignToGrid = document.getElementById('layout-align-grid')?.checked ?? existingConfig.layout.alignToGrid;
+    const gridSizeVal = parseInt(document.getElementById('layout-grid-size')?.value, 10);
+    const gridSize = Number.isFinite(gridSizeVal) ? gridSizeVal : existingConfig.layout.gridSize;
+    settings.layout = {
+        autoArrange,
+        alignToGrid,
+        gridSize,
+        positions: existingConfig.layout.positions || {}
+    };
     
     return settings;
 }

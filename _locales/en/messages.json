@@ -56,5 +56,12 @@
 	"exportSettings": { "message": "Export Settings" },
 	"importSettings": { "message": "Import Settings" },
 	"saveSettings": { "message": "Save Settings" },
-	"resetSettings": { "message": "Reset to Defaults" }
+	"resetSettings": { "message": "Reset to Defaults" },
+	"autoArrangeIcons": { "message": "Auto arrange icons" },
+	"alignToGrid": { "message": "Align to grid" },
+	"iconLayout": { "message": "Icon Layout" },
+	"iconLayoutDesc": { "message": "Desktop-style icon layout behavior" },
+	"autoArrangeIconsDesc": { "message": "Reflow icons by rows and columns" },
+	"alignToGridDesc": { "message": "Snap icons to nearest grid on drop" },
+	"gridSize": { "message": "Grid size (px)" }
 }

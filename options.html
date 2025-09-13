@@ -133,6 +133,40 @@
                 </div>
             </section>
 
+            <!-- Icon Layout Settings -->
+            <section class="settings-section" id="layout-settings">
+                <div class="section-header">
+                    <h2 class="section-title">🖥️ <span data-i18n="iconLayout">Icon Layout</span></h2>
+                    <p class="section-description" data-i18n="iconLayoutDesc">Desktop-style icon layout behavior</p>
+                </div>
+                <div class="settings-grid">
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <input type="checkbox" id="layout-auto-arrange" class="setting-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <div class="setting-info">
+                                <span class="setting-name" data-i18n="autoArrangeIcons">Auto arrange icons</span>
+                                <span class="setting-desc" data-i18n="autoArrangeIconsDesc">Reflow icons by rows and columns</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <input type="checkbox" id="layout-align-grid" class="setting-checkbox">
+                            <span class="checkbox-custom"></span>
+                            <div class="setting-info">
+                                <span class="setting-name" data-i18n="alignToGrid">Align to grid</span>
+                                <span class="setting-desc" data-i18n="alignToGridDesc">Snap icons to nearest grid on drop</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="setting-group">
+                        <label class="form-label" for="layout-grid-size" data-i18n="gridSize">Grid size (px)</label>
+                        <input type="number" id="layout-grid-size" class="form-input" min="48" max="240" step="12" value="96">
+                    </div>
+                </div>
+            </section>
+
             <!-- Category Management -->
             <section class="settings-section" id="category-settings">
                 <div class="section-header">

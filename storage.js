@@ -52,7 +52,13 @@ class StorageManager {
                 note: 'A great movie to watch',
                 poster: ''
             },
-            quote: 'Welcome to your personalized new tab page!'
+            quote: 'Welcome to your personalized new tab page!',
+            layout: {
+                autoArrange: true,
+                alignToGrid: true,
+                gridSize: 96,
+                positions: {}
+            }
         };
     }
 
@@ -270,6 +276,8 @@ class StorageManager {
                     return this.validateMovieConfig(value);
                 case 'quote':
                     return this.validateQuoteConfig(value);
+                case 'layout':
+                    return this.validateLayoutConfig(value);
                 default:
                     return value;
             }
@@ -453,6 +461,25 @@ class StorageManager {
         }
         
         return value.trim() || this.defaultConfig.quote;
+    }
+
+    /**
+     * Validate layout configuration
+     */
+    validateLayoutConfig(value) {
+        if (typeof value !== 'object' || value === null) {
+            throw new Error('Layout config must be an object');
+        }
+
+        const autoArrange = typeof value.autoArrange === 'boolean' ? value.autoArrange : this.defaultConfig.layout.autoArrange;
+        const alignToGrid = typeof value.alignToGrid === 'boolean' ? value.alignToGrid : this.defaultConfig.layout.alignToGrid;
+        let gridSize = typeof value.gridSize === 'number' ? value.gridSize : this.defaultConfig.layout.gridSize;
+        if (!Number.isFinite(gridSize) || gridSize < 48) gridSize = 48;
+        if (gridSize > 240) gridSize = 240;
+
+        const positions = (value.positions && typeof value.positions === 'object') ? value.positions : {};
+
+        return { autoArrange, alignToGrid, gridSize, positions };
     }
 }
 

@@ -50,6 +50,14 @@
 	color: inherit;
 }
 
+.context-menu .ctx-item[role="menuitemcheckbox"] {
+	gap: 8px;
+}
+.context-menu .ctx-item .ctx-checkbox {
+	width: 16px;
+	text-align: center;
+}
+
 .context-menu .ctx-item:hover {
 	background: rgba(255,255,255,0.08);
 }

@@ -155,6 +155,32 @@
 		return null;
 	}
 
+	// --- URL-based cache helpers ---
+	// Use the same IDB store but key with the absolute icon URL string
+	async function getIconDataUrlByUrl(iconUrl) {
+		if (!iconUrl) return null;
+		const rec = await idbGet(iconUrl);
+		const now = Date.now();
+		if (rec && rec.dataUrl && (now - (rec.updatedAt || 0)) < MAX_AGE_MS) {
+			return rec.dataUrl;
+		}
+		const du = await fetchAsDataUrl(iconUrl);
+		if (du) {
+			await idbSet({ origin: iconUrl, dataUrl: du, updatedAt: now });
+			return du;
+		}
+		return null;
+	}
+
+	async function prefetchByUrl(iconUrl) {
+		const du = await fetchAsDataUrl(iconUrl);
+		if (du) await idbSet({ origin: iconUrl, dataUrl: du, updatedAt: Date.now() });
+	}
+
+	async function invalidateByUrl(iconUrl) {
+		await idbDelete(iconUrl);
+	}
+
 	async function prefetch(origin) {
 		const du = await tryFetchFavicon(origin);
 		if (du) await idbSet({ origin, dataUrl: du, updatedAt: Date.now() });
@@ -164,6 +190,6 @@
 		await idbDelete(origin);
 	}
 
-	window.faviconCache = { getIconDataUrl, prefetch, invalidate, getOriginFromUrl };
+	window.faviconCache = { getIconDataUrl, prefetch, invalidate, getOriginFromUrl, getIconDataUrlByUrl, prefetchByUrl, invalidateByUrl };
 })();
 
