@@ -556,6 +556,7 @@ class ShortcutsComponent {
         this._suppressClickUntil = 0;
         this._dragMoved = false;
         this._dragStartPos = null;
+        this._isSaving = false;
     }
 
     /**
@@ -736,6 +737,8 @@ class ShortcutsComponent {
         this.updateCategoryOptions();
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
+        this.setSavingState(false);
+
         modalTitle.textContent = title;
         titleInput.value = currentTitle;
         urlInput.value = currentUrl;
@@ -764,6 +767,7 @@ class ShortcutsComponent {
         if (this.modal) {
             this.modal.classList.remove('active');
             this.currentEditIndex = -1;
+            this.setSavingState(false);
         }
     }
 
@@ -916,6 +920,8 @@ class ShortcutsComponent {
     async handleFormSubmit(e) {
         e.preventDefault();
 
+        if (this._isSaving) return;
+
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
         const iconInput = this.modal.querySelector('#shortcut-icon');
@@ -930,6 +936,8 @@ class ShortcutsComponent {
         if (!this.validateForm(title, url)) {
             return;
         }
+
+        this.setSavingState(true);
 
         // Save shortcut WITHOUT overwriting user's original icon field
         const shortcut = { title, url, icon, category };
@@ -961,6 +969,17 @@ class ShortcutsComponent {
         } catch (error) {
             console.error('Error saving shortcut:', error);
             this.showFormError('url', ((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.'));
+        } finally {
+            this.setSavingState(false);
+        }
+    }
+
+    setSavingState(isSaving) {
+        this._isSaving = !!isSaving;
+        const saveBtn = this.modal?.querySelector('#save-btn');
+        if (saveBtn) {
+            saveBtn.disabled = this._isSaving;
+            saveBtn.classList.toggle('is-disabled', this._isSaving);
         }
     }
 
