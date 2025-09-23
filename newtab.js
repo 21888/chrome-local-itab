@@ -549,8 +549,16 @@ class ShortcutsComponent {
         this.modal = null;
         this.confirmDialog = null;
         this._escListener = null;
-        this.layout = layout || { autoArrange: true, alignToGrid: true, gridSize: 96, positions: {} };
-        this.positions = (this.layout && this.layout.positions) || {};
+        const defaultColumns = storageManager?.defaultConfig?.layout?.columns ?? 6;
+        const defaultLayout = { autoArrange: true, alignToGrid: true, gridSize: 96, columns: defaultColumns, positions: {} };
+        this.layout = { ...defaultLayout, ...(layout || {}) };
+        this.defaultColumns = defaultLayout.columns;
+        const sanitizedColumns = this.sanitizeColumns(this.layout.columns);
+        this.layout.columns = sanitizedColumns ?? this.defaultColumns;
+        this.positions = (this.layout && typeof this.layout.positions === 'object') ? this.layout.positions : {};
+        if (!this.layout.positions || typeof this.layout.positions !== 'object') {
+            this.layout.positions = this.positions;
+        }
         this.gridEl = null;
         this.dragState = null;
         this._suppressClickUntil = 0;
@@ -1164,6 +1172,7 @@ class ShortcutsComponent {
     applyLayoutMode() {
         const grid = this.gridEl;
         if (!grid) return;
+        this.applyAutoColumns();
         if (this.layout?.autoArrange) {
             grid.classList.remove('free-layout');
             // reset inline positions if any
@@ -1184,6 +1193,40 @@ class ShortcutsComponent {
             }
             this.positionAddTile();
             this.attachFreeDrag();
+        }
+    }
+
+    sanitizeColumns(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return null;
+        const rounded = Math.round(num);
+        if (rounded < 1) return 1;
+        if (rounded > 10) return 10;
+        return rounded;
+    }
+
+    getColumnsSetting() {
+        const sanitized = this.sanitizeColumns(this.layout?.columns);
+        if (sanitized == null) {
+            return null;
+        }
+        return sanitized;
+    }
+
+    applyAutoColumns() {
+        if (!this.gridEl) return;
+        if (!this.layout?.autoArrange) {
+            this.gridEl.classList.remove('columns-fixed');
+            this.gridEl.style.removeProperty('--shortcuts-columns');
+            return;
+        }
+        const columns = this.getColumnsSetting();
+        if (columns) {
+            this.gridEl.classList.add('columns-fixed');
+            this.gridEl.style.setProperty('--shortcuts-columns', columns);
+        } else {
+            this.gridEl.classList.remove('columns-fixed');
+            this.gridEl.style.removeProperty('--shortcuts-columns');
         }
     }
 
@@ -1395,6 +1438,15 @@ class ShortcutsComponent {
 
     async setLayout(newLayout) {
         const prevAuto = !!this.layout?.autoArrange;
+        if (newLayout && Object.prototype.hasOwnProperty.call(newLayout, 'columns')) {
+            const sanitizedColumns = this.sanitizeColumns(newLayout.columns);
+            if (sanitizedColumns != null) {
+                newLayout = { ...newLayout, columns: sanitizedColumns };
+            } else {
+                const { columns, ...rest } = newLayout;
+                newLayout = rest;
+            }
+        }
         this.layout = { ...this.layout, ...newLayout };
         if (newLayout.autoArrange) {
             // when turning on auto arrange, clear positions
@@ -1404,6 +1456,12 @@ class ShortcutsComponent {
             // Turning auto arrange OFF: freeze current visible positions as baseline without moving/snapping
             // Defer capture to applyLayoutMode so parent grid has free-layout (position: relative)
             this.layout.positions = this.positions;
+        }
+        const ensuredColumns = this.getColumnsSetting();
+        if (ensuredColumns != null) {
+            this.layout.columns = ensuredColumns;
+        } else {
+            delete this.layout.columns;
         }
         try { await storageManager.set('layout', this.layout); } catch (_) {}
         this.applyLayoutMode();

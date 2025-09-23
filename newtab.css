@@ -477,14 +477,26 @@ body.bg-api::before {
 }
 
 .shortcuts-grid {
+    --shortcuts-tile-min-width: 86px;
+    --shortcuts-row-gap: 16px;
+    --shortcuts-column-gap: 22px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--shortcuts-tile-min-width), 1fr));
     grid-auto-rows: auto;
-    gap: 16px 22px;
+    gap: var(--shortcuts-row-gap) var(--shortcuts-column-gap);
     flex: 0;
     padding: var(--spacing-lg) 0;
     align-items: start;
     justify-items: center;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.shortcuts-grid.columns-fixed {
+    max-width: calc(
+        var(--shortcuts-tile-min-width) * var(--shortcuts-columns) +
+        var(--shortcuts-column-gap) * (var(--shortcuts-columns) - 1)
+    );
 }
 
 .shortcut-item {
@@ -1899,9 +1911,10 @@ select.form-input option {
 /* Responsive Design */
 @media (max-width: 1200px) {
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        --shortcuts-tile-min-width: 260px;
+        --shortcuts-row-gap: var(--spacing-lg);
+        --shortcuts-column-gap: var(--spacing-lg);
         grid-auto-rows: 160px;
-        gap: var(--spacing-lg);
     }
 }
 
@@ -1949,9 +1962,10 @@ select.form-input option {
     }
     
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        --shortcuts-tile-min-width: 240px;
+        --shortcuts-row-gap: var(--spacing-md);
+        --shortcuts-column-gap: var(--spacing-md);
         grid-auto-rows: 140px;
-        gap: var(--spacing-md);
     }
     
     .shortcut-item {
@@ -2078,9 +2092,10 @@ select.form-input option {
     
     /* Shortcuts responsive design */
     .shortcuts-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        --shortcuts-tile-min-width: 150px;
+        --shortcuts-row-gap: var(--spacing-sm);
+        --shortcuts-column-gap: var(--spacing-sm);
         grid-auto-rows: 120px;
-        gap: var(--spacing-sm);
     }
     
     .shortcuts-header {

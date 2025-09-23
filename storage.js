@@ -57,6 +57,7 @@ class StorageManager {
                 autoArrange: true,
                 alignToGrid: true,
                 gridSize: 96,
+                columns: 6,
                 positions: {}
             }
         };
@@ -477,9 +478,15 @@ class StorageManager {
         if (!Number.isFinite(gridSize) || gridSize < 48) gridSize = 48;
         if (gridSize > 240) gridSize = 240;
 
+        let columns = typeof value.columns === 'number' ? value.columns : this.defaultConfig.layout.columns;
+        if (!Number.isFinite(columns)) columns = this.defaultConfig.layout.columns;
+        columns = Math.round(columns);
+        if (columns < 1) columns = 1;
+        if (columns > 10) columns = 10;
+
         const positions = (value.positions && typeof value.positions === 'object') ? value.positions : {};
 
-        return { autoArrange, alignToGrid, gridSize, positions };
+        return { autoArrange, alignToGrid, gridSize, columns, positions };
     }
 }
 
