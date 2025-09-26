@@ -63,5 +63,7 @@
 	"iconLayoutDesc": { "message": "桌面风格图标布局行为" },
 	"autoArrangeIconsDesc": { "message": "按行列自动重新排列图标" },
 	"alignToGridDesc": { "message": "拖拽释放后吸附到最近网格" },
-	"gridSize": { "message": "网格大小（像素）" }
+        "gridSize": { "message": "网格大小（像素）" },
+        "shortcutsPerRow": { "message": "每行快捷方式数量" },
+        "shortcutsPerRowDesc": { "message": "自动排列开启时，每行显示的快捷方式数量" }
 }

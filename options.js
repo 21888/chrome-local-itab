@@ -86,9 +86,15 @@ async function populateFormFields(config) {
     const autoArrange = document.getElementById('layout-auto-arrange');
     const alignGrid = document.getElementById('layout-align-grid');
     const gridSizeInput = document.getElementById('layout-grid-size');
+    const columnsInput = document.getElementById('layout-columns');
+    const defaultColumns = storageManager?.defaultConfig?.layout?.columns ?? 6;
     if (autoArrange) autoArrange.checked = !!config.layout?.autoArrange;
     if (alignGrid) alignGrid.checked = !!config.layout?.alignToGrid;
     if (gridSizeInput) gridSizeInput.value = config.layout?.gridSize || 96;
+    if (columnsInput) {
+        const currentColumns = typeof config.layout?.columns === 'number' ? config.layout.columns : defaultColumns;
+        columnsInput.value = currentColumns;
+    }
 }
 
 function setupCategoryManagement(categories = []) {
@@ -416,15 +422,23 @@ async function collectFormData() {
     settings.links = existingConfig.links;
 
     // Layout settings
-    const autoArrange = document.getElementById('layout-auto-arrange')?.checked ?? existingConfig.layout.autoArrange;
-    const alignToGrid = document.getElementById('layout-align-grid')?.checked ?? existingConfig.layout.alignToGrid;
+    const existingLayout = existingConfig.layout || {};
+    const autoArrange = document.getElementById('layout-auto-arrange')?.checked ?? existingLayout.autoArrange;
+    const alignToGrid = document.getElementById('layout-align-grid')?.checked ?? existingLayout.alignToGrid;
     const gridSizeVal = parseInt(document.getElementById('layout-grid-size')?.value, 10);
-    const gridSize = Number.isFinite(gridSizeVal) ? gridSizeVal : existingConfig.layout.gridSize;
+    const gridSize = Number.isFinite(gridSizeVal) ? gridSizeVal : existingLayout.gridSize;
+    const columnsVal = parseInt(document.getElementById('layout-columns')?.value, 10);
+    const fallbackColumns = typeof existingLayout.columns === 'number'
+        ? existingLayout.columns
+        : (storageManager?.defaultConfig?.layout?.columns ?? 6);
+    let columns = Number.isFinite(columnsVal) ? columnsVal : fallbackColumns;
+    columns = Math.max(1, Math.min(10, columns));
     settings.layout = {
         autoArrange,
         alignToGrid,
         gridSize,
-        positions: existingConfig.layout.positions || {}
+        columns,
+        positions: existingLayout.positions || {}
     };
     
     return settings;

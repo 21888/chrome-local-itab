@@ -63,5 +63,7 @@
 	"iconLayoutDesc": { "message": "Desktop-style icon layout behavior" },
 	"autoArrangeIconsDesc": { "message": "Reflow icons by rows and columns" },
 	"alignToGridDesc": { "message": "Snap icons to nearest grid on drop" },
-	"gridSize": { "message": "Grid size (px)" }
+        "gridSize": { "message": "Grid size (px)" },
+        "shortcutsPerRow": { "message": "Shortcuts per row" },
+        "shortcutsPerRowDesc": { "message": "Limit how many shortcuts appear in each row when auto arrange is on" }
 }
