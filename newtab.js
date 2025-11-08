@@ -570,14 +570,9 @@ function setupDashboardVisibilityToggle(uiConfig) {
             return;
         }
 
-        const selection = window.getSelection && window.getSelection().toString();
-        if (selection && !dashboardHiddenState) {
-            return;
-        }
-
-        if (selection && dashboardHiddenState && window.getSelection) {
-            const sel = window.getSelection();
-            sel.removeAllRanges?.();
+        const selection = window.getSelection ? window.getSelection() : null;
+        if (selection && selection.rangeCount) {
+            selection.removeAllRanges?.();
         }
 
         event.preventDefault();
