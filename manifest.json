@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Local iTab - Home New Tab Page",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "可定制的新标签页扩展，可完全离线工作 (A customizable new tab page extension that works completely offline)",
   "permissions": [
     "storage",
