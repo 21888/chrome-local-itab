@@ -1,10 +1,16 @@
 // New tab page JavaScript - with storage management
+let dashboardHiddenState = false;
+if (typeof window !== 'undefined') {
+    window.dashboardHiddenState = dashboardHiddenState;
+}
+let currentUiState = null;
+
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
 
     try {
         // Initialize dashboard components with stored data
-        await initializeDashboard();
+        const config = await initializeDashboard();
 
         // Apply i18n to static DOM
         if (window.i18n) {
@@ -37,6 +43,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 onAction: handleContextAction
             });
         }
+
+        setupDashboardVisibilityToggle(config?.ui);
         // Performance guards: pause animations when tab hidden; honor reduced motion
         setupPerformanceGuards();
     } catch (error) {
@@ -57,6 +65,11 @@ async function handleContextAction(action, payload) {
         }
 
         if (payload?.type === 'blank') {
+            if (action === 'dashboard_visibility_toggle') {
+                setDashboardHidden(!dashboardHiddenState);
+                return;
+            }
+
             const comp = window.shortcutsComponentInstance;
             if (!comp) return;
             if (action === 'layout_auto_arrange_toggle') {
@@ -159,6 +172,7 @@ async function initializeDashboard() {
         initializeQuoteComponent(config.quote);
 
         console.log('Dashboard initialized successfully');
+        return config;
     } catch (error) {
         console.error('Error in initializeDashboard:', error);
         throw error;
@@ -532,6 +546,71 @@ function initializeQuoteComponent(quote) {
     if (quoteContainer) {
         quoteContainer.innerHTML = `<div>${quote}</div>`;
         quoteContainer.style.display = 'block';
+    }
+}
+
+
+function setupDashboardVisibilityToggle(uiConfig) {
+    const defaults = (window.storageManager && storageManager.defaultConfig && storageManager.defaultConfig.ui)
+        ? storageManager.defaultConfig.ui
+        : { dashboardHidden: false };
+
+    currentUiState = { ...defaults, ...(uiConfig || {}) };
+    dashboardHiddenState = !!currentUiState.dashboardHidden;
+    applyDashboardHiddenState(dashboardHiddenState);
+    if (typeof window !== 'undefined') {
+        window.dashboardHiddenState = dashboardHiddenState;
+    }
+
+    const dashboard = document.getElementById('dashboard');
+    if (!dashboard) return;
+
+    dashboard.addEventListener('dblclick', (event) => {
+        if (!shouldToggleFromEvent(event)) {
+            return;
+        }
+
+        const selection = window.getSelection ? window.getSelection() : null;
+        if (selection && selection.rangeCount) {
+            selection.removeAllRanges?.();
+        }
+
+        event.preventDefault();
+        const nextState = !dashboardHiddenState;
+        setDashboardHidden(nextState);
+    });
+}
+
+function shouldToggleFromEvent(event) {
+    const interactiveSelectors = 'button, a, input, textarea, select, [contenteditable], .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
+    if (!event || !event.target) return false;
+    return !event.target.closest(interactiveSelectors);
+}
+
+function applyDashboardHiddenState(hidden) {
+    document.body.classList.toggle('dashboard-hidden', !!hidden);
+}
+
+function setDashboardHidden(hidden) {
+    dashboardHiddenState = !!hidden;
+    applyDashboardHiddenState(dashboardHiddenState);
+    if (typeof window !== 'undefined') {
+        window.dashboardHiddenState = dashboardHiddenState;
+    }
+
+    if (!currentUiState) {
+        const defaults = (window.storageManager && storageManager.defaultConfig && storageManager.defaultConfig.ui)
+            ? storageManager.defaultConfig.ui
+            : { dashboardHidden: false };
+        currentUiState = { ...defaults };
+    }
+
+    currentUiState.dashboardHidden = dashboardHiddenState;
+
+    if (window.storageManager && typeof storageManager.set === 'function') {
+        storageManager.set('ui', currentUiState).catch((error) => {
+            console.error('Failed to persist dashboard hidden state:', error);
+        });
     }
 }
 

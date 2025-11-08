@@ -269,6 +269,70 @@ body.bg-api::before {
     z-index: 1;
 }
 
+body.dashboard-hidden {
+    overflow: hidden;
+}
+
+body.dashboard-hidden .dashboard-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: var(--spacing-3xl);
+    padding-left: var(--spacing-3xl);
+    padding-right: var(--spacing-3xl);
+}
+
+body.dashboard-hidden .main-content-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+body.dashboard-hidden .category-nav,
+body.dashboard-hidden .dashboard-header,
+body.dashboard-hidden .dashboard-main {
+    display: none !important;
+}
+
+body.dashboard-hidden .dashboard-footer {
+    width: 100%;
+}
+
+body.dashboard-hidden #quote-container {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100%;
+    text-align: center;
+    font-style: normal;
+    font-size: clamp(1.75rem, 4vw, 3.25rem);
+    color: var(--text-secondary);
+    padding: var(--spacing-3xl);
+    gap: var(--spacing-md);
+}
+
+body.dashboard-hidden #quote-container > div {
+    max-width: 960px;
+    line-height: 1.5;
+}
+
+body.dashboard-hidden .quote-section {
+    background: transparent;
+    border: none;
+    backdrop-filter: none;
+    position: static;
+}
+
+body.dashboard-hidden .quote-section::before,
+body.dashboard-hidden .quote-section::after {
+    display: none;
+}
+
 /* 主内容包装器 */
 .main-content-wrapper {
     display: grid;

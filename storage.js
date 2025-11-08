@@ -59,6 +59,9 @@ class StorageManager {
                 gridSize: 96,
                 columns: 6,
                 positions: {}
+            },
+            ui: {
+                dashboardHidden: false
             }
         };
     }
@@ -279,6 +282,8 @@ class StorageManager {
                     return this.validateQuoteConfig(value);
                 case 'layout':
                     return this.validateLayoutConfig(value);
+                case 'ui':
+                    return this.validateUiConfig(value);
                 default:
                     return value;
             }
@@ -487,6 +492,18 @@ class StorageManager {
         const positions = (value.positions && typeof value.positions === 'object') ? value.positions : {};
 
         return { autoArrange, alignToGrid, gridSize, columns, positions };
+    }
+
+    validateUiConfig(value) {
+        if (typeof value !== 'object' || value === null) {
+            throw new Error('UI config must be an object');
+        }
+
+        return {
+            dashboardHidden: typeof value.dashboardHidden === 'boolean'
+                ? value.dashboardHidden
+                : this.defaultConfig.ui.dashboardHidden
+        };
     }
 }
 

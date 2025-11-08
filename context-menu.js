@@ -60,12 +60,12 @@
 		return el;
 	}
 
-	function createCheckItem(labelKey, action, checked) {
-		const el = document.createElement('div');
-		el.className = 'ctx-item';
-		el.setAttribute('role', 'menuitemcheckbox');
-		const box = document.createElement('span');
-		box.className = 'ctx-checkbox';
+        function createCheckItem(labelKey, action, checked) {
+                const el = document.createElement('div');
+                el.className = 'ctx-item';
+                el.setAttribute('role', 'menuitemcheckbox');
+                const box = document.createElement('span');
+                box.className = 'ctx-checkbox';
 		box.textContent = checked ? '☑' : '☐';
 		const label = document.createElement('span');
 		label.textContent = i18n.t(labelKey);
@@ -169,15 +169,19 @@
 	function buildMenuForBlank() {
 		const menu = document.createElement('div');
 		menu.className = `context-menu ${state.theme}`;
-		const comp = window.shortcutsComponentInstance;
-		const auto = !!(comp && comp.layout && comp.layout.autoArrange);
-		const align = !!(comp && comp.layout && comp.layout.alignToGrid);
-		menu.appendChild(createCheckItem('autoArrangeIcons', 'layout_auto_arrange_toggle', auto));
-		menu.appendChild(createCheckItem('alignToGrid', 'layout_align_grid_toggle', align));
-		menu.appendChild(separator());
-		menu.appendChild(hint());
-		return menu;
-	}
+                const comp = window.shortcutsComponentInstance;
+                const auto = !!(comp && comp.layout && comp.layout.autoArrange);
+                const align = !!(comp && comp.layout && comp.layout.alignToGrid);
+                const hidden = typeof window.dashboardHiddenState === 'boolean'
+                        ? window.dashboardHiddenState
+                        : document.body.classList.contains('dashboard-hidden');
+                menu.appendChild(createCheckItem('autoArrangeIcons', 'layout_auto_arrange_toggle', auto));
+                menu.appendChild(createCheckItem('alignToGrid', 'layout_align_grid_toggle', align));
+                menu.appendChild(createCheckItem('toggleDashboardHidden', 'dashboard_visibility_toggle', hidden));
+                menu.appendChild(separator());
+                menu.appendChild(hint());
+                return menu;
+        }
 
 	window.contextMenu = { init, destroy };
 })();
