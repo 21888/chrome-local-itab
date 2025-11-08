@@ -1,5 +1,8 @@
 // New tab page JavaScript - with storage management
 let dashboardHiddenState = false;
+if (typeof window !== 'undefined') {
+    window.dashboardHiddenState = dashboardHiddenState;
+}
 let currentUiState = null;
 
 document.addEventListener('DOMContentLoaded', async function () {
@@ -62,6 +65,11 @@ async function handleContextAction(action, payload) {
         }
 
         if (payload?.type === 'blank') {
+            if (action === 'dashboard_visibility_toggle') {
+                setDashboardHidden(!dashboardHiddenState);
+                return;
+            }
+
             const comp = window.shortcutsComponentInstance;
             if (!comp) return;
             if (action === 'layout_auto_arrange_toggle') {
@@ -550,6 +558,9 @@ function setupDashboardVisibilityToggle(uiConfig) {
     currentUiState = { ...defaults, ...(uiConfig || {}) };
     dashboardHiddenState = !!currentUiState.dashboardHidden;
     applyDashboardHiddenState(dashboardHiddenState);
+    if (typeof window !== 'undefined') {
+        window.dashboardHiddenState = dashboardHiddenState;
+    }
 
     const dashboard = document.getElementById('dashboard');
     if (!dashboard) return;
@@ -559,8 +570,14 @@ function setupDashboardVisibilityToggle(uiConfig) {
             return;
         }
 
-        if (window.getSelection && window.getSelection().toString()) {
+        const selection = window.getSelection && window.getSelection().toString();
+        if (selection && !dashboardHiddenState) {
             return;
+        }
+
+        if (selection && dashboardHiddenState && window.getSelection) {
+            const sel = window.getSelection();
+            sel.removeAllRanges?.();
         }
 
         event.preventDefault();
@@ -582,6 +599,9 @@ function applyDashboardHiddenState(hidden) {
 function setDashboardHidden(hidden) {
     dashboardHiddenState = !!hidden;
     applyDashboardHiddenState(dashboardHiddenState);
+    if (typeof window !== 'undefined') {
+        window.dashboardHiddenState = dashboardHiddenState;
+    }
 
     if (!currentUiState) {
         const defaults = (window.storageManager && storageManager.defaultConfig && storageManager.defaultConfig.ui)
