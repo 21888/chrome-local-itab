@@ -544,9 +544,39 @@ function initializeShortcutsComponent(linksConfig, layoutConfig) {
 function initializeQuoteComponent(quote) {
     const quoteContainer = document.getElementById('quote-container');
     if (quoteContainer) {
-        quoteContainer.innerHTML = `<div>${quote}</div>`;
+        const formattedQuote = formatQuotePlaceholders(quote);
+        quoteContainer.innerHTML = `<div>${formattedQuote}</div>`;
         quoteContainer.style.display = 'block';
     }
+}
+
+function formatQuotePlaceholders(quote) {
+    if (typeof quote !== 'string') {
+        return quote;
+    }
+
+    const now = new Date();
+    return quote.replace(/\$date\{([^}]*)\}/g, (_, format) => formatDateString(format, now));
+}
+
+function formatDateString(format, date) {
+    if (!format) {
+        return '';
+    }
+
+    const tokens = {
+        yyyy: () => String(date.getFullYear()),
+        yy: () => String(date.getFullYear()).slice(-2),
+        mm: () => String(date.getMonth() + 1).padStart(2, '0'),
+        m: () => String(date.getMonth() + 1),
+        dd: () => String(date.getDate()).padStart(2, '0'),
+        d: () => String(date.getDate())
+    };
+
+    return format.replace(/yyyy|yy|mm|m|dd|d/g, token => {
+        const formatter = tokens[token];
+        return formatter ? formatter() : token;
+    });
 }
 
 
