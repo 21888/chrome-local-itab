@@ -1910,6 +1910,7 @@ select.form-input option {
     color: var(--text-muted);
     max-width: 600px;
     margin: 0 auto;
+    font-family: "Segoe UI", Arial, "Microsoft Yahei", sans-serif;
 }
 
 /* Enhanced Animations */
@@ -2772,6 +2773,7 @@ mium Enhancements */
     border: 1px solid var(--glass-border);
     backdrop-filter: var(--backdrop-blur-strong);
     position: relative;
+    font-family: "Segoe UI", Arial, "Microsoft Yahei", sans-serif;
 }
 
 .quote-section::before {

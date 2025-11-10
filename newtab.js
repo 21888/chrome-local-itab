@@ -544,9 +544,174 @@ function initializeShortcutsComponent(linksConfig, layoutConfig) {
 function initializeQuoteComponent(quote) {
     const quoteContainer = document.getElementById('quote-container');
     if (quoteContainer) {
-        quoteContainer.innerHTML = `<div>${quote}</div>`;
+        const formattedQuote = formatQuotePlaceholders(quote);
+        quoteContainer.innerHTML = `<div>${formattedQuote}</div>`;
         quoteContainer.style.display = 'block';
     }
+}
+
+function formatQuotePlaceholders(quote) {
+    if (typeof quote !== 'string') {
+        return quote;
+    }
+
+    const now = new Date();
+    return quote.replace(/\$date\{([^}]*)\}/g, (_, format) => formatDateString(format, now));
+}
+
+function formatDateString(format, date) {
+    if (!format) {
+        return '';
+    }
+
+    const parts = [];
+    const pattern = /([A-Za-z])\1*/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(format)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push({ type: 'text', value: format.slice(lastIndex, match.index) });
+        }
+        parts.push({ type: 'token', value: match[0], start: match.index, end: pattern.lastIndex });
+        lastIndex = pattern.lastIndex;
+    }
+
+    if (lastIndex < format.length) {
+        parts.push({ type: 'text', value: format.slice(lastIndex) });
+    }
+
+    let previousTemporalType = null;
+    const colonLike = new Set([':', '：']);
+
+    return parts.map((part) => {
+        if (part.type !== 'token') {
+            return part.value;
+        }
+
+        const token = part.value;
+        const firstChar = token[0];
+        const upper = firstChar.toUpperCase();
+        const length = token.length;
+        const nextChar = format[part.end] || '';
+        const prevChar = part.start > 0 ? format[part.start - 1] : '';
+
+        const padValue = (value) => {
+            if (length <= 1) {
+                return String(value);
+            }
+            return String(value).padStart(length, '0');
+        };
+
+        const resolveYear = () => {
+            const year = date.getFullYear();
+            if (length === 2) {
+                return String(year).slice(-2);
+            }
+            return String(year).padStart(Math.max(length, 4), '0');
+        };
+
+        const resolveMonth = () => {
+            const month = date.getMonth() + 1;
+            return padValue(month);
+        };
+
+        const resolveDay = () => {
+            const day = date.getDate();
+            return padValue(day);
+        };
+
+        const resolveHour = () => {
+            const hour = date.getHours();
+            return padValue(hour);
+        };
+
+        const resolveMinute = () => {
+            const minute = date.getMinutes();
+            return padValue(minute);
+        };
+
+        const resolveSecond = () => {
+            const second = date.getSeconds();
+            return padValue(second);
+        };
+
+        switch (upper) {
+            case 'Y': {
+                previousTemporalType = 'year';
+                return resolveYear();
+            }
+            case 'M': {
+                let type = 'month';
+                if (
+                    previousTemporalType === 'hour' ||
+                    previousTemporalType === 'minute' ||
+                    colonLike.has(prevChar) ||
+                    colonLike.has(nextChar)
+                ) {
+                    type = 'minute';
+                }
+
+                if (type === 'month') {
+                    previousTemporalType = 'month';
+                    return resolveMonth();
+                }
+
+                previousTemporalType = 'minute';
+                return resolveMinute();
+            }
+            case 'D': {
+                previousTemporalType = 'day';
+                return resolveDay();
+            }
+            case 'H': {
+                previousTemporalType = 'hour';
+                return resolveHour();
+            }
+            case 'S': {
+                previousTemporalType = 'second';
+                return resolveSecond();
+            }
+            default: {
+                const lower = upper.toLowerCase();
+                if (lower === 'y') {
+                    previousTemporalType = 'year';
+                    return resolveYear();
+                }
+                if (lower === 'm') {
+                    let type = 'month';
+                    if (
+                        previousTemporalType === 'hour' ||
+                        previousTemporalType === 'minute' ||
+                        colonLike.has(prevChar) ||
+                        colonLike.has(nextChar)
+                    ) {
+                        type = 'minute';
+                    }
+                    if (type === 'month') {
+                        previousTemporalType = 'month';
+                        return resolveMonth();
+                    }
+                    previousTemporalType = 'minute';
+                    return resolveMinute();
+                }
+                if (lower === 'd') {
+                    previousTemporalType = 'day';
+                    return resolveDay();
+                }
+                if (lower === 'h') {
+                    previousTemporalType = 'hour';
+                    return resolveHour();
+                }
+                if (lower === 's') {
+                    previousTemporalType = 'second';
+                    return resolveSecond();
+                }
+
+                return token;
+            }
+        }
+    }).join('');
 }
 
 
