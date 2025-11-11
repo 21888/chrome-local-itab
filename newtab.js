@@ -4,6 +4,7 @@ if (typeof window !== 'undefined') {
     window.dashboardHiddenState = dashboardHiddenState;
 }
 let currentUiState = null;
+let quoteRefreshIntervalId = null;
 
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
@@ -543,11 +544,52 @@ function initializeShortcutsComponent(linksConfig, layoutConfig) {
 
 function initializeQuoteComponent(quote) {
     const quoteContainer = document.getElementById('quote-container');
-    if (quoteContainer) {
+    if (!quoteContainer) return;
+
+    if (quoteRefreshIntervalId) {
+        clearInterval(quoteRefreshIntervalId);
+        quoteRefreshIntervalId = null;
+    }
+
+    const renderQuote = () => {
         const formattedQuote = formatQuotePlaceholders(quote);
         quoteContainer.innerHTML = `<div>${formattedQuote}</div>`;
         quoteContainer.style.display = 'block';
+    };
+
+    renderQuote();
+
+    if (shouldQuoteRefreshEverySecond(quote)) {
+        quoteRefreshIntervalId = setInterval(renderQuote, 1000);
     }
+}
+
+function shouldQuoteRefreshEverySecond(quote) {
+    if (typeof quote !== 'string') {
+        return false;
+    }
+
+    const matches = quote.match(/\$date\{([^}]*)\}/g);
+    if (!matches) {
+        return false;
+    }
+
+    return matches.some((match) => {
+        const format = match.slice(6, -1);
+        if (!format) {
+            return false;
+        }
+
+        if (/[HhSs]/.test(format)) {
+            return true;
+        }
+
+        if (/[Mm]/.test(format) && /[:：]/.test(format)) {
+            return true;
+        }
+
+        return false;
+    });
 }
 
 function formatQuotePlaceholders(quote) {
