@@ -707,7 +707,7 @@ body.dashboard-hidden .quote-section::after {
     --shortcuts-column-gap: 24px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--shortcuts-tile-min-width), 1fr));
-    grid-auto-rows: auto;
+    grid-auto-rows: 120px;
     gap: var(--shortcuts-row-gap) var(--shortcuts-column-gap);
     flex: 0;
     padding: var(--spacing-lg) 0;
@@ -739,6 +739,10 @@ body.dashboard-hidden .quote-section::after {
     width: 86px;
     min-height: 104px;
     overflow: hidden;
+}
+
+.shortcuts-grid:not(.free-layout) .shortcut-item {
+    height: 100%;
 }
 
 /* Soft border effect */
@@ -826,6 +830,7 @@ body.dashboard-hidden .quote-section::after {
     align-items: center;
     gap: var(--spacing-sm);
     text-align: center;
+    width: 100%;
 }
 
 .shortcut-icon {
@@ -866,6 +871,11 @@ body.dashboard-hidden .quote-section::after {
     line-height: 1.2;
     word-break: break-word;
     text-align: center;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: calc(2 * 1.2em);
 }
 
 .shortcut-url {
