@@ -1,5 +1,5 @@
 // Themed custom context menu for the new tab page
-// Usage: contextMenu.init({ theme: 'dark'|'light', onAction: (action, payload)=>{} })
+// Usage: contextMenu.init({ theme: '<theme-preset>', onAction: (action, payload)=>{} })
 
 (function() {
 	const state = {
@@ -95,7 +95,8 @@
 
 	function buildMenuForCategory(payload) {
 		const menu = document.createElement('div');
-		menu.className = `context-menu ${state.theme}`;
+		menu.className = 'context-menu';
+		menu.dataset.theme = state.theme;
 		menu.appendChild(createItem('openAll', 'open_all', '⇧Enter'));
 		menu.appendChild(separator());
 		menu.appendChild(hint());
@@ -104,7 +105,8 @@
 
 	function buildMenuForSite(payload) {
 		const menu = document.createElement('div');
-		menu.className = `context-menu ${state.theme}`;
+		menu.className = 'context-menu';
+		menu.dataset.theme = state.theme;
 		menu.appendChild(createItem('openInNewTab', 'open', 'Enter'));
 		menu.appendChild(createItem('edit', 'edit', 'E'));
 		menu.appendChild(createItem('remove', 'delete', 'Del'));
@@ -168,7 +170,8 @@
 
 	function buildMenuForBlank() {
 		const menu = document.createElement('div');
-		menu.className = `context-menu ${state.theme}`;
+		menu.className = 'context-menu';
+		menu.dataset.theme = state.theme;
                 const comp = window.shortcutsComponentInstance;
                 const auto = !!(comp && comp.layout && comp.layout.autoArrange);
                 const align = !!(comp && comp.layout && comp.layout.alignToGrid);

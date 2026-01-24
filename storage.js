@@ -19,6 +19,7 @@ class StorageManager {
                 type: 'gradient', 
                 value: '' 
             },
+            themePreset: 'aurora-glass',
             show: {
                 clock: true,
                 search: true,
@@ -268,6 +269,8 @@ class StorageManager {
                     return this.validateBackgroundConfig(value);
                 case 'show':
                     return this.validateShowConfig(value);
+                case 'themePreset':
+                    return this.validateThemePreset(value);
                 case 'categories':
                     return this.validateCategoriesConfig(value);
                 case 'links':
@@ -350,6 +353,17 @@ class StorageManager {
             search: typeof value.search === 'boolean' ? value.search : this.defaultConfig.show.search,
             shortcuts: typeof value.shortcuts === 'boolean' ? value.shortcuts : this.defaultConfig.show.shortcuts
         };
+    }
+
+    /**
+     * Validate theme preset
+     */
+    validateThemePreset(value) {
+        const validThemes = ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'];
+        if (typeof value !== 'string') {
+            return this.defaultConfig.themePreset;
+        }
+        return validThemes.includes(value) ? value : this.defaultConfig.themePreset;
     }
 
     /**

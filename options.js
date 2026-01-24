@@ -1,4 +1,17 @@
 // Options page JavaScript - with storage management
+const THEME_PRESETS = ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'];
+
+function normalizeThemePreset(preset) {
+    if (typeof preset !== 'string') return 'aurora-glass';
+    return THEME_PRESETS.includes(preset) ? preset : 'aurora-glass';
+}
+
+function applyThemePreset(preset) {
+    const normalized = normalizeThemePreset(preset);
+    document.documentElement.dataset.theme = normalized;
+    document.body.dataset.theme = normalized;
+    return normalized;
+}
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Local iTab options page loaded');
     
@@ -39,6 +52,11 @@ async function initializeOptionsPage() {
 }
 
 async function populateFormFields(config) {
+    const themePreset = normalizeThemePreset(config.themePreset);
+    const themeRadio = document.querySelector(`input[name="theme-preset"][value="${themePreset}"]`);
+    if (themeRadio) themeRadio.checked = true;
+    applyThemePreset(themePreset);
+
     // Time settings
     const hour12Checkbox = document.getElementById('hour12-format');
     const showSecondsCheckbox = document.getElementById('show-seconds');
@@ -221,6 +239,25 @@ function setupEventListeners() {
             await importSettings(event.target.files[0]);
         });
     }
+
+    // Theme preset selection
+    const themeInputs = document.querySelectorAll('input[name="theme-preset"]');
+    if (themeInputs.length) {
+        let themeSaveTimeout;
+        themeInputs.forEach(input => {
+            input.addEventListener('change', () => {
+                applyThemePreset(input.value);
+                clearTimeout(themeSaveTimeout);
+                themeSaveTimeout = setTimeout(async () => {
+                    try {
+                        await saveAllSettings();
+                    } catch (error) {
+                        console.error('Theme save error:', error);
+                    }
+                }, 400);
+            });
+        });
+    }
     
 
     
@@ -363,6 +400,11 @@ async function resetAllSettings() {
 async function collectFormData() {
     const settings = {};
     const existingConfig = await storageManager.getAll();
+
+    const themePreset = document.querySelector('input[name="theme-preset"]:checked')?.value
+        || existingConfig.themePreset
+        || 'aurora-glass';
+    settings.themePreset = normalizeThemePreset(themePreset);
     
     // Clock settings
     const hour12 = document.getElementById('hour12-format')?.checked || false;
@@ -716,10 +758,10 @@ function showMessage(message, type = 'info') {
         background: ${colors[type] || colors.info};
         color: white;
         padding: 12px 20px;
-        border-radius: 4px;
+        border-radius: 12px;
         z-index: 1000;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        font-family: var(--font-family);
+        box-shadow: 0 10px 24px rgba(0,0,0,0.25);
     `;
     
     document.body.appendChild(messageDiv);

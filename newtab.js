@@ -5,6 +5,19 @@ if (typeof window !== 'undefined') {
 }
 let currentUiState = null;
 let quoteRefreshIntervalId = null;
+const THEME_PRESETS = ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'];
+
+function normalizeThemePreset(preset) {
+    if (typeof preset !== 'string') return 'aurora-glass';
+    return THEME_PRESETS.includes(preset) ? preset : 'aurora-glass';
+}
+
+function applyThemePreset(preset) {
+    const normalized = normalizeThemePreset(preset);
+    document.documentElement.dataset.theme = normalized;
+    document.body.dataset.theme = normalized;
+    return normalized;
+}
 
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
@@ -12,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     try {
         // Initialize dashboard components with stored data
         const config = await initializeDashboard();
+        const themePreset = applyThemePreset(config?.themePreset);
 
         // Apply i18n to static DOM
         if (window.i18n) {
@@ -40,12 +54,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Initialize custom context menu
         if (window.contextMenu) {
             window.contextMenu.init({
-                theme: document.body.classList.contains('has-overlay') ? 'dark' : 'light',
+                theme: themePreset,
                 onAction: handleContextAction
             });
         }
 
         setupDashboardVisibilityToggle(config?.ui);
+        setupThemeChangeListener();
         // Performance guards: pause animations when tab hidden; honor reduced motion
         setupPerformanceGuards();
     } catch (error) {
@@ -152,6 +167,9 @@ async function initializeDashboard() {
         // Load all configuration data from storage
         const config = await storageManager.getAll();
 
+        // Apply theme preset early for consistent rendering
+        applyThemePreset(config.themePreset);
+
         // Apply background settings
         await applyBackgroundSettings(config.bg);
 
@@ -178,6 +196,19 @@ async function initializeDashboard() {
         console.error('Error in initializeDashboard:', error);
         throw error;
     }
+}
+
+function setupThemeChangeListener() {
+    if (!chrome?.storage?.onChanged) return;
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local') return;
+        if (!changes.themePreset) return;
+        const nextTheme = applyThemePreset(changes.themePreset.newValue);
+        if (window.contextMenu?.destroy && window.contextMenu?.init) {
+            window.contextMenu.destroy();
+            window.contextMenu.init({ theme: nextTheme, onAction: handleContextAction });
+        }
+    });
 }
 
 // Runtime performance guards to reduce CPU/GPU usage
@@ -309,11 +340,15 @@ function updateTextContrast(bgConfig) {
         root.style.setProperty('--text-primary', primary);
         root.style.setProperty('--text-secondary', secondary);
         root.style.setProperty('--text-muted', muted);
-    } else {
+        return;
+    }
+
+    root.style.removeProperty('--text-primary');
+    root.style.removeProperty('--text-secondary');
+    root.style.removeProperty('--text-muted');
+
+    if (bgConfig.type === 'image' || bgConfig.type === 'api') {
         body.classList.add('has-overlay');
-        root.style.setProperty('--text-primary', '#f8f9fa');
-        root.style.setProperty('--text-secondary', 'rgba(248, 249, 250, 0.85)');
-        root.style.setProperty('--text-muted', 'rgba(248, 249, 250, 0.65)');
     }
 }
 
@@ -2281,7 +2316,7 @@ function showErrorMessage(message) {
         padding: 12px 20px;
         border-radius: 4px;
         z-index: 1000;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-family: var(--font-family);
     `;
 
     document.body.appendChild(errorDiv);
