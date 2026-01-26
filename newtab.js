@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         setupThemeChangeListener();
         // Performance guards: pause animations when tab hidden; honor reduced motion
         setupPerformanceGuards();
+        setupExtremeCompactMode();
     } catch (error) {
         console.error('Error initializing dashboard:', error);
         // Show error message to user
@@ -246,6 +247,31 @@ function setupPerformanceGuards() {
             else if (mq.addListener) mq.addListener(applyReducedMotion);
             applyReducedMotion();
         }
+    } catch (_) {}
+}
+
+function setupExtremeCompactMode() {
+    try {
+        const body = document.body;
+        if (!body || !window?.addEventListener) return;
+        let resizeTimer = null;
+        const applyMode = () => {
+            const width = window.innerWidth || 0;
+            const height = window.innerHeight || 0;
+            const isCompact = width <= 900 || height <= 700;
+            const isExtreme = width <= 520 || height <= 600;
+            const isTight = width <= 420 || height <= 520;
+            body.classList.toggle('viewport-compact', isCompact);
+            body.classList.toggle('extreme-compact', isExtreme);
+            body.classList.toggle('extreme-compact-tight', isTight);
+        };
+        const schedule = () => {
+            if (resizeTimer) window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(applyMode, 120);
+        };
+        applyMode();
+        window.addEventListener('resize', schedule);
+        window.addEventListener('orientationchange', schedule);
     } catch (_) {}
 }
 
