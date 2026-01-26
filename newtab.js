@@ -1648,6 +1648,8 @@ class ShortcutsComponent {
     }
 
     onPointerDown(e) {
+        // Allow right-click / ctrl+click to trigger context menu
+        if (e.button !== 0 || e.ctrlKey) return;
         const item = e.target.closest('.shortcut-item');
         if (!item || item.classList.contains('add-shortcut')) return;
         if (!this.gridEl.contains(item)) return;
