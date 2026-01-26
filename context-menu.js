@@ -60,6 +60,20 @@
 		return el;
 	}
 
+	function closestSafe(target, selector) {
+		if (!target) return null;
+		const el = target.nodeType === 1 ? target : target.parentElement;
+		return el ? el.closest(selector) : null;
+	}
+
+	function closestFromPoint(e, selector) {
+		const direct = closestSafe(e?.target, selector);
+		if (direct) return direct;
+		if (typeof e?.clientX !== 'number' || typeof e?.clientY !== 'number') return null;
+		const hit = document.elementFromPoint(e.clientX, e.clientY);
+		return closestSafe(hit, selector);
+	}
+
         function createCheckItem(labelKey, action, checked) {
                 const el = document.createElement('div');
                 el.className = 'ctx-item';
@@ -117,14 +131,14 @@
 
 	function onDocumentContextMenu(e) {
 		if (!state.root) return;
-		const blacklist = e.target.closest('input, textarea, select, [contenteditable], .modal, .modal-form');
+		const blacklist = closestSafe(e.target, 'input, textarea, select, [contenteditable], .modal, .modal-form');
 		if (blacklist) return; // allow native menu on inputs or modals
 
 		e.preventDefault();
 		closeMenu();
 
-		const categoryEl = e.target.closest('.category-item, .category-nav-header');
-		const siteEl = e.target.closest('.shortcut-item:not(.add-shortcut)');
+		const categoryEl = closestFromPoint(e, '.category-item, .category-nav-header');
+		const siteEl = closestFromPoint(e, '.shortcut-item:not(.add-shortcut)');
 		let payload;
 		if (categoryEl) {
 			payload = { type: 'category', id: categoryEl.dataset.category || 'all' };
