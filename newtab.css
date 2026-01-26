@@ -778,6 +778,11 @@ body.dashboard-hidden .quote-section::after {
 }
 
 .shortcuts-grid.columns-fixed {
+    --shortcuts-tile-fit: calc(
+        (100% - (var(--shortcuts-column-gap) * (var(--shortcuts-columns) - 1)))
+        / var(--shortcuts-columns)
+    );
+    --shortcuts-tile-min-width: min(var(--shortcuts-tile-min), var(--shortcuts-tile-fit));
     grid-template-columns: repeat(var(--shortcuts-columns), minmax(var(--shortcuts-tile-min-width), 1fr));
     max-width: 100%;
 }
