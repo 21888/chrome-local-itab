@@ -64,7 +64,14 @@ class StorageManager {
             ui: {
                 dashboardHidden: false,
                 dashboardPadding: null,
-                showShortcutTitles: true
+                showShortcutTitles: true,
+                shortcutsStyle: {
+                    gapX: null,
+                    gapY: null,
+                    iconSize: null,
+                    titleSize: null,
+                    titleColor: ''
+                }
             }
         };
     }
@@ -523,6 +530,16 @@ class StorageManager {
             if (num > 160) num = 160;
             return num;
         };
+        const clampStyleNumber = (val, min, max) => {
+            if (typeof val !== 'number' || !Number.isFinite(val)) return null;
+            let num = Math.round(val);
+            if (num < min) num = min;
+            if (num > max) num = max;
+            return num;
+        };
+        const isValidHexColor = (val) => {
+            return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(val);
+        };
 
         let dashboardPadding = defaults.dashboardPadding;
         const rawPadding = value.dashboardPadding;
@@ -541,6 +558,31 @@ class StorageManager {
             }
         }
 
+        const styleDefaults = defaults.shortcutsStyle || {
+            gapX: null,
+            gapY: null,
+            iconSize: null,
+            titleSize: null,
+            titleColor: ''
+        };
+        let shortcutsStyle = { ...styleDefaults };
+        const rawStyle = value.shortcutsStyle;
+        if (rawStyle && typeof rawStyle === 'object') {
+            shortcutsStyle = {
+                gapX: clampStyleNumber(rawStyle.gapX, 0, 80),
+                gapY: clampStyleNumber(rawStyle.gapY, 0, 80),
+                iconSize: clampStyleNumber(rawStyle.iconSize, 24, 96),
+                titleSize: clampStyleNumber(rawStyle.titleSize, 10, 24),
+                titleColor: ''
+            };
+            const color = typeof rawStyle.titleColor === 'string' ? rawStyle.titleColor.trim() : '';
+            if (color === '' || isValidHexColor(color)) {
+                shortcutsStyle.titleColor = color;
+            } else {
+                shortcutsStyle.titleColor = styleDefaults.titleColor;
+            }
+        }
+
         return {
             dashboardHidden: typeof value.dashboardHidden === 'boolean'
                 ? value.dashboardHidden
@@ -548,7 +590,8 @@ class StorageManager {
             dashboardPadding,
             showShortcutTitles: typeof value.showShortcutTitles === 'boolean'
                 ? value.showShortcutTitles
-                : defaults.showShortcutTitles
+                : defaults.showShortcutTitles,
+            shortcutsStyle
         };
     }
 }

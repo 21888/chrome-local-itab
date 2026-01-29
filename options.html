@@ -251,6 +251,22 @@
                                     <input type="number" id="layout-columns" class="form-input" min="1" max="10" step="1" value="6">
                                     <small class="form-hint" data-i18n="shortcutsPerRowDesc">Limit how many shortcuts appear in each row when auto arrange is on.</small>
                                 </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="shortcuts-gap-x" data-i18n="shortcutsGapX">Shortcut gap (horizontal)</label>
+                                    <input type="number" id="shortcuts-gap-x" class="form-input" min="0" max="80" step="2" placeholder="auto">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="shortcuts-gap-y" data-i18n="shortcutsGapY">Shortcut gap (vertical)</label>
+                                    <input type="number" id="shortcuts-gap-y" class="form-input" min="0" max="80" step="2" placeholder="auto">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="shortcut-icon-size" data-i18n="shortcutIconSize">Shortcut icon size (px)</label>
+                                    <input type="number" id="shortcut-icon-size" class="form-input" min="24" max="96" step="2" placeholder="auto">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="shortcut-title-size" data-i18n="shortcutTitleSize">Shortcut title size (px)</label>
+                                    <input type="number" id="shortcut-title-size" class="form-input" min="10" max="24" step="1" placeholder="auto">
+                                </div>
                                 <div class="setting-group full-width">
                                     <label class="form-label" data-i18n="dashboardPadding">Dashboard padding (px)</label>
                                     <div class="padding-grid">
@@ -276,6 +292,21 @@
                                         <span class="checkbox-custom"></span>
                                         <div class="setting-info">
                                             <span class="setting-name" data-i18n="dashboardPaddingAuto">Use automatic spacing</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <label class="form-label" data-i18n="shortcutTitleColor">Shortcut title color</label>
+                                    <div class="color-input-group">
+                                        <input type="color" id="shortcut-title-color" class="form-color" value="#ffffff">
+                                        <input type="text" id="shortcut-title-color-text" class="form-input color-text" placeholder="#FFFFFF">
+                                    </div>
+                                    <label class="setting-label compact">
+                                        <input type="checkbox" id="shortcut-title-color-auto" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="shortcutTitleColorAuto">Use theme color</span>
                                             <span class="setting-desc">&nbsp;</span>
                                         </div>
                                     </label>

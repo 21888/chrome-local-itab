@@ -114,6 +114,8 @@
     --shortcut-icon-radius: 16px;
     --shortcut-icon-font: 1.6rem;
     --shortcut-icon-margin: 8px;
+    --shortcut-title-size: 12px;
+    --shortcut-title-color: var(--text-primary);
 
     --page-bg-solid: #0b1020;
     --primary-gradient: linear-gradient(135deg, #0b1221 0%, #142038 45%, #0f2234 100%);
@@ -934,9 +936,9 @@ body.dashboard-hidden .quote-section::after {
 }
 
 .shortcut-title {
-    font-size: 12px;
+    font-size: var(--shortcut-title-size, 12px);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--shortcut-title-color, var(--text-primary));
     margin: 0;
     line-height: 1.2;
     word-break: break-word;

@@ -872,6 +872,42 @@ function applyUiPreferences(uiState) {
     }
 
     document.body.classList.toggle('hide-shortcut-titles', uiState.showShortcutTitles === false);
+
+    const shortcutsStyle = uiState.shortcutsStyle || {};
+    if (dashboard) {
+        const applyNumberVar = (name, value) => {
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                dashboard.style.setProperty(name, `${Math.max(0, Math.round(value))}px`);
+            } else {
+                dashboard.style.removeProperty(name);
+            }
+        };
+        applyNumberVar('--shortcuts-gap-x', shortcutsStyle.gapX);
+        applyNumberVar('--shortcuts-gap-y', shortcutsStyle.gapY);
+
+        if (typeof shortcutsStyle.iconSize === 'number' && Number.isFinite(shortcutsStyle.iconSize)) {
+            const iconSize = Math.max(24, Math.min(96, Math.round(shortcutsStyle.iconSize)));
+            dashboard.style.setProperty('--shortcut-icon-size', `${iconSize}px`);
+            const iconFont = Math.max(12, Math.round(iconSize * 0.5));
+            dashboard.style.setProperty('--shortcut-icon-font', `${iconFont}px`);
+        } else {
+            dashboard.style.removeProperty('--shortcut-icon-size');
+            dashboard.style.removeProperty('--shortcut-icon-font');
+        }
+
+        if (typeof shortcutsStyle.titleSize === 'number' && Number.isFinite(shortcutsStyle.titleSize)) {
+            const titleSize = Math.max(10, Math.min(24, Math.round(shortcutsStyle.titleSize)));
+            dashboard.style.setProperty('--shortcut-title-size', `${titleSize}px`);
+        } else {
+            dashboard.style.removeProperty('--shortcut-title-size');
+        }
+
+        if (typeof shortcutsStyle.titleColor === 'string' && shortcutsStyle.titleColor.trim()) {
+            dashboard.style.setProperty('--shortcut-title-color', shortcutsStyle.titleColor.trim());
+        } else {
+            dashboard.style.removeProperty('--shortcut-title-color');
+        }
+    }
 }
 
 function setupDashboardVisibilityToggle(uiConfig) {

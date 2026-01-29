@@ -71,6 +71,16 @@ function syncDashboardPaddingControls() {
         if (input) input.disabled = isAuto;
     });
 }
+
+function syncShortcutTitleColorControls() {
+    const titleColorInput = document.getElementById('shortcut-title-color');
+    const titleColorTextInput = document.getElementById('shortcut-title-color-text');
+    const titleColorAuto = document.getElementById('shortcut-title-color-auto');
+    if (!titleColorAuto || !titleColorInput || !titleColorTextInput) return;
+    const isAuto = !!titleColorAuto.checked;
+    titleColorInput.disabled = isAuto;
+    titleColorTextInput.disabled = isAuto;
+}
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Local iTab options page loaded');
     
@@ -178,6 +188,30 @@ async function populateFormFields(config) {
     if (columnsInput) {
         const currentColumns = typeof config.layout?.columns === 'number' ? config.layout.columns : defaultColumns;
         columnsInput.value = currentColumns;
+    }
+
+    const shortcutsStyle = config.ui?.shortcutsStyle || {};
+    const gapXInput = document.getElementById('shortcuts-gap-x');
+    const gapYInput = document.getElementById('shortcuts-gap-y');
+    const iconSizeInput = document.getElementById('shortcut-icon-size');
+    const titleSizeInput = document.getElementById('shortcut-title-size');
+    if (gapXInput) gapXInput.value = Number.isFinite(shortcutsStyle.gapX) ? shortcutsStyle.gapX : '';
+    if (gapYInput) gapYInput.value = Number.isFinite(shortcutsStyle.gapY) ? shortcutsStyle.gapY : '';
+    if (iconSizeInput) iconSizeInput.value = Number.isFinite(shortcutsStyle.iconSize) ? shortcutsStyle.iconSize : '';
+    if (titleSizeInput) titleSizeInput.value = Number.isFinite(shortcutsStyle.titleSize) ? shortcutsStyle.titleSize : '';
+
+    const titleColorInput = document.getElementById('shortcut-title-color');
+    const titleColorTextInput = document.getElementById('shortcut-title-color-text');
+    const titleColorAuto = document.getElementById('shortcut-title-color-auto');
+    if (titleColorInput && titleColorTextInput && titleColorAuto) {
+        const color = typeof shortcutsStyle.titleColor === 'string' ? shortcutsStyle.titleColor.trim() : '';
+        const hasColor = color.length > 0;
+        titleColorAuto.checked = !hasColor;
+        const fallbackColor = '#ffffff';
+        const effectiveColor = hasColor ? color : fallbackColor;
+        titleColorInput.value = effectiveColor;
+        titleColorTextInput.value = hasColor ? color : '';
+        syncShortcutTitleColorControls();
     }
 
     const paddingTopInput = document.getElementById('dashboard-padding-top');
@@ -383,6 +417,49 @@ function setupEventListeners() {
                 if (Number.isFinite(max) && value > max) value = max;
                 input.value = value;
             });
+        });
+    }
+
+    const clampNumberInput = (input) => {
+        if (!input || input.value === '') return;
+        const max = parseInt(input.max, 10);
+        const min = parseInt(input.min, 10);
+        let value = parseInt(input.value, 10);
+        if (!Number.isFinite(value)) return;
+        if (Number.isFinite(min) && value < min) value = min;
+        if (Number.isFinite(max) && value > max) value = max;
+        input.value = value;
+    };
+
+    const shortcutsGapX = document.getElementById('shortcuts-gap-x');
+    const shortcutsGapY = document.getElementById('shortcuts-gap-y');
+    const shortcutIconSize = document.getElementById('shortcut-icon-size');
+    const shortcutTitleSize = document.getElementById('shortcut-title-size');
+    [shortcutsGapX, shortcutsGapY, shortcutIconSize, shortcutTitleSize].forEach(input => {
+        if (!input) return;
+        input.addEventListener('input', () => clampNumberInput(input));
+    });
+
+    const titleColorInput = document.getElementById('shortcut-title-color');
+    const titleColorTextInput = document.getElementById('shortcut-title-color-text');
+    const titleColorAuto = document.getElementById('shortcut-title-color-auto');
+    if (titleColorInput && titleColorTextInput && titleColorAuto) {
+        titleColorAuto.addEventListener('change', () => {
+            syncShortcutTitleColorControls();
+        });
+        const syncColorToText = () => {
+            titleColorTextInput.value = titleColorInput.value;
+        };
+        titleColorInput.addEventListener('input', syncColorToText);
+        titleColorInput.addEventListener('change', syncColorToText);
+        titleColorTextInput.addEventListener('change', () => {
+            let v = titleColorTextInput.value.trim();
+            if (/^[0-9A-F]{3}$/i.test(v)) v = '#' + v;
+            if (/^[0-9A-F]{6}$/i.test(v)) v = '#' + v;
+            if (/^#[0-9A-F]{3}([0-9A-F]{3})?$/i.test(v)) {
+                titleColorInput.value = v;
+                titleColorTextInput.value = v;
+            }
         });
     }
 
@@ -637,10 +714,33 @@ async function collectFormData() {
         }
     }
     const showShortcutTitles = document.getElementById('show-shortcut-titles')?.checked !== false;
+    const shortcutsGapXVal = parseInt(document.getElementById('shortcuts-gap-x')?.value, 10);
+    const shortcutsGapYVal = parseInt(document.getElementById('shortcuts-gap-y')?.value, 10);
+    const shortcutIconSizeVal = parseInt(document.getElementById('shortcut-icon-size')?.value, 10);
+    const shortcutTitleSizeVal = parseInt(document.getElementById('shortcut-title-size')?.value, 10);
+    const titleColorAuto = document.getElementById('shortcut-title-color-auto')?.checked ?? true;
+    const titleColorInput = document.getElementById('shortcut-title-color');
+    const titleColorTextInput = document.getElementById('shortcut-title-color-text');
+    let titleColor = '';
+    if (!titleColorAuto) {
+        let v = titleColorTextInput?.value?.trim() || titleColorInput?.value || '';
+        if (/^[0-9A-F]{3}$/i.test(v)) v = '#' + v;
+        if (/^[0-9A-F]{6}$/i.test(v)) v = '#' + v;
+        if (/^#[0-9A-F]{3}([0-9A-F]{3})?$/i.test(v)) {
+            titleColor = v;
+        }
+    }
     settings.ui = {
         dashboardHidden: existingUi.dashboardHidden ?? false,
         dashboardPadding,
-        showShortcutTitles
+        showShortcutTitles,
+        shortcutsStyle: {
+            gapX: Number.isFinite(shortcutsGapXVal) ? Math.max(0, Math.min(80, shortcutsGapXVal)) : null,
+            gapY: Number.isFinite(shortcutsGapYVal) ? Math.max(0, Math.min(80, shortcutsGapYVal)) : null,
+            iconSize: Number.isFinite(shortcutIconSizeVal) ? Math.max(24, Math.min(96, shortcutIconSizeVal)) : null,
+            titleSize: Number.isFinite(shortcutTitleSizeVal) ? Math.max(10, Math.min(24, shortcutTitleSizeVal)) : null,
+            titleColor
+        }
     };
     
     return settings;
@@ -1341,6 +1441,8 @@ function setupAutoSave() {
     const autoSaveInputs = [
         'hour12-format', 'show-seconds',
         'show-clock', 'show-shortcuts', 'show-shortcut-titles',
+        'shortcuts-gap-x', 'shortcuts-gap-y', 'shortcut-icon-size', 'shortcut-title-size',
+        'shortcut-title-color', 'shortcut-title-color-text', 'shortcut-title-color-auto',
         'dashboard-padding-top', 'dashboard-padding-right', 'dashboard-padding-bottom', 'dashboard-padding-left',
         'dashboard-padding-auto',
         'weather-city', 'weather-temp', 'weather-condition', 'weather-aqi-label', 'weather-aqi', 'weather-low', 'weather-high',
