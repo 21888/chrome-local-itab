@@ -1,9 +1,11 @@
 # Local iTab Extension
 
 
-<img width="3806" height="1693" alt="image" src="https://github.com/user-attachments/assets/552c660a-cb0f-4ee8-b89e-2746ba938160" />
-
-
+<img width="640" height="400" alt="p1 (3)" src="https://github.com/user-attachments/assets/f072e511-7ded-45da-9cd5-4725efd4cd28" />
+<img width="640" height="400" alt="p1 (1)" src="https://github.com/user-attachments/assets/74106bd6-98f8-4ac1-8328-02f2323687ec" />
+<img width="640" height="400" alt="p1 (2)" src="https://github.com/user-attachments/assets/d020a9a6-6971-48f0-9abd-10da306d5731" />
+<img width="640" height="400" alt="p1 (4)" src="https://github.com/user-attachments/assets/56076d9f-9d46-4fde-bff7-0f104512d889" />
+<img width="640" height="400" alt="p1 (5)" src="https://github.com/user-attachments/assets/26868e31-a6f5-4811-a1d1-730755638a3d" />
 A customizable new tab page Chrome extension that works completely offline.
 
 ## New Additions
@@ -76,5 +78,6 @@ local-itab/
 - No internet connection required for operation
 
 ## License
+
 
 This project is open source and available under the MIT License.
