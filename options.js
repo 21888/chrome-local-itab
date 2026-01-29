@@ -12,6 +12,65 @@ function applyThemePreset(preset) {
     document.body.dataset.theme = normalized;
     return normalized;
 }
+
+function setupSettingsTabs() {
+    const tabs = Array.from(document.querySelectorAll('.tab-button'));
+    const panels = Array.from(document.querySelectorAll('.tab-panel'));
+    if (!tabs.length || !panels.length) return;
+
+    const activateTab = (tabId) => {
+        tabs.forEach(btn => {
+            const isActive = btn.dataset.tab === tabId;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            btn.tabIndex = isActive ? 0 : -1;
+        });
+
+        panels.forEach(panel => {
+            const isActive = panel.dataset.tab === tabId;
+            panel.classList.toggle('active', isActive);
+        });
+
+        const content = document.querySelector('.options-content');
+        if (content) content.scrollTop = 0;
+    };
+
+    tabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            activateTab(btn.dataset.tab);
+        });
+    });
+
+    const hash = window.location.hash ? window.location.hash.slice(1) : '';
+    if (hash) {
+        const targetSection = document.getElementById(hash);
+        const targetPanel = targetSection?.closest('.tab-panel');
+        if (targetPanel?.dataset.tab) {
+            activateTab(targetPanel.dataset.tab);
+            setTimeout(() => {
+                targetSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 80);
+            return;
+        }
+    }
+
+    activateTab(tabs[0].dataset.tab);
+}
+
+function syncDashboardPaddingControls() {
+    const paddingInputs = [
+        document.getElementById('dashboard-padding-top'),
+        document.getElementById('dashboard-padding-right'),
+        document.getElementById('dashboard-padding-bottom'),
+        document.getElementById('dashboard-padding-left')
+    ];
+    const paddingAuto = document.getElementById('dashboard-padding-auto');
+    if (!paddingAuto || paddingInputs.every(input => !input)) return;
+    const isAuto = !!paddingAuto.checked;
+    paddingInputs.forEach(input => {
+        if (input) input.disabled = isAuto;
+    });
+}
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Local iTab options page loaded');
     
@@ -21,6 +80,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         // Set up event listeners
         setupEventListeners();
+
+        // Initialize tabbed layout
+        setupSettingsTabs();
         
         // Display storage usage info
         await displayStorageInfo();
@@ -88,9 +150,13 @@ async function populateFormFields(config) {
     // Visibility settings
     const showClockCheckbox = document.getElementById('show-clock');
     const showShortcutsCheckbox = document.getElementById('show-shortcuts');
+    const showShortcutTitlesCheckbox = document.getElementById('show-shortcut-titles');
     
     if (showClockCheckbox) showClockCheckbox.checked = config.show.clock;
     if (showShortcutsCheckbox) showShortcutsCheckbox.checked = config.show.shortcuts;
+    if (showShortcutTitlesCheckbox) {
+        showShortcutTitlesCheckbox.checked = config.ui?.showShortcutTitles !== false;
+    }
     
 
     
@@ -112,6 +178,40 @@ async function populateFormFields(config) {
     if (columnsInput) {
         const currentColumns = typeof config.layout?.columns === 'number' ? config.layout.columns : defaultColumns;
         columnsInput.value = currentColumns;
+    }
+
+    const paddingTopInput = document.getElementById('dashboard-padding-top');
+    const paddingRightInput = document.getElementById('dashboard-padding-right');
+    const paddingBottomInput = document.getElementById('dashboard-padding-bottom');
+    const paddingLeftInput = document.getElementById('dashboard-padding-left');
+    const paddingAuto = document.getElementById('dashboard-padding-auto');
+    if (paddingAuto && (paddingTopInput || paddingRightInput || paddingBottomInput || paddingLeftInput)) {
+        const paddingValue = config.ui?.dashboardPadding;
+        let paddingObj = null;
+        if (typeof paddingValue === 'number' && Number.isFinite(paddingValue)) {
+            paddingObj = {
+                top: paddingValue,
+                right: paddingValue,
+                bottom: paddingValue,
+                left: paddingValue
+            };
+        } else if (paddingValue && typeof paddingValue === 'object') {
+            paddingObj = {
+                top: paddingValue.top,
+                right: paddingValue.right,
+                bottom: paddingValue.bottom,
+                left: paddingValue.left
+            };
+        }
+
+        const hasCustom = paddingObj && Object.values(paddingObj).some(val => typeof val === 'number' && Number.isFinite(val));
+        paddingAuto.checked = !hasCustom;
+        const fallback = 28;
+        if (paddingTopInput) paddingTopInput.value = (hasCustom && Number.isFinite(paddingObj.top)) ? paddingObj.top : fallback;
+        if (paddingRightInput) paddingRightInput.value = (hasCustom && Number.isFinite(paddingObj.right)) ? paddingObj.right : fallback;
+        if (paddingBottomInput) paddingBottomInput.value = (hasCustom && Number.isFinite(paddingObj.bottom)) ? paddingObj.bottom : fallback;
+        if (paddingLeftInput) paddingLeftInput.value = (hasCustom && Number.isFinite(paddingObj.left)) ? paddingObj.left : fallback;
+        syncDashboardPaddingControls();
     }
 }
 
@@ -258,9 +358,34 @@ function setupEventListeners() {
             });
         });
     }
-    
 
-    
+    // Dashboard padding controls
+    const paddingInputs = [
+        document.getElementById('dashboard-padding-top'),
+        document.getElementById('dashboard-padding-right'),
+        document.getElementById('dashboard-padding-bottom'),
+        document.getElementById('dashboard-padding-left')
+    ];
+    const paddingAuto = document.getElementById('dashboard-padding-auto');
+    if (paddingAuto && paddingInputs.some(input => input)) {
+        paddingAuto.addEventListener('change', () => {
+            syncDashboardPaddingControls();
+        });
+        paddingInputs.forEach(input => {
+            if (!input) return;
+            input.addEventListener('input', () => {
+                if (paddingAuto.checked) return;
+                const max = parseInt(input.max, 10);
+                const min = parseInt(input.min, 10);
+                let value = parseInt(input.value, 10);
+                if (!Number.isFinite(value)) return;
+                if (Number.isFinite(min) && value < min) value = min;
+                if (Number.isFinite(max) && value > max) value = max;
+                input.value = value;
+            });
+        });
+    }
+
     // Background type selector
     const bgTypeSelect = document.getElementById('bg-type');
     if (bgTypeSelect) {
@@ -481,6 +606,41 @@ async function collectFormData() {
         gridSize,
         columns,
         positions: existingLayout.positions || {}
+    };
+
+    const existingUi = existingConfig.ui || {};
+    const paddingAuto = document.getElementById('dashboard-padding-auto')?.checked ?? true;
+    const paddingInputs = {
+        top: document.getElementById('dashboard-padding-top'),
+        right: document.getElementById('dashboard-padding-right'),
+        bottom: document.getElementById('dashboard-padding-bottom'),
+        left: document.getElementById('dashboard-padding-left')
+    };
+    let dashboardPadding = existingUi.dashboardPadding ?? null;
+    if (paddingAuto) {
+        dashboardPadding = null;
+    } else {
+        const readValue = (input) => {
+            if (!input) return null;
+            const val = parseInt(input.value, 10);
+            if (!Number.isFinite(val)) return null;
+            return Math.max(0, Math.min(160, val));
+        };
+        const top = readValue(paddingInputs.top);
+        const right = readValue(paddingInputs.right);
+        const bottom = readValue(paddingInputs.bottom);
+        const left = readValue(paddingInputs.left);
+        if ([top, right, bottom, left].some(val => val !== null)) {
+            dashboardPadding = { top, right, bottom, left };
+        } else {
+            dashboardPadding = null;
+        }
+    }
+    const showShortcutTitles = document.getElementById('show-shortcut-titles')?.checked !== false;
+    settings.ui = {
+        dashboardHidden: existingUi.dashboardHidden ?? false,
+        dashboardPadding,
+        showShortcutTitles
     };
     
     return settings;
@@ -1180,7 +1340,9 @@ function setupAutoSave() {
     
     const autoSaveInputs = [
         'hour12-format', 'show-seconds',
-        'show-clock', 'show-shortcuts',
+        'show-clock', 'show-shortcuts', 'show-shortcut-titles',
+        'dashboard-padding-top', 'dashboard-padding-right', 'dashboard-padding-bottom', 'dashboard-padding-left',
+        'dashboard-padding-auto',
         'weather-city', 'weather-temp', 'weather-condition', 'weather-aqi-label', 'weather-aqi', 'weather-low', 'weather-high',
         'movie-title', 'movie-note', 'quote-text', 'hot-topics-tab'
     ];

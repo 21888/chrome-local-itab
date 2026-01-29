@@ -437,10 +437,14 @@ body.bg-api::after {
 
 /* Dashboard Container */
 .dashboard-container {
+    --dashboard-padding-top: var(--layout-gutter);
+    --dashboard-padding-right: var(--layout-gutter);
+    --dashboard-padding-bottom: var(--layout-gutter);
+    --dashboard-padding-left: var(--layout-gutter);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    padding: var(--layout-gutter);
+    padding: var(--dashboard-padding-top) var(--dashboard-padding-right) var(--dashboard-padding-bottom) var(--dashboard-padding-left);
     gap: var(--layout-gap);
     max-width: var(--container-max-width);
     margin: 0 auto;
@@ -942,6 +946,10 @@ body.dashboard-hidden .quote-section::after {
     -webkit-box-orient: vertical;
     overflow: hidden;
     min-height: calc(2 * 1.2em);
+}
+
+body.hide-shortcut-titles .shortcut-title {
+    display: none;
 }
 
 .shortcut-url {
@@ -2330,8 +2338,10 @@ button:focus-visible,
     .dashboard-container {
         display: grid;
         grid-template-columns: 1fr;
-        padding: var(--spacing-xl);
-        padding-left: calc(var(--spacing-xl) + var(--nav-width));
+        --dashboard-padding-top: var(--spacing-xl);
+        --dashboard-padding-right: var(--spacing-xl);
+        --dashboard-padding-bottom: var(--spacing-xl);
+        --dashboard-padding-left: calc(var(--spacing-xl) + var(--nav-width));
         gap: var(--spacing-2xl);
     }
 
@@ -2447,7 +2457,10 @@ button:focus-visible,
     .dashboard-container {
         display: flex;
         flex-direction: column;
-        padding: var(--layout-gutter);
+        --dashboard-padding-top: var(--layout-gutter);
+        --dashboard-padding-right: var(--layout-gutter);
+        --dashboard-padding-bottom: var(--layout-gutter);
+        --dashboard-padding-left: var(--layout-gutter);
         gap: var(--layout-gap);
     }
 
@@ -2819,8 +2832,8 @@ button:focus-visible,
     }
 
     .dashboard-container {
-        padding-top: var(--spacing-lg);
-        padding-bottom: var(--spacing-lg);
+        --dashboard-padding-top: var(--spacing-lg);
+        --dashboard-padding-bottom: var(--spacing-lg);
     }
 
     .shortcuts-header {

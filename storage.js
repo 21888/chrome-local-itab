@@ -62,7 +62,9 @@ class StorageManager {
                 positions: {}
             },
             ui: {
-                dashboardHidden: false
+                dashboardHidden: false,
+                dashboardPadding: null,
+                showShortcutTitles: true
             }
         };
     }
@@ -513,10 +515,40 @@ class StorageManager {
             throw new Error('UI config must be an object');
         }
 
+        const defaults = this.defaultConfig.ui;
+        const clampPadding = (val) => {
+            if (typeof val !== 'number' || !Number.isFinite(val)) return null;
+            let num = Math.round(val);
+            if (num < 0) num = 0;
+            if (num > 160) num = 160;
+            return num;
+        };
+
+        let dashboardPadding = defaults.dashboardPadding;
+        const rawPadding = value.dashboardPadding;
+        if (typeof rawPadding === 'number' && Number.isFinite(rawPadding)) {
+            const clamped = clampPadding(rawPadding);
+            if (clamped !== null) {
+                dashboardPadding = { top: clamped, right: clamped, bottom: clamped, left: clamped };
+            }
+        } else if (rawPadding && typeof rawPadding === 'object') {
+            const top = clampPadding(rawPadding.top);
+            const right = clampPadding(rawPadding.right);
+            const bottom = clampPadding(rawPadding.bottom);
+            const left = clampPadding(rawPadding.left);
+            if ([top, right, bottom, left].some(val => val !== null)) {
+                dashboardPadding = { top, right, bottom, left };
+            }
+        }
+
         return {
             dashboardHidden: typeof value.dashboardHidden === 'boolean'
                 ? value.dashboardHidden
-                : this.defaultConfig.ui.dashboardHidden
+                : defaults.dashboardHidden,
+            dashboardPadding,
+            showShortcutTitles: typeof value.showShortcutTitles === 'boolean'
+                ? value.showShortcutTitles
+                : defaults.showShortcutTitles
         };
     }
 }

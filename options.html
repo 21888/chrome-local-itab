@@ -22,257 +22,325 @@
         </header>
         
         <main class="options-main">
-            <!-- Theme Presets -->
-            <section class="settings-section" id="theme-settings">
-                <div class="section-header">
-                    <h2 class="section-title">🧩 <span data-i18n="themePresets">Theme Presets</span></h2>
-                    <p class="section-description" data-i18n="themePresetsDesc">Choose a visual style for your new tab</p>
-                </div>
-                <div class="settings-grid theme-grid">
-                    <label class="theme-card">
-                        <input type="radio" name="theme-preset" id="theme-aurora" value="aurora-glass">
-                        <div class="theme-card-body">
-                            <div class="theme-swatch aurora-glass"></div>
-                            <div class="theme-card-text">
-                                <span class="theme-name" data-i18n="themeAuroraGlass">Aurora Glass</span>
-                                <span class="theme-desc" data-i18n="themeAuroraGlassDesc">Iridescent glass with cool glow</span>
-                            </div>
-                        </div>
-                    </label>
-                    <label class="theme-card">
-                        <input type="radio" name="theme-preset" id="theme-ink" value="ink-paper">
-                        <div class="theme-card-body">
-                            <div class="theme-swatch ink-paper"></div>
-                            <div class="theme-card-text">
-                                <span class="theme-name" data-i18n="themeInkPaper">Ink &amp; Paper</span>
-                                <span class="theme-desc" data-i18n="themeInkPaperDesc">Editorial light with soft grain</span>
-                            </div>
-                        </div>
-                    </label>
-                    <label class="theme-card">
-                        <input type="radio" name="theme-preset" id="theme-warm" value="warm-studio">
-                        <div class="theme-card-body">
-                            <div class="theme-swatch warm-studio"></div>
-                            <div class="theme-card-text">
-                                <span class="theme-name" data-i18n="themeWarmStudio">Warm Studio</span>
-                                <span class="theme-desc" data-i18n="themeWarmStudioDesc">Amber warmth with soft shadows</span>
-                            </div>
-                        </div>
-                    </label>
-                    <label class="theme-card">
-                        <input type="radio" name="theme-preset" id="theme-signal" value="signal-pop">
-                        <div class="theme-card-body">
-                            <div class="theme-swatch signal-pop"></div>
-                            <div class="theme-card-text">
-                                <span class="theme-name" data-i18n="themeSignalPop">Signal Pop</span>
-                                <span class="theme-desc" data-i18n="themeSignalPopDesc">High-contrast neon accents</span>
-                            </div>
-                        </div>
-                    </label>
-                </div>
-            </section>
+            <div class="options-layout">
+                <aside class="options-tabs" role="tablist" aria-label="Settings tabs">
+                    <button class="tab-button active" data-tab="appearance" role="tab" aria-selected="true" aria-controls="tab-appearance">
+                        <span class="tab-icon">🎨</span>
+                        <span data-i18n="tabAppearance">Appearance</span>
+                    </button>
+                    <button class="tab-button" data-tab="layout" role="tab" aria-selected="false" aria-controls="tab-layout">
+                        <span class="tab-icon">🧱</span>
+                        <span data-i18n="tabLayout">Layout</span>
+                    </button>
+                    <button class="tab-button" data-tab="content" role="tab" aria-selected="false" aria-controls="tab-content">
+                        <span class="tab-icon">🗂️</span>
+                        <span data-i18n="tabContent">Content</span>
+                    </button>
+                    <button class="tab-button" data-tab="data" role="tab" aria-selected="false" aria-controls="tab-data">
+                        <span class="tab-icon">💾</span>
+                        <span data-i18n="tabData">Data</span>
+                    </button>
+                </aside>
 
-            <!-- Time Display Settings -->
-            <section class="settings-section" id="time-settings">
-                <div class="section-header">
-                    <h2 class="section-title">⏰ <span data-i18n="timeDisplay">Time Display</span></h2>
-                    <p class="section-description" data-i18n="timeDisplayDesc">Configure how time and date are displayed</p>
-                </div>
-                <div class="settings-grid">
-                    <div class="setting-group">
-                        <label class="setting-label">
-                            <input type="checkbox" id="hour12-format" class="setting-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <div class="setting-info">
-                                <span class="setting-name" data-i18n="hour12">12-Hour Format</span>
-                                <span class="setting-desc">&nbsp;</span>
+                <div class="options-content">
+                    <div class="tab-panel active" id="tab-appearance" data-tab="appearance" role="tabpanel">
+                        <!-- Theme Presets -->
+                        <section class="settings-section" id="theme-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">🧩 <span data-i18n="themePresets">Theme Presets</span></h2>
+                                <p class="section-description" data-i18n="themePresetsDesc">Choose a visual style for your new tab</p>
                             </div>
-                        </label>
-                    </div>
-                    <div class="setting-group">
-                        <label class="setting-label">
-                            <input type="checkbox" id="show-seconds" class="setting-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <div class="setting-info">
-                                <span class="setting-name" data-i18n="showSeconds">Show Seconds</span>
-                                <span class="setting-desc">&nbsp;</span>
+                            <div class="settings-grid theme-grid">
+                                <label class="theme-card">
+                                    <input type="radio" name="theme-preset" id="theme-aurora" value="aurora-glass">
+                                    <div class="theme-card-body">
+                                        <div class="theme-swatch aurora-glass"></div>
+                                        <div class="theme-card-text">
+                                            <span class="theme-name" data-i18n="themeAuroraGlass">Aurora Glass</span>
+                                            <span class="theme-desc" data-i18n="themeAuroraGlassDesc">Iridescent glass with cool glow</span>
+                                        </div>
+                                    </div>
+                                </label>
+                                <label class="theme-card">
+                                    <input type="radio" name="theme-preset" id="theme-ink" value="ink-paper">
+                                    <div class="theme-card-body">
+                                        <div class="theme-swatch ink-paper"></div>
+                                        <div class="theme-card-text">
+                                            <span class="theme-name" data-i18n="themeInkPaper">Ink &amp; Paper</span>
+                                            <span class="theme-desc" data-i18n="themeInkPaperDesc">Editorial light with soft grain</span>
+                                        </div>
+                                    </div>
+                                </label>
+                                <label class="theme-card">
+                                    <input type="radio" name="theme-preset" id="theme-warm" value="warm-studio">
+                                    <div class="theme-card-body">
+                                        <div class="theme-swatch warm-studio"></div>
+                                        <div class="theme-card-text">
+                                            <span class="theme-name" data-i18n="themeWarmStudio">Warm Studio</span>
+                                            <span class="theme-desc" data-i18n="themeWarmStudioDesc">Amber warmth with soft shadows</span>
+                                        </div>
+                                    </div>
+                                </label>
+                                <label class="theme-card">
+                                    <input type="radio" name="theme-preset" id="theme-signal" value="signal-pop">
+                                    <div class="theme-card-body">
+                                        <div class="theme-swatch signal-pop"></div>
+                                        <div class="theme-card-text">
+                                            <span class="theme-name" data-i18n="themeSignalPop">Signal Pop</span>
+                                            <span class="theme-desc" data-i18n="themeSignalPopDesc">High-contrast neon accents</span>
+                                        </div>
+                                    </div>
+                                </label>
                             </div>
-                        </label>
-                    </div>
-                </div>
-            </section>
-            
+                        </section>
 
-            
-            <!-- Background Settings -->
-            <section class="settings-section" id="background-settings">
-                <div class="section-header">
-                    <h2 class="section-title">🎨 <span data-i18n="background">Background</span></h2>
-                    <p class="section-description" data-i18n="backgroundDesc">Customize your dashboard background</p>
-                </div>
-                <div class="settings-grid">
-                    <div class="setting-group full-width">
-                        <label class="form-label" data-i18n="bgType">Background Type</label>
-                        <select id="bg-type" class="form-select">
-                            <option value="gradient" data-i18n="bgGradient">Default Gradient</option>
-                            <option value="color" data-i18n="bgColor">Solid Color</option>
-                            <option value="image" data-i18n="bgImage">Custom Image</option>
-                            <option value="api" data-i18n="bgApi">Random Wallpaper (API)</option>
-                        </select>
-                        <div class="setting-hint" id="bg-api-hint" style="display: none;">
-                            <span class="hint-icon">🌟</span>
-                            <span>Automatically loads beautiful wallpapers from Paugram API. Images refresh on each page load.</span>
-                        </div>
-                    </div>
-                    <div class="setting-group full-width" id="bg-color-section" style="display: none;">
-                        <label class="form-label" data-i18n="bgColor">Background Color</label>
-                        <div class="color-input-group">
-                            <input type="color" id="bg-color" class="form-color" value="#1a1a1a">
-                            <input type="text" id="bg-color-text" class="form-input color-text" placeholder="#1a1a1a">
-                        </div>
-                    </div>
-                    <div class="setting-group full-width" id="bg-image-section" style="display: none;">
-                        <label class="form-label" data-i18n="bgImage">Background Image</label>
-                        <div class="file-upload-area" id="bg-upload-area">
-                            <input type="file" id="bg-image-upload" class="file-input" accept="image/jpeg,image/png,image/gif,image/webp">
-                            <div class="upload-placeholder">
-                                <span class="upload-icon">📁</span>
-                                <span class="upload-text">Click to select image or drag & drop</span>
-                                <small class="upload-hint">JPEG, PNG, GIF, WebP (max 5MB)</small>
+                        <!-- Time Display Settings -->
+                        <section class="settings-section" id="time-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">⏰ <span data-i18n="timeDisplay">Time Display</span></h2>
+                                <p class="section-description" data-i18n="timeDisplayDesc">Configure how time and date are displayed</p>
                             </div>
-                        </div>
-                        <div id="bg-image-preview" class="image-preview" style="display: none;">
-                            <img id="bg-preview-img" class="preview-image">
-                            <div class="preview-actions">
-                                <button type="button" id="remove-bg-image" class="btn btn-danger btn-sm">Remove Image</button>
+                            <div class="settings-grid">
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="hour12-format" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="hour12">12-Hour Format</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="show-seconds" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showSeconds">Show Seconds</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            
+                        </section>
 
-            <!-- Module Visibility Settings -->
-            <section class="settings-section" id="visibility-settings">
-                <div class="section-header">
-                    <h2 class="section-title">👁️ <span data-i18n="moduleVisibility">Module Visibility</span></h2>
-                    <p class="section-description">&nbsp;</p>
-                </div>
-                <div class="settings-grid">
-                    <div class="setting-group">
-                        <label class="setting-label">
-                            <input type="checkbox" id="show-clock" class="setting-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <div class="setting-info">
-                                <span class="setting-name" data-i18n="showClock">Clock Module</span>
-                                <span class="setting-desc">&nbsp;</span>
+                        <!-- Background Settings -->
+                        <section class="settings-section" id="background-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">🎨 <span data-i18n="background">Background</span></h2>
+                                <p class="section-description" data-i18n="backgroundDesc">Customize your dashboard background</p>
                             </div>
-                        </label>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <label class="form-label" data-i18n="bgType">Background Type</label>
+                                    <select id="bg-type" class="form-select">
+                                        <option value="gradient" data-i18n="bgGradient">Default Gradient</option>
+                                        <option value="color" data-i18n="bgColor">Solid Color</option>
+                                        <option value="image" data-i18n="bgImage">Custom Image</option>
+                                        <option value="api" data-i18n="bgApi">Random Wallpaper (API)</option>
+                                    </select>
+                                    <div class="setting-hint" id="bg-api-hint" style="display: none;">
+                                        <span class="hint-icon">🌟</span>
+                                        <span>Automatically loads beautiful wallpapers from Paugram API. Images refresh on each page load.</span>
+                                    </div>
+                                </div>
+                                <div class="setting-group full-width" id="bg-color-section" style="display: none;">
+                                    <label class="form-label" data-i18n="bgColor">Background Color</label>
+                                    <div class="color-input-group">
+                                        <input type="color" id="bg-color" class="form-color" value="#1a1a1a">
+                                        <input type="text" id="bg-color-text" class="form-input color-text" placeholder="#1a1a1a">
+                                    </div>
+                                </div>
+                                <div class="setting-group full-width" id="bg-image-section" style="display: none;">
+                                    <label class="form-label" data-i18n="bgImage">Background Image</label>
+                                    <div class="file-upload-area" id="bg-upload-area">
+                                        <input type="file" id="bg-image-upload" class="file-input" accept="image/jpeg,image/png,image/gif,image/webp">
+                                        <div class="upload-placeholder">
+                                            <span class="upload-icon">📁</span>
+                                            <span class="upload-text">Click to select image or drag & drop</span>
+                                            <small class="upload-hint">JPEG, PNG, GIF, WebP (max 5MB)</small>
+                                        </div>
+                                    </div>
+                                    <div id="bg-image-preview" class="image-preview" style="display: none;">
+                                        <img id="bg-preview-img" class="preview-image">
+                                        <div class="preview-actions">
+                                            <button type="button" id="remove-bg-image" class="btn btn-danger btn-sm">Remove Image</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
                     </div>
 
-                    <div class="setting-group">
-                        <label class="setting-label">
-                            <input type="checkbox" id="show-shortcuts" class="setting-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <div class="setting-info">
-                                <span class="setting-name" data-i18n="showShortcuts">Shortcuts Module</span>
-                                <span class="setting-desc">&nbsp;</span>
+                    <div class="tab-panel" id="tab-layout" data-tab="layout" role="tabpanel">
+                        <!-- Module Visibility Settings -->
+                        <section class="settings-section" id="visibility-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">👁️ <span data-i18n="moduleVisibility">Module Visibility</span></h2>
+                                <p class="section-description">&nbsp;</p>
                             </div>
-                        </label>
-                    </div>
-                </div>
-            </section>
+                            <div class="settings-grid">
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="show-clock" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showClock">Clock Module</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
 
-            <!-- Icon Layout Settings -->
-            <section class="settings-section" id="layout-settings">
-                <div class="section-header">
-                    <h2 class="section-title">🖥️ <span data-i18n="iconLayout">Icon Layout</span></h2>
-                    <p class="section-description" data-i18n="iconLayoutDesc">Desktop-style icon layout behavior</p>
-                </div>
-                <div class="settings-grid">
-                    <div class="setting-group">
-                        <label class="setting-label">
-                            <input type="checkbox" id="layout-auto-arrange" class="setting-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <div class="setting-info">
-                                <span class="setting-name" data-i18n="autoArrangeIcons">Auto arrange icons</span>
-                                <span class="setting-desc" data-i18n="autoArrangeIconsDesc">Reflow icons by rows and columns</span>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="show-shortcuts" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showShortcuts">Shortcuts Module</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="show-shortcut-titles" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showShortcutTitles">Shortcut Titles</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
-                        </label>
-                    </div>
-                    <div class="setting-group">
-                        <label class="setting-label">
-                            <input type="checkbox" id="layout-align-grid" class="setting-checkbox">
-                            <span class="checkbox-custom"></span>
-                            <div class="setting-info">
-                                <span class="setting-name" data-i18n="alignToGrid">Align to grid</span>
-                                <span class="setting-desc" data-i18n="alignToGridDesc">Snap icons to nearest grid on drop</span>
+                        </section>
+
+                        <!-- Icon Layout Settings -->
+                        <section class="settings-section" id="layout-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">🖥️ <span data-i18n="iconLayout">Icon Layout</span></h2>
+                                <p class="section-description" data-i18n="iconLayoutDesc">Desktop-style icon layout behavior</p>
                             </div>
-                        </label>
+                            <div class="settings-grid">
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="layout-auto-arrange" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="autoArrangeIcons">Auto arrange icons</span>
+                                            <span class="setting-desc" data-i18n="autoArrangeIconsDesc">Reflow icons by rows and columns</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="layout-align-grid" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="alignToGrid">Align to grid</span>
+                                            <span class="setting-desc" data-i18n="alignToGridDesc">Snap icons to nearest grid on drop</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="layout-grid-size" data-i18n="gridSize">Grid size (px)</label>
+                                    <input type="number" id="layout-grid-size" class="form-input" min="48" max="240" step="12" value="96">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="layout-columns" data-i18n="shortcutsPerRow">Shortcuts per row</label>
+                                    <input type="number" id="layout-columns" class="form-input" min="1" max="10" step="1" value="6">
+                                    <small class="form-hint" data-i18n="shortcutsPerRowDesc">Limit how many shortcuts appear in each row when auto arrange is on.</small>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <label class="form-label" data-i18n="dashboardPadding">Dashboard padding (px)</label>
+                                    <div class="padding-grid">
+                                        <div class="padding-field">
+                                            <label class="form-label" for="dashboard-padding-top" data-i18n="paddingTop">Top</label>
+                                            <input type="number" id="dashboard-padding-top" class="form-input" min="0" max="160" step="2" value="28">
+                                        </div>
+                                        <div class="padding-field">
+                                            <label class="form-label" for="dashboard-padding-right" data-i18n="paddingRight">Right</label>
+                                            <input type="number" id="dashboard-padding-right" class="form-input" min="0" max="160" step="2" value="28">
+                                        </div>
+                                        <div class="padding-field">
+                                            <label class="form-label" for="dashboard-padding-bottom" data-i18n="paddingBottom">Bottom</label>
+                                            <input type="number" id="dashboard-padding-bottom" class="form-input" min="0" max="160" step="2" value="28">
+                                        </div>
+                                        <div class="padding-field">
+                                            <label class="form-label" for="dashboard-padding-left" data-i18n="paddingLeft">Left</label>
+                                            <input type="number" id="dashboard-padding-left" class="form-input" min="0" max="160" step="2" value="28">
+                                        </div>
+                                    </div>
+                                    <label class="setting-label compact">
+                                        <input type="checkbox" id="dashboard-padding-auto" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="dashboardPaddingAuto">Use automatic spacing</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
                     </div>
-                    <div class="setting-group">
-                        <label class="form-label" for="layout-grid-size" data-i18n="gridSize">Grid size (px)</label>
-                        <input type="number" id="layout-grid-size" class="form-input" min="48" max="240" step="12" value="96">
-                    </div>
-                    <div class="setting-group">
-                        <label class="form-label" for="layout-columns" data-i18n="shortcutsPerRow">Shortcuts per row</label>
-                        <input type="number" id="layout-columns" class="form-input" min="1" max="10" step="1" value="6">
-                        <small class="form-hint" data-i18n="shortcutsPerRowDesc">Limit how many shortcuts appear in each row when auto arrange is on.</small>
-                    </div>
-                </div>
-            </section>
 
-            <!-- Category Management -->
-            <section class="settings-section" id="category-settings">
-                <div class="section-header">
-                    <h2 class="section-title">🗂️ <span data-i18n="categories">Categories</span></h2>
-                    <p class="section-description" data-i18n="categoriesDesc">Add, edit, and reorder shortcut categories</p>
-                </div>
-                <div class="settings-grid">
-                    <div class="setting-group full-width">
-                        <ul id="category-manage-list" class="category-manage-list"></ul>
-                        <button type="button" id="add-category" class="category-add-btn">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                            </svg>
-                            <span data-i18n="addCategory">Add Category</span>
-                        </button>
+                    <div class="tab-panel" id="tab-content" data-tab="content" role="tabpanel">
+                        <!-- Category Management -->
+                        <section class="settings-section" id="category-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">🗂️ <span data-i18n="categories">Categories</span></h2>
+                                <p class="section-description" data-i18n="categoriesDesc">Add, edit, and reorder shortcut categories</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <ul id="category-manage-list" class="category-manage-list"></ul>
+                                    <button type="button" id="add-category" class="category-add-btn">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                            <path d="M19 13H13v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                        </svg>
+                                        <span data-i18n="addCategory">Add Category</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
                     </div>
-                </div>
-            </section>
 
-            <!-- Import/Export Settings -->
-            <section class="settings-section" id="data-settings">
-                <div class="section-header">
-                    <h2 class="section-title">💾 <span data-i18n="dataManagement">Data Management</span></h2>
-                    <p class="section-description" data-i18n="dataManagementDesc">Import, export, and manage your settings</p>
+                    <div class="tab-panel" id="tab-data" data-tab="data" role="tabpanel">
+                        <!-- Import/Export Settings -->
+                        <section class="settings-section" id="data-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">💾 <span data-i18n="dataManagement">Data Management</span></h2>
+                                <p class="section-description" data-i18n="dataManagementDesc">Import, export, and manage your settings</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <label class="form-label" data-i18n="quoteText">Quote Text</label>
+                                    <input type="text" id="quote-text" class="form-input" placeholder="Your inspirational quote">
+                                    <small class="form-hint">Displayed at the bottom of your dashboard</small>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div class="data-actions">
+                                        <button id="export-settings" class="btn btn-primary">
+                                            <span class="btn-icon">📤</span>
+                                            <span data-i18n="exportSettings">Export Settings</span>
+                                        </button>
+                                        <input type="file" id="import-settings" class="file-input" accept=".json" style="display: none;">
+                                        <button id="import-settings-btn" class="btn btn-secondary">
+                                            <span class="btn-icon">📥</span>
+                                            <span data-i18n="importSettings">Import Settings</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div id="storage-info" class="storage-info">
+                                        <!-- Storage usage info will be displayed here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
                 </div>
-                <div class="settings-grid">
-                    <div class="setting-group full-width">
-                        <label class="form-label" data-i18n="quoteText">Quote Text</label>
-                        <input type="text" id="quote-text" class="form-input" placeholder="Your inspirational quote">
-                        <small class="form-hint">Displayed at the bottom of your dashboard</small>
-                    </div>
-                    <div class="setting-group full-width">
-                        <div class="data-actions">
-                            <button id="export-settings" class="btn btn-primary">
-                                <span class="btn-icon">📤</span>
-                                <span data-i18n="exportSettings">Export Settings</span>
-                            </button>
-                            <input type="file" id="import-settings" class="file-input" accept=".json" style="display: none;">
-                            <button id="import-settings-btn" class="btn btn-secondary">
-                                <span class="btn-icon">📥</span>
-                                <span data-i18n="importSettings">Import Settings</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="setting-group full-width">
-                        <div id="storage-info" class="storage-info">
-                            <!-- Storage usage info will be displayed here -->
-                        </div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
         
         <footer class="options-footer">

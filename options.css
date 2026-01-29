@@ -215,6 +215,9 @@ button {
     padding: var(--spacing-2xl) var(--spacing-xl) var(--spacing-3xl);
     position: relative;
     z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .options-header {
@@ -282,9 +285,85 @@ button {
 
 .options-main {
     margin-top: var(--spacing-2xl);
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.options-layout {
+    flex: 1;
+    display: flex;
+    gap: var(--spacing-2xl);
+    align-items: flex-start;
+    min-height: 0;
+}
+
+.options-tabs {
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    position: sticky;
+    top: var(--spacing-xl);
+}
+
+.tab-button {
+    border: 1px solid var(--card-border);
+    background: var(--glass-bg);
+    color: var(--text-secondary);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+}
+
+.tab-button:hover {
+    border-color: var(--soft-blue);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.tab-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(124, 217, 255, 0.35);
+}
+
+.tab-button.active {
+    color: var(--text-primary);
+    background: var(--secondary-gradient);
+    border-color: transparent;
+    box-shadow: var(--shadow-colored);
+}
+
+.tab-icon {
+    font-size: 1.1rem;
+}
+
+.options-content {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2xl);
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: var(--spacing-sm);
+}
+
+.tab-panel {
+    display: none;
+    flex-direction: column;
+    gap: var(--spacing-2xl);
+}
+
+.tab-panel.active {
+    display: flex;
 }
 
 .settings-section {
@@ -349,6 +428,10 @@ button {
     background: rgba(255, 255, 255, 0.04);
     transition: border-color var(--transition-fast), transform var(--transition-fast);
     position: relative;
+}
+
+.setting-label.compact {
+    padding: var(--spacing-sm) var(--spacing-md);
 }
 
 .setting-label:hover {
@@ -425,6 +508,12 @@ button {
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+.form-input:disabled,
+.form-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .form-input:focus,
 .form-select:focus {
     outline: none;
@@ -433,6 +522,17 @@ button {
 }
 
 .form-hint {
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+.padding-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.padding-field .form-label {
     font-size: var(--font-size-xs);
     color: var(--text-muted);
 }
@@ -755,6 +855,27 @@ button {
 @media (max-width: 960px) {
     .options-container {
         padding: var(--spacing-xl) var(--spacing-lg) var(--spacing-2xl);
+    }
+
+    .options-layout {
+        flex-direction: column;
+    }
+
+    .options-tabs {
+        position: static;
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .tab-button {
+        flex: 1 1 140px;
+        justify-content: center;
+    }
+
+    .options-content {
+        overflow: visible;
+        padding-right: 0;
     }
 
     .settings-grid {

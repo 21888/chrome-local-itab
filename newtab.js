@@ -818,14 +818,71 @@ function formatDateString(format, date) {
 }
 
 
+function applyUiPreferences(uiState) {
+    if (!uiState) return;
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard) {
+        const padding = uiState.dashboardPadding;
+        const normalizePadding = (value) => {
+            if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+            return Math.max(0, Math.min(160, Math.round(value)));
+        };
+        let paddingValues = null;
+        if (typeof padding === 'number' && Number.isFinite(padding)) {
+            const clamped = normalizePadding(padding);
+            if (clamped !== null) {
+                paddingValues = { top: clamped, right: clamped, bottom: clamped, left: clamped };
+            }
+        } else if (padding && typeof padding === 'object') {
+            paddingValues = {
+                top: normalizePadding(padding.top),
+                right: normalizePadding(padding.right),
+                bottom: normalizePadding(padding.bottom),
+                left: normalizePadding(padding.left)
+            };
+        }
+
+        if (paddingValues && Object.values(paddingValues).some(v => v !== null)) {
+            if (paddingValues.top !== null) {
+                dashboard.style.setProperty('--dashboard-padding-top', `${paddingValues.top}px`);
+            } else {
+                dashboard.style.removeProperty('--dashboard-padding-top');
+            }
+            if (paddingValues.right !== null) {
+                dashboard.style.setProperty('--dashboard-padding-right', `${paddingValues.right}px`);
+            } else {
+                dashboard.style.removeProperty('--dashboard-padding-right');
+            }
+            if (paddingValues.bottom !== null) {
+                dashboard.style.setProperty('--dashboard-padding-bottom', `${paddingValues.bottom}px`);
+            } else {
+                dashboard.style.removeProperty('--dashboard-padding-bottom');
+            }
+            if (paddingValues.left !== null) {
+                dashboard.style.setProperty('--dashboard-padding-left', `${paddingValues.left}px`);
+            } else {
+                dashboard.style.removeProperty('--dashboard-padding-left');
+            }
+        } else {
+            dashboard.style.removeProperty('--dashboard-padding-top');
+            dashboard.style.removeProperty('--dashboard-padding-right');
+            dashboard.style.removeProperty('--dashboard-padding-bottom');
+            dashboard.style.removeProperty('--dashboard-padding-left');
+        }
+    }
+
+    document.body.classList.toggle('hide-shortcut-titles', uiState.showShortcutTitles === false);
+}
+
 function setupDashboardVisibilityToggle(uiConfig) {
     const defaults = (window.storageManager && storageManager.defaultConfig && storageManager.defaultConfig.ui)
         ? storageManager.defaultConfig.ui
-        : { dashboardHidden: false };
+        : { dashboardHidden: false, dashboardPadding: null, showShortcutTitles: true };
 
     currentUiState = { ...defaults, ...(uiConfig || {}) };
     dashboardHiddenState = !!currentUiState.dashboardHidden;
     applyDashboardHiddenState(dashboardHiddenState);
+    applyUiPreferences(currentUiState);
     if (typeof window !== 'undefined') {
         window.dashboardHiddenState = dashboardHiddenState;
     }
