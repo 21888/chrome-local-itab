@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         setupDashboardVisibilityToggle(config?.ui);
         setupThemeChangeListener();
+        setupCloudSyncChangeListener();
         // Performance guards: pause animations when tab hidden; honor reduced motion
         setupPerformanceGuards();
         setupExtremeCompactMode();
@@ -208,6 +209,22 @@ function setupThemeChangeListener() {
         if (window.contextMenu?.destroy && window.contextMenu?.init) {
             window.contextMenu.destroy();
             window.contextMenu.init({ theme: nextTheme, onAction: handleContextAction });
+        }
+    });
+}
+
+function setupCloudSyncChangeListener() {
+    if (!chrome?.storage?.onChanged || !window.storageManager?.syncMetaKey) return;
+    chrome.storage.onChanged.addListener(async (changes, areaName) => {
+        if (areaName !== 'sync' || !changes[storageManager.syncMetaKey]) return;
+        if (storageManager.shouldIgnoreRemoteSyncChange?.()) return;
+        try {
+            const result = await storageManager.pullFromSync();
+            if (result?.applied) {
+                window.location.reload();
+            }
+        } catch (error) {
+            console.warn('Cloud sync refresh failed:', error);
         }
     });
 }
@@ -1236,7 +1253,7 @@ class ShortcutsComponent {
                         <h3 class="modal-title">${(window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'}</h3>
                         <button class="modal-close" id="modal-close">×</button>
                     </div>
-                    <form class="modal-form" id="shortcut-form">
+                    <form class="modal-form" id="shortcut-form" novalidate>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-title">${(window.i18n && i18n.t('title')) || 'Title'}</label>
                             <input type="text" class="form-input" id="shortcut-title" placeholder="${(window.i18n && i18n.t('title')) || 'Title'}" required>
@@ -1244,7 +1261,7 @@ class ShortcutsComponent {
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-url">${(window.i18n && i18n.t('url')) || 'URL'}</label>
-                            <input type="url" class="form-input" id="shortcut-url" placeholder="https://example.com" required>
+                            <input type="text" class="form-input" id="shortcut-url" placeholder="https://example.com" inputmode="url" required>
                             <div class="form-error" id="url-error"></div>
                         </div>
                         <div class="form-group">
@@ -1389,6 +1406,7 @@ class ShortcutsComponent {
 
         // Save shortcut WITHOUT overwriting user's original icon field
         const shortcut = { title, url, icon, category };
+        const previousLinks = this.links.map(link => ({ ...link }));
 
         if (this.currentEditIndex >= 0) {
             // Edit existing shortcut
@@ -1398,23 +1416,29 @@ class ShortcutsComponent {
             this.links.push(shortcut);
         }
 
-        // Prefetch favicon to ensure cache is warmed for future loads (does not change stored icon)
-        try {
-            if (window.faviconCache) {
-                const origin = window.faviconCache.getOriginFromUrl(url);
-                if (origin) await window.faviconCache.prefetch(origin);
-            }
-        } catch (_) {}
-
         // Save to storage
         try {
-            await storageManager.set('links', this.links);
+            const saved = await storageManager.set('links', this.links);
+            if (!saved) {
+                throw new Error('Storage write returned false');
+            }
             this.hideModal();
             this.updateGrid();
             if (window.categoryNavigation) {
                 window.categoryNavigation.filterShortcuts();
             }
+
+            // Warm favicon cache after the UI is done saving so it never blocks the modal.
+            if (window.faviconCache) {
+                setTimeout(async () => {
+                    try {
+                        const origin = window.faviconCache.getOriginFromUrl(url);
+                        if (origin) await window.faviconCache.prefetch(origin);
+                    } catch (_) {}
+                }, 0);
+            }
         } catch (error) {
+            this.links = previousLinks;
             console.error('Error saving shortcut:', error);
             this.showFormError('url', ((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.'));
         } finally {
@@ -1519,12 +1543,16 @@ class ShortcutsComponent {
      */
     async deleteShortcut(index) {
         if (index >= 0 && index < this.links.length) {
-            this.links.splice(index, 1);
+            const removed = this.links.splice(index, 1)[0];
 
             try {
-                await storageManager.set('links', this.links);
+                const saved = await storageManager.set('links', this.links);
+                if (!saved) {
+                    throw new Error('Storage write returned false');
+                }
                 this.updateGrid();
             } catch (error) {
+                this.links.splice(index, 0, removed);
                 console.error('Error deleting shortcut:', error);
                 showErrorMessage(((window.i18n && i18n.t('failedToDelete')) || 'Failed to delete shortcut. Please try again.'));
             }
@@ -2101,6 +2129,8 @@ class ShortcutsComponent {
             return;
         }
         
+        const previousLinks = this.links.map(link => ({ ...link }));
+
         // --- 核心排序逻辑 ---
         // 1. 从数组中把被拖拽的元素"拿出来"
         const itemToMove = this.links.splice(draggedIndex, 1)[0];
@@ -2109,13 +2139,15 @@ class ShortcutsComponent {
         
         try {
             // 3. 将重新排序后的数组保存到存储中
-            await storageManager.set('links', this.links);
+            const saved = await storageManager.set('links', this.links);
+            if (!saved) {
+                throw new Error('Storage write returned false');
+            }
             console.log('Shortcuts reordered and saved successfully.');
         } catch (error) {
+            this.links = previousLinks;
             console.error('Error saving shortcut order:', error);
             showErrorMessage('Failed to save new shortcut order.');
-            // 如果保存失败，后续的 updateGrid 仍然会根据内存中的错误顺序刷新UI,
-            // 但在下次加载时会恢复，这里也可以选择重新加载原始数据来立即纠正。
         } finally {
             // 4. 重新渲染整个宫格，以确保所有卡片的 data-index 都更新为最新顺序
             this.updateGrid();

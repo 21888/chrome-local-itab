@@ -210,7 +210,7 @@ button {
 }
 
 .options-container {
-    max-width: 1120px;
+    max-width: 1180px;
     margin: 0 auto;
     padding: var(--spacing-2xl) var(--spacing-xl) var(--spacing-3xl);
     position: relative;
@@ -222,9 +222,11 @@ button {
 
 .options-header {
     position: relative;
-    padding: clamp(28px, 5vw, 42px);
-    border-radius: var(--radius-xl);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+    padding: clamp(30px, 5vw, 48px);
+    border-radius: 18px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)),
+        linear-gradient(90deg, rgba(124, 217, 255, 0.12), transparent 44%, rgba(127, 242, 218, 0.1));
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
@@ -269,8 +271,8 @@ button {
 .options-title {
     font-family: var(--font-display);
     font-size: clamp(2rem, 3.6vw, 3rem);
-    font-weight: 500;
-    letter-spacing: -0.02em;
+    font-weight: 650;
+    letter-spacing: 0;
     position: relative;
     z-index: 1;
 }
@@ -299,7 +301,7 @@ button {
 }
 
 .options-tabs {
-    width: 220px;
+    width: 210px;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -311,7 +313,7 @@ button {
     border: 1px solid var(--card-border);
     background: var(--glass-bg);
     color: var(--text-secondary);
-    border-radius: var(--radius-lg);
+    border-radius: 12px;
     padding: 12px 14px;
     display: flex;
     align-items: center;
@@ -337,9 +339,9 @@ button {
 
 .tab-button.active {
     color: var(--text-primary);
-    background: var(--secondary-gradient);
-    border-color: transparent;
-    box-shadow: var(--shadow-colored);
+    background: rgba(255, 255, 255, 0.14);
+    border-color: var(--soft-teal);
+    box-shadow: inset 3px 0 0 var(--soft-teal), var(--shadow-sm);
 }
 
 .tab-icon {
@@ -369,7 +371,7 @@ button {
 .settings-section {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: var(--radius-xl);
+    border-radius: 14px;
     box-shadow: var(--shadow-sm);
     overflow: hidden;
     backdrop-filter: var(--backdrop-blur);
@@ -377,14 +379,14 @@ button {
 }
 
 .settings-section:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
 
 .section-header {
     padding: var(--spacing-lg) var(--spacing-xl);
     border-bottom: 1px solid var(--card-border);
-    background: rgba(255, 255, 255, 0.04);
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent);
 }
 
 .section-title {
@@ -423,7 +425,7 @@ button {
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
-    border-radius: var(--radius-lg);
+    border-radius: 12px;
     border: 1px solid var(--card-border);
     background: rgba(255, 255, 255, 0.04);
     transition: border-color var(--transition-fast), transform var(--transition-fast);
@@ -500,7 +502,7 @@ button {
 .form-select {
     width: 100%;
     padding: 12px 14px;
-    border-radius: var(--radius-md);
+    border-radius: 10px;
     border: 1px solid var(--card-border);
     background: var(--glass-bg);
     color: var(--text-primary);
@@ -628,13 +630,77 @@ button {
 }
 
 .storage-info {
-    border-radius: var(--radius-lg);
+    border-radius: 12px;
     border: 1px solid var(--card-border);
     padding: var(--spacing-md);
     background: rgba(255, 255, 255, 0.05);
     font-family: var(--font-mono);
     font-size: 0.78rem;
     color: var(--text-secondary);
+}
+
+.sync-toggle-card {
+    min-height: 86px;
+    background:
+        linear-gradient(135deg, rgba(124, 217, 255, 0.1), rgba(127, 242, 218, 0.04)),
+        rgba(255, 255, 255, 0.04);
+}
+
+.cloud-sync-status {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: var(--spacing-md);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+    display: grid;
+    gap: 10px;
+}
+
+.sync-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+}
+
+.sync-status-row strong {
+    color: var(--text-primary);
+    font-weight: 650;
+    text-align: right;
+}
+
+.sync-status-row strong.is-on {
+    color: var(--soft-green);
+}
+
+.sync-status-row strong.is-off {
+    color: var(--text-muted);
+}
+
+.sync-status-row strong.is-error,
+.sync-status-note.is-error {
+    color: #ff8a8a;
+}
+
+.sync-status-note {
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    padding: 0 4px;
+}
+
+.sync-actions .btn {
+    min-width: 148px;
+}
+
+.btn:disabled {
+    opacity: 0.52;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .category-manage-list {

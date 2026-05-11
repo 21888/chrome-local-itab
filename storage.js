@@ -5,6 +5,16 @@
 
 class StorageManager {
     constructor() {
+        this.syncMetaKey = '__localItabSyncMeta';
+        this.syncChunkPrefix = '__localItabSyncData_';
+        this.syncChunkSize = 7600;
+        this.syncTotalBudget = 98000;
+        this._syncInitialized = false;
+        this._syncInitPromise = null;
+        this._isApplyingSync = false;
+        this._ignoreRemoteSyncUntil = 0;
+        this._syncPushTimer = null;
+
         // Default configuration schema
         this.defaultConfig = {
             clock: { 
@@ -72,6 +82,12 @@ class StorageManager {
                     titleSize: null,
                     titleColor: ''
                 }
+            },
+            sync: {
+                enabled: false,
+                lastSync: '',
+                lastError: '',
+                includeLargeAssets: false
             }
         };
     }
@@ -84,6 +100,7 @@ class StorageManager {
      */
     async get(key, defaultValue = null) {
         try {
+            await this.ensureSyncInitialized();
             const result = await chrome.storage.local.get([key]);
             
             if (result[key] !== undefined) {
@@ -138,10 +155,24 @@ class StorageManager {
      */
     async set(key, value) {
         try {
+            await this.ensureSyncInitialized();
             // Validate the data before storing
             const validatedValue = this.validateData(key, value);
             
             await chrome.storage.local.set({ [key]: validatedValue });
+
+            if (!this._isApplyingSync) {
+                if (key === 'sync') {
+                    if (validatedValue.enabled) {
+                        this.scheduleSyncPush();
+                    } else {
+                        await this.disableRemoteSync();
+                    }
+                } else if (await this.isSyncEnabledLocally()) {
+                    this.scheduleSyncPush();
+                }
+            }
+
             return true;
         } catch (error) {
             console.error(`Storage set error for key "${key}":`, error);
@@ -161,14 +192,15 @@ class StorageManager {
      */
     async getAll() {
         try {
+            await this.ensureSyncInitialized();
             const result = await chrome.storage.local.get(null);
             
             // Merge with defaults for any missing keys
-            const completeConfig = { ...this.defaultConfig };
+            const completeConfig = this.cloneDefaultConfig();
             
             for (const [key, value] of Object.entries(result)) {
                 if (this.defaultConfig.hasOwnProperty(key)) {
-                    completeConfig[key] = value;
+                    completeConfig[key] = this.validateData(key, value);
                 }
             }
             
@@ -186,6 +218,8 @@ class StorageManager {
      */
     async setAll(data) {
         try {
+            await this.ensureSyncInitialized();
+            const wasSyncEnabled = await this.isSyncEnabledLocally();
             const validatedData = {};
             
             // Validate each key-value pair
@@ -194,6 +228,16 @@ class StorageManager {
             }
             
             await chrome.storage.local.set(validatedData);
+
+            if (!this._isApplyingSync) {
+                const syncEnabled = validatedData.sync?.enabled || await this.isSyncEnabledLocally();
+                if (syncEnabled) {
+                    this.scheduleSyncPush();
+                } else if (validatedData.sync && validatedData.sync.enabled === false && wasSyncEnabled) {
+                    await this.disableRemoteSync();
+                }
+            }
+
             return true;
         } catch (error) {
             console.error('Storage setAll error:', error);
@@ -212,7 +256,12 @@ class StorageManager {
      */
     async clear() {
         try {
+            const current = await chrome.storage.local.get(['sync']);
+            const wasSyncing = current.sync?.enabled === true;
             await chrome.storage.local.clear();
+            if (wasSyncing) {
+                await this.disableRemoteSync();
+            }
             return true;
         } catch (error) {
             console.error('Storage clear error:', error);
@@ -228,12 +277,28 @@ class StorageManager {
         try {
             const bytesInUse = await chrome.storage.local.getBytesInUse();
             const quota = chrome.storage.local.QUOTA_BYTES || 5242880; // 5MB default
+            const syncAvailable = this.isSyncAvailable();
+            const syncBytesInUse = syncAvailable ? await chrome.storage.sync.getBytesInUse(null) : 0;
+            const syncQuota = syncAvailable ? (chrome.storage.sync.QUOTA_BYTES || 102400) : 0;
             
             return {
                 bytesInUse,
                 quota,
                 percentUsed: Math.round((bytesInUse / quota) * 100),
-                available: quota - bytesInUse
+                available: quota - bytesInUse,
+                local: {
+                    bytesInUse,
+                    quota,
+                    percentUsed: Math.round((bytesInUse / quota) * 100),
+                    available: quota - bytesInUse
+                },
+                sync: {
+                    available: syncAvailable,
+                    bytesInUse: syncBytesInUse,
+                    quota: syncQuota,
+                    percentUsed: syncQuota ? Math.round((syncBytesInUse / syncQuota) * 100) : 0,
+                    availableBytes: syncQuota ? Math.max(0, syncQuota - syncBytesInUse) : 0
+                }
             };
         } catch (error) {
             console.error('Storage info error:', error);
@@ -241,7 +306,20 @@ class StorageManager {
                 bytesInUse: 0,
                 quota: 5242880,
                 percentUsed: 0,
-                available: 5242880
+                available: 5242880,
+                local: {
+                    bytesInUse: 0,
+                    quota: 5242880,
+                    percentUsed: 0,
+                    available: 5242880
+                },
+                sync: {
+                    available: false,
+                    bytesInUse: 0,
+                    quota: 0,
+                    percentUsed: 0,
+                    availableBytes: 0
+                }
             };
         }
     }
@@ -255,6 +333,385 @@ class StorageManager {
         return this.defaultConfig.hasOwnProperty(key) 
             ? JSON.parse(JSON.stringify(this.defaultConfig[key])) 
             : null;
+    }
+
+    cloneDefaultConfig() {
+        return JSON.parse(JSON.stringify(this.defaultConfig));
+    }
+
+    validateConfigObject(data) {
+        const validated = this.cloneDefaultConfig();
+        if (!data || typeof data !== 'object') {
+            return validated;
+        }
+
+        for (const key of Object.keys(this.defaultConfig)) {
+            if (Object.prototype.hasOwnProperty.call(data, key)) {
+                validated[key] = this.validateData(key, data[key]);
+            }
+        }
+
+        return validated;
+    }
+
+    isSyncAvailable() {
+        return !!(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync);
+    }
+
+    async isSyncEnabledLocally() {
+        try {
+            const result = await chrome.storage.local.get(['sync']);
+            return result.sync?.enabled === true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async ensureSyncInitialized() {
+        if (this._syncInitialized) return;
+        if (this._syncInitPromise) return this._syncInitPromise;
+
+        this._syncInitPromise = (async () => {
+            if (!this.isSyncAvailable()) {
+                this._syncInitialized = true;
+                return;
+            }
+
+            try {
+                const remoteMeta = await this.getRemoteMeta();
+                if (!remoteMeta?.enabled) {
+                    this._syncInitialized = true;
+                    return;
+                }
+
+                const localResult = await chrome.storage.local.get(['sync']);
+                const localSync = this.validateSyncConfig(localResult.sync || this.defaultConfig.sync);
+                if (localSync.lastSync === remoteMeta.updatedAt) {
+                    this._syncInitialized = true;
+                    return;
+                }
+
+                const remoteData = await this.readRemoteSyncData(remoteMeta);
+                if (!remoteData) {
+                    this._syncInitialized = true;
+                    return;
+                }
+
+                const validated = this.validateConfigObject(remoteData);
+                validated.sync = this.validateSyncConfig({
+                    enabled: true,
+                    lastSync: remoteMeta.updatedAt || '',
+                    lastError: '',
+                    includeLargeAssets: false
+                });
+
+                this._isApplyingSync = true;
+                try {
+                    await chrome.storage.local.set(validated);
+                } finally {
+                    this._isApplyingSync = false;
+                }
+            } catch (error) {
+                console.warn('Cloud sync initialization failed:', error);
+                await this.updateLocalSyncState({
+                    enabled: false,
+                    lastError: error.message || String(error)
+                });
+            } finally {
+                this._syncInitialized = true;
+            }
+        })();
+
+        return this._syncInitPromise;
+    }
+
+    async getSyncStatus() {
+        await this.ensureSyncInitialized();
+        const localResult = await chrome.storage.local.get(['sync']);
+        const localSync = this.validateSyncConfig(localResult.sync || this.defaultConfig.sync);
+        const remoteMeta = this.isSyncAvailable() ? await this.getRemoteMeta() : null;
+        const storageInfo = await this.getStorageInfo();
+
+        return {
+            available: this.isSyncAvailable(),
+            enabled: localSync.enabled,
+            local: localSync,
+            remote: remoteMeta,
+            storage: storageInfo.sync
+        };
+    }
+
+    async setSyncEnabled(enabled) {
+        await this.ensureSyncInitialized();
+        const config = await this.getAll();
+        config.sync = this.validateSyncConfig({
+            ...config.sync,
+            enabled,
+            lastError: ''
+        });
+
+        await chrome.storage.local.set({ sync: config.sync });
+
+        if (enabled) {
+            try {
+                return await this.pushToSync();
+            } catch (error) {
+                await this.updateLocalSyncState({
+                    enabled: false,
+                    lastError: error.message || String(error)
+                });
+                throw error;
+            }
+        }
+
+        await this.disableRemoteSync();
+        return this.getSyncStatus();
+    }
+
+    async pushToSync() {
+        if (this._syncPushTimer) {
+            clearTimeout(this._syncPushTimer);
+            this._syncPushTimer = null;
+        }
+        if (this._isApplyingSync) return this.getSyncStatus();
+        if (!this.isSyncAvailable()) {
+            throw new Error('Chrome Sync storage is not available in this browser.');
+        }
+
+        try {
+            const config = await this.getAll();
+            const { payload, omittedAssets } = this.prepareSyncPayload(config);
+            const payloadJson = JSON.stringify(payload);
+
+            if (payloadJson.length > this.syncTotalBudget) {
+                throw new Error(`Cloud sync payload is too large (${Math.round(payloadJson.length / 1024)} KB). Remove some shortcuts or use manual export for large data.`);
+            }
+
+            const oldMeta = await this.getRemoteMeta();
+            const chunks = [];
+            for (let i = 0; i < payloadJson.length; i += this.syncChunkSize) {
+                chunks.push(payloadJson.slice(i, i + this.syncChunkSize));
+            }
+
+            const updatedAt = new Date().toISOString();
+            const items = {
+                [this.syncMetaKey]: {
+                    enabled: true,
+                    version: 2,
+                    updatedAt,
+                    chunkCount: chunks.length,
+                    payloadBytes: payloadJson.length,
+                    omittedAssets
+                }
+            };
+
+            chunks.forEach((chunk, index) => {
+                items[`${this.syncChunkPrefix}${index}`] = chunk;
+            });
+
+            this._ignoreRemoteSyncUntil = Date.now() + 2000;
+            await chrome.storage.sync.set(items);
+
+            const oldCount = Number.isFinite(oldMeta?.chunkCount) ? oldMeta.chunkCount : 0;
+            if (oldCount > chunks.length) {
+                const staleKeys = [];
+                for (let i = chunks.length; i < oldCount; i += 1) {
+                    staleKeys.push(`${this.syncChunkPrefix}${i}`);
+                }
+                if (staleKeys.length) await chrome.storage.sync.remove(staleKeys);
+            }
+
+            await this.updateLocalSyncState({
+                enabled: true,
+                lastSync: updatedAt,
+                lastError: ''
+            });
+
+            return this.getSyncStatus();
+        } catch (error) {
+            await this.updateLocalSyncState({
+                enabled: true,
+                lastError: error.message || String(error)
+            });
+            throw error;
+        }
+    }
+
+    async pullFromSync() {
+        if (!this.isSyncAvailable()) {
+            throw new Error('Chrome Sync storage is not available in this browser.');
+        }
+
+        const remoteMeta = await this.getRemoteMeta();
+        if (!remoteMeta?.enabled) {
+            await this.updateLocalSyncState({ enabled: false });
+            return { applied: false, status: await this.getSyncStatus() };
+        }
+
+        const localResult = await chrome.storage.local.get(['sync']);
+        const localSync = this.validateSyncConfig(localResult.sync || this.defaultConfig.sync);
+        if (localSync.lastSync === remoteMeta.updatedAt) {
+            return { applied: false, status: await this.getSyncStatus() };
+        }
+
+        const remoteData = await this.readRemoteSyncData(remoteMeta);
+        if (!remoteData) {
+            throw new Error('Cloud sync data is empty or corrupted.');
+        }
+
+        const validated = this.validateConfigObject(remoteData);
+        validated.sync = this.validateSyncConfig({
+            enabled: true,
+            lastSync: remoteMeta.updatedAt || '',
+            lastError: '',
+            includeLargeAssets: false
+        });
+
+        this._isApplyingSync = true;
+        try {
+            await chrome.storage.local.set(validated);
+        } finally {
+            this._isApplyingSync = false;
+        }
+
+        return { applied: true, status: await this.getSyncStatus() };
+    }
+
+    async clearSync() {
+        if (!this.isSyncAvailable()) {
+            throw new Error('Chrome Sync storage is not available in this browser.');
+        }
+
+        await this.disableRemoteSync(true);
+        return this.getSyncStatus();
+    }
+
+    async getRemoteMeta() {
+        if (!this.isSyncAvailable()) return null;
+        const result = await chrome.storage.sync.get([this.syncMetaKey]);
+        const meta = result[this.syncMetaKey];
+        return meta && typeof meta === 'object' ? meta : null;
+    }
+
+    async readRemoteSyncData(meta) {
+        const chunkCount = Number.isFinite(meta?.chunkCount) ? meta.chunkCount : 0;
+        if (chunkCount <= 0 || chunkCount > 20) return null;
+
+        const keys = Array.from({ length: chunkCount }, (_, index) => `${this.syncChunkPrefix}${index}`);
+        const result = await chrome.storage.sync.get(keys);
+        const json = keys.map(key => result[key] || '').join('');
+        if (!json) return null;
+
+        return JSON.parse(json);
+    }
+
+    async disableRemoteSync(clearChunks = false) {
+        if (!this.isSyncAvailable()) return;
+
+        const oldMeta = await this.getRemoteMeta();
+        const oldCount = Number.isFinite(oldMeta?.chunkCount) ? oldMeta.chunkCount : 0;
+        const keysToRemove = [];
+        if (clearChunks || oldCount) {
+            for (let i = 0; i < oldCount; i += 1) {
+                keysToRemove.push(`${this.syncChunkPrefix}${i}`);
+            }
+        }
+
+        if (keysToRemove.length) {
+            await chrome.storage.sync.remove(keysToRemove);
+        }
+
+        this._ignoreRemoteSyncUntil = Date.now() + 2000;
+        await chrome.storage.sync.set({
+            [this.syncMetaKey]: {
+                enabled: false,
+                version: 2,
+                updatedAt: new Date().toISOString(),
+                chunkCount: 0,
+                payloadBytes: 0,
+                omittedAssets: []
+            }
+        });
+
+        await this.updateLocalSyncState({
+            enabled: false,
+            lastError: ''
+        });
+    }
+
+    async updateLocalSyncState(partial) {
+        try {
+            const current = await chrome.storage.local.get(['sync']);
+            const next = this.validateSyncConfig({
+                ...(current.sync || this.defaultConfig.sync),
+                ...partial
+            });
+            await chrome.storage.local.set({ sync: next });
+        } catch (error) {
+            console.warn('Failed to update local sync state:', error);
+        }
+    }
+
+    prepareSyncPayload(config) {
+        const source = this.validateConfigObject(config);
+        const payload = {};
+        const omittedAssets = [];
+
+        for (const key of Object.keys(this.defaultConfig)) {
+            if (key !== 'sync') {
+                payload[key] = JSON.parse(JSON.stringify(source[key]));
+            }
+        }
+
+        if (payload.bg?.type === 'image' && this.isLargeEmbeddedAsset(payload.bg.value)) {
+            payload.bg = { type: 'gradient', value: '' };
+            omittedAssets.push('backgroundImage');
+        }
+
+        if (payload.movie?.poster && this.isLargeEmbeddedAsset(payload.movie.poster)) {
+            payload.movie.poster = '';
+            omittedAssets.push('moviePoster');
+        }
+
+        if (Array.isArray(payload.links)) {
+            payload.links = payload.links.map(link => {
+                if (this.isLargeEmbeddedAsset(link.icon)) {
+                    return { ...link, icon: '🌐' };
+                }
+                return link;
+            });
+        }
+
+        return { payload, omittedAssets };
+    }
+
+    isLargeEmbeddedAsset(value) {
+        return typeof value === 'string' && (value.startsWith('data:') || value.length > 4000);
+    }
+
+    shouldIgnoreRemoteSyncChange() {
+        return Date.now() < this._ignoreRemoteSyncUntil;
+    }
+
+    scheduleSyncPush(delayMs = 900) {
+        if (!this.isSyncAvailable() || this._isApplyingSync) return;
+        if (this._syncPushTimer) {
+            clearTimeout(this._syncPushTimer);
+        }
+        this._syncPushTimer = setTimeout(async () => {
+            this._syncPushTimer = null;
+            try {
+                if (await this.isSyncEnabledLocally()) {
+                    await this.pushToSync();
+                }
+            } catch (error) {
+                console.warn('Background cloud sync failed:', error);
+                await this.updateLocalSyncState({
+                    enabled: true,
+                    lastError: error.message || String(error)
+                });
+            }
+        }, delayMs);
     }
 
     /**
@@ -296,6 +753,8 @@ class StorageManager {
                     return this.validateLayoutConfig(value);
                 case 'ui':
                     return this.validateUiConfig(value);
+                case 'sync':
+                    return this.validateSyncConfig(value);
                 default:
                     return value;
             }
@@ -592,6 +1051,24 @@ class StorageManager {
                 ? value.showShortcutTitles
                 : defaults.showShortcutTitles,
             shortcutsStyle
+        };
+    }
+
+    validateSyncConfig(value) {
+        const defaults = this.defaultConfig.sync;
+        if (typeof value !== 'object' || value === null) {
+            return { ...defaults };
+        }
+
+        const lastError = typeof value.lastError === 'string'
+            ? value.lastError.slice(0, 240)
+            : defaults.lastError;
+
+        return {
+            enabled: typeof value.enabled === 'boolean' ? value.enabled : defaults.enabled,
+            lastSync: typeof value.lastSync === 'string' ? value.lastSync : defaults.lastSync,
+            lastError,
+            includeLargeAssets: false
         };
     }
 }

@@ -57,6 +57,26 @@ function setupSettingsTabs() {
     activateTab(tabs[0].dataset.tab);
 }
 
+function setupCloudSyncChangeListener() {
+    if (!chrome?.storage?.onChanged || !window.storageManager?.syncMetaKey) return;
+    chrome.storage.onChanged.addListener(async (changes, areaName) => {
+        if (areaName !== 'sync' || !changes[storageManager.syncMetaKey]) return;
+        if (storageManager.shouldIgnoreRemoteSyncChange?.()) return;
+        try {
+            const result = await storageManager.pullFromSync();
+            if (result?.applied) {
+                showMessage('Cloud settings updated. Reloading...', 'info');
+                setTimeout(() => window.location.reload(), 800);
+            } else {
+                await renderSyncStatus(result?.status);
+            }
+        } catch (error) {
+            console.warn('Cloud sync change handling failed:', error);
+            await renderSyncStatus();
+        }
+    });
+}
+
 function syncDashboardPaddingControls() {
     const paddingInputs = [
         document.getElementById('dashboard-padding-top'),
@@ -93,9 +113,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         // Initialize tabbed layout
         setupSettingsTabs();
+        setupCloudSyncChangeListener();
         
         // Display storage usage info
         await displayStorageInfo();
+        await renderSyncStatus();
 
         // Apply i18n to DOM
         if (window.i18n) {
@@ -115,6 +137,7 @@ async function initializeOptionsPage() {
         // Populate form fields with current values
         await populateFormFields(config);
         setupCategoryManagement(config.categories);
+        await populateSyncControls(config.sync);
 
         console.log('Options page initialized with config:', config);
     } catch (error) {
@@ -249,6 +272,17 @@ async function populateFormFields(config) {
     }
 }
 
+async function populateSyncControls(syncConfig) {
+    const syncToggle = document.getElementById('cloud-sync-enabled');
+    if (!syncToggle) return;
+
+    const status = await storageManager.getSyncStatus();
+    syncToggle.checked = !!(syncConfig?.enabled || status.enabled);
+    syncToggle.disabled = !status.available;
+
+    await renderSyncStatus(status);
+}
+
 function setupCategoryManagement(categories = []) {
     const list = document.getElementById('category-manage-list');
     const addBtn = document.getElementById('add-category');
@@ -371,6 +405,92 @@ function setupEventListeners() {
         
         importInput.addEventListener('change', async function(event) {
             await importSettings(event.target.files[0]);
+        });
+    }
+
+    // Chrome cloud sync controls
+    const syncToggle = document.getElementById('cloud-sync-enabled');
+    const syncUpload = document.getElementById('sync-upload-now');
+    const syncDownload = document.getElementById('sync-download-now');
+    const syncClear = document.getElementById('sync-clear-cloud');
+
+    if (syncToggle) {
+        syncToggle.addEventListener('change', async () => {
+            try {
+                syncToggle.disabled = true;
+                if (syncToggle.checked) {
+                    showMessage('Enabling cloud sync...', 'info');
+                    const status = await storageManager.setSyncEnabled(true);
+                    showMessage('Cloud sync enabled. Current settings uploaded.', 'success');
+                    await renderSyncStatus(status);
+                } else {
+                    showMessage('Disabling cloud sync...', 'info');
+                    const status = await storageManager.setSyncEnabled(false);
+                    showMessage('Cloud sync disabled on this profile.', 'success');
+                    await renderSyncStatus(status);
+                }
+            } catch (error) {
+                console.error('Cloud sync toggle error:', error);
+                syncToggle.checked = !syncToggle.checked;
+                showMessage(`Cloud sync failed: ${error.message}`, 'error');
+                await renderSyncStatus();
+            } finally {
+                const status = await storageManager.getSyncStatus();
+                syncToggle.disabled = !status.available;
+            }
+        });
+    }
+
+    if (syncUpload) {
+        syncUpload.addEventListener('click', async () => {
+            try {
+                showMessage('Uploading settings to Chrome Sync...', 'info');
+                const status = await storageManager.pushToSync();
+                showMessage('Settings uploaded to Chrome Sync.', 'success');
+                await renderSyncStatus(status);
+            } catch (error) {
+                console.error('Cloud sync upload error:', error);
+                showMessage(`Upload failed: ${error.message}`, 'error');
+                await renderSyncStatus();
+            }
+        });
+    }
+
+    if (syncDownload) {
+        syncDownload.addEventListener('click', async () => {
+            try {
+                showMessage('Downloading settings from Chrome Sync...', 'info');
+                const result = await storageManager.pullFromSync();
+                if (result.applied) {
+                    showMessage('Cloud settings applied. Reloading...', 'success');
+                    setTimeout(() => window.location.reload(), 800);
+                } else {
+                    showMessage('Already up to date.', 'success');
+                    await renderSyncStatus(result.status);
+                }
+            } catch (error) {
+                console.error('Cloud sync download error:', error);
+                showMessage(`Download failed: ${error.message}`, 'error');
+                await renderSyncStatus();
+            }
+        });
+    }
+
+    if (syncClear) {
+        syncClear.addEventListener('click', async () => {
+            if (!confirm('Clear the cloud copy from Chrome Sync? Local settings will stay on this device.')) return;
+            try {
+                showMessage('Clearing cloud copy...', 'info');
+                const status = await storageManager.clearSync();
+                const syncToggleEl = document.getElementById('cloud-sync-enabled');
+                if (syncToggleEl) syncToggleEl.checked = false;
+                showMessage('Cloud copy cleared.', 'success');
+                await renderSyncStatus(status);
+            } catch (error) {
+                console.error('Cloud sync clear error:', error);
+                showMessage(`Clear failed: ${error.message}`, 'error');
+                await renderSyncStatus();
+            }
         });
     }
 
@@ -742,6 +862,8 @@ async function collectFormData() {
             titleColor
         }
     };
+
+    settings.sync = existingConfig.sync || storageManager.defaultConfig.sync;
     
     return settings;
 }
@@ -991,13 +1113,62 @@ async function displayStorageInfo() {
         
         if (storageInfoElement) {
             storageInfoElement.innerHTML = `
-                <div>Storage Used: ${(info.bytesInUse / 1024).toFixed(1)} KB / ${(info.quota / 1024 / 1024).toFixed(1)} MB (${info.percentUsed}%)</div>
-                <div>Available: ${(info.available / 1024).toFixed(1)} KB</div>
+                <div>Local: ${formatBytes(info.local.bytesInUse)} / ${formatBytes(info.local.quota)} (${info.local.percentUsed}%)</div>
+                <div>Chrome Sync: ${info.sync.available ? `${formatBytes(info.sync.bytesInUse)} / ${formatBytes(info.sync.quota)} (${info.sync.percentUsed}%)` : 'Unavailable'}</div>
             `;
         }
     } catch (error) {
         console.error('Error displaying storage info:', error);
     }
+}
+
+function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+    if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    return `${(bytes / 1024).toFixed(1)} KB`;
+}
+
+async function renderSyncStatus(status = null) {
+    const statusElement = document.getElementById('cloud-sync-status');
+    if (!statusElement) return;
+
+    const syncStatus = status || await storageManager.getSyncStatus();
+    const remote = syncStatus.remote || {};
+    const local = syncStatus.local || {};
+    const omitted = Array.isArray(remote.omittedAssets) ? remote.omittedAssets : [];
+    const lastSync = local.lastSync
+        ? new Date(local.lastSync).toLocaleString()
+        : 'Never';
+    const stateLabel = !syncStatus.available
+        ? 'Unavailable'
+        : (syncStatus.enabled ? 'Enabled' : 'Off');
+    const stateClass = !syncStatus.available
+        ? 'is-error'
+        : (syncStatus.enabled ? 'is-on' : 'is-off');
+
+    statusElement.innerHTML = `
+        <div class="sync-status-row">
+            <span>Status</span>
+            <strong class="${stateClass}">${stateLabel}</strong>
+        </div>
+        <div class="sync-status-row">
+            <span>Last sync</span>
+            <strong>${escapeHtml(lastSync)}</strong>
+        </div>
+        <div class="sync-status-row">
+            <span>Cloud usage</span>
+            <strong>${syncStatus.storage?.available ? `${formatBytes(syncStatus.storage.bytesInUse)} / ${formatBytes(syncStatus.storage.quota)}` : 'Unavailable'}</strong>
+        </div>
+        ${omitted.length ? `<div class="sync-status-note">Local-only assets: ${escapeHtml(omitted.join(', '))}</div>` : ''}
+        ${local.lastError ? `<div class="sync-status-note is-error">${escapeHtml(local.lastError)}</div>` : ''}
+    `;
+
+    const upload = document.getElementById('sync-upload-now');
+    const download = document.getElementById('sync-download-now');
+    const clear = document.getElementById('sync-clear-cloud');
+    [upload, download, clear].forEach(btn => {
+        if (btn) btn.disabled = !syncStatus.available;
+    });
 }
 
 function showMessage(message, type = 'info') {

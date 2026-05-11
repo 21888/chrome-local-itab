@@ -36,6 +36,10 @@
                         <span class="tab-icon">🗂️</span>
                         <span data-i18n="tabContent">Content</span>
                     </button>
+                    <button class="tab-button" data-tab="sync" role="tab" aria-selected="false" aria-controls="tab-sync">
+                        <span class="tab-icon">☁️</span>
+                        <span data-i18n="tabSync">Sync</span>
+                    </button>
                     <button class="tab-button" data-tab="data" role="tab" aria-selected="false" aria-controls="tab-data">
                         <span class="tab-icon">💾</span>
                         <span data-i18n="tabData">Data</span>
@@ -331,6 +335,51 @@
                                         </svg>
                                         <span data-i18n="addCategory">Add Category</span>
                                     </button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="tab-panel" id="tab-sync" data-tab="sync" role="tabpanel">
+                        <section class="settings-section sync-section" id="cloud-sync-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">☁️ <span data-i18n="cloudSync">Cloud Sync</span></h2>
+                                <p class="section-description" data-i18n="cloudSyncDesc">Sync settings and shortcuts through your Chrome account</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <label class="setting-label sync-toggle-card">
+                                        <input type="checkbox" id="cloud-sync-enabled" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="enableCloudSync">Enable Chrome Sync</span>
+                                            <span class="setting-desc" data-i18n="enableCloudSyncDesc">Large local images stay on this device because Chrome Sync has a small quota.</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div id="cloud-sync-status" class="cloud-sync-status">
+                                        <div class="sync-status-row">
+                                            <span data-i18n="syncStatus">Status</span>
+                                            <strong data-i18n="loading">Loading...</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div class="data-actions sync-actions">
+                                        <button type="button" id="sync-upload-now" class="btn btn-primary">
+                                            <span class="btn-icon">↑</span>
+                                            <span data-i18n="syncUploadNow">Upload Now</span>
+                                        </button>
+                                        <button type="button" id="sync-download-now" class="btn btn-secondary">
+                                            <span class="btn-icon">↓</span>
+                                            <span data-i18n="syncDownloadNow">Download Now</span>
+                                        </button>
+                                        <button type="button" id="sync-clear-cloud" class="btn btn-danger">
+                                            <span class="btn-icon">✕</span>
+                                            <span data-i18n="syncClearCloud">Clear Cloud Copy</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </section>
