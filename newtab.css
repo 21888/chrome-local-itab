@@ -685,6 +685,122 @@ body.dashboard-hidden .quote-section::after {
     align-items: center;
     width: 100%;
     flex: 1;
+    gap: var(--layout-gap);
+}
+
+.search-section {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.search-form {
+    display: grid;
+    grid-template-columns: minmax(110px, 150px) 1fr auto;
+    gap: 10px;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.search-engine-select,
+.search-input,
+.search-submit {
+    height: 46px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.search-engine-select,
+.search-input {
+    padding: 0 14px;
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-submit,
+.empty-action-btn {
+    cursor: pointer;
+    padding: 0 18px;
+    font-weight: 650;
+    background: var(--secondary-gradient);
+    color: var(--text-primary);
+    border-color: transparent;
+    box-shadow: var(--shadow-sm);
+}
+
+.info-cards-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.info-card {
+    min-height: 180px;
+    padding: var(--section-padding);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: var(--backdrop-blur);
+    overflow: hidden;
+}
+
+.info-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: var(--spacing-md);
+}
+
+.info-card-icon {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.info-card-title {
+    margin: 0;
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+}
+
+.shortcuts-empty-state {
+    grid-column: 1 / -1;
+    min-height: 210px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    text-align: center;
+    padding: var(--spacing-2xl);
+    border-radius: var(--radius-xl);
+    border: 1px dashed var(--glass-border);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.empty-action-btn {
+    height: 40px;
+    border-radius: 10px;
+    border: 0;
 }
 
 /* Shortcuts Section - Main Content */
@@ -703,6 +819,7 @@ body.dashboard-hidden .quote-section::after {
 /* Remove glass surfaces for category, clock, and shortcut cards */
 .category-nav,
 .clock-section,
+.search-section,
 .shortcuts-section {
     background: transparent;
     border: 0;
@@ -1939,6 +2056,10 @@ body.extreme-compact-tight {
     display: none !important;
 }
 
+.module-hidden {
+    display: none !important;
+}
+
 .sr-only {
     position: absolute;
     width: 1px;
@@ -2642,6 +2763,16 @@ button:focus-visible,
 
     body::after {
         animation: none;
+    }
+
+    .search-form {
+        grid-template-columns: 1fr;
+    }
+
+    .search-engine-select,
+    .search-input,
+    .search-submit {
+        width: 100%;
     }
 
     .shortcuts-title {

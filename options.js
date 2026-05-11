@@ -5,7 +5,6 @@ function normalizeThemePreset(preset) {
     if (typeof preset !== 'string') return 'aurora-glass';
     return THEME_PRESETS.includes(preset) ? preset : 'aurora-glass';
 }
-
 function applyThemePreset(preset) {
     const normalized = normalizeThemePreset(preset);
     document.documentElement.dataset.theme = normalized;
@@ -101,6 +100,24 @@ function syncShortcutTitleColorControls() {
     titleColorInput.disabled = isAuto;
     titleColorTextInput.disabled = isAuto;
 }
+
+async function requestOptionalOrigin(origin) {
+    if (!chrome?.permissions?.request) return true;
+    try {
+        return await chrome.permissions.request({ origins: [origin] });
+    } catch (error) {
+        console.warn('Optional permission request failed:', error);
+        return false;
+    }
+}
+
+async function ensurePrivacyPermission(kind, enabled) {
+    if (!enabled) return true;
+    const origin = kind === 'wallpapers'
+        ? 'https://api.paugram.com/*'
+        : 'https://www.google.com/*';
+    return requestOptionalOrigin(origin);
+}
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Local iTab options page loaded');
     
@@ -167,7 +184,9 @@ async function populateFormFields(config) {
     const bgColorTextInput = document.getElementById('bg-color-text');
     
     if (bgTypeSelect) {
-        bgTypeSelect.value = config.bg.type;
+        bgTypeSelect.value = (config.bg.type === 'api' && config.privacy?.onlineWallpapers !== true)
+            ? 'gradient'
+            : config.bg.type;
         updateBackgroundSections();
     }
     if (bgColorInput && config.bg.type === 'color') {
@@ -182,11 +201,19 @@ async function populateFormFields(config) {
     
     // Visibility settings
     const showClockCheckbox = document.getElementById('show-clock');
+    const showSearchCheckbox = document.getElementById('show-search');
     const showShortcutsCheckbox = document.getElementById('show-shortcuts');
     const showShortcutTitlesCheckbox = document.getElementById('show-shortcut-titles');
-    
+    const showWeatherCheckbox = document.getElementById('show-weather');
+    const showHotCheckbox = document.getElementById('show-hot');
+    const showMovieCheckbox = document.getElementById('show-movie');
+
     if (showClockCheckbox) showClockCheckbox.checked = config.show.clock;
+    if (showSearchCheckbox) showSearchCheckbox.checked = config.show.search !== false;
     if (showShortcutsCheckbox) showShortcutsCheckbox.checked = config.show.shortcuts;
+    if (showWeatherCheckbox) showWeatherCheckbox.checked = config.show.weather === true;
+    if (showHotCheckbox) showHotCheckbox.checked = config.show.hot === true;
+    if (showMovieCheckbox) showMovieCheckbox.checked = config.show.movie === true;
     if (showShortcutTitlesCheckbox) {
         showShortcutTitlesCheckbox.checked = config.ui?.showShortcutTitles !== false;
     }
@@ -198,6 +225,35 @@ async function populateFormFields(config) {
     // Quote setting
     const quoteInput = document.getElementById('quote-text');
     if (quoteInput) quoteInput.value = config.quote;
+
+    const searchEngine = document.getElementById('search-engine');
+    const searchCustom = document.getElementById('search-custom');
+    if (searchEngine) searchEngine.value = config.search?.engine || 'google';
+    if (searchCustom) searchCustom.value = config.search?.custom || '';
+
+    const onlineWallpapers = document.getElementById('privacy-online-wallpapers');
+    const onlineFavicons = document.getElementById('privacy-online-favicons');
+    if (onlineWallpapers) onlineWallpapers.checked = config.privacy?.onlineWallpapers === true;
+    if (onlineFavicons) onlineFavicons.checked = config.privacy?.onlineFavicons === true;
+
+    const weather = config.weather || {};
+    const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value ?? '';
+    };
+    setValue('weather-city', weather.city);
+    setValue('weather-temp', weather.temp);
+    setValue('weather-condition', weather.cond);
+    setValue('weather-aqi-label', weather.aqiLabel);
+    setValue('weather-aqi', weather.aqi);
+    setValue('weather-low', weather.low);
+    setValue('weather-high', weather.high);
+    setValue('hot-topics-tab', config.hot?.tab || 'baidu');
+    setValue('movie-title', config.movie?.title);
+    setValue('movie-note', config.movie?.note);
+    if (config.movie?.poster) updateMoviePosterPreview(config.movie.poster);
+    populateHotTopicsLists(config.hot || storageManager.defaultConfig.hot);
+    switchHotTopicsTab(config.hot?.tab || 'baidu');
 
     // Layout settings
     const autoArrange = document.getElementById('layout-auto-arrange');
@@ -292,19 +348,36 @@ function setupCategoryManagement(categories = []) {
         const li = document.createElement('li');
         li.className = 'category-manage-item';
         li.dataset.id = cat.id;
-        li.innerHTML = `
-            <input type="text" class="form-input cat-icon" value="${cat.icon}" aria-label="icon">
-            <input type="text" class="form-input cat-name" value="${cat.name}" aria-label="name">
-            <div class="category-actions">
-                <button type="button" class="btn btn-secondary btn-sm cat-up" title="上移">↑</button>
-                <button type="button" class="btn btn-secondary btn-sm cat-down" title="下移">↓</button>
-                <button type="button" class="btn btn-danger btn-sm cat-delete" title="删除">✕</button>
-            </div>`;
+        const iconInput = document.createElement('input');
+        iconInput.type = 'text';
+        iconInput.className = 'form-input cat-icon';
+        iconInput.value = cat.icon || '';
+        iconInput.setAttribute('aria-label', 'icon');
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.className = 'form-input cat-name';
+        nameInput.value = cat.name || '';
+        nameInput.setAttribute('aria-label', 'name');
+        const actions = document.createElement('div');
+        actions.className = 'category-actions';
+        [
+            ['cat-up', '上移', '↑', 'btn btn-secondary btn-sm cat-up'],
+            ['cat-down', '下移', '↓', 'btn btn-secondary btn-sm cat-down'],
+            ['cat-delete', '删除', '✕', 'btn btn-danger btn-sm cat-delete']
+        ].forEach(([, title, text, className]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = className;
+            button.title = title;
+            button.textContent = text;
+            actions.appendChild(button);
+        });
+        li.append(iconInput, nameInput, actions);
         return li;
     };
 
     const render = (cats) => {
-        list.innerHTML = '';
+        list.replaceChildren();
         cats.forEach(c => list.appendChild(createItem(c)));
     };
 
@@ -413,6 +486,8 @@ function setupEventListeners() {
     const syncUpload = document.getElementById('sync-upload-now');
     const syncDownload = document.getElementById('sync-download-now');
     const syncClear = document.getElementById('sync-clear-cloud');
+    const onlineWallpapers = document.getElementById('privacy-online-wallpapers');
+    const onlineFavicons = document.getElementById('privacy-online-favicons');
 
     if (syncToggle) {
         syncToggle.addEventListener('change', async () => {
@@ -444,9 +519,9 @@ function setupEventListeners() {
     if (syncUpload) {
         syncUpload.addEventListener('click', async () => {
             try {
-                showMessage('Uploading settings to Chrome Sync...', 'info');
+                showMessage(t('syncUploadStart', 'Uploading settings to Chrome Sync...'), 'info');
                 const status = await storageManager.pushToSync();
-                showMessage('Settings uploaded to Chrome Sync.', 'success');
+                showMessage(t('syncUploadDone', 'Settings uploaded to Chrome Sync.'), 'success');
                 await renderSyncStatus(status);
             } catch (error) {
                 console.error('Cloud sync upload error:', error);
@@ -459,7 +534,7 @@ function setupEventListeners() {
     if (syncDownload) {
         syncDownload.addEventListener('click', async () => {
             try {
-                showMessage('Downloading settings from Chrome Sync...', 'info');
+                showMessage(t('syncDownloadStart', 'Downloading settings from Chrome Sync...'), 'info');
                 const result = await storageManager.pullFromSync();
                 if (result.applied) {
                     showMessage('Cloud settings applied. Reloading...', 'success');
@@ -478,7 +553,7 @@ function setupEventListeners() {
 
     if (syncClear) {
         syncClear.addEventListener('click', async () => {
-            if (!confirm('Clear the cloud copy from Chrome Sync? Local settings will stay on this device.')) return;
+            if (!confirm(t('syncClearConfirm', 'Clear the cloud copy from Chrome Sync? Local settings will stay on this device.'))) return;
             try {
                 showMessage('Clearing cloud copy...', 'info');
                 const status = await storageManager.clearSync();
@@ -491,6 +566,26 @@ function setupEventListeners() {
                 showMessage(`Clear failed: ${error.message}`, 'error');
                 await renderSyncStatus();
             }
+        });
+    }
+
+    if (onlineWallpapers) {
+        onlineWallpapers.addEventListener('change', async () => {
+            if (onlineWallpapers.checked && !(await ensurePrivacyPermission('wallpapers', true))) {
+                onlineWallpapers.checked = false;
+                showMessage('Online wallpaper permission was not granted.', 'error');
+            }
+            await saveAllSettings();
+        });
+    }
+
+    if (onlineFavicons) {
+        onlineFavicons.addEventListener('change', async () => {
+            if (onlineFavicons.checked && !(await ensurePrivacyPermission('favicons', true))) {
+                onlineFavicons.checked = false;
+                showMessage('Online favicon permission was not granted.', 'error');
+            }
+            await saveAllSettings();
         });
     }
 
@@ -667,8 +762,8 @@ function setupEventListeners() {
     addTopicButtons.forEach(btn => {
         btn.addEventListener('click', function() {
             const topicList = btn.closest('.topic-list');
-            const titleInput = topicList.querySelector('.topic-title');
-            const scoreInput = topicList.querySelector('.topic-score');
+            const titleInput = topicList.querySelector('.topic-title-input');
+            const scoreInput = topicList.querySelector('.topic-score-input');
             const tabType = topicList.id.replace('-topics', '');
             
             addHotTopic(tabType, titleInput.value, parseInt(scoreInput.value) || 0);
@@ -727,17 +822,18 @@ async function collectFormData() {
         || existingConfig.themePreset
         || 'aurora-glass';
     settings.themePreset = normalizeThemePreset(themePreset);
-    
+
     // Clock settings
     const hour12 = document.getElementById('hour12-format')?.checked || false;
-    const showSeconds = document.getElementById('show-seconds')?.checked || true;
+    const showSeconds = document.getElementById('show-seconds')?.checked !== false;
     settings.clock = { hour12, showSeconds };
     
 
     
     // Background settings
-    const bgType = document.getElementById('bg-type')?.value || 'gradient';
+    let bgType = document.getElementById('bg-type')?.value || 'gradient';
     const bgColor = document.getElementById('bg-color')?.value || '';
+    const onlineWallpapers = document.getElementById('privacy-online-wallpapers')?.checked === true;
     
     let bgValue = '';
     if (bgType === 'color') {
@@ -745,21 +841,47 @@ async function collectFormData() {
     } else if (bgType === 'image') {
         bgValue = existingConfig.bg.value; // Keep existing image
     } else if (bgType === 'api') {
-        bgValue = 'https://api.paugram.com/wallpaper/'; // API endpoint
+        if (onlineWallpapers) {
+            bgValue = 'https://api.paugram.com/wallpaper/'; // API endpoint
+        } else {
+            bgType = 'gradient';
+            bgValue = '';
+        }
     }
     
     settings.bg = { type: bgType, value: bgValue };
 
     // Visibility settings
     const showClock = document.getElementById('show-clock')?.checked !== false;
+    const showSearch = document.getElementById('show-search')?.checked !== false;
     const showShortcuts = document.getElementById('show-shortcuts')?.checked !== false;
-    settings.show = { clock: showClock, shortcuts: showShortcuts };
+    const showWeather = document.getElementById('show-weather')?.checked === true;
+    const showHot = document.getElementById('show-hot')?.checked === true;
+    const showMovie = document.getElementById('show-movie')?.checked === true;
+    settings.show = { clock: showClock, search: showSearch, shortcuts: showShortcuts, weather: showWeather, hot: showHot, movie: showMovie };
 
     // Category settings
     settings.categories = getCategoriesFromDOM();
 
 
-    
+    const searchEngine = document.getElementById('search-engine')?.value || existingConfig.search?.engine || 'google';
+    const searchCustom = document.getElementById('search-custom')?.value?.trim() || '';
+    settings.search = { engine: searchEngine, custom: searchCustom };
+
+    const readNumber = (id, fallback) => {
+        const val = parseFloat(document.getElementById(id)?.value);
+        return Number.isFinite(val) ? val : fallback;
+    };
+    settings.weather = {
+        city: document.getElementById('weather-city')?.value?.trim() || existingConfig.weather.city,
+        temp: readNumber('weather-temp', existingConfig.weather.temp),
+        cond: document.getElementById('weather-condition')?.value?.trim() || existingConfig.weather.cond,
+        aqiLabel: document.getElementById('weather-aqi-label')?.value?.trim() || existingConfig.weather.aqiLabel,
+        aqi: readNumber('weather-aqi', existingConfig.weather.aqi),
+        low: readNumber('weather-low', existingConfig.weather.low),
+        high: readNumber('weather-high', existingConfig.weather.high)
+    };
+
     // Hot topics settings
     const hotTab = document.getElementById('hot-topics-tab')?.value || 'baidu';
     settings.hot = {
@@ -864,7 +986,11 @@ async function collectFormData() {
     };
 
     settings.sync = existingConfig.sync || storageManager.defaultConfig.sync;
-    
+    settings.privacy = {
+        onlineWallpapers,
+        onlineFavicons: document.getElementById('privacy-online-favicons')?.checked === true
+    };
+
     return settings;
 }
 
@@ -1110,12 +1236,13 @@ async function displayStorageInfo() {
     try {
         const info = await storageManager.getStorageInfo();
         const storageInfoElement = document.getElementById('storage-info');
-        
+
         if (storageInfoElement) {
-            storageInfoElement.innerHTML = `
-                <div>Local: ${formatBytes(info.local.bytesInUse)} / ${formatBytes(info.local.quota)} (${info.local.percentUsed}%)</div>
-                <div>Chrome Sync: ${info.sync.available ? `${formatBytes(info.sync.bytesInUse)} / ${formatBytes(info.sync.quota)} (${info.sync.percentUsed}%)` : 'Unavailable'}</div>
-            `;
+            const local = document.createElement('div');
+            local.textContent = `${t('localStorage', 'Local')}: ${formatBytes(info.local.bytesInUse)} / ${formatBytes(info.local.quota)} (${info.local.percentUsed}%)`;
+            const sync = document.createElement('div');
+            sync.textContent = `${t('chromeSync', 'Chrome Sync')}: ${info.sync.available ? `${formatBytes(info.sync.bytesInUse)} / ${formatBytes(info.sync.quota)} (${info.sync.percentUsed}%)` : t('unavailable', 'Unavailable')}`;
+            storageInfoElement.replaceChildren(local, sync);
         }
     } catch (error) {
         console.error('Error displaying storage info:', error);
@@ -1128,6 +1255,10 @@ function formatBytes(bytes) {
     return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
+function t(key, fallback) {
+    return (window.i18n && i18n.t(key) !== key) ? i18n.t(key) : fallback;
+}
+
 async function renderSyncStatus(status = null) {
     const statusElement = document.getElementById('cloud-sync-status');
     if (!statusElement) return;
@@ -1138,30 +1269,48 @@ async function renderSyncStatus(status = null) {
     const omitted = Array.isArray(remote.omittedAssets) ? remote.omittedAssets : [];
     const lastSync = local.lastSync
         ? new Date(local.lastSync).toLocaleString()
-        : 'Never';
+        : t('never', 'Never');
     const stateLabel = !syncStatus.available
-        ? 'Unavailable'
-        : (syncStatus.enabled ? 'Enabled' : 'Off');
+        ? t('unavailable', 'Unavailable')
+        : (syncStatus.enabled ? t('enabled', 'Enabled') : t('off', 'Off'));
     const stateClass = !syncStatus.available
         ? 'is-error'
         : (syncStatus.enabled ? 'is-on' : 'is-off');
 
-    statusElement.innerHTML = `
-        <div class="sync-status-row">
-            <span>Status</span>
-            <strong class="${stateClass}">${stateLabel}</strong>
-        </div>
-        <div class="sync-status-row">
-            <span>Last sync</span>
-            <strong>${escapeHtml(lastSync)}</strong>
-        </div>
-        <div class="sync-status-row">
-            <span>Cloud usage</span>
-            <strong>${syncStatus.storage?.available ? `${formatBytes(syncStatus.storage.bytesInUse)} / ${formatBytes(syncStatus.storage.quota)}` : 'Unavailable'}</strong>
-        </div>
-        ${omitted.length ? `<div class="sync-status-note">Local-only assets: ${escapeHtml(omitted.join(', '))}</div>` : ''}
-        ${local.lastError ? `<div class="sync-status-note is-error">${escapeHtml(local.lastError)}</div>` : ''}
-    `;
+    const createRow = (label, value, extraClass = '') => {
+        const row = document.createElement('div');
+        row.className = 'sync-status-row';
+        const labelEl = document.createElement('span');
+        labelEl.textContent = label;
+        const valueEl = document.createElement('strong');
+        if (extraClass) valueEl.className = extraClass;
+        valueEl.textContent = value;
+        row.append(labelEl, valueEl);
+        return row;
+    };
+
+    const cloudUsage = syncStatus.storage?.available
+        ? `${formatBytes(syncStatus.storage.bytesInUse)} / ${formatBytes(syncStatus.storage.quota)}`
+        : t('unavailable', 'Unavailable');
+
+    const children = [
+        createRow(t('syncStatus', 'Status'), stateLabel, stateClass),
+        createRow(t('lastSync', 'Last sync'), lastSync),
+        createRow(t('cloudUsage', 'Cloud usage'), cloudUsage)
+    ];
+    if (omitted.length) {
+        const note = document.createElement('div');
+        note.className = 'sync-status-note';
+        note.textContent = `${t('localOnlyAssets', 'Local-only assets')}: ${omitted.join(', ')}`;
+        children.push(note);
+    }
+    if (local.lastError) {
+        const error = document.createElement('div');
+        error.className = 'sync-status-note is-error';
+        error.textContent = local.lastError;
+        children.push(error);
+    }
+    statusElement.replaceChildren(...children);
 
     const upload = document.getElementById('sync-upload-now');
     const download = document.getElementById('sync-download-now');
@@ -1169,6 +1318,13 @@ async function renderSyncStatus(status = null) {
     [upload, download, clear].forEach(btn => {
         if (btn) btn.disabled = !syncStatus.available;
     });
+
+    const hotTopicsSelect = document.getElementById('hot-topics-tab');
+    if (hotTopicsSelect) {
+        hotTopicsSelect.addEventListener('change', () => {
+            switchHotTopicsTab(hotTopicsSelect.value);
+        });
+    }
 }
 
 function showMessage(message, type = 'info') {
@@ -1256,7 +1412,7 @@ function updateBackgroundImagePreview(dataURL) {
  */
 async function saveBackgroundSettings() {
     try {
-        const bgType = document.getElementById('bg-type')?.value || 'gradient';
+        let bgType = document.getElementById('bg-type')?.value || 'gradient';
         const bgColor = document.getElementById('bg-color')?.value || '';
         const existingConfig = await storageManager.getAll();
         
@@ -1265,6 +1421,16 @@ async function saveBackgroundSettings() {
             bgValue = bgColor;
         } else if (bgType === 'image') {
             bgValue = existingConfig.bg.value; // Keep existing image
+        } else if (bgType === 'api') {
+            if (existingConfig.privacy?.onlineWallpapers === true || document.getElementById('privacy-online-wallpapers')?.checked === true) {
+                bgValue = 'https://api.paugram.com/wallpaper/';
+            } else {
+                bgType = 'gradient';
+                const bgTypeSelect = document.getElementById('bg-type');
+                if (bgTypeSelect) bgTypeSelect.value = 'gradient';
+                updateBackgroundSections();
+                showMessage('Enable online random wallpapers in Privacy first.', 'error');
+            }
         }
         
         await storageManager.set('bg', { type: bgType, value: bgValue });
@@ -1319,7 +1485,7 @@ function populateHotTopicsLists(hotConfig) {
     tabs.forEach(tab => {
         const listElement = document.getElementById(`${tab}-list`);
         if (listElement && hotConfig[tab]) {
-            listElement.innerHTML = '';
+            listElement.replaceChildren();
             hotConfig[tab].forEach((topic, index) => {
                 addTopicToList(tab, topic.t, topic.s, index);
             });
@@ -1336,21 +1502,31 @@ function addTopicToList(tabType, title, score, index) {
     
     const topicElement = document.createElement('div');
     topicElement.className = 'topic-item';
-    topicElement.innerHTML = `
-        <div class="topic-content">
-            <span class="topic-title">${escapeHtml(title)}</span>
-            <span class="topic-score">${score}</span>
-        </div>
-        <div class="topic-actions">
-            <button type="button" class="btn btn-sm btn-secondary edit-topic-btn" data-index="${index}">Edit</button>
-            <button type="button" class="btn btn-sm btn-danger delete-topic-btn" data-index="${index}">Delete</button>
-        </div>
-    `;
-    
+    const content = document.createElement('div');
+    content.className = 'topic-content';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'topic-title';
+    titleEl.textContent = title;
+    const scoreEl = document.createElement('span');
+    scoreEl.className = 'topic-score';
+    scoreEl.textContent = String(score);
+    content.append(titleEl, scoreEl);
+    const actions = document.createElement('div');
+    actions.className = 'topic-actions';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'btn btn-sm btn-secondary edit-topic-btn';
+    editBtn.dataset.index = index;
+    editBtn.textContent = t('edit', 'Edit');
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-sm btn-danger delete-topic-btn';
+    deleteBtn.dataset.index = index;
+    deleteBtn.textContent = t('delete', 'Delete');
+    actions.append(editBtn, deleteBtn);
+    topicElement.append(content, actions);
+
     // Add event listeners for edit and delete buttons
-    const editBtn = topicElement.querySelector('.edit-topic-btn');
-    const deleteBtn = topicElement.querySelector('.delete-topic-btn');
-    
     editBtn.addEventListener('click', () => editHotTopic(tabType, index));
     deleteBtn.addEventListener('click', () => deleteHotTopic(tabType, index));
     
@@ -1380,7 +1556,7 @@ function switchHotTopicsTab(tabType) {
  */
 async function addHotTopic(tabType, title, score) {
     if (!title.trim()) {
-        showMessage('Please enter a topic title', 'error');
+        showMessage(t('topicTitleRequired', 'Please enter a topic title'), 'error');
         return;
     }
     
@@ -1611,7 +1787,9 @@ function setupAutoSave() {
     
     const autoSaveInputs = [
         'hour12-format', 'show-seconds',
-        'show-clock', 'show-shortcuts', 'show-shortcut-titles',
+        'show-clock', 'show-search', 'show-shortcuts', 'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles',
+        'search-engine', 'search-custom',
+        'privacy-online-wallpapers', 'privacy-online-favicons',
         'shortcuts-gap-x', 'shortcuts-gap-y', 'shortcut-icon-size', 'shortcut-title-size',
         'shortcut-title-color', 'shortcut-title-color-text', 'shortcut-title-color-auto',
         'dashboard-padding-top', 'dashboard-padding-right', 'dashboard-padding-bottom', 'dashboard-padding-left',
@@ -1635,13 +1813,4 @@ function setupAutoSave() {
             });
         }
     });
-}
-
-/**
- * Escape HTML to prevent XSS
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }

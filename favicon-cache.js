@@ -9,6 +9,11 @@
 	const DB_STORE = 'icons';
 	const DB_VERSION = 1;
 	const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+	let onlineEnabled = false;
+
+	function setOnlineEnabled(enabled) {
+		onlineEnabled = enabled === true;
+	}
 
 	function getOriginFromUrl(url) {
 		try {
@@ -96,11 +101,10 @@
 
 	function buildFaviconUrls(origin) {
 		try {
-			const u = new URL(origin);
-			return [
-				`https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`,
-				`${u.origin}/favicon.ico`
-			];
+				const u = new URL(origin);
+				return [
+					`https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`
+				];
 		} catch (_) {
 			return [];
 		}
@@ -123,6 +127,8 @@
 		if (rec && rec.dataUrl && (now - (rec.updatedAt || 0)) < MAX_AGE_MS) {
 			return rec.dataUrl;
 		}
+
+		if (!onlineEnabled) return null;
 
 		// 2) Try network, then store
 		const dataUrl = await tryFetchFavicon(origin);
@@ -164,6 +170,13 @@
 		if (rec && rec.dataUrl && (now - (rec.updatedAt || 0)) < MAX_AGE_MS) {
 			return rec.dataUrl;
 		}
+		if (!onlineEnabled) return null;
+		try {
+			const parsed = new URL(iconUrl);
+			if (parsed.origin !== 'https://www.google.com') return null;
+		} catch (_) {
+			return null;
+		}
 		const du = await fetchAsDataUrl(iconUrl);
 		if (du) {
 			await idbSet({ origin: iconUrl, dataUrl: du, updatedAt: now });
@@ -173,6 +186,13 @@
 	}
 
 	async function prefetchByUrl(iconUrl) {
+		if (!onlineEnabled) return;
+		try {
+			const parsed = new URL(iconUrl);
+			if (parsed.origin !== 'https://www.google.com') return;
+		} catch (_) {
+			return;
+		}
 		const du = await fetchAsDataUrl(iconUrl);
 		if (du) await idbSet({ origin: iconUrl, dataUrl: du, updatedAt: Date.now() });
 	}
@@ -182,6 +202,7 @@
 	}
 
 	async function prefetch(origin) {
+		if (!onlineEnabled) return;
 		const du = await tryFetchFavicon(origin);
 		if (du) await idbSet({ origin, dataUrl: du, updatedAt: Date.now() });
 	}
@@ -190,6 +211,6 @@
 		await idbDelete(origin);
 	}
 
-	window.faviconCache = { getIconDataUrl, prefetch, invalidate, getOriginFromUrl, getIconDataUrlByUrl, prefetchByUrl, invalidateByUrl };
-})();
+	window.faviconCache = { getIconDataUrl, prefetch, invalidate, getOriginFromUrl, getIconDataUrlByUrl, prefetchByUrl, invalidateByUrl, setOnlineEnabled };
+	})();
 

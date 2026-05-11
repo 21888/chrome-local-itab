@@ -25,15 +25,22 @@ class StorageManager {
                 engine: 'google', 
                 custom: '' 
             },
-            bg: { 
-                type: 'gradient', 
-                value: '' 
+            bg: {
+                type: 'gradient',
+                value: ''
             },
             themePreset: 'aurora-glass',
             show: {
                 clock: true,
                 search: true,
-                shortcuts: true
+                shortcuts: true,
+                weather: false,
+                hot: false,
+                movie: false
+            },
+            privacy: {
+                onlineWallpapers: false,
+                onlineFavicons: false
             },
             categories: [
                 { id: 'work', name: '\u5de5\u4f5c', icon: '\ud83d\udcbc' },
@@ -158,7 +165,7 @@ class StorageManager {
             await this.ensureSyncInitialized();
             // Validate the data before storing
             const validatedValue = this.validateData(key, value);
-            
+
             await chrome.storage.local.set({ [key]: validatedValue });
 
             if (!this._isApplyingSync) {
@@ -194,10 +201,10 @@ class StorageManager {
         try {
             await this.ensureSyncInitialized();
             const result = await chrome.storage.local.get(null);
-            
+
             // Merge with defaults for any missing keys
             const completeConfig = this.cloneDefaultConfig();
-            
+
             for (const [key, value] of Object.entries(result)) {
                 if (this.defaultConfig.hasOwnProperty(key)) {
                     completeConfig[key] = this.validateData(key, value);
@@ -221,12 +228,12 @@ class StorageManager {
             await this.ensureSyncInitialized();
             const wasSyncEnabled = await this.isSyncEnabledLocally();
             const validatedData = {};
-            
+
             // Validate each key-value pair
             for (const [key, value] of Object.entries(data)) {
                 validatedData[key] = this.validateData(key, value);
             }
-            
+
             await chrome.storage.local.set(validatedData);
 
             if (!this._isApplyingSync) {
@@ -280,7 +287,7 @@ class StorageManager {
             const syncAvailable = this.isSyncAvailable();
             const syncBytesInUse = syncAvailable ? await chrome.storage.sync.getBytesInUse(null) : 0;
             const syncQuota = syncAvailable ? (chrome.storage.sync.QUOTA_BYTES || 102400) : 0;
-            
+
             return {
                 bytesInUse,
                 quota,
@@ -330,8 +337,8 @@ class StorageManager {
      * @returns {*} - Default value
      */
     getDefaultValue(key) {
-        return this.defaultConfig.hasOwnProperty(key) 
-            ? JSON.parse(JSON.stringify(this.defaultConfig[key])) 
+        return this.defaultConfig.hasOwnProperty(key)
+            ? JSON.parse(JSON.stringify(this.defaultConfig[key]))
             : null;
     }
 
@@ -735,6 +742,8 @@ class StorageManager {
                     return this.validateBackgroundConfig(value);
                 case 'show':
                     return this.validateShowConfig(value);
+                case 'privacy':
+                    return this.validatePrivacyConfig(value);
                 case 'themePreset':
                     return this.validateThemePreset(value);
                 case 'categories':
@@ -788,8 +797,16 @@ class StorageManager {
         
         const validEngines = ['google', 'bing', 'duck', 'custom'];
         const engine = validEngines.includes(value.engine) ? value.engine : this.defaultConfig.search.engine;
-        const custom = typeof value.custom === 'string' ? value.custom : this.defaultConfig.search.custom;
-        
+        let custom = typeof value.custom === 'string' ? value.custom.trim() : this.defaultConfig.search.custom;
+        if (custom) {
+            try {
+                const parsed = new URL(custom);
+                if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') custom = '';
+            } catch (_) {
+                custom = '';
+            }
+        }
+
         return { engine, custom };
     }
 
@@ -803,8 +820,11 @@ class StorageManager {
         
         const validTypes = ['gradient', 'color', 'image', 'api'];
         const type = validTypes.includes(value.type) ? value.type : this.defaultConfig.bg.type;
-        const bgValue = typeof value.value === 'string' ? value.value : this.defaultConfig.bg.value;
-        
+        let bgValue = typeof value.value === 'string' ? value.value : this.defaultConfig.bg.value;
+        if (type === 'image' && bgValue && !/^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(bgValue)) {
+            bgValue = '';
+        }
+
         return { type, value: bgValue };
     }
 
@@ -819,7 +839,25 @@ class StorageManager {
         return {
             clock: typeof value.clock === 'boolean' ? value.clock : this.defaultConfig.show.clock,
             search: typeof value.search === 'boolean' ? value.search : this.defaultConfig.show.search,
-            shortcuts: typeof value.shortcuts === 'boolean' ? value.shortcuts : this.defaultConfig.show.shortcuts
+            shortcuts: typeof value.shortcuts === 'boolean' ? value.shortcuts : this.defaultConfig.show.shortcuts,
+            weather: typeof value.weather === 'boolean' ? value.weather : this.defaultConfig.show.weather,
+            hot: typeof value.hot === 'boolean' ? value.hot : this.defaultConfig.show.hot,
+            movie: typeof value.movie === 'boolean' ? value.movie : this.defaultConfig.show.movie
+        };
+    }
+
+    validatePrivacyConfig(value) {
+        if (typeof value !== 'object' || value === null) {
+            throw new Error('Privacy config must be an object');
+        }
+
+        return {
+            onlineWallpapers: typeof value.onlineWallpapers === 'boolean'
+                ? value.onlineWallpapers
+                : this.defaultConfig.privacy.onlineWallpapers,
+            onlineFavicons: typeof value.onlineFavicons === 'boolean'
+                ? value.onlineFavicons
+                : this.defaultConfig.privacy.onlineFavicons
         };
     }
 
@@ -862,15 +900,25 @@ class StorageManager {
         if (!Array.isArray(value)) {
             throw new Error('Links must be an array');
         }
-        
+
         return value.map(link => {
             if (typeof link !== 'object' || link === null) {
                 throw new Error('Each link must be an object');
             }
             
+            const rawUrl = typeof link.url === 'string' ? link.url.trim() : '';
+            let url = '';
+            try {
+                const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(rawUrl) ? rawUrl : `https://${rawUrl}`;
+                const parsed = new URL(withProtocol);
+                if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+                    url = parsed.toString();
+                }
+            } catch (_) {}
+
             return {
                 title: typeof link.title === 'string' ? link.title.trim() : '',
-                url: typeof link.url === 'string' ? link.url.trim() : '',
+                url,
                 icon: typeof link.icon === 'string' ? link.icon : '🌐',
                 category: typeof link.category === 'string' && link.category
                     ? link.category
@@ -932,11 +980,14 @@ class StorageManager {
         if (typeof value !== 'object' || value === null) {
             throw new Error('Movie config must be an object');
         }
-        
+        const poster = typeof value.poster === 'string' && /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(value.poster)
+            ? value.poster
+            : this.defaultConfig.movie.poster;
+
         return {
             title: typeof value.title === 'string' ? value.title : this.defaultConfig.movie.title,
             note: typeof value.note === 'string' ? value.note : this.defaultConfig.movie.note,
-            poster: typeof value.poster === 'string' ? value.poster : this.defaultConfig.movie.poster
+            poster
         };
     }
 

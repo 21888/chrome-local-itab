@@ -6,6 +6,13 @@ if (typeof window !== 'undefined') {
 let currentUiState = null;
 let quoteRefreshIntervalId = null;
 const THEME_PRESETS = ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'];
+const SEARCH_ENGINES = {
+    google: 'https://www.google.com/search?q=%s',
+    bing: 'https://www.bing.com/search?q=%s',
+    duck: 'https://duckduckgo.com/?q=%s'
+};
+
+window.localItabPrivacy = { onlineWallpapers: false, onlineFavicons: false };
 
 function normalizeThemePreset(preset) {
     if (typeof preset !== 'string') return 'aurora-glass';
@@ -17,6 +24,29 @@ function applyThemePreset(preset) {
     document.documentElement.dataset.theme = normalized;
     document.body.dataset.theme = normalized;
     return normalized;
+}
+
+function isOnlineFaviconsEnabled() {
+    return window.localItabPrivacy?.onlineFavicons === true;
+}
+
+function normalizeHttpUrl(rawUrl) {
+    const value = String(rawUrl || '').trim();
+    if (!value) return '';
+    const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('Only HTTP and HTTPS URLs are supported');
+    }
+    return parsed.toString();
+}
+
+function setText(element, value) {
+    if (element) element.textContent = value == null ? '' : String(value);
+}
+
+function isSafeImageDataUrl(value) {
+    return /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(String(value || ''));
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
@@ -136,10 +166,13 @@ async function openAllInCategory(categoryId) {
 
     // Normalize URLs
     const urls = links.map(l => {
-        let url = l.url || '';
-        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-        return url;
-    });
+        try {
+            return normalizeHttpUrl(l.url);
+        } catch (_) {
+            return '';
+        }
+    }).filter(Boolean);
+    if (!urls.length) return;
 
     const concurrency = 5;
     const delayMs = 120;
@@ -168,12 +201,17 @@ async function initializeDashboard() {
     try {
         // Load all configuration data from storage
         const config = await storageManager.getAll();
+        window.localItabPrivacy = {
+            onlineWallpapers: config.privacy?.onlineWallpapers === true,
+            onlineFavicons: config.privacy?.onlineFavicons === true
+        };
+        window.faviconCache?.setOnlineEnabled?.(window.localItabPrivacy.onlineFavicons);
 
         // Apply theme preset early for consistent rendering
         applyThemePreset(config.themePreset);
 
         // Apply background settings
-        await applyBackgroundSettings(config.bg);
+        await applyBackgroundSettings(config.bg, config.privacy);
 
         // Apply module visibility settings
         applyModuleVisibility(config.show);
@@ -183,13 +221,16 @@ async function initializeDashboard() {
             initializeClockComponent(config.clock);
         }
 
+        if (config.show.search) {
+            initializeSearchComponent(config.search);
+        }
 
 
         if (config.show.shortcuts) {
             initializeShortcutsComponent(config.links, config.layout);
         }
 
-        // Initialize other components (always visible for now)
+        initializeLocalInfoCards(config);
         initializeQuoteComponent(config.quote);
 
         console.log('Dashboard initialized successfully');
@@ -292,7 +333,7 @@ function setupExtremeCompactMode() {
     } catch (_) {}
 }
 
-async function applyBackgroundSettings(bgConfig) {
+async function applyBackgroundSettings(bgConfig, privacyConfig = {}) {
     const body = document.body;
 
     // Clear existing background classes
@@ -325,6 +366,10 @@ async function applyBackgroundSettings(bgConfig) {
             }
             break;
         case 'api':
+            if (privacyConfig.onlineWallpapers !== true) {
+                body.classList.add('bg-gradient');
+                break;
+            }
             body.classList.add('bg-api');
             await loadApiBackground();
             break;
@@ -412,7 +457,11 @@ function hexToRgb(hex) {
 function applyModuleVisibility(showConfig) {
     // Get module containers
     const clockContainer = document.getElementById('clock-container');
+    const searchContainer = document.getElementById('search-container');
     const shortcutsContainer = document.getElementById('shortcuts-container');
+    const weatherContainer = document.getElementById('weather-container');
+    const hotContainer = document.getElementById('hot-container');
+    const movieContainer = document.getElementById('movie-container');
 
     // Apply visibility settings with CSS classes
     if (clockContainer) {
@@ -432,6 +481,196 @@ function applyModuleVisibility(showConfig) {
             shortcutsContainer.classList.add('module-hidden');
         }
     }
+
+    [
+        [searchContainer, showConfig.search],
+        [weatherContainer, showConfig.weather],
+        [hotContainer, showConfig.hot],
+        [movieContainer, showConfig.movie]
+    ].forEach(([container, isVisible]) => {
+        if (!container) return;
+        container.classList.toggle('module-hidden', isVisible !== true);
+        container.style.display = isVisible === true ? '' : 'none';
+    });
+}
+
+function initializeSearchComponent(searchConfig = {}) {
+    const container = document.getElementById('search-container');
+    if (!container) return;
+
+    container.replaceChildren();
+    const form = document.createElement('form');
+    form.className = 'search-form';
+    form.setAttribute('role', 'search');
+
+    const select = document.createElement('select');
+    select.className = 'search-engine-select';
+    select.id = 'search-engine';
+    select.setAttribute('aria-label', (window.i18n && i18n.t('searchEngine')) || 'Search engine');
+
+    [
+        ['google', 'Google'],
+        ['bing', 'Bing'],
+        ['duck', 'DuckDuckGo'],
+        ['custom', (window.i18n && i18n.t('customSearch')) || 'Custom']
+    ].forEach(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.appendChild(option);
+    });
+    select.value = searchConfig.engine || 'google';
+
+    const input = document.createElement('input');
+    input.className = 'search-input';
+    input.type = 'search';
+    input.placeholder = (window.i18n && i18n.t('searchPlaceholder')) || 'Search or enter a URL';
+    input.setAttribute('aria-label', input.placeholder);
+
+    const button = document.createElement('button');
+    button.className = 'search-submit';
+    button.type = 'submit';
+    button.textContent = (window.i18n && i18n.t('search')) || 'Search';
+
+    form.append(select, input, button);
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const query = input.value.trim();
+        if (!query) return;
+
+        try {
+            const directUrl = normalizeHttpUrl(query);
+            if (/^[\w.-]+\.[a-z]{2,}([/:?#]|$)/i.test(query) || /^https?:\/\//i.test(query)) {
+                window.open(directUrl, '_blank');
+                return;
+            }
+        } catch (_) {}
+
+        const engine = select.value;
+        const template = engine === 'custom' && searchConfig.custom
+            ? searchConfig.custom
+            : SEARCH_ENGINES[engine] || SEARCH_ENGINES.google;
+        const encoded = encodeURIComponent(query);
+        const url = template.includes('%s')
+            ? template.replace('%s', encoded)
+            : `${template}${template.includes('?') ? '&' : '?'}q=${encoded}`;
+        window.open(url, '_blank');
+    });
+
+    container.appendChild(form);
+}
+
+function initializeLocalInfoCards(config) {
+    renderWeatherCard(config.weather, config.show.weather);
+    renderHotTopicsCard(config.hot, config.show.hot);
+    renderMovieCard(config.movie, config.show.movie);
+}
+
+function createCardHeader(icon, title) {
+    const header = document.createElement('div');
+    header.className = 'info-card-header';
+    const iconEl = document.createElement('span');
+    iconEl.className = 'info-card-icon';
+    iconEl.textContent = icon;
+    const titleEl = document.createElement('h3');
+    titleEl.className = 'info-card-title';
+    titleEl.textContent = title;
+    header.append(iconEl, titleEl);
+    return header;
+}
+
+function renderWeatherCard(weather, visible) {
+    const container = document.getElementById('weather-container');
+    if (!container || visible !== true) return;
+    container.replaceChildren(createCardHeader('☁', (window.i18n && i18n.t('weatherCard')) || 'Weather'));
+
+    const display = document.createElement('div');
+    display.className = 'weather-display';
+    const temp = document.createElement('div');
+    temp.className = 'weather-current-temp';
+    temp.textContent = `${Number.isFinite(weather?.temp) ? Math.round(weather.temp) : 0}°`;
+    const details = document.createElement('div');
+    details.className = 'weather-details';
+    setText(details, `${weather?.city || 'Local'} · ${weather?.cond || ''}`);
+    const range = document.createElement('div');
+    range.className = 'weather-high-low';
+    range.textContent = `${(window.i18n && i18n.t('lowHigh')) || 'Low/High'} ${weather?.low ?? '-'}° / ${weather?.high ?? '-'}°`;
+    const aqi = document.createElement('div');
+    aqi.className = 'weather-aqi';
+    aqi.textContent = `${(window.i18n && i18n.t('aqi')) || 'AQI'} ${weather?.aqi ?? '-'} · ${weather?.aqiLabel || ''}`;
+    display.append(temp, details, range, aqi);
+    container.appendChild(display);
+}
+
+function renderHotTopicsCard(hot, visible) {
+    const container = document.getElementById('hot-container');
+    if (!container || visible !== true) return;
+    container.replaceChildren(createCardHeader('↗', (window.i18n && i18n.t('hotTopics')) || 'Hot Topics'));
+
+    const topics = Array.isArray(hot?.[hot.tab]) ? hot[hot.tab] : [];
+    const list = document.createElement('ol');
+    list.className = 'topics-list';
+    if (!topics.length) {
+        const empty = document.createElement('div');
+        empty.className = 'topics-empty';
+        setText(empty, (window.i18n && i18n.t('emptyLocalTopics')) || 'Add local topics in settings.');
+        container.appendChild(empty);
+        return;
+    }
+
+    topics.slice(0, 6).forEach((topic, index) => {
+        const item = document.createElement('li');
+        item.className = 'topic-item';
+        const rank = document.createElement('span');
+        rank.className = 'topic-rank';
+        rank.textContent = String(index + 1);
+        const content = document.createElement('span');
+        content.className = 'topic-content';
+        const title = document.createElement('span');
+        title.className = 'topic-title';
+        title.textContent = topic.t || '';
+        const score = document.createElement('span');
+        score.className = 'topic-score';
+        score.textContent = `${topic.s || 0}`;
+        content.append(title, score);
+        item.append(rank, content);
+        list.appendChild(item);
+    });
+    container.appendChild(list);
+}
+
+function renderMovieCard(movie, visible) {
+    const container = document.getElementById('movie-container');
+    if (!container || visible !== true) return;
+    container.replaceChildren(createCardHeader('★', (window.i18n && i18n.t('movieCard')) || 'Movie'));
+
+    const display = document.createElement('div');
+    display.className = 'movie-display';
+    const poster = document.createElement('div');
+    poster.className = 'movie-poster';
+    if (movie?.poster && isSafeImageDataUrl(movie.poster)) {
+        const img = document.createElement('img');
+        img.className = 'poster-image';
+        img.alt = '';
+        img.src = movie.poster;
+        poster.appendChild(img);
+    } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'poster-placeholder';
+        placeholder.textContent = '★';
+        poster.appendChild(placeholder);
+    }
+    const info = document.createElement('div');
+    info.className = 'movie-info';
+    const title = document.createElement('div');
+    title.className = 'movie-title';
+    setText(title, movie?.title || '');
+    const note = document.createElement('div');
+    note.className = 'movie-description';
+    setText(note, movie?.note || '');
+    info.append(title, note);
+    display.append(poster, info);
+    container.appendChild(display);
 }
 
 function initializeClockComponent(clockConfig) {
@@ -539,7 +778,7 @@ class ClockComponent {
             options.second = '2-digit';
         }
 
-        return date.toLocaleTimeString('en-US', options);
+        return date.toLocaleTimeString(navigator.language || undefined, options);
     }
 
     /**
@@ -548,15 +787,18 @@ class ClockComponent {
      * @returns {string} - Formatted date string
      */
     formatDate(date) {
-        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-        const month = date.toLocaleDateString('en-US', { month: 'long' });
+        const locale = navigator.language || undefined;
+        const dayOfWeek = date.toLocaleDateString(locale, { weekday: 'long' });
+        const month = date.toLocaleDateString(locale, { month: 'long' });
         const day = date.getDate();
         const year = date.getFullYear();
 
         const dayOfYear = this.getDayOfYear(date);
         const weekNumber = this.getWeekNumber(date);
 
-        return `${dayOfWeek}, ${month} ${day}, ${year} • Day ${dayOfYear} • Week ${weekNumber}`;
+        const dayLabel = (window.i18n && i18n.t('dayOfYear')) || 'Day';
+        const weekLabel = (window.i18n && i18n.t('weekNumber')) || 'Week';
+        return `${dayOfWeek}, ${month} ${day}, ${year} • ${dayLabel} ${dayOfYear} • ${weekLabel} ${weekNumber}`;
     }
 
     /**
@@ -631,7 +873,10 @@ function initializeQuoteComponent(quote) {
 
     const renderQuote = () => {
         const formattedQuote = formatQuotePlaceholders(quote);
-        quoteContainer.innerHTML = `<div>${formattedQuote}</div>`;
+        quoteContainer.replaceChildren();
+        const quoteText = document.createElement('div');
+        quoteText.textContent = formattedQuote;
+        quoteContainer.appendChild(quoteText);
         quoteContainer.style.display = 'block';
     };
 
@@ -1030,11 +1275,11 @@ class ShortcutsComponent {
     render() {
         if (!this.container) return;
 
-        this.container.innerHTML = `
-            <div class="shortcuts-grid" id="shortcuts-grid">
-                ${this.renderShortcuts()}
-            </div>
-        `;
+        const grid = document.createElement('div');
+        grid.className = 'shortcuts-grid';
+        grid.id = 'shortcuts-grid';
+        grid.appendChild(this.buildShortcutsFragment());
+        this.container.replaceChildren(grid);
 
         this.attachEventListeners();
         this.createModal();
@@ -1053,38 +1298,107 @@ class ShortcutsComponent {
     /**
      * Render shortcuts grid
      */
-    renderShortcuts() {
-        const items = this.links.map((link, index) => `
-            <div class="shortcut-item" data-index="${index}" draggable="true">
-                <div class="shortcut-content">
-                    <div class="shortcut-icon">${this.renderIcon(link.icon || '🌐', link.url)}</div>
-                    <h3 class="shortcut-title">${this.escapeHtml(link.title)}</h3>
-                </div>
-                <div class="shortcut-actions">
-                    <button class="shortcut-action-btn edit" data-action="edit" data-index="${index}" title="${(window.i18n && i18n.t('edit')) || 'Edit'}">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                        </svg>
-                    </button>
-                    <button class="shortcut-action-btn delete" data-action="delete" data-index="${index}" title="${(window.i18n && i18n.t('remove')) || 'Delete'}">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        `).join('');
+    buildShortcutsFragment() {
+        const fragment = document.createDocumentFragment();
+        if (!this.links.length) {
+            fragment.appendChild(this.createEmptyState());
+        }
+        this.links.forEach((link, index) => {
+            fragment.appendChild(this.createShortcutItem(link, index));
+        });
+        fragment.appendChild(this.createAddTile());
+        return fragment;
+    }
 
-        const addTile = `
-            <div class="shortcut-item add-shortcut" data-action="open-add" draggable="false">
-                <div class="shortcut-content">
-                    <div class="shortcut-icon">+</div>
-                    <h3 class="shortcut-title">${(window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'}</h3>
-                </div>
-            </div>
-        `;
+    createShortcutItem(link, index) {
+        const item = document.createElement('div');
+        item.className = 'shortcut-item';
+        item.dataset.index = String(index);
+        item.draggable = true;
 
-        return items + addTile;
+        const content = document.createElement('div');
+        content.className = 'shortcut-content';
+
+        const icon = document.createElement('div');
+        icon.className = 'shortcut-icon';
+        this.setShortcutIconContent(icon, link.icon || '🌐', link.url);
+
+        const title = document.createElement('h3');
+        title.className = 'shortcut-title';
+        title.textContent = link.title || '';
+
+        content.append(icon, title);
+
+        const actions = document.createElement('div');
+        actions.className = 'shortcut-actions';
+        actions.append(
+            this.createShortcutAction('edit', index, (window.i18n && i18n.t('edit')) || 'Edit', '✎'),
+            this.createShortcutAction('delete', index, (window.i18n && i18n.t('remove')) || 'Delete', '×')
+        );
+
+        item.append(content, actions);
+        return item;
+    }
+
+    createShortcutAction(action, index, title, label) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `shortcut-action-btn ${action}`;
+        button.dataset.action = action;
+        button.dataset.index = String(index);
+        button.title = title;
+        button.textContent = label;
+        return button;
+    }
+
+    createEmptyState() {
+        const empty = document.createElement('div');
+        empty.className = 'shortcuts-empty-state';
+
+        const icon = document.createElement('div');
+        icon.className = 'empty-icon';
+        icon.textContent = '⌂';
+
+        const text = document.createElement('div');
+        text.className = 'empty-text';
+        text.textContent = (window.i18n && i18n.t('emptyShortcuts')) || 'Your local start page is empty.';
+
+        const actions = document.createElement('div');
+        actions.className = 'empty-actions';
+        [
+            ['open-add', (window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'],
+            ['create-starter-set', (window.i18n && i18n.t('createStarterSet')) || 'Create Starter Set'],
+            ['open-import', (window.i18n && i18n.t('importSettings')) || 'Import Settings']
+        ].forEach(([action, label]) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'empty-action-btn';
+            button.dataset.action = action;
+            button.textContent = label;
+            actions.appendChild(button);
+        });
+
+        empty.append(icon, text, actions);
+        return empty;
+    }
+
+    createAddTile() {
+        const item = document.createElement('div');
+        item.className = 'shortcut-item add-shortcut';
+        item.dataset.action = 'open-add';
+        item.draggable = false;
+
+        const content = document.createElement('div');
+        content.className = 'shortcut-content';
+        const icon = document.createElement('div');
+        icon.className = 'shortcut-icon';
+        icon.textContent = '+';
+        const title = document.createElement('h3');
+        title.className = 'shortcut-title';
+        title.textContent = (window.i18n && i18n.t('addShortcut')) || 'Add Shortcut';
+        content.append(icon, title);
+        item.appendChild(content);
+        return item;
     }
 
     /**
@@ -1131,6 +1445,18 @@ class ShortcutsComponent {
             return;
         }
 
+        if (action === 'create-starter-set') {
+            e.stopPropagation();
+            this.createStarterSet();
+            return;
+        }
+
+        if (action === 'open-import') {
+            e.stopPropagation();
+            chrome.runtime.openOptionsPage();
+            return;
+        }
+
         if (action === 'edit') {
             e.stopPropagation();
             this.openEditModal(index);
@@ -1153,14 +1479,29 @@ class ShortcutsComponent {
     openShortcut(index) {
         if (index >= 0 && index < this.links.length) {
             const link = this.links[index];
-            let url = link.url;
+            try {
+                window.open(normalizeHttpUrl(link.url), '_blank');
+            } catch (_) {}
+        }
+    }
 
-            // Add protocol if missing
-            if (!url.match(/^https?:\/\//)) {
-                url = 'https://' + url;
-            }
-
-            window.open(url, '_blank');
+    async createStarterSet() {
+        if (this.links.length) return;
+        this.links = [
+            { title: 'GitHub', url: 'https://github.com/', icon: 'GH', category: 'work' },
+            { title: 'Gmail', url: 'https://mail.google.com/', icon: '✉', category: 'work' },
+            { title: 'YouTube', url: 'https://www.youtube.com/', icon: '▶', category: 'entertainment' },
+            { title: 'Wikipedia', url: 'https://www.wikipedia.org/', icon: 'W', category: 'learning' },
+            { title: 'Google Translate', url: 'https://translate.google.com/', icon: '文', category: 'tools' }
+        ];
+        try {
+            const saved = await storageManager.set('links', this.links);
+            if (!saved) throw new Error('Storage write returned false');
+            this.updateGrid();
+            window.categoryNavigation?.filterShortcuts?.();
+        } catch (error) {
+            console.error('Error creating starter set:', error);
+            showErrorMessage((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.');
         }
     }
 
@@ -1287,7 +1628,7 @@ class ShortcutsComponent {
                                     </svg>
                                 </button>
                             </div>
-                            <div class="form-hint">Enter an emoji, text, or click the button to auto-fetch the website's icon</div>
+                            <div class="form-hint">${(window.i18n && i18n.t('iconHint')) || 'Enter an emoji, text, or click the button to auto-fetch the website icon'}</div>
                         </div>
                         <div class="modal-actions">
                             <button type="button" class="modal-btn secondary" id="cancel-btn">${(window.i18n && i18n.t('cancel')) || 'Cancel'}</button>
@@ -1376,7 +1717,13 @@ class ShortcutsComponent {
         const categorySelect = this.modal?.querySelector('#shortcut-category');
         if (!categorySelect) return;
         const categories = window.categoryNavigation?.getCategoriesForSelect?.() || [];
-        categorySelect.innerHTML = categories.map(cat => `<option value="${cat.id}">${cat.icon} ${cat.name}</option>`).join('');
+        categorySelect.replaceChildren();
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = `${cat.icon || ''} ${cat.name || ''}`.trim();
+            categorySelect.appendChild(option);
+        });
     }
 
     /**
@@ -1393,7 +1740,7 @@ class ShortcutsComponent {
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
         const title = titleInput.value.trim();
-        const url = urlInput.value.trim();
+        let url = urlInput.value.trim();
         const icon = iconInput.value.trim() || '🌐';
         const category = (categorySelect?.value || 'work').trim();
 
@@ -1401,6 +1748,7 @@ class ShortcutsComponent {
         if (!this.validateForm(title, url)) {
             return;
         }
+        url = normalizeHttpUrl(url);
 
         this.setSavingState(true);
 
@@ -1490,11 +1838,7 @@ class ShortcutsComponent {
      */
     isValidUrl(url) {
         try {
-            // Add protocol if missing
-            if (!url.match(/^https?:\/\//)) {
-                url = 'https://' + url;
-            }
-            new URL(url);
+            normalizeHttpUrl(url);
             return true;
         } catch {
             return false;
@@ -1569,28 +1913,59 @@ class ShortcutsComponent {
             existingDialog.remove();
         }
 
-        const dialogHtml = `
-            <div class="modal-overlay" id="confirm-dialog">
-                <div class="modal confirm-dialog">
-                    <div class="modal-header">
-                        <h3 class="modal-title">${title}</h3>
-                        <button class="modal-close" id="confirm-close">×</button>
-                    </div>
-                    <div class="confirm-message">${message}</div>
-                    <div class="confirm-shortcut-info">
-                        <div class="confirm-shortcut-title">${this.escapeHtml(shortcut.title)}</div>
-                        <div class="confirm-shortcut-url">${this.escapeHtml(shortcut.url)}</div>
-                    </div>
-                    <div class="modal-actions">
-                        <button class="modal-btn secondary" id="confirm-cancel">Cancel</button>
-                        <button class="modal-btn primary" id="confirm-delete" style="background: #e74c3c; border-color: #e74c3c;">Delete</button>
-                    </div>
-                </div>
-            </div>
-        `;
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'confirm-dialog';
 
-        document.body.insertAdjacentHTML('beforeend', dialogHtml);
-        this.confirmDialog = document.getElementById('confirm-dialog');
+        const modal = document.createElement('div');
+        modal.className = 'modal confirm-dialog';
+
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        const heading = document.createElement('h3');
+        heading.className = 'modal-title';
+        heading.textContent = title;
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'modal-close';
+        close.id = 'confirm-close';
+        close.textContent = '×';
+        header.append(heading, close);
+
+        const body = document.createElement('div');
+        body.className = 'confirm-message';
+        body.textContent = message;
+
+        const shortcutInfo = document.createElement('div');
+        shortcutInfo.className = 'confirm-shortcut-info';
+        const shortcutTitle = document.createElement('div');
+        shortcutTitle.className = 'confirm-shortcut-title';
+        shortcutTitle.textContent = shortcut.title || '';
+        const shortcutUrl = document.createElement('div');
+        shortcutUrl.className = 'confirm-shortcut-url';
+        shortcutUrl.textContent = shortcut.url || '';
+        shortcutInfo.append(shortcutTitle, shortcutUrl);
+
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'modal-btn secondary';
+        cancel.id = 'confirm-cancel';
+        cancel.textContent = (window.i18n && i18n.t('cancel')) || 'Cancel';
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'modal-btn primary';
+        remove.id = 'confirm-delete';
+        remove.style.background = '#e74c3c';
+        remove.style.borderColor = '#e74c3c';
+        remove.textContent = (window.i18n && i18n.t('remove')) || 'Delete';
+        actions.append(cancel, remove);
+
+        modal.append(header, body, shortcutInfo, actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        this.confirmDialog = overlay;
 
         // Show dialog
         this.confirmDialog.classList.add('active');
@@ -1631,7 +2006,7 @@ class ShortcutsComponent {
     updateGrid() {
         const grid = document.getElementById('shortcuts-grid');
         if (grid) {
-            grid.innerHTML = this.renderShortcuts();
+            grid.replaceChildren(this.buildShortcutsFragment());
             this.gridEl = grid;
             this.applyLayoutMode();
         }
@@ -2264,74 +2639,63 @@ class ShortcutsComponent {
     /**
      * Render icon - handle both emoji/text and data URLs (favicons)
      */
-    renderIcon(icon, url) {
-        if (!icon) return '🌐';
+    setShortcutIconContent(slot, icon, url) {
+        if (!slot) return;
 
-        const imgAttrs = 'style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" loading="lazy" decoding="async" referrerpolicy="no-referrer"';
+        const fallback = () => {
+            slot.textContent = '🌐';
+        };
+        const setImage = (src) => {
+            const img = document.createElement('img');
+            img.className = 'shortcut-icon-img';
+            img.src = src;
+            img.alt = '';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.referrerPolicy = 'no-referrer';
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '4px';
+            slot.replaceChildren(img);
+        };
 
-        // Treat tiny data URLs as invalid (likely 1x1 placeholders)
-        if (icon.startsWith('data:image/')) {
-            if (icon.length < 200) {
-                // fall through to cache/remote resolution below
-            } else {
-                return `<img class="shortcut-icon-img" src="${icon}" alt="Site icon" ${imgAttrs}>`;
-            }
+        if (!icon) {
+            fallback();
+            return;
         }
 
-        // Remote URL provided by user: try URL-based cache first; fallback to rendering remote URL
+        if (icon.startsWith('data:image/')) {
+            if (icon.length >= 200 && isSafeImageDataUrl(icon)) {
+                setImage(icon);
+            } else {
+                fallback();
+            }
+            return;
+        }
+
         if (icon.startsWith('http://') || icon.startsWith('https://')) {
+            fallback();
             if (window.faviconCache) {
                 window.faviconCache.getIconDataUrlByUrl(icon).then((dataUrl) => {
-                    if (!dataUrl || (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/') && dataUrl.length < 200)) return;
-                    const grid = document.getElementById('shortcuts-grid');
-                    if (!grid) return;
-                    const idx = this.links.findIndex(l => l.url === url);
-                    if (idx >= 0) {
-                        const slot = grid.querySelector(`.shortcut-item[data-index="${idx}"] .shortcut-icon`);
-                        if (slot) slot.innerHTML = `<img class=\"shortcut-icon-img\" src=\"${dataUrl}\" alt=\"icon\" ${imgAttrs}>`;
-                    }
+                    if (!dataUrl || !isSafeImageDataUrl(dataUrl) || dataUrl.length < 200) return;
+                    setImage(dataUrl);
                 });
             }
-            // Render remote URL immediately for UX; background cache will handle future loads
-            return `<img class="shortcut-icon-img" src="${icon}" alt="Site icon" ${imgAttrs}>`;
+            return;
         }
 
-        // Otherwise, it's emoji/text or invalid data URL; try cache by URL origin first
+        slot.textContent = icon;
+
         if (window.faviconCache && url) {
             const origin = window.faviconCache.getOriginFromUrl(url);
             if (origin) {
                 window.faviconCache.getIconDataUrl(origin).then((dataUrl) => {
-                    if (!dataUrl) return;
-                    const grid = document.getElementById('shortcuts-grid');
-                    if (!grid) return;
-                    const idx = this.links.findIndex(l => l.url === url);
-                    if (idx >= 0) {
-                        const slot = grid.querySelector(`.shortcut-item[data-index="${idx}"] .shortcut-icon`);
-                        if (slot) slot.innerHTML = `<img class=\"shortcut-icon-img\" src=\"${dataUrl}\" alt=\"icon\" ${imgAttrs}>`;
-                    }
+                    if (!dataUrl || !isSafeImageDataUrl(dataUrl) || dataUrl.length < 200) return;
+                    setImage(dataUrl);
                 });
             }
         }
-
-        // As a last resort, build a Google S2 URL from page URL
-        try {
-            if (url) {
-                const u = new URL(url.startsWith('http') ? url : 'https://' + url);
-                const s2 = `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=64`;
-                return `<img class="shortcut-icon-img" src="${s2}" alt="Site icon" ${imgAttrs}>`;
-            }
-        } catch (_) {}
-
-        return this.escapeHtml(icon);
-    }
-
-    /**
-     * Escape HTML to prevent XSS
-     */
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     /**
@@ -2345,16 +2709,21 @@ class ShortcutsComponent {
 
         const url = urlInput.value.trim();
         if (!url) {
-            this.showFormError('url', 'Please enter a URL first');
+            this.showFormError('url', (window.i18n && i18n.t('urlRequiredFirst')) || 'Please enter a URL first');
+            return;
+        }
+
+        if (!isOnlineFaviconsEnabled()) {
+            this.showFormError('url', (window.i18n && i18n.t('onlineFaviconsDisabled')) || 'Enable online icon fetching in Settings > Privacy first.');
             return;
         }
 
         // Validate URL format
         let validUrl;
         try {
-            validUrl = new URL(url.startsWith('http') ? url : 'https://' + url);
+            validUrl = new URL(normalizeHttpUrl(url));
         } catch {
-            this.showFormError('url', 'Please enter a valid URL');
+            this.showFormError('url', (window.i18n && i18n.t('urlInvalid')) || 'Please enter a valid URL');
             return;
         }
 
@@ -2368,54 +2737,10 @@ class ShortcutsComponent {
         fetchBtn.style.animation = 'spin 1s linear infinite';
 
         try {
-            // 方式一：直接用 Google S2 获取 icon；并尝试抓取页面标题
+            // Use Google S2 only after the user explicitly enables online favicons.
             const faviconUrl = `https://www.google.com/s2/favicons?domain=${validUrl.hostname}&sz=64`;
             const s2DataUrl = await this.fetchFaviconAsDataUrl(faviconUrl);
             iconInput.value = s2DataUrl || faviconUrl;
-
-            // 方式二：尝试抓取网页 HTML，解析 <title> 与 <link rel="icon">
-            // 说明：在扩展页面中 fetch 跨域网站通常受限，不保证都成功；尽力而为
-            let htmlText = '';
-            try {
-                const resp = await fetch(validUrl.toString(), { method: 'GET', mode: 'cors' });
-                if (resp.ok) {
-                    htmlText = await resp.text();
-                }
-            } catch (_) { }
-
-            if (htmlText) {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(htmlText, 'text/html');
-                // 标题
-                const pageTitle = doc.querySelector('title')?.textContent?.trim();
-                if (pageTitle && !titleInput.value.trim()) {
-                    titleInput.value = pageTitle;
-                }
-                // icon 链接解析，优先 apple-touch-icon、icon、shortcut icon
-                const iconSelectors = [
-                    'link[rel="apple-touch-icon"]',
-                    'link[rel="apple-touch-icon-precomposed"]',
-                    'link[rel="icon"]',
-                    'link[rel="shortcut icon"]',
-                    'link[rel~="icon"]'
-                ];
-                let href = '';
-                for (const sel of iconSelectors) {
-                    const el = doc.querySelector(sel);
-                    if (el && el.getAttribute('href')) {
-                        href = el.getAttribute('href');
-                        break;
-                    }
-                }
-                if (href) {
-                    // 处理相对路径
-                    try {
-                        const absUrl = new URL(href, validUrl).toString();
-                        const absDataUrl = await this.fetchFaviconAsDataUrl(absUrl);
-                        iconInput.value = absDataUrl || absUrl;
-                    } catch (_) { }
-                }
-            }
         } finally {
             fetchBtn.disabled = false;
             fetchBtn.style.animation = '';
@@ -2509,7 +2834,7 @@ class CategoryNavigation {
         const list = document.getElementById('category-list');
         if (!list) return;
 
-        list.innerHTML = '';
+        list.replaceChildren();
 
         // All category
         const allItem = this.createNavItem({ id: 'all', name: (window.i18n && i18n.t('all')) || '全部', icon: '🌟' });
@@ -2529,7 +2854,13 @@ class CategoryNavigation {
         const btn = document.createElement('button');
         btn.className = 'category-item';
         btn.dataset.category = cat.id;
-        btn.innerHTML = `<span class="category-icon">${cat.icon}</span><span class="category-name">${cat.name}</span>`;
+        const icon = document.createElement('span');
+        icon.className = 'category-icon';
+        icon.textContent = cat.icon || '';
+        const name = document.createElement('span');
+        name.className = 'category-name';
+        name.textContent = cat.name || '';
+        btn.append(icon, name);
         btn.addEventListener('click', () => this.selectCategory(cat.id));
         return btn;
     }

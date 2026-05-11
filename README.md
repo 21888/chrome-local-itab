@@ -1,29 +1,43 @@
 # Local iTab Extension
 
 
-<img width="3806" height="1693" alt="image" src="https://github.com/user-attachments/assets/552c660a-cb0f-4ee8-b89e-2746ba938160" />
-
-
-A customizable new tab page Chrome extension that works completely offline.
+<img width="640" height="400" alt="p1 (3)" src="https://github.com/user-attachments/assets/f072e511-7ded-45da-9cd5-4725efd4cd28" />
+<img width="640" height="400" alt="p1 (1)" src="https://github.com/user-attachments/assets/74106bd6-98f8-4ac1-8328-02f2323687ec" />
+<img width="640" height="400" alt="p1 (2)" src="https://github.com/user-attachments/assets/d020a9a6-6971-48f0-9abd-10da306d5731" />
+<img width="640" height="400" alt="p1 (4)" src="https://github.com/user-attachments/assets/56076d9f-9d46-4fde-bff7-0f104512d889" />
+<img width="640" height="400" alt="p1 (5)" src="https://github.com/user-attachments/assets/26868e31-a6f5-4811-a1d1-730755638a3d" />
+A customizable new tab page Chrome extension that works offline by default, with optional online enhancements that must be enabled explicitly.
 
 ## New Additions
 
-- Custom themed context menu (dark/light, rounded corners, shadow, keyboard hints, touch-close)
-- Category right-click: Open all links (with confirmation and max concurrency)
-- Site card right-click: Open in new tab / Edit / Delete
-- Favicon persistent cache: IndexedDB first, fallback Cache API; 7-day TTL; rebuild/invalidate
-- Internationalization: `chrome.i18n` with `_locales/en` and `_locales/zh_CN`
+- Default-off online controls for random wallpapers and favicon fetching
+- Search module with Google, Bing, DuckDuckGo, and custom URL templates
+- Local weather, hot topic, and movie cards maintained by the user
+- Custom themed context menu with category and shortcut actions
+- Favicon persistent cache: IndexedDB first; 7-day TTL; no network fetch unless enabled
+- Internationalization through `chrome.i18n` with `_locales/en` and `_locales/zh_CN`
 
 ## Features
 
-- **Offline First**: No network requests, all data stored locally
-- **Customizable Dashboard**: Time display, search, shortcuts, weather, hot topics, and movie cards
+- **Offline by Default**: New installs make no external requests unless online enhancements are enabled
+- **Customizable Dashboard**: Time display, search, shortcuts, local weather, hot topics, and movie cards
 - **Multiple Search Engines**: Google, Bing, DuckDuckGo, and custom search support
 - **Background Customization**: Upload images, solid colors, or gradients
 - **Import/Export**: Backup and restore settings via JSON
 - **Module Visibility**: Show/hide different dashboard components
- - **Internationalization**: All menu items and dialogs are localized through chrome.i18n
- - **Icon Caching**: Favicons are cached locally for performance and offline use
+- **Internationalization**: Menu items and dialogs are localized through chrome.i18n
+- **Icon Caching**: Cached favicons can be reused offline
+- **Chrome Sync**: Optional settings sync with large local assets omitted when necessary
+
+## Privacy and Network Behavior
+
+Local iTab is designed to be privacy-forward:
+
+- Default state: no random wallpaper request, no favicon request, no remote weather/hot-topic/movie feed.
+- Online random wallpapers: disabled by default; when enabled and selected, the extension may request `https://api.paugram.com/wallpaper/`.
+- Online favicon fetching: disabled by default; when enabled, the extension may request `https://www.google.com/s2/favicons`.
+- Search: typing does not send data anywhere; a request is made only after you submit a search or open a URL.
+- User data is stored in `chrome.storage.local`; Chrome Sync is opt-in and subject to Chrome's sync quota.
 
 ## Installation
 
@@ -39,8 +53,8 @@ A customizable new tab page Chrome extension that works completely offline.
 
 ## Favicon Cache
 
-- API: `faviconCache.getIconDataUrl(origin)`, `faviconCache.invalidate(origin)`, `faviconCache.prefetch(origin)`
-- Used automatically by shortcuts to resolve icons to data URLs
+- API: `faviconCache.getIconDataUrl(origin)`, `faviconCache.invalidate(origin)`, `faviconCache.prefetch(origin)`, `faviconCache.setOnlineEnabled(enabled)`
+- Used by shortcuts to resolve cached icons; network fetching is disabled until the privacy setting enables it
 
 ## Context Menu
 
@@ -73,8 +87,9 @@ local-itab/
 ## Requirements
 
 - Chrome browser with Manifest V3 support
-- No internet connection required for operation
+- No internet connection required for default operation
 
 ## License
+
 
 This project is open source and available under the MIT License.

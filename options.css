@@ -696,6 +696,56 @@ button {
     min-width: 148px;
 }
 
+.privacy-hint {
+    padding: var(--spacing-md);
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.topic-editor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.topic-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.topic-list-header {
+    font-weight: 650;
+    color: var(--text-primary);
+}
+
+.topic-manage-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 32px;
+}
+
+.topic-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.topic-actions {
+    display: flex;
+    gap: 6px;
+}
+
 .btn:disabled {
     opacity: 0.52;
     cursor: not-allowed;

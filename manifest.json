@@ -7,10 +7,9 @@
     "storage",
     "unlimitedStorage"
   ],
-  "host_permissions": [
+  "optional_host_permissions": [
     "https://www.google.com/*",
-    "https://api.paugram.com/*",
-    "*://*/*"
+    "https://api.paugram.com/*"
   ],
   "default_locale": "en",
   "chrome_url_overrides": {
@@ -23,6 +22,6 @@
     "128": "assets/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:; connect-src 'self' https: http:"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:; connect-src 'self' https://www.google.com https://api.paugram.com"
   }
 }

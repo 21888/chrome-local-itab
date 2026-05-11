@@ -32,6 +32,10 @@
                         <span class="tab-icon">🧱</span>
                         <span data-i18n="tabLayout">Layout</span>
                     </button>
+                    <button class="tab-button" data-tab="privacy" role="tab" aria-selected="false" aria-controls="tab-privacy">
+                        <span class="tab-icon">🔒</span>
+                        <span data-i18n="tabPrivacy">Privacy</span>
+                    </button>
                     <button class="tab-button" data-tab="content" role="tab" aria-selected="false" aria-controls="tab-content">
                         <span class="tab-icon">🗂️</span>
                         <span data-i18n="tabContent">Content</span>
@@ -145,7 +149,7 @@
                                     </select>
                                     <div class="setting-hint" id="bg-api-hint" style="display: none;">
                                         <span class="hint-icon">🌟</span>
-                                        <span>Automatically loads beautiful wallpapers from Paugram API. Images refresh on each page load.</span>
+                                        <span data-i18n="bgApiHint">Loads wallpapers from Paugram only when online wallpapers are enabled.</span>
                                     </div>
                                 </div>
                                 <div class="setting-group full-width" id="bg-color-section" style="display: none;">
@@ -197,10 +201,50 @@
 
                                 <div class="setting-group">
                                     <label class="setting-label">
+                                        <input type="checkbox" id="show-search" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showSearch">Search Module</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
                                         <input type="checkbox" id="show-shortcuts" class="setting-checkbox">
                                         <span class="checkbox-custom"></span>
                                         <div class="setting-info">
                                             <span class="setting-name" data-i18n="showShortcuts">Shortcuts Module</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="show-weather" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showWeather">Weather Card</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="show-hot" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showHot">Hot Topics Card</span>
+                                            <span class="setting-desc">&nbsp;</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="setting-label">
+                                        <input type="checkbox" id="show-movie" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="showMovie">Movie Card</span>
                                             <span class="setting-desc">&nbsp;</span>
                                         </div>
                                     </label>
@@ -319,7 +363,67 @@
                         </section>
                     </div>
 
+                    <div class="tab-panel" id="tab-privacy" data-tab="privacy" role="tabpanel">
+                        <section class="settings-section" id="privacy-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">🔒 <span data-i18n="privacyNetwork">Privacy &amp; Network</span></h2>
+                                <p class="section-description" data-i18n="privacyNetworkDesc">Local iTab works offline by default. Enable these only if you want online enhancements.</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <label class="setting-label sync-toggle-card">
+                                        <input type="checkbox" id="privacy-online-wallpapers" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="onlineWallpapers">Online random wallpapers</span>
+                                            <span class="setting-desc" data-i18n="onlineWallpapersDesc">Allows requests to https://api.paugram.com/ when the API background is selected.</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <label class="setting-label sync-toggle-card">
+                                        <input type="checkbox" id="privacy-online-favicons" class="setting-checkbox">
+                                        <span class="checkbox-custom"></span>
+                                        <div class="setting-info">
+                                            <span class="setting-name" data-i18n="onlineFavicons">Online favicon fetching</span>
+                                            <span class="setting-desc" data-i18n="onlineFaviconsDesc">Allows requests to https://www.google.com/s2/favicons for shortcut icons.</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div class="setting-hint privacy-hint">
+                                        <span class="hint-icon">ℹ</span>
+                                        <span data-i18n="privacyHint">When disabled, the new tab page uses only local data, uploaded images, emoji icons, and cached icons.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
                     <div class="tab-panel" id="tab-content" data-tab="content" role="tabpanel">
+                        <section class="settings-section" id="search-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">🔎 <span data-i18n="searchSettings">Search</span></h2>
+                                <p class="section-description" data-i18n="searchSettingsDesc">Configure the local search box. Searches only leave the page when you submit.</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group">
+                                    <label class="form-label" for="search-engine" data-i18n="searchEngine">Search engine</label>
+                                    <select id="search-engine" class="form-select">
+                                        <option value="google">Google</option>
+                                        <option value="bing">Bing</option>
+                                        <option value="duck">DuckDuckGo</option>
+                                        <option value="custom" data-i18n="customSearch">Custom</option>
+                                    </select>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="search-custom" data-i18n="customSearchUrl">Custom search URL</label>
+                                    <input type="text" id="search-custom" class="form-input" placeholder="https://example.com/search?q=%s">
+                                    <small class="form-hint" data-i18n="customSearchUrlDesc">Use %s where the encoded query should be inserted.</small>
+                                </div>
+                            </div>
+                        </section>
+
                         <!-- Category Management -->
                         <section class="settings-section" id="category-settings">
                             <div class="section-header">
@@ -335,6 +439,84 @@
                                         </svg>
                                         <span data-i18n="addCategory">Add Category</span>
                                     </button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="settings-section" id="local-card-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">🧭 <span data-i18n="localCards">Local Cards</span></h2>
+                                <p class="section-description" data-i18n="localCardsDesc">Weather, topics, and movie cards are manually maintained local content.</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group">
+                                    <label class="form-label" for="weather-city" data-i18n="weatherCity">Weather city</label>
+                                    <input type="text" id="weather-city" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="weather-condition" data-i18n="weatherCondition">Condition</label>
+                                    <input type="text" id="weather-condition" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="weather-temp" data-i18n="weatherTemp">Temperature</label>
+                                    <input type="number" id="weather-temp" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="weather-low" data-i18n="weatherLow">Low</label>
+                                    <input type="number" id="weather-low" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="weather-high" data-i18n="weatherHigh">High</label>
+                                    <input type="number" id="weather-high" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="weather-aqi" data-i18n="weatherAqi">AQI</label>
+                                    <input type="number" id="weather-aqi" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="weather-aqi-label" data-i18n="weatherAqiLabel">AQI label</label>
+                                    <input type="text" id="weather-aqi-label" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="hot-topics-tab" data-i18n="hotTopicGroup">Topic group</label>
+                                    <select id="hot-topics-tab" class="form-select">
+                                        <option value="baidu">Baidu</option>
+                                        <option value="weibo">Weibo</option>
+                                        <option value="zhihu">Zhihu</option>
+                                    </select>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div class="topic-editor-grid">
+                                        <div class="topic-list" id="baidu-topics">
+                                            <div class="topic-list-header">Baidu</div>
+                                            <div id="baidu-list" class="topic-manage-list"></div>
+                                            <input type="text" class="form-input topic-title-input" data-i18n-placeholder="topicTitlePlaceholder" placeholder="Topic title">
+                                            <input type="number" class="form-input topic-score-input" data-i18n-placeholder="topicScorePlaceholder" placeholder="Score">
+                                            <button type="button" class="btn btn-secondary add-topic-btn" data-i18n="add">Add</button>
+                                        </div>
+                                        <div class="topic-list" id="weibo-topics" style="display:none;">
+                                            <div class="topic-list-header">Weibo</div>
+                                            <div id="weibo-list" class="topic-manage-list"></div>
+                                            <input type="text" class="form-input topic-title-input" data-i18n-placeholder="topicTitlePlaceholder" placeholder="Topic title">
+                                            <input type="number" class="form-input topic-score-input" data-i18n-placeholder="topicScorePlaceholder" placeholder="Score">
+                                            <button type="button" class="btn btn-secondary add-topic-btn" data-i18n="add">Add</button>
+                                        </div>
+                                        <div class="topic-list" id="zhihu-topics" style="display:none;">
+                                            <div class="topic-list-header">Zhihu</div>
+                                            <div id="zhihu-list" class="topic-manage-list"></div>
+                                            <input type="text" class="form-input topic-title-input" data-i18n-placeholder="topicTitlePlaceholder" placeholder="Topic title">
+                                            <input type="number" class="form-input topic-score-input" data-i18n-placeholder="topicScorePlaceholder" placeholder="Score">
+                                            <button type="button" class="btn btn-secondary add-topic-btn" data-i18n="add">Add</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="movie-title" data-i18n="movieTitle">Movie title</label>
+                                    <input type="text" id="movie-title" class="form-input">
+                                </div>
+                                <div class="setting-group">
+                                    <label class="form-label" for="movie-note" data-i18n="movieNote">Movie note</label>
+                                    <input type="text" id="movie-note" class="form-input">
                                 </div>
                             </div>
                         </section>
