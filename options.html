@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Settings for the private, local-first Local iTab Chrome new tab page.">
     <title data-i18n="optionsTitle">Local iTab Settings</title>
     <link rel="stylesheet" href="options.css">
 </head>
 <body>
+    <a class="skip-link" href="#tab-appearance">Skip to settings</a>
     <div class="options-container">
         <header class="options-header">
             <div class="header-top">
@@ -18,7 +20,7 @@
                 </button>
             </div>
             <h1 class="options-title" data-i18n="optionsTitle">Local iTab Settings</h1>
-            <p class="options-subtitle" data-i18n="optionsSubtitle">Customize your new tab experience</p>
+            <p class="options-subtitle" data-i18n="optionsSubtitle">Tune a private, local-first new tab page</p>
         </header>
         
         <main class="options-main">
@@ -30,7 +32,7 @@
                     </button>
                     <button class="tab-button" data-tab="layout" role="tab" aria-selected="false" aria-controls="tab-layout">
                         <span class="tab-icon">🧱</span>
-                        <span data-i18n="tabLayout">Layout</span>
+                        <span data-i18n="tabLayout">Shortcuts</span>
                     </button>
                     <button class="tab-button" data-tab="privacy" role="tab" aria-selected="false" aria-controls="tab-privacy">
                         <span class="tab-icon">🔒</span>
@@ -38,7 +40,7 @@
                     </button>
                     <button class="tab-button" data-tab="content" role="tab" aria-selected="false" aria-controls="tab-content">
                         <span class="tab-icon">🗂️</span>
-                        <span data-i18n="tabContent">Content</span>
+                        <span data-i18n="tabContent">Search &amp; cards</span>
                     </button>
                     <button class="tab-button" data-tab="sync" role="tab" aria-selected="false" aria-controls="tab-sync">
                         <span class="tab-icon">☁️</span>
@@ -64,8 +66,8 @@
                                     <div class="theme-card-body">
                                         <div class="theme-swatch aurora-glass"></div>
                                         <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeAuroraGlass">Aurora Glass</span>
-                                            <span class="theme-desc" data-i18n="themeAuroraGlassDesc">Iridescent glass with cool glow</span>
+                                            <span class="theme-name" data-i18n="themeAuroraGlass">Slate focus</span>
+                                            <span class="theme-desc" data-i18n="themeAuroraGlassDesc">Calm dark panels with clear contrast</span>
                                         </div>
                                     </div>
                                 </label>
@@ -74,8 +76,8 @@
                                     <div class="theme-card-body">
                                         <div class="theme-swatch ink-paper"></div>
                                         <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeInkPaper">Ink &amp; Paper</span>
-                                            <span class="theme-desc" data-i18n="themeInkPaperDesc">Editorial light with soft grain</span>
+                                            <span class="theme-name" data-i18n="themeInkPaper">Paper light</span>
+                                            <span class="theme-desc" data-i18n="themeInkPaperDesc">Soft light workspace with quiet borders</span>
                                         </div>
                                     </div>
                                 </label>
@@ -84,8 +86,8 @@
                                     <div class="theme-card-body">
                                         <div class="theme-swatch warm-studio"></div>
                                         <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeWarmStudio">Warm Studio</span>
-                                            <span class="theme-desc" data-i18n="themeWarmStudioDesc">Amber warmth with soft shadows</span>
+                                            <span class="theme-name" data-i18n="themeWarmStudio">Walnut</span>
+                                            <span class="theme-desc" data-i18n="themeWarmStudioDesc">Warm neutral workspace with subtle depth</span>
                                         </div>
                                     </div>
                                 </label>
@@ -94,8 +96,8 @@
                                     <div class="theme-card-body">
                                         <div class="theme-swatch signal-pop"></div>
                                         <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeSignalPop">Signal Pop</span>
-                                            <span class="theme-desc" data-i18n="themeSignalPopDesc">High-contrast neon accents</span>
+                                            <span class="theme-name" data-i18n="themeSignalPop">High contrast</span>
+                                            <span class="theme-desc" data-i18n="themeSignalPopDesc">Sharper contrast for focused scanning</span>
                                         </div>
                                     </div>
                                 </label>
@@ -404,7 +406,7 @@
                         <section class="settings-section" id="search-settings">
                             <div class="section-header">
                                 <h2 class="section-title">🔎 <span data-i18n="searchSettings">Search</span></h2>
-                                <p class="section-description" data-i18n="searchSettingsDesc">Configure the local search box. Searches only leave the page when you submit.</p>
+                                <p class="section-description" data-i18n="searchSettingsDesc">Configure the local search box. Typing stays local; submit opens the selected engine.</p>
                             </div>
                             <div class="settings-grid">
                                 <div class="setting-group">
@@ -624,6 +626,7 @@
     
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
+    <script src="shared/search-template.js"></script>
     <script src="options.js"></script>
 </body>
 </html>
