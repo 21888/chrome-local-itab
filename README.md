@@ -6,10 +6,13 @@
 <img width="640" height="400" alt="p1 (2)" src="https://github.com/user-attachments/assets/d020a9a6-6971-48f0-9abd-10da306d5731" />
 <img width="640" height="400" alt="p1 (4)" src="https://github.com/user-attachments/assets/56076d9f-9d46-4fde-bff7-0f104512d889" />
 <img width="640" height="400" alt="p1 (5)" src="https://github.com/user-attachments/assets/26868e31-a6f5-4811-a1d1-730755638a3d" />
-A customizable new tab page Chrome extension that works offline by default, with optional online enhancements that must be enabled explicitly.
+A private, local-first Chrome new tab page for search, shortcuts, and lightweight personal context. It works offline by default, with optional online enhancements that must be enabled explicitly.
 
 ## New Additions
 
+- Public-release visual refresh with a restrained utility interface
+- Shared search URL template validation for the dashboard and settings
+- Release and privacy documentation under `docs/`
 - Default-off online controls for random wallpapers and favicon fetching
 - Search module with Google, Bing, DuckDuckGo, and custom URL templates
 - Local weather, hot topic, and movie cards maintained by the user
@@ -68,6 +71,18 @@ This extension is built with:
 - Vanilla JavaScript (no external dependencies)
 - Chrome Storage API for local data persistence
 - Responsive CSS Grid layout
+
+## Design Direction
+
+Local iTab should feel like a calm browser utility, not a marketing page. The primary workflow is search plus local shortcuts. Optional weather, topic, movie, sync, and online image features must stay visually secondary and explicit.
+
+See `.impeccable.md` for the design context used by implementation agents.
+
+## Release Preparation
+
+- `docs/privacy-summary.md` summarizes default-off network behavior.
+- `docs/release-checklist.md` lists the Chrome Web Store readiness checks.
+- Before packaging, reload the unpacked extension, verify both locales, and confirm the default install makes no external requests.
 
 ## File Structure
 
