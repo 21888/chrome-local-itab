@@ -13,6 +13,45 @@ const SEARCH_ENGINES = {
 };
 
 window.localItabPrivacy = { onlineWallpapers: false, onlineFavicons: false };
+const PRIVACY_PERMISSION_ORIGINS = {
+    onlineWallpapers: 'https://api.paugram.com/*',
+    onlineFavicons: 'https://www.google.com/*'
+};
+
+function hasOptionalOriginPermission(origin) {
+    return new Promise(resolve => {
+        if (typeof chrome === 'undefined' || !chrome.permissions?.contains) {
+            resolve(false);
+            return;
+        }
+
+        let settled = false;
+        const done = (granted) => {
+            if (settled) return;
+            settled = true;
+            resolve(granted === true);
+        };
+
+        try {
+            const maybePromise = chrome.permissions.contains({ origins: [origin] }, done);
+            if (maybePromise && typeof maybePromise.then === 'function') {
+                maybePromise.then(done).catch(() => done(false));
+            }
+        } catch (_) {
+            done(false);
+        }
+    });
+}
+
+async function getEffectivePrivacyConfig(privacyConfig = {}) {
+    const wantsWallpapers = privacyConfig.onlineWallpapers === true;
+    const wantsFavicons = privacyConfig.onlineFavicons === true;
+
+    return {
+        onlineWallpapers: wantsWallpapers && await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.onlineWallpapers),
+        onlineFavicons: wantsFavicons && await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.onlineFavicons)
+    };
+}
 
 function normalizeThemePreset(preset) {
     if (typeof preset !== 'string') return 'aurora-glass';
@@ -31,6 +70,9 @@ function isOnlineFaviconsEnabled() {
 }
 
 function normalizeHttpUrl(rawUrl) {
+    if (window.LocalItabSearch?.normalizeHttpUrl) {
+        return window.LocalItabSearch.normalizeHttpUrl(rawUrl);
+    }
     const value = String(rawUrl || '').trim();
     if (!value) return '';
     const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
@@ -42,6 +84,9 @@ function normalizeHttpUrl(rawUrl) {
 }
 
 function normalizeSearchTemplate(rawTemplate) {
+    if (window.LocalItabSearch?.normalizeSearchTemplate) {
+        return window.LocalItabSearch.normalizeSearchTemplate(rawTemplate);
+    }
     const value = String(rawTemplate || '').trim();
     if (!value) return '';
     const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
@@ -212,17 +257,14 @@ async function initializeDashboard() {
     try {
         // Load all configuration data from storage
         const config = await storageManager.getAll();
-        window.localItabPrivacy = {
-            onlineWallpapers: config.privacy?.onlineWallpapers === true,
-            onlineFavicons: config.privacy?.onlineFavicons === true
-        };
+        window.localItabPrivacy = await getEffectivePrivacyConfig(config.privacy);
         window.faviconCache?.setOnlineEnabled?.(window.localItabPrivacy.onlineFavicons);
 
         // Apply theme preset early for consistent rendering
         applyThemePreset(config.themePreset);
 
         // Apply background settings
-        await applyBackgroundSettings(config.bg, config.privacy);
+        await applyBackgroundSettings(config.bg, window.localItabPrivacy);
 
         // Apply module visibility settings
         applyModuleVisibility(config.show);
@@ -674,10 +716,14 @@ function initializeSearchComponent(searchConfig = {}) {
         const template = engine === 'custom'
             ? currentSearchConfig.custom
             : SEARCH_ENGINES[engine] || SEARCH_ENGINES.google;
-        const encoded = encodeURIComponent(query);
-        const url = template.includes('%s')
-            ? template.split('%s').join(encoded)
-            : `${template}${template.includes('?') ? '&' : '?'}q=${encoded}`;
+        const url = window.LocalItabSearch?.buildSearchUrl
+            ? window.LocalItabSearch.buildSearchUrl(template, query)
+            : (() => {
+                const encoded = encodeURIComponent(query);
+                return template.includes('%s')
+                    ? template.split('%s').join(encoded)
+                    : `${template}${template.includes('?') ? '&' : '?'}q=${encoded}`;
+            })();
         window.open(url, '_blank');
     });
 
