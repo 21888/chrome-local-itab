@@ -1,5 +1,9 @@
 // Options page JavaScript - with storage management
 const THEME_PRESETS = ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'];
+const PRIVACY_PERMISSION_ORIGINS = {
+    wallpapers: 'https://api.paugram.com/*',
+    favicons: 'https://www.google.com/*'
+};
 
 function normalizeThemePreset(preset) {
     if (typeof preset !== 'string') return 'aurora-glass';
@@ -10,6 +14,21 @@ function applyThemePreset(preset) {
     document.documentElement.dataset.theme = normalized;
     document.body.dataset.theme = normalized;
     return normalized;
+}
+
+function normalizeSearchTemplateForOptions(rawTemplate) {
+    if (window.LocalItabSearch?.normalizeSearchTemplate) {
+        return window.LocalItabSearch.normalizeSearchTemplate(rawTemplate);
+    }
+
+    const value = String(rawTemplate || '').trim();
+    if (!value) return '';
+    const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('Only HTTP and HTTPS URLs are supported');
+    }
+    return parsed.toString();
 }
 
 function setupSettingsTabs() {
@@ -102,7 +121,7 @@ function syncShortcutTitleColorControls() {
 }
 
 async function requestOptionalOrigin(origin) {
-    if (!chrome?.permissions?.request) return true;
+    if (!origin || !chrome?.permissions?.request) return false;
     try {
         return await chrome.permissions.request({ origins: [origin] });
     } catch (error) {
@@ -113,11 +132,88 @@ async function requestOptionalOrigin(origin) {
 
 async function ensurePrivacyPermission(kind, enabled) {
     if (!enabled) return true;
-    const origin = kind === 'wallpapers'
-        ? 'https://api.paugram.com/*'
-        : 'https://www.google.com/*';
+    const origin = PRIVACY_PERMISSION_ORIGINS[kind];
     return requestOptionalOrigin(origin);
 }
+
+function hasOptionalOriginPermission(origin) {
+    return new Promise(resolve => {
+        if (!chrome?.permissions?.contains) {
+            resolve(false);
+            return;
+        }
+
+        let settled = false;
+        const done = (granted) => {
+            if (settled) return;
+            settled = true;
+            resolve(granted === true);
+        };
+
+        try {
+            const maybePromise = chrome.permissions.contains({ origins: [origin] }, done);
+            if (maybePromise && typeof maybePromise.then === 'function') {
+                maybePromise.then(done).catch(() => done(false));
+            }
+        } catch (_) {
+            done(false);
+        }
+    });
+}
+
+async function reconcilePrivacyPermissions(config) {
+    const privacy = { ...(config.privacy || {}) };
+    const effectivePrivacy = { ...privacy };
+
+    if (effectivePrivacy.onlineWallpapers === true && !(await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.wallpapers))) {
+        effectivePrivacy.onlineWallpapers = false;
+    }
+
+    if (effectivePrivacy.onlineFavicons === true && !(await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.favicons))) {
+        effectivePrivacy.onlineFavicons = false;
+    }
+
+    config.effectivePrivacy = effectivePrivacy;
+    return config;
+}
+
+function setPrivacyPermissionMetadata(input, config, key) {
+    if (!input) return;
+    const storedEnabled = config.privacy?.[key] === true;
+    const effectiveEnabled = (config.effectivePrivacy || config.privacy)?.[key] === true;
+    input.dataset.permissionMissing = storedEnabled && !effectiveEnabled ? 'true' : 'false';
+}
+
+function refreshPrivacyPermissionHints() {
+    [
+        {
+            id: 'privacy-online-wallpapers',
+            key: 'onlineWallpapersPermissionMissing',
+            fallback: 'Permission is not granted on this device, so this synced setting is not active here.'
+        },
+        {
+            id: 'privacy-online-favicons',
+            key: 'onlineFaviconsPermissionMissing',
+            fallback: 'Permission is not granted on this device, so this synced setting is not active here.'
+        }
+    ].forEach(({ id, key, fallback }) => {
+        const input = document.getElementById(id);
+        const desc = input?.closest?.('.setting-label')?.querySelector?.('.setting-desc');
+        if (!input || !desc) return;
+
+        if (!desc.dataset.permissionBaseText) {
+            desc.dataset.permissionBaseText = desc.textContent.trim();
+        }
+
+        const baseKey = desc.getAttribute('data-i18n');
+        const baseText = baseKey ? t(baseKey, desc.dataset.permissionBaseText) : desc.dataset.permissionBaseText;
+        const warning = t(key, fallback);
+        const missing = input.dataset.permissionMissing === 'true';
+        desc.textContent = missing ? `${baseText} ${warning}` : baseText;
+        input.title = missing ? warning : '';
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Local iTab options page loaded');
     
@@ -140,6 +236,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (window.i18n) {
             window.i18n.localizeDocument(document);
         }
+        refreshPrivacyPermissionHints();
     } catch (error) {
         console.error('Error initializing options page:', error);
         showErrorMessage('Failed to load settings. Please try refreshing the page.');
@@ -149,7 +246,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function initializeOptionsPage() {
     try {
         // Load all configuration data from storage
-        const config = await storageManager.getAll();
+        const config = await reconcilePrivacyPermissions(await storageManager.getAll());
         
         // Populate form fields with current values
         await populateFormFields(config);
@@ -184,9 +281,7 @@ async function populateFormFields(config) {
     const bgColorTextInput = document.getElementById('bg-color-text');
     
     if (bgTypeSelect) {
-        bgTypeSelect.value = (config.bg.type === 'api' && config.privacy?.onlineWallpapers !== true)
-            ? 'gradient'
-            : config.bg.type;
+        setBackgroundTypeSelection(bgTypeSelect, config.bg.type, config.effectivePrivacy?.onlineWallpapers === true);
         updateBackgroundSections();
     }
     if (bgColorInput && config.bg.type === 'color') {
@@ -233,8 +328,14 @@ async function populateFormFields(config) {
 
     const onlineWallpapers = document.getElementById('privacy-online-wallpapers');
     const onlineFavicons = document.getElementById('privacy-online-favicons');
-    if (onlineWallpapers) onlineWallpapers.checked = config.privacy?.onlineWallpapers === true;
-    if (onlineFavicons) onlineFavicons.checked = config.privacy?.onlineFavicons === true;
+    if (onlineWallpapers) {
+        onlineWallpapers.checked = config.privacy?.onlineWallpapers === true;
+        setPrivacyPermissionMetadata(onlineWallpapers, config, 'onlineWallpapers');
+    }
+    if (onlineFavicons) {
+        onlineFavicons.checked = config.privacy?.onlineFavicons === true;
+        setPrivacyPermissionMetadata(onlineFavicons, config, 'onlineFavicons');
+    }
 
     const weather = config.weather || {};
     const setValue = (id, value) => {
@@ -575,6 +676,8 @@ function setupEventListeners() {
                 onlineWallpapers.checked = false;
                 showMessage('Online wallpaper permission was not granted.', 'error');
             }
+            onlineWallpapers.dataset.permissionMissing = 'false';
+            refreshPrivacyPermissionHints();
             await saveAllSettings();
         });
     }
@@ -585,6 +688,8 @@ function setupEventListeners() {
                 onlineFavicons.checked = false;
                 showMessage('Online favicon permission was not granted.', 'error');
             }
+            onlineFavicons.dataset.permissionMissing = 'false';
+            refreshPrivacyPermissionHints();
             await saveAllSettings();
         });
     }
@@ -787,7 +892,7 @@ async function saveAllSettings() {
         const success = await storageManager.setAll(settings);
         
         if (success) {
-            showMessage('Settings saved successfully!', 'success');
+            showMessage('Settings saved.', 'success');
             // Update storage info display
             await displayStorageInfo();
         } else {
@@ -831,12 +936,19 @@ async function collectFormData() {
 
     
     // Background settings
-    let bgType = document.getElementById('bg-type')?.value || 'gradient';
+    const bgTypeSelect = document.getElementById('bg-type');
+    let bgType = bgTypeSelect?.value || 'gradient';
     const bgColor = document.getElementById('bg-color')?.value || '';
     const onlineWallpapers = document.getElementById('privacy-online-wallpapers')?.checked === true;
-    
+    const preserveApiPreference = bgType === 'gradient'
+        && bgTypeSelect?.dataset.preferredBgType === 'api'
+        && onlineWallpapers;
+
     let bgValue = '';
-    if (bgType === 'color') {
+    if (preserveApiPreference) {
+        bgType = 'api';
+        bgValue = 'https://api.paugram.com/wallpaper/';
+    } else if (bgType === 'color') {
         bgValue = bgColor;
     } else if (bgType === 'image') {
         bgValue = existingConfig.bg.value; // Keep existing image
@@ -865,7 +977,27 @@ async function collectFormData() {
 
 
     const searchEngine = document.getElementById('search-engine')?.value || existingConfig.search?.engine || 'google';
-    const searchCustom = document.getElementById('search-custom')?.value?.trim() || '';
+    const rawSearchCustom = document.getElementById('search-custom')?.value?.trim() || '';
+    let searchCustom = '';
+    if (searchEngine === 'custom') {
+        if (!rawSearchCustom) {
+            throw new Error(t('customSearchUrlRequired', 'Custom search URL is required'));
+        }
+        try {
+            searchCustom = normalizeSearchTemplateForOptions(rawSearchCustom);
+        } catch (_) {
+            throw new Error(t('customSearchUrlInvalid', 'Enter a valid HTTP or HTTPS search URL'));
+        }
+    } else if (rawSearchCustom) {
+        try {
+            searchCustom = normalizeSearchTemplateForOptions(rawSearchCustom);
+        } catch (_) {
+            searchCustom = '';
+        }
+    }
+    if (searchEngine === 'custom' && !searchCustom) {
+        throw new Error(t('customSearchUrlRequired', 'Custom search URL is required'));
+    }
     settings.search = { engine: searchEngine, custom: searchCustom };
 
     const readNumber = (id, fallback) => {
@@ -1051,7 +1183,7 @@ async function exportSettings() {
             recordCount: itemCounts.shortcuts + itemCounts.hotTopics + (itemCounts.hasBackgroundImage ? 1 : 0) + (itemCounts.hasMoviePoster ? 1 : 0)
         };
         
-        showImportExportFeedback('export', 'success', 'Settings exported successfully', details);
+        showImportExportFeedback('export', 'success', 'Settings exported.', details);
         
     } catch (error) {
         console.error('Error exporting settings:', error);
@@ -1137,7 +1269,7 @@ async function importSettings(file) {
                 recordCount: importCounts.shortcuts + importCounts.hotTopics + (importCounts.hasBackgroundImage ? 1 : 0) + (importCounts.hasMoviePoster ? 1 : 0)
             };
             
-            showImportExportFeedback('import', 'success', 'Settings imported successfully! Reloading page...', details);
+            showImportExportFeedback('import', 'success', 'Settings imported. Reloading page...', details);
             
             // Reload page after short delay
             setTimeout(() => {
@@ -1202,7 +1334,7 @@ async function handleBackgroundImageUpload(file) {
         
         await storageManager.set('bg', { type: 'image', value: dataURL });
         updateBackgroundImagePreview(dataURL);
-        showMessage('Background image uploaded successfully!', 'success');
+        showMessage('Background image uploaded.', 'success');
     } catch (error) {
         console.error('Error uploading background image:', error);
         showMessage(`Error uploading image: ${error.message}`, 'error');
@@ -1216,7 +1348,7 @@ async function handleMoviePosterUpload(file) {
         const dataURL = await fileToDataURL(file);
         const existingMovie = await storageManager.get('movie');
         await storageManager.set('movie', { ...existingMovie, poster: dataURL });
-        showMessage('Movie poster uploaded successfully!', 'success');
+        showMessage('Movie poster uploaded.', 'success');
     } catch (error) {
         console.error('Error uploading movie poster:', error);
         showMessage(`Error uploading poster: ${error.message}`, 'error');
@@ -1330,28 +1462,10 @@ async function renderSyncStatus(status = null) {
 function showMessage(message, type = 'info') {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message message-${type}`;
+    messageDiv.setAttribute('role', type === 'error' ? 'alert' : 'status');
     messageDiv.textContent = message;
-    
-    const colors = {
-        success: '#4CAF50',
-        error: '#f44336',
-        info: '#2196F3'
-    };
-    
-    messageDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: ${colors[type] || colors.info};
-        color: white;
-        padding: 12px 20px;
-        border-radius: 12px;
-        z-index: 1000;
-        font-family: var(--font-family);
-        box-shadow: 0 10px 24px rgba(0,0,0,0.25);
-    `;
-    
-    document.body.appendChild(messageDiv);
+    const container = document.getElementById('toast-container') || document.body;
+    container.appendChild(messageDiv);
     
     // Auto-remove after 3 seconds
     setTimeout(() => {
@@ -1407,32 +1521,57 @@ function updateBackgroundImagePreview(dataURL) {
     }
 }
 
+function setBackgroundTypeSelection(select, actualType, allowApi) {
+    if (!select) return;
+    if (!select.dataset) select.dataset = {};
+    const blockedApi = actualType === 'api' && allowApi !== true;
+    select.value = blockedApi ? 'gradient' : actualType;
+    if (blockedApi) {
+        select.dataset.preferredBgType = 'api';
+    } else {
+        delete select.dataset.preferredBgType;
+    }
+}
+
 /**
  * Save background settings immediately
  */
 async function saveBackgroundSettings() {
     try {
-        let bgType = document.getElementById('bg-type')?.value || 'gradient';
+        const bgTypeSelect = document.getElementById('bg-type');
+        let bgType = bgTypeSelect?.value || 'gradient';
         const bgColor = document.getElementById('bg-color')?.value || '';
         const existingConfig = await storageManager.getAll();
-        
+
         let bgValue = '';
         if (bgType === 'color') {
             bgValue = bgColor;
         } else if (bgType === 'image') {
             bgValue = existingConfig.bg.value; // Keep existing image
         } else if (bgType === 'api') {
-            if (existingConfig.privacy?.onlineWallpapers === true || document.getElementById('privacy-online-wallpapers')?.checked === true) {
+            const onlineWallpapersInput = document.getElementById('privacy-online-wallpapers');
+            if (onlineWallpapersInput?.checked === true && onlineWallpapersInput.dataset.permissionMissing === 'true') {
+                if (await ensurePrivacyPermission('wallpapers', true)) {
+                    onlineWallpapersInput.dataset.permissionMissing = 'false';
+                    refreshPrivacyPermissionHints();
+                } else {
+                    setBackgroundTypeSelection(bgTypeSelect, existingConfig.bg.type || 'gradient', false);
+                    updateBackgroundSections();
+                    showMessage('Online wallpaper permission was not granted.', 'error');
+                    return;
+                }
+            }
+
+            if (bgType === 'api' && (existingConfig.privacy?.onlineWallpapers === true || onlineWallpapersInput?.checked === true)) {
                 bgValue = 'https://api.paugram.com/wallpaper/';
             } else {
-                bgType = 'gradient';
-                const bgTypeSelect = document.getElementById('bg-type');
-                if (bgTypeSelect) bgTypeSelect.value = 'gradient';
+                setBackgroundTypeSelection(bgTypeSelect, existingConfig.bg.type || 'gradient', false);
                 updateBackgroundSections();
                 showMessage('Enable online random wallpapers in Privacy first.', 'error');
+                return;
             }
         }
-        
+
         await storageManager.set('bg', { type: bgType, value: bgValue });
     } catch (error) {
         console.error('Error saving background settings:', error);
@@ -1466,7 +1605,7 @@ async function removeBackgroundImage() {
                 bgImageInput.value = '';
             }
             
-            showMessage('Background image removed successfully!', 'success');
+            showMessage('Background image removed.', 'success');
         }
     } catch (error) {
         console.error('Error removing background image:', error);
@@ -1571,7 +1710,7 @@ async function addHotTopic(tabType, title, score) {
         
         // Refresh the list
         populateHotTopicsLists(config.hot);
-        showMessage('Topic added successfully!', 'success');
+        showMessage('Topic added.', 'success');
     } catch (error) {
         console.error('Error adding hot topic:', error);
         showMessage(`Error adding topic: ${error.message}`, 'error');
@@ -1599,7 +1738,7 @@ async function editHotTopic(tabType, index) {
             
             await storageManager.set('hot', config.hot);
             populateHotTopicsLists(config.hot);
-            showMessage('Topic updated successfully!', 'success');
+            showMessage('Topic updated.', 'success');
         }
     } catch (error) {
         console.error('Error editing hot topic:', error);
@@ -1619,7 +1758,7 @@ async function deleteHotTopic(tabType, index) {
         
         await storageManager.set('hot', config.hot);
         populateHotTopicsLists(config.hot);
-        showMessage('Topic deleted successfully!', 'success');
+        showMessage('Topic deleted.', 'success');
     } catch (error) {
         console.error('Error deleting hot topic:', error);
         showMessage(`Error deleting topic: ${error.message}`, 'error');
@@ -1683,7 +1822,7 @@ async function removeMoviePoster() {
                 posterInput.value = '';
             }
             
-            showMessage('Movie poster removed successfully!', 'success');
+            showMessage('Movie poster removed.', 'success');
         }
     } catch (error) {
         console.error('Error removing movie poster:', error);
