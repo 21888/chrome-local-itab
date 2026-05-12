@@ -41,6 +41,17 @@ function normalizeHttpUrl(rawUrl) {
     return parsed.toString();
 }
 
+function normalizeSearchTemplate(rawTemplate) {
+    const value = String(rawTemplate || '').trim();
+    if (!value) return '';
+    const withProtocol = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('Only HTTP and HTTPS URLs are supported');
+    }
+    return parsed.toString();
+}
+
 function setText(element, value) {
     if (element) element.textContent = value == null ? '' : String(value);
 }
@@ -498,6 +509,12 @@ function initializeSearchComponent(searchConfig = {}) {
     const container = document.getElementById('search-container');
     if (!container) return;
 
+    const validEngines = ['google', 'bing', 'duck', 'custom'];
+    let currentSearchConfig = {
+        engine: validEngines.includes(searchConfig.engine) ? searchConfig.engine : 'google',
+        custom: typeof searchConfig.custom === 'string' ? searchConfig.custom.trim() : ''
+    };
+
     container.replaceChildren();
     const form = document.createElement('form');
     form.className = 'search-form';
@@ -519,7 +536,7 @@ function initializeSearchComponent(searchConfig = {}) {
         option.textContent = label;
         select.appendChild(option);
     });
-    select.value = searchConfig.engine || 'google';
+    select.value = currentSearchConfig.engine;
 
     const input = document.createElement('input');
     input.className = 'search-input';
@@ -532,8 +549,109 @@ function initializeSearchComponent(searchConfig = {}) {
     button.type = 'submit';
     button.textContent = (window.i18n && i18n.t('search')) || 'Search';
 
-    form.append(select, input, button);
-    form.addEventListener('submit', (event) => {
+    const customConfig = document.createElement('div');
+    customConfig.className = 'search-custom-config';
+
+    const customInput = document.createElement('input');
+    customInput.className = 'search-custom-input';
+    customInput.type = 'text';
+    customInput.inputMode = 'url';
+    customInput.placeholder = 'https://example.com/search?q=%s';
+    customInput.value = currentSearchConfig.custom;
+    customInput.setAttribute('aria-label', (window.i18n && i18n.t('customSearchUrl')) || 'Custom search URL');
+
+    const customSave = document.createElement('button');
+    customSave.className = 'search-custom-save';
+    customSave.type = 'button';
+    customSave.textContent = (window.i18n && i18n.t('save')) || 'Save';
+
+    const customStatus = document.createElement('div');
+    customStatus.className = 'search-custom-status';
+    customStatus.setAttribute('role', 'status');
+
+    customConfig.append(customInput, customSave, customStatus);
+
+    const setCustomStatus = (message, state = '') => {
+        customStatus.textContent = message || '';
+        customStatus.classList.toggle('is-error', state === 'error');
+        customStatus.classList.toggle('is-success', state === 'success');
+    };
+
+    const updateCustomConfigVisibility = (shouldFocus = false) => {
+        const isCustom = select.value === 'custom';
+        customConfig.hidden = !isCustom;
+        if (isCustom) {
+            customInput.value = currentSearchConfig.custom;
+            setCustomStatus(
+                currentSearchConfig.custom
+                    ? ((window.i18n && i18n.t('customSearchUrlDesc')) || 'Use %s where the encoded query should be inserted.')
+                    : ''
+            );
+            if (shouldFocus) customInput.focus();
+        }
+    };
+
+    const persistSearchConfig = async (nextConfig) => {
+        if (!window.storageManager || typeof storageManager.set !== 'function') return false;
+        const saved = await storageManager.set('search', nextConfig);
+        if (saved) currentSearchConfig = nextConfig;
+        return saved;
+    };
+
+    const saveCustomSearch = async () => {
+        const rawTemplate = customInput.value.trim();
+        if (!rawTemplate) {
+            setCustomStatus((window.i18n && i18n.t('customSearchUrlRequired')) || 'Custom search URL is required', 'error');
+            customInput.focus();
+            return false;
+        }
+
+        let normalizedTemplate;
+        try {
+            normalizedTemplate = normalizeSearchTemplate(rawTemplate);
+        } catch (_) {
+            setCustomStatus((window.i18n && i18n.t('customSearchUrlInvalid')) || 'Enter a valid HTTP or HTTPS search URL', 'error');
+            customInput.focus();
+            return false;
+        }
+
+        const nextConfig = { engine: 'custom', custom: normalizedTemplate };
+        const saved = await persistSearchConfig(nextConfig);
+        if (!saved) {
+            setCustomStatus((window.i18n && i18n.t('failedToSave')) || 'Failed to save. Please try again.', 'error');
+            return false;
+        }
+
+        select.value = 'custom';
+        customInput.value = normalizedTemplate;
+        setCustomStatus((window.i18n && i18n.t('customSearchSaved')) || 'Custom search saved', 'success');
+        return true;
+    };
+
+    select.addEventListener('change', async () => {
+        const engine = select.value;
+        updateCustomConfigVisibility(engine === 'custom' && !currentSearchConfig.custom);
+
+        if (engine !== 'custom') {
+            await persistSearchConfig({ ...currentSearchConfig, engine });
+            return;
+        }
+
+        await persistSearchConfig({ ...currentSearchConfig, engine: 'custom' });
+    });
+
+    customSave.addEventListener('click', () => saveCustomSearch());
+
+    customInput.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        saveCustomSearch();
+    });
+
+    form.append(select, input, button, customConfig);
+    updateCustomConfigVisibility(false);
+
+    form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const query = input.value.trim();
         if (!query) return;
@@ -547,12 +665,18 @@ function initializeSearchComponent(searchConfig = {}) {
         } catch (_) {}
 
         const engine = select.value;
-        const template = engine === 'custom' && searchConfig.custom
-            ? searchConfig.custom
+        if (engine === 'custom' && !currentSearchConfig.custom) {
+            updateCustomConfigVisibility(true);
+            setCustomStatus((window.i18n && i18n.t('customSearchUrlRequired')) || 'Custom search URL is required', 'error');
+            return;
+        }
+
+        const template = engine === 'custom'
+            ? currentSearchConfig.custom
             : SEARCH_ENGINES[engine] || SEARCH_ENGINES.google;
         const encoded = encodeURIComponent(query);
         const url = template.includes('%s')
-            ? template.replace('%s', encoded)
+            ? template.split('%s').join(encoded)
             : `${template}${template.includes('?') ? '&' : '?'}q=${encoded}`;
         window.open(url, '_blank');
     });

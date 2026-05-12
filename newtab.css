@@ -539,7 +539,7 @@ body.dashboard-hidden .quote-section::after {
 /* 主内容包装器 */
 .main-content-wrapper {
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr auto;
     gap: var(--layout-gap);
     min-height: 0;
     flex: 1;
@@ -692,6 +692,7 @@ body.dashboard-hidden .quote-section::after {
     width: 100%;
     max-width: 760px;
     margin: 0 auto;
+    align-self: start;
 }
 
 .search-form {
@@ -714,6 +715,15 @@ body.dashboard-hidden .quote-section::after {
     font: inherit;
 }
 
+.search-engine-select {
+    color-scheme: dark;
+}
+
+.search-engine-select option {
+    background-color: #182235;
+    color: var(--text-primary);
+}
+
 .search-engine-select,
 .search-input {
     padding: 0 14px;
@@ -732,6 +742,70 @@ body.dashboard-hidden .quote-section::after {
     color: var(--text-primary);
     border-color: transparent;
     box-shadow: var(--shadow-sm);
+}
+
+.search-custom-config {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    margin-top: 2px;
+    position: relative;
+    z-index: 1;
+}
+
+.search-custom-config[hidden] {
+    display: none;
+}
+
+.search-custom-input,
+.search-custom-save {
+    height: 42px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    font: inherit;
+}
+
+.search-custom-input {
+    width: 100%;
+    min-width: 0;
+    padding: 0 14px;
+    background: rgba(12, 18, 32, 0.68);
+    color: var(--text-primary);
+}
+
+.search-custom-input::placeholder {
+    color: var(--text-muted);
+}
+
+.search-custom-input:focus {
+    outline: none;
+    border-color: var(--soft-blue);
+    box-shadow: 0 0 0 2px rgba(124, 217, 255, 0.2);
+}
+
+.search-custom-save {
+    cursor: pointer;
+    padding: 0 16px;
+    font-weight: 650;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.search-custom-status {
+    grid-column: 1 / -1;
+    min-height: 1.2em;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.search-custom-status.is-error {
+    color: #ffb4ab;
+}
+
+.search-custom-status.is-success {
+    color: var(--soft-green);
 }
 
 .info-cards-grid {
@@ -2769,9 +2843,14 @@ button:focus-visible,
         grid-template-columns: 1fr;
     }
 
+    .search-custom-config {
+        grid-template-columns: 1fr;
+    }
+
     .search-engine-select,
     .search-input,
-    .search-submit {
+    .search-submit,
+    .search-custom-save {
         width: 100%;
     }
 
