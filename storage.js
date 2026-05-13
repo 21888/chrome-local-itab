@@ -7,8 +7,9 @@ class StorageManager {
     constructor() {
         this.syncMetaKey = '__localItabSyncMeta';
         this.syncChunkPrefix = '__localItabSyncData_';
-        this.syncChunkSize = 7600;
+        this.syncMaxChunks = 20;
         this.syncTotalBudget = 98000;
+        this._textEncoder = null;
         this._syncInitialized = false;
         this._syncInitPromise = null;
         this._isApplyingSync = false;
@@ -489,16 +490,10 @@ class StorageManager {
             const config = await this.getAll();
             const { payload, omittedAssets } = this.prepareSyncPayload(config);
             const payloadJson = JSON.stringify(payload);
-
-            if (payloadJson.length > this.syncTotalBudget) {
-                throw new Error(`Cloud sync payload is too large (${Math.round(payloadJson.length / 1024)} KB). Remove some shortcuts or use manual export for large data.`);
-            }
+            const payloadBytes = this.getUtf8ByteLength(payloadJson);
 
             const oldMeta = await this.getRemoteMeta();
-            const chunks = [];
-            for (let i = 0; i < payloadJson.length; i += this.syncChunkSize) {
-                chunks.push(payloadJson.slice(i, i + this.syncChunkSize));
-            }
+            const chunks = this.createSyncChunks(payloadJson);
 
             const updatedAt = new Date().toISOString();
             const items = {
@@ -507,7 +502,7 @@ class StorageManager {
                     version: 2,
                     updatedAt,
                     chunkCount: chunks.length,
-                    payloadBytes: payloadJson.length,
+                    payloadBytes,
                     omittedAssets
                 }
             };
@@ -515,6 +510,11 @@ class StorageManager {
             chunks.forEach((chunk, index) => {
                 items[`${this.syncChunkPrefix}${index}`] = chunk;
             });
+
+            const syncBytes = this.getSyncItemsBytes(items);
+            if (syncBytes > this.syncTotalBudget) {
+                throw new Error(`Cloud sync payload is too large (${Math.round(syncBytes / 1024)} KB after Chrome Sync encoding). Remove some shortcuts or use manual export for large data.`);
+            }
 
             this._ignoreRemoteSyncUntil = Date.now() + 2000;
             await chrome.storage.sync.set(items);
@@ -602,7 +602,7 @@ class StorageManager {
 
     async readRemoteSyncData(meta) {
         const chunkCount = Number.isFinite(meta?.chunkCount) ? meta.chunkCount : 0;
-        if (chunkCount <= 0 || chunkCount > 20) return null;
+        if (chunkCount <= 0 || chunkCount > this.syncMaxChunks) return null;
 
         const keys = Array.from({ length: chunkCount }, (_, index) => `${this.syncChunkPrefix}${index}`);
         const result = await chrome.storage.sync.get(keys);
@@ -644,6 +644,75 @@ class StorageManager {
             enabled: false,
             lastError: ''
         });
+    }
+
+    getUtf8ByteLength(value) {
+        const text = String(value);
+        if (typeof TextEncoder !== 'undefined') {
+            if (!this._textEncoder) {
+                this._textEncoder = new TextEncoder();
+            }
+            return this._textEncoder.encode(text).length;
+        }
+
+        if (typeof Blob !== 'undefined') {
+            return new Blob([text]).size;
+        }
+
+        return text.length;
+    }
+
+    getSyncItemQuotaBytes() {
+        const quota = this.isSyncAvailable()
+            ? chrome.storage.sync.QUOTA_BYTES_PER_ITEM
+            : null;
+        return Number.isFinite(quota) ? quota : 8192;
+    }
+
+    getSyncItemBudgetBytes() {
+        return Math.max(0, this.getSyncItemQuotaBytes() - 64);
+    }
+
+    getSyncItemBytes(key, value) {
+        return this.getUtf8ByteLength(key) + this.getUtf8ByteLength(JSON.stringify(value));
+    }
+
+    getSyncItemsBytes(items) {
+        return Object.entries(items).reduce((total, [key, value]) => {
+            return total + this.getSyncItemBytes(key, value);
+        }, 0);
+    }
+
+    createSyncChunks(payloadJson) {
+        const chunks = [];
+        let chunk = '';
+
+        for (const char of payloadJson) {
+            const key = `${this.syncChunkPrefix}${chunks.length}`;
+            const candidate = chunk + char;
+            if (this.getSyncItemBytes(key, candidate) <= this.getSyncItemBudgetBytes()) {
+                chunk = candidate;
+                continue;
+            }
+
+            if (!chunk) {
+                throw new Error('Cloud sync payload contains an item that is too large for Chrome Sync.');
+            }
+
+            chunks.push(chunk);
+            if (chunks.length >= this.syncMaxChunks) {
+                throw new Error('Cloud sync payload needs too many chunks. Remove some shortcuts or use manual export for large data.');
+            }
+
+            chunk = char;
+            const nextKey = `${this.syncChunkPrefix}${chunks.length}`;
+            if (this.getSyncItemBytes(nextKey, chunk) > this.getSyncItemBudgetBytes()) {
+                throw new Error('Cloud sync payload contains an item that is too large for Chrome Sync.');
+            }
+        }
+
+        chunks.push(chunk);
+        return chunks;
     }
 
     async updateLocalSyncState(partial) {
