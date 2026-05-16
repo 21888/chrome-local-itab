@@ -1,11 +1,21 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "__MSG_appDescription__",
   "permissions": [
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "identity"
+  ],
+  "oauth2": {
+    "client_id": "479325049656-gf78hh4hmba0n333uh8rtf4f6vdh4684.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.appdata"
+    ]
+  },
+  "host_permissions": [
+    "https://www.googleapis.com/*"
   ],
   "optional_host_permissions": [
     "https://www.google.com/*",
@@ -22,6 +32,6 @@
     "128": "assets/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:; connect-src 'self' https://www.google.com https://api.paugram.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:; connect-src 'self' https://www.google.com https://api.paugram.com https://www.googleapis.com"
   }
 }

@@ -224,9 +224,11 @@ class StorageManager {
      * @param {Object} data - Key-value pairs to store
      * @returns {Promise<boolean>} - Success status
      */
-    async setAll(data) {
+    async setAll(data, options = {}) {
         try {
-            await this.ensureSyncInitialized();
+            if (!options.skipSyncInitialization) {
+                await this.ensureSyncInitialized();
+            }
             const wasSyncEnabled = await this.isSyncEnabledLocally();
             const validatedData = {};
 
@@ -237,7 +239,7 @@ class StorageManager {
 
             await chrome.storage.local.set(validatedData);
 
-            if (!this._isApplyingSync) {
+            if (!this._isApplyingSync && !options.skipSyncSideEffects) {
                 const syncEnabled = validatedData.sync?.enabled || await this.isSyncEnabledLocally();
                 if (syncEnabled) {
                     this.scheduleSyncPush();
@@ -347,6 +349,136 @@ class StorageManager {
         return JSON.parse(JSON.stringify(this.defaultConfig));
     }
 
+    getDisabledSyncConfig() {
+        return this.validateSyncConfig({
+            enabled: false,
+            lastSync: '',
+            lastError: '',
+            includeLargeAssets: false
+        });
+    }
+
+    sanitizeConfigForBackup(config) {
+        const sanitized = this.validateConfigObject(config);
+        sanitized.sync = this.getDisabledSyncConfig();
+        return sanitized;
+    }
+
+    getExtensionVersion() {
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime?.getManifest) {
+                return chrome.runtime.getManifest().version || '';
+            }
+        } catch (_) {}
+        return '';
+    }
+
+    countBackupItems(config) {
+        const source = this.validateConfigObject(config);
+        const links = Array.isArray(source.links) ? source.links : [];
+        const hot = source.hot || {};
+        const dataUrlIcons = links.filter(link => typeof link.icon === 'string' && link.icon.startsWith('data:')).length;
+        const hasBackgroundImage = source.bg?.type === 'image' && !!source.bg.value;
+        const hasMoviePoster = !!source.movie?.poster;
+
+        return {
+            shortcuts: links.length,
+            categories: Array.isArray(source.categories) ? source.categories.length : 0,
+            hotTopics: (hot.baidu?.length || 0) + (hot.weibo?.length || 0) + (hot.zhihu?.length || 0),
+            dataUrlIcons,
+            hasBackgroundImage,
+            hasMoviePoster,
+            localImagesIncluded: !!(hasBackgroundImage || hasMoviePoster || dataUrlIcons > 0)
+        };
+    }
+
+    buildManualExportPayload(config, metadata = {}) {
+        const sanitized = this.sanitizeConfigForBackup(config);
+        const exportDate = metadata.exportDate || new Date().toISOString();
+
+        return {
+            version: '1.0',
+            schemaVersion: 1,
+            exportDate,
+            createdAt: exportDate,
+            exportedBy: 'Local iTab Extension',
+            extensionVersion: metadata.extensionVersion || this.getExtensionVersion(),
+            itemCounts: this.countBackupItems(sanitized),
+            data: sanitized
+        };
+    }
+
+    buildDriveBackupPayload(config, metadata = {}) {
+        const sanitized = this.sanitizeConfigForBackup(config);
+        const createdAt = metadata.createdAt || new Date().toISOString();
+        const snapshotId = metadata.snapshotId || `snapshot_${Date.now()}`;
+        const deviceId = typeof metadata.deviceId === 'string' ? metadata.deviceId : '';
+        const deviceName = typeof metadata.deviceName === 'string' ? metadata.deviceName : '';
+
+        return {
+            version: '1.0',
+            schemaVersion: 1,
+            type: 'backupSnapshot',
+            app: 'local-itab',
+            createdAt,
+            exportDate: createdAt,
+            exportedBy: 'Local iTab Extension',
+            extensionVersion: metadata.extensionVersion || this.getExtensionVersion(),
+            snapshotId,
+            device: {
+                id: deviceId,
+                name: deviceName
+            },
+            metadata: {
+                app: 'local-itab',
+                type: 'backupSnapshot',
+                schemaVersion: 1,
+                deviceId,
+                snapshotId,
+                reason: typeof metadata.reason === 'string' ? metadata.reason : 'manual'
+            },
+            itemCounts: this.countBackupItems(sanitized),
+            data: sanitized
+        };
+    }
+
+    validateImportPayload(importData) {
+        let settings;
+
+        if (importData && typeof importData === 'object' && importData.data && (importData.version || importData.schemaVersion || importData.type)) {
+            settings = importData.data;
+        } else if (importData && typeof importData === 'object' && importData.settings) {
+            settings = importData.settings;
+        } else {
+            settings = importData;
+        }
+
+        if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+            throw new Error('Settings data must be an object');
+        }
+
+        const validated = this.validateConfigObject(settings);
+        validated.sync = this.getDisabledSyncConfig();
+
+        if (!Array.isArray(validated.links)) {
+            validated.links = [];
+        }
+
+        if (typeof validated.quote !== 'string') {
+            validated.quote = this.defaultConfig.quote;
+        }
+
+        return validated;
+    }
+
+    prepareRestoredConfig(importData, currentConfig = null) {
+        const restored = this.validateImportPayload(importData);
+        if (currentConfig && typeof currentConfig === 'object') {
+            restored.sync = this.validateSyncConfig(currentConfig.sync || this.defaultConfig.sync);
+        }
+        return restored;
+    }
+
     validateConfigObject(data) {
         const validated = this.cloneDefaultConfig();
         if (!data || typeof data !== 'object') {
@@ -373,6 +505,13 @@ class StorageManager {
         } catch (_) {
             return false;
         }
+    }
+
+    async getLocalProviderState() {
+        const result = await chrome.storage.local.get(['sync']);
+        return {
+            sync: this.validateSyncConfig(result.sync || this.defaultConfig.sync)
+        };
     }
 
     async ensureSyncInitialized() {

@@ -4,7 +4,7 @@ Prepared Chrome Web Store materials for Local iTab.
 
 ## Upload Files
 
-- Extension package: `release/local-itab-1.1.3.zip`
+- Extension package: `release/local-itab-1.1.4.zip`
 - Store icon: `store-assets/icon/icon128.png`
 - Screenshots: `store-assets/screenshots-1280x800/*.png`
 - Fallback screenshots: `store-assets/screenshots-640x400/*.png`

@@ -525,10 +525,69 @@
                     </div>
 
                     <div class="tab-panel" id="tab-sync" data-tab="sync" role="tabpanel">
-                        <section class="settings-section sync-section" id="cloud-sync-settings">
+                        <section class="settings-section drive-backup-section" id="drive-backup-settings">
                             <div class="section-header">
-                                <h2 class="section-title">☁️ <span data-i18n="cloudSync">Cloud Sync</span></h2>
-                                <p class="section-description" data-i18n="cloudSyncDesc">Sync settings and shortcuts through your Chrome account</p>
+                                <h2 class="section-title">☁️ <span data-i18n="driveBackupsTitle">Google 云盘电脑备份</span></h2>
+                                <p class="section-description" data-i18n="driveBackupsDesc">为家里电脑、办公室电脑等名称分别创建备份，快照会保存到隐藏的 Google 云盘应用数据文件夹</p>
+                            </div>
+                            <div class="settings-grid drive-backup-grid">
+                                <div class="setting-group full-width">
+                                    <div class="drive-device-card">
+                                        <div class="drive-device-main">
+                                            <label class="form-label" for="drive-device-select" data-i18n="driveDeviceSelect">已保存电脑</label>
+                                            <select id="drive-device-select" class="form-input"></select>
+                                            <label class="form-label drive-device-name-label" for="drive-device-name" data-i18n="driveCurrentDevice">电脑名称</label>
+                                            <div class="drive-device-name-row">
+                                                <input type="text" id="drive-device-name" class="form-input" maxlength="48" placeholder="家里的电脑" data-i18n-placeholder="driveDevicePlaceholder">
+                                            </div>
+                                            <div class="drive-device-actions">
+                                                <button type="button" id="drive-add-device" class="btn btn-secondary">
+                                                    <span class="btn-icon">+</span>
+                                                    <span data-i18n="driveAddDevice">添加电脑</span>
+                                                </button>
+                                                <button type="button" id="drive-rename-device" class="btn btn-secondary">
+                                                    <span class="btn-icon">✎</span>
+                                                    <span data-i18n="driveRename">保存名称</span>
+                                                </button>
+                                            </div>
+                                            <p class="drive-device-help" data-i18n="driveDeviceHelp">备份会按这个电脑名称分组，你可以随时从家里、办公室或其他电脑名称下恢复某一条快照。</p>
+                                        </div>
+                                        <div id="drive-backup-status" class="cloud-sync-status drive-status">
+                                            <div class="sync-status-row">
+                                                <span data-i18n="syncStatus">状态</span>
+                                                <strong data-i18n="loading">加载中...</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div class="data-actions sync-actions drive-actions">
+                                        <button type="button" id="drive-connect" class="btn btn-secondary">
+                                            <span class="btn-icon">●</span>
+                                            <span data-i18n="driveConnect">连接 Google 云盘</span>
+                                        </button>
+                                        <button type="button" id="drive-backup-now" class="btn btn-primary">
+                                            <span class="btn-icon">↑</span>
+                                            <span data-i18n="driveBackupNow">立即备份</span>
+                                        </button>
+                                        <button type="button" id="drive-refresh-list" class="btn btn-secondary">
+                                            <span class="btn-icon">↻</span>
+                                            <span data-i18n="driveRefreshList">刷新备份列表</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div id="drive-backup-history" class="drive-backup-history">
+                                        <div class="drive-empty-state" data-i18n="driveEmptyState">连接 Google 云盘后刷新，即可查看备份历史。</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="settings-section sync-section legacy-sync-section" id="cloud-sync-settings">
+                            <div class="section-header">
+                                <h2 class="section-title">☁️ <span data-i18n="cloudSync">Chrome 同步</span> <span class="section-badge" data-i18n="legacy">旧版</span></h2>
+                                <p class="section-description" data-i18n="cloudSyncDesc">通过 Chrome 账号进行轻量同步，云端配额较小</p>
                             </div>
                             <div class="settings-grid">
                                 <div class="setting-group full-width">
@@ -536,16 +595,16 @@
                                         <input type="checkbox" id="cloud-sync-enabled" class="setting-checkbox">
                                         <span class="checkbox-custom"></span>
                                         <div class="setting-info">
-                                            <span class="setting-name" data-i18n="enableCloudSync">Enable Chrome Sync</span>
-                                            <span class="setting-desc" data-i18n="enableCloudSyncDesc">Large local images stay on this device because Chrome Sync has a small quota.</span>
+                                            <span class="setting-name" data-i18n="enableCloudSync">启用 Chrome 同步</span>
+                                            <span class="setting-desc" data-i18n="enableCloudSyncDesc">由于 Chrome 同步配额较小，大型本地图片会保留在当前设备。</span>
                                         </div>
                                     </label>
                                 </div>
                                 <div class="setting-group full-width">
                                     <div id="cloud-sync-status" class="cloud-sync-status">
                                         <div class="sync-status-row">
-                                            <span data-i18n="syncStatus">Status</span>
-                                            <strong data-i18n="loading">Loading...</strong>
+                                            <span data-i18n="syncStatus">状态</span>
+                                            <strong data-i18n="loading">加载中...</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -553,15 +612,15 @@
                                     <div class="data-actions sync-actions">
                                         <button type="button" id="sync-upload-now" class="btn btn-primary">
                                             <span class="btn-icon">↑</span>
-                                            <span data-i18n="syncUploadNow">Upload Now</span>
+                                            <span data-i18n="syncUploadNow">立即上传</span>
                                         </button>
                                         <button type="button" id="sync-download-now" class="btn btn-secondary">
                                             <span class="btn-icon">↓</span>
-                                            <span data-i18n="syncDownloadNow">Download Now</span>
+                                            <span data-i18n="syncDownloadNow">立即下载</span>
                                         </button>
                                         <button type="button" id="sync-clear-cloud" class="btn btn-danger">
                                             <span class="btn-icon">✕</span>
-                                            <span data-i18n="syncClearCloud">Clear Cloud Copy</span>
+                                            <span data-i18n="syncClearCloud">清除云端副本</span>
                                         </button>
                                     </div>
                                 </div>
@@ -627,6 +686,7 @@
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="shared/search-template.js"></script>
+    <script src="drive-backup.js"></script>
     <script src="options.js"></script>
 </body>
 </html>

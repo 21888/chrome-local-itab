@@ -696,6 +696,183 @@ button {
     min-width: 148px;
 }
 
+.section-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 650;
+}
+
+.drive-backup-grid {
+    grid-template-columns: 1fr;
+}
+
+.drive-device-card {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(280px, 1.1fr);
+    gap: var(--spacing-lg);
+    align-items: stretch;
+}
+
+.drive-device-main {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: var(--spacing-md);
+    background:
+        linear-gradient(135deg, rgba(127, 242, 218, 0.1), rgba(124, 217, 255, 0.04)),
+        rgba(255, 255, 255, 0.04);
+}
+
+.drive-device-name-label {
+    display: block;
+    margin-top: var(--spacing-md);
+}
+
+.drive-device-name-row {
+    margin-top: var(--spacing-sm);
+}
+
+.drive-device-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.drive-device-help {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    line-height: 1.5;
+}
+
+.drive-actions .btn {
+    min-width: 176px;
+}
+
+.drive-backup-history {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.drive-device-group {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.drive-device-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--card-border);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.drive-device-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.drive-device-header strong,
+.drive-device-title strong {
+    font-size: var(--font-size-base);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drive-device-header span {
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+}
+
+.drive-device-badge {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(127, 242, 218, 0.14);
+    color: #9ff5e6;
+    font-size: var(--font-size-xs);
+    font-weight: 650;
+}
+
+.drive-snapshot-list {
+    display: grid;
+    gap: 1px;
+}
+
+.drive-snapshot-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.2fr) 90px 110px minmax(240px, auto);
+    gap: var(--spacing-md);
+    align-items: center;
+    padding: 12px var(--spacing-md);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.drive-snapshot-row + .drive-snapshot-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.drive-snapshot-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.drive-snapshot-main strong {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drive-snapshot-main span,
+.drive-snapshot-meta {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.drive-snapshot-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.drive-device-empty {
+    padding: 12px var(--spacing-md);
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.drive-empty-state {
+    border: 1px dashed var(--card-border);
+    border-radius: 14px;
+    padding: var(--spacing-xl);
+    color: var(--text-muted);
+    text-align: center;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.legacy-sync-section {
+    opacity: 0.86;
+}
+
 .privacy-hint {
     padding: var(--spacing-md);
     border-radius: 12px;
@@ -1005,6 +1182,15 @@ button {
     .category-actions {
         justify-content: flex-start;
     }
+
+    .drive-device-card,
+    .drive-snapshot-row {
+        grid-template-columns: 1fr;
+    }
+
+    .drive-snapshot-actions {
+        justify-content: flex-start;
+    }
 }
 
 @media (max-width: 640px) {
@@ -1030,6 +1216,14 @@ button {
     .btn {
         width: 100%;
         justify-content: center;
+    }
+
+    .drive-device-actions {
+        flex-direction: column;
+    }
+
+    .drive-device-actions .btn {
+        width: 100%;
     }
 }
 

@@ -4,6 +4,8 @@ const PRIVACY_PERMISSION_ORIGINS = {
     wallpapers: 'https://api.paugram.com/*',
     favicons: 'https://www.google.com/*'
 };
+let driveBackupSnapshots = [];
+let driveActionInProgress = false;
 
 function normalizeThemePreset(preset) {
     if (typeof preset !== 'string') return 'aurora-glass';
@@ -83,7 +85,7 @@ function setupCloudSyncChangeListener() {
         try {
             const result = await storageManager.pullFromSync();
             if (result?.applied) {
-                showMessage('Cloud settings updated. Reloading...', 'info');
+                showMessage(t('syncRemoteUpdated', '云端设置已更新，正在重新加载...'), 'info');
                 setTimeout(() => window.location.reload(), 800);
             } else {
                 await renderSyncStatus(result?.status);
@@ -228,14 +230,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         setupSettingsTabs();
         setupCloudSyncChangeListener();
         
-        // Display storage usage info
-        await displayStorageInfo();
-        await renderSyncStatus();
-
         // Apply i18n to DOM
         if (window.i18n) {
             window.i18n.localizeDocument(document);
         }
+
+        // Display storage usage info
+        await displayStorageInfo();
+        await renderSyncStatus();
+        await renderDriveBackupPanel();
+
         refreshPrivacyPermissionHints();
     } catch (error) {
         console.error('Error initializing options page:', error);
@@ -582,6 +586,8 @@ function setupEventListeners() {
         });
     }
 
+    setupDriveBackupEventListeners();
+
     // Chrome cloud sync controls
     const syncToggle = document.getElementById('cloud-sync-enabled');
     const syncUpload = document.getElementById('sync-upload-now');
@@ -595,20 +601,20 @@ function setupEventListeners() {
             try {
                 syncToggle.disabled = true;
                 if (syncToggle.checked) {
-                    showMessage('Enabling cloud sync...', 'info');
+                    showMessage(t('syncEnableStart', '正在启用 Chrome 同步...'), 'info');
                     const status = await storageManager.setSyncEnabled(true);
-                    showMessage('Cloud sync enabled. Current settings uploaded.', 'success');
+                    showMessage(t('syncEnableDone', 'Chrome 同步已启用，当前设置已上传。'), 'success');
                     await renderSyncStatus(status);
                 } else {
-                    showMessage('Disabling cloud sync...', 'info');
+                    showMessage(t('syncDisableStart', '正在停用 Chrome 同步...'), 'info');
                     const status = await storageManager.setSyncEnabled(false);
-                    showMessage('Cloud sync disabled on this profile.', 'success');
+                    showMessage(t('syncDisableDone', '此配置中的 Chrome 同步已停用。'), 'success');
                     await renderSyncStatus(status);
                 }
             } catch (error) {
                 console.error('Cloud sync toggle error:', error);
                 syncToggle.checked = !syncToggle.checked;
-                showMessage(`Cloud sync failed: ${error.message}`, 'error');
+                showMessage(t('syncFailed', 'Chrome 同步失败：$1', error.message), 'error');
                 await renderSyncStatus();
             } finally {
                 const status = await storageManager.getSyncStatus();
@@ -620,13 +626,13 @@ function setupEventListeners() {
     if (syncUpload) {
         syncUpload.addEventListener('click', async () => {
             try {
-                showMessage(t('syncUploadStart', 'Uploading settings to Chrome Sync...'), 'info');
+                showMessage(t('syncUploadStart', '正在上传设置到 Chrome 同步...'), 'info');
                 const status = await storageManager.pushToSync();
-                showMessage(t('syncUploadDone', 'Settings uploaded to Chrome Sync.'), 'success');
+                showMessage(t('syncUploadDone', '设置已上传到 Chrome 同步。'), 'success');
                 await renderSyncStatus(status);
             } catch (error) {
                 console.error('Cloud sync upload error:', error);
-                showMessage(`Upload failed: ${error.message}`, 'error');
+                showMessage(t('syncUploadFailed', '上传失败：$1', error.message), 'error');
                 await renderSyncStatus();
             }
         });
@@ -635,18 +641,18 @@ function setupEventListeners() {
     if (syncDownload) {
         syncDownload.addEventListener('click', async () => {
             try {
-                showMessage(t('syncDownloadStart', 'Downloading settings from Chrome Sync...'), 'info');
+                showMessage(t('syncDownloadStart', '正在从 Chrome 同步下载设置...'), 'info');
                 const result = await storageManager.pullFromSync();
                 if (result.applied) {
-                    showMessage('Cloud settings applied. Reloading...', 'success');
+                    showMessage(t('syncDownloadDone', '云端设置已应用，正在重新加载...'), 'success');
                     setTimeout(() => window.location.reload(), 800);
                 } else {
-                    showMessage('Already up to date.', 'success');
+                    showMessage(t('syncAlreadyUpToDate', '已经是最新。'), 'success');
                     await renderSyncStatus(result.status);
                 }
             } catch (error) {
                 console.error('Cloud sync download error:', error);
-                showMessage(`Download failed: ${error.message}`, 'error');
+                showMessage(t('syncDownloadFailed', '下载失败：$1', error.message), 'error');
                 await renderSyncStatus();
             }
         });
@@ -654,17 +660,17 @@ function setupEventListeners() {
 
     if (syncClear) {
         syncClear.addEventListener('click', async () => {
-            if (!confirm(t('syncClearConfirm', 'Clear the cloud copy from Chrome Sync? Local settings will stay on this device.'))) return;
+            if (!confirm(t('syncClearConfirm', '清除 Chrome 同步中的云端副本？本机设置会保留。'))) return;
             try {
-                showMessage('Clearing cloud copy...', 'info');
+                showMessage(t('syncClearStart', '正在清除云端副本...'), 'info');
                 const status = await storageManager.clearSync();
                 const syncToggleEl = document.getElementById('cloud-sync-enabled');
                 if (syncToggleEl) syncToggleEl.checked = false;
-                showMessage('Cloud copy cleared.', 'success');
+                showMessage(t('syncClearDone', '云端副本已清除。'), 'success');
                 await renderSyncStatus(status);
             } catch (error) {
                 console.error('Cloud sync clear error:', error);
-                showMessage(`Clear failed: ${error.message}`, 'error');
+                showMessage(t('syncClearFailed', '清除失败：$1', error.message), 'error');
                 await renderSyncStatus();
             }
         });
@@ -879,6 +885,545 @@ function setupEventListeners() {
     
     // Auto-save for form inputs (debounced)
     setupAutoSave();
+}
+
+function getDriveBackupManager() {
+    return window.driveBackupManager || null;
+}
+
+function createStatusRow(label, value, extraClass = '') {
+    const row = document.createElement('div');
+    row.className = 'sync-status-row';
+    const labelEl = document.createElement('span');
+    labelEl.textContent = label;
+    const valueEl = document.createElement('strong');
+    if (extraClass) valueEl.className = extraClass;
+    valueEl.textContent = value;
+    row.append(labelEl, valueEl);
+    return row;
+}
+
+function formatDateTime(value) {
+    if (!value) return t('never', '从未');
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? t('unknown', '未知') : date.toLocaleString();
+}
+
+function getDriveAvailability(manager) {
+    if (!manager) {
+        return {
+            available: false,
+            apiAvailable: false,
+            storageAvailable: false,
+            oauthConfigured: false,
+            reason: 'managerUnavailable'
+        };
+    }
+
+    if (typeof manager.getAvailabilityStatus === 'function') {
+        return manager.getAvailabilityStatus();
+    }
+
+    const apiAvailable = manager.isAvailable?.() === true;
+    return {
+        available: apiAvailable && manager.hasConfiguredOAuthClient?.() !== false,
+        apiAvailable,
+        storageAvailable: apiAvailable,
+        oauthConfigured: manager.hasConfiguredOAuthClient?.() !== false,
+        reason: apiAvailable ? 'ready' : 'chromeUnavailable'
+    };
+}
+
+function getDriveAvailabilityLabel(availability, state) {
+    if (!availability.apiAvailable) {
+        if (availability.reason === 'identityUnavailable') {
+            return t('driveStatusIdentityUnavailable', '请重新加载扩展');
+        }
+        if (availability.reason === 'storageUnavailable') {
+            return t('driveStatusStorageUnavailable', '存储不可用');
+        }
+        if (availability.reason === 'fetchUnavailable') {
+            return t('driveStatusNetworkUnavailable', '网络不可用');
+        }
+        return t('driveStatusUnavailable', '不可用');
+    }
+
+    if (!availability.oauthConfigured) {
+        return t('driveStatusOAuthNeeded', '需要配置 OAuth 客户端');
+    }
+
+    return state?.connectedAt
+        ? t('driveStatusConnected', '已连接')
+        : t('driveStatusNotConnected', '未连接');
+}
+
+function setDriveActionsDisabled(disabled) {
+    ['drive-connect', 'drive-backup-now', 'drive-refresh-list', 'drive-rename-device', 'drive-add-device', 'drive-device-select'].forEach(id => {
+        const control = document.getElementById(id);
+        if (control) control.disabled = disabled;
+    });
+    document.querySelectorAll('[data-drive-action]').forEach(button => {
+        button.disabled = disabled;
+    });
+}
+
+async function renderDriveBackupPanel(snapshots = null) {
+    const manager = getDriveBackupManager();
+    const statusElement = document.getElementById('drive-backup-status');
+    const historyElement = document.getElementById('drive-backup-history');
+    const nameInput = document.getElementById('drive-device-name');
+    const deviceSelect = document.getElementById('drive-device-select');
+    if (!statusElement && !historyElement && !nameInput && !deviceSelect) return;
+
+    if (!manager) {
+        if (statusElement) {
+            statusElement.replaceChildren(createStatusRow(t('syncStatus', '状态'), t('driveStatusUnavailable', '不可用'), 'is-error'));
+        }
+        setDriveActionsDisabled(true);
+        return;
+    }
+
+    const availability = getDriveAvailability(manager);
+    const apiReady = availability.apiAvailable === true;
+    const oauthReady = apiReady && availability.oauthConfigured !== false;
+    let state = null;
+    try {
+        state = availability.storageAvailable ? await manager.getState() : manager.normalizeState({});
+    } catch (_) {
+        state = manager.normalizeState({});
+    }
+    const connected = !!state.connectedAt;
+    const knownDevices = Array.isArray(state.knownDevices) && state.knownDevices.length
+        ? state.knownDevices
+        : [{ id: state.deviceId, name: state.deviceName }];
+
+    if (deviceSelect && document.activeElement !== deviceSelect) {
+        const options = knownDevices.map(profile => {
+            const option = document.createElement('option');
+            option.value = profile.id;
+            option.textContent = profile.name || t('driveUnknownDevice', '未知设备');
+            return option;
+        });
+        deviceSelect.replaceChildren(...options);
+        deviceSelect.value = state.deviceId;
+    }
+
+    if (nameInput && document.activeElement !== nameInput) {
+        nameInput.value = state.deviceName || t('driveDevicePlaceholder', '家里的电脑');
+    }
+
+    const rows = [];
+    const statusClass = (!apiReady || !oauthReady) ? 'is-error' : (connected ? 'is-on' : 'is-off');
+    rows.push(createStatusRow(t('syncStatus', '状态'), getDriveAvailabilityLabel(availability, state), statusClass));
+    rows.push(createStatusRow(t('driveActiveComputer', '当前备份电脑'), state.deviceName || t('driveUnknownDevice', '未知设备')));
+    rows.push(createStatusRow(t('driveLatestBackup', '最近备份'), formatDateTime(state.lastBackupAt)));
+    rows.push(createStatusRow(t('driveLatestRestore', '最近恢复'), formatDateTime(state.lastRestoreAt)));
+    if (apiReady && !oauthReady) {
+        const oauthNote = document.createElement('div');
+        oauthNote.className = 'sync-status-note is-error';
+        oauthNote.textContent = t('driveOAuthMissingHelp', '需要先在 manifest.json 中配置真实的 Google OAuth 客户端 ID，之后才能连接 Google 云盘。');
+        rows.push(oauthNote);
+    }
+    if (state.lastError) {
+        const error = document.createElement('div');
+        error.className = 'sync-status-note is-error';
+        error.textContent = state.lastError;
+        rows.push(error);
+    }
+    if (statusElement) statusElement.replaceChildren(...rows);
+
+    const connect = document.getElementById('drive-connect');
+    const backup = document.getElementById('drive-backup-now');
+    const refresh = document.getElementById('drive-refresh-list');
+    const rename = document.getElementById('drive-rename-device');
+    const addDevice = document.getElementById('drive-add-device');
+    if (connect) connect.disabled = !apiReady || !oauthReady;
+    if (backup) backup.disabled = !apiReady || !oauthReady || !connected;
+    if (refresh) refresh.disabled = !apiReady || !oauthReady || !connected;
+    if (rename) rename.disabled = !availability.storageAvailable;
+    if (addDevice) addDevice.disabled = !availability.storageAvailable;
+    if (deviceSelect) deviceSelect.disabled = !availability.storageAvailable;
+
+    if (Array.isArray(snapshots)) {
+        driveBackupSnapshots = snapshots;
+    }
+    renderDriveBackupHistory(driveBackupSnapshots, {
+        ready: apiReady && oauthReady,
+        connected,
+        knownDevices,
+        activeDeviceId: state.deviceId
+    });
+}
+
+function renderDriveBackupHistory(snapshots, options = {}) {
+    const manager = getDriveBackupManager();
+    const historyElement = document.getElementById('drive-backup-history');
+    if (!historyElement) return;
+
+    const safeSnapshots = Array.isArray(snapshots) ? snapshots : [];
+    const knownDevices = Array.isArray(options.knownDevices) ? options.knownDevices : [];
+    const showEmptyDeviceGroups = knownDevices.length > 1;
+
+    if (!manager || (safeSnapshots.length === 0 && !showEmptyDeviceGroups)) {
+        const empty = document.createElement('div');
+        empty.className = 'drive-empty-state';
+        if (!options.ready) {
+            empty.textContent = t('driveEmptyStateUnavailable', '此设备上的 Google 云盘备份尚未就绪。');
+        } else if (!options.connected) {
+            empty.textContent = t('driveEmptyState', '连接 Google 云盘后刷新，即可查看备份历史。');
+        } else {
+            empty.textContent = t('driveEmptyStateNoBackups', '还没有 Google 云盘备份。');
+        }
+        historyElement.replaceChildren(empty);
+        return;
+    }
+
+    const groups = manager.groupSnapshotsByDevice(safeSnapshots, knownDevices);
+    const groupEls = groups.map(group => {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'drive-device-group';
+
+        const header = document.createElement('div');
+        header.className = 'drive-device-header';
+        const titleWrap = document.createElement('div');
+        titleWrap.className = 'drive-device-title';
+        const title = document.createElement('strong');
+        title.textContent = group.deviceName || t('driveUnknownDevice', '未知设备');
+        titleWrap.appendChild(title);
+        if (group.deviceId === options.activeDeviceId) {
+            const badge = document.createElement('span');
+            badge.className = 'drive-device-badge';
+            badge.textContent = t('driveCurrentComputerBadge', '当前');
+            titleWrap.appendChild(badge);
+        }
+        const count = document.createElement('span');
+        count.textContent = t('driveBackupCount', '$1 个备份', String(group.snapshots.length));
+        header.append(titleWrap, count);
+
+        const list = document.createElement('div');
+        list.className = 'drive-snapshot-list';
+        if (group.snapshots.length) {
+            group.snapshots.forEach(snapshot => {
+                list.appendChild(createDriveSnapshotRow(snapshot));
+            });
+        } else {
+            const empty = document.createElement('div');
+            empty.className = 'drive-device-empty';
+            empty.textContent = t('driveEmptyDevice', '这个电脑名称下还没有备份。');
+            list.appendChild(empty);
+        }
+
+        groupEl.append(header, list);
+        return groupEl;
+    });
+
+    historyElement.replaceChildren(...groupEls);
+}
+
+function createDriveSnapshotRow(snapshot) {
+    const row = document.createElement('div');
+    row.className = 'drive-snapshot-row';
+    row.dataset.fileId = snapshot.id;
+
+    const main = document.createElement('div');
+    main.className = 'drive-snapshot-main';
+    const date = document.createElement('strong');
+    date.textContent = formatDateTime(snapshot.createdTime);
+    const name = document.createElement('span');
+    name.textContent = snapshot.name || snapshot.snapshotId || t('driveBackupSnapshot', '备份快照');
+    main.append(date, name);
+
+    const size = document.createElement('div');
+    size.className = 'drive-snapshot-meta';
+    size.textContent = formatBytes(snapshot.size);
+
+    const shortcutCount = document.createElement('div');
+    shortcutCount.className = 'drive-snapshot-meta';
+    shortcutCount.textContent = t('driveShortcutCount', '$1 个快捷方式', String(snapshot.shortcutCount || 0));
+
+    const actions = document.createElement('div');
+    actions.className = 'drive-snapshot-actions';
+    [
+        ['restore', t('driveRestore', '恢复'), 'btn btn-primary btn-sm'],
+        ['download', t('driveDownload', '下载'), 'btn btn-secondary btn-sm'],
+        ['delete', t('delete', '删除'), 'btn btn-danger btn-sm']
+    ].forEach(([action, label, className]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.dataset.driveAction = action;
+        button.dataset.fileId = snapshot.id;
+        button.textContent = label;
+        actions.appendChild(button);
+    });
+
+    if (snapshot.localImagesIncluded) {
+        const images = document.createElement('span');
+        images.className = 'drive-snapshot-meta';
+        images.textContent = t('driveIncludesLocalImages', '包含本地图片');
+        main.appendChild(images);
+    }
+
+    row.append(main, size, shortcutCount, actions);
+    return row;
+}
+
+function setupDriveBackupEventListeners() {
+    const manager = getDriveBackupManager();
+    if (!manager) return;
+
+    const connect = document.getElementById('drive-connect');
+    const deviceSelect = document.getElementById('drive-device-select');
+    const addDevice = document.getElementById('drive-add-device');
+    const rename = document.getElementById('drive-rename-device');
+    const backup = document.getElementById('drive-backup-now');
+    const refresh = document.getElementById('drive-refresh-list');
+    const history = document.getElementById('drive-backup-history');
+
+    if (connect) {
+        connect.addEventListener('click', async () => {
+            await runDriveAction(t('driveConnecting', '正在连接 Google 云盘...'), async () => {
+                await manager.connect({ interactive: true });
+                showMessage(t('driveConnected', 'Google 云盘已连接。'), 'success');
+                try {
+                    const snapshots = await manager.listSnapshots({ interactive: true });
+                    await renderDriveBackupPanel(snapshots);
+                } catch (error) {
+                    await manager.setLastError(new Error(`Connected, but backup list refresh failed: ${error.message || String(error)}`));
+                    await renderDriveBackupPanel();
+                    showMessage(t('driveConnectedListFailed', '已连接，但备份列表刷新失败。'), 'error');
+                }
+            });
+        });
+    }
+
+    if (deviceSelect) {
+        deviceSelect.addEventListener('change', async () => {
+            await runDriveAction(t('driveSelectingDevice', '正在切换电脑...'), async () => {
+                await manager.selectDevice(deviceSelect.value);
+                await renderDriveBackupPanel(driveBackupSnapshots);
+                showMessage(t('driveDeviceSelected', '已切换电脑，后续备份会使用这个电脑名称。'), 'success');
+            }, { keepButtons: true });
+        });
+    }
+
+    if (addDevice) {
+        addDevice.addEventListener('click', async () => {
+            const input = document.getElementById('drive-device-name');
+            const name = input?.value?.trim() || '';
+            if (!name) {
+                showMessage(t('driveDeviceNameRequired', '请先输入电脑名称。'), 'error');
+                return;
+            }
+
+            await runDriveAction(t('driveAddingDevice', '正在添加电脑...'), async () => {
+                const state = await manager.addDevice(name);
+                await renderDriveBackupPanel(driveBackupSnapshots);
+                const message = state?.deviceCreated === false
+                    ? t('driveDeviceSelected', '已切换电脑，后续备份会使用这个电脑名称。')
+                    : t('driveDeviceAdded', '电脑已添加，后续备份会归到这个名称下。');
+                showMessage(message, 'success');
+            }, { keepButtons: true });
+        });
+    }
+
+    if (rename) {
+        rename.addEventListener('click', async () => {
+            const input = document.getElementById('drive-device-name');
+            const name = input?.value?.trim() || '';
+            if (!name) {
+                showMessage(t('driveDeviceNameRequired', '请先输入电脑名称。'), 'error');
+                return;
+            }
+
+            await runDriveAction(t('driveRenaming', '正在保存电脑名称...'), async () => {
+                await manager.renameDevice(name);
+                await renderDriveBackupPanel();
+                showMessage(t('driveRenamed', '电脑名称已保存，后续备份将使用新名称。'), 'success');
+            }, { keepButtons: true });
+        });
+    }
+
+    if (backup) {
+        backup.addEventListener('click', async () => {
+            await runDriveAction(t('drivePreparingBackup', '正在准备 Google 云盘备份...'), async () => {
+                const draft = await manager.createSnapshotDraft({ reason: 'manual' });
+                if (draft.sizeBytes > manager.maximumSizeBytes) {
+                    throw new Error(t('driveBackupTooLarge', '备份过大（$1）。请减少本地图片，或改用手动导出。', formatBytes(draft.sizeBytes)));
+                }
+                if (draft.sizeBytes > manager.warningSizeBytes) {
+                    const proceed = confirm(t('driveLargeBackupConfirm', '备份较大（$1），上传可能需要一段时间。继续吗？', formatBytes(draft.sizeBytes)));
+                    if (!proceed) {
+                        showMessage(t('driveBackupCancelled', '已取消 Google 云盘备份。'), 'info');
+                        return;
+                    }
+                }
+
+                showMessage(t('driveUploading', '正在上传备份到 Google 云盘...'), 'info');
+                const result = await manager.uploadSnapshotDraft(draft, { interactive: true });
+                showMessage(t('driveBackupCreated', 'Google 云盘备份已创建。'), 'success');
+                if (result?.pruneError) {
+                    showMessage(t('driveCleanupFailed', '备份已创建，但旧快照清理失败。'), 'error');
+                }
+                try {
+                    const snapshots = await manager.listSnapshots({ interactive: true });
+                    await renderDriveBackupPanel(snapshots);
+                } catch (error) {
+                    await manager.setLastError(new Error(`Backup created, but list refresh failed: ${error.message || String(error)}`));
+                    await renderDriveBackupPanel();
+                    showMessage(t('driveBackupCreatedListFailed', '备份已创建，但列表刷新失败。'), 'error');
+                }
+            });
+        });
+    }
+
+    if (refresh) {
+        refresh.addEventListener('click', async () => {
+            await refreshDriveBackupList(true);
+        });
+    }
+
+    if (history) {
+        history.addEventListener('click', async (event) => {
+            const button = event.target.closest('[data-drive-action]');
+            if (!button) return;
+            const snapshot = driveBackupSnapshots.find(item => item.id === button.dataset.fileId);
+            if (!snapshot) return;
+
+            if (button.dataset.driveAction === 'restore') {
+                await restoreDriveSnapshot(snapshot);
+            } else if (button.dataset.driveAction === 'download') {
+                await downloadDriveSnapshot(snapshot);
+            } else if (button.dataset.driveAction === 'delete') {
+                await deleteDriveSnapshot(snapshot);
+            }
+        });
+    }
+}
+
+async function runDriveAction(workingMessage, action, options = {}) {
+    const manager = getDriveBackupManager();
+    if (!manager) return;
+    if (driveActionInProgress) {
+        showMessage(t('driveActionRunning', '已有 Google 云盘操作正在进行。'), 'info');
+        return;
+    }
+
+    driveActionInProgress = true;
+    try {
+        showMessage(workingMessage, 'info');
+        if (!options.keepButtons) setDriveActionsDisabled(true);
+        await action();
+    } catch (error) {
+        console.error('Google Drive backup error:', error);
+        await manager.setLastError(error);
+        showMessage(t('driveFailed', 'Google 云盘备份失败：$1', error.message), 'error');
+        await renderDriveBackupPanel();
+    } finally {
+        driveActionInProgress = false;
+        if (!options.keepButtons) await renderDriveBackupPanel();
+    }
+}
+
+async function refreshDriveBackupList(interactive = true) {
+    const manager = getDriveBackupManager();
+    if (!manager) return;
+    await runDriveAction(t('driveRefreshing', '正在刷新 Google 云盘备份...'), async () => {
+        const snapshots = await manager.listSnapshots({ interactive });
+        await renderDriveBackupPanel(snapshots);
+        showMessage(t('driveListRefreshed', 'Google 云盘备份列表已刷新。'), 'success');
+    });
+}
+
+async function createBeforeRestoreSafetyBackup() {
+    const manager = getDriveBackupManager();
+    const draft = await manager.createSnapshotDraft({ reason: 'beforeRestore' });
+    if (draft.sizeBytes > manager.maximumSizeBytes) {
+        throw new Error(t('driveSafetyBackupTooLarge', '安全备份过大（$1）。', formatBytes(draft.sizeBytes)));
+    }
+    return manager.uploadSnapshotDraft(draft, { interactive: true, prune: false });
+}
+
+async function restoreDriveSnapshot(snapshot) {
+    const manager = getDriveBackupManager();
+    if (!manager) return;
+
+    const confirmed = confirm(t(
+        'driveRestoreConfirm',
+        '要恢复 $2 的 $1 这条备份吗？本设备上的本地设置将被替换。',
+        [
+            formatDateTime(snapshot.createdTime),
+            snapshot.deviceName || t('driveUnknownDevice', '未知设备')
+        ]
+    ));
+    if (!confirmed) return;
+
+    await runDriveAction(t('driveCreatingSafetyBackup', '恢复前正在创建安全备份...'), async () => {
+        try {
+            await createBeforeRestoreSafetyBackup();
+        } catch (error) {
+            const proceed = confirm(t('driveSafetyBackupFailedConfirm', '无法创建安全备份：$1\n\n是否继续在没有安全备份的情况下恢复？', error.message));
+            if (!proceed) {
+                showMessage(t('driveRestoreCancelled', '已取消恢复。'), 'info');
+                return;
+            }
+        }
+
+        showMessage(t('driveDownloadingSelected', '正在下载所选备份...'), 'info');
+        const payload = await manager.downloadSnapshotPayload(snapshot.id, { interactive: true });
+        const providerState = await storageManager.getLocalProviderState();
+        const validatedSettings = storageManager.prepareRestoredConfig(payload, providerState);
+        const success = await storageManager.setAll(validatedSettings, {
+            skipSyncSideEffects: true,
+            skipSyncInitialization: true
+        });
+        if (!success) {
+            throw new Error(t('driveRestoreSaveFailed', '保存恢复后的设置失败。'));
+        }
+        await manager.markRestored();
+        showMessage(t('driveSettingsRestored', '设置已恢复，正在重新加载...'), 'success');
+        setTimeout(() => window.location.reload(), 1200);
+    });
+}
+
+async function downloadDriveSnapshot(snapshot) {
+    const manager = getDriveBackupManager();
+    if (!manager) return;
+
+    await runDriveAction(t('driveDownloadingBackup', '正在下载 Google 云盘备份...'), async () => {
+        const payload = await manager.downloadSnapshotPayload(snapshot.id, { interactive: true });
+        const dataStr = JSON.stringify(payload, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = snapshot.name || `local-itab-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showMessage(t('driveBackupJsonDownloaded', '备份 JSON 已下载。'), 'success');
+    });
+}
+
+async function deleteDriveSnapshot(snapshot) {
+    const manager = getDriveBackupManager();
+    if (!manager) return;
+    if (!confirm(t('driveDeleteConfirm', '永久删除这个 Google 云盘备份？'))) return;
+
+    await runDriveAction(t('driveDeleting', '正在删除 Google 云盘备份...'), async () => {
+        const result = await manager.deleteSnapshotAndList(snapshot.id, { interactive: true });
+        if (Array.isArray(result.snapshots)) {
+            await renderDriveBackupPanel(result.snapshots);
+        } else {
+            driveBackupSnapshots = driveBackupSnapshots.filter(item => item.id !== snapshot.id);
+            await renderDriveBackupPanel(driveBackupSnapshots);
+        }
+        showMessage(t('driveDeleted', 'Google 云盘备份已删除。'), 'success');
+        if (result.listError) {
+            showMessage(t('driveDeletedListFailed', '备份已删除，但列表刷新失败。'), 'error');
+        }
+    });
 }
 
 async function saveAllSettings() {
@@ -1130,25 +1675,9 @@ async function exportSettings() {
     try {
         showImportExportFeedback('export', 'info', 'Preparing export...');
         
-        // Get all stored data including images as dataURL
         const config = await storageManager.getAll();
-        
-        // Count exportable items for feedback
-        const itemCounts = {
-            shortcuts: config.links ? config.links.length : 0,
-            hotTopics: (config.hot.baidu?.length || 0) + (config.hot.weibo?.length || 0) + (config.hot.zhihu?.length || 0),
-            hasBackgroundImage: config.bg.type === 'image' && config.bg.value,
-            hasMoviePoster: config.movie.poster && config.movie.poster.length > 0
-        };
-        
-        // Add metadata to export
-        const exportData = {
-            version: '1.0',
-            exportDate: new Date().toISOString(),
-            exportedBy: 'Local iTab Extension',
-            itemCounts: itemCounts,
-            data: config
-        };
+        const exportData = storageManager.buildManualExportPayload(config);
+        const itemCounts = exportData.itemCounts;
         
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -1234,7 +1763,8 @@ async function importSettings(file) {
         }
         
         // Validate import data structure
-        const validatedSettings = validateImportData(importData);
+        const providerState = await storageManager.getLocalProviderState();
+        const validatedSettings = storageManager.prepareRestoredConfig(importData, providerState);
         
         if (!validatedSettings) {
             throw new Error('Invalid settings format. Please check your export file.');
@@ -1262,7 +1792,10 @@ async function importSettings(file) {
         }
         
         // Save validated settings
-        const success = await storageManager.setAll(validatedSettings);
+        const success = await storageManager.setAll(validatedSettings, {
+            skipSyncSideEffects: true,
+            skipSyncInitialization: true
+        });
         
         if (success) {
             const details = {
@@ -1387,8 +1920,15 @@ function formatBytes(bytes) {
     return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-function t(key, fallback) {
-    return (window.i18n && i18n.t(key) !== key) ? i18n.t(key) : fallback;
+function t(key, fallback, substitutions) {
+    const values = Array.isArray(substitutions)
+        ? substitutions
+        : (substitutions === undefined ? [] : [substitutions]);
+    const localized = window.i18n ? i18n.t(key, values) : key;
+    if (localized && localized !== key) return localized;
+    return values.reduce((text, value, index) => {
+        return text.replace(new RegExp(`\\$${index + 1}`, 'g'), String(value));
+    }, fallback);
 }
 
 async function renderSyncStatus(status = null) {
@@ -1401,10 +1941,10 @@ async function renderSyncStatus(status = null) {
     const omitted = Array.isArray(remote.omittedAssets) ? remote.omittedAssets : [];
     const lastSync = local.lastSync
         ? new Date(local.lastSync).toLocaleString()
-        : t('never', 'Never');
+        : t('never', '从未');
     const stateLabel = !syncStatus.available
-        ? t('unavailable', 'Unavailable')
-        : (syncStatus.enabled ? t('enabled', 'Enabled') : t('off', 'Off'));
+        ? t('unavailable', '不可用')
+        : (syncStatus.enabled ? t('enabled', '已启用') : t('off', '关闭'));
     const stateClass = !syncStatus.available
         ? 'is-error'
         : (syncStatus.enabled ? 'is-on' : 'is-off');
@@ -1423,17 +1963,17 @@ async function renderSyncStatus(status = null) {
 
     const cloudUsage = syncStatus.storage?.available
         ? `${formatBytes(syncStatus.storage.bytesInUse)} / ${formatBytes(syncStatus.storage.quota)}`
-        : t('unavailable', 'Unavailable');
+        : t('unavailable', '不可用');
 
     const children = [
-        createRow(t('syncStatus', 'Status'), stateLabel, stateClass),
-        createRow(t('lastSync', 'Last sync'), lastSync),
-        createRow(t('cloudUsage', 'Cloud usage'), cloudUsage)
+        createRow(t('syncStatus', '状态'), stateLabel, stateClass),
+        createRow(t('lastSync', '上次同步'), lastSync),
+        createRow(t('cloudUsage', '云端用量'), cloudUsage)
     ];
     if (omitted.length) {
         const note = document.createElement('div');
         note.className = 'sync-status-note';
-        note.textContent = `${t('localOnlyAssets', 'Local-only assets')}: ${omitted.join(', ')}`;
+        note.textContent = `${t('localOnlyAssets', '仅本地资源')}: ${omitted.join(', ')}`;
         children.push(note);
     }
     if (local.lastError) {
@@ -1837,52 +2377,7 @@ async function removeMoviePoster() {
  */
 function validateImportData(importData) {
     try {
-        let settings;
-        
-        // Handle both old format (direct settings) and new format (with metadata)
-        if (importData.data && importData.version) {
-            // New format with metadata
-            settings = importData.data;
-            console.log(`Importing settings from version ${importData.version}, exported on ${importData.exportDate}`);
-        } else {
-            // Old format or direct settings object
-            settings = importData;
-        }
-        
-        // Validate that settings is an object
-        if (typeof settings !== 'object' || settings === null) {
-            throw new Error('Settings data must be an object');
-        }
-        
-        // Get default config for validation
-        const defaultConfig = storageManager.defaultConfig;
-        const validatedSettings = {};
-        
-        // Validate each required key exists and has valid structure
-        for (const [key, defaultValue] of Object.entries(defaultConfig)) {
-            if (settings.hasOwnProperty(key)) {
-                try {
-                    // Use storage manager's validation
-                    validatedSettings[key] = storageManager.validateData(key, settings[key]);
-                } catch (validationError) {
-                    console.warn(`Validation failed for ${key}, using default:`, validationError);
-                    validatedSettings[key] = JSON.parse(JSON.stringify(defaultValue));
-                }
-            } else {
-                // Use default if key is missing
-                validatedSettings[key] = JSON.parse(JSON.stringify(defaultValue));
-            }
-        }
-        
-        // Validate critical data types
-        if (!Array.isArray(validatedSettings.links)) {
-            validatedSettings.links = [];
-        }
-        
-        if (typeof validatedSettings.quote !== 'string') {
-            validatedSettings.quote = defaultConfig.quote;
-        }
-        
+        const validatedSettings = storageManager.validateImportPayload(importData);
         console.log('Import validation successful');
         return validatedSettings;
         
