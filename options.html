@@ -147,12 +147,7 @@
                                         <option value="gradient" data-i18n="bgGradient">Default Gradient</option>
                                         <option value="color" data-i18n="bgColor">Solid Color</option>
                                         <option value="image" data-i18n="bgImage">Custom Image</option>
-                                        <option value="api" data-i18n="bgApi">Random Wallpaper (API)</option>
                                     </select>
-                                    <div class="setting-hint" id="bg-api-hint" style="display: none;">
-                                        <span class="hint-icon">🌟</span>
-                                        <span data-i18n="bgApiHint">Loads wallpapers from Paugram only when online wallpapers are enabled.</span>
-                                    </div>
                                 </div>
                                 <div class="setting-group full-width" id="bg-color-section" style="display: none;">
                                     <label class="form-label" data-i18n="bgColor">Background Color</label>
@@ -372,16 +367,6 @@
                                 <p class="section-description" data-i18n="privacyNetworkDesc">Local iTab works offline by default. Enable these only if you want online enhancements.</p>
                             </div>
                             <div class="settings-grid">
-                                <div class="setting-group full-width">
-                                    <label class="setting-label sync-toggle-card">
-                                        <input type="checkbox" id="privacy-online-wallpapers" class="setting-checkbox">
-                                        <span class="checkbox-custom"></span>
-                                        <div class="setting-info">
-                                            <span class="setting-name" data-i18n="onlineWallpapers">Online random wallpapers</span>
-                                            <span class="setting-desc" data-i18n="onlineWallpapersDesc">Allows requests to https://api.paugram.com/ when the API background is selected.</span>
-                                        </div>
-                                    </label>
-                                </div>
                                 <div class="setting-group full-width">
                                     <label class="setting-label sync-toggle-card">
                                         <input type="checkbox" id="privacy-online-favicons" class="setting-checkbox">

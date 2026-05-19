@@ -424,20 +424,14 @@ body.bg-image {
     background-attachment: scroll;
 }
 
-/* API Background with semi-transparent overlay */
-body.bg-api .geometric-bg {
-    display: none;
-}
 
 body.bg-image .geometric-bg {
     display: none;
 }
 
-/* When using custom image or API, remove animated overlays so image is visible */
+/* When using a custom image, remove animated overlays so image is visible */
 body.bg-image::before,
-body.bg-api::before,
-body.bg-image::after,
-body.bg-api::after {
+body.bg-image::after {
     opacity: 0.0;
 }
 

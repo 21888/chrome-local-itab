@@ -1,7 +1,6 @@
 // Options page JavaScript - with storage management
 const THEME_PRESETS = ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'];
 const PRIVACY_PERMISSION_ORIGINS = {
-    wallpapers: 'https://api.paugram.com/*',
     favicons: 'https://www.google.com/*'
 };
 let driveBackupSnapshots = [];
@@ -165,11 +164,9 @@ function hasOptionalOriginPermission(origin) {
 
 async function reconcilePrivacyPermissions(config) {
     const privacy = { ...(config.privacy || {}) };
+    delete privacy.onlineWallpapers;
     const effectivePrivacy = { ...privacy };
 
-    if (effectivePrivacy.onlineWallpapers === true && !(await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.wallpapers))) {
-        effectivePrivacy.onlineWallpapers = false;
-    }
 
     if (effectivePrivacy.onlineFavicons === true && !(await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.favicons))) {
         effectivePrivacy.onlineFavicons = false;
@@ -188,11 +185,6 @@ function setPrivacyPermissionMetadata(input, config, key) {
 
 function refreshPrivacyPermissionHints() {
     [
-        {
-            id: 'privacy-online-wallpapers',
-            key: 'onlineWallpapersPermissionMissing',
-            fallback: 'Permission is not granted on this device, so this synced setting is not active here.'
-        },
         {
             id: 'privacy-online-favicons',
             key: 'onlineFaviconsPermissionMissing',
@@ -285,7 +277,7 @@ async function populateFormFields(config) {
     const bgColorTextInput = document.getElementById('bg-color-text');
     
     if (bgTypeSelect) {
-        setBackgroundTypeSelection(bgTypeSelect, config.bg.type, config.effectivePrivacy?.onlineWallpapers === true);
+        setBackgroundTypeSelection(bgTypeSelect, config.bg.type === 'api' ? 'gradient' : config.bg.type);
         updateBackgroundSections();
     }
     if (bgColorInput && config.bg.type === 'color') {
@@ -330,12 +322,7 @@ async function populateFormFields(config) {
     if (searchEngine) searchEngine.value = config.search?.engine || 'google';
     if (searchCustom) searchCustom.value = config.search?.custom || '';
 
-    const onlineWallpapers = document.getElementById('privacy-online-wallpapers');
     const onlineFavicons = document.getElementById('privacy-online-favicons');
-    if (onlineWallpapers) {
-        onlineWallpapers.checked = config.privacy?.onlineWallpapers === true;
-        setPrivacyPermissionMetadata(onlineWallpapers, config, 'onlineWallpapers');
-    }
     if (onlineFavicons) {
         onlineFavicons.checked = config.privacy?.onlineFavicons === true;
         setPrivacyPermissionMetadata(onlineFavicons, config, 'onlineFavicons');
@@ -593,7 +580,6 @@ function setupEventListeners() {
     const syncUpload = document.getElementById('sync-upload-now');
     const syncDownload = document.getElementById('sync-download-now');
     const syncClear = document.getElementById('sync-clear-cloud');
-    const onlineWallpapers = document.getElementById('privacy-online-wallpapers');
     const onlineFavicons = document.getElementById('privacy-online-favicons');
 
     if (syncToggle) {
@@ -676,17 +662,6 @@ function setupEventListeners() {
         });
     }
 
-    if (onlineWallpapers) {
-        onlineWallpapers.addEventListener('change', async () => {
-            if (onlineWallpapers.checked && !(await ensurePrivacyPermission('wallpapers', true))) {
-                onlineWallpapers.checked = false;
-                showMessage('Online wallpaper permission was not granted.', 'error');
-            }
-            onlineWallpapers.dataset.permissionMissing = 'false';
-            refreshPrivacyPermissionHints();
-            await saveAllSettings();
-        });
-    }
 
     if (onlineFavicons) {
         onlineFavicons.addEventListener('change', async () => {
@@ -1484,28 +1459,17 @@ async function collectFormData() {
     const bgTypeSelect = document.getElementById('bg-type');
     let bgType = bgTypeSelect?.value || 'gradient';
     const bgColor = document.getElementById('bg-color')?.value || '';
-    const onlineWallpapers = document.getElementById('privacy-online-wallpapers')?.checked === true;
-    const preserveApiPreference = bgType === 'gradient'
-        && bgTypeSelect?.dataset.preferredBgType === 'api'
-        && onlineWallpapers;
+    if (bgType === 'api') {
+        bgType = 'gradient';
+    }
 
     let bgValue = '';
-    if (preserveApiPreference) {
-        bgType = 'api';
-        bgValue = 'https://api.paugram.com/wallpaper/';
-    } else if (bgType === 'color') {
+    if (bgType === 'color') {
         bgValue = bgColor;
     } else if (bgType === 'image') {
         bgValue = existingConfig.bg.value; // Keep existing image
-    } else if (bgType === 'api') {
-        if (onlineWallpapers) {
-            bgValue = 'https://api.paugram.com/wallpaper/'; // API endpoint
-        } else {
-            bgType = 'gradient';
-            bgValue = '';
-        }
     }
-    
+
     settings.bg = { type: bgType, value: bgValue };
 
     // Visibility settings
@@ -1664,7 +1628,6 @@ async function collectFormData() {
 
     settings.sync = existingConfig.sync || storageManager.defaultConfig.sync;
     settings.privacy = {
-        onlineWallpapers,
         onlineFavicons: document.getElementById('privacy-online-favicons')?.checked === true
     };
 
@@ -2026,12 +1989,10 @@ function updateBackgroundSections() {
     const bgType = document.getElementById('bg-type')?.value;
     const colorSection = document.getElementById('bg-color-section');
     const imageSection = document.getElementById('bg-image-section');
-    const apiHint = document.getElementById('bg-api-hint');
     
     // Hide all sections first
     if (colorSection) colorSection.style.display = 'none';
     if (imageSection) imageSection.style.display = 'none';
-    if (apiHint) apiHint.style.display = 'none';
     
     // Show relevant section
     switch (bgType) {
@@ -2040,9 +2001,6 @@ function updateBackgroundSections() {
             break;
         case 'image':
             if (imageSection) imageSection.style.display = 'block';
-            break;
-        case 'api':
-            if (apiHint) apiHint.style.display = 'block';
             break;
         // gradient doesn't need additional controls
     }
@@ -2061,16 +2019,11 @@ function updateBackgroundImagePreview(dataURL) {
     }
 }
 
-function setBackgroundTypeSelection(select, actualType, allowApi) {
-    if (!select) return;
-    if (!select.dataset) select.dataset = {};
-    const blockedApi = actualType === 'api' && allowApi !== true;
-    select.value = blockedApi ? 'gradient' : actualType;
-    if (blockedApi) {
-        select.dataset.preferredBgType = 'api';
-    } else {
-        delete select.dataset.preferredBgType;
-    }
+function setBackgroundTypeSelection(bgTypeSelect, bgType) {
+    if (!bgTypeSelect) return;
+    const safeType = ['gradient', 'color', 'image'].includes(bgType) ? bgType : 'gradient';
+    bgTypeSelect.value = safeType;
+    if (bgTypeSelect.dataset) delete bgTypeSelect.dataset.preferredBgType;
 }
 
 /**
@@ -2083,33 +2036,15 @@ async function saveBackgroundSettings() {
         const bgColor = document.getElementById('bg-color')?.value || '';
         const existingConfig = await storageManager.getAll();
 
+        if (bgType === 'api') {
+            bgType = 'gradient';
+        }
+
         let bgValue = '';
         if (bgType === 'color') {
             bgValue = bgColor;
         } else if (bgType === 'image') {
             bgValue = existingConfig.bg.value; // Keep existing image
-        } else if (bgType === 'api') {
-            const onlineWallpapersInput = document.getElementById('privacy-online-wallpapers');
-            if (onlineWallpapersInput?.checked === true && onlineWallpapersInput.dataset.permissionMissing === 'true') {
-                if (await ensurePrivacyPermission('wallpapers', true)) {
-                    onlineWallpapersInput.dataset.permissionMissing = 'false';
-                    refreshPrivacyPermissionHints();
-                } else {
-                    setBackgroundTypeSelection(bgTypeSelect, existingConfig.bg.type || 'gradient', false);
-                    updateBackgroundSections();
-                    showMessage('Online wallpaper permission was not granted.', 'error');
-                    return;
-                }
-            }
-
-            if (bgType === 'api' && (existingConfig.privacy?.onlineWallpapers === true || onlineWallpapersInput?.checked === true)) {
-                bgValue = 'https://api.paugram.com/wallpaper/';
-            } else {
-                setBackgroundTypeSelection(bgTypeSelect, existingConfig.bg.type || 'gradient', false);
-                updateBackgroundSections();
-                showMessage('Enable online random wallpapers in Privacy first.', 'error');
-                return;
-            }
         }
 
         await storageManager.set('bg', { type: bgType, value: bgValue });
@@ -2423,7 +2358,7 @@ function setupAutoSave() {
         'hour12-format', 'show-seconds',
         'show-clock', 'show-search', 'show-shortcuts', 'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles',
         'search-engine', 'search-custom',
-        'privacy-online-wallpapers', 'privacy-online-favicons',
+        'privacy-online-favicons',
         'shortcuts-gap-x', 'shortcuts-gap-y', 'shortcut-icon-size', 'shortcut-title-size',
         'shortcut-title-color', 'shortcut-title-color-text', 'shortcut-title-color-auto',
         'dashboard-padding-top', 'dashboard-padding-right', 'dashboard-padding-bottom', 'dashboard-padding-left',

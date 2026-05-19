@@ -12,9 +12,8 @@ const SEARCH_ENGINES = {
     duck: 'https://duckduckgo.com/?q=%s'
 };
 
-window.localItabPrivacy = { onlineWallpapers: false, onlineFavicons: false };
+window.localItabPrivacy = { onlineFavicons: false };
 const PRIVACY_PERMISSION_ORIGINS = {
-    onlineWallpapers: 'https://api.paugram.com/*',
     onlineFavicons: 'https://www.google.com/*'
 };
 
@@ -44,11 +43,9 @@ function hasOptionalOriginPermission(origin) {
 }
 
 async function getEffectivePrivacyConfig(privacyConfig = {}) {
-    const wantsWallpapers = privacyConfig.onlineWallpapers === true;
     const wantsFavicons = privacyConfig.onlineFavicons === true;
 
     return {
-        onlineWallpapers: wantsWallpapers && await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.onlineWallpapers),
         onlineFavicons: wantsFavicons && await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.onlineFavicons)
     };
 }
@@ -390,7 +387,7 @@ async function applyBackgroundSettings(bgConfig, privacyConfig = {}) {
     const body = document.body;
 
     // Clear existing background classes
-    body.classList.remove('bg-gradient', 'bg-color', 'bg-image', 'bg-api');
+    body.classList.remove('bg-gradient', 'bg-color', 'bg-image');
     body.style.backgroundColor = '';
     body.style.backgroundImage = '';
     body.style.backgroundSize = '';
@@ -418,48 +415,12 @@ async function applyBackgroundSettings(bgConfig, privacyConfig = {}) {
                 body.classList.add('bg-gradient');
             }
             break;
-        case 'api':
-            if (privacyConfig.onlineWallpapers !== true) {
-                body.classList.add('bg-gradient');
-                break;
-            }
-            body.classList.add('bg-api');
-            await loadApiBackground();
-            break;
         default:
             body.classList.add('bg-gradient');
     }
 
     // adjust text color and overlay based on background type
     updateTextContrast(bgConfig);
-}
-
-/**
- * Load random wallpaper from API
- */
-async function loadApiBackground() {
-    try {
-        const apiUrl = 'https://api.paugram.com/wallpaper/';
-        const response = await fetch(apiUrl, { redirect: 'follow', cache: 'no-cache' });
-
-        if (response.ok) {
-            const imageUrl = response.url; // The API redirects to the actual image
-            document.body.style.backgroundImage = `url(${imageUrl})`;
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundPosition = 'center';
-            document.body.style.backgroundRepeat = 'no-repeat';
-            document.body.style.backgroundAttachment = 'fixed';
-        } else {
-            console.warn('Failed to load API background, using gradient fallback');
-            document.body.classList.remove('bg-api');
-            document.body.classList.add('bg-gradient');
-        }
-    } catch (error) {
-        console.error('Error loading API background:', error);
-        // Fallback to gradient
-        document.body.classList.remove('bg-api');
-        document.body.classList.add('bg-gradient');
-    }
 }
 
 // Update text color and overlay based on background settings

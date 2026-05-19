@@ -13,7 +13,7 @@ A private, local-first Chrome new tab page for search, shortcuts, and lightweigh
 - Public-release visual refresh with a restrained utility interface
 - Shared search URL template validation for the dashboard and settings
 - Release and privacy documentation under `docs/`
-- Default-off online controls for random wallpapers and favicon fetching
+- Default-off online control for favicon fetching
 - Search module with Google, Bing, DuckDuckGo, and custom URL templates
 - Local weather, hot topic, and movie cards maintained by the user
 - Custom themed context menu with category and shortcut actions
@@ -36,8 +36,7 @@ A private, local-first Chrome new tab page for search, shortcuts, and lightweigh
 
 Local iTab is designed to be privacy-forward:
 
-- Default state: no random wallpaper request, no favicon request, no remote weather/hot-topic/movie feed.
-- Online random wallpapers: disabled by default; when enabled and selected, the extension may request `https://api.paugram.com/wallpaper/`.
+- Default state: no favicon request and no remote weather/hot-topic/movie feed.
 - Online favicon fetching: disabled by default; when enabled, the extension may request `https://www.google.com/s2/favicons`.
 - Search: typing does not send data anywhere; a request is made only after you submit a search or open a URL.
 - User data is stored in `chrome.storage.local`; Chrome Sync is opt-in and subject to Chrome's sync quota.

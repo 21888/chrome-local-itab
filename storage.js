@@ -40,7 +40,6 @@ class StorageManager {
                 movie: false
             },
             privacy: {
-                onlineWallpapers: false,
                 onlineFavicons: false
             },
             categories: [
@@ -1060,9 +1059,6 @@ class StorageManager {
         }
 
         return {
-            onlineWallpapers: typeof value.onlineWallpapers === 'boolean'
-                ? value.onlineWallpapers
-                : this.defaultConfig.privacy.onlineWallpapers,
             onlineFavicons: typeof value.onlineFavicons === 'boolean'
                 ? value.onlineFavicons
                 : this.defaultConfig.privacy.onlineFavicons

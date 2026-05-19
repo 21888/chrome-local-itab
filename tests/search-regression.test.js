@@ -183,29 +183,23 @@ async function collectSearchSettings(engine, custom) {
 
     const deniedNewtab = createNewtabPrivacyContext();
     const deniedPrivacy = await deniedNewtab.getEffectivePrivacyConfig({
-        onlineWallpapers: true,
         onlineFavicons: true
     });
-    assert.strictEqual(deniedPrivacy.onlineWallpapers, false);
     assert.strictEqual(deniedPrivacy.onlineFavicons, false);
 
-    const faviconOnlyNewtab = createNewtabPrivacyContext({ 'https://www.google.com/*': true });
-    const faviconOnlyPrivacy = await faviconOnlyNewtab.getEffectivePrivacyConfig({
-        onlineWallpapers: true,
+    const faviconAllowedNewtab = createNewtabPrivacyContext({ 'https://www.google.com/*': true });
+    const faviconAllowedPrivacy = await faviconAllowedNewtab.getEffectivePrivacyConfig({
         onlineFavicons: true
     });
-    assert.strictEqual(faviconOnlyPrivacy.onlineWallpapers, false);
-    assert.strictEqual(faviconOnlyPrivacy.onlineFavicons, true);
+    assert.strictEqual(faviconAllowedPrivacy.onlineFavicons, true);
 
     const importedOnlineConfig = {
         ...createDefaultConfig(),
-        privacy: { onlineWallpapers: true, onlineFavicons: true }
+        privacy: { onlineFavicons: true }
     };
     const optionsPrivacy = createOptionsContext({}, importedOnlineConfig);
     const reconciled = await optionsPrivacy.context.reconcilePrivacyPermissions(importedOnlineConfig);
-    assert.strictEqual(reconciled.privacy.onlineWallpapers, true);
     assert.strictEqual(reconciled.privacy.onlineFavicons, true);
-    assert.strictEqual(reconciled.effectivePrivacy.onlineWallpapers, false);
     assert.strictEqual(reconciled.effectivePrivacy.onlineFavicons, false);
     assert.strictEqual(optionsPrivacy.getSavedPrivacy(), null);
 
@@ -213,69 +207,6 @@ async function collectSearchSettings(engine, custom) {
     noPermissionApi.context.chrome.permissions = null;
     assert.strictEqual(await noPermissionApi.context.requestOptionalOrigin('https://www.google.com/*'), false);
 
-    const wallpaperDesc = {
-        textContent: 'Allows requests to https://api.paugram.com/ when the API background is selected.',
-        dataset: {},
-        getAttribute(name) {
-            return name === 'data-i18n' ? 'onlineWallpapersDesc' : null;
-        }
-    };
-    const wallpaperInput = {
-        dataset: {},
-        title: '',
-        closest() {
-            return { querySelector() { return wallpaperDesc; } };
-        }
-    };
-    optionsPrivacy.fields.set('privacy-online-wallpapers', wallpaperInput);
-    optionsPrivacy.context.setPrivacyPermissionMetadata(wallpaperInput, reconciled, 'onlineWallpapers');
-    optionsPrivacy.context.refreshPrivacyPermissionHints();
-    assert.strictEqual(wallpaperInput.dataset.permissionMissing, 'true');
-    assert.match(wallpaperInput.title, /Permission is not granted/);
-    assert.match(wallpaperDesc.textContent, /not active here/);
-
-    const syncedApiBackground = {
-        ...createDefaultConfig(),
-        bg: { type: 'api', value: 'https://api.paugram.com/wallpaper/' },
-        privacy: { onlineWallpapers: true, onlineFavicons: false }
-    };
-    const deniedWallpaperPermission = createOptionsContext({}, syncedApiBackground, {});
-    const deniedBgType = { value: 'api' };
-    deniedWallpaperPermission.fields.set('bg-type', deniedBgType);
-    deniedWallpaperPermission.fields.set('bg-color', { value: '' });
-    deniedWallpaperPermission.fields.set('privacy-online-wallpapers', {
-        checked: true,
-        dataset: { permissionMissing: 'true' }
-    });
-    await deniedWallpaperPermission.context.saveBackgroundSettings();
-    assert.strictEqual(deniedBgType.value, 'gradient');
-    assert.strictEqual(deniedBgType.dataset.preferredBgType, 'api');
-    assert.strictEqual(deniedWallpaperPermission.getSavedBackground(), null);
-
-    const grantedWallpaperPermission = createOptionsContext({}, syncedApiBackground, {
-        'https://api.paugram.com/*': true
-    });
-    const grantedBgType = { value: 'api' };
-    const grantedWallpaperInput = {
-        checked: true,
-        dataset: { permissionMissing: 'true' }
-    };
-    grantedWallpaperPermission.fields.set('bg-type', grantedBgType);
-    grantedWallpaperPermission.fields.set('bg-color', { value: '' });
-    grantedWallpaperPermission.fields.set('privacy-online-wallpapers', grantedWallpaperInput);
-    await grantedWallpaperPermission.context.saveBackgroundSettings();
-    assert.strictEqual(grantedWallpaperInput.dataset.permissionMissing, 'false');
-    assert.strictEqual(grantedWallpaperPermission.getSavedBackground().type, 'api');
-    assert.strictEqual(grantedWallpaperPermission.getSavedBackground().value, 'https://api.paugram.com/wallpaper/');
-
-    const preservedApiPreference = createOptionsContext({}, syncedApiBackground);
-    const localBgType = { value: 'gradient', dataset: { preferredBgType: 'api' } };
-    preservedApiPreference.fields.set('bg-type', localBgType);
-    preservedApiPreference.fields.set('bg-color', { value: '' });
-    preservedApiPreference.fields.set('privacy-online-wallpapers', { checked: true });
-    const preservedSettings = await preservedApiPreference.context.collectFormData();
-    assert.strictEqual(preservedSettings.bg.type, 'api');
-    assert.strictEqual(preservedSettings.bg.value, 'https://api.paugram.com/wallpaper/');
 
     console.log('search regression tests ok');
 })();

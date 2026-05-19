@@ -11,7 +11,7 @@
 
 ## Short Description
 
-Private local-first new tab with search, shortcuts, and opt-in online enhancements.
+Private local-first new tab with search, shortcuts, and optional favicon fetching.
 
 ## Detailed Description
 
@@ -30,7 +30,7 @@ Privacy by default:
 
 - New installs work offline by default.
 - Search text is not sent anywhere while you type; a request happens only after you submit a search or open a URL.
-- Online random wallpapers and online favicon fetching are off by default and require both an in-app setting and the matching optional host permission.
+- Online favicon fetching is off by default and requires both an in-app setting and the matching optional host permission.
 - User configuration, shortcuts, uploaded backgrounds, local cards, and cached icons are stored in Chrome local storage on the user's device.
 - Local iTab does not include analytics, tracking scripts, ads, accounts, or remote content feeds.
 
@@ -55,7 +55,7 @@ Local iTab 会把 Chrome 新标签页变成一个隐私优先、本地优先的�
 
 - 新安装默认离线工作。
 - 输入搜索词时不会发送数据；只有提交搜索或打开网址后才会发起请求。
-- 在线随机壁纸和在线网站图标默认关闭，必须在应用内开启并授予对应可选主机权限后才会联网。
+- 在线网站图标默认关闭，必须在应用内开启并授予对应可选主机权限后才会联网。
 - 用户配置、快捷方式、上传背景、本地卡片和缓存图标保存在用户设备的 Chrome 本地存储中。
 - Local iTab 不包含分析、追踪脚本、广告、账号系统或远程内容 Feed。
 
@@ -68,7 +68,6 @@ Provide a private, customizable Chrome new tab dashboard for search, shortcuts, 
 - `storage`: Stores shortcuts, categories, layout, theme, search preferences, local cards, privacy settings, optional cached favicons, and optional Chrome Sync metadata.
 - `unlimitedStorage`: Allows users to keep uploaded backgrounds, local configuration, and cached icon data on the device without losing data to small local quota limits.
 - Optional host permission `https://www.google.com/*`: Used only when the user enables online favicon fetching and grants permission; fetches shortcut favicon images from Google's favicon endpoint.
-- Optional host permission `https://api.paugram.com/*`: Used only when the user enables online random wallpapers and grants permission; loads wallpaper images from Paugram when API background is selected.
 
 ## Privacy Practices Form
 
@@ -84,11 +83,10 @@ Notes for reviewer:
 
 - Search queries are sent only by the user's explicit submitted navigation to their selected search engine.
 - Optional favicon lookup may send a shortcut domain to Google only after the user enables online favicon fetching and grants the optional host permission.
-- Optional wallpaper loading contacts Paugram only after the user enables online random wallpapers, grants the optional host permission, and selects the API background.
 
 ## Reviewer Notes
 
-Local iTab is a Manifest V3 new tab replacement. On a fresh install it works offline by default. To test optional network features, open Settings > Privacy and enable online random wallpapers or online favicon fetching, then grant the optional host permission requested by Chrome.
+Local iTab is a Manifest V3 new tab replacement. On a fresh install it works offline by default. To test optional network features, open Settings > Privacy and enable online favicon fetching, then grant the optional host permission requested by Chrome.
 
 ## Screenshots
 
