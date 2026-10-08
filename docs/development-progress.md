@@ -68,9 +68,14 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - The resource warning is separate from data validation and the existing replacement confirmation. Invalid data never reaches replacement/write, and every exit clears the file input for same-file retry.
 - Verification: ten Node suites pass. Actual export Blobs containing 4+4 MiB and 5+5 MiB synthetic image payloads restore exact assets, links, categories and layout while preserving the current device's sync state. Tests cover the 10 MiB boundary, both cancellation stages, malformed large files, read/write failures, no false success/reload and retries. This does not claim browser image decoding or memory-stress verification.
 
+## Make the README Chinese-first with linked translations · 2026-10-08
+
+- The default README is Simplified Chinese, with complete English and Spanish counterparts and reciprocal language links.
+- Documentation explains actual local/cloud behavior, permissions, installation, interface-language support and reproducible checks. All three versions describe the new large-import warning and browser-memory caveat, not the removed 10 MiB rejection.
+- Verification: all relative links resolve, all five original preview image URLs are preserved, and the documented ten-test/syntax/JSON/whitespace checks pass. No runtime behavior changes are included in this documentation commit.
+
 ## Confirmed next priorities
 
-- Integrate the Chinese-default README and linked English/Spanish documentation.
 - Review distinct visual proposals before changing the production UI.
 - Add explicit Grid/Free placement selection while preserving saved layouts.
 
