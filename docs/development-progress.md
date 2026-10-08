@@ -16,9 +16,15 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Added `tests/dialog-focus.test.js`, covering focus wrap in both directions, disabled/hidden controls, Escape, prior inert state, cleanup ownership, reopen, and repeated delete.
 - Verification: all four Node suites, JavaScript syntax, JSON parsing, and `git diff --check` passed. Actual unpacked-extension browser verification remains pending.
 
+## Backup import data-loss protection · 2026-10-08
+
+- Import now rejects unrelated JSON, missing/corrupt shortcuts, malformed categories/topics, wrong nested setting types, corrupt image assets, foreign envelopes, and unsupported format/schema versions before confirmation or storage writes.
+- Full replacement requires an explicit `links` array. Empty arrays remain valid; raw settings, legacy `settings` and `version/data` envelopes, and current manual/Drive snapshots remain supported. Older backups may omit newer modules.
+- Restoring still preserves the current device's sync state and skips sync side effects.
+- Verification: `tests/import-safety.test.js` covers invalid payloads, supported formats, valid empty backups, no input mutation, provider-state preservation, and the actual manual-import function's no-confirm/no-write failure path. All five Node suites, JavaScript syntax, JSON parsing, and whitespace checks passed.
+
 ## Confirmed next priorities
 
-- Reject unrelated/corrupt backup files before replacement can erase local data.
 - Preserve active category after shortcut mutations.
 - Prevent stale tabs or pending saves from overwriting newer shortcut data.
 - Restore starter-set retry after storage failure; correct fragment-only search templates.

@@ -442,31 +442,89 @@ class StorageManager {
     }
 
     validateImportPayload(importData) {
-        let settings;
-
-        if (importData && typeof importData === 'object' && importData.data && (importData.version || importData.schemaVersion || importData.type)) {
-            settings = importData.data;
-        } else if (importData && typeof importData === 'object' && importData.settings) {
-            settings = importData.settings;
-        } else {
-            settings = importData;
+        const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+        const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+        const invalid = detail => { throw new Error(`Invalid backup: ${detail}. No settings have been changed.`); };
+        if (!isObject(importData)) invalid('settings data must be an object');
+        if (has(importData, 'version') && importData.version !== '1.0') invalid('unsupported backup version');
+        if (has(importData, 'type') && importData.type !== 'backupSnapshot') invalid('unrecognized backup type');
+        if (has(importData, 'app') && importData.app !== 'local-itab') invalid('backup belongs to another app');
+        if (has(importData, 'schemaVersion') && importData.schemaVersion !== 1) {
+            invalid('unsupported schema version; use a backup exported by this version of Local iTab');
         }
 
-        if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
-            throw new Error('Settings data must be an object');
+        let settings = importData;
+        if (has(importData, 'data') || has(importData, 'settings')) {
+            if (has(importData, 'data') && has(importData, 'settings')) invalid('ambiguous settings envelope');
+            settings = has(importData, 'data') ? importData.data : importData.settings;
+        }
+        if (!isObject(settings)) invalid('settings data must be an object');
+        // A full replacement must explicitly include shortcuts, including [] for
+        // a genuinely empty backup. Missing/corrupt data must never become defaults.
+        if (!has(settings, 'links') || !Array.isArray(settings.links)) invalid('a shortcuts array is required');
+        const checkTypes = (value, schema, path) => {
+            if (schema === null) {
+                if (value !== null && (typeof value !== 'number' || !Number.isFinite(value))) invalid(`invalid ${path}`);
+            } else if (Array.isArray(schema)) {
+                if (!Array.isArray(value)) invalid(`invalid ${path}`);
+            } else if (isObject(schema)) {
+                if (!isObject(value)) invalid(`invalid ${path}`);
+                for (const [key, expected] of Object.entries(schema)) {
+                    if (!has(value, key)) continue; // Older backups may omit newer settings.
+                    if (`${path}.${key}` === 'settings.ui.dashboardPadding' && isObject(value[key])) {
+                        checkTypes(value[key], { top: null, right: null, bottom: null, left: null }, `${path}.${key}`);
+                    } else {
+                        checkTypes(value[key], expected, `${path}.${key}`);
+                    }
+                }
+            } else if (typeof value !== typeof schema || (typeof value === 'number' && !Number.isFinite(value))) {
+                invalid(`invalid ${path}`);
+            }
+        };
+        checkTypes(settings, this.defaultConfig, 'settings');
+        for (const link of settings.links) {
+            checkTypes(link, { title: '', url: '', icon: '', category: '' }, 'shortcut');
+        }
+        for (const category of settings.categories || []) {
+            checkTypes(category, { id: '', name: '', icon: '' }, 'category');
+        }
+        for (const position of Object.values(settings.layout?.positions || {})) {
+            if (!isObject(position) || !Number.isFinite(position.x) || !Number.isFinite(position.y)) invalid('invalid shortcut position');
+        }
+        const checkChoice = (value, choices, name) => {
+            if (value !== undefined && !choices.includes(value)) invalid(`unsupported ${name}`);
+        };
+        checkChoice(settings.themePreset, ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'], 'theme');
+        checkChoice(settings.bg?.type, ['gradient', 'color', 'image', 'api'], 'background type');
+        checkChoice(settings.search?.engine, ['google', 'bing', 'duck', 'custom'], 'search engine');
+        checkChoice(settings.hot?.tab, ['baidu', 'weibo', 'zhihu'], 'topic source');
+
+        let links;
+        let categories;
+        try {
+            links = this.validateLinksConfig(settings.links);
+            if (has(settings, 'categories')) categories = this.validateCategoriesConfig(settings.categories);
+        } catch (_) {
+            invalid('a shortcut or category is malformed');
+        }
+        if (links.length !== settings.links.length) invalid('a shortcut has a missing title or invalid HTTP/HTTPS URL');
+        if (categories && categories.length !== settings.categories.length) invalid('a category has a missing name');
+        if (settings.hot) {
+            for (const source of ['baidu', 'weibo', 'zhihu']) {
+                if (!has(settings.hot, source)) continue;
+                const topics = settings.hot[source];
+                if (!Array.isArray(topics) || topics.some(topic => !isObject(topic) || typeof topic.t !== 'string' || !topic.t ||
+                    (has(topic, 's') && (typeof topic.s !== 'number' || !Number.isFinite(topic.s))))) {
+                    invalid(`invalid ${source} topics`);
+                }
+            }
         }
 
         const validated = this.validateConfigObject(settings);
+        if (settings.bg?.type === 'image' && settings.bg.value && !validated.bg.value) invalid('background image data is corrupt or unsupported');
+        if (settings.movie?.poster && !validated.movie.poster) invalid('movie poster data is corrupt or unsupported');
+        if (settings.search?.custom?.trim() && !validated.search.custom) invalid('custom search URL is invalid');
         validated.sync = this.getDisabledSyncConfig();
-
-        if (!Array.isArray(validated.links)) {
-            validated.links = [];
-        }
-
-        if (typeof validated.quote !== 'string') {
-            validated.quote = this.defaultConfig.quote;
-        }
-
         return validated;
     }
 
