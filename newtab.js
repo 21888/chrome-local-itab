@@ -2220,11 +2220,18 @@ class ShortcutsComponent {
         if (index < 0 || index >= this.links.length) return;
 
         const link = this.links[index];
+        const expectedLink = { ...link };
         this.showConfirmDialog(
             ((window.i18n && i18n.t('deleteShortcut')) || 'Delete Shortcut'),
             ((window.i18n && i18n.t('deleteShortcutConfirm')) || 'Are you sure you want to delete this shortcut?'),
             link,
-            () => this.deleteShortcut(index)
+            () => {
+                if (this.links[index] !== link || Object.keys(expectedLink).some(key => link[key] !== expectedLink[key])) {
+                    showErrorMessage(window.i18n?.t('contextTargetChanged') || 'This item changed. Reopen the action and try again.');
+                    return;
+                }
+                this.deleteShortcut(index);
+            }
         );
     }
 

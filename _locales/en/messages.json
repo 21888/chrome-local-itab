@@ -1,4 +1,8 @@
 {
+	"contextTargetChanged": {"message": "This item changed. Reopen the action and try again."},
+	"contextShortcutActions": {"message": "Shortcut actions"},
+	"contextCategoryActions": {"message": "Category actions"},
+	"contextPageActions": {"message": "Page actions"},
 	"layoutReload": {"message": "Reload page"},
 	"layoutChangedElsewhere": {"message": "Layout changed in another page. Review it, then retry your change."},
 	"layoutContextChanged": {"message": "Page data changed or could not be read safely. Reload before arranging shortcuts."},

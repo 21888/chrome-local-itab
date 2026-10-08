@@ -9,7 +9,10 @@
 
 .context-menu {
 	position: absolute;
-	min-width: 210px;
+	min-width: min(210px, calc(100vw - 16px));
+	max-width: calc(100vw - 16px);
+	max-height: calc(100dvh - 16px);
+	overflow: auto;
 	background: var(--menu-bg, rgba(15, 20, 34, 0.9));
 	color: var(--menu-fg, #f8f9fa);
 	border-radius: 14px;
@@ -30,6 +33,12 @@
 }
 
 .context-menu .ctx-item {
+	width: 100%;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	text-align: left;
+	appearance: none;
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -51,13 +60,15 @@
 	background: var(--menu-hover, rgba(255,255,255,0.08));
 }
 
-.context-menu .ctx-kbd {
-	margin-left: auto;
-	opacity: .7;
-	font-size: 12px;
-	border: 1px solid var(--menu-sep, rgba(255,255,255,0.12));
-	padding: 2px 6px;
-	border-radius: 6px;
+/* Native button focus is visible without changing ordinary menu actions. */
+.context-menu .ctx-item:focus-visible {
+	background: var(--menu-hover, rgba(255,255,255,0.08));
+	outline: 2px solid var(--template-focus, #8fbaff);
+	outline-offset: -2px;
+}
+.context-menu .ctx-item:disabled {
+	opacity: .5;
+	cursor: default;
 }
 
 .context-menu .ctx-sep {
