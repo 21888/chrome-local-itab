@@ -1,4 +1,6 @@
 {
+	"largeLocalImportConfirm": {"message": "这份备份为 $SIZE$ MiB。读取大文件会占用较多内存，可能使此标签页暂时无响应。要继续读取吗？", "placeholders": {"size": {"content": "$1"}}},
+	"localImportReadCancelled": {"message": "已取消导入，尚未读取文件。"},
 	"freeLayoutNoSpace": { "message": "没有可用的网格空间，快捷方式已保留在原来的位置。" },
 	"shortcutsChangedElsewhere": { "message": "快捷方式已在其他标签页中更改，列表已刷新。请重试。" },
 	"shortcutDraftConflict": { "message": "快捷方式已在其他标签页中更改。未保存的内容仍在表单中；如有需要请先复制，再关闭并重新打开快捷方式重试。" },

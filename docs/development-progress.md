@@ -62,8 +62,16 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - The nearest fitting cell is found lazily, without allocating the whole canvas. If no cell fits, the original position is retained without a write and a localized notice explains why.
 - Verification: all nine Node suites pass. Expanded drag tests cover narrow grids, resize, dense overlapping cells, no-space restoration, invalid dimensions, a billion-pixel sparse canvas, and 60 small-grid comparisons against an exhaustive nearest-cell oracle. Actual browser rendering remains unverified.
 
+## Restore large local-image backups without an arbitrary import cutoff · 2026-10-08
+
+- Manual imports above 10 MiB now show a localized resource warning before reading the file instead of rejecting the app's own larger exports. Users can cancel before text allocation; practical limits still depend on browser memory.
+- The resource warning is separate from data validation and the existing replacement confirmation. Invalid data never reaches replacement/write, and every exit clears the file input for same-file retry.
+- Verification: ten Node suites pass. Actual export Blobs containing 4+4 MiB and 5+5 MiB synthetic image payloads restore exact assets, links, categories and layout while preserving the current device's sync state. Tests cover the 10 MiB boundary, both cancellation stages, malformed large files, read/write failures, no false success/reload and retries. This does not claim browser image decoding or memory-stress verification.
+
 ## Confirmed next priorities
 
-- Let large local-image backups round-trip safely instead of exporting files the importer rejects.
+- Integrate the Chinese-default README and linked English/Spanish documentation.
+- Review distinct visual proposals before changing the production UI.
+- Add explicit Grid/Free placement selection while preserving saved layouts.
 
 - Make shortcut launching, Add, and post-mutation focus usable by keyboard.

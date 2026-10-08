@@ -1,4 +1,6 @@
 {
+	"largeLocalImportConfirm": {"message": "This backup is $SIZE$ MiB. Reading a large file can use substantial memory and may make this tab unresponsive. Continue reading it?", "placeholders": {"size": {"content": "$1"}}},
+	"localImportReadCancelled": {"message": "Import cancelled before reading the file."},
 	"freeLayoutNoSpace": { "message": "No free grid space is available. The shortcut stayed in its original position." },
 	"shortcutsChangedElsewhere": { "message": "Shortcuts changed in another tab. The list has been refreshed. Please try again." },
 	"shortcutDraftConflict": { "message": "Shortcuts changed in another tab. Your draft is still here; copy it if needed, then close and reopen the shortcut to retry." },

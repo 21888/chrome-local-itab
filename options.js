@@ -1694,25 +1694,29 @@ async function exportSettings() {
 }
 
 async function importSettings(file) {
-    if (!file) {
-        showImportExportFeedback('import', 'error', 'No file selected for import');
-        return;
-    }
-    
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.json')) {
-        showImportExportFeedback('import', 'error', 'Please select a valid JSON file');
-        return;
-    }
-    
-    // Validate file size (max 10MB for safety)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-        showImportExportFeedback('import', 'error', `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum size is 10MB`);
-        return;
-    }
-    
     try {
+        if (!file) {
+            showImportExportFeedback('import', 'error', 'No file selected for import');
+            return;
+        }
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            showImportExportFeedback('import', 'error', 'Please select a valid JSON file');
+            return;
+        }
+
+        // Local images can legitimately produce exports larger than 10 MiB.
+        // Warn before allocating their text rather than making our own backups unrestorable.
+        const warningSize = 10 * 1024 * 1024;
+        if (file.size > warningSize) {
+            const size = (file.size / 1024 / 1024).toFixed(1);
+            const proceed = confirm(t('largeLocalImportConfirm',
+                'This backup is $1 MiB. Reading a large file can use substantial memory and may make this tab unresponsive. Continue reading it?', [size]));
+            if (!proceed) {
+                showImportExportFeedback('import', 'info', t('localImportReadCancelled', 'Import cancelled before reading the file.'));
+                return;
+            }
+        }
+
         showImportExportFeedback('import', 'info', `Processing file: ${file.name}`, { fileSize: file.size });
         
         const text = await file.text();
