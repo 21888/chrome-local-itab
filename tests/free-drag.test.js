@@ -110,7 +110,7 @@ for (const modifiers of [{ button: 2 }, { ctrlKey: true }, { metaKey: true }, { 
 }
 {
     const h = createHarness();
-    const button = { closest(selector) { return selector.startsWith('button') ? this : h.items[0]; } };
+    const button = { classList: classes(), closest(selector) { return selector.startsWith('button') ? this : h.items[0]; } };
     const event = h.event({ target: button });
     h.component.onPointerDown(event);
     assert.equal(event.prevented, false, 'edit/delete buttons keep ordinary click behavior');

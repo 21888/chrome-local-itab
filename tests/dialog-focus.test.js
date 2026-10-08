@@ -2,6 +2,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
+// Native Chrome regression: animating visibility leaves the initial focus call
+// at the hidden transition start. Only opacity should transition on the overlay.
+const overlayCss = fs.readFileSync('newtab.css', 'utf8').match(/\.modal-overlay\s*\{([^}]+)\}/)[1];
+assert.match(overlayCss, /transition:\s*opacity\s+var\(--transition-base\)/);
+assert.doesNotMatch(overlayCss, /transition:\s*(?:all|visibility)\b/);
+const descendantsCss = fs.readFileSync('newtab.css', 'utf8').match(/\.modal-overlay \.modal,\s*\.modal-overlay \.modal \*\s*\{([^}]+)\}/)[1];
+assert.match(descendantsCss, /transition-property:\s*background-color, border-color, box-shadow, color, opacity, transform;/);
+assert.doesNotMatch(descendantsCss, /\b(?:all|visibility)\b/);
+
 // Minimal DOM model: exercises event/focus ownership, not browser layout or AT.
 function createDocument() {
     const doc = { activeElement: null, addEventListener() {} };

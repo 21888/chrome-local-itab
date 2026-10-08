@@ -1403,6 +1403,7 @@ class ShortcutsComponent {
         this._hasShortcutConflict = false;
         this._modalSession = 0;
         this._pendingSave = null;
+        this._modalFocusOrigin = null;
     }
 
     /**
@@ -1442,20 +1443,31 @@ class ShortcutsComponent {
         return fragment;
     }
 
+    getShortcutFocusKey(link) {
+        return JSON.stringify([link?.url || '', link?.title || '', link?.category || 'work']);
+    }
+
     createShortcutItem(link, index) {
         const item = document.createElement('div');
         item.className = 'shortcut-item';
         item.dataset.index = String(index);
+        item.dataset.focusKey = this.getShortcutFocusKey(link);
         item.draggable = true;
 
-        const content = document.createElement('div');
-        content.className = 'shortcut-content';
+        const content = document.createElement('button');
+        content.type = 'button';
+        content.className = 'shortcut-content shortcut-launch';
+        content.dataset.action = 'open';
+        content.dataset.index = String(index);
+        content.draggable = true;
+        content.setAttribute('aria-label', `${(window.i18n && i18n.t('openInNewTab')) || 'Open in new tab'}: ${link.title || link.url}`);
 
-        const icon = document.createElement('div');
+        const icon = document.createElement('span');
         icon.className = 'shortcut-icon';
+        icon.setAttribute('aria-hidden', 'true');
         this.setShortcutIconContent(icon, link.icon || '🌐', link.url);
 
-        const title = document.createElement('h3');
+        const title = document.createElement('span');
         title.className = 'shortcut-title';
         title.textContent = link.title || '';
 
@@ -1479,6 +1491,7 @@ class ShortcutsComponent {
         button.dataset.action = action;
         button.dataset.index = String(index);
         button.title = title;
+        button.setAttribute('aria-label', `${title}: ${this.links[index]?.title || this.links[index]?.url || ''}`);
         button.textContent = label;
         return button;
     }
@@ -1515,17 +1528,20 @@ class ShortcutsComponent {
     }
 
     createAddTile() {
-        const item = document.createElement('div');
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.setAttribute('aria-label', (window.i18n && i18n.t('addShortcut')) || 'Add Shortcut');
         item.className = 'shortcut-item add-shortcut';
         item.dataset.action = 'open-add';
         item.draggable = false;
 
-        const content = document.createElement('div');
+        const content = document.createElement('span');
         content.className = 'shortcut-content';
-        const icon = document.createElement('div');
+        const icon = document.createElement('span');
         icon.className = 'shortcut-icon';
+        icon.setAttribute('aria-hidden', 'true');
         icon.textContent = '+';
-        const title = document.createElement('h3');
+        const title = document.createElement('span');
         title.className = 'shortcut-title';
         title.textContent = (window.i18n && i18n.t('addShortcut')) || 'Add Shortcut';
         content.append(icon, title);
@@ -1547,6 +1563,7 @@ class ShortcutsComponent {
         const grid = document.getElementById('shortcuts-grid');
         if (grid) {
             grid.addEventListener('click', (e) => this.handleGridClick(e));
+            grid.addEventListener('keydown', (e) => this.handleGridKeydown(e));
             grid.addEventListener('dragstart', (e) => this.handleDragStart(e));
             grid.addEventListener('dragover', (e) => this.handleDragOver(e));
             grid.addEventListener('dragenter', (e) => this.handleDragEnter(e));
@@ -1559,6 +1576,11 @@ class ShortcutsComponent {
     /**
      * Handle grid click events
      */
+    handleGridKeydown(event) {
+        // Let native buttons provide Enter/Space activation, without held-Enter cascades.
+        if (event.key === 'Enter' && event.repeat && event.target.closest('button')) event.preventDefault();
+    }
+
     handleGridClick(e) {
         if (this._suppressClickUntil && Date.now() < this._suppressClickUntil) {
             e.stopPropagation();
@@ -1566,7 +1588,8 @@ class ShortcutsComponent {
             return;
         }
         // 统一从最近的按钮或卡片元素读取 data 属性，确保点击 SVG 子元素也能命中
-        const actionBtn = e.target.closest('.shortcut-action-btn');
+        const actionBtn = e.target.closest('.shortcut-action-btn, .shortcut-launch, .empty-action-btn, .add-shortcut');
+        if (actionBtn?.disabled || e.target.closest('.shortcut-item')?.style.display === 'none') return;
         const action = actionBtn?.dataset?.action || e.target.dataset.action;
         const indexStr = actionBtn?.dataset?.index || e.target.dataset.index;
         const index = indexStr !== undefined ? parseInt(indexStr) : NaN;
@@ -1589,7 +1612,10 @@ class ShortcutsComponent {
             return;
         }
 
-        if (action === 'edit') {
+        if (action === 'open') {
+            e.stopPropagation();
+            this.openShortcut(index);
+        } else if (action === 'edit') {
             e.stopPropagation();
             this.openEditModal(index);
         } else if (action === 'delete') {
@@ -1699,6 +1725,7 @@ class ShortcutsComponent {
 
         // Show modal
         this._closeModal?.();
+        this._modalFocusOrigin = this.captureGridFocus();
         this._closeModal = window.LocalItabDialog.open(this.modal, titleInput, () => this.hideModal());
     }
 
@@ -1707,8 +1734,14 @@ class ShortcutsComponent {
      */
     hideModal() {
         if (this.modal) {
+            const wasOpen = this.modal.classList.contains('active');
             this._closeModal?.();
             this._closeModal = null;
+            if (wasOpen && this._modalFocusOrigin &&
+                (document.activeElement === document.body || this.modal.contains?.(document.activeElement) || document.activeElement?.isConnected === false)) {
+                const grid = document.getElementById('shortcuts-grid');
+                if (grid) this.restoreGridFocus(grid, this._modalFocusOrigin);
+            }
             this._modalSession++;
             this.currentEditIndex = -1;
             this.setSavingState(Boolean(this._pendingSave));
@@ -1889,10 +1922,11 @@ class ShortcutsComponent {
         const shortcut = { title, url, icon, category };
         const previousLinks = this.links.map(link => ({ ...link }));
         const nextLinks = previousLinks.map(link => ({ ...link }));
+        const editIndex = this.currentEditIndex;
 
-        if (this.currentEditIndex >= 0) {
+        if (editIndex >= 0) {
             // Edit existing shortcut
-            nextLinks[this.currentEditIndex] = shortcut;
+            nextLinks[editIndex] = shortcut;
         } else {
             // Add new shortcut
             nextLinks.push(shortcut);
@@ -1904,9 +1938,13 @@ class ShortcutsComponent {
             if (!saved) {
                 throw new Error('Storage write returned false');
             }
+            const ownsFocus = this._modalSession === saveSession && this.modal.contains?.(document.activeElement);
+            const focusIntent = ownsFocus ? (editIndex >= 0
+                ? { key: this.getShortcutFocusKey(shortcut), index: editIndex, action: this._modalFocusOrigin?.action === 'edit' ? 'edit' : 'launch' }
+                : { action: 'add' }) : null;
             this.links = nextLinks;
             if (this._modalSession === saveSession) this.hideModal();
-            this.updateGrid();
+            this.updateGrid(focusIntent);
 
             // Warm favicon cache after the UI is done saving so it never blocks the modal.
             if (window.faviconCache) {
@@ -2048,6 +2086,9 @@ class ShortcutsComponent {
     async deleteShortcut(index) {
         if (index >= 0 && index < this.links.length) {
             const previousLinks = this.links.map(link => ({ ...link }));
+            const focusOrigin = this.captureGridFocus();
+            const focusedControl = document.activeElement;
+            const ownedDeletedFocus = focusOrigin?.index === index;
             this.links.splice(index, 1);
 
             try {
@@ -2055,7 +2096,8 @@ class ShortcutsComponent {
                 if (!saved) {
                     throw new Error('Storage write returned false');
                 }
-                this.updateGrid();
+                const nextFocus = ownedDeletedFocus && document.activeElement === focusedControl ? { index, action: 'launch' } : null;
+                this.updateGrid(nextFocus);
             } catch (error) {
                 const message = this.recoverShortcutWrite(error, previousLinks);
                 this.updateGrid();
@@ -2167,17 +2209,56 @@ class ShortcutsComponent {
     /**
      * Update shortcuts grid
      */
-    updateGrid() {
+    updateGrid(requestedFocus = null) {
         this._cancelFreeDrag?.();
         const grid = document.getElementById('shortcuts-grid');
         if (grid) {
+            const focusIntent = requestedFocus || this.captureGridFocus(grid);
             grid.replaceChildren(this.buildShortcutsFragment());
             this.gridEl = grid;
             // Filter before layout measures positions so hidden categories cannot
             // flash back into view or reserve space after a mutation.
             window.categoryNavigation?.filterShortcuts({ reflow: false });
             this.applyLayoutMode();
+            if (focusIntent) this.restoreGridFocus(grid, focusIntent);
         }
+    }
+
+    captureGridFocus(grid = document.getElementById('shortcuts-grid')) {
+        const active = document.activeElement;
+        if (!active || !grid?.contains?.(active)) return null;
+        if (active.dataset?.action === 'open-add' || active.closest('.add-shortcut')) return { action: 'add' };
+        const tile = active.closest('.shortcut-item');
+        if (!tile) return null;
+        return {
+            key: tile.dataset.focusKey,
+            index: Number(tile.dataset.index),
+            action: ['edit', 'delete'].includes(active.dataset?.action) ? active.dataset.action : 'launch'
+        };
+    }
+
+    isVisibleFocusTarget(element) {
+        return !!element && !element.disabled && element.isConnected !== false &&
+            !element.closest('[inert]') && element.getClientRects().length > 0 &&
+            window.getComputedStyle?.(element)?.visibility !== 'hidden';
+    }
+
+    restoreGridFocus(grid, intent) {
+        const add = grid.querySelector('.add-shortcut');
+        let target = add;
+        if (intent.action !== 'add') {
+            const visible = Array.from(grid.querySelectorAll('.shortcut-item:not(.add-shortcut)'))
+                .filter(tile => this.isVisibleFocusTarget(tile));
+            const matches = visible.filter(tile => tile.dataset.focusKey === intent.key)
+                .sort((a, b) => Math.abs(Number(a.dataset.index) - intent.index) - Math.abs(Number(b.dataset.index) - intent.index));
+            const sameTile = matches[0];
+            const tile = sameTile || visible.find(item => Number(item.dataset.index) >= intent.index) || visible[visible.length - 1];
+            const action = sameTile && ['edit', 'delete'].includes(intent.action) ? intent.action : 'open';
+            target = tile?.querySelector(`[data-action="${action}"]`);
+            if (!this.isVisibleFocusTarget(target)) target = tile?.querySelector('.shortcut-launch');
+            if (!this.isVisibleFocusTarget(target)) target = add;
+        }
+        if (this.isVisibleFocusTarget(target)) target.focus();
     }
 
     applyLayoutMode() {
@@ -2308,7 +2389,8 @@ class ShortcutsComponent {
     onPointerDown(e) {
         // Keep modified clicks, nested buttons and other pointers as ordinary UI actions.
         if (this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
-        if (e.target.closest('button, a, input, select, textarea, [contenteditable]')) return;
+        const interactive = e.target.closest('button, a, input, select, textarea, [contenteditable]');
+        if (interactive && (interactive.disabled || !interactive.classList.contains('shortcut-launch'))) return;
         const item = e.target.closest('.shortcut-item');
         if (!item || item.classList.contains('add-shortcut') || !this.gridEl.contains(item)) return;
         const idx = parseInt(item.dataset.index, 10);
@@ -2636,9 +2718,9 @@ class ShortcutsComponent {
             e.preventDefault();
             return;
         }
-        if (!e.target.classList.contains('shortcut-item')) return;
-
-        const draggedItem = e.target;
+        if (e.target.closest('.shortcut-action-btn, .add-shortcut')) { e.preventDefault(); return; }
+        const draggedItem = e.target.closest('.shortcut-item:not(.add-shortcut)');
+        if (!draggedItem || !this.gridEl?.contains(draggedItem)) return;
         this.draggedIndex = parseInt(draggedItem.dataset.index);
 
         // Add visual feedback

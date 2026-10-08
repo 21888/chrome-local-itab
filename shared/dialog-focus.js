@@ -14,6 +14,11 @@
         overlay.setAttribute('aria-hidden', 'false');
 
         const handleKeydown = event => {
+            if (event.key === 'Enter' && event.repeat) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
             if (event.key === 'Escape') {
                 event.preventDefault();
                 event.stopPropagation();

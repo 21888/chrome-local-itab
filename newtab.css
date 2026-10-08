@@ -1094,6 +1094,28 @@ body.dashboard-hidden .quote-section::after {
     width: 100%;
 }
 
+/* Native launch/Add controls retain the existing tile presentation. */
+.shortcut-launch {
+    appearance: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: inherit;
+}
+
+.shortcut-action-btn:focus-visible {
+    outline-offset: -3px;
+}
+
+button.shortcut-item.add-shortcut {
+    appearance: none;
+    color: inherit;
+    font: inherit;
+}
+
 .shortcut-icon {
     font-size: var(--shortcut-icon-font);
     margin-bottom: var(--shortcut-icon-margin);
@@ -1175,7 +1197,8 @@ body.hide-shortcut-titles .shortcut-title {
     z-index: 10; /* 确保在最上层 */
 }
 
-.shortcut-item:hover .shortcut-actions {
+.shortcut-item:hover .shortcut-actions,
+.shortcut-item:focus-within .shortcut-actions {
     opacity: 1;
     transform: translateY(0);
 }
@@ -1306,7 +1329,8 @@ body .quote-section::before {
     z-index: 1000;
     opacity: 0;
     visibility: hidden;
-    transition: all var(--transition-base);
+    /* Visibility must change immediately so synchronous initial focus can land. */
+    transition: opacity var(--transition-base);
 }
 
 .modal-overlay.active {
@@ -1545,6 +1569,13 @@ select.form-input option {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none !important;
+}
+
+/* Inherited visibility must never animate through the dialog's descendants.
+   Otherwise a child can remain hidden when the synchronous focus call runs. */
+.modal-overlay .modal,
+.modal-overlay .modal * {
+    transition-property: background-color, border-color, box-shadow, color, opacity, transform;
 }
 
 /* Confirmation Dialog Styles */

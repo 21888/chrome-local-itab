@@ -81,9 +81,15 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Background-only operations share a serial queue and request ownership. Superseded reads cannot write, already-started writes finish before the newer operation, and old completions cannot overwrite a newer choice or its feedback.
 - Verification: eleven Node suites pass. New DOM/storage-model regressions cover false/thrown writes, file/storage reads, invalid/oversized inputs, cancellation, same-file retry, delayed read/write ownership across upload/removal/color changes, and recovery when a newer choice fails after an older write commits. General settings snapshots and cross-tab background conflict handling are unchanged; no native browser verification is claimed here.
 
+## Add keyboard launch controls and preserve mutation focus · 2026-10-08
+
+- Site launch and Add now use native, named buttons; edit/delete stay separate controls with site-specific names. Existing actions become visible on focus without changing the layout or chosen style.
+- Grid replacement restores only owned/active grid focus after filtering. Edits return to their rebuilt control, Add returns to Add, and deletion selects the next/previous visible launcher or Add. Dismissed saves cannot pull focus from search or a newer editor.
+- Native button activation is routed once; local held-Enter guards prevent repeat cascades. The launch button remains a pointer drag handle while action buttons stay excluded.
+- The first native smoke confirmed single Enter/Space launch and visible action focus, but caught a visibility transition blocking initial editor focus. Observation-only diagnostics in a disposable native copy traced inherited visibility transitions through the dialog and input. Overlay and descendant transitions now list visual properties explicitly, keeping visibility synchronous without focus timers. The clean replacement passed native initial-focus and immediate-Escape checks.
+- Verification: twelve Node test files and static/JSON/whitespace checks pass, including semantics, single activation, filtered/disabled controls, duplicate URLs, successful/failed save focus, old-session completion, and primary-button drag routing. Isolated native Chrome with synthetic local data verified single Enter/Space launch, visible action focus, save/delete and Grid/Free drag on the initial candidate. Clean runtime revision `905b7757` then verified Add/Edit initial title focus, immediate Escape and rapid reopen, real Add save, and confirmation Cancel focus/Escape recovery after the CSS correction. Async storage-failure focus recovery remains model-tested, not natively fault-injected.
+
 ## Confirmed next priorities
 
-- Review distinct visual proposals before changing the production UI.
+- Integrate the approved A/B/C templates with A default and independent light/dark selection, preserving real data and widgets.
 - Add explicit Grid/Free placement selection while preserving saved layouts.
-
-- Make shortcut launching, Add, and post-mutation focus usable by keyboard.
