@@ -243,9 +243,8 @@ button {
 }
 
 .header-top {
-    position: absolute;
-    top: 18px;
-    left: 18px;
+    position: relative;
+    margin-bottom: var(--spacing-md);
     z-index: 2;
 }
 
@@ -1378,7 +1377,6 @@ textarea:focus-visible,
 
 .options-header {
     text-align: left;
-    padding-top: 0;
     margin-bottom: var(--spacing-xl);
 }
 

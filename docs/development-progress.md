@@ -111,7 +111,7 @@ Small, local-first improvements are kept in separate commits. No new network ser
 
 - Native testing on the template runtime found nearly invisible unselected options in the dark Background Type popup. Settings used a translucent select background without an explicit matching option surface. The shared rules now cover settings and dashboard controls consistently.
 - Native selects now inherit the selected palette and give both controls and option/optgroup rows the same opaque semantic foreground/background pair. No custom menu, selection, persistence or keyboard behavior is introduced.
-- Verification: all fifteen Node files and syntax/JSON/whitespace checks pass. Source regressions require both native control/option rules, and all six template/palette foreground/background pairs exceed 4.5:1 contrast. These checks do not claim operating-system popup rendering; the targeted native recheck remains pending on the corrected runtime.
+- Verification: all fifteen Node files and syntax/JSON/whitespace checks pass. Source regressions require both native control/option rules, and all six template/palette foreground/background pairs exceed 4.5:1 contrast. These checks alone do not claim operating-system popup rendering. Native recheck on published `8ec9d0b` subsequently passed C/Folio Dark and Light expanded Background Type menus, including the selected highlight.
 
 ## Protect layout deltas across open pages · 2026-10-08
 
@@ -123,8 +123,14 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Verification: sixteen Node test files, JavaScript syntax, manifest/locale JSON and whitespace checks pass, plus independent adversarial source/model review. Deterministic tests hold real storage methods inside simulated shared locks to cover independent/same-key writes, mode pairs, queued ownership, missing locks, corrupt/read/write failures, restore/sync/reset interleavings, partial reset failures, readers paused between reset steps, stale Add and failed Delete paths, exact fractional coordinates, and backup metadata exclusion.
 - Native multi-page event/rendering verification remains pending. Guarantees apply within the same supported Chrome extension origin/storage partition, not across profiles; saved duplicate-URL position identity is unchanged. The earlier Grid/Free page-local limitation is superseded by this bounded locked transaction path.
 
+## Keep settings navigation separate from the heading · 2026-10-08
+
+- Native testing at a real 1188 × 648 content viewport found Back to Dashboard overlapping the settings title. The desktop rule absolutely positioned the button, while a later header rule removed top padding.
+- Back navigation now occupies its own normal-flow row above the title and subtitle; the header keeps its existing padding. The narrow-screen button treatment, palette, controls and navigation action remain unchanged.
+- Verification: all sixteen Node files, JavaScript syntax, manifest/locale JSON and whitespace checks pass, with source regressions for normal-flow navigation and retained header padding. Targeted native recheck at the reported viewport and a wider size remains pending. Runtime feature work is paused after this fix for final native smoke and current README captures.
+
 ## Confirmed next priorities
 
 - Complete the remaining integrated native A/B/C visual checks and address confirmed defects in separate commits.
 - Complete native Grid/Free visible-control smoke and export comparison, then refresh README screenshots against the published runtime.
-- Complete native multi-page layout conflict smoke and the responsive settings-header correction found during visual review.
+- Complete native multi-page layout conflict smoke and the responsive settings-header recheck after the visual-review correction.

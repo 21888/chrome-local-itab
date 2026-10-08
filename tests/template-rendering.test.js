@@ -36,6 +36,18 @@ for (const [, body] of paletteRules) {
 }
 
 
+// Back navigation belongs to normal header flow at every viewport. Keep the
+// existing padded header instead of putting an absolute control over its title.
+const optionsCss = fs.readFileSync('options.css', 'utf8');
+const headerTopRule = optionsCss.match(/\.header-top\s*\{([^}]+)\}/)[1];
+assert.match(headerTopRule, /position: relative;/);
+assert.match(headerTopRule, /margin-bottom: var\(--spacing-md\);/);
+assert.doesNotMatch(headerTopRule, /(?:top|left):/);
+for (const [, body] of optionsCss.matchAll(/\.options-header\s*\{([^}]+)\}/g)) {
+    assert.doesNotMatch(body, /padding-top: 0(?:px)?;/);
+}
+
+
 (async () => {
     const h = createHarness(links);
     h.component.categories = [{ id: 'work', name: 'Work' }, { id: 'social', name: 'Social' }, { id: 'empty', name: 'Empty' }];
