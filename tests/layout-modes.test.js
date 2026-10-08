@@ -320,6 +320,70 @@ function dashboardHarness(initial = baseline) {
         assert.equal(h.data.layout.gridSize, 48);
     }
 
+    // Real shortcut helper + mounted controls: adopting a saved snapshot under
+    // a hold must not leave Placement disabled after Edit or Grid reorder.
+    for (const kind of ['edit', 'reorder', 'false', 'throw']) {
+        const h = dashboardHarness({ ...clone(baseline), autoArrange: kind === 'reorder' });
+        const select = h.host.querySelector('select'), entered = deferred(), release = deferred();
+        const previous = clone(h.component.links), next = clone(previous);
+        if (kind === 'reorder') next.unshift(next.pop()); else next[0].title = 'Renamed A';
+        h.storageManager.set = async (key, value, options) => {
+            assert.equal(key, 'links'); assert.equal(options.operation.type, kind === 'reorder' ? 'reorder' : 'edit');
+            entered.resolve(); await release.promise;
+            if (kind === 'false') return false;
+            if (kind === 'throw') throw new Error('shortcut write failed');
+            return { links: clone(value), layout: clone(h.component.layout), generation: null };
+        };
+        const saving = h.component.saveShortcutLinks(next, previous, kind === 'reorder' ? { type: 'reorder', from: 2, to: 0 } : { type: 'edit', index: 0 });
+        await entered.promise;
+        assert.equal(select.disabled, true); assert.equal(h.host.getAttribute('aria-busy'), 'true');
+        release.resolve();
+        if (kind === 'throw') await assert.rejects(saving, /shortcut write failed/); else await saving;
+        assert.equal(select.disabled, false, kind); assert.equal(h.host.getAttribute('aria-busy'), 'false');
+        assert.equal(h.controller.externalHold, 0);
+        assert.equal(h.host.dataset.saveState, ['false', 'throw'].includes(kind) ? '' : 'saved');
+        if (kind === 'edit' || kind === 'reorder') assert.deepEqual(clone(h.component.links), next);
+        else assert.deepEqual(clone(h.component.links), previous);
+        assert.deepEqual(clone(h.component.layout.positions), baseline.positions);
+    }
+    {
+        const h = dashboardHarness(), select = h.host.querySelector('select');
+        h.controller.holdShortcutMutation(); h.controller.holdShortcutMutation();
+        h.controller.releaseShortcutMutation(); assert.equal(select.disabled, true, 'an earlier owner cannot release a newer hold');
+        h.controller.releaseShortcutMutation(); assert.equal(select.disabled, false, 'cancelled final owner restores idle controls');
+        assert.equal(h.host.dataset.saveState, '');
+        h.controller.failedChange = { patch: { columns: 4 }, positions: {} };
+        h.controller.holdShortcutMutation(); h.controller.releaseShortcutMutation();
+        assert.equal(h.host.dataset.saveState, 'error'); assert.equal(h.host.querySelector('.layout-retry').hidden, false);
+        h.controller.invalidated = true;
+        h.controller.holdShortcutMutation(); h.controller.releaseShortcutMutation();
+        assert.equal(select.disabled, true); assert.equal(h.host.dataset.saveState, 'reload', 'teardown cannot reauthorize a stale page');
+    }
+
+    // A notification delayed by a shortcut hold is still refreshed after release,
+    // without needing that asynchronous read to re-enable the mounted selector.
+    {
+        const h = dashboardHarness(), gate = deferred();
+        const select = h.host.querySelector('select');
+        let reads = 0;
+        h.storageManager.getLayoutSnapshotForUpdate = async () => {
+            reads++;
+            await gate.promise;
+            return { layout: clone(baseline), generation: null, links: clone(h.component.links) };
+        };
+        h.controller.holdShortcutMutation();
+        await h.controller.refresh();
+        assert.equal(reads, 0); assert.equal(h.controller.externalChange, true);
+        h.controller.adoptOwnShortcutSnapshot({ layout: clone(baseline), generation: null, links: clone(h.component.links) });
+        h.controller.releaseShortcutMutation();
+        assert.equal(reads, 1); assert.equal(select.disabled, false);
+        assert.equal(h.host.getAttribute('aria-busy'), 'false');
+        gate.resolve(); await tick();
+        assert.equal(h.controller.externalChange, false); assert.equal(select.disabled, false);
+        h.controller.holdShortcutMutation(); h.controller.releaseShortcutMutation();
+        assert.equal(h.host.dataset.saveState, '', 'a later cancelled operation cannot inherit an earlier Saved state');
+    }
+
     // Ordinary Save Settings must never send an old layout snapshot back.
     const settingsContext = { document: { addEventListener() {}, getElementById() { return null; }, querySelectorAll() { return []; } }, window: {}, storageManager: manager, console };
     vm.createContext(settingsContext);

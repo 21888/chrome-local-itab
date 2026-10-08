@@ -157,11 +157,13 @@
         }
 
         holdShortcutMutation() {
+            if (!this.externalHold) this.shortcutMutationSaved = false;
             this.externalHold = (this.externalHold || 0) + 1;
             this.render(this.confirmed, 'saving');
         }
 
         adoptOwnShortcutSnapshot(snapshot) {
+            this.shortcutMutationSaved = true;
             this.adoptSnapshot(snapshot);
             this.invalidated = false;
             this.failedChange = null;
@@ -170,7 +172,14 @@
 
         releaseShortcutMutation() {
             this.externalHold = Math.max(0, (this.externalHold || 0) - 1);
-            if (!this.externalHold && this.externalChange) { this.externalChange = false; this.refresh(); }
+            if (this.externalHold) return;
+            // A successful CRUD snapshot was rendered while the hold still
+            // disabled the selector. Repaint after the final owner releases it,
+            // including failed/cancelled operations that adopted no snapshot.
+            const state = this.invalidated ? 'reload' : this.failedChange ? 'error' :
+                this.pending || this.timer ? 'saving' : this.shortcutMutationSaved ? 'saved' : '';
+            this.render(this.confirmed, state);
+            if (this.externalChange) { this.externalChange = false; this.refresh(); }
         }
 
         adoptSnapshot(snapshot) {
