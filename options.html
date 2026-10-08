@@ -7,6 +7,7 @@
     <title data-i18n="optionsTitle">Local iTab Settings</title>
     <link rel="stylesheet" href="options.css">
     <link rel="stylesheet" href="appearance.css">
+    <link rel="stylesheet" href="local-tasks.css">
 </head>
 <body>
     <a class="skip-link" href="#tab-appearance">Skip to settings</a>
@@ -149,6 +150,7 @@
                                 <p class="section-description">&nbsp;</p>
                             </div>
                             <div class="settings-grid">
+                                <div id="local-tasks-settings" class="setting-group full-width"></div>
                                 <div class="setting-group">
                                     <label class="setting-label">
                                         <input type="checkbox" id="show-clock" class="setting-checkbox">
@@ -576,6 +578,7 @@
                                     <small class="form-hint">Displayed at the bottom of your dashboard</small>
                                 </div>
                                 <div class="setting-group full-width">
+                                    <p class="form-hint" data-i18n="tasksSettingsBoundary">Settings backups exclude Tasks. Resetting or restoring settings keeps Tasks and their previous local copies. Use Export tasks in the Tasks card for a separate backup.</p>
                                     <div class="data-actions">
                                         <button id="export-settings" class="btn btn-primary">
                                             <span class="btn-icon">📤</span>
@@ -631,6 +634,11 @@
     <script src="shared/layout.js"></script>
     <script src="shared/search-template.js"></script>
     <script src="drive-backup.js"></script>
+    <script src="shared/dialog-focus.js"></script>
+    <script src="shared/local-tasks-store.js"></script>
+    <script src="shared/local-tasks-controller.js"></script>
+    <script src="shared/local-tasks-view.js"></script>
+    <script src="shared/local-content-lifecycle.js"></script>
     <script src="options.js"></script>
 </body>
 </html>

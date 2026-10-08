@@ -1,0 +1,81 @@
+/* Scoped optional personal-content module: all colors inherit A/B/C tokens. */
+.local-tasks-card {
+  min-width: 0; color: var(--template-text); background: var(--template-surface);
+  border: 1px solid var(--template-border); border-radius: 16px; padding: 20px;
+  font: inherit; box-shadow: none; align-self: start; overflow-wrap: anywhere;
+}
+.local-tasks-card[hidden], .local-tasks-card [hidden], .local-tasks-settings [hidden], .tasks-overlay [hidden] { display: none !important; }
+.tasks-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.tasks-header h2 { color: inherit; font-size: 18px; font-weight: 650; line-height: 1.3; margin: 0; }
+.tasks-local { color: var(--template-muted); font-size: 11px; letter-spacing: .015em; border: 1px solid var(--template-border); border-radius: 99px; padding: 3px 8px; }
+.tasks-next { color: var(--template-muted); font-size: 13px; line-height: 1.5; margin: 12px 0; white-space: pre-wrap; max-height: 110px; overflow: auto; }
+.tasks-next.has-pin { color: var(--template-text); border-inline-start: 3px solid var(--template-accent); padding-inline-start: 10px; }
+.tasks-add { display: flex; align-items: start; gap: 8px; margin: 12px 0 16px; }
+.local-tasks-card textarea, .tasks-dialog textarea {
+  min-width: 0; width: 100%; box-sizing: border-box; color: var(--template-text); background: var(--template-surface-raised);
+  border: 1px solid var(--template-border); border-radius: 8px; padding: 9px 10px; font: inherit; font-size: 13px; line-height: 1.5; resize: vertical;
+}
+.tasks-add textarea { flex: 1 1 0; min-height: 40px; max-height: 160px; }
+.tasks-add .tasks-button { flex: 0 0 auto; white-space: nowrap; }
+.local-tasks-card textarea::placeholder, .tasks-dialog textarea::placeholder { color: var(--template-muted); opacity: 1; }
+.tasks-button {
+  appearance: none; border: 1px solid var(--template-border); border-radius: 7px; padding: 6px 9px;
+  min-height: 32px; color: var(--template-text); background: var(--template-surface); font: inherit; font-size: 12px;
+  line-height: 1.4; cursor: pointer; box-shadow: none; white-space: normal; overflow-wrap: anywhere;
+}
+.tasks-button:hover:not(:disabled) { background: var(--template-surface-raised); border-color: var(--template-accent); }
+.tasks-button.tasks-primary { color: var(--template-accent-ink); background: var(--template-accent); border-color: var(--template-accent); }
+.tasks-button.tasks-primary:hover:not(:disabled) { color: var(--template-accent-ink); background: var(--template-accent); filter: brightness(.94); }
+.tasks-button:disabled, .tasks-button[aria-disabled="true"] { opacity: .5; cursor: default; }
+.local-tasks-card :focus-visible, .tasks-overlay :focus-visible, .local-tasks-settings :focus-visible { outline: 2px solid var(--template-focus); outline-offset: 3px; }
+.tasks-list { list-style: none; padding: 0; margin: 0; }
+.tasks-row { border-top: 1px solid var(--template-border); padding: 10px 0; }
+.tasks-row-main { display: flex; gap: 10px; align-items: start; }
+.tasks-text { min-width: 0; flex: 1; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tasks-text.is-done { color: var(--template-muted); text-decoration: line-through; }
+.tasks-check { flex: 0 0 auto; max-width: 90px; }
+.tasks-row-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.tasks-row-actions .tasks-button { font-size: 11px; min-height: 29px; padding: 4px 7px; }
+.tasks-row.is-pinned .tasks-text { font-weight: 600; }
+.tasks-empty { color: var(--template-muted); font-size: 13px; padding: 8px 0 12px; line-height: 1.5; }
+.tasks-section, .tasks-data { border-top: 1px solid var(--template-border); padding-top: 11px; margin-top: 12px; }
+.local-tasks-card summary { color: var(--template-muted); font-size: 12px; line-height: 1.5; cursor: pointer; padding: 3px 0; }
+.tasks-section > .tasks-list { max-height: 320px; overflow-y: auto; padding-right: 5px; }
+.tasks-help { color: var(--template-muted); font-size: 12px; line-height: 1.65; margin: 10px 0; }
+.tasks-data-actions, .tasks-dialog-actions { display: flex; flex-wrap: wrap; justify-content: start; gap: 8px; }
+.tasks-copies h3 { margin: 16px 0 6px; font-size: 13px; font-weight: 600; }
+.tasks-copy { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0; font-size: 11px; color: var(--template-muted); }
+.tasks-feedback { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; line-height: 1.55; color: var(--template-muted); margin-top: 12px; }
+.tasks-feedback.is-error, .tasks-dialog-feedback { color: var(--template-error); }
+.tasks-overlay { position: fixed; inset: 0; z-index: 10020; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(0, 0, 0, .45); }
+.tasks-overlay.active { display: flex; }
+.tasks-dialog { box-sizing: border-box; width: 520px; max-width: 100%; max-height: 90vh; overflow-y: auto; border-radius: 16px; border: 1px solid var(--template-border); padding: 24px; background: var(--template-surface); color: var(--template-text); font-size: 13px; line-height: 1.6; }
+.tasks-dialog h2 { margin: 0 0 16px; color: inherit; font-size: 20px; line-height: 1.3; }
+.tasks-dialog-actions { justify-content: flex-end; margin-top: 20px; }
+.tasks-dialog .tasks-editor { min-height: 120px; max-height: 40vh; }
+.tasks-latest { white-space: pre-wrap; overflow-wrap: anywhere; border-left: 2px solid var(--template-border); padding-left: 10px; max-height: 180px; overflow-y: auto; }
+.tasks-enable-label { display: flex; gap: 10px; align-items: center; }
+.local-tasks-settings { margin-top: 16px; }
+@media (max-width: 600px) {
+  .local-tasks-card { padding: 16px; }
+  .tasks-dialog { padding: 18px; }
+  .tasks-overlay { padding: 12px; }
+  .tasks-row-actions .tasks-button { min-height: 34px; }
+}
+.tasks-check { width: 30px; min-height: 30px; padding: 2px; border-radius: 50%; font-size: 19px; line-height: 1.2; }
+.tasks-row-menu { margin-inline-start: 40px; margin-top: 3px; }
+.local-tasks-card .tasks-row-menu > summary { font-size: 10px; padding: 1px 0; }
+.tasks-row-menu .tasks-row-actions { margin-top: 6px; }
+.local-content-reload-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0; padding: 12px; border: 1px solid var(--template-border); border-radius: 8px; color: var(--template-text); background: var(--template-surface); font-size: 13px; line-height: 1.5; grid-column: 1 / -1; }
+/* Personal-content entry needs more room than the short legacy info cards. */
+.local-tasks-card { container-type: inline-size; }
+@container (max-width: 260px) {
+  .tasks-add { flex-direction: column; align-items: stretch; }
+  .tasks-add textarea { flex: auto; min-height: 64px; }
+  .tasks-add .tasks-button { align-self: flex-end; }
+}
+@media (min-width: 901px) {
+  :root[data-dashboard-template="folio"] #dashboard .dashboard-main:has(> #info-cards-container > .local-tasks-card:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, .35fr);
+  }
+}

@@ -5,6 +5,9 @@
 
 const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require('./shared/layout-identity.js') : window.LocalItabIdentity;
 
+// Personal content is owned by dedicated local stores, never configuration.
+const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1']);
+
 class StorageManager {
     constructor() {
         this.syncMetaKey = '__localItabSyncMeta';
@@ -120,6 +123,7 @@ class StorageManager {
      * @returns {Promise<*>} - Retrieved value or default
      */
     async get(key, defaultValue = null) {
+        this.assertConfigurationKeys([key]);
         try {
             await this.ensureSyncInitialized();
             const result = await chrome.storage.local.get([key]);
@@ -168,6 +172,14 @@ class StorageManager {
         }
     }
 
+    assertConfigurationKeys(keys) {
+        if (keys.some(key => LOCAL_PERSONAL_CONTENT_KEYS.includes(key))) {
+            const error = new Error('Personal content must use its dedicated local store.');
+            error.code = 'PERSONAL_CONTENT_BOUNDARY';
+            throw error;
+        }
+    }
+
     // Serialize writes that can replace the shortcut list within this extension origin.
     async withLocalWriteLock(operation, required = false) {
         if (typeof navigator !== 'undefined' && navigator.locks?.request) {
@@ -182,6 +194,7 @@ class StorageManager {
     }
 
     async writeLocalValues(values, options = {}) {
+        this.assertConfigurationKeys(Object.keys(values));
         const has = key => Object.prototype.hasOwnProperty.call(values, key);
         const replacesLayout = has('layout') || (has('links') && !Object.prototype.hasOwnProperty.call(options, 'expectedLinks'));
         const checksCategories = has('categories');
@@ -310,6 +323,7 @@ class StorageManager {
      * @returns {Promise<boolean>} - Success status
      */
     async set(key, value, options = {}) {
+        this.assertConfigurationKeys([key]);
         try {
             // Snapshot the caller value before yielding to another mutation.
             const validatedValue = this.validateData(key, value);
@@ -513,6 +527,7 @@ class StorageManager {
      * @returns {Promise<boolean>} - Success status
      */
     async setAll(data, options = {}) {
+        this.assertConfigurationKeys(Object.keys(data));
         try {
             if (!options.skipSyncInitialization) {
                 await this.ensureSyncInitialized();
@@ -558,10 +573,11 @@ class StorageManager {
             const wasSyncing = current.sync?.enabled === true;
             await this.withLocalWriteLock(async () => {
                 const stored = await chrome.storage.local.get(null);
-                // Preserve a new generation while removing data. If set fails,
+                // Settings reset retains whole local personal-content records.
+                // Preserve a new generation while removing configuration. If set fails,
                 // do not clear; if removal fails, old pages are still invalidated.
                 await chrome.storage.local.set({ [this.layoutGenerationKey]: this.createLayoutGeneration() });
-                await chrome.storage.local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey));
+                await chrome.storage.local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey && !LOCAL_PERSONAL_CONTENT_KEYS.includes(key)));
             });
             if (wasSyncing) {
                 await this.disableRemoteSync();

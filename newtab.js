@@ -286,6 +286,15 @@ async function initializeDashboard() {
         }
 
         initializeLocalInfoCards(config);
+        const tasksHost = document.getElementById('local-tasks-card');
+        if (tasksHost && window.LocalItabTasks) {
+            window.localTasksView = window.LocalItabTasks.mount(tasksHost, {
+                onVisibility(visible) {
+                    window.localItabTasksVisible = visible;
+                    applyModuleVisibility(window.localItabModuleVisibility || config.show);
+                }
+            });
+        }
         initializeQuoteComponent(config.quote);
 
         console.log('Dashboard initialized successfully');
@@ -364,7 +373,7 @@ function setupCloudSyncChangeListener() {
             if (await storageManager.shouldIgnoreRemoteSyncChange?.(changes)) return;
             const result = await storageManager.pullFromSync();
             if (result?.applied) {
-                window.location.reload();
+                window.LocalItabContentLifecycle.reload();
             }
         } catch (error) {
             console.warn('Cloud sync refresh failed:', error);
@@ -522,6 +531,7 @@ function hexToRgb(hex) {
 }
 
 function applyModuleVisibility(showConfig) {
+    window.localItabModuleVisibility = { ...showConfig };
     // Get module containers
     const clockContainer = document.getElementById('clock-container');
     const searchContainer = document.getElementById('search-container');
@@ -559,7 +569,7 @@ function applyModuleVisibility(showConfig) {
         container.classList.toggle('module-hidden', isVisible !== true);
         container.style.display = isVisible === true ? '' : 'none';
     });
-    const hasCards = ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
+    const hasCards = window.localItabTasksVisible === true || ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
     document.getElementById('info-cards-container')?.classList.toggle('module-hidden', !hasCards);
     document.querySelector('.dashboard-main')?.classList.toggle('has-info-cards', hasCards);
 }
@@ -1400,7 +1410,7 @@ function setupDashboardVisibilityToggle(uiConfig) {
 }
 
 function shouldToggleFromEvent(event) {
-    const interactiveSelectors = 'button, a, input, textarea, select, [contenteditable], .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
+    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .local-tasks-card, .tasks-overlay, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
     if (!event || !event.target) return false;
     return !event.target.closest(interactiveSelectors);
 }

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="context-menu.css">
     <link rel="stylesheet" href="appearance.css">
     <link rel="stylesheet" href="dashboard-templates.css">
+    <link rel="stylesheet" href="local-tasks.css">
 </head>
 <body>
     <a class="skip-link" href="#shortcuts-container">Skip to shortcuts</a>
@@ -69,6 +70,7 @@
                 </section>
 
                 <section id="info-cards-container" class="info-cards-grid" aria-label="Local information cards">
+                    <article id="local-tasks-card" hidden></article>
                     <article id="weather-container" class="info-card weather-card module-hidden" aria-label="Local weather">
                         <!-- Weather card will be rendered here -->
                     </article>
@@ -99,6 +101,10 @@
     <script src="shared/layout.js"></script>
     <script src="shared/search-template.js"></script>
     <script src="shared/dialog-focus.js"></script>
+    <script src="shared/local-tasks-store.js"></script>
+    <script src="shared/local-tasks-controller.js"></script>
+    <script src="shared/local-tasks-view.js"></script>
+    <script src="shared/local-content-lifecycle.js"></script>
     <script src="newtab.js"></script>
 </body>
 </html>

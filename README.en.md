@@ -142,3 +142,7 @@ These checks cover logic regressions, JavaScript syntax, and JSON validity; they
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.
+
+## Local Tasks
+
+Enable the optional, empty-by-default Tasks card in module visibility settings. Add/edit/complete tasks, pin one next action and recover removed items. Tasks stay on this device; settings exports, Chrome Sync and Drive backups exclude all task content and recovery copies. Settings reset/import/restore preserve Tasks. Use the separate task export/import for backup and migration. [Task guide](docs/local-tasks.en.md).

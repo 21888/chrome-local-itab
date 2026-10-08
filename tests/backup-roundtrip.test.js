@@ -35,6 +35,7 @@ function createHarness(config) {
         setTimeout(callback) { state.timers.push(callback); }
     };
     vm.createContext(context);
+    vm.runInContext(fs.readFileSync('shared/local-content-lifecycle.js', 'utf8'), context);
     vm.runInContext(fs.readFileSync('options.js', 'utf8'), context);
     context.showImportExportFeedback = (operation, status, message) => state.feedback.push({ operation, status, message });
     const reset = () => {

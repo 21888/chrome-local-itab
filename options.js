@@ -102,7 +102,7 @@ function setupCloudSyncChangeListener() {
             const result = await storageManager.pullFromSync();
             if (result?.applied) {
                 showMessage(t('syncRemoteUpdated', '云端设置已更新，正在重新加载...'), 'info');
-                setTimeout(() => window.location.reload(), 800);
+                setTimeout(() => window.LocalItabContentLifecycle.reload(), 800);
             } else {
                 await renderSyncStatus(result?.status);
             }
@@ -264,6 +264,10 @@ async function initializeOptionsPage() {
         // Populate form fields with current values
         await populateFormFields(config);
         setupCategoryManagement(config.categories);
+        const tasksHost = document.getElementById('local-tasks-settings');
+        if (tasksHost && window.LocalItabTasks && !window.localTasksSettingsController) {
+            window.localTasksSettingsController = window.LocalItabTasks.mountSettings(tasksHost);
+        }
         await populateSyncControls(config.sync);
 
         console.log('Options page initialized with config:', config);
@@ -659,7 +663,7 @@ function setupEventListeners() {
                 const result = await storageManager.pullFromSync();
                 if (result.applied) {
                     showMessage(t('syncDownloadDone', '云端设置已应用，正在重新加载...'), 'success');
-                    setTimeout(() => window.location.reload(), 800);
+                    setTimeout(() => window.LocalItabContentLifecycle.reload(), 800);
                 } else {
                     showMessage(t('syncAlreadyUpToDate', '已经是最新。'), 'success');
                     await renderSyncStatus(result.status);
@@ -1369,7 +1373,7 @@ async function restoreDriveSnapshot(snapshot) {
         }
         await manager.markRestored();
         showMessage(t('driveSettingsRestored', '设置已恢复，正在重新加载...'), 'success');
-        setTimeout(() => window.location.reload(), 1200);
+        setTimeout(() => window.LocalItabContentLifecycle.reload(), 1200);
     });
 }
 
@@ -1445,7 +1449,7 @@ async function resetAllSettings() {
         if (!cleared) throw new Error('Settings could not be reset. Please try again.');
         
         // Reload the page to show defaults
-        window.location.reload();
+        window.LocalItabContentLifecycle.reload();
     } catch (error) {
         console.error('Error resetting settings:', error);
         showMessage(`Error resetting settings: ${error.message}`, 'error');
@@ -1767,7 +1771,7 @@ async function importSettings(file) {
             
             // Reload page after short delay
             setTimeout(() => {
-                window.location.reload();
+                window.LocalItabContentLifecycle.reload();
             }, 1500);
         } else {
             throw new Error('Failed to save imported settings to storage');
@@ -1930,7 +1934,7 @@ async function replaceLocalFromCloud() {
         const expectedRemote = await storageManager.previewCloudReplacement();
         if (!confirm(t('syncReplaceLocalConfirm', 'Replace this device with the current cloud copy ($1 shortcuts)? Independent positions missing from that copy will be removed. A recovery backup of this device must be saved locally first. Other devices may overwrite the cloud again; update them before continuing.', String(expectedRemote.shortcuts)))) return;
         await storageManager.pullFromSync({ confirmedReplacement: true, expectedRemote });
-        window.location.reload();
+        window.LocalItabContentLifecycle.reload();
     } catch (error) {
         showMessage(t('syncDownloadFailed', 'Download failed: $1', error.message), 'error');
         await renderSyncStatus();

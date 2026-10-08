@@ -26,7 +26,8 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
         confirm(text) { assert(text.includes('2')); return allowed; }, console: { warn() {}, error() {} }, setTimeout() {}, clearTimeout() {} };
     const create = document.createElement;
     document.createElement = tag => { const el = create(tag); el.click = () => {}; return el; };
-    vm.createContext(context); vm.runInContext(fs.readFileSync('options.js', 'utf8'), context);
+    vm.createContext(context); vm.runInContext(fs.readFileSync('shared/local-content-lifecycle.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('options.js', 'utf8'), context);
     context.showMessage = (message, type) => messages.push({ message, type });
     await context.renderSyncStatus();
     assert.equal(document.getElementById('cloud-sync-enabled').checked, true);

@@ -142,3 +142,9 @@ Estas comprobaciones cubren regresiones de lógica, sintaxis JavaScript y valide
 ## Licencia
 
 La documentación existente identifica la licencia como MIT. El repositorio todavía no incluye un archivo `LICENSE` independiente.
+
+## Tareas locales
+
+Activa la tarjeta opcional de Tareas en los ajustes de visibilidad de módulos. Está desactivada de forma predeterminada y comienza vacía. Permite añadir, editar y completar tareas, fijar una como siguiente acción y recuperar elementos eliminados.
+
+Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exportaciones de ajustes, Chrome Sync y las copias de Google Drive no las incluyen. Restablecer, importar o restaurar los ajustes conserva las tareas. Usa la exportación e importación independiente de tareas para hacer copias y cambiar de dispositivo. Desinstalar la extensión o borrar sus datos puede eliminar las tareas locales. [Guía de tareas (en inglés)](docs/local-tasks.en.md).
