@@ -219,3 +219,14 @@ for (let sample = 0; sample < 60; sample++) {
     }
 }
 console.log('free drag tests ok (DOM event model)');
+
+// True Free placement retains exact pixel coordinates regardless of snap size.
+for (const gridSize of [48, 96, 192, 240]) {
+    const h = createHarness({ gridSize });
+    h.component.layout.alignToGrid = false;
+    h.component.onPointerDown(h.event());
+    h.document.emit('pointermove', h.event({ clientX: 51.625, clientY: 73.375 }));
+    h.document.emit('pointerup', h.event());
+    assert.deepEqual(JSON.parse(JSON.stringify(h.component.positions[h.component.getPositionKey(h.component.links[0])])), { x: 41.625, y: 63.375 });
+    assert.equal(h.saves(), 1);
+}

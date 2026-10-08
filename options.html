@@ -231,25 +231,9 @@
                                 <p class="section-description" data-i18n="iconLayoutDesc">Desktop-style icon layout behavior</p>
                             </div>
                             <div class="settings-grid">
-                                <div class="setting-group">
-                                    <label class="setting-label">
-                                        <input type="checkbox" id="layout-auto-arrange" class="setting-checkbox">
-                                        <span class="checkbox-custom"></span>
-                                        <div class="setting-info">
-                                            <span class="setting-name" data-i18n="autoArrangeIcons">Auto arrange icons</span>
-                                            <span class="setting-desc" data-i18n="autoArrangeIconsDesc">Reflow icons by rows and columns</span>
-                                        </div>
-                                    </label>
-                                </div>
-                                <div class="setting-group">
-                                    <label class="setting-label">
-                                        <input type="checkbox" id="layout-align-grid" class="setting-checkbox">
-                                        <span class="checkbox-custom"></span>
-                                        <div class="setting-info">
-                                            <span class="setting-name" data-i18n="alignToGrid">Align to grid</span>
-                                            <span class="setting-desc" data-i18n="alignToGridDesc">Snap icons to nearest grid on drop</span>
-                                        </div>
-                                    </label>
+                                <div class="setting-group full-width">
+                                    <div id="options-layout" class="layout-controls"></div>
+                                    <small class="form-hint" data-i18n="placementModeDesc">Grid arranges shortcuts automatically. Free placement keeps exact drag positions. Saved positions remain when switching modes.</small>
                                 </div>
                                 <div class="setting-group">
                                     <label class="form-label" for="layout-grid-size" data-i18n="gridSize">Grid size (px)</label>
@@ -635,6 +619,7 @@
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="shared/appearance.js"></script>
+    <script src="shared/layout.js"></script>
     <script src="shared/search-template.js"></script>
     <script src="drive-backup.js"></script>
     <script src="options.js"></script>

@@ -1,4 +1,14 @@
 {
+	"layoutRetry": {"message": "Retry save"},
+	"placementMode": {"message": "Placement"},
+	"placementGrid": {"message": "Grid (default)"},
+	"placementFree": {"message": "Free placement"},
+	"placementSnap": {"message": "Manual · snap to grid"},
+	"placementModeDesc": {"message": "Grid arranges shortcuts automatically. Free placement keeps exact drag positions. Saved positions remain when switching modes."},
+	"layoutSaving": {"message": "Saving…"},
+	"layoutSaved": {"message": "Saved"},
+	"layoutSaveFailed": {"message": "Could not save layout. Please try again."},
+
 	"largeLocalImportConfirm": {"message": "This backup is $SIZE$ MiB. Reading a large file can use substantial memory and may make this tab unresponsive. Continue reading it?", "placeholders": {"size": {"content": "$1"}}},
 	"localImportReadCancelled": {"message": "Import cancelled before reading the file."},
 	"freeLayoutNoSpace": { "message": "No free grid space is available. The shortcut stayed in its original position." },

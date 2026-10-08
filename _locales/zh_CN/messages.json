@@ -1,4 +1,14 @@
 {
+	"layoutRetry": {"message": "重试保存"},
+	"placementMode": {"message": "摆放模式"},
+	"placementGrid": {"message": "网格（默认）"},
+	"placementFree": {"message": "自由摆放"},
+	"placementSnap": {"message": "手动 · 吸附网格"},
+	"placementModeDesc": {"message": "网格模式自动排列；自由模式按拖动位置精确摆放。切换模式不会清除已保存的位置。"},
+	"layoutSaving": {"message": "正在保存…"},
+	"layoutSaved": {"message": "已保存"},
+	"layoutSaveFailed": {"message": "布局保存失败，请重试。"},
+
 	"largeLocalImportConfirm": {"message": "这份备份为 $SIZE$ MiB。读取大文件会占用较多内存，可能使此标签页暂时无响应。要继续读取吗？", "placeholders": {"size": {"content": "$1"}}},
 	"localImportReadCancelled": {"message": "已取消导入，尚未读取文件。"},
 	"freeLayoutNoSpace": { "message": "没有可用的网格空间，快捷方式已保留在原来的位置。" },

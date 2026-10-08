@@ -174,10 +174,12 @@ async function handleContextAction(action, payload) {
 
             const comp = window.shortcutsComponentInstance;
             if (!comp) return;
-            if (action === 'layout_auto_arrange_toggle') {
-                await comp.setLayout({ autoArrange: !comp.layout?.autoArrange });
+            if (['layout_grid', 'layout_free', 'layout_snap'].includes(action)) {
+                await comp.setLayoutMode(action.slice(7));
+            } else if (action === 'layout_auto_arrange_toggle') {
+                await comp.setLayoutMode(comp.layout?.autoArrange ? 'free' : 'grid');
             } else if (action === 'layout_align_grid_toggle') {
-                await comp.setLayout({ alignToGrid: !comp.layout?.alignToGrid });
+                await comp.setLayoutMode(comp.layout?.autoArrange || !comp.layout?.alignToGrid ? 'snap' : 'free');
             }
             return;
         }
@@ -1425,7 +1427,7 @@ class ShortcutsComponent {
         this._closeConfirmDialog = null;
         const defaultColumns = storageManager?.defaultConfig?.layout?.columns ?? 6;
         const defaultLayout = { autoArrange: true, alignToGrid: true, gridSize: 96, columns: defaultColumns, positions: {} };
-        this.layout = { ...defaultLayout, ...(layout || {}) };
+        this.layout = JSON.parse(JSON.stringify({ ...defaultLayout, ...(layout || {}) }));
         this.defaultColumns = defaultLayout.columns;
         const sanitizedColumns = this.sanitizeColumns(this.layout.columns);
         this.layout.columns = sanitizedColumns ?? this.defaultColumns;
@@ -1462,6 +1464,19 @@ class ShortcutsComponent {
         heading.className = 'shortcuts-title';
         heading.id = 'shortcuts-heading';
         header.appendChild(heading);
+        if (window.LocalItabLayout) {
+            const controls = document.createElement('div');
+            controls.className = 'layout-controls';
+            header.appendChild(controls);
+            window.LocalItabLayout.mount(controls, this.ensureLayoutController(), {
+                onSelect: value => this.setLayoutMode(value),
+                onRetry: () => {
+                    this._cancelFreeDrag?.();
+                    this.cleanupDragState();
+                    return this.ensureLayoutController().retry();
+                }
+            });
+        }
         this.container.replaceChildren(header, grid);
         this.updateCollectionVisibility();
 
@@ -2394,7 +2409,7 @@ class ShortcutsComponent {
         if (this.isVisibleFocusTarget(target)) target.focus();
     }
 
-    applyLayoutMode() {
+    applyLayoutMode({ persistMissing = true } = {}) {
         this._cancelFreeDrag?.();
         const grid = this.gridEl;
         if (!grid) return;
@@ -2417,12 +2432,8 @@ class ShortcutsComponent {
             this.detachFreeDrag();
         } else {
             grid.classList.add('free-layout');
-            // If we already have positions, just apply to visible; otherwise capture current visible positions as baseline
-            if (this.positions && Object.keys(this.positions).length > 0) {
-                this.applyVisibleTransformsFromPositions();
-            } else {
-                this.captureVisiblePositionsWithoutMove(true);
-            }
+            this.initializeMissingPositions(persistMissing);
+            this.applyVisibleTransformsFromPositions();
             this.positionAddTile();
             this.attachFreeDrag();
         }
@@ -2462,40 +2473,6 @@ class ShortcutsComponent {
         }
     }
 
-    // Ensure items have initial positions in grid layout (non-overlapping)
-    layoutGridizeMissing() {
-        const grid = this.gridEl;
-        if (!grid) return;
-        const gs = Math.max(48, Math.min(240, this.layout.gridSize || 96));
-        const rect = grid.getBoundingClientRect();
-        const maxCols = Math.max(1, Math.floor(rect.width / gs));
-        const occupied = new Set();
-
-        const currentCategory = this.getCurrentCategory();
-        const items = Array.from(grid.querySelectorAll('.shortcut-item'));
-        items.forEach((el, idx) => {
-            const link = this.links[Number(el.dataset.index)];
-            if (!el || el.classList.contains('add-shortcut')) return;
-            if (el.style.display === 'none') return; // skip hidden in current category
-            const key = this.getPositionKey(link, currentCategory);
-            let pos = this.positions[key];
-            if (!pos) {
-                // find next free cell
-                let r = 0, c = 0;
-                while (occupied.has(`${c}:${r}`)) {
-                    c++;
-                    if (c >= maxCols) { c = 0; r++; }
-                }
-                pos = { x: c * gs, y: r * gs };
-                occupied.add(`${c}:${r}`);
-                this.positions[key] = pos;
-            }
-            el.style.position = 'absolute';
-            el.style.transform = `translate(${pos.x}px, ${pos.y}px)`;
-        });
-        this.saveLayoutDebounced();
-    }
-
     getPositionKey(link, category) {
         const urlKey = (link && link.url) || `idx_${this.links.indexOf(link)}`;
         const cat = category || this.getCurrentCategory();
@@ -2527,7 +2504,7 @@ class ShortcutsComponent {
 
     onPointerDown(e) {
         // Keep modified clicks, nested buttons and other pointers as ordinary UI actions.
-        if (this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
+        if (this.layoutController?.modePending || this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
         const interactive = e.target.closest('button, a, input, select, textarea, [contenteditable]');
         if (interactive && (interactive.disabled || !interactive.classList.contains('shortcut-launch'))) return;
         const item = e.target.closest('.shortcut-item');
@@ -2599,7 +2576,8 @@ class ShortcutsComponent {
                     item.style.transform = 'none';
                     if (!this.positions[key] || this.positions[key].x !== target.x || this.positions[key].y !== target.y) {
                         this.positions[key] = { x: target.x, y: target.y };
-                        this.saveLayoutDebounced();
+                        this.saveLayoutDebounced({ [key]: this.positions[key] });
+                        this.positionAddTile();
                     }
                 } else {
                     Object.assign(item.style, originalStyle);
@@ -2615,6 +2593,11 @@ class ShortcutsComponent {
             this._dragMoved = false;
             this._dragStartPos = null;
             try { item.releasePointerCapture?.(e.pointerId); } catch (_) {}
+            if (this._repaintAfterFreeDrag) {
+                this._repaintAfterFreeDrag = false;
+                this.applyVisibleTransformsFromPositions();
+                this.positionAddTile();
+            }
         };
         const onUp = event => finish(event, true);
         const onCancel = event => finish(event, false);
@@ -2715,91 +2698,74 @@ class ShortcutsComponent {
         return null;
     }
 
-    async setLayout(newLayout) {
-        const prevAuto = !!this.layout?.autoArrange;
-        if (newLayout && Object.prototype.hasOwnProperty.call(newLayout, 'columns')) {
-            const sanitizedColumns = this.sanitizeColumns(newLayout.columns);
-            if (sanitizedColumns != null) {
-                newLayout = { ...newLayout, columns: sanitizedColumns };
-            } else {
-                const { columns, ...rest } = newLayout;
-                newLayout = rest;
-            }
+    ensureLayoutController() {
+        if (!this.layoutController) {
+            this.layoutController = new window.LocalItabLayout.Controller({
+                initial: this.layout,
+                onApply: (layout, state) => {
+                    const keepGesture = state === 'saved' && this._cancelFreeDrag &&
+                        ['autoArrange', 'alignToGrid', 'columns', 'gridSize'].every(key => layout[key] === this.layout[key]);
+                    if (!keepGesture) this._cancelFreeDrag?.();
+                    this.layout = layout;
+                    this.positions = layout.positions;
+                    // A previous accepted drag can finish saving during the next
+                    // live gesture. Keep that pointer/visual ownership until release.
+                    if (keepGesture) this._repaintAfterFreeDrag = true;
+                    else this.applyLayoutMode({ persistMissing: state !== 'error' });
+                },
+                onError: error => console.warn('Layout save/read failed:', error)
+            });
         }
-        this.layout = { ...this.layout, ...newLayout };
-        if (newLayout.autoArrange) {
-            // when turning on auto arrange, clear positions
-            this.positions = {};
-            this.layout.positions = {};
-        } else {
-            // Turning auto arrange OFF: freeze current visible positions as baseline without moving/snapping
-            // Defer capture to applyLayoutMode so parent grid has free-layout (position: relative)
-            this.layout.positions = this.positions;
-        }
-        const ensuredColumns = this.getColumnsSetting();
-        if (ensuredColumns != null) {
-            this.layout.columns = ensuredColumns;
-        } else {
-            delete this.layout.columns;
-        }
-        try { await storageManager.set('layout', this.layout); } catch (_) {}
-        this.applyLayoutMode();
+        return this.layoutController;
     }
 
-    saveLayoutDebounced() {
-        clearTimeout(this._saveLayoutTimer);
-        this._saveLayoutTimer = setTimeout(async () => {
-            try {
-                const merged = { ...this.layout, positions: this.positions };
-                await storageManager.set('layout', merged);
-            } catch (_) {}
-        }, 250);
+    setLayoutMode(value) {
+        const patch = window.LocalItabLayout.flags(value);
+        return patch ? this.setLayout(patch) : Promise.resolve(false);
+    }
+
+    setLayout(patch) {
+        this._cancelFreeDrag?.();
+        this.cleanupDragState();
+        return this.ensureLayoutController().change(patch);
+    }
+
+    saveLayoutDebounced(positions) {
+        return this.ensureLayoutController().change({}, positions, { debounce: true });
     }
 
     reflowVisibleLayout() {
         this._cancelFreeDrag?.();
-        if (this.layout?.autoArrange) return; // grid mode does not require reflow here
-        if (this.positions && Object.keys(this.positions).length > 0) {
-            this.applyVisibleTransformsFromPositions();
-            this.positionAddTile();
-        } else {
-            this.captureVisiblePositionsWithoutMove(true);
-        }
+        if (this.layout?.autoArrange) return;
+        this.initializeMissingPositions();
+        this.applyVisibleTransformsFromPositions();
+        this.positionAddTile();
     }
 
-    // Capture current visible items' positions relative to grid without moving them,
-    // two-phase: compute all positions first, then apply absolute left/top to avoid reflow side-effects
-    captureVisiblePositionsWithoutMove(persist) {
+    // Initialize only missing visible view keys, using flat tile rectangles rather
+    // than grouped Grid geometry. Existing category maps/fractional values survive.
+    initializeMissingPositions(persist = true) {
         const grid = this.gridEl;
         if (!grid) return;
-        const currentCategory = this.getCurrentCategory();
-        const gridRect = grid.getBoundingClientRect();
-        const items = Array.from(grid.querySelectorAll('.shortcut-item'));
-        const computed = [];
-        items.forEach((el, idx) => {
-            if (!el || el.classList.contains('add-shortcut')) return;
-            if (el.style.display === 'none') return;
-            const link = this.links[Number(el.dataset.index)];
-            const key = this.getPositionKey(link, currentCategory);
-            const r = el.getBoundingClientRect();
-            const x = r.left - gridRect.left;
-            const y = r.top - gridRect.top;
-            computed.push({ el, key, x, y });
-        });
-        // Apply in second pass to avoid moving items during measurement
-        computed.forEach(({ el, key, x, y }) => {
-            el.style.position = 'absolute';
-            el.style.left = `${x}px`;
-            el.style.top = `${y}px`;
-            el.style.transform = 'none';
-            this.positions[key] = { x, y };
-        });
-        if (persist) {
-            try {
-                const merged = { ...this.layout, positions: this.positions };
-                storageManager.set('layout', merged);
-            } catch (_) {}
+        const width = grid.getBoundingClientRect().width;
+        const items = Array.from(grid.querySelectorAll('.shortcut-item'))
+            .filter(el => !el.classList.contains('add-shortcut') && el.style.display !== 'none')
+            .map(el => ({ el, key: this.getPositionKey(this.links[Number(el.dataset.index)]), rect: el.getBoundingClientRect() }));
+        let bottom = 0;
+        for (const { key, rect } of items) {
+            const position = this.positions[key];
+            if (position) bottom = Math.max(bottom, Math.max(0, position.y) + rect.height);
         }
+        let x = 0, y = bottom ? bottom + 16 : 0, rowHeight = 0;
+        const added = {};
+        for (const { key, rect } of items) {
+            if (this.positions[key]) continue;
+            if (x && x + rect.width > width) { x = 0; y += rowHeight + 16; rowHeight = 0; }
+            added[key] = this.positions[key] = { x, y };
+            x += rect.width + 16;
+            rowHeight = Math.max(rowHeight, rect.height);
+        }
+        if (persist && Object.keys(added).length) this.saveLayoutDebounced(added);
     }
 
     // Display-only fitting keeps saved coordinates intact across templates and widths.
@@ -2851,7 +2817,7 @@ class ShortcutsComponent {
      * Handle drag start
      */
     handleDragStart(e) {
-        if (!this.layout.autoArrange) {
+        if (this.layoutController?.modePending || !this.layout.autoArrange) {
             e.preventDefault();
             return;
         }
@@ -2863,7 +2829,7 @@ class ShortcutsComponent {
         // Add visual feedback
         // 使用一个延时来确保浏览器已经开始了拖拽操作
         setTimeout(() => {
-            draggedItem.classList.add('dragging');
+            if (this.draggedIndex === Number(draggedItem.dataset.index)) draggedItem.classList.add('dragging');
         }, 0);
 
         // Set drag data
@@ -2919,7 +2885,7 @@ class ShortcutsComponent {
     async handleDrop(e) {
         e.preventDefault();
         
-        const draggedIndex = this.draggedIndex;
+        const draggedIndex = this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
         // 获取鼠标指针正下方的目标卡片
         const dropTarget = e.target.closest('.shortcut-item:not(.add-shortcut)');
         

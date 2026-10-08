@@ -123,3 +123,14 @@
 :root[data-dashboard-template] .template-descriptions li { padding: 14px; border: 1px solid var(--template-border); border-radius: 8px; color: var(--template-text); background: var(--template-surface); font-size: 13px; line-height: 1.7; }
 :root[data-dashboard-template] .template-descriptions strong { display: block; }
 :root[data-dashboard-template] .options-container .btn-primary { background: var(--template-accent); color: var(--template-accent-ink); }
+
+/* Placement is independent of template and palette. Native selects keep their
+ * keyboard behavior, and save status remains in the same named control group. */
+:root[data-dashboard-template] .layout-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+:root[data-dashboard-template] .layout-field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+:root[data-dashboard-template] .layout-field select { min-height: 36px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--template-border); border-radius: 6px; font: inherit; color: var(--template-text); background: var(--template-surface); }
+:root[data-dashboard-template] .layout-status { font-size: 12px; color: var(--template-muted); }
+:root[data-dashboard-template] [data-save-state="error"] .layout-status { color: var(--template-error); }
+:root[data-dashboard-template] #layout-settings input:disabled { opacity: .5; }
+:root[data-dashboard-template] .layout-retry { min-height: 32px; border: 1px solid var(--template-border); border-radius: 6px; padding: 5px 10px; color: var(--template-text); background: var(--template-surface); font: inherit; font-size: 12px; cursor: pointer; }
+:root[data-dashboard-template] .layout-retry[hidden] { display: none; }

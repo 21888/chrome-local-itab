@@ -192,8 +192,9 @@
                 const hidden = typeof window.dashboardHiddenState === 'boolean'
                         ? window.dashboardHiddenState
                         : document.body.classList.contains('dashboard-hidden');
-                menu.appendChild(createCheckItem('autoArrangeIcons', 'layout_auto_arrange_toggle', auto));
-                menu.appendChild(createCheckItem('alignToGrid', 'layout_align_grid_toggle', align));
+                menu.appendChild(createCheckItem('placementGrid', 'layout_grid', auto));
+                menu.appendChild(createCheckItem('placementFree', 'layout_free', !auto && !align));
+                menu.appendChild(createCheckItem('placementSnap', 'layout_snap', !auto && align));
                 menu.appendChild(createCheckItem('toggleDashboardHidden', 'dashboard_visibility_toggle', hidden));
                 menu.appendChild(separator());
                 menu.appendChild(hint());

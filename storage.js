@@ -233,6 +233,20 @@ class StorageManager {
         }
     }
 
+    // Mutation reads must never turn unavailable/corrupt data into a default.
+    async getLayoutForUpdate() {
+        const raw = await chrome.storage.local.get(['layout']);
+        const value = raw.layout === undefined ? this.defaultConfig.layout : raw.layout;
+        const object = entry => entry !== null && typeof entry === 'object' && !Array.isArray(entry);
+        if (!object(value) || (value.positions !== undefined && !object(value.positions)) ||
+            ['autoArrange', 'alignToGrid'].some(key => value[key] !== undefined && typeof value[key] !== 'boolean') ||
+            ['gridSize', 'columns'].some(key => value[key] !== undefined && !Number.isFinite(value[key])) ||
+            Object.values(value.positions || {}).some(pos => !object(pos) || !Number.isFinite(pos.x) || !Number.isFinite(pos.y))) {
+            throw new Error('Stored layout settings are invalid.');
+        }
+        return JSON.parse(JSON.stringify(this.validateLayoutConfig(value)));
+    }
+
     // Mutation recovery must distinguish a failed read from a missing setting.
     async getBackgroundForUpdate() {
         const result = await chrome.storage.local.get(['bg']);

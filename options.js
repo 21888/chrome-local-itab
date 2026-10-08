@@ -363,18 +363,19 @@ async function populateFormFields(config) {
     populateHotTopicsLists(config.hot || storageManager.defaultConfig.hot);
     switchHotTopicsTab(config.hot?.tab || 'baidu');
 
-    // Layout settings
-    const autoArrange = document.getElementById('layout-auto-arrange');
-    const alignGrid = document.getElementById('layout-align-grid');
-    const gridSizeInput = document.getElementById('layout-grid-size');
-    const columnsInput = document.getElementById('layout-columns');
-    const defaultColumns = storageManager?.defaultConfig?.layout?.columns ?? 6;
-    if (autoArrange) autoArrange.checked = !!config.layout?.autoArrange;
-    if (alignGrid) alignGrid.checked = !!config.layout?.alignToGrid;
-    if (gridSizeInput) gridSizeInput.value = config.layout?.gridSize || 96;
-    if (columnsInput) {
-        const currentColumns = typeof config.layout?.columns === 'number' ? config.layout.columns : defaultColumns;
-        columnsInput.value = currentColumns;
+    // Dedicated layout controls persist patches; Save Settings does not replay them.
+    if (window.LocalItabLayout) {
+        if (window.layoutController) await window.layoutController.refresh();
+        else {
+            window.layoutController = new window.LocalItabLayout.Controller({
+                initial: config.layout,
+                onError: error => console.warn('Layout save/read failed:', error)
+            });
+            window.LocalItabLayout.mount(document.getElementById('options-layout'), window.layoutController, {
+                columns: document.getElementById('layout-columns'),
+                gridSize: document.getElementById('layout-grid-size')
+            });
+        }
     }
 
     const shortcutsStyle = config.ui?.shortcutsStyle || {};
@@ -1544,25 +1545,7 @@ async function collectFormData() {
     
     // Shortcuts are edited on the dashboard; do not write a stale copy here.
 
-    // Layout settings
-    const existingLayout = existingConfig.layout || {};
-    const autoArrange = document.getElementById('layout-auto-arrange')?.checked ?? existingLayout.autoArrange;
-    const alignToGrid = document.getElementById('layout-align-grid')?.checked ?? existingLayout.alignToGrid;
-    const gridSizeVal = parseInt(document.getElementById('layout-grid-size')?.value, 10);
-    const gridSize = Number.isFinite(gridSizeVal) ? gridSizeVal : existingLayout.gridSize;
-    const columnsVal = parseInt(document.getElementById('layout-columns')?.value, 10);
-    const fallbackColumns = typeof existingLayout.columns === 'number'
-        ? existingLayout.columns
-        : (storageManager?.defaultConfig?.layout?.columns ?? 6);
-    let columns = Number.isFinite(columnsVal) ? columnsVal : fallbackColumns;
-    columns = Math.max(1, Math.min(10, columns));
-    settings.layout = {
-        autoArrange,
-        alignToGrid,
-        gridSize,
-        columns,
-        positions: existingLayout.positions || {}
-    };
+    // Layout, appearance and untouched shortcuts have dedicated mutation paths.
 
     const existingUi = existingConfig.ui || {};
     const paddingAuto = document.getElementById('dashboard-padding-auto')?.checked ?? true;
