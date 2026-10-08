@@ -1381,7 +1381,8 @@ class ShortcutsComponent {
         this.currentEditIndex = -1;
         this.modal = null;
         this.confirmDialog = null;
-        this._escListener = null;
+        this._closeModal = null;
+        this._closeConfirmDialog = null;
         const defaultColumns = storageManager?.defaultConfig?.layout?.columns ?? 6;
         const defaultLayout = { autoArrange: true, alignToGrid: true, gridSize: 96, columns: defaultColumns, positions: {} };
         this.layout = { ...defaultLayout, ...(layout || {}) };
@@ -1693,8 +1694,8 @@ class ShortcutsComponent {
         this.clearFormErrors();
 
         // Show modal
-        this.modal.classList.add('active');
-        titleInput.focus();
+        this._closeModal?.();
+        this._closeModal = window.LocalItabDialog.open(this.modal, titleInput, () => this.hideModal());
     }
 
     /**
@@ -1702,7 +1703,8 @@ class ShortcutsComponent {
      */
     hideModal() {
         if (this.modal) {
-            this.modal.classList.remove('active');
+            this._closeModal?.();
+            this._closeModal = null;
             this.currentEditIndex = -1;
             this.setSavingState(false);
         }
@@ -1712,6 +1714,8 @@ class ShortcutsComponent {
      * Create modal HTML
      */
     createModal() {
+        this._closeModal?.();
+        this._closeModal = null;
         // Remove existing modal
         const existingModal = document.getElementById('shortcut-modal');
         if (existingModal) {
@@ -1719,11 +1723,11 @@ class ShortcutsComponent {
         }
 
         const modalHtml = `
-            <div class="modal-overlay" id="shortcut-modal">
-                <div class="modal">
+            <div class="modal-overlay" id="shortcut-modal" aria-hidden="true">
+                <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcut-modal-title">
                     <div class="modal-header">
-                        <h3 class="modal-title">${(window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'}</h3>
-                        <button class="modal-close" id="modal-close">×</button>
+                        <h3 class="modal-title" id="shortcut-modal-title">${(window.i18n && i18n.t('addShortcut')) || 'Add Shortcut'}</h3>
+                        <button type="button" class="modal-close" id="modal-close" aria-label="${(window.i18n && i18n.t('cancel')) || 'Cancel'}">×</button>
                     </div>
                     <form class="modal-form" id="shortcut-form" novalidate>
                         <div class="form-group">
@@ -1832,16 +1836,6 @@ class ShortcutsComponent {
             }
         });
 
-        // Escape key to close (avoid duplicate listeners)
-        if (this._escListener) {
-            document.removeEventListener('keydown', this._escListener);
-        }
-        this._escListener = (e) => {
-            if (e.key === 'Escape' && this.modal.classList.contains('active')) {
-                this.hideModal();
-            }
-        };
-        document.addEventListener('keydown', this._escListener);
     }
 
     updateCategoryOptions() {
@@ -2038,6 +2032,7 @@ class ShortcutsComponent {
      * Show confirmation dialog
      */
     showConfirmDialog(title, message, shortcut, onConfirm) {
+        this._closeConfirmDialog?.();
         // Remove existing dialog
         const existingDialog = document.getElementById('confirm-dialog');
         if (existingDialog) {
@@ -2050,21 +2045,28 @@ class ShortcutsComponent {
 
         const modal = document.createElement('div');
         modal.className = 'modal confirm-dialog';
+        modal.setAttribute('role', 'alertdialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'confirm-title');
+        modal.setAttribute('aria-describedby', 'confirm-message');
 
         const header = document.createElement('div');
         header.className = 'modal-header';
         const heading = document.createElement('h3');
         heading.className = 'modal-title';
+        heading.id = 'confirm-title';
         heading.textContent = title;
         const close = document.createElement('button');
         close.type = 'button';
         close.className = 'modal-close';
         close.id = 'confirm-close';
+        close.setAttribute('aria-label', (window.i18n && i18n.t('cancel')) || 'Cancel');
         close.textContent = '×';
         header.append(heading, close);
 
         const body = document.createElement('div');
         body.className = 'confirm-message';
+        body.id = 'confirm-message';
         body.textContent = message;
 
         const shortcutInfo = document.createElement('div');
@@ -2098,36 +2100,30 @@ class ShortcutsComponent {
         document.body.appendChild(overlay);
         this.confirmDialog = overlay;
 
-        // Show dialog
-        this.confirmDialog.classList.add('active');
-
-        // Attach event listeners
-        const closeBtn = this.confirmDialog.querySelector('#confirm-close');
-        const cancelBtn = this.confirmDialog.querySelector('#confirm-cancel');
-        const deleteBtn = this.confirmDialog.querySelector('#confirm-delete');
-
+        let restoreFocus;
+        let closed = false;
         const hideDialog = () => {
-            this.confirmDialog.classList.remove('active');
-            setTimeout(() => {
-                if (this.confirmDialog) {
-                    this.confirmDialog.remove();
-                    this.confirmDialog = null;
-                }
-            }, 300);
-        };
-
-        closeBtn.addEventListener('click', hideDialog);
-        cancelBtn.addEventListener('click', hideDialog);
-        deleteBtn.addEventListener('click', () => {
-            onConfirm();
-            hideDialog();
-        });
-
-        // Click outside to close
-        this.confirmDialog.addEventListener('click', (e) => {
-            if (e.target === this.confirmDialog) {
-                hideDialog();
+            if (closed) return;
+            closed = true;
+            restoreFocus?.();
+            overlay.remove();
+            if (this.confirmDialog === overlay) {
+                this.confirmDialog = null;
+                this._closeConfirmDialog = null;
             }
+        };
+        this._closeConfirmDialog = hideDialog;
+        restoreFocus = window.LocalItabDialog.open(overlay, cancel, hideDialog);
+
+        close.addEventListener('click', hideDialog);
+        cancel.addEventListener('click', hideDialog);
+        remove.addEventListener('click', () => {
+            if (closed) return;
+            hideDialog();
+            onConfirm();
+        });
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) hideDialog();
         });
     }
 
