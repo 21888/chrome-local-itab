@@ -3,10 +3,15 @@
  * Handles all chrome.storage.local operations with error handling and validation
  */
 
+const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require('./shared/layout-identity.js') : window.LocalItabIdentity;
+
 class StorageManager {
     constructor() {
         this.syncMetaKey = '__localItabSyncMeta';
         this.layoutGenerationKey = '__localItabLayoutGeneration';
+        this.identityRecoveryKey = '__localItabIdentityRecovery';
+        this.restoreRecoveryKey = '__localItabRestoreRecovery';
+        this.syncIdentityStateKey = '__localItabSyncIdentityState';
         this.syncChunkPrefix = '__localItabSyncData_';
         this.syncMaxChunks = 20;
         this.syncTotalBudget = 98000;
@@ -14,8 +19,15 @@ class StorageManager {
         this._syncInitialized = false;
         this._syncInitPromise = null;
         this._isApplyingSync = false;
-        this._ignoreRemoteSyncUntil = 0;
+        this._syncCompatibilityError = null;
         this._syncPushTimer = null;
+        if (typeof chrome !== 'undefined') chrome.storage?.onChanged?.addListener((changes, area) => {
+            if (area === 'local' && changes[this.syncIdentityStateKey]) {
+                const next = changes[this.syncIdentityStateKey].newValue;
+                this._syncCompatibilityError = next?.blocked || null;
+                if (next?.blocked) this.cancelSyncPush();
+            }
+        });
 
         // Default configuration schema
         this.defaultConfig = {
@@ -173,35 +185,122 @@ class StorageManager {
         const has = key => Object.prototype.hasOwnProperty.call(values, key);
         const replacesLayout = has('layout') || (has('links') && !Object.prototype.hasOwnProperty.call(options, 'expectedLinks'));
         const checksCategories = has('categories');
-        if (!has('links') && !replacesLayout && !checksCategories) {
-            return chrome.storage.local.set(values);
-        }
+        if (!has('links') && !replacesLayout && !checksCategories) return chrome.storage.local.set(values);
         const guarded = Object.prototype.hasOwnProperty.call(options, 'expectedLinks');
         return this.withLocalWriteLock(async () => {
+            const raw = await chrome.storage.local.get(null);
+            const latest = this.layoutSnapshot(raw);
             if (guarded) {
-                // Read authoritative storage directly: read errors must never be
-                // treated as an empty list and overwrite recoverable local data.
-                const stored = await chrome.storage.local.get(['links']);
-                const rawLinks = stored.links === undefined ? [] : stored.links;
-                const latestLinks = this.validateLinksConfig(rawLinks);
-                if (latestLinks.length !== rawLinks.length) throw new Error('Stored shortcuts are invalid; export a backup before repairing them.');
                 const expectedLinks = this.validateLinksConfig(options.expectedLinks);
-                if (JSON.stringify(latestLinks) !== JSON.stringify(expectedLinks)) {
+                if (JSON.stringify(latest.links) !== JSON.stringify(expectedLinks) ||
+                    (Object.prototype.hasOwnProperty.call(options, 'expectedLayoutGeneration') && options.expectedLayoutGeneration !== latest.generation)) {
                     const error = new Error('Shortcuts changed in another tab. Reopen the shortcut and try again.');
-                    error.code = 'LINKS_CONFLICT';
-                    error.latestLinks = latestLinks;
+                    error.code = 'LINKS_CONFLICT'; error.latestLinks = latest.links;
                     throw error;
                 }
+                if (options.operation) this.validateShortcutOperation(latest.links, values.links, options.operation);
             }
-            let invalidatesLayout = replacesLayout;
+            let candidate = { ...raw, ...values };
+            let allocated = false;
+            if (guarded && options.operation && LayoutIdentity.needs(candidate.links)) {
+                const assignment = LayoutIdentity.allocate(candidate.links, candidate.layout || this.defaultConfig.layout,
+                    latest.links, options.operation, () => this.createLayoutIdentity());
+                candidate = { ...candidate, links: assignment.links, layout: assignment.layout };
+                allocated = assignment.changed;
+            }
+            LayoutIdentity.validateBundle(candidate);
+            const protectedBefore = LayoutIdentity.active(latest.layout);
+            if (protectedBefore && !(typeof navigator !== 'undefined' && navigator.locks?.request)) { const error = new Error('Safe identity writes require Web Locks.'); error.code = 'LAYOUT_LOCK_UNAVAILABLE'; throw error; }
+            const losesIdentity = protectedBefore && this.losesIdentityHistory(latest, this.layoutSnapshot(candidate));
+            if (losesIdentity && !options.confirmedRestore) {
+                LayoutIdentity.invalid('Replacing identity-bearing shortcuts requires a confirmed whole backup restore.');
+            }
+            let invalidatesLayout = replacesLayout || allocated;
             if (!invalidatesLayout && checksCategories) {
-                const stored = await chrome.storage.local.get(['categories']);
-                const previous = this.validateCategoriesConfig(stored.categories ?? this.defaultConfig.categories);
+                const previous = this.validateCategoriesConfig(raw.categories ?? this.defaultConfig.categories);
                 invalidatesLayout = JSON.stringify(previous) !== JSON.stringify(values.categories);
             }
-            const written = invalidatesLayout ? { ...values, [this.layoutGenerationKey]: this.createLayoutGeneration() } : values;
-            return chrome.storage.local.set(written);
-        }, guarded);
+            const written = { ...values };
+            if (allocated) { written.links = candidate.links; written.layout = candidate.layout; }
+            if (allocated && !protectedBefore && !raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
+            if (options.confirmedRestore) {
+                // Provider preferences belong to this device at commit time, not
+                // to the imported file or an earlier preview read.
+                written.sync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
+                written[this.restoreRecoveryKey] = await this.makeRecovery(raw, 'beforeRestore');
+                if (raw.sync?.enabled) written[this.syncIdentityStateKey] = {
+                    ...(raw[this.syncIdentityStateKey] || {}),
+                    blocked: { kind: 'restore', reason: 'Restored data is kept locally. Review compatible cloud data before resuming Sync.' }
+                };
+            }
+            if (invalidatesLayout) written[this.layoutGenerationKey] = this.createLayoutGeneration();
+            await chrome.storage.local.set(written);
+            return this.layoutSnapshot({ ...raw, ...written });
+        }, guarded || LayoutIdentity.active(values.layout));
+    }
+
+    validateShortcutOperation(previous, next, operation) {
+        const sources = previous.map((_, index) => index);
+        const validIndex = index => Number.isInteger(index) && index >= 0 && index < previous.length;
+        if (operation.type === 'add' && Number.isInteger(operation.index) && operation.index === previous.length) sources.push(null);
+        else if (operation.type === 'edit' && validIndex(operation.index)) { /* Same record. */ }
+        else if (operation.type === 'delete' && validIndex(operation.index)) sources.splice(operation.index, 1);
+        else if (operation.type === 'reorder' && validIndex(operation.from) && validIndex(operation.to)) sources.splice(operation.to, 0, sources.splice(operation.from, 1)[0]);
+        else LayoutIdentity.invalid('Invalid shortcut operation.');
+        if (sources.length !== next.length) LayoutIdentity.invalid('Shortcut operation no longer matches its baseline.');
+        sources.forEach((source, index) => {
+            if (source === null) { if (next[index].layoutId) LayoutIdentity.invalid('A new shortcut cannot reuse a layout ID.'); return; }
+            if (previous[source].layoutId !== next[index].layoutId) LayoutIdentity.invalid('A shortcut edit cannot strip or replace its layout ID.');
+            if (!(operation.type === 'edit' && index === operation.index) && JSON.stringify(previous[source]) !== JSON.stringify(next[index])) LayoutIdentity.invalid('Shortcut operation changed an unrelated record.');
+        });
+    }
+
+    createLayoutIdentity() {
+        const bytes = new Uint8Array(16);
+        if (!globalThis.crypto?.getRandomValues) LayoutIdentity.invalid('Secure layout identity allocation is unavailable.');
+        globalThis.crypto.getRandomValues(bytes);
+        return `l_${Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')}`;
+    }
+
+    async fingerprint(value) {
+        const stable = item => Array.isArray(item) ? item.map(stable) : item && typeof item === 'object' ?
+            Object.fromEntries(Object.keys(item).sort().map(key => [key, stable(item[key])])) : item;
+        const bytes = new TextEncoder().encode(JSON.stringify(stable(value)));
+        const hash = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    async makeRecovery(raw, reason) {
+        const payload = this.buildManualExportPayload(this.validateConfigObject(raw));
+        return { reason, payload, providerState: this.validateSyncConfig(raw.sync || this.defaultConfig.sync), checksum: await this.fingerprint(payload) };
+    }
+
+    async getRecoveryBackup(kind = 'latest') {
+        const keys = kind === 'original' ? [this.identityRecoveryKey] : [this.restoreRecoveryKey, this.identityRecoveryKey];
+        const raw = await chrome.storage.local.get(keys);
+        const recovery = keys.map(key => raw[key]).find(Boolean);
+        if (!recovery) throw new Error('No recovery backup is available.');
+        if (await this.fingerprint(recovery.payload) !== recovery.checksum) throw new Error('Recovery backup integrity check failed.');
+        this.validateImportPayload(recovery.payload);
+        return LayoutIdentity.copy(recovery.payload);
+    }
+
+    async getRecoveryAvailability() {
+        const raw = await chrome.storage.local.get([this.restoreRecoveryKey, this.identityRecoveryKey]);
+        return { original: Boolean(raw[this.identityRecoveryKey]), latest: Boolean(raw[this.restoreRecoveryKey] || raw[this.identityRecoveryKey]) };
+    }
+
+    async getSyncCompatibilityStatus() {
+        const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+        return raw[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError;
+    }
+
+    losesIdentityHistory(before, after) {
+        if (!LayoutIdentity.active(before.layout)) return false;
+        if (!LayoutIdentity.active(after.layout)) return true;
+        return Object.entries(before.layout.positionsById).some(([id, views]) =>
+            !Object.prototype.hasOwnProperty.call(after.layout.positionsById, id) ||
+            Object.keys(views).some(view => !Object.prototype.hasOwnProperty.call(after.layout.positionsById[id], view)));
     }
 
     /**
@@ -216,7 +315,7 @@ class StorageManager {
             const validatedValue = this.validateData(key, value);
             await this.ensureSyncInitialized();
 
-            await this.writeLocalValues({ [key]: validatedValue }, options);
+            const committed = await this.writeLocalValues({ [key]: validatedValue }, options);
 
             if (!this._isApplyingSync) {
                 if (key === 'sync') {
@@ -230,7 +329,7 @@ class StorageManager {
                 }
             }
 
-            return true;
+            return options.returnSnapshot ? committed : true;
         } catch (error) {
             if (error.code === 'LINKS_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE') throw error;
             console.error(`Storage set error for key "${key}":`, error);
@@ -276,6 +375,7 @@ class StorageManager {
     layoutSnapshot(raw) {
         const rawLinks = raw.links === undefined ? this.defaultConfig.links : raw.links;
         const links = this.validateLinksConfig(rawLinks);
+        LayoutIdentity.validateBundle({ links, layout: raw.layout || this.defaultConfig.layout });
         if (links.length !== rawLinks.length) throw new Error('Stored shortcuts are invalid.');
         return JSON.parse(JSON.stringify({
             layout: this.validateStoredLayout(raw.layout),
@@ -288,11 +388,11 @@ class StorageManager {
         return underLock ? read() : this.withLocalWriteLock(read);
     }
 
-    async applyLayoutPatch(patch, positions, expected, onWrite = () => {}) {
+    async applyLayoutPatch(patch, positions, expected, onWrite = () => {}, identityPositions = {}) {
         // Copy before async initialization/lock acquisition. Provider work must
         // stay outside the shared local lock because sync may replace all data.
         const copy = value => JSON.parse(JSON.stringify(value));
-        patch = copy(patch); positions = copy(positions); expected = copy(expected);
+        patch = copy(patch); positions = copy(positions); expected = copy(expected); identityPositions = copy(identityPositions);
         if (!expected || !Object.prototype.hasOwnProperty.call(expected, 'generation') || !Array.isArray(expected.links)) {
             throw new Error('A trusted layout baseline is required.');
         }
@@ -315,7 +415,14 @@ class StorageManager {
                     throw error;
                 };
                 if (expected.generation !== latest.generation || !same(expected.links, latest.links)) conflict('LAYOUT_CONTEXT_CHANGED');
-                const candidate = this.validateLayoutConfig({ ...latest.layout, ...patch, positions: { ...latest.layout.positions, ...positions } });
+                let candidate = this.validateLayoutConfig({ ...latest.layout, ...patch, positions: { ...latest.layout.positions, ...positions } });
+                let links = latest.links, allocated = false;
+                if (!candidate.autoArrange && LayoutIdentity.needs(links)) {
+                    const counts = new Map(); links.forEach(link => counts.set(link.url, (counts.get(link.url) || 0) + 1));
+                    if (Object.keys(positions).some(key => [...counts].some(([url, count]) => count > 1 && key.endsWith(`|${url}`)))) LayoutIdentity.invalid('Prepare independent shortcut positions before dragging a duplicate.');
+                    const assignment = LayoutIdentity.allocate(links, candidate, links, null, () => this.createLayoutIdentity());
+                    candidate = assignment.layout; links = assignment.links; allocated = assignment.changed;
+                }
                 const desired = this.validateLayoutConfig({ ...expected.layout, ...patch });
                 if ('autoArrange' in patch || 'alignToGrid' in patch) {
                     const pair = value => [value.autoArrange, value.alignToGrid];
@@ -328,9 +435,28 @@ class StorageManager {
                     const samePoint = (a, b) => a === b || (a && b && a.x === b.x && a.y === b.y);
                     if (!samePoint(latest.layout.positions[key], expected.layout.positions[key]) && !samePoint(latest.layout.positions[key], value)) conflict('LAYOUT_CONFLICT');
                 }
+                for (const [encoded, value] of Object.entries(identityPositions)) {
+                    const { id, view } = LayoutIdentity.parseKey(encoded);
+                    const read = layout => LayoutIdentity.has(layout.positionsById?.[id], view) ? layout.positionsById[id][view] : undefined;
+                    const current = read(latest.layout);
+                    const previous = read(expected.layout);
+                    const equal = (a, b) => a === b || (a && b && a.x === b.x && a.y === b.y);
+                    if (!equal(current, previous) && !equal(current, value)) conflict('LAYOUT_CONFLICT');
+                    if (!links.some(link => link.layoutId === id)) LayoutIdentity.invalid('An orphan layout identity cannot be moved.');
+                }
+                candidate = LayoutIdentity.mergePositions(candidate, identityPositions);
+                const written = { layout: copy(candidate) };
+                if (allocated) {
+                    written.links = links;
+                    written[this.layoutGenerationKey] = this.createLayoutGeneration();
+                    if (!LayoutIdentity.active(latest.layout)) {
+                        const raw = await chrome.storage.local.get(null);
+                        if (!raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
+                    }
+                }
                 onWrite(copy(candidate));
-                await chrome.storage.local.set({ layout: copy(candidate) });
-                return { ...latest, layout: candidate };
+                await chrome.storage.local.set(written);
+                return { ...latest, links, layout: candidate, generation: written[this.layoutGenerationKey] || latest.generation };
             }, true);
         } catch (error) {
             if (error.code === 'LINKS_LOCK_UNAVAILABLE') error.code = 'LAYOUT_LOCK_UNAVAILABLE';
@@ -375,6 +501,7 @@ class StorageManager {
             }
             return config;
         } catch (error) {
+            if (error.code === 'LAYOUT_IDENTITY_INVALID') throw error;
             console.error('Storage getAll error:', error);
             return { ...this.defaultConfig };
         }
@@ -398,7 +525,7 @@ class StorageManager {
                 validatedData[key] = this.validateData(key, value);
             }
 
-            await this.writeLocalValues(validatedData);
+            await this.writeLocalValues(validatedData, options);
 
             if (!this._isApplyingSync && !options.skipSyncSideEffects) {
                 const syncEnabled = validatedData.sync?.enabled || await this.isSyncEnabledLocally();
@@ -565,7 +692,7 @@ class StorageManager {
 
         return {
             version: '1.0',
-            schemaVersion: 1,
+            schemaVersion: LayoutIdentity.active(sanitized.layout) ? 2 : 1,
             exportDate,
             createdAt: exportDate,
             exportedBy: 'Local iTab Extension',
@@ -584,7 +711,7 @@ class StorageManager {
 
         return {
             version: '1.0',
-            schemaVersion: 1,
+            schemaVersion: LayoutIdentity.active(sanitized.layout) ? 2 : 1,
             type: 'backupSnapshot',
             app: 'local-itab',
             createdAt,
@@ -599,7 +726,7 @@ class StorageManager {
             metadata: {
                 app: 'local-itab',
                 type: 'backupSnapshot',
-                schemaVersion: 1,
+                schemaVersion: LayoutIdentity.active(sanitized.layout) ? 2 : 1,
                 deviceId,
                 snapshotId,
                 reason: typeof metadata.reason === 'string' ? metadata.reason : 'manual'
@@ -617,7 +744,7 @@ class StorageManager {
         if (has(importData, 'version') && importData.version !== '1.0') invalid('unsupported backup version');
         if (has(importData, 'type') && importData.type !== 'backupSnapshot') invalid('unrecognized backup type');
         if (has(importData, 'app') && importData.app !== 'local-itab') invalid('backup belongs to another app');
-        if (has(importData, 'schemaVersion') && importData.schemaVersion !== 1) {
+        if (has(importData, 'schemaVersion') && ![1, 2].includes(importData.schemaVersion)) {
             invalid('unsupported schema version; use a backup exported by this version of Local iTab');
         }
 
@@ -627,6 +754,9 @@ class StorageManager {
             settings = has(importData, 'data') ? importData.data : importData.settings;
         }
         if (!isObject(settings)) invalid('settings data must be an object');
+        const hasIdentity = LayoutIdentity.active(settings.layout) || (Array.isArray(settings.links) && settings.links.some(link => Object.prototype.hasOwnProperty.call(link || {}, 'layoutId')));
+        if (hasIdentity && importData.schemaVersion !== 2) invalid('identity-bearing data needs an intact schema-2 export');
+        if (importData.schemaVersion === 2 && !hasIdentity) invalid('schema-2 identity format is missing');
         // A full replacement must explicitly include shortcuts, including [] for
         // a genuinely empty backup. Missing/corrupt data must never become defaults.
         if (!has(settings, 'links') || !Array.isArray(settings.links)) invalid('a shortcuts array is required');
@@ -712,12 +842,14 @@ class StorageManager {
             return validated;
         }
 
+        if (LayoutIdentity.active(data.layout) || (Array.isArray(data.links) && data.links.some(link => LayoutIdentity.has(link, 'layoutId')))) LayoutIdentity.validateBundle(data);
         for (const key of Object.keys(this.defaultConfig)) {
             if (Object.prototype.hasOwnProperty.call(data, key)) {
                 validated[key] = this.validateData(key, data[key]);
             }
         }
 
+        LayoutIdentity.validateBundle(validated);
         // Resolve from raw data, before defaults can masquerade as a saved legacy choice.
         validated.appearance = this.resolveAppearance(data);
         return validated;
@@ -767,213 +899,299 @@ class StorageManager {
         };
     }
 
+    cancelSyncPush() {
+        if (this._syncPushTimer) clearTimeout(this._syncPushTimer);
+        this._syncPushTimer = null;
+    }
+
+    compatibilityError(reason, kind = 'incompatible') {
+        const error = new Error(reason);
+        error.code = 'SYNC_IDENTITY_COMPATIBILITY'; error.kind = kind;
+        return error;
+    }
+
+    async blockSync(error, remote = null) {
+        this.cancelSyncPush();
+        const blocked = { reason: error.message, kind: error.kind || 'incompatible' };
+        this._syncCompatibilityError = blocked;
+        try {
+            await this.withLocalWriteLock(async () => {
+                const raw = await chrome.storage.local.get(null);
+                const guard = raw[this.syncIdentityStateKey] || {};
+                const config = this.validateConfigObject(raw); delete config.sync;
+                const localFingerprint = guard.blocked?.localFingerprint || error.localFingerprint || await this.fingerprint(config);
+                await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard,
+                    blocked: guard.blocked?.kind === 'restore' ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
+                } });
+            }, true);
+        } catch (statusError) { this._syncCompatibilityError = blocked; console.warn('Could not persist Sync compatibility status:', statusError); }
+    }
+
+    sameSyncRevision(a, b) {
+        return Boolean(a && b && a.fingerprint === b.fingerprint && a.revision === b.revision && a.schema === b.schema);
+    }
+
+    async isOwnSyncMeta(meta) {
+        if (!meta?.revision || !meta.payloadHash) return false;
+        const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+        return (raw[this.syncIdentityStateKey]?.ownWrites || []).some(write =>
+            write.revision === meta.revision && write.fingerprint === meta.payloadHash && write.schema === meta.configurationSchemaVersion);
+    }
+
+    async readSyncSnapshot() {
+        try { return await this.readSyncSnapshotOnce(); }
+        catch (error) {
+            // A read begun before this profile's explicit off transition may
+            // observe its removed chunks. Recognize only that exact revision.
+            if (error.code === 'SYNC_IDENTITY_COMPATIBILITY') {
+                const latest = await this.getRemoteMeta();
+                if (latest?.enabled === false && await this.isOwnSyncMeta(latest)) return { meta: latest, payload: null, schema: 0, fingerprint: latest.payloadHash, revision: latest.revision };
+            }
+            throw error;
+        }
+    }
+
+    async readSyncSnapshotOnce() {
+        const meta = await this.getRemoteMeta();
+        if (!meta?.enabled) return { meta, payload: null, schema: 1, fingerprint: '', revision: meta?.revision || meta?.updatedAt || '' };
+        const payload = await this.readRemoteSyncData(meta);
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !Array.isArray(payload.links) || 'data' in payload || 'settings' in payload) {
+            throw this.compatibilityError('Cloud settings are incomplete or use an unsupported envelope.', 'incomplete');
+        }
+        const rawIdentity = LayoutIdentity.active(payload.layout) || payload.links.some(link => LayoutIdentity.has(link, 'layoutId'));
+        const schema = rawIdentity ? 2 : 1;
+        if ((meta.configurationSchemaVersion !== undefined && meta.configurationSchemaVersion !== schema) || (schema === 2 && meta.configurationSchemaVersion !== 2)) {
+            throw this.compatibilityError('Cloud layout identity format does not match its metadata. Update other devices before retrying Sync.');
+        }
+        if (schema === 2 && (typeof meta.revision !== 'string' || !meta.revision || typeof meta.payloadHash !== 'string' || !/^[a-f0-9]{64}$/.test(meta.payloadHash))) {
+            throw this.compatibilityError('Cloud identity data is missing its complete revision fingerprint.', 'incomplete');
+        }
+        let validated;
+        try { validated = this.validateImportPayload(schema === 2 ? { version: '1.0', schemaVersion: 2, data: payload } : payload); }
+        catch (error) { throw this.compatibilityError(`Cloud settings were not applied: ${error.message}`); }
+        const fingerprint = await this.fingerprint({ schema, payload });
+        if (meta.payloadHash && meta.payloadHash !== fingerprint) throw this.compatibilityError('Cloud snapshot is incomplete or changed while reading. Retry after it finishes syncing.', 'incomplete');
+        const reread = await this.getRemoteMeta();
+        if (JSON.stringify(reread) !== JSON.stringify(meta)) throw this.compatibilityError('Cloud snapshot changed while reading. Retry the complete snapshot.', 'incomplete');
+        return { meta, payload, validated, schema, fingerprint, revision: meta.revision || meta.updatedAt || '' };
+    }
+
+    checkSyncIdentity(local, remote, guard, { pushing = false, confirmedReplacement = false } = {}) {
+        if (confirmedReplacement) return;
+        if (guard.blocked?.kind === 'restore') throw this.compatibilityError(guard.blocked.reason, 'restore');
+        if (pushing && (guard.blocked || this._syncCompatibilityError)) throw this.compatibilityError(guard.blocked?.reason || this._syncCompatibilityError.reason);
+        if (!remote.payload) return;
+        if (pushing && remote.schema === 2 && this.losesIdentityHistory(this.layoutSnapshot(remote.validated), local)) {
+            throw this.compatibilityError('This upload would remove cloud layout identity history. Download and review the compatible cloud copy, or explicitly choose a backed-up replacement.');
+        }
+        if (LayoutIdentity.active(local.layout)) {
+            if (remote.schema !== 2) {
+                if (!guard.blocked && this.sameSyncRevision(guard.ack, remote)) return;
+                throw this.compatibilityError('An older or identity-unaware cloud copy was blocked. This device’s shortcuts and independent positions are unchanged. Update other devices, then retry or choose a backed-up replacement.');
+            }
+            if (this.losesIdentityHistory(local, this.layoutSnapshot(remote.validated))) throw this.compatibilityError('Cloud data would remove saved layout identity history. This device is unchanged; choose a backed-up replacement explicitly.');
+        }
+    }
+
+    async checkSyncIdentityAtRead(local, remote, guard, raw, options) {
+        try { this.checkSyncIdentity(local, remote, guard, options); }
+        catch (error) {
+            // Bind a newly detected conflict to the same locked local read;
+            // later edits cannot be mistaken for the unchanged blocked copy.
+            const config = this.validateConfigObject(raw); delete config.sync;
+            error.localFingerprint = await this.fingerprint(config);
+            throw error;
+        }
+    }
+
+    async acceptSyncSnapshot(remote, { confirmedReplacement = false, initializing = false } = {}) {
+        return this.withLocalWriteLock(async () => {
+            const raw = await chrome.storage.local.get(null);
+            const local = this.layoutSnapshot(raw);
+            const guard = raw[this.syncIdentityStateKey] || {};
+            if (guard.blocked && !confirmedReplacement) {
+                if (guard.blocked.kind === 'restore') throw this.compatibilityError(guard.blocked.reason, 'restore');
+                const config = this.validateConfigObject(raw); delete config.sync;
+                if (!guard.blocked.localFingerprint || guard.blocked.localFingerprint !== await this.fingerprint(config)) throw this.compatibilityError('Local settings changed while Sync was blocked. Review the copies and choose a backed-up replacement explicitly.');
+            }
+            if (!remote.payload) return { applied: false, empty: true };
+            const own = (guard.ownWrites || []).some(write => this.sameSyncRevision(write, remote));
+            const unchanged = this.sameSyncRevision(guard.ack, remote);
+            // Identical known cloud data and this profile's own writes never
+            // replay an older full snapshot over a newer local edit.
+            if ((own || unchanged) && !confirmedReplacement) {
+                const written = { [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null } };
+                await chrome.storage.local.set(written);
+                this._syncCompatibilityError = null;
+                return { applied: false, acknowledged: true };
+            }
+            await this.checkSyncIdentityAtRead(local, remote, guard, raw, { confirmedReplacement });
+            // A pre-feature lastSync timestamp alone is not an identity-safe ack.
+            // Only exact complete payload equality can establish its fingerprint
+            // without replaying already-known legacy data.
+            if (initializing && raw.sync?.lastSync === remote.meta.updatedAt && !confirmedReplacement) {
+                const localPayload = this.prepareSyncPayload(this.validateConfigObject(raw)).payload;
+                const fingerprint = await this.fingerprint({ schema: LayoutIdentity.active(raw.layout) ? 2 : 1, payload: localPayload });
+                if (fingerprint === remote.fingerprint) {
+                    await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null } });
+                    this._syncCompatibilityError = null;
+                }
+                return { applied: false, acknowledged: fingerprint === remote.fingerprint };
+            }
+            const validated = remote.validated;
+            const written = { ...validated,
+                sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: confirmedReplacement ? raw.sync?.enabled === true : true, lastSync: remote.meta.updatedAt || '', lastError: '' }),
+                [this.layoutGenerationKey]: this.createLayoutGeneration(),
+                [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null }
+            };
+            if (confirmedReplacement) written[this.restoreRecoveryKey] = await this.makeRecovery(raw, 'beforeCloudReplacement');
+            await chrome.storage.local.set(written);
+            this._syncCompatibilityError = null;
+            return { applied: true };
+        }, true);
+    }
+
     async ensureSyncInitialized() {
         if (this._syncInitialized) return;
         if (this._syncInitPromise) return this._syncInitPromise;
-
         this._syncInitPromise = (async () => {
-            if (!this.isSyncAvailable()) {
-                this._syncInitialized = true;
-                return;
-            }
-
+            if (!this.isSyncAvailable()) { this._syncInitialized = true; return; }
             try {
-                const remoteMeta = await this.getRemoteMeta();
-                if (!remoteMeta?.enabled) {
-                    this._syncInitialized = true;
-                    return;
-                }
-
-                const localResult = await chrome.storage.local.get(['sync']);
-                const localSync = this.validateSyncConfig(localResult.sync || this.defaultConfig.sync);
-                if (localSync.lastSync === remoteMeta.updatedAt) {
-                    this._syncInitialized = true;
-                    return;
-                }
-
-                const remoteData = await this.readRemoteSyncData(remoteMeta);
-                if (!remoteData) {
-                    this._syncInitialized = true;
-                    return;
-                }
-
-                const validated = this.validateConfigObject(remoteData);
-                validated.sync = this.validateSyncConfig({
-                    enabled: true,
-                    lastSync: remoteMeta.updatedAt || '',
-                    lastError: '',
-                    includeLargeAssets: false
-                });
-
-                this._isApplyingSync = true;
-                try {
-                    await this.writeLocalValues(validated);
-                } finally {
-                    this._isApplyingSync = false;
-                }
+                const remote = await this.readSyncSnapshot();
+                if (remote.meta?.enabled) await this.acceptSyncSnapshot(remote, { initializing: true });
             } catch (error) {
-                console.warn('Cloud sync initialization failed:', error);
-                await this.updateLocalSyncState({
-                    enabled: false,
-                    lastError: error.message || String(error)
-                });
-            } finally {
-                this._syncInitialized = true;
-            }
+                if (error.code === 'SYNC_IDENTITY_COMPATIBILITY' || error.code === 'LAYOUT_IDENTITY_INVALID') {
+                    await this.blockSync(error);
+                } else {
+                    // Read failures cannot establish a safe cloud replacement.
+                    console.warn('Cloud sync initialization failed:', error);
+                    await this.updateLocalSyncState({ lastError: error.message || String(error) });
+                }
+            } finally { this._syncInitialized = true; }
         })();
-
         return this._syncInitPromise;
     }
 
     async getSyncStatus() {
         await this.ensureSyncInitialized();
-        const localResult = await chrome.storage.local.get(['sync']);
-        const localSync = this.validateSyncConfig(localResult.sync || this.defaultConfig.sync);
-        const remoteMeta = this.isSyncAvailable() ? await this.getRemoteMeta() : null;
-        const storageInfo = await this.getStorageInfo();
-
-        return {
-            available: this.isSyncAvailable(),
-            enabled: localSync.enabled,
-            local: localSync,
-            remote: remoteMeta,
-            storage: storageInfo.sync
-        };
+        const raw = await chrome.storage.local.get(['sync', this.syncIdentityStateKey]);
+        const localSync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
+        return { available: this.isSyncAvailable(), enabled: localSync.enabled, local: localSync,
+            compatibilityBlocked: raw[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError,
+            remote: this.isSyncAvailable() ? await this.getRemoteMeta() : null,
+            storage: (await this.getStorageInfo()).sync };
     }
 
     async setSyncEnabled(enabled) {
         await this.ensureSyncInitialized();
-        const config = await this.getAll();
-        config.sync = this.validateSyncConfig({
-            ...config.sync,
-            enabled,
-            lastError: ''
-        });
-
-        await chrome.storage.local.set({ sync: config.sync });
-
-        if (enabled) {
-            try {
-                return await this.pushToSync();
-            } catch (error) {
-                await this.updateLocalSyncState({
-                    enabled: false,
-                    lastError: error.message || String(error)
-                });
-                throw error;
-            }
-        }
-
-        await this.disableRemoteSync();
-        return this.getSyncStatus();
-    }
-
-    async pushToSync() {
-        if (this._syncPushTimer) {
-            clearTimeout(this._syncPushTimer);
-            this._syncPushTimer = null;
-        }
-        if (this._isApplyingSync) return this.getSyncStatus();
-        if (!this.isSyncAvailable()) {
-            throw new Error('Chrome Sync storage is not available in this browser.');
-        }
-
-        try {
-            const config = await this.getAll();
-            const { payload, omittedAssets } = this.prepareSyncPayload(config);
-            const payloadJson = JSON.stringify(payload);
-            const payloadBytes = this.getUtf8ByteLength(payloadJson);
-
-            const oldMeta = await this.getRemoteMeta();
-            const chunks = this.createSyncChunks(payloadJson);
-
-            const updatedAt = new Date().toISOString();
-            const items = {
-                [this.syncMetaKey]: {
-                    enabled: true,
-                    version: 2,
-                    updatedAt,
-                    chunkCount: chunks.length,
-                    payloadBytes,
-                    omittedAssets
-                }
-            };
-
-            chunks.forEach((chunk, index) => {
-                items[`${this.syncChunkPrefix}${index}`] = chunk;
-            });
-
-            const syncBytes = this.getSyncItemsBytes(items);
-            if (syncBytes > this.syncTotalBudget) {
-                throw new Error(`Cloud sync payload is too large (${Math.round(syncBytes / 1024)} KB after Chrome Sync encoding). Remove some shortcuts or use manual export for large data.`);
-            }
-
-            this._ignoreRemoteSyncUntil = Date.now() + 2000;
-            await chrome.storage.sync.set(items);
-
-            const oldCount = Number.isFinite(oldMeta?.chunkCount) ? oldMeta.chunkCount : 0;
-            if (oldCount > chunks.length) {
-                const staleKeys = [];
-                for (let i = chunks.length; i < oldCount; i += 1) {
-                    staleKeys.push(`${this.syncChunkPrefix}${i}`);
-                }
-                if (staleKeys.length) await chrome.storage.sync.remove(staleKeys);
-            }
-
-            await this.updateLocalSyncState({
-                enabled: true,
-                lastSync: updatedAt,
-                lastError: ''
-            });
-
-            return this.getSyncStatus();
-        } catch (error) {
-            await this.updateLocalSyncState({
-                enabled: true,
-                lastError: error.message || String(error)
-            });
+        const raw = await chrome.storage.local.get(['sync']);
+        const previous = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
+        if (!enabled) { await this.disableRemoteSync(); return this.getSyncStatus(); }
+        await chrome.storage.local.set({ sync: { ...previous, enabled, lastError: '' } });
+        try { return await this.pushToSync(); }
+        catch (error) {
+            await this.updateLocalSyncState({ enabled: error.code === 'SYNC_IDENTITY_COMPATIBILITY' ? previous.enabled : false, lastError: error.message || String(error) });
             throw error;
         }
     }
 
-    async pullFromSync() {
-        if (!this.isSyncAvailable()) {
-            throw new Error('Chrome Sync storage is not available in this browser.');
-        }
+    async withSyncWriteLock(operation) {
+        if (!(typeof navigator !== 'undefined' && navigator.locks?.request)) throw new Error('Safe Chrome Sync writes require Web Locks.');
+        return navigator.locks.request('local-itab-sync-write', operation);
+    }
 
-        const remoteMeta = await this.getRemoteMeta();
-        if (!remoteMeta?.enabled) {
-            await this.updateLocalSyncState({ enabled: false });
-            return { applied: false, status: await this.getSyncStatus() };
-        }
-
-        const localResult = await chrome.storage.local.get(['sync']);
-        const localSync = this.validateSyncConfig(localResult.sync || this.defaultConfig.sync);
-        if (localSync.lastSync === remoteMeta.updatedAt) {
-            return { applied: false, status: await this.getSyncStatus() };
-        }
-
-        const remoteData = await this.readRemoteSyncData(remoteMeta);
-        if (!remoteData) {
-            throw new Error('Cloud sync data is empty or corrupted.');
-        }
-
-        const validated = this.validateConfigObject(remoteData);
-        validated.sync = this.validateSyncConfig({
-            enabled: true,
-            lastSync: remoteMeta.updatedAt || '',
-            lastError: '',
-            includeLargeAssets: false
-        });
-
-        this._isApplyingSync = true;
+    async pushToSync() {
+        this.cancelSyncPush();
+        if (this._isApplyingSync) return this.getSyncStatus();
+        if (!this.isSyncAvailable()) throw new Error('Chrome Sync storage is not available in this browser.');
+        await this.ensureSyncInitialized();
         try {
-            await this.writeLocalValues(validated);
-        } finally {
-            this._isApplyingSync = false;
+            return await this.withSyncWriteLock(async () => {
+                const remote = await this.readSyncSnapshot();
+                const ticket = await this.withLocalWriteLock(async () => {
+                    const raw = await chrome.storage.local.get(null);
+                    const guard = raw[this.syncIdentityStateKey] || {};
+                    const local = this.layoutSnapshot(raw);
+                    await this.checkSyncIdentityAtRead(local, remote, guard, raw, { pushing: true });
+                    const { payload, omittedAssets } = this.prepareSyncPayload(this.validateConfigObject(raw));
+                    const schema = LayoutIdentity.active(payload.layout) ? 2 : 1;
+                    const fingerprint = await this.fingerprint({ schema, payload });
+                    const revision = this.createLayoutGeneration(), updatedAt = new Date().toISOString();
+                    const json = JSON.stringify(payload), chunks = this.createSyncChunks(json);
+                    const meta = { enabled: true, version: 2, configurationSchemaVersion: schema, revision, payloadHash: fingerprint,
+                        updatedAt, chunkCount: chunks.length, payloadBytes: this.getUtf8ByteLength(json), omittedAssets };
+                    const items = { [this.syncMetaKey]: meta };
+                    chunks.forEach((chunk, index) => { items[`${this.syncChunkPrefix}${index}`] = chunk; });
+                    if (this.getSyncItemsBytes(items) > this.syncTotalBudget) throw new Error('Cloud sync payload exceeds its storage quota. Keep a manual or Drive backup; no identity data was omitted.');
+                    const own = { revision, fingerprint, schema };
+                    await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), own] } });
+                    return { items, meta, own, generation: local.generation };
+                }, true);
+                // Recheck shared state after asynchronous snapshot preparation;
+                // another page may have blocked Sync while this upload waited.
+                let upload;
+                await this.withLocalWriteLock(async () => {
+                    const latest = await chrome.storage.local.get([this.syncIdentityStateKey, this.layoutGenerationKey]);
+                    if (latest[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError) throw this.compatibilityError(latest[this.syncIdentityStateKey]?.blocked?.reason || this._syncCompatibilityError.reason);
+                    if ((latest[this.layoutGenerationKey] || null) !== ticket.generation) throw new Error('Local data was replaced before upload. Review it and retry.');
+                    // Enqueue under the same local lock as persisted blocking.
+                    // Provider completion is awaited outside the critical section.
+                    upload = chrome.storage.sync.set(ticket.items);
+                    upload.catch(() => {});
+                }, true);
+                await upload;
+                const oldCount = Number.isFinite(remote.meta?.chunkCount) ? remote.meta.chunkCount : 0;
+                if (oldCount > ticket.meta.chunkCount) await chrome.storage.sync.remove(Array.from({ length: oldCount - ticket.meta.chunkCount }, (_, index) => `${this.syncChunkPrefix}${index + ticket.meta.chunkCount}`));
+                await this.withLocalWriteLock(async () => {
+                    const raw = await chrome.storage.local.get(['sync', this.syncIdentityStateKey, this.layoutGenerationKey]);
+                    const guard = raw[this.syncIdentityStateKey] || {};
+                    if ((raw[this.layoutGenerationKey] || null) !== ticket.generation) throw new Error('Local data was replaced during upload. Its Sync state was not changed.');
+                    if (guard.blocked) throw this.compatibilityError(guard.blocked.reason);
+                    await chrome.storage.local.set({
+                        sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: true, lastSync: ticket.meta.updatedAt, lastError: '' }),
+                        [this.syncIdentityStateKey]: { ...guard, ack: ticket.own }
+                    });
+                }, true);
+                return this.getSyncStatus();
+            });
+        } catch (error) {
+            if (error.code === 'SYNC_IDENTITY_COMPATIBILITY' || error.code === 'LAYOUT_IDENTITY_INVALID') await this.blockSync(error);
+            else await this.updateLocalSyncState({ lastError: error.message || String(error) });
+            throw error;
         }
+    }
 
-        return { applied: true, status: await this.getSyncStatus() };
+    async previewCloudReplacement() {
+        const remote = await this.readSyncSnapshot();
+        if (!remote.payload) throw new Error('No complete cloud copy is available.');
+        return { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema, shortcuts: remote.validated.links.length };
+    }
+
+    async pullFromSync(options = {}) {
+        if (!this.isSyncAvailable()) throw new Error('Chrome Sync storage is not available in this browser.');
+        try {
+            const remote = await this.readSyncSnapshot();
+            if (options.confirmedReplacement && !this.sameSyncRevision(options.expectedRemote, remote)) throw this.compatibilityError('The cloud copy changed after confirmation. Review it again before replacing local data.');
+            if (!remote.meta?.enabled) {
+                if (remote.meta?.enabled === false && await this.isOwnSyncMeta(remote.meta)) return { applied: false, status: await this.getSyncStatus() };
+                await this.withLocalWriteLock(async () => {
+                    const raw = await chrome.storage.local.get(null);
+                    if (raw.sync?.enabled && (LayoutIdentity.active(raw.layout) || raw[this.syncIdentityStateKey]?.blocked)) {
+                        const error = this.compatibilityError('The cloud copy was removed or disabled. Local data and the enabled preference are preserved. Review Sync settings before replacing either copy.');
+                        const config = this.validateConfigObject(raw); delete config.sync;
+                        error.localFingerprint = await this.fingerprint(config);
+                        throw error;
+                    }
+                    await chrome.storage.local.set({ sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: false }) });
+                }, true);
+                return { applied: false, status: await this.getSyncStatus() };
+            }
+            const result = await this.acceptSyncSnapshot(remote, options);
+            return { ...result, status: await this.getSyncStatus() };
+        } catch (error) {
+            if (error.code === 'SYNC_IDENTITY_COMPATIBILITY' || error.code === 'LAYOUT_IDENTITY_INVALID') await this.blockSync(error);
+            throw error;
+        }
     }
 
     async clearSync() {
@@ -993,48 +1211,43 @@ class StorageManager {
     }
 
     async readRemoteSyncData(meta) {
-        const chunkCount = Number.isFinite(meta?.chunkCount) ? meta.chunkCount : 0;
-        if (chunkCount <= 0 || chunkCount > this.syncMaxChunks) return null;
-
-        const keys = Array.from({ length: chunkCount }, (_, index) => `${this.syncChunkPrefix}${index}`);
-        const result = await chrome.storage.sync.get(keys);
-        const json = keys.map(key => result[key] || '').join('');
-        if (!json) return null;
-
-        return JSON.parse(json);
+        const count = meta?.chunkCount;
+        if (!Number.isInteger(count) || count <= 0 || count > this.syncMaxChunks) throw this.compatibilityError('Cloud snapshot chunk count is invalid.', 'incomplete');
+        const keys = Array.from({ length: count }, (_, index) => `${this.syncChunkPrefix}${index}`);
+        const raw = await chrome.storage.sync.get(keys);
+        if (keys.some(key => typeof raw[key] !== 'string' || !raw[key])) throw this.compatibilityError('Cloud snapshot is still incomplete. Nothing was applied.', 'incomplete');
+        try { return JSON.parse(keys.map(key => raw[key]).join('')); }
+        catch (_) { throw this.compatibilityError('Cloud snapshot could not be read safely. Nothing was applied.', 'incomplete'); }
     }
 
     async disableRemoteSync(clearChunks = false) {
+        this.cancelSyncPush();
         if (!this.isSyncAvailable()) return;
-
-        const oldMeta = await this.getRemoteMeta();
-        const oldCount = Number.isFinite(oldMeta?.chunkCount) ? oldMeta.chunkCount : 0;
-        const keysToRemove = [];
-        if (clearChunks || oldCount) {
-            for (let i = 0; i < oldCount; i += 1) {
-                keysToRemove.push(`${this.syncChunkPrefix}${i}`);
+        await this.withSyncWriteLock(async () => {
+            const oldMeta = await this.getRemoteMeta();
+            const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+            if (raw[this.syncIdentityStateKey]?.blocked && oldMeta?.enabled) {
+                // The UI explicitly confirmed off/clear. Retain the divergent
+                // readable cloud copy before removing its chunks.
+                const cloud = await this.readSyncSnapshot();
+                const payload = this.buildManualExportPayload(cloud.validated);
+                await chrome.storage.local.set({ [this.restoreRecoveryKey]: { reason: 'beforeCloudClear', payload, checksum: await this.fingerprint(payload) } });
             }
-        }
-
-        if (keysToRemove.length) {
-            await chrome.storage.sync.remove(keysToRemove);
-        }
-
-        this._ignoreRemoteSyncUntil = Date.now() + 2000;
-        await chrome.storage.sync.set({
-            [this.syncMetaKey]: {
-                enabled: false,
-                version: 2,
-                updatedAt: new Date().toISOString(),
-                chunkCount: 0,
-                payloadBytes: 0,
-                omittedAssets: []
-            }
-        });
-
-        await this.updateLocalSyncState({
-            enabled: false,
-            lastError: ''
+            const disabledMeta = { enabled: false, version: 2, configurationSchemaVersion: 0, revision: this.createLayoutGeneration(), payloadHash: await this.fingerprint({ enabled: false }), updatedAt: new Date().toISOString(), chunkCount: 0, payloadBytes: 0, omittedAssets: [] };
+            await this.withLocalWriteLock(async () => {
+                const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+                const guard = raw[this.syncIdentityStateKey] || {};
+                await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), { revision: disabledMeta.revision, fingerprint: disabledMeta.payloadHash, schema: 0 }] } });
+            }, true);
+            const oldCount = Number.isFinite(oldMeta?.chunkCount) ? oldMeta.chunkCount : 0;
+            await chrome.storage.sync.set({ [this.syncMetaKey]: disabledMeta });
+            if (oldCount) await chrome.storage.sync.remove(Array.from({ length: oldCount }, (_, index) => `${this.syncChunkPrefix}${index}`));
+            await this.withLocalWriteLock(async () => {
+                const raw = await chrome.storage.local.get([this.syncIdentityStateKey, 'sync']);
+                await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...(raw[this.syncIdentityStateKey] || {}), blocked: null, ack: null },
+                    sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: false, lastError: '' }) });
+            }, true);
+            this._syncCompatibilityError = null;
         });
     }
 
@@ -1157,27 +1370,32 @@ class StorageManager {
         return typeof value === 'string' && (value.startsWith('data:') || value.length > 4000);
     }
 
-    shouldIgnoreRemoteSyncChange() {
-        return Date.now() < this._ignoreRemoteSyncUntil;
+    async shouldIgnoreRemoteSyncChange(changes = {}) {
+        let meta = changes[this.syncMetaKey]?.newValue;
+        if (!meta) {
+            meta = await this.getRemoteMeta();
+            // Chunk-only edits to an active copy still require full validation.
+            if (meta?.enabled !== false) return false;
+        }
+        return this.isOwnSyncMeta(meta);
     }
 
     scheduleSyncPush(delayMs = 900) {
-        if (!this.isSyncAvailable() || this._isApplyingSync) return;
+        if (!this.isSyncAvailable() || this._isApplyingSync || this._syncCompatibilityError) return;
         if (this._syncPushTimer) {
             clearTimeout(this._syncPushTimer);
         }
         this._syncPushTimer = setTimeout(async () => {
             this._syncPushTimer = null;
             try {
+                const shared = await chrome.storage.local.get([this.syncIdentityStateKey]);
+                if (shared[this.syncIdentityStateKey]?.blocked) return;
                 if (await this.isSyncEnabledLocally()) {
                     await this.pushToSync();
                 }
             } catch (error) {
                 console.warn('Background cloud sync failed:', error);
-                await this.updateLocalSyncState({
-                    enabled: true,
-                    lastError: error.message || String(error)
-                });
+                if (error.code !== 'SYNC_IDENTITY_COMPATIBILITY') await this.updateLocalSyncState({ lastError: error.message || String(error) });
             }
         }, delayMs);
     }
@@ -1231,6 +1449,7 @@ class StorageManager {
                     return value;
             }
         } catch (error) {
+            if (error.code === 'LAYOUT_IDENTITY_INVALID') throw error;
             console.warn(`Validation failed for ${key}, using default:`, error);
             return this.getDefaultValue(key);
         }
@@ -1361,6 +1580,7 @@ class StorageManager {
             throw new Error('Links must be an array');
         }
 
+        LayoutIdentity.validateIds(value);
         return value.map(link => {
             if (typeof link !== 'object' || link === null) {
                 throw new Error('Each link must be an object');
@@ -1377,6 +1597,7 @@ class StorageManager {
             } catch (_) {}
 
             return {
+                ...(Object.prototype.hasOwnProperty.call(link, 'layoutId') ? { layoutId: link.layoutId } : {}),
                 title: typeof link.title === 'string' ? link.title.trim() : '',
                 url,
                 icon: typeof link.icon === 'string' ? link.icon : '🌐',
@@ -1466,6 +1687,7 @@ class StorageManager {
      * Validate layout configuration
      */
     validateLayoutConfig(value) {
+        LayoutIdentity.validateLayout(value);
         if (typeof value !== 'object' || value === null) {
             throw new Error('Layout config must be an object');
         }
@@ -1484,7 +1706,7 @@ class StorageManager {
 
         const positions = (value.positions && typeof value.positions === 'object') ? value.positions : {};
 
-        return { autoArrange, alignToGrid, gridSize, columns, positions };
+        return { autoArrange, alignToGrid, gridSize, columns, positions, ...(LayoutIdentity.active(value) ? { identityVersion: 1, positionsById: LayoutIdentity.copy(value.positionsById) } : {}) };
     }
 
     validateUiConfig(value) {

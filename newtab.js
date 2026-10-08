@@ -334,18 +334,41 @@ function setupThemeChangeListener() {
     });
 }
 
+async function renderSyncCompatibilityNotice() {
+    const blocked = await storageManager.getSyncCompatibilityStatus?.();
+    let notice = document.getElementById('sync-compatibility-notice');
+    if (!blocked) { notice?.remove(); return; }
+    if (!notice) {
+        notice = document.createElement('a');
+        notice.id = 'sync-compatibility-notice';
+        notice.className = 'layout-status';
+        notice.setAttribute('role', 'status');
+        notice.href = 'options.html#cloud-sync-settings';
+        document.querySelector('.dashboard-main')?.prepend(notice);
+    }
+    const key = 'syncCompatibilityNotice';
+    const translated = window.i18n?.t(key);
+    notice.textContent = translated && translated !== key ? translated : 'Chrome Sync needs review. Local settings are preserved. Open settings.';
+}
+
 function setupCloudSyncChangeListener() {
+    renderSyncCompatibilityNotice().catch(error => console.warn('Sync status unavailable:', error));
     if (!chrome?.storage?.onChanged || !window.storageManager?.syncMetaKey) return;
     chrome.storage.onChanged.addListener(async (changes, areaName) => {
-        if (areaName !== 'sync' || !changes[storageManager.syncMetaKey]) return;
-        if (storageManager.shouldIgnoreRemoteSyncChange?.()) return;
+        if (areaName === 'local' && changes[storageManager.syncIdentityStateKey]) {
+            await renderSyncCompatibilityNotice().catch(error => console.warn('Sync status unavailable:', error));
+            return;
+        }
+        if (areaName !== 'sync' || !Object.keys(changes).some(key => key === storageManager.syncMetaKey || key.startsWith(storageManager.syncChunkPrefix))) return;
         try {
+            if (await storageManager.shouldIgnoreRemoteSyncChange?.(changes)) return;
             const result = await storageManager.pullFromSync();
             if (result?.applied) {
                 window.location.reload();
             }
         } catch (error) {
             console.warn('Cloud sync refresh failed:', error);
+            await renderSyncCompatibilityNotice().catch(error => console.warn('Sync status unavailable:', error));
         }
     });
 }
@@ -1436,6 +1459,7 @@ class ShortcutsComponent {
         if (!this.layout.positions || typeof this.layout.positions !== 'object') {
             this.layout.positions = this.positions;
         }
+        this.identityPositions = this.layout.positionsById || {};
         this.gridEl = null;
         this.dragState = null;
         this._suppressClickUntil = 0;
@@ -1791,6 +1815,26 @@ class ShortcutsComponent {
         }
     }
 
+    async saveShortcutLinks(next, previous, operation) {
+        const controller = this.layoutController;
+        controller?.holdShortcutMutation();
+        try {
+            if (controller) await controller.flush();
+            const saved = await storageManager.set('links', next, {
+                expectedLinks: previous, returnSnapshot: true, operation,
+                ...(controller ? { expectedLayoutGeneration: controller.generation } : {})
+            });
+            if (saved?.links) {
+                this.links = saved.links;
+                this.layout = saved.layout;
+                this.positions = saved.layout.positions;
+                this.identityPositions = saved.layout.positionsById || {};
+                controller?.adoptOwnShortcutSnapshot(saved);
+            }
+            return saved;
+        } finally { controller?.releaseShortcutMutation(); }
+    }
+
     async createStarterSet() {
         if (this.links.length) return;
         const previousLinks = this.links.map(link => ({ ...link }));
@@ -1802,7 +1846,7 @@ class ShortcutsComponent {
             { title: 'Google Translate', url: 'https://translate.google.com/', icon: '文', category: 'tools' }
         ];
         try {
-            const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
+            const saved = await this.saveShortcutLinks(this.links, previousLinks);
             if (!saved) throw new Error('Storage write returned false');
             this.updateGrid();
         } catch (error) {
@@ -2067,7 +2111,7 @@ class ShortcutsComponent {
         this.setSavingState(true);
 
         // Save shortcut WITHOUT overwriting user's original icon field
-        const shortcut = { title, url, icon, category };
+        const shortcut = { ...(this.links[this.currentEditIndex]?.layoutId ? { layoutId: this.links[this.currentEditIndex].layoutId } : {}), title, url, icon, category };
         const previousLinks = this.links.map(link => ({ ...link }));
         const nextLinks = previousLinks.map(link => ({ ...link }));
         const editIndex = this.currentEditIndex;
@@ -2082,7 +2126,7 @@ class ShortcutsComponent {
 
         // Save to storage
         try {
-            const saved = await storageManager.set('links', nextLinks, { expectedLinks: previousLinks });
+            const saved = await this.saveShortcutLinks(nextLinks, previousLinks, { type: editIndex >= 0 ? 'edit' : 'add', index: editIndex >= 0 ? editIndex : previousLinks.length });
             if (!saved) {
                 throw new Error('Storage write returned false');
             }
@@ -2090,7 +2134,7 @@ class ShortcutsComponent {
             const focusIntent = ownsFocus ? (editIndex >= 0
                 ? { key: this.getShortcutFocusKey(shortcut), index: editIndex, action: this._modalFocusOrigin?.action === 'edit' ? 'edit' : 'launch' }
                 : { action: 'add' }) : null;
-            this.links = nextLinks;
+            this.links = saved.links || nextLinks;
             if (this._modalSession === saveSession) this.hideModal();
             this.updateGrid(focusIntent);
 
@@ -2247,7 +2291,7 @@ class ShortcutsComponent {
             this.links.splice(index, 1);
 
             try {
-                const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
+                const saved = await this.saveShortcutLinks(this.links, previousLinks, { type: 'delete', index });
                 if (!saved) {
                     throw new Error('Storage write returned false');
                 }
@@ -2440,6 +2484,14 @@ class ShortcutsComponent {
             this.detachFreeDrag();
         } else {
             grid.classList.add('free-layout');
+            if (window.LocalItabIdentity?.needs(this.links)) {
+                this.detachFreeDrag();
+                const controller = this.ensureLayoutController();
+                if (!controller.modePending && !controller.pending && !controller.failedChange && persistMissing) controller.change({ autoArrange: false });
+                this.applyVisibleTransformsFromPositions();
+                this.positionAddTile();
+                return;
+            }
             this.initializeMissingPositions(persistMissing);
             this.applyVisibleTransformsFromPositions();
             this.positionAddTile();
@@ -2482,9 +2534,23 @@ class ShortcutsComponent {
     }
 
     getPositionKey(link, category) {
+        if (link?.layoutId) return JSON.stringify([category || this.getCurrentCategory(), link.layoutId]);
         const urlKey = (link && link.url) || `idx_${this.links.indexOf(link)}`;
         const cat = category || this.getCurrentCategory();
         return `${cat || 'all'}|${urlKey}`;
+    }
+
+    getSavedPosition(link, category = this.getCurrentCategory()) {
+        if (link?.layoutId) {
+            const views = this.identityPositions[link.layoutId];
+            return views && Object.prototype.hasOwnProperty.call(views, category) ? views[category] : undefined;
+        }
+        return this.positions[this.getPositionKey(link, category)];
+    }
+
+    setSavedPosition(link, category, position) {
+        if (link.layoutId) this.identityPositions = { ...this.identityPositions, [link.layoutId]: { ...this.identityPositions[link.layoutId], [category]: position } };
+        else this.positions[this.getPositionKey(link, category)] = position;
     }
 
     getCurrentCategory() {
@@ -2512,7 +2578,7 @@ class ShortcutsComponent {
 
     onPointerDown(e) {
         // Keep modified clicks, nested buttons and other pointers as ordinary UI actions.
-        if (this.layoutController?.modePending || this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
+        if (window.LocalItabIdentity?.needs(this.links) || this.layoutController?.modePending || this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
         const interactive = e.target.closest('button, a, input, select, textarea, [contenteditable]');
         if (interactive && (interactive.disabled || !interactive.classList.contains('shortcut-launch'))) return;
         const item = e.target.closest('.shortcut-item');
@@ -2582,9 +2648,10 @@ class ShortcutsComponent {
                     item.style.left = `${target.x}px`;
                     item.style.top = `${target.y}px`;
                     item.style.transform = 'none';
-                    if (!this.positions[key] || this.positions[key].x !== target.x || this.positions[key].y !== target.y) {
-                        this.positions[key] = { x: target.x, y: target.y };
-                        this.saveLayoutDebounced({ [key]: this.positions[key] });
+                    const previous = this.getSavedPosition(link);
+                    if (!previous || previous.x !== target.x || previous.y !== target.y) {
+                        this.setSavedPosition(link, this.getCurrentCategory(), { x: target.x, y: target.y });
+                        this.saveLayoutDebounced(link.layoutId ? {} : { [key]: target }, link.layoutId ? { [key]: target } : {});
                         this.positionAddTile();
                     }
                 } else {
@@ -2712,15 +2779,19 @@ class ShortcutsComponent {
                 initial: this.layout,
                 baseline: this.layoutBaseline,
                 getLinks: () => this.links,
-                onApply: (layout, state) => {
+                onApply: (layout, state, snapshot) => {
+                    const linksChanged = state === 'saved' && snapshot && JSON.stringify(snapshot.links) !== JSON.stringify(this.links);
+                    if (linksChanged) this.links = snapshot.links;
                     const keepGesture = state === 'saved' && this._cancelFreeDrag &&
                         ['autoArrange', 'alignToGrid', 'columns', 'gridSize'].every(key => layout[key] === this.layout[key]);
                     if (!keepGesture) this._cancelFreeDrag?.();
                     this.layout = layout;
                     this.positions = layout.positions;
+                    this.identityPositions = layout.positionsById || {};
                     // A previous accepted drag can finish saving during the next
                     // live gesture. Keep that pointer/visual ownership until release.
-                    if (keepGesture) this._repaintAfterFreeDrag = true;
+                    if (linksChanged) this.updateGrid();
+                    else if (keepGesture) this._repaintAfterFreeDrag = true;
                     else this.applyLayoutMode({ persistMissing: state !== 'error' });
                 },
                 onError: error => console.warn('Layout save/read failed:', error)
@@ -2740,13 +2811,14 @@ class ShortcutsComponent {
         return this.ensureLayoutController().change(patch);
     }
 
-    saveLayoutDebounced(positions) {
-        return this.ensureLayoutController().change({}, positions, { debounce: true });
+    saveLayoutDebounced(positions, identityPositions = {}) {
+        return this.ensureLayoutController().change({}, positions, { debounce: true, identityPositions });
     }
 
     reflowVisibleLayout() {
         this._cancelFreeDrag?.();
         if (this.layout?.autoArrange) return;
+        if (window.LocalItabIdentity?.needs(this.links)) { this.applyLayoutMode(); return; }
         this.initializeMissingPositions();
         this.applyVisibleTransformsFromPositions();
         this.positionAddTile();
@@ -2760,22 +2832,23 @@ class ShortcutsComponent {
         const width = grid.getBoundingClientRect().width;
         const items = Array.from(grid.querySelectorAll('.shortcut-item'))
             .filter(el => !el.classList.contains('add-shortcut') && el.style.display !== 'none')
-            .map(el => ({ el, key: this.getPositionKey(this.links[Number(el.dataset.index)]), rect: el.getBoundingClientRect() }));
+            .map(el => ({ el, link: this.links[Number(el.dataset.index)], key: this.getPositionKey(this.links[Number(el.dataset.index)]), rect: el.getBoundingClientRect() }));
         let bottom = 0;
-        for (const { key, rect } of items) {
-            const position = this.positions[key];
+        for (const { link, rect } of items) {
+            const position = this.getSavedPosition(link);
             if (position) bottom = Math.max(bottom, Math.max(0, position.y) + rect.height);
         }
         let x = 0, y = bottom ? bottom + 16 : 0, rowHeight = 0;
-        const added = {};
-        for (const { key, rect } of items) {
-            if (this.positions[key]) continue;
+        const added = {}, identified = {};
+        for (const { link, key, rect } of items) {
+            if (this.getSavedPosition(link)) continue;
             if (x && x + rect.width > width) { x = 0; y += rowHeight + 16; rowHeight = 0; }
-            added[key] = this.positions[key] = { x, y };
+            this.setSavedPosition(link, this.getCurrentCategory(), { x, y });
+            (link.layoutId ? identified : added)[key] = { x, y };
             x += rect.width + 16;
             rowHeight = Math.max(rowHeight, rect.height);
         }
-        if (persist && Object.keys(added).length) this.saveLayoutDebounced(added);
+        if (persist && (Object.keys(added).length || Object.keys(identified).length)) this.saveLayoutDebounced(added, identified);
     }
 
     // Display-only fitting keeps saved coordinates intact across templates and widths.
@@ -2789,7 +2862,7 @@ class ShortcutsComponent {
             if (el.classList.contains('add-shortcut') || el.style.display === 'none') return;
             const link = this.links[Number(el.dataset.index)];
             if (!link) return;
-            const pos = this.positions[this.getPositionKey(link, currentCategory)];
+            const pos = this.getSavedPosition(link, currentCategory);
             if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
             const rect = el.getBoundingClientRect();
             const x = Math.max(0, Math.min(pos.x, Math.max(0, width - rect.width)));
@@ -2926,7 +2999,7 @@ class ShortcutsComponent {
         
         try {
             // 3. 将重新排序后的数组保存到存储中
-            const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
+            const saved = await this.saveShortcutLinks(this.links, previousLinks, { type: 'reorder', from: draggedIndex, to: dropIndex });
             if (!saved) {
                 throw new Error('Storage write returned false');
             }

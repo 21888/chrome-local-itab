@@ -82,6 +82,8 @@ Priorizar el uso sin conexión significa que la página principal puede funciona
 
 Sincroniza accesos directos y ajustes entre navegadores que usan la misma cuenta de Chrome, según la disponibilidad de la sincronización y sus cuotas de almacenamiento. Las imágenes incrustadas de fondos, carteles e iconos se omiten o se sustituyen por valores predeterminados en los datos sincronizados. Usa la exportación JSON o las instantáneas de Drive si necesitas incluir las imágenes.
 
+Las URL duplicadas pueden tener posiciones independientes sin perder las coordenadas anteriores. Las copias con identidades usan el esquema 2 y requieren una versión actualizada para importarlas. Los clientes antiguos pueden eliminar estos campos; Chrome Sync conserva los datos locales y pide revisión si las copias son incompatibles. Consulta [posiciones independientes, compatibilidad y recuperación](docs/layout-identities.md).
+
 ### Google Drive: instantáneas manuales
 
 - Conecta Google Drive desde Configuración y elige un nombre de equipo para las copias.

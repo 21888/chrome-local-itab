@@ -436,7 +436,7 @@ class DriveBackupManager {
             appProperties: {
                 app: 'local-itab',
                 type: 'backupSnapshot',
-                schemaVersion: '1',
+                schemaVersion: String(payload.schemaVersion || 1),
                 deviceId: state.deviceId,
                 deviceName: state.deviceName,
                 snapshotId,

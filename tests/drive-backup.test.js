@@ -76,6 +76,7 @@ assert.strictEqual(restoredWithLocalProviderState.sync.includeLargeAssets, false
 async function assertSkipSyncSideEffects() {
     const oldChrome = global.chrome;
     let disableRemoteSyncCalled = false;
+    const committed = {};
     let syncInitializationCalled = false;
     const applyManager = new StorageManager();
     applyManager.ensureSyncInitialized = async () => {
@@ -88,7 +89,8 @@ async function assertSkipSyncSideEffects() {
     global.chrome = {
         storage: {
             local: {
-                set: async () => {}
+                get: async () => ({ ...committed }),
+                set: async values => Object.assign(committed, values)
             }
         }
     };
@@ -96,10 +98,13 @@ async function assertSkipSyncSideEffects() {
     const restoredConfig = storage.cloneDefaultConfig();
     restoredConfig.sync = storage.getDisabledSyncConfig();
     try {
-        await applyManager.setAll(restoredConfig, {
+        assert.strictEqual(await applyManager.setAll(restoredConfig, {
             skipSyncSideEffects: true,
             skipSyncInitialization: true
-        });
+        }), true);
+        assert.deepStrictEqual(committed.links, restoredConfig.links);
+        assert.deepStrictEqual(committed.layout, restoredConfig.layout);
+        assert.strictEqual(committed.sync.enabled, false);
         assert.strictEqual(syncInitializationCalled, false);
         assert.strictEqual(disableRemoteSyncCalled, false);
     } finally {

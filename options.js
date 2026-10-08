@@ -5,6 +5,7 @@ const PRIVACY_PERMISSION_ORIGINS = {
 };
 let driveBackupSnapshots = [];
 let driveActionInProgress = false;
+let cloudReplacementInProgress = false;
 
 // Serialize background-only writes while the newest request owns the controls.
 // A rejected operation must not poison the next upload/removal/type-change attempt.
@@ -91,9 +92,13 @@ function setupSettingsTabs() {
 function setupCloudSyncChangeListener() {
     if (!chrome?.storage?.onChanged || !window.storageManager?.syncMetaKey) return;
     chrome.storage.onChanged.addListener(async (changes, areaName) => {
-        if (areaName !== 'sync' || !changes[storageManager.syncMetaKey]) return;
-        if (storageManager.shouldIgnoreRemoteSyncChange?.()) return;
+        if (areaName === 'local' && changes[storageManager.syncIdentityStateKey]) {
+            await renderSyncStatus().catch(error => console.warn('Sync status unavailable:', error));
+            return;
+        }
+        if (areaName !== 'sync' || !Object.keys(changes).some(key => key === storageManager.syncMetaKey || key.startsWith(storageManager.syncChunkPrefix))) return;
         try {
+            if (await storageManager.shouldIgnoreRemoteSyncChange?.(changes)) return;
             const result = await storageManager.pullFromSync();
             if (result?.applied) {
                 showMessage(t('syncRemoteUpdated', '云端设置已更新，正在重新加载...'), 'info');
@@ -592,6 +597,9 @@ function setupEventListeners() {
     }
 
     setupDriveBackupEventListeners();
+    document.getElementById('sync-replace-local')?.addEventListener('click', replaceLocalFromCloud);
+    for (const kind of ['original', 'latest']) document.getElementById(`recovery-${kind}`)?.addEventListener('click', () => downloadRecoveryBackup(kind));
+    renderRecoveryControls().catch(error => console.warn('Recovery status unavailable:', error));
 
     // Chrome cloud sync controls
     const syncToggle = document.getElementById('cloud-sync-enabled');
@@ -610,6 +618,8 @@ function setupEventListeners() {
                     showMessage(t('syncEnableDone', 'Chrome 同步已启用，当前设置已上传。'), 'success');
                     await renderSyncStatus(status);
                 } else {
+                    const current = await storageManager.getSyncStatus();
+                    if (current.compatibilityBlocked && !confirm(t('syncBlockedClearConfirm', 'This removes the conflicting cloud copy and keeps this device. A readable cloud copy must be saved locally for recovery first. Other devices may upload again. Continue?'))) { syncToggle.checked = current.enabled; return; }
                     showMessage(t('syncDisableStart', '正在停用 Chrome 同步...'), 'info');
                     const status = await storageManager.setSyncEnabled(false);
                     showMessage(t('syncDisableDone', '此配置中的 Chrome 同步已停用。'), 'success');
@@ -617,7 +627,7 @@ function setupEventListeners() {
                 }
             } catch (error) {
                 console.error('Cloud sync toggle error:', error);
-                syncToggle.checked = !syncToggle.checked;
+                syncToggle.checked = (await storageManager.getSyncStatus()).enabled;
                 showMessage(t('syncFailed', 'Chrome 同步失败：$1', error.message), 'error');
                 await renderSyncStatus();
             } finally {
@@ -664,7 +674,8 @@ function setupEventListeners() {
 
     if (syncClear) {
         syncClear.addEventListener('click', async () => {
-            if (!confirm(t('syncClearConfirm', '清除 Chrome 同步中的云端副本？本机设置会保留。'))) return;
+            const current = await storageManager.getSyncStatus();
+            if (!confirm(current.compatibilityBlocked ? t('syncBlockedClearConfirm', 'This removes the conflicting cloud copy and keeps this device. A readable cloud copy must be saved locally for recovery first. Other devices may upload again. Continue?') : t('syncClearConfirm', '清除 Chrome 同步中的云端副本？本机设置会保留。'))) return;
             try {
                 showMessage(t('syncClearStart', '正在清除云端副本...'), 'info');
                 const status = await storageManager.clearSync();
@@ -1350,7 +1361,8 @@ async function restoreDriveSnapshot(snapshot) {
         const validatedSettings = storageManager.prepareRestoredConfig(payload, providerState);
         const success = await storageManager.setAll(validatedSettings, {
             skipSyncSideEffects: true,
-            skipSyncInitialization: true
+            skipSyncInitialization: true,
+            confirmedRestore: true
         });
         if (!success) {
             throw new Error(t('driveRestoreSaveFailed', '保存恢复后的设置失败。'));
@@ -1656,7 +1668,7 @@ async function exportSettings() {
             recordCount: itemCounts.shortcuts + itemCounts.hotTopics + (itemCounts.hasBackgroundImage ? 1 : 0) + (itemCounts.hasMoviePoster ? 1 : 0)
         };
         
-        showImportExportFeedback('export', 'success', 'Settings exported.', details);
+        showImportExportFeedback('export', 'success', exportData.schemaVersion === 2 ? t('identityExported', 'Settings exported in schema 2. Import with an updated version that supports independent positions.') : 'Settings exported.', details);
         
     } catch (error) {
         console.error('Error exporting settings:', error);
@@ -1732,7 +1744,7 @@ async function importSettings(file) {
         previewMessage += `• ${importCounts.hotTopics} hot topics\n`;
         if (importCounts.hasBackgroundImage) previewMessage += `• Background image\n`;
         if (importCounts.hasMoviePoster) previewMessage += `• Movie poster\n`;
-        previewMessage += `\nThis cannot be undone. Continue?`;
+        previewMessage += `\n${t('restoreRecoveryConfirm', 'A local recovery backup will be kept before replacing settings. Continue?')}`;
         
         if (!confirm(previewMessage)) {
             showImportExportFeedback('import', 'info', 'Import cancelled by user');
@@ -1742,7 +1754,8 @@ async function importSettings(file) {
         // Save validated settings
         const success = await storageManager.setAll(validatedSettings, {
             skipSyncSideEffects: true,
-            skipSyncInitialization: true
+            skipSyncInitialization: true,
+            confirmedRestore: true
         });
         
         if (success) {
@@ -1887,6 +1900,43 @@ function t(key, fallback, substitutions) {
     }, fallback);
 }
 
+async function renderRecoveryControls() {
+    const available = await storageManager.getRecoveryAvailability?.();
+    const container = document.getElementById('layout-recovery-controls');
+    if (container) container.hidden = !available?.latest;
+    for (const kind of ['original', 'latest']) {
+        const button = document.getElementById(`recovery-${kind}`);
+        if (button) button.disabled = !available?.[kind];
+    }
+}
+
+async function downloadRecoveryBackup(kind) {
+    try {
+        const payload = await storageManager.getRecoveryBackup(kind);
+        const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url; link.download = `local-itab-recovery-${kind}-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+        showMessage(t('recoveryDownloaded', 'Recovery backup downloaded. Use Import Settings to review and restore it.'), 'success');
+    } catch (error) { showMessage(error.message, 'error'); }
+}
+
+async function replaceLocalFromCloud() {
+    if (cloudReplacementInProgress) return;
+    cloudReplacementInProgress = true;
+    const button = document.getElementById('sync-replace-local');
+    if (button) button.disabled = true;
+    try {
+        const expectedRemote = await storageManager.previewCloudReplacement();
+        if (!confirm(t('syncReplaceLocalConfirm', 'Replace this device with the current cloud copy ($1 shortcuts)? Independent positions missing from that copy will be removed. A recovery backup of this device must be saved locally first. Other devices may overwrite the cloud again; update them before continuing.', String(expectedRemote.shortcuts)))) return;
+        await storageManager.pullFromSync({ confirmedReplacement: true, expectedRemote });
+        window.location.reload();
+    } catch (error) {
+        showMessage(t('syncDownloadFailed', 'Download failed: $1', error.message), 'error');
+        await renderSyncStatus();
+    } finally { cloudReplacementInProgress = false; if (button) button.disabled = false; }
+}
+
 async function renderSyncStatus(status = null) {
     const statusElement = document.getElementById('cloud-sync-status');
     if (!statusElement) return;
@@ -1932,6 +1982,13 @@ async function renderSyncStatus(status = null) {
         note.textContent = `${t('localOnlyAssets', '仅本地资源')}: ${omitted.join(', ')}`;
         children.push(note);
     }
+    if (syncStatus.compatibilityBlocked) {
+        const note = document.createElement('div');
+        note.className = 'sync-status-note is-error';
+        note.setAttribute('role', 'status');
+        note.textContent = `${t('syncCompatibilityDetails', 'Sync is paused for compatibility. Local settings and your enabled preference are preserved. Update other devices and retry Download, or explicitly choose which copy to replace.')} ${syncStatus.compatibilityBlocked.reason}`;
+        children.push(note);
+    }
     if (local.lastError) {
         const error = document.createElement('div');
         error.className = 'sync-status-note is-error';
@@ -1953,6 +2010,11 @@ async function renderSyncStatus(status = null) {
             switchHotTopicsTab(hotTopicsSelect.value);
         });
     }
+    const replace = document.getElementById('sync-replace-local');
+    if (replace) { replace.hidden = !syncStatus.compatibilityBlocked; replace.disabled = !syncStatus.available || cloudReplacementInProgress; }
+    const toggle = document.getElementById('cloud-sync-enabled');
+    if (toggle) toggle.checked = syncStatus.enabled;
+    await renderRecoveryControls();
 }
 
 function showMessage(message, type = 'info') {

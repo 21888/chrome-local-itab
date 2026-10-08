@@ -82,6 +82,8 @@ Offline-first means the core page can run locally. When you enable cloud feature
 
 Sync shortcuts and settings between browsers using the same Chrome account, subject to Chrome's sync availability and storage quotas. Embedded background images, posters, and icons are omitted or replaced with defaults in the synced data. Use JSON export or Drive snapshots when you need the images included.
 
+Duplicate URLs can have independent positions without losing legacy coordinates. Identity-bearing backups use schema 2 and require an updated importer. Older clients can strip these fields, so Chrome Sync preserves local data and asks for review when copies are incompatible. See [independent positions, compatibility and recovery](docs/layout-identities.md).
+
 ### Google Drive: manual snapshots
 
 - Connect Google Drive in Settings and choose a computer name for your backups.

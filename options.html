@@ -551,6 +551,7 @@
                                             <span class="btn-icon">↓</span>
                                             <span data-i18n="syncDownloadNow">立即下载</span>
                                         </button>
+                                        <button type="button" id="sync-replace-local" class="btn btn-danger" hidden data-i18n="syncReplaceLocal">Replace this device with cloud copy…</button>
                                         <button type="button" id="sync-clear-cloud" class="btn btn-danger">
                                             <span class="btn-icon">✕</span>
                                             <span data-i18n="syncClearCloud">清除云端副本</span>
@@ -588,6 +589,13 @@
                                     </div>
                                 </div>
                                 <div class="setting-group full-width">
+                                    <div id="layout-recovery-controls" hidden>
+                                        <p class="form-hint" data-i18n="layoutRecoveryDescription">Local recovery copies are kept before independent duplicate placement and before the latest replacement. Export them before Reset, which removes them too. Import a downloaded copy to restore it.</p>
+                                        <div class="data-actions">
+                                            <button type="button" id="recovery-original" class="btn btn-secondary" data-i18n="layoutRecoveryOriginal">Download pre-upgrade backup</button>
+                                            <button type="button" id="recovery-latest" class="btn btn-secondary" data-i18n="layoutRecoveryLatest">Download latest recovery backup</button>
+                                        </div>
+                                    </div>
                                     <div id="storage-info" class="storage-info">
                                         <!-- Storage usage info will be displayed here -->
                                     </div>
@@ -616,6 +624,7 @@
     <!-- Toast notifications -->
     <div id="toast-container" class="toast-container"></div>
     
+    <script src="shared/layout-identity.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="shared/appearance.js"></script>

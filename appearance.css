@@ -146,3 +146,8 @@
   color: var(--template-text);
   background-color: var(--template-surface);
 }
+
+/* Only shown when a local/remote identity conflict needs an explicit decision. */
+:root[data-dashboard-template] #sync-compatibility-notice { display: block; grid-column: 1 / -1; padding: 10px 12px; border: 1px solid var(--template-border); border-radius: 6px; color: var(--template-error); background: var(--template-surface); font-size: 13px; }
+:root[data-dashboard-template] #sync-replace-local[hidden],
+:root[data-dashboard-template] #layout-recovery-controls[hidden] { display: none; }

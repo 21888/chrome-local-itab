@@ -27,6 +27,7 @@
             this.invalidated = !baseline;
             this.patch = {};
             this.positions = {};
+            this.identityPositions = {};
             this.version = 0;
             this.pending = 0;
             this.refreshVersion = 0;
@@ -38,12 +39,13 @@
             this.render(this.confirmed, this.invalidated ? 'reload' : '');
         }
 
-        get modePending() { return this.invalidated || Object.keys(this.patch).length > 0; }
+        get modePending() { return this.invalidated || this.externalHold > 0 || this.identityPending || Object.keys(this.patch).length > 0; }
 
-        change(patch = {}, positions = {}, { debounce = false } = {}) {
+        change(patch = {}, positions = {}, { debounce = false, identityPositions = {} } = {}) {
+            if (this.externalHold > 0 || this.identityPending) return Promise.resolve(false);
             if (this.invalidated) { this.render(this.confirmed, 'reload'); return Promise.resolve(false); }
             const links = clone(this.getLinks ? this.getLinks() : this.links);
-            const hasIntent = Object.keys(this.patch).length || Object.keys(this.positions).length;
+            const hasIntent = Object.keys(this.patch).length || Object.keys(this.positions).length || Object.keys(this.identityPositions).length;
             if (hasIntent && !same(links, this.intentLinks)) {
                 // Never bless pre-CRUD deltas with the initializer's newer list.
                 this.invalidateContext();
@@ -54,6 +56,8 @@
             this.failedChange = null;
             this.patch = { ...this.patch, ...clone(patch) };
             this.positions = { ...this.positions, ...clone(positions) };
+            this.identityPositions = { ...this.identityPositions, ...clone(identityPositions) };
+            this.identityPending = global.LocalItabIdentity?.needs(links) && ({ ...this.confirmed, ...this.patch }).autoArrange === false;
             ++this.version;
             clearTimeout(this.timer);
             this.timer = null;
@@ -72,7 +76,7 @@
 
         retry() {
             if (this.invalidated) { global.location?.reload(); return Promise.resolve(false); }
-            return this.failedChange ? this.change(this.failedChange.patch, this.failedChange.positions) : this.refresh();
+            return this.failedChange ? this.change(this.failedChange.patch, this.failedChange.positions, { identityPositions: this.failedChange.identityPositions }) : this.refresh();
         }
 
         flush() {
@@ -81,8 +85,9 @@
             const version = this.version;
             const patch = clone(this.patch);
             const positions = clone(this.positions);
+            const identityPositions = clone(this.identityPositions);
             const intentLinks = clone(this.intentLinks || this.links);
-            if ((!Object.keys(patch).length && !Object.keys(positions).length) || this.queuedVersion === version) return this.queue;
+            if ((!Object.keys(patch).length && !Object.keys(positions).length && !Object.keys(identityPositions).length) || this.queuedVersion === version) return this.queue;
             this.queuedVersion = version;
             this.pending++;
             const task = this.queue.then(async () => {
@@ -91,21 +96,23 @@
                 try {
                     snapshot = await this.storage.applyLayoutPatch(patch, positions, {
                         layout: clone(this.confirmed), generation: this.generation, links: intentLinks
-                    }, candidate => { this.writing = clone(candidate); });
+                    }, candidate => { this.writing = clone(candidate); }, identityPositions);
                 } finally { this.writing = null; }
                 this.confirmed = clone(snapshot.layout);
                 this.generation = snapshot.generation;
                 this.links = clone(snapshot.links);
+                this.identityPending = false;
                 const candidate = snapshot.layout;
                 if (version === this.version) {
                     this.patch = {};
-                    this.positions = {};
-                    this.onApply(clone(candidate), 'saved');
+                    this.positions = {}; this.identityPositions = {};
+                    this.onApply(clone(candidate), 'saved', clone(snapshot));
                     // Applying a manual mode may initialize missing positions.
                     if (version === this.version) this.render(candidate, 'saved');
                 }
                 return true;
             }).catch(error => {
+                this.identityPending = false;
                 if (error.code === 'LAYOUT_CONTEXT_CHANGED') {
                     if (error.latestLayoutSnapshot) this.adoptSnapshot(error.latestLayoutSnapshot);
                     this.invalidateContext();
@@ -116,10 +123,10 @@
                 if (error.code === 'LAYOUT_CONFLICT') {
                     // This invalidates newer queued intents too: only a deliberate
                     // Retry may rebase their combined patch onto the latest data.
-                    const failedChange = { patch: clone(this.patch), positions: clone(this.positions) };
+                    const failedChange = { patch: clone(this.patch), positions: clone(this.positions), identityPositions: clone(this.identityPositions) };
                     ++this.version;
                     clearTimeout(this.timer); this.timer = null;
-                    this.patch = {}; this.positions = {};
+                    this.patch = {}; this.positions = {}; this.identityPositions = {};
                     this.adoptSnapshot(error.latestLayoutSnapshot);
                     this.failedChange = failedChange;
                     this.externalChange = false;
@@ -130,9 +137,9 @@
                 }
                 if (version === this.version) {
                     this.externalChange = false;
-                    this.failedChange = { patch, positions };
+                    this.failedChange = { patch, positions, identityPositions };
                     this.patch = {};
-                    this.positions = {};
+                    this.positions = {}; this.identityPositions = {};
                     this.onApply(clone(this.confirmed), 'error');
                     this.render(this.confirmed, error.code === 'LAYOUT_LOCK_UNAVAILABLE' ? 'unavailable' : 'error');
                     this.onError(error);
@@ -149,6 +156,23 @@
             return task;
         }
 
+        holdShortcutMutation() {
+            this.externalHold = (this.externalHold || 0) + 1;
+            this.render(this.confirmed, 'saving');
+        }
+
+        adoptOwnShortcutSnapshot(snapshot) {
+            this.adoptSnapshot(snapshot);
+            this.invalidated = false;
+            this.failedChange = null;
+            this.render(this.confirmed, 'saved');
+        }
+
+        releaseShortcutMutation() {
+            this.externalHold = Math.max(0, (this.externalHold || 0) - 1);
+            if (!this.externalHold && this.externalChange) { this.externalChange = false; this.refresh(); }
+        }
+
         adoptSnapshot(snapshot) {
             this.confirmed = clone(snapshot.layout);
             this.generation = snapshot.generation;
@@ -159,7 +183,7 @@
             ++this.version;
             clearTimeout(this.timer); this.timer = null;
             this.invalidated = true;
-            this.patch = {}; this.positions = {}; this.failedChange = null;
+            this.patch = {}; this.positions = {}; this.identityPositions = {}; this.failedChange = null;
             this.externalChange = false;
             this.onApply(clone(this.confirmed), 'error');
             this.render(this.confirmed, 'reload');
@@ -222,7 +246,7 @@
         host.append(label, status, retry);
         controller.render = (value, state) => {
             select.value = mode(value);
-            select.disabled = state === 'reload';
+            select.disabled = state === 'reload' || controller.identityPending || controller.externalHold > 0;
             retry.hidden = !['error', 'conflict', 'reload', 'unavailable'].includes(state);
             retry.textContent = state === 'reload' ? translate('layoutReload', 'Reload page') : translate('layoutRetry', 'Retry save');
             host.setAttribute('aria-busy', String(state === 'saving'));

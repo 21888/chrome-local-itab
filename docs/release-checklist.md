@@ -13,6 +13,7 @@ Use this before packaging a public build.
 - Chrome Sync shares supported settings and shortcuts, excluding or replacing embedded background, poster, and shortcut image data. Drive snapshots include those configured local images, but not the separate favicon cache.
 - Drive requires Google authorization. Verify connect, list/refresh, upload, download, restore, delete, and old-snapshot cleanup against the documented network behavior.
 - Drive snapshots contain the documented configuration and device/snapshot metadata, with Chrome Sync state replaced by disabled defaults. There is no scheduled automatic Drive backup; a confirmed restore first attempts a safety upload and asks whether to proceed if that fails.
+- Test duplicate-URL independent placement, edit/reorder/delete/reload, schema-2 manual/Drive roundtrips, legacy restore recovery, and visible mixed-version Sync blocking. Update other devices before enabling identity-bearing Sync; see [layout identity compatibility](layout-identities.md). Exercise explicit replacement/cancel and recovery-download paths with synthetic data.
 - Empty shortcuts, invalid custom search URL, failed favicon fetch, import errors, and sync quota errors show actionable messages.
 
 ## Permissions
