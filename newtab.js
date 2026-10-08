@@ -282,7 +282,7 @@ async function initializeDashboard() {
 
 
         if (config.show.shortcuts) {
-            initializeShortcutsComponent(config.links, config.layout, config.categories);
+            initializeShortcutsComponent(config.links, config.layout, config.categories, config._layoutBaseline);
         }
 
         initializeLocalInfoCards(config);
@@ -1003,12 +1003,12 @@ class ClockComponent {
 
 
 
-function initializeShortcutsComponent(linksConfig, layoutConfig, categoriesConfig) {
+function initializeShortcutsComponent(linksConfig, layoutConfig, categoriesConfig, layoutBaseline) {
     const shortcutsContainer = document.getElementById('shortcuts-container');
     if (!shortcutsContainer) return;
 
     // Create shortcuts component
-    const shortcutsComponent = new ShortcutsComponent(linksConfig, layoutConfig, categoriesConfig);
+    const shortcutsComponent = new ShortcutsComponent(linksConfig, layoutConfig, categoriesConfig, layoutBaseline);
     shortcutsComponent.render();
     window.addEventListener('resize', () => {
         if (!shortcutsComponent.layout.autoArrange) {
@@ -1416,7 +1416,8 @@ function setDashboardHidden(hidden) {
  * Handles shortcuts grid display and CRUD operations
  */
 class ShortcutsComponent {
-    constructor(links, layout, categories = []) {
+    constructor(links, layout, categories = [], layoutBaseline) {
+        this.layoutBaseline = layoutBaseline;
         this.links = links || [];
         this.categories = categories;
         this.container = document.getElementById('shortcuts-container');
@@ -2702,6 +2703,8 @@ class ShortcutsComponent {
         if (!this.layoutController) {
             this.layoutController = new window.LocalItabLayout.Controller({
                 initial: this.layout,
+                baseline: this.layoutBaseline,
+                getLinks: () => this.links,
                 onApply: (layout, state) => {
                     const keepGesture = state === 'saved' && this._cancelFreeDrag &&
                         ['autoArrange', 'alignToGrid', 'columns', 'gridSize'].every(key => layout[key] === this.layout[key]);

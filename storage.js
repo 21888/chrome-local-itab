@@ -6,6 +6,7 @@
 class StorageManager {
     constructor() {
         this.syncMetaKey = '__localItabSyncMeta';
+        this.layoutGenerationKey = '__localItabLayoutGeneration';
         this.syncChunkPrefix = '__localItabSyncData_';
         this.syncMaxChunks = 20;
         this.syncTotalBudget = 98000;
@@ -169,7 +170,10 @@ class StorageManager {
     }
 
     async writeLocalValues(values, options = {}) {
-        if (!Object.prototype.hasOwnProperty.call(values, 'links')) {
+        const has = key => Object.prototype.hasOwnProperty.call(values, key);
+        const replacesLayout = has('layout') || (has('links') && !Object.prototype.hasOwnProperty.call(options, 'expectedLinks'));
+        const checksCategories = has('categories');
+        if (!has('links') && !replacesLayout && !checksCategories) {
             return chrome.storage.local.set(values);
         }
         const guarded = Object.prototype.hasOwnProperty.call(options, 'expectedLinks');
@@ -189,7 +193,14 @@ class StorageManager {
                     throw error;
                 }
             }
-            return chrome.storage.local.set(values);
+            let invalidatesLayout = replacesLayout;
+            if (!invalidatesLayout && checksCategories) {
+                const stored = await chrome.storage.local.get(['categories']);
+                const previous = this.validateCategoriesConfig(stored.categories ?? this.defaultConfig.categories);
+                invalidatesLayout = JSON.stringify(previous) !== JSON.stringify(values.categories);
+            }
+            const written = invalidatesLayout ? { ...values, [this.layoutGenerationKey]: this.createLayoutGeneration() } : values;
+            return chrome.storage.local.set(written);
         }, guarded);
     }
 
@@ -236,7 +247,11 @@ class StorageManager {
     // Mutation reads must never turn unavailable/corrupt data into a default.
     async getLayoutForUpdate() {
         const raw = await chrome.storage.local.get(['layout']);
-        const value = raw.layout === undefined ? this.defaultConfig.layout : raw.layout;
+        return this.validateStoredLayout(raw.layout);
+    }
+
+    validateStoredLayout(raw) {
+        const value = raw === undefined ? this.defaultConfig.layout : raw;
         const object = entry => entry !== null && typeof entry === 'object' && !Array.isArray(entry);
         if (!object(value) || (value.positions !== undefined && !object(value.positions)) ||
             ['autoArrange', 'alignToGrid'].some(key => value[key] !== undefined && typeof value[key] !== 'boolean') ||
@@ -245,6 +260,88 @@ class StorageManager {
             throw new Error('Stored layout settings are invalid.');
         }
         return JSON.parse(JSON.stringify(this.validateLayoutConfig(value)));
+    }
+
+    createLayoutGeneration() {
+        return globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    readLayoutGeneration(raw) {
+        const value = raw[this.layoutGenerationKey];
+        if (value === undefined) return null; // Successful legacy read, no migration.
+        if (typeof value !== 'string' || !value.length) throw new Error('Stored layout generation is invalid.');
+        return value;
+    }
+
+    layoutSnapshot(raw) {
+        const rawLinks = raw.links === undefined ? this.defaultConfig.links : raw.links;
+        const links = this.validateLinksConfig(rawLinks);
+        if (links.length !== rawLinks.length) throw new Error('Stored shortcuts are invalid.');
+        return JSON.parse(JSON.stringify({
+            layout: this.validateStoredLayout(raw.layout),
+            generation: this.readLayoutGeneration(raw), links
+        }));
+    }
+
+    async getLayoutSnapshotForUpdate({ underLock = false } = {}) {
+        const read = async () => this.layoutSnapshot(await chrome.storage.local.get(['layout', 'links', this.layoutGenerationKey]));
+        return underLock ? read() : this.withLocalWriteLock(read);
+    }
+
+    async applyLayoutPatch(patch, positions, expected, onWrite = () => {}) {
+        // Copy before async initialization/lock acquisition. Provider work must
+        // stay outside the shared local lock because sync may replace all data.
+        const copy = value => JSON.parse(JSON.stringify(value));
+        patch = copy(patch); positions = copy(positions); expected = copy(expected);
+        if (!expected || !Object.prototype.hasOwnProperty.call(expected, 'generation') || !Array.isArray(expected.links)) {
+            throw new Error('A trusted layout baseline is required.');
+        }
+        const expectedLinks = this.validateLinksConfig(expected.links);
+        if (expectedLinks.length !== expected.links.length) throw new Error('Invalid expected shortcut list.');
+        expected.links = expectedLinks;
+        const fields = ['autoArrange', 'alignToGrid', 'gridSize', 'columns'];
+        if (Object.keys(patch).some(key => !fields.includes(key))) throw new Error('Invalid layout patch.');
+        this.validateStoredLayout({ ...patch, positions });
+        await this.ensureSyncInitialized();
+        let result;
+        try {
+            result = await this.withLocalWriteLock(async () => {
+                const latest = await this.getLayoutSnapshotForUpdate({ underLock: true });
+                const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+                const conflict = code => {
+                    const error = new Error(code === 'LAYOUT_CONTEXT_CHANGED' ? 'Page data changed. Reload before arranging shortcuts.' : 'Layout changed in another page. Review and retry your change.');
+                    error.code = code;
+                    error.latestLayoutSnapshot = latest;
+                    throw error;
+                };
+                if (expected.generation !== latest.generation || !same(expected.links, latest.links)) conflict('LAYOUT_CONTEXT_CHANGED');
+                const candidate = this.validateLayoutConfig({ ...latest.layout, ...patch, positions: { ...latest.layout.positions, ...positions } });
+                const desired = this.validateLayoutConfig({ ...expected.layout, ...patch });
+                if ('autoArrange' in patch || 'alignToGrid' in patch) {
+                    const pair = value => [value.autoArrange, value.alignToGrid];
+                    if (!same(pair(latest.layout), pair(expected.layout)) && !same(pair(latest.layout), pair(desired))) conflict('LAYOUT_CONFLICT');
+                }
+                for (const key of ['columns', 'gridSize']) {
+                    if (key in patch && latest.layout[key] !== expected.layout[key] && latest.layout[key] !== desired[key]) conflict('LAYOUT_CONFLICT');
+                }
+                for (const [key, value] of Object.entries(positions)) {
+                    const samePoint = (a, b) => a === b || (a && b && a.x === b.x && a.y === b.y);
+                    if (!samePoint(latest.layout.positions[key], expected.layout.positions[key]) && !samePoint(latest.layout.positions[key], value)) conflict('LAYOUT_CONFLICT');
+                }
+                onWrite(copy(candidate));
+                await chrome.storage.local.set({ layout: copy(candidate) });
+                return { ...latest, layout: candidate };
+            }, true);
+        } catch (error) {
+            if (error.code === 'LINKS_LOCK_UNAVAILABLE') error.code = 'LAYOUT_LOCK_UNAVAILABLE';
+            throw error;
+        }
+        // A post-commit sync problem must not falsely roll back a successful
+        // local layout. The sync module owns its separate status/recovery.
+        try {
+            if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush();
+        } catch (error) { console.warn('Layout saved locally; sync scheduling failed:', error); }
+        return copy(result);
     }
 
     // Mutation recovery must distinguish a failed read from a missing setting.
@@ -264,9 +361,19 @@ class StorageManager {
     async getAll() {
         try {
             await this.ensureSyncInitialized();
-            const result = await chrome.storage.local.get(null);
+            const result = await this.withLocalWriteLock(() => chrome.storage.local.get(null));
 
-            return this.validateConfigObject(result);
+            const config = this.validateConfigObject(result);
+            // Kept out of JSON/spreads/backups. An absent property after a failed
+            // read is distinct from a successful legacy baseline with no token.
+            try {
+                Object.defineProperty(config, '_layoutBaseline', { value: this.layoutSnapshot(result) });
+            } catch (error) {
+                // Do not replace otherwise readable configuration merely because
+                // its layout cannot authorize a safe write. Controls fail closed.
+                console.warn('Layout baseline unavailable:', error);
+            }
+            return config;
         } catch (error) {
             console.error('Storage getAll error:', error);
             return { ...this.defaultConfig };
@@ -322,7 +429,13 @@ class StorageManager {
         try {
             const current = await chrome.storage.local.get(['sync']);
             const wasSyncing = current.sync?.enabled === true;
-            await this.withLocalWriteLock(() => chrome.storage.local.clear());
+            await this.withLocalWriteLock(async () => {
+                const stored = await chrome.storage.local.get(null);
+                // Preserve a new generation while removing data. If set fails,
+                // do not clear; if removal fails, old pages are still invalidated.
+                await chrome.storage.local.set({ [this.layoutGenerationKey]: this.createLayoutGeneration() });
+                await chrome.storage.local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey));
+            });
             if (wasSyncing) {
                 await this.disableRemoteSync();
             }

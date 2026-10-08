@@ -6,15 +6,25 @@
     const flags = value => value === 'grid' ? { autoArrange: true } :
         value === 'free' ? { autoArrange: false, alignToGrid: false } :
             value === 'snap' ? { autoArrange: false, alignToGrid: true } : null;
-    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const same = (a, b) => {
+        if (a === b) return true;
+        if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+        const keys = Object.keys(a);
+        return Array.isArray(a) === Array.isArray(b) && keys.length === Object.keys(b).length &&
+            keys.every(key => Object.prototype.hasOwnProperty.call(b, key) && same(a[key], b[key]));
+    };
     const translate = (key, fallback) => global.i18n?.t(key) || fallback;
 
-    // One page's layout intents are ordered here. Strict reads merge only changed
-    // fields/position keys; this is not an atomic cross-tab layout transaction.
+    // Page-local ownership orders intents; StorageManager atomically checks and
+    // merges their captured baselines under the shared origin write lock.
     class Controller {
-        constructor({ storage = global.storageManager, initial, render = () => {}, onApply = () => {}, onError = () => {} }) {
+        constructor({ storage = global.storageManager, initial, baseline, getLinks, render = () => {}, onApply = () => {}, onError = () => {} }) {
             this.storage = storage;
             this.confirmed = clone(storage.validateLayoutConfig(initial || storage.defaultConfig.layout));
+            this.generation = baseline?.generation;
+            this.links = clone(baseline?.links || []);
+            this.getLinks = getLinks;
+            this.invalidated = !baseline;
             this.patch = {};
             this.positions = {};
             this.version = 0;
@@ -25,12 +35,21 @@
             this.render = render;
             this.onApply = onApply;
             this.onError = onError;
-            this.render(this.confirmed, '');
+            this.render(this.confirmed, this.invalidated ? 'reload' : '');
         }
 
-        get modePending() { return Object.keys(this.patch).length > 0; }
+        get modePending() { return this.invalidated || Object.keys(this.patch).length > 0; }
 
         change(patch = {}, positions = {}, { debounce = false } = {}) {
+            if (this.invalidated) { this.render(this.confirmed, 'reload'); return Promise.resolve(false); }
+            const links = clone(this.getLinks ? this.getLinks() : this.links);
+            const hasIntent = Object.keys(this.patch).length || Object.keys(this.positions).length;
+            if (hasIntent && !same(links, this.intentLinks)) {
+                // Never bless pre-CRUD deltas with the initializer's newer list.
+                this.invalidateContext();
+                return Promise.resolve(false);
+            }
+            if (!hasIntent) this.intentLinks = links;
             // Inputs are copied before yielding: callers can keep dragging safely.
             this.failedChange = null;
             this.patch = { ...this.patch, ...clone(patch) };
@@ -52,6 +71,7 @@
         }
 
         retry() {
+            if (this.invalidated) { global.location?.reload(); return Promise.resolve(false); }
             return this.failedChange ? this.change(this.failedChange.patch, this.failedChange.positions) : this.refresh();
         }
 
@@ -61,22 +81,22 @@
             const version = this.version;
             const patch = clone(this.patch);
             const positions = clone(this.positions);
+            const intentLinks = clone(this.intentLinks || this.links);
             if ((!Object.keys(patch).length && !Object.keys(positions).length) || this.queuedVersion === version) return this.queue;
             this.queuedVersion = version;
             this.pending++;
             const task = this.queue.then(async () => {
                 if (version !== this.version) return false;
-                const previous = await this.storage.getLayoutForUpdate();
-                this.confirmed = clone(previous);
-                if (version !== this.version) return false;
-                const candidate = this.storage.validateLayoutConfig({ ...previous, ...patch, positions: { ...previous.positions, ...positions } });
-                this.writing = clone(candidate);
+                let snapshot;
                 try {
-                    if (!(await this.storage.set('layout', clone(candidate)))) throw new Error('Layout save failed');
-                } finally {
-                    this.writing = null;
-                }
-                this.confirmed = clone(candidate);
+                    snapshot = await this.storage.applyLayoutPatch(patch, positions, {
+                        layout: clone(this.confirmed), generation: this.generation, links: intentLinks
+                    }, candidate => { this.writing = clone(candidate); });
+                } finally { this.writing = null; }
+                this.confirmed = clone(snapshot.layout);
+                this.generation = snapshot.generation;
+                this.links = clone(snapshot.links);
+                const candidate = snapshot.layout;
                 if (version === this.version) {
                     this.patch = {};
                     this.positions = {};
@@ -86,12 +106,35 @@
                 }
                 return true;
             }).catch(error => {
+                if (error.code === 'LAYOUT_CONTEXT_CHANGED') {
+                    if (error.latestLayoutSnapshot) this.adoptSnapshot(error.latestLayoutSnapshot);
+                    this.invalidateContext();
+                    this.onError(error);
+                    return false;
+                }
+                if (error.code === 'LAYOUT_CONFLICT' && this.invalidated) { this.render(this.confirmed, 'reload'); return false; }
+                if (error.code === 'LAYOUT_CONFLICT') {
+                    // This invalidates newer queued intents too: only a deliberate
+                    // Retry may rebase their combined patch onto the latest data.
+                    const failedChange = { patch: clone(this.patch), positions: clone(this.positions) };
+                    ++this.version;
+                    clearTimeout(this.timer); this.timer = null;
+                    this.patch = {}; this.positions = {};
+                    this.adoptSnapshot(error.latestLayoutSnapshot);
+                    this.failedChange = failedChange;
+                    this.externalChange = false;
+                    this.onApply(clone(this.confirmed), 'error');
+                    this.render(this.confirmed, 'conflict');
+                    this.onError(error);
+                    return false;
+                }
                 if (version === this.version) {
+                    this.externalChange = false;
                     this.failedChange = { patch, positions };
                     this.patch = {};
                     this.positions = {};
                     this.onApply(clone(this.confirmed), 'error');
-                    this.render(this.confirmed, 'error');
+                    this.render(this.confirmed, error.code === 'LAYOUT_LOCK_UNAVAILABLE' ? 'unavailable' : 'error');
                     this.onError(error);
                 }
                 return false;
@@ -106,15 +149,38 @@
             return task;
         }
 
+        adoptSnapshot(snapshot) {
+            this.confirmed = clone(snapshot.layout);
+            this.generation = snapshot.generation;
+            this.links = clone(snapshot.links);
+        }
+
+        invalidateContext() {
+            ++this.version;
+            clearTimeout(this.timer); this.timer = null;
+            this.invalidated = true;
+            this.patch = {}; this.positions = {}; this.failedChange = null;
+            this.externalChange = false;
+            this.onApply(clone(this.confirmed), 'error');
+            this.render(this.confirmed, 'reload');
+        }
+
         async refresh() {
+            if (this.invalidated) return;
             if (this.pending || this.timer || this.modePending) { this.externalChange = true; return; }
             const version = this.version;
             const refreshVersion = ++this.refreshVersion;
             try {
-                const value = await this.storage.getLayoutForUpdate();
+                const snapshot = await this.storage.getLayoutSnapshotForUpdate();
+                const value = snapshot.layout;
                 if (this.pending || this.timer || version !== this.version || refreshVersion !== this.refreshVersion) return;
+                if (snapshot.generation !== this.generation || (this.getLinks && !same(snapshot.links, this.getLinks()))) {
+                    this.adoptSnapshot(snapshot);
+                    this.invalidateContext();
+                    return;
+                }
                 this.failedChange = null;
-                this.confirmed = clone(value);
+                this.adoptSnapshot(snapshot);
                 this.onApply(clone(value), '');
                 if (version === this.version) this.render(value, '');
             } catch (error) {
@@ -156,16 +222,21 @@
         host.append(label, status, retry);
         controller.render = (value, state) => {
             select.value = mode(value);
-            retry.hidden = state !== 'error';
+            select.disabled = state === 'reload';
+            retry.hidden = !['error', 'conflict', 'reload', 'unavailable'].includes(state);
+            retry.textContent = state === 'reload' ? translate('layoutReload', 'Reload page') : translate('layoutRetry', 'Retry save');
             host.setAttribute('aria-busy', String(state === 'saving'));
             host.dataset.saveState = state;
             status.textContent = state === 'saving' ? translate('layoutSaving', 'Saving…') :
                 state === 'saved' ? translate('layoutSaved', 'Saved') :
-                    state === 'error' ? translate('layoutSaveFailed', 'Could not save layout. Please try again.') : '';
-            if (columns) { columns.value = value.columns; columns.disabled = mode(value) !== 'grid'; }
-            if (gridSize) { gridSize.value = value.gridSize; gridSize.disabled = mode(value) !== 'snap'; }
+                    state === 'conflict' ? translate('layoutChangedElsewhere', 'Layout changed in another page. Review it, then retry your change.') :
+                        state === 'reload' ? translate('layoutContextChanged', 'Page data changed or could not be read safely. Reload before arranging shortcuts.') :
+                            state === 'unavailable' ? translate('layoutSavingUnavailable', 'Safe layout saving is unavailable. Update Chrome and reload this page.') :
+                                state === 'error' ? translate('layoutSaveFailed', 'Could not save layout. Please try again.') : '';
+            if (columns) { columns.value = value.columns; columns.disabled = state === 'reload' || mode(value) !== 'grid'; }
+            if (gridSize) { gridSize.value = value.gridSize; gridSize.disabled = state === 'reload' || mode(value) !== 'snap'; }
         };
-        controller.render(controller.confirmed, '');
+        controller.render(controller.confirmed, controller.invalidated ? 'reload' : '');
         select.addEventListener('change', () => onSelect ? onSelect(select.value) : controller.select(select.value));
         for (const [field, input] of [['columns', columns], ['gridSize', gridSize]]) {
             input?.addEventListener('change', () => {
@@ -182,6 +253,7 @@
             // Own notifications can arrive before set() resolves or after it.
             // Do not let them erase a later failure or reinitialize failed keys.
             const value = changes.layout?.newValue;
+            if (area === 'local' && changes[controller.storage.layoutGenerationKey]) { controller.refresh(); return; }
             if (area === 'local' && changes.layout && !(controller.writing && same(value, controller.writing)) && !same(value, controller.confirmed)) controller.refresh();
         });
     }

@@ -369,6 +369,7 @@ async function populateFormFields(config) {
         else {
             window.layoutController = new window.LocalItabLayout.Controller({
                 initial: config.layout,
+                baseline: config._layoutBaseline,
                 onError: error => console.warn('Layout save/read failed:', error)
             });
             window.LocalItabLayout.mount(document.getElementById('options-layout'), window.layoutController, {
@@ -1428,7 +1429,8 @@ async function resetAllSettings() {
         showMessage('Resetting settings...', 'info');
         
         // Clear all storage
-        await storageManager.clear();
+        const cleared = await storageManager.clear();
+        if (!cleared) throw new Error('Settings could not be reset. Please try again.');
         
         // Reload the page to show defaults
         window.location.reload();

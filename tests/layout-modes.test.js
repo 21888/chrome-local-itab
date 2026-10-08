@@ -19,11 +19,19 @@ function controllerHarness(initial = baseline) {
     const storage = new StorageManager();
     storage.getLayoutForUpdate = async () => clone(data.layout);
     storage.set = async (key, value) => { writes.push(clone(value)); data[key] = clone(value); return true; };
+    storage.getLayoutSnapshotForUpdate = async () => ({ layout: await storage.getLayoutForUpdate(), generation: null, links: [] });
+    storage.applyLayoutPatch = async (patch, positions, expected, onWrite) => {
+        const previous = await storage.getLayoutForUpdate();
+        const value = storage.validateLayoutConfig({ ...previous, ...patch, positions: { ...previous.positions, ...positions } });
+        onWrite(value);
+        if (!(await storage.set('layout', value))) throw new Error('Layout save failed');
+        return { layout: value, generation: null, links: [] };
+    };
     const context = { window: {}, console, setTimeout(fn) { timers.set(++timerId, fn); return timerId; }, clearTimeout(id) { timers.delete(id); } };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync('shared/layout.js', 'utf8'), context);
     const api = context.window.LocalItabLayout;
-    const controller = new api.Controller({ storage, initial, render: (value, state) => states.push({ value: clone(value), state }), onApply: (value, state) => paints.push({ value: clone(value), state }), onError: error => errors.push(error) });
+    const controller = new api.Controller({ storage, initial, baseline: { generation: null, links: [] }, render: (value, state) => states.push({ value: clone(value), state }), onApply: (value, state) => paints.push({ value: clone(value), state }), onError: error => errors.push(error) });
     return { api, context, data, controller, storage, writes, paints, states, errors, timers };
 }
 function dashboardHarness(initial = baseline) {
@@ -42,6 +50,15 @@ function dashboardHarness(initial = baseline) {
     });
     Object.assign(h.context.window, { document: h.document, storageManager: h.storageManager, chrome: { storage: { onChanged: { addListener(fn) { events.push(fn); } } } } });
     vm.runInContext(fs.readFileSync('shared/layout.js', 'utf8'), h.context);
+    h.storageManager.getLayoutSnapshotForUpdate = async () => ({ layout: await h.storageManager.getLayoutForUpdate(), generation: null, links: clone(h.component.links) });
+    h.storageManager.applyLayoutPatch = async (patch, positions, expected, onWrite) => {
+        const previous = await h.storageManager.getLayoutForUpdate();
+        const value = h.storageManager.validateLayoutConfig({ ...previous, ...patch, positions: { ...previous.positions, ...positions } });
+        onWrite(value);
+        if (!(await h.storageManager.set('layout', value))) throw new Error('Layout save failed');
+        return { layout: value, generation: null, links: clone(h.component.links) };
+    };
+    h.component.layoutBaseline = { generation: null, links: clone(h.component.links) };
     h.component.layout = clone(initial); h.component.positions = h.component.layout.positions;
     h.component.applyLayoutMode = h.context.ShortcutsComponent.prototype.applyLayoutMode;
     h.component.reflowVisibleLayout = h.context.ShortcutsComponent.prototype.reflowVisibleLayout;
@@ -168,7 +185,7 @@ function dashboardHarness(initial = baseline) {
         const old = h.controller.select('snap'); await tick();
         const latest = h.controller.select('grid'); gate.resolve();
         await old; await latest;
-        assert.equal(h.writes.length, 1); assert.equal(h.paints.length, 1);
+        assert.equal(h.writes.length, 2); assert.equal(h.paints.length, 1);
         assert.equal(h.data.layout.autoArrange, true);
     }
     {

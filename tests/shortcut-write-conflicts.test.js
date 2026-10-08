@@ -37,7 +37,7 @@ function createComponent(storage, initialLinks) {
     const reset = value => { state = { links: clone(value) }; writes = 0; linkReads = 0; readError = false; writeError = false; onRead = null; };
     global.chrome = { storage: { local: {
         async get(keys) {
-            if (keys.includes('links')) {
+            if (keys === null || keys.includes('links')) {
                 linkReads++;
                 if (readError) throw new Error('storage read unavailable');
                 const snapshot = clone(state);
@@ -47,7 +47,8 @@ function createComponent(storage, initialLinks) {
             return { sync: state.sync };
         },
         async set(values) { if (writeError) throw new Error('storage write unavailable'); writes++; Object.assign(state, clone(values)); },
-        async clear() { writes++; state = {}; }
+        async clear() { writes++; state = {}; },
+        async remove(keys) { for (const key of keys) delete state[key]; }
     } } };
     Object.defineProperty(global, 'navigator', { configurable: true, value: { locks: createLocks() } });
     console.error = () => {};

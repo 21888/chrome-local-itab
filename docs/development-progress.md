@@ -113,8 +113,18 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Native selects now inherit the selected palette and give both controls and option/optgroup rows the same opaque semantic foreground/background pair. No custom menu, selection, persistence or keyboard behavior is introduced.
 - Verification: all fifteen Node files and syntax/JSON/whitespace checks pass. Source regressions require both native control/option rules, and all six template/palette foreground/background pairs exceed 4.5:1 contrast. These checks do not claim operating-system popup rendering; the targeted native recheck remains pending on the corrected runtime.
 
+## Protect layout deltas across open pages · 2026-10-08
+
+- Layout mutations now acquire the same origin-wide local-write lock as shortcut replacement, restore and reset. The authoritative read, conflict check, independent-field/position merge and write stay inside that lock. Unrelated accepted deltas survive; conflicting same-key edits and the paired placement flags require an explicit Retry against the latest visible layout.
+- Each intent retains a trusted layout/list baseline. A private local generation invalidates older pages after full layout/shortcut replacement, actual category changes and reset, including byte-identical restores. Guarded ordinary shortcut edits use an exact expected-list check instead of changing that generation. A pending old drag cannot be silently relabeled with an Add initializer's newer list.
+- Replacements and stale shortcut lists drop affected queued intents and require Reload before further layout changes, so a stale dashboard cannot write positions for removed/replaced records. Earlier own successful writes advance the baseline for newer same-page intents. Storage notifications do not mistake an in-progress local Add for a remote replacement.
+- Bootstrap/refresh reads share the lock. Reset preserves a new generation before removing the other local keys, and failures never erase the old generation before invalidation is established. A failed reset reports an error instead of reloading as if successful. A failed initial read cannot authorize writes from fallback defaults; an unreadable layout baseline does not discard otherwise readable settings.
+- The generation stays outside the configuration/backup schema; the initial baseline is non-enumerable and tied to the same read as the displayed configuration. Legacy records need no migration, and JSON/Drive backups plus Chrome Sync omit local coordination metadata. Unchanged category settings do not invalidate an unrelated Save Settings.
+- Verification: sixteen Node test files, JavaScript syntax, manifest/locale JSON and whitespace checks pass, plus independent adversarial source/model review. Deterministic tests hold real storage methods inside simulated shared locks to cover independent/same-key writes, mode pairs, queued ownership, missing locks, corrupt/read/write failures, restore/sync/reset interleavings, partial reset failures, readers paused between reset steps, stale Add and failed Delete paths, exact fractional coordinates, and backup metadata exclusion.
+- Native multi-page event/rendering verification remains pending. Guarantees apply within the same supported Chrome extension origin/storage partition, not across profiles; saved duplicate-URL position identity is unchanged. The earlier Grid/Free page-local limitation is superseded by this bounded locked transaction path.
+
 ## Confirmed next priorities
 
 - Complete the remaining integrated native A/B/C visual checks and address confirmed defects in separate commits.
 - Complete native Grid/Free visible-control smoke and export comparison, then refresh README screenshots against the published runtime.
-- Add separate cross-tab layout compare-and-swap protection.
+- Complete native multi-page layout conflict smoke and the responsive settings-header correction found during visual review.

@@ -1,4 +1,8 @@
 {
+	"layoutReload": {"message": "重新加载页面"},
+	"layoutChangedElsewhere": {"message": "布局已在其他页面中更改。请查看最新布局，再重试你的更改。"},
+	"layoutContextChanged": {"message": "页面数据已更改或无法安全读取。请重新加载后再调整布局。"},
+	"layoutSavingUnavailable": {"message": "当前无法安全保存布局。请更新 Chrome 并重新加载此页面。"},
 	"layoutRetry": {"message": "重试保存"},
 	"placementMode": {"message": "摆放模式"},
 	"placementGrid": {"message": "网格（默认）"},

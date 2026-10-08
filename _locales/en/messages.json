@@ -1,4 +1,8 @@
 {
+	"layoutReload": {"message": "Reload page"},
+	"layoutChangedElsewhere": {"message": "Layout changed in another page. Review it, then retry your change."},
+	"layoutContextChanged": {"message": "Page data changed or could not be read safely. Reload before arranging shortcuts."},
+	"layoutSavingUnavailable": {"message": "Safe layout saving is unavailable. Update Chrome and reload this page."},
 	"layoutRetry": {"message": "Retry save"},
 	"placementMode": {"message": "Placement"},
 	"placementGrid": {"message": "Grid (default)"},
