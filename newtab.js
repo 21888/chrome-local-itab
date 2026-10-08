@@ -1488,6 +1488,7 @@ class ShortcutsComponent {
     render() {
         this._cancelFreeDrag?.();
         if (!this.container) return;
+        this.finderView?.destroy();
 
         const grid = document.createElement('div');
         grid.className = 'shortcuts-grid';
@@ -1513,6 +1514,7 @@ class ShortcutsComponent {
             });
         }
         this.container.replaceChildren(header, grid);
+        this.finderView = window.LocalItabFinder?.mountForShortcuts(header, this);
         this.updateCollectionVisibility();
 
         this.attachEventListeners();
@@ -1817,12 +1819,19 @@ class ShortcutsComponent {
      * Open shortcut URL
      */
     openShortcut(index) {
-        if (index >= 0 && index < this.links.length) {
-            const link = this.links[index];
-            try {
-                window.open(normalizeHttpUrl(link.url), '_blank');
-            } catch (_) {}
-        }
+        if (index >= 0 && index < this.links.length) this.openShortcutRecord(this.links[index]);
+    }
+
+    openShortcutRecord(link, reservedTab = null) {
+        try {
+            const url = normalizeHttpUrl(link.url);
+            if (!url) return false;
+            if (reservedTab) {
+                if (reservedTab.closed) return false;
+                reservedTab.location.replace(url);
+            } else window.open(url, '_blank');
+            return true;
+        } catch (_) { return false; }
     }
 
     async saveShortcutLinks(next, previous, operation) {

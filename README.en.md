@@ -146,3 +146,7 @@ The existing project documentation identifies the license as MIT. A separate `LI
 ## Local Tasks
 
 Enable the optional, empty-by-default Tasks card in module visibility settings. Add/edit/complete tasks, pin one next action and recover removed items. Tasks stay on this device; settings exports, Chrome Sync and Drive backups exclude all task content and recovery copies. Settings reset/import/restore preserve Tasks. Use the separate task export/import for backup and migration. [Task guide](docs/local-tasks.en.md).
+
+## Find saved sites
+
+Use the local shortcut finder to search saved titles, addresses and categories without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).
