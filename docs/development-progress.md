@@ -107,6 +107,12 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Verification: fifteen Node test files, all JavaScript syntax checks, manifest/locale JSON parsing and whitespace checks pass. Focused and independent DOM/storage-model checks cover legacy flag combinations/backups, repeated mode/template/category cycles, actual-size initialization, exact unsnapped fractional drops at four grid sizes, click/jitter/cancel, pending and superseded saves, read/write failure, visible retry, reload snapshots and newer-gesture ownership.
 - Native verification of the new visible controls remains pending on this runtime; model tests are not a browser-rendering claim. The inherited duplicate-URL position-key limitation and cross-tab layout compare-and-swap remain separate follow-ons; a fresh read plus a page-local queue is not cross-tab atomic protection. Save status stays pending until persistence finishes, and a page hidden/closing requests a best-effort debounce flush.
 
+## Keep native select menus readable in every palette · 2026-10-08
+
+- Native testing on the template runtime found nearly invisible unselected options in the dark Background Type popup. Settings used a translucent select background without an explicit matching option surface. The shared rules now cover settings and dashboard controls consistently.
+- Native selects now inherit the selected palette and give both controls and option/optgroup rows the same opaque semantic foreground/background pair. No custom menu, selection, persistence or keyboard behavior is introduced.
+- Verification: all fifteen Node files and syntax/JSON/whitespace checks pass. Source regressions require both native control/option rules, and all six template/palette foreground/background pairs exceed 4.5:1 contrast. These checks do not claim operating-system popup rendering; the targeted native recheck remains pending on the corrected runtime.
+
 ## Confirmed next priorities
 
 - Complete the remaining integrated native A/B/C visual checks and address confirmed defects in separate commits.

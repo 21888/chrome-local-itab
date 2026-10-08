@@ -19,6 +19,23 @@ assert.match(paletteCss, /color-scheme: light;\s*--overlay-color: rgba\(245, 247
 assert.match(paletteCss, /color-scheme: dark;\s*--overlay-color: rgba\(16, 19, 20, \.85\)/);
 
 
+// Source/token regression only; actual native popup painting has a separate
+// browser check because operating-system menus are not represented by this DOM.
+assert.match(paletteCss, /:root\[data-dashboard-template\] select\s*\{\s*color-scheme: inherit;\s*color: var\(--template-text\);\s*background-color: var\(--template-surface\);/);
+assert.match(paletteCss, /:root\[data-dashboard-template\] select :is\(option, optgroup\)\s*\{\s*color: var\(--template-text\);\s*background-color: var\(--template-surface\);/);
+const luminance = hex => hex.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16) / 255)
+    .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4)
+    .reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+const paletteRules = [...paletteCss.matchAll(/:root\[data-dashboard-template[^{}]+\{([^}]+)\}/g)]
+    .filter(match => match[1].includes('--template-text:') && match[1].includes('--template-surface:'));
+assert.equal(paletteRules.length, 6);
+for (const [, body] of paletteRules) {
+    const foreground = luminance(body.match(/--template-text: (#[a-f0-9]+);/i)[1]);
+    const background = luminance(body.match(/--template-surface: (#[a-f0-9]+);/i)[1]);
+    assert((Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05) >= 4.5);
+}
+
+
 (async () => {
     const h = createHarness(links);
     h.component.categories = [{ id: 'work', name: 'Work' }, { id: 'social', name: 'Social' }, { id: 'empty', name: 'Empty' }];

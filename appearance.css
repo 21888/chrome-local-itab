@@ -134,3 +134,15 @@
 :root[data-dashboard-template] #layout-settings input:disabled { opacity: .5; }
 :root[data-dashboard-template] .layout-retry { min-height: 32px; border: 1px solid var(--template-border); border-radius: 6px; padding: 5px 10px; color: var(--template-text); background: var(--template-surface); font: inherit; font-size: 12px; cursor: pointer; }
 :root[data-dashboard-template] .layout-retry[hidden] { display: none; }
+
+/* Native popup menus may not inherit a select's translucent surface. Give both
+ * controls and option rows an opaque matching pair in every template/palette. */
+:root[data-dashboard-template] select {
+  color-scheme: inherit;
+  color: var(--template-text);
+  background-color: var(--template-surface);
+}
+:root[data-dashboard-template] select :is(option, optgroup) {
+  color: var(--template-text);
+  background-color: var(--template-surface);
+}
