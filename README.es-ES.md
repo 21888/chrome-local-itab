@@ -10,25 +10,45 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
-<img width="640" height="400" alt="Vista previa de la interfaz de Local iTab 1" src="https://github.com/user-attachments/assets/f072e511-7ded-45da-9cd5-4725efd4cd28" />
+Capturas de la extensión real en inglés con la misma configuración de ejemplo y categorías en chino. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
+
+**A / Clarity · Claro · Cuadrícula**
+
+![Plantilla Clarity clara de Local iTab con accesos por categorías, búsqueda y reloj](docs/screenshots/clarity-light-grid.png)
+
+**B / Graphite · Oscuro · Grupos por categoría**
+
+![Plantilla Graphite oscura de Local iTab con accesos agrupados por categoría](docs/screenshots/graphite-dark-grid.png)
+
+**C / Folio · Claro · Grupos por categoría**
+
+![Plantilla Folio clara de Local iTab con los primeros dos grupos y tarjetas de tiempo y temas de ejemplo](docs/screenshots/folio-light-grid.png)
 
 <details>
-<summary>Más capturas (4)</summary>
+<summary>Más variantes claras y oscuras y disposición libre (4 capturas)</summary>
 
-<img width="640" height="400" alt="Vista previa de la interfaz de Local iTab 2" src="https://github.com/user-attachments/assets/74106bd6-98f8-4ac1-8328-02f2323687ec" />
+**A / Clarity · Oscuro · Cuadrícula**
 
-<img width="640" height="400" alt="Vista previa de la interfaz de Local iTab 3" src="https://github.com/user-attachments/assets/d020a9a6-6971-48f0-9abd-10da306d5731" />
+![Plantilla Clarity oscura de Local iTab con la misma configuración de ejemplo](docs/screenshots/clarity-dark-grid.png)
 
-<img width="640" height="400" alt="Vista previa de la interfaz de Local iTab 4" src="https://github.com/user-attachments/assets/56076d9f-9d46-4fde-bff7-0f104512d889" />
+**B / Graphite · Claro · Grupos por categoría**
 
-<img width="640" height="400" alt="Vista previa de la interfaz de Local iTab 5" src="https://github.com/user-attachments/assets/26868e31-a6f5-4811-a1d1-730755638a3d" />
+![Plantilla Graphite clara de Local iTab con accesos agrupados por categoría](docs/screenshots/graphite-light-grid.png)
+
+**C / Folio · Oscuro · Grupos por categoría**
+
+![Plantilla Folio oscura de Local iTab con los primeros dos grupos y tarjetas de tiempo y temas de ejemplo](docs/screenshots/folio-dark-grid.png)
+
+**A / Clarity · Claro · Disposición libre sin ajuste a la cuadrícula**
+
+![Disposición libre de Clarity clara tras arrastrar GitHub, con el estado guardado visible](docs/screenshots/free-layout.png)
 
 </details>
 
 ## Funciones
 
 - **Buscar y navegar**: Usa Google, Bing, DuckDuckGo o una URL de búsqueda personalizada, o abre un sitio directamente. En una plantilla personalizada, `%s` representa el término de búsqueda; por ejemplo, `https://example.com/search?q=%s`.
-- **Accesos directos organizados**: Añade, edita y elimina sitios; filtra por categoría; arrastra para reordenar o usa la colocación libre con ajuste opcional a la cuadrícula. El menú contextual incluye acciones para cada acceso y una opción para abrir todos los sitios de una categoría.
+- **Accesos directos organizados**: Añade, edita y elimina sitios; filtra por categoría; elige Cuadrícula (predeterminada, con reordenación al arrastrar), colocación libre (sin ajuste) o colocación manual con ajuste a la cuadrícula desde la página principal o Configuración. Cambiar de modo conserva las posiciones guardadas. El menú contextual incluye acciones para cada acceso y una opción para abrir todos los sitios de una categoría.
 - **Tres plantillas de trabajo**: A / Clarity, B / Graphite y C / Folio ofrecen colores claros y oscuros. Las instalaciones nuevas usan A/claro; los temas anteriores se conservan con una apariencia inicial compatible. La selección se guarda al instante sin cambiar sitios, categorías, fondos, modo de colocación ni coordenadas guardadas. B/C agrupan las categorías reales en cuadrícula; la colocación manual mantiene un único plano de coordenadas.
 - **Diseño a tu gusto**: Usa el fondo de la plantilla, un color sólido o una imagen local. Ajusta las columnas, el espaciado, los iconos y los títulos, y muestra u oculta cada módulo.
 - **Tarjetas locales sencillas**: Reloj, tiempo, temas de interés, película y una frase personal. Las tarjetas de tiempo, temas y películas se rellenan manualmente y están ocultas de forma predeterminada; no obtienen datos en tiempo real.
@@ -44,7 +64,7 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 Después de actualizar el código, pulsa **Recargar** en la página de extensiones y actualiza las páginas de nueva pestaña y Configuración que tengas abiertas. Exporta una copia antes de desinstalar la extensión o borrar sus datos.
 
-Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simultáneas de accesos directos también utiliza `navigator.locks`; si la API necesaria no está disponible, la escritura falla y se muestra un error.
+Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simultáneas de accesos directos y de su colocación también utiliza `navigator.locks`; si la API necesaria no está disponible, estas escrituras fallan y se muestra un error.
 
 ## Datos, privacidad y conexiones de red
 

@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "publishedRuntimeRevision": "9ce9ccc5eb958607a6d0f59d0c0c143ce2da9f71",
+  "capturedSourceRevision": "eafb2b0d840aebb4977c4cece0b9a8d9e465ae67",
+  "identicalRuntimeTree": "d17cd2d634885db58bd8d5b8e460bed716b1ba08",
+  "captureMethod": "Chrome for Testing DevTools device toolbar: Responsive 1366×768, Desktop, DPR 1; menu → Capture screenshot (not Capture full size screenshot); original downloaded PNG copied unchanged.",
+  "browser": "Google Chrome for Testing 155.0.8059.39",
+  "pixelProcessing": "None. Repository PNGs are byte-for-byte copies of native downloaded captures; no crops, resizing, composition, or image edits.",
+  "scope": "Fixed 1366×768 viewport captures, not full-page captures. Content below the viewport continues by scrolling.",
+  "interfaceLanguage": "English",
+  "sampleConfiguration": {
+    "kind": "Synthetic illustrative configuration with 18 public-site shortcuts and four Chinese categories",
+    "icons": "Original locally generated PNG monograms; no external icon downloads",
+    "cards": "Manually entered sample weather, topics, and movie content; not live feeds",
+    "search": "Normal saved Google provider, never submitted during capture",
+    "onlineFavicons": false,
+    "chromeSync": false,
+    "googleDriveAuthorized": false,
+    "exampleWebsitesVisited": false,
+    "fixtureSha256": "687f293fd43dd37b3f5d279d0681c2c2ec4af1a1de887cf2af92893847013565"
+  },
+  "files": [
+    {
+      "file": "clarity-light-grid.png",
+      "template": "clarity",
+      "colorMode": "light",
+      "layoutMode": "defaultGrid",
+      "viewportCssPx": [
+        1366,
+        768
+      ],
+      "imagePixels": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "sha256": "a3cf3d5fcc29a94cd823c4106580807c129a9a5a02fadadaf11c6fb13bb57c38",
+      "bytes": 132650,
+      "caption": {
+        "README.md": "A「澄明」· 浅色 · 网格布局",
+        "README.en.md": "A / Clarity · Light · Grid layout",
+        "README.es-ES.md": "A / Clarity · Claro · Cuadrícula"
+      },
+      "altText": {
+        "README.md": "Local iTab A 澄明浅色模版：分类快捷方式、搜索与时钟",
+        "README.en.md": "Local iTab Clarity light template with sample categorized shortcuts, search, and clock",
+        "README.es-ES.md": "Plantilla Clarity clara de Local iTab con accesos por categorías, búsqueda y reloj"
+      },
+      "visibleContent": "All 18 shortcut identities in the first viewport; naturally continuing content is below the fold"
+    },
+    {
+      "file": "clarity-dark-grid.png",
+      "template": "clarity",
+      "colorMode": "dark",
+      "layoutMode": "defaultGrid",
+      "viewportCssPx": [
+        1366,
+        768
+      ],
+      "imagePixels": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "sha256": "58d50048c7fcfb984013d654a08fa6579da0cee18c21d532ca27a6c46c8dd56f",
+      "bytes": 125341,
+      "caption": {
+        "README.md": "A「澄明」· 深色 · 网格布局",
+        "README.en.md": "A / Clarity · Dark · Grid layout",
+        "README.es-ES.md": "A / Clarity · Oscuro · Cuadrícula"
+      },
+      "altText": {
+        "README.md": "Local iTab A 澄明深色模版：同一份示例配置",
+        "README.en.md": "Local iTab Clarity dark template using the same sample setup",
+        "README.es-ES.md": "Plantilla Clarity oscura de Local iTab con la misma configuración de ejemplo"
+      },
+      "visibleContent": "All 18 shortcut identities in the first viewport; naturally continuing content is below the fold"
+    },
+    {
+      "file": "graphite-light-grid.png",
+      "template": "graphite",
+      "colorMode": "light",
+      "layoutMode": "defaultGrid",
+      "viewportCssPx": [
+        1366,
+        768
+      ],
+      "imagePixels": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "sha256": "9a7ed37772c118922499bc20ab030a5d62f4d52cf0d94c29624f9176c25d0e5f",
+      "bytes": 109630,
+      "caption": {
+        "README.md": "B「墨序」· 浅色 · 按分类网格展示",
+        "README.en.md": "B / Graphite · Light · Category groups",
+        "README.es-ES.md": "B / Graphite · Claro · Grupos por categoría"
+      },
+      "altText": {
+        "README.md": "Local iTab B 墨序浅色模版：快捷方式按真实分类分组",
+        "README.en.md": "Local iTab Graphite light template with shortcuts grouped by their categories",
+        "README.es-ES.md": "Plantilla Graphite clara de Local iTab con accesos agrupados por categoría"
+      },
+      "visibleContent": "All 18 shortcuts in four category groups"
+    },
+    {
+      "file": "graphite-dark-grid.png",
+      "template": "graphite",
+      "colorMode": "dark",
+      "layoutMode": "defaultGrid",
+      "viewportCssPx": [
+        1366,
+        768
+      ],
+      "imagePixels": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "sha256": "2b093cf4b5fe991fc9d70b1099ae2fd9a7d140a3f258c4dfdf4cf7c6b0970074",
+      "bytes": 107138,
+      "caption": {
+        "README.md": "B「墨序」· 深色 · 按分类网格展示",
+        "README.en.md": "B / Graphite · Dark · Category groups",
+        "README.es-ES.md": "B / Graphite · Oscuro · Grupos por categoría"
+      },
+      "altText": {
+        "README.md": "Local iTab B 墨序深色模版：快捷方式按真实分类分组",
+        "README.en.md": "Local iTab Graphite dark template with shortcuts grouped by their categories",
+        "README.es-ES.md": "Plantilla Graphite oscura de Local iTab con accesos agrupados por categoría"
+      },
+      "visibleContent": "All 18 shortcut identities in the first viewport; naturally continuing content is below the fold"
+    },
+    {
+      "file": "folio-light-grid.png",
+      "template": "folio",
+      "colorMode": "light",
+      "layoutMode": "defaultGrid",
+      "viewportCssPx": [
+        1366,
+        768
+      ],
+      "imagePixels": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "sha256": "cfe58ceaf92c5550a1d26cb893465924035159745b253cf796982b9b93d672d7",
+      "bytes": 126764,
+      "caption": {
+        "README.md": "C「拾页」· 浅色 · 按分类网格展示",
+        "README.en.md": "C / Folio · Light · Category groups",
+        "README.es-ES.md": "C / Folio · Claro · Grupos por categoría"
+      },
+      "altText": {
+        "README.md": "Local iTab C 拾页浅色模版：首屏两个分类分组及示例天气、热榜卡片",
+        "README.en.md": "Local iTab Folio light template showing the first two category groups and sample weather and topics cards",
+        "README.es-ES.md": "Plantilla Folio clara de Local iTab con los primeros dos grupos y tarjetas de tiempo y temas de ejemplo"
+      },
+      "visibleContent": "First two category groups and manually entered sample weather/topics cards; remaining groups and movie card are below the fold"
+    },
+    {
+      "file": "folio-dark-grid.png",
+      "template": "folio",
+      "colorMode": "dark",
+      "layoutMode": "defaultGrid",
+      "viewportCssPx": [
+        1366,
+        768
+      ],
+      "imagePixels": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "sha256": "d333f77d919777db59a4745535650c52643c0d49a6dbf0a108cb0ad7da2a3a55",
+      "bytes": 124932,
+      "caption": {
+        "README.md": "C「拾页」· 深色 · 按分类网格展示",
+        "README.en.md": "C / Folio · Dark · Category groups",
+        "README.es-ES.md": "C / Folio · Oscuro · Grupos por categoría"
+      },
+      "altText": {
+        "README.md": "Local iTab C 拾页深色模版：首屏两个分类分组及示例天气、热榜卡片",
+        "README.en.md": "Local iTab Folio dark template showing the first two category groups and sample weather and topics cards",
+        "README.es-ES.md": "Plantilla Folio oscura de Local iTab con los primeros dos grupos y tarjetas de tiempo y temas de ejemplo"
+      },
+      "visibleContent": "First two category groups and manually entered sample weather/topics cards; remaining groups and movie card are below the fold"
+    },
+    {
+      "file": "free-layout.png",
+      "template": "clarity",
+      "colorMode": "light",
+      "layoutMode": "unsnappedFree",
+      "viewportCssPx": [
+        1366,
+        768
+      ],
+      "imagePixels": [
+        1366,
+        768
+      ],
+      "devicePixelRatio": 1,
+      "sha256": "f5924c1fa8fbcbf5aaa86da518b7366f7b34bbfbd1ab725195ad6e34b7618b3b",
+      "bytes": 123066,
+      "caption": {
+        "README.md": "A「澄明」· 浅色 · 自由布局（不吸附网格）",
+        "README.en.md": "A / Clarity · Light · Free layout without grid snapping",
+        "README.es-ES.md": "A / Clarity · Claro · Disposición libre sin ajuste a la cuadrícula"
+      },
+      "altText": {
+        "README.md": "Local iTab A 澄明浅色自由布局：GitHub 拖动后的位置与已保存状态",
+        "README.en.md": "Local iTab Clarity light Free layout after dragging GitHub, with Saved status visible",
+        "README.es-ES.md": "Disposición libre de Clarity clara tras arrastrar GitHub, con el estado guardado visible"
+      },
+      "visibleContent": "Clarity/light Free placement after a real GitHub shortcut drag to the right end, with Saved status visible"
+    }
+  ]
+}

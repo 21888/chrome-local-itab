@@ -10,25 +10,45 @@
 
 ## 界面预览
 
-<img width="640" height="400" alt="Local iTab 界面预览 1" src="https://github.com/user-attachments/assets/f072e511-7ded-45da-9cd5-4725efd4cd28" />
+以下为真实扩展截图（英文界面），使用同一份中文示例配置。网站选择、图标与卡片内容仅作展示；天气、热榜和电影卡片均为手动填写的示例，不是实时数据。
+
+**A「澄明」· 浅色 · 网格布局**
+
+![Local iTab A 澄明浅色模版：分类快捷方式、搜索与时钟](docs/screenshots/clarity-light-grid.png)
+
+**B「墨序」· 深色 · 按分类网格展示**
+
+![Local iTab B 墨序深色模版：快捷方式按真实分类分组](docs/screenshots/graphite-dark-grid.png)
+
+**C「拾页」· 浅色 · 按分类网格展示**
+
+![Local iTab C 拾页浅色模版：首屏两个分类分组及示例天气、热榜卡片](docs/screenshots/folio-light-grid.png)
 
 <details>
-<summary>更多截图（4 张）</summary>
+<summary>更多明暗外观与自由布局（4 张）</summary>
 
-<img width="640" height="400" alt="Local iTab 界面预览 2" src="https://github.com/user-attachments/assets/74106bd6-98f8-4ac1-8328-02f2323687ec" />
+**A「澄明」· 深色 · 网格布局**
 
-<img width="640" height="400" alt="Local iTab 界面预览 3" src="https://github.com/user-attachments/assets/d020a9a6-6971-48f0-9abd-10da306d5731" />
+![Local iTab A 澄明深色模版：同一份示例配置](docs/screenshots/clarity-dark-grid.png)
 
-<img width="640" height="400" alt="Local iTab 界面预览 4" src="https://github.com/user-attachments/assets/56076d9f-9d46-4fde-bff7-0f104512d889" />
+**B「墨序」· 浅色 · 按分类网格展示**
 
-<img width="640" height="400" alt="Local iTab 界面预览 5" src="https://github.com/user-attachments/assets/26868e31-a6f5-4811-a1d1-730755638a3d" />
+![Local iTab B 墨序浅色模版：快捷方式按真实分类分组](docs/screenshots/graphite-light-grid.png)
+
+**C「拾页」· 深色 · 按分类网格展示**
+
+![Local iTab C 拾页深色模版：首屏两个分类分组及示例天气、热榜卡片](docs/screenshots/folio-dark-grid.png)
+
+**A「澄明」· 浅色 · 自由布局（不吸附网格）**
+
+![Local iTab A 澄明浅色自由布局：GitHub 拖动后的位置与已保存状态](docs/screenshots/free-layout.png)
 
 </details>
 
 ## 主要功能
 
 - **搜索与直达**：支持 Google、Bing、DuckDuckGo 和自定义搜索地址，也可以直接打开网址。自定义模板可用 `%s` 表示关键词，例如 `https://example.com/search?q=%s`。
-- **分类快捷方式**：添加、编辑、删除常用网站，按分类筛选；支持拖拽排序、自由布局和网格对齐。右键菜单提供网站操作及打开分类内全部网站的入口。
+- **分类快捷方式**：添加、编辑、删除常用网站，按分类筛选；首页与设置可选网格（默认，可拖拽排序）、自由摆放（不吸附网格）或手动吸附网格；切换保留已保存的位置。右键菜单提供网站操作及打开分类内全部网站的入口。
 - **三种工作台模版**：A「澄明」、B「墨序」、C「拾页」均可选择浅色或深色。新安装默认 A / 浅色；旧配置保留原主题记录，并按已有明暗选择兼容显示。模版即时保存，切换不改动网站、分类、背景、布局模式或已保存坐标。B/C 在网格模式下按真实分类展示，自由布局仍使用同一个坐标平面。
 - **按习惯调整外观**：使用模版背景、纯色或本地背景图片，调整列数、间距、图标和标题样式，按需显示或隐藏模块。
 - **轻量本地卡片**：时钟、天气、热榜、电影和一句话。天气、热榜、电影内容由你手动维护，默认隐藏，不会自动获取实时数据。
@@ -44,7 +64,7 @@
 
 更新源码后，在扩展管理页点击「重新加载」，再刷新已打开的新标签页和设置页。卸载扩展或清理数据前，请先导出备份。
 
-运行环境为支持 Manifest V3 的 Chrome。快捷方式的并发写入保护还使用 `navigator.locks`；相关浏览器 API 不可用时，写入会失败并显示错误。
+运行环境为支持 Manifest V3 的 Chrome。快捷方式与布局的并发写入保护还使用 `navigator.locks`；相关浏览器 API 不可用时，这些写入会失败并显示错误。
 
 ## 数据、隐私与联网行为
 

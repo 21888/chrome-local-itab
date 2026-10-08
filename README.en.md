@@ -10,25 +10,45 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
-<img width="640" height="400" alt="Local iTab interface preview 1" src="https://github.com/user-attachments/assets/f072e511-7ded-45da-9cd5-4725efd4cd28" />
+Real extension screenshots with the English interface and the same sample setup, including Chinese category names. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
+
+**A / Clarity · Light · Grid layout**
+
+![Local iTab Clarity light template with sample categorized shortcuts, search, and clock](docs/screenshots/clarity-light-grid.png)
+
+**B / Graphite · Dark · Category groups**
+
+![Local iTab Graphite dark template with shortcuts grouped by their categories](docs/screenshots/graphite-dark-grid.png)
+
+**C / Folio · Light · Category groups**
+
+![Local iTab Folio light template showing the first two category groups and sample weather and topics cards](docs/screenshots/folio-light-grid.png)
 
 <details>
-<summary>More screenshots (4)</summary>
+<summary>More light/dark variants and Free layout (4 screenshots)</summary>
 
-<img width="640" height="400" alt="Local iTab interface preview 2" src="https://github.com/user-attachments/assets/74106bd6-98f8-4ac1-8328-02f2323687ec" />
+**A / Clarity · Dark · Grid layout**
 
-<img width="640" height="400" alt="Local iTab interface preview 3" src="https://github.com/user-attachments/assets/d020a9a6-6971-48f0-9abd-10da306d5731" />
+![Local iTab Clarity dark template using the same sample setup](docs/screenshots/clarity-dark-grid.png)
 
-<img width="640" height="400" alt="Local iTab interface preview 4" src="https://github.com/user-attachments/assets/56076d9f-9d46-4fde-bff7-0f104512d889" />
+**B / Graphite · Light · Category groups**
 
-<img width="640" height="400" alt="Local iTab interface preview 5" src="https://github.com/user-attachments/assets/26868e31-a6f5-4811-a1d1-730755638a3d" />
+![Local iTab Graphite light template with shortcuts grouped by their categories](docs/screenshots/graphite-light-grid.png)
+
+**C / Folio · Dark · Category groups**
+
+![Local iTab Folio dark template showing the first two category groups and sample weather and topics cards](docs/screenshots/folio-dark-grid.png)
+
+**A / Clarity · Light · Free layout without grid snapping**
+
+![Local iTab Clarity light Free layout after dragging GitHub, with Saved status visible](docs/screenshots/free-layout.png)
 
 </details>
 
 ## Features
 
 - **Search and go**: Use Google, Bing, DuckDuckGo, or a custom search URL, or open a website directly. Use `%s` for the search term in a custom template, such as `https://example.com/search?q=%s`.
-- **Organized shortcuts**: Add, edit, and delete saved websites; filter by category; drag to reorder or use free placement with optional grid snapping. The context menu includes shortcut actions and an option to open every website in a category.
+- **Organized shortcuts**: Add, edit, and delete saved websites; filter by category; choose Grid (default, with drag reordering), Free placement (no snapping), or Manual · snap to grid using the Placement selector on the dashboard or in Settings. Switching keeps saved positions. The context menu includes shortcut actions and an option to open every website in a category.
 - **Three workspace templates**: A / Clarity, B / Graphite, and C / Folio each support light and dark colors. New installations use A/light; legacy theme records remain intact with a compatible initial color choice. Selections save immediately without changing sites, categories, backgrounds, arrangement mode, or stored coordinates. B/C group real categories in Grid; manual layouts retain one coordinate plane.
 - **Your layout and appearance**: Use the template background, a solid color, or a local image. Adjust columns, spacing, icons, and titles, and show or hide individual modules.
 - **Small local cards**: A clock, weather, topics, a movie, and a personal quote. Weather, topic, and movie cards are manually maintained and hidden by default; they do not fetch live feeds.
@@ -44,7 +64,7 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 After updating the source, click **Reload** on the extension management page, then refresh any open new tab and Settings pages. Export a backup before uninstalling the extension or clearing its data.
 
-Use Chrome with Manifest V3 support. Shortcut write-conflict protection also relies on `navigator.locks`; if the required browser API is unavailable, writes fail with an error.
+Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protection also relies on `navigator.locks`; if the required browser API is unavailable, those writes fail with an error.
 
 ## Data, privacy, and network behavior
 
