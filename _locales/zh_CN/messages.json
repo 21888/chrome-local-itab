@@ -1,4 +1,7 @@
 {
+	"shortcutsChangedElsewhere": { "message": "快捷方式已在其他标签页中更改，列表已刷新。请重试。" },
+	"shortcutDraftConflict": { "message": "快捷方式已在其他标签页中更改。未保存的内容仍在表单中；如有需要请先复制，再关闭并重新打开快捷方式重试。" },
+	"shortcutSavingUnavailable": { "message": "当前无法安全保存快捷方式。请更新 Chrome 并重新打开此页面后重试。" },
 	"appName": { "message": "Local iTab" },
 	"appDescription": { "message": "隐私优先的本地新标签页，包含搜索、快捷方式与可选在线增强。" },
 	"newTabTitle": { "message": "新标签页" },

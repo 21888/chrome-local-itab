@@ -29,8 +29,16 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Centralized mutation filtering, removing redundant form/starter filtering; normal category changes still reflow free layout.
 - Verification: `tests/category-mutations.test.js` covers delete/reorder success, rejected writes and thrown writes across Work, Social, All and empty categories; deleting the last visible shortcut; and filter-before-layout ordering. All six Node suites and static checks passed (DOM-model coverage, no browser claim).
 
+## Guard shortcut writes across tabs · 2026-10-08
+
+- Dashboard mutations compare the caller's shortcut snapshot with an authoritative storage read while holding one origin-wide Web Lock. Stale tabs refresh instead of resurrecting deleted items or overwriting edits.
+- Local full replacement, reset, and sync application share the same short local-write lock. Existing remote work stays outside it. Ordinary settings saves no longer write an untouched shortcut snapshot.
+- Conflicting edit drafts remain visible, with Save disabled until the editor is reopened so an old array index cannot edit a different shortcut. Failed starter-set transactions roll back and can be retried.
+- API assumption: a supported Chrome extension page exposes `navigator.locks`; guarded shortcut saves fail safely if it is unavailable. Web Locks coordinate the same origin/storage partition ([specification](https://www.w3.org/TR/web-locks/)); no claim of cross-profile coordination is made.
+- Verification: seven Node suites pass. Deterministic simulated locks hold one tab between read/write and verify that a second tab, full replacement, and reset cannot interleave. Coverage includes stale delete/reorder/starter, retry, read/write failures, corrupt stored data, valid empty lists, unsupported locks, and retained edit drafts. Actual native multi-tab/browser verification remains pending.
+
 ## Confirmed next priorities
 
-- Prevent stale tabs or pending saves from overwriting newer shortcut data.
-- Restore starter-set retry after storage failure; correct fragment-only search templates.
+- Isolate pending save completion from a subsequently reopened editor.
+- Correct fragment-only search templates.
 - Prevent free-layout clicks from moving a shortcut without a drag.

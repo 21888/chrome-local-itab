@@ -1,4 +1,7 @@
 {
+	"shortcutsChangedElsewhere": { "message": "Shortcuts changed in another tab. The list has been refreshed. Please try again." },
+	"shortcutDraftConflict": { "message": "Shortcuts changed in another tab. Your draft is still here; copy it if needed, then close and reopen the shortcut to retry." },
+	"shortcutSavingUnavailable": { "message": "Safe shortcut saving is unavailable. Update Chrome and reopen this page to retry." },
 	"appName": { "message": "Local iTab" },
 	"appDescription": { "message": "Private local-first new tab with search, shortcuts, and opt-in online enhancements." },
 	"newTabTitle": { "message": "New Tab" },

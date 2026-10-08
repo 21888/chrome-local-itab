@@ -154,19 +154,57 @@ class StorageManager {
         }
     }
 
+    // Serialize writes that can replace the shortcut list within this extension origin.
+    async withLocalWriteLock(operation, required = false) {
+        if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+            return navigator.locks.request('local-itab-local-write', operation);
+        }
+        if (required) {
+            const error = new Error('Safe shortcut saving is unavailable in this browser.');
+            error.code = 'LINKS_LOCK_UNAVAILABLE';
+            throw error;
+        }
+        return operation();
+    }
+
+    async writeLocalValues(values, options = {}) {
+        if (!Object.prototype.hasOwnProperty.call(values, 'links')) {
+            return chrome.storage.local.set(values);
+        }
+        const guarded = Object.prototype.hasOwnProperty.call(options, 'expectedLinks');
+        return this.withLocalWriteLock(async () => {
+            if (guarded) {
+                // Read authoritative storage directly: read errors must never be
+                // treated as an empty list and overwrite recoverable local data.
+                const stored = await chrome.storage.local.get(['links']);
+                const rawLinks = stored.links === undefined ? [] : stored.links;
+                const latestLinks = this.validateLinksConfig(rawLinks);
+                if (latestLinks.length !== rawLinks.length) throw new Error('Stored shortcuts are invalid; export a backup before repairing them.');
+                const expectedLinks = this.validateLinksConfig(options.expectedLinks);
+                if (JSON.stringify(latestLinks) !== JSON.stringify(expectedLinks)) {
+                    const error = new Error('Shortcuts changed in another tab. Reopen the shortcut and try again.');
+                    error.code = 'LINKS_CONFLICT';
+                    error.latestLinks = latestLinks;
+                    throw error;
+                }
+            }
+            return chrome.storage.local.set(values);
+        }, guarded);
+    }
+
     /**
      * Set a value in storage with validation
      * @param {string} key - Storage key
      * @param {*} value - Value to store
      * @returns {Promise<boolean>} - Success status
      */
-    async set(key, value) {
+    async set(key, value, options = {}) {
         try {
-            await this.ensureSyncInitialized();
-            // Validate the data before storing
+            // Snapshot the caller value before yielding to another mutation.
             const validatedValue = this.validateData(key, value);
+            await this.ensureSyncInitialized();
 
-            await chrome.storage.local.set({ [key]: validatedValue });
+            await this.writeLocalValues({ [key]: validatedValue }, options);
 
             if (!this._isApplyingSync) {
                 if (key === 'sync') {
@@ -182,6 +220,7 @@ class StorageManager {
 
             return true;
         } catch (error) {
+            if (error.code === 'LINKS_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE') throw error;
             console.error(`Storage set error for key "${key}":`, error);
             
             // Handle quota exceeded error
@@ -236,7 +275,7 @@ class StorageManager {
                 validatedData[key] = this.validateData(key, value);
             }
 
-            await chrome.storage.local.set(validatedData);
+            await this.writeLocalValues(validatedData);
 
             if (!this._isApplyingSync && !options.skipSyncSideEffects) {
                 const syncEnabled = validatedData.sync?.enabled || await this.isSyncEnabledLocally();
@@ -267,7 +306,7 @@ class StorageManager {
         try {
             const current = await chrome.storage.local.get(['sync']);
             const wasSyncing = current.sync?.enabled === true;
-            await chrome.storage.local.clear();
+            await this.withLocalWriteLock(() => chrome.storage.local.clear());
             if (wasSyncing) {
                 await this.disableRemoteSync();
             }
@@ -611,7 +650,7 @@ class StorageManager {
 
                 this._isApplyingSync = true;
                 try {
-                    await chrome.storage.local.set(validated);
+                    await this.writeLocalValues(validated);
                 } finally {
                     this._isApplyingSync = false;
                 }
@@ -772,7 +811,7 @@ class StorageManager {
 
         this._isApplyingSync = true;
         try {
-            await chrome.storage.local.set(validated);
+            await this.writeLocalValues(validated);
         } finally {
             this._isApplyingSync = false;
         }

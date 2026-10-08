@@ -1545,8 +1545,7 @@ async function collectFormData() {
     const quote = document.getElementById('quote-text')?.value || 'Welcome to your personalized new tab page!';
     settings.quote = quote;
     
-    // Get existing data for fields not managed in options page
-    settings.links = existingConfig.links;
+    // Shortcuts are edited on the dashboard; do not write a stale copy here.
 
     // Layout settings
     const existingLayout = existingConfig.layout || {};

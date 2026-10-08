@@ -1399,6 +1399,7 @@ class ShortcutsComponent {
         this._dragMoved = false;
         this._dragStartPos = null;
         this._isSaving = false;
+        this._hasShortcutConflict = false;
     }
 
     /**
@@ -1614,6 +1615,7 @@ class ShortcutsComponent {
 
     async createStarterSet() {
         if (this.links.length) return;
+        const previousLinks = this.links.map(link => ({ ...link }));
         this.links = [
             { title: 'GitHub', url: 'https://github.com/', icon: 'GH', category: 'work' },
             { title: 'Gmail', url: 'https://mail.google.com/', icon: '✉', category: 'work' },
@@ -1622,12 +1624,14 @@ class ShortcutsComponent {
             { title: 'Google Translate', url: 'https://translate.google.com/', icon: '文', category: 'tools' }
         ];
         try {
-            const saved = await storageManager.set('links', this.links);
+            const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
             if (!saved) throw new Error('Storage write returned false');
             this.updateGrid();
         } catch (error) {
+            const message = this.recoverShortcutWrite(error, previousLinks);
+            this.updateGrid();
             console.error('Error creating starter set:', error);
-            showErrorMessage((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.');
+            showErrorMessage(message || (window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.');
         }
     }
 
@@ -1669,6 +1673,7 @@ class ShortcutsComponent {
         this.updateCategoryOptions();
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
+        this._hasShortcutConflict = false;
         this.setSavingState(false);
 
         modalTitle.textContent = title;
@@ -1851,7 +1856,7 @@ class ShortcutsComponent {
     async handleFormSubmit(e) {
         e.preventDefault();
 
-        if (this._isSaving) return;
+        if (this._isSaving || this._hasShortcutConflict) return;
 
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
@@ -1885,7 +1890,7 @@ class ShortcutsComponent {
 
         // Save to storage
         try {
-            const saved = await storageManager.set('links', this.links);
+            const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
             if (!saved) {
                 throw new Error('Storage write returned false');
             }
@@ -1902,9 +1907,10 @@ class ShortcutsComponent {
                 }, 0);
             }
         } catch (error) {
-            this.links = previousLinks;
+            const message = this.recoverShortcutWrite(error, previousLinks);
+            this.updateGrid();
             console.error('Error saving shortcut:', error);
-            this.showFormError('url', ((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.'));
+            this.showFormError('url', message || ((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.'));
         } finally {
             this.setSavingState(false);
         }
@@ -1914,9 +1920,30 @@ class ShortcutsComponent {
         this._isSaving = !!isSaving;
         const saveBtn = this.modal?.querySelector('#save-btn');
         if (saveBtn) {
-            saveBtn.disabled = this._isSaving;
-            saveBtn.classList.toggle('is-disabled', this._isSaving);
+            saveBtn.disabled = this._isSaving || this._hasShortcutConflict;
+            saveBtn.classList.toggle('is-disabled', saveBtn.disabled);
         }
+    }
+
+    recoverShortcutWrite(error, previousLinks) {
+        this.links = error.code === 'LINKS_CONFLICT' ? error.latestLinks : previousLinks;
+        if (error.code === 'LINKS_CONFLICT') {
+            // Keep unsaved inputs visible, but do not let their old array index
+            // target a different shortcut after refreshing the current list.
+            if (this.modal?.classList.contains('active')) {
+                this._hasShortcutConflict = true;
+                this.setSavingState(false);
+                return (window.i18n && i18n.t('shortcutDraftConflict')) ||
+                    'Shortcuts changed in another tab. Your draft is still here; copy it if needed, then close and reopen the shortcut to retry.';
+            }
+            return (window.i18n && i18n.t('shortcutsChangedElsewhere')) ||
+                'Shortcuts changed in another tab. The list has been refreshed. Please try again.';
+        }
+        if (error.code === 'LINKS_LOCK_UNAVAILABLE') {
+            return (window.i18n && i18n.t('shortcutSavingUnavailable')) ||
+                'Safe shortcut saving is unavailable. Update Chrome and reopen this page to retry.';
+        }
+        return '';
     }
 
     /**
@@ -2003,18 +2030,20 @@ class ShortcutsComponent {
      */
     async deleteShortcut(index) {
         if (index >= 0 && index < this.links.length) {
-            const removed = this.links.splice(index, 1)[0];
+            const previousLinks = this.links.map(link => ({ ...link }));
+            this.links.splice(index, 1);
 
             try {
-                const saved = await storageManager.set('links', this.links);
+                const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
                 if (!saved) {
                     throw new Error('Storage write returned false');
                 }
                 this.updateGrid();
             } catch (error) {
-                this.links.splice(index, 0, removed);
+                const message = this.recoverShortcutWrite(error, previousLinks);
+                this.updateGrid();
                 console.error('Error deleting shortcut:', error);
-                showErrorMessage(((window.i18n && i18n.t('failedToDelete')) || 'Failed to delete shortcut. Please try again.'));
+                showErrorMessage(message || ((window.i18n && i18n.t('failedToDelete')) || 'Failed to delete shortcut. Please try again.'));
             }
         }
     }
@@ -2635,15 +2664,15 @@ class ShortcutsComponent {
         
         try {
             // 3. 将重新排序后的数组保存到存储中
-            const saved = await storageManager.set('links', this.links);
+            const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
             if (!saved) {
                 throw new Error('Storage write returned false');
             }
             console.log('Shortcuts reordered and saved successfully.');
         } catch (error) {
-            this.links = previousLinks;
+            const message = this.recoverShortcutWrite(error, previousLinks);
             console.error('Error saving shortcut order:', error);
-            showErrorMessage('Failed to save new shortcut order.');
+            showErrorMessage(message || 'Failed to save new shortcut order.');
         } finally {
             // 4. 重新渲染整个宫格，以确保所有卡片的 data-index 都更新为最新顺序
             this.updateGrid();

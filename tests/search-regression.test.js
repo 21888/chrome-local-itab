@@ -170,6 +170,7 @@ async function collectSearchSettings(engine, custom) {
 
     const builtInWithStaleInvalidCustom = await collectSearchSettings('google', 'javascript:alert(1)');
     assert.strictEqual(builtInWithStaleInvalidCustom.search.engine, 'google');
+    assert.strictEqual(Object.hasOwn(builtInWithStaleInvalidCustom, 'links'), false, 'ordinary settings save must not overwrite dashboard shortcuts');
     assert.strictEqual(builtInWithStaleInvalidCustom.search.custom, '');
 
     await assert.rejects(
