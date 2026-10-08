@@ -1,0 +1,1280 @@
+/* Shared geometry. Inline user variables on #dashboard retain priority. */
+:root[data-dashboard-template] #dashboard {
+  --dashboard-padding-top: 32px;
+  --dashboard-padding-right: 40px;
+  --dashboard-padding-bottom: 24px;
+  --dashboard-padding-left: 40px;
+  --shortcuts-gap-x: 14px;
+  --shortcuts-gap-y: 14px;
+  --shortcut-icon-size: 42px;
+  --shortcut-icon-font: 20px;
+  --shortcut-title-size: 12px;
+  --shortcut-title-color: var(--template-text);
+  --shortcut-icon-margin: 0px;
+  --template-main-gap: 28px;
+  --template-column-gap: 36px;
+  --template-nav-width: 196px;
+  --template-tile-radius: 11px;
+  --template-control-radius: 8px;
+  --template-card-radius: 10px;
+  display: grid;
+  grid-template-columns: var(--template-nav-width) minmax(0, 1fr);
+  align-items: stretch;
+  column-gap: var(--template-column-gap);
+  row-gap: 0;
+  width: 100%;
+  max-width: 1536px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: var(--dashboard-padding-top) var(--dashboard-padding-right)
+    var(--dashboard-padding-bottom) var(--dashboard-padding-left);
+  position: relative;
+}
+:root[data-dashboard-template] #dashboard > .main-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--template-main-gap);
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+}
+:root[data-dashboard-template] #dashboard :is(.dashboard-main, .shortcuts-section, .info-cards-grid) {
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+:root[data-dashboard-template] #dashboard .dashboard-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 24px 28px;
+  align-items: center;
+  position: static;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  text-align: left;
+  min-width: 0;
+}
+:root[data-dashboard-template] #dashboard .settings-nav {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  justify-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+:root[data-dashboard-template] #dashboard :is(.settings-button, .category-manage-btn) {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 7px;
+  border: 1px solid transparent;
+  border-radius: var(--template-control-radius);
+  color: var(--text-secondary);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard :is(.settings-button, .category-manage-btn):hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border);
+  color: var(--text-primary);
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard .settings-button::before,
+:root[data-dashboard-template] #dashboard .settings-button::after { display: none; }
+
+/* Optional real markup hooks; absence does not remove any existing component. */
+:root[data-dashboard-template] #dashboard .template-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin: 0 0 32px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+:root[data-dashboard-template] #dashboard .template-brand-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 35px;
+  width: 35px;
+  height: 35px;
+  border-radius: 10px;
+  background: var(--template-accent);
+  color: var(--template-accent-ink);
+}
+:root[data-dashboard-template] #dashboard .template-brand-mark svg { width: 21px; height: 21px; }
+:root[data-dashboard-template] #dashboard .template-brand-name {
+  font-size: 21px;
+  line-height: 1.15;
+  letter-spacing: -.65px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+:root[data-dashboard-template] #dashboard .template-brand-description {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+:root[data-dashboard-template] #dashboard .template-intro {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+:root[data-dashboard-template] #dashboard .template-intro h1 {
+  margin: 0;
+  font-size: clamp(26px, 2vw, 34px);
+  line-height: 1.4;
+  font-weight: 550;
+  letter-spacing: -.7px;
+  color: var(--text-primary);
+}
+:root[data-dashboard-template] #dashboard .template-intro p {
+  margin: 9px 0 0;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+:root[data-dashboard-template] #dashboard .appearance-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 12px;
+}
+:root[data-dashboard-template] #dashboard .appearance-controls :is(button, select) {
+  min-height: 32px;
+  max-width: 100%;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font: inherit;
+  color: var(--text-secondary);
+  background: var(--glass-bg);
+  white-space: normal;
+}
+:root[data-dashboard-template] #dashboard .appearance-controls [aria-pressed="true"] {
+  background: var(--template-accent-soft);
+  color: var(--text-primary);
+  border-color: var(--template-accent);
+}
+:root[data-dashboard-template] #dashboard .appearance-controls [aria-busy="true"] { cursor: progress; }
+:root[data-dashboard-template] #dashboard .appearance-status {
+  flex-basis: 100%;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+:root[data-dashboard-template] #dashboard .appearance-status.is-error { color: var(--template-error); }
+
+/* Actual live clock, including optional seconds and 12-hour time. */
+:root[data-dashboard-template] #dashboard #clock-container {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  text-align: right;
+}
+:root[data-dashboard-template] #dashboard .clock-display {
+  align-items: flex-end;
+  gap: 7px;
+}
+:root[data-dashboard-template] #dashboard .time-display {
+  font-size: clamp(42px, 4vw, 72px);
+  line-height: 1.1;
+  letter-spacing: -2px;
+  font-weight: 350;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  white-space: nowrap;
+}
+:root[data-dashboard-template] #dashboard .date-display {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* One real search form. Custom-template fields remain fully usable. */
+:root[data-dashboard-template] #dashboard #search-container {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  justify-self: stretch;
+  align-self: stretch;
+}
+:root[data-dashboard-template] #dashboard .search-form {
+  display: grid;
+  grid-template-columns: minmax(112px, 150px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 11px;
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-dashboard-template] #dashboard :is(.search-engine-select, .search-input, .search-submit,
+.search-custom-input, .search-custom-save) {
+  min-width: 0;
+  height: 42px;
+  border-radius: var(--template-control-radius);
+  font-size: 13px;
+  box-shadow: none;
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  border-color: transparent;
+}
+:root[data-dashboard-template] #dashboard .search-engine-select {
+  border-inline-end-color: var(--glass-border);
+  border-radius: 0;
+  color-scheme: inherit;
+  padding-inline: 10px 18px;
+}
+:root[data-dashboard-template] #dashboard .search-engine-select option {
+  background: var(--template-surface);
+  color: var(--template-text);
+}
+:root[data-dashboard-template] #dashboard :is(.search-input, .search-custom-input) { width: 100%; }
+:root[data-dashboard-template] #dashboard .search-submit {
+  min-width: 72px;
+  padding: 0 15px;
+  font-weight: 550;
+  background: var(--template-accent);
+  color: var(--template-accent-ink);
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard .search-custom-config {
+  margin: 0;
+  padding: 9px 0 0;
+  border-top: 1px solid var(--glass-border);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+:root[data-dashboard-template] #dashboard .search-custom-input { border-color: var(--glass-border); }
+:root[data-dashboard-template] #dashboard .search-custom-save { background: var(--glass-bg-hover); }
+:root[data-dashboard-template] #dashboard .search-custom-status { font-size: 11px; }
+:root[data-dashboard-template] #dashboard .search-custom-status.is-error { color: var(--template-error); }
+:root[data-dashboard-template] #dashboard .search-custom-status.is-success { color: var(--template-accent); }
+
+/* Category navigation. Native buttons and their labels remain the source of truth. */
+:root[data-dashboard-template] #dashboard > .category-nav {
+  position: static;
+  inset: auto;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  padding: 0 22px 0 0;
+  margin: 0;
+  border: 0;
+  border-inline-end: 1px solid var(--glass-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+}
+:root[data-dashboard-template] #dashboard .category-nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 12px;
+  margin: 0;
+  border: 0;
+}
+:root[data-dashboard-template] #dashboard .category-title {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: .5px;
+  font-weight: 550;
+  color: var(--text-secondary);
+}
+:root[data-dashboard-template] #dashboard #category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+}
+:root[data-dashboard-template] #dashboard .category-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--text-secondary);
+  background: none;
+  text-align: left;
+  box-shadow: none;
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard .category-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+:root[data-dashboard-template] #dashboard .category-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  flex: 0 0 21px;
+  font-size: 17px;
+  line-height: 1;
+}
+:root[data-dashboard-template] #dashboard .category-count {
+  margin-inline-start: auto;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-dashboard-template] #dashboard .category-item.active {
+  color: var(--template-accent);
+  background: var(--template-accent-soft);
+  font-weight: 600;
+  box-shadow: none;
+}
+:root[data-dashboard-template] #dashboard .category-item::before,
+:root[data-dashboard-template] #dashboard .category-item::after { display: none; }
+:root[data-dashboard-template] #dashboard .category-item:hover:not(.active) {
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+  transform: none;
+}
+
+/* Main/shortcut area. No fixed viewport-height clipping. */
+:root[data-dashboard-template] #dashboard .dashboard-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 24px;
+  flex: 0 0 auto;
+}
+:root[data-dashboard-template] #dashboard #shortcuts-container {
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-dashboard-template] #dashboard .shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 0;
+  text-align: left;
+}
+:root[data-dashboard-template] #dashboard .shortcuts-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+:root[data-dashboard-template] #dashboard .add-shortcut-btn {
+  border: 1px solid transparent;
+  padding: 8px 13px;
+  min-height: 36px;
+  border-radius: var(--template-control-radius);
+  color: var(--template-accent-ink);
+  background: var(--template-accent);
+  font-size: 12px;
+  font-weight: 550;
+  box-shadow: none;
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard .add-shortcut-btn::before { display: none; }
+:root[data-dashboard-template] #shortcuts-grid {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  gap: var(--shortcuts-gap-y) var(--shortcuts-gap-x);
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) {
+  grid-auto-rows: auto;
+  align-items: stretch;
+  justify-items: stretch;
+  grid-template-columns: repeat(var(--shortcuts-columns, 6), minmax(0, 1fr));
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-item {
+  width: 100%;
+  min-width: 0;
+  min-height: calc(var(--shortcut-icon-size) + 64px);
+  height: auto;
+  padding: 13px 9px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--template-tile-radius);
+  overflow: visible;
+  box-shadow: var(--shadow-sm);
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard .shortcut-content {
+  min-width: 0;
+  width: 100%;
+  gap: 11px;
+  border-radius: max(3px, calc(var(--template-tile-radius) - 4px));
+}
+:root[data-dashboard-template] #dashboard .shortcut-launch {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  appearance: none;
+}
+:root[data-dashboard-template] #dashboard .shortcut-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--shortcut-icon-size);
+  height: var(--shortcut-icon-size);
+  min-width: var(--shortcut-icon-size);
+  margin: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: min(12px, calc(var(--shortcut-icon-size) * .28));
+  font-size: var(--shortcut-icon-font);
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+  overflow: hidden;
+  opacity: 1;
+}
+:root[data-dashboard-template] #dashboard .shortcut-icon :is(img, svg) {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+:root[data-dashboard-template] #dashboard .shortcut-title {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  font-size: var(--shortcut-title-size);
+  font-weight: 500;
+  line-height: 1.6;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--shortcut-title-color, var(--text-primary));
+  opacity: 1;
+}
+:root[data-dashboard-template] #dashboard .shortcut-item:hover,
+:root[data-dashboard-template] #dashboard .shortcut-item:hover .shortcut-icon,
+:root[data-dashboard-template] #dashboard .shortcut-item:focus-within .shortcut-icon {
+  transform: none;
+  box-shadow: none;
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-item:hover {
+  border-color: var(--template-accent);
+  background: var(--glass-bg);
+}
+:root[data-dashboard-template] #dashboard .shortcut-actions {
+  top: 4px;
+  right: 4px;
+  gap: 3px;
+  transform: none;
+  transition: opacity 120ms ease;
+}
+:root[data-dashboard-template] #dashboard .shortcut-action-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  box-shadow: none;
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard .shortcut-action-btn.edit { color: var(--text-primary); }
+:root[data-dashboard-template] #dashboard .shortcut-action-btn.delete { color: var(--template-error); }
+:root[data-dashboard-template] #dashboard .shortcut-action-btn:hover { background: var(--glass-bg-hover); }
+:root[data-dashboard-template] #dashboard .shortcut-item:is(:hover, :focus-within) .shortcut-actions {
+  opacity: 1;
+  transform: none;
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) > .add-shortcut {
+  background: transparent;
+  border-style: dashed;
+}
+:root[data-dashboard-template] #dashboard .add-shortcut .shortcut-icon {
+  width: var(--shortcut-icon-size);
+  height: var(--shortcut-icon-size);
+  background: transparent;
+  color: var(--template-accent);
+}
+
+/* Group wrappers: meaningful real category data, Grid only. */
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-collection {
+  min-width: 0;
+  align-self: start;
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-collection-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-collection-heading :is(h2,h3) {
+  min-width: 0;
+  margin: 0;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-collection-heading .collection-count {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+:root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-collection-items {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0;
+}
+
+/* Real widget renderers. No synthetic notes or fixture values. */
+:root[data-dashboard-template] #dashboard #info-cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+  padding: 20px 0 0;
+  margin: 0;
+  border-top: 1px solid var(--glass-border);
+  align-items: start;
+}
+:root[data-dashboard-template] #dashboard .info-card {
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--template-card-radius);
+  color: var(--text-primary);
+  background: var(--glass-bg);
+  box-shadow: none;
+  overflow: hidden;
+}
+:root[data-dashboard-template] #dashboard .info-card-header { gap: 8px; margin: 0 0 13px; }
+:root[data-dashboard-template] #dashboard .info-card-icon {
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  border-radius: 5px;
+  background: var(--glass-bg-hover);
+}
+:root[data-dashboard-template] #dashboard .info-card-title { font-size: 12px; line-height: 1.6; font-weight: 550; }
+:root[data-dashboard-template] #dashboard .weather-display {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px 12px;
+  align-items: center;
+  text-align: left;
+}
+:root[data-dashboard-template] #dashboard .weather-current-temp {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  font-size: 38px;
+  line-height: 1.2;
+  font-weight: 350;
+  letter-spacing: -1px;
+  color: var(--text-primary);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  filter: none;
+}
+:root[data-dashboard-template] #dashboard :is(.weather-details, .weather-high-low, .weather-aqi) {
+  grid-column: 2;
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+}
+:root[data-dashboard-template] #dashboard .topics-list { padding: 0; margin: 0; list-style: none; }
+:root[data-dashboard-template] #dashboard .topic-item {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 11px;
+  line-height: 1.7;
+  background: none;
+}
+:root[data-dashboard-template] #dashboard .topic-item:last-child { border-bottom: 0; }
+:root[data-dashboard-template] #dashboard .topic-rank { flex: 0 0 16px; color: var(--text-secondary); }
+:root[data-dashboard-template] #dashboard .topic-content {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  flex: 1;
+  gap: 8px;
+}
+:root[data-dashboard-template] #dashboard .topic-title { min-width: 0; overflow-wrap: anywhere; }
+:root[data-dashboard-template] #dashboard .topic-score { margin-inline-start: auto; font-size: 10px; color: var(--text-secondary); }
+:root[data-dashboard-template] #dashboard .topics-empty { padding: 0; font-size: 11px; line-height: 1.8; color: var(--text-secondary); }
+:root[data-dashboard-template] #dashboard .movie-display { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+:root[data-dashboard-template] #dashboard .movie-poster {
+  width: 58px;
+  height: 82px;
+  min-height: 0;
+  flex: 0 0 58px;
+  border: 1px solid var(--glass-border);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--glass-bg-hover);
+}
+:root[data-dashboard-template] #dashboard .poster-image { display: block; width: 100%; height: 100%; object-fit: cover; }
+:root[data-dashboard-template] #dashboard .poster-placeholder { display: grid; place-items: center; width: 100%; height: 100%; color: var(--text-secondary); }
+:root[data-dashboard-template] #dashboard .movie-info { min-width: 0; flex: 1; }
+:root[data-dashboard-template] #dashboard .movie-title { margin: 0 0 5px; font-size: 12px; line-height: 1.7; font-weight: 550; overflow-wrap: anywhere; }
+:root[data-dashboard-template] #dashboard .movie-description { margin: 0; font-size: 11px; line-height: 1.8; color: var(--text-secondary); overflow-wrap: anywhere; }
+:root[data-dashboard-template] #dashboard .dashboard-footer { width: 100%; min-width: 0; padding-top: 16px; border-top: 1px solid var(--glass-border); }
+:root[data-dashboard-template] #dashboard #quote-container { padding: 0; min-height: 0; font-size: 12px; line-height: 1.9; color: var(--text-secondary); text-align: left; overflow-wrap: anywhere; }
+:root[data-dashboard-template] #dashboard .privacy-status { font-size: 11px; line-height: 1.8; color: var(--text-secondary); overflow-wrap: anywhere; }
+
+/* B — compact rail and four grouped launch collections. */
+:root[data-dashboard-template="graphite"] #dashboard {
+  --template-nav-width: 70px;
+  --template-column-gap: 38px;
+  --shortcut-icon-size: 32px;
+  --shortcut-icon-font: 16px;
+  --template-tile-radius: 7px;
+  --template-control-radius: 6px;
+  max-width: 1760px;
+}
+:root[data-dashboard-template="graphite"] #dashboard > .category-nav {
+  align-items: center;
+  padding: 0 15px 0 0;
+  gap: 11px;
+}
+:root[data-dashboard-template="graphite"] #dashboard .template-brand { margin-bottom: 18px; }
+:root[data-dashboard-template="graphite"] #dashboard .category-nav-header { padding: 0 0 13px; justify-content: center; }
+:root[data-dashboard-template="graphite"] #dashboard #category-list { align-items: center; gap: 13px; }
+:root[data-dashboard-template="graphite"] #dashboard .category-item {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  justify-content: center;
+  padding: 9px;
+  position: relative;
+}
+/* Visually hidden labels stay in the accessibility tree. Also set title/aria-label in JS. */
+:root[data-dashboard-template="graphite"] #dashboard :is(.template-brand-name,.category-title,.category-name,.category-count) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+:root[data-dashboard-template="graphite"] #dashboard .time-display { font-size: clamp(38px, 3.2vw, 54px); }
+:root[data-dashboard-template="graphite"] #dashboard .search-form { border-radius: 8px; }
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: max(14px, var(--shortcuts-gap-y)) max(16px, var(--shortcuts-gap-x));
+  align-items: start;
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection {
+  border: 1px solid var(--glass-border);
+  border-radius: 9px;
+  padding: 17px 13px 8px;
+  background: var(--glass-bg);
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-heading {
+  padding-bottom: 13px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--glass-border);
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item {
+  min-height: calc(var(--shortcut-icon-size) + 24px);
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item:last-child { border-bottom: 0; }
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item:hover { background: var(--glass-bg-hover); }
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-launch {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-title {
+  flex: 1;
+  text-align: left;
+  padding-inline-end: 2px;
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-actions {
+  top: -2px;
+  right: -7px;
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) > .add-shortcut,
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) > .add-shortcut {
+  grid-column: 1 / -1;
+  min-height: 45px;
+  padding: 8px 12px;
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) > .add-shortcut .shortcut-content,
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) > .add-shortcut .shortcut-content { flex-direction: row; gap: 9px; }
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) > .add-shortcut .shortcut-icon,
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) > .add-shortcut .shortcut-icon { width: 25px; height: 25px; min-width: 25px; font-size: 18px; }
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) > .add-shortcut .shortcut-title,
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) > .add-shortcut .shortcut-title { width: auto; text-align: left; }
+
+/* C — same real nodes arranged as an editorial index, with optional widget aside. */
+:root[data-dashboard-template="folio"] #dashboard {
+  --shortcut-icon-size: 27px;
+  --shortcut-icon-font: 13px;
+  --template-control-radius: 3px;
+  --template-tile-radius: 5px;
+  --template-card-radius: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "header" "search" "categories" "main" "footer";
+  row-gap: 24px;
+  align-content: start;
+  max-width: 1560px;
+}
+:root[data-dashboard-template="folio"] #dashboard > .main-content-wrapper { display: contents; }
+:root[data-dashboard-template="folio"] #dashboard .dashboard-header { grid-area: header; row-gap: 27px; }
+:root[data-dashboard-template="folio"] #dashboard .settings-nav {
+  min-height: 37px;
+  padding-inline-start: 172px;
+  padding-bottom: 19px;
+  border-bottom: 1px solid var(--glass-border);
+}
+:root[data-dashboard-template="folio"] #dashboard .template-brand {
+  position: absolute;
+  top: var(--dashboard-padding-top);
+  left: var(--dashboard-padding-left);
+  margin: 0;
+  max-width: 156px;
+}
+:root[data-dashboard-template="folio"] #dashboard .template-brand-mark {
+  width: 30px;
+  height: 30px;
+  flex-basis: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--template-accent);
+}
+:root[data-dashboard-template="folio"] #dashboard .template-brand-mark svg { width: 17px; height: 17px; }
+:root[data-dashboard-template="folio"] #dashboard .template-brand-name { font-size: 20px; }
+:root[data-dashboard-template="folio"] #dashboard .template-brand-description { display: none; }
+:root[data-dashboard-template="folio"] #dashboard .template-intro h1,
+:root[data-dashboard-template="folio"] #dashboard .time-display {
+  font-family: "Noto Serif CJK SC", "Songti SC", "STSong", Georgia, serif;
+  font-weight: 400;
+}
+:root[data-dashboard-template="folio"] #dashboard .template-intro h1 { font-size: clamp(28px, 2.5vw, 42px); letter-spacing: .6px; }
+:root[data-dashboard-template="folio"] #dashboard #search-container { grid-area: search; }
+:root[data-dashboard-template="folio"] #dashboard .search-form { border-radius: 3px; box-shadow: none; }
+:root[data-dashboard-template="folio"] #dashboard > .category-nav {
+  grid-area: categories;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--glass-border);
+  position: static;
+}
+:root[data-dashboard-template="folio"] #dashboard .category-nav-header { grid-column: 2; grid-row: 1; padding: 0; }
+:root[data-dashboard-template="folio"] #dashboard .category-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:root[data-dashboard-template="folio"] #dashboard #category-list {
+  grid-column: 1;
+  grid-row: 1;
+  flex-direction: row;
+  gap: 24px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 5px 3px 3px;
+  scroll-padding-inline: 8px;
+}
+:root[data-dashboard-template="folio"] #dashboard .category-item {
+  width: auto;
+  min-height: 43px;
+  flex: 0 0 auto;
+  padding: 10px 0;
+  gap: 7px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-size: 12px;
+}
+:root[data-dashboard-template="folio"] #dashboard .category-item.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--template-accent);
+  background: none;
+}
+:root[data-dashboard-template="folio"] #dashboard .category-icon { width: 17px; flex-basis: 17px; font-size: 14px; }
+:root[data-dashboard-template="folio"] #dashboard .category-count { margin-inline-start: 2px; }
+:root[data-dashboard-template="folio"] #dashboard .dashboard-main {
+  grid-area: main;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 252px;
+  align-items: start;
+  gap: 34px;
+}
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: max(25px, var(--shortcuts-gap-x));
+  row-gap: max(23px, var(--shortcuts-gap-y));
+  align-items: start;
+}
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection {
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--glass-border);
+  border-radius: 0;
+  background: transparent;
+}
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-heading {
+  padding: 12px 0 9px;
+  font-size: 13px;
+  letter-spacing: .5px;
+}
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .collection-index {
+  font-family: Georgia, "Noto Serif CJK SC", serif;
+  font-size: 22px;
+  font-style: italic;
+  line-height: 1.2;
+  font-weight: 400;
+  color: var(--template-accent);
+  margin-inline-end: 3px;
+}
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item {
+  min-height: calc(var(--shortcut-icon-size) + 12px);
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item:hover { background: var(--glass-bg-hover); }
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-launch {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  padding: 6px 0;
+}
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-title { flex: 1; text-align: left; }
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-actions { top: -3px; right: 0; }
+:root[data-dashboard-template="folio"] #dashboard #info-cards-container {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 19px;
+  padding: 0 0 0 23px;
+  border-top: 0;
+  border-inline-start: 1px solid var(--glass-border);
+}
+:root[data-dashboard-template="folio"] #dashboard .info-card {
+  padding: 0 0 19px;
+  border: 0;
+  border-bottom: 1px solid var(--glass-border);
+  border-radius: 0;
+  background: transparent;
+}
+:root[data-dashboard-template="folio"] #dashboard .info-card:last-child { border-bottom: 0; }
+:root[data-dashboard-template="folio"] #dashboard .dashboard-footer { grid-area: footer; }
+
+/* Empty/global and selected-category states use the existing actual actions. */
+:root[data-dashboard-template] #dashboard :is(.shortcuts-empty-state, .shortcuts-empty) {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 240px;
+  height: auto;
+  padding: 30px 20px;
+  border: 1px dashed var(--glass-border);
+  border-radius: var(--template-card-radius);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  gap: 16px;
+}
+:root[data-dashboard-template] #dashboard .empty-icon { font-size: 34px; color: var(--template-accent); }
+:root[data-dashboard-template] #dashboard .empty-text { font-size: 15px; line-height: 1.8; max-width: 48ch; }
+:root[data-dashboard-template] #dashboard .empty-actions { gap: 8px; }
+:root[data-dashboard-template] #dashboard .empty-action-btn {
+  height: auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--template-control-radius);
+  background: var(--glass-bg-hover);
+  color: var(--text-primary);
+  font-size: 12px;
+  box-shadow: none;
+  transform: none;
+}
+:root[data-dashboard-template] #dashboard .empty-action-btn[data-action="open-add"] {
+  background: var(--template-accent);
+  color: var(--template-accent-ink);
+  border-color: transparent;
+}
+
+/* Free is deliberately a flat runtime-owned coordinate plane.
+ * No tile position/left/top/transform/width/height resets here.
+ * Existing grid-based initial capture continues to use its original dimensions.
+ * Writer must never render group wrappers into this mode. */
+:root[data-dashboard-template] #shortcuts-grid.free-layout {
+  position: relative;
+  min-width: 0;
+  min-height: 320px;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+}
+:root[data-dashboard-template] #shortcuts-grid.free-layout > .shortcut-item {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--template-tile-radius);
+  background: var(--glass-bg);
+  box-shadow: none;
+  overflow: visible;
+}
+
+/* Responsive: preserve data/column preferences in storage; reflow presentation only. */
+@media (min-width: 1800px) {
+  :root[data-dashboard-template] #dashboard {
+    --dashboard-padding-top: 48px;
+    --dashboard-padding-right: 48px;
+    --dashboard-padding-left: 48px;
+    --template-column-gap: 48px;
+    --template-main-gap: 32px;
+    --shortcuts-gap-x: 17px;
+    --shortcuts-gap-y: 17px;
+  }
+  :root[data-dashboard-template="graphite"] #dashboard { --template-column-gap: 56px; }
+  :root[data-dashboard-template="folio"] #dashboard { row-gap: 28px; }
+  :root[data-dashboard-template="folio"] #dashboard .dashboard-main { grid-template-columns: minmax(0,1fr) 265px; gap: 44px; }
+}
+@media (min-width: 2300px) {
+  :root[data-dashboard-template] #dashboard {
+    --dashboard-padding-top: 72px;
+    --dashboard-padding-right: 54px;
+    --dashboard-padding-left: 54px;
+    --template-column-gap: 62px;
+    --template-main-gap: 38px;
+    --template-nav-width: 212px;
+    max-width: 1720px;
+  }
+  :root[data-dashboard-template="graphite"] #dashboard { --template-nav-width: 76px; --template-column-gap: 72px; max-width: 1830px; }
+  :root[data-dashboard-template="folio"] #dashboard { max-width: 1680px; row-gap: 32px; }
+  :root[data-dashboard-template="folio"] #dashboard .dashboard-main { grid-template-columns: minmax(0,1fr) 280px; gap: 55px; }
+}
+@media (max-height: 820px) and (min-width: 901px) {
+  :root[data-dashboard-template] #dashboard { --dashboard-padding-top: 24px; --template-main-gap: 22px; }
+  :root[data-dashboard-template] #dashboard .dashboard-header { row-gap: 18px; }
+  :root[data-dashboard-template] #dashboard .time-display { font-size: 48px; }
+  :root[data-dashboard-template] #dashboard .template-intro h1 { font-size: 27px; }
+  :root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-item { min-height: calc(var(--shortcut-icon-size) + 51px); padding-block: 9px; }
+  :root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item { min-height: calc(var(--shortcut-icon-size) + 20px); padding: 0; }
+  :root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item { min-height: calc(var(--shortcut-icon-size) + 10px); padding: 0; }
+  :root[data-dashboard-template="folio"] #dashboard { row-gap: 19px; }
+}
+@media (max-width: 1200px) {
+  :root[data-dashboard-template] #dashboard {
+    --dashboard-padding-left: 26px;
+    --dashboard-padding-right: 26px;
+    --template-nav-width: 172px;
+    --template-column-gap: 26px;
+  }
+  :root[data-dashboard-template="graphite"] #dashboard { --template-nav-width: 62px; }
+  :root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  :root[data-dashboard-template="folio"] #dashboard .dashboard-main { grid-template-columns: minmax(0,1fr) 205px; gap: 25px; }
+  :root[data-dashboard-template="folio"] #dashboard #info-cards-container { padding-inline-start: 18px; }
+  :root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) { column-gap: max(18px,var(--shortcuts-gap-x)); }
+}
+@media (max-width: 900px) {
+  :root[data-dashboard-template="clarity"] #dashboard { grid-template-columns: minmax(0,1fr); row-gap: 22px; }
+  :root[data-dashboard-template="clarity"] #dashboard > .category-nav { padding: 0; border: 0; }
+  :root[data-dashboard-template="clarity"] #dashboard .template-brand { margin-bottom: 16px; }
+  :root[data-dashboard-template="clarity"] #dashboard .category-nav-header { padding: 0; align-self: flex-end; }
+  :root[data-dashboard-template="clarity"] #dashboard .category-title { font-size: 11px; }
+  :root[data-dashboard-template="clarity"] #dashboard #category-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 4px; gap: 5px; }
+  :root[data-dashboard-template="clarity"] #dashboard .category-item { width: auto; flex: 0 0 auto; min-height: 36px; font-size: 12px; padding: 7px 10px; }
+  :root[data-dashboard-template="clarity"] #shortcuts-grid:not(.free-layout) { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  :root[data-dashboard-template="graphite"] #dashboard { --template-column-gap: 22px; --template-nav-width: 54px; }
+  :root[data-dashboard-template="graphite"] #dashboard > .category-nav { padding-inline-end: 10px; }
+  :root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  :root[data-dashboard-template="folio"] #dashboard .dashboard-main { grid-template-columns: minmax(0,1fr); gap: 23px; }
+  :root[data-dashboard-template="folio"] #dashboard #info-cards-container { grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); padding: 19px 0 0; border-inline-start: 0; border-top: 1px solid var(--glass-border); }
+  :root[data-dashboard-template="folio"] #dashboard .info-card { padding: 14px; border: 1px solid var(--glass-border); background: var(--glass-bg); }
+  :root[data-dashboard-template] #dashboard .time-display { font-size: clamp(32px,5.3vw,48px); letter-spacing: -1px; }
+  :root[data-dashboard-template] #dashboard .date-display { font-size: 10px; }
+  :root[data-dashboard-template] #dashboard .template-intro h1 { font-size: clamp(22px,3.4vw,28px); }
+}
+@media (max-width: 600px) {
+  :root[data-dashboard-template] #dashboard {
+    --dashboard-padding-top: 18px;
+    --dashboard-padding-left: 17px;
+    --dashboard-padding-right: 17px;
+    --dashboard-padding-bottom: 20px;
+    --template-main-gap: 21px;
+    --shortcuts-gap-x: 10px;
+    --shortcuts-gap-y: 11px;
+  }
+  :root[data-dashboard-template] #dashboard .dashboard-header { column-gap: 15px; row-gap: 18px; }
+  :root[data-dashboard-template] #dashboard .settings-nav { gap: 6px; }
+  :root[data-dashboard-template] #dashboard .appearance-controls { gap: 5px; font-size: 11px; }
+  :root[data-dashboard-template] #dashboard .appearance-controls :is(button,select) { padding: 5px 7px; min-height: 32px; }
+  :root[data-dashboard-template] #dashboard .template-intro h1 { font-size: 22px; }
+  :root[data-dashboard-template] #dashboard .template-intro p { font-size: 11px; margin-top: 6px; }
+  :root[data-dashboard-template] #dashboard .time-display { font-size: clamp(25px,6.5vw,36px); }
+  :root[data-dashboard-template] #dashboard .date-display { font-size: 10px; max-width: 135px; }
+  :root[data-dashboard-template] #dashboard .search-form { grid-template-columns: minmax(86px,105px) minmax(0,1fr); padding: 7px; gap: 7px; }
+  :root[data-dashboard-template] #dashboard :is(.search-engine-select,.search-input,.search-submit,.search-custom-input,.search-custom-save) { min-height: 40px; height: auto; font-size: 12px; }
+  :root[data-dashboard-template] #dashboard .search-submit { grid-column: 1 / -1; min-height: 34px; }
+  :root[data-dashboard-template] #dashboard .search-custom-config { grid-template-columns: minmax(0,1fr); }
+  :root[data-dashboard-template] #dashboard .search-custom-save { min-height: 34px; }
+  :root[data-dashboard-template="clarity"] #shortcuts-grid:not(.free-layout) { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  :root[data-dashboard-template] #shortcuts-grid:not(.free-layout) .shortcut-item { padding-inline: 7px; }
+  :root[data-dashboard-template="graphite"] #dashboard { display: flex; flex-direction: column; gap: 21px; }
+  :root[data-dashboard-template="graphite"] #dashboard > .category-nav { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; border-inline-end: 0; border-bottom: 1px solid var(--glass-border); padding: 0 0 12px; }
+  :root[data-dashboard-template="graphite"] #dashboard .template-brand { margin: 0; }
+  :root[data-dashboard-template="graphite"] #dashboard .category-nav-header { padding: 0; margin-inline-start: auto; }
+  :root[data-dashboard-template="graphite"] #dashboard #category-list { flex-direction: row; flex: 1 1 100%; overflow-x: auto; overflow-y: hidden; padding: 4px; gap: 9px; justify-content: flex-start; }
+  :root[data-dashboard-template="graphite"] #dashboard .category-item { flex: 0 0 38px; width: 38px; min-width: 38px; height: 38px; min-height: 38px; }
+  :root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection { padding: 13px 10px 6px; }
+  :root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item,
+  :root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items > .shortcut-item { padding: 0; }
+  :root[data-dashboard-template="folio"] #dashboard { row-gap: 20px; }
+  :root[data-dashboard-template="folio"] #dashboard .settings-nav { padding-inline-start: 130px; padding-bottom: 14px; }
+  :root[data-dashboard-template="folio"] #dashboard .template-brand { max-width: 120px; gap: 6px; }
+  :root[data-dashboard-template="folio"] #dashboard .template-brand-name { font-size: 17px; }
+  :root[data-dashboard-template="folio"] #dashboard .template-brand-mark { width: 26px; height: 26px; flex-basis: 26px; }
+  :root[data-dashboard-template="folio"] #dashboard #category-list { gap: 20px; }
+  :root[data-dashboard-template="folio"] #dashboard .category-item { font-size: 11px; }
+  :root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) { column-gap: max(17px,var(--shortcuts-gap-x)); }
+  :root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-heading { font-size: 12px; }
+  :root[data-dashboard-template] #dashboard #info-cards-container { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 380px) {
+  :root[data-dashboard-template] #dashboard .dashboard-header { grid-template-columns: minmax(0,1fr); }
+  :root[data-dashboard-template] #dashboard .template-intro { grid-column: 1; grid-row: 2; }
+  :root[data-dashboard-template] #dashboard #clock-container { grid-column: 1; grid-row: 3; justify-self: start; text-align: left; }
+  :root[data-dashboard-template] #dashboard .clock-display { align-items: flex-start; }
+  :root[data-dashboard-template="clarity"] #shortcuts-grid:not(.free-layout) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  :root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout),
+  :root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) { grid-template-columns: minmax(0,1fr); }
+}
+
+/* Dialog geometry only; existing production overlay/focus/save ownership is retained.
+ * Crucially, no transition:all and no visibility transition is introduced. */
+:root[data-dashboard-template] .modal-overlay .modal {
+  max-width: 520px;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 26px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background: var(--template-surface);
+  color: var(--template-text);
+  transform: none;
+}
+:root[data-dashboard-template] .modal-overlay.active .modal { transform: none; }
+:root[data-dashboard-template] .modal-overlay .modal::before { display: none; }
+:root[data-dashboard-template] .modal-overlay .modal :is(.form-input,.modal-btn) { border-radius: 7px; }
+:root[data-dashboard-template] .modal-overlay .modal .modal-form { gap: 17px; }
+:root[data-dashboard-template] .modal-overlay .modal .modal-actions { flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+:root[data-dashboard-template] .modal-overlay .modal .modal-btn { min-height: 38px; padding: 9px 15px; transform: none; }
+:root[data-dashboard-template] .modal-overlay .modal .modal-btn.primary { background: var(--template-accent); color: var(--template-accent-ink); box-shadow: none; }
+:root[data-dashboard-template] .modal-overlay .modal .modal-btn::before { display: none; }
+:root[data-dashboard-template] .modal-overlay .modal .form-error { color: var(--template-error); font-size: 12px; line-height: 1.7; }
+:root[data-dashboard-template] .modal-overlay .modal :is(input,select,textarea,button) { min-width: 0; }
+@media (max-height: 550px) { :root[data-dashboard-template] .modal-overlay .modal { padding: 20px; max-height: calc(100dvh - 20px); } }
+
+/* Optional-widget absence. JS should set .has-info-cards from actual show state.
+ * :has is a defensive fallback for the existing .module-hidden markup. */
+:root[data-dashboard-template] #dashboard #info-cards-container:not(:has(> .info-card:not(.module-hidden):not([hidden]))) { display: none; }
+:root[data-dashboard-template="folio"] #dashboard .dashboard-main:not(.has-info-cards):not(:has(> #info-cards-container > .info-card:not(.module-hidden):not([hidden]))) { grid-template-columns: minmax(0,1fr); }
+
+/* Visibility choices and keyboard focus win over template composition. */
+:root[data-dashboard-template] #dashboard [hidden],
+:root[data-dashboard-template] #dashboard .module-hidden { display: none !important; }
+:root[data-dashboard-template] body.hide-shortcut-titles #dashboard .shortcut-title { display: none !important; }
+:root[data-dashboard-template] body.dashboard-hidden #dashboard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  gap: 0;
+}
+:root[data-dashboard-template] body.dashboard-hidden #dashboard > .main-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  gap: 0;
+}
+:root[data-dashboard-template] body.dashboard-hidden #dashboard .dashboard-footer { border: 0; padding: 0; }
+:root[data-dashboard-template] body.dashboard-hidden #dashboard #quote-container { min-height: 100dvh; font-size: clamp(23px,3vw,38px); line-height: 1.6; text-align: center; padding: 25px; }
+:root[data-dashboard-template] body.dashboard-hidden #dashboard .template-brand { display: none; }
+
+/* Opaque surfaces own semantic text colors. Custom background contrast may set
+ * root inline --text-* variables; preserve those for exposed background content,
+ * but never allow them to turn text white inside a light card/search/dialog. */
+:root[data-dashboard-template] #dashboard :is(.search-form, .shortcut-item, .shortcut-collection, .info-card),
+:root[data-dashboard-template] #dashboard .appearance-controls :is(button, select),
+:root[data-dashboard-template] #dashboard .category-item:is(.active, :hover),
+:root[data-dashboard-template] #dashboard :is(.settings-button, .category-manage-btn):hover,
+:root[data-dashboard-template] .modal-overlay .modal {
+  --text-primary: var(--template-text);
+  --text-secondary: var(--template-muted);
+  --text-muted: var(--template-muted);
+}
+:root[data-dashboard-template] #dashboard :is(.shortcuts-empty-state, .shortcuts-empty) {
+  --text-primary: var(--template-text);
+  --text-secondary: var(--template-muted);
+  --text-muted: var(--template-muted);
+}
+:root[data-dashboard-template="graphite"] #dashboard > .category-nav {
+  --text-primary: var(--template-text);
+  --text-secondary: var(--template-muted);
+  --text-muted: var(--template-muted);
+  background: var(--template-surface);
+  border-radius: 9px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+/* C normally uses paper-on-paper widgets and rows. Give those real surfaces
+ * when the preserved user background is a custom color/image. */
+:root[data-dashboard-template="folio"] body:is(.bg-color, .bg-image) #dashboard .info-card {
+  background: var(--template-surface);
+  padding: 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--template-card-radius);
+}
+:root[data-dashboard-template="folio"] body:is(.bg-color, .bg-image) #shortcuts-grid:not(.free-layout) .shortcut-collection {
+  background: var(--template-surface);
+  padding: 10px 13px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--template-card-radius);
+}
+
+/* The Add action also needs a readable surface over a preserved custom background. */
+:root[data-dashboard-template] body:is(.bg-color, .bg-image) #shortcuts-grid > .add-shortcut {
+  background: var(--template-surface);
+}
+
+/* Must remain AFTER shared focus tokens. Inset rings cannot be clipped by tiles. */
+:root[data-dashboard-template] #dashboard .shortcut-item .shortcut-action-btn:focus-visible {
+  outline: 3px solid var(--template-focus);
+  outline-offset: -3px;
+}
+:root[data-dashboard-template] #dashboard .shortcut-launch:focus-visible,
+:root[data-dashboard-template] #dashboard button.shortcut-item.add-shortcut:focus-visible {
+  outline: 3px solid var(--template-focus);
+  outline-offset: -3px;
+}
+:root[data-dashboard-template] #dashboard #category-list .category-item:focus-visible {
+  outline: 3px solid var(--template-focus);
+  outline-offset: -3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-dashboard-template] #dashboard *,
+  :root[data-dashboard-template] .modal-overlay,
+  :root[data-dashboard-template] .modal-overlay .modal * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

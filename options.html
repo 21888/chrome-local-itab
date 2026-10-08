@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-dashboard-template="clarity" data-color-mode="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Settings for the private, local-first Local iTab Chrome new tab page.">
     <title data-i18n="optionsTitle">Local iTab Settings</title>
     <link rel="stylesheet" href="options.css">
+    <link rel="stylesheet" href="appearance.css">
 </head>
 <body>
     <a class="skip-link" href="#tab-appearance">Skip to settings</a>
@@ -54,54 +55,17 @@
 
                 <div class="options-content">
                     <div class="tab-panel active" id="tab-appearance" data-tab="appearance" role="tabpanel">
-                        <!-- Theme Presets -->
                         <section class="settings-section" id="theme-settings">
                             <div class="section-header">
-                                <h2 class="section-title">🧩 <span data-i18n="themePresets">Theme Presets</span></h2>
-                                <p class="section-description" data-i18n="themePresetsDesc">Choose a visual style for your new tab</p>
+                                <h2 class="section-title" data-i18n="templateAppearance">Template &amp; appearance</h2>
+                                <p class="section-description" data-i18n="templateAppearanceDesc">Choose a workspace and light or dark colors. Saves immediately; your sites and layout stay unchanged.</p>
                             </div>
-                            <div class="settings-grid theme-grid">
-                                <label class="theme-card">
-                                    <input type="radio" name="theme-preset" id="theme-aurora" value="aurora-glass">
-                                    <div class="theme-card-body">
-                                        <div class="theme-swatch aurora-glass"></div>
-                                        <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeAuroraGlass">Slate focus</span>
-                                            <span class="theme-desc" data-i18n="themeAuroraGlassDesc">Calm dark panels with clear contrast</span>
-                                        </div>
-                                    </div>
-                                </label>
-                                <label class="theme-card">
-                                    <input type="radio" name="theme-preset" id="theme-ink" value="ink-paper">
-                                    <div class="theme-card-body">
-                                        <div class="theme-swatch ink-paper"></div>
-                                        <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeInkPaper">Paper light</span>
-                                            <span class="theme-desc" data-i18n="themeInkPaperDesc">Soft light workspace with quiet borders</span>
-                                        </div>
-                                    </div>
-                                </label>
-                                <label class="theme-card">
-                                    <input type="radio" name="theme-preset" id="theme-warm" value="warm-studio">
-                                    <div class="theme-card-body">
-                                        <div class="theme-swatch warm-studio"></div>
-                                        <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeWarmStudio">Walnut</span>
-                                            <span class="theme-desc" data-i18n="themeWarmStudioDesc">Warm neutral workspace with subtle depth</span>
-                                        </div>
-                                    </div>
-                                </label>
-                                <label class="theme-card">
-                                    <input type="radio" name="theme-preset" id="theme-signal" value="signal-pop">
-                                    <div class="theme-card-body">
-                                        <div class="theme-swatch signal-pop"></div>
-                                        <div class="theme-card-text">
-                                            <span class="theme-name" data-i18n="themeSignalPop">High contrast</span>
-                                            <span class="theme-desc" data-i18n="themeSignalPopDesc">Sharper contrast for focused scanning</span>
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
+                            <div class="appearance-controls" id="options-appearance"></div>
+                            <ul class="template-descriptions">
+                                <li><strong data-i18n="templateClarity">A · Clarity</strong><span data-i18n="templateClarityDescription">A clear sidebar and spacious shortcut tiles.</span></li>
+                                <li><strong data-i18n="templateGraphite">B · Graphite</strong><span data-i18n="templateGraphiteDescription">A compact rail and grouped collections.</span></li>
+                                <li><strong data-i18n="templateFolio">C · Folio</strong><span data-i18n="templateFolioDescription">An editorial workspace and numbered collections.</span></li>
+                            </ul>
                         </section>
 
                         <!-- Time Display Settings -->
@@ -670,6 +634,7 @@
     
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
+    <script src="shared/appearance.js"></script>
     <script src="shared/search-template.js"></script>
     <script src="drive-backup.js"></script>
     <script src="options.js"></script>

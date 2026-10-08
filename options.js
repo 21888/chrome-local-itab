@@ -269,10 +269,14 @@ async function initializeOptionsPage() {
 }
 
 async function populateFormFields(config) {
-    const themePreset = normalizeThemePreset(config.themePreset);
-    const themeRadio = document.querySelector(`input[name="theme-preset"][value="${themePreset}"]`);
-    if (themeRadio) themeRadio.checked = true;
-    applyThemePreset(themePreset);
+    applyThemePreset(config.themePreset);
+    if (window.LocalItabAppearance) {
+        if (window.appearanceController) await window.appearanceController.refresh();
+        else window.appearanceController = window.LocalItabAppearance.mount(document.getElementById('options-appearance'), {
+            initial: config.appearance,
+            onError: error => console.warn('Appearance save/read failed:', error)
+        });
+    }
 
     // Time settings
     const hour12Checkbox = document.getElementById('hour12-format');
@@ -687,24 +691,6 @@ function setupEventListeners() {
         });
     }
 
-    // Theme preset selection
-    const themeInputs = document.querySelectorAll('input[name="theme-preset"]');
-    if (themeInputs.length) {
-        let themeSaveTimeout;
-        themeInputs.forEach(input => {
-            input.addEventListener('change', () => {
-                applyThemePreset(input.value);
-                clearTimeout(themeSaveTimeout);
-                themeSaveTimeout = setTimeout(async () => {
-                    try {
-                        await saveAllSettings();
-                    } catch (error) {
-                        console.error('Theme save error:', error);
-                    }
-                }, 400);
-            });
-        });
-    }
 
     // Dashboard padding controls
     const paddingInputs = [
@@ -1455,10 +1441,9 @@ async function collectFormData() {
     const settings = {};
     const existingConfig = await storageManager.getAll();
 
-    const themePreset = document.querySelector('input[name="theme-preset"]:checked')?.value
-        || existingConfig.themePreset
-        || 'aurora-glass';
-    settings.themePreset = normalizeThemePreset(themePreset);
+    // Neither appearance nor legacy theme is edited by this form. Omitting both
+    // avoids stale selection writes and turning an injected legacy default into
+    // an explicit dark preference on a fresh installation.
 
     // Clock settings
     const hour12 = document.getElementById('hour12-format')?.checked || false;

@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         setupDashboardVisibilityToggle(config?.ui);
         setupThemeChangeListener();
+        setupDashboardAppearance(config);
         setupCloudSyncChangeListener();
         // Performance guards: pause animations when tab hidden; honor reduced motion
         setupPerformanceGuards();
@@ -259,6 +260,8 @@ async function initializeDashboard() {
 
         // Apply theme preset early for consistent rendering
         applyThemePreset(config.themePreset);
+        window.LocalItabAppearance?.apply(config.appearance);
+        updateTemplateIntro(config.appearance?.template);
 
         // Apply background settings
         await applyBackgroundSettings(config.bg, window.localItabPrivacy);
@@ -277,7 +280,7 @@ async function initializeDashboard() {
 
 
         if (config.show.shortcuts) {
-            initializeShortcutsComponent(config.links, config.layout);
+            initializeShortcutsComponent(config.links, config.layout, config.categories);
         }
 
         initializeLocalInfoCards(config);
@@ -289,6 +292,31 @@ async function initializeDashboard() {
         console.error('Error in initializeDashboard:', error);
         throw error;
     }
+}
+
+function updateTemplateIntro(template = 'clarity') {
+    const copy = {
+        clarity: ['templateClarityHeading', 'Start here. Make today yours.', 'templateClarityIntro', 'A clear place for the sites you use every day.'],
+        graphite: ['templateGraphiteHeading', 'Open your workspace.', 'templateGraphiteIntro', 'Less distraction. More focus.'],
+        folio: ['templateFolioHeading', 'Your everyday, thoughtfully collected.', 'templateFolioIntro', 'Work, reading and inspiration, each in its place.']
+    }[template] || ['templateClarityHeading', 'Start here. Make today yours.', 'templateClarityIntro', 'A clear place for the sites you use every day.'];
+    setText(document.getElementById('template-heading'), window.i18n?.t(copy[0]) || copy[1]);
+    setText(document.getElementById('template-description'), window.i18n?.t(copy[2]) || copy[3]);
+}
+
+function setupDashboardAppearance(config) {
+    if (!window.LocalItabAppearance) return;
+    window.appearanceController = window.LocalItabAppearance.mount(document.getElementById('dashboard-appearance'), {
+        initial: config.appearance,
+        onBeforeApply(value, previous) {
+            if (value.template !== previous.template) window.shortcutsComponentInstance?._cancelFreeDrag?.();
+        },
+        onApply(value, previous) {
+            updateTemplateIntro(value.template);
+            if (value.template !== previous.template) window.shortcutsComponentInstance?.refreshTemplate();
+        },
+        onError: error => console.warn('Appearance save/read failed:', error)
+    });
 }
 
 function setupThemeChangeListener() {
@@ -506,6 +534,9 @@ function applyModuleVisibility(showConfig) {
         container.classList.toggle('module-hidden', isVisible !== true);
         container.style.display = isVisible === true ? '' : 'none';
     });
+    const hasCards = ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
+    document.getElementById('info-cards-container')?.classList.toggle('module-hidden', !hasCards);
+    document.querySelector('.dashboard-main')?.classList.toggle('has-info-cards', hasCards);
 }
 
 function initializeSearchComponent(searchConfig = {}) {
@@ -970,13 +1001,20 @@ class ClockComponent {
 
 
 
-function initializeShortcutsComponent(linksConfig, layoutConfig) {
+function initializeShortcutsComponent(linksConfig, layoutConfig, categoriesConfig) {
     const shortcutsContainer = document.getElementById('shortcuts-container');
     if (!shortcutsContainer) return;
 
     // Create shortcuts component
-    const shortcutsComponent = new ShortcutsComponent(linksConfig, layoutConfig);
+    const shortcutsComponent = new ShortcutsComponent(linksConfig, layoutConfig, categoriesConfig);
     shortcutsComponent.render();
+    window.addEventListener('resize', () => {
+        if (!shortcutsComponent.layout.autoArrange) {
+            shortcutsComponent._cancelFreeDrag?.();
+            shortcutsComponent.applyVisibleTransformsFromPositions();
+            shortcutsComponent.positionAddTile();
+        }
+    });
 
     // Install a single capture listener to set default icon on error (CSP-safe)
     const grid = document.getElementById('shortcuts-grid');
@@ -1376,8 +1414,9 @@ function setDashboardHidden(hidden) {
  * Handles shortcuts grid display and CRUD operations
  */
 class ShortcutsComponent {
-    constructor(links, layout) {
+    constructor(links, layout, categories = []) {
         this.links = links || [];
+        this.categories = categories;
         this.container = document.getElementById('shortcuts-container');
         this.currentEditIndex = -1;
         this.modal = null;
@@ -1417,7 +1456,14 @@ class ShortcutsComponent {
         grid.className = 'shortcuts-grid';
         grid.id = 'shortcuts-grid';
         grid.appendChild(this.buildShortcutsFragment());
-        this.container.replaceChildren(grid);
+        const header = document.createElement('div');
+        header.className = 'shortcuts-header';
+        const heading = document.createElement('h2');
+        heading.className = 'shortcuts-title';
+        heading.id = 'shortcuts-heading';
+        header.appendChild(heading);
+        this.container.replaceChildren(header, grid);
+        this.updateCollectionVisibility();
 
         this.attachEventListeners();
         this.createModal();
@@ -1425,22 +1471,103 @@ class ShortcutsComponent {
         this.gridEl = document.getElementById('shortcuts-grid');
         window.shortcutsComponentInstance = this;
         window.categoryNavigation?.filterShortcuts({ reflow: false });
+        this.updateCollectionVisibility();
         this.applyLayoutMode();
     }
 
     /**
      * Render shortcuts grid
      */
+    usesCollections() {
+        return this.layout?.autoArrange !== false && ['graphite', 'folio'].includes(document.documentElement?.dataset?.dashboardTemplate);
+    }
+
     buildShortcutsFragment() {
         const fragment = document.createDocumentFragment();
-        if (!this.links.length) {
-            fragment.appendChild(this.createEmptyState());
+        this._renderedGrouping = this.usesCollections();
+        if (!this.links.length) fragment.appendChild(this.createEmptyState());
+        if (this._renderedGrouping) {
+            const groups = new Map();
+            for (const category of this.categories || []) {
+                if (!groups.has(category.id)) groups.set(category.id, { ...category, entries: [] });
+            }
+            this.links.forEach((link, index) => {
+                const id = link.category || 'work';
+                if (!groups.has(id)) groups.set(id, { id, name: id, entries: [] });
+                groups.get(id).entries.push({ link, index });
+            });
+            let number = 0;
+            for (const group of groups.values()) {
+                if (!group.entries.length) continue;
+                const section = document.createElement('section');
+                section.className = 'shortcut-collection';
+                section.dataset.category = group.id;
+                const heading = document.createElement('div');
+                heading.className = 'shortcut-collection-heading';
+                const ordinal = document.createElement('span');
+                ordinal.className = 'collection-index';
+                ordinal.setAttribute('aria-hidden', 'true');
+                ordinal.textContent = String(++number).padStart(2, '0');
+                const name = document.createElement('h3');
+                name.textContent = group.name;
+                name.id = `shortcut-collection-title-${number}`;
+                section.setAttribute('aria-labelledby', name.id);
+                const count = document.createElement('span');
+                count.className = 'collection-count';
+                count.textContent = String(group.entries.length);
+                heading.append(ordinal, name, count);
+                const items = document.createElement('div');
+                items.className = 'shortcut-collection-items';
+                for (const { link, index } of group.entries) items.appendChild(this.createShortcutItem(link, index));
+                section.append(heading, items);
+                fragment.appendChild(section);
+            }
+        } else {
+            this.links.forEach((link, index) => fragment.appendChild(this.createShortcutItem(link, index)));
         }
-        this.links.forEach((link, index) => {
-            fragment.appendChild(this.createShortcutItem(link, index));
-        });
+        if (this.links.length) {
+            const empty = document.createElement('div');
+            empty.className = 'shortcuts-empty-state category-empty-state';
+            empty.hidden = true;
+            const text = document.createElement('p');
+            text.textContent = window.i18n?.t('emptyCategory') || 'No shortcuts in this category yet.';
+            const all = document.createElement('button');
+            all.type = 'button';
+            all.className = 'empty-action-btn';
+            all.dataset.action = 'show-all';
+            all.textContent = window.i18n?.t('showAllShortcuts') || 'Show all shortcuts';
+            empty.append(text, all);
+            fragment.appendChild(empty);
+        }
         fragment.appendChild(this.createAddTile());
         return fragment;
+    }
+
+    updateCollectionVisibility() {
+        const grid = this.gridEl || document.getElementById('shortcuts-grid');
+        if (!grid) return;
+        grid.querySelectorAll('.shortcut-collection').forEach(group => {
+            group.hidden = !Array.from(group.querySelectorAll('.shortcut-item')).some(item => item.style.display !== 'none');
+        });
+        const visible = Array.from(grid.querySelectorAll('.shortcut-item:not(.add-shortcut)')).filter(item => item.style.display !== 'none').length;
+        const empty = grid.querySelector('.category-empty-state');
+        if (empty) empty.hidden = visible !== 0;
+        const category = this.getCurrentCategory();
+        const name = (this.categories || []).find(item => item.id === category)?.name;
+        const title = category === 'all' ? (window.i18n?.t('allShortcuts') || 'All shortcuts') : name || category;
+        setText(document.getElementById('shortcuts-heading'), `${title} · ${visible}`);
+        window.categoryNavigation?.updateCounts?.(this.links);
+    }
+
+    refreshTemplate() {
+        this._cancelFreeDrag?.();
+        if (this.layout.autoArrange) this.updateGrid();
+        else {
+            // Manual tiles stay in the same flat plane. Repaint only: never
+            // capture/replace a saved baseline merely to change the template.
+            this.applyVisibleTransformsFromPositions();
+            this.positionAddTile();
+        }
     }
 
     getShortcutFocusKey(link) {
@@ -1597,6 +1724,11 @@ class ShortcutsComponent {
         if (action === 'open-add' || e.target.closest('.add-shortcut')) {
             e.stopPropagation();
             this.openAddModal();
+            return;
+        }
+
+        if (action === 'show-all') {
+            window.categoryNavigation?.selectCategory('all');
             return;
         }
 
@@ -2219,6 +2351,7 @@ class ShortcutsComponent {
             // Filter before layout measures positions so hidden categories cannot
             // flash back into view or reserve space after a mutation.
             window.categoryNavigation?.filterShortcuts({ reflow: false });
+            this.updateCollectionVisibility();
             this.applyLayoutMode();
             if (focusIntent) this.restoreGridFocus(grid, focusIntent);
         }
@@ -2265,9 +2398,15 @@ class ShortcutsComponent {
         this._cancelFreeDrag?.();
         const grid = this.gridEl;
         if (!grid) return;
+        if (this._renderedGrouping !== undefined && this._renderedGrouping !== this.usesCollections()) {
+            grid.replaceChildren(this.buildShortcutsFragment());
+            window.categoryNavigation?.filterShortcuts({ reflow: false });
+            this.updateCollectionVisibility();
+        }
         this.applyAutoColumns();
         if (this.layout?.autoArrange) {
             grid.classList.remove('free-layout');
+            grid.style.minHeight = '';
             // reset inline positions if any
             grid.querySelectorAll('.shortcut-item').forEach(el => {
                 el.style.position = '';
@@ -2335,7 +2474,7 @@ class ShortcutsComponent {
         const currentCategory = this.getCurrentCategory();
         const items = Array.from(grid.querySelectorAll('.shortcut-item'));
         items.forEach((el, idx) => {
-            const link = this.links[idx];
+            const link = this.links[Number(el.dataset.index)];
             if (!el || el.classList.contains('add-shortcut')) return;
             if (el.style.display === 'none') return; // skip hidden in current category
             const key = this.getPositionKey(link, currentCategory);
@@ -2516,9 +2655,10 @@ class ShortcutsComponent {
             const key = this.getPositionKey(link, category);
             if (key === draggedKey) continue;
             const rectangle = element.getBoundingClientRect();
-            const position = this.positions[key];
-            const left = Number.isFinite(position?.x) ? position.x : rectangle.left - gridRect.left;
-            const top = Number.isFinite(position?.y) ? position.y : rectangle.top - gridRect.top;
+            // A template/resize may fit a saved coordinate for display only.
+            // Collide with the visible obstacle, without rewriting its raw position.
+            const left = rectangle.left - gridRect.left;
+            const top = rectangle.top - gridRect.top;
             obstacles.push({ left, top, right: left + rectangle.width, bottom: top + rectangle.height });
         }
 
@@ -2639,7 +2779,7 @@ class ShortcutsComponent {
         items.forEach((el, idx) => {
             if (!el || el.classList.contains('add-shortcut')) return;
             if (el.style.display === 'none') return;
-            const link = this.links[idx];
+            const link = this.links[Number(el.dataset.index)];
             const key = this.getPositionKey(link, currentCategory);
             const r = el.getBoundingClientRect();
             const x = r.left - gridRect.left;
@@ -2662,24 +2802,29 @@ class ShortcutsComponent {
         }
     }
 
-    // Apply saved positions to visible items only (no snapping, no animation)
+    // Display-only fitting keeps saved coordinates intact across templates and widths.
     applyVisibleTransformsFromPositions() {
         const grid = this.gridEl;
         if (!grid) return;
         const currentCategory = this.getCurrentCategory();
-        const items = Array.from(grid.querySelectorAll('.shortcut-item'));
-        items.forEach((el, idx) => {
-            if (!el || el.classList.contains('add-shortcut')) return;
-            if (el.style.display === 'none') return;
-            const link = this.links[idx];
-            const key = this.getPositionKey(link, currentCategory);
-            const pos = this.positions[key];
-            if (!pos) return;
+        const width = grid.getBoundingClientRect().width;
+        let bottom = 0;
+        Array.from(grid.querySelectorAll('.shortcut-item')).forEach(el => {
+            if (el.classList.contains('add-shortcut') || el.style.display === 'none') return;
+            const link = this.links[Number(el.dataset.index)];
+            if (!link) return;
+            const pos = this.positions[this.getPositionKey(link, currentCategory)];
+            if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+            const rect = el.getBoundingClientRect();
+            const x = Math.max(0, Math.min(pos.x, Math.max(0, width - rect.width)));
+            const y = Math.max(0, pos.y);
             el.style.position = 'absolute';
-            el.style.left = `${pos.x}px`;
-            el.style.top = `${pos.y}px`;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
             el.style.transform = 'none';
+            bottom = Math.max(bottom, y + rect.height);
         });
+        grid.style.minHeight = `${Math.max(320, bottom)}px`;
     }
 
     positionAddTile() {
@@ -2687,27 +2832,19 @@ class ShortcutsComponent {
         if (!grid) return;
         const addEl = grid.querySelector('.shortcut-item.add-shortcut');
         if (!addEl) return;
-        const currentCategory = this.getCurrentCategory();
-        const gs = Math.max(48, Math.min(240, this.layout.gridSize || 96));
-        let maxY = -gs;
-        let found = false;
-        Array.from(grid.querySelectorAll('.shortcut-item')).forEach((el, idx) => {
-            if (!el || el.classList.contains('add-shortcut')) return;
-            if (el.style.display === 'none') return;
-            const link = this.links[idx];
-            const key = this.getPositionKey(link, currentCategory);
-            const pos = this.positions[key];
-            if (pos) {
-                found = true;
-                if (pos.y > maxY) maxY = pos.y;
-            }
+        const gridRect = grid.getBoundingClientRect();
+        let bottom = 0;
+        Array.from(grid.querySelectorAll('.shortcut-item')).forEach(el => {
+            if (el.classList.contains('add-shortcut') || el.style.display === 'none') return;
+            const rect = el.getBoundingClientRect();
+            bottom = Math.max(bottom, rect.top - gridRect.top + rect.height);
         });
-        const targetX = 0;
-        const targetY = found ? (maxY + gs) : 0;
+        const y = bottom ? bottom + 16 : 0;
         addEl.style.position = 'absolute';
-        addEl.style.left = `${targetX}px`;
-        addEl.style.top = `${targetY}px`;
+        addEl.style.left = '0px';
+        addEl.style.top = `${y}px`;
         addEl.style.transform = 'none';
+        grid.style.minHeight = `${Math.max(320, y + addEl.getBoundingClientRect().height)}px`;
     }
 
     /**
@@ -3153,15 +3290,28 @@ class CategoryNavigation {
         const btn = document.createElement('button');
         btn.className = 'category-item';
         btn.dataset.category = cat.id;
+        btn.type = 'button';
+        btn.title = cat.name || '';
+        btn.setAttribute('aria-label', cat.name || cat.id);
         const icon = document.createElement('span');
         icon.className = 'category-icon';
         icon.textContent = cat.icon || '';
         const name = document.createElement('span');
         name.className = 'category-name';
         name.textContent = cat.name || '';
-        btn.append(icon, name);
+        const count = document.createElement('span');
+        count.className = 'category-count';
+        count.setAttribute('aria-hidden', 'true');
+        btn.append(icon, name, count);
         btn.addEventListener('click', () => this.selectCategory(cat.id));
         return btn;
+    }
+
+    updateCounts(links = []) {
+        document.querySelectorAll('.category-item').forEach(item => {
+            const count = item.dataset.category === 'all' ? links.length : links.filter(link => (link.category || 'work') === item.dataset.category).length;
+            setText(item.querySelector('.category-count'), count);
+        });
     }
 
     selectCategory(category) {
@@ -3180,6 +3330,7 @@ class CategoryNavigation {
         const items = document.querySelectorAll('.category-item');
         items.forEach(item => {
             const itemCategory = item.dataset.category;
+            item.setAttribute('aria-current', itemCategory === this.currentCategory ? 'page' : 'false');
             if (itemCategory === this.currentCategory) {
                 item.classList.add('active');
             } else {
@@ -3206,6 +3357,7 @@ class CategoryNavigation {
                 item.style.display = 'none';
             }
         });
+        window.shortcutsComponentInstance?.updateCollectionVisibility?.();
         // trigger layout reflow in free layout mode to avoid chaos when switching categories
         if (reflow) {
             try { window.shortcutsComponentInstance?.reflowVisibleLayout?.(); } catch (_) {}

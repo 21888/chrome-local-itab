@@ -31,6 +31,7 @@ class StorageManager {
                 value: ''
             },
             themePreset: 'aurora-glass',
+            appearance: { template: 'clarity', colorMode: 'light' },
             show: {
                 clock: true,
                 search: true,
@@ -251,16 +252,7 @@ class StorageManager {
             await this.ensureSyncInitialized();
             const result = await chrome.storage.local.get(null);
 
-            // Merge with defaults for any missing keys
-            const completeConfig = this.cloneDefaultConfig();
-
-            for (const [key, value] of Object.entries(result)) {
-                if (this.defaultConfig.hasOwnProperty(key)) {
-                    completeConfig[key] = this.validateData(key, value);
-                }
-            }
-            
-            return completeConfig;
+            return this.validateConfigObject(result);
         } catch (error) {
             console.error('Storage getAll error:', error);
             return { ...this.defaultConfig };
@@ -544,6 +536,8 @@ class StorageManager {
             if (value !== undefined && !choices.includes(value)) invalid(`unsupported ${name}`);
         };
         checkChoice(settings.themePreset, ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'], 'theme');
+        checkChoice(settings.appearance?.template, ['clarity', 'graphite', 'folio'], 'dashboard template');
+        checkChoice(settings.appearance?.colorMode, ['light', 'dark'], 'color mode');
         checkChoice(settings.bg?.type, ['gradient', 'color', 'image', 'api'], 'background type');
         checkChoice(settings.search?.engine, ['google', 'bing', 'duck', 'custom'], 'search engine');
         checkChoice(settings.hot?.tab, ['baidu', 'weibo', 'zhihu'], 'topic source');
@@ -597,7 +591,33 @@ class StorageManager {
             }
         }
 
+        // Resolve from raw data, before defaults can masquerade as a saved legacy choice.
+        validated.appearance = this.resolveAppearance(data);
         return validated;
+    }
+
+    validateAppearanceConfig(value) {
+        const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        return {
+            template: ['clarity', 'graphite', 'folio'].includes(source.template) ? source.template : 'clarity',
+            colorMode: ['light', 'dark'].includes(source.colorMode) ? source.colorMode : 'light'
+        };
+    }
+
+    resolveAppearance(raw = {}) {
+        if (Object.prototype.hasOwnProperty.call(raw, 'appearance')) {
+            return this.validateAppearanceConfig(raw.appearance);
+        }
+        return {
+            template: 'clarity',
+            colorMode: ['aurora-glass', 'warm-studio', 'signal-pop'].includes(raw.themePreset) ? 'dark' : 'light'
+        };
+    }
+
+    // Strict and small: a failed read must not be mistaken for a fresh preference.
+    async getAppearanceForUpdate() {
+        const raw = await chrome.storage.local.get(['appearance', 'themePreset']);
+        return this.resolveAppearance(raw);
     }
 
     isSyncAvailable() {
@@ -1060,6 +1080,8 @@ class StorageManager {
                     return this.validatePrivacyConfig(value);
                 case 'themePreset':
                     return this.validateThemePreset(value);
+                case 'appearance':
+                    return this.validateAppearanceConfig(value);
                 case 'categories':
                     return this.validateCategoriesConfig(value);
                 case 'links':

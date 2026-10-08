@@ -29,7 +29,8 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 - **Search and go**: Use Google, Bing, DuckDuckGo, or a custom search URL, or open a website directly. Use `%s` for the search term in a custom template, such as `https://example.com/search?q=%s`.
 - **Organized shortcuts**: Add, edit, and delete saved websites; filter by category; drag to reorder or use free placement with optional grid snapping. The context menu includes shortcut actions and an option to open every website in a category.
-- **Your layout and appearance**: Choose a theme, gradient, solid color, or uploaded background. Adjust columns, spacing, icons, and titles, and show or hide individual modules.
+- **Three workspace templates**: A / Clarity, B / Graphite, and C / Folio each support light and dark colors. New installations use A/light; legacy theme records remain intact with a compatible initial color choice. Selections save immediately without changing sites, categories, backgrounds, arrangement mode, or stored coordinates. B/C group real categories in Grid; manual layouts retain one coordinate plane.
+- **Your layout and appearance**: Use the template background, a solid color, or a local image. Adjust columns, spacing, icons, and titles, and show or hide individual modules.
 - **Small local cards**: A clock, weather, topics, a movie, and a personal quote. Weather, topic, and movie cards are manually maintained and hidden by default; they do not fetch live feeds.
 - **Local JSON backups**: Export settings and local images, or import an existing backup. Imports validate the data and ask for confirmation. Restoring replaces the current configuration, so export a copy first. Files over 10 MiB show a memory-risk warning before reading and can be cancelled. Restoring large files still depends on available browser memory. The current device's sync state is retained.
 - **Optional cloud features**: Chrome Sync handles lightweight settings synchronization; Google Drive stores manual snapshots grouped by computer name. Their behavior and limits are explained below.
@@ -94,7 +95,7 @@ Built with Manifest V3, vanilla JavaScript, and CSS. No dependency installation 
 node --test tests/*.test.js
 
 # Check JavaScript syntax
-for file in *.js shared/*.js tests/*.js assets/*.js; do
+for file in *.js shared/*.js tests/*.js tests/helpers/*.js assets/*.js; do
   node --check "$file" || exit 1
 done
 

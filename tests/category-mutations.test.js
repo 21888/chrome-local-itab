@@ -3,11 +3,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 function createDashboard(save, category = 'work') {
-    const grid = { items: [], replaceChildren(items) { this.items = items; } };
+    const grid = { items: [], replaceChildren(items) { this.items = items; }, querySelector() { return null; }, querySelectorAll(selector) { return selector.startsWith('.shortcut-item') ? this.items : []; } };
     const document = {
         addEventListener() {},
         getElementById(id) { return id === 'shortcuts-grid' ? grid : null; },
-        querySelectorAll() { return grid.items; }
+        querySelectorAll(selector) { return selector.startsWith('.shortcut-item') ? grid.items : []; }
     };
     const context = {
         document, window: { addEventListener() {} },

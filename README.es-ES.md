@@ -29,7 +29,8 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 - **Buscar y navegar**: Usa Google, Bing, DuckDuckGo o una URL de búsqueda personalizada, o abre un sitio directamente. En una plantilla personalizada, `%s` representa el término de búsqueda; por ejemplo, `https://example.com/search?q=%s`.
 - **Accesos directos organizados**: Añade, edita y elimina sitios; filtra por categoría; arrastra para reordenar o usa la colocación libre con ajuste opcional a la cuadrícula. El menú contextual incluye acciones para cada acceso y una opción para abrir todos los sitios de una categoría.
-- **Diseño a tu gusto**: Elige un tema, un degradado, un color sólido o una imagen de fondo local. Ajusta las columnas, el espaciado, los iconos y los títulos, y muestra u oculta cada módulo.
+- **Tres plantillas de trabajo**: A / Clarity, B / Graphite y C / Folio ofrecen colores claros y oscuros. Las instalaciones nuevas usan A/claro; los temas anteriores se conservan con una apariencia inicial compatible. La selección se guarda al instante sin cambiar sitios, categorías, fondos, modo de colocación ni coordenadas guardadas. B/C agrupan las categorías reales en cuadrícula; la colocación manual mantiene un único plano de coordenadas.
+- **Diseño a tu gusto**: Usa el fondo de la plantilla, un color sólido o una imagen local. Ajusta las columnas, el espaciado, los iconos y los títulos, y muestra u oculta cada módulo.
 - **Tarjetas locales sencillas**: Reloj, tiempo, temas de interés, película y una frase personal. Las tarjetas de tiempo, temas y películas se rellenan manualmente y están ocultas de forma predeterminada; no obtienen datos en tiempo real.
 - **Copias locales en JSON**: Exporta la configuración y las imágenes locales, o importa una copia existente. La importación valida los datos y pide confirmación. Restaurar sustituye la configuración actual, así que conviene exportar una copia antes. Los archivos de más de 10 MiB muestran un aviso sobre el uso de memoria antes de leerlos y se pueden cancelar. La restauración de archivos grandes sigue dependiendo de la memoria disponible en el navegador. Se conserva el estado de sincronización del dispositivo actual.
 - **Funciones opcionales en la nube**: Chrome Sync sincroniza ajustes ligeros; Google Drive guarda instantáneas manuales agrupadas por nombre del equipo. Su funcionamiento y sus límites se explican a continuación.
@@ -94,7 +95,7 @@ El proyecto utiliza Manifest V3, JavaScript sin bibliotecas externas y CSS. No r
 node --test tests/*.test.js
 
 # Comprobar la sintaxis JavaScript
-for file in *.js shared/*.js tests/*.js assets/*.js; do
+for file in *.js shared/*.js tests/*.js tests/helpers/*.js assets/*.js; do
   node --check "$file" || exit 1
 done
 

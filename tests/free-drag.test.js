@@ -32,7 +32,7 @@ function createHarness({ width = 288, height = 288, tileWidth = 80, tileHeight =
     }));
     const grid = {
         ...eventTarget(), classList: classes(), style: { removeProperty() {} },
-        contains(item) { return items.includes(item); }, querySelectorAll() { return items; },
+        contains(item) { return items.includes(item); }, querySelector() { return null; }, querySelectorAll(selector) { return selector.startsWith('.shortcut-item') ? items : []; },
         getBoundingClientRect() { return { left: 0, top: 0, width, height }; },
         replaceChildren() {}
     };
@@ -160,6 +160,7 @@ for (const size of [146, 170, 191, 200, 288]) {
 {
     const h = createHarness({ width: 96, height: 96 });
     h.component.positions[h.component.getPositionKey(h.component.links[1])] = { x: 0, y: 0 };
+    h.items[1].getBoundingClientRect = () => ({ left: 0, top: 0, width: 80, height: 80 });
     const original = { ...h.items[0].style };
     h.component.onPointerDown(h.event());
     h.document.emit('pointermove', h.event({ clientX: 80, clientY: 80 }));
@@ -178,6 +179,20 @@ for (const size of [146, 170, 191, 200, 288]) {
     assert.equal(h.component.avoidOverlap(0, 0, 96, { ...bounds, height: Infinity }), null);
     assert.equal(h.component.avoidOverlap(0, 0, 96, { ...bounds, width: 40 }), null);
 }
+// Template/resize fitting changes display only; legacy snapping must collide
+// against the fitted rectangle rather than the still-preserved off-canvas data.
+{
+    const h = createHarness();
+    const key = h.component.getPositionKey(h.component.links[1]);
+    h.component.positions[key] = { x: 800, y: 0 };
+    h.items[1].getBoundingClientRect = () => ({ left: parseFloat(h.items[1].style.left), top: parseFloat(h.items[1].style.top), width: 80, height: 80 });
+    h.component.applyVisibleTransformsFromPositions();
+    assert.equal(h.items[1].style.left, '208px');
+    const result = h.component.avoidOverlap(192, 0, 96, { width: 288, height: 288, tileWidth: 80, tileHeight: 80 }, h.component.getPositionKey(h.component.links[0]));
+    assert(result);
+    assert(!(result.x < 288 && result.x + 80 > 208 && result.y < 80 && result.y + 80 > 0));
+    assert.deepEqual(h.component.positions[key], { x: 800, y: 0 });
+}
 // Compare lazy search with a bounded exhaustive oracle on small deterministic grids.
 for (let sample = 0; sample < 60; sample++) {
     const width = 140 + (sample * 37) % 280;
@@ -186,6 +201,7 @@ for (let sample = 0; sample < 60; sample++) {
     const h = createHarness({ width, height, gridSize: gs });
     const obstacle = { x: (sample * 29) % width, y: (sample * 19) % height };
     h.component.positions[h.component.getPositionKey(h.component.links[1])] = obstacle;
+    h.items[1].getBoundingClientRect = () => ({ left: obstacle.x, top: obstacle.y, width: 80, height: 80 });
     const x = (sample * 67) % width;
     const y = (sample * 41) % height;
     const result = h.component.avoidOverlap(x, y, gs, { width, height, tileWidth: 80, tileHeight: 80 }, h.component.getPositionKey(h.component.links[0]));

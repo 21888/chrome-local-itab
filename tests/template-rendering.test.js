@@ -1,0 +1,122 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const { createHarness, nativeActivation, submit, deferred } = require('./helpers/dashboard-harness');
+const links = [
+    { title: 'Work A', url: 'https://example.com/a', icon: 'A', category: 'work' },
+    { title: 'Social C', url: 'https://example.com/c', icon: 'C', category: 'social' },
+    { title: 'Work B', url: 'https://example.com/b', icon: 'B', category: 'work' }
+];
+const order = h => h.grid.querySelectorAll('.shortcut-item:not(.add-shortcut)').map(item => Number(item.dataset.index));
+const json = value => JSON.parse(JSON.stringify(value));
+// Defaults resolve on the dashboard/surface rather than an adaptive root alias;
+// user-supplied inline title colors keep their normal higher precedence.
+const templateCss = fs.readFileSync('dashboard-templates.css', 'utf8');
+assert.match(templateCss, /--shortcut-title-color: var\(--template-text\)/);
+assert.match(templateCss, /#shortcuts-grid\.free-layout > \.shortcut-item\s*\{[^}]*background: var\(--glass-bg\)/);
+assert.match(templateCss, /body:is\(\.bg-color, \.bg-image\) #shortcuts-grid > \.add-shortcut\s*\{\s*background: var\(--template-surface\)/);
+const paletteCss = fs.readFileSync('appearance.css', 'utf8');
+assert.match(paletteCss, /color-scheme: light;\s*--overlay-color: rgba\(245, 247, 247, \.88\)/);
+assert.match(paletteCss, /color-scheme: dark;\s*--overlay-color: rgba\(16, 19, 20, \.85\)/);
+
+
+(async () => {
+    const h = createHarness(links);
+    h.component.categories = [{ id: 'work', name: 'Work' }, { id: 'social', name: 'Social' }, { id: 'empty', name: 'Empty' }];
+    const nav = h.context.window.categoryNavigation;
+    nav.categories = h.component.categories;
+    nav.currentCategory = 'all';
+    let writes = 0;
+    h.storageManager.set = async () => { writes++; return true; };
+    const original = json(h.component.links);
+    for (const template of ['graphite', 'folio', 'clarity', 'graphite']) {
+        h.document.documentElement.dataset.dashboardTemplate = template;
+        h.component.refreshTemplate();
+        assert.deepEqual(order(h), template === 'clarity' ? [0, 1, 2] : [0, 2, 1]);
+        assert.deepEqual(json(h.component.links), original);
+        assert.equal(writes, 0, 'presentation never saves link order');
+        nativeActivation(h.control(1), 'Enter');
+        assert.equal(h.opened.at(-1), links[1].url);
+    }
+    const groups = h.grid.querySelectorAll('.shortcut-collection');
+    assert.deepEqual(groups.map(group => group.querySelector('.collection-count').textContent), ['2', '1']);
+    nav.selectCategory('social');
+    assert.equal(groups[0].hidden, true); assert.equal(groups[1].hidden, false);
+    assert.equal(h.control(0).getClientRects().length, 0);
+    nativeActivation(h.control(1, 'edit'), 'Enter');
+    assert.equal(h.component.currentEditIndex, 1);
+    h.component.modal.querySelector('#shortcut-icon').value = 'Changed C';
+    await submit(h.component);
+    assert.equal(h.component.links[1].icon, 'Changed C');
+    assert.equal(h.component.links[2].icon, 'B');
+    nav.selectCategory('empty');
+    assert.equal(h.grid.querySelector('.category-empty-state').hidden, false);
+    assert(h.grid.querySelectorAll('.shortcut-collection').every(group => group.hidden));
+    assert(h.add().getClientRects().length);
+    nativeActivation(h.grid.querySelector('[data-action="show-all"]'), 'Enter');
+    assert.equal(nav.currentCategory, 'all');
+    assert.equal(h.grid.querySelector('.category-empty-state').hidden, true);
+
+    // Group rebuilds retain editor drafts and native focus; original data-index survives.
+    nativeActivation(h.control(2, 'edit'), 'Enter');
+    const input = h.component.modal.querySelector('#shortcut-title'); input.value = 'Unsaved B draft';
+    const overlay = h.component.modal;
+    h.document.documentElement.dataset.dashboardTemplate = 'folio'; h.component.refreshTemplate();
+    assert.equal(h.component.modal, overlay); assert.equal(input.value, 'Unsaved B draft');
+    assert.equal(h.document.activeElement, input); assert.equal(h.component.currentEditIndex, 2);
+    h.component.hideModal();
+    assert.equal(h.document.activeElement, h.control(2, 'edit'));
+
+    const saving = deferred();
+    h.storageManager.set = () => saving.promise;
+    nativeActivation(h.control(2, 'edit'), 'Enter'); input.value = 'Saved B';
+    const pending = submit(h.component);
+    h.document.documentElement.dataset.dashboardTemplate = 'clarity'; h.component.refreshTemplate();
+    saving.resolve(true); await pending;
+    assert.equal(h.component.links[2].title, 'Saved B'); assert.equal(h.component.links[1].title, 'Social C');
+    assert.equal(h.document.activeElement, h.control(2, 'edit'));
+
+    // Real layout routines flatten grouping, resolve explicit indices, and never
+    // write positions merely because a template or viewport changes.
+    h.component.applyLayoutMode = h.context.ShortcutsComponent.prototype.applyLayoutMode;
+    h.component.layout.autoArrange = false;
+    h.component.layout.alignToGrid = false;
+    h.component.positions = {
+        [h.component.getPositionKey(h.component.links[0])]: { x: 37, y: 53 },
+        [h.component.getPositionKey(h.component.links[1])]: { x: 800, y: 140 },
+        [h.component.getPositionKey(h.component.links[2])]: { x: 150, y: 260 }
+    };
+    const positions = json(h.component.positions);
+    h.component.layout.positions = h.component.positions;
+    h.storageManager.set = async () => { throw new Error('Template must not save a layout'); };
+    h.component.updateGrid();
+    assert.equal(h.grid.querySelector('.shortcut-collection'), null);
+    let cancelled = 0;
+    for (const template of ['graphite', 'folio', 'clarity']) {
+        h.component._cancelFreeDrag = () => { cancelled++; h.component._cancelFreeDrag = null; };
+        h.document.documentElement.dataset.dashboardTemplate = template;
+        h.component.refreshTemplate();
+        assert.deepEqual(json(h.component.positions), positions);
+        assert.deepEqual(order(h), [0, 1, 2]);
+        assert.equal(h.tile(0).style.left, '37px');
+        assert.equal(h.tile(1).style.left, '208px', 'display fits narrow canvas, saved x remains 800');
+        assert.equal(h.tile(2).style.top, '260px');
+    }
+    assert.equal(cancelled, 3);
+    h.grid.rect.width = 1000; h.component.refreshTemplate();
+    assert.equal(h.tile(1).style.left, '800px', 'wider canvas restores original coordinate');
+    assert.deepEqual(json(h.component.positions), positions);
+    h.component.layout.autoArrange = true;
+    h.document.documentElement.dataset.dashboardTemplate = 'folio';
+    h.component.applyLayoutMode();
+    assert.equal(h.grid.querySelectorAll('.shortcut-collection').length, 2);
+    assert.deepEqual(order(h), [0, 2, 1]);
+    assert.deepEqual(json(h.component.positions), positions);
+
+    // An orphan saved category is still shown honestly, not dropped or reassigned.
+    const orphan = createHarness([{ title: 'Orphan', url: 'https://example.com/', category: 'custom <name>' }]);
+    orphan.context.window.categoryNavigation.currentCategory = 'all';
+    orphan.document.documentElement.dataset.dashboardTemplate = 'folio'; orphan.component.refreshTemplate();
+    assert.equal(orphan.grid.querySelector('.shortcut-collection').querySelector('h3').textContent, 'custom <name>');
+    assert.equal(orphan.component.links[0].category, 'custom <name>');
+    console.log('template rendering tests ok (DOM/layout model)');
+})().catch(error => { console.error(error); process.exitCode = 1; });
