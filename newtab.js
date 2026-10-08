@@ -1417,14 +1417,9 @@ class ShortcutsComponent {
         this.createModal();
 
         this.gridEl = document.getElementById('shortcuts-grid');
-        this.applyLayoutMode();
-
-        // 供分类导航使用
         window.shortcutsComponentInstance = this;
-        // 渲染后根据当前分类过滤一次
-        if (window.categoryNavigation) {
-            window.categoryNavigation.filterShortcuts();
-        }
+        window.categoryNavigation?.filterShortcuts({ reflow: false });
+        this.applyLayoutMode();
     }
 
     /**
@@ -1630,7 +1625,6 @@ class ShortcutsComponent {
             const saved = await storageManager.set('links', this.links);
             if (!saved) throw new Error('Storage write returned false');
             this.updateGrid();
-            window.categoryNavigation?.filterShortcuts?.();
         } catch (error) {
             console.error('Error creating starter set:', error);
             showErrorMessage((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.');
@@ -1897,9 +1891,6 @@ class ShortcutsComponent {
             }
             this.hideModal();
             this.updateGrid();
-            if (window.categoryNavigation) {
-                window.categoryNavigation.filterShortcuts();
-            }
 
             // Warm favicon cache after the UI is done saving so it never blocks the modal.
             if (window.faviconCache) {
@@ -2135,6 +2126,9 @@ class ShortcutsComponent {
         if (grid) {
             grid.replaceChildren(this.buildShortcutsFragment());
             this.gridEl = grid;
+            // Filter before layout measures positions so hidden categories cannot
+            // flash back into view or reserve space after a mutation.
+            window.categoryNavigation?.filterShortcuts({ reflow: false });
             this.applyLayoutMode();
         }
     }
@@ -3016,7 +3010,7 @@ class CategoryNavigation {
         });
     }
 
-    filterShortcuts() {
+    filterShortcuts({ reflow = true } = {}) {
         const shortcutItems = document.querySelectorAll('.shortcut-item:not(.add-shortcut)');
         shortcutItems.forEach(item => {
             const index = parseInt(item.dataset.index);
@@ -3035,7 +3029,9 @@ class CategoryNavigation {
             }
         });
         // trigger layout reflow in free layout mode to avoid chaos when switching categories
-        try { window.shortcutsComponentInstance?.reflowVisibleLayout?.(); } catch (_) {}
+        if (reflow) {
+            try { window.shortcutsComponentInstance?.reflowVisibleLayout?.(); } catch (_) {}
+        }
     }
 
     getCurrentCategory() {

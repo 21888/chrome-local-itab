@@ -23,9 +23,14 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Restoring still preserves the current device's sync state and skips sync side effects.
 - Verification: `tests/import-safety.test.js` covers invalid payloads, supported formats, valid empty backups, no input mutation, provider-state preservation, and the actual manual-import function's no-confirm/no-write failure path. All five Node suites, JavaScript syntax, JSON parsing, and whitespace checks passed.
 
+## Preserve shortcut category after mutations · 2026-10-08
+
+- Grid refresh now reapplies the active category before layout measures visible tiles. Deleting or reordering no longer reveals shortcuts from other categories.
+- Centralized mutation filtering, removing redundant form/starter filtering; normal category changes still reflow free layout.
+- Verification: `tests/category-mutations.test.js` covers delete/reorder success, rejected writes and thrown writes across Work, Social, All and empty categories; deleting the last visible shortcut; and filter-before-layout ordering. All six Node suites and static checks passed (DOM-model coverage, no browser claim).
+
 ## Confirmed next priorities
 
-- Preserve active category after shortcut mutations.
 - Prevent stale tabs or pending saves from overwriting newer shortcut data.
 - Restore starter-set retry after storage failure; correct fragment-only search templates.
 - Prevent free-layout clicks from moving a shortcut without a drag.
