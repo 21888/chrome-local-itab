@@ -28,7 +28,7 @@ function fixture() {
     });
     const chrome = { storage: { local: area('local'), sync: area('sync'), onChanged: { addListener(fn) { listeners.push(fn); } } } };
     function page() {
-        const context = vm.createContext({ chrome, navigator: { locks }, crypto: webcrypto, TextEncoder, URL, console: { warn() {}, error() {} }, module: { exports: {} }, require: name => name === './shared/layout-identity.js' ? Identity : require(name),
+        const context = vm.createContext({ chrome, navigator: { locks }, crypto: webcrypto, TextEncoder, URL, console: { warn() {}, error() {} }, module: { exports: {} }, require: name => name === './shared/layout-identity.js' ? Identity : name === './shared/dashboard-template-registry.js' ? require('../shared/dashboard-template-registry.js') : require(name),
             setTimeout(fn) { const id = ++counter; timers.set(id, fn); return id; }, clearTimeout(id) { timers.delete(id); } });
         vm.runInContext(fs.readFileSync('storage.js', 'utf8'), context);
         const m = new context.module.exports(); m._syncInitialized = true; return m;

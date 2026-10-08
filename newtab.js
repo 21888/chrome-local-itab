@@ -306,6 +306,12 @@ async function initializeDashboard() {
 }
 
 function updateTemplateIntro(template = 'clarity') {
+    if (window.LocalItabTemplates && !['clarity', 'graphite', 'folio'].includes(template)) {
+        const copy = window.LocalItabTemplates.localize(template);
+        setText(document.getElementById('template-heading'), copy.heading);
+        setText(document.getElementById('template-description'), copy.description);
+        return;
+    }
     const copy = {
         clarity: ['templateClarityHeading', 'Start here. Make today yours.', 'templateClarityIntro', 'A clear place for the sites you use every day.'],
         graphite: ['templateGraphiteHeading', 'Open your workspace.', 'templateGraphiteIntro', 'Less distraction. More focus.'],
@@ -1531,7 +1537,7 @@ class ShortcutsComponent {
      * Render shortcuts grid
      */
     usesCollections() {
-        return this.layout?.autoArrange !== false && ['graphite', 'folio'].includes(document.documentElement?.dataset?.dashboardTemplate);
+        return this.layout?.autoArrange !== false && (window.LocalItabTemplates ? window.LocalItabTemplates.usesCollections(document.documentElement?.dataset?.dashboardTemplate) : ['graphite', 'folio'].includes(document.documentElement?.dataset?.dashboardTemplate));
     }
 
     buildShortcutsFragment() {

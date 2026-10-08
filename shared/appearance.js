@@ -2,7 +2,7 @@
     'use strict';
 
     const same = (a, b) => a?.template === b?.template && a?.colorMode === b?.colorMode;
-    const translate = (key, fallback) => global.i18n?.t(key) || fallback;
+    const translate = (key, fallback) => (() => { const value = global.i18n?.t(key); return value && value !== key ? value : fallback; })();
 
     function apply(value) {
         const root = global.document.documentElement;
@@ -40,7 +40,7 @@
         }
 
         select(field, value) {
-            const choices = field === 'template' ? ['clarity', 'graphite', 'folio'] : field === 'colorMode' ? ['light', 'dark'] : [];
+            const choices = field === 'template' ? (global.LocalItabTemplates?.ids || ['clarity', 'graphite', 'folio']) : field === 'colorMode' ? ['light', 'dark'] : [];
             if (!choices.includes(value)) return Promise.resolve(false);
             const version = ++this.version;
             this.patch = { ...this.patch, [field]: value };
@@ -104,7 +104,7 @@
         const doc = host.ownerDocument;
         const controls = {};
         for (const [field, labelKey, fallback, values] of [
-            ['template', 'dashboardTemplate', 'Template', [['clarity', 'templateClarity', 'A · Clarity'], ['graphite', 'templateGraphite', 'B · Graphite'], ['folio', 'templateFolio', 'C · Folio']]],
+            ['template', 'dashboardTemplate', 'Template', (global.LocalItabTemplates ? global.LocalItabTemplates.all.map((entry, index) => [entry.id, entry.labelKey, `${String.fromCharCode(65 + index)} · ${global.LocalItabTemplates.localize(entry.id).name}`]) : [['clarity', 'templateClarity', 'A · Clarity'], ['graphite', 'templateGraphite', 'B · Graphite'], ['folio', 'templateFolio', 'C · Folio']])],
             ['colorMode', 'colorMode', 'Appearance', [['light', 'colorModeLight', 'Light'], ['dark', 'colorModeDark', 'Dark']]]
         ]) {
             const label = doc.createElement('label');

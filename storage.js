@@ -4,6 +4,7 @@
  */
 
 const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require('./shared/layout-identity.js') : window.LocalItabIdentity;
+const DashboardTemplates = typeof module !== 'undefined' && module.exports ? require('./shared/dashboard-template-registry.js') : window.LocalItabTemplates;
 
 // Personal content is owned by dedicated local stores, never configuration.
 const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1']);
@@ -809,7 +810,7 @@ class StorageManager {
             if (value !== undefined && !choices.includes(value)) invalid(`unsupported ${name}`);
         };
         checkChoice(settings.themePreset, ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'], 'theme');
-        checkChoice(settings.appearance?.template, ['clarity', 'graphite', 'folio'], 'dashboard template');
+        checkChoice(settings.appearance?.template, DashboardTemplates.ids, 'dashboard template');
         checkChoice(settings.appearance?.colorMode, ['light', 'dark'], 'color mode');
         checkChoice(settings.bg?.type, ['gradient', 'color', 'image', 'api'], 'background type');
         checkChoice(settings.search?.engine, ['google', 'bing', 'duck', 'custom'], 'search engine');
@@ -874,7 +875,7 @@ class StorageManager {
     validateAppearanceConfig(value) {
         const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
         return {
-            template: ['clarity', 'graphite', 'folio'].includes(source.template) ? source.template : 'clarity',
+            template: DashboardTemplates.ids.includes(source.template) ? source.template : 'clarity',
             colorMode: ['light', 'dark'].includes(source.colorMode) ? source.colorMode : 'light'
         };
     }
