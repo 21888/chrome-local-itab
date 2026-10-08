@@ -681,9 +681,10 @@ function initializeSearchComponent(searchConfig = {}) {
             ? window.LocalItabSearch.buildSearchUrl(template, query)
             : (() => {
                 const encoded = encodeURIComponent(query);
-                return template.includes('%s')
-                    ? template.split('%s').join(encoded)
-                    : `${template}${template.includes('?') ? '&' : '?'}q=${encoded}`;
+                if (template.includes('%s')) return template.split('%s').join(encoded);
+                const fallbackUrl = new URL(normalizeSearchTemplate(template));
+                fallbackUrl.searchParams.set('q', query);
+                return fallbackUrl.toString();
             })();
         window.open(url, '_blank');
     });

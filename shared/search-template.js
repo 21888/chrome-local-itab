@@ -25,9 +25,14 @@
         const encoded = encodeURIComponent(String(query || '').trim());
         if (!encoded) return '';
         const normalizedTemplate = normalizeSearchTemplate(template);
-        return normalizedTemplate.includes('%s')
-            ? normalizedTemplate.split('%s').join(encoded)
-            : `${normalizedTemplate}${normalizedTemplate.includes('?') ? '&' : '?'}q=${encoded}`;
+        if (normalizedTemplate.includes('%s')) {
+            return normalizedTemplate.split('%s').join(encoded);
+        }
+        // Query parameters belong before the fragment. URLSearchParams also
+        // replaces a stale q value instead of leaving duplicate query keys.
+        const url = new URL(normalizedTemplate);
+        url.searchParams.set('q', String(query || '').trim());
+        return url.toString();
     }
 
     global.LocalItabSearch = {

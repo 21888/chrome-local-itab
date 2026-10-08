@@ -168,6 +168,36 @@ async function collectSearchSettings(engine, custom) {
         'https://example.com/search?q=hello%20world&mirror=hello%20world'
     );
 
+    for (const template of [
+        'https://example.com/search#results',
+        'https://example.com/search?lang=zh#results',
+        'https://example.com/search?lang=zh',
+        'https://example.com/search#',
+        'https://example.com/search#results?mode=compact',
+        'https://example.com/search?q=old&q=older&lang=zh#results'
+    ]) {
+        const query = '中文 & cats? #1';
+        const before = new URL(template);
+        const result = new URL(helper.buildSearchUrl(template, query));
+        assert.strictEqual(result.searchParams.get('q'), query);
+        assert.strictEqual(result.searchParams.getAll('q').length, 1);
+        assert.strictEqual(result.searchParams.get('lang'), before.searchParams.get('lang'));
+        assert.strictEqual(result.hash, before.hash, 'literal fragment must be preserved');
+        if (template.endsWith('#')) assert(result.href.endsWith('#'));
+    }
+    const encodedQuery = encodeURIComponent('中文 & cats? #1');
+    for (const template of [
+        'https://example.com/search/%s?lang=en#results',
+        'https://example.com/search?q=%s#results',
+        'https://example.com/#search=%s',
+        'https://example.com/search/%s?q=%s#%s'
+    ]) {
+        assert.strictEqual(helper.buildSearchUrl(template, ' 中文 & cats? #1 '), template.split('%s').join(encodedQuery));
+    }
+    assert.strictEqual(helper.buildSearchUrl('https://example.com/#results', '  '), '');
+    assert.strictEqual(helper.buildSearchUrl('https://example.com/?q=%s', ''), '');
+    assert.throws(() => helper.buildSearchUrl('javascript:alert(1)', 'query'), /Only HTTP and HTTPS/);
+
     const builtInWithStaleInvalidCustom = await collectSearchSettings('google', 'javascript:alert(1)');
     assert.strictEqual(builtInWithStaleInvalidCustom.search.engine, 'google');
     assert.strictEqual(Object.hasOwn(builtInWithStaleInvalidCustom, 'links'), false, 'ordinary settings save must not overwrite dashboard shortcuts');

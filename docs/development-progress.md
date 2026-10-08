@@ -50,8 +50,12 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Modified clicks and edit/delete buttons remain ordinary actions. Competing native HTML drag is suppressed only in free-layout mode.
 - Verification: nine Node suites pass. The new DOM-event-model test covers click/jitter, self-cell/collision/hidden tiles, cancellations, post-commit lost capture, repeated/foreign pointers, modifier clicks, action controls and cleanup. Browser event/rendering validation remains pending; duplicate-URL layout keys are unchanged.
 
+## Build custom search URLs around fragments correctly · 2026-10-08
+
+- Custom templates without `%s` now place the search query in the URL query string before `#fragment`, while preserving other query parameters and the fragment.
+- An existing `q` value is replaced instead of creating duplicate query parameters. Explicit `%s` templates keep their path/query/fragment substitution behavior.
+- Verification: nine Node suites pass, with expanded search regression cases for fragments, existing parameters, duplicate queries, trailing `#`, Unicode/reserved characters, empty input, explicit placeholders and non-HTTP rejection. Static checks passed; no requests are made while typing.
+
 ## Confirmed next priorities
 
 - Keep snapped free-layout positions within the final grid bounds.
-
-- Correct fragment-only search templates.
