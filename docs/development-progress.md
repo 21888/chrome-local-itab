@@ -74,6 +74,13 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Documentation explains actual local/cloud behavior, permissions, installation, interface-language support and reproducible checks. All three versions describe the new large-import warning and browser-memory caveat, not the removed 10 MiB rejection.
 - Verification: all relative links resolve, all five original preview image URLs are preserved, and the documented ten-test/syntax/JSON/whitespace checks pass. No runtime behavior changes are included in this documentation commit.
 
+## Keep background controls truthful when persistence fails · 2026-10-08
+
+- Image upload/removal and background-type/color changes now check rejected or false storage results. Preview/type changes and success messages follow confirmed persistence; failures restore the preceding committed background and leave retry usable.
+- Recovery uses a strict background read, so read failures cannot masquerade as default settings. Invalid file selections do not supersede an accepted pending operation.
+- Background-only operations share a serial queue and request ownership. Superseded reads cannot write, already-started writes finish before the newer operation, and old completions cannot overwrite a newer choice or its feedback.
+- Verification: eleven Node suites pass. New DOM/storage-model regressions cover false/thrown writes, file/storage reads, invalid/oversized inputs, cancellation, same-file retry, delayed read/write ownership across upload/removal/color changes, and recovery when a newer choice fails after an older write commits. General settings snapshots and cross-tab background conflict handling are unchanged; no native browser verification is claimed here.
+
 ## Confirmed next priorities
 
 - Review distinct visual proposals before changing the production UI.

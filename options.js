@@ -6,6 +6,18 @@ const PRIVACY_PERMISSION_ORIGINS = {
 let driveBackupSnapshots = [];
 let driveActionInProgress = false;
 
+// Serialize background-only writes while the newest request owns the controls.
+// A rejected operation must not poison the next upload/removal/type-change attempt.
+let backgroundMutationQueue = Promise.resolve();
+let backgroundRequest = 0;
+function queueBackgroundTask(operation) {
+    const request = ++backgroundRequest;
+    const isCurrent = () => request === backgroundRequest;
+    const result = backgroundMutationQueue.then(() => operation(isCurrent));
+    backgroundMutationQueue = result.catch(() => {});
+    return result;
+}
+
 function normalizeThemePreset(preset) {
     if (typeof preset !== 'string') return 'aurora-glass';
     return THEME_PRESETS.includes(preset) ? preset : 'aurora-glass';
@@ -1804,40 +1816,48 @@ async function importSettings(file) {
 }
 
 async function handleBackgroundImageUpload(file) {
-    if (!file) return;
-    
-    // Validate file type
+    // Invalid selections and picker cancellation are not new background intents.
+    // They must not take ownership from an image write already in progress.
+    if (!file) {
+        clearBackgroundImageInput();
+        return;
+    }
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
+        clearBackgroundImageInput();
         showMessage('Please select a valid image file (JPEG, PNG, GIF, or WebP)', 'error');
         return;
     }
-    
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
+    if (file.size > 5 * 1024 * 1024) {
+        clearBackgroundImageInput();
         showMessage('Image file is too large. Please select an image smaller than 5MB.', 'error');
         return;
     }
-    
-    try {
-        showMessage('Uploading background image...', 'info');
-        const dataURL = await fileToDataURL(file);
-        
-        // Update background type to image and save
-        const bgTypeSelect = document.getElementById('bg-type');
-        if (bgTypeSelect) {
-            bgTypeSelect.value = 'image';
-            updateBackgroundSections();
+    return queueBackgroundTask(async isCurrent => {
+        let previousBackground;
+        try {
+            if (!isCurrent()) return;
+            previousBackground = await storageManager.getBackgroundForUpdate();
+            if (!isCurrent()) return;
+            showMessage('Uploading background image...', 'info');
+            const dataURL = await fileToDataURL(file);
+            if (!isCurrent()) return;
+            const saved = await storageManager.set('bg', { type: 'image', value: dataURL });
+            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            if (!isCurrent()) return;
+
+            applyCommittedBackground({ type: 'image', value: dataURL });
+            showMessage('Background image uploaded.', 'success');
+        } catch (error) {
+            console.error('Error uploading background image:', error);
+            if (isCurrent()) {
+                if (previousBackground) applyCommittedBackground(previousBackground);
+                showMessage(`Error uploading image: ${error.message}`, 'error');
+            }
+        } finally {
+            if (isCurrent()) clearBackgroundImageInput();
         }
-        
-        await storageManager.set('bg', { type: 'image', value: dataURL });
-        updateBackgroundImagePreview(dataURL);
-        showMessage('Background image uploaded.', 'success');
-    } catch (error) {
-        console.error('Error uploading background image:', error);
-        showMessage(`Error uploading image: ${error.message}`, 'error');
-    }
+    });
 }
 
 async function handleMoviePosterUpload(file) {
@@ -2033,26 +2053,51 @@ function setBackgroundTypeSelection(bgTypeSelect, bgType) {
  * Save background settings immediately
  */
 async function saveBackgroundSettings() {
-    try {
-        const bgTypeSelect = document.getElementById('bg-type');
-        let bgType = bgTypeSelect?.value || 'gradient';
-        const bgColor = document.getElementById('bg-color')?.value || '';
-        const existingConfig = await storageManager.getAll();
-
-        if (bgType === 'api') {
-            bgType = 'gradient';
+    // Capture the user's choice before an older queued task can update controls.
+    const requestedType = document.getElementById('bg-type')?.value || 'gradient';
+    const requestedColor = document.getElementById('bg-color')?.value || '';
+    return queueBackgroundTask(async isCurrent => {
+        let previousBackground;
+        try {
+            if (!isCurrent()) return;
+            previousBackground = await storageManager.getBackgroundForUpdate();
+            if (!isCurrent()) return;
+            const type = requestedType === 'api' ? 'gradient' : requestedType;
+            const value = type === 'color' ? requestedColor : type === 'image' ? previousBackground.value : '';
+            const saved = await storageManager.set('bg', { type, value });
+            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            if (isCurrent()) applyCommittedBackground({ type, value });
+        } catch (error) {
+            console.error('Error saving background settings:', error);
+            if (isCurrent()) {
+                if (previousBackground) applyCommittedBackground(previousBackground);
+                showMessage(t('failedToSave', 'Failed to save. Please try again.'), 'error');
+            }
+        } finally {
+            if (isCurrent()) clearBackgroundImageInput();
         }
+    });
+}
 
-        let bgValue = '';
-        if (bgType === 'color') {
-            bgValue = bgColor;
-        } else if (bgType === 'image') {
-            bgValue = existingConfig.bg.value; // Keep existing image
+function clearBackgroundImageInput() {
+    const input = document.getElementById('bg-image-upload');
+    if (input) input.value = '';
+}
+
+function applyCommittedBackground(background) {
+    setBackgroundTypeSelection(document.getElementById('bg-type'), background.type);
+    if (background.type === 'color') {
+        for (const id of ['bg-color', 'bg-color-text']) {
+            const input = document.getElementById(id);
+            if (input) input.value = background.value;
         }
-
-        await storageManager.set('bg', { type: bgType, value: bgValue });
-    } catch (error) {
-        console.error('Error saving background settings:', error);
+    }
+    updateBackgroundSections();
+    if (background.type === 'image' && background.value) {
+        updateBackgroundImagePreview(background.value);
+    } else {
+        const preview = document.getElementById('bg-image-preview');
+        if (preview) preview.style.display = 'none';
     }
 }
 
@@ -2060,38 +2105,29 @@ async function saveBackgroundSettings() {
  * Remove background image and revert to gradient
  */
 async function removeBackgroundImage() {
-    try {
-        if (confirm('Are you sure you want to remove the background image?')) {
-            await storageManager.set('bg', { type: 'gradient', value: '' });
-            
-            // Update UI
-            const bgTypeSelect = document.getElementById('bg-type');
-            if (bgTypeSelect) {
-                bgTypeSelect.value = 'gradient';
-                updateBackgroundSections();
-            }
-            
-            // Hide preview
-            const previewDiv = document.getElementById('bg-image-preview');
-            if (previewDiv) {
-                previewDiv.style.display = 'none';
-            }
-            
-            // Clear file input
-            const bgImageInput = document.getElementById('bg-image-upload');
-            if (bgImageInput) {
-                bgImageInput.value = '';
-            }
-            
+    if (!confirm('Are you sure you want to remove the background image?')) return;
+    return queueBackgroundTask(async isCurrent => {
+        let previousBackground;
+        try {
+            if (!isCurrent()) return;
+            previousBackground = await storageManager.getBackgroundForUpdate();
+            if (!isCurrent()) return;
+            const saved = await storageManager.set('bg', { type: 'gradient', value: '' });
+            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            if (!isCurrent()) return;
+            applyCommittedBackground({ type: 'gradient', value: '' });
             showMessage('Background image removed.', 'success');
+        } catch (error) {
+            console.error('Error removing background image:', error);
+            if (isCurrent()) {
+                if (previousBackground) applyCommittedBackground(previousBackground);
+                showMessage(`Error removing background image: ${error.message}`, 'error');
+            }
+        } finally {
+            if (isCurrent()) clearBackgroundImageInput();
         }
-    } catch (error) {
-        console.error('Error removing background image:', error);
-        showMessage(`Error removing background image: ${error.message}`, 'error');
-    }
+    });
 }
-
-
 
 /**
  * Populate hot topics lists from configuration

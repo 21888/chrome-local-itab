@@ -232,6 +232,16 @@ class StorageManager {
         }
     }
 
+    // Mutation recovery must distinguish a failed read from a missing setting.
+    async getBackgroundForUpdate() {
+        const result = await chrome.storage.local.get(['bg']);
+        const background = result.bg === undefined ? this.defaultConfig.bg : result.bg;
+        if (!background || typeof background !== 'object' || Array.isArray(background)) {
+            throw new Error('Stored background settings are invalid.');
+        }
+        return this.validateBackgroundConfig(background);
+    }
+
     /**
      * Get all stored data
      * @returns {Promise<Object>} - All stored data with defaults for missing keys
