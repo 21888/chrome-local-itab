@@ -43,7 +43,15 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Save remains disabled across close/reopen while the earlier request is pending. The visible list is updated only after successful persistence; newer drafts remain intact on success/failure.
 - Verification: eight Node suites pass. New deferred-save tests cover success/false/throw across reopen, duplicate-submit prevention, same-session retry, closed-form errors, and an older conflict shrinking the list underneath a newer draft. Static syntax/JSON/whitespace checks passed; browser verification remains pending.
 
+## Make free-layout dragging intentional and cancellable · 2026-10-08
+
+- A normal click or movement of at most three pixels no longer moves/saves a tile. Real drags ignore the dragged position key when resolving collisions, so returning to its own cell does not displace it.
+- Pointer cancel, lost capture, category/layout change, and grid rebuild restore the exact initial inline position without saving. Cleanup owns one pointer, releases capture safely, and ignores late events.
+- Modified clicks and edit/delete buttons remain ordinary actions. Competing native HTML drag is suppressed only in free-layout mode.
+- Verification: nine Node suites pass. The new DOM-event-model test covers click/jitter, self-cell/collision/hidden tiles, cancellations, post-commit lost capture, repeated/foreign pointers, modifier clicks, action controls and cleanup. Browser event/rendering validation remains pending; duplicate-URL layout keys are unchanged.
+
 ## Confirmed next priorities
 
+- Keep snapped free-layout positions within the final grid bounds.
+
 - Correct fragment-only search templates.
-- Prevent free-layout clicks from moving a shortcut without a drag.

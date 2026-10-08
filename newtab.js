@@ -1408,6 +1408,7 @@ class ShortcutsComponent {
      * Render the shortcuts component
      */
     render() {
+        this._cancelFreeDrag?.();
         if (!this.container) return;
 
         const grid = document.createElement('div');
@@ -2166,6 +2167,7 @@ class ShortcutsComponent {
      * Update shortcuts grid
      */
     updateGrid() {
+        this._cancelFreeDrag?.();
         const grid = document.getElementById('shortcuts-grid');
         if (grid) {
             grid.replaceChildren(this.buildShortcutsFragment());
@@ -2178,6 +2180,7 @@ class ShortcutsComponent {
     }
 
     applyLayoutMode() {
+        this._cancelFreeDrag?.();
         const grid = this.gridEl;
         if (!grid) return;
         this.applyAutoColumns();
@@ -2290,18 +2293,11 @@ class ShortcutsComponent {
         if (!this.gridEl || this._freeDragAttached) return;
         this._onPointerDown = (e) => this.onPointerDown(e);
         this.gridEl.addEventListener('pointerdown', this._onPointerDown);
-        // Prevent native drag of images inside shortcuts to allow dragging by icon
-        this.gridEl.addEventListener('dragstart', function(e) {
-            const img = e.target.closest('.shortcut-icon-img');
-            if (img) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
         this._freeDragAttached = true;
     }
 
     detachFreeDrag() {
+        this._cancelFreeDrag?.();
         if (this.gridEl && this._freeDragAttached) {
             this.gridEl.removeEventListener('pointerdown', this._onPointerDown);
             this._freeDragAttached = false;
@@ -2309,82 +2305,92 @@ class ShortcutsComponent {
     }
 
     onPointerDown(e) {
-        // Allow right-click / ctrl+click to trigger context menu
-        if (e.button !== 0 || e.ctrlKey) return;
+        // Keep modified clicks, nested buttons and other pointers as ordinary UI actions.
+        if (this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
+        if (e.target.closest('button, a, input, select, textarea, [contenteditable]')) return;
         const item = e.target.closest('.shortcut-item');
-        if (!item || item.classList.contains('add-shortcut')) return;
-        if (!this.gridEl.contains(item)) return;
+        if (!item || item.classList.contains('add-shortcut') || !this.gridEl.contains(item)) return;
+        const idx = parseInt(item.dataset.index, 10);
+        const link = this.links[idx];
+        if (!link) return;
         e.preventDefault();
         e.stopPropagation();
 
-        const idx = parseInt(item.dataset.index, 10);
-        const link = this.links[idx];
         const key = this.getPositionKey(link);
         const gs = Math.max(48, Math.min(240, this.layout.gridSize || 96));
         const gridRect = this.gridEl.getBoundingClientRect();
         const itemRect = item.getBoundingClientRect();
-        const startX = e.clientX;
-        const startY = e.clientY;
         const origLeft = itemRect.left - gridRect.left;
         const origTop = itemRect.top - gridRect.top;
-        const offsetX = startX - itemRect.left;
-        const offsetY = startY - itemRect.top;
-
-        item.classList.add('drag-free');
-        this._dragStartPos = { x: startX, y: startY };
+        const originalStyle = { left: item.style.left, top: item.style.top, transform: item.style.transform };
+        const priorClickSuppression = this._suppressClickUntil;
+        const offsetX = e.clientX - itemRect.left;
+        const offsetY = e.clientY - itemRect.top;
+        let moved = false;
+        let finished = false;
+        let current = { x: origLeft, y: origTop };
+        this._dragStartPos = { x: e.clientX, y: e.clientY };
         this._dragMoved = false;
 
-        // capture pointer to receive move events even if pointer leaves element
-        try { item.setPointerCapture?.(e.pointerId); } catch (_) {}
-
-        const onMove = (ev) => {
-            ev.preventDefault();
-            ev.stopPropagation();
-            const x = ev.clientX - gridRect.left - offsetX;
-            const y = ev.clientY - gridRect.top - offsetY;
-            const clamped = this.clampToBounds(x, y, itemRect.width, itemRect.height, gridRect.width, gridRect.height);
-            item.style.left = `${clamped.x}px`;
-            item.style.top = `${clamped.y}px`;
+        const onMove = event => {
+            if (event.pointerId !== e.pointerId || finished) return;
+            if (!moved && Math.abs(event.clientX - e.clientX) <= 3 && Math.abs(event.clientY - e.clientY) <= 3) return;
+            event.preventDefault();
+            event.stopPropagation();
+            moved = true;
+            this._dragMoved = true;
+            item.classList.add('drag-free');
+            current = this.clampToBounds(
+                event.clientX - gridRect.left - offsetX,
+                event.clientY - gridRect.top - offsetY,
+                itemRect.width, itemRect.height, gridRect.width, gridRect.height
+            );
+            item.style.left = `${current.x}px`;
+            item.style.top = `${current.y}px`;
             item.style.transform = 'none';
-            if (!this._dragMoved && this._dragStartPos) {
-                const dx = Math.abs(ev.clientX - this._dragStartPos.x);
-                const dy = Math.abs(ev.clientY - this._dragStartPos.y);
-                if (dx > 3 || dy > 3) this._dragMoved = true;
-            }
         };
-        const onUp = (ev) => {
+        const finish = (event, commit) => {
+            if (finished || (event && event.pointerId !== e.pointerId)) return;
+            finished = true;
+            // Clear ownership/listeners before releasePointerCapture can emit lostcapture.
+            this._cancelFreeDrag = null;
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
-            ev.preventDefault();
-            ev.stopPropagation();
-            // read back via inline left/top
-            const curX = isFinite(parseFloat(item.style.left)) ? parseFloat(item.style.left) : origLeft;
-            const curY = isFinite(parseFloat(item.style.top)) ? parseFloat(item.style.top) : origTop;
-            const finalLeft = isFinite(curX) ? curX : origLeft;
-            const finalTop = isFinite(curY) ? curY : origTop;
-
-            let target = { x: finalLeft, y: finalTop };
-            if (this.layout.alignToGrid) {
-                target = this.snapToGrid(target.x, target.y, gs);
-                const resolved = this.avoidOverlap(target.x, target.y, gs, gridRect.width);
-                target = resolved;
-            }
-            item.style.left = `${target.x}px`;
-            item.style.top = `${target.y}px`;
-            item.style.transform = 'none';
-            item.classList.remove('drag-free');
-
-            this.positions[key] = { x: target.x, y: target.y };
-            this.saveLayoutDebounced();
-
-            if (this._dragMoved) {
+            document.removeEventListener('pointercancel', onCancel);
+            item.removeEventListener('lostpointercapture', onCancel);
+            if (commit && moved) {
+                event?.preventDefault();
+                event?.stopPropagation();
+                let target = current;
+                if (this.layout.alignToGrid) {
+                    target = this.snapToGrid(target.x, target.y, gs);
+                    target = this.avoidOverlap(target.x, target.y, gs, gridRect.width, key);
+                }
+                item.style.left = `${target.x}px`;
+                item.style.top = `${target.y}px`;
+                item.style.transform = 'none';
+                if (!this.positions[key] || this.positions[key].x !== target.x || this.positions[key].y !== target.y) {
+                    this.positions[key] = { x: target.x, y: target.y };
+                    this.saveLayoutDebounced();
+                }
                 this._suppressClickUntil = Date.now() + 500;
+            } else {
+                Object.assign(item.style, originalStyle);
+                this._suppressClickUntil = priorClickSuppression;
             }
+            item.classList.remove('drag-free');
             this._dragMoved = false;
             this._dragStartPos = null;
+            try { item.releasePointerCapture?.(e.pointerId); } catch (_) {}
         };
+        const onUp = event => finish(event, true);
+        const onCancel = event => finish(event, false);
+        this._cancelFreeDrag = () => finish(null, false);
         document.addEventListener('pointermove', onMove, { passive: false });
-        document.addEventListener('pointerup', onUp, { once: true });
+        document.addEventListener('pointerup', onUp);
+        document.addEventListener('pointercancel', onCancel);
+        item.addEventListener('lostpointercapture', onCancel);
+        try { item.setPointerCapture?.(e.pointerId); } catch (_) {}
     }
 
     clampToBounds(x, y, w, h, W, H) {
@@ -2399,7 +2405,7 @@ class ShortcutsComponent {
         return { x: Math.max(0, cx), y: Math.max(0, cy) };
     }
 
-    avoidOverlap(x, y, gs, gridWidth) {
+    avoidOverlap(x, y, gs, gridWidth, draggedKey = null) {
         // Build occupancy from current positions
         const occupied = new Set();
         const currentCategory = this.getCurrentCategory();
@@ -2414,7 +2420,7 @@ class ShortcutsComponent {
             });
         }
         for (const key of Object.keys(this.positions)) {
-            if (!visibleKeys.has(key)) continue;
+            if (key === draggedKey || !visibleKeys.has(key)) continue;
             const p = this.positions[key];
             const c = Math.round(p.x / gs);
             const r = Math.round(p.y / gs);
@@ -2438,7 +2444,7 @@ class ShortcutsComponent {
                     if (c < 0) c = 0;
                     if (c >= maxCols) c = maxCols - 1;
                     const cell = `${c}:${r}`;
-                    if (!occupied.has(cell)) return { x: c * gs, y: r * gs };
+                    if (r >= 0 && !occupied.has(cell)) return { x: c * gs, y: r * gs };
                 }
             }
             step++;
@@ -2488,6 +2494,7 @@ class ShortcutsComponent {
     }
 
     reflowVisibleLayout() {
+        this._cancelFreeDrag?.();
         if (this.layout?.autoArrange) return; // grid mode does not require reflow here
         if (this.positions && Object.keys(this.positions).length > 0) {
             this.applyVisibleTransformsFromPositions();
@@ -2584,6 +2591,10 @@ class ShortcutsComponent {
      * Handle drag start
      */
     handleDragStart(e) {
+        if (!this.layout.autoArrange) {
+            e.preventDefault();
+            return;
+        }
         if (!e.target.classList.contains('shortcut-item')) return;
 
         const draggedItem = e.target;
