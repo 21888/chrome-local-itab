@@ -1,4 +1,5 @@
 {
+	"freeLayoutNoSpace": { "message": "没有可用的网格空间，快捷方式已保留在原来的位置。" },
 	"shortcutsChangedElsewhere": { "message": "快捷方式已在其他标签页中更改，列表已刷新。请重试。" },
 	"shortcutDraftConflict": { "message": "快捷方式已在其他标签页中更改。未保存的内容仍在表单中；如有需要请先复制，再关闭并重新打开快捷方式重试。" },
 	"shortcutSavingUnavailable": { "message": "当前无法安全保存快捷方式。请更新 Chrome 并重新打开此页面后重试。" },

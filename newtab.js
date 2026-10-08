@@ -2362,17 +2362,28 @@ class ShortcutsComponent {
             if (commit && moved) {
                 event?.preventDefault();
                 event?.stopPropagation();
-                let target = current;
+                const finalGrid = this.gridEl.getBoundingClientRect();
+                const finalItem = item.getBoundingClientRect();
+                let target = this.clampToBounds(current.x, current.y, finalItem.width, finalItem.height, finalGrid.width, finalGrid.height);
                 if (this.layout.alignToGrid) {
                     target = this.snapToGrid(target.x, target.y, gs);
-                    target = this.avoidOverlap(target.x, target.y, gs, gridRect.width, key);
+                    target = this.avoidOverlap(target.x, target.y, gs, {
+                        width: finalGrid.width, height: finalGrid.height,
+                        tileWidth: finalItem.width, tileHeight: finalItem.height
+                    }, key);
                 }
-                item.style.left = `${target.x}px`;
-                item.style.top = `${target.y}px`;
-                item.style.transform = 'none';
-                if (!this.positions[key] || this.positions[key].x !== target.x || this.positions[key].y !== target.y) {
-                    this.positions[key] = { x: target.x, y: target.y };
-                    this.saveLayoutDebounced();
+                if (target) {
+                    item.style.left = `${target.x}px`;
+                    item.style.top = `${target.y}px`;
+                    item.style.transform = 'none';
+                    if (!this.positions[key] || this.positions[key].x !== target.x || this.positions[key].y !== target.y) {
+                        this.positions[key] = { x: target.x, y: target.y };
+                        this.saveLayoutDebounced();
+                    }
+                } else {
+                    Object.assign(item.style, originalStyle);
+                    showErrorMessage((window.i18n && i18n.t('freeLayoutNoSpace')) ||
+                        'No free grid space is available. The shortcut stayed in its original position.');
                 }
                 this._suppressClickUntil = Date.now() + 500;
             } else {
@@ -2406,51 +2417,80 @@ class ShortcutsComponent {
         return { x: Math.max(0, cx), y: Math.max(0, cy) };
     }
 
-    avoidOverlap(x, y, gs, gridWidth, draggedKey = null) {
-        // Build occupancy from current positions
-        const occupied = new Set();
-        const currentCategory = this.getCurrentCategory();
-        const visibleKeys = new Set();
+    avoidOverlap(x, y, gs, bounds, draggedKey = null) {
+        const { width, height, tileWidth, tileHeight } = bounds;
+        if (![x, y, gs, width, height, tileWidth, tileHeight].every(Number.isFinite) ||
+            gs <= 0 || tileWidth <= 0 || tileHeight <= 0 || width < tileWidth || height < tileHeight) return null;
+        const maxColumn = Math.floor((width - tileWidth) / gs);
+        const maxRow = Math.floor((height - tileHeight) / gs);
+        if (!Number.isSafeInteger(maxColumn) || !Number.isSafeInteger(maxRow)) return null;
+        const obstacles = [];
         const grid = this.gridEl;
-        if (grid) {
-            Array.from(grid.querySelectorAll('.shortcut-item')).forEach((el, idx) => {
-                if (!el || el.classList.contains('add-shortcut')) return;
-                if (el.style.display === 'none') return;
-                const link = this.links[idx];
-                visibleKeys.add(this.getPositionKey(link, currentCategory));
-            });
+        const gridRect = grid.getBoundingClientRect();
+        const category = this.getCurrentCategory();
+        for (const element of grid.querySelectorAll('.shortcut-item')) {
+            if (element.classList.contains('add-shortcut') || element.style.display === 'none') continue;
+            const link = this.links[Number(element.dataset.index)];
+            const key = this.getPositionKey(link, category);
+            if (key === draggedKey) continue;
+            const rectangle = element.getBoundingClientRect();
+            const position = this.positions[key];
+            const left = Number.isFinite(position?.x) ? position.x : rectangle.left - gridRect.left;
+            const top = Number.isFinite(position?.y) ? position.y : rectangle.top - gridRect.top;
+            obstacles.push({ left, top, right: left + rectangle.width, bottom: top + rectangle.height });
         }
-        for (const key of Object.keys(this.positions)) {
-            if (key === draggedKey || !visibleKeys.has(key)) continue;
-            const p = this.positions[key];
-            const c = Math.round(p.x / gs);
-            const r = Math.round(p.y / gs);
-            occupied.add(`${c}:${r}`);
-        }
-        let c0 = Math.round(x / gs);
-        let r0 = Math.round(y / gs);
-        const maxCols = Math.max(1, Math.floor(gridWidth / gs));
-        const keyCell = `${c0}:${r0}`;
-        if (!occupied.has(keyCell)) return { x: c0 * gs, y: r0 * gs };
-        // spiral search
-        const dirs = [ [1,0], [0,1], [-1,0], [0,-1] ];
-        let step = 1;
-        let c = c0, r = r0;
-        while (step < 200) {
-            for (let d=0; d<4; d++) {
-                const [dx, dy] = dirs[d];
-                const len = (d % 2 === 0) ? step : step;
-                for (let i=0; i<len; i++) {
-                    c += dx; r += dy;
-                    if (c < 0) c = 0;
-                    if (c >= maxCols) c = maxCols - 1;
-                    const cell = `${c}:${r}`;
-                    if (r >= 0 && !occupied.has(cell)) return { x: c * gs, y: r * gs };
-                }
+
+        // Search nearest cells lazily. A large saved canvas must not allocate or
+        // scan an entire grid when the first nearby cell is already free.
+        const heap = [];
+        const visited = new Set();
+        let sequence = 0;
+        const before = (a, b) => a.distance < b.distance || (a.distance === b.distance && a.sequence < b.sequence);
+        const push = (column, row) => {
+            if (column < 0 || row < 0 || column > maxColumn || row > maxRow) return;
+            const key = `${column}:${row}`;
+            if (visited.has(key)) return;
+            visited.add(key);
+            const node = { column, row, distance: (column * gs - x) ** 2 + (row * gs - y) ** 2, sequence: sequence++ };
+            let index = heap.length;
+            heap.push(node);
+            while (index > 0) {
+                const parent = Math.floor((index - 1) / 2);
+                if (!before(node, heap[parent])) break;
+                heap[index] = heap[parent];
+                index = parent;
             }
-            step++;
+            heap[index] = node;
+        };
+        const pop = () => {
+            const first = heap[0];
+            const last = heap.pop();
+            if (heap.length) {
+                let index = 0;
+                while (index * 2 + 1 < heap.length) {
+                    let child = index * 2 + 1;
+                    if (child + 1 < heap.length && before(heap[child + 1], heap[child])) child++;
+                    if (!before(heap[child], last)) break;
+                    heap[index] = heap[child];
+                    index = child;
+                }
+                heap[index] = last;
+            }
+            return first;
+        };
+        push(Math.max(0, Math.min(maxColumn, Math.round(x / gs))), Math.max(0, Math.min(maxRow, Math.round(y / gs))));
+        while (heap.length) {
+            const { column, row } = pop();
+            const left = column * gs;
+            const top = row * gs;
+            if (!obstacles.some(obstacle => left < obstacle.right && left + tileWidth > obstacle.left &&
+                top < obstacle.bottom && top + tileHeight > obstacle.top)) return { x: left, y: top };
+            push(column + 1, row);
+            push(column, row + 1);
+            push(column - 1, row);
+            push(column, row - 1);
         }
-        return { x: c0 * gs, y: (r0+1) * gs };
+        return null;
     }
 
     async setLayout(newLayout) {

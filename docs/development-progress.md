@@ -56,6 +56,14 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - An existing `q` value is replaced instead of creating duplicate query parameters. Explicit `%s` templates keep their path/query/fragment substitution behavior.
 - Verification: nine Node suites pass, with expanded search regression cases for fragments, existing parameters, duplicate queries, trailing `#`, Unicode/reserved characters, empty input, explicit placeholders and non-HTTP rejection. Static checks passed; no requests are made while typing.
 
+## Keep snapped tiles within the available grid · 2026-10-08
+
+- Drop placement now checks the full tile rectangle against current grid dimensions after snapping, including a resize during the drag. It avoids visible neighboring tile rectangles even when the grid step is smaller than a tile.
+- The nearest fitting cell is found lazily, without allocating the whole canvas. If no cell fits, the original position is retained without a write and a localized notice explains why.
+- Verification: all nine Node suites pass. Expanded drag tests cover narrow grids, resize, dense overlapping cells, no-space restoration, invalid dimensions, a billion-pixel sparse canvas, and 60 small-grid comparisons against an exhaustive nearest-cell oracle. Actual browser rendering remains unverified.
+
 ## Confirmed next priorities
 
-- Keep snapped free-layout positions within the final grid bounds.
+- Let large local-image backups round-trip safely instead of exporting files the importer rejects.
+
+- Make shortcut launching, Add, and post-mutation focus usable by keyboard.

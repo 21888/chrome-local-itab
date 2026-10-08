@@ -15,17 +15,17 @@ function classes(...initial) {
     const values = new Set(initial);
     return { add: name => values.add(name), remove: name => values.delete(name), contains: name => values.has(name) };
 }
-function createHarness() {
+function createHarness({ width = 288, height = 288, tileWidth = 80, tileHeight = 80, gridSize = 96 } = {}) {
     const document = { ...eventTarget(), getElementById(id) { return id === 'shortcuts-grid' ? grid : null; } };
     const context = { document, window: { addEventListener() {} }, storageManager: { defaultConfig: { layout: { columns: 6 } } }, console };
     vm.createContext(context);
-    vm.runInContext(fs.readFileSync('newtab.js', 'utf8') + '\nthis.ShortcutsComponent = ShortcutsComponent;', context);
+    vm.runInContext(fs.readFileSync('newtab.js', 'utf8') + '\nthis.ShortcutsComponent = ShortcutsComponent; this.errors = []; showErrorMessage = message => errors.push(message);', context);
     const items = [0, 1].map(index => ({
         ...eventTarget(), dataset: { index: String(index) },
         classList: classes('shortcut-item'),
         style: { left: `${index * 96}px`, top: '0px', transform: 'translate(0px, 0px)', display: 'flex' },
         closest(selector) { return selector.startsWith('.shortcut-item') ? this : null; },
-        getBoundingClientRect() { return { left: index * 96, top: 0, width: 80, height: 80 }; },
+        getBoundingClientRect() { return { left: index * 96, top: 0, width: tileWidth, height: tileHeight }; },
         captures: 0, releases: 0,
         setPointerCapture() { this.captures++; },
         releasePointerCapture(pointerId) { this.releases++; this.emit('lostpointercapture', { pointerId }); }
@@ -33,10 +33,10 @@ function createHarness() {
     const grid = {
         ...eventTarget(), classList: classes(), style: { removeProperty() {} },
         contains(item) { return items.includes(item); }, querySelectorAll() { return items; },
-        getBoundingClientRect() { return { left: 0, top: 0, width: 288, height: 288 }; },
+        getBoundingClientRect() { return { left: 0, top: 0, width, height }; },
         replaceChildren() {}
     };
-    const component = new context.ShortcutsComponent(['A', 'B'].map(title => ({ title, url: `https://example.com/${title}` })), { autoArrange: false, alignToGrid: true, gridSize: 96 });
+    const component = new context.ShortcutsComponent(['A', 'B'].map(title => ({ title, url: `https://example.com/${title}` })), { autoArrange: false, alignToGrid: true, gridSize });
     component.gridEl = grid;
     component.positions = { [component.getPositionKey(component.links[0])]: { x: 0, y: 0 }, [component.getPositionKey(component.links[1])]: { x: 96, y: 0 } };
     let saves = 0, opens = 0;
@@ -127,5 +127,79 @@ for (const modifiers of [{ button: 2 }, { ctrlKey: true }, { metaKey: true }, { 
     const nativeDrag = h.event();
     h.component.handleDragStart(nativeDrag);
     assert.equal(nativeDrag.prevented, true, 'free mode suppresses competing native drag');
+}
+// Final placement must fit the full tile, including after snapping or a resize.
+for (const size of [146, 170, 191, 200, 288]) {
+    const h = createHarness({ width: size, height: size });
+    h.items[1].style.display = 'none';
+    h.component.onPointerDown(h.event());
+    h.document.emit('pointermove', h.event({ clientX: size, clientY: size }));
+    h.document.emit('pointerup', h.event());
+    const position = h.component.positions[h.component.getPositionKey(h.component.links[0])];
+    assert(position.x >= 0 && position.y >= 0);
+    assert(position.x + 80 <= size && position.y + 80 <= size, `tile overflow at ${size}px`);
+    assert.equal(position.x % 96, 0);
+    assert.equal(position.y % 96, 0);
+}
+{
+    const h = createHarness();
+    h.items[1].style.display = 'none';
+    h.component.onPointerDown(h.event());
+    h.document.emit('pointermove', h.event({ clientX: 270, clientY: 270 }));
+    h.grid.getBoundingClientRect = () => ({ left: 0, top: 0, width: 146, height: 146 });
+    h.document.emit('pointerup', h.event());
+    assert.equal(h.items[0].style.left, '0px', 'drop uses current bounds after resize');
+    assert.equal(h.items[0].style.top, '0px');
+}
+{
+    const h = createHarness({ width: 240, height: 240, gridSize: 48 });
+    const result = h.component.avoidOverlap(96, 0, 48, { width: 240, height: 240, tileWidth: 80, tileHeight: 80 }, h.component.getPositionKey(h.component.links[0]));
+    assert(result.x + 80 <= 240 && result.y + 80 <= 240);
+    assert(!(result.x < 176 && result.x + 80 > 96 && result.y < 80 && result.y + 80 > 0), 'nearby grid cells may still overlap a wider tile');
+}
+{
+    const h = createHarness({ width: 96, height: 96 });
+    h.component.positions[h.component.getPositionKey(h.component.links[1])] = { x: 0, y: 0 };
+    const original = { ...h.items[0].style };
+    h.component.onPointerDown(h.event());
+    h.document.emit('pointermove', h.event({ clientX: 80, clientY: 80 }));
+    h.document.emit('pointerup', h.event());
+    assert.deepEqual(h.items[0].style, original, 'no fitting cell restores the original position');
+    assert.equal(h.saves(), 0);
+    assert.equal(h.context.errors.length, 1);
+    assert.equal(h.pointerListeners(), 0);
+}
+{
+    const h = createHarness();
+    h.items[1].style.display = 'none';
+    const bounds = { width: 288, height: 1e9, tileWidth: 80, tileHeight: 80 };
+    const result = h.component.avoidOverlap(192, 999999936, 96, bounds, h.component.getPositionKey(h.component.links[0]));
+    assert(result.y + 80 <= bounds.height, 'huge sparse canvases are searched lazily');
+    assert.equal(h.component.avoidOverlap(0, 0, 96, { ...bounds, height: Infinity }), null);
+    assert.equal(h.component.avoidOverlap(0, 0, 96, { ...bounds, width: 40 }), null);
+}
+// Compare lazy search with a bounded exhaustive oracle on small deterministic grids.
+for (let sample = 0; sample < 60; sample++) {
+    const width = 140 + (sample * 37) % 280;
+    const height = 140 + (sample * 53) % 280;
+    const gs = sample % 2 ? 48 : 96;
+    const h = createHarness({ width, height, gridSize: gs });
+    const obstacle = { x: (sample * 29) % width, y: (sample * 19) % height };
+    h.component.positions[h.component.getPositionKey(h.component.links[1])] = obstacle;
+    const x = (sample * 67) % width;
+    const y = (sample * 41) % height;
+    const result = h.component.avoidOverlap(x, y, gs, { width, height, tileWidth: 80, tileHeight: 80 }, h.component.getPositionKey(h.component.links[0]));
+    let nearest = Infinity;
+    for (let top = 0; top + 80 <= height; top += gs) {
+        for (let left = 0; left + 80 <= width; left += gs) {
+            if (left < obstacle.x + 80 && left + 80 > obstacle.x && top < obstacle.y + 80 && top + 80 > obstacle.y) continue;
+            nearest = Math.min(nearest, (left - x) ** 2 + (top - y) ** 2);
+        }
+    }
+    if (!Number.isFinite(nearest)) assert.equal(result, null);
+    else {
+        assert(result, `missing free cell for sample ${sample}`);
+        assert.equal((result.x - x) ** 2 + (result.y - y) ** 2, nearest, `not nearest for sample ${sample}`);
+    }
 }
 console.log('free drag tests ok (DOM event model)');
