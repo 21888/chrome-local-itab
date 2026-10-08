@@ -6,18 +6,41 @@ Local iTab is designed to be a private, local-first Chrome new tab page for sear
 
 ## Data Stored On Your Device
 
-Local iTab stores user configuration, shortcuts, categories, layout preferences, theme settings, uploaded backgrounds, local cards, privacy settings, and cached icons in Chrome local storage on your device. If you enable Chrome Sync, supported settings and shortcut data may sync through your Chrome account. Large local assets are intentionally kept on the current device.
+Local iTab stores user configuration, shortcuts, categories, layout preferences, theme settings, uploaded backgrounds, local cards, and privacy settings in `chrome.storage.local` on your device. Website icons use a local IndexedDB cache, with a browser Cache API fallback. Some interface state, such as the selected shortcut category, is stored in browser local storage.
+
+Local storage is the primary copy of your configuration. Optional Chrome Sync and Google Drive features can send data to Google as described below. Images excluded from Chrome Sync can still be included in a Google Drive backup.
 
 ## Network Behavior
 
-Local iTab works offline by default. The extension does not send search text anywhere while you type. A network request occurs only when you submit a search, open a URL, or enable online favicon fetching.
+The core new tab page can work offline. The extension does not send search text anywhere while you type. Submitting a search or opening a URL visits the selected search provider or destination website.
 
+Online favicon fetching is disabled by default. When enabled and granted the optional host permission on the current device, Local iTab sends shortcut domain names to Google's favicon service at `https://www.google.com/s2/favicons` to retrieve icons. Valid cached icons can be reused locally.
 
-Online favicon fetching is disabled by default. When enabled and granted, Local iTab may request favicon images from `https://www.google.com/s2/favicons` for shortcut domains.
+Weather, topic, and movie cards display locally configured content. They do not fetch weather, trending topics, or movie feeds. Uploaded backgrounds are local image data.
+
+### Chrome Sync
+
+Chrome Sync is optional and disabled in the default configuration. When enabled, supported configuration, including shortcuts, categories, layout, theme, and local card settings, is shared through `chrome.storage.sync` using your Chrome account. Later configuration changes can also sync automatically.
+
+At initialization, Local iTab checks Chrome Sync for an existing enabled configuration. A new installation using the same Chrome account may automatically apply that configuration. Embedded background images, movie posters, and shortcut icons are omitted or replaced with defaults in the Chrome Sync payload because of its storage limits.
+
+### Google Drive Backups
+
+Google Drive backups require separate Google authorization. When you create a backup, Local iTab uploads a JSON snapshot to the app-specific `appDataFolder` in your Google Drive using the `drive.appdata` authorization scope.
+
+The snapshot includes:
+
+- Validated application settings, including shortcuts and their URLs, categories, layout, theme and appearance, search preferences, privacy settings, and local card content.
+- Local background images, movie posters, and image data embedded in shortcut icons, when present in the configuration. The separate favicon cache is not included.
+- A generated device identifier, the selected computer name, snapshot identifier and creation time, extension and backup format versions, backup reason, and item counts.
+
+The snapshot's Chrome Sync state is replaced with disabled defaults. Connecting to Drive, listing or refreshing snapshots, uploading, downloading, restoring, deleting, and cleaning up older snapshots can contact Google APIs.
+
+There is no scheduled automatic Drive backup. After you confirm a restore, Local iTab first attempts to upload the current configuration as a safety snapshot, including the same types of settings, images, and metadata. If that upload fails, it asks whether to continue. Restoring downloads the selected snapshot and replaces the current configuration on this device.
 
 ## Data Collection
 
-The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. Local iTab does not include analytics, tracking scripts, accounts, ads, or remote content feeds.
+The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. The optional service transmissions described above support the corresponding search, icon, sync, and backup features. Local iTab does not include analytics, tracking scripts, ads, or remote content feeds. Local use does not require an account; optional Chrome Sync and Google Drive use your Chrome or Google account.
 
 ## Google API Limited Use
 
@@ -25,11 +48,14 @@ The use of information received from Google APIs will adhere to the Chrome Web S
 
 ## Permissions
 
-Local iTab uses `storage` to save settings and shortcut data. It uses `unlimitedStorage` so user-controlled local assets and cached icons can remain on the device reliably. Host access for Google favicon lookup is optional and requested only when the user enables the matching feature.
+- `storage` saves settings and shortcut data locally and supports optional Chrome Sync.
+- `unlimitedStorage` supports user-controlled local image data and cached icons.
+- `identity` supports Google authorization for the optional Drive backup feature.
+- The declared host permission `https://www.googleapis.com/*` allows Google Drive API requests. The declared OAuth scope `https://www.googleapis.com/auth/drive.appdata` is used for the app's backup data in Drive. These permissions are declared in the extension manifest; using Drive remains optional and requires Google authorization.
+- The optional host permission `https://www.google.com/*` supports online favicon lookup and is requested when you enable that feature on the current device.
 
 ## Contact
 
 For support or privacy questions, use the project issue tracker:
 
 https://github.com/21888/chrome-local-itab/issues
-
