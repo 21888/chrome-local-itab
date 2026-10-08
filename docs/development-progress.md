@@ -37,8 +37,13 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - API assumption: a supported Chrome extension page exposes `navigator.locks`; guarded shortcut saves fail safely if it is unavailable. Web Locks coordinate the same origin/storage partition ([specification](https://www.w3.org/TR/web-locks/)); no claim of cross-profile coordination is made.
 - Verification: seven Node suites pass. Deterministic simulated locks hold one tab between read/write and verify that a second tab, full replacement, and reset cannot interleave. Coverage includes stale delete/reorder/starter, retry, read/write failures, corrupt stored data, valid empty lists, unsupported locks, and retained edit drafts. Actual native multi-tab/browser verification remains pending.
 
+## Isolate pending save completion from reopened editors · 2026-10-08
+
+- Each opened editor owns a session. A delayed save may finish after dismissal, but cannot close a newly opened editor or attach its old errors to a new draft.
+- Save remains disabled across close/reopen while the earlier request is pending. The visible list is updated only after successful persistence; newer drafts remain intact on success/failure.
+- Verification: eight Node suites pass. New deferred-save tests cover success/false/throw across reopen, duplicate-submit prevention, same-session retry, closed-form errors, and an older conflict shrinking the list underneath a newer draft. Static syntax/JSON/whitespace checks passed; browser verification remains pending.
+
 ## Confirmed next priorities
 
-- Isolate pending save completion from a subsequently reopened editor.
 - Correct fragment-only search templates.
 - Prevent free-layout clicks from moving a shortcut without a drag.

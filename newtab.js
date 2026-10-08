@@ -1400,6 +1400,8 @@ class ShortcutsComponent {
         this._dragStartPos = null;
         this._isSaving = false;
         this._hasShortcutConflict = false;
+        this._modalSession = 0;
+        this._pendingSave = null;
     }
 
     /**
@@ -1673,8 +1675,9 @@ class ShortcutsComponent {
         this.updateCategoryOptions();
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
+        this._modalSession++;
         this._hasShortcutConflict = false;
-        this.setSavingState(false);
+        this.setSavingState(Boolean(this._pendingSave));
 
         modalTitle.textContent = title;
         titleInput.value = currentTitle;
@@ -1704,8 +1707,9 @@ class ShortcutsComponent {
         if (this.modal) {
             this._closeModal?.();
             this._closeModal = null;
+            this._modalSession++;
             this.currentEditIndex = -1;
-            this.setSavingState(false);
+            this.setSavingState(Boolean(this._pendingSave));
         }
     }
 
@@ -1874,27 +1878,32 @@ class ShortcutsComponent {
         }
         url = normalizeHttpUrl(url);
 
+        const saveSession = this._modalSession;
+        const pendingSave = {};
+        this._pendingSave = pendingSave;
         this.setSavingState(true);
 
         // Save shortcut WITHOUT overwriting user's original icon field
         const shortcut = { title, url, icon, category };
         const previousLinks = this.links.map(link => ({ ...link }));
+        const nextLinks = previousLinks.map(link => ({ ...link }));
 
         if (this.currentEditIndex >= 0) {
             // Edit existing shortcut
-            this.links[this.currentEditIndex] = shortcut;
+            nextLinks[this.currentEditIndex] = shortcut;
         } else {
             // Add new shortcut
-            this.links.push(shortcut);
+            nextLinks.push(shortcut);
         }
 
         // Save to storage
         try {
-            const saved = await storageManager.set('links', this.links, { expectedLinks: previousLinks });
+            const saved = await storageManager.set('links', nextLinks, { expectedLinks: previousLinks });
             if (!saved) {
                 throw new Error('Storage write returned false');
             }
-            this.hideModal();
+            this.links = nextLinks;
+            if (this._modalSession === saveSession) this.hideModal();
             this.updateGrid();
 
             // Warm favicon cache after the UI is done saving so it never blocks the modal.
@@ -1907,12 +1916,18 @@ class ShortcutsComponent {
                 }, 0);
             }
         } catch (error) {
-            const message = this.recoverShortcutWrite(error, previousLinks);
+            // The visible list was never changed optimistically by this save.
+            const message = this.recoverShortcutWrite(error, this.links);
             this.updateGrid();
             console.error('Error saving shortcut:', error);
-            this.showFormError('url', message || ((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.'));
+            const feedback = message || ((window.i18n && i18n.t('failedToSave')) || 'Failed to save shortcut. Please try again.');
+            if (this._modalSession === saveSession) this.showFormError('url', feedback);
+            else showErrorMessage(feedback);
         } finally {
-            this.setSavingState(false);
+            if (this._pendingSave === pendingSave) {
+                this._pendingSave = null;
+                this.setSavingState(false);
+            }
         }
     }
 
