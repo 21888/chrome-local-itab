@@ -2093,6 +2093,7 @@ class ShortcutsComponent {
         this._shortcutUndoReceipt = null;
         this._shortcutUndoPending = false;
         this._modalFocusOrigin = null;
+        this._shortcutMenuTargets = new WeakMap();
     }
 
     /**
@@ -2277,10 +2278,17 @@ class ShortcutsComponent {
 
         const actions = document.createElement('div');
         actions.className = 'shortcut-actions';
-        actions.append(
-            this.createShortcutAction('edit', index, (window.i18n && i18n.t('edit')) || 'Edit', '✎'),
-            this.createShortcutAction('delete', index, (window.i18n && i18n.t('remove')) || 'Delete', '×')
-        );
+        const more = this.createShortcutAction('more', index, window.i18n?.t('shortcutMoreActions') || 'More actions', '⋯');
+        more.draggable = false;
+        more.setAttribute('aria-haspopup', 'menu');
+        more.setAttribute('aria-expanded', 'false');
+        // Keep the rendered record, not just its reusable array index. A detached
+        // or superseded tile must never open actions for a different shortcut.
+        const fields = ['title', 'url', 'icon', 'category', 'layoutId'];
+        const values = fields.map(field => link[field]);
+        this._shortcutMenuTargets.set(more, { item, index,
+            isCurrent: () => this.links[index] === link && fields.every((field, slot) => link[field] === values[slot]) });
+        actions.append(more);
 
         item.append(content, actions);
         return item;
@@ -2381,7 +2389,7 @@ class ShortcutsComponent {
     handleGridKeydown(event) {
         // Let native buttons provide Enter/Space activation, without held-Enter cascades.
         if (event.key === 'Enter' && event.repeat && event.target.closest('button')) event.preventDefault();
-        if (event.target.closest('[data-action="open-import"]') && ['Enter', ' '].includes(event.key) &&
+        if (event.target.closest('[data-action="open-import"], [data-action="more"]') && ['Enter', ' '].includes(event.key) &&
             (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
     }
 
@@ -2423,6 +2431,14 @@ class ShortcutsComponent {
             return;
         }
 
+        if (action === 'more') {
+            e.stopPropagation();
+            e.preventDefault();
+            if (e.detail > 1 || e.repeat || e.isComposing || e.keyCode === 229) return;
+            this.openShortcutMenu(actionBtn);
+            return;
+        }
+
         if (action === 'open') {
             e.stopPropagation();
             this.openShortcut(index);
@@ -2445,6 +2461,22 @@ class ShortcutsComponent {
     /**
      * Open shortcut URL
      */
+    isCurrentShortcutMenuSource(source) {
+        const saved = this._shortcutMenuTargets.get(source);
+        const grid = this.gridEl;
+        if (!saved || window.shortcutsComponentInstance !== this || !grid?.isConnected ||
+            grid !== document.getElementById('shortcuts-grid') || !grid.contains(source) ||
+            saved.item.querySelector('[data-action="more"]') !== source ||
+            Number(saved.item.dataset.index) !== saved.index || Number(source.dataset.index) !== saved.index ||
+            !this.isVisibleFocusTarget(source) || !saved.isCurrent()) return false;
+        return true;
+    }
+
+    openShortcutMenu(source) {
+        if (!this.isCurrentShortcutMenuSource(source)) return false;
+        return window.contextMenu?.openShortcut(this._shortcutMenuTargets.get(source).item, source) || false;
+    }
+
     async openImportSettings(source) {
         const grid = this.gridEl;
         if (this._importSettingsOpening || !grid?.isConnected || grid !== document.getElementById('shortcuts-grid') ||
@@ -3018,7 +3050,7 @@ class ShortcutsComponent {
             }
             const ownsFocus = this._modalSession === saveSession && this.modal.contains?.(document.activeElement);
             const focusIntent = ownsFocus ? (editIndex >= 0
-                ? { key: this.getShortcutFocusKey(shortcut), index: editIndex, action: this._modalFocusOrigin?.action === 'edit' ? 'edit' : 'launch' }
+                ? { key: this.getShortcutFocusKey(shortcut), index: editIndex, action: ['more', 'edit'].includes(this._modalFocusOrigin?.action) ? this._modalFocusOrigin.action : 'launch' }
                 : { action: 'add' }) : null;
             this.links = saved.links || nextLinks;
             if (this._modalSession === saveSession) this.hideModal();
@@ -3369,7 +3401,7 @@ class ShortcutsComponent {
         return {
             key: tile.dataset.focusKey,
             index: Number(tile.dataset.index),
-            action: ['edit', 'delete'].includes(active.dataset?.action) ? active.dataset.action : 'launch'
+            action: ['more', 'edit', 'delete'].includes(active.dataset?.action) ? active.dataset.action : 'launch'
         };
     }
 
@@ -3392,7 +3424,7 @@ class ShortcutsComponent {
                 .sort((a, b) => Math.abs(Number(a.dataset.index) - intent.index) - Math.abs(Number(b.dataset.index) - intent.index));
             const sameTile = matches[0];
             const tile = sameTile || visible.find(item => Number(item.dataset.index) >= intent.index) || visible[visible.length - 1];
-            const action = sameTile && ['edit', 'delete'].includes(intent.action) ? intent.action : 'open';
+            const action = sameTile && ['more', 'edit', 'delete'].includes(intent.action) ? intent.action : 'open';
             target = tile?.querySelector(`[data-action="${action}"]`);
             if (!this.isVisibleFocusTarget(target)) target = tile?.querySelector('.shortcut-launch');
             if (!this.isVisibleFocusTarget(target)) target = add;

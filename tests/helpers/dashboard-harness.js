@@ -20,6 +20,7 @@ function createDocument() {
         contains(element) { return element === this || this.children.some(child => child.contains(element)); }
         setAttribute(name, value) { this.attributes[name] = value; if (name === 'tabindex') this.tabIndex = Number(value); }
         getAttribute(name) { return this.attributes[name]; }
+        removeAttribute(name) { delete this.attributes[name]; }
         matches(selector) {
             return selector.split(',').some(raw => {
                 let rule = raw.trim();
@@ -106,4 +107,40 @@ function nativeActivation(button, key, repeat = false) {
 }
 const submit = component => component.handleFormSubmit({ preventDefault() {} });
 
-module.exports = { createDocument, createHarness, nativeActivation, submit, sampleLinks, deferred };
+// Mount the production context-menu controller only for tests exercising it.
+function mountContextMenu(h) {
+    if (h.context.window.contextMenu) return;
+    const { document, context } = h;
+    const wrapFocus = element => {
+        const focus = element.focus.bind(element);
+        element.focus = () => {
+            focus();
+            if (document.activeElement === element) {
+                element.dispatch('focusin');
+                document.listeners.get('focusin')?.({ target: element });
+            }
+        };
+        return element;
+    };
+    wrapFocus(document.body);
+    // The small selector model has no universal selector. Walk the real tree.
+    const walk = element => { for (const child of element.children) { wrapFocus(child); walk(child); } };
+    walk(document.body);
+    const create = document.createElement;
+    document.createElement = tag => wrapFocus(create(tag));
+    context.window.innerWidth = 800; context.window.innerHeight = 600;
+    context.window.removeEventListener = () => {};
+    context.requestAnimationFrame = fn => fn();
+    vm.runInContext(fs.readFileSync('context-menu.js', 'utf8'), context);
+    context.window.contextMenu.init({ onAction: context.handleContextAction });
+}
+function menuAction(h, index, action, key = 'Enter') {
+    mountContextMenu(h);
+    nativeActivation(h.control(index, 'more'), key);
+    const actions = ['open', 'edit', 'delete', 'move_earlier', 'move_later'];
+    const item = h.document.querySelector('.context-menu')?.querySelectorAll('.ctx-item')[actions.indexOf(action)];
+    if (!item) throw new Error(`Missing menu action ${action}`);
+    return nativeActivation(item, key);
+}
+
+module.exports = { mountContextMenu, menuAction, createDocument, createHarness, nativeActivation, submit, sampleLinks, deferred };

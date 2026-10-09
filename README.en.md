@@ -16,6 +16,21 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 Real extension screenshots captured at different feature stages. Template previews use the English interface with Chinese sample category names; feature sections identify their capture languages. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
 
+### Latest interaction captures · More actions
+
+Every saved-site tile now has a visible “⋯” button for the existing Open, Edit, Delete and reorder menu, with keyboard access. These actual English-interface captures use six test sites and are cropped only, not redrawn.
+
+![Latest light wide interface with a site's More actions menu](docs/screenshots/shortcut-menu/more-light-wide.png)
+
+<details>
+<summary>Dark narrow menu capture</summary>
+
+![Dark narrow interface with the edge menu kept in the visible area](docs/screenshots/shortcut-menu/more-dark-narrow.png)
+
+</details>
+
+[Usage and acceptance scope](docs/shortcut-order.md) · [Capture versions and crops](docs/screenshots/shortcut-menu/capture-metadata.json)
+
 **A / Clarity · Light · Grid layout**
 
 ![Local iTab Clarity light template with sample categorized shortcuts, search, and clock](docs/screenshots/clarity-light-grid.png)

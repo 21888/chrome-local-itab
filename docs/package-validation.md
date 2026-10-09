@@ -187,3 +187,15 @@ source/model coverage. No exhaustive feature/theme/viewport matrix, native
 macOS/Windows, live Sync/Drive authentication or permission-prompt acceptance is
 implied. Keep the existing installation directory and follow the
 [migration checklist](migration.en.md) before replacing files or clearing data.
+
+## Current artifact: visible More actions — 2026-10-09
+
+This revision includes the saved-site More button and guarded existing menu.
+The verified 60-file runtime contains 1,255,027 source bytes; its canonical ZIP
+contains 1,262,289 bytes, SHA256
+`454052fc051d97b47c51bd2cddf0d2244fa45ae68ee595e7afbe6ebbfac58ba0`.
+589 Node tests and 19 Python packaging tests passed. Exact runtime hashes match
+the final native smoke snapshot; broader interaction and layout checks used a
+snapshot differing only in two CSS line endings, as explicitly recorded in the
+[More actions acceptance](shortcut-order.md#more-actions-acceptance--2026-10-09).
+No store submission or version increase is implied; manifest remains1.1.5.

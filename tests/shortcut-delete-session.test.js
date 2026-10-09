@@ -115,10 +115,10 @@ const submit = component => component.handleFormSubmit({ preventDefault() {} });
             const h = createHarness(links), wait = hold();
             h.storageManager.set = () => wait.promise;
             h.control(0).focus(); const deletion = h.component.deleteShortcut(0);
-            if (destination === 'twin') h.control(1, 'edit').focus();
+            if (destination === 'twin') h.control(1, 'more').focus();
             if (destination === 'search') h.search.focus();
             wait.resolve(true); await deletion;
-            assert.equal(h.document.activeElement, destination === 'search' ? h.search : h.control(0, destination === 'twin' ? 'edit' : 'open'));
+            assert.equal(h.document.activeElement, destination === 'search' ? h.search : h.control(0, destination === 'twin' ? 'more' : 'open'));
         }
     }
     console.log('shortcut delete session tests ok (DOM model)');

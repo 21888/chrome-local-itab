@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { createHarness, deferred, nativeActivation } = require('./helpers/dashboard-harness');
+const { menuAction, createHarness, deferred, nativeActivation } = require('./helpers/dashboard-harness');
 const clone = value => JSON.parse(JSON.stringify(value));
 const links = ['A', 'Hidden', 'B', 'C'].map((title, index) => ({ title, url: `https://example.com/${title}`, category: index === 1 ? 'social' : 'work', layoutId: `id-${index}` }));
 (async () => {
@@ -49,7 +49,7 @@ const links = ['A', 'Hidden', 'B', 'C'].map((title, index) => ({ title, url: `ht
         const h = createHarness(links); const pending = deferred(); let writes = 0;
         h.storageManager.set = () => { writes++; return pending.promise; };
         h.control(from).focus(); const move = h.component.moveShortcut(from, direction);
-        nativeActivation(h.control(editing, 'edit'), 'Enter');
+        menuAction(h, editing, 'edit');
         const input = h.component.modal.querySelector('#shortcut-title'); input.value = 'Draft survives';
         assert.equal(h.component.modal.querySelector('#save-btn').disabled, true);
         await h.component.handleFormSubmit({ preventDefault() {} }); assert.equal(writes, 1);
@@ -63,16 +63,16 @@ const links = ['A', 'Hidden', 'B', 'C'].map((title, index) => ({ title, url: `ht
             const twins = [0, 1].map(index => ({ title: 'Twin', url: 'https://example.com', category: 'work', ...(ids ? { layoutId: `twin-${index}` } : {}) }));
             const h = createHarness(twins); const pending = deferred(); h.storageManager.set = () => pending.promise;
             h.control(from).focus(); const move = h.component.moveShortcut(from, direction);
-            h.control(opener, 'edit').focus();
+            h.control(opener, 'more').focus();
             if (draft === 'edit') h.component.openEditModal(opener); else h.component.openAddModal();
             pending.resolve(true); await move;
             assert.equal(h.component._modalFocusOrigin.index, expected);
             assert.equal(h.component.currentEditIndex, draft === 'edit' ? expected : -1);
             h.component.hideModal();
-            assert.equal(h.document.activeElement, h.control(expected, 'edit'), 'closing a pending draft returns to the exact opener twin');
+            assert.equal(h.document.activeElement, h.control(expected, 'more'), 'closing a pending draft returns to the exact opener twin');
         }
     }
-    for (const ids of [true, false]) for (const action of ['open', 'edit']) {
+    for (const ids of [true, false]) for (const action of ['open', 'more']) {
         const twins = [0, 1, 2].map(index => ({ title: 'Twin', url: 'https://example.com', category: 'work', ...(ids ? { layoutId: `twin-${index}` } : {}) }));
         const h = createHarness(twins); const pending = deferred(); h.storageManager.set = () => pending.promise;
         h.control(0).focus(); const move = h.component.moveShortcut(0, 1);

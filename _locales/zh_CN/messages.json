@@ -229,6 +229,7 @@
 	"identityExported": {"message": "设置已按格式 2 导出，请使用支持独立位置的新版导入此备份。"},
 	"restoreRecoveryConfirm": {"message": "替换设置前会保留本机恢复备份。继续吗？"},
 	"contextTargetChanged": {"message": "此项目已更改。请重新发起操作后重试。"},
+	"shortcutMoreActions": {"message": "更多操作"},
 	"contextShortcutActions": {"message": "快捷方式操作"},
 	"contextCategoryActions": {"message": "分类操作"},
 	"contextPageActions": {"message": "页面操作"},

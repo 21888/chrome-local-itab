@@ -2,7 +2,7 @@
 (function() {
     'use strict';
 
-    const state = { root: null, session: null, theme: 'dark', onAction: null, initialized: false };
+    const state = { root: null, session: null, theme: 'dark', onAction: null, initialized: false, nextId: 0 };
     const translate = (key, fallback) => window.i18n?.t(key) || fallback;
     const closest = (target, selector) => (target?.nodeType === 3 ? target.parentElement : target)?.closest?.(selector) || null;
     const visible = element => element?.isConnected && !element.disabled &&
@@ -14,9 +14,14 @@
         state.session = null;
         const ownedFocus = session.menu.contains(document.activeElement);
         session.menu.remove();
+        if (session.trigger?.getAttribute('aria-controls') === session.menu.id) {
+            session.trigger.setAttribute('aria-expanded', 'false');
+            session.trigger.removeAttribute('aria-controls');
+        }
         // Retire before returning focus: a focus handler or action can open a new
         // menu/dialog, and no delayed old cleanup may affect that newer surface.
-        if (restoreFocus && ownedFocus && visible(session.origin)) session.origin.focus();
+        if (restoreFocus && ownedFocus && visible(session.origin) &&
+            (!session.trigger || session.isValid())) session.origin.focus();
     }
 
     function snapshotTarget(target, payload) {
@@ -38,12 +43,17 @@
         const orderTargets = [-1, 1].map(direction => component?.getShortcutOrderTarget?.(payload.index, direction) ?? -1);
         const orderScope = () => JSON.stringify([component?.getCurrentCategory?.(), component?.usesCollections?.()]);
         const orderScopeSnapshot = orderScope();
+        const template = document.documentElement?.dataset?.dashboardTemplate;
+        const renderedTrigger = target?.querySelector('[data-action="more"]');
         return action => {
             if (payload.type === 'blank') return action === 'dashboard_visibility_toggle' ? hidden() === hiddenSnapshot :
                 component === window.shortcutsComponentInstance && layoutState() === layoutSnapshot;
             if (!visible(target) || component !== window.shortcutsComponentInstance) return false;
             if (!matches(component?.links || [], links, fields)) return false;
             if (payload.type === 'site') {
+                if (renderedTrigger && !component?.isCurrentShortcutMenuSource?.(renderedTrigger)) return false;
+                if (document.documentElement?.dataset?.dashboardTemplate !== template || orderScope() !== orderScopeSnapshot ||
+                    !matches(currentCategories(), categories, categoryFields)) return false;
                 if (action === 'move_earlier' || action === 'move_later') {
                     const direction = action === 'move_earlier' ? -1 : 1;
                     const destination = orderTargets[direction === -1 ? 0 : 1];
@@ -90,7 +100,10 @@
         const label = document.createElement('span');
         label.textContent = translate(labelKey, fallback);
         item.appendChild(label);
-        item.addEventListener('click', () => activate(session, action, item));
+        item.addEventListener('click', event => {
+            if (event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229) return;
+            activate(session, action, item);
+        });
         session.items.push(item);
         session.menu.appendChild(item);
         return item;
@@ -110,6 +123,11 @@
 
     function onMenuKeydown(event, session) {
         if (state.session !== session || !session.menu.contains(event.target)) return;
+        if (event.isComposing || event.keyCode === 229 ||
+            (['Enter', ' '].includes(event.key) && event.repeat)) {
+            if (['Enter', ' '].includes(event.key)) { event.preventDefault(); event.stopPropagation(); }
+            return;
+        }
         if (event.ctrlKey || event.metaKey || event.altKey || (event.shiftKey && event.key !== 'Tab')) return;
         if (event.key === 'Tab') {
             // Restore the contextual origin, then let the browser perform its
@@ -120,10 +138,6 @@
         if (event.key === 'Escape') {
             event.preventDefault(); event.stopPropagation();
             closeMenu({ restoreFocus: true });
-            return;
-        }
-        if ((event.key === 'Enter' || event.key === ' ') && event.repeat) {
-            event.preventDefault(); event.stopPropagation();
             return;
         }
         const items = session.items.filter(visible);
@@ -142,7 +156,7 @@
         const { menu, payload } = session;
         const component = window.shortcutsComponentInstance;
         if (payload.type === 'site') {
-            menu.setAttribute('aria-label', translate('contextShortcutActions', 'Shortcut actions'));
+            menu.setAttribute('aria-label', session.trigger?.getAttribute('aria-label') || translate('contextShortcutActions', 'Shortcut actions'));
             createItem(session, 'openInNewTab', 'Open in new tab', 'open');
             createItem(session, 'edit', 'Edit', 'edit');
             createItem(session, 'remove', 'Delete', 'delete');
@@ -198,24 +212,47 @@
             site?.querySelector('.shortcut-launch') || closest(category, 'button, a[href]') ||
             (state.session?.menu.contains(focused) ? state.session.origin : focused);
         event.preventDefault();
+        showMenu(target, payload, origin, event);
+    }
+
+    // Both the visible menu button and right-click use one session/activation
+    // path, including the same stale-record checks and mutation callbacks.
+    function showMenu(target, payload, origin, pointer = null) {
         closeMenu();
         const menu = document.createElement('div');
         menu.className = 'context-menu';
         menu.dataset.theme = state.theme;
         menu.setAttribute('role', 'menu');
-        const session = { menu, payload, origin, items: [], isValid: snapshotTarget(target, payload), onAction: state.onAction };
+        const trigger = origin?.dataset?.action === 'more' ? origin : null;
+        menu.id = `shortcut-action-menu-${++state.nextId}`;
+        const session = { menu, payload, origin, trigger, items: [], isValid: snapshotTarget(target, payload), onAction: state.onAction };
         state.session = session;
+        if (trigger) {
+            trigger.setAttribute('aria-controls', menu.id);
+            trigger.setAttribute('aria-expanded', 'true');
+            menu.setAttribute('aria-label', trigger.getAttribute('aria-label'));
+        }
         buildMenu(session);
         state.root.appendChild(menu);
         const rect = menu.getBoundingClientRect();
         const anchor = origin?.getBoundingClientRect();
-        const keyboard = !event.clientX && !event.clientY;
-        const x = keyboard ? anchor?.left || 8 : event.clientX;
-        const y = keyboard ? (anchor ? anchor.top + anchor.height : 8) : event.clientY;
+        const keyboard = !pointer || (!pointer.clientX && !pointer.clientY);
+        const x = keyboard ? anchor?.left || 8 : pointer.clientX;
+        const y = keyboard ? (anchor ? anchor.top + anchor.height : 8) : pointer.clientY;
         menu.style.left = `${Math.max(8, Math.min(x, Math.max(8, window.innerWidth - rect.width - 8)))}px`;
         menu.style.top = `${Math.max(8, Math.min(y, Math.max(8, window.innerHeight - rect.height - 8)))}px`;
         requestAnimationFrame(() => { if (state.session === session) menu.classList.add('open'); });
         focusItem(session, session.items.find(visible));
+    }
+
+    function openShortcut(target, origin) {
+        const index = Number(target?.dataset?.index);
+        if (!state.root || !visible(target) || !visible(origin) || !target.contains(origin) ||
+            !Number.isInteger(index) || index < 0 || !window.shortcutsComponentInstance?.links[index]) return false;
+        // A repeated activation of the owner does not replace its focused menu.
+        if (state.session?.trigger === origin) return true;
+        showMenu(target, { type: 'site', index }, origin);
+        return true;
     }
 
     function onOutsidePointer(event) {
@@ -253,5 +290,5 @@
         state.initialized = false;
     }
 
-    window.contextMenu = { init, destroy };
+    window.contextMenu = { init, destroy, openShortcut };
 })();

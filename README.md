@@ -16,6 +16,21 @@
 
 以下为不同功能阶段拍摄的真实扩展截图。模版预览采用英文界面和中文示例分类；功能截图的界面语言见各节说明。网站选择、图标与卡片内容仅作展示；天气、热榜和电影卡片均为手动填写的示例，不是实时数据。
 
+### 最新交互实拍 · 更多操作
+
+每个网站卡片现在都有常显的“⋯”按钮，打开、编辑、删除和排序集中在同一个菜单中，也支持键盘操作。下图为英文界面、六个测试网站的真实截图；仅裁切，没有重绘。
+
+![最新浅色宽屏：网站更多操作菜单](docs/screenshots/shortcut-menu/more-light-wide.png)
+
+<details>
+<summary>查看深色窄屏菜单</summary>
+
+![深色窄屏：靠近边缘的网站菜单仍位于可见区域](docs/screenshots/shortcut-menu/more-dark-narrow.png)
+
+</details>
+
+[操作说明与验收范围](docs/shortcut-order.md) · [截图版本和裁切记录](docs/screenshots/shortcut-menu/capture-metadata.json)
+
 **A「澄明」· 浅色 · 网格布局**
 
 ![Local iTab A 澄明浅色模版：分类快捷方式、搜索与时钟](docs/screenshots/clarity-light-grid.png)

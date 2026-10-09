@@ -1278,3 +1278,45 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* One persistent action replaces the two hover-only Edit/Delete controls.
+ * Reserve its top corner so compact tiles never cover the favicon or title. */
+:root[data-dashboard-template] #dashboard .shortcut-actions {
+  display: flex;
+  opacity: 1;
+}
+:root[data-dashboard-template] #dashboard .shortcut-action-btn.more {
+  flex: 0 0 26px;
+  color: var(--text-primary);
+  background: var(--template-surface);
+  font-size: 20px;
+  line-height: 1;
+}
+:root[data-dashboard-template] #dashboard .shortcut-action-btn.more:is(:hover, [aria-expanded="true"]) {
+  background: var(--glass-bg-hover);
+}
+:root[data-dashboard-template] #dashboard .shortcut-item:not(.add-shortcut) .shortcut-launch {
+  padding-block-start: 20px;
+}
+/* Collection rows have a natural trailing slot, without an extra action row. */
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-launch,
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-launch {
+  padding-block-start: 6px;
+  padding-inline-end: 34px;
+}
+:root[data-dashboard-template="graphite"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-actions,
+:root[data-dashboard-template="folio"] #shortcuts-grid:not(.free-layout) .shortcut-collection-items .shortcut-actions {
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+/* The gallery's horizontal-list templates also keep their original row height. */
+:root:is([data-dashboard-template="console"], [data-dashboard-template="library"], [data-dashboard-template="ledger"], [data-dashboard-template="terrace"], [data-dashboard-template="column"], [data-dashboard-template="horizon"]) #shortcuts-grid:not(.free-layout) .shortcut-item .shortcut-launch {
+  padding-block-start: 0;
+  padding-inline-end: 34px;
+}
+:root:is([data-dashboard-template="console"], [data-dashboard-template="library"], [data-dashboard-template="ledger"], [data-dashboard-template="terrace"], [data-dashboard-template="column"], [data-dashboard-template="horizon"]) #shortcuts-grid:not(.free-layout) .shortcut-item .shortcut-actions {
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+}

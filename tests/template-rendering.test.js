@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { createHarness, nativeActivation, submit, deferred } = require('./helpers/dashboard-harness');
+const { menuAction, createHarness, nativeActivation, submit, deferred } = require('./helpers/dashboard-harness');
 const links = [
     { title: 'Work A', url: 'https://example.com/a', icon: 'A', category: 'work' },
     { title: 'Social C', url: 'https://example.com/c', icon: 'C', category: 'social' },
@@ -71,7 +71,7 @@ for (const [, body] of optionsCss.matchAll(/\.options-header\s*\{([^}]+)\}/g)) {
     nav.selectCategory('social');
     assert.equal(groups[0].hidden, true); assert.equal(groups[1].hidden, false);
     assert.equal(h.control(0).getClientRects().length, 0);
-    nativeActivation(h.control(1, 'edit'), 'Enter');
+    menuAction(h, 1, 'edit');
     assert.equal(h.component.currentEditIndex, 1);
     h.component.modal.querySelector('#shortcut-icon').value = 'Changed C';
     await submit(h.component);
@@ -86,23 +86,23 @@ for (const [, body] of optionsCss.matchAll(/\.options-header\s*\{([^}]+)\}/g)) {
     assert.equal(h.grid.querySelector('.category-empty-state').hidden, true);
 
     // Group rebuilds retain editor drafts and native focus; original data-index survives.
-    nativeActivation(h.control(2, 'edit'), 'Enter');
+    menuAction(h, 2, 'edit');
     const input = h.component.modal.querySelector('#shortcut-title'); input.value = 'Unsaved B draft';
     const overlay = h.component.modal;
     h.document.documentElement.dataset.dashboardTemplate = 'folio'; h.component.refreshTemplate();
     assert.equal(h.component.modal, overlay); assert.equal(input.value, 'Unsaved B draft');
     assert.equal(h.document.activeElement, input); assert.equal(h.component.currentEditIndex, 2);
     h.component.hideModal();
-    assert.equal(h.document.activeElement, h.control(2, 'edit'));
+    assert.equal(h.document.activeElement, h.control(2, 'more'));
 
     const saving = deferred();
     h.storageManager.set = () => saving.promise;
-    nativeActivation(h.control(2, 'edit'), 'Enter'); input.value = 'Saved B';
+    menuAction(h, 2, 'edit'); input.value = 'Saved B';
     const pending = submit(h.component);
     h.document.documentElement.dataset.dashboardTemplate = 'clarity'; h.component.refreshTemplate();
     saving.resolve(true); await pending;
     assert.equal(h.component.links[2].title, 'Saved B'); assert.equal(h.component.links[1].title, 'Social C');
-    assert.equal(h.document.activeElement, h.control(2, 'edit'));
+    assert.equal(h.document.activeElement, h.control(2, 'more'));
 
     // Real layout routines flatten grouping, resolve explicit indices, and never
     // write positions merely because a template or viewport changes.

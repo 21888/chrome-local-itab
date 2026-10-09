@@ -16,6 +16,21 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 Capturas reales de distintas etapas del desarrollo de las funciones. Las plantillas muestran controles en inglés y categorías de ejemplo en chino; cada sección de funciones indica el idioma de sus capturas. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
 
+### Capturas recientes · Más acciones
+
+Cada sitio guardado incluye ahora un botón visible “⋯” para abrir el menú existente de apertura, edición, eliminación y orden, también accesible con teclado. Estas capturas reales usan la interfaz en inglés y seis sitios de prueba; solo se recortaron, sin redibujar.
+
+![Interfaz clara amplia con el menú de acciones de un sitio](docs/screenshots/shortcut-menu/more-light-wide.png)
+
+<details>
+<summary>Menú oscuro en ventana estrecha</summary>
+
+![Interfaz oscura estrecha con el menú dentro del área visible](docs/screenshots/shortcut-menu/more-dark-narrow.png)
+
+</details>
+
+[Uso y alcance de validación](docs/shortcut-order.md) · [Versiones y recortes](docs/screenshots/shortcut-menu/capture-metadata.json)
+
 **A / Clarity · Claro · Cuadrícula**
 
 ![Plantilla Clarity clara de Local iTab con accesos por categorías, búsqueda y reloj](docs/screenshots/clarity-light-grid.png)

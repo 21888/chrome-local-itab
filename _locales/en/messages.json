@@ -229,6 +229,7 @@
 	"identityExported": {"message": "Settings exported in schema 2. Import with an updated version that supports independent positions."},
 	"restoreRecoveryConfirm": {"message": "A local recovery backup will be kept before replacing settings. Continue?"},
 	"contextTargetChanged": {"message": "This item changed. Reopen the action and try again."},
+	"shortcutMoreActions": {"message": "More actions"},
 	"contextShortcutActions": {"message": "Shortcut actions"},
 	"contextCategoryActions": {"message": "Category actions"},
 	"contextPageActions": {"message": "Page actions"},

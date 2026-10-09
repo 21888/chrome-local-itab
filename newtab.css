@@ -1187,8 +1187,8 @@ body.hide-shortcut-titles .shortcut-title {
     gap: 6px;
     justify-content: flex-end;
     margin-top: 0;
-    opacity: 0;
-    transform: translateY(-4px);
+    opacity: 1;
+    transform: none;
     transition: opacity var(--transition-base), transform var(--transition-base);
     position: absolute;
     top: 2px;
@@ -3031,15 +3031,11 @@ button:focus-visible,
         padding: var(--spacing-sm);
     }
 
-    .shortcut-actions {
-        display: none;
-        opacity: 0;
-    }
-
+    .shortcut-actions,
     .shortcut-item:hover .shortcut-actions,
     .shortcut-item:focus-within .shortcut-actions {
-        display: none;
-        opacity: 0;
+        display: flex;
+        opacity: 1;
     }
 
     .shortcut-action-btn {
