@@ -183,3 +183,7 @@ Use the local shortcut finder to search saved titles, addresses and categories w
 ## Recommended workspaces
 
 Preview and explicitly apply local Tasks/Focus visibility recommendations separately from visual themes. Existing content and timer sessions stay intact. [Workspace guide](docs/workspace-presets.en.md).
+
+## Import browser bookmarks
+
+Preview and add bookmarks from a local Chrome, Edge or Firefox HTML export without replacing your saved dashboard. Review duplicate skips, folder mapping and currently enabled Sync/icon settings before Apply. [Bookmark import guide](docs/bookmark-import.en.md).

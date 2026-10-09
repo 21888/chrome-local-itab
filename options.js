@@ -9,6 +9,7 @@ let cloudReplacementInProgress = false;
 
 // A category baseline belongs to this form, never to a later storage read.
 let categoryBaseline = null;
+let categoryRawBaseline = null;
 let settingsSaveQueue = Promise.resolve();
 let settingsSession = 0;
 let settingsReplacementPending = false;
@@ -35,6 +36,94 @@ async function replaceSettings(operation) {
         settingsReplacementPending = false;
         throw error;
     } finally { settingsReplacementRunning = false; }
+}
+
+// HTML migration owns a separate, additive transaction and never uses backup restore.
+let bookmarkImportPending = false;
+let bookmarkDeferredSettingsSave = false;
+function bookmarkImportText(en, zh) {
+    const language = typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage?.() || document.documentElement.lang || 'en';
+    return language.toLowerCase().startsWith('zh') ? zh : en;
+}
+function bookmarkImportError(code, en, zh) {
+    const error = new Error(bookmarkImportText(en, zh)); error.code = code; return error;
+}
+function bookmarkCategorySignature() {
+    return JSON.stringify(Array.from(document.querySelectorAll('#category-manage-list .category-manage-item')).map(li => ({
+        id: li.dataset.id, name: li.querySelector('.cat-name').value, icon: li.querySelector('.cat-icon').value
+    })));
+}
+function bookmarkCategoryFormClean() {
+    return categoryBaseline !== null && categoryRawBaseline !== null && bookmarkCategorySignature() === categoryRawBaseline;
+}
+function assertBookmarkImportReady() {
+    if (settingsReplacementPending || settingsReplacementRunning || !bookmarkCategoryFormClean()) {
+        throw bookmarkImportError('BOOKMARK_IMPORT_FORM_DIRTY', 'Save your category edits and finish other settings changes before previewing or applying bookmarks.', '请先保存分类编辑并完成其他设置更改，再预览或应用书签。');
+    }
+}
+async function prepareBookmarkImport(text) {
+    if (bookmarkImportPending) throw bookmarkImportError('BOOKMARK_IMPORT_PENDING', 'An import is still running.', '导入仍在进行中。');
+    const session = settingsSession;
+    await settingsSaveQueue;
+    assertBookmarkImportReady();
+    if (session !== settingsSession) throw bookmarkImportError('BOOKMARK_IMPORT_CONFLICT', 'Settings changed. Preview the file again.', '设置已更改，请重新预览文件。');
+    const categorySignature = bookmarkCategorySignature();
+    const snapshot = await storageManager.getBookmarkImportSnapshot();
+    assertBookmarkImportReady();
+    if (session !== settingsSession || categorySignature !== bookmarkCategorySignature()) throw bookmarkImportError('BOOKMARK_IMPORT_FORM_DIRTY', 'Category edits changed. Preview again after saving.', '分类编辑已更改，请保存后重新预览。');
+    const batchId = crypto.randomUUID().replace(/-/g, '');
+    const rootLabel = bookmarkImportText('Imported bookmarks', '导入的书签');
+    const plan = window.LocalItabBookmarkImport.planImport(text, snapshot, {
+        rootLabel, createCategoryId: ({index}) => `import_${batchId}_${index}`
+    });
+    return {text, snapshot, plan, batchId, rootLabel, settingsSession: session, categorySignature};
+}
+async function applyBookmarkImport(prepared) {
+    if (bookmarkImportPending) throw bookmarkImportError('BOOKMARK_IMPORT_PENDING', 'An import is still running.', '导入仍在进行中。');
+    bookmarkImportPending = true;
+    try {
+        return await queueSettingsWrite(async () => {
+            assertBookmarkImportReady();
+            if (prepared.settingsSession !== settingsSession || prepared.categorySignature !== bookmarkCategorySignature()) {
+                throw bookmarkImportError('BOOKMARK_IMPORT_CONFLICT', 'Settings or category edits changed. Preview the file again.', '设置或分类编辑已更改，请重新预览文件。');
+            }
+            // Disable the category editor only during the write. Other fields are never re-rendered.
+            const controls = Array.from(document.querySelectorAll('#category-manage-list input, #category-manage-list button, #add-category'));
+            const previousDisabled = controls.map(control => control.disabled);
+            controls.forEach(control => { control.disabled = true; });
+            try {
+                const result = await storageManager.appendBookmarkImport({text: prepared.text,
+                    expectedSnapshot: prepared.snapshot, expectedPrivacy: prepared.snapshot.privacy,
+                    batchId: prepared.batchId, rootLabel: prepared.rootLabel});
+                if (prepared.settingsSession !== settingsSession) {
+                    throw bookmarkImportError('BOOKMARK_IMPORT_UNVERIFIED', 'Import finished while settings were being replaced. Reload to inspect the current saved state before importing again.', '导入完成时设置正在被替换，请刷新查看当前保存状态后再导入。');
+                }
+                if (prepared.categorySignature === bookmarkCategorySignature() && bookmarkCategoryFormClean()) {
+                    setupCategoryManagement(result.snapshot.categories);
+                }
+                // If a newer edit appeared, retain both its DOM and old CAS baseline.
+                // Its next save then conflicts rather than deleting the imported categories.
+                return result;
+            } finally {
+                controls.forEach((control, index) => { control.disabled = previousDisabled[index]; });
+            }
+        });
+    } finally {
+        bookmarkImportPending = false;
+        if (bookmarkDeferredSettingsSave) {
+            bookmarkDeferredSettingsSave = false;
+            // Capture the form only after our successful category refresh; an
+            // ordinary auto-save requested during import must not disappear.
+            await saveAllSettings();
+        }
+    }
+}
+function setupBookmarkImport() {
+    if (!window.bookmarkImportView && window.LocalItabBookmarkImportView) {
+        window.bookmarkImportView = window.LocalItabBookmarkImportView.mount(document.getElementById('bookmark-import'), {
+            prepare: prepareBookmarkImport, apply: applyBookmarkImport
+        });
+    }
 }
 
 // Serialize background-only writes while the newest request owns the controls.
@@ -315,6 +404,7 @@ async function initializeOptionsPage() {
         // Populate form fields with current values
         await populateFormFields(config);
         setupCategoryManagement(config.categories);
+        setupBookmarkImport();
         const focusHost = document.getElementById('local-focus-settings');
         if (focusHost && window.LocalItabFocus && !window.localFocusSettingsView) {
             window.localFocusSettingsView = window.LocalItabFocus.mountSettings(focusHost);
@@ -560,6 +650,7 @@ function setupCategoryManagement(categories = []) {
 
     render(categories);
     categoryBaseline = categorySnapshot(getCategoriesFromDOM());
+    categoryRawBaseline = bookmarkCategorySignature();
     // Reinitializing this form must not duplicate listeners or leave old timers.
     clearTimeout(categorySaveTimeout);
     if (list.dataset.categoryBound) return;
@@ -1480,8 +1571,10 @@ async function deleteDriveSnapshot(snapshot) {
 
 async function saveAllSettings() {
     if (settingsReplacementPending) return;
+    if (bookmarkImportPending) { bookmarkDeferredSettingsSave = true; return; }
     const session = settingsSession;
     const submittedCategories = categorySnapshot(getCategoriesFromDOM());
+    const submittedCategorySignature = bookmarkCategorySignature();
     return queueSettingsWrite(async () => {
         if (session !== settingsSession || settingsReplacementPending) return;
         try {
@@ -1500,6 +1593,10 @@ async function saveAllSettings() {
             // A committed own write remains the baseline even if a subsequent
             // reset/import fails. Only its obsolete presentation is suppressed.
             if (success && options.expectedCategories) categoryBaseline = categorySnapshot(submittedCategories);
+            // Canonical storage and raw form ownership are different baselines:
+            // a saved whitespace/default-icon submission is clean, while edits
+            // made after this submission stay dirty and are never re-rendered.
+            if (success) categoryRawBaseline = submittedCategorySignature;
             if (session !== settingsSession || settingsReplacementPending) return;
             if (success) {
                 // Do not re-render: edits made while saving belong to the user.

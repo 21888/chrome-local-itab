@@ -185,3 +185,7 @@ El buscador local encuentra títulos, direcciones y categorías guardados sin en
 ## Espacios de trabajo recomendados
 
 Revisa y aplica la visibilidad local de Tareas y del temporizador por separado de la plantilla visual, conservando contenido y sesiones. [Guía](docs/workspace-presets.es-ES.md).
+
+## Importar marcadores del navegador
+
+Previsualiza y añade marcadores desde una exportación HTML local de Chrome, Edge o Firefox sin reemplazar el panel guardado. Revisa duplicados, categorías y preferencias actuales de sincronización e iconos antes de aplicar. [Guía de importación](docs/bookmark-import.es-ES.md).

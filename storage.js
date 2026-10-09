@@ -5,6 +5,9 @@
 
 const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require('./shared/layout-identity.js') : window.LocalItabIdentity;
 const DashboardTemplates = typeof module !== 'undefined' && module.exports ? require('./shared/dashboard-template-registry.js') : window.LocalItabTemplates;
+// Resolve lazily so non-import consumers need not load the bookmark parser.
+const getBookmarkImportPlanner = () => typeof module !== 'undefined' && module.exports ? require('./shared/bookmark-import.js') : window.LocalItabBookmarkImport;
+const BOOKMARK_IMPORT_STORAGE_LIMITS = Object.freeze({ links: 20000, categories: 2000, bytes: 32 * 1024 * 1024, nodes: 250000, depth: 32 });
 
 // Personal content is owned by dedicated local stores, never configuration.
 const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1']);
@@ -209,7 +212,12 @@ class StorageManager {
         const has = key => Object.prototype.hasOwnProperty.call(values, key);
         const replacesLayout = has('layout') || (has('links') && !Object.prototype.hasOwnProperty.call(options, 'expectedLinks'));
         const checksCategories = has('categories');
-        if (!has('links') && !replacesLayout && !checksCategories) return chrome.storage.local.set(values);
+        if (!has('links') && !replacesLayout && !checksCategories) {
+            // Import disclosures are compared under this same lock. Preference
+            // writes must queue with the commit instead of racing its last read.
+            if (has('privacy') || has('sync')) return this.withLocalWriteLock(() => chrome.storage.local.set(values));
+            return chrome.storage.local.set(values);
+        }
         const guarded = Object.prototype.hasOwnProperty.call(options, 'expectedLinks');
         const guardedCategories = checksCategories && Object.prototype.hasOwnProperty.call(options, 'expectedCategories');
         return this.withLocalWriteLock(async () => {
@@ -418,6 +426,203 @@ class StorageManager {
     async getLayoutSnapshotForUpdate({ underLock = false } = {}) {
         const read = async () => this.layoutSnapshot(await chrome.storage.local.get(['layout', 'links', this.layoutGenerationKey]));
         return underLock ? read() : this.withLocalWriteLock(read);
+    }
+
+    bookmarkImportError(code, message) {
+        const error = new Error(message); error.code = code; return error;
+    }
+
+    // Bound caller-owned snapshots before cloning/stringifying or passing them
+    // to the pure planner, which deliberately does not bound existing state.
+    copyBookmarkImportValue(value) {
+        let units = 0, nodes = 0;
+        const ancestors = new Set();
+        const invalid = () => { throw this.bookmarkImportError('BOOKMARK_IMPORT_INVALID_STATE', 'Stored bookmark data could not be safely compared.'); };
+        const limit = () => { throw this.bookmarkImportError('BOOKMARK_IMPORT_STATE_LIMIT', 'The existing bookmark state is too large for safe import.'); };
+        const charge = amount => { units += amount; if (units > BOOKMARK_IMPORT_STORAGE_LIMITS.bytes) limit(); };
+        const walk = (item, depth) => {
+            if (++nodes > BOOKMARK_IMPORT_STORAGE_LIMITS.nodes || depth > BOOKMARK_IMPORT_STORAGE_LIMITS.depth) limit();
+            if (item === null || typeof item === 'boolean') { charge(8); return item; }
+            if (typeof item === 'number') { if (!Number.isFinite(item)) invalid(); charge(24); return item; }
+            if (typeof item === 'string') { charge(item.length * 3 + 2); return item; }
+            if (!item || typeof item !== 'object' || ancestors.has(item)) invalid();
+            const array = Array.isArray(item), prototype = Object.getPrototypeOf(item);
+            // Allow plain JSON objects across realms; reject class instances,
+            // inherited serializers, accessors, and cyclic caller-owned state.
+            if (!array && prototype !== null && Object.getPrototypeOf(prototype) !== null) invalid();
+            if (array && item.length > BOOKMARK_IMPORT_STORAGE_LIMITS.nodes) limit();
+            ancestors.add(item);
+            const result = array ? new Array(item.length) : {};
+            let count = 0;
+            // Do not allocate Object.keys on an unbounded corrupt caller object.
+            for (const key in item) {
+                if (!Object.prototype.hasOwnProperty.call(item, key)) continue;
+                if (++count > BOOKMARK_IMPORT_STORAGE_LIMITS.nodes) limit();
+                charge(key.length * 3 + 4);
+                const descriptor = Object.getOwnPropertyDescriptor(item, key);
+                if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, 'value')) invalid();
+                if (array && (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= item.length)) invalid();
+                Object.defineProperty(result, key, { value: walk(descriptor.value, depth + 1), enumerable: true, configurable: true, writable: true });
+            }
+            if (array && count !== item.length) invalid();
+            ancestors.delete(item);
+            return result;
+        };
+        return walk(value, 0);
+    }
+
+    bookmarkImportReadKeys() {
+        return ['links', 'categories', 'layout', 'sync', 'privacy', 'schemaVersion', this.layoutGenerationKey];
+    }
+
+    bookmarkImportSnapshot(raw) {
+        const has = key => Object.prototype.hasOwnProperty.call(raw, key);
+        const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+        const invalid = () => { throw this.bookmarkImportError('BOOKMARK_IMPORT_INVALID_STATE', 'Stored bookmark data is invalid. Review it before importing.'); };
+        if (!object(raw)) invalid();
+        const links = has('links') ? raw.links : this.defaultConfig.links;
+        const categories = has('categories') ? raw.categories : this.defaultConfig.categories;
+        if (!Array.isArray(links) || !Array.isArray(categories)) invalid();
+        if (links.length > BOOKMARK_IMPORT_STORAGE_LIMITS.links || categories.length > BOOKMARK_IMPORT_STORAGE_LIMITS.categories) {
+            throw this.bookmarkImportError('BOOKMARK_IMPORT_STATE_LIMIT', 'The existing bookmark state is too large for safe import.');
+        }
+        const selected = Object.fromEntries(this.bookmarkImportReadKeys().filter(has).map(key => [key, raw[key]]));
+        const source = this.copyBookmarkImportValue({ ...selected,
+            links, categories, layout: has('layout') ? raw.layout : this.defaultConfig.layout,
+            sync: has('sync') ? raw.sync : this.defaultConfig.sync,
+            privacy: has('privacy') ? raw.privacy : this.defaultConfig.privacy });
+        const planner = getBookmarkImportPlanner();
+        if (!planner || typeof planner.planImport !== 'function') throw this.bookmarkImportError('BOOKMARK_IMPORT_UNAVAILABLE', 'Bookmark import is unavailable. Reload Settings.');
+        for (const link of source.links) {
+            if (!object(link) || typeof link.title !== 'string' || !link.title.trim() || link.title !== link.title.trim() ||
+                typeof link.url !== 'string' || !planner.canonicalURL(link.url) ||
+                typeof link.icon !== 'string' || typeof link.category !== 'string' || !link.category) invalid();
+        }
+        const ids = new Set();
+        for (const category of source.categories) {
+            if (!object(category) || typeof category.id !== 'string' || !category.id || ids.has(category.id) ||
+                typeof category.name !== 'string' || !category.name.trim() || category.name !== category.name.trim() ||
+                typeof category.icon !== 'string' || !category.icon) invalid();
+            ids.add(category.id);
+        }
+        const layout = source.layout;
+        if (!object(layout) || (layout.positions !== undefined && !object(layout.positions)) ||
+            ['autoArrange', 'alignToGrid'].some(key => layout[key] !== undefined && typeof layout[key] !== 'boolean') ||
+            (layout.gridSize !== undefined && (!Number.isFinite(layout.gridSize) || layout.gridSize < 48 || layout.gridSize > 240)) ||
+            (layout.columns !== undefined && (!Number.isInteger(layout.columns) || layout.columns < 1 || layout.columns > 10)) ||
+            Object.values(layout.positions || {}).some(position => !object(position) || !Number.isFinite(position.x) || !Number.isFinite(position.y))) invalid();
+        LayoutIdentity.validateBundle({ links: source.links, layout });
+        if (has('schemaVersion') && (source.schemaVersion !== (LayoutIdentity.active(layout) ? 2 : 1))) invalid();
+        if (!object(source.sync) || typeof source.sync.enabled !== 'boolean' ||
+            !object(source.privacy) || typeof source.privacy.onlineFavicons !== 'boolean' ||
+            ['lastSync', 'lastError'].some(key => source.sync[key] !== undefined && typeof source.sync[key] !== 'string') ||
+            (source.sync.includeLargeAssets !== undefined && typeof source.sync.includeLargeAssets !== 'boolean')) invalid();
+        const generation = this.readLayoutGeneration(source);
+        const nonPositions = Object.fromEntries(Object.entries(layout).filter(([key]) => !['positions', 'positionsById'].includes(key)));
+        return { version: 1, links: source.links, categories: source.categories, layout, generation,
+            privacy: { syncEnabled: source.sync.enabled, onlineFavicons: source.privacy.onlineFavicons },
+            context: { present: Object.fromEntries(['links', 'categories', 'layout', 'schemaVersion'].map(key => [key, has(key)])),
+                schemaVersion: has('schemaVersion') ? source.schemaVersion : null,
+                nonPositions, identityIds: Object.keys(layout.positionsById || {}).sort() } };
+    }
+
+    async getBookmarkImportSnapshot() {
+        // Never use getAll/ensureSyncInitialized here: preview must not repair
+        // damaged data, initialize providers, or write a fallback configuration.
+        return this.withLocalWriteLock(async () => this.bookmarkImportSnapshot(await chrome.storage.local.get(this.bookmarkImportReadKeys())), true);
+    }
+
+    async appendBookmarkImport({ text, expectedSnapshot, expectedPrivacy, batchId, rootLabel } = {}) {
+        if (typeof text !== 'string' || typeof batchId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(batchId) ||
+            typeof rootLabel !== 'string' || !expectedSnapshot || expectedSnapshot.version !== 1) {
+            throw this.bookmarkImportError('BOOKMARK_IMPORT_INVALID_REQUEST', 'A fresh bookmark preview is required.');
+        }
+        // Cheap array caps precede even the bounded recursive copy.
+        if (!Array.isArray(expectedSnapshot.links) || !Array.isArray(expectedSnapshot.categories) ||
+            expectedSnapshot.links.length > BOOKMARK_IMPORT_STORAGE_LIMITS.links || expectedSnapshot.categories.length > BOOKMARK_IMPORT_STORAGE_LIMITS.categories) {
+            throw this.bookmarkImportError('BOOKMARK_IMPORT_STATE_LIMIT', 'The bookmark preview cannot be safely compared.');
+        }
+        expectedSnapshot = this.copyBookmarkImportValue(expectedSnapshot);
+        expectedPrivacy = this.copyBookmarkImportValue(expectedPrivacy);
+        if (!expectedPrivacy || typeof expectedPrivacy.syncEnabled !== 'boolean' || typeof expectedPrivacy.onlineFavicons !== 'boolean') {
+            throw this.bookmarkImportError('BOOKMARK_IMPORT_INVALID_REQUEST', 'Bookmark privacy confirmation is missing.');
+        }
+        // Chrome storage preserves JSON values, not dictionary insertion order.
+        // Match the strict local-content comparison: retain array order/type,
+        // scalar types, and the exact set of own keys at every nesting level.
+        const same = (left, right) => {
+            if (left === right) return true;
+            if (!left || !right || typeof left !== 'object' || typeof right !== 'object' ||
+                Array.isArray(left) !== Array.isArray(right)) return false;
+            if (Array.isArray(left) && left.length !== right.length) return false;
+            const keys = Object.keys(left);
+            return keys.length === Object.keys(right).length && keys.every(key =>
+                Object.prototype.hasOwnProperty.call(right, key) && same(left[key], right[key]));
+        };
+        if (!same(expectedSnapshot.privacy, expectedPrivacy)) throw this.bookmarkImportError('BOOKMARK_IMPORT_INVALID_REQUEST', 'Bookmark privacy confirmation does not match the preview.');
+        const result = await this.withLocalWriteLock(async () => {
+            const latest = this.bookmarkImportSnapshot(await chrome.storage.local.get(this.bookmarkImportReadKeys()));
+            if (!same(latest.privacy, expectedPrivacy)) throw this.bookmarkImportError('BOOKMARK_IMPORT_PRIVACY_CHANGED', 'Sync or online icon settings changed. Preview the file again before importing.');
+            if (latest.generation !== expectedSnapshot.generation || !same(latest.links, expectedSnapshot.links) ||
+                !same(latest.categories, expectedSnapshot.categories) || !same(latest.context, expectedSnapshot.context)) {
+                throw this.bookmarkImportError('BOOKMARK_IMPORT_CONFLICT', 'Shortcuts, categories, or layout context changed. Preview the file again before importing.');
+            }
+            const plan = getBookmarkImportPlanner().planImport(text, { links: latest.links, categories: latest.categories }, {
+                rootLabel, createCategoryId: ({ index }) => `import_${batchId}_${index}`
+            });
+            const result = { applied: false, addedBookmarks: plan.preview.addedBookmarks, newCategories: plan.preview.newCategories,
+                preview: plan.preview, snapshot: latest };
+            if (!plan.additions.links.length) return result;
+            if (latest.links.length + plan.additions.links.length > BOOKMARK_IMPORT_STORAGE_LIMITS.links ||
+                latest.categories.length + plan.additions.categories.length > BOOKMARK_IMPORT_STORAGE_LIMITS.categories) {
+                throw this.bookmarkImportError('BOOKMARK_IMPORT_STATE_LIMIT', 'The imported bookmark state would exceed the safe import limit.');
+            }
+            let additions = plan.additions.links;
+            const written = { links: [...latest.links, ...additions], categories: [...latest.categories, ...plan.additions.categories],
+                [this.layoutGenerationKey]: this.createLayoutGeneration() };
+            // Legacy mode stays legacy: do not migrate or rewrite existing
+            // duplicate shortcuts. Identity mode adds independent fresh IDs.
+            if (LayoutIdentity.active(latest.layout)) {
+                const layout = this.copyBookmarkImportValue(latest.layout);
+                const reserved = new Set([...latest.links.map(link => link.layoutId).filter(Boolean), ...Object.keys(layout.positionsById)]);
+                additions = additions.map(link => {
+                    let id;
+                    for (let attempt = 0; attempt < 32; attempt++) {
+                        id = this.createLayoutIdentity();
+                        if (LayoutIdentity.idPattern.test(id) && !reserved.has(id)) break;
+                        id = null;
+                    }
+                    if (!id) LayoutIdentity.invalid('Could not allocate a fresh bookmark layout identity.');
+                    reserved.add(id); layout.positionsById[id] = {};
+                    return { ...link, layoutId: id };
+                });
+                written.links = [...latest.links, ...additions]; written.layout = layout;
+            }
+            const candidateRaw = { links: written.links, categories: written.categories,
+                layout: written.layout || latest.layout, sync: { enabled: latest.privacy.syncEnabled },
+                privacy: { onlineFavicons: latest.privacy.onlineFavicons }, [this.layoutGenerationKey]: written[this.layoutGenerationKey],
+                ...(latest.context.present.schemaVersion ? { schemaVersion: latest.context.schemaVersion } : {}) };
+            this.bookmarkImportSnapshot(candidateRaw);
+            try {
+                await chrome.storage.local.set(written);
+                const readback = await chrome.storage.local.get(this.bookmarkImportReadKeys());
+                // Bound and validate the readback before recursively comparing it.
+                const committed = this.bookmarkImportSnapshot(readback);
+                if (Object.keys(written).some(key => !same(readback[key], written[key]))) throw new Error('Bookmark write did not match its readback.');
+                if (!same(committed.privacy, expectedPrivacy)) throw new Error('Bookmark preferences changed during verification.');
+                result.snapshot = committed; result.applied = true;
+            } catch (cause) {
+                // No rollback, blind retry, or optimistic success after an
+                // ambiguous set/readback. A fresh preview safely deduplicates.
+                const error = this.bookmarkImportError('BOOKMARK_IMPORT_UNVERIFIED', 'The import could not be verified. Some bookmarks may have been saved. Reload Settings and preview the file again before retrying.');
+                error.mayHaveCommitted = true; error.cause = cause; throw error;
+            }
+            return result;
+        }, true);
+        if (result.applied && result.snapshot.privacy.syncEnabled && !this._isApplyingSync) {
+            try { this.scheduleSyncPush(); } catch (error) { console.warn('Bookmarks saved locally; sync scheduling failed:', error); }
+        }
+        return result;
     }
 
     async applyLayoutPatch(patch, positions, expected, onWrite = () => {}, identityPositions = {}) {
@@ -1119,10 +1324,13 @@ class StorageManager {
 
     async setSyncEnabled(enabled) {
         await this.ensureSyncInitialized();
-        const raw = await chrome.storage.local.get(['sync']);
-        const previous = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
         if (!enabled) { await this.disableRemoteSync(); return this.getSyncStatus(); }
-        await chrome.storage.local.set({ sync: { ...previous, enabled, lastError: '' } });
+        const previous = await this.withLocalWriteLock(async () => {
+            const raw = await chrome.storage.local.get(['sync']);
+            const current = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
+            await chrome.storage.local.set({ sync: { ...current, enabled, lastError: '' } });
+            return current;
+        });
         try { return await this.pushToSync(); }
         catch (error) {
             await this.updateLocalSyncState({ enabled: error.code === 'SYNC_IDENTITY_COMPATIBILITY' ? previous.enabled : false, lastError: error.message || String(error) });
@@ -1357,12 +1565,14 @@ class StorageManager {
 
     async updateLocalSyncState(partial) {
         try {
-            const current = await chrome.storage.local.get(['sync']);
-            const next = this.validateSyncConfig({
-                ...(current.sync || this.defaultConfig.sync),
-                ...partial
+            await this.withLocalWriteLock(async () => {
+                const current = await chrome.storage.local.get(['sync']);
+                const next = this.validateSyncConfig({
+                    ...(current.sync || this.defaultConfig.sync),
+                    ...partial
+                });
+                await chrome.storage.local.set({ sync: next });
             });
-            await chrome.storage.local.set({ sync: next });
         } catch (error) {
             console.warn('Failed to update local sync state:', error);
         }

@@ -1,0 +1,67 @@
+.bookmark-import {
+    color: var(--text-primary);
+    min-width: 0;
+}
+.bookmark-import h3,
+.bookmark-import h4,
+.bookmark-import h5 {
+    margin: 0 0 10px;
+    color: var(--text-primary);
+}
+.bookmark-import h5 { font-size: 0.9rem; }
+.bookmark-import p { margin: 8px 0 14px; line-height: 1.6; }
+.bookmark-import .form-hint { color: var(--text-secondary); }
+.bookmark-import [hidden] { display: none !important; }
+.bookmark-import-preview {
+    margin-top: 18px;
+    padding: clamp(14px, 3vw, 24px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md, 14px);
+    background: var(--card-bg);
+}
+.bookmark-import-counts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 20px;
+    list-style: none;
+    padding: 0;
+    margin: 16px 0 22px;
+    font-variant-numeric: tabular-nums;
+}
+.bookmark-import-reasons,
+.bookmark-import-mapping {
+    padding-inline-start: 22px;
+    margin: 8px 0 20px;
+    line-height: 1.6;
+}
+.bookmark-import-mapping {
+    max-height: 280px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.bookmark-import li,
+.bookmark-import p { overflow-wrap: anywhere; }
+.bookmark-import-privacy {
+    border-top: 1px solid var(--card-border);
+    padding-top: 16px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+.bookmark-import-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.bookmark-import .btn { white-space: normal; text-align: start; }
+.bookmark-import .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+.bookmark-import .btn:focus-visible,
+.bookmark-import-mapping:focus-visible,
+.bookmark-import [tabindex="-1"]:focus {
+    outline: 2px solid var(--text-accent, currentColor);
+    outline-offset: 4px;
+}
+.bookmark-import-status:empty { margin: 0; }
+@media (max-width: 520px) {
+    .bookmark-import-counts { grid-template-columns: 1fr; }
+    .bookmark-import-actions .btn { flex: 1 1 100%; justify-content: center; }
+    .bookmark-import-choose { max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .bookmark-import .btn { transition: none; }
+}

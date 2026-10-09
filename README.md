@@ -183,3 +183,7 @@ git diff --check
 ## 推荐工作空间
 
 独立预览并应用模板推荐的本地待办与专注计时器显示状态，保留内容与计时会话；切换视觉模板不会改变模块。[使用指南](docs/workspace-presets.zh-CN.md)。
+
+## 导入浏览器书签
+
+从本地 Chrome、Edge 或 Firefox HTML 导出文件预览并追加书签，不替换已有主页数据。应用前检查重复跳过、文件夹分类对应关系及现有同步/图标设置。[书签导入指南](docs/bookmark-import.zh-CN.md)。

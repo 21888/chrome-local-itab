@@ -1,0 +1,15 @@
+# Importar marcadores desde un archivo HTML local
+
+Exporta tus marcadores de Chrome, Edge o Firefox como HTML. En **Configuración → Gestión de datos → Importar marcadores del navegador**, selecciona el archivo, revisa los recuentos, motivos de omisión y correspondencias entre carpetas y categorías, y pulsa **Aplicar**. Cancelar o Escape descarta la vista previa sin guardar. Esta función es independiente de **Importar configuración**, que sigue restaurando una copia JSON completa.
+
+Solo se aceptan direcciones HTTP(S). Se omiten las URL ya guardadas y duplicadas mediante comparación canónica; las consultas y fragmentos siguen siendo significativos. Cada carpeta con marcadores directos aceptados crea una categoría nueva con su ruta completa. No se fusionan categorías existentes con el mismo nombre; los nombres repetidos reciben un sufijo. Las carpetas vacías no crean categorías.
+
+La importación solo añade elementos. Conserva enlaces, identificadores de categorías, orden, posiciones libres, configuración, copias de recuperación, tareas y datos de concentración. Los nuevos enlaces usan el icono local 🔗. Si el diseño ya utiliza identidades, los enlaces nuevos reciben identificadores nuevos; los diseños antiguos permanecen iguales. Las copias JSON siguen incluyendo los enlaces y categorías importados.
+
+El archivo se lee localmente como texto: este importador no lo representa como HTML, no lo sube ni descarga iconos. No requiere permiso de marcadores, cuenta o servicio nuevo. La vista previa muestra la configuración de privacidad actual: si Chrome Sync ya está activado, los enlaces guardados pueden sincronizarse después; si los iconos en línea ya están activados, la actividad normal del panel puede contactar con su proveedor. No se cambian esas opciones ni se afirma que toda la extensión carezca de red. Un cambio de preferencias exige otra vista previa.
+
+Guarda primero las ediciones de categorías. La vista previa no escribe. Aplicar comprueba de nuevo los enlaces, categorías, identidades y preferencias bajo un bloqueo local. Los conflictos con otras pestañas exigen otra vista previa; los cambios exclusivos de posición se conservan. Durante el guardado se bloquean la repetición y la cancelación. Un fallo de escritura o verificación puede dejar un resultado incierto: vuelve a inspeccionar el estado guardado antes de reintentar. No hay reintentos ni reversión automáticos.
+
+Límites: archivo de 10 MiB antes de leerlo, 10.000 marcadores encontrados, 2.000 enlaces nuevos, 200 categorías nuevas y 16 niveles. Los archivos mal formados o que superan los límites se rechazan por completo, sin truncarlos o repararlos. Vuelve a exportarlos desde el navegador. Los datos locales existentes corruptos o demasiado grandes también bloquean la operación sin modificarlos. Consulta el [contrato técnico](bookmark-import-parser.md).
+
+La interfaz está disponible en inglés y chino simplificado. Las pruebas automatizadas cubren ejemplos de exportación de los tres navegadores; las comprobaciones nativas de Chrome y accesibilidad deben realizarse antes de publicar.
