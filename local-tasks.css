@@ -8,7 +8,9 @@
 .tasks-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .tasks-header h2 { color: inherit; font-size: 18px; font-weight: 650; line-height: 1.3; margin: 0; }
 .tasks-local { color: var(--template-muted); font-size: 11px; letter-spacing: .015em; border: 1px solid var(--template-border); border-radius: 99px; padding: 3px 8px; }
-.tasks-next { color: var(--template-muted); font-size: 13px; line-height: 1.5; margin: 12px 0; white-space: pre-wrap; max-height: 110px; overflow: auto; }
+.tasks-next { display: flex; align-items: start; gap: 10px; color: var(--template-muted); font-size: 13px; line-height: 1.5; margin: 12px 0; }
+.tasks-next-text { min-width: 0; flex: 1; white-space: pre-wrap; max-height: 110px; overflow: auto; }
+.tasks-next-complete { flex: 0 0 auto; }
 .tasks-next.has-pin { color: var(--template-text); border-inline-start: 3px solid var(--template-accent); padding-inline-start: 10px; }
 .tasks-add { display: flex; align-items: start; gap: 8px; margin: 12px 0 16px; }
 .local-tasks-card textarea, .tasks-dialog textarea, .tasks-filter input {

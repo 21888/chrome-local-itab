@@ -56,7 +56,7 @@
             this.dialogs = new Set(); this.reviewGeneration = 0; this.pendingReview = false; this.expanded = false; this.draftGeneration = 0; this.undo = null; this.destroyed = false; this.localError = null;
             host.classList.add('local-tasks-card'); host.setAttribute('aria-label', t('tasksTitle'));
             const header = el('header', 'tasks-header'); header.append(el('h2', '', t('tasksTitle')), el('span', 'tasks-local', t('tasksLocal')));
-            this.next = el('p', 'tasks-next');
+            this.next = el('div', 'tasks-next');
             // Filtering is disposable view state; it never enters a storage command or reload guard.
             this.filterQuery = ''; this.filterComposing = false;
             this.filter = el('div', 'tasks-filter'); this.filterInput = el('input'); this.filterInput.type = 'text';
@@ -91,7 +91,13 @@
             fileRow.append(button('tasksExport', () => this.export()), button('tasksImport', () => this.fileInput.click()), this.fileInput);
             this.copies = el('div', 'tasks-copies'); this.data.append(fileRow, this.copies);
             this.feedback = el('div', 'tasks-feedback'); this.status = el('span'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
-            this.retry = button('tasksRetry', () => this.retryLast()); this.undoButton = button('tasksUndo', () => this.undoRemove());
+            this.retry = button('tasksRetry', event => {
+                if (!(event.detail > 1 && this.controller.retryCommand?.kind === 'completePinned')) this.retryLast();
+            });
+            this.retry.addEventListener('keydown', event => {
+                if (this.controller.retryCommand?.kind === 'completePinned' && event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
+            });
+            this.undoButton = button('tasksUndo', () => this.undoRemove());
             this.feedback.append(this.status, this.retry, this.undoButton);
             host.replaceChildren(header, this.next, this.form, this.filter, this.filterStatus, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
@@ -122,7 +128,11 @@
             catch (_) { /* Controller owns safe, content-free feedback. */ }
         }
         async retryLast() {
-            if (this.controller.pending) return;
+            if (this.controller.pending || this.destroyed) return;
+            const command = this.controller.retryCommand;
+            if (command?.kind === 'completePinned' && command.operationId === this.retryEffectOperationId) {
+                return this.performPinned(command, this.retry);
+            }
             this.localError = null;
             const effect = this.controller.retryCommand?.operationId === this.retryEffectOperationId ? this.retryEffect : null;
             try { const state = await this.controller.retry(); effect?.(state); this.retryEffect = null; this.render(); } catch (_) {}
@@ -133,6 +143,54 @@
             this.perform(command, () => {
                 // A late success must not clear newer text or focus another element.
                 if (this.draftGeneration === generation && this.input.value === text) this.input.value = '';
+            });
+        }
+        renderNext(task) {
+            // Keep an unchanged action mounted through filtering and unrelated row updates.
+            if (this.nextTask?.id === task?.id && this.nextTask?.version === task?.version && this.next.children.length) return;
+            this.nextTask = task; this.nextComplete = null;
+            const text = el('span', 'tasks-next-text', task ? `${t('tasksNext')}: ${task.text}` : t('tasksNoPin'));
+            this.next.replaceChildren(text); this.next.classList.toggle('has-pin', !!task);
+            if (!task) return;
+            const complete = button('tasksComplete', event => {
+                if (event.detail > 1 || this.destroyed || this.controller.pending || this.nextComplete !== complete ||
+                    !complete.isConnected || this.host.hidden) return;
+                const command = this.controller.store.request('completePinned', { id: task.id, version: task.version, expectedPin: task.id });
+                this.performPinned(command, complete);
+            }, 'tasks-next-complete');
+            complete.setAttribute('aria-label', `${t('tasksComplete')}: ${task.text}`);
+            // Leave ordinary Enter/Space activation to the native button.
+            complete.addEventListener('keydown', event => {
+                if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
+            });
+            this.nextComplete = complete; this.next.append(complete);
+        }
+        performPinned(command, origin) {
+            if (this.destroyed || this.controller.pending) return;
+            this.pinnedFocus?.cancel();
+            const intent = { command, revision: this.controller.state?.revision, valid: document.activeElement === origin };
+            const cancel = () => { intent.valid = false; }; intent.cancel = cancel;
+            const moved = event => { if (event.target !== origin) cancel(); };
+            const keyed = event => { if (!(event.repeat && ['Enter', ' '].includes(event.key))) cancel(); };
+            document.addEventListener('focusin', moved, true); document.addEventListener('pointerdown', cancel, true);
+            document.addEventListener('keydown', keyed, true); document.addEventListener('visibilitychange', cancel, true);
+            root.addEventListener?.('blur', cancel);
+            this.pinnedFocus = intent;
+            return this.perform(command, saved => {
+                // A storage notification can remove the button before the write is
+                // verified. Only this confirmed result may return its owner's focus.
+                // A retry may confirm the same revision; a new write adds exactly one.
+                // Larger jumps include an unseen remote change and relinquish focus.
+                if (intent.valid && this.pinnedFocus === intent && !document.hidden && !this.host.hidden &&
+                    this.host.isConnected && !this.host.closest('[inert]') && this.input.getClientRects().length &&
+                    this.controller.state?.revision === saved.revision && saved.receipts.at(-1) === command.operationId &&
+                    (saved.revision === intent.revision + 1 || saved.revision === intent.revision) &&
+                    (document.activeElement === origin || document.activeElement === document.body)) this.input.focus();
+            }).finally(() => {
+                cancel(); if (this.pinnedFocus === intent) this.pinnedFocus = null;
+                document.removeEventListener('focusin', moved, true); document.removeEventListener('pointerdown', cancel, true);
+                document.removeEventListener('keydown', keyed, true); document.removeEventListener('visibilitychange', cancel, true);
+                root.removeEventListener?.('blur', cancel);
             });
         }
         row(task, index, active) {
@@ -182,6 +240,8 @@
         render() {
             if (this.destroyed) return;
             const state = this.controller.state, busy = !!this.controller.pending;
+            if (this.pinnedFocus && state?.revision !== this.pinnedFocus.revision &&
+                state?.receipts.at(-1) !== this.pinnedFocus.command.operationId) this.pinnedFocus.cancel();
             // An unreadable initial store must expose its safe retry without changing visibility preferences.
             const showReadError = !state && !!this.controller.error;
             // A remote hide preference must not strand this page's quick-entry draft or save.
@@ -203,8 +263,7 @@
                 const openRows = Array.from(this.host.querySelectorAll('[data-task-id] .tasks-row-menu[open]')).map(node => node.closest('[data-task-id]').dataset.taskId);
                 const active = state.records.filter(task => task.state === 'active'), ids = active.map(t => t.id);
                 const pinned = active.find(task => task.id === state.pinnedId);
-                this.next.textContent = pinned ? `${t('tasksNext')}: ${pinned.text}` : t('tasksNoPin');
-                this.next.classList.toggle('has-pin', !!pinned);
+                this.renderNext(pinned);
                 const matched = active.filter(matches);
                 const visible = filtering || this.expanded ? matched : matched.slice(0, 4);
                 const count = state.records.filter(matches).length;
@@ -241,6 +300,7 @@
                 }
             }
             this.host.querySelectorAll('button[data-task-action]').forEach(node => node.setAttribute('aria-disabled', String(busy)));
+            this.nextComplete?.setAttribute('aria-disabled', String(busy));
             this.undoButton.hidden = !this.undo || !state?.records.some(t => t.id === this.undo.id && t.version === this.undo.version && t.state === 'removed');
             this.undoButton.disabled = busy;
             const error = this.localError || this.controller.error;
@@ -346,7 +406,7 @@
             modal.panel.append(el('p', 'tasks-help', t('tasksReviewHelp')), el('p', '', `${t('tasksCurrent')}: ${summarize(review.current)}`),
                 el('p', '', `${t('tasksIncoming')}: ${summarize(review.incoming)}`), feedback, actions); modal.open(cancel);
         }
-        destroy() { this.destroyed = true; this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
+        destroy() { this.destroyed = true; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
     }
     function mount(host, options) {
         if (host.localTasksView) return host.localTasksView;

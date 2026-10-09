@@ -149,9 +149,13 @@
                     const task = find(); check(task.state !== 'removed', 'CONFLICT'); text(command.text);
                     task.text = command.text; touch(task); break;
                 }
-                case 'complete': case 'reopen': {
-                    const task = find(); check(task.state === (command.kind === 'complete' ? 'active' : 'done'), 'CONFLICT');
-                    task.state = command.kind === 'complete' ? 'done' : 'active'; unpin(task); touch(task); break;
+                case 'completePinned': case 'complete': case 'reopen': {
+                    const completing = command.kind !== 'reopen';
+                    const task = find(); check(task.state === (completing ? 'active' : 'done'), 'CONFLICT');
+                    // Pin changes do not touch task versions. The Next up action must
+                    // check both identities in this same lock; ordinary rows are unchanged.
+                    if (command.kind === 'completePinned') check(command.expectedPin === task.id && current.pinnedId === command.expectedPin, 'CONFLICT');
+                    task.state = completing ? 'done' : 'active'; unpin(task); touch(task); break;
                 }
                 case 'pin': {
                     const task = find(); check(task.state === 'active' && current.pinnedId === command.expectedPin, 'CONFLICT');

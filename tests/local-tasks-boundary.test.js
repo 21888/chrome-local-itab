@@ -55,6 +55,8 @@ for (const enabled of [false, true]) test(`real adapter isolates every content a
         state = await store.mutate(req('restore', state.records.find(t => t.state === 'removed')));
         state = await store.mutate(req('reopen', state.records.find(t => t.state === 'done')));
         state = await store.mutate(store.request('recover', { id: state.recovery[0].id, revision: state.revision }));
+        const pinned = state.records.find(task => task.id === state.pinnedId);
+        state = await store.mutate(req('completePinned', pinned, { expectedPin: pinned.id }));
         state = await store.mutate(store.request('enable', { enabled: false }));
         assert.deepEqual(counts, {}, 'content cannot initialize, schedule, cancel, clear compatibility, or invoke any provider');
         assert.deepEqual(h.remoteCalls, []); assert.equal(manager._syncPushTimer, unrelatedTimer);

@@ -5,7 +5,7 @@ Enable **Tasks** under module visibility settings. It starts empty and is option
 - **Filter tasks** matches plain task text locally, ignoring case and outer spaces, across active, completed and removed tasks. All matching active tasks are shown; open **Completed** or **Removed** for their matching rows. **Clear filter** returns to your prior Show all/Show fewer view. Clear the filter before moving tasks up/down. The filter is not saved, does not search the web, and does not change task order, the pin, drafts or backups.
 - Add a plain-text task with Enter, or use Shift+Enter for a new line.
 - Complete or reopen a task. Open **Actions** to edit, pin one next action, move up/down, or remove it.
-- Completing a pinned task clears the pin. No other task is chosen automatically.
+- Use **Complete** beside **Next up** to finish the pinned task even when it is outside the four-row preview or current filter. The task text stays plain text; the button works with Enter or Space. Completing it clears the pin without choosing another task. If another page changes the pin or task first, the older action stops for review. Focus returns to Add a task only after a confirmed save, if you have not moved on.
 - **Undo removal** is immediate. **Removed** also lets you restore an item after reloading.
 - **Task data** contains separate export, reviewed import, and previous local copies.
 
