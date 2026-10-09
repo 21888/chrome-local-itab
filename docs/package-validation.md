@@ -95,3 +95,36 @@ The existing downloadable package was updated and delivered. Runtime bytes were
 matched to tested unpacked snapshots; the ZIP was not separately launched in a
 new profile. Manifest version remains 1.1.5. This is not a store submission,
 version bump, live Drive/Sync test, or native macOS/Windows acceptance.
+
+## Portable text/bookmark backups and interaction safeguards — 2026-10-09
+
+Published runtime source `0c0252945d4e5b7fc1b94f98ddc17e6e0fc5c021` was
+packaged as `local-itab-current-0c02529.zip`: 58 runtime files, 1,201,883 source
+bytes and 1,208,897 archive bytes. SHA256:
+`9f68638a9fc5660e42df23e1f7622e5e63131f7750372908e2e25e086813f562`.
+The clean-checkout archive passed canonical verification twice. Every runtime
+entry was independently compared with the final native-tested snapshot.
+
+This snapshot adds portable bookmark HTML export, draft world-clock sorting,
+page-local duplicate category-opening protection, Tasks departure warnings and
+explicit Scratchpad TXT preview/replacement. The integrated suite passed 465
+Node tests and 19 Python packaging tests; Scratchpad import also passed 26
+independent actual-entrypoint adversarial cases.
+
+Native cloud Chrome for Testing 155.0.8059.39 verified actual bookmark export and
+Chrome import (Chrome omitted empty folders), clock move/focus/save persistence,
+six synthetic loopback tabs and deliberate retry, Tasks refresh/Stay and clean
+release, and Scratchpad preview/Cancel/Replace/persistence/invalid UTF-8 handling.
+A downloaded 87-byte TXT exactly matched its synthetic multilingual input.
+Relevant light/dark/narrow UI states were inspected; the reports retain their
+precise scope: [bookmarks](bookmark-export.md), [clocks](world-clocks-validation.md),
+[category opening](category-open-validation.md),
+[Tasks departure](tasks-departure-validation.md) and
+[Scratchpad import](scratchpad-import-validation.md).
+
+The ZIP itself was not separately launched in a new profile: all its runtime
+bytes match the tested unpacked snapshot. Fault/race injection remains model
+coverage where stated. No all-template/locale/IME/assistive-technology guarantee,
+live Drive/Sync validation, native macOS/Windows acceptance or store submission
+is implied. Manifest version remains 1.1.5. Preserve the existing installation
+directory and make separate private-module backups before replacing files.
