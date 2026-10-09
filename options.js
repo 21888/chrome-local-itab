@@ -12,6 +12,7 @@ let clockBaseline = null;
 let clockFormInitialized = false;
 let worldClockDraft = [];
 let worldClockSaves = 0;
+let worldClockRenderVersion = 0;
 const copyClock = value => ({hour12: value.hour12, showSeconds: value.showSeconds,
     worldClocks: (value.worldClocks || []).map(entry => ({...entry}))});
 const sameClock = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -28,20 +29,49 @@ function worldClockHasUncommittedWork() {
 function renderWorldClockDraft() {
     const list = document.getElementById('world-clock-list');
     if (!list) return;
+    const version = ++worldClockRenderVersion;
     list.replaceChildren();
     worldClockDraft.forEach((entry, index) => {
         const item = document.createElement('li');
         const name = document.createElement('span');
         name.textContent = entry.label ? `${entry.label} · ${entry.timeZone}` : entry.timeZone;
-        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn btn-secondary';
-        remove.textContent = t('worldClockRemove', 'Remove');
-        remove.setAttribute('aria-label', `${remove.textContent}: ${name.textContent}`);
-        remove.addEventListener('click', () => {
-            worldClockDraft.splice(index, 1); renderWorldClockDraft();
-            const buttons = list.querySelectorAll('button');
-            (buttons[Math.min(index, buttons.length - 1)] || document.getElementById('world-clock-zone')).focus();
-        });
-        item.append(name, remove); list.append(item);
+        const actions = document.createElement('div'); actions.className = 'world-clock-actions';
+        const ownsRow = () => version === worldClockRenderVersion && item.isConnected && document.getElementById('world-clock-list') === list &&
+            list.children[index] === item && worldClockDraft[index] === entry;
+        for (const [action, key, fallback, offset] of [
+            ['up', 'worldClockMoveUp', 'Move up', -1],
+            ['down', 'worldClockMoveDown', 'Move down', 1],
+            ['remove', 'worldClockRemove', 'Remove', 0]
+        ]) {
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'btn btn-secondary';
+            button.dataset.clockAction = action;
+            button.textContent = t(key, fallback);
+            button.setAttribute('aria-label', `${button.textContent}: ${name.textContent}`);
+            const target = index + offset;
+            button.disabled = offset !== 0 && (target < 0 || target >= worldClockDraft.length);
+            button.addEventListener('keydown', event => {
+                if ((event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') &&
+                    (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+            });
+            button.addEventListener('click', () => {
+                if (!ownsRow() || button.disabled) return;
+                if (offset) {
+                    if (target < 0 || target >= worldClockDraft.length) return;
+                    [worldClockDraft[index], worldClockDraft[target]] = [worldClockDraft[target], entry];
+                    renderWorldClockDraft();
+                    const moved = list.children[target];
+                    const preferred = moved.querySelector(`[data-clock-action="${action}"]`);
+                    const opposite = moved.querySelector(`[data-clock-action="${offset < 0 ? 'down' : 'up'}"]`);
+                    (preferred.disabled ? opposite : preferred).focus();
+                } else {
+                    worldClockDraft.splice(index, 1); renderWorldClockDraft();
+                    const buttons = list.querySelectorAll('[data-clock-action="remove"]');
+                    (buttons[Math.min(index, buttons.length - 1)] || document.getElementById('world-clock-zone')).focus();
+                }
+            });
+            actions.append(button);
+        }
+        item.append(name, actions); list.append(item);
     });
 }
 function setupWorldClocks() {

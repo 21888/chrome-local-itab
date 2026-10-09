@@ -43,3 +43,39 @@ Official Chrome for Testing 155.0.8059.39 on cloud Linux, normal sandbox and own
 The final live-refresh runtime (newtab.js SHA256 `4ea42802aefaf87596f7aab27adece4b7bdaab3877467dba8b51fd1ac571654b`) then updated an already-open homepage immediately after removing Tokyo and adding London in Settings. The homepage's unsaved Add-task text remained present without reload. Original desktop captures and a 52-file source manifest were retained. The earlier core checks used the same Settings/storage/helper code with the pre-live-refresh dashboard; final runtime differences were tracked separately.
 
 The stale-save check exposed low-contrast existing error-toast styling in light mode. Its independent CSS correction is recorded separately; it does not alter the clock save/conflict logic. Source/model coverage does not imply native fault injection, actual IME, assistive-technology announcements, all-template narrow coverage, live Sync/Drive or other operating-system verification.
+
+
+## Draft clock reordering — 2026-10-09
+
+Each Settings clock row now has localized native Move up, Move down and Remove buttons with label-and-zone accessible names. Adjacent swaps change only the existing draft array. Boundary directions are disabled; keyboard focus follows the moved row, switching to the opposite direction when necessary. Remove explicitly targets another Remove button or the zone input. Obsolete render handlers, detached rows and out-of-bounds moves are ignored. Row-local keydown guards suppress repeated or composing Enter/Space activation so held Enter cannot reverse a boundary move or remove successive focused rows; ordinary native activation is unchanged.
+
+Actual Settings initializer/renderer/save-path DOM-model tests cover 0/1/4 entries, English/Chinese labels, both directions, preserved entry identity/content, reverse-to-baseline cleanliness, no writes on move, baseline-only unrelated autosaves, explicit Save clocks, stable focus across delayed saves, newer reordered drafts, stale/reattached row handlers, removal focus, departure protection and atomic remote conflicts. Actual storage tests cover reordered manual JSON, Drive and Sync backup/import boundaries and stale order rejection. Existing reset and homepage live-refresh suites remain in the full regression run.
+
+The complete candidate passes 433 Node tests, 19 Python packaging tests and JavaScript syntax checks. Native-browser layout, native Enter/Space activation and screen-reader checks are pending for this change. Recommended acceptance: in English and Chinese, reorder four long-label clocks at narrow/wide widths in light/dark; verify readable wrapping and visible focus; move to each boundary, remove each row, save and check the homepage order; reload and export/import to confirm persistence. The editor uses existing wrapping rows plus a wrapping action group. No schema, permission, network, homepage, save or conflict-path changes are introduced.
+
+
+### Integrated native reorder acceptance
+
+On 2026-10-09, official Chrome for Testing 155.0.8059.39 on Linux, normal sandbox,
+loaded the exact 58-file integrated runtime in a disposable synthetic profile.
+First-Up and last-Down controls were unavailable and left the list unchanged.
+Moving a middle clock with ordinary click and Enter followed that row's focus;
+at the top boundary, focus moved to its enabled Down button. The already-open
+homepage retained the original order until explicit Save clocks, then updated
+live to the saved new order without reload.
+
+Removing rows without saving retained focus on another Remove button, then on
+the zone input when empty. A normal reload with explicit discard restored all
+four saved entries. The actual downloaded Settings JSON was independently parsed:
+2,791 bytes, SHA256 `50c2530ec971d5c10896d212b710a53167c9fa914d5dfc1f1da6c4d855b59e4d`.
+Its exact order was UTC/Coordinated, Asia/Katmandu/Kathmandu, Europe/London/London,
+and America/New_York/New York; labels and zones were unchanged.
+
+English Clarity light at an 1188 × 848 outer window and light/dark at 514 × 848
+passed the bounded layout check. Buttons wrapped and lower rows remained reachable
+by normal vertical scrolling, with no observed horizontal clipping. These are
+outer-window dimensions, not CSS viewport measurements. All runtime hashes matched;
+433 Node tests and 19 Python packaging tests passed after integration. The owned
+browser was closed normally. Actual held-key repeat, IME, assistive technology,
+Chinese rendering, other templates/operating systems and live providers were not
+exercised in this reorder-specific pass; source/model coverage stays separate.

@@ -50,6 +50,8 @@
   "worldClockZone": {"message": "Time zone"},
   "worldClockLabel": {"message": "Short label (optional)"},
   "worldClockAdd": {"message": "Add clock"},
+  "worldClockMoveUp": {"message": "Move up"},
+  "worldClockMoveDown": {"message": "Move down"},
   "worldClockRemove": {"message": "Remove"},
   "worldClockSave": {"message": "Save clocks"},
   "worldClockInvalid": {"message": "Use a valid IANA time zone, a label of up to 40 characters, and at most four different zones."},

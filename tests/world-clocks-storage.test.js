@@ -316,3 +316,20 @@ test('pending saves snapshot both clock input and expected baseline before yield
     resume.resolve(); assert.equal(await pending, true);
     equal(f.state().clock, clock('Europe/London', 'London'));
 });
+
+
+test('saved reordered clocks retain exact order across JSON, Drive and Sync backup boundaries', async () => {
+    const worldClocks = ['UTC', 'Asia/Tokyo', 'Europe/London', 'Asia/Kathmandu'].map(timeZone => ({timeZone, label: timeZone}));
+    const f = fixture({clock: {...clock(), worldClocks}});
+    const baseline = (await f.manager.getAll())._clockBaseline;
+    const canonical = baseline.worldClocks;
+    const reordered = {...baseline, worldClocks: [canonical[3], canonical[0], canonical[2], canonical[1]]};
+    await f.manager.setAll({clock: reordered}, {expectedClock: baseline});
+    const config = await f.manager.getAllForBackup();
+    for (const payload of [f.manager.buildManualExportPayload(config), f.manager.buildDriveBackupPayload(config), f.manager.prepareSyncPayload(config).payload]) {
+        equal(f.manager.validateImportPayload(JSON.parse(JSON.stringify(payload))).clock, reordered);
+    }
+    const count = f.writes.length;
+    await assert.rejects(f.page().setAll({clock: baseline, quote: 'Stale order'}, {expectedClock: baseline}), {code: 'CLOCK_CONFLICT'});
+    assert.equal(f.writes.length, count); equal(f.state().clock, reordered); assert.notEqual(f.state().quote, 'Stale order');
+});

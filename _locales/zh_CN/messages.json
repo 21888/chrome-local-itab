@@ -50,6 +50,8 @@
   "worldClockZone": {"message": "时区"},
   "worldClockLabel": {"message": "简短名称（可选）"},
   "worldClockAdd": {"message": "添加时钟"},
+  "worldClockMoveUp": {"message": "上移"},
+  "worldClockMoveDown": {"message": "下移"},
   "worldClockRemove": {"message": "移除"},
   "worldClockSave": {"message": "保存时钟"},
   "worldClockInvalid": {"message": "请输入有效的 IANA 时区，名称不超过 40 个字符，最多添加四个不重复的时区。"},

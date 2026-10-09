@@ -1629,3 +1629,5 @@ textarea:focus-visible,
     .settings-search-controls { align-items: stretch; flex-direction: column; }
     .settings-search-controls button { align-self: flex-start; }
 }
+
+.world-clock-actions { display: flex; flex-wrap: wrap; gap: 8px; }
