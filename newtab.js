@@ -212,50 +212,73 @@ async function handleContextAction(action, payload) {
     }
 }
 
+// Own one category-opening batch per page, including its confirmation dialog.
+let categoryOpenOperation = null;
+
 // Open all links in a category with user confirmation and limited concurrency
 async function openAllInCategory(categoryId) {
-    const comp = window.shortcutsComponentInstance;
-    if (!comp) return;
-    let links = comp.links || [];
-    if (categoryId && categoryId !== 'all') {
-        links = links.filter(l => (l.category || 'work') === categoryId);
-    }
-    if (!links.length) return;
-
-    const ok = confirm((window.i18n && i18n.t('openAllConfirm')) || 'Open all links in this category? This may open multiple tabs.');
-    if (!ok) return;
-
-    // Normalize URLs
-    const urls = links.map(l => {
-        try {
-            return normalizeHttpUrl(l.url);
-        } catch (_) {
-            return '';
+    if (categoryOpenOperation) return;
+    const operation = { stopped: false, timers: new Set() };
+    categoryOpenOperation = operation;
+    try {
+        const comp = window.shortcutsComponentInstance;
+        if (!comp) return;
+        let links = comp.links || [];
+        if (categoryId && categoryId !== 'all') {
+            links = links.filter(l => (l.category || 'work') === categoryId);
         }
-    }).filter(Boolean);
-    if (!urls.length) return;
+        if (!links.length) return;
 
-    const concurrency = 5;
-    const delayMs = 120;
-    let active = 0;
-    let i = 0;
+        const ok = confirm((window.i18n && i18n.t('openAllConfirm')) || 'Open all links in this category? This may open multiple tabs.');
+        if (!ok) return;
 
-    return new Promise(resolve => {
-        const tick = () => {
-            if (i >= urls.length && active === 0) return resolve();
-            while (active < concurrency && i < urls.length) {
-                const url = urls[i++];
-                active++;
-                // Use window.open to avoid extra permissions
-                setTimeout(() => {
-                    try { window.open(url, '_blank'); } catch (_) {}
-                    active--;
-                    tick();
-                }, delayMs);
+        // Normalize URLs
+        const urls = links.map(l => {
+            try {
+                return normalizeHttpUrl(l.url);
+            } catch (_) {
+                return '';
             }
-        };
-        tick();
-    });
+        }).filter(Boolean);
+        if (!urls.length) return;
+
+        const concurrency = 5;
+        const delayMs = 120;
+        let active = 0;
+        let i = 0;
+
+        await new Promise((resolve, reject) => {
+            const tick = () => {
+                if (operation.stopped) return;
+                if (i >= urls.length && active === 0) return resolve();
+                try {
+                    while (active < concurrency && i < urls.length) {
+                        const url = urls[i++];
+                        active++;
+                        // Use window.open to avoid extra permissions
+                        const timer = setTimeout(() => {
+                            if (operation.stopped) return;
+                            operation.timers.delete(timer);
+                            try { window.open(url, '_blank'); } catch (_) {}
+                            active--;
+                            tick();
+                        }, delayMs);
+                        operation.timers.add(timer);
+                    }
+                } catch (error) {
+                    // Invalidate queued callbacks immediately, before releasing ownership.
+                    operation.stopped = true;
+                    reject(error);
+                }
+            };
+            tick();
+        });
+    } finally {
+        operation.stopped = true;
+        if (categoryOpenOperation === operation) categoryOpenOperation = null;
+        for (const timer of operation.timers) clearTimeout(timer);
+        operation.timers.clear();
+    }
 }
 
 async function initializeDashboard() {
