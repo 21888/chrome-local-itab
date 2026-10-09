@@ -67,6 +67,14 @@ function createHarness(links = sampleLinks) {
     const opened = [];
     const storageManager = { defaultConfig: { layout: { columns: 6 } }, set: async () => true };
     const context = { document, window: { addEventListener() {}, open: url => opened.push(url), getComputedStyle: element => ({ visibility: element.style.visibility || 'visible' }) }, storageManager, URL, console: { error() {}, log() {}, warn() {} }, setTimeout() { return 0; }, clearTimeout() {} };
+    // Model the new delete transaction while retaining each test's deferred set hook.
+    const store = context.storageManager;
+    store.deleteShortcutWithUndo = async (index, options) => {
+        const links = options.expectedLinks.filter((_, slot) => slot !== index);
+        const result = await store.set('links', links, options);
+        if (!result) throw new Error('Storage write returned false');
+        return { snapshot: result.links ? result : { links, layout: { autoArrange: true, positions: {}, positionsById: {} } }, receipt: {} };
+    };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync('shared/dialog-focus.js', 'utf8'), context);
     vm.runInContext(fs.readFileSync('newtab.js', 'utf8') + '\nthis.ShortcutsComponent = ShortcutsComponent; this.CategoryNavigation = CategoryNavigation; showErrorMessage = () => {};', context);

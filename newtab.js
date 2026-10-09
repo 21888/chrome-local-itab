@@ -1646,6 +1646,8 @@ class ShortcutsComponent {
         this._modalSession = 0;
         this._pendingSave = null;
         this._pendingDelete = false;
+        this._shortcutUndoReceipt = null;
+        this._shortcutUndoPending = false;
         this._modalFocusOrigin = null;
     }
 
@@ -1680,7 +1682,17 @@ class ShortcutsComponent {
                 }
             });
         }
-        this.container.replaceChildren(header, grid);
+        // Reuse the status controls so a routine render never creates another handler.
+        const undo = this.createShortcutUndoBar();
+        this.container.replaceChildren(header, this._shortcutUndoLiveStatus, undo, grid);
+        if (this.layoutController) {
+            const renderLayout = this.layoutController.render;
+            this.layoutController.render = (...args) => {
+                renderLayout(...args);
+                this.refreshShortcutUndo();
+            };
+        }
+        this.refreshShortcutUndo();
         this.finderView = window.LocalItabFinder?.mountForShortcuts(header, this);
         this.updateCollectionVisibility();
 
@@ -2058,32 +2070,149 @@ class ShortcutsComponent {
         return succeeded;
     }
 
-    async saveShortcutLinks(next, previous, operation) {
+    shortcutUndoText(key, fallback) {
+        const value = window.i18n?.t(key);
+        return value && value !== key ? value : fallback;
+    }
+
+    createShortcutUndoBar() {
+        if (this._shortcutUndoBar) return this._shortcutUndoBar;
+        const bar = document.createElement('div');
+        bar.className = 'shortcut-undo-bar';
+        const status = document.createElement('span');
+        const liveStatus = document.createElement('span');
+        liveStatus.className = 'sr-only';
+        liveStatus.setAttribute('role', 'status');
+        liveStatus.setAttribute('aria-live', 'polite');
+        liveStatus.setAttribute('aria-atomic', 'true');
+        liveStatus.textContent = '';
+        this._shortcutUndoLiveStatus = liveStatus;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'shortcut-undo-button';
+        button.addEventListener('click', () => this.undoShortcutDeletion());
+        bar.append(status, button);
+        this._shortcutUndoBar = bar;
+        this._shortcutUndoStatus = status;
+        this._shortcutUndoButton = button;
+        return bar;
+    }
+
+    canUndoShortcutDeletion() {
+        const controller = this.layoutController;
+        return Boolean(this._shortcutUndoReceipt && !this._shortcutUndoPending &&
+            !this._shortcutWritesPending && !this._isSaving && !this._pendingSave &&
+            !this._pendingDelete && !this._shortcutOrderPending && !this._cancelFreeDrag &&
+            this.draggedIndex == null && !this.dragState && !this.confirmDialog &&
+            !this.modal?.classList.contains('active') && !controller?.modePending &&
+            !controller?.pending && !controller?.timer && !controller?.failedChange);
+    }
+
+    refreshShortcutUndo() {
+        if (!this._shortcutUndoBar) return;
+        this._shortcutUndoBar.hidden = !this._shortcutUndoReceipt && !this._shortcutUndoPending;
+        this._shortcutUndoStatus.textContent = this.shortcutUndoText('shortcutUndoNotice',
+            'Shortcut deleted. Undo is available only on this page until refresh; later changes may make it unavailable.');
+        this._shortcutUndoButton.textContent = this.shortcutUndoText('shortcutUndoAction', 'Undo delete');
+        this._shortcutUndoButton.disabled = !this.canUndoShortcutDeletion();
+    }
+
+    adoptShortcutSnapshot(snapshot) {
+        this.links = snapshot.links;
+        this.layout = snapshot.layout;
+        this.positions = snapshot.layout.positions;
+        this.identityPositions = snapshot.layout.positionsById || {};
+        this.layoutController?.adoptOwnShortcutSnapshot(snapshot);
+    }
+
+    async undoShortcutDeletion() {
+        if (!this.canUndoShortcutDeletion()) return false;
+        const receipt = this._shortcutUndoReceipt;
+        const deletedIndex = this._shortcutUndoDeletedIndex;
+        // Consume before awaiting: double activation and uncertain outcomes cannot retry.
+        this._shortcutUndoReceipt = null;
+        this._shortcutUndoPending = true;
         this._shortcutWritesPending = (this._shortcutWritesPending || 0) + 1;
+        this.setSavingState(true);
         const controller = this.layoutController;
         controller?.holdShortcutMutation();
         try {
             if (controller) await controller.flush();
-            const saved = await storageManager.set('links', next, {
-                expectedLinks: previous, returnSnapshot: true, operation,
-                ...(controller ? { expectedLayoutGeneration: controller.generation } : {})
-            });
-            if (saved?.links) {
-                this.links = saved.links;
-                this.layout = saved.layout;
-                this.positions = saved.layout.positions;
-                this.identityPositions = saved.layout.positionsById || {};
-                controller?.adoptOwnShortcutSnapshot(saved);
+            const snapshot = await storageManager.undoShortcutDeletion(receipt);
+            const focus = this.captureGridFocus();
+            const ownsUndoFocus = document.activeElement === this._shortcutUndoButton;
+            const focusedId = Number.isInteger(focus?.index) ? this.links[focus.index]?.layoutId : null;
+            const restoreIndex = index => index >= deletedIndex ? index + 1 : index;
+            const draftId = this.links[this.currentEditIndex]?.layoutId;
+            const openerId = this.links[this._modalFocusOrigin?.index]?.layoutId;
+            this.adoptShortcutSnapshot(snapshot);
+            // A draft may have opened while storage was awaited. Keep its inputs intact.
+            if (this.modal?.classList.contains('active')) {
+                if (this.currentEditIndex >= 0) {
+                    const index = draftId ? this.links.findIndex(link => link.layoutId === draftId) : restoreIndex(this.currentEditIndex);
+                    if (index < 0) this._hasShortcutConflict = true;
+                    else this.currentEditIndex = index;
+                }
+                if (Number.isInteger(this._modalFocusOrigin?.index)) this._modalFocusOrigin = { ...this._modalFocusOrigin,
+                    index: openerId ? this.links.findIndex(link => link.layoutId === openerId) : restoreIndex(this._modalFocusOrigin.index) };
             }
+            const index = focusedId ? this.links.findIndex(link => link.layoutId === focusedId) : Number.isInteger(focus?.index) ? restoreIndex(focus.index) : -1;
+            this.updateGrid(index >= 0 ? { ...focus, index } : ownsUndoFocus ? { index: deletedIndex, action: 'launch' } : null);
+            return true;
+        } catch (error) {
+            // A draft opened during an unverified write must never target a stale slot.
+            if (this.modal?.classList.contains('active') && this.currentEditIndex >= 0) {
+                this._hasShortcutConflict = true;
+            }
+            // Storage is authoritative; never manufacture a rollback or retry an undo.
+            showErrorMessage(this.shortcutUndoText(error.code === 'SHORTCUT_UNDO_UNVERIFIED'
+                ? 'shortcutUndoUnverified' : 'shortcutUndoUnavailable', error.code === 'SHORTCUT_UNDO_UNVERIFIED'
+                ? 'Could not verify the result. Refresh this page to check your shortcuts.'
+                : 'Undo is no longer available. Refresh this page to check the latest shortcuts.'));
+            return false;
+        } finally {
+            this._shortcutUndoPending = false;
+            this._shortcutWritesPending--;
+            controller?.releaseShortcutMutation();
+            this.setSavingState(Boolean(this._pendingSave || this._pendingDelete || this._shortcutOrderPending));
+        }
+    }
+
+    async saveShortcutLinks(next, previous, operation) {
+        this._shortcutWritesPending = (this._shortcutWritesPending || 0) + 1;
+        this.refreshShortcutUndo();
+        const controller = this.layoutController;
+        controller?.holdShortcutMutation();
+        try {
+            if (controller) await controller.flush();
+            const options = { expectedLinks: previous,
+                ...(controller ? { expectedLayoutGeneration: controller.generation } : {}) };
+            let saved;
+            if (operation?.type === 'delete') {
+                const result = await storageManager.deleteShortcutWithUndo(operation.index, options);
+                saved = result.snapshot;
+                this._shortcutUndoReceipt = result.receipt;
+                this._shortcutUndoDeletedIndex = operation.index;
+            } else {
+                saved = await storageManager.set('links', next, { ...options, returnSnapshot: true, operation });
+            }
+            if (saved?.links) this.adoptShortcutSnapshot(saved);
             return saved;
+        } catch (error) {
+            if (operation?.type === 'delete' && (error.invalidatesShortcutUndo ||
+                error.code === 'LINKS_CONFLICT' || error.code === 'SHORTCUT_UNDO_UNVERIFIED' || error.mayHaveCommitted)) {
+                this._shortcutUndoReceipt = null;
+            }
+            throw error;
         } finally {
             this._shortcutWritesPending--;
             controller?.releaseShortcutMutation();
+            this.refreshShortcutUndo();
         }
     }
 
     async createStarterSet() {
-        if (this.links.length) return;
+        if (this.links.length || this._shortcutUndoPending || this._shortcutWritesPending) return;
         const previousLinks = this.links.map(link => ({ ...link }));
         this.links = [
             { title: 'GitHub', url: 'https://github.com/', icon: 'GH', category: 'work' },
@@ -2167,6 +2296,7 @@ class ShortcutsComponent {
         this._closeModal?.();
         this._modalFocusOrigin = this.captureGridFocus();
         this._closeModal = window.LocalItabDialog.open(this.modal, titleInput, () => this.hideModal());
+        this.refreshShortcutUndo();
     }
 
     /**
@@ -2429,7 +2559,8 @@ class ShortcutsComponent {
     }
 
     setSavingState(isSaving) {
-        this._isSaving = !!(isSaving || this._pendingDelete);
+        this._isSaving = !!(isSaving || this._pendingDelete || this._shortcutUndoPending);
+        this.refreshShortcutUndo();
         const saveBtn = this.modal?.querySelector('#save-btn');
         if (saveBtn) {
             saveBtn.disabled = this._isSaving || this._hasShortcutConflict;
@@ -2438,6 +2569,19 @@ class ShortcutsComponent {
     }
 
     recoverShortcutWrite(error, previousLinks) {
+        if (error.code === 'LINKS_CONFLICT' || error.invalidatesShortcutUndo) {
+            this._shortcutUndoReceipt = null;
+            this.refreshShortcutUndo();
+        }
+        if (['SHORTCUT_UNDO_INVALID', 'BOOKMARK_IMPORT_INVALID_STATE', 'BOOKMARK_IMPORT_STATE_LIMIT'].includes(error.code)) {
+            return this.shortcutUndoText('shortcutUndoInvalidData', 'This shortcut data cannot be changed safely. Refresh and review it before trying again.');
+        }
+        if (error.code === 'SHORTCUT_UNDO_UNVERIFIED' || error.mayHaveCommitted) {
+            this._shortcutUndoReceipt = null;
+            this.refreshShortcutUndo();
+            if (this.modal?.classList.contains('active')) this._hasShortcutConflict = true;
+            return this.shortcutUndoText('shortcutUndoUnverified', 'Could not verify the result. Refresh this page to check your shortcuts.');
+        }
         this.links = error.code === 'LINKS_CONFLICT' ? error.latestLinks : previousLinks;
         if (error.code === 'LINKS_CONFLICT') {
             // Keep unsaved inputs visible, but do not let their old array index
@@ -2552,11 +2696,12 @@ class ShortcutsComponent {
      * Delete shortcut
      */
     async deleteShortcut(index) {
-        if (this._shortcutOrderPending || this._shortcutWritesPending || this._pendingSave || this._pendingDelete) {
+        if (this._shortcutUndoPending || this._shortcutOrderPending || this._shortcutWritesPending || this._pendingSave || this._pendingDelete) {
             showErrorMessage(window.i18n?.t('shortcutOrderPending') || 'Wait for shortcut order to finish saving, then try again.');
             return false;
         }
         if (index < 0 || index >= this.links.length) return false;
+        if (this._shortcutUndoLiveStatus) this._shortcutUndoLiveStatus.textContent = '';
         const previousLinks = this.links.map(link => ({ ...link }));
         const nextLinks = previousLinks.filter((_, slot) => slot !== index);
         const focusOrigin = this.captureGridFocus();
@@ -2570,6 +2715,8 @@ class ShortcutsComponent {
             const saved = await this.saveShortcutLinks(nextLinks, previousLinks, { type: 'delete', index });
             if (!saved) throw new Error('Storage write returned false');
             this.links = saved.links || nextLinks;
+            if (this._shortcutUndoLiveStatus) this._shortcutUndoLiveStatus.textContent = this.shortcutUndoText('shortcutUndoNotice',
+                'Shortcut deleted. Undo is available only on this page until refresh; later changes may make it unavailable.');
             if (this.modal?.classList.contains('active')) {
                 if (this.currentEditIndex === index) {
                     // Preserve a draft for the deleted site, never retarget it
@@ -2672,6 +2819,7 @@ class ShortcutsComponent {
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
         this.confirmDialog = overlay;
+        this.refreshShortcutUndo();
 
         let restoreFocus;
         let closed = false;
@@ -2683,6 +2831,7 @@ class ShortcutsComponent {
             if (this.confirmDialog === overlay) {
                 this.confirmDialog = null;
                 this._closeConfirmDialog = null;
+                this.refreshShortcutUndo();
             }
         };
         this._closeConfirmDialog = hideDialog;
@@ -2873,7 +3022,7 @@ class ShortcutsComponent {
 
     onPointerDown(e) {
         // Keep modified clicks, nested buttons and other pointers as ordinary UI actions.
-        if (window.LocalItabIdentity?.needs(this.links) || this.layoutController?.modePending || this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
+        if (this._shortcutUndoPending || window.LocalItabIdentity?.needs(this.links) || this.layoutController?.modePending || this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
         const interactive = e.target.closest('button, a, input, select, textarea, [contenteditable]');
         if (interactive && (interactive.disabled || !interactive.classList.contains('shortcut-launch'))) return;
         const item = e.target.closest('.shortcut-item');
@@ -2962,6 +3111,7 @@ class ShortcutsComponent {
             item.classList.remove('drag-free');
             this._dragMoved = false;
             this._dragStartPos = null;
+            this.refreshShortcutUndo();
             try { item.releasePointerCapture?.(e.pointerId); } catch (_) {}
             if (this._repaintAfterFreeDrag) {
                 this._repaintAfterFreeDrag = false;
@@ -2972,6 +3122,7 @@ class ShortcutsComponent {
         const onUp = event => finish(event, true);
         const onCancel = event => finish(event, false);
         this._cancelFreeDrag = () => finish(null, false);
+        this.refreshShortcutUndo();
         document.addEventListener('pointermove', onMove, { passive: false });
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onCancel);
@@ -3195,7 +3346,7 @@ class ShortcutsComponent {
      * Handle drag start
      */
     handleDragStart(e) {
-        if (this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange) {
+        if (this._shortcutUndoPending || this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange) {
             e.preventDefault();
             return;
         }
@@ -3203,6 +3354,7 @@ class ShortcutsComponent {
         const draggedItem = e.target.closest('.shortcut-item:not(.add-shortcut)');
         if (!draggedItem || !this.gridEl?.contains(draggedItem)) return;
         this.draggedIndex = parseInt(draggedItem.dataset.index);
+        this.refreshShortcutUndo();
 
         // Add visual feedback
         // 使用一个延时来确保浏览器已经开始了拖拽操作
@@ -3263,7 +3415,7 @@ class ShortcutsComponent {
     async handleDrop(e) {
         e.preventDefault();
         
-        const draggedIndex = this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
+        const draggedIndex = this._shortcutUndoPending || this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
         // 获取鼠标指针正下方的目标卡片
         const dropTarget = e.target.closest('.shortcut-item:not(.add-shortcut)');
         
@@ -3363,6 +3515,7 @@ class ShortcutsComponent {
 
         // Reset drag state
         this.draggedIndex = null;
+        this.refreshShortcutUndo();
     }
 
 

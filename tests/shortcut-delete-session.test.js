@@ -14,6 +14,14 @@ function createEditor() {
         } },
         console: { log() {}, error() {}, warn() {} }, URL
     };
+    // Model the new delete transaction while retaining each test's deferred set hook.
+    const store = context.storageManager;
+    store.deleteShortcutWithUndo = async (index, options) => {
+        const links = options.expectedLinks.filter((_, slot) => slot !== index);
+        const result = await store.set('links', links, options);
+        if (!result) throw new Error('Storage write returned false');
+        return { snapshot: result.links ? result : { links, layout: { autoArrange: true, positions: {}, positionsById: {} } }, receipt: {} };
+    };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync('newtab.js', 'utf8') + '\nthis.ShortcutsComponent = ShortcutsComponent; this.errors = []; showErrorMessage = value => errors.push(value);', context);
     const component = new context.ShortcutsComponent(['A', 'B'].map(title => ({ title, url: `https://example.com/${title}`, icon: '🌐', category: 'work' })));

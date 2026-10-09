@@ -38,6 +38,7 @@ class StorageManager {
         this._isApplyingSync = false;
         this._syncCompatibilityError = null;
         this._syncPushTimer = null;
+        this._shortcutUndoTicket = null;
         if (typeof chrome !== 'undefined') chrome.storage?.onChanged?.addListener((changes, area) => {
             if (area === 'local' && changes[this.syncIdentityStateKey]) {
                 const next = changes[this.syncIdentityStateKey].newValue;
@@ -276,6 +277,153 @@ class StorageManager {
             await chrome.storage.local.set(written);
             return this.layoutSnapshot({ ...raw, ...written });
         }, guarded || guardedCategories || LayoutIdentity.active(values.layout));
+    }
+
+    shortcutUndoError(code, message) {
+        const error = new Error(message); error.code = code; return error;
+    }
+
+    sameShortcutUndoValue(left, right) {
+        if (left === right) return true;
+        if (!left || !right || typeof left !== 'object' || typeof right !== 'object' ||
+            Array.isArray(left) !== Array.isArray(right)) return false;
+        if (Array.isArray(left) && left.length !== right.length) return false;
+        const keys = Object.keys(left);
+        return keys.length === Object.keys(right).length && keys.every(key =>
+            Object.prototype.hasOwnProperty.call(right, key) && this.sameShortcutUndoValue(left[key], right[key]));
+    }
+
+    shortcutUndoState(raw) {
+        // Selecting own keys preserves absence as well as every unknown nested
+        // field. The bounded copier rejects unsupported/non-JSON values.
+        const keys = ['links', 'categories', 'layout', 'schemaVersion', this.layoutGenerationKey];
+        return this.copyBookmarkImportValue(Object.fromEntries(keys.filter(key =>
+            Object.prototype.hasOwnProperty.call(raw, key)).map(key => [key, raw[key]])));
+    }
+
+    shortcutUndoSnapshot(raw) {
+        const snapshot = this.layoutSnapshot(raw);
+        const links = raw.links === undefined ? this.defaultConfig.links : raw.links;
+        // Preserve unknown record fields, but refuse records requiring repair.
+        // Never silently normalize a record as part of deletion or restoration.
+        if (snapshot.links.length !== links.length || links.some((link, index) =>
+            Object.keys(snapshot.links[index]).some(key => !this.sameShortcutUndoValue(link[key], snapshot.links[index][key])))) {
+            throw this.shortcutUndoError('SHORTCUT_UNDO_INVALID', 'Stored shortcuts require review before deleting or restoring.');
+        }
+        if (Object.prototype.hasOwnProperty.call(raw, 'schemaVersion') &&
+            raw.schemaVersion !== (LayoutIdentity.active(raw.layout) ? 2 : 1)) {
+            throw this.shortcutUndoError('SHORTCUT_UNDO_INVALID', 'Unsupported shortcut schema.');
+        }
+        return { ...snapshot, links: this.copyBookmarkImportValue(links) };
+    }
+
+    async verifyShortcutUndoWrite(raw, written) {
+        try {
+            await chrome.storage.local.set(written);
+            const readback = await chrome.storage.local.get(null);
+            const actual = this.shortcutUndoState(readback);
+            if (!this.sameShortcutUndoValue(actual, this.shortcutUndoState({ ...raw, ...written }))) {
+                throw new Error('Shortcut write did not match its readback.');
+            }
+            return { snapshot: this.shortcutUndoSnapshot(readback), state: actual };
+        } catch (cause) {
+            const error = this.shortcutUndoError('SHORTCUT_UNDO_UNVERIFIED', 'The change could not be verified. It may already be saved. Reload this page to check before trying again.');
+            error.mayHaveCommitted = true; error.cause = cause; throw error;
+        }
+    }
+
+    async scheduleShortcutUndoSync() {
+        // Local success stands independently of provider scheduling.
+        try {
+            if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush();
+        } catch (error) { console.warn('Shortcuts saved locally; sync scheduling failed:', error); }
+    }
+
+    async deleteShortcutWithUndo(index, options = {}) {
+        const expected = this.copyBookmarkImportValue(options.expectedLinks);
+        await this.ensureSyncInitialized();
+        let result;
+        try {
+            result = await this.withLocalWriteLock(async () => {
+                const raw = await chrome.storage.local.get(null);
+                const currentState = this.shortcutUndoState(raw);
+                if (this._shortcutUndoTicket && !this.sameShortcutUndoValue(currentState, this._shortcutUndoTicket.state)) {
+                    this._shortcutUndoTicket = null;
+                }
+                const latest = this.shortcutUndoSnapshot(raw);
+                if (!this.sameShortcutUndoValue(this.validateLinksConfig(expected), this.validateLinksConfig(latest.links)) ||
+                    (Object.prototype.hasOwnProperty.call(options, 'expectedLayoutGeneration') && options.expectedLayoutGeneration !== latest.generation)) {
+                    const error = this.shortcutUndoError('LINKS_CONFLICT', 'Shortcuts changed in another tab. Reopen the shortcut and try again.');
+                    error.latestLinks = latest.links; throw error;
+                }
+                if (!Number.isInteger(index) || index < 0 || index >= latest.links.length) {
+                    throw this.shortcutUndoError('SHORTCUT_UNDO_INVALID', 'The shortcut no longer exists.');
+                }
+                const record = this.copyBookmarkImportValue(latest.links[index]);
+                const links = latest.links.filter((_, slot) => slot !== index);
+                const written = { links };
+                if (LayoutIdentity.needs(links)) {
+                    const assignment = LayoutIdentity.allocate(links, raw.layout || this.defaultConfig.layout,
+                        latest.links, { type: 'delete', index }, () => this.createLayoutIdentity());
+                    written.links = assignment.links; written.layout = assignment.layout;
+                    written[this.layoutGenerationKey] = this.createLayoutGeneration();
+                    if (Object.prototype.hasOwnProperty.call(raw, 'schemaVersion')) written.schemaVersion = 2;
+                    if (!LayoutIdentity.active(raw.layout) && !raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
+                }
+                LayoutIdentity.validateBundle({ ...raw, ...written });
+                const verified = await this.verifyShortcutUndoWrite(raw, written);
+                const receipt = Object.freeze({});
+                // No caller-owned baseline and no read after releasing the lock.
+                this._shortcutUndoTicket = { receipt, record, index, state: verified.state };
+                return { snapshot: verified.snapshot, receipt };
+            }, true);
+        } catch (error) {
+            // A definite pre-write failure does not erase the previous verified
+            // deletion. Its next Undo still performs an authoritative lock read.
+            if (error.code === 'LINKS_CONFLICT' || error.mayHaveCommitted) this._shortcutUndoTicket = null;
+            if (!this._shortcutUndoTicket) error.invalidatesShortcutUndo = true;
+            throw error;
+        }
+        await this.scheduleShortcutUndoSync();
+        return result;
+    }
+
+    async undoShortcutDeletion(receipt) {
+        const ticket = this._shortcutUndoTicket;
+        if (!ticket || ticket.receipt !== receipt) throw this.shortcutUndoError('SHORTCUT_UNDO_INVALID', 'This deletion can no longer be undone.');
+        this._shortcutUndoTicket = null; // Consume before awaiting: double clicks cannot retry.
+        await this.ensureSyncInitialized();
+        const result = await this.withLocalWriteLock(async () => {
+            const raw = await chrome.storage.local.get(null);
+            if (!this.sameShortcutUndoValue(this.shortcutUndoState(raw), ticket.state)) {
+                throw this.shortcutUndoError('SHORTCUT_UNDO_CONFLICT', 'Shortcuts, categories, or layout changed. This deletion can no longer be undone.');
+            }
+            const latest = this.shortcutUndoSnapshot(raw);
+            const record = this.copyBookmarkImportValue(ticket.record);
+            const categories = raw.categories === undefined ? this.defaultConfig.categories : raw.categories;
+            if (!Array.isArray(categories) || !categories.some(category => category?.id === record.category)) {
+                throw this.shortcutUndoError('SHORTCUT_UNDO_CONFLICT', 'The deleted shortcut category is unavailable.');
+            }
+            if (record.layoutId && latest.links.some(link => link.layoutId === record.layoutId)) {
+                throw this.shortcutUndoError('SHORTCUT_UNDO_CONFLICT', 'The deleted shortcut identity is already in use.');
+            }
+            const links = latest.links.slice(); links.splice(ticket.index, 0, record);
+            const written = { links };
+            if (LayoutIdentity.needs(links)) {
+                // All entries are historic, including the restored record. Use
+                // the complete restored list as allocation provenance, not Add.
+                const assignment = LayoutIdentity.allocate(links, raw.layout || this.defaultConfig.layout,
+                    links, null, () => this.createLayoutIdentity());
+                written.links = assignment.links; written.layout = assignment.layout;
+                written[this.layoutGenerationKey] = this.createLayoutGeneration();
+                if (Object.prototype.hasOwnProperty.call(raw, 'schemaVersion')) written.schemaVersion = 2;
+                if (!LayoutIdentity.active(raw.layout) && !raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
+            }
+            LayoutIdentity.validateBundle({ ...raw, ...written });
+            return (await this.verifyShortcutUndoWrite(raw, written)).snapshot;
+        }, true);
+        await this.scheduleShortcutUndoSync();
+        return result;
     }
 
     validateShortcutOperation(previous, next, operation) {

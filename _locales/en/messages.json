@@ -1,4 +1,9 @@
 {
+  "shortcutUndoNotice": {"message": "Shortcut deleted. Undo is available only on this page until refresh; later changes may make it unavailable."},
+  "shortcutUndoAction": {"message": "Undo delete"},
+  "shortcutUndoInvalidData": {"message": "This shortcut data cannot be changed safely. Refresh and review it before trying again."},
+  "shortcutUndoUnverified": {"message": "Could not verify the result. Refresh this page to check your shortcuts."},
+  "shortcutUndoUnavailable": {"message": "Undo is no longer available. Refresh this page to check the latest shortcuts."},
   "iconFetchFailed": {
     "message": "Could not fetch the icon. Please try again."
   },

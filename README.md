@@ -223,3 +223,5 @@ python3 -m unittest discover -s tests -p '*_test.py'
 ## 导入浏览器书签
 
 从本地 Chrome、Edge 或 Firefox HTML 导出文件预览并追加书签，不替换已有主页数据。应用前检查重复跳过、文件夹分类对应关系及现有同步/图标设置。[书签导入指南](docs/bookmark-import.zh-CN.md)。
+
+删除快捷方式后，可在当前页点击**撤销删除**恢复最近一次删除。刷新后失效；后续修改可能使撤销失效。[使用范围与安全说明](docs/shortcut-undo.md)。

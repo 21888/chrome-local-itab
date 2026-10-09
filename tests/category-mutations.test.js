@@ -15,6 +15,11 @@ function createDashboard(save, category = 'work') {
         storageManager: { defaultConfig: { layout: { columns: 6 } }, set: save },
         localStorage: { getItem() { return category; } }
     };
+    context.storageManager.deleteShortcutWithUndo = async (index, options) => {
+        const links = options.expectedLinks.filter((_, slot) => slot !== index);
+        if (!await save('links', links, options)) throw new Error('Storage write returned false');
+        return { snapshot: { links, layout: { autoArrange: true, positions: {}, positionsById: {} } }, receipt: {} };
+    };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync('newtab.js', 'utf8') + '\nthis.ShortcutsComponent = ShortcutsComponent; this.CategoryNavigation = CategoryNavigation; showErrorMessage = () => {};', context);
     const component = new context.ShortcutsComponent([

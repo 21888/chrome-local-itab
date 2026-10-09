@@ -1,4 +1,9 @@
 {
+  "shortcutUndoNotice": {"message": "快捷方式已删除。仅当前页面刷新前可撤销，后续修改可能使撤销失效。"},
+  "shortcutUndoAction": {"message": "撤销删除"},
+  "shortcutUndoInvalidData": {"message": "无法安全修改这些快捷方式数据，请刷新并检查后再操作。"},
+  "shortcutUndoUnverified": {"message": "无法核实操作结果，请刷新页面查看快捷方式。"},
+  "shortcutUndoUnavailable": {"message": "已无法撤销，请刷新页面查看最新快捷方式。"},
   "iconFetchFailed": {
     "message": "无法获取图标，请重试。"
   },

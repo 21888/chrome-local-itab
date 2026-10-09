@@ -223,3 +223,5 @@ Preview and explicitly apply local Tasks/Focus visibility recommendations separa
 ## Import browser bookmarks
 
 Preview and add bookmarks from a local Chrome, Edge or Firefox HTML export without replacing your saved dashboard. Review duplicate skips, folder mapping and currently enabled Sync/icon settings before Apply. [Bookmark import guide](docs/bookmark-import.en.md).
+
+After deleting a shortcut, **Undo delete** restores the latest deletion on the same page. Refreshing clears it; later changes may prevent undo. [Scope and safety details](docs/shortcut-undo.md).

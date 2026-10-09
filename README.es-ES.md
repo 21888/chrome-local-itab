@@ -225,3 +225,5 @@ Revisa y aplica la visibilidad local de Tareas y del temporizador por separado d
 ## Importar marcadores del navegador
 
 Previsualiza y añade marcadores desde una exportación HTML local de Chrome, Edge o Firefox sin reemplazar el panel guardado. Revisa duplicados, categorías y preferencias actuales de sincronización e iconos antes de aplicar. [Guía de importación](docs/bookmark-import.es-ES.md).
+
+Después de eliminar un acceso directo, **Undo delete** permite deshacer la última eliminación en esa misma página. Recargar la página borra esta opción; los cambios posteriores pueden impedir la restauración. [Alcance y seguridad](docs/shortcut-undo.md).

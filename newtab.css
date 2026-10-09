@@ -3616,3 +3616,32 @@ textarea:focus-visible,
 .search-open-status.sr-only {
     padding: 0;
 }
+
+/* Local, session-only recovery stays secondary to search and shortcuts. */
+.shortcut-undo-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--border-color, rgba(128, 128, 128, .25));
+    border-radius: 8px;
+    color: var(--text-secondary, #666);
+    background: var(--card-bg, rgba(128, 128, 128, .06));
+    font-size: 12px;
+    line-height: 1.5;
+}
+.shortcut-undo-bar[hidden] { display: none; }
+.shortcut-undo-bar > span { flex: 1; min-width: 0; }
+.shortcut-undo-button {
+    flex: none;
+    padding: 6px 10px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary, #333);
+    font: inherit;
+    cursor: pointer;
+}
+.shortcut-undo-button:disabled { opacity: .5; cursor: default; }
+.shortcut-undo-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
