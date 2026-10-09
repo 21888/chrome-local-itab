@@ -9,3 +9,9 @@ Chinese native rendering, native IME, ordinary localhost URL submission and all-
 A cloud execution interruption terminated an integration run. After recovery, the full final suite was rerun successfully; the incomplete run is not counted as a pass.
 
 Arithmetic uses standard JavaScript floating-point numbers, not exact decimal arithmetic; for example 0.1 + 0.2 can display 0.30000000000000004. Input and nesting bounds and supported grammar are documented in the README. There is no calculator history or persistent storage.
+
+## Follow-up native acceptance after recovery
+
+On 2026-10-09, the published runtime at `7242483` was reloaded in the recovered official Chrome for Testing profiles; all seven tracked runtime files matched production. Chinese Clarity/light at a 510×848 native window correctly rendered the calculator controls, evaluated precedence/unary expressions, displayed localized zero-division/syntax errors, and cleared stale output on ordinary input. English Graphite/dark arithmetic, error and ordinary-input regression also passed. Ordinary localhost URLs opened the exact requested destination in a new tab; connection refused was expected because no local server was running, so this verifies routing, not successful page serving.
+
+These observations close the earlier Chinese rendering and localhost routing gaps for the executed cases. Real IME composition, screen-reader output, all-template coverage and an actual Sync-triggered reload remain unverified. The earlier interruption record remains historical, not a current blanket browser blocker.
