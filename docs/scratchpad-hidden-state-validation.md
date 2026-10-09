@@ -1,0 +1,9 @@
+# Preserve hidden Scratchpad content during read failures
+
+A focused local-content audit reproduced a Scratchpad regression: after a clean, loaded card was intentionally hidden, a background read failure made its saved text visible. A later changed hidden record could be treated as an invented local draft and create a false conflict with another visible saved preview. The issue concerned local display state, not a new network transmission.
+
+The controller now distinguishes passive read failures from owned unfinished writes. That ownership governs reload protection, refresh retention and Retry; the view shows a loaded hidden card only for its enabled state or genuine unfinished local work. A failed initial read may still show a blank Retry state, without saved text. Real drafts, composition, pending/failed writes and Hide recovery, actual conflicts, read-only safeguards and explicit recovery remain supported. Correcting validation-rejected text back to the saved baseline clears its former write ownership.
+
+The original source fails all three new hidden-read-failure/recovery regressions. The integrated suite passes 404 Node tests and 19 Python packaging tests. Nine independent probes cover hidden refresh/Retry, initial blank recovery, composition completion, real conflicts, pending Hide, failed/uncertain writes, unload protection and validation correction. Tasks and Focus did not show the equivalent loaded-state disclosure in the same focused audit.
+
+This failure-path evidence uses sourced production controllers/views in isolated DOM/storage models with synthetic text. Native background-storage fault injection, actual IME and assistive-technology announcements were not verified by this patch. Ordinary native visibility/save behavior is recorded separately with package checks.

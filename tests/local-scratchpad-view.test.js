@@ -81,3 +81,64 @@ test('DOM model: conflict read failure retains Retry and ongoing IME completion'
     m.readFail(true);await assert.rejects(m.controller.refresh());assert(!m.view.retry.hidden);assert(m.view.replace.disabled);assert(m.view.textarea.readOnly);
     m.view.textarea.value='draft 完成';m.view.textarea.dispatch('compositionend');assert.equal(m.controller.draft,'draft 完成');assert.equal(m.view.textarea.value,'draft 完成');assert.equal(m.raw.content,'other');m.view.destroy();
 });
+
+for (const recovery of ['unchanged refresh', 'changed refresh', 'changed retry']) {
+    test(`DOM model privacy: hidden saved text stays hidden through passive failure and ${recovery}`, async () => {
+        const m = model(); await m.flush();
+        await m.backend.write({ ...m.api.initial(), revision: 1, content: 'private saved note' }); await m.flush();
+        assert(m.host.hidden); assert(!m.controller.hasUncommittedWork());
+        m.readFail(true); await assert.rejects(m.controller.refresh());
+        assert(m.host.hidden, 'a passive read failure must not reveal saved text');
+        assert(!m.controller.hasUncommittedWork(), 'passive errors must not block clean reloads');
+        m.readFail(false);
+        if (recovery.startsWith('changed')) {
+            // Avoid a subscription refresh so Retry itself must reconcile the clean state.
+            const read = m.controller.store.read.bind(m.controller.store);
+            m.controller.store.read = async () => ({ ...(await read()), revision: 2, content: 'new hidden saved note' });
+        }
+        const visibility = []; const unsubscribe = m.controller.subscribe(() => visibility.push(m.host.hidden));
+        await (recovery.endsWith('retry') ? m.controller.retry() : m.controller.refresh());
+        assert(m.host.hidden); assert(visibility.every(Boolean)); assert(!m.controller.conflict);
+        assert(!m.controller.error); assert(!m.controller.hasUncommittedWork()); assert(m.view.savedPreview.hidden);
+        assert.equal(m.controller.draft, recovery.startsWith('changed') ? 'new hidden saved note' : 'private saved note');
+        unsubscribe(); m.view.destroy();
+    });
+}
+test('DOM model privacy: failed owned Hide survives a later passive read error until acknowledged', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true);
+    m.controller.setDraft('saved private note'); await m.controller.save();
+    // The write committed, but its acknowledgement was lost.
+    const mutate = m.controller.store.mutate.bind(m.controller.store);
+    m.controller.store.mutate = async command => { await mutate(command); throw m.api.fault('VERIFY'); };
+    await assert.rejects(m.controller.setEnabled(false)); await m.flush();
+    assert.equal(m.controller.state.enabled, false); assert(!m.host.hidden); assert(m.controller.hasUncommittedWork());
+    m.readFail(true); await assert.rejects(m.controller.refresh());
+    assert(!m.host.hidden); assert(m.controller.hasUncommittedWork()); assert(m.view.textarea.readOnly);
+    m.readFail(false); await m.controller.retry();
+    assert(m.host.hidden); assert(!m.controller.hasUncommittedWork()); assert(!m.controller.conflict); m.view.destroy();
+});
+test('DOM model privacy: genuine dirty draft remains accessible across passive failure and remote hide', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true);
+    m.controller.setComposing(true); m.controller.setDraft('owned local draft');
+    m.readFail(true); await assert.rejects(m.controller.refresh()); assert(!m.host.hidden); assert(m.view.textarea.readOnly);
+    m.readFail(false); await m.backend.write({ ...m.raw, revision: m.raw.revision + 1, enabled: false, content: 'remote saved note' }); await m.flush();
+    assert(!m.host.hidden); assert(m.controller.conflict); assert(m.controller.hasUncommittedWork());
+    assert.equal(m.controller.draft, 'owned local draft'); assert.equal(m.view.savedPreview.value, 'remote saved note');
+    m.controller.setComposing(false); await m.controller.useSaved(); assert(m.host.hidden); assert(!m.controller.hasUncommittedWork()); m.view.destroy();
+});
+test('DOM model privacy: owned pending Hide stays accessible until confirmed, then hides', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true);
+    let release; m.hold(new Promise(resolve => { release = resolve; }));
+    const pending = m.controller.setEnabled(false); await new Promise(resolve => setImmediate(resolve));
+    assert(m.controller.pendingWrite); assert(m.controller.hasUncommittedWork()); assert(!m.host.hidden);
+    release(); await pending; await m.flush(); assert(m.host.hidden); assert(!m.controller.hasUncommittedWork()); m.view.destroy();
+});
+test('DOM model privacy: correcting a rejected draft to saved content relinquishes write ownership', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true);
+    m.controller.setDraft('saved note'); await m.controller.save();
+    m.controller.setDraft('x'.repeat(32001)); await assert.rejects(m.controller.save());
+    assert(m.controller.writeError); m.controller.setDraft('saved note');
+    assert(!m.controller.hasUncommittedWork()); assert(!m.controller.error);
+    await m.backend.write({ ...m.raw, revision: m.raw.revision + 1, enabled: false }); await m.flush();
+    assert(m.host.hidden); assert(!m.controller.conflict); m.view.destroy();
+});

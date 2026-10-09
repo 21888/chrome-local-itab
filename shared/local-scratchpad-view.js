@@ -60,7 +60,7 @@
         render() {
             if (this.closed) return;
             const c = this.controller;
-            const visible = c.state?.enabled === true || c.hasUncommittedWork() || Boolean(c.error);
+            const visible = c.state?.enabled === true || c.hasUncommittedWork() || Boolean(!c.loaded && c.error);
             this.host.hidden = !visible;
             if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
             this.textarea.readOnly = !c.loaded || c.readError;
