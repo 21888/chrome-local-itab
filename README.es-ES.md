@@ -245,3 +245,18 @@ El bloc no se incluye en la exportación de configuración, Chrome Sync ni las c
 Añade hasta cuatro zonas horarias IANA en Ajustes → Apariencia. Puedes asignar una etiqueta, ver su hora y saber si allí es hoy, ayer o mañana respecto a tu fecha local. No requiere ubicación, servicios externos ni permisos nuevos; la lista empieza vacía.
 
 Pulsa Guardar relojes o Guardar ajustes para aplicar la lista. Estas preferencias forman parte de la configuración y se incluyen en sus exportaciones y en la sincronización opcional. Si otra pestaña cambia el reloj, el guardado obsoleto se rechaza conservando tu borrador. [Guía en inglés](docs/world-clocks.en.md).
+
+## Cuenta atrás local
+
+Guarda un evento y una fecha para ver los días que faltan, «Hoy» o los días transcurridos según el calendario local del dispositivo. La tarjeta está oculta de forma predeterminada. Usa Ajustes → Search & cards para editarla, guardar o cancelar; ocultarla conserva sus datos.
+
+El título y la fecha se guardan por separado en este dispositivo y quedan fuera de las exportaciones de configuración, Chrome Sync y Google Drive. Puedes exportarlos como texto, incluido un borrador sin guardar. No necesita servicios externos ni notificaciones. [Guía en inglés](docs/local-countdown.en.md).
+
+
+Tarjeta real de cuenta atrás en modo claro y oscuro:
+
+![Countdown light](docs/screenshots/countdown/countdown-en-light-wide.png)
+
+![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
+
+[Capture provenance](docs/screenshots/countdown/capture-metadata.json)

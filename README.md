@@ -8,6 +8,10 @@
 
 无需构建，也无需注册 Local iTab 账号。时钟、快捷方式管理、本地图片和手动填写的卡片可离线使用；搜索、打开网站和可选云端功能需要网络。
 
+## 离线倒计时
+
+为一个里程碑设置名称和日期，显示还有几天、今天或已过几天。默认隐藏，仅保存在此设备，支持明确保存、取消及文本导出。[使用和隐私说明](docs/local-countdown.zh-CN.md)。
+
 ## 离线世界时钟
 
 在设置中添加最多四个时区和可选的简短名称。沿用时钟格式，完全离线，并显示相对设备日历日期。 [使用及备份说明](docs/world-clocks.zh-CN.md)。
@@ -241,3 +245,12 @@ python3 -m unittest discover -s tests -p '*_test.py'
 ![本地便签与待办、专注计时器：深色实拍](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
 
 [截图来源与裁切记录](docs/screenshots/scratchpad/capture-metadata.json)
+
+
+倒计时卡片的真实浅色与深色界面:
+
+![Countdown light](docs/screenshots/countdown/countdown-en-light-wide.png)
+
+![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
+
+[Capture provenance](docs/screenshots/countdown/capture-metadata.json)

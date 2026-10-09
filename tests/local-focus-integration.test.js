@@ -19,8 +19,8 @@ test('wiring uses separate host, matching CSS, early dependencies, click exclusi
     }
     const source = fs.readFileSync(path.join(project, 'newtab.js'), 'utf8'); assert(source.includes('window.localItabFocusVisible === true ||'));
     assert(source.includes('.local-tasks-card, .local-focus-card, .tasks-overlay,'));
-    const css = fs.readFileSync(path.join(project, 'dashboard-templates.css'), 'utf8'); assert(css.includes(':is(.info-card, .world-clocks-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card)'));
-    const storage = fs.readFileSync(path.join(project, 'storage.js'), 'utf8'); assert(storage.includes("['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1']"));
+    const css = fs.readFileSync(path.join(project, 'dashboard-templates.css'), 'utf8'); assert(css.includes(':is(.info-card, .world-clocks-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card, .local-countdown-card)'));
+    const storage = fs.readFileSync(path.join(project, 'storage.js'), 'utf8'); assert(storage.includes("['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1']"));
 });
 test('English and Chinese messages cover the same keys', () => {
     const read = locale => Object.fromEntries(Object.entries(JSON.parse(fs.readFileSync(path.join(project, '_locales', locale, 'messages.json'), 'utf8'))).filter(([key]) => key.startsWith('focus')));

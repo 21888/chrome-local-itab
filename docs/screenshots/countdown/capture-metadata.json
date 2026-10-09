@@ -1,0 +1,59 @@
+{
+  "capturedDate": "2026-10-09",
+  "browser": "Chrome for Testing 155.0.8059.39",
+  "environment": "Cloud Linux, normal sandbox, owned synthetic profile",
+  "language": "English",
+  "template": "Clarity",
+  "zoom": "100%",
+  "nativeWindow": [
+    1188,
+    848
+  ],
+  "cssViewport": "Not instrumented",
+  "method": "Exact RGB pixel crops of native desktop captures. No resizing, retouching or generated content.",
+  "fixture": "Autumn launch; target 2026-10-30; 21 days left against local date 2026-10-09",
+  "images": [
+    {
+      "mode": "light",
+      "original": "originals/28-clean-light-wide.jpg",
+      "crop": "countdown-en-light-wide.png",
+      "cropBox": [
+        298,
+        586,
+        1255,
+        864
+      ],
+      "originalDimensions": [
+        1364,
+        1024
+      ],
+      "cropDimensions": [
+        957,
+        278
+      ],
+      "originalSHA256": "28758e8c5287fcaf806c10773e8e9780b4218ad856013b664d1ed71ce705babe",
+      "cropSHA256": "f893fad0e82564b2ff922904098cd4a9d5234f93b6e8b5a6a245c77a02fbefec"
+    },
+    {
+      "mode": "dark",
+      "original": "originals/30-clean-dark-wide.jpg",
+      "crop": "countdown-en-dark-wide.png",
+      "cropBox": [
+        298,
+        530,
+        1255,
+        808
+      ],
+      "originalDimensions": [
+        1364,
+        1024
+      ],
+      "cropDimensions": [
+        957,
+        278
+      ],
+      "originalSHA256": "05133b81477c338193b717c44e16860e4a7544b4cdd5049a1a96a98349b532d9",
+      "cropSHA256": "878b046b6317e10f7c8da4277d58a0b66990b89d29174e75cc61aef70fa8733c"
+    }
+  ]
+}

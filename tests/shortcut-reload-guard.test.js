@@ -86,6 +86,6 @@ const submit = component => component.handleFormSubmit({ preventDefault() {} });
     // Shortcuts add no departure hook; Scratchpad owns its draft warning.
     for(const file of ['newtab.js','options.js'])assert(!/beforeunload/.test(fs.readFileSync(file,'utf8')));
     const source = fs.readFileSync('shared/local-content-lifecycle.js','utf8');
-    assert(source.includes("if (!root.localScratchpadSettingsView?.hasUncommittedWork() && !root.worldClockSettingsView?.hasUncommittedWork()) return;"));
+    assert(source.includes("if (!root.localCountdownSettingsView?.hasUncommittedWork() && !root.localScratchpadSettingsView?.hasUncommittedWork() && !root.worldClockSettingsView?.hasUncommittedWork()) return;"));
     console.log('PASS: Add/Edit empty/dirty/open; pending closed save; Cancel/current Save release; stale success/false/rejection ownership; explicit discard once; local events versus applied Sync reload; no duplicate beforeunload hook.');
 })().catch(e=>{console.error(e);process.exitCode=1});

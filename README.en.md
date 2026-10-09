@@ -8,6 +8,10 @@ A local-first Chrome new tab page that keeps search, saved websites, and a small
 
 No build step or Local iTab account is required. The clock, shortcut management, local images, and manually maintained cards work offline; searches, website visits, and optional cloud features need a network connection.
 
+## Offline Countdown
+
+Name one milestone and see local calendar days left, Today, or days ago. Hidden by default, saved only on this device, with explicit Save/Cancel and text export. [Usage and privacy](docs/local-countdown.en.md).
+
 ## Offline world clocks
 
 Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. [Setup and backup behavior](docs/world-clocks.en.md).
@@ -241,3 +245,12 @@ Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive 
 ![Local Scratchpad with Tasks and Focus: actual dark interface](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
 
 [Capture provenance and crop record](docs/screenshots/scratchpad/capture-metadata.json)
+
+
+Actual Countdown card in light and dark appearance:
+
+![Countdown light](docs/screenshots/countdown/countdown-en-light-wide.png)
+
+![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
+
+[Capture provenance](docs/screenshots/countdown/capture-metadata.json)

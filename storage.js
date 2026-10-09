@@ -11,7 +11,7 @@ const getBookmarkImportPlanner = () => typeof module !== 'undefined' && module.e
 const BOOKMARK_IMPORT_STORAGE_LIMITS = Object.freeze({ links: 20000, categories: 2000, bytes: 32 * 1024 * 1024, nodes: 250000, depth: 32 });
 
 // Personal content is owned by dedicated local stores, never configuration.
-const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1']);
+const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1']);
 
 // Keep legacy empty-quote validation stable; only newly generated defaults localize.
 const LEGACY_WELCOME_QUOTE = 'Welcome to your personalized new tab page!';

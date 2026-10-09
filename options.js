@@ -470,6 +470,10 @@ async function initializeOptionsPage() {
         await populateFormFields(config);
         setupCategoryManagement(config.categories);
         setupBookmarkImport();
+        const countdownHost = document.getElementById('local-countdown-settings');
+        if (countdownHost && window.LocalItabCountdown && !window.localCountdownSettingsView) {
+            window.localCountdownSettingsView = window.LocalItabCountdown.mountSettings(countdownHost);
+        }
         const scratchpadHost = document.getElementById('local-scratchpad-settings');
         if (scratchpadHost && window.LocalItabScratchpad && !window.localScratchpadSettingsView) {
             window.localScratchpadSettingsView = window.LocalItabScratchpad.mountSettings(scratchpadHost);
