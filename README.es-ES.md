@@ -8,13 +8,32 @@ Una página de nueva pestaña para Chrome centrada en tus datos locales. Reúne 
 
 No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de accesos directos, las imágenes locales y las tarjetas que completas manualmente funcionan sin conexión. Las búsquedas, las visitas a sitios web y las funciones opcionales en la nube necesitan acceso a Internet.
 
-## Calculadora local
+[Vista previa](#preview) · [Instalación](#install) · [Funciones](#features) · [Privacidad y copias](#privacy) · [Desarrollo](#development)
 
-Empieza la búsqueda con `=` y pulsa Enter o Calcular, por ejemplo `=(12 + 3) / 2` → `7.5`. Admite decimales, signos unarios `+`/`-`, `+ - * /` y paréntesis. Las expresiones, resultados y errores permanecen en esta pestaña: sin búsquedas, historial ni almacenamiento, incluso sin configurar la URL del buscador personalizado. Quita `=` para volver a buscar. Al editar se borra el resultado anterior.
-
-Límites: 256 caracteres después de `=` y 32 niveles combinados de paréntesis y signos unarios. Usa números de coma flotante de JavaScript: hay redondeo decimal, subdesbordamiento y límites de precisión para enteros grandes (`=0.1 + 0.2` da `0.30000000000000004`). No sirve para cálculos financieros exactos. La división por cero y los resultados no finitos muestran errores locales. No admite notación científica, porcentajes, variables ni conversiones. La recarga por sincronización de ajustes se aplaza mientras haya una expresión; una recarga explícita puede descartarla.
+<a id="preview"></a>
 
 ## Vista previa
+
+Capturas de la extensión real en inglés con la misma configuración de ejemplo y categorías en chino. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
+
+**A / Clarity · Claro · Cuadrícula**
+
+![Plantilla Clarity clara de Local iTab con accesos por categorías, búsqueda y reloj](docs/screenshots/clarity-light-grid.png)
+
+### Doce plantillas nuevas · Claro / Oscuro
+
+Capturas reales de las doce plantillas adicionales con la misma configuración de 18 sitios, controles en inglés y categorías en chino. Solo se recortaron el aviso de pruebas y la barra inferior del navegador; no se redibujó la interfaz. Las imágenes muestran el área visible al capturarlas; el contenido más largo continúa al desplazarse. El tiempo y las demás tarjetas contienen ejemplos introducidos manualmente, no datos en directo.
+
+Los resúmenes siguientes son hojas de contacto de capturas reales reducidas proporcionalmente. Los enlaces incluyen las imágenes individuales y su procedencia y recorte.
+
+![Doce plantillas claras: Atelier, Quiet, Studio, Console, Prism, Library, Horizon, Ledger, Meadow, Blueprint, Terrace y Column](docs/screenshots/templates/overview-light.png)
+
+![Las doce plantillas oscuras en el mismo orden que la vista clara](docs/screenshots/templates/overview-dark.png)
+
+[Ver las 24 capturas individuales y la guía en inglés](docs/template-gallery.en.md#screenshot-gallery) · [Origen y recorte de las capturas](docs/screenshots/templates/capture-manifest.json)
+
+<details>
+<summary>Más plantillas y capturas reales de funciones</summary>
 
 ### Funciones actuales
 
@@ -36,23 +55,7 @@ Capturas reales con datos de ejemplo y controles en inglés. Las imágenes está
 
 [Capturas originales, revisión y detalles de recorte](docs/screenshots/current-features/capture-manifest.json)
 
-### Doce plantillas nuevas · Claro / Oscuro
-
-Capturas reales de las doce plantillas adicionales con la misma configuración de 18 sitios, controles en inglés y categorías en chino. Solo se recortaron el aviso de pruebas y la barra inferior del navegador; no se redibujó la interfaz. Las imágenes muestran el área visible al capturarlas; el contenido más largo continúa al desplazarse. El tiempo y las demás tarjetas contienen ejemplos introducidos manualmente, no datos en directo.
-
-![Doce plantillas claras: Atelier, Quiet, Studio, Console, Prism, Library, Horizon, Ledger, Meadow, Blueprint, Terrace y Column](docs/screenshots/templates/overview-light.png)
-
-![Las doce plantillas oscuras en el mismo orden que la vista clara](docs/screenshots/templates/overview-dark.png)
-
-[Ver las 24 capturas individuales y la guía en inglés](docs/template-gallery.en.md#screenshot-gallery) · [Origen y recorte de las capturas](docs/screenshots/templates/capture-manifest.json)
-
 ### Plantillas originales A / B / C y disposición libre
-
-Capturas de la extensión real en inglés con la misma configuración de ejemplo y categorías en chino. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
-
-**A / Clarity · Claro · Cuadrícula**
-
-![Plantilla Clarity clara de Local iTab con accesos por categorías, búsqueda y reloj](docs/screenshots/clarity-light-grid.png)
 
 **B / Graphite · Oscuro · Grupos por categoría**
 
@@ -61,9 +64,6 @@ Capturas de la extensión real en inglés con la misma configuración de ejemplo
 **C / Folio · Claro · Grupos por categoría**
 
 ![Plantilla Folio clara de Local iTab con los primeros dos grupos y tarjetas de tiempo y temas de ejemplo](docs/screenshots/folio-light-grid.png)
-
-<details>
-<summary>Más variantes claras y oscuras y disposición libre (4 capturas)</summary>
 
 **A / Clarity · Oscuro · Cuadrícula**
 
@@ -83,23 +83,7 @@ Capturas de la extensión real en inglés con la misma configuración de ejemplo
 
 </details>
 
-## Funciones
-
-- **Buscar y navegar**: Usa Google, Bing, DuckDuckGo o una URL de búsqueda personalizada, o abre un sitio directamente. En una plantilla personalizada, `%s` representa el término de búsqueda; por ejemplo, `https://example.com/search?q=%s`.
-- **Accesos directos organizados**: Añade, edita y elimina sitios; filtra por categoría; elige Cuadrícula (predeterminada, con reordenación al arrastrar), colocación libre (sin ajuste) o colocación manual con ajuste a la cuadrícula desde la página principal o Configuración. Cambiar de modo conserva las posiciones guardadas. El menú contextual incluye acciones para cada acceso y una opción para abrir todos los sitios de una categoría.
-- **Quince plantillas de trabajo**: Se conservan A / Clarity, B / Graphite y C / Folio y se añaden doce diseños, todos con colores claros y oscuros. Una instalación nueva sigue usando A/claro. Cambiar de estilo solo guarda la apariencia: conserva sitios, categorías, tareas, fondos, colocación y coordenadas. Los estilos agrupados usan categorías reales; la disposición libre conserva su plano de coordenadas. [Guía de estilos (en inglés)](docs/template-gallery.en.md).
-- **Diseño a tu gusto**: Usa el fondo de la plantilla, un color sólido o una imagen local. Ajusta las columnas, el espaciado, los iconos y los títulos, y muestra u oculta cada módulo.
-- **Tarjetas locales sencillas**: Reloj, tiempo, temas de interés, película y una frase personal. Las tarjetas de tiempo, temas y películas se rellenan manualmente y están ocultas de forma predeterminada; no obtienen datos en tiempo real.
-- **Copias locales en JSON**: Exporta la configuración y las imágenes locales, o importa una copia existente. La importación valida los datos y pide confirmación. Restaurar sustituye la configuración actual, así que conviene exportar una copia antes. Los archivos de más de 10 MiB muestran un aviso sobre el uso de memoria antes de leerlos y se pueden cancelar. La restauración de archivos grandes sigue dependiendo de la memoria disponible en el navegador. Se conserva el estado de sincronización del dispositivo actual.
-- **Funciones opcionales en la nube**: Chrome Sync sincroniza ajustes ligeros; Google Drive guarda instantáneas manuales agrupadas por nombre del equipo. Su funcionamiento y sus límites se explican a continuación.
-
-## Temporizador de concentración local
-
-Activa la tarjeta opcional en Ajustes. Está oculta de forma predeterminada y propone 25 minutos de concentración y 5 de descanso. Antes de iniciar, cada fase admite entre 1 y 180 minutos enteros. Iniciar, pausar/reanudar y detener/restablecer son acciones manuales; elegir la siguiente fase no la inicia.
-
-Todas las páginas abiertas de la extensión comparten una sesión local del dispositivo. Ocultar la tarjeta conserva la sesión. Restablecer solo los ajustes conserva su estado exacto; cambiar de plantilla o importar la configuración no la inicia ni la reemplaza. Las exportaciones de configuración, Chrome Sync y las copias de Drive excluyen el temporizador. No tiene asociación con tareas, historial, sonido, solicitudes de red ni notificaciones del sistema y no requiere nuevos permisos.
-
-Con una página activa, el tiempo transcurrido se comprueba con un reloj monotónico. Tras cerrar todas las páginas, al volver se estima el tiempo restante con el reloj del dispositivo; un cambio del reloj durante ese intervalo no se puede distinguir del tiempo transcurrido. Si se detecta una discrepancia, se pide restablecer. La finalización se muestra localmente, sin prometer avisos puntuales cuando todas las páginas están cerradas. Si falla el almacenamiento, usa la opción de leer el estado más reciente: un fallo de confirmación puede ocurrir después de guardar, así que comprueba el estado antes de reintentar.
+<a id="install"></a>
 
 ## Instalación y primeros pasos
 
@@ -112,7 +96,121 @@ Después de actualizar el código, pulsa **Recargar** en la página de extension
 
 Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simultáneas de accesos directos y de su colocación también utiliza `navigator.locks`; si la API necesaria no está disponible, estas escrituras fallan y se muestra un error.
 
+**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en inglés](docs/migration.en.md).
+
+<a id="features"></a>
+
+## Funciones
+
+- **Buscar y navegar**: Usa Google, Bing, DuckDuckGo o una URL de búsqueda personalizada, o abre un sitio directamente. En una plantilla personalizada, `%s` representa el término de búsqueda; por ejemplo, `https://example.com/search?q=%s`.
+- **Accesos directos organizados**: Añade, edita y elimina sitios; filtra por categoría; elige Cuadrícula (predeterminada, con reordenación al arrastrar), colocación libre (sin ajuste) o colocación manual con ajuste a la cuadrícula desde la página principal o Configuración. Cambiar de modo conserva las posiciones guardadas. El menú contextual incluye acciones para cada acceso y una opción para abrir todos los sitios de una categoría.
+- **Quince plantillas de trabajo**: Se conservan A / Clarity, B / Graphite y C / Folio y se añaden doce diseños, todos con colores claros y oscuros. Una instalación nueva sigue usando A/claro. Cambiar de estilo solo guarda la apariencia: conserva sitios, categorías, tareas, fondos, colocación y coordenadas. Los estilos agrupados usan categorías reales; la disposición libre conserva su plano de coordenadas. [Guía de estilos (en inglés)](docs/template-gallery.en.md).
+- **Diseño a tu gusto**: Usa el fondo de la plantilla, un color sólido o una imagen local. Ajusta las columnas, el espaciado, los iconos y los títulos, y muestra u oculta cada módulo.
+- **Tarjetas locales sencillas**: Reloj, tiempo, temas de interés, película y una frase personal. Las tarjetas de tiempo, temas y películas se rellenan manualmente y están ocultas de forma predeterminada; no obtienen datos en tiempo real.
+- **Copias locales en JSON**: Exporta la configuración y las imágenes locales, o importa una copia existente. La importación valida los datos y pide confirmación. Restaurar sustituye la configuración actual, así que conviene exportar una copia antes. Los archivos de más de 10 MiB muestran un aviso sobre el uso de memoria antes de leerlos y se pueden cancelar. La restauración de archivos grandes sigue dependiendo de la memoria disponible en el navegador. Se conserva el estado de sincronización del dispositivo actual.
+- **Funciones opcionales en la nube**: Chrome Sync sincroniza ajustes ligeros; Google Drive guarda instantáneas manuales agrupadas por nombre del equipo. Su funcionamiento y sus límites se explican a continuación.
+
+## Búsqueda y gestión de sitios
+
+### Buscar sitios guardados
+
+El buscador local encuentra títulos, direcciones y categorías guardados sin enviar consultas a la web. Comprueba el registro actual antes de abrirlo y no modifica la disposición ni las tareas. [Guía del buscador (en inglés)](docs/shortcut-finder.en.md).
+
+### Importar marcadores del navegador
+
+Previsualiza y añade marcadores desde una exportación HTML local de Chrome, Edge o Firefox sin reemplazar el panel guardado. Revisa duplicados, categorías y preferencias actuales de sincronización e iconos antes de aplicar. [Guía de importación](docs/bookmark-import.es-ES.md).
+
+Después de eliminar un acceso directo, **Undo delete** permite deshacer la última eliminación en esa misma página. Recargar la página borra esta opción; los cambios posteriores pueden impedir la restauración. [Alcance y seguridad](docs/shortcut-undo.md).
+
+### Calculadora local
+
+Empieza la búsqueda con `=` y pulsa Enter o Calcular, por ejemplo `=(12 + 3) / 2` → `7.5`. Admite decimales, signos unarios `+`/`-`, `+ - * /` y paréntesis. Las expresiones, resultados y errores permanecen en esta pestaña: sin búsquedas, historial ni almacenamiento, incluso sin configurar la URL del buscador personalizado. Quita `=` para volver a buscar. Al editar se borra el resultado anterior.
+
+<details>
+<summary>Alcance y precisión de la calculadora</summary>
+
+Límites: 256 caracteres después de `=` y 32 niveles combinados de paréntesis y signos unarios. Usa números de coma flotante de JavaScript: hay redondeo decimal, subdesbordamiento y límites de precisión para enteros grandes (`=0.1 + 0.2` da `0.30000000000000004`). No sirve para cálculos financieros exactos. La división por cero y los resultados no finitos muestran errores locales. No admite notación científica, porcentajes, variables ni conversiones. La recarga por sincronización de ajustes se aplaza mientras haya una expresión; una recarga explícita puede descartarla.
+
+</details>
+
+## Herramientas locales de productividad
+
+### Tareas locales
+
+Activa la tarjeta opcional de Tareas en los ajustes de visibilidad de módulos. Está desactivada de forma predeterminada y comienza vacía. Permite añadir, editar y completar tareas, filtrar por texto en todos los estados, fijar una como siguiente acción y recuperar elementos eliminados. El filtro es local y no busca en la web.
+
+Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exportaciones de ajustes, Chrome Sync y las copias de Google Drive no las incluyen. Restablecer, importar o restaurar los ajustes conserva las tareas. Usa la exportación e importación independiente de tareas para hacer copias y cambiar de dispositivo. Desinstalar la extensión o borrar sus datos puede eliminar las tareas locales. [Guía de tareas (en inglés)](docs/local-tasks.en.md).
+
+### Temporizador de concentración local
+
+Activa la tarjeta opcional en Ajustes. Está oculta de forma predeterminada y propone 25 minutos de concentración y 5 de descanso. Antes de iniciar, cada fase admite entre 1 y 180 minutos enteros. Iniciar, pausar/reanudar y detener/restablecer son acciones manuales; elegir la siguiente fase no la inicia.
+
+Todas las páginas abiertas de la extensión comparten una sesión local del dispositivo. Ocultar la tarjeta conserva la sesión. Restablecer solo los ajustes conserva su estado exacto; cambiar de plantilla o importar la configuración no la inicia ni la reemplaza. Las exportaciones de configuración, Chrome Sync y las copias de Drive excluyen el temporizador. No tiene asociación con tareas, historial, sonido, solicitudes de red ni notificaciones del sistema y no requiere nuevos permisos.
+
+<details>
+<summary>Límites de tiempo y recuperación</summary>
+
+Con una página activa, el tiempo transcurrido se comprueba con un reloj monotónico. Tras cerrar todas las páginas, al volver se estima el tiempo restante con el reloj del dispositivo; un cambio del reloj durante ese intervalo no se puede distinguir del tiempo transcurrido. Si se detecta una discrepancia, se pide restablecer. La finalización se muestra localmente, sin prometer avisos puntuales cuando todas las páginas están cerradas. Si falla el almacenamiento, usa la opción de leer el estado más reciente: un fallo de confirmación puede ocurrir después de guardar, así que comprueba el estado antes de reintentar.
+
+</details>
+
+### Bloc de notas local
+
+Activa Scratchpad en Ajustes → Visibilidad de módulos para guardar texto, enlaces o fragmentos. Está desactivado de forma predeterminada y guarda automáticamente en este dispositivo al dejar de escribir. Si hay cambios en otra pestaña, conserva el borrador y permite elegir entre el texto guardado y tu versión. Puedes exportar el borrador actual como TXT.
+
+El bloc no se incluye en la exportación de configuración, Chrome Sync ni las copias de Google Drive. Expórtalo por separado antes de desinstalar o borrar los datos del navegador. [Alcance y validación](docs/local-scratchpad-validation.md).
+
+<details>
+<summary>Más plantillas y capturas reales de funciones</summary>
+
+![Bloc local con Tareas y temporizador: interfaz clara real](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+
+![Bloc local con Tareas y temporizador: interfaz oscura real](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+
+[Procedencia y recorte de capturas](docs/screenshots/scratchpad/capture-metadata.json)
+
+</details>
+
+### Relojes mundiales sin conexión
+
+Añade hasta cuatro zonas horarias IANA en Ajustes → Apariencia. Puedes asignar una etiqueta, ver su hora y saber si allí es hoy, ayer o mañana respecto a tu fecha local. No requiere ubicación, servicios externos ni permisos nuevos; la lista empieza vacía.
+
+Pulsa Guardar relojes o Guardar ajustes para aplicar la lista. Estas preferencias forman parte de la configuración y se incluyen en sus exportaciones y en la sincronización opcional. Si otra pestaña cambia el reloj, el guardado obsoleto se rechaza conservando tu borrador. [Guía en inglés](docs/world-clocks.en.md).
+
+### Cuenta atrás local
+
+Guarda un evento y una fecha para ver los días que faltan, «Hoy» o los días transcurridos según el calendario local del dispositivo. La tarjeta está oculta de forma predeterminada. Usa Ajustes → Search & cards para editarla, guardar o cancelar; ocultarla conserva sus datos.
+
+El título y la fecha se guardan por separado en este dispositivo y quedan fuera de las exportaciones de configuración, Chrome Sync y Google Drive. Puedes exportarlos como texto, incluido un borrador sin guardar. No necesita servicios externos ni notificaciones. [Guía en inglés](docs/local-countdown.en.md).
+
+<details>
+<summary>Más plantillas y capturas reales de funciones</summary>
+
+Tarjeta real de cuenta atrás en modo claro y oscuro:
+
+![Cuenta atrás local: interfaz clara real](docs/screenshots/countdown/countdown-en-light-wide.png)
+
+![Cuenta atrás local: interfaz oscura real](docs/screenshots/countdown/countdown-en-dark-wide.png)
+
+[Procedencia de las capturas](docs/screenshots/countdown/capture-metadata.json)
+
+</details>
+
+## Apariencia y espacios de trabajo
+
+### Espacios de trabajo recomendados
+
+Revisa y aplica la visibilidad local de Tareas y del temporizador por separado de la plantilla visual, conservando contenido y sesiones. [Guía](docs/workspace-presets.es-ES.md).
+
+<a id="privacy"></a>
+
 ## Datos, privacidad y conexiones de red
+
+**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en inglés](docs/migration.en.md).
+
+### Cambiar de navegador o dispositivo
+
+Las copias de configuración no incluyen Tasks, Focus timer, Scratchpad ni Countdown. Antes de desinstalar o borrar datos, guarda copias separadas siguiendo la [lista de migración en inglés](docs/migration.en.md).
 
 La configuración, los accesos directos y las imágenes cargadas se guardan principalmente en `chrome.storage.local`. Los iconos de sitios usan una caché local en IndexedDB, y parte del estado de la interfaz se guarda en el almacenamiento local del navegador. La extensión no incluye scripts de analítica ni publicidad.
 
@@ -155,6 +253,8 @@ El README predeterminado está en [chino simplificado](README.md), con versiones
 La extensión incluye actualmente recursos de interfaz en chino simplificado (`_locales/zh_CN`) e inglés (`_locales/en`). Usa el idioma del navegador mediante `chrome.i18n`, con el inglés como alternativa predeterminada. El español solo está disponible en la documentación por ahora.
 
 Los nombres del día y del mes siguen una etiqueta de idioma explícita en los mensajes chinos o ingleses mostrados, con el mensaje predefinido de Chrome `@@ui_locale`, el idioma de la interfaz de Chrome, el idioma preferido del navegador y la configuración regional del entorno como alternativas si no está disponible o es inválido. No cambian el formato de la hora ni los marcadores de fecha de las frases personalizadas. El texto de bienvenida recién generado se localiza; las frases guardadas o importadas (incluida la bienvenida anterior en inglés) no se traducen ni migran. Se conserva la validación existente, incluido el recorte de espacios y la bienvenida en inglés para cadenas vacías. Si falta el campo de frase, se usa el nuevo valor predeterminado localizado.
+
+<a id="development"></a>
 
 ## Desarrollo y comprobaciones locales
 
@@ -206,61 +306,3 @@ El comando muestra la revisión Git y el estado de los cambios locales (o indica
 ## Licencia
 
 La documentación existente identifica la licencia como MIT. El repositorio todavía no incluye un archivo `LICENSE` independiente.
-
-## Tareas locales
-
-Activa la tarjeta opcional de Tareas en los ajustes de visibilidad de módulos. Está desactivada de forma predeterminada y comienza vacía. Permite añadir, editar y completar tareas, filtrar por texto en todos los estados, fijar una como siguiente acción y recuperar elementos eliminados. El filtro es local y no busca en la web.
-
-Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exportaciones de ajustes, Chrome Sync y las copias de Google Drive no las incluyen. Restablecer, importar o restaurar los ajustes conserva las tareas. Usa la exportación e importación independiente de tareas para hacer copias y cambiar de dispositivo. Desinstalar la extensión o borrar sus datos puede eliminar las tareas locales. [Guía de tareas (en inglés)](docs/local-tasks.en.md).
-
-## Buscar sitios guardados
-
-El buscador local encuentra títulos, direcciones y categorías guardados sin enviar consultas a la web. Comprueba el registro actual antes de abrirlo y no modifica la disposición ni las tareas. [Guía del buscador (en inglés)](docs/shortcut-finder.en.md).
-
-
-## Espacios de trabajo recomendados
-
-Revisa y aplica la visibilidad local de Tareas y del temporizador por separado de la plantilla visual, conservando contenido y sesiones. [Guía](docs/workspace-presets.es-ES.md).
-
-## Importar marcadores del navegador
-
-Previsualiza y añade marcadores desde una exportación HTML local de Chrome, Edge o Firefox sin reemplazar el panel guardado. Revisa duplicados, categorías y preferencias actuales de sincronización e iconos antes de aplicar. [Guía de importación](docs/bookmark-import.es-ES.md).
-
-Después de eliminar un acceso directo, **Undo delete** permite deshacer la última eliminación en esa misma página. Recargar la página borra esta opción; los cambios posteriores pueden impedir la restauración. [Alcance y seguridad](docs/shortcut-undo.md).
-
-## Bloc de notas local
-
-Activa Scratchpad en Ajustes → Visibilidad de módulos para guardar texto, enlaces o fragmentos. Está desactivado de forma predeterminada y guarda automáticamente en este dispositivo al dejar de escribir. Si hay cambios en otra pestaña, conserva el borrador y permite elegir entre el texto guardado y tu versión. Puedes exportar el borrador actual como TXT.
-
-El bloc no se incluye en la exportación de configuración, Chrome Sync ni las copias de Google Drive. Expórtalo por separado antes de desinstalar o borrar los datos del navegador. [Alcance y validación](docs/local-scratchpad-validation.md).
-
-![Bloc local con Tareas y temporizador: interfaz clara real](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
-
-![Bloc local con Tareas y temporizador: interfaz oscura real](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
-
-[Procedencia y recorte de capturas](docs/screenshots/scratchpad/capture-metadata.json)
-
-## Relojes mundiales sin conexión
-
-Añade hasta cuatro zonas horarias IANA en Ajustes → Apariencia. Puedes asignar una etiqueta, ver su hora y saber si allí es hoy, ayer o mañana respecto a tu fecha local. No requiere ubicación, servicios externos ni permisos nuevos; la lista empieza vacía.
-
-Pulsa Guardar relojes o Guardar ajustes para aplicar la lista. Estas preferencias forman parte de la configuración y se incluyen en sus exportaciones y en la sincronización opcional. Si otra pestaña cambia el reloj, el guardado obsoleto se rechaza conservando tu borrador. [Guía en inglés](docs/world-clocks.en.md).
-
-## Cuenta atrás local
-
-Guarda un evento y una fecha para ver los días que faltan, «Hoy» o los días transcurridos según el calendario local del dispositivo. La tarjeta está oculta de forma predeterminada. Usa Ajustes → Search & cards para editarla, guardar o cancelar; ocultarla conserva sus datos.
-
-El título y la fecha se guardan por separado en este dispositivo y quedan fuera de las exportaciones de configuración, Chrome Sync y Google Drive. Puedes exportarlos como texto, incluido un borrador sin guardar. No necesita servicios externos ni notificaciones. [Guía en inglés](docs/local-countdown.en.md).
-
-
-Tarjeta real de cuenta atrás en modo claro y oscuro:
-
-![Countdown light](docs/screenshots/countdown/countdown-en-light-wide.png)
-
-![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
-
-[Capture provenance](docs/screenshots/countdown/capture-metadata.json)
-
-## Cambiar de navegador o dispositivo
-
-Las copias de configuración no incluyen Tasks, Focus timer, Scratchpad ni Countdown. Antes de desinstalar o borrar datos, guarda copias separadas siguiendo la [lista de migración en inglés](docs/migration.en.md).

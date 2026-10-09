@@ -8,21 +8,32 @@ A local-first Chrome new tab page that keeps search, saved websites, and a small
 
 No build step or Local iTab account is required. The clock, shortcut management, local images, and manually maintained cards work offline; searches, website visits, and optional cloud features need a network connection.
 
-## Offline Countdown
+[Preview](#preview) · [Install](#install) · [Features](#features) · [Privacy & backups](#privacy) · [Development](#development)
 
-Name one milestone and see local calendar days left, Today, or days ago. Hidden by default, saved only on this device, with explicit Save/Cancel and text export. [Usage and privacy](docs/local-countdown.en.md).
-
-## Offline world clocks
-
-Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. [Setup and backup behavior](docs/world-clocks.en.md).
-
-## Local calculator
-
-Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab: no search request, history or storage, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the previous result.
-
-Limit: 256 characters after `=` and 32 combined levels of nested parentheses/unary signs. Uses JavaScript floating-point numbers: decimal rounding, underflow and large-integer precision limits apply (`=0.1 + 0.2` gives `0.30000000000000004`). Not for exact financial calculations. Division by zero and non-finite results show local errors. Scientific notation, percentages, variables and unit conversions are not supported. A settings-sync reload is deferred while calculator input remains; explicitly reloading can discard it.
+<a id="preview"></a>
 
 ## Preview
+
+Real extension screenshots with the English interface and the same sample setup, including Chinese category names. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
+
+**A / Clarity · Light · Grid layout**
+
+![Local iTab Clarity light template with sample categorized shortcuts, search, and clock](docs/screenshots/clarity-light-grid.png)
+
+### Twelve new templates · Light / Dark
+
+Actual interface captures of the twelve additional templates use the same 18-site sample setup, with English controls and Chinese categories. Only the browser's testing notice and bottom bar were cropped away; the interface was not redrawn. Images show the captured visible area, and longer content continues below it. Weather and other cards contain manually entered examples, not live data.
+
+The overviews below are contact sheets assembled from proportionally reduced actual captures. See the links for individual images and capture/crop provenance.
+
+![Twelve new light templates, ordered Atelier, Quiet, Studio, Console, Prism, Library, Horizon, Ledger, Meadow, Blueprint, Terrace, Column](docs/screenshots/templates/overview-light.png)
+
+![Twelve new dark templates in the same order as the light overview](docs/screenshots/templates/overview-dark.png)
+
+[View all 24 individual captures and the style guide](docs/template-gallery.en.md#screenshot-gallery) · [Capture provenance and crop details](docs/screenshots/templates/capture-manifest.json)
+
+<details>
+<summary>More templates and actual feature captures</summary>
 
 ### Current features
 
@@ -44,23 +55,7 @@ Actual interface captures with sample data and English controls. The images are 
 
 [Original captures, revision and crop details](docs/screenshots/current-features/capture-manifest.json)
 
-### Twelve new templates · Light / Dark
-
-Actual interface captures of the twelve additional templates use the same 18-site sample setup, with English controls and Chinese categories. Only the browser's testing notice and bottom bar were cropped away; the interface was not redrawn. Images show the captured visible area, and longer content continues below it. Weather and other cards contain manually entered examples, not live data.
-
-![Twelve new light templates, ordered Atelier, Quiet, Studio, Console, Prism, Library, Horizon, Ledger, Meadow, Blueprint, Terrace, Column](docs/screenshots/templates/overview-light.png)
-
-![Twelve new dark templates in the same order as the light overview](docs/screenshots/templates/overview-dark.png)
-
-[View all 24 individual captures and the style guide](docs/template-gallery.en.md#screenshot-gallery) · [Capture provenance and crop details](docs/screenshots/templates/capture-manifest.json)
-
 ### Original A / B / C templates and Free layout
-
-Real extension screenshots with the English interface and the same sample setup, including Chinese category names. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
-
-**A / Clarity · Light · Grid layout**
-
-![Local iTab Clarity light template with sample categorized shortcuts, search, and clock](docs/screenshots/clarity-light-grid.png)
 
 **B / Graphite · Dark · Category groups**
 
@@ -69,9 +64,6 @@ Real extension screenshots with the English interface and the same sample setup,
 **C / Folio · Light · Category groups**
 
 ![Local iTab Folio light template showing the first two category groups and sample weather and topics cards](docs/screenshots/folio-light-grid.png)
-
-<details>
-<summary>More light/dark variants and Free layout (4 screenshots)</summary>
 
 **A / Clarity · Dark · Grid layout**
 
@@ -91,23 +83,7 @@ Real extension screenshots with the English interface and the same sample setup,
 
 </details>
 
-## Features
-
-- **Search and go**: Use Google, Bing, DuckDuckGo, or a custom search URL, or open a website directly. Use `%s` for the search term in a custom template, such as `https://example.com/search?q=%s`.
-- **Organized shortcuts**: Add, edit, and delete saved websites; filter by category; choose Grid (default, with drag reordering), Free placement (no snapping), or Manual · snap to grid using the Placement selector on the dashboard or in Settings. Switching keeps saved positions. The context menu includes shortcut actions and an option to open every website in a category.
-- **Fifteen workspace templates**: Keep A / Clarity, B / Graphite and C / Folio, or choose one of twelve additional designs, each with light and dark colors. New installations use A/light. Selecting a style saves appearance only, preserving sites, categories, Tasks, backgrounds, placement mode and stored coordinates. Grouped styles use real categories in Grid; manual layouts retain one coordinate plane. [Style guide](docs/template-gallery.en.md).
-- **Your layout and appearance**: Use the template background, a solid color, or a local image. Adjust columns, spacing, icons, and titles, and show or hide individual modules.
-- **Small local cards**: A clock, weather, topics, a movie, and a personal quote. Weather, topic, and movie cards are manually maintained and hidden by default; they do not fetch live feeds.
-- **Local JSON backups**: Export settings and local images, or import an existing backup. Imports validate the data and ask for confirmation. Restoring replaces the current configuration, so export a copy first. Files over 10 MiB show a memory-risk warning before reading and can be cancelled. Restoring large files still depends on available browser memory. The current device's sync state is retained.
-- **Optional cloud features**: Chrome Sync handles lightweight settings synchronization; Google Drive stores manual snapshots grouped by computer name. Their behavior and limits are explained below.
-
-## Local focus timer
-
-Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.
-
-All open extension pages share one device-local session. Hiding the card keeps that session. Settings-only reset preserves its exact state; templates and configuration imports do not start or replace it. Configuration exports, Chrome Sync and Drive backups exclude the timer. It has no task association, history, sound, network requests or system notifications and needs no new permission.
-
-While a page is active, elapsed time is checked against a monotonic clock. After all pages close, reopening estimates remaining time from the device clock; a clock change during that gap cannot be distinguished from elapsed time. Detected clock disagreement asks you to reset. Completion is shown locally: there is no exact-time alert while all pages are closed. Storage failures offer Read latest state; a failed acknowledgement may still have saved the change, so check the refreshed state before trying again.
+<a id="install"></a>
 
 ## Install and get started
 
@@ -120,7 +96,115 @@ After updating the source, click **Reload** on the extension management page, th
 
 Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protection also relies on `navigator.locks`; if the required browser API is unavailable, those writes fail with an error.
 
+**Backup reminder:** Settings JSON and Drive snapshots exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately; export Scratchpad and Countdown as separate text files. Focus sessions cannot be migrated. World-clock preferences belong to settings. Before uninstalling or clearing data, save the copies you need using the [migration checklist](docs/migration.en.md).
+
+<a id="features"></a>
+
+## Features
+
+- **Search and go**: Use Google, Bing, DuckDuckGo, or a custom search URL, or open a website directly. Use `%s` for the search term in a custom template, such as `https://example.com/search?q=%s`.
+- **Organized shortcuts**: Add, edit, and delete saved websites; filter by category; choose Grid (default, with drag reordering), Free placement (no snapping), or Manual · snap to grid using the Placement selector on the dashboard or in Settings. Switching keeps saved positions. The context menu includes shortcut actions and an option to open every website in a category.
+- **Fifteen workspace templates**: Keep A / Clarity, B / Graphite and C / Folio, or choose one of twelve additional designs, each with light and dark colors. New installations use A/light. Selecting a style saves appearance only, preserving sites, categories, Tasks, backgrounds, placement mode and stored coordinates. Grouped styles use real categories in Grid; manual layouts retain one coordinate plane. [Style guide](docs/template-gallery.en.md).
+- **Your layout and appearance**: Use the template background, a solid color, or a local image. Adjust columns, spacing, icons, and titles, and show or hide individual modules.
+- **Small local cards**: A clock, weather, topics, a movie, and a personal quote. Weather, topic, and movie cards are manually maintained and hidden by default; they do not fetch live feeds.
+- **Local JSON backups**: Export settings and local images, or import an existing backup. Imports validate the data and ask for confirmation. Restoring replaces the current configuration, so export a copy first. Files over 10 MiB show a memory-risk warning before reading and can be cancelled. Restoring large files still depends on available browser memory. The current device's sync state is retained.
+- **Optional cloud features**: Chrome Sync handles lightweight settings synchronization; Google Drive stores manual snapshots grouped by computer name. Their behavior and limits are explained below.
+
+## Search and website management
+
+### Find saved sites
+
+Use the local shortcut finder to search saved titles, addresses and categories without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).
+
+### Import browser bookmarks
+
+Preview and add bookmarks from a local Chrome, Edge or Firefox HTML export without replacing your saved dashboard. Review duplicate skips, folder mapping and currently enabled Sync/icon settings before Apply. [Bookmark import guide](docs/bookmark-import.en.md).
+
+After deleting a shortcut, **Undo delete** restores the latest deletion on the same page. Refreshing clears it; later changes may prevent undo. [Scope and safety details](docs/shortcut-undo.md).
+
+### Local calculator
+
+Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab: no search request, history or storage, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the previous result.
+
+<details>
+<summary>Calculator scope and precision limits</summary>
+
+Limit: 256 characters after `=` and 32 combined levels of nested parentheses/unary signs. Uses JavaScript floating-point numbers: decimal rounding, underflow and large-integer precision limits apply (`=0.1 + 0.2` gives `0.30000000000000004`). Not for exact financial calculations. Division by zero and non-finite results show local errors. Scientific notation, percentages, variables and unit conversions are not supported. A settings-sync reload is deferred while calculator input remains; explicitly reloading can discard it.
+
+</details>
+
+## Local productivity tools
+
+### Local Tasks
+
+Enable the optional, empty-by-default Tasks card in module visibility settings. Add/edit/complete tasks, filter all task states locally by text, pin one next action and recover removed items. Tasks stay on this device; settings exports, Chrome Sync and Drive backups exclude all task content and recovery copies. Settings reset/import/restore preserve Tasks. Use the separate task export/import for backup and migration. [Task guide](docs/local-tasks.en.md).
+
+### Local focus timer
+
+Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.
+
+All open extension pages share one device-local session. Hiding the card keeps that session. Settings-only reset preserves its exact state; templates and configuration imports do not start or replace it. Configuration exports, Chrome Sync and Drive backups exclude the timer. It has no task association, history, sound, network requests or system notifications and needs no new permission.
+
+<details>
+<summary>Timing and recovery limits</summary>
+
+While a page is active, elapsed time is checked against a monotonic clock. After all pages close, reopening estimates remaining time from the device clock; a clock change during that gap cannot be distinguished from elapsed time. Detected clock disagreement asks you to reset. Completion is shown locally: there is no exact-time alert while all pages are closed. Storage failures offer Read latest state; a failed acknowledgement may still have saved the change, so check the refreshed state before trying again.
+
+</details>
+
+### Local Scratchpad
+
+Enable Scratchpad under Settings → Module Visibility for plain-text notes, links or snippets. It is off by default and autosaves on this device after typing pauses. Conflicting tabs keep your draft and offer an explicit choice between the saved text and your version. Export the current draft as TXT.
+
+Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Export it separately before uninstalling or clearing browser data. [Scope and validation](docs/local-scratchpad-validation.md).
+
+<details>
+<summary>More templates and actual feature captures</summary>
+
+![Local Scratchpad with Tasks and Focus: actual light interface](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+
+![Local Scratchpad with Tasks and Focus: actual dark interface](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+
+[Capture provenance and crop record](docs/screenshots/scratchpad/capture-metadata.json)
+
+</details>
+
+### Offline world clocks
+
+Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. [Setup and backup behavior](docs/world-clocks.en.md).
+
+### Offline Countdown
+
+Name one milestone and see local calendar days left, Today, or days ago. Hidden by default, saved only on this device, with explicit Save/Cancel and text export. [Usage and privacy](docs/local-countdown.en.md).
+
+<details>
+<summary>More templates and actual feature captures</summary>
+
+Actual Countdown card in light and dark appearance:
+
+![Local Countdown: actual light interface](docs/screenshots/countdown/countdown-en-light-wide.png)
+
+![Local Countdown: actual dark interface](docs/screenshots/countdown/countdown-en-dark-wide.png)
+
+[Capture provenance](docs/screenshots/countdown/capture-metadata.json)
+
+</details>
+
+## Appearance and workspaces
+
+### Recommended workspaces
+
+Preview and explicitly apply local Tasks/Focus visibility recommendations separately from visual themes. Existing content and timer sessions stay intact. [Workspace guide](docs/workspace-presets.en.md).
+
+<a id="privacy"></a>
+
 ## Data, privacy, and network behavior
+
+**Backup reminder:** Settings JSON and Drive snapshots exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately; export Scratchpad and Countdown as separate text files. Focus sessions cannot be migrated. World-clock preferences belong to settings. Before uninstalling or clearing data, save the copies you need using the [migration checklist](docs/migration.en.md).
+
+### Moving to another browser or device
+
+Configuration backups do not include Tasks, Focus timer, Scratchpad or Countdown. Follow the [migration checklist](docs/migration.en.md) to keep separate copies before uninstalling or clearing data.
 
 Settings, shortcuts, and uploaded images are primarily stored in `chrome.storage.local`. Website icons use a local IndexedDB cache, and some interface state is stored in browser local storage. The extension includes no analytics or advertising scripts.
 
@@ -163,6 +247,8 @@ The default README is [Simplified Chinese](README.md), with English and [Spanish
 The extension currently includes Simplified Chinese (`_locales/zh_CN`) and English (`_locales/en`) interface resources. It uses the browser language through `chrome.i18n`, with English as the fallback. Spanish is currently a documentation translation only.
 
 Date weekday/month names follow an explicit locale tag in the displayed CN/EN message catalog, falling back to Chrome’s predefined `@@ui_locale` message, Chrome’s UI language, the preferred browser language and then the runtime locale if unavailable or invalid. Time formatting and date placeholders in custom quotes are unchanged. Newly generated welcome text is localized; saved or imported quotes (including the old English welcome) are never translated or migrated. Existing quote validation, including trimming and the English fallback for empty strings, is unchanged. Missing quote fields receive the new localized default.
+
+<a id="development"></a>
 
 ## Local development and checks
 
@@ -214,47 +300,3 @@ The command reports the source Git revision (and working-tree status, or unavail
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.
-
-## Local Tasks
-
-Enable the optional, empty-by-default Tasks card in module visibility settings. Add/edit/complete tasks, filter all task states locally by text, pin one next action and recover removed items. Tasks stay on this device; settings exports, Chrome Sync and Drive backups exclude all task content and recovery copies. Settings reset/import/restore preserve Tasks. Use the separate task export/import for backup and migration. [Task guide](docs/local-tasks.en.md).
-
-## Find saved sites
-
-Use the local shortcut finder to search saved titles, addresses and categories without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).
-
-
-## Recommended workspaces
-
-Preview and explicitly apply local Tasks/Focus visibility recommendations separately from visual themes. Existing content and timer sessions stay intact. [Workspace guide](docs/workspace-presets.en.md).
-
-## Import browser bookmarks
-
-Preview and add bookmarks from a local Chrome, Edge or Firefox HTML export without replacing your saved dashboard. Review duplicate skips, folder mapping and currently enabled Sync/icon settings before Apply. [Bookmark import guide](docs/bookmark-import.en.md).
-
-After deleting a shortcut, **Undo delete** restores the latest deletion on the same page. Refreshing clears it; later changes may prevent undo. [Scope and safety details](docs/shortcut-undo.md).
-
-## Local Scratchpad
-
-Enable Scratchpad under Settings → Module Visibility for plain-text notes, links or snippets. It is off by default and autosaves on this device after typing pauses. Conflicting tabs keep your draft and offer an explicit choice between the saved text and your version. Export the current draft as TXT.
-
-Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Export it separately before uninstalling or clearing browser data. [Scope and validation](docs/local-scratchpad-validation.md).
-
-![Local Scratchpad with Tasks and Focus: actual light interface](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
-
-![Local Scratchpad with Tasks and Focus: actual dark interface](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
-
-[Capture provenance and crop record](docs/screenshots/scratchpad/capture-metadata.json)
-
-
-Actual Countdown card in light and dark appearance:
-
-![Countdown light](docs/screenshots/countdown/countdown-en-light-wide.png)
-
-![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
-
-[Capture provenance](docs/screenshots/countdown/capture-metadata.json)
-
-## Moving to another browser or device
-
-Configuration backups do not include Tasks, Focus timer, Scratchpad or Countdown. Follow the [migration checklist](docs/migration.en.md) to keep separate copies before uninstalling or clearing data.
