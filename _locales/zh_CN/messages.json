@@ -314,6 +314,7 @@
 		"driveDeleted": { "message": "Google 云盘备份已删除。" },
 		"driveDeletedListFailed": { "message": "备份已删除，但列表刷新失败。" },
 		"quoteText": { "message": "引用文案" },
+		"quoteTextHint": { "message": "显示在主页底部" },
 	"exportSettings": { "message": "导出设置" },
 	"importSettings": { "message": "导入设置" },
 	"saveSettings": { "message": "保存设置" },

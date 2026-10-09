@@ -314,6 +314,7 @@
 		"driveDeleted": { "message": "Google Drive backup deleted." },
 		"driveDeletedListFailed": { "message": "Backup deleted, but list refresh failed." },
 		"quoteText": { "message": "Quote Text" },
+		"quoteTextHint": { "message": "Displayed at the bottom of your dashboard" },
 	"exportSettings": { "message": "Export Settings" },
 	"importSettings": { "message": "Import Settings" },
 	"saveSettings": { "message": "Save Settings" },
