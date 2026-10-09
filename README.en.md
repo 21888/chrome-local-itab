@@ -160,18 +160,18 @@ While a page is active, elapsed time is checked against a monotonic clock. After
 
 ### Local Scratchpad
 
-Enable Scratchpad under Settings → Module Visibility for plain-text notes, links or snippets. It is off by default and autosaves on this device after typing pauses. Conflicting tabs keep your draft and offer an explicit choice between the saved text and your version. Export the current draft as TXT.
+Enable Scratchpad under Settings → Module Visibility for plain-text notes, links or snippets. It is off by default and autosaves on this device after typing pauses. Conflicting tabs keep your draft and offer an explicit choice between the saved text and your version. Export the current draft as TXT, or select one UTF-8 TXT file to preview and explicitly replace the saved note. Import requires a settled note and accepts up to 32,000 Unicode characters / 128 KiB; Cancel writes nothing. [Text import, limits and recovery](docs/local-scratchpad.en.md).
 
 Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Export it separately before uninstalling or clearing browser data. [Scope and validation](docs/local-scratchpad-validation.md).
 
 <details>
 <summary>More templates and actual feature captures</summary>
 
-![Local Scratchpad with Tasks and Focus: actual light interface](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+![Scratchpad TXT import preview: actual light interface](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
 
-![Local Scratchpad with Tasks and Focus: actual dark interface](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+![Scratchpad TXT import preview: actual dark interface](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
 
-[Capture provenance and crop record](docs/screenshots/scratchpad/capture-metadata.json)
+[Capture provenance and crop record](docs/screenshots/scratchpad-import/capture-metadata.json)
 
 </details>
 

@@ -160,18 +160,18 @@
 
 ### 本地便签
 
-在设置的“模块显示”中开启便签，可随手记录文字、网址或片段。默认关闭；停止输入后自动保存在本设备。多标签页发生冲突时保留草稿，让你明确选择使用已保存内容或替换它。支持导出当前草稿为 TXT。
+在设置的“模块显示”中开启便签，可随手记录文字、网址或片段。默认关闭；停止输入后自动保存在本设备。多标签页发生冲突时保留草稿，让你明确选择使用已保存内容或替换它。支持导出当前草稿为 TXT，也可选择一个 UTF-8 TXT 文件预览，再明确确认替换已保存的便笺。导入前需完成保存并解决冲突；最多 32,000 个 Unicode 字符、128 KiB，取消不会写入。[文本导入、限制与恢复说明](docs/local-scratchpad.zh-CN.md)。
 
 便签不进入配置导出、Chrome Sync 或 Google Drive 备份。卸载扩展或清理浏览器数据前，请单独导出。[功能边界与验收记录](docs/local-scratchpad-validation.md)。
 
 <details>
 <summary>更多模版与功能实拍</summary>
 
-![本地便签与待办、专注计时器：浅色实拍](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+![便笺 TXT 导入预览：浅色真实界面](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
 
-![本地便签与待办、专注计时器：深色实拍](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+![便笺 TXT 导入预览：深色真实界面](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
 
-[截图来源与裁切记录](docs/screenshots/scratchpad/capture-metadata.json)
+[截图来源与裁切记录](docs/screenshots/scratchpad-import/capture-metadata.json)
 
 </details>
 

@@ -14,7 +14,7 @@ function model({fail=false}={}) {
         subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);}
     };
     const api={...storeApi,Controller};
-    const window={LocalItabScratchpad:api, Blob, URL:{createObjectURL(blob){blobs.push(blob);return'blob:test';},revokeObjectURL(){}}, setTimeout(fn){fn();},addEventListener:(type,fn)=>events.set(type,fn),removeEventListener:type=>events.delete(type)};
+    const window={LocalItabScratchpad:api, Blob, TextDecoder, URL:{createObjectURL(blob){blobs.push(blob);return'blob:test';},revokeObjectURL(){}}, setTimeout(fn){fn();},addEventListener:(type,fn)=>events.set(type,fn),removeEventListener:type=>events.delete(type)};
     const create=document.createElement;document.createElement=tag=>{const node=create(tag);node.click=()=>node.dispatch('click');return node;};
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-scratchpad-view'),'utf8'),{window,document});
     const host=document.createElement('article');document.body.append(host);const controller=new Controller(new api.Store(backend),{delay:5});
@@ -141,4 +141,96 @@ test('DOM model privacy: correcting a rejected draft to saved content relinquish
     assert(!m.controller.hasUncommittedWork()); assert(!m.controller.error);
     await m.backend.write({ ...m.raw, revision: m.raw.revision + 1, enabled: false }); await m.flush();
     assert(m.host.hidden); assert(!m.controller.conflict); m.view.destroy();
+});
+
+function importFile(m, text, overrides = {}) {
+    const bytes = new TextEncoder().encode(text);
+    m.view.chooseImport(); m.view.importFile.files = [{ name: 'copy.txt', size: bytes.length, arrayBuffer: async () => bytes.buffer, ...overrides }];
+    return m.view.readImport();
+}
+async function importModel() { const m = model(); await m.flush(); await m.controller.setEnabled(true); return m; }
+test('Import text: own TXT roundtrip preserves exact Unicode, BOM, newlines, whitespace and literal HTML', async () => {
+    const m = await importModel(), text = '\uFEFF \t中文 😀\r\n<script>not markup</script>\rb\n\n';
+    m.controller.setDraft(text); await m.controller.save(); m.view.exportText(); const blob = m.blobs[0];
+    m.controller.setDraft('old'); await m.controller.save(); const writes = m.writes;
+    await importFile(m, '', { name: '<img onerror=x>.txt', size: blob.size, arrayBuffer: () => blob.arrayBuffer() });
+    assert.equal(m.writes, writes); assert.equal(m.raw.content, 'old'); assert.equal(m.view.importPreview.textContent, text);
+    assert.match(m.view.importInfo.textContent, /^<img onerror=x>\.txt/); assert.equal(m.view.importPreview.children.length, 0);
+    assert.equal(m.document.activeElement, m.view.importCancel); assert(!m.view.exportButton.disabled);
+    m.view.importApply.dispatch('click'); await m.flush(); assert.equal(m.raw.content, text); assert.match(m.view.status.textContent, /Saved/);
+    assert.equal(m.document.activeElement, m.view.textarea); m.view.destroy();
+});
+test('Import text: Cancel, Escape and picker dismissal write nothing and clear preview', async () => {
+    const m = await importModel(), writes = m.writes;
+    await importFile(m, 'new'); m.view.importCancel.dispatch('click'); assert.equal(m.document.activeElement, m.view.importButton);
+    await importFile(m, 'new'); m.view.importPanel.dispatch('keydown', { key: 'Escape', preventDefault() {} });
+    assert(m.view.importPanel.hidden); m.view.chooseImport(); m.view.importFile.dispatch('cancel');
+    assert.equal(m.writes, writes); assert.equal(m.raw.content, ''); assert(!m.view.importSession); m.view.destroy();
+});
+for (const [name, text, overrides] of [
+    ['oversize before read', '', { size: 131073, arrayBuffer() { throw Error('must not read'); } }],
+    ['too many characters', 'x'.repeat(32001), {}],
+    ['invalid UTF8', '', { size: 2, arrayBuffer: async () => new Uint8Array([0xC3, 0x28]).buffer }],
+    ['read failure', '', { arrayBuffer: async () => { throw Error('read'); } }],
+    ['wrong extension', '', { name: 'copy.html' }],
+    ['oversize returned buffer', '', { arrayBuffer: async () => new ArrayBuffer(131073) }]
+]) test(`Import text rejects ${name} without changing text`, async () => {
+    const m = await importModel(), writes = m.writes; await importFile(m, text, overrides);
+    assert(m.view.importApply.disabled); assert.match(m.view.importInfo.textContent, /Could not read/);
+    m.view.applyImport(); assert.equal(m.writes, writes); assert.equal(m.controller.draft, ''); m.view.destroy();
+});
+for (const change of ['edit undo', 'IME', 'remote', 'refresh', 'read error', 'cancel', 'destroy', 'new chooser']) {
+    test(`Import text: stale asynchronous completion cannot apply after ${change}`, async () => {
+        const m = await importModel(); let resolve; const buffer = new TextEncoder().encode('import').buffer;
+        const pending = importFile(m, '', { arrayBuffer: () => new Promise(r => resolve = r) });
+        if (change === 'edit undo') { m.controller.setDraft('a'); m.controller.setDraft(''); }
+        if (change === 'IME') { m.controller.setComposing(true); m.controller.setComposing(false); }
+        if (change === 'remote') { await new m.api.Store(m.backend).mutate({ kind: 'content', value: 'remote', revision: m.raw.revision }); await m.flush(); }
+        if (change === 'refresh') await m.controller.refresh();
+        if (change === 'read error') { m.readFail(true); await assert.rejects(m.controller.refresh()); }
+        if (change === 'cancel') m.view.cancelImport(true);
+        if (change === 'destroy') m.view.destroy();
+        if (change === 'new chooser') m.view.chooseImport();
+        resolve(buffer); await pending; m.view.applyImport(); await m.flush();
+        assert.notEqual(m.controller.draft, 'import'); assert.notEqual(m.raw.content, 'import'); m.view.destroy();
+    });
+}
+test('Import text: settled gates, empty replacement, save failure and Retry use existing controller recovery', async () => {
+    const m = await importModel(); m.controller.setComposing(true); m.view.chooseImport(); assert(!m.view.importSession);
+    m.controller.setComposing(false); m.controller.setDraft('old'); m.view.chooseImport(); assert(!m.view.importSession); await m.controller.save();
+    await importFile(m, 'imported'); m.writeFail(true); m.view.applyImport(); await m.flush();
+    assert.equal(m.controller.draft, 'imported'); assert.equal(m.raw.content, 'old'); assert(!m.view.retry.hidden); assert.match(m.view.status.textContent, /Could not confirm/);
+    m.view.exportText(); assert.equal(await m.blobs[0].text(), 'imported'); m.writeFail(false); await m.controller.retry(); assert.equal(m.raw.content, 'imported');
+    await importFile(m, ''); m.view.applyImport(); await m.flush(); assert.equal(m.raw.content, ''); m.view.destroy();
+});
+test('Import text: unseen concurrent write is rejected by store CAS and retains imported draft', async () => {
+    const m = await importModel(); await importFile(m, 'imported');
+    m.controller.unsubscribe(); m.controller.unsubscribe = null;
+    await new m.api.Store(m.backend).mutate({kind:'content',value:'remote',revision:m.raw.revision});
+    m.view.applyImport(); await m.flush(); assert.equal(m.raw.content, 'remote'); assert.equal(m.controller.draft, 'imported'); assert(m.controller.conflict); m.view.destroy();
+});
+test('Import text: failed readback never claims Saved; Retry verifies a committed draft', async () => {
+    const m = await importModel(); await importFile(m, 'imported');
+    const mutate = m.controller.store.mutate.bind(m.controller.store);
+    m.controller.store.mutate = async command => { await mutate(command); throw m.api.fault('VERIFY'); };
+    m.view.applyImport(); await m.flush(); assert.equal(m.raw.content, 'imported'); assert.doesNotMatch(m.view.status.textContent, /^Saved/); assert(m.controller.writeError);
+    await m.controller.retry(); assert.match(m.view.status.textContent, /Saved/); assert(!m.controller.hasUncommittedWork()); m.view.destroy();
+});
+test('Import text: exact character limit accepted; byte gate rejects before reading; multiple files rejected', async () => {
+    const m = await importModel(); await importFile(m, '😀'.repeat(32000)); assert(!m.view.importApply.disabled);
+    let reads = 0; await importFile(m, '', { size: 131073, arrayBuffer() { reads++; return Promise.resolve(new ArrayBuffer(0)); } });
+    assert.equal(reads, 0); assert(m.view.importApply.disabled);
+    m.view.chooseImport(); m.view.importFile.files = [1, 2].map(() => ({ name: 'a.txt', size: 0, arrayBuffer: async () => { reads++; return new ArrayBuffer(0); } }));
+    await m.view.readImport(); assert.equal(reads, 0); assert(m.view.importApply.disabled); m.view.destroy();
+});
+test('Import text: completed preview invalidates on edits and remote hide without leaking ownership', async () => {
+    const m = await importModel(); await importFile(m, 'imported'); m.controller.setDraft(''); assert(m.view.importPanel.hidden);
+    await importFile(m, 'imported'); await new m.api.Store(m.backend).mutate({kind:'visibility',value:false,revision:m.raw.revision}); await m.flush();
+    assert(m.view.importPanel.hidden); assert(m.host.hidden); assert(!m.view.hasUncommittedWork()); m.view.applyImport(); assert.equal(m.raw.content, ''); m.view.destroy();
+});
+test('Import text adds no network, storage keys or permissions and uses controller save', () => {
+    const view = fs.readFileSync(require.resolve('../shared/local-scratchpad-view'), 'utf8');
+    const importCode = view.slice(view.indexOf('        canImport()'), view.indexOf('        exportText()'));
+    assert(!/fetch\(|XMLHttpRequest|chrome\.storage|localStorage|sessionStorage/.test(importCode));
+    assert(importCode.includes('this.controller.setDraft(text)')); assert(importCode.includes('this.controller.save()'));
 });

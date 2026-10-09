@@ -8,6 +8,10 @@ Autosave waits approximately 500 ms after editing, does not run during IME compo
 
 Configuration reload guards protect pending, dirty, failed and conflicted drafts. Beforeunload requests a browser departure warning where supported; there is no unload-time save promise and no guarantee against browser termination. A failed initial load stays readonly with Retry; corrupt saved data is not treated as blank.
 
+## TXT import follow-up
+
+Scratchpad now supports one bounded UTF-8 TXT file with an inline preview and explicit whole-note replacement. Selection and cancellation do not write. See [TXT import validation and remaining native checks](scratchpad-import-validation.md) for the later automated evidence, and the [English guide](local-scratchpad.en.md) / [中文说明](local-scratchpad.zh-CN.md) for migration and recovery. The older native acceptance records below cover the original editor/export interface, not the new import controls.
+
 ## Automated evidence
 
 Run `node --test tests/*.test.js` and `python -m unittest discover -s tests -p 'package_extension_test.py'`. Scratchpad suites exercise store limits/plaintext/Unicode/corruption/CAS/readback/failures, controller pending edits/IME/conflicts/retry, DOM-model load/retry/visibility/export/keyboard-labelled controls, and actual StorageManager boundaries including concurrent reset/save and runtime package allowlist. DOM models are not native browser or assistive-technology verification.

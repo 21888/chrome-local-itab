@@ -1,0 +1,111 @@
+{
+  "captured": "2026-10-09",
+  "images": [
+    {
+      "source_file": "05-clean-light-wide-preview.jpg",
+      "source_sha256": "8c5a88633da1892b46bff6e8018643242760c69d536178687d46fb4ebb0baaa8",
+      "crop_box_xyxy": [
+        303,
+        250,
+        1250,
+        868
+      ],
+      "output": "scratchpad-import-light-wide.png",
+      "output_sha256": "50394f79cddcb45efaa8face5ff3bf00a9e37d250be91cd7bc6c236170324a44",
+      "dimensions": [
+        947,
+        618
+      ],
+      "transformation": "Exact RGB crop only; no resizing, retouching or reconstructed UI",
+      "browser": "Chrome for Testing 155.0.8059.39, Linux, normal sandbox",
+      "outer_window": [
+        1188,
+        848
+      ],
+      "state": "English, light Clarity, saved original42 unchanged, imported synthetic UTF-8 TXT preview awaiting explicit replacement"
+    },
+    {
+      "source_file": "09-dark-wide-preview.jpg",
+      "source_sha256": "2e80c507763d16380ecf6bd25a2452f1d72afb49126de193c3017d77df8023a4",
+      "crop_box_xyxy": [
+        303,
+        250,
+        1250,
+        868
+      ],
+      "output": "scratchpad-import-dark-wide.png",
+      "output_sha256": "e4fa2a10714c5d98665f78dc6cf89a8a869922d68f4f361eb09154cf6691f537",
+      "dimensions": [
+        947,
+        618
+      ],
+      "transformation": "Exact RGB crop only; no resizing, retouching or reconstructed UI",
+      "browser": "Chrome for Testing 155.0.8059.39, Linux, normal sandbox",
+      "outer_window": [
+        1188,
+        848
+      ],
+      "state": "English, dark Clarity, previously imported synthetic note saved; new preview awaits explicit replacement"
+    }
+  ],
+  "runtime_sha256": {
+    "manifest.json": "8659a1c3fca5d8201ee437bf1bf4b001b46efe6b63fe988ebbae6978cb379f8a",
+    "newtab.html": "68f713a7014eaba8878002643a09424aee81f7c9f9ee7fe503f91eba96bc6cfb",
+    "options.html": "1e593e9279f73174a1c40461c75064bbab8a9d4d30c069d5f5893ac16f0a9fae",
+    "context-menu.js": "e259ebc4abc6ad0358d259954517a005cdeed9d6906f3890052c8c1615e4ca53",
+    "drive-backup.js": "a532d41527e15a5b556736c9263cf012fdd5313d68ade589af31b3d35ea0b8b2",
+    "error-handler.js": "c81fdb69ae9b20a5343734c21214b47d2364dc7ceddabcd2e1ac14b27263f1b7",
+    "favicon-cache.js": "a7f80eb6d8d966d80dde6bb60bfe5f5d0db83e9def9847346454e133c7ee30fe",
+    "i18n.js": "ceb56080b6f4d30e58df434a96e96f75003acc5407372c40e9b28243f9810604",
+    "newtab.js": "62ccbffd83b61009b12993b95d7aedc492d82b28ed88c5f64f702d99deb6179d",
+    "options.js": "10b07790ddab5becad7eb5ebb29adf3f9d81cf15135183cf22e41c3e390be2b0",
+    "storage.js": "b2e9ee3ae9985b5fd997596a83c6a2d3aa7a5a0fcfbad8496ef91efdaf703873",
+    "appearance.css": "f77735d87dc0d25f29339483da3172d6efef6507fab4492a909bf84551f5bc99",
+    "bookmark-import.css": "2a05b752e03d61620c6855ce6faf91572354603807cb847081aa423c41d25cf2",
+    "context-menu.css": "d9982eda24dbbb4ae6d5f58b78eddde9963bd2a3cfcc0f5d66b5b96c44df89e7",
+    "dashboard-template-gallery.css": "18b28d539c88bd1d812b8b6bb17d342be23b5a457d72f455da19fe54e3922d8c",
+    "dashboard-templates.css": "b25b3a9ac81bdb72785bb0c454d630da375287499eaa34fbee1adac9bb92df19",
+    "local-focus.css": "f6b3b71c576e22ba69daf2f17d0a59e421ddd53a400de7db3ffe9a8bbc623cc9",
+    "local-countdown.css": "c7c35e6caebb574f0ea5f95cf09c1b02021c55e4c31997db12f691dace886200",
+    "local-scratchpad.css": "47516259567b173c7ffe032772028db375631cce46e441b66ecab3275982265b",
+    "local-tasks.css": "27844d98c40ec80d6af37ca634f18550f4dd8eab38c18c015708f599a02c47c4",
+    "newtab.css": "8013358613294eb1649428598c8e9dc4f25cfd49b81e83d6f240d810a670bd86",
+    "options.css": "7f4041811ba18c70dd01feb51c52fbc50dd23d6778a98d573760d04d98a3aac2",
+    "shortcut-finder.css": "521fac85414816bb0a175334f77c9c009e9460009f725b5820caa305f0a64149",
+    "shared/world-clocks.js": "8f95d6acc0a9c61802e2a8a9c25eb6623a9875bdbaf38090aa5704e5e99fe600",
+    "shared/appearance.js": "cd75eaacf7023d878177729423133fb8cb54ffac29cf75568505e1b1fc489e94",
+    "shared/bookmark-import.js": "634169a0227399609b9a4204b3a01143685553502407b5ff1161351ea6a4b0d0",
+    "shared/bookmark-import-view.js": "02703b36de98d4973e6d956ed82473f0d27393875bd29562b1a2fc2ffeb4562a",
+    "shared/bookmark-export.js": "b7966ba1c97a7a96cf059a6c79e93f3085b5d5147defdd281d47611fd11664eb",
+    "shared/dashboard-template-registry.js": "57443721d90420f4452af6c6ea951f40ec41d6e0d551374361b4f5157a06a618",
+    "shared/dialog-focus.js": "960f6885dcc5b561e7893b008d0d1d02843ecb9f4ba99c690bbaecfcf670473f",
+    "shared/layout.js": "302c1592a30d4dfcba27b7274e1b2e309df09776ca4fc8b21e907b4dfd3e503f",
+    "shared/layout-identity.js": "5b75dd17cabd1a6be31c744312f29dbd538581c20c096f618960d111476862e2",
+    "shared/local-calculator.js": "4e0b99907fc387549fe13e4f8c22c90b1b96428634a68c8efc719a47688500fd",
+    "shared/local-countdown-store.js": "1ad0ee7a80e07f64d2d72ec89f999708dce937526d883a1132f5daccb32a349e",
+    "shared/local-countdown-controller.js": "466d1f5151458d8002bd9691bc2ff1bcac4f5f931da931d9762f2aebfd2121f6",
+    "shared/local-countdown-view.js": "54a06122560063aeed7697185021db69db6c82eb64d73d46c4de170232366a53",
+    "shared/local-content-lifecycle.js": "b4976af63c03d86daf16636bc339724908ebb8952387b5cbbab9ad43c0f151bf",
+    "shared/local-focus-controller.js": "c7c08e57d5d1f1f64e1fe105486349b5b521b005f863a28464fa05063905ab6c",
+    "shared/local-focus-store.js": "8c994011f7cc856d61730e146648b1d095e3526679dee529d6569eb8e99e761c",
+    "shared/local-focus-view.js": "b173bb629f561b39c34d570124e15f6d31f8a7dd01c902b999bc43a3575a62db",
+    "shared/local-scratchpad-store.js": "0aca60079a56ab6d06472bb3097ba659ca71fb9ea2218cb11c5f31c56c1796b7",
+    "shared/local-scratchpad-controller.js": "b355b9359826d349868eef435ab6a2a05a3ab36c2647248a801050b57504d0fc",
+    "shared/local-scratchpad-view.js": "3f27b41f4ac7e9732e0184bfc7e4745ecea8e8e81eb1b846f9d90d7b39a702b6",
+    "shared/local-tasks-controller.js": "5e0e431d7af9814e09f5a805da05570815c579c6bc9611050b1774259e371c56",
+    "shared/local-tasks-store.js": "8c130d72132579bd254baac50d9fe623f448016fe882692e4edb7d50afb7e8ae",
+    "shared/local-tasks-view.js": "015c22c9af124004bdb48687217dc52d30f309a81306ebedc55ef31744e34f86",
+    "shared/settings-search.js": "e0b5dd489663288966f27708a1f2188a52f24c5696086898e376a62c790b6578",
+    "shared/search-template.js": "29ebb2b052d067fde418aa825d11398b103a1f4fc4babcd3fe1aa71e37be1950",
+    "shared/shortcut-finder.js": "25caf05a4d713ed11722bbe4a8633f00710e3745d45b1cd79451b0799b066b95",
+    "shared/shortcut-finder-host.js": "5bc8448b078e7f4b75ca5d19495a1d9b20aedefdc33eb12c004d14bd8a679fbd",
+    "shared/shortcut-finder-view.js": "547394547436cd23338b3f9d94003155a24260a0adf5ce568cc4f69d13de0451",
+    "shared/workspace-presets.js": "1fbea8547f1e0444ee142f64e1c011366725c252796ab4bbfbe12a5c5b2163f2",
+    "shared/workspace-presets-view.js": "547e496827cd5469e943fb8173f94f9508c15f619217e0487f263ceef5223bea",
+    "_locales/en/messages.json": "92037a65777232b4237dbc10b4bf540413b47b90ec6fc80e4c6f999431fbdcb1",
+    "_locales/zh_CN/messages.json": "ead78691d95b380907d4c2d30fd0b14eeb76cc974962dbc6a7b008ca124fcc62",
+    "assets/icon16.png": "16b2e8a78f50163572e2e465a21e9b963316498514fdef2c93ba7e0c01f88fd7",
+    "assets/icon48.png": "1190671b3c62323c809c4850972fdcdf91c3bd809bdddb6c8fb480eabe396306",
+    "assets/icon128.png": "f9cf8257317337c3fb87e63ae5183ee23119d253b9ddcb1a29f460fac9c083c5"
+  }
+}

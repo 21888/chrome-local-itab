@@ -12,6 +12,11 @@
         scratchpadSaveError: 'Could not confirm the save. Your draft is still here. Retry or export a text copy before leaving.',
         scratchpadConflict: 'Another page changed the saved text. Your draft is still here. Use saved text to discard this draft, or replace saved text with this draft.',
         scratchpadRetry: 'Retry', scratchpadUseSaved: 'Use saved text', scratchpadReplace: 'Replace with my draft',
+        scratchpadImport: 'Import text', scratchpadImportReplace: 'Replace Scratchpad text',
+        scratchpadImportCancel: 'Cancel', scratchpadImportPreview: 'Text to import',
+        scratchpadImportHelp: 'Preview only. Replace will overwrite the saved Scratchpad text. Export a copy first if you want to keep it.',
+        scratchpadImportReading: 'Reading local text file…',
+        scratchpadImportError: 'Could not read this file. Choose one UTF-8 .txt file, up to 32,000 Unicode characters and 128 KiB. Scratchpad was not changed.',
         scratchpadExport: 'Export text', scratchpadDetails: 'Storage and backups',
         scratchpadSavedPreview: 'Latest saved text', scratchpadSettingsConflict: 'Scratchpad changed on another page. Read the latest saved state before changing visibility.', scratchpadReadLatest: 'Read latest saved state',
         scratchpadLimits: 'Up to 32,000 Unicode characters and 128 KiB of UTF-8 text. Longer drafts stay here until shortened; export a copy before leaving.',
@@ -49,10 +54,22 @@
             this.useSaved = button('scratchpadUseSaved', () => run(() => controller.useSaved()));
             this.replace = button('scratchpadReplace', () => run(() => controller.replaceWithDraft()));
             this.exportButton = button('scratchpadExport', () => this.exportText());
-            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton);
+            this.importButton = button('scratchpadImport', () => this.chooseImport());
+            this.importFile = el('input'); this.importFile.type = 'file'; this.importFile.accept = '.txt,text/plain'; this.importFile.hidden = true;
+            this.importFile.addEventListener('change', () => run(() => this.readImport()));
+            this.importFile.addEventListener('cancel', () => this.cancelImport(true));
+            this.importPanel = el('section', 'scratchpad-import'); this.importPanel.hidden = true;
+            this.importInfo = el('p', 'scratchpad-help'); this.importInfo.setAttribute('role', 'status');
+            this.importPreview = el('pre', 'scratchpad-import-preview'); this.importPreview.tabIndex = 0; this.importPreview.setAttribute('aria-label', t('scratchpadImportPreview'));
+            this.importApply = button('scratchpadImportReplace', () => this.applyImport());
+            this.importCancel = button('scratchpadImportCancel', () => this.cancelImport(true));
+            const importControls = el('div', 'scratchpad-controls'); importControls.append(this.importApply, this.importCancel);
+            this.importPanel.append(this.importInfo, this.importPreview, el('p', 'scratchpad-help', t('scratchpadImportHelp')), importControls);
+            this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
+            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.importButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
-            host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, details);
+            host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.importFile, this.importPanel, details);
             this.beforeUnload = event => { if (!this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
             root.addEventListener?.('beforeunload', this.beforeUnload);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
@@ -60,6 +77,8 @@
         render() {
             if (this.closed) return;
             const c = this.controller;
+            if (this.importSession && !this.importCurrent(this.importSession)) this.cancelImport();
+            this.importButton.disabled = !this.canImport();
             const visible = c.state?.enabled === true || c.hasUncommittedWork() || Boolean(!c.loaded && c.error);
             this.host.hidden = !visible;
             if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
@@ -78,6 +97,63 @@
             this.replace.disabled = Boolean(c.pending || c.composing || c.readError);
             this.exportButton.disabled = !c.loaded && !c.draft;
         }
+        canImport() {
+            const c = this.controller;
+            return !this.closed && c.loaded && c.state?.enabled === true && !c.pending && !c.error && !c.readError && !c.hasUncommittedWork();
+        }
+        importCurrent(session) {
+            return this.importSession === session && this.canImport() && this.controller.state === session.state && this.controller.generation === session.generation;
+        }
+        cancelImport(focus = false) {
+            const focused = document.activeElement, restore = this.importPanel.contains(focused);
+            this.importSession = null; this.importPanel.hidden = true; this.importPreview.textContent = ''; this.importInfo.textContent = ''; this.importFile.value = '';
+            if (focus && this.canImport()) this.importButton.focus();
+            else if (restore && !this.closed) {
+                if (this.controller.state?.enabled) this.textarea.focus();
+                else focused?.blur?.();
+            }
+        }
+        chooseImport() {
+            this.cancelImport();
+            if (!this.canImport()) return;
+            this.importSession = { state: this.controller.state, generation: this.controller.generation };
+            this.importFile.click();
+        }
+        async readImport() {
+            const session = this.importSession;
+            if (!session || !this.importCurrent(session)) { this.cancelImport(); return; }
+            // Each selection owns its own completion, even if another chooser opens.
+            const files = Array.from(this.importFile.files || []);
+            this.importFile.value = '';
+            if (!files.length) { this.cancelImport(true); return; }
+            this.importSession = { ...session }; const owned = this.importSession;
+            this.importPanel.hidden = false; this.importApply.disabled = true;
+            this.importPreview.textContent = ''; this.importInfo.textContent = t('scratchpadImportReading');
+            this.importCancel.focus();
+            try {
+                const file = files[0];
+                if (files.length !== 1 || !/\.txt$/i.test(file.name) || file.size > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
+                const bytes = await file.arrayBuffer();
+                if (!this.importCurrent(owned)) return;
+                if (bytes.byteLength > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
+                // Preserve a literal leading BOM as text, like our own UTF-8 export.
+                const text = api.content(new root.TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes));
+                owned.text = text;
+                this.importInfo.textContent = `${file.name} · ${Array.from(text).length.toLocaleString()} / 32,000 · ${bytes.byteLength.toLocaleString()} B`;
+                this.importPreview.textContent = text; this.importApply.disabled = false;
+            } catch (_) {
+                if (this.importCurrent(owned)) this.importInfo.textContent = t('scratchpadImportError');
+            }
+        }
+        applyImport() {
+            const session = this.importSession;
+            if (!session || !this.importCurrent(session) || typeof session.text !== 'string') { this.cancelImport(); return; }
+            const text = session.text; this.cancelImport();
+            // The controller owns the draft from here: existing CAS, Retry, conflict
+            // recovery, export and verified-save status apply without new storage.
+            this.controller.setDraft(text); this.textarea.focus();
+            run(() => this.controller.save());
+        }
         exportText() {
             // Export the current visible draft, including unsaved/conflicted text.
             let url, link;
@@ -91,7 +167,7 @@
             } catch (_) { link?.remove(); if (url) root.URL.revokeObjectURL(url); this.status.textContent = t('scratchpadExportError'); }
         }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
-        destroy() { this.closed = true; root.removeEventListener?.('beforeunload', this.beforeUnload); this.unsubscribe(); this.controller.destroy(); }
+        destroy() { this.cancelImport(); this.closed = true; root.removeEventListener?.('beforeunload', this.beforeUnload); this.unsubscribe(); this.controller.destroy(); }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
         host.classList.add('local-scratchpad-settings');

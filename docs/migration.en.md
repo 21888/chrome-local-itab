@@ -14,7 +14,7 @@ Keep the old installation until you have checked the restored data. Removing the
 
 1. Install an up-to-date Local iTab. Export any existing destination configuration first, then use **Import Settings** and review the replacement. Configuration imports do not replace the destination's personal modules.
 2. Enable Tasks if needed, then use **Task data → Import tasks** with its separate JSON. Review before replacing the destination list and pin; this is not an additive task merge. Export existing destination tasks first. [Task limits and recovery](local-tasks.en.md).
-3. Enable Scratchpad, open its TXT file and manually paste the text into the card. Wait for a confirmed save. There is no text-file import.
+3. Enable Scratchpad, choose **Import text** and select its UTF-8 TXT file. Review the preview, export existing text if needed, then choose **Replace Scratchpad text** and wait for a confirmed save. Cancel makes no changes. [Scratchpad limits and recovery](local-scratchpad.en.md).
 4. Enter the Countdown title and date manually in Settings, choose its visibility, and save. Its text file is not an automatic import format. Correct incomplete/invalid drafts before saving. [Countdown details](local-countdown.en.md).
 5. Set Focus durations and local card visibility manually; start a new timer when ready.
 

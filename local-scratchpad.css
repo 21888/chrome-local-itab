@@ -17,3 +17,5 @@
 .local-scratchpad-settings { margin-top: 16px; }
 .local-scratchpad-card details { margin-top: 14px; }
 @media (max-width: 600px) { .local-scratchpad-card { padding: 16px; } }
+.scratchpad-import { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--template-border); min-width: 0; }
+.scratchpad-import-preview { box-sizing: border-box; max-width: 100%; max-height: 220px; overflow: auto; padding: 10px; border: 1px solid var(--template-border); border-radius: 7px; background: var(--template-surface-raised); color: var(--template-text); white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 13px; line-height: 1.6; }

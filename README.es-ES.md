@@ -162,18 +162,18 @@ Con una página activa, el tiempo transcurrido se comprueba con un reloj monotó
 
 ### Bloc de notas local
 
-Activa Scratchpad en Ajustes → Visibilidad de módulos para guardar texto, enlaces o fragmentos. Está desactivado de forma predeterminada y guarda automáticamente en este dispositivo al dejar de escribir. Si hay cambios en otra pestaña, conserva el borrador y permite elegir entre el texto guardado y tu versión. Puedes exportar el borrador actual como TXT.
+Activa Scratchpad en Ajustes → Visibilidad de módulos para guardar texto, enlaces o fragmentos. Está desactivado de forma predeterminada y guarda automáticamente en este dispositivo al dejar de escribir. Si hay cambios en otra pestaña, conserva el borrador y permite elegir entre el texto guardado y tu versión. Puedes exportar el borrador actual como TXT o seleccionar un archivo TXT UTF-8 para previsualizarlo y reemplazar explícitamente la nota guardada. La importación requiere una nota sin cambios pendientes y admite hasta 32.000 caracteres Unicode / 128 KiB; cancelar no modifica nada. [Importación, límites y recuperación (en inglés)](docs/local-scratchpad.en.md).
 
 El bloc no se incluye en la exportación de configuración, Chrome Sync ni las copias de Google Drive. Expórtalo por separado antes de desinstalar o borrar los datos del navegador. [Alcance y validación](docs/local-scratchpad-validation.md).
 
 <details>
 <summary>Más plantillas y capturas reales de funciones</summary>
 
-![Bloc local con Tareas y temporizador: interfaz clara real](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+![Vista previa de importación TXT: interfaz clara real](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
 
-![Bloc local con Tareas y temporizador: interfaz oscura real](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+![Vista previa de importación TXT: interfaz oscura real](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
 
-[Procedencia y recorte de capturas](docs/screenshots/scratchpad/capture-metadata.json)
+[Procedencia y recorte de capturas](docs/screenshots/scratchpad-import/capture-metadata.json)
 
 </details>
 

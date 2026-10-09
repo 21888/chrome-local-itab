@@ -1,4 +1,11 @@
 {
+  "scratchpadImport": {"message": "导入文本"},
+  "scratchpadImportReplace": {"message": "替换便笺文本"},
+  "scratchpadImportCancel": {"message": "取消"},
+  "scratchpadImportPreview": {"message": "待导入文本"},
+  "scratchpadImportHelp": {"message": "仅供预览。替换将覆盖已保存的便笺文本。如需保留，请先导出副本。"},
+  "scratchpadImportReading": {"message": "正在读取本地文本文件…"},
+  "scratchpadImportError": {"message": "无法读取此文件。请选择一个 UTF-8 .txt 文件，最多 32,000 个 Unicode 字符、128 KiB。便笺未被修改。"},
   "countdownCardConflict": {"message": "其他页面更改了此倒计时。请先载入已保存内容，再选择隐藏。"},
   "countdownExportTooLarge": {"message": "草稿过大，无法导出。完整副本最多支持 32,000 个字符和 128 KiB UTF-8 文本。您的草稿仍保留在此处。"},
   "countdownTitle": {"message": "倒计时"},

@@ -1,4 +1,11 @@
 {
+  "scratchpadImport": {"message": "Import text"},
+  "scratchpadImportReplace": {"message": "Replace Scratchpad text"},
+  "scratchpadImportCancel": {"message": "Cancel"},
+  "scratchpadImportPreview": {"message": "Text to import"},
+  "scratchpadImportHelp": {"message": "Preview only. Replace will overwrite the saved Scratchpad text. Export a copy first if you want to keep it."},
+  "scratchpadImportReading": {"message": "Reading local text file…"},
+  "scratchpadImportError": {"message": "Could not read this file. Choose one UTF-8 .txt file, up to 32,000 Unicode characters and 128 KiB. Scratchpad was not changed."},
   "countdownCardConflict": {"message": "Another page changed this Countdown. Load saved before choosing Hide again."},
   "countdownExportTooLarge": {"message": "This draft is too large to export. Keep the full copy within 32,000 characters and 128 KiB of UTF-8 text. Your draft is still here."},
   "countdownTitle": {"message": "Countdown"},
