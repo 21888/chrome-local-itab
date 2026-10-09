@@ -640,6 +640,7 @@
   "calculatorHint": {"message": "本地计算器 · 按 Enter 计算。支持小数、+ - * / 和括号。"},
   "calculatorCalculate": {"message": "计算"},
   "calculatorResult": {"message": "本地结果"},
+  "calculatorCopyResult": {"message": "结果 · 选中后按 Ctrl/Cmd+C 复制"},
   "calculatorSyntax": {"message": "请检查表达式。仅支持小数、+ - * / 和括号。"},
   "calculatorLength": {"message": "表达式过长。= 后最多 256 个字符。"},
   "calculatorDepth": {"message": "括号或正负号嵌套过多。最多支持 32 层。"},

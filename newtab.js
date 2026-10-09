@@ -629,6 +629,7 @@ function initializeSearchComponent(searchConfig = {}) {
         custom: typeof searchConfig.custom === 'string' ? searchConfig.custom.trim() : ''
     };
 
+    window.localCalculatorView?.clearResult?.();
     container.replaceChildren();
     const form = document.createElement('form');
     form.className = 'search-form';
@@ -673,6 +674,30 @@ function initializeSearchComponent(searchConfig = {}) {
     calculatorStatus.setAttribute('role', 'status');
     calculatorStatus.setAttribute('aria-live', 'polite');
     calculatorStatus.setAttribute('aria-atomic', 'true');
+    // A native readonly field supports keyboard selection/copy without clipboard access.
+    const calculatorOutput = document.createElement('label');
+    calculatorOutput.className = 'search-calculator-output';
+    const calculatorOutputLabel = document.createElement('span');
+    calculatorOutputLabel.textContent = calculatorText('calculatorCopyResult', 'Result · select and press Ctrl/Cmd+C to copy');
+    const calculatorValue = document.createElement('input');
+    calculatorValue.className = 'search-calculator-value';
+    calculatorValue.type = 'text';
+    calculatorValue.readOnly = true;
+    calculatorValue.autocomplete = 'off';
+    calculatorValue.spellcheck = false;
+    calculatorOutput.append(calculatorOutputLabel, calculatorValue);
+    const clearCalculatorOutput = () => {
+        calculatorValue.value = '';
+        calculatorOutput.hidden = true;
+    };
+    clearCalculatorOutput();
+    calculatorValue.addEventListener('focus', () => {
+        if (calculatorValue.isConnected && !calculatorOutput.hidden && window.localCalculatorView === searchOwner) calculatorValue.select();
+    });
+    calculatorValue.addEventListener('keydown', event => {
+        // Readonly text inputs otherwise implicitly submit their enclosing form.
+        if (event.key === 'Enter') event.preventDefault();
+    });
     const searchStatus = document.createElement('div');
     searchStatus.id = 'search-open-status';
     // Keep the empty live region in the accessibility tree before its first update.
@@ -696,6 +721,7 @@ function initializeSearchComponent(searchConfig = {}) {
     let customSavePending = 0;
     let customComposing = false;
     const searchOwner = {
+        clearResult: clearCalculatorOutput,
         hasUncommittedWork: () => window.localCalculatorView === searchOwner && (
             (input.isConnected && Boolean(input.value.trim()) &&
                 (isCalculation() || input.value !== submittedValue)) ||
@@ -743,6 +769,7 @@ function initializeSearchComponent(searchConfig = {}) {
     };
     let composing = false;
     const updateCalculatorHint = () => {
+        clearCalculatorOutput();
         calculatorStatus.classList.remove('is-error');
         calculatorStatus.textContent = isCalculation()
             ? calculatorText('calculatorHint', 'Local calculator · Enter to calculate. Use decimals, + - * / and parentheses.')
@@ -891,7 +918,7 @@ function initializeSearchComponent(searchConfig = {}) {
         saveCustomSearch();
     });
 
-    form.append(select, input, button, calculatorStatus, searchStatus, customConfig);
+    form.append(select, input, button, calculatorStatus, calculatorOutput, searchStatus, customConfig);
     updateCustomConfigVisibility(false);
 
     form.addEventListener('keydown', event => {
@@ -903,13 +930,16 @@ function initializeSearchComponent(searchConfig = {}) {
         if (composing || event.isComposing) return;
         submissionRevision++;
         clearSearchStatus();
+        clearCalculatorOutput();
         // Intercept the explicit prefix before URL normalization or engine lookup.
         // Errors and a missing helper must never send expressions to a provider.
         if (isCalculation()) {
+            const expression = input.value, revision = editRevision;
             let result;
             try {
                 result = window.LocalItabCalculator?.calculate(input.value.trimStart().slice(1));
             } catch (_) { /* Calculator errors must stay local too. */ }
+            if (!input.isConnected || window.localCalculatorView !== searchOwner || input.value !== expression || editRevision !== revision) return;
             result = result || { error: 'unavailable' };
             const errors = {
                 syntax: ['calculatorSyntax', 'Check the expression. Use decimals, + - * / and parentheses only.'],
@@ -923,6 +953,10 @@ function initializeSearchComponent(searchConfig = {}) {
             calculatorStatus.textContent = result.error
                 ? calculatorText(...(errors[result.error] || errors.syntax))
                 : `${calculatorText('calculatorResult', 'Local result')} = ${result.value}`;
+            if (!result.error) {
+                calculatorValue.value = String(result.value);
+                calculatorOutput.hidden = false;
+            }
             return;
         }
         const query = input.value.trim();

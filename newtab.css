@@ -3656,3 +3656,33 @@ textarea:focus-visible,
 .world-clock-reading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 3px 8px; min-width: 0; max-width: 100%; margin-inline-start: auto; }
 .world-clock-time { color: var(--template-text); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.5; overflow-wrap: anywhere; }
 .world-clock-day { color: var(--template-muted); font-size: 11px; line-height: 1.5; }
+
+/* Successful local output stays selectable and fits narrow search rows. */
+.search-calculator-output {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.search-calculator-output[hidden] { display: none; }
+.search-calculator-value {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--template-control-radius, 8px);
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    font: inherit;
+    user-select: text;
+}
+.search-calculator-value:focus-visible {
+    outline: 3px solid var(--template-focus);
+    outline-offset: 2px;
+}

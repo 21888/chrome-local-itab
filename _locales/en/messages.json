@@ -640,6 +640,7 @@
   "calculatorHint": {"message": "Local calculator · Enter to calculate. Use decimals, + - * / and parentheses."},
   "calculatorCalculate": {"message": "Calculate"},
   "calculatorResult": {"message": "Local result"},
+  "calculatorCopyResult": {"message": "Result · select and press Ctrl/Cmd+C to copy"},
   "calculatorSyntax": {"message": "Check the expression. Use decimals, + - * / and parentheses only."},
   "calculatorLength": {"message": "Expression too long. Use at most 256 characters after =."},
   "calculatorDepth": {"message": "Too many nested parentheses or signs. Use at most 32 levels."},

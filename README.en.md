@@ -128,6 +128,8 @@ After deleting a shortcut, **Undo delete** restores the latest deletion on the s
 
 Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab: no search request, history or storage, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the previous result.
 
+After a successful calculation, Tab to the readonly result field to select its exact value, then press Ctrl/Cmd+C to copy with your browser. Calculation keeps focus on the expression; editing or starting IME composition clears the field. Results may display scientific notation even though that notation is not accepted as input.
+
 <details>
 <summary>Calculator scope and precision limits</summary>
 
