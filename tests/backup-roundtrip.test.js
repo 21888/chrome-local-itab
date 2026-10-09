@@ -10,7 +10,7 @@ function createHarness(config) {
     const provider = { sync: { enabled: true, lastSync: 'current-device-marker', lastError: '', includeLargeAssets: false } };
     const state = { blobs: [], decisions: [], prompts: [], feedback: [], writes: [], timers: [], reloads: 0, reads: 0, saveResult: true, saveError: null };
     const input = { value: 'backup.json' };
-    manager.getAll = async () => config;
+    manager.getAllForBackup = async () => config;
     manager.getLocalProviderState = async () => provider;
     manager.setAll = async (settings, options) => {
         state.writes.push({ settings, options });

@@ -397,7 +397,7 @@ class DriveBackupManager {
         }
 
         const state = await this.ensureState();
-        const config = await this.storageManager.getAll();
+        const config = await this.storageManager.getAllForBackup();
         const createdAtDate = new Date();
         const createdAt = createdAtDate.toISOString();
         const snapshotId = DriveBackupManager.createId('snapshot_');

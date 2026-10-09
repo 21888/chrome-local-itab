@@ -1918,7 +1918,7 @@ async function exportSettings() {
     try {
         showImportExportFeedback('export', 'info', 'Preparing export...');
         
-        const config = await storageManager.getAll();
+        const config = await storageManager.getAllForBackup();
         const exportData = storageManager.buildManualExportPayload(config);
         const itemCounts = exportData.itemCounts;
         

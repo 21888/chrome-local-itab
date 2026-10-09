@@ -888,6 +888,23 @@ class StorageManager {
         return this.validateBackgroundConfig(background);
     }
 
+    // Backups must never mistake a failed read or recovery fallback for saved data.
+    // Read configuration only: private local content and provider bookkeeping are
+    // deliberately outside this boundary, even when their values are malformed.
+    async getAllForBackup() {
+        await this.ensureSyncInitialized();
+        return this.withLocalWriteLock(async () => {
+            const raw = await chrome.storage.local.get(Object.keys(this.defaultConfig));
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                throw new Error('Stored settings could not be read safely. No backup was created.');
+            }
+            // Preserve the existing successful-read normalization and allowlist.
+            // Unlike getAll(), this boundary propagates errors instead of exporting
+            // runtime fallback defaults as a successful backup.
+            return this.validateConfigObject(raw);
+        });
+    }
+
     /**
      * Get all stored data
      * @returns {Promise<Object>} - All stored data with defaults for missing keys
