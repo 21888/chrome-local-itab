@@ -27,3 +27,17 @@ No missing-resource symptom appeared in these paths. Richer task-filter behavior
 This is a bounded startup smoke, not a console/network audit, execution of every dependency, an all-feature matrix, a live Sync/Drive check or native macOS/Windows validation. Rebuild and repeat checks after runtime changes; do not apply this artifact hash to a later package. The historical `release/*.zip` files are not this verified artifact.
 
 Before updating an existing installation, export configuration and Tasks separately if used. Keep the established unpacked-extension directory when replacing its files and reload it from Chrome's extension manager; loading another directory can create a separate extension identity with separate local data. Do not uninstall the old copy before verifying the update and backups.
+
+## Updated artifact and smoke — 2026-10-09
+
+A later delivered archive includes Finder's page shortcut, guarded search feedback, shortcut-deletion Undo and custom-search draft preservation.
+
+- Published runtime source: `cf1e7675371e1a8923cfd18da8517cce84417201`.
+- Archive: `local-itab-current-cf1e767.zip`, 1,049,735 bytes; 47 runtime files totaling 1,044,173 uncompressed bytes.
+- SHA-256: `1cba7f8781da9f9c549770bd73c287aeefd4235392dbb5d9992e6a9b650a2ce9`.
+- Manifest remains 1.1.5; this is an unpacked-extension delivery, not a store submission.
+- Full integrated checks: 217 Node tests and 19 Python packaging tests passed; the archive passed canonical byte verification.
+
+After checking the archive hash, a fresh directory was extracted without adding development files. Official Chrome for Testing 155.0.8059.39 on cloud Linux loaded it in a new owned disposable profile with the normal sandbox. Actual new-tab rendering, slash Finder open/Escape close, local `=2+3*4` result 14 without navigation, and the Settings page passed. Four original desktop screenshots and per-file hashes were retained. The test window was closed normally.
+
+This exact-artifact check covers startup and exercised dependency paths. It does not establish all-template/all-feature coverage, console/network audits, Chinese layout, live Sync, native IME, screen readers or other operating systems. Feature-specific reports retain their separate scopes. Follow the backup and same-directory update guidance above.
