@@ -1,0 +1,85 @@
+{
+  "status": "Final: two matched English wide card-row screenshots, dark and light",
+  "source_snapshot": "itab-scratchpad-integrated",
+  "source_base": "e9154d5",
+  "scratchpad_patch_sha256": "9e2e1963f5ae55fd6800e37eb446727f560c997a3dd33860ffd85f3115b5da37",
+  "runtime_newtab_js_sha256": "881ae6150025c8015dc23cbc2a2df83d56fd9a952d42ebf47bd4d55a98fa08fd",
+  "provenance_record": "source-hashes.json",
+  "images": [
+    {
+      "file": "scratchpad-en-dark-wide.png",
+      "sha256": "1850fe51b1ed15d3b5222cab7e8cd0d54ad867056055d8c7ba31dad71ea2a8ec",
+      "original": "originals/39-dark-final.jpg",
+      "original_sha256": "f52079e1faa606b6343599609e6122f57b111997634af78ebd86b2f8e2996540",
+      "original_size_px": [
+        1364,
+        1024
+      ],
+      "crop_box_ltrb_exclusive_px": [
+        190,
+        330,
+        1254,
+        805
+      ],
+      "output_size_px": [
+        1064,
+        475
+      ],
+      "pixel_validation": "PNG decoded RGB bytes exactly equal the specified region of the decoded original JPEG. No rescale, retouch, generation or recomposition. Original JPEG bytes preserved.",
+      "appearance": "English dark; Tasks, Focus timer and saved Scratchpad with synthetic text including second-tab update",
+      "scope": "Actual visible card-row screen region, not full-page capture. Pointer is outside the crop.",
+      "native_window_measurement": {
+        "x": 88,
+        "y": 88,
+        "width": 1188,
+        "height": 848,
+        "unit": "native screen pixels",
+        "source": "Native capture measurements"
+      },
+      "css_viewport": null,
+      "measurement_note": "Original full desktop image is 1364 × 1024 pixels; desktop image dimensions and any native window measurements are not CSS viewport dimensions.",
+      "theme": "Graphite",
+      "browser_zoom_percent": 100
+    },
+    {
+      "file": "scratchpad-en-light-wide.png",
+      "sha256": "e02345bd8e88248af99860b610dbc1dbbe0d133ffdcfee295fc172af5ee84004",
+      "original": "originals/41-light-view.jpg",
+      "original_sha256": "50bb4b09218b7c6a06c5cb0dfe85145ebaecb986e48114aa256964e177617936",
+      "original_size_px": [
+        1364,
+        1024
+      ],
+      "crop_box_ltrb_exclusive_px": [
+        190,
+        330,
+        1254,
+        805
+      ],
+      "output_size_px": [
+        1064,
+        475
+      ],
+      "pixel_validation": "PNG decoded RGB bytes exactly equal the specified region of the decoded original JPEG. No rescale, retouch, generation or recomposition. Original JPEG bytes preserved.",
+      "appearance": "English light; Tasks, Focus timer and saved Scratchpad with synthetic text including second-tab update",
+      "scope": "Actual visible card-row screen region, not full-page capture. Pointer is outside the crop.",
+      "native_window_measurement": {
+        "x": 88,
+        "y": 88,
+        "width": 1188,
+        "height": 848,
+        "unit": "native screen pixels",
+        "source": "Native capture measurements"
+      },
+      "css_viewport": null,
+      "measurement_note": "Original full desktop image is 1364 × 1024 pixels; desktop image dimensions and any native window measurements are not CSS viewport dimensions.",
+      "theme": "Graphite",
+      "browser_zoom_percent": 100
+    }
+  ],
+  "limitations": [
+    "No full-page, all-template, assistive technology, or Chinese IME coverage is established by these screenshots.",
+    "PNG encoding is lossless relative to decoded JPEG pixels; the source was already JPEG-compressed."
+  ],
+  "selection_note": "Chinese/narrow captures are outside this selected gallery pair. No claim of full-page, all-template, or assistive technology coverage."
+}

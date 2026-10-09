@@ -1,0 +1,19 @@
+/* Device-local Scratchpad shares the dashboard's semantic light/dark tokens. */
+.local-scratchpad-card { min-width: 0; align-self: start; padding: 20px; border: 1px solid var(--template-border); border-radius: 16px; color: var(--template-text); background: var(--template-surface); overflow-wrap: anywhere; }
+.local-scratchpad-card[hidden], .local-scratchpad-card [hidden], .local-scratchpad-settings [hidden] { display: none !important; }
+.scratchpad-header, .scratchpad-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.scratchpad-header { justify-content: space-between; margin-bottom: 14px; }
+.scratchpad-header h2 { margin: 0; font-size: 18px; color: inherit; }
+.scratchpad-local, .scratchpad-help { color: var(--template-muted); font-size: 12px; line-height: 1.6; }
+.scratchpad-text, .scratchpad-button { box-sizing: border-box; max-width: 100%; border: 1px solid var(--template-border); border-radius: 7px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; }
+.scratchpad-text { display: block; width: 100%; min-height: 180px; padding: 12px; resize: vertical; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.scratchpad-button { min-height: 36px; padding: 7px 10px; font-size: 13px; cursor: pointer; }
+.scratchpad-button:hover:not(:disabled) { border-color: var(--template-accent); }
+.scratchpad-button:disabled { opacity: .55; cursor: default; }
+.local-scratchpad-card :focus-visible, .local-scratchpad-settings :focus-visible { outline: 2px solid var(--template-focus); outline-offset: 3px; }
+.scratchpad-status { margin: 10px 0; font-size: 13px; line-height: 1.6; }
+.scratchpad-error { color: var(--template-error); }
+.scratchpad-enable-label { display: flex; align-items: center; gap: 10px; }
+.local-scratchpad-settings { margin-top: 16px; }
+.local-scratchpad-card details { margin-top: 14px; }
+@media (max-width: 600px) { .local-scratchpad-card { padding: 16px; } }

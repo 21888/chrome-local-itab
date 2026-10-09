@@ -225,3 +225,15 @@ python3 -m unittest discover -s tests -p '*_test.py'
 从本地 Chrome、Edge 或 Firefox HTML 导出文件预览并追加书签，不替换已有主页数据。应用前检查重复跳过、文件夹分类对应关系及现有同步/图标设置。[书签导入指南](docs/bookmark-import.zh-CN.md)。
 
 删除快捷方式后，可在当前页点击**撤销删除**恢复最近一次删除。刷新后失效；后续修改可能使撤销失效。[使用范围与安全说明](docs/shortcut-undo.md)。
+
+## 本地便签
+
+在设置的“模块显示”中开启便签，可随手记录文字、网址或片段。默认关闭；停止输入后自动保存在本设备。多标签页发生冲突时保留草稿，让你明确选择使用已保存内容或替换它。支持导出当前草稿为 TXT。
+
+便签不进入配置导出、Chrome Sync 或 Google Drive 备份。卸载扩展或清理浏览器数据前，请单独导出。[功能边界与验收记录](docs/local-scratchpad-validation.md)。
+
+![本地便签与待办、专注计时器：浅色实拍](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+
+![本地便签与待办、专注计时器：深色实拍](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+
+[截图来源与裁切记录](docs/screenshots/scratchpad/capture-metadata.json)

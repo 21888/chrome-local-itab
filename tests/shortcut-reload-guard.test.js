@@ -79,12 +79,13 @@ const submit = component => component.handleFormSubmit({ preventDefault() {} });
         h.context.window.storageManager=h.context.storageManager;
         h.context.chrome={storage:{onChanged:{addListener:f=>events.push(f)}}};
         h.context.setupCloudSyncChangeListener(); h.component.openAddModal();
-        for(const key of ['links','categories','__localItabPersonalTasksV1','__localItabFocusV1'])await events[0]({[key]:{newValue:[]}},'local');
+        for(const key of ['links','categories','__localItabPersonalTasksV1','__localItabFocusV1','__localItabScratchpadV1'])await events[0]({[key]:{newValue:[]}},'local');
         assert.equal(pulls,0);assert.equal(h.reloads,0);
         await events[0]({meta:{newValue:{}}},'sync'); assert.equal(pulls,1);assert.equal(h.reloads,0);
     }
-    // There is no existing beforeunload hook in production. This small candidate
-    // adds none: explicit reload confirmation remains the sole dialog here.
-    for(const file of ['newtab.js','options.js','shared/local-content-lifecycle.js'])assert(!/beforeunload/.test(fs.readFileSync(file,'utf8')));
+    // Shortcuts add no departure hook; Scratchpad owns its draft warning.
+    for(const file of ['newtab.js','options.js'])assert(!/beforeunload/.test(fs.readFileSync(file,'utf8')));
+    const source = fs.readFileSync('shared/local-content-lifecycle.js','utf8');
+    assert(source.includes("if (!root.localScratchpadSettingsView?.hasUncommittedWork()) return;"));
     console.log('PASS: Add/Edit empty/dirty/open; pending closed save; Cancel/current Save release; stale success/false/rejection ownership; explicit discard once; local events versus applied Sync reload; no duplicate beforeunload hook.');
 })().catch(e=>{console.error(e);process.exitCode=1});

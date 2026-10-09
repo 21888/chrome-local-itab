@@ -308,6 +308,15 @@ async function initializeDashboard() {
                 }
             });
         }
+        const scratchpadHost = document.getElementById('local-scratchpad-card');
+        if (scratchpadHost && window.LocalItabScratchpad && !window.localScratchpadView) {
+            window.localScratchpadView = window.LocalItabScratchpad.mount(scratchpadHost, {
+                onVisibility(visible) {
+                    window.localItabScratchpadVisible = visible;
+                    applyModuleVisibility(window.localItabModuleVisibility || config.show);
+                }
+            });
+        }
         initializeQuoteComponent(config.quote);
 
         console.log('Dashboard initialized successfully');
@@ -588,7 +597,7 @@ function applyModuleVisibility(showConfig) {
         container.classList.toggle('module-hidden', isVisible !== true);
         container.style.display = isVisible === true ? '' : 'none';
     });
-    const hasCards = window.localItabTasksVisible === true || window.localItabFocusVisible === true || ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
+    const hasCards = window.localItabTasksVisible === true || window.localItabFocusVisible === true || window.localItabScratchpadVisible === true || ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
     document.getElementById('info-cards-container')?.classList.toggle('module-hidden', !hasCards);
     document.querySelector('.dashboard-main')?.classList.toggle('has-info-cards', hasCards);
 }
@@ -1613,7 +1622,7 @@ function setupDashboardVisibilityToggle(uiConfig) {
 }
 
 function shouldToggleFromEvent(event) {
-    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .local-tasks-card, .local-focus-card, .tasks-overlay, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
+    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .local-tasks-card, .local-focus-card, .tasks-overlay, .local-scratchpad-card, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
     if (!event || !event.target) return false;
     return !event.target.closest(interactiveSelectors);
 }
@@ -1623,6 +1632,7 @@ function applyDashboardHiddenState(hidden) {
 }
 
 function setDashboardHidden(hidden) {
+    if (hidden && window.localScratchpadView?.hasUncommittedWork()) return;
     dashboardHiddenState = !!hidden;
     applyDashboardHiddenState(dashboardHiddenState);
     if (typeof window !== 'undefined') {

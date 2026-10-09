@@ -12,6 +12,8 @@ Local iTab stores user configuration, shortcuts, categories, layout preferences,
 
 Tasks, including completed and removed items and previous local copies, and the Focus timer session are stored separately on this device. They are excluded from configuration exports, Chrome Sync and Google Drive snapshots. Tasks has a separate user-initiated export/import; configuration reset/import/restore preserve task content and the Focus session. Tasks/Focus visibility and Focus durations are also device-only and excluded. In contrast, visibility settings for the weather, topic and movie cards remain ordinary configuration and may be exported or synced.
 
+Scratchpad is optional and off by default. Its plain text and visibility are stored separately on this device and excluded from configuration exports, Chrome Sync, Drive and configuration recovery snapshots. Settings reset/import/restore preserve it. Its explicit text export downloads the current draft, including unsaved text. No Scratchpad content is sent to a network service. Removing the extension or clearing browser data can erase saved text.
+
 Calculator expressions beginning with `=`, results and errors remain in the current tab's memory. The calculator does not save them as history in storage or send them to a search provider.
 
 Local storage is the primary copy of your configuration. Optional Chrome Sync and Google Drive features can send data to Google as described below. Images excluded from Chrome Sync can still be included in a Google Drive backup.

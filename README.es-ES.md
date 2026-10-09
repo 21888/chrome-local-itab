@@ -227,3 +227,15 @@ Revisa y aplica la visibilidad local de Tareas y del temporizador por separado d
 Previsualiza y añade marcadores desde una exportación HTML local de Chrome, Edge o Firefox sin reemplazar el panel guardado. Revisa duplicados, categorías y preferencias actuales de sincronización e iconos antes de aplicar. [Guía de importación](docs/bookmark-import.es-ES.md).
 
 Después de eliminar un acceso directo, **Undo delete** permite deshacer la última eliminación en esa misma página. Recargar la página borra esta opción; los cambios posteriores pueden impedir la restauración. [Alcance y seguridad](docs/shortcut-undo.md).
+
+## Bloc de notas local
+
+Activa Scratchpad en Ajustes → Visibilidad de módulos para guardar texto, enlaces o fragmentos. Está desactivado de forma predeterminada y guarda automáticamente en este dispositivo al dejar de escribir. Si hay cambios en otra pestaña, conserva el borrador y permite elegir entre el texto guardado y tu versión. Puedes exportar el borrador actual como TXT.
+
+El bloc no se incluye en la exportación de configuración, Chrome Sync ni las copias de Google Drive. Expórtalo por separado antes de desinstalar o borrar los datos del navegador. [Alcance y validación](docs/local-scratchpad-validation.md).
+
+![Bloc local con Tareas y temporizador: interfaz clara real](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+
+![Bloc local con Tareas y temporizador: interfaz oscura real](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+
+[Procedencia y recorte de capturas](docs/screenshots/scratchpad/capture-metadata.json)

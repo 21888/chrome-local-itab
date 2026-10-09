@@ -225,3 +225,15 @@ Preview and explicitly apply local Tasks/Focus visibility recommendations separa
 Preview and add bookmarks from a local Chrome, Edge or Firefox HTML export without replacing your saved dashboard. Review duplicate skips, folder mapping and currently enabled Sync/icon settings before Apply. [Bookmark import guide](docs/bookmark-import.en.md).
 
 After deleting a shortcut, **Undo delete** restores the latest deletion on the same page. Refreshing clears it; later changes may prevent undo. [Scope and safety details](docs/shortcut-undo.md).
+
+## Local Scratchpad
+
+Enable Scratchpad under Settings → Module Visibility for plain-text notes, links or snippets. It is off by default and autosaves on this device after typing pauses. Conflicting tabs keep your draft and offer an explicit choice between the saved text and your version. Export the current draft as TXT.
+
+Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Export it separately before uninstalling or clearing browser data. [Scope and validation](docs/local-scratchpad-validation.md).
+
+![Local Scratchpad with Tasks and Focus: actual light interface](docs/screenshots/scratchpad/scratchpad-en-light-wide.png)
+
+![Local Scratchpad with Tasks and Focus: actual dark interface](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
+
+[Capture provenance and crop record](docs/screenshots/scratchpad/capture-metadata.json)

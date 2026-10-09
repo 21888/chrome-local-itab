@@ -405,6 +405,10 @@ async function initializeOptionsPage() {
         await populateFormFields(config);
         setupCategoryManagement(config.categories);
         setupBookmarkImport();
+        const scratchpadHost = document.getElementById('local-scratchpad-settings');
+        if (scratchpadHost && window.LocalItabScratchpad && !window.localScratchpadSettingsView) {
+            window.localScratchpadSettingsView = window.LocalItabScratchpad.mountSettings(scratchpadHost);
+        }
         const focusHost = document.getElementById('local-focus-settings');
         if (focusHost && window.LocalItabFocus && !window.localFocusSettingsView) {
             window.localFocusSettingsView = window.LocalItabFocus.mountSettings(focusHost);
