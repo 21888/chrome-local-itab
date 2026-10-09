@@ -157,6 +157,22 @@ git diff --check
 
 这些检查覆盖逻辑回归、JavaScript 语法和 JSON 格式，不能代替真实浏览器验证。发布前还应加载扩展，检查中英文界面、键盘操作、拖拽、跨标签页编辑、导入恢复及可选联网流程。更多发布事项见[发布检查清单](docs/release-checklist.md)。
 
+### 生成并验证扩展 ZIP
+
+加载已解压的开发版无需构建。要离线生成仅包含运行文件的 ZIP，请安装 Python 3.10+（仅使用标准库），在仓库根目录运行：
+
+```bash
+python3 tools/package_extension.py
+python3 tools/package_extension.py --verify dist/local-itab-1.1.5.zip
+python3 -m unittest discover -s tests -p '*_test.py'
+```
+
+默认输出为已被 Git 忽略的 `dist/local-itab-1.1.5.zip`，不会覆盖已有文件。可使用 `--output /path/to/new-package.zip` 指定新的输出路径；仓库内的输出必须位于 `dist/`。历史 `release/*.zip` 保持不变，不是当前打包的输入。
+
+显式运行文件清单包含共享模块、两种界面语言资源和实际使用的图标。清单文件缺失，或 HTML 的本地 script/link/image、CSS 的 `url()`/`@import`、manifest 的入口/图标引用缺失时，检查会失败。新增依赖需更新工具中的 `RUNTIME_FILES`；JavaScript 动态生成的路径和动态导入仍需人工检查。测试、文档、截图、工具、未列入清单的文件及旧压缩包均不打包。ZIP 使用排序路径、固定时间戳及不压缩的原始字节，确保相同输入可复现。
+
+命令输出源 Git 提交及工作区状态（下载的源码可能没有提交信息）、文件数量和 ZIP 的 SHA256。`--verify` 将 ZIP 与当前源码字节及规范化 ZIP 元数据比较，因此其他提交生成的包可能无法通过。通过仅代表打包验证，不代表浏览器测试通过或已批准发布。上传前，请把新 ZIP 解压到独立目录，在 Chrome 中加载该目录并完成[发布检查](docs/release-checklist.md)。打包不会修改 manifest 版本，也不会发布扩展。
+
 ### 代码结构
 
 - `newtab.html` / `newtab.css` / `newtab.js`：新标签页界面与交互。

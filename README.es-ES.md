@@ -157,6 +157,22 @@ git diff --check
 
 Estas comprobaciones cubren regresiones de lógica, sintaxis JavaScript y validez de JSON; no sustituyen las pruebas en un navegador real. Antes de publicar, carga la extensión descomprimida y comprueba ambos idiomas de la interfaz, el uso del teclado, el arrastre, la edición entre pestañas, la restauración de copias y los flujos opcionales en línea. Consulta también la [lista de comprobación para publicar](docs/release-checklist.md).
 
+### Crear y verificar un ZIP de la extensión
+
+El desarrollo con la extensión descomprimida no requiere compilación. Para crear un ZIP sin conexión con solo los archivos de ejecución, usa Python 3.10+ (solo la biblioteca estándar) desde la raíz del repositorio:
+
+```bash
+python3 tools/package_extension.py
+python3 tools/package_extension.py --verify dist/local-itab-1.1.5.zip
+python3 -m unittest discover -s tests -p '*_test.py'
+```
+
+La salida predeterminada es `dist/local-itab-1.1.5.zip`, ignorada por Git. Nunca se sobrescriben archivos existentes; usa `--output /path/to/new-package.zip` para otro destino. Las salidas dentro del repositorio deben estar en `dist/`. Los archivos históricos `release/*.zip` se conservan y no se usan para generar el paquete actual.
+
+La lista explícita incluye los módulos compartidos, ambos idiomas de la interfaz y los iconos utilizados. La comprobación falla si falta un archivo de la lista o una referencia local de script/link/image en HTML, `url()`/`@import` en CSS o entradas/iconos del manifest. Añade las dependencias nuevas a `RUNTIME_FILES` en la herramienta; las rutas generadas por JavaScript y las importaciones dinámicas aún necesitan revisión manual. Se excluyen pruebas, documentación, capturas, herramientas, archivos fuera de la lista y paquetes antiguos. El ZIP usa rutas ordenadas, fechas fijas y bytes sin compresión para ser reproducible.
+
+El comando muestra la revisión Git y el estado de los cambios locales (o indica que no están disponibles en una descarga del código), el número de archivos y el SHA256 del ZIP. `--verify` compara el ZIP con los bytes del código actual y sus metadatos canónicos; un paquete de otra revisión puede fallar. Esto verifica el empaquetado, no las pruebas en el navegador ni la aprobación de publicación. Antes de subirlo, extrae el nuevo ZIP en otro directorio, cárgalo en Chrome y completa la [lista de publicación](docs/release-checklist.md). El empaquetado no cambia la versión del manifest ni publica la extensión.
+
 ### Estructura del código
 
 - `newtab.html` / `newtab.css` / `newtab.js`: interfaz e interacciones de la nueva pestaña.

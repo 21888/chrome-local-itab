@@ -35,8 +35,11 @@ Use this before packaging a public build.
 
 ## Verification
 
+- Run `node --test tests/*.test.js` and `python3 -m unittest discover -s tests -p '*_test.py'` from the repository root (Python 3.10+).
 - Run `node --check` for JS files.
 - Parse `manifest.json` and all `_locales/*/messages.json`.
 - Run `git diff --check`.
-- Reload the unpacked extension from `chrome://extensions/`.
+- Generate a fresh runtime ZIP with `python3 tools/package_extension.py`, then run `python3 tools/package_extension.py --verify dist/local-itab-1.1.5.zip`. Existing outputs are never overwritten; use a new `--output` path when needed and verify that path. See the [packaging instructions](../README.en.md#build-and-verify-an-extension-zip).
+- Record the reported source revision and ZIP SHA256. Keep `release/*.zip` as historical artifacts; do not upload them as the current build. Review the manifest version against the store listing before an actual upload; the packaging tool neither changes the version nor publishes.
+- Extract that exact verified ZIP into a separate directory and load or reload that directory from `chrome://extensions/`. Complete the product checks above against this packaged output; static packaging verification is not browser testing.
 - Test English and Chinese UI strings for overflow.

@@ -157,6 +157,22 @@ git diff --check
 
 These checks cover logic regressions, JavaScript syntax, and JSON validity; they do not replace testing in a real browser. Before a release, load the unpacked extension and check both interface languages, keyboard use, dragging, editing across tabs, backup restoration, and optional online flows. See the [release checklist](docs/release-checklist.md) for additional release tasks.
 
+### Build and verify an extension ZIP
+
+For unpacked development, no build is required. For an offline runtime-only ZIP, use Python 3.10+ (standard library only) from the repository root:
+
+```bash
+python3 tools/package_extension.py
+python3 tools/package_extension.py --verify dist/local-itab-1.1.5.zip
+python3 -m unittest discover -s tests -p '*_test.py'
+```
+
+The default output is ignored `dist/local-itab-1.1.5.zip`. Existing files are never overwritten; use `--output /path/to/new-package.zip` for another output. Paths inside the source tree must be under `dist/`; historical `release/*.zip` files are preserved and are not current build inputs.
+
+The explicit runtime list includes the shared modules, both interface locales and used icons. Missing listed files or local HTML script/link/image, CSS `url()`/`@import`, and manifest entrypoint/icon references fail the check. New dependencies must be added to `RUNTIME_FILES` in the utility; JavaScript-generated paths and dynamic imports still require manual review. Tests, docs, screenshots, tooling, unlisted files and old archives are excluded. ZIP entries use sorted paths, fixed timestamps and uncompressed bytes for reproducibility.
+
+The command reports the source Git revision (and working-tree status, or unavailable for a source download), file count and ZIP SHA256. `--verify` checks the ZIP against the current source bytes and canonical ZIP metadata, so a package from another revision may fail. This is packaging verification, not browser testing or release approval. Before uploading, extract the new ZIP into a separate directory, load that directory in Chrome and complete the [release checklist](docs/release-checklist.md). Packaging does not change the manifest version or publish anything.
+
 ### Code map
 
 - `newtab.html` / `newtab.css` / `newtab.js`: new tab interface and interactions.
