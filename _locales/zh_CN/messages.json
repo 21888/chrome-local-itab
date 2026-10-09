@@ -647,5 +647,12 @@
   "calculatorRange": {"message": "计算超出了支持的数值范围。"},
   "calculatorUnavailable": {"message": "本地计算器不可用。请重新加载页面后重试。"},
   "searchOpenFailed": {"message": "未能打开新标签页。输入已保留，你可以再次提交。"},
-  "searchOpenUnknown": {"message": "无法确认新标签页是否已打开。输入已保留；再次提交前，请先检查标签页。"}
+  "searchOpenUnknown": {"message": "无法确认新标签页是否已打开。输入已保留；再次提交前，请先检查标签页。"},
+    "settingsSearchLabel": {"message": "查找设置"},
+    "settingsSearchPlaceholder": {"message": "搜索设置名称"},
+    "settingsSearchHelp": {"message": "搜索所有标签页中的设置名称，不会搜索您保存的内容。"},
+    "settingsSearchClear": {"message": "清除搜索"},
+    "settingsSearchCount": {"message": "找到 {count} 个设置区域"},
+    "settingsSearchEmpty": {"message": "没有匹配的设置，请尝试其他设置名称。"},
+    "settingsSearchBookmarks": {"message": "导入浏览器书签"}
 }

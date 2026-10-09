@@ -110,6 +110,8 @@ Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simu
 - **Copias locales en JSON**: Exporta la configuración y las imágenes locales, o importa una copia existente. La importación valida los datos y pide confirmación. Restaurar sustituye la configuración actual, así que conviene exportar una copia antes. Los archivos de más de 10 MiB muestran un aviso sobre el uso de memoria antes de leerlos y se pueden cancelar. La restauración de archivos grandes sigue dependiendo de la memoria disponible en el navegador. Se conserva el estado de sincronización del dispositivo actual.
 - **Funciones opcionales en la nube**: Chrome Sync sincroniza ajustes ligeros; Google Drive guarda instantáneas manuales agrupadas por nombre del equipo. Su funcionamiento y sus límites se explican a continuación.
 
+- **Buscar ajustes**: Busca nombres de ajustes en las seis pestañas y abre la sección con un clic o el teclado. La consulta es temporal y local; se excluyen el contenido guardado y los valores de los campos. [Guía en inglés](docs/settings-search.md#english).
+
 ## Búsqueda y gestión de sitios
 
 ### Buscar sitios guardados

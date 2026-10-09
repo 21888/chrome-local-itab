@@ -289,6 +289,7 @@ button {
     flex: 1;
     min-height: 0;
     display: flex;
+    flex-direction: column;
 }
 
 .options-layout {
@@ -1593,3 +1594,38 @@ textarea:focus-visible,
 
 /* Match the surrounding Settings cards without changing editor behavior. */
 .world-clock-body { padding: var(--spacing-xl); }
+
+/* Settings-only search: above the existing sidebar/content layout. */
+.options-main > .options-layout { width: 100%; min-width: 0; }
+.settings-search {
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-lg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    color: var(--text-primary);
+}
+.settings-search-controls { display: flex; align-items: center; gap: var(--spacing-sm); }
+.settings-search-controls input { flex: 1; min-width: 0; }
+.settings-search-controls button { flex-shrink: 0; }
+.settings-search-status { margin-top: var(--spacing-sm); color: var(--text-muted); }
+.settings-search-status:empty { display: none; }
+.settings-search-results { list-style: none; padding: 0; margin: var(--spacing-md) 0 0; display: grid; gap: var(--spacing-sm); }
+.settings-search-results[hidden] { display: none; }
+.settings-search-result {
+    width: 100%; min-height: 44px; text-align: left; white-space: normal;
+    padding: var(--spacing-md); border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm); background: var(--glass-bg); color: var(--text-primary);
+    cursor: pointer; overflow-wrap: anywhere;
+}
+.settings-search-result:hover { background: var(--glass-bg-hover); }
+.settings-search-result-title, .settings-search-result-detail { display: block; }
+.settings-search-result-title { font-weight: 600; }
+.settings-search-result-detail { margin-top: 4px; color: var(--text-muted); font-size: .9rem; }
+.settings-section .section-title[tabindex="-1"]:focus,
+.settings-section [role="group"][tabindex="-1"]:focus,
+.settings-section[tabindex="-1"]:focus { outline: 2px solid var(--text-accent); outline-offset: 4px; }
+@media (max-width: 640px) {
+    .settings-search-controls { align-items: stretch; flex-direction: column; }
+    .settings-search-controls button { align-self: flex-start; }
+}

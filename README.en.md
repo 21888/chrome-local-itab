@@ -110,6 +110,8 @@ Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protecti
 - **Local JSON backups**: Export settings and local images, or import an existing backup. Imports validate the data and ask for confirmation. Restoring replaces the current configuration, so export a copy first. Files over 10 MiB show a memory-risk warning before reading and can be cancelled. Restoring large files still depends on available browser memory. The current device's sync state is retained.
 - **Optional cloud features**: Chrome Sync handles lightweight settings synchronization; Google Drive stores manual snapshots grouped by computer name. Their behavior and limits are explained below.
 
+- **Find a setting**: Search built-in setting names across all six Settings tabs, then open the matching section with a click or keyboard. Queries stay temporary and local; saved content and form values are excluded. [Settings search guide](docs/settings-search.md).
+
 ## Search and website management
 
 ### Find saved sites

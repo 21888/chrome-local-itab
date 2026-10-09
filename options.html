@@ -31,6 +31,16 @@
         </header>
         
         <main class="options-main">
+            <section id="settings-search" class="settings-search" aria-labelledby="settings-search-label">
+                <label id="settings-search-label" for="settings-search-input" class="form-label" data-i18n="settingsSearchLabel">Find a setting</label>
+                <div class="settings-search-controls">
+                    <input id="settings-search-input" type="search" class="form-input" maxlength="200" autocomplete="off" spellcheck="false" aria-describedby="settings-search-help" aria-controls="settings-search-results" data-i18n-placeholder="settingsSearchPlaceholder" placeholder="Search setting names">
+                    <button id="settings-search-clear" type="button" class="btn btn-secondary" data-i18n="settingsSearchClear">Clear search</button>
+                </div>
+                <p id="settings-search-help" class="form-hint" data-i18n="settingsSearchHelp">Search setting names across all tabs. Your saved content is not searched.</p>
+                <p id="settings-search-status" class="settings-search-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                <ul id="settings-search-results" class="settings-search-results" hidden></ul>
+            </section>
             <div class="options-layout">
                 <aside class="options-tabs" role="tablist" aria-label="Settings tabs">
                     <button class="tab-button active" data-tab="appearance" role="tab" aria-selected="true" aria-controls="tab-appearance">
@@ -689,6 +699,7 @@
     <script src="shared/workspace-presets-view.js"></script>
     <script src="shared/local-content-lifecycle.js"></script>
     <script src="shared/bookmark-import-view.js"></script>
+    <script src="shared/settings-search.js"></script>
     <script src="options.js"></script>
 </body>
 </html>

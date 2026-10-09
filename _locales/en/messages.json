@@ -647,5 +647,12 @@
   "calculatorRange": {"message": "The calculation exceeds the supported number range."},
   "calculatorUnavailable": {"message": "The local calculator is unavailable. Reload the page to retry."},
   "searchOpenFailed": {"message": "Could not open a new tab. Your input is still here; you can submit it again."},
-  "searchOpenUnknown": {"message": "Unable to confirm whether a new tab opened. Your input is still here; check your tabs before submitting again."}
+  "searchOpenUnknown": {"message": "Unable to confirm whether a new tab opened. Your input is still here; check your tabs before submitting again."},
+    "settingsSearchLabel": {"message": "Find a setting"},
+    "settingsSearchPlaceholder": {"message": "Search setting names"},
+    "settingsSearchHelp": {"message": "Search setting names across all tabs. Your saved content is not searched."},
+    "settingsSearchClear": {"message": "Clear search"},
+    "settingsSearchCount": {"message": "{count} settings sections found"},
+    "settingsSearchEmpty": {"message": "No matching settings. Try another setting name."},
+    "settingsSearchBookmarks": {"message": "Import browser bookmarks"}
 }

@@ -235,6 +235,7 @@ function setupSettingsTabs() {
     if (!tabs.length || !panels.length) return;
 
     const activateTab = (tabId) => {
+        if (!tabs.some(tab => tab.dataset.tab === tabId) || !panels.some(panel => panel.dataset.tab === tabId)) return false;
         tabs.forEach(btn => {
             const isActive = btn.dataset.tab === tabId;
             btn.classList.toggle('active', isActive);
@@ -249,6 +250,7 @@ function setupSettingsTabs() {
 
         const content = document.querySelector('.options-content');
         if (content) content.scrollTop = 0;
+        return true;
     };
 
     // The sidebar becomes a wrapped horizontal tablist at the CSS breakpoint.
@@ -287,11 +289,12 @@ function setupSettingsTabs() {
             setTimeout(() => {
                 targetSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 80);
-            return;
+            return {activateTab};
         }
     }
 
     activateTab(tabs[0].dataset.tab);
+    return {activateTab};
 }
 
 function setupCloudSyncChangeListener() {
@@ -441,12 +444,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         setupEventListeners();
 
         // Initialize tabbed layout
-        setupSettingsTabs();
+        const settingsTabs = setupSettingsTabs();
         setupCloudSyncChangeListener();
         
         // Apply i18n to DOM
         if (window.i18n) {
             window.i18n.localizeDocument(document);
+        }
+        if (settingsTabs && window.LocalItabSettingsSearch) {
+            window.LocalItabSettingsSearch.mount(document.getElementById('settings-search'), settingsTabs);
         }
 
         // Display storage usage info

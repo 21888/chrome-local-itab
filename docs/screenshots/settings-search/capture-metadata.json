@@ -1,0 +1,60 @@
+[
+  {
+    "file": "settings-search-en-light-wide.png",
+    "sha256": "1ffb76641cdaff362fd704a26ae100b7e22214220d438003c02fa3814bb334b4",
+    "original_capture": "23-light-search.jpg",
+    "original_sha256": "a896b58bdd376281aa95b438f492d3686fc2a7bbe734282b242b95fbc4c50a2e",
+    "original_pixels": [
+      1364,
+      1024
+    ],
+    "crop_box": [
+      136,
+      241,
+      1213,
+      571
+    ],
+    "output_pixels": [
+      1077,
+      330
+    ],
+    "native_window_pixels": [
+      1188,
+      848
+    ],
+    "css_viewport": "not measured",
+    "processing": "Exact RGB crop only; no resizing, retouching or generated elements",
+    "language": "en",
+    "browser": "Chrome for Testing 155.0.8059.39",
+    "date_utc": "2026-10-09"
+  },
+  {
+    "file": "settings-search-en-dark-wide.png",
+    "sha256": "c10ce8fbc5c8e62b6e3a9777f07ab9e6a0e26c9f395f202d19cf9e82968016cb",
+    "original_capture": "33-dark-wide.jpg",
+    "original_sha256": "eeebe25416f9058bf1e61f2f81e5c0797d06586e9a9932984836621b30db6bf5",
+    "original_pixels": [
+      1364,
+      1024
+    ],
+    "crop_box": [
+      81,
+      487,
+      1216,
+      820
+    ],
+    "output_pixels": [
+      1135,
+      333
+    ],
+    "native_window_pixels": [
+      1260,
+      848
+    ],
+    "css_viewport": "not measured",
+    "processing": "Exact RGB crop only; no resizing, retouching or generated elements",
+    "language": "en",
+    "browser": "Chrome for Testing 155.0.8059.39",
+    "date_utc": "2026-10-09"
+  }
+]
