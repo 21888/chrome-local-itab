@@ -16,6 +16,26 @@ Limit: 256 characters after `=` and 32 combined levels of nested parentheses/una
 
 ## Preview
 
+### Current features
+
+Actual interface captures with sample data and English controls. The images are cropped, never redrawn. Task captures focus on the cards; the other images show the visible page area at capture time. Some content requires scrolling.
+
+**Local tasks and focus timer · Light / Dark**: the light capture shows one match for `review` and the clear-filter control; the dark capture shows both tasks without a filter.
+
+![Light task cards with one filtered match and the focus timer](docs/screenshots/current-features/tasks-filter-light.png)
+
+![Dark task cards with two unfiltered tasks and the focus timer](docs/screenshots/current-features/tasks-filter-dark.png)
+
+**Local calculator**: entering `=(12+3)/2` in search displays `7.5`.
+
+![Local calculation result in the search box](docs/screenshots/current-features/calculator.png)
+
+**Bookmark import preview**: review new-item counts, folder mapping and privacy settings before saving.
+
+![Bookmark HTML import preview and confirmation controls](docs/screenshots/current-features/bookmark-preview.png)
+
+[Original captures, revision and crop details](docs/screenshots/current-features/capture-manifest.json)
+
 ### Twelve new templates · Light / Dark
 
 Actual interface captures of the twelve additional templates use the same 18-site sample setup, with English controls and Chinese categories. Only the browser's testing notice and bottom bar were cropped away; the interface was not redrawn. Images show the captured visible area, and longer content continues below it. Weather and other cards contain manually entered examples, not live data.

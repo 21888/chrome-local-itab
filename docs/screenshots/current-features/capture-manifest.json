@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "captureDate": "2026-10-09",
+  "method": "Actual Chrome extension interface captured through the native browser. Original desktop screenshots retained unchanged; PNGs are pixel-exact rectangular crops. No UI redrawing, retouching, resizing or compositing.",
+  "baseRevision": "06366b41416ec921552c1257842282793dbc2fd2",
+  "documentationBaseRevision": "653908b023649508c7e245e24153e3f09fdb52a7",
+  "sourceHashes": "source-hashes-before-task-filter.json",
+  "sourceNote": "The capture owner verified runtime source at 06366b4 remained unchanged through documentation base 653908b. Tasks captures additionally use the four-file overlay identified by tasks-candidate-source-hashes.json. These four files exactly match the integrated and remotely verified revision fb39d1387e2f59ace7b027ede07d73566a88e7f6.",
+  "interfaceLanguage": "English",
+  "data": "Demonstration sites and local tasks. Bookmark preview used a three-bookmark sample and was canceled without import. Focus timer is ready to start, not running.",
+  "cropCoordinates": "[left, top, right, bottom], original physical pixels, right/bottom exclusive. Browser zoom is recorded per image; CSS viewport dimensions were not measured. Cropped images do not claim to show a full page or full viewport.",
+  "captures": [
+    {
+      "file": "calculator.png",
+      "original": "originals/calculator-original.jpg",
+      "originalSha256": "f7dc000683124a359fb2a71f277cd5e1565dd147086cffb3cb202366d7291324",
+      "sha256": "07475ca0c19be481538d1290c066c88f036de4b402c35ca9daa29e9208bde7b0",
+      "originalDimensions": [
+        1364,
+        1024
+      ],
+      "dimensions": [
+        1188,
+        647
+      ],
+      "cropBounds": [
+        88,
+        232,
+        1276,
+        879
+      ],
+      "browserZoom": "80%",
+      "subject": "Visible page area with =(12+3)/2 and local result 7.5.",
+      "pixelExactCropVerified": true
+    },
+    {
+      "file": "bookmark-preview.png",
+      "original": "originals/bookmark-preview-original.jpg",
+      "originalSha256": "a492c3648a704b9cd819de5022b647f740a13611b6c058847fb3a0fe308f9394",
+      "sha256": "25c9c00abcba3135b964a8d98e8b8a4a46b2c8d5c4055e03e76cfc9d86ddff7b",
+      "originalDimensions": [
+        1364,
+        1024
+      ],
+      "dimensions": [
+        1188,
+        647
+      ],
+      "cropBounds": [
+        88,
+        232,
+        1276,
+        879
+      ],
+      "browserZoom": "100%",
+      "subject": "Visible settings area scrolled to bookmark import preview; three new sites and two new categories.",
+      "pixelExactCropVerified": true
+    },
+    {
+      "file": "tasks-filter-light.png",
+      "original": "originals/tasks-filter-light-original.jpg",
+      "originalSha256": "a64c33c9716dc9073a4b73f2034a11e339fec524fb6b36d2cf7f37e82cd3245b",
+      "sha256": "24e6d9da997d6fd4b39dd6be2d370d6a22d1fd7b0cfc65ac81265a07a7a92123",
+      "originalDimensions": [
+        1364,
+        1024
+      ],
+      "dimensions": [
+        1040,
+        490
+      ],
+      "cropBounds": [
+        202,
+        374,
+        1242,
+        864
+      ],
+      "browserZoom": "100%",
+      "subject": "Selected Tasks and Focus timer card region; review query yields one match and a clear-filter control.",
+      "pixelExactCropVerified": true,
+      "sourceOverlayHashes": "tasks-candidate-source-hashes.json",
+      "integratedRevision": "fb39d1387e2f59ace7b027ede07d73566a88e7f6"
+    },
+    {
+      "file": "tasks-filter-dark.png",
+      "original": "originals/tasks-filter-dark-original.jpg",
+      "originalSha256": "734b42b3c2560bd0b20d26962f7b81eab60b216139c70f3d8157f60ac7bb7043",
+      "sha256": "8bae9b11f79da1c4d5c600077a73535eb14efa50c4e764bdba32d13df35dc3d1",
+      "originalDimensions": [
+        1364,
+        1024
+      ],
+      "dimensions": [
+        1040,
+        531
+      ],
+      "cropBounds": [
+        202,
+        333,
+        1242,
+        864
+      ],
+      "browserZoom": "100%",
+      "subject": "Selected Tasks and Focus timer card region; two tasks shown without filtering.",
+      "pixelExactCropVerified": true,
+      "sourceOverlayHashes": "tasks-candidate-source-hashes.json",
+      "integratedRevision": "fb39d1387e2f59ace7b027ede07d73566a88e7f6"
+    }
+  ],
+  "tasksIntegrationRevision": "fb39d1387e2f59ace7b027ede07d73566a88e7f6"
+}

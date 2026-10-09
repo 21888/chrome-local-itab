@@ -16,6 +16,26 @@ Límites: 256 caracteres después de `=` y 32 niveles combinados de paréntesis 
 
 ## Vista previa
 
+### Funciones actuales
+
+Capturas reales con datos de ejemplo y controles en inglés. Las imágenes están recortadas, sin redibujar la interfaz. Las capturas de tareas se centran en las tarjetas; las demás muestran el área visible al capturarlas. Parte del contenido requiere desplazarse.
+
+**Tareas locales y temporizador · Claro / Oscuro**: la captura clara muestra una coincidencia para `review` y el botón para quitar el filtro; la oscura muestra las dos tareas sin filtrar.
+
+![Tarjetas claras con una tarea filtrada y el temporizador](docs/screenshots/current-features/tasks-filter-light.png)
+
+![Tarjetas oscuras con dos tareas sin filtrar y el temporizador](docs/screenshots/current-features/tasks-filter-dark.png)
+
+**Calculadora local**: al escribir `=(12+3)/2` en la búsqueda, aparece `7.5`.
+
+![Resultado de un cálculo local en el cuadro de búsqueda](docs/screenshots/current-features/calculator.png)
+
+**Vista previa de importación de marcadores**: revisa las cantidades, la correspondencia de carpetas y los ajustes de privacidad antes de guardar.
+
+![Vista previa de importación HTML de marcadores y controles de confirmación](docs/screenshots/current-features/bookmark-preview.png)
+
+[Capturas originales, revisión y detalles de recorte](docs/screenshots/current-features/capture-manifest.json)
+
 ### Doce plantillas nuevas · Claro / Oscuro
 
 Capturas reales de las doce plantillas adicionales con la misma configuración de 18 sitios, controles en inglés y categorías en chino. Solo se recortaron el aviso de pruebas y la barra inferior del navegador; no se redibujó la interfaz. Las imágenes muestran el área visible al capturarlas; el contenido más largo continúa al desplazarse. El tiempo y las demás tarjetas contienen ejemplos introducidos manualmente, no datos en directo.

@@ -16,6 +16,26 @@
 
 ## 界面预览
 
+### 当前功能实拍
+
+使用示例数据拍摄的实际界面（英文控件）；仅裁切画面，未重绘。待办图片聚焦卡片区域，其余图片展示当时可见的页面区域；部分内容需要滚动查看。
+
+**本地待办与专注计时器 · 浅色 / 深色**：浅色图展示 `review` 筛选后的单条匹配与清除按钮；深色图展示未筛选的两条待办。
+
+![浅色待办卡片：筛选出一条匹配，旁边为专注计时器](docs/screenshots/current-features/tasks-filter-light.png)
+
+![深色待办卡片：未筛选的两条待办与专注计时器](docs/screenshots/current-features/tasks-filter-dark.png)
+
+**本地计算器**：在搜索框输入 `=(12+3)/2`，显示结果 `7.5`。
+
+![搜索框中的本地计算结果](docs/screenshots/current-features/calculator.png)
+
+**书签导入预览**：保存前查看新增数量、文件夹映射和隐私设置。
+
+![书签 HTML 导入预览及确认按钮](docs/screenshots/current-features/bookmark-preview.png)
+
+[原始截图、版本与裁切记录](docs/screenshots/current-features/capture-manifest.json)
+
 ### 十二种新增模版 · 浅色 / 深色
 
 以下为当前十二种新增模版的真实界面截图：同一份 18 个网站的示例配置，英文界面、中文分类。仅裁去浏览器顶部测试提示和底部浏览器栏，没有重绘界面。图片展示截取时可见的页面区域，较长内容可向下滚动；天气等卡片为手动示例，不是实时数据。
