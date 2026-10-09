@@ -43,3 +43,5 @@ Use this before packaging a public build.
 - Record the reported source revision and ZIP SHA256. Keep `release/*.zip` as historical artifacts; do not upload them as the current build. Review the manifest version against the store listing before an actual upload; the packaging tool neither changes the version nor publishes.
 - Extract that exact verified ZIP into a separate directory and load or reload that directory from `chrome://extensions/`. Complete the product checks above against this packaged output; static packaging verification is not browser testing.
 - Test English and Chinese UI strings for overflow.
+
+Latest recorded artifact and bounded browser results: [runtime package validation](package-validation.md).
