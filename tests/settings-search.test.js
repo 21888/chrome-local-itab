@@ -142,3 +142,11 @@ assert(css.includes('.settings-search-results[hidden]')); assert(css.includes('.
 assert(!/localStorage|sessionStorage|fetch\(|chrome\.storage|console\.|\.innerHTML|\.value\s*=.*entry/.test(searchSource));
 assert(fs.readFileSync('tools/package_extension.py', 'utf8').includes('"shared/settings-search.js"'));
 console.log('PASS Settings search: static translated labels, all six tabs/17 destinations in en/zh, normalization, hidden panels, IME/modifier/repeat guards, no Enter-in-input, safe focus, conditional/stale targets, draft identity, private sentinels, zero writes/remounts, theme/narrow integration. Native layout and key synthesis not modeled.');
+
+// The new export action is a static label in the existing Data destination.
+for (const locale of ['en', 'zh_CN']) {
+    const h = harness(locale);
+    assert.equal(h.entries.length, 17);
+    const label = locales[locale].bookmarkExportButton.message;
+    assert(h.api.find(label).some(entry => entry.target === 'data-settings'));
+}

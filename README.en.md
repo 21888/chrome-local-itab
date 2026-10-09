@@ -102,6 +102,8 @@ Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protecti
 
 ## Features
 
+- **Browser bookmark export**: In Settings → Data, export saved site titles, full URLs and category folders to a local HTML file. Review the privacy confirmation first; unsaved edits, icons, settings and local tools are excluded. [Scope and limits](docs/bookmark-export.md).
+
 - **Search and go**: Use Google, Bing, DuckDuckGo, or a custom search URL, or open a website directly. Use `%s` for the search term in a custom template, such as `https://example.com/search?q=%s`.
 - **Organized shortcuts**: Add, edit, and delete saved websites; filter by category; choose Grid (default, with drag reordering), Free placement (no snapping), or Manual · snap to grid using the Placement selector on the dashboard or in Settings. Switching keeps saved positions. The context menu includes shortcut actions and an option to open every website in a category.
 - **Fifteen workspace templates**: Keep A / Clarity, B / Graphite and C / Folio, or choose one of twelve additional designs, each with light and dark colors. New installations use A/light. Selecting a style saves appearance only, preserving sites, categories, Tasks, backgrounds, placement mode and stored coordinates. Grouped styles use real categories in Grid; manual layouts retain one coordinate plane. [Style guide](docs/template-gallery.en.md).

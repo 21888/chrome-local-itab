@@ -655,5 +655,10 @@
     "settingsSearchClear": {"message": "Clear search"},
     "settingsSearchCount": {"message": "{count} settings sections found"},
     "settingsSearchEmpty": {"message": "No matching settings. Try another setting name."},
-    "settingsSearchBookmarks": {"message": "Import browser bookmarks"}
+    "settingsSearchBookmarks": {"message": "Import browser bookmarks"},
+  "bookmarkExportButton": { "message": "Export bookmarks HTML" },
+  "bookmarkExportScope": { "message": "Local file of saved shortcut titles, full URLs and category folders only. URLs may contain private query parameters. Unsaved edits, icons, settings and private local tools are excluded. Keep the file private." },
+  "bookmarkExportConfirm": { "message": "Download saved shortcut titles, full URLs and category names as a local HTML file? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private." },
+  "bookmarkExportStarted": { "message": "Bookmark HTML download requested." },
+  "bookmarkExportFailed": { "message": "No bookmark export completed. Saved data could not be read or is unsupported or too large. Check your saved shortcuts and try again." }
 }

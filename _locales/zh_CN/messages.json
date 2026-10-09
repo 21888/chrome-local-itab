@@ -655,5 +655,10 @@
     "settingsSearchClear": {"message": "清除搜索"},
     "settingsSearchCount": {"message": "找到 {count} 个设置区域"},
     "settingsSearchEmpty": {"message": "没有匹配的设置，请尝试其他设置名称。"},
-    "settingsSearchBookmarks": {"message": "导入浏览器书签"}
+    "settingsSearchBookmarks": {"message": "导入浏览器书签"},
+  "bookmarkExportButton": { "message": "导出书签 HTML" },
+  "bookmarkExportScope": { "message": "本地文件仅包含已保存的快捷方式标题、完整网址和分类文件夹。网址可能含有私密查询参数。不包含未保存的修改、图标、设置和本地私人小工具。请妥善保管文件。" },
+  "bookmarkExportConfirm": { "message": "将已保存的快捷方式标题、完整网址和分类名称下载为本地 HTML 文件？网址可能含有私密查询参数。不包含未保存的修改、图标、设置、任务、专注计时器、便签和倒计时。请妥善保管此文件。" },
+  "bookmarkExportStarted": { "message": "已请求下载书签 HTML 文件。" },
+  "bookmarkExportFailed": { "message": "书签未能导出。无法读取已保存的数据，或数据不受支持、超过限制。请检查已保存的快捷方式后重试。" }
 }

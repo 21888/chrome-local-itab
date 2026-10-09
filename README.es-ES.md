@@ -102,6 +102,8 @@ Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simu
 
 ## Funciones
 
+- **Exportar marcadores del navegador**: En Ajustes → Datos, exporta títulos, URL completas y carpetas de categorías guardadas a un archivo HTML local. Revisa la confirmación de privacidad; se excluyen cambios sin guardar, iconos, ajustes y herramientas locales. [Alcance y límites](docs/bookmark-export.md).
+
 - **Buscar y navegar**: Usa Google, Bing, DuckDuckGo o una URL de búsqueda personalizada, o abre un sitio directamente. En una plantilla personalizada, `%s` representa el término de búsqueda; por ejemplo, `https://example.com/search?q=%s`.
 - **Accesos directos organizados**: Añade, edita y elimina sitios; filtra por categoría; elige Cuadrícula (predeterminada, con reordenación al arrastrar), colocación libre (sin ajuste) o colocación manual con ajuste a la cuadrícula desde la página principal o Configuración. Cambiar de modo conserva las posiciones guardadas. El menú contextual incluye acciones para cada acceso y una opción para abrir todos los sitios de una categoría.
 - **Quince plantillas de trabajo**: Se conservan A / Clarity, B / Graphite y C / Folio y se añaden doce diseños, todos con colores claros y oscuros. Una instalación nueva sigue usando A/claro. Cambiar de estilo solo guarda la apariencia: conserva sitios, categorías, tareas, fondos, colocación y coordenadas. Los estilos agrupados usan categorías reales; la disposición libre conserva su plano de coordenadas. [Guía de estilos (en inglés)](docs/template-gallery.en.md).

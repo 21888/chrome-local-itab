@@ -822,6 +822,8 @@ function setupEventListeners() {
         });
     }
     
+    setupBookmarkExport();
+
     // Import settings button (trigger file input)
     const importButton = document.getElementById('import-settings-btn');
     const importInput = document.getElementById('import-settings');
@@ -2738,6 +2740,43 @@ function setupAutoSave() {
                     }
                 }, 1000); // Debounce by 1 second
             });
+        }
+    });
+}
+
+// Separate from full settings JSON export; confirmation happens before storage access.
+function setupBookmarkExport() {
+    const button = document.getElementById('export-bookmarks-html');
+    if (!button || button.dataset.bookmarkExportBound) return;
+    button.dataset.bookmarkExportBound = 'true';
+    let busy = false;
+    button.addEventListener('click', async () => {
+        if (busy) return;
+        busy = true;
+        button.disabled = true;
+        let url = null, anchor = null;
+        try {
+            if (!confirm(t('bookmarkExportConfirm', 'Download saved shortcut titles, full URLs and category names as a local HTML file? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private.'))) return;
+            const config = await storageManager.getAllForBackup();
+            const html = window.LocalItabBookmarkExport.serialize(config);
+            url = URL.createObjectURL(new Blob([html], {type: 'text/html;charset=utf-8'}));
+            anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = 'local-itab-bookmarks.html';
+            document.body.appendChild(anchor);
+            anchor.click();
+            // Allow the browser to consume the URL before releasing it.
+            const completedURL = url;
+            setTimeout(() => URL.revokeObjectURL(completedURL), 1000);
+            url = null;
+            showMessage(t('bookmarkExportStarted', 'Bookmark HTML download requested.'), 'success');
+        } catch (_) {
+            showMessage(t('bookmarkExportFailed', 'No bookmark export completed. Saved data could not be read or is unsupported or too large. Check your saved shortcuts and try again.'), 'error');
+        } finally {
+            if (anchor) anchor.remove();
+            if (url) URL.revokeObjectURL(url);
+            busy = false;
+            button.disabled = false;
         }
     });
 }

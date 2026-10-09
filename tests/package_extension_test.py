@@ -48,7 +48,7 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), other.read_bytes())
         pack.verify(other, files)
         with zipfile.ZipFile(other) as archive:
-            self.assertEqual(57, len(archive.namelist()))
+            self.assertEqual(58, len(archive.namelist()))
             self.assertIn("shared/search-template.js", archive.namelist())
             self.assertIn("shared/settings-search.js", archive.namelist())
             self.assertIn("_locales/zh_CN/messages.json", archive.namelist())

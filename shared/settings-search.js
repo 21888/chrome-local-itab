@@ -28,6 +28,7 @@
         "driveDeviceSelect": "Saved computers",
         "enableCloudSync": "Enable Chrome Sync",
         "exportSettings": "Export Settings",
+        "bookmarkExportButton": "Export bookmarks HTML",
         "focusEnable": "Show Focus timer on the new tab page",
         "focusTitle": "Focus timer",
         "gridSize": "Grid size (px)",
@@ -130,7 +131,7 @@
         {"target": "local-card-settings", "tab": "content", "tabKey": "tabContent", "title": "localCards", "fields": ["weatherCity", "weatherCondition", "weatherTemp", "weatherLow", "weatherHigh", "weatherAqi", "weatherAqiLabel", "hotTopicGroup", "movieTitle", "movieNote"]},
         {"target": "drive-backup-settings", "tab": "sync", "tabKey": "tabSync", "title": "driveBackupsTitle", "fields": ["driveDeviceSelect", "driveCurrentDevice"]},
         {"target": "cloud-sync-settings", "tab": "sync", "tabKey": "tabSync", "title": "cloudSync", "fields": ["enableCloudSync"]},
-        {"target": "data-settings", "tab": "data", "tabKey": "tabData", "title": "dataManagement", "fields": ["quoteText", "exportSettings", "importSettings", "settingsSearchBookmarks"]},
+        {"target": "data-settings", "tab": "data", "tabKey": "tabData", "title": "dataManagement", "fields": ["quoteText", "exportSettings", "bookmarkExportButton", "importSettings", "settingsSearchBookmarks"]},
     ];
     const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().trim();
     function translate(key) {
