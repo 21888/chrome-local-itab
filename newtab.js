@@ -1524,6 +1524,7 @@ class ShortcutsComponent {
         this._hasShortcutConflict = false;
         this._modalSession = 0;
         this._pendingSave = null;
+        this._pendingDelete = false;
         this._modalFocusOrigin = null;
     }
 
@@ -2212,7 +2213,7 @@ class ShortcutsComponent {
     async handleFormSubmit(e) {
         e.preventDefault();
 
-        if (this._isSaving || this._shortcutOrderPending || this._hasShortcutConflict) return;
+        if (this._isSaving || this._pendingDelete || this._shortcutOrderPending || this._hasShortcutConflict) return;
 
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
@@ -2289,7 +2290,7 @@ class ShortcutsComponent {
     }
 
     setSavingState(isSaving) {
-        this._isSaving = !!isSaving;
+        this._isSaving = !!(isSaving || this._pendingDelete);
         const saveBtn = this.modal?.querySelector('#save-btn');
         if (saveBtn) {
             saveBtn.disabled = this._isSaving || this._hasShortcutConflict;
@@ -2412,30 +2413,52 @@ class ShortcutsComponent {
      * Delete shortcut
      */
     async deleteShortcut(index) {
-        if (this._shortcutOrderPending) {
+        if (this._shortcutOrderPending || this._shortcutWritesPending || this._pendingSave || this._pendingDelete) {
             showErrorMessage(window.i18n?.t('shortcutOrderPending') || 'Wait for shortcut order to finish saving, then try again.');
             return false;
         }
-        if (index >= 0 && index < this.links.length) {
-            const previousLinks = this.links.map(link => ({ ...link }));
-            const focusOrigin = this.captureGridFocus();
-            const focusedControl = document.activeElement;
-            const ownedDeletedFocus = focusOrigin?.index === index;
-            this.links.splice(index, 1);
-
-            try {
-                const saved = await this.saveShortcutLinks(this.links, previousLinks, { type: 'delete', index });
-                if (!saved) {
-                    throw new Error('Storage write returned false');
+        if (index < 0 || index >= this.links.length) return false;
+        const previousLinks = this.links.map(link => ({ ...link }));
+        const nextLinks = previousLinks.filter((_, slot) => slot !== index);
+        const focusOrigin = this.captureGridFocus();
+        const focusedControl = document.activeElement;
+        const ownedDeletedFocus = focusOrigin?.index === index;
+        // Keep the visible tiles and controller indices on the same snapshot
+        // until storage accepts the deletion. New drafts may open, but wait.
+        this._pendingDelete = true;
+        this.setSavingState(true);
+        try {
+            const saved = await this.saveShortcutLinks(nextLinks, previousLinks, { type: 'delete', index });
+            if (!saved) throw new Error('Storage write returned false');
+            this.links = saved.links || nextLinks;
+            if (this.modal?.classList.contains('active')) {
+                if (this.currentEditIndex === index) {
+                    // Preserve a draft for the deleted site, never retarget it
+                    // to the next site (or silently turn it into an Add).
+                    this._hasShortcutConflict = true;
+                    showErrorMessage(window.i18n?.t('shortcutDraftConflict') || 'Shortcuts changed. Your draft is still here; copy it if needed, then close and reopen the shortcut to retry.');
+                } else if (this.currentEditIndex > index) {
+                    this.currentEditIndex--;
                 }
-                const nextFocus = ownedDeletedFocus && document.activeElement === focusedControl ? { index, action: 'launch' } : null;
-                this.updateGrid(nextFocus);
-            } catch (error) {
-                const message = this.recoverShortcutWrite(error, previousLinks);
-                this.updateGrid();
-                console.error('Error deleting shortcut:', error);
-                showErrorMessage(message || ((window.i18n && i18n.t('failedToDelete')) || 'Failed to delete shortcut. Please try again.'));
+                if (this._modalFocusOrigin?.index > index) {
+                    this._modalFocusOrigin = { ...this._modalFocusOrigin, index: this._modalFocusOrigin.index - 1 };
+                }
             }
+            const latestFocus = this.captureGridFocus();
+            const nextFocus = ownedDeletedFocus && document.activeElement === focusedControl
+                ? { index, action: 'launch' }
+                : latestFocus?.index > index ? { ...latestFocus, index: latestFocus.index - 1 } : null;
+            this.updateGrid(nextFocus);
+            return true;
+        } catch (error) {
+            const message = this.recoverShortcutWrite(error, previousLinks);
+            this.updateGrid();
+            console.error('Error deleting shortcut:', error);
+            showErrorMessage(message || ((window.i18n && i18n.t('failedToDelete')) || 'Failed to delete shortcut. Please try again.'));
+            return false;
+        } finally {
+            this._pendingDelete = false;
+            this.setSavingState(Boolean(this._pendingSave || this._shortcutOrderPending));
         }
     }
 
@@ -3033,7 +3056,7 @@ class ShortcutsComponent {
      * Handle drag start
      */
     handleDragStart(e) {
-        if (this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange) {
+        if (this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange) {
             e.preventDefault();
             return;
         }
@@ -3101,7 +3124,7 @@ class ShortcutsComponent {
     async handleDrop(e) {
         e.preventDefault();
         
-        const draggedIndex = this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
+        const draggedIndex = this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
         // 获取鼠标指针正下方的目标卡片
         const dropTarget = e.target.closest('.shortcut-item:not(.add-shortcut)');
         
