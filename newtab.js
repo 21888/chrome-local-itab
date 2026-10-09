@@ -637,6 +637,38 @@ function initializeSearchComponent(searchConfig = {}) {
     button.type = 'submit';
     button.textContent = (window.i18n && i18n.t('search')) || 'Search';
 
+    const calculatorText = (key, fallback) => {
+        const translated = window.i18n?.t(key);
+        return translated && translated !== key ? translated : fallback;
+    };
+    const calculatorStatus = document.createElement('div');
+    calculatorStatus.id = 'search-calculator-status';
+    calculatorStatus.className = 'search-calculator-status';
+    calculatorStatus.setAttribute('role', 'status');
+    calculatorStatus.setAttribute('aria-live', 'polite');
+    calculatorStatus.setAttribute('aria-atomic', 'true');
+    input.setAttribute('aria-describedby', calculatorStatus.id);
+    const isCalculation = () => input.value.trimStart().startsWith('=');
+    // The closure belongs to this search instance; remounting replaces the guard.
+    window.localCalculatorView = { hasUncommittedWork: () => input.isConnected && isCalculation() };
+    let composing = false;
+    const updateCalculatorHint = () => {
+        calculatorStatus.classList.remove('is-error');
+        calculatorStatus.textContent = isCalculation()
+            ? calculatorText('calculatorHint', 'Local calculator · Enter to calculate. Use decimals, + - * / and parentheses.')
+            : calculatorText('calculatorDiscover', 'Tip: start with = to calculate locally, for example =(12 + 3) / 2');
+        button.textContent = isCalculation()
+            ? calculatorText('calculatorCalculate', 'Calculate')
+            : ((window.i18n && i18n.t('search')) || 'Search');
+    };
+    input.addEventListener('input', updateCalculatorHint);
+    input.addEventListener('compositionstart', () => { composing = true; updateCalculatorHint(); });
+    input.addEventListener('compositionend', () => { composing = false; updateCalculatorHint(); });
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+    });
+    updateCalculatorHint();
+
     const customConfig = document.createElement('div');
     customConfig.className = 'search-custom-config';
 
@@ -736,11 +768,30 @@ function initializeSearchComponent(searchConfig = {}) {
         saveCustomSearch();
     });
 
-    form.append(select, input, button, customConfig);
+    form.append(select, input, button, calculatorStatus, customConfig);
     updateCustomConfigVisibility(false);
 
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (composing || event.isComposing) return;
+        // Intercept the explicit prefix before URL normalization or engine lookup.
+        // Errors and a missing helper must never send expressions to a provider.
+        if (isCalculation()) {
+            const result = window.LocalItabCalculator?.calculate(input.value.trimStart().slice(1)) || { error: 'unavailable' };
+            const errors = {
+                syntax: ['calculatorSyntax', 'Check the expression. Use decimals, + - * / and parentheses only.'],
+                length: ['calculatorLength', 'Expression too long. Use at most 256 characters after =.'],
+                depth: ['calculatorDepth', 'Too many nested parentheses or signs. Use at most 32 levels.'],
+                zero: ['calculatorZero', 'Cannot divide by zero.'],
+                range: ['calculatorRange', 'The calculation exceeds the supported number range.'],
+                unavailable: ['calculatorUnavailable', 'The local calculator is unavailable. Reload the page to retry.']
+            };
+            calculatorStatus.classList.toggle('is-error', Boolean(result.error));
+            calculatorStatus.textContent = result.error
+                ? calculatorText(...(errors[result.error] || errors.syntax))
+                : `${calculatorText('calculatorResult', 'Local result')} = ${result.value}`;
+            return;
+        }
         const query = input.value.trim();
         if (!query) return;
 

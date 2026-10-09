@@ -8,6 +8,12 @@ A local-first Chrome new tab page that keeps search, saved websites, and a small
 
 No build step or Local iTab account is required. The clock, shortcut management, local images, and manually maintained cards work offline; searches, website visits, and optional cloud features need a network connection.
 
+## Local calculator
+
+Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab: no search request, history or storage, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the previous result.
+
+Limit: 256 characters after `=` and 32 combined levels of nested parentheses/unary signs. Uses JavaScript floating-point numbers: decimal rounding, underflow and large-integer precision limits apply (`=0.1 + 0.2` gives `0.30000000000000004`). Not for exact financial calculations. Division by zero and non-finite results show local errors. Scientific notation, percentages, variables and unit conversions are not supported. A settings-sync reload is deferred while calculator input remains; explicitly reloading can discard it.
+
 ## Preview
 
 ### Twelve new templates · Light / Dark

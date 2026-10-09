@@ -3594,3 +3594,18 @@ textarea:focus-visible,
         width: 100%;
     }
 }
+
+/* Local calculator feedback spans the search row in every dashboard template. */
+.search-calculator-status {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+    user-select: text;
+}
+.search-calculator-status.is-error {
+    color: var(--template-error, #b42318);
+}

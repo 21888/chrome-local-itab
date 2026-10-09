@@ -5,7 +5,7 @@
         return translated && translated !== key ? translated : fallback;
     };
     const pending = () => Boolean(root.workspacePresetsView?.pending || root.shortcutsComponentInstance?._pendingSave || root.localFocusView?.controller.pending || root.localFocusSettingsView?.controller.pending || root.localTasksView?.controller.pending || root.localTasksSettingsController?.pending || root.shortcutsComponentInstance?.finderView?.pending);
-    const hasUncommittedWork = () => pending() || Boolean(root.workspacePresetsView?.hasUncommittedWork()) || Boolean(root.shortcutsComponentInstance?.modal?.classList.contains('active')) || Boolean(root.localTasksView?.hasUncommittedWork()) || Boolean(root.shortcutsComponentInstance?.finderView?.hasUncommittedWork());
+    const hasUncommittedWork = () => Boolean(root.localCalculatorView?.hasUncommittedWork()) || pending() || Boolean(root.workspacePresetsView?.hasUncommittedWork()) || Boolean(root.shortcutsComponentInstance?.modal?.classList.contains('active')) || Boolean(root.localTasksView?.hasUncommittedWork()) || Boolean(root.shortcutsComponentInstance?.finderView?.hasUncommittedWork());
     function reload() {
         // Recheck at the time a delayed configuration reload actually runs.
         // Content notifications never call this helper or initialize providers.
@@ -24,7 +24,7 @@
                     message.textContent = text('workspaceReloadPending', 'An action is still running. Wait for it to finish, then reload.');
                     return;
                 }
-                if (hasUncommittedWork() && !root.confirm(text('workspaceReloadConfirm', 'Reload and discard unsaved drafts, open reviews and saved-site searches? Saved data stays on this device.'))) return;
+                if (hasUncommittedWork() && !root.confirm(text('workspaceReloadConfirm', 'Reload and discard unsaved drafts, open reviews, saved-site searches and calculator input? Saved data stays on this device.'))) return;
                 root.location.reload();
             });
             notice.append(message, button);

@@ -47,7 +47,7 @@
 	"finderBlocked": {"message": "Could not open a new tab. Allow this page to open tabs and try again."},
 	"workspaceReloadDeferred": {"message": "Settings changed. Your open work is still here. Finish it before reloading."},
 	"workspaceReloadPending": {"message": "An action is still running. Wait for it to finish, then reload."},
-	"workspaceReloadConfirm": {"message": "Reload and discard unsaved drafts, open reviews and saved-site searches? Saved data stays on this device."},
+	"workspaceReloadConfirm": {"message": "Reload and discard unsaved drafts, open reviews, saved-site searches and calculator input? Saved data stays on this device."},
 	"tasksTitle": {"message": "Tasks"},
 	"tasksLocal": {"message": "On this device"},
 	"tasksNext": {"message": "Next up"},
@@ -542,5 +542,15 @@
   "shortcutOrderFailed": {
     "message": "Could not save shortcut order. Please try again."
   },
-  "shortcutOrderPending": { "message": "Wait for shortcut order to finish saving, then try again." }
+  "shortcutOrderPending": { "message": "Wait for shortcut order to finish saving, then try again." },
+  "calculatorDiscover": {"message": "Tip: start with = to calculate locally, for example =(12 + 3) / 2"},
+  "calculatorHint": {"message": "Local calculator · Enter to calculate. Use decimals, + - * / and parentheses."},
+  "calculatorCalculate": {"message": "Calculate"},
+  "calculatorResult": {"message": "Local result"},
+  "calculatorSyntax": {"message": "Check the expression. Use decimals, + - * / and parentheses only."},
+  "calculatorLength": {"message": "Expression too long. Use at most 256 characters after =."},
+  "calculatorDepth": {"message": "Too many nested parentheses or signs. Use at most 32 levels."},
+  "calculatorZero": {"message": "Cannot divide by zero."},
+  "calculatorRange": {"message": "The calculation exceeds the supported number range."},
+  "calculatorUnavailable": {"message": "The local calculator is unavailable. Reload the page to retry."}
 }

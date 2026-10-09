@@ -8,6 +8,12 @@ Una página de nueva pestaña para Chrome centrada en tus datos locales. Reúne 
 
 No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de accesos directos, las imágenes locales y las tarjetas que completas manualmente funcionan sin conexión. Las búsquedas, las visitas a sitios web y las funciones opcionales en la nube necesitan acceso a Internet.
 
+## Calculadora local
+
+Empieza la búsqueda con `=` y pulsa Enter o Calcular, por ejemplo `=(12 + 3) / 2` → `7.5`. Admite decimales, signos unarios `+`/`-`, `+ - * /` y paréntesis. Las expresiones, resultados y errores permanecen en esta pestaña: sin búsquedas, historial ni almacenamiento, incluso sin configurar la URL del buscador personalizado. Quita `=` para volver a buscar. Al editar se borra el resultado anterior.
+
+Límites: 256 caracteres después de `=` y 32 niveles combinados de paréntesis y signos unarios. Usa números de coma flotante de JavaScript: hay redondeo decimal, subdesbordamiento y límites de precisión para enteros grandes (`=0.1 + 0.2` da `0.30000000000000004`). No sirve para cálculos financieros exactos. La división por cero y los resultados no finitos muestran errores locales. No admite notación científica, porcentajes, variables ni conversiones. La recarga por sincronización de ajustes se aplaza mientras haya una expresión; una recarga explícita puede descartarla.
+
 ## Vista previa
 
 ### Doce plantillas nuevas · Claro / Oscuro

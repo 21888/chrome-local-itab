@@ -47,7 +47,7 @@
 	"finderBlocked": {"message": "无法打开新标签页。请允许此页面打开标签页后重试。"},
 	"workspaceReloadDeferred": {"message": "设置已更改，当前操作仍保留。请完成后再刷新。"},
 	"workspaceReloadPending": {"message": "操作仍在进行中，请等待完成后再刷新。"},
-	"workspaceReloadConfirm": {"message": "刷新并丢弃未保存的草稿、打开的审核和已保存网站的搜索？已保存的数据仍保留在此设备上。"},
+	"workspaceReloadConfirm": {"message": "重新加载并放弃未保存的草稿、打开的预览、已保存网站搜索和计算器输入？已保存的数据仍保留在此设备上。"},
 	"tasksTitle": {"message": "待办"},
 	"tasksLocal": {"message": "仅此设备"},
 	"tasksNext": {"message": "下一件事"},
@@ -542,5 +542,15 @@
   "shortcutOrderFailed": {
     "message": "无法保存快捷方式顺序，请重试。"
   },
-  "shortcutOrderPending": { "message": "请等待快捷方式顺序保存完成后重试。" }
+  "shortcutOrderPending": { "message": "请等待快捷方式顺序保存完成后重试。" },
+  "calculatorDiscover": {"message": "提示：以 = 开头进行本地计算，例如 =(12 + 3) / 2"},
+  "calculatorHint": {"message": "本地计算器 · 按 Enter 计算。支持小数、+ - * / 和括号。"},
+  "calculatorCalculate": {"message": "计算"},
+  "calculatorResult": {"message": "本地结果"},
+  "calculatorSyntax": {"message": "请检查表达式。仅支持小数、+ - * / 和括号。"},
+  "calculatorLength": {"message": "表达式过长。= 后最多 256 个字符。"},
+  "calculatorDepth": {"message": "括号或正负号嵌套过多。最多支持 32 层。"},
+  "calculatorZero": {"message": "不能除以零。"},
+  "calculatorRange": {"message": "计算超出了支持的数值范围。"},
+  "calculatorUnavailable": {"message": "本地计算器不可用。请重新加载页面后重试。"}
 }
