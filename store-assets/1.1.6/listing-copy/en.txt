@@ -1,0 +1,27 @@
+Local iTab
+
+Short description suggestion
+A local-first new tab with 15 workspace styles, organized shortcuts, search, and optional local productivity tools.
+
+Detailed description draft
+Local iTab brings your favorite websites, search, and a small personal dashboard together on Chrome's new tab page.
+
+Make the page your own
+• Choose from 15 workspace templates, each with light and dark colors.
+• Organize saved websites into categories and find them with a local shortcut search.
+• Reorder a grid, place shortcuts freely, or use a manual layout with grid snapping.
+• Adjust spacing, icon sizes, titles, module visibility, and backgrounds, including a local image.
+
+Keep useful tools nearby
+• Enable local Tasks, a Focus timer, Scratchpad, or Countdown when you need them.
+• Browse a local month calendar and display selected world clocks. The calendar is read-only and does not contain events or reminders.
+• Start a search with = for simple local calculations, or search with Google, Bing, DuckDuckGo, or a custom search URL.
+• Preview browser bookmarks before importing them, and export saved sites as bookmark HTML.
+
+Choose your backup options
+Export and import configuration as local JSON. Chrome Sync is optional for lightweight settings, and separately authorized Google Drive provides manual snapshots of configuration and local images. Configuration backups, Sync and Drive exclude Tasks, Focus, Scratchpad and Countdown. Export Tasks separately, save Scratchpad and Countdown as text, and note that Focus sessions cannot be migrated.
+
+Local-first, with clear online choices
+The clock, saved-site management, local images and manually maintained cards work offline. Typing a search does not send the query; submitting it or opening a website visits the chosen service. Online website icons are off by default and require permission; when enabled, website domain names are sent to Google's favicon service. Chrome Sync is off in the default configuration, although a new installation can apply an existing enabled configuration from the same Chrome account. Drive requires separate Google authorization and has no scheduled automatic backup.
+
+Local use requires no Local iTab account. Weather, topic and movie cards are manually maintained; they do not fetch live feeds. The extension includes English and Simplified Chinese interface resources.

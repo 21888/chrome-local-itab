@@ -1,0 +1,194 @@
+{
+  "preparedOn": "2026-10-09",
+  "version": "1.1.6",
+  "statusAtPreparation": "Prepared and reviewed; not uploaded to Chrome Web Store. The 1.1.6 review was withdrawn (CANCELLED).",
+  "runtimeSourceRevision": "90b91e6456bfaea9a4519ae1ba9c5c5ed6e6b760",
+  "frozenCaptureRevision": "9f56a873918400f05bf8e73efadcc85afa4e4dd8",
+  "runtimeZipSha256": "2256b00e487ccaf9ee692e69bd32e559d3f9b1ed1202236b6761554f99c06379",
+  "runtimeFiles": 60,
+  "runtimeIntegrity": "All 60 frozen files were byte-identical to the recorded source and candidate ZIP.",
+  "capture": {
+    "browser": "Google Chrome for Testing 155.0.8059.39",
+    "logicalViewportCssPixels": [
+      1288,
+      800
+    ],
+    "devicePixelRatio": 1,
+    "pageZoomPercent": 100,
+    "deviceType": "Desktop",
+    "previewZoom": "Fit to window; does not resize exported PNGs",
+    "method": "Native DevTools Capture full size screenshot. Exported content width is 1280 pixels after excluding the 8-pixel vertical scrollbar.",
+    "processing": "Exact top-left crop [0,0,1280,800] and lossless opaque RGB PNG encoding. No scaling, retouching, CSS/DOM edits, marketing overlays or frames.",
+    "rawOriginals": "Selected native originals and detailed evidence are retained separately. Superseded captures are not included here.",
+    "scope": "English UI with synthetic English sample data and original local PNG letter icons. Some page content continues below the frame. Online favicons and Sync were disabled; no sample website/search or live feed was opened."
+  },
+  "screenshots": [
+    {
+      "file": "screenshots/01-clarity-light-1280x800.png",
+      "pixels": [
+        1280,
+        800
+      ],
+      "mode": "RGB",
+      "bytes": 79071,
+      "sha256": "559c824ac01684688cf890722fe41d1063b3889e81aca39ef1dd5b38382bfc3d",
+      "template": "Clarity",
+      "colorMode": "light",
+      "placement": "grid",
+      "storedSiteCount": 12,
+      "rawPixels": [
+        1280,
+        963
+      ],
+      "rawSha256": "11b0d6b8492acf0c356ce3362012534261496fc0ef77210e408262bb49610056",
+      "cropBoxXYXY": [
+        0,
+        0,
+        1280,
+        800
+      ],
+      "sampleConfiguration": []
+    },
+    {
+      "file": "screenshots/02-graphite-dark-1280x800.png",
+      "pixels": [
+        1280,
+        800
+      ],
+      "mode": "RGB",
+      "bytes": 70315,
+      "sha256": "7c2487f87c9d76ccef7db1af9fd57d2a49091ccdb53a7ed6b55a5f6af266bda7",
+      "template": "Graphite",
+      "colorMode": "dark",
+      "placement": "grid",
+      "storedSiteCount": 12,
+      "rawPixels": [
+        1280,
+        960
+      ],
+      "rawSha256": "1c319043fe8558bc487666d5af717d738c80217987f17bbc62daec31cce3c78b",
+      "cropBoxXYXY": [
+        0,
+        0,
+        1280,
+        800
+      ],
+      "sampleConfiguration": [
+        "Changed Template to Graphite and Appearance to Dark through actual UI controls."
+      ]
+    },
+    {
+      "file": "screenshots/03-folio-light-1280x800.png",
+      "pixels": [
+        1280,
+        800
+      ],
+      "mode": "RGB",
+      "bytes": 68383,
+      "sha256": "a705f73c871b8120a4746431790523ded6cfff4fb6ea1e93620d7a8357c494d6",
+      "template": "Folio",
+      "colorMode": "light",
+      "placement": "grid",
+      "storedSiteCount": 6,
+      "rawPixels": [
+        1280,
+        943
+      ],
+      "rawSha256": "71fdcd6a0733f9dbce86029a80760227b12da0278abd57a7b8541ce49344cc1b",
+      "cropBoxXYXY": [
+        0,
+        0,
+        1280,
+        800
+      ],
+      "sampleConfiguration": []
+    },
+    {
+      "file": "screenshots/04-free-layout-1280x800.png",
+      "pixels": [
+        1280,
+        800
+      ],
+      "mode": "RGB",
+      "bytes": 74635,
+      "sha256": "280dedfd936cc465c1b336af93bba7e51e1cdad95ae4d24412a4d90d3035d550",
+      "template": "Clarity",
+      "colorMode": "light",
+      "placement": "free",
+      "storedSiteCount": 8,
+      "rawPixels": [
+        1280,
+        997
+      ],
+      "rawSha256": "fa65975d108527388ff52dbc0d5639a2e9bcd14d1e0da59598da31be28ae3ac1",
+      "cropBoxXYXY": [
+        0,
+        0,
+        1280,
+        800
+      ],
+      "sampleConfiguration": [
+        "Disabled Tasks, Focus and Scratchpad through actual Settings controls after the earlier widget capture.",
+        "Imported revised eight-site Free fixture with asymmetric, nonoverlapping saved positions."
+      ]
+    },
+    {
+      "file": "screenshots/05-local-widgets-1280x800.png",
+      "pixels": [
+        1280,
+        800
+      ],
+      "mode": "RGB",
+      "bytes": 118524,
+      "sha256": "729a9c51b6eb76ee90f3a6928dfcdf48a843c3b723afc0c0cbe8482cc9bb9332",
+      "template": "Clarity",
+      "colorMode": "light",
+      "placement": "grid (shortcuts hidden)",
+      "storedSiteCount": 6,
+      "rawPixels": [
+        1280,
+        845
+      ],
+      "rawSha256": "254aa08953b3b113e820a1c81ed625d0ed03de03d0522a3480ce7aa678107491",
+      "cropBoxXYXY": [
+        0,
+        0,
+        1280,
+        800
+      ],
+      "sampleConfiguration": [
+        "Imported settings with shortcuts and search modules hidden.",
+        "Enabled Tasks, Focus and Scratchpad via Settings → Shortcuts module visibility.",
+        "Imported demo-tasks.json and demo-scratchpad.txt through their actual dedicated UI controls.",
+        "Focus remains ready at 25:00. Two active tasks and one collapsed completed task are stored; the first active task is pinned."
+      ]
+    }
+  ],
+  "promos": [
+    {
+      "file": "promo/small-promo-440x280.png",
+      "pixels": [
+        440,
+        280
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 29670,
+      "sha256": "d5a25c939e5604d80e979cec418baeae5a705491106b686c2e65efa580e9b356",
+      "type": "original brand illustration; not a screenshot"
+    },
+    {
+      "file": "promo/marquee-promo-1400x560.png",
+      "pixels": [
+        1400,
+        560
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 69269,
+      "sha256": "d477f395b45eb7d05d7421ad45ef509c411fbfbaa249aba5152d9af3e6d5f668",
+      "type": "original brand illustration; not a screenshot"
+    }
+  ],
+  "specificationSource": "https://developer.chrome.com/docs/webstore/images"
+}

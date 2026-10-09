@@ -1,0 +1,29 @@
+Local iTab 1.1.6 商店图片上传说明
+
+截至 2026-10-09，1.1.6 的本次审核已撤回，Google 返回 CANCELLED。本包中的新图片已准备，尚未上传至 Chrome Web Store，也不代表 1.1.6 已公开发布。
+
+请在你自己的浏览器中打开 Chrome Web Store Developer Dashboard，进入 Local iTab 的「商店详情 / Store listing」。
+
+1. 在全球通用截图区域替换旧图，按以下顺序放入 5 张 PNG。每张都是 1280 × 800，直角、满幅，无宣传文字叠加：
+   screenshots/01-clarity-light-1280x800.png
+   screenshots/02-graphite-dark-1280x800.png
+   screenshots/03-folio-light-1280x800.png
+   screenshots/04-free-layout-1280x800.png
+   screenshots/05-local-widgets-1280x800.png
+
+2. 在小型宣传图块中上传必需的图片：
+   promo/small-promo-440x280.png（440 × 280）
+
+3. 可选：在大型宣传图块 / Marquee 中上传：
+   promo/marquee-promo-1400x560.png（1400 × 560）
+
+4. 点击「保存 / Save draft」，确认 5 张截图的顺序及新宣传图都已保留。全球截图采用英文界面；小型与大型宣传图仅包含品牌名称，适合各地区共用。若以前还设置过本地化截图，也请检查是否仍显示旧版画面；本地化图片会排在全球通用图片前面。
+
+5. 回到当前对话告知「图片已保存」。确认图片更新完成后，再继续通过 API 重新提交 1.1.6 审核。
+
+只上传 screenshots/ 与 promo/ 中的 7 张 PNG。source/ 是可编辑的宣传图源文件与生成脚本；原始截图、审核总览和完整验证记录保存在另行交付的证据包中。现有扩展图标未修改。
+
+listing-copy/ 内另附可选的中英文文案草稿，可用于检查或更新相应语言的详细说明。文案尚未保存到商店，也不会随本包自动提交。
+
+图片规范：https://developer.chrome.com/docs/webstore/images
+商店详情说明：https://developer.chrome.com/docs/webstore/cws-dashboard-listing
