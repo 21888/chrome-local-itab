@@ -264,6 +264,10 @@ async function initializeOptionsPage() {
         // Populate form fields with current values
         await populateFormFields(config);
         setupCategoryManagement(config.categories);
+        const focusHost = document.getElementById('local-focus-settings');
+        if (focusHost && window.LocalItabFocus && !window.localFocusSettingsView) {
+            window.localFocusSettingsView = window.LocalItabFocus.mountSettings(focusHost);
+        }
         const tasksHost = document.getElementById('local-tasks-settings');
         if (tasksHost && window.LocalItabTasks && !window.localTasksSettingsController) {
             window.localTasksSettingsController = window.LocalItabTasks.mountSettings(tasksHost);

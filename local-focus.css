@@ -1,0 +1,21 @@
+/* Optional timer uses the same semantic surface tokens as Tasks. */
+.local-focus-card { min-width: 0; align-self: start; padding: 20px; border: 1px solid var(--template-border); border-radius: 16px; color: var(--template-text); background: var(--template-surface); overflow-wrap: anywhere; }
+.local-focus-card[hidden], .local-focus-card [hidden], .local-focus-settings [hidden] { display: none !important; }
+.focus-header, .focus-inputs, .focus-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.focus-header { justify-content: space-between; margin-bottom: 16px; }
+.focus-header h2 { margin: 0; font-size: 18px; color: inherit; }
+.focus-local, .focus-help { color: var(--template-muted); font-size: 12px; line-height: 1.6; }
+.focus-minutes { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.local-focus-card input, .local-focus-card select, .focus-button { box-sizing: border-box; max-width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid var(--template-border); border-radius: 7px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; font-size: 13px; }
+.local-focus-card input { width: 80px; }
+.focus-button { cursor: pointer; }
+.focus-button:hover:not(:disabled) { border-color: var(--template-accent); }
+.local-focus-card :disabled { opacity: .55; cursor: default; }
+.local-focus-card :focus-visible, .local-focus-settings :focus-visible { outline: 2px solid var(--template-focus); outline-offset: 3px; }
+.focus-remaining { font-variant-numeric: tabular-nums; font-size: clamp(36px, 5vw, 58px); font-weight: 600; line-height: 1.2; margin: 20px 0 8px; }
+.focus-status, .focus-feedback { font-size: 13px; line-height: 1.6; }
+.focus-feedback { color: var(--template-error); }
+.focus-enable-label { display: flex; align-items: center; gap: 10px; }
+.local-focus-settings { margin-top: 16px; }
+@media (max-width: 600px) { .local-focus-card { padding: 16px; } }
+/* No animation: reduced-motion and coarse status announcements are the defaults. */

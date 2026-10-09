@@ -67,6 +67,14 @@ Capturas de la extensión real en inglés con la misma configuración de ejemplo
 - **Copias locales en JSON**: Exporta la configuración y las imágenes locales, o importa una copia existente. La importación valida los datos y pide confirmación. Restaurar sustituye la configuración actual, así que conviene exportar una copia antes. Los archivos de más de 10 MiB muestran un aviso sobre el uso de memoria antes de leerlos y se pueden cancelar. La restauración de archivos grandes sigue dependiendo de la memoria disponible en el navegador. Se conserva el estado de sincronización del dispositivo actual.
 - **Funciones opcionales en la nube**: Chrome Sync sincroniza ajustes ligeros; Google Drive guarda instantáneas manuales agrupadas por nombre del equipo. Su funcionamiento y sus límites se explican a continuación.
 
+## Temporizador de concentración local
+
+Activa la tarjeta opcional en Ajustes. Está oculta de forma predeterminada y propone 25 minutos de concentración y 5 de descanso. Antes de iniciar, cada fase admite entre 1 y 180 minutos enteros. Iniciar, pausar/reanudar y detener/restablecer son acciones manuales; elegir la siguiente fase no la inicia.
+
+Todas las páginas abiertas de la extensión comparten una sesión local del dispositivo. Ocultar la tarjeta conserva la sesión. Restablecer solo los ajustes conserva su estado exacto; cambiar de plantilla o importar la configuración no la inicia ni la reemplaza. Las exportaciones de configuración, Chrome Sync y las copias de Drive excluyen el temporizador. No tiene asociación con tareas, historial, sonido, solicitudes de red ni notificaciones del sistema y no requiere nuevos permisos.
+
+Con una página activa, el tiempo transcurrido se comprueba con un reloj monotónico. Tras cerrar todas las páginas, al volver se estima el tiempo restante con el reloj del dispositivo; un cambio del reloj durante ese intervalo no se puede distinguir del tiempo transcurrido. Si se detecta una discrepancia, se pide restablecer. La finalización se muestra localmente, sin prometer avisos puntuales cuando todas las páginas están cerradas. Si falla el almacenamiento, usa la opción de leer el estado más reciente: un fallo de confirmación puede ocurrir después de guardar, así que comprueba el estado antes de reintentar.
+
 ## Instalación y primeros pasos
 
 1. Descarga y descomprime el código fuente del repositorio, o clona este repositorio. El código se puede cargar directamente, sin compilar.

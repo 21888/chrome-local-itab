@@ -425,5 +425,92 @@
     "templateFolioIntro": {"message": "Work, reading and inspiration, each in its place."},
     "emptyCategory": {"message": "No shortcuts in this category yet."},
     "showAllShortcuts": {"message": "Show all shortcuts"},
-    "allShortcuts": {"message": "All shortcuts"}
+    "allShortcuts": {"message": "All shortcuts"},
+    "focusTitle": {
+        "message": "Focus timer"
+    },
+    "focusLocal": {
+        "message": "On this device"
+    },
+    "focusPhase": {
+        "message": "Interval"
+    },
+    "focusWork": {
+        "message": "Focus"
+    },
+    "focusBreak": {
+        "message": "Break"
+    },
+    "focusMinutes": {
+        "message": "Minutes (1–180)"
+    },
+    "focusStart": {
+        "message": "Start"
+    },
+    "focusPause": {
+        "message": "Pause"
+    },
+    "focusResume": {
+        "message": "Resume"
+    },
+    "focusReset": {
+        "message": "Stop / reset"
+    },
+    "focusNextBreak": {
+        "message": "Choose break"
+    },
+    "focusNextWork": {
+        "message": "Choose focus"
+    },
+    "focusRemaining": {
+        "message": "Remaining time"
+    },
+    "focusReady": {
+        "message": "Ready to start"
+    },
+    "focusRunning": {
+        "message": "Running"
+    },
+    "focusPaused": {
+        "message": "Paused"
+    },
+    "focusCompleted": {
+        "message": "Interval complete. Choose your next interval when ready."
+    },
+    "focusUncertain": {
+        "message": "The clocks disagree. Exact remaining time is uncertain. Stop / reset, then start deliberately."
+    },
+    "focusBrief": {
+        "message": "One timer shared on this device. No sound or background alert."
+    },
+    "focusDetails": {
+        "message": "How timing works"
+    },
+    "focusHelp": {
+        "message": "This device shares one timer across its new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it."
+    },
+    "focusEnable": {
+        "message": "Show Focus timer on the new tab page"
+    },
+    "focusEnableHelp": {
+        "message": "Optional and device-local. Hiding it keeps the current session and deadline."
+    },
+    "focusLoading": {
+        "message": "Loading local timer…"
+    },
+    "focusSaving": {
+        "message": "Saving timer…"
+    },
+    "focusError": {
+        "message": "Could not confirm the timer change. Read the latest state before trying again."
+    },
+    "focusConflict": {
+        "message": "Another page changed this timer. The latest saved state is shown; choose again."
+    },
+    "focusRetry": {
+        "message": "Read latest state"
+    },
+    "focusInvalidMinutes": {
+        "message": "Enter whole minutes from 1 to 180."
+    }
 }

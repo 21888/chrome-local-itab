@@ -425,5 +425,92 @@
     "templateFolioIntro": {"message": "工作、阅读与灵感，各得其所。"},
     "emptyCategory": {"message": "这个分类还没有网站。"},
     "showAllShortcuts": {"message": "查看全部网站"},
-    "allShortcuts": {"message": "全部快捷方式"}
+    "allShortcuts": {"message": "全部快捷方式"},
+    "focusTitle": {
+        "message": "专注计时器"
+    },
+    "focusLocal": {
+        "message": "仅此设备"
+    },
+    "focusPhase": {
+        "message": "时段"
+    },
+    "focusWork": {
+        "message": "专注"
+    },
+    "focusBreak": {
+        "message": "休息"
+    },
+    "focusMinutes": {
+        "message": "分钟（1–180）"
+    },
+    "focusStart": {
+        "message": "开始"
+    },
+    "focusPause": {
+        "message": "暂停"
+    },
+    "focusResume": {
+        "message": "继续"
+    },
+    "focusReset": {
+        "message": "停止 / 重置"
+    },
+    "focusNextBreak": {
+        "message": "选择休息"
+    },
+    "focusNextWork": {
+        "message": "选择专注"
+    },
+    "focusRemaining": {
+        "message": "剩余时间"
+    },
+    "focusReady": {
+        "message": "准备开始"
+    },
+    "focusRunning": {
+        "message": "计时中"
+    },
+    "focusPaused": {
+        "message": "已暂停"
+    },
+    "focusCompleted": {
+        "message": "本时段已结束。准备好后，可自行选择下一个时段。"
+    },
+    "focusUncertain": {
+        "message": "设备时钟不一致，无法确认准确的剩余时间。请先停止 / 重置，再自行开始。"
+    },
+    "focusBrief": {
+        "message": "本设备的页面共享一个计时器。无声音或后台提醒。"
+    },
+    "focusDetails": {
+        "message": "计时方式说明"
+    },
+    "focusHelp": {
+        "message": "此设备的新标签页共用一个计时器。没有声音或后台提醒。关闭或隐藏页面后会保留结束时间；重新打开时，会按设备时钟估算已经过的时间。页面关闭期间调整时钟可能影响估算。每个时段都需要点击“开始”。设置导出和云端备份不包含计时器。移除扩展或清除浏览器数据可能将其删除。"
+    },
+    "focusEnable": {
+        "message": "在新标签页显示专注计时器"
+    },
+    "focusEnableHelp": {
+        "message": "可选，仅在此设备保存。隐藏后仍保留当前时段和结束时间。"
+    },
+    "focusLoading": {
+        "message": "正在读取本地计时器…"
+    },
+    "focusSaving": {
+        "message": "正在保存计时器…"
+    },
+    "focusError": {
+        "message": "无法确认计时器更改。请读取最新状态后再试。"
+    },
+    "focusConflict": {
+        "message": "另一个页面已更改计时器。当前显示最新保存的状态，请重新选择。"
+    },
+    "focusRetry": {
+        "message": "读取最新状态"
+    },
+    "focusInvalidMinutes": {
+        "message": "请输入 1 到 180 之间的整数分钟。"
+    }
 }

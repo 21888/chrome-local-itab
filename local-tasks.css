@@ -75,7 +75,7 @@
   .tasks-add .tasks-button { align-self: flex-end; }
 }
 @media (min-width: 901px) {
-  :root[data-dashboard-template="folio"] #dashboard .dashboard-main:has(> #info-cards-container > .local-tasks-card:not([hidden])) {
+  :root[data-dashboard-template="folio"] #dashboard .dashboard-main:has(> #info-cards-container > :is(.local-tasks-card, .local-focus-card):not([hidden])) {
     grid-template-columns: minmax(0, 1fr) minmax(280px, .35fr);
   }
 }

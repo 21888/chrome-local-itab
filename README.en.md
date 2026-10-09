@@ -67,6 +67,14 @@ Real extension screenshots with the English interface and the same sample setup,
 - **Local JSON backups**: Export settings and local images, or import an existing backup. Imports validate the data and ask for confirmation. Restoring replaces the current configuration, so export a copy first. Files over 10 MiB show a memory-risk warning before reading and can be cancelled. Restoring large files still depends on available browser memory. The current device's sync state is retained.
 - **Optional cloud features**: Chrome Sync handles lightweight settings synchronization; Google Drive stores manual snapshots grouped by computer name. Their behavior and limits are explained below.
 
+## Local focus timer
+
+Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.
+
+All open extension pages share one device-local session. Hiding the card keeps that session. Settings-only reset preserves its exact state; templates and configuration imports do not start or replace it. Configuration exports, Chrome Sync and Drive backups exclude the timer. It has no task association, history, sound, network requests or system notifications and needs no new permission.
+
+While a page is active, elapsed time is checked against a monotonic clock. After all pages close, reopening estimates remaining time from the device clock; a clock change during that gap cannot be distinguished from elapsed time. Detected clock disagreement asks you to reset. Completion is shown locally: there is no exact-time alert while all pages are closed. Storage failures offer Read latest state; a failed acknowledgement may still have saved the change, so check the refreshed state before trying again.
+
 ## Install and get started
 
 1. Download and extract the repository source, or clone this repository. The source loads directly without a build step.

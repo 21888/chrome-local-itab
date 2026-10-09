@@ -295,6 +295,15 @@ async function initializeDashboard() {
                 }
             });
         }
+        const focusHost = document.getElementById('local-focus-card');
+        if (focusHost && window.LocalItabFocus && !window.localFocusView) {
+            window.localFocusView = window.LocalItabFocus.mount(focusHost, {
+                onVisibility(visible) {
+                    window.localItabFocusVisible = visible;
+                    applyModuleVisibility(window.localItabModuleVisibility || config.show);
+                }
+            });
+        }
         initializeQuoteComponent(config.quote);
 
         console.log('Dashboard initialized successfully');
@@ -575,7 +584,7 @@ function applyModuleVisibility(showConfig) {
         container.classList.toggle('module-hidden', isVisible !== true);
         container.style.display = isVisible === true ? '' : 'none';
     });
-    const hasCards = window.localItabTasksVisible === true || ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
+    const hasCards = window.localItabTasksVisible === true || window.localItabFocusVisible === true || ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
     document.getElementById('info-cards-container')?.classList.toggle('module-hidden', !hasCards);
     document.querySelector('.dashboard-main')?.classList.toggle('has-info-cards', hasCards);
 }
@@ -1416,7 +1425,7 @@ function setupDashboardVisibilityToggle(uiConfig) {
 }
 
 function shouldToggleFromEvent(event) {
-    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .local-tasks-card, .tasks-overlay, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
+    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .local-tasks-card, .local-focus-card, .tasks-overlay, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
     if (!event || !event.target) return false;
     return !event.target.closest(interactiveSelectors);
 }

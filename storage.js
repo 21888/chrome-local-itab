@@ -7,7 +7,7 @@ const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require
 const DashboardTemplates = typeof module !== 'undefined' && module.exports ? require('./shared/dashboard-template-registry.js') : window.LocalItabTemplates;
 
 // Personal content is owned by dedicated local stores, never configuration.
-const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1']);
+const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1']);
 
 class StorageManager {
     constructor() {
