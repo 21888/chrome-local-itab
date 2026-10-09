@@ -3596,6 +3596,7 @@ textarea:focus-visible,
 }
 
 /* Local calculator feedback spans the search row in every dashboard template. */
+.search-open-status,
 .search-calculator-status {
     grid-column: 1 / -1;
     min-width: 0;
@@ -3606,6 +3607,12 @@ textarea:focus-visible,
     overflow-wrap: anywhere;
     user-select: text;
 }
-.search-calculator-status.is-error {
+.search-calculator-status.is-error,
+.search-open-status.is-error {
     color: var(--template-error, #b42318);
+}
+
+/* Preserve the existing visually hidden utility against the status padding. */
+.search-open-status.sr-only {
+    padding: 0;
 }

@@ -5,7 +5,7 @@ const { createDocument } = require('./helpers/task-dom-model');
 
 // Uses the actual search initializer, Sync listener, and lifecycle implementation.
 // This small DOM model is not native Chromium/IME/popup verification.
-function mount(engine = 'google', custom = '') {
+function mount(engine = 'google', custom = '', locale = null) {
     const document = createDocument(), events = [], opens = [], writes = [];
     document.body.prepend = (...nodes) => document.body.append(...nodes);
     const host = document.createElement('section'); host.id = 'search-container'; document.body.append(host);
@@ -27,6 +27,10 @@ function mount(engine = 'google', custom = '') {
     const context = { window, document, storageManager, URL, encodeURIComponent, console,
         fetch: forbidden, localStorage: { getItem: forbidden, setItem: forbidden },
         chrome: { storage: { onChanged: { addListener: fn => events.push(fn) } } } };
+    if (locale) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        context.i18n = window.i18n = { t: key => messages[key]?.message || key };
+    }
     vm.createContext(context);
     for (const file of ['shared/search-template.js', 'shared/local-calculator.js', 'shared/local-content-lifecycle.js', 'newtab.js']) {
         vm.runInContext(fs.readFileSync(file, 'utf8'), context);
@@ -139,5 +143,120 @@ function mount(engine = 'google', custom = '') {
         const current = h.host.querySelector('.search-input'); current.value = 'new draft'; assert(h.owned());
         h.host.remove(); assert(!h.owned(), 'detached inputs cannot block reload');
     }
+    for (const locale of [null, 'en', 'zh_CN']) {
+        for (const [engine, custom] of [['google', ''], ['bing', ''], ['duck', ''], ['custom', 'https://example.com/?q=%s']]) {
+            for (const query of ['cats & dogs', 'example.com/path', 'http://example.com/', 'https://example.com/?q=x']) {
+                for (const result of [null, undefined, {}, { closed: true }, { closed: 0 }, { get closed() { throw new Error('private getter detail'); } }, new Error('private open detail'), { closed: false }]) {
+                    const h = mount(engine, custom, locale);
+                    const status = h.host.querySelector('.search-open-status');
+                    assert.equal(status.classList.contains('sr-only'), true); assert.equal(status.getAttribute('role'), 'status');
+                    assert.equal(status.getAttribute('aria-live'), 'polite');
+                    assert.equal(status.hidden, false, 'empty live region remains in the accessibility tree');
+                    assert.equal(status.getAttribute('aria-hidden'), undefined);
+                    h.edit(query); h.input.focus();
+                    const calculatorText = h.host.querySelector('.search-calculator-status').textContent;
+                    h.result(result); await h.submit();
+                    const success = result && Object.getOwnPropertyDescriptor(result, 'closed')?.value === false;
+                    const failed = result instanceof Error;
+                    assert.equal(status.classList.contains('sr-only'), Boolean(success));
+                    assert.equal(status.hidden, false, 'updates never remove the live region from the accessibility tree');
+                    assert.equal(status.classList.contains('is-error'), failed);
+                    if (!success) {
+                        const key = failed ? 'searchOpenFailed' : 'searchOpenUnknown';
+                        const messages = JSON.parse(fs.readFileSync(`_locales/${locale || 'en'}/messages.json`, 'utf8'));
+                        assert.equal(status.textContent, messages[key].message);
+                    } else assert.equal(status.textContent, '');
+                    assert.equal(h.document.activeElement, h.input);
+                    assert.equal(h.host.querySelector('.search-calculator-status').textContent, calculatorText);
+                    assert.equal(h.input.value, query); assert.equal(h.opens.length, 1);
+                    assert.equal(h.opens[0].length, 2); assert.equal(h.opens[0][1], '_blank');
+                    await h.sync(); assert.equal(h.reloads, success ? 1 : 0);
+                    assert.equal(h.writes.length, 0);
+                }
+            }
+        }
+    }
+    for (const action of ['input', 'compositionstart', 'engine', 'custom', 'new submit', 'calculation']) {
+        const h = mount(); const status = h.host.querySelector('.search-open-status');
+        h.edit('draft'); h.result(null); await h.submit(); assert(!status.classList.contains('sr-only'));
+        if (action === 'engine') { const select = h.host.querySelector('select'); select.value = 'bing'; select.dispatch('change'); }
+        else if (action === 'custom') h.host.querySelector('.search-custom-input').dispatch('input');
+        else if (action === 'calculation') { h.input.value = '=1+2'; await h.submit(); }
+        else if (action === 'new submit') {
+            h.result({ closed: false });
+            const original = h.window.open;
+            h.window.open = (...args) => { assert(status.classList.contains('sr-only'), 'new submit clears feedback before open'); return original(...args); };
+            await h.submit();
+        } else h.input.dispatch(action);
+        assert(status.classList.contains('sr-only')); assert.equal(status.textContent, '');
+    }
+    const css = fs.readFileSync('newtab.css', 'utf8');
+    assert.match(css, /\.sr-only\s*\{[^}]*position:\s*absolute/);
+    assert.match(css, /\.search-open-status\.sr-only\s*\{\s*padding:\s*0;/);
+    assert.doesNotMatch(css, /\.search-open-status[^}]*display:\s*none/);
+    // Simulate browser default submit only for uncancelled Enter keydowns.
+    {
+        const h = mount(); h.edit('draft'); h.result(null);
+        const enter = async (target, fields = {}) => { const event = target.dispatch('keydown', { key: 'Enter', ...fields }); if (!event.prevented) await h.submit(); };
+        await enter(h.input); assert.equal(h.opens.length, 1);
+        const button = h.host.querySelector('.search-submit');
+        await enter(h.input, { repeat: true }); await enter(button, { repeat: true });
+        await enter(button, { isComposing: true }); await enter(button, { keyCode: 229 });
+        assert.equal(h.opens.length, 1, 'held Enter must not automatically retry');
+        h.input.dispatch('compositionstart'); await enter(h.input); await enter(button); assert.equal(h.opens.length, 1);
+        h.input.dispatch('compositionend'); await enter(h.input); assert.equal(h.opens.length, 2);
+    }
+    for (const reattach of [false, true]) {
+        const h = mount(); h.edit('old draft'); h.result(null); await h.submit();
+        const oldForm = h.host.querySelector('form');
+        const oldStatus = h.host.querySelector('.search-open-status');
+        const oldText = oldStatus.textContent;
+        h.context.initializeSearchComponent({});
+        const currentInput = h.host.querySelector('.search-input');
+        const currentForm = h.host.querySelector('form');
+        currentInput.value = 'new draft'; currentInput.dispatch('input');
+        if (reattach) h.host.append(oldForm);
+        await h.submit();
+        assert.equal(h.opens.length, 1, 'obsolete form submit cannot navigate, even if reattached');
+        assert.equal(oldStatus.textContent, oldText, 'obsolete submit cannot rewrite feedback');
+        assert(h.owned()); assert.equal(currentInput.value, 'new draft');
+        currentForm.dispatch('submit'); currentForm.dispatch('submit');
+        assert.equal(h.opens.length, 3, 'current form still allows deliberate retries');
+        assert(h.owned());
+        h.host.remove(); currentForm.dispatch('submit');
+        assert.equal(h.opens.length, 3, 'detached current form cannot navigate');
+    }
+    for (const phase of ['open', 'closed getter']) {
+        for (const action of ['input', 'compositionstart', 'engine', 'same-text submit', 'remount', 'detach']) {
+            for (const outerOutcome of ['success', 'unknown', 'failed']) {
+                const h = mount(); h.edit('same text');
+                const status = h.host.querySelector('.search-open-status');
+                const reenter = () => {
+                    if (action === 'engine') { const select = h.host.querySelector('select'); select.value = 'bing'; select.dispatch('change'); }
+                    else if (action === 'same-text submit') {
+                        h.window.open = () => null;
+                        h.host.querySelector('form').dispatch('submit');
+                    } else if (action === 'remount') {
+                        h.context.initializeSearchComponent({});
+                        const current = h.host.querySelector('.search-input'); current.value = 'new draft'; current.dispatch('input');
+                    } else if (action === 'detach') h.host.remove();
+                    else h.input.dispatch(action);
+                };
+                const outcome = () => { if (outerOutcome === 'failed') throw new Error('private details'); return outerOutcome === 'success' ? false : true; };
+                h.window.open = () => {
+                    if (phase === 'open') { reenter(); return { closed: outcome() }; }
+                    return { get closed() { reenter(); return outcome(); } };
+                };
+                await h.submit();
+                if (action === 'same-text submit') {
+                    assert(!status.classList.contains('sr-only')); assert(!status.classList.contains('is-error'));
+                    assert.match(status.textContent, /Unable to confirm/);
+                } else assert(status.classList.contains('sr-only'), 'stale outcome must not publish feedback');
+                if (action !== 'detach') { assert(h.owned(), 'stale success must not release a new draft'); await h.sync(); assert.equal(h.reloads, 0); }
+                else assert(!h.owned());
+            }
+        }
+    }
+    console.log('PASS: search open feedback across both locales/fallback, four engines, keyword/URL outcomes, independent status/focus, Sync protection, repeated Enter/IME, clearing, reentrant edit/submit/engine/remount and getter exceptions');
     console.log('PASS: real search initializer + applied Sync listener; ordinary/URL/Unicode/IME/calculator drafts, blank release, ignored/local changes, cancellation/focus/remount, conservative navigation ownership, repeated edits, no writes and pending-owner preservation');
 })().catch(error => { console.error(error); process.exitCode = 1; });

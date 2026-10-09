@@ -560,5 +560,7 @@
   "calculatorDepth": {"message": "括号或正负号嵌套过多。最多支持 32 层。"},
   "calculatorZero": {"message": "不能除以零。"},
   "calculatorRange": {"message": "计算超出了支持的数值范围。"},
-  "calculatorUnavailable": {"message": "本地计算器不可用。请重新加载页面后重试。"}
+  "calculatorUnavailable": {"message": "本地计算器不可用。请重新加载页面后重试。"},
+  "searchOpenFailed": {"message": "未能打开新标签页。输入已保留，你可以再次提交。"},
+  "searchOpenUnknown": {"message": "无法确认新标签页是否已打开。输入已保留；再次提交前，请先检查标签页。"}
 }

@@ -647,27 +647,67 @@ function initializeSearchComponent(searchConfig = {}) {
     calculatorStatus.setAttribute('role', 'status');
     calculatorStatus.setAttribute('aria-live', 'polite');
     calculatorStatus.setAttribute('aria-atomic', 'true');
-    input.setAttribute('aria-describedby', calculatorStatus.id);
+    const searchStatus = document.createElement('div');
+    searchStatus.id = 'search-open-status';
+    // Keep the empty live region in the accessibility tree before its first update.
+    searchStatus.className = 'search-open-status sr-only';
+    searchStatus.setAttribute('role', 'status');
+    searchStatus.setAttribute('aria-live', 'polite');
+    searchStatus.setAttribute('aria-atomic', 'true');
+    input.setAttribute('aria-describedby', `${calculatorStatus.id} ${searchStatus.id}`);
+    const clearSearchStatus = () => {
+        searchStatus.classList.add('sr-only');
+        searchStatus.textContent = '';
+        searchStatus.classList.remove('is-error');
+    };
     const isCalculation = () => input.value.trimStart().startsWith('=');
     // Search ownership is local to this mounted input; never persist its contents.
     let submittedValue = null;
     let editRevision = 0;
-    window.localCalculatorView = {
+    let submissionRevision = 0;
+    const searchOwner = {
         hasUncommittedWork: () => input.isConnected && Boolean(input.value.trim()) &&
             (isCalculation() || input.value !== submittedValue)
     };
-    const markSearchEdited = () => { submittedValue = null; editRevision++; };
-    const openSearch = url => {
-        const value = input.value, revision = editRevision;
+    window.localCalculatorView = searchOwner;
+    const markSearchEdited = () => {
         submittedValue = null;
+        editRevision++;
+        clearSearchStatus();
+    };
+    const openSearch = url => {
+        const value = input.value, revision = editRevision, operation = submissionRevision;
+        const engine = select.value;
+        const isCurrent = () => input.isConnected && window.localCalculatorView === searchOwner &&
+            input.value === value && editRevision === revision &&
+            submissionRevision === operation && select.value === engine;
+        submittedValue = null;
+        let opened;
+        let outcome = 'unknown';
         try {
-            const opened = window.open(url, '_blank');
-            // Null can mean blocked or an unobservable/noopener window. Keep the
-            // draft unless an open WindowProxy confirms creation. No retry here.
-            if (opened && opened.closed === false && input.value === value && editRevision === revision) {
-                submittedValue = value;
-            }
-        } catch (_) { /* A failed open must keep the draft, without fallback navigation. */ }
+            opened = window.open(url, '_blank');
+        } catch (_) {
+            outcome = 'failed';
+        }
+        // Reading a WindowProxy can itself fail. That does not establish that
+        // opening failed (nor that the browser blocked it). Never auto-retry.
+        if (outcome !== 'failed') {
+            try {
+                if (opened && opened.closed === false) outcome = 'opened';
+            } catch (_) { /* Creation remains unobservable. */ }
+        }
+        // A synchronous open/getter can reenter events or remount the search.
+        if (!isCurrent()) return;
+        if (outcome === 'opened') {
+            submittedValue = value;
+            clearSearchStatus();
+            return;
+        }
+        searchStatus.textContent = outcome === 'failed'
+            ? calculatorText('searchOpenFailed', 'Could not open a new tab. Your input is still here; you can submit it again.')
+            : calculatorText('searchOpenUnknown', 'Unable to confirm whether a new tab opened. Your input is still here; check your tabs before submitting again.');
+        searchStatus.classList.toggle('is-error', outcome === 'failed');
+        searchStatus.classList.remove('sr-only');
     };
     let composing = false;
     const updateCalculatorHint = () => {
@@ -767,6 +807,7 @@ function initializeSearchComponent(searchConfig = {}) {
     };
 
     select.addEventListener('change', async () => {
+        markSearchEdited();
         const engine = select.value;
         updateCustomConfigVisibility(engine === 'custom' && !currentSearchConfig.custom);
 
@@ -779,6 +820,7 @@ function initializeSearchComponent(searchConfig = {}) {
     });
 
     customSave.addEventListener('click', () => saveCustomSearch());
+    customInput.addEventListener('input', markSearchEdited);
 
     customInput.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter') return;
@@ -786,16 +828,26 @@ function initializeSearchComponent(searchConfig = {}) {
         saveCustomSearch();
     });
 
-    form.append(select, input, button, calculatorStatus, customConfig);
+    form.append(select, input, button, calculatorStatus, searchStatus, customConfig);
     updateCustomConfigVisibility(false);
 
+    form.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && (event.repeat || composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+    });
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        if (!input.isConnected || window.localCalculatorView !== searchOwner) return;
         if (composing || event.isComposing) return;
+        submissionRevision++;
+        clearSearchStatus();
         // Intercept the explicit prefix before URL normalization or engine lookup.
         // Errors and a missing helper must never send expressions to a provider.
         if (isCalculation()) {
-            const result = window.LocalItabCalculator?.calculate(input.value.trimStart().slice(1)) || { error: 'unavailable' };
+            let result;
+            try {
+                result = window.LocalItabCalculator?.calculate(input.value.trimStart().slice(1));
+            } catch (_) { /* Calculator errors must stay local too. */ }
+            result = result || { error: 'unavailable' };
             const errors = {
                 syntax: ['calculatorSyntax', 'Check the expression. Use decimals, + - * / and parentheses only.'],
                 length: ['calculatorLength', 'Expression too long. Use at most 256 characters after =.'],

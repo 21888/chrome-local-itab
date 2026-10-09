@@ -24,7 +24,7 @@ function mount(engine='google',custom='',locale='en') {
 }
 for(const locale of ['en','zh_CN'])for(const engine of ['google','bing','duck','custom']){
     const h=mount(engine,'',locale);h.input.focus();
-    assert.equal(h.input.getAttribute('aria-describedby'),h.status.id);
+    assert.equal(h.input.getAttribute('aria-describedby'),`${h.status.id} search-open-status`);
     assert.equal(h.status.getAttribute('role'),'status');
     for(const expression of ['=1+2','=1/0','=foo','=https://example.com','=1'+' '.repeat(256),'=',' =1+(2*3)']){
         h.edit(expression);h.submit();h.submit();
@@ -40,6 +40,8 @@ for(const locale of ['en','zh_CN'])for(const engine of ['google','bing','duck','
     h.input.dispatch('compositionstart');h.submit();assert(!h.status.textContent.endsWith('= 5'));
     assert(h.input.dispatch('keydown',{key:'Enter',isComposing:true}).prevented);
     h.input.dispatch('compositionend');h.submit();assert(h.status.textContent.endsWith('= 5'));
+    h.window.LocalItabCalculator = { calculate() { throw new Error('private internal details'); } };
+    h.submit();assert(h.status.classList.contains('is-error'));assert(!h.status.textContent.includes('private internal details'));assert.equal(h.calls.length,0);
     delete h.window.LocalItabCalculator;h.submit();assert(h.status.classList.contains('is-error'));assert.equal(h.calls.length,0);
 }
 for(const [engine,custom,expected] of [

@@ -560,5 +560,7 @@
   "calculatorDepth": {"message": "Too many nested parentheses or signs. Use at most 32 levels."},
   "calculatorZero": {"message": "Cannot divide by zero."},
   "calculatorRange": {"message": "The calculation exceeds the supported number range."},
-  "calculatorUnavailable": {"message": "The local calculator is unavailable. Reload the page to retry."}
+  "calculatorUnavailable": {"message": "The local calculator is unavailable. Reload the page to retry."},
+  "searchOpenFailed": {"message": "Could not open a new tab. Your input is still here; you can submit it again."},
+  "searchOpenUnknown": {"message": "Unable to confirm whether a new tab opened. Your input is still here; check your tabs before submitting again."}
 }
