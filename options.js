@@ -619,6 +619,7 @@ async function populateFormFields(config) {
         if (window.appearanceController) await window.appearanceController.refresh();
         else window.appearanceController = window.LocalItabAppearance.mount(document.getElementById('options-appearance'), {
             initial: config.appearance,
+            baseline: config._settingsBaseline,
             onError: error => console.warn('Appearance save/read failed:', error)
         });
     }

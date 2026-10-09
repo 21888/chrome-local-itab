@@ -1471,6 +1471,46 @@ class StorageManager {
         return this.resolveAppearance(raw);
     }
 
+    appearanceError(code = 'APPEARANCE_CONFLICT') {
+        const error = new Error('Saved preferences changed or could not be safely compared. Keep any draft and open a new tab before retrying.');
+        error.code = code; return error;
+    }
+
+    // Independent selectors own only their requested axes. Read, generation
+    // check, merge and write share the same lock as Settings and replacements.
+    async patchAppearance(patch, baseline) {
+        if (!baseline || typeof baseline !== 'object' || Array.isArray(baseline) ||
+            !Object.prototype.hasOwnProperty.call(baseline, 'generation') ||
+            (baseline.generation !== null && (typeof baseline.generation !== 'string' || !baseline.generation))) {
+            throw this.appearanceError('APPEARANCE_BASELINE_UNAVAILABLE');
+        }
+        const generation = baseline.generation;
+        if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw this.appearanceError();
+        const requested = LayoutIdentity.copy(patch), keys = Object.keys(requested);
+        if (!keys.length || keys.some(key => !['template', 'colorMode'].includes(key)) ||
+            (keys.includes('template') && !DashboardTemplates.ids.includes(requested.template)) ||
+            (keys.includes('colorMode') && !['light', 'dark'].includes(requested.colorMode))) throw this.appearanceError();
+        await this.ensureSyncInitialized();
+        let committed;
+        try {
+            committed = await this.withLocalWriteLock(async () => {
+                const raw = await chrome.storage.local.get(['appearance', 'themePreset', this.settingsGenerationKey]);
+                if (this.settingsSnapshot(raw).generation !== generation) throw this.appearanceError();
+                if (raw.appearance !== undefined && (!raw.appearance || typeof raw.appearance !== 'object' || Array.isArray(raw.appearance))) throw this.appearanceError();
+                const appearance = { ...this.resolveAppearance(raw), ...raw.appearance, ...requested };
+                await chrome.storage.local.set({ appearance });
+                return this.validateAppearanceConfig(appearance);
+            }, true);
+        } catch (error) {
+            if (error.code === 'LINKS_LOCK_UNAVAILABLE') throw this.appearanceError('APPEARANCE_LOCK_UNAVAILABLE');
+            if (error.code?.startsWith('SETTINGS_')) throw this.appearanceError();
+            throw error;
+        }
+        try { if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush(); }
+        catch (error) { console.warn('Appearance saved locally; Sync scheduling failed:', error); }
+        return committed;
+    }
+
     isSyncAvailable() {
         return !!(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync);
     }

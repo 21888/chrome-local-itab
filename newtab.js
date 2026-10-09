@@ -398,6 +398,7 @@ function setupDashboardAppearance(config) {
     if (!window.LocalItabAppearance) return;
     window.appearanceController = window.LocalItabAppearance.mount(document.getElementById('dashboard-appearance'), {
         initial: config.appearance,
+        baseline: config._settingsBaseline,
         onBeforeApply(value, previous) {
             if (value.template !== previous.template) window.shortcutsComponentInstance?._cancelFreeDrag?.();
         },

@@ -50,6 +50,12 @@ function controllerHarness(initial = fresh) {
     const storage = new StorageManager();
     storage.getAppearanceForUpdate = async () => clone(data.appearance);
     storage.set = async (key, value) => { assert.equal(key, 'appearance'); writes.push(clone(value)); data[key] = clone(value); return true; };
+    // UI-only fake for the atomic storage API; actual cross-page transactions
+    // are exercised separately in appearance-concurrency.test.js.
+    storage.patchAppearance = async patch => {
+        const value = { ...await storage.getAppearanceForUpdate(), ...patch };
+        return await storage.set('appearance', value) ? value : false;
+    };
     const context = { window: { document }, console };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync('shared/appearance.js', 'utf8'), context);

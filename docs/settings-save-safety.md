@@ -78,6 +78,26 @@ Reinitializing the dashboard retires previous double-click handlers. No new
 permissions, network requests, backup schema or stored metadata are added here.
 
 
+### Appearance controls
+
+Template and Light/Dark selections merge only their chosen fields with the latest
+appearance inside the same shared write lock. Concurrent choices on different
+pages retain both axes, and a completed field is not replayed by a later queued
+choice of the other axis. Explicit newer choices of the same field still win in
+serialized order. Unknown appearance fields, ordinary settings, saved positions
+and private local content stay unchanged.
+
+The appearance controls keep the original page's settings-generation baseline.
+A whole restore, reset or applied Sync replacement rejects older selections,
+including a choice waiting for the write lock. Open a fresh page before retrying;
+an ordinary appearance refresh does not silently authorize the stale page. Failed
+reads, writes or unavailable Web Locks leave visible feedback. A delayed refresh
+can show the latest saved appearance without erasing the failed-save notice.
+
+Visual template changes still do not apply recommended workspace visibility.
+Workspace recommendations retain their separate explicit preview/apply flow.
+No permissions, dependencies, stored keys, or backup formats are added.
+
 ### Validation
 
 `tests/settings-stale-save.test.js` runs the actual Options and StorageManager
@@ -118,3 +138,9 @@ JSON 或 Drive 整体恢复、重置、已应用的 Chrome 同步快照会让旧
 新增的本地整体替换标记不会进入导出、Drive、Chrome 同步
 或导入格式，也不包含或修改待办、专注、便签、倒计时等私人内容。实际代码的多页
 存储模型回归覆盖并发、失败与草稿保留；浏览器画面和真实云端授权需另行验收。
+
+外观的模板与明暗选择也只在共享写入锁内合并本次明确修改的字段。不同页面同时
+选择模板和深色模式会保留两项；本页较早已保存的字段不会被后续另一项选择重复
+覆盖。整体恢复、重置或已应用的同步副本会让旧外观控件失效，需重新打开页面。
+刷新显示最新外观不会自动解除保护，失败提示也不会被延迟刷新清除。视觉模板
+仍不自动应用推荐工作区；待办和专注计时器显隐继续需要单独预览并明确应用。

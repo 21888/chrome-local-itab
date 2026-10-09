@@ -26,7 +26,7 @@ const original=manager.cloneDefaultConfig();original.links=[{id:'saved-link',tit
   assert.equal(manager.validateImportPayload({links:[],appearance:{template,colorMode}}).appearance.template,template);
  }
  const data=clone(original),writes=[];data.appearance={template:'clarity',colorMode:'light'};
- const storage={validateAppearanceConfig:manager.validateAppearanceConfig.bind(manager),getAppearanceForUpdate:async()=>clone(data.appearance),set:async(key,value)=>{assert.equal(key,'appearance');data[key]=clone(value);writes.push(key);return true;}};
+ const storage={validateAppearanceConfig:manager.validateAppearanceConfig.bind(manager),getAppearanceForUpdate:async()=>clone(data.appearance),patchAppearance:async patch=>{data.appearance={...data.appearance,...clone(patch)};writes.push('appearance');return clone(data.appearance);}};
  const context={window:{document:{documentElement:{dataset:{},lang:'zh-CN'}}},console};vm.createContext(context);
  vm.runInContext(fs.readFileSync('shared/dashboard-template-registry.js','utf8'),context);
  vm.runInContext(fs.readFileSync('shared/appearance.js','utf8'),context);

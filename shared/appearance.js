@@ -10,11 +10,14 @@
         root.dataset.colorMode = value.colorMode;
     }
 
-    // Only the appearance key is written. Each page serializes its own requests;
-    // other settings and manual positions never travel in this save operation.
+    // Pages serialize local intents; StorageManager merges the owned axes under
+    // the shared write lock. Other settings/positions never travel in this save.
     class Controller {
-        constructor({ storage = global.storageManager, initial, render = () => {}, onBeforeApply = () => {}, onApply = () => {}, onError = () => {} }) {
+        constructor({ storage = global.storageManager, initial, baseline, render = () => {}, onBeforeApply = () => {}, onApply = () => {}, onError = () => {} }) {
             this.storage = storage;
+            this.baseline = baseline ? { generation: baseline.generation } : null;
+            this.patchVersions = {};
+            this.saveError = null;
             this.confirmed = storage.validateAppearanceConfig(initial);
             this.applied = { ...this.confirmed };
             this.patch = {};
@@ -45,19 +48,24 @@
             if (!choices.includes(value)) return Promise.resolve(false);
             const version = ++this.version;
             this.patch = { ...this.patch, [field]: value };
+            this.patchVersions[field] = version;
+            this.saveError = null;
             const patch = { ...this.patch };
             this.pending++;
             this.render({ ...this.confirmed, ...patch }, 'saving');
             const task = this.queue.then(async () => {
                 if (version !== this.version) return false;
-                const previous = await this.storage.getAppearanceForUpdate();
-                this.confirmed = previous;
-                if (version !== this.version) return false;
-                const candidate = { ...previous, ...patch };
-                if (!(await this.storage.set('appearance', candidate))) throw new Error('Appearance save failed');
+                const requested = { ...this.patch }, requestedVersions = { ...this.patchVersions };
+                const candidate = await this.storage.patchAppearance(requested, this.baseline);
+                if (!candidate) throw new Error('Appearance save failed');
                 this.confirmed = candidate;
+                // A completed field must not be replayed by a later queued
+                // selection of the other axis. Keep any newer same-field intent.
+                for (const key of Object.keys(requested)) {
+                    if (this.patchVersions[key] !== requestedVersions[key]) continue;
+                    delete this.patch[key]; delete this.patchVersions[key];
+                }
                 if (version === this.version) {
-                    this.patch = {};
                     this.paint(candidate);
                     this.render(candidate, 'saved');
                 }
@@ -65,8 +73,10 @@
             }).catch(error => {
                 if (version === this.version) {
                     this.patch = {};
+                    this.patchVersions = {};
+                    this.saveError = error;
                     this.paint(this.confirmed);
-                    this.render(this.confirmed, 'error');
+                    this.render(this.confirmed, 'error', error);
                     this.onError(error);
                 }
                 return false;
@@ -91,10 +101,10 @@
                 if (this.pending || version !== this.version || refreshVersion !== this.refreshVersion) return;
                 this.confirmed = value;
                 this.paint(value);
-                this.render(value, '');
+                this.render(value, this.saveError ? 'error' : '', this.saveError);
             } catch (error) {
                 if (!this.pending && version === this.version && refreshVersion === this.refreshVersion) {
-                    this.render(this.confirmed, 'error');
+                    this.render(this.confirmed, 'error', this.saveError || error);
                     this.onError(error);
                 }
             } finally { this.refreshing--; }
@@ -130,14 +140,14 @@
         status.setAttribute('role', 'status');
         status.setAttribute('aria-live', 'polite');
         host.appendChild(status);
-        const controller = new Controller({ ...options, render(value, state) {
+        const controller = new Controller({ ...options, render(value, state, error) {
             controls.template.value = value.template;
             controls.colorMode.value = value.colorMode;
             host.setAttribute('aria-busy', String(state === 'saving'));
             host.dataset.saveState = state;
             status.textContent = state === 'saving' ? translate('appearanceSaving', 'Saving…') :
                 state === 'saved' ? translate('appearanceSaved', 'Saved') :
-                    state === 'error' ? translate('appearanceSaveFailed', 'Could not save. Please try again.') : '';
+                    state === 'error' ? (error?.code?.startsWith('APPEARANCE_') ? translate('dashboardPreferenceConflict', 'Saved preferences changed or could not be safely read. Keep any draft and open a new tab before retrying.') : translate('appearanceSaveFailed', 'Could not save. Please try again.')) : '';
         } });
         for (const [field, select] of Object.entries(controls)) {
             select.addEventListener('change', () => controller.select(field, select.value));
