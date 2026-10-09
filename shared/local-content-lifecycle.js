@@ -4,8 +4,8 @@
         const translated = root.i18n?.t(key);
         return translated && translated !== key ? translated : fallback;
     };
-    const pending = () => Boolean(root.localFocusView?.controller.pending || root.localFocusSettingsView?.controller.pending || root.localTasksView?.controller.pending || root.localTasksSettingsController?.pending || root.shortcutsComponentInstance?.finderView?.pending);
-    const hasUncommittedWork = () => pending() || Boolean(root.localTasksView?.hasUncommittedWork()) || Boolean(root.shortcutsComponentInstance?.finderView?.hasUncommittedWork());
+    const pending = () => Boolean(root.shortcutsComponentInstance?._pendingSave || root.localFocusView?.controller.pending || root.localFocusSettingsView?.controller.pending || root.localTasksView?.controller.pending || root.localTasksSettingsController?.pending || root.shortcutsComponentInstance?.finderView?.pending);
+    const hasUncommittedWork = () => pending() || Boolean(root.shortcutsComponentInstance?.modal?.classList.contains('active')) || Boolean(root.localTasksView?.hasUncommittedWork()) || Boolean(root.shortcutsComponentInstance?.finderView?.hasUncommittedWork());
     function reload() {
         // Recheck at the time a delayed configuration reload actually runs.
         // Content notifications never call this helper or initialize providers.
