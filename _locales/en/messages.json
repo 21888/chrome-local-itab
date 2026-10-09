@@ -673,5 +673,11 @@
   "monthCalendar": { "message": "Calendar" },
   "monthCalendarPrevious": { "message": "Previous" },
   "monthCalendarNext": { "message": "Next" },
-  "monthCalendarToday": { "message": "Today" }
+  "monthCalendarToday": { "message": "Today" },
+  "settingsBaselineUnavailable": { "message": "Settings could not be read safely. Your edits are still here. Open a new Settings tab before saving." },
+  "settingsLockUnavailable": { "message": "Safe Settings saving is unavailable in this browser. Your edits have not been saved." },
+  "settingsPermissionRequired": { "message": "Online favicon permission is still pending or was not granted. Finish the permission request or turn this setting off before saving." },
+  "settingsSaveConflict": { "message": "Settings changed in another tab or were replaced. Your edits are still here. Open a new Settings tab to review the latest values and copy your changes there." },
+  "settingsImageSaveConflict": { "message": "The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again." },
+  "settingsBackgroundColorInvalid": { "message": "Enter a valid background color, such as #112233, before saving." }
 }

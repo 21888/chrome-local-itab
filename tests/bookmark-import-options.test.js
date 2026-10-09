@@ -43,6 +43,8 @@ function tab() {
     vm.createContext(context);
     vm.runInContext(source + '\nshowMessage = (text, type) => messages.push({text, type}); displayStorageInfo = async () => {};', context);
     context.setupCategoryManagement(clone(baseline));
+    context.initialConfig = clone(state);
+    vm.runInContext("clockBaseline = copyClock(initialConfig.clock); clockFormInitialized = true; settingsFormConfig = initialConfig; settingsBaseline = storageManager.settingsSnapshot(initialConfig); settingsFormBaseline = collectFormData();", context);
     return {context, storage, document, clock, list, messages, timers, get reloads() { return reloads; }};
 }
 
@@ -95,7 +97,7 @@ const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><DT><H3>Imported work</H3><
         assert.equal(state.categories.length, baseline.length + 1);
     }
     // A pending normalized save owns only its submission, never later raw edits.
-    reset(); a = tab(); a.list.children[0].querySelector('.cat-name').value = ' Work ';
+    reset(); a = tab(); a.list.children[0].querySelector('.cat-name').value = ' Work '; a.clock.checked = true;
     const normalizedEntered = deferred(), normalizedResume = deferred();
     pauseWrite = {entered: normalizedEntered, resume: normalizedResume};
     const normalizing = a.context.saveAllSettings(); await normalizedEntered.promise;

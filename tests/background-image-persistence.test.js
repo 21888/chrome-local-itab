@@ -25,13 +25,18 @@ function createHarness() {
     vm.runInContext(fs.readFileSync('shared/world-clocks.js', 'utf8'), context);
     vm.runInContext(fs.readFileSync('storage.js', 'utf8'), context);
     // Use the real strict StorageManager read path, not a throw-only getAll stub.
-    context.window.storageManager.set = async (key, value) => {
+    context.window.storageManager.setAll = async settings => {
+        if (state.readError) throw new Error('storage read unavailable');
+        const key = 'bg', value = settings.bg;
         state.writes.push({ key, value });
         const result = await state.save(value);
         if (result) { state.stored = JSON.parse(JSON.stringify(value)); state.missingBackground = false; }
         return result;
     };
+    context.window.storageManager._syncInitialized = true;
     vm.runInContext(fs.readFileSync('options.js', 'utf8'), context);
+    context.initialBackground = JSON.parse(JSON.stringify(state.stored));
+    vm.runInContext('settingsBaseline = {generation: null, values: {bg: initialBackground}}; settingsFormConfig = {bg: initialBackground}; settingsFormBaseline = {bg: initialBackground};', context);
     context.showMessage = (text, status) => state.messages.push({ text, status });
     context.fileToDataURL = async file => { state.reads.push(file.name); return file.data ? await file.data : 'data:image/png;base64,TkVX'; };
     const file = { name: 'same-image.png', type: 'image/png', size: 100 };
@@ -164,19 +169,20 @@ function createHarness() {
         firstWrite.resolve(true);
         await Promise.all([first, second]);
         assert.equal(h.state.stored.type, 'image');
-        assert.equal(h.fields.get('bg-type').value, 'image');
-        assert.equal(h.fields.get('bg-preview-img').src, h.state.stored.value, 'latest failure restores the actual preceding committed image');
+        assert.equal(h.fields.get('bg-type').value, 'color', 'failed newest choice remains an unsaved draft');
+        assert.equal(h.fields.get('bg-color').value, '#abcdef');
         assert.equal(h.state.messages.some(message => message.status === 'success'), false);
         assert.equal(h.state.messages.at(-1).status, 'error');
     }
     {
         const h = createHarness();
         h.state.stored = { type: 'color', value: '#112233' };
+        vm.runInContext("settingsFormConfig.bg = {type: 'color', value: '#112233'}; settingsBaseline.values.bg = {type: 'color', value: '#112233'}; settingsFormBaseline.bg = {type: 'color', value: '#112233'};", h.context);
         h.fields.get('bg-type').value = 'color';
         h.fields.get('bg-color').value = '#abcdef';
         h.state.save = async () => false;
         await h.context.saveBackgroundSettings();
-        assert.equal(h.fields.get('bg-color').value, '#112233');
+        assert.equal(h.fields.get('bg-color').value, '#abcdef', 'failed writes retain the requested color');
         assert.equal(h.fields.get('bg-color-text').value, '#112233');
         assert.equal(h.state.messages.at(-1).status, 'error');
     }

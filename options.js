@@ -100,6 +100,48 @@ function setupWorldClocks() {
         get pending() { return worldClockSaves > 0; }};
 }
 
+// The rendered form and its original storage read have distinct ownership.
+// Never refresh these baselines from a later read while a draft is open.
+let settingsBaseline = null;
+let settingsFormBaseline = null;
+let settingsFormConfig = null;
+let backgroundFormBaseline = null;
+let settingsHelperSaves = 0;
+let privacyPermissionRequest = 0;
+let privacyPermissionPending = false;
+const copySettings = value => JSON.parse(JSON.stringify(value));
+function settingsNotice(error) {
+    if (error?.code === 'SETTINGS_BASELINE_UNAVAILABLE') return t('settingsBaselineUnavailable', 'Settings could not be read safely. Your edits are still here. Open a new Settings tab before saving.');
+    if (error?.code === 'SETTINGS_LOCK_UNAVAILABLE') return t('settingsLockUnavailable', 'Safe Settings saving is unavailable in this browser. Your edits have not been saved.');
+    if (error?.code === 'SETTINGS_PERMISSION_REQUIRED') return t('settingsPermissionRequired', 'Online favicon permission is still pending or was not granted. Finish the permission request or turn this setting off before saving.');
+    return t('settingsSaveConflict', 'Settings changed in another tab or were replaced. Your edits are still here. Open a new Settings tab to review the latest values and copy your changes there.');
+}
+function requireSettingsBaseline() {
+    if (!settingsBaseline || !settingsFormBaseline) {
+        const error = new Error(); error.code = 'SETTINGS_BASELINE_UNAVAILABLE'; throw error;
+    }
+}
+function settingsDirtyPaths(form, baseline = settingsFormBaseline) {
+    return storageManager.settingsFormPaths.filter(path => !['bg', 'movie.poster'].includes(path) &&
+        JSON.stringify(storageManager.settingsPathValue(form, path)) !== JSON.stringify(storageManager.settingsPathValue(baseline, path)));
+}
+function advanceSettingsBaseline(settings, paths, submittedForm) {
+    for (const path of paths) {
+        const value = storageManager.settingsPathValue(settings, path);
+        storageManager.setSettingsPath(settingsBaseline.values, path, value);
+        storageManager.setSettingsPath(settingsFormConfig, path, value);
+        storageManager.setSettingsPath(settingsFormBaseline, path, storageManager.settingsPathValue(submittedForm, path));
+    }
+}
+function settingsHasUncommittedWork() {
+    if (settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending) return true;
+    if (settingsReplacementPending || !settingsFormBaseline) return false;
+    try { return settingsDirtyPaths(collectFormData(false)).length > 0 ||
+        (backgroundFormBaseline !== null && backgroundFormSnapshot() !== backgroundFormBaseline) ||
+        Array.from(document.querySelectorAll('.topic-title-input')).some(input => input.value) || !bookmarkCategoryFormClean(); }
+    catch (_) { return true; }
+}
+
 let categoryBaseline = null;
 let categoryRawBaseline = null;
 let settingsSaveQueue = Promise.resolve();
@@ -119,6 +161,9 @@ async function replaceSettings(operation) {
     settingsReplacementRunning = true;
     settingsReplacementPending = true;
     ++settingsSession;
+    ++backgroundRequest;
+    ++privacyPermissionRequest;
+    privacyPermissionPending = false;
     if (categorySaveTimeout !== undefined) clearTimeout(categorySaveTimeout);
     try {
         const result = await queueSettingsWrite(operation);
@@ -223,14 +268,33 @@ function setupBookmarkImport() {
 
 // Serialize background-only writes while the newest request owns the controls.
 // A rejected operation must not poison the next upload/removal/type-change attempt.
-let backgroundMutationQueue = Promise.resolve();
 let backgroundRequest = 0;
+let backgroundSaves = 0;
 function queueBackgroundTask(operation) {
-    const request = ++backgroundRequest;
-    const isCurrent = () => request === backgroundRequest;
-    const result = backgroundMutationQueue.then(() => operation(isCurrent));
-    backgroundMutationQueue = result.catch(() => {});
-    return result;
+    if (settingsReplacementPending) return Promise.resolve();
+    const request = ++backgroundRequest, session = settingsSession;
+    const submittedControls = backgroundFormSnapshot();
+    const isCurrent = () => request === backgroundRequest && session === settingsSession && !settingsReplacementPending;
+    ++backgroundSaves;
+    return queueSettingsWrite(() => operation(isCurrent, () => isCurrent() && backgroundFormSnapshot() === submittedControls, submittedControls)).finally(() => { --backgroundSaves; });
+}
+function backgroundFormSnapshot() {
+    return JSON.stringify(['bg-type', 'bg-color', 'bg-color-text'].map(id => document.getElementById(id)?.value || ''));
+}
+function publishCommittedBackground(background, canPresent, submittedControls) {
+    backgroundFormBaseline = submittedControls;
+    if (canPresent()) {
+        applyCommittedBackground(background);
+        backgroundFormBaseline = backgroundFormSnapshot();
+    }
+}
+async function commitBackground(background) {
+    requireSettingsBaseline();
+    background = storageManager.validateData('bg', background);
+    const saved = await storageManager.setAll({bg: background}, {expectedSettings: settingsBaseline, settingsPaths: ['bg']});
+    if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+    // Even a superseded successful write is the next queued action's baseline.
+    advanceSettingsBaseline({bg: background}, ['bg'], {bg: background});
 }
 
 function normalizeThemePreset(preset) {
@@ -706,6 +770,12 @@ async function populateFormFields(config) {
         if (paddingLeftInput) paddingLeftInput.value = (hasCustom && Number.isFinite(paddingObj.left)) ? paddingObj.left : fallback;
         syncDashboardPaddingControls();
     }
+    settingsFormConfig = copySettings(config);
+    settingsBaseline = config._settingsBaseline ? copySettings(config._settingsBaseline) : null;
+    settingsFormBaseline = collectFormData(false);
+    backgroundFormBaseline = backgroundFormSnapshot();
+    window.settingsFormView = {hasUncommittedWork: settingsHasUncommittedWork,
+        get pending() { return settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending; }};
 }
 
 async function populateSyncControls(syncConfig) {
@@ -965,7 +1035,13 @@ function setupEventListeners() {
 
     if (onlineFavicons) {
         onlineFavicons.addEventListener('change', async () => {
-            if (onlineFavicons.checked && !(await ensurePrivacyPermission('favicons', true))) {
+            const request = ++privacyPermissionRequest, session = settingsSession;
+            const enabled = onlineFavicons.checked;
+            privacyPermissionPending = enabled;
+            const granted = !enabled || await ensurePrivacyPermission('favicons', true);
+            if (request !== privacyPermissionRequest || session !== settingsSession || settingsReplacementPending) return;
+            privacyPermissionPending = false;
+            if (!granted) {
                 onlineFavicons.checked = false;
                 showMessage('Online favicon permission was not granted.', 'error');
             }
@@ -1134,9 +1210,8 @@ function setupEventListeners() {
             const scoreInput = topicList.querySelector('.topic-score-input');
             const tabType = topicList.id.replace('-topics', '');
             
-            addHotTopic(tabType, titleInput.value, parseInt(scoreInput.value) || 0);
-            titleInput.value = '';
-            scoreInput.value = '';
+            const accepted = addHotTopic(tabType, titleInput.value, parseInt(scoreInput.value) || 0);
+            if (accepted !== false) { titleInput.value = ''; scoreInput.value = ''; }
         });
     });
     
@@ -1691,14 +1766,38 @@ async function saveAllSettings(includeWorldClocks = false) {
     const submittedClock = clockFormSnapshot(includeWorldClocks);
     const submittedCategories = categorySnapshot(getCategoriesFromDOM());
     const submittedCategorySignature = bookmarkCategorySignature();
+    const submittedBackgroundControls = backgroundFormSnapshot();
+    const backgroundDirtyAtSubmission = backgroundFormBaseline !== null && submittedBackgroundControls !== backgroundFormBaseline;
+    let submittedForm, collectError;
+    try { requireSettingsBaseline(); submittedForm = collectFormData(false); }
+    catch (error) { collectError = error; }
     ++worldClockSaves;
     return queueSettingsWrite(async () => {
         if (session !== settingsSession || settingsReplacementPending) return;
         try {
             showMessage('Saving settings...', 'info');
-            const settings = await collectFormData();
+            if (collectError) throw collectError;
+            const paths = settingsDirtyPaths(submittedForm);
+            // A Save clicked during an upload must not replay its untouched old
+            // background. An already-dirty choice may retry here after a failure.
+            if (backgroundDirtyAtSubmission) {
+                if (submittedForm.bg.type === 'color' && !/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(submittedForm.bg.value)) {
+                    throw new Error(t('settingsBackgroundColorInvalid', 'Enter a valid background color, such as #112233, before saving.'));
+                }
+                if (JSON.stringify(submittedForm.bg) !== JSON.stringify(settingsFormBaseline.bg)) paths.push('bg');
+            }
+            if (paths.includes('search') && submittedForm.search.engine === 'custom') {
+                if (!submittedForm.search.custom) throw new Error(t('customSearchUrlRequired', 'Custom search URL is required'));
+                try { submittedForm.search.custom = normalizeSearchTemplateForOptions(submittedForm.search.custom); }
+                catch (_) { throw new Error(t('customSearchUrlInvalid', 'Enter a valid HTTP or HTTPS search URL')); }
+            }
+            const settings = Object.fromEntries([...new Set(paths.map(path => path.split('.')[0]))].map(key => [key, storageManager.validateData(key, submittedForm[key])]));
+            if (paths.includes('privacy.onlineFavicons') && submittedForm.privacy.onlineFavicons &&
+                (privacyPermissionPending || !(await hasOptionalOriginPermission(PRIVACY_PERMISSION_ORIGINS.favicons)))) {
+                const error = new Error(); error.code = 'SETTINGS_PERMISSION_REQUIRED'; throw error;
+            }
             if (session !== settingsSession || settingsReplacementPending) return;
-            const options = {};
+            const options = {expectedSettings: settingsBaseline, settingsPaths: paths};
             if (clockFormInitialized && !clockBaseline) throw new Error(t('worldClockBaselineUnavailable', 'Clock settings could not be read safely. Reload Settings before saving.'));
             // Queued unrelated saves inherit the latest successful own world-clock write.
             if (!includeWorldClocks && clockBaseline) submittedClock.worldClocks = clockBaseline.worldClocks.map(entry => ({...entry}));
@@ -1718,6 +1817,11 @@ async function saveAllSettings(includeWorldClocks = false) {
             const success = await storageManager.setAll(settings, options);
             // A committed own write remains the baseline even if a subsequent
             // reset/import fails. Only its obsolete presentation is suppressed.
+            if (success) {
+                advanceSettingsBaseline(settings, paths, submittedForm);
+                if (paths.includes('bg')) publishCommittedBackground(settings.bg, () => session === settingsSession &&
+                    !settingsReplacementPending && backgroundFormSnapshot() === submittedBackgroundControls, submittedBackgroundControls);
+            }
             if (success && settings.clock) clockBaseline = copyClock(submittedClock);
             if (success && options.expectedCategories) categoryBaseline = categorySnapshot(submittedCategories);
             // Canonical storage and raw form ownership are different baselines:
@@ -1735,8 +1839,8 @@ async function saveAllSettings(includeWorldClocks = false) {
         } catch (error) {
             if (session !== settingsSession || settingsReplacementPending) return;
             console.error('Error saving settings:', error);
-            const detail = error.code === 'CLOCK_CONFLICT' ? t('worldClockConflict', 'Clock settings changed in another tab or could not be safely compared. Your edits are still here. Review the latest values in a new Settings tab before retrying.') : error.message;
-            showMessage(`Error saving settings: ${detail}`, 'error');
+            const detail = error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : error.code === 'CLOCK_CONFLICT' ? t('worldClockConflict', 'Clock settings changed in another tab or could not be safely compared. Your edits are still here. Review the latest values in a new Settings tab before retrying.') : error.message;
+            showMessage(error.code?.startsWith('SETTINGS_') ? detail : `Error saving settings: ${detail}`, 'error');
         }
     }).finally(() => { --worldClockSaves; });
 }
@@ -1771,9 +1875,9 @@ async function resetAllSettings() {
     }
 }
 
-async function collectFormData() {
+function collectFormData(validateSearch = true) {
     const settings = {};
-    const existingConfig = await storageManager.getAll();
+    const existingConfig = settingsFormConfig || storageManager.defaultConfig;
 
     // Neither appearance nor legacy theme is edited by this form. Omitting both
     // avoids stale selection writes and turning an injected legacy default into
@@ -1789,7 +1893,9 @@ async function collectFormData() {
     // Background settings
     const bgTypeSelect = document.getElementById('bg-type');
     let bgType = bgTypeSelect?.value || 'gradient';
-    const bgColor = document.getElementById('bg-color')?.value || '';
+    const bgColorText = document.getElementById('bg-color-text');
+    const colorInput = bgColorText ? bgColorText.value.trim() : document.getElementById('bg-color')?.value || '';
+    const bgColor = /^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(colorInput) ? '#' + colorInput : colorInput;
     if (bgType === 'api') {
         bgType = 'gradient';
     }
@@ -1820,13 +1926,14 @@ async function collectFormData() {
     const rawSearchCustom = document.getElementById('search-custom')?.value?.trim() || '';
     let searchCustom = '';
     if (searchEngine === 'custom') {
-        if (!rawSearchCustom) {
+        if (!rawSearchCustom && validateSearch) {
             throw new Error(t('customSearchUrlRequired', 'Custom search URL is required'));
         }
         try {
             searchCustom = normalizeSearchTemplateForOptions(rawSearchCustom);
         } catch (_) {
-            throw new Error(t('customSearchUrlInvalid', 'Enter a valid HTTP or HTTPS search URL'));
+            if (validateSearch) throw new Error(t('customSearchUrlInvalid', 'Enter a valid HTTP or HTTPS search URL'));
+            searchCustom = rawSearchCustom;
         }
     } else if (rawSearchCustom) {
         try {
@@ -1835,7 +1942,7 @@ async function collectFormData() {
             searchCustom = '';
         }
     }
-    if (searchEngine === 'custom' && !searchCustom) {
+    if (validateSearch && searchEngine === 'custom' && !searchCustom) {
         throw new Error(t('customSearchUrlRequired', 'Custom search URL is required'));
     }
     settings.search = { engine: searchEngine, custom: searchCustom };
@@ -1938,7 +2045,6 @@ async function collectFormData() {
         }
     };
 
-    settings.sync = existingConfig.sync || storageManager.defaultConfig.sync;
     settings.privacy = {
         onlineFavicons: document.getElementById('privacy-online-favicons')?.checked === true
     };
@@ -2135,26 +2241,22 @@ async function handleBackgroundImageUpload(file) {
         showMessage('Image file is too large. Please select an image smaller than 5MB.', 'error');
         return;
     }
-    return queueBackgroundTask(async isCurrent => {
-        let previousBackground;
+    return queueBackgroundTask(async (isCurrent, canPresent, submittedControls) => {
         try {
             if (!isCurrent()) return;
-            previousBackground = await storageManager.getBackgroundForUpdate();
+            requireSettingsBaseline();
             if (!isCurrent()) return;
             showMessage('Uploading background image...', 'info');
             const dataURL = await fileToDataURL(file);
             if (!isCurrent()) return;
-            const saved = await storageManager.set('bg', { type: 'image', value: dataURL });
-            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            await commitBackground({ type: 'image', value: dataURL });
+            publishCommittedBackground({ type: 'image', value: dataURL }, canPresent, submittedControls);
             if (!isCurrent()) return;
-
-            applyCommittedBackground({ type: 'image', value: dataURL });
             showMessage('Background image uploaded.', 'success');
         } catch (error) {
             console.error('Error uploading background image:', error);
             if (isCurrent()) {
-                if (previousBackground) applyCommittedBackground(previousBackground);
-                showMessage(`Error uploading image: ${error.message}`, 'error');
+                showMessage(error.code?.startsWith('SETTINGS_') ? t('settingsImageSaveConflict', 'The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again.') : `Error uploading image: ${error.message}`, 'error');
             }
         } finally {
             if (isCurrent()) clearBackgroundImageInput();
@@ -2163,17 +2265,27 @@ async function handleBackgroundImageUpload(file) {
 }
 
 async function handleMoviePosterUpload(file) {
-    if (!file) return;
-    
-    try {
-        const dataURL = await fileToDataURL(file);
-        const existingMovie = await storageManager.get('movie');
-        await storageManager.set('movie', { ...existingMovie, poster: dataURL });
-        showMessage('Movie poster uploaded.', 'success');
-    } catch (error) {
-        console.error('Error uploading movie poster:', error);
-        showMessage(`Error uploading poster: ${error.message}`, 'error');
-    }
+    if (!file || settingsReplacementPending) return;
+    const session = settingsSession;
+    ++settingsHelperSaves;
+    return queueSettingsWrite(async () => {
+        try {
+            requireSettingsBaseline();
+            if (session !== settingsSession || settingsReplacementPending) return;
+            const dataURL = await fileToDataURL(file);
+            if (session !== settingsSession || settingsReplacementPending) return;
+            const settings = {movie: {...settingsFormConfig.movie, poster: dataURL}};
+            const saved = await storageManager.setAll(settings, {expectedSettings: settingsBaseline, settingsPaths: ['movie.poster']});
+            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            advanceSettingsBaseline(settings, ['movie.poster'], settings);
+            if (session !== settingsSession || settingsReplacementPending) return;
+            updateMoviePosterPreview(dataURL);
+            showMessage('Movie poster uploaded.', 'success');
+        } catch (error) {
+            if (session !== settingsSession || settingsReplacementPending) return;
+            showMessage(error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : `Error uploading poster: ${error.message}`, 'error');
+        }
+    }).finally(() => { --settingsHelperSaves; });
 }
 
 function fileToDataURL(file) {
@@ -2407,22 +2519,21 @@ async function saveBackgroundSettings() {
     // Capture the user's choice before an older queued task can update controls.
     const requestedType = document.getElementById('bg-type')?.value || 'gradient';
     const requestedColor = document.getElementById('bg-color')?.value || '';
-    return queueBackgroundTask(async isCurrent => {
+    return queueBackgroundTask(async (isCurrent, canPresent, submittedControls) => {
         let previousBackground;
         try {
             if (!isCurrent()) return;
-            previousBackground = await storageManager.getBackgroundForUpdate();
+            requireSettingsBaseline();
+            previousBackground = copySettings(settingsFormConfig.bg);
             if (!isCurrent()) return;
             const type = requestedType === 'api' ? 'gradient' : requestedType;
             const value = type === 'color' ? requestedColor : type === 'image' ? previousBackground.value : '';
-            const saved = await storageManager.set('bg', { type, value });
-            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
-            if (isCurrent()) applyCommittedBackground({ type, value });
+            await commitBackground({ type, value });
+            publishCommittedBackground({ type, value }, canPresent, submittedControls);
         } catch (error) {
             console.error('Error saving background settings:', error);
             if (isCurrent()) {
-                if (previousBackground) applyCommittedBackground(previousBackground);
-                showMessage(t('failedToSave', 'Failed to save. Please try again.'), 'error');
+                showMessage(error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : t('failedToSave', 'Failed to save. Please try again.'), 'error');
             }
         } finally {
             if (isCurrent()) clearBackgroundImageInput();
@@ -2457,22 +2568,19 @@ function applyCommittedBackground(background) {
  */
 async function removeBackgroundImage() {
     if (!confirm('Are you sure you want to remove the background image?')) return;
-    return queueBackgroundTask(async isCurrent => {
-        let previousBackground;
+    return queueBackgroundTask(async (isCurrent, canPresent, submittedControls) => {
         try {
             if (!isCurrent()) return;
-            previousBackground = await storageManager.getBackgroundForUpdate();
+            requireSettingsBaseline();
             if (!isCurrent()) return;
-            const saved = await storageManager.set('bg', { type: 'gradient', value: '' });
-            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            await commitBackground({ type: 'gradient', value: '' });
+            publishCommittedBackground({ type: 'gradient', value: '' }, canPresent, submittedControls);
             if (!isCurrent()) return;
-            applyCommittedBackground({ type: 'gradient', value: '' });
             showMessage('Background image removed.', 'success');
         } catch (error) {
             console.error('Error removing background image:', error);
             if (isCurrent()) {
-                if (previousBackground) applyCommittedBackground(previousBackground);
-                showMessage(`Error removing background image: ${error.message}`, 'error');
+                showMessage(error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : `Error removing background image: ${error.message}`, 'error');
             }
         } finally {
             if (isCurrent()) clearBackgroundImageInput();
@@ -2531,8 +2639,9 @@ function addTopicToList(tabType, title, score, index) {
     topicElement.append(content, actions);
 
     // Add event listeners for edit and delete buttons
-    editBtn.addEventListener('click', () => editHotTopic(tabType, index));
-    deleteBtn.addEventListener('click', () => deleteHotTopic(tabType, index));
+    const ownsRow = () => topicElement.isConnected && listElement.querySelectorAll('.topic-item')[index] === topicElement;
+    editBtn.addEventListener('click', () => { if (ownsRow()) editHotTopic(tabType, index); });
+    deleteBtn.addEventListener('click', () => { if (ownsRow()) deleteHotTopic(tabType, index); });
     
     listElement.appendChild(topicElement);
 }
@@ -2558,76 +2667,54 @@ function switchHotTopicsTab(tabType) {
 /**
  * Add a new hot topic
  */
-async function addHotTopic(tabType, title, score) {
-    if (!title.trim()) {
-        showMessage(t('topicTitleRequired', 'Please enter a topic title'), 'error');
-        return;
-    }
-    
-    try {
-        const config = await storageManager.getAll();
-        if (!config.hot[tabType]) {
-            config.hot[tabType] = [];
-        }
-        
-        config.hot[tabType].push({ t: title.trim(), s: score || 0 });
-        await storageManager.set('hot', config.hot);
-        
-        // Refresh the list
-        populateHotTopicsLists(config.hot);
-        showMessage('Topic added.', 'success');
-    } catch (error) {
-        console.error('Error adding hot topic:', error);
-        showMessage(`Error adding topic: ${error.message}`, 'error');
-    }
-}
-
-/**
- * Edit a hot topic
- */
-async function editHotTopic(tabType, index) {
-    try {
-        const config = await storageManager.getAll();
-        const topic = config.hot[tabType][index];
-        
-        if (!topic) return;
-        
-        const newTitle = prompt('Edit topic title:', topic.t);
-        const newScore = prompt('Edit topic score:', topic.s);
-        
-        if (newTitle !== null && newTitle.trim()) {
-            topic.t = newTitle.trim();
-            if (newScore !== null && !isNaN(parseInt(newScore))) {
-                topic.s = parseInt(newScore);
+function persistHotTopicDraft(tabType, topics, message) {
+    if (settingsReplacementPending || !['baidu', 'weibo', 'zhihu'].includes(tabType)) return false;
+    try { requireSettingsBaseline(); }
+    catch (error) { showMessage(settingsNotice(error), 'error'); return false; }
+    const path = `hot.${tabType}`, session = settingsSession;
+    const settings = {hot: storageManager.validateData('hot', {...settingsFormConfig.hot, [tabType]: topics})};
+    // Keep the user's accepted edit visible as a draft on failure/conflict.
+    // Refresh only this list, never another topic tab or general form field.
+    populateHotTopicsLists({[tabType]: settings.hot[tabType]});
+    ++settingsHelperSaves;
+    return queueSettingsWrite(async () => {
+        if (session !== settingsSession || settingsReplacementPending) return false;
+        try {
+            const saved = await storageManager.setAll(settings, {expectedSettings: settingsBaseline, settingsPaths: [path]});
+            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            advanceSettingsBaseline(settings, [path], settings);
+            if (session !== settingsSession || settingsReplacementPending) return false;
+            showMessage(message, 'success'); return true;
+        } catch (error) {
+            if (session === settingsSession && !settingsReplacementPending) {
+                showMessage(error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : error.message, 'error');
             }
-            
-            await storageManager.set('hot', config.hot);
-            populateHotTopicsLists(config.hot);
-            showMessage('Topic updated.', 'success');
+            return false;
         }
-    } catch (error) {
-        console.error('Error editing hot topic:', error);
-        showMessage(`Error editing topic: ${error.message}`, 'error');
-    }
+    }).finally(() => { --settingsHelperSaves; });
 }
-
-/**
- * Delete a hot topic
- */
-async function deleteHotTopic(tabType, index) {
-    if (!confirm('Are you sure you want to delete this topic?')) return;
-    
-    try {
-        const config = await storageManager.getAll();
-        config.hot[tabType].splice(index, 1);
-        
-        await storageManager.set('hot', config.hot);
-        populateHotTopicsLists(config.hot);
-        showMessage('Topic deleted.', 'success');
-    } catch (error) {
-        console.error('Error deleting hot topic:', error);
-        showMessage(`Error deleting topic: ${error.message}`, 'error');
+function addHotTopic(tabType, title, score) {
+    if (!title.trim()) {
+        showMessage(t('topicTitleRequired', 'Please enter a topic title'), 'error'); return false;
     }
+    return persistHotTopicDraft(tabType, [...collectHotTopicsFromList(tabType), {t: title.trim(), s: score || 0}], 'Topic added.');
+}
+function editHotTopic(tabType, index) {
+    const topics = collectHotTopicsFromList(tabType), topic = topics[index];
+    if (!topic || settingsReplacementPending) return false;
+    const newTitle = prompt('Edit topic title:', topic.t);
+    if (newTitle === null || !newTitle.trim()) return false;
+    const newScore = prompt('Edit topic score:', topic.s);
+    topic.t = newTitle.trim();
+    if (newScore !== null && !isNaN(parseInt(newScore))) topic.s = parseInt(newScore);
+    return persistHotTopicDraft(tabType, topics, 'Topic updated.');
+}
+function deleteHotTopic(tabType, index) {
+    if (settingsReplacementPending || !confirm('Are you sure you want to delete this topic?')) return false;
+    const topics = collectHotTopicsFromList(tabType);
+    if (!topics[index]) return false;
+    topics.splice(index, 1);
+    return persistHotTopicDraft(tabType, topics, 'Topic deleted.');
 }
 
 /**
@@ -2668,31 +2755,29 @@ function updateMoviePosterPreview(dataURL) {
  * Remove movie poster
  */
 async function removeMoviePoster() {
-    try {
-        if (confirm('Are you sure you want to remove the movie poster?')) {
-            const config = await storageManager.getAll();
-            config.movie.poster = '';
-            
-            await storageManager.set('movie', config.movie);
-            
-            // Hide preview
+    if (settingsReplacementPending || !confirm('Are you sure you want to remove the movie poster?')) return;
+    const session = settingsSession;
+    ++settingsHelperSaves;
+    return queueSettingsWrite(async () => {
+        if (session !== settingsSession || settingsReplacementPending) return;
+        try {
+            requireSettingsBaseline();
+            const settings = {movie: {...settingsFormConfig.movie, poster: ''}};
+            const saved = await storageManager.setAll(settings, {expectedSettings: settingsBaseline, settingsPaths: ['movie.poster']});
+            if (!saved) throw new Error(t('failedToSave', 'Failed to save. Please try again.'));
+            advanceSettingsBaseline(settings, ['movie.poster'], settings);
+            if (session !== settingsSession || settingsReplacementPending) return;
             const previewDiv = document.getElementById('movie-poster-preview');
-            if (previewDiv) {
-                previewDiv.style.display = 'none';
-            }
-            
-            // Clear file input
+            if (previewDiv) previewDiv.style.display = 'none';
             const posterInput = document.getElementById('movie-poster-upload');
-            if (posterInput) {
-                posterInput.value = '';
-            }
-            
+            if (posterInput) posterInput.value = '';
             showMessage('Movie poster removed.', 'success');
+        } catch (error) {
+            if (session === settingsSession && !settingsReplacementPending) {
+                showMessage(error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : error.message, 'error');
+            }
         }
-    } catch (error) {
-        console.error('Error removing movie poster:', error);
-        showMessage(`Error removing poster: ${error.message}`, 'error');
-    }
+    }).finally(() => { --settingsHelperSaves; });
 }
 
 /**
@@ -2748,7 +2833,6 @@ function setupAutoSave() {
         'hour12-format', 'show-seconds',
         'show-clock', 'show-search', 'show-shortcuts', 'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles',
         'search-engine', 'search-custom',
-        'privacy-online-favicons',
         'shortcuts-gap-x', 'shortcuts-gap-y', 'shortcut-icon-size', 'shortcut-title-size',
         'shortcut-title-color', 'shortcut-title-color-text', 'shortcut-title-color-auto',
         'dashboard-padding-top', 'dashboard-padding-right', 'dashboard-padding-bottom', 'dashboard-padding-left',

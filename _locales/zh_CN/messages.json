@@ -673,5 +673,11 @@
   "monthCalendar": { "message": "日历" },
   "monthCalendarPrevious": { "message": "上个月" },
   "monthCalendarNext": { "message": "下个月" },
-  "monthCalendarToday": { "message": "今天" }
+  "monthCalendarToday": { "message": "今天" },
+  "settingsBaselineUnavailable": { "message": "无法安全读取设置。当前编辑仍保留在此页，请打开新的设置标签页后再保存。" },
+  "settingsLockUnavailable": { "message": "此浏览器不支持安全保存设置，当前编辑尚未保存。" },
+  "settingsPermissionRequired": { "message": "在线网站图标权限仍在等待确认或未获授权。请先完成权限请求，或关闭此选项后再保存。" },
+  "settingsSaveConflict": { "message": "设置已在其他标签页更改或被整体替换。当前编辑仍保留在此页，请打开新的设置标签页查看最新内容，再把需要的修改复制过去。" },
+  "settingsImageSaveConflict": { "message": "设置已更改或无法安全核对，图片未保存。请保留此页中的其他编辑，打开新的设置标签页并重新选择图片。" },
+  "settingsBackgroundColorInvalid": { "message": "请先输入有效的背景颜色，例如 #112233，再保存。" }
 }

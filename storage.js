@@ -13,6 +13,16 @@ const BOOKMARK_IMPORT_STORAGE_LIMITS = Object.freeze({ links: 20000, categories:
 // Personal content is owned by dedicated local stores, never configuration.
 const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1']);
 
+// Logical fields owned by the ordinary Settings form. Arrays and dependent
+// pairs remain atomic; independent toggles/text fields merge independently.
+const SETTINGS_FORM_PATHS = Object.freeze([
+    'bg', 'search', 'quote', 'privacy.onlineFavicons',
+    ...['clock', 'search', 'shortcuts', 'weather', 'hot', 'movie'].map(key => `show.${key}`),
+    ...['city', 'temp', 'cond', 'aqiLabel', 'aqi', 'low', 'high'].map(key => `weather.${key}`),
+    ...['tab', 'baidu', 'weibo', 'zhihu'].map(key => `hot.${key}`),
+    'movie.title', 'movie.note', 'movie.poster', 'ui.dashboardPadding', 'ui.showShortcutTitles',
+    ...['gapX', 'gapY', 'iconSize', 'titleSize', 'titleColor'].map(key => `ui.shortcutsStyle.${key}`)
+]);
 // Keep legacy empty-quote validation stable; only newly generated defaults localize.
 const LEGACY_WELCOME_QUOTE = 'Welcome to your personalized new tab page!';
 function getDefaultWelcomeQuote() {
@@ -27,6 +37,8 @@ class StorageManager {
     constructor() {
         this.syncMetaKey = '__localItabSyncMeta';
         this.layoutGenerationKey = '__localItabLayoutGeneration';
+        this.settingsGenerationKey = '__localItabSettingsGeneration';
+        this.settingsFormPaths = SETTINGS_FORM_PATHS;
         this.identityRecoveryKey = '__localItabIdentityRecovery';
         this.restoreRecoveryKey = '__localItabRestoreRecovery';
         this.syncIdentityStateKey = '__localItabSyncIdentityState';
@@ -197,7 +209,7 @@ class StorageManager {
         }
     }
 
-    // Serialize full clock, category, and shortcut writes within this extension origin.
+    // Serialize configuration writes within this extension origin.
     async withLocalWriteLock(operation, required = false) {
         if (typeof navigator !== 'undefined' && navigator.locks?.request) {
             return navigator.locks.request('local-itab-local-write', operation);
@@ -210,9 +222,69 @@ class StorageManager {
         return operation();
     }
 
+    settingsError(code = 'SETTINGS_CONFLICT') {
+        const error = new Error('Settings changed or could not be safely compared. Your edits are still here. Open a new Settings tab to review the latest values and copy your changes there.');
+        error.code = code; return error;
+    }
+
+    settingsPathValue(source, path) {
+        return path.split('.').reduce((value, key) => value && typeof value === 'object' &&
+            Object.prototype.hasOwnProperty.call(value, key) ? value[key] : undefined, source);
+    }
+
+    setSettingsPath(target, path, value) {
+        const keys = path.split('.'), last = keys.pop();
+        let current = target;
+        for (const key of keys) {
+            if (current[key] === undefined) current[key] = {};
+            if (!current[key] || typeof current[key] !== 'object' || Array.isArray(current[key])) throw this.settingsError();
+            current = current[key];
+        }
+        current[last] = LayoutIdentity.copy(value);
+    }
+
+    settingsSnapshot(raw) {
+        const generation = raw[this.settingsGenerationKey] === undefined ? null : raw[this.settingsGenerationKey];
+        if (raw[this.settingsGenerationKey] !== undefined && (typeof generation !== 'string' || !generation)) throw this.settingsError();
+        const keys = [...new Set(SETTINGS_FORM_PATHS.map(path => path.split('.')[0]))];
+        return { generation, values: LayoutIdentity.copy(Object.fromEntries(keys.filter(key =>
+            Object.prototype.hasOwnProperty.call(raw, key)).map(key => [key, raw[key]]))) };
+    }
+
+    mergeSettingsPatch(raw, values, options) {
+        const expected = options.expectedSettings;
+        if (!expected || !expected.values || typeof expected.values !== 'object' ||
+            this.settingsSnapshot(raw).generation !== expected.generation) throw this.settingsError();
+        const paths = options.settingsPaths;
+        if (!Array.isArray(paths) || paths.some(path => !SETTINGS_FORM_PATHS.includes(path))) throw this.settingsError();
+        const merged = {};
+        for (const path of paths) {
+            const key = path.split('.')[0];
+            if (!Object.prototype.hasOwnProperty.call(values, key)) throw this.settingsError();
+            const prior = this.settingsPathValue(expected.values, path), latest = this.settingsPathValue(raw, path);
+            if (!this.sameShortcutUndoValue(prior, latest)) throw this.settingsError();
+            if (!Object.prototype.hasOwnProperty.call(merged, key)) {
+                merged[key] = raw[key] === undefined ? {} : LayoutIdentity.copy(raw[key]);
+            }
+            this.setSettingsPath(merged, path, this.settingsPathValue(values, path));
+        }
+        // Only explicitly owned general fields are written. Clock/categories
+        // retain their established whole-group validation and compare guards.
+        for (const key of Object.keys(values)) {
+            if (key === 'clock' || key === 'categories') {
+                if (!Object.prototype.hasOwnProperty.call(options, key === 'clock' ? 'expectedClock' : 'expectedCategories')) throw this.settingsError();
+                merged[key] = values[key];
+            }
+            else if (!paths.some(path => path.split('.')[0] === key)) throw this.settingsError();
+        }
+        return merged;
+    }
+
     async writeLocalValues(values, options = {}) {
         this.assertConfigurationKeys(Object.keys(values));
         const has = key => Object.prototype.hasOwnProperty.call(values, key);
+        const guardedSettings = Object.prototype.hasOwnProperty.call(options, 'expectedSettings');
+        if (guardedSettings && !(typeof navigator !== 'undefined' && navigator.locks?.request)) throw this.settingsError('SETTINGS_LOCK_UNAVAILABLE');
         const replacesLayout = has('layout') || (has('links') && !Object.prototype.hasOwnProperty.call(options, 'expectedLinks'));
         const checksCategories = has('categories');
         const checksClock = has('clock');
@@ -224,16 +296,16 @@ class StorageManager {
             error.code = 'CLOCK_LOCK_UNAVAILABLE';
             throw error;
         }
-        if (!has('links') && !replacesLayout && !checksCategories && !checksClock) {
-            // Import disclosures are compared under this same lock. Preference
-            // writes must queue with the commit instead of racing its last read.
-            if (has('privacy') || has('sync')) return this.withLocalWriteLock(() => chrome.storage.local.set(values));
-            return chrome.storage.local.set(values);
+        if (!has('links') && !replacesLayout && !checksCategories && !checksClock && !guardedSettings) {
+            // Unguarded dedicated writers must still serialize with Settings
+            // comparisons and import disclosures rather than race their reads.
+            return this.withLocalWriteLock(() => chrome.storage.local.set(values));
         }
         const guarded = Object.prototype.hasOwnProperty.call(options, 'expectedLinks');
         const guardedCategories = checksCategories && Object.prototype.hasOwnProperty.call(options, 'expectedCategories');
         return this.withLocalWriteLock(async () => {
             const raw = await chrome.storage.local.get(null);
+            if (guardedSettings) values = this.mergeSettingsPatch(raw, values, options);
             if (guardedClock && JSON.stringify(this.validateClockBaseline(raw.clock === undefined ? this.defaultConfig.clock : raw.clock)) !==
                 JSON.stringify(expectedClock)) {
                 const error = new Error('Clock settings changed in another tab. Your edits are still here. Review the latest clock settings in a new Settings tab before retrying.');
@@ -242,7 +314,10 @@ class StorageManager {
             }
             // A clock-only transaction must not depend on shortcut validity.
             // Its comparison still precedes the single atomic multi-key write.
-            if (!has('links') && !replacesLayout && !checksCategories) return chrome.storage.local.set(values);
+            if (!has('links') && !replacesLayout && !checksCategories) {
+                if (Object.keys(values).length) await chrome.storage.local.set(values);
+                return;
+            }
             const latest = this.layoutSnapshot(raw);
             if (guardedCategories && JSON.stringify(this.validateCategoryBaseline(raw.categories === undefined ? this.defaultConfig.categories : raw.categories)) !==
                 JSON.stringify(this.validateCategoryBaseline(options.expectedCategories))) {
@@ -284,6 +359,7 @@ class StorageManager {
             if (allocated) { written.links = candidate.links; written.layout = candidate.layout; }
             if (allocated && !protectedBefore && !raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
             if (options.confirmedRestore) {
+                written[this.settingsGenerationKey] = this.createLayoutGeneration();
                 // Provider preferences belong to this device at commit time, not
                 // to the imported file or an earlier preview read.
                 written.sync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
@@ -296,7 +372,7 @@ class StorageManager {
             if (invalidatesLayout) written[this.layoutGenerationKey] = this.createLayoutGeneration();
             await chrome.storage.local.set(written);
             return this.layoutSnapshot({ ...raw, ...written });
-        }, guarded || guardedCategories || guardedClock || LayoutIdentity.active(values.layout));
+        }, guardedSettings || guarded || guardedCategories || guardedClock || LayoutIdentity.active(values.layout));
     }
 
     shortcutUndoError(code, message) {
@@ -915,6 +991,8 @@ class StorageManager {
             const result = await this.withLocalWriteLock(() => chrome.storage.local.get(null));
 
             const config = this.validateConfigObject(result);
+            try { Object.defineProperty(config, '_settingsBaseline', { value: this.settingsSnapshot(result) }); }
+            catch (error) { console.warn('Settings baseline unavailable:', error); }
             // Only a successful, safely comparable read can authorize a clock
             // replacement. Runtime recovery alone is not a write baseline.
             try {
@@ -949,7 +1027,10 @@ class StorageManager {
     async setAll(data, options = {}) {
         this.assertConfigurationKeys(Object.keys(data));
         try {
-            // Snapshot values and the clock baseline before any asynchronous read.
+            // Snapshot values and all baselines before any asynchronous read.
+            if (Object.prototype.hasOwnProperty.call(options, 'expectedSettings')) {
+                options = { ...options, expectedSettings: LayoutIdentity.copy(options.expectedSettings), settingsPaths: [...options.settingsPaths] };
+            }
             const validatedData = {};
             for (const [key, value] of Object.entries(data)) {
                 validatedData[key] = this.validateData(key, value);
@@ -964,18 +1045,20 @@ class StorageManager {
 
             await this.writeLocalValues(validatedData, options);
 
-            if (!this._isApplyingSync && !options.skipSyncSideEffects) {
-                const syncEnabled = validatedData.sync?.enabled || await this.isSyncEnabledLocally();
-                if (syncEnabled) {
-                    this.scheduleSyncPush();
-                } else if (validatedData.sync && validatedData.sync.enabled === false && wasSyncEnabled) {
-                    await this.disableRemoteSync();
+            // A committed local patch remains successful if optional Sync bookkeeping fails.
+            try {
+                if (!this._isApplyingSync && !options.skipSyncSideEffects) {
+                    const syncEnabled = validatedData.sync?.enabled || await this.isSyncEnabledLocally();
+                    if (syncEnabled) {
+                        this.scheduleSyncPush();
+                    } else if (validatedData.sync && validatedData.sync.enabled === false && wasSyncEnabled) {
+                        await this.disableRemoteSync();
+                    }
                 }
-            }
-
+            } catch (error) { console.warn('Settings saved locally; sync scheduling failed:', error); }
             return true;
         } catch (error) {
-            if (error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
+            if (error.code?.startsWith('SETTINGS_') || error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
             console.error('Storage setAll error:', error);
             
             if (error.message && error.message.includes('QUOTA_EXCEEDED')) {
@@ -999,8 +1082,8 @@ class StorageManager {
                 // Settings reset retains whole local personal-content records.
                 // Preserve a new generation while removing configuration. If set fails,
                 // do not clear; if removal fails, old pages are still invalidated.
-                await chrome.storage.local.set({ [this.layoutGenerationKey]: this.createLayoutGeneration() });
-                await chrome.storage.local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey && !LOCAL_PERSONAL_CONTENT_KEYS.includes(key)));
+                await chrome.storage.local.set({ [this.layoutGenerationKey]: this.createLayoutGeneration(), [this.settingsGenerationKey]: this.createLayoutGeneration() });
+                await chrome.storage.local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey && key !== this.settingsGenerationKey && !LOCAL_PERSONAL_CONTENT_KEYS.includes(key)));
             });
             if (wasSyncing) {
                 await this.disableRemoteSync();
@@ -1489,6 +1572,7 @@ class StorageManager {
             const written = { ...validated,
                 sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: confirmedReplacement ? raw.sync?.enabled === true : true, lastSync: remote.meta.updatedAt || '', lastError: '' }),
                 [this.layoutGenerationKey]: this.createLayoutGeneration(),
+                [this.settingsGenerationKey]: this.createLayoutGeneration(),
                 [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null }
             };
             if (confirmedReplacement) written[this.restoreRecoveryKey] = await this.makeRecovery(raw, 'beforeCloudReplacement');

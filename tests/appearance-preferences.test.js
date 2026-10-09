@@ -68,6 +68,7 @@ function controllerHarness(initial = fresh) {
         },
         set: async values => { writeCount++; Object.assign(raw, clone(values)); }
     } } };
+    Object.defineProperty(global, 'navigator', {configurable: true, value: {locks: {request: (_name, operation) => operation()}}});
     manager.ensureSyncInitialized = async () => {};
     for (const config of [{}, { links: [] }, { themePreset: 'ink-paper' }, { themePreset: 'warm-studio' }, { appearance: { template: 'graphite', colorMode: 'light' } }]) {
         raw = clone(config);
@@ -86,6 +87,8 @@ function controllerHarness(initial = fresh) {
     for (const preset of [undefined, 'ink-paper', 'aurora-glass', 'warm-studio', 'signal-pop']) {
         raw = preset ? { themePreset: preset } : {};
         const expected = manager.resolveAppearance(raw);
+        settingsContext.initialConfig = await manager.getAll();
+        vm.runInContext('settingsFormConfig = initialConfig; settingsBaseline = initialConfig._settingsBaseline; settingsFormBaseline = collectFormData();', settingsContext);
         const form = await settingsContext.collectFormData();
         assert.equal('appearance' in form, false);
         assert.equal('themePreset' in form, false);

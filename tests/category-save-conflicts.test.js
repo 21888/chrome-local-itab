@@ -41,6 +41,8 @@ function tab() {
     vm.createContext(context);
     vm.runInContext(source + '\nshowMessage = (text, type) => messages.push({text, type}); displayStorageInfo = async () => {};', context);
     context.setupCategoryManagement(clone(baseline));
+    context.initialConfig = clone(state);
+    vm.runInContext("clockBaseline = copyClock(initialConfig.clock); clockFormInitialized = true; settingsFormConfig = initialConfig; settingsBaseline = storageManager.settingsSnapshot(initialConfig); settingsFormBaseline = collectFormData();", context);
     return {context, storage, document, clock, list, messages, timers, get reloads() { return reloads; }};
 }
 function edit(t, mutation) {
@@ -101,7 +103,7 @@ function edit(t, mutation) {
     const ownSave = interrupted.context.saveAllSettings(); await committedEntered.promise;
     const originalSet = chrome.storage.local.set;
     chrome.storage.local.set = async values => {
-        if (Object.keys(values).length === 1 && interrupted.storage.layoutGenerationKey in values) throw new Error('reset unavailable');
+        if (interrupted.storage.settingsGenerationKey in values && interrupted.storage.layoutGenerationKey in values) throw new Error('reset unavailable');
         return originalSet(values);
     };
     const failedReset = interrupted.context.resetAllSettings(); committedResume.resolve(); await Promise.all([ownSave, failedReset]);

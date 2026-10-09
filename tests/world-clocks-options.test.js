@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const {createDocument, deferred} = require('./helpers/task-dom-model');
+const StorageManager = require('../storage.js');
 const WorldClocks = require('../shared/world-clocks');
 const source = fs.readFileSync('options.js', 'utf8');
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -16,8 +17,10 @@ function harness(entries = [], locale = 'en') {
     const writes=[], messages=[];
     const catalog=JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`,'utf8'));
     const window={i18n:{t:key=>catalog[key]?.message},WorldClocks,addEventListener(){},location:{reload(){window.reloads=(window.reloads||0)+1}},confirm:()=>false};
+    const manager = new StorageManager();
     const context={window,i18n:window.i18n,document,console,Intl,JSON,setTimeout,clearTimeout,chrome:{}, storageManager:{
-        defaultConfig:{clock:clone(baseline)}, async clear(){saved=clone(baseline);return true;},
+        defaultConfig:{clock:clone(baseline)}, settingsFormPaths: manager.settingsFormPaths,
+        settingsPathValue: manager.settingsPathValue.bind(manager), setSettingsPath: manager.setSettingsPath.bind(manager), validateData: manager.validateData.bind(manager), async clear(){saved=clone(baseline);return true;},
         async setAll(settings,options) {
             if(pause){const gate=pause;pause=null;gate.entered.resolve();await gate.resume.promise;}
             if(settings.clock && options.expectedClock && JSON.stringify(saved)!==JSON.stringify(options.expectedClock)) throw new Error('Clock settings changed in another tab.');
@@ -26,7 +29,8 @@ function harness(entries = [], locale = 'en') {
     },messages};
     vm.createContext(context);
     vm.runInContext(source+`\nclockBaseline=${JSON.stringify(baseline)}; clockFormInitialized=true; worldClockDraft=clockBaseline.worldClocks.map(entry=>({...entry}));
-    collectFormData=async()=>({clock:clockFormSnapshot(),quote:'unrelated'});
+    collectFormData=()=>({clock:clockFormSnapshot(),quote:'unrelated'});
+    settingsBaseline={generation:null,values:{quote:'unrelated'}}; settingsFormConfig=collectFormData(); settingsFormBaseline=collectFormData();
     showMessage=(text,type)=>messages.push({text,type});displayStorageInfo=async()=>{};setupWorldClocks();renderWorldClockDraft();`,context);
     vm.runInContext(fs.readFileSync('shared/local-content-lifecycle.js','utf8'),context);
     const get=id=>document.getElementById(id);

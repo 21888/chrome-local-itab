@@ -114,6 +114,8 @@ Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protecti
 
 - **Find a setting**: Search built-in setting names across all six Settings tabs, then open the matching section with a click or keyboard. Queries stay temporary and local; saved content and form values are excluded. [Settings search guide](docs/settings-search.md).
 
+Settings saves only changed fields and keeps conflicting drafts for review. Open a new Settings tab after a whole restore or reset. [Save protection and scope](docs/settings-save-safety.md).
+
 ## Search and website management
 
 ### Find saved sites

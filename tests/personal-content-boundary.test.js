@@ -36,7 +36,7 @@ const watchdog = setTimeout(() => { console.error('Personal boundary model did n
         // Settings reset retains the entire opaque personal record, not a
         // reconstructed subset that could discard future/recovery fields.
         assert.equal(await m.clear(), true); assert.deepEqual(state[KEY], personal);
-        assert.equal(Object.keys(state).length, 2); assert(state[m.layoutGenerationKey]);
+        assert.equal(Object.keys(state).length, 3); assert(state[m.layoutGenerationKey]); assert(state[m.settingsGenerationKey]);
         for (const stage of ['set', 'remove']) {
             state = { ...m.cloneDefaultConfig(), [KEY]: clone(personal) }; failSet = stage === 'set'; failRemove = stage === 'remove';
             assert.equal(await m.clear(), false); assert.deepEqual(state[KEY], personal);
