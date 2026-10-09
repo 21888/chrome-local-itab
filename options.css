@@ -1518,28 +1518,52 @@ textarea:focus-visible,
 }
 
 .message {
-    width: min(360px, calc(100vw - 32px));
+    /* Opaque semantic pairs keep status text readable over every template. */
+    --message-info-text: #d7e5f0;
+    --message-info-bg: #24313b;
+    --message-success-text: #cce5d5;
+    --message-success-bg: #25382d;
+    --message-error-text: #ffd1c8;
+    --message-error-bg: #432b29;
+    width: min(360px, calc(100vw - 40px));
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    line-height: 1.5;
     margin-bottom: 10px;
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
-    background: var(--glass-bg-hover);
-    color: var(--text-primary);
+    background: var(--message-info-bg);
+    color: var(--message-info-text);
     padding: 12px 14px;
     box-shadow: var(--shadow-md);
     pointer-events: auto;
 }
 
+:root[data-color-mode="light"] .message,
+:root:not([data-color-mode])[data-theme="ink-paper"] .message {
+    --message-info-text: #294454;
+    --message-info-bg: #edf3f6;
+    --message-success-text: #27543a;
+    --message-success-bg: #edf5ef;
+    --message-error-text: #87372b;
+    --message-error-bg: #fff0ec;
+}
+
 .message-success {
-    border-color: rgba(165, 198, 167, 0.42);
+    border-color: currentColor;
+    color: var(--message-success-text);
+    background: var(--message-success-bg);
 }
 
 .message-error {
-    border-color: rgba(255, 165, 150, 0.42);
-    color: #ffd1c8;
+    border-color: currentColor;
+    color: var(--message-error-text);
+    background: var(--message-error-bg);
 }
 
 .message-info {
-    border-color: rgba(168, 190, 212, 0.36);
+    border-color: currentColor;
 }
 
 @media (max-width: 960px) {
