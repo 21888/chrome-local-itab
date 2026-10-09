@@ -1590,3 +1590,6 @@ textarea:focus-visible,
 .world-clock-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
 .world-clock-list li span { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
 #world-clock-error { color: var(--text-primary); overflow-wrap: anywhere; }
+
+/* Match the surrounding Settings cards without changing editor behavior. */
+.world-clock-body { padding: var(--spacing-xl); }

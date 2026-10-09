@@ -11,3 +11,5 @@ Six focused sourced-code DOM/event tests cover live main/card updates, retained 
 Native check: keep a homepage open with typed search or another unfinished draft, change world clocks and format preferences in Settings, save, and return. Verify immediate clock/card changes without navigation or lost draft. Toggle Show clock off/on, including a page originally opened with it off. Hide and revisit the page; verify no duplicated updates and unchanged unrelated cards. Reset clock configuration and verify default display/empty card.
 
 The final runtime was exercised in the native cloud browser: removing Tokyo and adding London through Settings immediately changed an already-open homepage while retaining its unfinished Add-task input, without reload. Additional automated lifecycle/race probes remain model evidence, not native fault injection or accessibility verification.
+
+A subsequent native check verified Show clock off and back on: the existing homepage regained Kathmandu/London immediately and retained the same unfinished Add-task text. This validates the final live-update path rather than the earlier reload-based candidate.
