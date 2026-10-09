@@ -1,0 +1,9 @@
+# Explicit icon-fetch ownership
+
+An explicit website-icon fetch belongs to the currently open shortcut editor, its URL, and its current icon intent. Dismissing/reopening the editor, changing the URL or icon (even changing back), refreshing the icon cache, or starting a newer fetch invalidates older results. Old responses and errors cannot write into the current draft or reset a newer request's loading state. Cache-refresh completion is scoped to the same draft rules.
+
+The existing optional Google S2 flow remains opt-in. No new endpoint, permission, automatic fetch, storage format, or network default is introduced. The existing URL fallback for a failed data-URL conversion is preserved. Unexpected rejected requests are handled with a local translated error only when the original draft still owns them.
+
+Run `node tests/shortcut-favicon-session.test.js` and the complete `node --test tests/*.test.js` suite. Tests use deferred responses and cover cancel/reopen, URL changes, manual icon changes, change-and-return, privacy revocation, stale errors, newer loading indicators, current success/error/fallback, cache-refresh races, and disabled-network behavior. Native validation should repeat cancel/reopen and manual edits while an explicitly requested icon is loading, using an isolated test profile with online icons enabled only for that test.
+
+Final bounded native acceptance (2026-10-09): identical final runtime in official Chrome for Testing preserved a saved manual icon across reopen/reload; cancelled icon/URL edits did not leak into another editor or the saved original; all five synthetic sites remained. External network consent was unchanged. Deferred fetch/cache refresh and failure races were verified in deterministic models, including 40 independent ownership cases, not live network injection. Final aggregate: 121 passing tests.

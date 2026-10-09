@@ -2021,6 +2021,7 @@ class ShortcutsComponent {
         this.updateCategoryOptions();
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
+        this.cancelIconRequest();
         this._modalSession++;
         this._hasShortcutConflict = false;
         this.setSavingState(Boolean(this._pendingSave || this._shortcutOrderPending));
@@ -2060,6 +2061,7 @@ class ShortcutsComponent {
                 const grid = document.getElementById('shortcuts-grid');
                 if (grid) this.restoreGridFocus(grid, this._modalFocusOrigin);
             }
+            this.cancelIconRequest();
             this._modalSession++;
             this.currentEditIndex = -1;
             this.setSavingState(Boolean(this._pendingSave || this._shortcutOrderPending));
@@ -2070,6 +2072,7 @@ class ShortcutsComponent {
      * Create modal HTML
      */
     createModal() {
+        this.cancelIconRequest();
         this._closeModal?.();
         this._closeModal = null;
         // Remove existing modal
@@ -2156,6 +2159,12 @@ class ShortcutsComponent {
         // Icon fetch button
         const fetchIconBtn = this.modal.querySelector('#fetch-icon-btn');
         fetchIconBtn.addEventListener('click', () => this.fetchWebsiteIcon());
+        for (const selector of ['#shortcut-url', '#shortcut-icon']) {
+            const input = this.modal.querySelector(selector);
+            for (const event of ['input', 'change']) {
+                input.addEventListener(event, () => this.cancelIconRequest());
+            }
+        }
 
         // Refresh icon button: clear site+URL cache and force next load to fetch again
         const refreshIconBtn = this.modal.querySelector('#refresh-icon-btn');
@@ -2164,17 +2173,26 @@ class ShortcutsComponent {
                 try {
                     const urlInput = this.modal.querySelector('#shortcut-url');
                     const iconInput = this.modal.querySelector('#shortcut-icon');
+                    this.cancelIconRequest();
+                    const intent = this._iconIntentVersion;
+                    const session = this._modalSession;
+                    const modal = this.modal;
+                    const originalIcon = iconInput.value;
+                    const originalUrl = urlInput.value;
                     const rawUrl = (urlInput?.value || '').trim();
                     if (!rawUrl) return;
                     if (window.faviconCache) {
                         const origin = window.faviconCache.getOriginFromUrl(rawUrl);
                         if (origin) await window.faviconCache.invalidate(origin);
-                        const iconVal = (iconInput?.value || '').trim();
+                        const iconVal = originalIcon.trim();
                         if (iconVal && (iconVal.startsWith('http://') || iconVal.startsWith('https://'))) {
                             await window.faviconCache.invalidateByUrl(iconVal);
                         }
                     }
                     // Also clear current icon field so user can重新获取
+                    if (this.modal !== modal || this._modalSession !== session ||
+                        this._iconIntentVersion !== intent || !modal.classList.contains('active') ||
+                        urlInput.value !== originalUrl || iconInput.value !== originalIcon) return;
                     iconInput.value = '';
                     showErrorMessage('Icon cache cleared. Click auto-fetch to get a new one.');
                 } catch (e) {}
@@ -3342,24 +3360,32 @@ class ShortcutsComponent {
     /**
      * Fetch website icon automatically
      */
-    async fetchWebsiteIcon() {
-        const urlInput = this.modal.querySelector('#shortcut-url');
-        const iconInput = this.modal.querySelector('#shortcut-icon');
-        const titleInput = this.modal.querySelector('#shortcut-title');
-        const fetchBtn = this.modal.querySelector('#fetch-icon-btn');
+    cancelIconRequest() {
+        this._iconIntentVersion = (this._iconIntentVersion || 0) + 1;
+        const request = this._iconRequest;
+        this._iconRequest = null;
+        if (request) {
+            request.button.disabled = request.disabled;
+            request.button.innerHTML = request.html;
+            request.button.style.animation = request.animation;
+        }
+    }
 
+    async fetchWebsiteIcon() {
+        const modal = this.modal;
+        if (!modal?.classList.contains('active')) return;
+        const urlInput = modal.querySelector('#shortcut-url');
+        const iconInput = modal.querySelector('#shortcut-icon');
+        const fetchBtn = modal.querySelector('#fetch-icon-btn');
         const url = urlInput.value.trim();
         if (!url) {
             this.showFormError('url', (window.i18n && i18n.t('urlRequiredFirst')) || 'Please enter a URL first');
             return;
         }
-
         if (!isOnlineFaviconsEnabled()) {
             this.showFormError('url', (window.i18n && i18n.t('onlineFaviconsDisabled')) || 'Enable online icon fetching in Settings > Privacy first.');
             return;
         }
-
-        // Validate URL format
         let validUrl;
         try {
             validUrl = new URL(normalizeHttpUrl(url));
@@ -3368,31 +3394,34 @@ class ShortcutsComponent {
             return;
         }
 
-        // Disable button and show loading state
+        this.cancelIconRequest();
+        const session = this._modalSession;
+        const originalUrl = urlInput.value;
+        const originalIcon = iconInput.value;
+        const request = {
+            button: fetchBtn, disabled: fetchBtn.disabled,
+            html: fetchBtn.innerHTML, animation: fetchBtn.style.animation
+        };
+        this._iconRequest = request;
+        const ownsDraft = () => this._iconRequest === request && this.modal === modal &&
+            this._modalSession === session && modal.classList.contains('active') &&
+            urlInput.value === originalUrl && iconInput.value === originalIcon && isOnlineFaviconsEnabled();
         fetchBtn.disabled = true;
-        fetchBtn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 11-6.219-8.56"/>
-            </svg>
-        `;
+        fetchBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>`;
         fetchBtn.style.animation = 'spin 1s linear infinite';
-
         try {
             // Use Google S2 only after the user explicitly enables online favicons.
             const faviconUrl = `https://www.google.com/s2/favicons?domain=${validUrl.hostname}&sz=64`;
             const s2DataUrl = await this.fetchFaviconAsDataUrl(faviconUrl);
-            iconInput.value = s2DataUrl || faviconUrl;
+            if (ownsDraft()) iconInput.value = s2DataUrl || faviconUrl;
+        } catch (error) {
+            // A stale rejection belongs to its dismissed/changed draft too.
+            if (ownsDraft()) {
+                this.showFormError('url', window.i18n?.t('iconFetchFailed') || 'Could not fetch the icon. Please try again.');
+            }
         } finally {
-            fetchBtn.disabled = false;
-            fetchBtn.style.animation = '';
-            fetchBtn.innerHTML = `
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 12c0 1-1 1-1 1s-1 0-1-1 1-1 1-1 1 0 1 1z"/>
-                    <path d="M16 12c0 1-1 1-1 1s-1 0-1-1 1-1 1-1 1 0 1 1z"/>
-                    <path d="M11 12c0 1-1 1-1 1s-1 0-1-1 1-1 1-1 1 0 1 1z"/>
-                    <path d="M6 12c0 1-1 1-1 1s-1 0-1-1 1-1 1-1 1 0 1 1z"/>
-                </svg>
-            `;
+            // Older requests must not clear a newer request's loading state.
+            if (this._iconRequest === request) this.cancelIconRequest();
         }
     }
 
