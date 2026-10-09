@@ -67,9 +67,30 @@ function setupSettingsTabs() {
         if (content) content.scrollTop = 0;
     };
 
-    tabs.forEach(btn => {
+    // The sidebar becomes a wrapped horizontal tablist at the CSS breakpoint.
+    const tablist = document.querySelector('.options-tabs');
+    const compactTabs = window.matchMedia?.('(max-width: 960px)');
+    const updateTabOrientation = () => tablist?.setAttribute('aria-orientation', compactTabs?.matches ? 'horizontal' : 'vertical');
+    updateTabOrientation();
+    compactTabs?.addEventListener('change', updateTabOrientation);
+    tabs.forEach((btn, index) => {
         btn.addEventListener('click', () => {
             activateTab(btn.dataset.tab);
+        });
+        btn.addEventListener('keydown', event => {
+            if (event.target !== btn || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing) return;
+            const horizontal = compactTabs?.matches === true;
+            const previous = horizontal ? 'ArrowLeft' : 'ArrowUp';
+            const next = horizontal ? 'ArrowRight' : 'ArrowDown';
+            let targetIndex;
+            if (event.key === previous) targetIndex = (index + tabs.length - 1) % tabs.length;
+            else if (event.key === next) targetIndex = (index + 1) % tabs.length;
+            else if (event.key === 'Home') targetIndex = 0;
+            else if (event.key === 'End') targetIndex = tabs.length - 1;
+            else return; // Keep native Enter/Space clicks and ordinary Tab navigation.
+            event.preventDefault();
+            activateTab(tabs[targetIndex].dataset.tab);
+            tabs[targetIndex].focus();
         });
     });
 
