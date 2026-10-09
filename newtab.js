@@ -649,8 +649,26 @@ function initializeSearchComponent(searchConfig = {}) {
     calculatorStatus.setAttribute('aria-atomic', 'true');
     input.setAttribute('aria-describedby', calculatorStatus.id);
     const isCalculation = () => input.value.trimStart().startsWith('=');
-    // The closure belongs to this search instance; remounting replaces the guard.
-    window.localCalculatorView = { hasUncommittedWork: () => input.isConnected && isCalculation() };
+    // Search ownership is local to this mounted input; never persist its contents.
+    let submittedValue = null;
+    let editRevision = 0;
+    window.localCalculatorView = {
+        hasUncommittedWork: () => input.isConnected && Boolean(input.value.trim()) &&
+            (isCalculation() || input.value !== submittedValue)
+    };
+    const markSearchEdited = () => { submittedValue = null; editRevision++; };
+    const openSearch = url => {
+        const value = input.value, revision = editRevision;
+        submittedValue = null;
+        try {
+            const opened = window.open(url, '_blank');
+            // Null can mean blocked or an unobservable/noopener window. Keep the
+            // draft unless an open WindowProxy confirms creation. No retry here.
+            if (opened && opened.closed === false && input.value === value && editRevision === revision) {
+                submittedValue = value;
+            }
+        } catch (_) { /* A failed open must keep the draft, without fallback navigation. */ }
+    };
     let composing = false;
     const updateCalculatorHint = () => {
         calculatorStatus.classList.remove('is-error');
@@ -661,8 +679,8 @@ function initializeSearchComponent(searchConfig = {}) {
             ? calculatorText('calculatorCalculate', 'Calculate')
             : ((window.i18n && i18n.t('search')) || 'Search');
     };
-    input.addEventListener('input', updateCalculatorHint);
-    input.addEventListener('compositionstart', () => { composing = true; updateCalculatorHint(); });
+    input.addEventListener('input', () => { markSearchEdited(); updateCalculatorHint(); });
+    input.addEventListener('compositionstart', () => { composing = true; markSearchEdited(); updateCalculatorHint(); });
     input.addEventListener('compositionend', () => { composing = false; updateCalculatorHint(); });
     input.addEventListener('keydown', event => {
         if (event.key === 'Enter' && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
@@ -798,7 +816,7 @@ function initializeSearchComponent(searchConfig = {}) {
         try {
             const directUrl = normalizeHttpUrl(query);
             if (/^[\w.-]+\.[a-z]{2,}([/:?#]|$)/i.test(query) || /^https?:\/\//i.test(query)) {
-                window.open(directUrl, '_blank');
+                openSearch(directUrl);
                 return;
             }
         } catch (_) {}
@@ -822,7 +840,7 @@ function initializeSearchComponent(searchConfig = {}) {
                 fallbackUrl.searchParams.set('q', query);
                 return fallbackUrl.toString();
             })();
-        window.open(url, '_blank');
+        openSearch(url);
     });
 
     container.appendChild(form);

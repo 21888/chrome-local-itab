@@ -62,7 +62,7 @@ for(const [engine,custom,expected] of [
  assert.equal(lifecycle.reload(),false);assert.equal(h.calls.length,0);assert.equal(h.input.value,'=123+4');
  h.document.querySelector('.local-content-reload-notice button').dispatch('click');assert.equal(h.calls.length,0,'declining discard preserves input');
  h.window.confirm=()=>true;h.document.querySelector('.local-content-reload-notice button').dispatch('click');assert.equal(h.calls.length,1);
- h.edit('ordinary');assert.equal(lifecycle.hasUncommittedWork(),false);
+ h.edit('ordinary');assert.equal(lifecycle.hasUncommittedWork(),true,'ordinary unfinished search also owns its draft');
  h.edit('=2');h.context.initializeSearchComponent({});assert.equal(lifecycle.hasUncommittedWork(),false,'remount cannot retain detached input guard');
 }
 const html=fs.readFileSync('newtab.html','utf8');assert(html.indexOf('shared/local-calculator.js')<html.indexOf('src="newtab.js"'));
