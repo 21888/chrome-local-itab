@@ -197,6 +197,10 @@ async function handleContextAction(action, payload) {
                 case 'edit':
                     comp.openEditModal(idx);
                     break;
+                case 'move_earlier':
+                case 'move_later':
+                    await comp.moveShortcut(idx, action === 'move_earlier' ? -1 : 1);
+                    break;
                 case 'delete':
                     comp.confirmDelete(idx);
                     break;
@@ -1849,7 +1853,65 @@ class ShortcutsComponent {
         } catch (_) { return false; }
     }
 
+    // Grid order only. Grouped templates stay inside the visible collection;
+    // filtered views skip hidden sites without changing their relative order.
+    getShortcutOrderTarget(index, direction) {
+        if (!Number.isInteger(index) || ![-1, 1].includes(direction) ||
+            !this.layout.autoArrange || this.layoutController?.modePending ||
+            this._shortcutOrderPending || this._shortcutWritesPending || this._isSaving || !this.links[index]) return -1;
+        const category = this.getCurrentCategory();
+        const group = this.links[index].category || 'work';
+        if (category !== 'all' && group !== category) return -1;
+        for (let next = index + direction; next >= 0 && next < this.links.length; next += direction) {
+            const candidate = this.links[next].category || 'work';
+            if ((category === 'all' || candidate === category) && (!this.usesCollections() || candidate === group)) return next;
+        }
+        return -1;
+    }
+
+    async moveShortcut(index, direction) {
+        const target = this.getShortcutOrderTarget(index, direction);
+        if (target < 0) return false;
+        const previous = this.links.map(link => ({ ...link }));
+        const next = previous.map(link => ({ ...link }));
+        const moved = next.splice(index, 1)[0];
+        next.splice(target, 0, moved);
+        const remap = slot => slot === index ? target :
+            index < slot && slot <= target ? slot - 1 :
+            target <= slot && slot < index ? slot + 1 : slot;
+        this._shortcutOrderPending = true;
+        let succeeded = false;
+        try {
+            const saved = await this.saveShortcutLinks(next, previous, { type: 'reorder', from: index, to: target });
+            if (!saved) throw new Error('Storage write returned false');
+            if (!saved.links) this.links = next;
+            succeeded = true;
+            // An editor opened during this write still refers to the old order.
+            // Preserve its draft and remap its slot before re-enabling Save.
+            if (this.modal?.classList.contains('active')) {
+                if (this.currentEditIndex >= 0) this.currentEditIndex = remap(this.currentEditIndex);
+                // Focus return belongs to its own opener, including an Add
+                // draft launched from a site rather than the Add tile.
+                if (Number.isInteger(this._modalFocusOrigin?.index)) {
+                    this._modalFocusOrigin = { ...this._modalFocusOrigin, index: remap(this._modalFocusOrigin.index) };
+                }
+            }
+        } catch (error) {
+            const message = this.recoverShortcutWrite(error, previous);
+            showErrorMessage(message || window.i18n?.t('shortcutOrderFailed') || 'Could not save shortcut order. Please try again.');
+        } finally {
+            this._shortcutOrderPending = false;
+            this.setSavingState(Boolean(this._pendingSave));
+            // Preserve the latest focused site, even when the user chose a
+            // different identical twin while saving. Never replace editor/search focus.
+            const focus = this.captureGridFocus();
+            this.updateGrid(succeeded && Number.isInteger(focus?.index) ? { ...focus, index: remap(focus.index) } : null);
+        }
+        return succeeded;
+    }
+
     async saveShortcutLinks(next, previous, operation) {
+        this._shortcutWritesPending = (this._shortcutWritesPending || 0) + 1;
         const controller = this.layoutController;
         controller?.holdShortcutMutation();
         try {
@@ -1866,7 +1928,10 @@ class ShortcutsComponent {
                 controller?.adoptOwnShortcutSnapshot(saved);
             }
             return saved;
-        } finally { controller?.releaseShortcutMutation(); }
+        } finally {
+            this._shortcutWritesPending--;
+            controller?.releaseShortcutMutation();
+        }
     }
 
     async createStarterSet() {
@@ -1931,7 +1996,7 @@ class ShortcutsComponent {
 
         this._modalSession++;
         this._hasShortcutConflict = false;
-        this.setSavingState(Boolean(this._pendingSave));
+        this.setSavingState(Boolean(this._pendingSave || this._shortcutOrderPending));
 
         modalTitle.textContent = title;
         titleInput.value = currentTitle;
@@ -1970,7 +2035,7 @@ class ShortcutsComponent {
             }
             this._modalSession++;
             this.currentEditIndex = -1;
-            this.setSavingState(Boolean(this._pendingSave));
+            this.setSavingState(Boolean(this._pendingSave || this._shortcutOrderPending));
         }
     }
 
@@ -2121,7 +2186,7 @@ class ShortcutsComponent {
     async handleFormSubmit(e) {
         e.preventDefault();
 
-        if (this._isSaving || this._hasShortcutConflict) return;
+        if (this._isSaving || this._shortcutOrderPending || this._hasShortcutConflict) return;
 
         const titleInput = this.modal.querySelector('#shortcut-title');
         const urlInput = this.modal.querySelector('#shortcut-url');
@@ -2295,6 +2360,10 @@ class ShortcutsComponent {
      * Confirm delete shortcut
      */
     confirmDelete(index) {
+        if (this._shortcutOrderPending) {
+            showErrorMessage(window.i18n?.t('shortcutOrderPending') || 'Wait for shortcut order to finish saving, then try again.');
+            return false;
+        }
         if (index < 0 || index >= this.links.length) return;
 
         const link = this.links[index];
@@ -2317,6 +2386,10 @@ class ShortcutsComponent {
      * Delete shortcut
      */
     async deleteShortcut(index) {
+        if (this._shortcutOrderPending) {
+            showErrorMessage(window.i18n?.t('shortcutOrderPending') || 'Wait for shortcut order to finish saving, then try again.');
+            return false;
+        }
         if (index >= 0 && index < this.links.length) {
             const previousLinks = this.links.map(link => ({ ...link }));
             const focusOrigin = this.captureGridFocus();
@@ -2934,7 +3007,7 @@ class ShortcutsComponent {
      * Handle drag start
      */
     handleDragStart(e) {
-        if (this.layoutController?.modePending || !this.layout.autoArrange) {
+        if (this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange) {
             e.preventDefault();
             return;
         }
@@ -3002,7 +3075,7 @@ class ShortcutsComponent {
     async handleDrop(e) {
         e.preventDefault();
         
-        const draggedIndex = this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
+        const draggedIndex = this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
         // 获取鼠标指针正下方的目标卡片
         const dropTarget = e.target.closest('.shortcut-item:not(.add-shortcut)');
         

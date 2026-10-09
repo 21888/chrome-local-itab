@@ -527,5 +527,15 @@
     "workspacePresetShown": {"message": "Shown"},
     "workspacePresetHidden": {"message": "Hidden"},
     "workspacePresetReady": {"message": "Review the visibility changes below, then apply or cancel."},
-    "workspacePresetSaved": {"message": "Workspace visibility saved on this device."}
+    "workspacePresetSaved": {"message": "Workspace visibility saved on this device."},
+  "shortcutMoveEarlier": {
+    "message": "Move earlier"
+  },
+  "shortcutMoveLater": {
+    "message": "Move later"
+  },
+  "shortcutOrderFailed": {
+    "message": "Could not save shortcut order. Please try again."
+  },
+  "shortcutOrderPending": { "message": "Wait for shortcut order to finish saving, then try again." }
 }

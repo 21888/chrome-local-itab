@@ -57,11 +57,11 @@ function harness() {
     assert.equal(opened.prevented, true);
     assert.equal(h.menu().getAttribute('role'), 'menu');
     assert.equal(h.menu().getAttribute('aria-label'), 'Shortcut actions');
-    assert.deepEqual(h.items().map(item => item.tagName), ['BUTTON', 'BUTTON', 'BUTTON']);
+    assert.deepEqual(h.items().map(item => item.tagName), ['BUTTON', 'BUTTON', 'BUTTON', 'BUTTON', 'BUTTON']);
     assert(h.items().every(item => item.type === 'button' && item.getAttribute('role') === 'menuitem'));
     assert.equal(h.menu().querySelector('.ctx-kbd'), null, 'unsupported action shortcuts are not advertised');
     assert.equal(h.document.activeElement, h.items()[0]);
-    assert.deepEqual(h.items().map(item => item.tabIndex), [0, -1, -1]);
+    assert.deepEqual(h.items().map(item => item.tabIndex), [0, -1, -1, -1, -1]);
     h.flushFrames(); assert(h.menu().classList.contains('open'));
     h.items()[0].dispatch('keydown', { key: 'ArrowUp' }); assert.equal(h.document.activeElement, h.items()[2]);
     h.items()[2].dispatch('keydown', { key: 'ArrowDown' }); assert.equal(h.document.activeElement, h.items()[0]);
@@ -226,3 +226,28 @@ for (const change of [links => links.reverse(), links => links.splice(0, 1), lin
     assert.equal(deleted, 0); assert.equal(h.context.notices.length, 1);
 }
 console.log('context menu tests ok (DOM/event/focus model; native menu traversal still needs smoke verification)');
+
+// New Grid-order entries use the existing native menu ownership and stale guards.
+{
+    const h = harness();
+    h.component.getShortcutOrderTarget = (index, direction) => h.component.layout.autoArrange && !h.component.pending && index + direction >= 0 && index + direction < 2 ? index + direction : -1;
+    h.open(h.tiles[0].launch, { clientX: 0, clientY: 0 });
+    assert.equal(h.items()[3].disabled, true); assert.equal(h.items()[4].disabled, false);
+    h.items()[0].dispatch('keydown', { key: 'End' }); assert.equal(h.document.activeElement, h.items()[4]);
+    const old = h.items()[4]; nativeActivation(old, 'Enter'); old.dispatch('click');
+    assert.equal(h.actions.length, 1); assert.equal(h.actions[0].action, 'move_later');
+    assert.equal(h.actions[0].active, h.tiles[0].launch); assert.equal(h.menu(), null);
+    h.open(h.tiles[1].launch); assert.equal(h.items()[3].disabled, false); assert.equal(h.items()[4].disabled, true);
+    h.items()[3].dispatch('keydown', { key: 'Enter', repeat: true }); assert.equal(h.actions.length, 1);
+    h.component.layout.autoArrange = false; h.items()[3].dispatch('click'); assert.equal(h.actions.length, 1); assert.equal(h.errors.length, 1);
+    h.open(); assert(h.items()[3].disabled && h.items()[4].disabled);
+}
+for (const change of ['pending', 'scope', 'identity']) {
+    const h = harness(); h.component.getShortcutOrderTarget = () => h.component.pending ? -1 : 1;
+    h.component.getCurrentCategory = () => h.component.scope || 'all';
+    h.open(); const move = h.items()[4];
+    if (change === 'pending') h.component.pending = true;
+    if (change === 'scope') h.component.scope = 'work';
+    if (change === 'identity') h.component.links[0].layoutId = 'new-identity';
+    move.dispatch('click'); assert.equal(h.actions.length, 0, change); assert.equal(h.errors.length, 1, change);
+}

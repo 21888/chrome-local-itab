@@ -116,10 +116,11 @@ function createComponent(storage, initialLinks) {
 
         // The actual dashboard delete/reorder paths refresh a stale tab without
         // resurrecting removed entries. Retrying uses the refreshed snapshot.
-        for (const action of ['delete', 'reorder', 'starter']) {
+        for (const action of ['delete', 'reorder', 'keyboard-reorder', 'starter']) {
             reset(action === 'starter' ? [links[2]] : links.slice(1));
             const { component, context } = createComponent(manager(), action === 'starter' ? [] : links);
             if (action === 'delete') await component.deleteShortcut(1);
+            if (action === 'keyboard-reorder') await component.moveShortcut(0, 1);
             if (action === 'reorder') {
                 component.draggedIndex = 0;
                 await component.handleDrop({ preventDefault() {}, target: { closest() { return { dataset: { index: '1' } }; } } });

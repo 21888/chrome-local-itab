@@ -527,5 +527,15 @@
     "workspacePresetShown": {"message": "显示"},
     "workspacePresetHidden": {"message": "隐藏"},
     "workspacePresetReady": {"message": "请查看下方的显示状态变化，再选择应用或取消。"},
-    "workspacePresetSaved": {"message": "工作空间显示设置已保存到本设备。"}
+    "workspacePresetSaved": {"message": "工作空间显示设置已保存到本设备。"},
+  "shortcutMoveEarlier": {
+    "message": "向前移动"
+  },
+  "shortcutMoveLater": {
+    "message": "向后移动"
+  },
+  "shortcutOrderFailed": {
+    "message": "无法保存快捷方式顺序，请重试。"
+  },
+  "shortcutOrderPending": { "message": "请等待快捷方式顺序保存完成后重试。" }
 }

@@ -21,7 +21,7 @@
 
     function snapshotTarget(target, payload) {
         const component = window.shortcutsComponentInstance;
-        const fields = ['title', 'url', 'icon', 'category'];
+        const fields = ['title', 'url', 'icon', 'category', 'layoutId'];
         const capture = (records, keys) => records.map(record => ({ record, values: keys.map(key => record[key]) }));
         const matches = (records, snapshot, keys) => records.length === snapshot.length && snapshot.every((saved, index) =>
             records[index] === saved.record && keys.every((key, field) => records[index][key] === saved.values[field]));
@@ -35,12 +35,23 @@
         const hiddenSnapshot = hidden();
         const layoutState = () => JSON.stringify([component?.layout?.autoArrange, component?.layout?.alignToGrid, Boolean(component?.layoutController?.modePending)]);
         const layoutSnapshot = layoutState();
+        const orderTargets = [-1, 1].map(direction => component?.getShortcutOrderTarget?.(payload.index, direction) ?? -1);
+        const orderScope = () => JSON.stringify([component?.getCurrentCategory?.(), component?.usesCollections?.()]);
+        const orderScopeSnapshot = orderScope();
         return action => {
             if (payload.type === 'blank') return action === 'dashboard_visibility_toggle' ? hidden() === hiddenSnapshot :
                 component === window.shortcutsComponentInstance && layoutState() === layoutSnapshot;
             if (!visible(target) || component !== window.shortcutsComponentInstance) return false;
             if (!matches(component?.links || [], links, fields)) return false;
-            if (payload.type === 'site') return Number(target.dataset.index) === payload.index && Boolean(component?.links[payload.index]);
+            if (payload.type === 'site') {
+                if (action === 'move_earlier' || action === 'move_later') {
+                    const direction = action === 'move_earlier' ? -1 : 1;
+                    const destination = orderTargets[direction === -1 ? 0 : 1];
+                    if (destination < 0 || layoutState() !== layoutSnapshot || orderScope() !== orderScopeSnapshot ||
+                        component?.getShortcutOrderTarget?.(payload.index, direction) !== destination) return false;
+                }
+                return Number(target.dataset.index) === payload.index && Boolean(component?.links[payload.index]);
+            }
             return (target.dataset.category || 'all') === payload.id && matches(currentCategories(), categories, categoryFields);
         };
     }
@@ -135,6 +146,13 @@
             createItem(session, 'openInNewTab', 'Open in new tab', 'open');
             createItem(session, 'edit', 'Edit', 'edit');
             createItem(session, 'remove', 'Delete', 'delete');
+            separator(menu);
+            createItem(session, 'shortcutMoveEarlier', 'Move earlier', 'move_earlier', {
+                disabled: (component?.getShortcutOrderTarget?.(payload.index, -1) ?? -1) < 0
+            });
+            createItem(session, 'shortcutMoveLater', 'Move later', 'move_later', {
+                disabled: (component?.getShortcutOrderTarget?.(payload.index, 1) ?? -1) < 0
+            });
         } else if (payload.type === 'category') {
             menu.setAttribute('aria-label', translate('contextCategoryActions', 'Category actions'));
             createItem(session, 'openAll', 'Open all', 'open_all');
