@@ -20,3 +20,5 @@ When two pages edit the same task or a list changes during a reviewed import, th
 There are no reminders, due dates, link previews, external accounts or automatic resets at midnight.
 
 When a settings update needs to reload the page, an unfinished task draft, open editor/import review or pending save defers automatic reload. Use the page's Reload option when ready. Discarding drafts requires confirmation; an active save must finish first.
+
+A backup containing all 8 previous copies can be imported into a destination with no task records, no pin and no previous copies. Only in this case, the redundant empty destination snapshot is omitted. All incoming copies are retained; visibility stays as configured on the destination, even if it was previously toggled. Active, completed or removed destination tasks, or any existing previous copies, retain the normal protection and capacity checks. Restoring an existing local copy is unchanged.

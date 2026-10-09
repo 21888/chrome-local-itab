@@ -190,8 +190,16 @@
                         check(!existing || same(existing, backup), 'CONFLICT');
                         if (!existing) next.recovery.push(clone(backup));
                     }
-                    check(next.recovery.length < LIMITS.recovery, 'RECOVERY_LIMIT');
-                    next.recovery.push({ id: this.id(), createdAt: now, content: content(current) });
+                    // A full archive may enter an empty destination without adding a
+                    // redundant empty snapshot. Never omit existing history or a list
+                    // containing even one completed/removed task; recover is unchanged.
+                    const omitEmptySnapshot = command.kind === 'replace' &&
+                        current.records.length === 0 && current.pinnedId === null &&
+                        current.recovery.length === 0 && next.recovery.length === LIMITS.recovery;
+                    if (!omitEmptySnapshot) {
+                        check(next.recovery.length < LIMITS.recovery, 'RECOVERY_LIMIT');
+                        next.recovery.push({ id: this.id(), createdAt: now, content: content(current) });
+                    }
                     next.records = clone(target.records).map(task => ({ ...task, version: this.id() }));
                     next.pinnedId = target.pinnedId; break;
                 }

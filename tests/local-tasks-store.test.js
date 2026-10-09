@@ -154,3 +154,107 @@ test('Chrome-style object key reordering preserves save verification and recover
     b.write = value => write({ ...value, records: value.records.map(task => ({ ...task, text: 'changed by backend' })) });
     await assert.rejects(() => add(a, 'must not report success'), { code: 'VERIFY' });
 });
+
+
+async function fullMigrationArchive() {
+    const { a } = fixture();
+    let state = await add(a, 'migration task');
+    state = await a.mutate(command(a, 'pin', state.records[0], { expectedPin: null }));
+    const original = await a.export();
+    for (let i = 0; i < api.LIMITS.recovery; i++) await a.mutate(a.request('replace', await a.review(original)));
+    const source = await a.export();
+    assert.equal(api.parseBackup(source).recovery.length, 8);
+    return source;
+}
+
+test('full exported archive migrates into an empty destination without losing recovery history', async () => {
+    const source = await fullMigrationArchive(), file = api.parseBackup(source);
+    for (const enabled of [null, true, false]) {
+        const { a, b } = fixture();
+        if (enabled !== null) {
+            await a.mutate(a.request('enable', { enabled: !enabled }));
+            await a.mutate(a.request('enable', { enabled }));
+        }
+        const before = b.raw(), writes = b.writes, review = await a.review(source);
+        assert.deepEqual(b.raw(), before); assert.equal(b.writes, writes);
+        const state = await a.mutate(a.request('replace', review));
+        assert.equal(state.enabled, enabled ?? false);
+        assert.equal(state.pinnedId, file.content.pinnedId);
+        assert.deepEqual(state.records.map(({ version, ...record }) => record), file.content.records.map(({ version, ...record }) => record));
+        assert.notEqual(state.records[0].version, file.content.records[0].version);
+        assert.deepEqual(state.recovery, file.recovery);
+        const reexport = api.parseBackup(await a.export());
+        assert.deepEqual(reexport.recovery, file.recovery);
+        assert.deepEqual(reexport.content, { records: state.records, pinnedId: state.pinnedId });
+        assert.equal(b.writes, writes + 1);
+    }
+});
+
+test('full archive refuses every meaningful destination without writing or dropping history', async () => {
+    const source = await fullMigrationArchive();
+    for (const status of ['active', 'done', 'removed']) {
+        const { a, b } = fixture(); let state = await add(a, 'keep this local task');
+        if (status === 'done') state = await a.mutate(command(a, 'complete', state.records[0]));
+        if (status === 'removed') state = await a.mutate(command(a, 'remove', state.records[0]));
+        const before = b.raw(), writes = b.writes;
+        await assert.rejects(() => a.mutate(a.request('replace', { source, revision: state.revision })), { code: 'RECOVERY_LIMIT' });
+        assert.deepEqual(b.raw(), before); assert.equal(b.writes, writes);
+    }
+    // Even an empty list with existing history remains under the old strict policy.
+    const { a, b } = fixture(); const state = api.initial(); state.recovery = api.parseBackup(source).recovery;
+    b.corrupt(state); const before = b.raw();
+    await assert.rejects(() => a.mutate(a.request('replace', { source, revision: 0 })), { code: 'RECOVERY_LIMIT' });
+    assert.deepEqual(b.raw(), before); assert.equal(b.writes, 0);
+});
+
+test('migration keeps duplicate recovery ID validation and conflict protection', async () => {
+    const source = await fullMigrationArchive();
+    const { a, b } = fixture(); const duplicated = api.parseBackup(source);
+    duplicated.recovery[1] = structuredClone(duplicated.recovery[0]);
+    await assert.rejects(() => a.review(JSON.stringify(duplicated)), { code: 'INVALID' });
+    const state = api.initial(); state.recovery = [structuredClone(api.parseBackup(source).recovery[0])];
+    state.recovery[0].content.records[0].text = 'different destination history'; b.corrupt(state);
+    const before = b.raw();
+    await assert.rejects(() => a.mutate(a.request('replace', { source, revision: 0 })), { code: 'CONFLICT' });
+    assert.deepEqual(b.raw(), before); assert.equal(b.writes, 0);
+});
+
+test('empty migration retains stale review, invalid file and storage-failure protections', async () => {
+    const source = await fullMigrationArchive();
+    const stale = fixture(); const review = await stale.a.review(source);
+    await stale.a.mutate(stale.a.request('enable', { enabled: true }));
+    const before = stale.b.raw(), writes = stale.b.writes;
+    await assert.rejects(() => stale.a.mutate(stale.a.request('replace', review)), { code: 'CONFLICT' });
+    assert.deepEqual(stale.b.raw(), before); assert.equal(stale.b.writes, writes);
+    for (const invalid of ['{', '{}', ' '.repeat(api.LIMITS.bytes + 1)]) {
+        const { a, b } = fixture(); await assert.rejects(() => a.review(invalid)); assert.equal(b.writes, 0);
+    }
+    for (const flag of ['failRead', 'failWrite', 'throwWrite']) {
+        const { a, b } = fixture(); const request = a.request('replace', await a.review(source)); b[flag] = true;
+        await assert.rejects(() => a.mutate(request), { code: flag === 'failRead' ? 'READ' : 'WRITE' });
+        assert.equal(b.raw(), undefined);
+    }
+    const { a, b } = fixture(); const request = a.request('replace', await a.review(source)); b.failVerify = true;
+    await assert.rejects(() => a.mutate(request), { code: 'READ' }); b.failRead = false;
+    assert.deepEqual(b.raw().recovery, api.parseBackup(source).recovery);
+    const savedWrites = b.writes; await a.mutate(request); assert.equal(b.writes, savedWrites);
+});
+
+
+test('empty destinations still retain their preceding empty copy when the archive has room', async () => {
+    const file = api.parseBackup(await fullMigrationArchive()); file.recovery.pop();
+    const { a } = fixture();
+    const state = await a.mutate(a.request('replace', await a.review(JSON.stringify(file))));
+    assert.equal(state.recovery.length, 8);
+    assert.deepEqual(state.recovery.slice(0, 7), file.recovery);
+    assert.deepEqual(state.recovery[7].content, { records: [], pinnedId: null });
+});
+
+test('empty migration never confirms a dropped storage write', async () => {
+    const source = await fullMigrationArchive(), b = backend();
+    b.write = async () => { b.writes++; };
+    const a = new api.Store(b, { id: () => 'operation_migration', now: () => '2026-10-08T18:00:00.000Z' });
+    const review = await a.review(source);
+    await assert.rejects(() => a.mutate(a.request('replace', review)), { code: 'VERIFY' });
+    assert.equal(b.raw(), undefined); assert.equal(b.writes, 1);
+});
