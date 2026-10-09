@@ -35,3 +35,11 @@ English Graphite dark/light at a 1188×848 native window and English light at 51
 All 51 runtime file hashes matched the tested snapshot. Final newtab.js SHA256: `881ae6150025c8015dc23cbc2a2df83d56fd9a952d42ebf47bd4d55a98fa08fd`. The 51-file canonical package was built and verified separately; packaging does not itself run a browser.
 
 Native dirty-conflict/forced-hide races, failure injection, CRLF export, actual IME, screen-reader announcements, all 15 templates, live Sync/Drive and other operating systems were not verified in this bounded run. Applicable local cases have automated coverage above; untested cases are not promoted to native passes.
+
+## Template appearance sweep — 2026-10-09
+
+The exact published `3f20fa9` extension ZIP (SHA256 `b9090699e131f6e8dc60763211f5c3ef9b8a76e7dda8dcacc105f852db82e860`) was inspected in 21 native combinations: all 15 templates in light appearance at a 1188×848 window, and Folio, Console and Blueprint in dark appearance at wide and 510×848 narrow windows. The wide dark Folio window was 1188×848; Console and Blueprint were 1260×848. These are native window dimensions, not measured CSS viewport dimensions. Browser zoom was 100%.
+
+The 27-character saved multiline Scratchpad content persisted throughout. No new Scratchpad clipping or unreadable text was observed. Folio intentionally stacks cards in a right rail; not all three neighboring cards are visible simultaneously. Existing Tasks search placeholder truncation in some narrow columns was not counted as a new Scratchpad defect.
+
+This extends the earlier bounded layout coverage only. It does not establish exhaustive contrast compliance, all-template narrow coverage, keyboard/IME or assistive-technology behavior. The owned test browser was closed normally; original desktop captures and source hashes were retained with the acceptance artifacts.
