@@ -41,3 +41,15 @@ A later delivered archive includes Finder's page shortcut, guarded search feedba
 After checking the archive hash, a fresh directory was extracted without adding development files. Official Chrome for Testing 155.0.8059.39 on cloud Linux loaded it in a new owned disposable profile with the normal sandbox. Actual new-tab rendering, slash Finder open/Escape close, local `=2+3*4` result 14 without navigation, and the Settings page passed. Four original desktop screenshots and per-file hashes were retained. The test window was closed normally.
 
 This exact-artifact check covers startup and exercised dependency paths. It does not establish all-template/all-feature coverage, console/network audits, Chinese layout, live Sync, native IME, screen readers or other operating systems. Feature-specific reports retain their separate scopes. Follow the backup and same-directory update guidance above.
+
+## Scratchpad delivery artifact — 2026-10-09
+
+- Published runtime source: `3f20fa9a061c6828b66f29f9856d76fbb876746d`.
+- Archive: `local-itab-current-3f20fa9.zip`, 1,082,490 bytes; 51 runtime files totaling 1,076,384 uncompressed bytes.
+- SHA-256: `b9090699e131f6e8dc60763211f5c3ef9b8a76e7dda8dcacc105f852db82e860`.
+- Includes optional local Scratchpad, retained Add-draft visibility and DST-safe calendar-day calculation. Manifest remains 1.1.5.
+- Integrated regression: 262 Node tests and 19 Python packaging tests passed; canonical byte verification passed.
+
+The exact hash was checked and the archive extracted to a fresh directory without development additions. Official cloud Chrome for Testing 155.0.8059.39 loaded it in a new owned profile with the normal sandbox. New tab and Settings rendered; optional cards began disabled. Enabling Scratchpad and entering a 27-character multiline synthetic note reached Saved and retained the visible text after a full reload. Tasks and Focus were also enabled through the ordinary Settings controls. Seven original screenshots and per-file hashes were retained.
+
+This establishes bounded startup and persistence for the actual artifact, not console/network audits, every feature/template, native DST transitions, IME, assistive technology or live Sync. The owned browser was reused for a separately scoped appearance sweep. No external account or security setting was changed. Keep the same installation directory and export configuration, Tasks and Scratchpad separately before replacement when those local tools are used.
