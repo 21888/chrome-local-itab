@@ -682,5 +682,7 @@
   "settingsBackgroundColorInvalid": { "message": "请先输入有效的背景颜色，例如 #112233，再保存。" },
   "dashboardPreferenceConflict": { "message": "已保存的偏好已更改或无法安全读取。请保留当前草稿，打开新的标签页后再试。" },
   "dashboardPreferenceFailed": { "message": "此偏好未能保存，当前仍使用上次保存的选择，请重试。" },
-  "dashboardPreferenceLockUnavailable": { "message": "此浏览器不支持安全保存偏好，已保存的设置未更改。" }
+  "dashboardPreferenceLockUnavailable": { "message": "此浏览器不支持安全保存偏好，已保存的设置未更改。" },
+  "importSettingsOpenFailed": { "message": "无法打开导入设置。请重试。" },
+  "importSettingsOpenUnknown": { "message": "无法确认是否已打开导入设置。请先检查已打开的标签页，再重试。" }
 }

@@ -2381,6 +2381,8 @@ class ShortcutsComponent {
     handleGridKeydown(event) {
         // Let native buttons provide Enter/Space activation, without held-Enter cascades.
         if (event.key === 'Enter' && event.repeat && event.target.closest('button')) event.preventDefault();
+        if (event.target.closest('[data-action="open-import"]') && ['Enter', ' '].includes(event.key) &&
+            (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
     }
 
     handleGridClick(e) {
@@ -2415,7 +2417,9 @@ class ShortcutsComponent {
 
         if (action === 'open-import') {
             e.stopPropagation();
-            chrome.runtime.openOptionsPage();
+            e.preventDefault();
+            if (e.detail > 1 || e.repeat || e.isComposing) return;
+            this.openImportSettings(actionBtn);
             return;
         }
 
@@ -2441,6 +2445,49 @@ class ShortcutsComponent {
     /**
      * Open shortcut URL
      */
+    async openImportSettings(source) {
+        const grid = this.gridEl;
+        if (this._importSettingsOpening || !grid?.isConnected || grid !== document.getElementById('shortcuts-grid') ||
+            grid.querySelector('[data-action="open-import"]') !== source || !this.isVisibleFocusTarget(source)) return;
+        this._importSettingsOpening = true;
+        let outcome = 'failed';
+        try {
+            // Keep the route local and reuse Settings' existing hash navigation.
+            const runtime = typeof chrome !== 'undefined' ? chrome.runtime : null;
+            const path = 'options.html#import-settings-btn';
+            const url = runtime?.getURL ? runtime.getURL(path) : path;
+            if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+                outcome = await new Promise(resolve => {
+                    let settled = false;
+                    const done = result => { if (!settled) { settled = true; resolve(result); } };
+                    const opened = tab => done(Number.isInteger(tab?.id) ? 'opened' : 'unknown');
+                    try {
+                        const pending = chrome.tabs.create({ url, active: true }, tab => {
+                            // Consume lastError even if a Promise already settled this call.
+                            if (runtime?.lastError) done('failed');
+                            else opened(tab);
+                        });
+                        if (pending?.then) pending.then(opened, () => done('failed'));
+                    } catch (_) { done('failed'); }
+                });
+            } else {
+                const opened = window.open(url, '_blank');
+                outcome = 'unknown';
+                // An absent/inaccessible WindowProxy does not prove creation failed.
+                try { if (opened?.closed === false) outcome = 'opened'; } catch (_) {}
+            }
+        } catch (_) { outcome = 'failed'; }
+        finally { this._importSettingsOpening = false; }
+        // Never retry an uncertain creation or move focus from the user's newer work.
+        if (outcome !== 'opened' && grid.isConnected && grid === document.getElementById('shortcuts-grid') &&
+            this.gridEl === grid && grid.querySelector('[data-action="open-import"]')) {
+            showErrorMessage(this.shortcutUndoText(outcome === 'failed' ? 'importSettingsOpenFailed' : 'importSettingsOpenUnknown',
+                outcome === 'failed' ? 'Could not open Import Settings. Please try again.' :
+                    'Unable to confirm whether Import Settings opened. Check your tabs before trying again.'));
+        }
+        return outcome;
+    }
+
     openShortcut(index) {
         if (index >= 0 && index < this.links.length) this.openShortcutRecord(this.links[index]);
     }
@@ -3316,6 +3363,7 @@ class ShortcutsComponent {
         const active = document.activeElement;
         if (!active || !grid?.contains?.(active)) return null;
         if (active.dataset?.action === 'open-add' || active.closest('.add-shortcut')) return { action: 'add' };
+        if (active.dataset?.action === 'open-import') return { action: 'import' };
         const tile = active.closest('.shortcut-item');
         if (!tile) return null;
         return {
@@ -3334,7 +3382,10 @@ class ShortcutsComponent {
     restoreGridFocus(grid, intent) {
         const add = grid.querySelector('.add-shortcut');
         let target = add;
-        if (intent.action !== 'add') {
+        if (intent.action === 'import') {
+            const importButton = grid.querySelector('[data-action="open-import"]');
+            target = this.isVisibleFocusTarget(importButton) ? importButton : add;
+        } else if (intent.action !== 'add') {
             const visible = Array.from(grid.querySelectorAll('.shortcut-item:not(.add-shortcut)'))
                 .filter(tile => this.isVisibleFocusTarget(tile));
             const matches = visible.filter(tile => tile.dataset.focusKey === intent.key)

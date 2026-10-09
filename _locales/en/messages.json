@@ -682,5 +682,7 @@
   "settingsBackgroundColorInvalid": { "message": "Enter a valid background color, such as #112233, before saving." },
   "dashboardPreferenceConflict": { "message": "Saved preferences changed or could not be safely read. Keep any draft and open a new tab before retrying." },
   "dashboardPreferenceFailed": { "message": "Could not save this preference. Your last saved choice is still in use; try again." },
-  "dashboardPreferenceLockUnavailable": { "message": "Safe preference saving is unavailable in this browser. Your saved settings are unchanged." }
+  "dashboardPreferenceLockUnavailable": { "message": "Safe preference saving is unavailable in this browser. Your saved settings are unchanged." },
+  "importSettingsOpenFailed": { "message": "Could not open Import Settings. Please try again." },
+  "importSettingsOpenUnknown": { "message": "Unable to confirm whether Import Settings opened. Check your tabs before trying again." }
 }

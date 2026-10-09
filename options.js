@@ -328,8 +328,10 @@ function setupSettingsTabs() {
     const panels = Array.from(document.querySelectorAll('.tab-panel'));
     if (!tabs.length || !panels.length) return;
 
+    let navigationVersion = 0;
     const activateTab = (tabId) => {
         if (!tabs.some(tab => tab.dataset.tab === tabId) || !panels.some(panel => panel.dataset.tab === tabId)) return false;
+        navigationVersion++;
         tabs.forEach(btn => {
             const isActive = btn.dataset.tab === tabId;
             btn.classList.toggle('active', isActive);
@@ -380,8 +382,21 @@ function setupSettingsTabs() {
         const targetPanel = targetSection?.closest('.tab-panel');
         if (targetPanel?.dataset.tab) {
             activateTab(targetPanel.dataset.tab);
+            const version = navigationVersion;
             setTimeout(() => {
-                targetSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (version !== navigationVersion || window.location.hash !== `#${hash}` ||
+                    !targetPanel.isConnected || !targetPanel.classList.contains('active') ||
+                    document.getElementById(hash) !== targetSection || !targetSection.isConnected ||
+                    targetSection.closest('.tab-panel') !== targetPanel || !targetSection.getClientRects().length) return;
+                if (hash === 'import-settings-btn') {
+                    // Focus only this explicit action destination, after listeners are ready.
+                    // A newer tab choice/control owns focus; never open the file picker here.
+                    if (targetSection.disabled || targetSection.closest('[inert]') ||
+                        window.getComputedStyle?.(targetSection)?.visibility === 'hidden' ||
+                        ![document.body, document.documentElement, targetSection].includes(document.activeElement)) return;
+                    targetSection.focus({ preventScroll: true });
+                }
+                targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 80);
             return {activateTab};
         }
@@ -928,7 +943,11 @@ function setupEventListeners() {
     const importButton = document.getElementById('import-settings-btn');
     const importInput = document.getElementById('import-settings');
     if (importButton && importInput) {
-        importButton.addEventListener('click', function() {
+        importButton.addEventListener('keydown', event => {
+            if ((event.key === 'Enter' || event.key === ' ') && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+        });
+        importButton.addEventListener('click', function(event) {
+            if (event.detail > 1 || event.repeat || event.isComposing) return;
             importInput.click();
         });
         
