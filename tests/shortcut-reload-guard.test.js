@@ -6,10 +6,10 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; };
 
 function createEditor() {
-    const pending = [], writes = [];
+    const pending = [], writes = [], departureListeners = [];
     const context = {
         document: createDocument(),
-        window: { addEventListener() {}, LocalItabDialog: { open(overlay) { overlay.classList.add('active'); return () => overlay.classList.remove('active'); } } },
+        window: { addEventListener(type, listener) { if (type === 'beforeunload') departureListeners.push(listener); }, LocalItabDialog: { open(overlay) { overlay.classList.add('active'); return () => overlay.classList.remove('active'); } } },
         storageManager: { defaultConfig: { layout: { columns: 6 } }, set(key, value, options) {
             const request = deferred(); pending.push(request); writes.push({ key, value: clone(value), expected: clone(options.expectedLinks) }); return request.promise;
         } },
@@ -35,7 +35,7 @@ function createEditor() {
     context.window.confirm = () => { confirms++; return permit; };
     vm.runInContext(fs.readFileSync('shared/local-content-lifecycle.js','utf8'), context);
     const lifecycle = context.window.LocalItabContentLifecycle;
-    return { component, fields, pending, writes, context, lifecycle, get reloads(){return reloads}, get confirms(){return confirms}, allow(){permit=true} };
+    return { component, fields, pending, writes, context, lifecycle, departureListeners, get reloads(){return reloads}, get confirms(){return confirms}, allow(){permit=true} };
 }
 const submit = component => component.handleFormSubmit({ preventDefault() {} });
 
@@ -83,9 +83,14 @@ const submit = component => component.handleFormSubmit({ preventDefault() {} });
         assert.equal(pulls,0);assert.equal(h.reloads,0);
         await events[0]({meta:{newValue:{}}},'sync'); assert.equal(pulls,1);assert.equal(h.reloads,0);
     }
-    // Shortcuts add no departure hook; Scratchpad owns its draft warning.
+    // Shortcuts do not gain a departure warning when the shared Tasks guard expands.
     for(const file of ['newtab.js','options.js'])assert(!/beforeunload/.test(fs.readFileSync(file,'utf8')));
-    const source = fs.readFileSync('shared/local-content-lifecycle.js','utf8');
-    assert(source.includes("if (!root.localCountdownSettingsView?.hasUncommittedWork() && !root.localScratchpadSettingsView?.hasUncommittedWork() && !root.worldClockSettingsView?.hasUncommittedWork()) return;"));
+    {
+        const h = createEditor(); h.component.openAddModal();
+        h.fields.get('#shortcut-title').value = 'UNSAVED SHORTCUT';
+        assert.equal(h.departureListeners.length, 1, 'one shared departure hook');
+        const event = { returnValue: undefined, preventDefault() { assert.fail('shortcut-only work must not expand the departure guard'); } };
+        h.departureListeners[0](event); assert.equal(event.returnValue, undefined);
+    }
     console.log('PASS: Add/Edit empty/dirty/open; pending closed save; Cancel/current Save release; stale success/false/rejection ownership; explicit discard once; local events versus applied Sync reload; no duplicate beforeunload hook.');
 })().catch(e=>{console.error(e);process.exitCode=1});
