@@ -1,0 +1,24 @@
+/* Local date viewer. The closed clock retains its existing width and placement. */
+.month-calendar { max-width: 100%; min-width: 0; color: var(--text-primary); text-align: start; font-size: 12px; line-height: 1.5; }
+.month-calendar > summary { width: fit-content; max-width: 100%; margin-inline-start: auto; cursor: pointer; color: var(--text-secondary); padding: 3px 0; overflow-wrap: anywhere; }
+.month-calendar[open] { width: 17rem; }
+.month-calendar-panel { min-width: 0; padding: 10px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--template-surface, var(--bg-secondary)); }
+.month-calendar-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; margin-bottom: 8px; }
+.month-calendar-controls button { min-width: 0; min-height: 30px; padding: 4px 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.month-calendar-controls button:hover:not(:disabled) { background: var(--glass-bg); }
+.month-calendar-controls button:disabled { opacity: .45; cursor: default; }
+.month-calendar :is(summary, button):focus-visible { outline: 2px solid var(--template-accent, var(--text-primary)); outline-offset: 3px; }
+.month-calendar table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 2px; text-align: center; font-variant-numeric: tabular-nums; }
+.month-calendar caption { color: var(--text-primary); font-weight: 600; margin-bottom: 6px; overflow-wrap: anywhere; }
+.month-calendar th { color: var(--text-secondary); font-weight: 500; font-size: 10px; overflow-wrap: anywhere; }
+.month-calendar td { height: 26px; padding: 0; border-radius: 3px; }
+.month-calendar td[aria-current="date"] { outline: 1px solid currentColor; outline-offset: -2px; font-weight: 750; }
+.month-calendar-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+:root[data-dashboard-template] #dashboard :is(#clock-container, .clock-display) { min-width: 0; max-width: 100%; }
+@media (max-width: 600px) {
+  :root[data-dashboard-template] #dashboard .dashboard-header:has(.month-calendar[open]) { grid-template-columns: minmax(0, 1fr); }
+  :root[data-dashboard-template] #dashboard .dashboard-header:has(.month-calendar[open]) .template-intro { grid-column: 1; grid-row: 2; }
+  :root[data-dashboard-template] #dashboard .dashboard-header:has(.month-calendar[open]) #clock-container { grid-column: 1; grid-row: 3; justify-self: start; text-align: start; }
+  :root[data-dashboard-template] #dashboard .dashboard-header:has(.month-calendar[open]) .clock-display { align-items: flex-start; }
+  :root[data-dashboard-template] #dashboard .month-calendar[open] > summary { margin-inline-start: 0; }
+}

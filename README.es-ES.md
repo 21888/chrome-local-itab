@@ -177,6 +177,21 @@ El bloc no se incluye en la exportación de configuración, Chrome Sync ni las c
 
 </details>
 
+### Calendario mensual local
+
+Abre **Calendar** debajo de la fecha del reloj para consultar los meses sin conexión. **Previous / Next / Today** cambian la vista; las fechas son solo de consulta, sin eventos ni recordatorios. [Guía en inglés](docs/month-calendar.en.md) · [Alcance de la validación](docs/month-calendar-validation.md).
+
+<details>
+<summary>Capturas y dimensiones del calendario</summary>
+
+![Calendario real en ventana clara amplia](docs/screenshots/month-calendar/calendar-light-wide.png)
+
+![Calendario real en ventana oscura estrecha](docs/screenshots/month-calendar/calendar-dark-narrow.png)
+
+[Capturas y dimensiones del calendario](docs/screenshots/month-calendar/capture-metadata.json)
+
+</details>
+
 ### Relojes mundiales sin conexión
 
 Añade hasta cuatro zonas horarias IANA en Ajustes → Apariencia. Puedes asignar una etiqueta, ver su hora y saber si allí es hoy, ayer o mañana respecto a tu fecha local. No requiere ubicación, servicios externos ni permisos nuevos; la lista empieza vacía.

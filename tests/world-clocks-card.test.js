@@ -221,7 +221,9 @@ test('HTML and theme integration keep the optional card in the existing grid', (
     assert(html.indexOf('src="shared/world-clocks.js"') < html.indexOf('src="newtab.js"'));
     const clockSource = source.slice(source.indexOf('class ClockComponent'), source.indexOf('function initializeShortcutsComponent'));
     assert.equal((clockSource.match(/setInterval\(/g) || []).length, 1);
-    assert(!clockSource.includes('aria-live'));
+    const worldRender = clockSource.match(/renderWorldClocks\(\) \{[\s\S]*?\n    \}/)[0];
+    assert(!worldRender.includes('aria-live'));
+    assert(!clockSource.match(/updateWorldClocks\(now\) \{[\s\S]*?\n    \}/)[0].includes('aria-live'));
     const worldTick = clockSource.match(/updateWorldClocks\(now\) \{[\s\S]*?\n    \}/)[0];
     assert(!/innerHTML|replaceChildren|appendChild/.test(worldTick));
     assert.match(worldTick, /time\.textContent = formatted\.time/);

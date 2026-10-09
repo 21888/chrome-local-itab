@@ -175,6 +175,21 @@ Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive 
 
 </details>
 
+### Local month calendar
+
+Open **Calendar** beneath the clock date to browse months locally. **Previous / Next / Today** change the view; dates are read-only, with no events or reminders. [Calendar guide](docs/month-calendar.en.md) · [Validation scope](docs/month-calendar-validation.md).
+
+<details>
+<summary>Calendar captures and dimensions</summary>
+
+![Month calendar in a real light wide window](docs/screenshots/month-calendar/calendar-light-wide.png)
+
+![Month calendar in a real dark narrow window](docs/screenshots/month-calendar/calendar-dark-narrow.png)
+
+[Calendar captures and dimensions](docs/screenshots/month-calendar/capture-metadata.json)
+
+</details>
+
 ### Offline world clocks
 
 Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. [Setup and backup behavior](docs/world-clocks.en.md).

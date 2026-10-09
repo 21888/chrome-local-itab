@@ -1222,6 +1222,7 @@ class ClockComponent {
         this.worldClocksElement = document.getElementById('world-clocks-card');
         this.worldClockRows = [];
         this.renderWorldClocks();
+        this.createMonthCalendar();
         this._visBound = false;
         this._onVisChange = null;
     }
@@ -1284,6 +1285,136 @@ class ClockComponent {
             this.dateElement.textContent = this.formatDate(now);
         }
         this.updateWorldClocks(now);
+        this.updateMonthCalendar(now);
+    }
+
+    // The date viewer belongs to this singleton and shares its existing tick.
+    createMonthCalendar() {
+        if (!window.MonthCalendar || !this.dateElement?.parentElement) return;
+        const make = (tag, className) => {
+            const node = document.createElement(tag);
+            if (className) node.className = className;
+            return node;
+        };
+        const details = make('details', 'month-calendar');
+        const summary = make('summary');
+        const panel = make('div', 'month-calendar-panel');
+        const controls = make('div', 'month-calendar-controls');
+        const previous = make('button');
+        const today = make('button');
+        const next = make('button');
+        for (const button of [previous, today, next]) button.type = 'button';
+        controls.append(previous, today, next);
+        controls.addEventListener('keydown', event => {
+            const activation = event.key === 'Enter' || event.key === ' ';
+            if (event.isComposing || event.keyCode === 229 || (activation && event.repeat)) {
+                event.preventDefault();
+            }
+        });
+        const table = make('table');
+        const caption = make('caption');
+        const head = make('thead');
+        const body = make('tbody');
+        table.append(caption, head, body);
+        const announcement = make('span', 'month-calendar-announcement');
+        announcement.setAttribute('role', 'status');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.setAttribute('aria-atomic', 'true');
+        panel.append(controls, table, announcement);
+        details.append(summary, panel);
+        this.dateElement.parentElement.append(details);
+        this.monthCalendar = { details, summary, previous, today, next, caption, head, body, announcement };
+        details.addEventListener('toggle', () => {
+            if (!details.isConnected) return;
+            if (!details.open) {
+                this.calendarMonth = null;
+                announcement.textContent = '';
+                return;
+            }
+            if (!this.enabled) { details.open = false; return; }
+            // Native toggle events may coalesce. Only opening resets the view;
+            // ticks and config refreshes never dispatch or depend on this event.
+            const now = new Date();
+            this.calendarMonth = window.MonthCalendar.localTuple(now);
+            this.updateMonthCalendar(now);
+        });
+        const navigate = (delta, source) => {
+            if (!this.enabled || !details.open || !details.isConnected) return;
+            const ownedFocus = document.activeElement === source;
+            const now = new Date();
+            const current = this.calendarMonth || window.MonthCalendar.localTuple(now);
+            this.calendarMonth = delta === 0 ? window.MonthCalendar.localTuple(now)
+                : window.MonthCalendar.shift(current.year, current.month, delta);
+            this.updateMonthCalendar(now);
+            announcement.textContent = caption.textContent;
+            // At the supported year edges, the invoking control becomes disabled.
+            // Keep keyboard focus in the viewer without moving it on passive ticks.
+            if (ownedFocus && source.disabled && today.getClientRects().length) today.focus();
+        };
+        previous.addEventListener('click', () => navigate(-1, previous));
+        next.addEventListener('click', () => navigate(1, next));
+        today.addEventListener('click', () => navigate(0, today));
+        details.addEventListener('keydown', event => {
+            if (event.key !== 'Escape' || !details.open || !details.isConnected) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.closeMonthCalendar();
+            if (this.enabled && summary.getClientRects().length) summary.focus();
+        });
+    }
+
+    closeMonthCalendar() {
+        if (!this.monthCalendar) return;
+        this.monthCalendar.details.open = false;
+        this.monthCalendar.announcement.textContent = '';
+        this.calendarMonth = null;
+    }
+
+    updateMonthCalendar(now) {
+        const view = this.monthCalendar;
+        if (!view || !view.details.isConnected) return;
+        const locale = this.getDateLocale();
+        if (this.calendarLabelLocale !== locale || !this.calendarLabelsSet) {
+            view.summary.textContent = this.worldClockText('monthCalendar', 'Calendar');
+            view.previous.textContent = this.worldClockText('monthCalendarPrevious', 'Previous');
+            view.next.textContent = this.worldClockText('monthCalendarNext', 'Next');
+            view.today.textContent = this.worldClockText('monthCalendarToday', 'Today');
+            this.calendarLabelLocale = locale;
+            this.calendarLabelsSet = true;
+        }
+        if (!this.enabled || !view.details.open) return;
+        const today = window.MonthCalendar.localTuple(now);
+        const current = this.calendarMonth || today;
+        this.calendarMonth = current;
+        const key = [current.year, current.month, today.year, today.month, today.day, locale].join('/');
+        if (this.calendarRenderKey === key) return;
+        const model = window.MonthCalendar.month(current.year, current.month, locale, today);
+        view.caption.textContent = model.caption;
+        view.previous.disabled = model.previousDisabled;
+        view.next.disabled = model.nextDisabled;
+        const heading = document.createElement('tr');
+        for (const weekday of model.weekdays) {
+            const cell = document.createElement('th');
+            cell.setAttribute('scope', 'col');
+            cell.setAttribute('aria-label', weekday.long);
+            cell.textContent = weekday.short;
+            heading.append(cell);
+        }
+        view.head.replaceChildren(heading);
+        const rows = model.weeks.map(week => {
+            const row = document.createElement('tr');
+            for (const day of week) {
+                const cell = document.createElement('td');
+                if (day !== null) {
+                    cell.textContent = String(day);
+                    if (day === model.todayDay) cell.setAttribute('aria-current', 'date');
+                }
+                row.append(cell);
+            }
+            return row;
+        });
+        view.body.replaceChildren(...rows);
+        this.calendarRenderKey = key;
     }
 
     // The optional card shares this clock's timer and visibility lifecycle.
@@ -1446,7 +1577,10 @@ class ClockComponent {
     setEnabled(enabled) {
         this.enabled = enabled;
         if (enabled) this.resume();
-        else this.stop();
+        else {
+            this.closeMonthCalendar();
+            this.stop();
+        }
     }
 
     updateConfig(newConfig) {
@@ -1832,12 +1966,13 @@ function setupDashboardVisibilityToggle(uiConfig) {
 }
 
 function shouldToggleFromEvent(event) {
-    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .world-clocks-card, .local-countdown-card, .local-tasks-card, .local-focus-card, .tasks-overlay, .local-scratchpad-card, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
+    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .world-clocks-card, .month-calendar, .local-countdown-card, .local-tasks-card, .local-focus-card, .tasks-overlay, .local-scratchpad-card, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
     if (!event || !event.target) return false;
     return !event.target.closest(interactiveSelectors);
 }
 
 function applyDashboardHiddenState(hidden) {
+    if (hidden) clockComponentInstance?.closeMonthCalendar();
     document.body.classList.toggle('dashboard-hidden', !!hidden);
 }
 

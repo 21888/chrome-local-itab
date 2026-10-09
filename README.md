@@ -175,6 +175,21 @@
 
 </details>
 
+### 本地月历
+
+点击时钟日期下方的「日历」，即可在本地查看月份。「上个月 / 下个月 / 今天」用于切换视图；日期仅供查看，不提供事件或提醒。[月历指南](docs/month-calendar.zh-CN.md) · [验证范围](docs/month-calendar-validation.md)。
+
+<details>
+<summary>月历实拍与尺寸记录</summary>
+
+![月历浅色宽窗口实拍](docs/screenshots/month-calendar/calendar-light-wide.png)
+
+![月历深色窄窗口实拍](docs/screenshots/month-calendar/calendar-dark-narrow.png)
+
+[月历实拍与尺寸记录](docs/screenshots/month-calendar/capture-metadata.json)
+
+</details>
+
 ### 离线世界时钟
 
 在设置中添加最多四个时区和可选的简短名称。沿用时钟格式，完全离线，并显示相对设备日历日期。 [使用及备份说明](docs/world-clocks.zh-CN.md)。
