@@ -7,6 +7,36 @@ let driveBackupSnapshots = [];
 let driveActionInProgress = false;
 let cloudReplacementInProgress = false;
 
+// A category baseline belongs to this form, never to a later storage read.
+let categoryBaseline = null;
+let settingsSaveQueue = Promise.resolve();
+let settingsSession = 0;
+let settingsReplacementPending = false;
+let settingsReplacementRunning = false;
+let categorySaveTimeout;
+const categorySnapshot = categories => categories.map(({ id, name, icon }) => ({ id, name, icon }));
+const sameCategories = (a, b) => JSON.stringify(categorySnapshot(a)) === JSON.stringify(categorySnapshot(b));
+function queueSettingsWrite(operation) {
+    const result = settingsSaveQueue.then(operation);
+    settingsSaveQueue = result.catch(() => {});
+    return result;
+}
+async function replaceSettings(operation) {
+    if (settingsReplacementRunning) throw new Error('A settings replacement is already in progress.');
+    settingsReplacementRunning = true;
+    settingsReplacementPending = true;
+    ++settingsSession;
+    if (categorySaveTimeout !== undefined) clearTimeout(categorySaveTimeout);
+    try {
+        const result = await queueSettingsWrite(operation);
+        if (result === false) settingsReplacementPending = false;
+        return result;
+    } catch (error) {
+        settingsReplacementPending = false;
+        throw error;
+    } finally { settingsReplacementRunning = false; }
+}
+
 // Serialize background-only writes while the newest request owns the controls.
 // A rejected operation must not poison the next upload/removal/type-change attempt.
 let backgroundMutationQueue = Promise.resolve();
@@ -529,11 +559,14 @@ function setupCategoryManagement(categories = []) {
     };
 
     render(categories);
-
-    let saveTimeout;
+    categoryBaseline = categorySnapshot(getCategoriesFromDOM());
+    // Reinitializing this form must not duplicate listeners or leave old timers.
+    clearTimeout(categorySaveTimeout);
+    if (list.dataset.categoryBound) return;
+    list.dataset.categoryBound = 'true';
     const scheduleSave = () => {
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => saveAllSettings(), 800);
+        clearTimeout(categorySaveTimeout);
+        categorySaveTimeout = setTimeout(() => saveAllSettings(), 800);
     };
 
     addBtn.addEventListener('click', () => {
@@ -1391,11 +1424,11 @@ async function restoreDriveSnapshot(snapshot) {
         const payload = await manager.downloadSnapshotPayload(snapshot.id, { interactive: true });
         const providerState = await storageManager.getLocalProviderState();
         const validatedSettings = storageManager.prepareRestoredConfig(payload, providerState);
-        const success = await storageManager.setAll(validatedSettings, {
+        const success = await replaceSettings(() => storageManager.setAll(validatedSettings, {
             skipSyncSideEffects: true,
             skipSyncInitialization: true,
             confirmedRestore: true
-        });
+        }));
         if (!success) {
             throw new Error(t('driveRestoreSaveFailed', '保存恢复后的设置失败。'));
         }
@@ -1446,26 +1479,41 @@ async function deleteDriveSnapshot(snapshot) {
 }
 
 async function saveAllSettings() {
-    try {
-        showMessage('Saving settings...', 'info');
-        
-        // Collect all form data
-        const settings = await collectFormData();
-        
-        // Save to storage
-        const success = await storageManager.setAll(settings);
-        
-        if (success) {
-            showMessage('Settings saved.', 'success');
-            // Update storage info display
-            await displayStorageInfo();
-        } else {
-            showMessage('Failed to save settings. Please try again.', 'error');
+    if (settingsReplacementPending) return;
+    const session = settingsSession;
+    const submittedCategories = categorySnapshot(getCategoriesFromDOM());
+    return queueSettingsWrite(async () => {
+        if (session !== settingsSession || settingsReplacementPending) return;
+        try {
+            showMessage('Saving settings...', 'info');
+            const settings = await collectFormData();
+            if (session !== settingsSession || settingsReplacementPending) return;
+            const options = {};
+            if (categoryBaseline === null || sameCategories(submittedCategories, categoryBaseline)) {
+                // Untouched stale forms cannot resurrect, rename or delete categories.
+                delete settings.categories;
+            } else {
+                settings.categories = submittedCategories;
+                options.expectedCategories = categorySnapshot(categoryBaseline);
+            }
+            const success = await storageManager.setAll(settings, options);
+            // A committed own write remains the baseline even if a subsequent
+            // reset/import fails. Only its obsolete presentation is suppressed.
+            if (success && options.expectedCategories) categoryBaseline = categorySnapshot(submittedCategories);
+            if (session !== settingsSession || settingsReplacementPending) return;
+            if (success) {
+                // Do not re-render: edits made while saving belong to the user.
+                showMessage('Settings saved.', 'success');
+                await displayStorageInfo();
+            } else {
+                showMessage('Failed to save settings. Please try again.', 'error');
+            }
+        } catch (error) {
+            if (session !== settingsSession || settingsReplacementPending) return;
+            console.error('Error saving settings:', error);
+            showMessage(`Error saving settings: ${error.message}`, 'error');
         }
-    } catch (error) {
-        console.error('Error saving settings:', error);
-        showMessage(`Error saving settings: ${error.message}`, 'error');
-    }
+    });
 }
 
 async function resetAllSettings() {
@@ -1473,7 +1521,7 @@ async function resetAllSettings() {
         showMessage('Resetting settings...', 'info');
         
         // Clear all storage
-        const cleared = await storageManager.clear();
+        const cleared = await replaceSettings(() => storageManager.clear());
         if (!cleared) throw new Error('Settings could not be reset. Please try again.');
         
         // Reload the page to show defaults
@@ -1784,11 +1832,11 @@ async function importSettings(file) {
         }
         
         // Save validated settings
-        const success = await storageManager.setAll(validatedSettings, {
+        const success = await replaceSettings(() => storageManager.setAll(validatedSettings, {
             skipSyncSideEffects: true,
             skipSyncInitialization: true,
             confirmedRestore: true
-        });
+        }));
         
         if (success) {
             const details = {
@@ -1961,7 +2009,7 @@ async function replaceLocalFromCloud() {
     try {
         const expectedRemote = await storageManager.previewCloudReplacement();
         if (!confirm(t('syncReplaceLocalConfirm', 'Replace this device with the current cloud copy ($1 shortcuts)? Independent positions missing from that copy will be removed. A recovery backup of this device must be saved locally first. Other devices may overwrite the cloud again; update them before continuing.', String(expectedRemote.shortcuts)))) return;
-        await storageManager.pullFromSync({ confirmedReplacement: true, expectedRemote });
+        await replaceSettings(() => storageManager.pullFromSync({ confirmedReplacement: true, expectedRemote }));
         window.LocalItabContentLifecycle.reload();
     } catch (error) {
         showMessage(t('syncDownloadFailed', 'Download failed: $1', error.message), 'error');

@@ -211,9 +211,16 @@ class StorageManager {
         const checksCategories = has('categories');
         if (!has('links') && !replacesLayout && !checksCategories) return chrome.storage.local.set(values);
         const guarded = Object.prototype.hasOwnProperty.call(options, 'expectedLinks');
+        const guardedCategories = checksCategories && Object.prototype.hasOwnProperty.call(options, 'expectedCategories');
         return this.withLocalWriteLock(async () => {
             const raw = await chrome.storage.local.get(null);
             const latest = this.layoutSnapshot(raw);
+            if (guardedCategories && JSON.stringify(this.validateCategoryBaseline(raw.categories === undefined ? this.defaultConfig.categories : raw.categories)) !==
+                JSON.stringify(this.validateCategoryBaseline(options.expectedCategories))) {
+                const error = new Error('Categories changed in another tab. Your category edits are still here. Review the latest categories in a new Settings tab before retrying.');
+                error.code = 'CATEGORIES_CONFLICT';
+                throw error;
+            }
             if (guarded) {
                 const expectedLinks = this.validateLinksConfig(options.expectedLinks);
                 if (JSON.stringify(latest.links) !== JSON.stringify(expectedLinks) ||
@@ -260,7 +267,7 @@ class StorageManager {
             if (invalidatesLayout) written[this.layoutGenerationKey] = this.createLayoutGeneration();
             await chrome.storage.local.set(written);
             return this.layoutSnapshot({ ...raw, ...written });
-        }, guarded || LayoutIdentity.active(values.layout));
+        }, guarded || guardedCategories || LayoutIdentity.active(values.layout));
     }
 
     validateShortcutOperation(previous, next, operation) {
@@ -356,7 +363,7 @@ class StorageManager {
 
             return options.returnSnapshot ? committed : true;
         } catch (error) {
-            if (error.code === 'LINKS_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE') throw error;
+            if (error.code === 'LINKS_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CATEGORIES_CONFLICT') throw error;
             console.error(`Storage set error for key "${key}":`, error);
             
             // Handle quota exceeded error
@@ -564,6 +571,7 @@ class StorageManager {
 
             return true;
         } catch (error) {
+            if (error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE') throw error;
             console.error('Storage setAll error:', error);
             
             if (error.message && error.message.includes('QUOTA_EXCEEDED')) {
@@ -1581,6 +1589,26 @@ class StorageManager {
     /**
      * Validate categories configuration
      */
+    // CAS must not silently repair/drop records in its authoritative comparison.
+    // getAll's display normalization is not evidence that damaged data is absent.
+    validateCategoryBaseline(value) {
+        const ids = new Set();
+        if (!Array.isArray(value) || value.some(category => {
+            if (!category || typeof category !== 'object' || Array.isArray(category) ||
+                typeof category.id !== 'string' || !category.id || ids.has(category.id) ||
+                typeof category.name !== 'string' || !category.name.trim() || category.name !== category.name.trim() ||
+                typeof category.icon !== 'string' || !category.icon ||
+                Object.keys(category).some(key => !['id', 'name', 'icon'].includes(key))) return true;
+            ids.add(category.id);
+            return false;
+        })) {
+            const error = new Error('Categories could not be safely compared. Your edits are still here; review the stored categories before retrying.');
+            error.code = 'CATEGORIES_CONFLICT';
+            throw error;
+        }
+        return this.validateCategoriesConfig(value);
+    }
+
     validateCategoriesConfig(value) {
         if (!Array.isArray(value)) {
             throw new Error('Categories must be an array');
