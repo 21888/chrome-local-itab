@@ -665,9 +665,15 @@ function initializeSearchComponent(searchConfig = {}) {
     let submittedValue = null;
     let editRevision = 0;
     let submissionRevision = 0;
+    let customDraftBaseline = currentSearchConfig.custom;
+    let customEditRevision = 0;
+    let customSavePending = 0;
+    let customComposing = false;
     const searchOwner = {
-        hasUncommittedWork: () => input.isConnected && Boolean(input.value.trim()) &&
-            (isCalculation() || input.value !== submittedValue)
+        hasUncommittedWork: () => window.localCalculatorView === searchOwner && (
+            (input.isConnected && Boolean(input.value.trim()) &&
+                (isCalculation() || input.value !== submittedValue)) ||
+            (customInput.isConnected && (customSavePending > 0 || customComposing || customInput.value !== customDraftBaseline)))
     };
     window.localCalculatorView = searchOwner;
     const markSearchEdited = () => {
@@ -759,7 +765,6 @@ function initializeSearchComponent(searchConfig = {}) {
         const isCustom = select.value === 'custom';
         customConfig.hidden = !isCustom;
         if (isCustom) {
-            customInput.value = currentSearchConfig.custom;
             setCustomStatus(
                 currentSearchConfig.custom
                     ? ((window.i18n && i18n.t('customSearchUrlDesc')) || 'Use %s where the encoded query should be inserted.')
@@ -769,15 +774,30 @@ function initializeSearchComponent(searchConfig = {}) {
         }
     };
 
-    const persistSearchConfig = async (nextConfig) => {
-        if (!window.storageManager || typeof storageManager.set !== 'function') return false;
-        const saved = await storageManager.set('search', nextConfig);
-        if (saved) currentSearchConfig = nextConfig;
-        return saved;
+    const isCurrentEditor = () => customInput.isConnected && window.localCalculatorView === searchOwner;
+    // Serialize this editor's writes only. Selection never persists draft text,
+    // and a selection queued behind Save uses its successfully saved template.
+    let configWrite = Promise.resolve();
+    const persistSearchConfig = (makeConfig) => {
+        const operation = configWrite.then(async () => {
+            if (!isCurrentEditor() || !window.storageManager || typeof storageManager.set !== 'function') return false;
+            const nextConfig = makeConfig();
+            try {
+                const saved = await storageManager.set('search', nextConfig);
+                if (saved) currentSearchConfig = nextConfig;
+                return saved;
+            } catch (_) { return false; }
+        });
+        configWrite = operation;
+        return operation;
     };
 
     const saveCustomSearch = async () => {
-        const rawTemplate = customInput.value.trim();
+        if (!isCurrentEditor() || customSavePending || customComposing) return false;
+        const draftValue = customInput.value;
+        const revision = customEditRevision;
+        const engine = select.value;
+        const rawTemplate = draftValue.trim();
         if (!rawTemplate) {
             setCustomStatus((window.i18n && i18n.t('customSearchUrlRequired')) || 'Custom search URL is required', 'error');
             customInput.focus();
@@ -793,8 +813,16 @@ function initializeSearchComponent(searchConfig = {}) {
             return false;
         }
 
-        const nextConfig = { engine: 'custom', custom: normalizedTemplate };
-        const saved = await persistSearchConfig(nextConfig);
+        customSavePending++;
+        const saved = await persistSearchConfig(() => ({ engine: 'custom', custom: normalizedTemplate }));
+        customSavePending--;
+        if (!isCurrentEditor()) return saved;
+        // A successful write establishes the saved baseline even when a newer
+        // edit exists. Only the unchanged editor receives normalized text/status.
+        if (saved) customDraftBaseline = normalizedTemplate;
+        if (customInput.value !== draftValue || customEditRevision !== revision) return saved;
+        if (saved) customInput.value = normalizedTemplate;
+        if (select.value !== engine) return saved;
         if (!saved) {
             setCustomStatus((window.i18n && i18n.t('failedToSave')) || 'Failed to save. Please try again.', 'error');
             return false;
@@ -807,24 +835,33 @@ function initializeSearchComponent(searchConfig = {}) {
     };
 
     select.addEventListener('change', async () => {
+        if (!isCurrentEditor()) return;
         markSearchEdited();
         const engine = select.value;
         updateCustomConfigVisibility(engine === 'custom' && !currentSearchConfig.custom);
 
         if (engine !== 'custom') {
-            await persistSearchConfig({ ...currentSearchConfig, engine });
+            await persistSearchConfig(() => ({ ...currentSearchConfig, engine }));
             return;
         }
 
-        await persistSearchConfig({ ...currentSearchConfig, engine: 'custom' });
+        await persistSearchConfig(() => ({ ...currentSearchConfig, engine: 'custom' }));
     });
 
     customSave.addEventListener('click', () => saveCustomSearch());
-    customInput.addEventListener('input', markSearchEdited);
+    const markCustomEdited = () => {
+        customEditRevision++;
+        markSearchEdited();
+        setCustomStatus('');
+    };
+    customInput.addEventListener('input', markCustomEdited);
+    customInput.addEventListener('compositionstart', () => { customComposing = true; markCustomEdited(); });
+    customInput.addEventListener('compositionend', () => { customComposing = false; });
 
     customInput.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter') return;
         event.preventDefault();
+        if (customComposing || event.repeat || event.isComposing || event.keyCode === 229) return;
         saveCustomSearch();
     });
 
@@ -832,7 +869,7 @@ function initializeSearchComponent(searchConfig = {}) {
     updateCustomConfigVisibility(false);
 
     form.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && (event.repeat || composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+        if (event.key === 'Enter' && (event.repeat || composing || customComposing || event.isComposing || event.keyCode === 229)) event.preventDefault();
     });
     form.addEventListener('submit', async (event) => {
         event.preventDefault();

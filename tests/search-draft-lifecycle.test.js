@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const { createDocument } = require('./helpers/task-dom-model');
+const { createDocument, deferred } = require('./helpers/task-dom-model');
 
 // Uses the actual search initializer, Sync listener, and lifecycle implementation.
 // This small DOM model is not native Chromium/IME/popup verification.
@@ -51,6 +51,159 @@ function mount(engine = 'google', custom = '', locale = null) {
 }
 
 (async () => {
+    const editor = h => {
+        const input = h.host.querySelector('.search-custom-input');
+        const select = h.host.querySelector('select');
+        const button = h.host.querySelector('.search-custom-save');
+        return {
+            input, select, status: h.host.querySelector('.search-custom-status'),
+            edit(value) { input.value = value; input.dispatch('input'); },
+            async choose(value) {
+                select.value = value;
+                for (const listener of select.listeners.get('change')) await listener({});
+            },
+            save() { return button.listeners.get('click')[0](); }
+        };
+    };
+    const savedTemplate = 'https://saved.example/?q=%s';
+    const draftTemplate = 'https://draft.example/?q=%s';
+    for (const initial of ['', savedTemplate]) {
+        const h = mount('custom', initial), e = editor(h);
+        assert(!h.owned(), 'untouched custom editor is clean');
+        await h.sync(); assert.equal(h.reloads, 1);
+        const draft = initial ? '' : draftTemplate;
+        e.edit(draft); assert(h.owned(), 'empty changed draft also owns reload');
+        await e.choose('google'); await h.sync();
+        assert.equal(h.reloads, 1, 'hidden draft defers applied Sync');
+        assert.equal(e.input.value, draft);
+        assert.equal(h.writes.at(-1)[1].custom, initial, 'selection persists saved template only');
+        h.document.querySelector('#local-content-reload-notice button').dispatch('click');
+        assert.equal(h.confirms, 1); assert.equal(h.reloads, 1, 'Sync discard cancellation retains hidden draft');
+        await e.choose('custom'); assert.equal(e.input.value, draft);
+        assert.equal(h.writes.at(-1)[1].custom, initial);
+        e.edit(initial); assert(!h.owned(), 'reverting to the saved value releases ownership');
+        assert.equal(h.opens.length, 0);
+    }
+    {
+        const h = mount('custom', savedTemplate), e = editor(h);
+        e.edit('  ' + draftTemplate + '  '); assert(await e.save());
+        assert.equal(e.input.value, draftTemplate); assert(!h.owned());
+        assert.equal(h.writes.length, 1); assert.equal(h.writes[0][1].custom, draftTemplate);
+        await e.choose('bing'); await e.choose('custom');
+        assert.equal(e.input.value, draftTemplate); assert(!h.owned());
+        await h.sync(); assert.equal(h.reloads, 1);
+    }
+    for (const invalid of ['', 'javascript:alert(1)', 'https://']) {
+        const h = mount('custom', savedTemplate), e = editor(h); e.edit(invalid);
+        assert.equal(await e.save(), false); assert.equal(h.writes.length, 0);
+        assert.equal(e.input.value, invalid); assert(h.owned());
+        await e.choose('google'); await e.choose('custom'); assert.equal(e.input.value, invalid);
+    }
+    for (const failure of [false, new Error('storage failed')]) {
+        const h = mount('custom', savedTemplate), e = editor(h); e.edit(draftTemplate);
+        h.window.storageManager.set = async () => { if (failure instanceof Error) throw failure; return failure; };
+        assert.equal(await e.save(), false); assert.equal(e.input.value, draftTemplate); assert(h.owned());
+        assert(e.status.classList.contains('is-error')); await h.sync(); assert.equal(h.reloads, 0);
+    }
+    for (const action of ['edit', 'edit back', 'programmatic edit', 'hide', 'detach', 'remount', 'reattach obsolete']) {
+        const h = mount('custom', savedTemplate), e = editor(h), pending = deferred();
+        e.edit('  ' + draftTemplate + '  ');
+        h.window.storageManager.set = async (...args) => { h.writes.push(args); return pending.promise; };
+        const save = e.save(); await Promise.resolve();
+        assert(h.owned()); assert.equal(await e.save(), false, 'duplicate pending Save does not write twice');
+        await h.sync(); assert.equal(h.reloads, 0);
+        h.document.querySelector('#local-content-reload-notice button').dispatch('click');
+        assert.equal(h.reloads, 0, 'cancel leaves pending editor intact');
+        let selection;
+        if (action === 'edit') e.edit('https://new.example/?q=%s');
+        if (action === 'edit back') { e.edit('temporary'); e.edit('  ' + draftTemplate + '  '); }
+        if (action === 'programmatic edit') e.input.value = 'new programmatic draft';
+        if (action === 'hide') selection = e.choose('google');
+        if (action === 'detach') h.host.remove();
+        if (action === 'remount' || action === 'reattach obsolete') {
+            const oldForm = h.host.querySelector('form');
+            h.context.initializeSearchComponent({ engine: 'custom', custom: savedTemplate });
+            if (action === 'reattach obsolete') h.host.append(oldForm);
+            assert.equal(await e.save(), false, 'obsolete editor cannot start Save');
+        }
+        const value = e.input.value;
+        pending.resolve(true); assert(await save); if (selection) await selection;
+        if (action === 'hide') {
+            assert.equal(e.select.value, 'google', 'late Save cannot reopen the custom editor');
+            assert.equal(e.input.value, draftTemplate); assert(!h.owned());
+            assert.equal(h.writes.at(-1)[1].engine, 'google');
+            assert.equal(h.writes.at(-1)[1].custom, draftTemplate, 'queued selection retains successful Save');
+        } else {
+            assert.equal(e.input.value, value, 'late Save cannot clobber edited/detached/replaced text');
+            assert.equal(h.owned(), ['edit', 'edit back', 'programmatic edit'].includes(action));
+        }
+        if (action === 'remount' || action === 'reattach obsolete') {
+            assert.equal(editor(h).input.value, savedTemplate, 'old Save cannot rewrite a new mounted editor');
+        }
+    }
+    {
+        const h = mount('custom', savedTemplate), e = editor(h), pending = deferred();
+        e.edit(draftTemplate);
+        h.window.storageManager.set = async () => pending.promise;
+        const save = e.save(); await Promise.resolve();
+        e.edit(savedTemplate); assert(h.owned(), 'pending Save owns even a reverted draft');
+        pending.resolve(false); assert.equal(await save, false); assert(!h.owned());
+        assert.equal(e.status.textContent, '', 'failed old Save cannot replace newer edit feedback');
+    }
+    {
+        const h = mount('custom', savedTemplate), e = editor(h), pending = deferred();
+        e.edit(draftTemplate);
+        h.window.storageManager.set = async (...args) => {
+            h.writes.push(args); return h.writes.length === 1 ? pending.promise : true;
+        };
+        const selection = e.choose('bing'); await Promise.resolve();
+        const back = e.choose('custom'); const save = e.save();
+        assert.equal(h.writes.length, 1, 'writes from one editor are serialized');
+        pending.resolve(false); await selection; await back; assert(await save);
+        assert.equal(h.writes.length, 3);
+        assert.equal(h.writes[1][1].custom, savedTemplate);
+        assert.equal(h.writes[2][1].custom, draftTemplate);
+        assert(!h.owned(), 'failed selection does not poison a later explicit Save');
+    }
+    {
+        const h = mount('custom', savedTemplate), e = editor(h), pending = deferred();
+        h.window.storageManager.set = async (...args) => { h.writes.push(args); return pending.promise; };
+        const selection = e.choose('bing'); await Promise.resolve();
+        e.edit(draftTemplate); const save = e.save();
+        h.context.initializeSearchComponent({ engine: 'custom', custom: savedTemplate });
+        pending.resolve(true); await selection; assert.equal(await save, false);
+        assert.equal(h.writes.length, 1, 'obsolete queued Save never starts a storage write');
+        assert(!h.owned());
+    }
+    for (const fields of [{ isComposing: true }, { keyCode: 229 }, { repeat: true }, { composition: true }]) {
+        const h = mount('custom', savedTemplate), e = editor(h);
+        e.edit(draftTemplate);
+        if (fields.composition) e.input.dispatch('compositionstart');
+        const event = e.input.dispatch('keydown', { key: 'Enter', ...fields });
+        assert(event.prevented); await Promise.resolve(); await Promise.resolve();
+        assert.equal(h.writes.length, 0, 'composition/repeat Enter must not save a URL draft');
+        const button = h.host.querySelector('.search-custom-save');
+        const key = button.dispatch('keydown', { key: 'Enter', ...fields });
+        assert(key.prevented, 'Save-button default Enter activation must also be prevented');
+        assert(h.owned()); assert.equal(e.input.value, draftTemplate);
+        if (fields.composition) {
+            assert.equal(await e.save(), false, 'click during composition does not save');
+            e.input.dispatch('compositionend');
+        }
+        assert(await e.save(), 'deliberate Save works after composition ends');
+        assert(!h.owned());
+    }
+    {
+        const h = mount('custom', savedTemplate), e = editor(h), pending = deferred();
+        e.edit('  ' + draftTemplate + '  ');
+        h.window.storageManager.set = async () => pending.promise;
+        const save = e.save(); await Promise.resolve();
+        e.input.dispatch('compositionstart');
+        pending.resolve(true); assert(await save);
+        assert.equal(e.input.value, '  ' + draftTemplate + '  ', 'Save completion cannot normalize active composition');
+        assert(h.owned()); e.input.dispatch('compositionend'); assert(h.owned());
+    }
+    console.log('PASS: custom editor draft roundtrips, empty/hidden ownership, explicit Save, normalization, invalid/failed writes, pending edits/close/remount/Sync cancellation and local write ordering');
     for (const text of ['unfinished ordinary search', 'https://example.com/path?q=draft', 'example.com', '中文 搜索 🧭', '=42/7', '=1/0']) {
         const h = mount(); h.edit(text); h.input.focus();
         if (text.startsWith('=')) await h.submit();
