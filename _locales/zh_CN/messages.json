@@ -512,5 +512,20 @@
     },
     "focusInvalidMinutes": {
         "message": "请输入 1 到 180 之间的整数分钟。"
-    }
+    },
+    "workspacePresetTitle": {"message": "推荐工作空间"},
+    "workspacePresetHelp": {"message": "预览所选模板推荐的待办与专注计时器显示状态。仅切换视觉模板不会改变这些模块。"},
+    "workspacePresetReview": {"message": "预览推荐工作空间"},
+    "workspacePresetBoundary": {"message": "仅改变本设备上的显示状态。待办、历史副本、计时器时长与会话、网站、位置及外观均保持不变。隐藏正在运行的计时器仍会继续计时。设置备份与同步不包含这些模块。"},
+    "workspacePresetApply": {"message": "应用推荐工作空间"},
+    "workspacePresetCancel": {"message": "取消"},
+    "workspacePresetConflict": {"message": "待办或计时器已发生变化，请重新预览后再应用。"},
+    "workspacePresetCancelled": {"message": "预览已取消，请选择模板并重新预览。"},
+    "workspacePresetError": {"message": "无法确认结果，部分显示设置可能已保存。请重新预览以查看当前状态；不会自动重试。"},
+    "workspacePresetWait": {"message": "请等待模板保存完成，然后重新预览。"},
+    "workspacePresetFor": {"message": "工作空间推荐"},
+    "workspacePresetShown": {"message": "显示"},
+    "workspacePresetHidden": {"message": "隐藏"},
+    "workspacePresetReady": {"message": "请查看下方的显示状态变化，再选择应用或取消。"},
+    "workspacePresetSaved": {"message": "工作空间显示设置已保存到本设备。"}
 }

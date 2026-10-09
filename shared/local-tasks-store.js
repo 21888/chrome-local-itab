@@ -218,5 +218,5 @@
             return { source, revision: current.revision, incoming: counts({ ...file.content, recovery: file.recovery }), current: counts(current) };
         }
     }
-    return { KEY, LOCK, FORMAT, LIMITS, Store, createChromeBackend, parseBackup, validate, counts, fault };
+    return { KEY, LOCK, FORMAT, LIMITS, initial, Store, createChromeBackend, parseBackup, validate, counts, fault };
 });

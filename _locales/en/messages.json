@@ -512,5 +512,20 @@
     },
     "focusInvalidMinutes": {
         "message": "Enter whole minutes from 1 to 180."
-    }
+    },
+    "workspacePresetTitle": {"message": "Recommended workspace"},
+    "workspacePresetHelp": {"message": "Preview Tasks and Focus timer visibility for the selected template. Applying a visual template alone never changes these modules."},
+    "workspacePresetReview": {"message": "Preview recommended workspace"},
+    "workspacePresetBoundary": {"message": "Only visibility changes on this device. Tasks, previous copies, timer duration and session, sites, positions and appearance stay unchanged. A hidden running timer keeps counting. Settings backups and Sync do not carry these modules."},
+    "workspacePresetApply": {"message": "Apply recommended workspace"},
+    "workspacePresetCancel": {"message": "Cancel"},
+    "workspacePresetConflict": {"message": "Tasks or timer changed. Preview again before applying."},
+    "workspacePresetCancelled": {"message": "Preview cancelled. Choose the template and preview again."},
+    "workspacePresetError": {"message": "Could not confirm the result. Some visibility changes may have saved. Preview again to check the current state; nothing will be retried automatically."},
+    "workspacePresetWait": {"message": "Wait for the template to finish saving, then preview again."},
+    "workspacePresetFor": {"message": "Workspace for"},
+    "workspacePresetShown": {"message": "Shown"},
+    "workspacePresetHidden": {"message": "Hidden"},
+    "workspacePresetReady": {"message": "Review the visibility changes below, then apply or cancel."},
+    "workspacePresetSaved": {"message": "Workspace visibility saved on this device."}
 }

@@ -151,3 +151,11 @@
 :root[data-dashboard-template] #sync-compatibility-notice { display: block; grid-column: 1 / -1; padding: 10px 12px; border: 1px solid var(--template-border); border-radius: 6px; color: var(--template-error); background: var(--template-surface); font-size: 13px; }
 :root[data-dashboard-template] #sync-replace-local[hidden],
 :root[data-dashboard-template] #layout-recovery-controls[hidden] { display: none; }
+
+/* Explicit local workspace review, independent of immediate visual selection. */
+:root[data-dashboard-template] .workspace-presets { margin-block: 16px; padding: 14px; border: 1px solid var(--template-border); border-radius: 8px; color: var(--template-text); background: var(--template-surface); overflow-wrap: anywhere; }
+:root[data-dashboard-template] .workspace-presets h3 { margin: 0 0 8px; font-size: 15px; }
+:root[data-dashboard-template] .workspace-presets p, :root[data-dashboard-template] .workspace-presets li { font-size: 13px; line-height: 1.6; }
+:root[data-dashboard-template] .workspace-preset-button { max-width: 100%; min-height: 40px; margin: 4px 8px 4px 0; padding: 8px 12px; white-space: normal; border: 1px solid var(--template-border); border-radius: 6px; font: inherit; color: var(--template-text); background: var(--template-surface-raised); cursor: pointer; }
+:root[data-dashboard-template] .workspace-preset-button:disabled { opacity: .6; cursor: default; }
+:root[data-dashboard-template] .workspace-presets [hidden] { display: none; }

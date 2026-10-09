@@ -1,4 +1,4 @@
-/* Local-only visual registry. Selecting a template must never apply recommendedModules. */
+/* Local-only template registry. Visual selection never applies workspace recommendations. */
 (function (global) {
 'use strict';
 const all = [
@@ -355,6 +355,18 @@ const all = [
     ]
   }
 ];
+// Recommendations affect visibility only, and require a separate reviewed action.
+const workspaces = {
+ clarity: [false, false], graphite: [false, true], folio: [true, false],
+ atelier: [false, true], quiet: [false, true], studio: [true, true],
+ console: [true, true], prism: [false, false], library: [false, true],
+ horizon: [false, false], ledger: [true, false], meadow: [false, true],
+ blueprint: [true, true], terrace: [true, false], column: [true, false]
+};
+for (const entry of all) {
+ const [tasks, focus] = workspaces[entry.id];
+ entry.recommendedWorkspace = Object.freeze({ tasks, focus });
+}
 for (const entry of all) { Object.freeze(entry.name); Object.freeze(entry.description); Object.freeze(entry.heading); Object.freeze(entry.recommendedModules); Object.freeze(entry); }
 Object.freeze(all);
 const ids = Object.freeze(all.map(entry => entry.id));

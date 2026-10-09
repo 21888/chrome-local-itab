@@ -172,3 +172,8 @@ Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exp
 ## Buscar sitios guardados
 
 El buscador local encuentra títulos, direcciones y categorías guardados sin enviar consultas a la web. Comprueba el registro actual antes de abrirlo y no modifica la disposición ni las tareas. [Guía del buscador (en inglés)](docs/shortcut-finder.en.md).
+
+
+## Espacios de trabajo recomendados
+
+Revisa y aplica la visibilidad local de Tareas y del temporizador por separado de la plantilla visual, conservando contenido y sesiones. [Guía](docs/workspace-presets.es-ES.md).

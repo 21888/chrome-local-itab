@@ -170,3 +170,8 @@ Enable the optional, empty-by-default Tasks card in module visibility settings. 
 ## Find saved sites
 
 Use the local shortcut finder to search saved titles, addresses and categories without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).
+
+
+## Recommended workspaces
+
+Preview and explicitly apply local Tasks/Focus visibility recommendations separately from visual themes. Existing content and timer sessions stay intact. [Workspace guide](docs/workspace-presets.en.md).

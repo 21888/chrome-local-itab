@@ -21,6 +21,7 @@
             this.pending = 0;
             this.version = 0;
             this.refreshVersion = 0;
+            this.refreshing = 0;
             this.queue = Promise.resolve();
             this.render = render;
             this.onBeforeApply = onBeforeApply;
@@ -84,6 +85,7 @@
             if (this.pending) { this.externalChange = true; return; }
             const version = this.version;
             const refreshVersion = ++this.refreshVersion;
+            this.refreshing++;
             try {
                 const value = await this.storage.getAppearanceForUpdate();
                 if (this.pending || version !== this.version || refreshVersion !== this.refreshVersion) return;
@@ -95,7 +97,7 @@
                     this.render(this.confirmed, 'error');
                     this.onError(error);
                 }
-            }
+            } finally { this.refreshing--; }
         }
     }
 

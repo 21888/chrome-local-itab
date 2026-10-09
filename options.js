@@ -293,6 +293,9 @@ async function initializeOptionsPage() {
         if (tasksHost && window.LocalItabTasks && !window.localTasksSettingsController) {
             window.localTasksSettingsController = window.LocalItabTasks.mountSettings(tasksHost);
         }
+        if (!window.workspacePresetsView && window.LocalItabWorkspace) {
+            window.workspacePresetsView = window.LocalItabWorkspace.mount(document.getElementById('workspace-presets'));
+        }
         await populateSyncControls(config.sync);
 
         console.log('Options page initialized with config:', config);
