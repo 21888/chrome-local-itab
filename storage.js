@@ -9,6 +9,16 @@ const DashboardTemplates = typeof module !== 'undefined' && module.exports ? req
 // Personal content is owned by dedicated local stores, never configuration.
 const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1']);
 
+// Keep legacy empty-quote validation stable; only newly generated defaults localize.
+const LEGACY_WELCOME_QUOTE = 'Welcome to your personalized new tab page!';
+function getDefaultWelcomeQuote() {
+    try {
+        const message = typeof chrome !== 'undefined' && chrome.i18n?.getMessage?.('defaultWelcomeQuote');
+        if (typeof message === 'string' && message.trim()) return message;
+    } catch (_) {}
+    return LEGACY_WELCOME_QUOTE;
+}
+
 class StorageManager {
     constructor() {
         this.syncMetaKey = '__localItabSyncMeta';
@@ -88,7 +98,7 @@ class StorageManager {
                 note: 'A great movie to watch',
                 poster: ''
             },
-            quote: 'Welcome to your personalized new tab page!',
+            quote: getDefaultWelcomeQuote(),
             layout: {
                 autoArrange: true,
                 alignToGrid: true,
@@ -1697,7 +1707,7 @@ class StorageManager {
             throw new Error('Quote must be a string');
         }
         
-        return value.trim() || this.defaultConfig.quote;
+        return value.trim() || LEGACY_WELCOME_QUOTE;
     }
 
     /**

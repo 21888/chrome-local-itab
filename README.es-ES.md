@@ -128,6 +128,8 @@ El README predeterminado está en [chino simplificado](README.md), con versiones
 
 La extensión incluye actualmente recursos de interfaz en chino simplificado (`_locales/zh_CN`) e inglés (`_locales/en`). Usa el idioma del navegador mediante `chrome.i18n`, con el inglés como alternativa predeterminada. El español solo está disponible en la documentación por ahora.
 
+Los nombres del día y del mes siguen una etiqueta de idioma explícita en los mensajes chinos o ingleses mostrados, con el mensaje predefinido de Chrome `@@ui_locale`, el idioma de la interfaz de Chrome, el idioma preferido del navegador y la configuración regional del entorno como alternativas si no está disponible o es inválido. No cambian el formato de la hora ni los marcadores de fecha de las frases personalizadas. El texto de bienvenida recién generado se localiza; las frases guardadas o importadas (incluida la bienvenida anterior en inglés) no se traducen ni migran. Se conserva la validación existente, incluido el recorte de espacios y la bienvenida en inglés para cadenas vacías. Si falta el campo de frase, se usa el nuevo valor predeterminado localizado.
+
 ## Desarrollo y comprobaciones locales
 
 El proyecto utiliza Manifest V3, JavaScript sin bibliotecas externas y CSS. No requiere instalar dependencias ni generar un paquete. Con Node.js instalado, ejecuta estos comandos desde la raíz del repositorio:

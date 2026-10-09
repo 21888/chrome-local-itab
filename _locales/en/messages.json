@@ -1,4 +1,6 @@
 {
+	"dateFormattingLocale": {"message": "en", "description": "Locale tag used to format date words alongside this UI translation."},
+	"defaultWelcomeQuote": {"message": "Welcome to your personalized new tab page!"},
 	"templateAtelier": {"message": "Atelier"},
 	"templateAtelierDescription": {"message": "An editorial masthead, fine rules and confident typography."},
 	"templateQuiet": {"message": "Quiet"},

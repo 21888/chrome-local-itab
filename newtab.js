@@ -998,13 +998,39 @@ class ClockComponent {
         return date.toLocaleTimeString(navigator.language || undefined, options);
     }
 
+    // Date words follow an explicit locale in the displayed translation catalog.
+    // No saved date-locale option exists. Time formatting and quote placeholders are separate.
+    getDateLocale() {
+        let catalogLocale, messageLocale, uiLocale;
+        try {
+            catalogLocale = typeof chrome !== 'undefined' && chrome.i18n?.getMessage?.('dateFormattingLocale');
+        } catch (_) {}
+        try {
+            messageLocale = typeof chrome !== 'undefined' && chrome.i18n?.getMessage?.('@@ui_locale');
+            // Chrome's predefined message may use underscore-separated locale names.
+            if (typeof messageLocale === 'string') messageLocale = messageLocale.replace(/_/g, '-');
+        } catch (_) {}
+        try {
+            uiLocale = typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage?.();
+        } catch (_) {}
+        const browserLocale = typeof navigator !== 'undefined' ? navigator.language : undefined;
+        for (const locale of [catalogLocale, messageLocale, uiLocale, browserLocale]) {
+            if (typeof locale !== 'string' || !locale.trim()) continue;
+            try {
+                new Intl.DateTimeFormat(locale);
+                return locale;
+            } catch (_) {}
+        }
+        return undefined;
+    }
+
     /**
      * Format date with day of year and week number
      * @param {Date} date - Date object to format
      * @returns {string} - Formatted date string
      */
     formatDate(date) {
-        const locale = navigator.language || undefined;
+        const locale = this.getDateLocale();
         const dayOfWeek = date.toLocaleDateString(locale, { weekday: 'long' });
         const month = date.toLocaleDateString(locale, { month: 'long' });
         const day = date.getDate();

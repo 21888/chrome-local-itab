@@ -1,4 +1,6 @@
 {
+	"dateFormattingLocale": {"message": "zh-CN", "description": "Locale tag used to format date words alongside this UI translation."},
+	"defaultWelcomeQuote": {"message": "欢迎来到你的个性化新标签页！"},
 	"templateAtelier": {"message": "编排"},
 	"templateAtelierDescription": {"message": "杂志式页眉、纤细分隔线与鲜明的字体层级。"},
 	"templateQuiet": {"message": "留白"},

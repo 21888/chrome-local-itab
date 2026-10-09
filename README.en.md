@@ -128,6 +128,8 @@ The default README is [Simplified Chinese](README.md), with English and [Spanish
 
 The extension currently includes Simplified Chinese (`_locales/zh_CN`) and English (`_locales/en`) interface resources. It uses the browser language through `chrome.i18n`, with English as the fallback. Spanish is currently a documentation translation only.
 
+Date weekday/month names follow an explicit locale tag in the displayed CN/EN message catalog, falling back to Chrome’s predefined `@@ui_locale` message, Chrome’s UI language, the preferred browser language and then the runtime locale if unavailable or invalid. Time formatting and date placeholders in custom quotes are unchanged. Newly generated welcome text is localized; saved or imported quotes (including the old English welcome) are never translated or migrated. Existing quote validation, including trimming and the English fallback for empty strings, is unchanged. Missing quote fields receive the new localized default.
+
 ## Local development and checks
 
 Built with Manifest V3, vanilla JavaScript, and CSS. No dependency installation or bundling is needed. With Node.js installed, run these commands from the repository root:
