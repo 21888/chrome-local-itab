@@ -1217,8 +1217,10 @@ class ClockComponent {
      * @returns {number} - Day of year
      */
     getDayOfYear(date) {
-        const start = new Date(date.getFullYear(), 0, 0);
-        const diff = date - start;
+        // Compare local calendar dates in UTC so DST cannot shorten or lengthen a day.
+        const start = Date.UTC(date.getFullYear(), 0, 0);
+        const current = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+        const diff = current - start;
         const oneDay = 1000 * 60 * 60 * 24;
         return Math.floor(diff / oneDay);
     }
