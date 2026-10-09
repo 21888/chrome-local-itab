@@ -27,3 +27,10 @@ The synthetic destination's local server was absent. URL and tab count were veri
 ## Remaining limits
 
 This was not a complete six-palette native matrix, native IME/assistive-technology audit or live-provider test. Exact full-configuration equality, zero provider work, stale asynchronous races and recovery checks above come from production-code models; the native placement comparison was visual. Native screenshots do not establish exhaustive small-window, zoom or large-list performance coverage.
+
+## Page-local `/` shortcut — 2026-10-09
+
+- Full integrated checks: 215 Node tests and 19 Python packaging tests passed. Independent event review covered 26 propagation/cancellation cases. Regressions include ordinary button/link focus, Shift-produced `/`, AltGraph/modifier exclusion, editing/native controls, visible dialogs/menus, disconnected hosts, hidden documents, interrupted composition, and destroy/remount cleanup.
+- Native Chrome for Testing on cloud Linux verified English Graphite dark and Chinese light. Page space, the Finder opener and an existing website button opened one panel with `/`; Escape returned to the real prior control. Typing in search/Finder/editor fields, `?`, Ctrl combinations, address-bar focus, existing editor dialogs and context menus did not open another panel.
+- At a measured 510 × 848 native window, Chinese controls, the `/` marker and its localized tooltip were readable. The web-search module was explicitly disabled and saved; a new tab had no web-search input, while `/` still opened the local Finder.
+- These dimensions describe the native window, not a measured CSS viewport. Real non-US keyboard layouts, actual IME composition and assistive-technology announcements were not tested natively. Their event/source coverage is separate from the executed browser checks.

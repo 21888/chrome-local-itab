@@ -10,6 +10,7 @@
 .finder-button:hover:not(:disabled) { background: var(--template-surface-raised); border-color: var(--template-accent); }
 .finder-button:disabled { opacity: .6; cursor: default; }
 .finder-opener { flex: 0 1 auto; }
+.finder-key-hint { margin-inline-start: 8px; color: var(--template-muted); font: inherit; }
 .finder-overlay :focus-visible, .finder-opener:focus-visible { outline: 2px solid var(--template-focus); outline-offset: 3px; }
 .finder-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .finder-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }

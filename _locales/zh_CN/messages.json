@@ -29,6 +29,7 @@
 	"templateColumn": {"message": "专栏"},
 	"templateColumnDescription": {"message": "窄幅编辑式侧栏与宽敞的资料索引。"},
 	"finderOpen": {"message": "查找已保存的网站"},
+	"finderShortcutHint": {"message": "在非编辑区域按 /，查找已保存的网站。"},
 	"finderScope": {"message": "仅搜索已保存的网站 · 所有分类"},
 	"finderLabel": {"message": "标题、网址或分类"},
 	"finderHint": {"message": "输入文字查找已保存的网站。这里不会进行网页搜索。"},

@@ -2,7 +2,7 @@
     'use strict';
     const api = root.LocalItabFinder;
     const fallback = {
-        finderOpen: 'Find saved sites', finderScope: 'Only your saved sites · all categories',
+        finderOpen: 'Find saved sites', finderShortcutHint: 'Press / outside editing fields to find saved sites.', finderScope: 'Only your saved sites · all categories',
         finderLabel: 'Title, address or category', finderHint: 'Type to find a saved site. This does not search the web.',
         finderEmpty: 'No saved sites yet.', finderNone: 'No matching saved sites.', finderClose: 'Close', finderClear: 'Clear',
         finderPrevious: 'Previous results', finderNext: 'Next results', finderResults: 'Results', finderShowing: 'Showing',
@@ -20,13 +20,43 @@
     }
     function mount(host, options) {
         const controller = new api.Controller(options);
-        let overlay = null, input, list, status, alert, previous, next, cleanup, composing = false;
+        let overlay = null, input, list, status, alert, previous, next, cleanup, composing = false, compositionTarget = null;
         const opener = button(t('finderOpen'), open);
-        opener.classList.add('finder-opener'); opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
+        opener.classList.add('finder-opener'); opener.setAttribute('aria-haspopup', 'dialog');
+        opener.setAttribute('aria-keyshortcuts', '/');
+        opener.setAttribute('aria-description', t('finderShortcutHint'));
+        opener.title = t('finderShortcutHint');
+        const keyHint = el('kbd', 'finder-key-hint', '/'); keyHint.setAttribute('aria-hidden', 'true');
+        opener.append(keyHint); host.append(opener);
+        function handleShortcut(event) {
+            // Match the typed character, not a US-only physical key. Shift may produce /.
+            if (compositionTarget && (!compositionTarget.isConnected || !compositionTarget.contains(document.activeElement))) compositionTarget = null;
+            if (!host.isConnected || document.hidden || document.visibilityState === 'hidden' ||
+                event.key !== '/' || event.defaultPrevented || event.repeat || event.isComposing ||
+                event.keyCode === 229 || compositionTarget || event.getModifierState?.('AltGraph') || event.ctrlKey || event.altKey || event.metaKey || overlay) return;
+            const controls = 'input, textarea, select, audio, video, iframe, object, embed, [contenteditable], [inert], [role="textbox"], [role="combobox"], [role="listbox"], [role="slider"], [role="spinbutton"]';
+            const path = event.composedPath?.() || [event.target];
+            if (document.designMode === 'on' || path.some(node => node.isContentEditable || node.closest?.(controls)) ||
+                document.activeElement?.isContentEditable || document.activeElement?.closest?.(controls)) return;
+            // Editors and menus may retain focus elsewhere; do not stack a Finder over them.
+            if (Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="menu"], dialog[open], .modal-overlay.active'))
+                .some(node => !node.closest('[hidden], [aria-hidden="true"]') && node.getClientRects().length)) return;
+            event.preventDefault();
+            open();
+        }
+        const compositionStart = event => { compositionTarget = event.target; };
+        const compositionEnd = () => { compositionTarget = null; };
+        const compositionFocus = event => {
+            if (compositionTarget && !compositionTarget.contains(event.target)) compositionTarget = null;
+        };
+        document.body.addEventListener('keydown', handleShortcut);
+        document.body.addEventListener('compositionstart', compositionStart);
+        document.body.addEventListener('compositionend', compositionEnd);
+        document.body.addEventListener('focusin', compositionFocus);
         function close() {
             if (!overlay) return;
             const old = overlay; overlay = null; cleanup?.(); cleanup = null; old.remove();
-            controller.clear(); composing = false;
+            controller.clear(); composing = false; compositionTarget = null;
         }
         function render(page = 0) {
             if (!overlay) return;
@@ -105,7 +135,13 @@
             render(); cleanup = root.LocalItabDialog.open(overlay, input, close);
         }
         const unsubscribe = options.subscribe?.(() => { if (overlay && !composing) render(controller.page); });
-        return { get pending() { return Boolean(controller.pending); }, hasUncommittedWork: () => Boolean(overlay), refresh: () => { if (overlay && !composing) render(controller.page); }, close, destroy() { close(); unsubscribe?.(); opener.remove(); } };
+        return { get pending() { return Boolean(controller.pending); }, hasUncommittedWork: () => Boolean(overlay), refresh: () => { if (overlay && !composing) render(controller.page); }, close, destroy() {
+            document.body.removeEventListener('keydown', handleShortcut);
+            document.body.removeEventListener('compositionstart', compositionStart);
+            document.body.removeEventListener('compositionend', compositionEnd);
+            document.body.removeEventListener('focusin', compositionFocus);
+            close(); unsubscribe?.(); opener.remove();
+        } };
     }
     api.mount = mount;
 })(window);

@@ -29,6 +29,7 @@
 	"templateColumn": {"message": "Column"},
 	"templateColumnDescription": {"message": "A narrow editorial rail beside a spacious reference index."},
 	"finderOpen": {"message": "Find saved sites"},
+	"finderShortcutHint": {"message": "Press / outside editing fields to find saved sites."},
 	"finderScope": {"message": "Only your saved sites · all categories"},
 	"finderLabel": {"message": "Title, address or category"},
 	"finderHint": {"message": "Type to find a saved site. This does not search the web."},

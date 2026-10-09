@@ -5,14 +5,15 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createDocument } = require('./helpers/finder-dom-model');
 const base = path.join(__dirname, '..');
-function setup() {
+function setup({ opened = true, locale } = {}) {
     const document = createDocument(); const host = document.createElement('header'); document.body.append(host);
     const calls = []; const links = [{ title: '中文 Café', url: 'https://a.test', category: 'work', layoutId: 'l_11111111111111111111111111111111' }, { title: '中文 Café', url: 'https://a.test', category: 'learn', layoutId: 'l_22222222222222222222222222222222' }];
-    let notify; const context = { window: null, document, URL }; context.window = context; vm.createContext(context);
+    const messages = locale && JSON.parse(fs.readFileSync(path.join(base, '_locales', locale, 'messages.json'), 'utf8'));
+    let notify; const context = { window: null, document, URL, i18n: { t: key => messages?.[key]?.message || key } }; context.window = context; vm.createContext(context);
     for (const file of ['../shared/dialog-focus.js', '../shared/shortcut-finder.js', '../shared/shortcut-finder-view.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context);
     const view = context.LocalItabFinder.mount(host, { getSnapshot: () => ({ links, categories: [] }), activate: link => calls.push(link), subscribe(fn) { notify = fn; return () => { notify = null; }; } });
-    const opener = host.querySelector('button'); opener.focus(); opener.dispatch('click');
-    return { document, host, links, calls, view, opener, notify: () => notify?.(), input: document.querySelector('input') };
+    const opener = host.querySelector('button'); if (opened) { opener.focus(); opener.dispatch('click'); }
+    return { document, host, links, calls, view, opener, context, notify: () => notify?.(), input: document.querySelector('input') };
 }
 test('input, navigation, clearing, refresh, dismissal never activate; native click activates one exact occurrence', async () => {
     const f = setup(); const before = JSON.stringify(f.links);
@@ -37,7 +38,7 @@ test('stale result does not launch another index; no interpolation; IME defers r
     f.input.dispatch('compositionend'); assert.equal(f.document.querySelectorAll('.finder-result').length, 0);
     f.view.close();
 });
-test('source contract: local-only reads, text-safe rendering, no global keys, native result activation', () => {
+test('source contract: local-only reads, text-safe rendering, no document-level keys, native result activation', () => {
     const source = ['shared/shortcut-finder.js', 'shared/shortcut-finder-view.js'].map(file => fs.readFileSync(path.join(base, file), 'utf8')).join('\n');
     for (const pattern of [/fetch\s*\(/, /XMLHttpRequest/, /chrome\.(history|tabs|bookmarks)/, /localStorage/, /\.storage\./, /innerHTML/, /buildSearchUrl/, /navigator\.clipboard/, /document\.addEventListener/]) assert.doesNotMatch(source, pattern);
     assert.match(source, /textContent/); assert.match(source, /event\.repeat/); assert.match(source, /stopImmediatePropagation/);
@@ -78,4 +79,215 @@ test('host reserves only its own blank tab, severs opener and relinquishes owner
     lease.open(fresh.links[0]); lease.close(); assert.equal(target.closed, false); assert.equal(calls.filter(value => value === 'close').length, 0);
     const cancelled = options.reserve(); cancelled.close(); cancelled.close(); assert.equal(calls.filter(value => value === 'close').length, 1);
     const userNavigated = options.reserve(); target.location.href = 'https://user-choice.test'; userNavigated.close(); assert.equal(target.closed, false); assert.equal(userNavigated.open(fresh.links[0]), false);
+});
+
+test('page Slash opens the existing Finder with hidden search, preserves data and restores the actual prior focus', () => {
+    const f = setup({ opened: false });
+    const search = f.document.createElement('section'); search.hidden = true;
+    const webInput = f.document.createElement('input'); search.append(webInput); f.document.body.append(search);
+    const origin = f.document.createElement('div'); origin.tabIndex = 0; f.document.body.append(origin); origin.focus();
+    const before = JSON.stringify(f.links);
+    assert.equal(origin.dispatch('keydown', { key: '/', code: 'Slash' }).prevented, true);
+    const input = f.document.querySelector('.finder-input');
+    assert.ok(input); assert.equal(f.document.activeElement, input); assert.equal(input.value, '');
+    assert.equal(f.view.hasUncommittedWork(), true);
+    input.value = '中文'; input.dispatch('input'); assert.equal(f.document.querySelectorAll('.finder-result').length, 2);
+    assert.equal(f.calls.length, 0); assert.equal(JSON.stringify(f.links), before);
+    input.dispatch('keydown', { key: 'Escape' });
+    assert.equal(f.document.activeElement, origin); assert.equal(f.view.hasUncommittedWork(), false);
+    assert.equal(f.document.querySelector('.finder-overlay'), null);
+    f.view.destroy();
+});
+test('Slash follows the typed character, including shifted non-US keys, but never modifier/browser shortcuts', () => {
+    const f = setup({ opened: false });
+    for (const fields of [
+        { key: '?', code: 'Slash', shiftKey: true }, { key: 'Dead', code: 'Slash' },
+        { key: '/', ctrlKey: true }, { key: '/', altKey: true }, { key: '/', metaKey: true },
+        { key: '/', ctrlKey: true, altKey: true }, { key: '/', repeat: true },
+        { key: '/', isComposing: true }, { key: '/', keyCode: 229 }, { key: '/', defaultPrevented: true }
+    ]) {
+        assert.equal(f.document.body.dispatch('keydown', fields).prevented, false, JSON.stringify(fields));
+        assert.equal(f.document.querySelector('.finder-overlay'), null);
+    }
+    for (const fields of [{ key: '/', code: 'Digit7', shiftKey: true }, { key: '/', code: 'NumpadDivide' }]) {
+        assert.equal(f.document.body.dispatch('keydown', fields).prevented, true);
+        assert.equal(f.document.querySelectorAll('.finder-overlay').length, 1);
+        f.view.close();
+    }
+    f.view.destroy();
+});
+test('page composition, nested editable content and native controls keep their Slash interaction', () => {
+    const f = setup({ opened: false });
+    f.document.body.dispatch('compositionstart');
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, false);
+    f.document.body.dispatch('compositionend');
+    const cases = ['input', 'textarea', 'select', 'audio', 'video', 'iframe', 'object', 'embed'];
+    for (const tag of cases) {
+        const node = f.document.createElement(tag); if (tag === 'a') node.setAttribute('href', 'https://example.test');
+        f.document.body.append(node); node.focus();
+        assert.equal(node.dispatch('keydown', { key: '/' }).prevented, false, tag);
+        assert.equal(f.document.querySelector('.finder-overlay'), null, tag); node.remove();
+    }
+    for (const attribute of ['true', '', 'plaintext-only', 'false']) {
+        const editor = f.document.createElement('div'); editor.setAttribute('contenteditable', attribute);
+        const child = f.document.createElement('span'); editor.append(child); f.document.body.append(editor);
+        assert.equal(child.dispatch('keydown', { key: '/' }).prevented, false); editor.remove();
+    }
+    for (const role of ['textbox', 'combobox', 'listbox', 'slider', 'spinbutton']) {
+        const widget = f.document.createElement('div'); widget.setAttribute('role', role); f.document.body.append(widget);
+        assert.equal(widget.dispatch('keydown', { key: '/' }).prevented, false, role); widget.remove();
+    }
+    f.document.designMode = 'on';
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, false);
+    f.document.designMode = 'off';
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, true);
+    f.view.destroy();
+});
+test('retargeted events and active editable elements cannot bypass the editing guard', () => {
+    const f = setup({ opened: false }); const input = f.document.createElement('input'); f.document.body.append(input);
+    assert.equal(f.document.body.dispatch('keydown', { key: '/', composedPath: () => [input, f.document.body] }).prevented, false);
+    input.focus();
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, false);
+    input.remove();
+    const editable = f.document.createElement('div'); editable.isContentEditable = true; f.document.body.append(editable);
+    assert.equal(editable.dispatch('keydown', { key: '/' }).prevented, false);
+    f.view.destroy();
+});
+test('visible dialogs, menus and inert content block Slash even when focus remains outside', () => {
+    const f = setup({ opened: false });
+    for (const role of ['dialog', 'alertdialog', 'menu']) {
+        const wrapper = f.document.createElement('div'); const panel = f.document.createElement('section');
+        panel.setAttribute('role', role); wrapper.append(panel); f.document.body.append(wrapper);
+        assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, false, role);
+        wrapper.hidden = true;
+        assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, true); f.view.close();
+        wrapper.hidden = false; wrapper.setAttribute('aria-hidden', 'true');
+        assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, true); f.view.close();
+        wrapper.remove();
+    }
+    const nativeDialog = f.document.createElement('dialog'); nativeDialog.open = true; f.document.body.append(nativeDialog);
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, false); nativeDialog.remove();
+    const modal = f.document.createElement('div'); modal.className = 'modal-overlay active'; f.document.body.append(modal);
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, false); modal.remove();
+    const inert = f.document.createElement('div'); inert.inert = true; f.document.body.append(inert);
+    assert.equal(inert.dispatch('keydown', { key: '/' }).prevented, false);
+    f.view.destroy();
+});
+test('open Finder does not reopen or eat query slashes, and destroy/remount removes exactly the owned listeners', () => {
+    const f = setup({ opened: false });
+    const foreign = () => {}; f.document.body.addEventListener('keydown', foreign);
+    f.document.body.dispatch('keydown', { key: '/' });
+    const input = f.document.querySelector('.finder-input');
+    input.value = 'https://a.test/';
+    assert.equal(input.dispatch('keydown', { key: '/' }).prevented, false);
+    assert.equal(input.dispatch('keydown', { key: '/', repeat: true }).prevented, false);
+    assert.equal(f.document.querySelector('.finder-input'), input); assert.equal(input.value, 'https://a.test/');
+    assert.equal(f.document.querySelectorAll('.finder-overlay').length, 1);
+    f.view.destroy();
+    assert.deepEqual(f.document.body.listeners.get('keydown'), [foreign]);
+    assert.equal(f.document.body.listeners.get('compositionstart').length, 0);
+    assert.equal(f.document.body.listeners.get('compositionend').length, 0);
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, false);
+    const view = f.context.LocalItabFinder.mount(f.host, { getSnapshot: () => ({ links: f.links, categories: [] }) });
+    assert.equal(f.document.body.listeners.get('keydown').length, 2);
+    assert.equal(f.document.body.dispatch('keydown', { key: '/' }).prevented, true);
+    assert.equal(f.document.querySelectorAll('.finder-overlay').length, 1); view.destroy();
+});
+test('localized quiet key hint has a descriptive accessible shortcut and preserves mouse-open focus semantics', () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const f = setup({ opened: false, locale });
+        const messages = JSON.parse(fs.readFileSync(path.join(base, '_locales', locale, 'messages.json'), 'utf8'));
+        assert.equal(f.opener.textContent, messages.finderOpen.message);
+        assert.equal(f.opener.getAttribute('aria-keyshortcuts'), '/');
+        assert.equal(f.opener.getAttribute('aria-description'), messages.finderShortcutHint.message);
+        assert.equal(f.opener.title, messages.finderShortcutHint.message);
+        const hint = f.opener.querySelector('kbd'); assert.equal(hint.textContent, '/'); assert.equal(hint.getAttribute('aria-hidden'), 'true');
+        f.opener.focus(); f.opener.dispatch('click');
+        f.document.querySelector('.finder-input').dispatch('keydown', { key: 'Escape' });
+        assert.equal(f.document.activeElement, f.opener);
+        f.view.destroy();
+    }
+});
+
+test('Slash from normal site buttons, links and Finder opener returns Escape to the exact control', () => {
+    const f = setup({ opened: false });
+    const button = f.document.createElement('button'); button.className = 'shortcut-launch';
+    const link = f.document.createElement('a'); link.setAttribute('href', 'https://a.test/');
+    f.document.body.append(button, link);
+    for (const origin of [button, link, f.opener]) {
+        origin.focus();
+        assert.equal(origin.dispatch('keydown', { key: '/' }).prevented, true);
+        const input = f.document.querySelector('.finder-input'); assert.equal(f.document.activeElement, input);
+        input.dispatch('keydown', { key: 'Escape' });
+        assert.equal(f.document.activeElement, origin);
+    }
+    assert.equal(f.calls.length, 0); f.view.destroy();
+});
+
+// Native Event supplies real defaultPrevented semantics; traverse the page route
+// including document, while keeping layout/focus in the existing DOM model.
+function emitPage(target, type = 'keydown', fields = { key: '/' }) {
+    const route = [];
+    for (let node = target; node; node = node.parentElement) route.push(node);
+    if (route.includes(target.ownerDocument?.documentElement)) route.push(target.ownerDocument);
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'target', { value: target });
+    Object.defineProperty(event, 'composedPath', { value: () => route });
+    Object.assign(event, fields);
+    for (const node of route) {
+        const listeners = node.listeners.get(type);
+        for (const listener of typeof listeners === 'function' ? [listeners] : [...(listeners || [])]) listener(event);
+        if (event.cancelBubble) break;
+    }
+    return event;
+}
+test('real cancellation and body-to-document propagation preserve prior handlers and expose accepted Slash', () => {
+    const f = setup({ opened: false }); const origin = f.document.createElement('button'); f.document.body.append(origin); origin.focus();
+    let observed;
+    f.document.addEventListener('keydown', event => { observed = event.defaultPrevented; });
+    const cancel = event => event.preventDefault(); origin.addEventListener('keydown', cancel);
+    assert.equal(emitPage(origin).defaultPrevented, true); assert.equal(observed, true);
+    assert.equal(f.document.querySelector('.finder-overlay'), null);
+    origin.removeEventListener('keydown', cancel); observed = false;
+    assert.equal(emitPage(origin).defaultPrevented, true); assert.equal(observed, true);
+    assert.ok(f.document.querySelector('.finder-overlay'));
+    emitPage(f.document.querySelector('.finder-input'), 'keydown', { key: 'Escape' });
+    assert.equal(f.document.activeElement, origin); f.view.destroy();
+});
+test('AltGraph-only, hidden document and detached host cannot open Finder', () => {
+    const f = setup({ opened: false });
+    assert.equal(emitPage(f.document.body, 'keydown', { key: '/', getModifierState: key => key === 'AltGraph' }).defaultPrevented, false);
+    f.document.hidden = true;
+    assert.equal(emitPage(f.document.body).defaultPrevented, false);
+    f.document.hidden = false; f.document.visibilityState = 'hidden';
+    assert.equal(emitPage(f.document.body).defaultPrevented, false);
+    f.document.visibilityState = 'visible'; f.host.remove();
+    assert.equal(emitPage(f.document.body).defaultPrevented, false);
+    assert.equal(f.document.querySelector('.finder-overlay'), null);
+    f.document.body.append(f.host); assert.equal(emitPage(f.document.body).defaultPrevented, true);
+    f.view.destroy();
+});
+test('interrupted composition releases Slash after removal or focus departure without stealing active composition', () => {
+    for (const interruption of ['removed', 'focus', 'focus-without-focusin']) {
+        const f = setup({ opened: false });
+        const input = f.document.createElement('input'), button = f.document.createElement('button');
+        f.document.body.append(input, button); input.focus(); emitPage(input, 'compositionstart', {});
+        assert.equal(emitPage(input).defaultPrevented, false);
+        assert.equal(f.document.querySelector('.finder-overlay'), null);
+        if (interruption === 'removed') {
+            input.remove(); emitPage(input, 'compositionend', {});
+        } else {
+            button.focus();
+            if (interruption === 'focus') emitPage(button, 'focusin', {});
+        }
+        assert.equal(emitPage(interruption === 'removed' ? f.document.body : button).defaultPrevented, true, interruption);
+        f.view.destroy(); assert.equal(f.document.body.listeners.get('focusin').length, 0);
+    }
+    // An active composition on a focusable non-input element is guarded too.
+    const f = setup({ opened: false }); const region = f.document.createElement('div'); region.tabIndex = 0;
+    f.document.body.append(region); region.focus(); emitPage(region, 'compositionstart', {});
+    assert.equal(emitPage(region).defaultPrevented, false);
+    emitPage(region, 'compositionend', {});
+    assert.equal(emitPage(region).defaultPrevented, true);
+    f.view.destroy();
 });
