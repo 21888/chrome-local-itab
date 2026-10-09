@@ -260,3 +260,7 @@ Tarjeta real de cuenta atrás en modo claro y oscuro:
 ![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
 
 [Capture provenance](docs/screenshots/countdown/capture-metadata.json)
+
+## Cambiar de navegador o dispositivo
+
+Las copias de configuración no incluyen Tasks, Focus timer, Scratchpad ni Countdown. Antes de desinstalar o borrar datos, guarda copias separadas siguiendo la [lista de migración en inglés](docs/migration.en.md).

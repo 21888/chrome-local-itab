@@ -254,3 +254,7 @@ Actual Countdown card in light and dark appearance:
 ![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
 
 [Capture provenance](docs/screenshots/countdown/capture-metadata.json)
+
+## Moving to another browser or device
+
+Configuration backups do not include Tasks, Focus timer, Scratchpad or Countdown. Follow the [migration checklist](docs/migration.en.md) to keep separate copies before uninstalling or clearing data.

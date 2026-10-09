@@ -254,3 +254,7 @@ python3 -m unittest discover -s tests -p '*_test.py'
 ![Countdown dark](docs/screenshots/countdown/countdown-en-dark-wide.png)
 
 [Capture provenance](docs/screenshots/countdown/capture-metadata.json)
+
+## 更换浏览器或设备
+
+配置备份不包含待办、专注计时器、便笺或倒计时。卸载扩展或清理数据前，请按[迁移清单](docs/migration.zh-CN.md)分别保留副本。

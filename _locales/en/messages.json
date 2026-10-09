@@ -203,7 +203,7 @@
 	"tasksTextLimit": {"message": "Plain text · 1,000 characters maximum"},
 	"tasksRestoreTitle": {"message": "Restore this previous local copy?"},
 	"tasksDraftRemains": {"message": "Last task saved. Your current draft is not saved yet."},
-	"tasksSettingsBoundary": {"message": "Settings backups exclude Tasks. Resetting or restoring settings keeps Tasks and their previous local copies. Use Export tasks in the Tasks card for a separate backup."},
+	"tasksSettingsBoundary": {"message": "Settings backups, Chrome Sync and Drive exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately as JSON; export Scratchpad and Countdown as text and restore them manually. Note Focus preferences manually; its session cannot be migrated. Resetting or restoring settings preserves these local modules."},
 	"tasksReloadDeferred": {"message": "Settings changed. Your task work is still here. Finish or export it before reloading."},
 	"tasksReloadPage": {"message": "Reload page"},
 	"tasksReloadPending": {"message": "A task save is still running. Wait for it to finish, then reload."},

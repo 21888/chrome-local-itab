@@ -203,7 +203,7 @@
 	"tasksTextLimit": {"message": "纯文本 · 最多 1,000 个字符"},
 	"tasksRestoreTitle": {"message": "恢复这份此前的本地副本？"},
 	"tasksDraftRemains": {"message": "上一项已保存。当前草稿尚未保存。"},
-	"tasksSettingsBoundary": {"message": "设置备份不包含待办。重置或恢复设置会保留待办及其历史本地副本。请在待办卡片中单独导出待办备份。"},
+	"tasksSettingsBoundary": {"message": "设置备份、Chrome 同步和云盘备份均不包含待办、专注计时器、便笺和倒计时。待办请单独导出/导入 JSON；便笺和倒计时请导出文本后手动恢复。专注偏好请手动记录，计时会话无法迁移。重置或恢复设置会保留这些本地模块。"},
 	"tasksReloadDeferred": {"message": "设置已更新，您的待办操作仍保留在此页面。请先完成或导出，再重新加载。"},
 	"tasksReloadPage": {"message": "重新加载页面"},
 	"tasksReloadPending": {"message": "待办仍在保存中。请等待保存完成后再重新加载。"},
