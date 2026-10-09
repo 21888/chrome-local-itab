@@ -26,3 +26,10 @@ Native testing found and prompted repairs for the Tasks-only parent visibility r
 ## Not claimed
 
 The native pass was not an exhaustive six-template/palette matrix, a Chinese-input/IME pass, an assistive-technology audit or live Chrome Sync/Google Drive testing. CN/EN strings and the remaining template/palette combinations have source/model coverage; further native appearance and accessibility checks remain useful before a public store release. Privacy/provider isolation statements above are backed by production-code models, not live account traffic.
+
+## Local text filter — 2026-10-09
+
+- The integrated repository passes 204 Node tests and 19 Python packaging tests. Four added actual-view regressions cover literal case-insensitive filtering across active/completed/removed tasks, no storage writes, IME events, draft and pending-retry ownership, result refresh, focus, empty states and disabled reordering while filtered. Independent review additionally checked stale commands, remove/Undo reprojection and refresh/new-view behavior.
+- Bounded native Chrome for Testing checks passed in English Graphite dark and Chinese light with synthetic tasks. A matching query showed one result, a nonmatching query showed localized guidance, and keyboard Tab/Enter Clear restored the list and focus. An unsaved add draft survived filtering; reorder controls were disabled while filtering and available after clearing. Reload kept saved task text/order and the Focus session while resetting the disposable filter.
+- The Chinese narrow sample used a 510 × 848 native browser window, not an independently measured CSS viewport. Filter placeholder, matching count, clear button and empty guidance were readable without overlapping. The Chinese settings quote helper was also verified after restarting the owned test profile so the latest catalog was actually loaded.
+- No real IME composition, assistive-technology announcements, full 15-template matrix or live provider traffic is claimed by these checks. A synthetic 500-row DOM benchmark is not a native browser performance measurement.

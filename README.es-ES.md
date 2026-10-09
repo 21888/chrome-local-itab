@@ -189,7 +189,7 @@ La documentación existente identifica la licencia como MIT. El repositorio toda
 
 ## Tareas locales
 
-Activa la tarjeta opcional de Tareas en los ajustes de visibilidad de módulos. Está desactivada de forma predeterminada y comienza vacía. Permite añadir, editar y completar tareas, fijar una como siguiente acción y recuperar elementos eliminados.
+Activa la tarjeta opcional de Tareas en los ajustes de visibilidad de módulos. Está desactivada de forma predeterminada y comienza vacía. Permite añadir, editar y completar tareas, filtrar por texto en todos los estados, fijar una como siguiente acción y recuperar elementos eliminados. El filtro es local y no busca en la web.
 
 Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exportaciones de ajustes, Chrome Sync y las copias de Google Drive no las incluyen. Restablecer, importar o restaurar los ajustes conserva las tareas. Usa la exportación e importación independiente de tareas para hacer copias y cambiar de dispositivo. Desinstalar la extensión o borrar sus datos puede eliminar las tareas locales. [Guía de tareas (en inglés)](docs/local-tasks.en.md).
 

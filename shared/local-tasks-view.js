@@ -4,6 +4,7 @@
     const fallback = {
         tasksTitle: 'Tasks', tasksLocal: 'On this device', tasksNext: 'Next up', tasksNoPin: 'Pin one task as your next action.',
         tasksAddLabel: 'Add a task', tasksPlaceholder: 'What’s the next small thing?', tasksAdd: 'Add', tasksEmpty: 'A clear list. Add something when you need it.',
+        tasksFilterReorder: 'Clear the filter to reorder tasks.', tasksFilter: 'Filter tasks', tasksFilterPlaceholder: 'Find active, completed or removed tasks', tasksFilterClear: 'Clear filter', tasksFilterMatches: 'Matching tasks', tasksFilterEmpty: 'No matching tasks. Clear the filter to see your list.',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksActions: 'Actions', tasksUp: 'Move up', tasksDown: 'Move down', tasksMore: 'Show all tasks', tasksLess: 'Show fewer', tasksCompleted: 'Completed', tasksRemoved: 'Removed',
         tasksData: 'Task data', tasksHelp: 'Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks.',
@@ -56,6 +57,21 @@
             host.classList.add('local-tasks-card'); host.setAttribute('aria-label', t('tasksTitle'));
             const header = el('header', 'tasks-header'); header.append(el('h2', '', t('tasksTitle')), el('span', 'tasks-local', t('tasksLocal')));
             this.next = el('p', 'tasks-next');
+            // Filtering is disposable view state; it never enters a storage command or reload guard.
+            this.filterQuery = ''; this.filterComposing = false;
+            this.filter = el('div', 'tasks-filter'); this.filterInput = el('input'); this.filterInput.type = 'text';
+            this.filterInput.setAttribute('aria-label', t('tasksFilter')); this.filterInput.placeholder = t('tasksFilterPlaceholder');
+            this.filterInput.addEventListener('compositionstart', () => { this.filterComposing = true; });
+            this.filterInput.addEventListener('compositionend', () => { this.filterComposing = false; this.applyFilter(); });
+            this.filterInput.addEventListener('input', event => { if (!this.filterComposing && !event.isComposing) this.applyFilter(); });
+            this.filterClear = button('tasksFilterClear', () => {
+                const ownsFocus = document.activeElement === this.filterClear || document.activeElement === this.filterInput;
+                this.filterInput.value = ''; this.filterComposing = false; this.applyFilter();
+                if (ownsFocus) this.filterInput.focus();
+            });
+            this.filter.append(this.filterInput, this.filterClear);
+            this.filterStatus = el('p', 'tasks-help'); this.filterStatus.hidden = true; this.filterStatus.setAttribute('role', 'status');
+            this.filterStatus.setAttribute('aria-live', 'polite');
             this.form = el('form', 'tasks-add'); this.input = el('textarea'); this.input.rows = 1;
             this.input.setAttribute('aria-label', t('tasksAddLabel')); this.input.placeholder = t('tasksPlaceholder');
             this.input.addEventListener('input', () => { this.draftGeneration++; this.render(); });
@@ -77,8 +93,12 @@
             this.feedback = el('div', 'tasks-feedback'); this.status = el('span'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             this.retry = button('tasksRetry', () => this.retryLast()); this.undoButton = button('tasksUndo', () => this.undoRemove());
             this.feedback.append(this.status, this.retry, this.undoButton);
-            host.replaceChildren(header, this.next, this.form, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
+            host.replaceChildren(header, this.next, this.form, this.filter, this.filterStatus, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
+        }
+        applyFilter() {
+            this.filterQuery = this.filterInput.value.trim().toLowerCase();
+            this.render();
         }
         hasUncommittedWork() { return this.input.value.length > 0 || this.dialogs.size > 0 || this.pendingReview || !!this.controller.pending; }
         createDialog(title, onClose) {
@@ -137,7 +157,9 @@
                     pin.setAttribute('aria-pressed', String(pinned)); actions.append(pin);
                     const up = button('tasksUp', () => run('move', { order: active, direction: -1 }));
                     const down = button('tasksDown', () => run('move', { order: active, direction: 1 }));
-                    up.disabled = index === 0; down.disabled = index === active.length - 1; actions.append(up, down);
+                    up.disabled = !!this.filterQuery || index === 0; down.disabled = !!this.filterQuery || index === active.length - 1;
+                    if (this.filterQuery) { up.title = t('tasksFilterReorder'); down.title = t('tasksFilterReorder'); }
+                    actions.append(up, down);
                 }
                 actions.append(button('tasksEdit', () => this.edit(task)), button('tasksRemove', () => {
                     const hadFocus = item.contains(document.activeElement);
@@ -167,28 +189,38 @@
             this.addButton.disabled = busy || !state;
             const focused = this.host.contains(document.activeElement) ? document.activeElement : null;
             const taskId = focused?.closest('[data-task-id]')?.dataset.taskId, action = focused?.dataset.taskAction;
-            if (state && this.renderedRevision !== state.revision) {
-                this.renderedRevision = state.revision;
+            this.filterInput.disabled = !state; this.filterClear.hidden = !this.filterInput.value;
+            if (state && (this.renderedRevision !== state.revision || this.renderedFilter !== this.filterQuery)) {
+                const revisionChanged = this.renderedRevision !== state.revision;
+                this.renderedRevision = state.revision; this.renderedFilter = this.filterQuery;
+                const filtering = !!this.filterQuery;
+                const matches = task => task.text.toLowerCase().includes(this.filterQuery);
                 const openRows = Array.from(this.host.querySelectorAll('[data-task-id] .tasks-row-menu[open]')).map(node => node.closest('[data-task-id]').dataset.taskId);
                 const active = state.records.filter(task => task.state === 'active'), ids = active.map(t => t.id);
                 const pinned = active.find(task => task.id === state.pinnedId);
                 this.next.textContent = pinned ? `${t('tasksNext')}: ${pinned.text}` : t('tasksNoPin');
                 this.next.classList.toggle('has-pin', !!pinned);
-                const visible = this.expanded ? active : active.slice(0, 4);
+                const matched = active.filter(matches);
+                const visible = filtering || this.expanded ? matched : matched.slice(0, 4);
+                const count = state.records.filter(matches).length;
+                this.filterStatus.hidden = !filtering;
+                this.filterStatus.textContent = filtering ? (count ? `${t('tasksFilterMatches')}: ${count}` : t('tasksFilterEmpty')) : '';
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
-                if (!active.length) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
-                this.more.hidden = active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));
+                if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
+                this.more.hidden = filtering || active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));
                 for (const section of [this.completed, this.removed]) {
-                    const records = state.records.filter(task => task.state === (section === this.completed ? 'done' : 'removed'));
+                    const records = state.records.filter(task => task.state === (section === this.completed ? 'done' : 'removed') && matches(task));
                     section.summary.textContent = `${t(section.key)} (${records.length})`; section.box.hidden = !records.length;
                     section.list.replaceChildren(...records.map(task => this.row(task, -1, ids)));
                 }
-                this.copies.replaceChildren();
-                if (state.recovery.length) {
-                    this.copies.append(el('h3', '', t('tasksCopies')));
-                    for (const copy of state.recovery.slice().reverse()) {
-                        const row = el('div', 'tasks-copy'); row.append(el('span', '', `${new Date(copy.createdAt).toLocaleString()} · ${summarize(api.counts(copy.content))}`),
-                            button('tasksRecover', () => this.reviewRecovery(copy.id))); this.copies.append(row);
+                if (revisionChanged) {
+                    this.copies.replaceChildren();
+                    if (state.recovery.length) {
+                        this.copies.append(el('h3', '', t('tasksCopies')));
+                        for (const copy of state.recovery.slice().reverse()) {
+                            const row = el('div', 'tasks-copy'); row.append(el('span', '', `${new Date(copy.createdAt).toLocaleString()} · ${summarize(api.counts(copy.content))}`),
+                                button('tasksRecover', () => this.reviewRecovery(copy.id))); this.copies.append(row);
+                        }
                     }
                 }
                 this.host.querySelectorAll('[data-task-id] .tasks-row-menu').forEach(node => { node.open = openRows.includes(node.closest('[data-task-id]').dataset.taskId); });

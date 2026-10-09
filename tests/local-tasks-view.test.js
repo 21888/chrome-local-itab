@@ -147,3 +147,71 @@ test('DOM model: Actions summary keeps focus on unrelated revision update', asyn
     assert.equal(h.document.activeElement.tagName, 'SUMMARY'); assert.equal(h.document.activeElement.closest('[data-task-id]').dataset.taskId, task.id);
     h.view.destroy();
 });
+
+test('DOM model: local filter finds all states beyond the preview, treats text literally and never writes', async () => {
+    const h = model(); await settle();
+    for (let i = 0; i < 5; i++) await seed(h, `other ${i}`);
+    const active = await seed(h, 'Plan <b>中文</b>'), done = await seed(h, 'PLAN finished'), removed = await seed(h, 'plan removed');
+    await h.controller.action('complete', { id: done.id, version: done.version });
+    await h.controller.action('remove', { id: removed.id, version: removed.version });
+    await h.controller.action('pin', { id: active.id, version: active.version, expectedPin: null }); await settle();
+    const before = structuredClone(h.b.raw());
+    h.view.filterInput.focus(); setInput(h.view.filterInput, '  PLAN  ');
+    assert.equal(h.view.list.querySelectorAll('[data-task-id]').length, 1);
+    assert.equal(h.view.list.querySelector('[data-task-id]').dataset.taskId, active.id);
+    assert.equal(h.view.completed.summary.textContent, 'Completed (1)'); assert.equal(h.view.removed.summary.textContent, 'Removed (1)');
+    assert.equal(h.view.filterStatus.textContent, 'Matching tasks: 3'); assert.equal(h.view.more.hidden, true);
+    assert.equal(h.document.activeElement, h.view.filterInput); assert.equal(h.view.hasUncommittedWork(), false);
+    setInput(h.view.filterInput, '<b>中文</b>'); assert.equal(h.view.list.querySelectorAll('[data-task-id]').length, 1);
+    assert.equal(h.view.list.querySelector('.tasks-text').children.length, 0);
+    setInput(h.view.filterInput, '.*'); assert.equal(h.view.list.children.length, 0); assert.match(h.view.filterStatus.textContent, /No matching tasks/);
+    assert.equal(h.view.completed.box.hidden, true); assert.equal(h.view.removed.box.hidden, true);
+    h.view.filterClear.focus(); h.view.filterClear.dispatch('click');
+    assert.equal(h.document.activeElement, h.view.filterInput); assert.equal(h.view.list.querySelectorAll('[data-task-id]').length, 4);
+    assert.equal(h.view.filterStatus.hidden, true); assert.equal(h.view.more.hidden, false);
+    assert.deepEqual(h.b.raw(), before); h.view.destroy();
+});
+
+test('DOM model: filter IME defers result updates; empty/whitespace query and Show all retain view semantics', async () => {
+    const h = model(); await settle(); assert.match(h.view.list.textContent || h.view.list.children[0].textContent, /A clear list/);
+    setInput(h.view.filterInput, 'missing'); assert.match(h.view.filterStatus.textContent, /No matching tasks/);
+    setInput(h.view.filterInput, '   '); assert.equal(h.view.filterStatus.hidden, true); assert.equal(h.view.hasUncommittedWork(), false);
+    for (let i = 0; i < 5; i++) await seed(h, `中文 ${i}`);
+    click(h.host, 'Show all tasks'); assert.equal(h.view.list.children.length, 5);
+    h.view.filterInput.dispatch('compositionstart'); h.view.filterInput.value = 'nothing'; h.view.filterInput.dispatch('input', { isComposing: true });
+    assert.equal(h.view.list.children.length, 5); await seed(h, '中文 new'); assert.equal(h.view.list.children.length, 6);
+    h.view.filterInput.value = '中文 4'; h.view.filterInput.dispatch('compositionend');
+    assert.equal(h.view.list.children.length, 1); h.view.filterClear.dispatch('click'); assert.equal(h.view.list.children.length, 6);
+    h.view.destroy();
+});
+
+test('DOM model: filtering keeps add/edit drafts, pending saves, retry ownership and external focus', async () => {
+    const h = model(); await settle(); const task = await seed(h, 'first');
+    setInput(h.view.input, 'submitted'); const wait = deferred(); h.b.delay = wait.promise; h.view.add();
+    setInput(h.view.input, 'new draft'); setInput(h.view.filterInput, 'first');
+    assert.equal(h.view.hasUncommittedWork(), true); assert.equal(h.view.addButton.disabled, true);
+    h.view.edit(task); const input = editor(h); setInput(input, 'editor draft'); input.focus();
+    setInput(h.view.filterInput, 'no matches'); assert.equal(h.document.activeElement, input); assert.equal(input.value, 'editor draft');
+    wait.resolve(); await settle(); assert.equal(h.view.input.value, 'new draft'); assert.equal(editor(h), input); assert.equal(h.document.activeElement, input);
+    h.view.filterClear.dispatch('click'); assert.equal(h.document.activeElement, input);
+    click(modal(h), 'Cancel'); h.b.delay = null; h.b.fail = true; h.view.add(); await settle();
+    const retry = h.controller.retryCommand; setInput(h.view.filterInput, 'first'); assert.equal(h.controller.retryCommand, retry);
+    h.search.focus(); h.b.fail = false; await h.view.retryLast(); await settle(); assert.equal(h.document.activeElement, h.search);
+    assert.equal(h.view.input.value, ''); assert.equal(h.view.filterInput.value, 'first'); assert.equal(h.view.hasUncommittedWork(), false); h.view.destroy();
+});
+
+test('DOM model: filtered rows disable hidden-neighbor reordering and keep focus ownership across updates', async () => {
+    const h = model(); await settle(); const first = await seed(h, 'unmatched'), second = await seed(h, 'matching');
+    setInput(h.view.filterInput, 'matching');
+    const row = h.view.list.querySelector('[data-task-id]'), menu = row.querySelector('.tasks-row-menu'); menu.open = true;
+    const up = button(row, 'Move up'); assert.equal(up.disabled, true); assert.equal(button(row, 'Move down').disabled, true);
+    assert.match(up.title, /Clear the filter/);
+    assert.deepEqual(h.controller.state.records.map(t => t.id), [first.id, second.id]);
+    h.view.filterClear.dispatch('click');
+    const unfilteredRow = h.view.list.querySelectorAll('[data-task-id]').find(node => node.dataset.taskId === second.id);
+    const enabledUp = button(unfilteredRow, 'Move up'); assert.equal(enabledUp.disabled, false); enabledUp.focus(); enabledUp.dispatch('click'); await settle();
+    assert.deepEqual(h.controller.state.records.filter(t => t.state === 'active').map(t => t.id), [second.id, first.id]);
+    assert.equal(h.document.activeElement.tagName, 'SUMMARY'); assert.equal(h.document.activeElement.closest('[data-task-id]').dataset.taskId, second.id);
+    h.view.filterInput.focus(); await seed(h, 'matching new'); assert.equal(h.document.activeElement, h.view.filterInput);
+    h.view.destroy();
+});

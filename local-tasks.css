@@ -11,13 +11,13 @@
 .tasks-next { color: var(--template-muted); font-size: 13px; line-height: 1.5; margin: 12px 0; white-space: pre-wrap; max-height: 110px; overflow: auto; }
 .tasks-next.has-pin { color: var(--template-text); border-inline-start: 3px solid var(--template-accent); padding-inline-start: 10px; }
 .tasks-add { display: flex; align-items: start; gap: 8px; margin: 12px 0 16px; }
-.local-tasks-card textarea, .tasks-dialog textarea {
+.local-tasks-card textarea, .tasks-dialog textarea, .tasks-filter input {
   min-width: 0; width: 100%; box-sizing: border-box; color: var(--template-text); background: var(--template-surface-raised);
   border: 1px solid var(--template-border); border-radius: 8px; padding: 9px 10px; font: inherit; font-size: 13px; line-height: 1.5; resize: vertical;
 }
 .tasks-add textarea { flex: 1 1 0; min-height: 40px; max-height: 160px; }
 .tasks-add .tasks-button { flex: 0 0 auto; white-space: nowrap; }
-.local-tasks-card textarea::placeholder, .tasks-dialog textarea::placeholder { color: var(--template-muted); opacity: 1; }
+.tasks-filter input::placeholder, .local-tasks-card textarea::placeholder, .tasks-dialog textarea::placeholder { color: var(--template-muted); opacity: 1; }
 .tasks-button {
   appearance: none; border: 1px solid var(--template-border); border-radius: 7px; padding: 6px 9px;
   min-height: 32px; color: var(--template-text); background: var(--template-surface); font: inherit; font-size: 12px;
@@ -79,3 +79,7 @@
     grid-template-columns: minmax(0, 1fr) minmax(280px, .35fr);
   }
 }
+
+.tasks-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.tasks-filter input { flex: 1 1 0; }
+.tasks-filter .tasks-button { flex: 0 0 auto; }

@@ -2,6 +2,7 @@
 
 Enable **Tasks** under module visibility settings. It starts empty and is optional. Hiding the card keeps its contents.
 
+- **Filter tasks** matches plain task text locally, ignoring case and outer spaces, across active, completed and removed tasks. All matching active tasks are shown; open **Completed** or **Removed** for their matching rows. **Clear filter** returns to your prior Show all/Show fewer view. Clear the filter before moving tasks up/down. The filter is not saved, does not search the web, and does not change task order, the pin, drafts or backups.
 - Add a plain-text task with Enter, or use Shift+Enter for a new line.
 - Complete or reopen a task. Open **Actions** to edit, pin one next action, move up/down, or remove it.
 - Completing a pinned task clears the pin. No other task is chosen automatically.
