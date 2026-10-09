@@ -155,3 +155,35 @@ No full rerun of every earlier feature, all-template/locale/zoom matrix, live
 Sync/Drive test, screen-reader validation or native macOS/Windows acceptance is
 implied. Native windows could not be reduced below 510px, so 320/400px layout
 remains unverified. Manifest version stays 1.1.5; no store submission occurred.
+
+
+## Current artifact: cross-tab Settings and dashboard preservation — 2026-10-09
+
+- Published source: `7b69ce03b53adce4bab5953c60f7a386010c3437`.
+- Archive: `local-itab-current-7b69ce0.zip`, 1,250,866 bytes; 60 runtime files
+  totaling 1,243,604 source bytes.
+- SHA-256: `b6d4f479240eea7892f67c2f9189068ac2a38f9a63ec33fbcd003d324d5ed79f`.
+- Full integrated checks: 564 Node regression tests and 19 Python packaging
+  tests passed. Canonical package verification passed, and all runtime entries
+  match the final native-tested dashboard snapshot.
+- Manifest version remains 1.1.5. Documentation-only updates do not change these
+  runtime ZIP bytes; no store submission or version increase is implied.
+
+This artifact includes guarded changed-field Settings saves and field-level
+dashboard search/visibility writes. On normal-sandbox Chrome for Testing
+155.0.8059.39 on cloud Linux, an older dashboard preserved a newer custom search
+URL while changing engine, retained newer title/spacing/icon preferences while
+hiding and showing the dashboard, and visibly rejected a stale engine change
+after a full configuration restore. See the [dashboard native acceptance](dashboard-field-native-validation.md).
+Earlier [Settings native acceptance](settings-save-native-validation.md)
+separately checked independent-field preservation, same-field conflict/draft
+retention and rejection after configuration replacement. That earlier Settings
+record has its own exact snapshot and does not claim a rerun on this ZIP.
+
+The delivered ZIP was matched byte-for-byte to the tested unpacked runtime; it
+was not separately launched in a fresh profile. Injected storage failures,
+queued-write ordering and custom-search conflict cases retain their stated
+source/model coverage. No exhaustive feature/theme/viewport matrix, native
+macOS/Windows, live Sync/Drive authentication or permission-prompt acceptance is
+implied. Keep the existing installation directory and follow the
+[migration checklist](migration.en.md) before replacing files or clearing data.

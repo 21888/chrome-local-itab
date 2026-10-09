@@ -14,7 +14,7 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
-Capturas de la extensión real en inglés con la misma configuración de ejemplo y categorías en chino. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
+Capturas reales de distintas etapas del desarrollo de las funciones. Las plantillas muestran controles en inglés y categorías de ejemplo en chino; cada sección de funciones indica el idioma de sus capturas. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
 
 **A / Clarity · Claro · Cuadrícula**
 
@@ -114,6 +114,8 @@ Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simu
 
 - **Buscar ajustes**: Busca nombres de ajustes en las seis pestañas y abre la sección con un clic o el teclado. La consulta es temporal y local; se excluyen el contenido guardado y los valores de los campos. [Guía en inglés](docs/settings-search.md#english).
 
+Configuración guarda solo los campos modificados y conserva los borradores en conflicto para revisarlos. El selector de buscador y los controles para mostrar u ocultar el panel conservan la URL personalizada, los estilos de accesos directos y las demás preferencias guardadas más recientes. Abre páginas nuevas de Configuración y del panel después de una restauración completa, un restablecimiento o la aplicación de una instantánea de Chrome Sync. [Protección del guardado y alcance (en inglés)](docs/settings-save-safety.md#english).
+
 ## Búsqueda y gestión de sitios
 
 ### Buscar sitios guardados
@@ -167,11 +169,11 @@ Activa Scratchpad en Ajustes → Visibilidad de módulos para guardar texto, enl
 El bloc no se incluye en la exportación de configuración, Chrome Sync ni las copias de Google Drive. Expórtalo por separado antes de desinstalar o borrar los datos del navegador. [Alcance y validación](docs/local-scratchpad-validation.md).
 
 <details>
-<summary>Más plantillas y capturas reales de funciones</summary>
+<summary>Capturas de importación TXT del bloc</summary>
 
-![Vista previa de importación TXT: interfaz clara real](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
+![Vista previa de importación TXT: interfaz real clara en inglés](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
 
-![Vista previa de importación TXT: interfaz oscura real](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
+![Vista previa de importación TXT: interfaz real oscura en inglés](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
 
 [Procedencia y recorte de capturas](docs/screenshots/scratchpad-import/capture-metadata.json)
 
@@ -179,14 +181,16 @@ El bloc no se incluye en la exportación de configuración, Chrome Sync ni las c
 
 ### Calendario mensual local
 
-Abre **Calendar** debajo de la fecha del reloj para consultar los meses sin conexión. **Previous / Next / Today** cambian la vista; las fechas son solo de consulta, sin eventos ni recordatorios. [Guía en inglés](docs/month-calendar.en.md) · [Alcance de la validación](docs/month-calendar-validation.md).
+Abre **Calendar** debajo de la fecha del reloj para consultar los meses sin conexión. **Previous / Next / Today** cambian la vista; las fechas son solo de consulta, sin eventos ni recordatorios. No guarda el mes consultado ni tiene estado que copiar o sincronizar. [Guía en inglés](docs/month-calendar.en.md) · [Alcance de la validación](docs/month-calendar-validation.md).
 
 <details>
 <summary>Capturas y dimensiones del calendario</summary>
 
-![Calendario real en ventana clara amplia](docs/screenshots/month-calendar/calendar-light-wide.png)
+La captura clara amplia usa chino simplificado; la oscura estrecha usa inglés.
 
-![Calendario real en ventana oscura estrecha](docs/screenshots/month-calendar/calendar-dark-narrow.png)
+![Calendario real en chino simplificado, en ventana clara amplia con la fecha localizada](docs/screenshots/month-calendar/calendar-light-wide.png)
+
+![Calendario real en inglés, en ventana oscura estrecha con la fecha y el calendario desplegado](docs/screenshots/month-calendar/calendar-dark-narrow.png)
 
 [Capturas y dimensiones del calendario](docs/screenshots/month-calendar/capture-metadata.json)
 
@@ -196,7 +200,7 @@ Abre **Calendar** debajo de la fecha del reloj para consultar los meses sin cone
 
 Añade hasta cuatro zonas horarias IANA en Ajustes → Apariencia. Puedes asignar una etiqueta, ver su hora y saber si allí es hoy, ayer o mañana respecto a tu fecha local. No requiere ubicación, servicios externos ni permisos nuevos; la lista empieza vacía.
 
-Pulsa Guardar relojes o Guardar ajustes para aplicar la lista. Estas preferencias forman parte de la configuración y se incluyen en sus exportaciones y en la sincronización opcional. Si otra pestaña cambia el reloj, el guardado obsoleto se rechaza conservando tu borrador. [Guía en inglés](docs/world-clocks.en.md).
+Usa **Move up / Move down** para reordenar el borrador y pulsa Guardar relojes o Guardar ajustes para aplicar la lista. Los cambios guardados actualizan directamente los paneles abiertos. Estas preferencias forman parte de la configuración; sus copias y la sincronización opcional conservan el orden guardado. Si otra pestaña cambia el reloj, el guardado obsoleto se rechaza conservando tu borrador. [Guía en inglés](docs/world-clocks.en.md).
 
 ### Cuenta atrás local
 
@@ -205,9 +209,9 @@ Guarda un evento y una fecha para ver los días que faltan, «Hoy» o los días 
 El título y la fecha se guardan por separado en este dispositivo y quedan fuera de las exportaciones de configuración, Chrome Sync y Google Drive. Puedes exportarlos como texto, incluido un borrador sin guardar. No necesita servicios externos ni notificaciones. [Guía en inglés](docs/local-countdown.en.md).
 
 <details>
-<summary>Más plantillas y capturas reales de funciones</summary>
+<summary>Capturas de la cuenta atrás</summary>
 
-Tarjeta real de cuenta atrás en modo claro y oscuro:
+Tarjeta real de cuenta atrás en modo claro y oscuro, con controles en inglés:
 
 ![Cuenta atrás local: interfaz clara real](docs/screenshots/countdown/countdown-en-light-wide.png)
 
@@ -273,7 +277,7 @@ El README predeterminado está en [chino simplificado](README.md), con versiones
 
 La extensión incluye actualmente recursos de interfaz en chino simplificado (`_locales/zh_CN`) e inglés (`_locales/en`). Usa el idioma del navegador mediante `chrome.i18n`, con el inglés como alternativa predeterminada. El español solo está disponible en la documentación por ahora.
 
-Los nombres del día y del mes siguen una etiqueta de idioma explícita en los mensajes chinos o ingleses mostrados, con el mensaje predefinido de Chrome `@@ui_locale`, el idioma de la interfaz de Chrome, el idioma preferido del navegador y la configuración regional del entorno como alternativas si no está disponible o es inválido. No cambian el formato de la hora ni los marcadores de fecha de las frases personalizadas. El texto de bienvenida recién generado se localiza; las frases guardadas o importadas (incluida la bienvenida anterior en inglés) no se traducen ni migran. Se conserva la validación existente, incluido el recorte de espacios y la bienvenida en inglés para cadenas vacías. Si falta el campo de frase, se usa el nuevo valor predeterminado localizado.
+La fecha completa del reloj principal, incluido el orden de la fecha y los nombres del día y del mes, sigue una etiqueta de idioma explícita en los mensajes chinos o ingleses mostrados, con el mensaje predefinido de Chrome `@@ui_locale`, el idioma de la interfaz de Chrome, el idioma preferido del navegador y la configuración regional del entorno como alternativas si no está disponible o es inválido. Las etiquetas del día del año y de la semana ISO también usan el idioma de la interfaz. No cambian el formato de la hora ni los marcadores de fecha de las frases personalizadas. El texto de bienvenida recién generado se localiza; las frases guardadas o importadas (incluida la bienvenida anterior en inglés) no se traducen ni migran. Se conserva la validación existente, incluido el recorte de espacios y la bienvenida en inglés para cadenas vacías. Si falta el campo de frase, se usa el nuevo valor predeterminado localizado.
 
 <a id="development"></a>
 

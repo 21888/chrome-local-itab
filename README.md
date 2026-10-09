@@ -14,7 +14,7 @@
 
 ## 界面预览
 
-以下为真实扩展截图（英文界面），使用同一份中文示例配置。网站选择、图标与卡片内容仅作展示；天气、热榜和电影卡片均为手动填写的示例，不是实时数据。
+以下为不同功能阶段拍摄的真实扩展截图。模版预览采用英文界面和中文示例分类；功能截图的界面语言见各节说明。网站选择、图标与卡片内容仅作展示；天气、热榜和电影卡片均为手动填写的示例，不是实时数据。
 
 **A「澄明」· 浅色 · 网格布局**
 
@@ -114,7 +114,7 @@
 
 - **查找设置**：搜索六个设置标签页中的内置设置名称，点击或使用键盘打开对应区域。搜索词仅临时保留在本地，不搜索已保存内容或输入值。[使用说明](docs/settings-search.md#中文)。
 
-多标签页编辑时，设置只保存修改的字段；发生冲突会保留草稿并提示复核。整体恢复或重置后请打开新的设置页。[保存保护与范围](docs/settings-save-safety.md)。
+多标签页编辑时，设置只保存修改的字段；发生冲突会保留草稿并提示复核。首页切换搜索引擎或显隐看板时，会保留最新保存的自定义搜索地址、快捷方式样式等其他偏好。整体恢复、重置或应用 Chrome 同步快照后，请重新打开设置页和首页。[保存保护与范围](docs/settings-save-safety.md)。
 
 ## 搜索与网站管理
 
@@ -167,11 +167,11 @@
 便签不进入配置导出、Chrome Sync 或 Google Drive 备份。卸载扩展或清理浏览器数据前，请单独导出。[功能边界与验收记录](docs/local-scratchpad-validation.md)。
 
 <details>
-<summary>更多模版与功能实拍</summary>
+<summary>便笺 TXT 导入实拍</summary>
 
-![便笺 TXT 导入预览：浅色真实界面](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
+![便笺 TXT 导入预览：英文浅色真实界面](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
 
-![便笺 TXT 导入预览：深色真实界面](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
+![便笺 TXT 导入预览：英文深色真实界面](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
 
 [截图来源与裁切记录](docs/screenshots/scratchpad-import/capture-metadata.json)
 
@@ -179,14 +179,16 @@
 
 ### 本地月历
 
-点击时钟日期下方的「日历」，即可在本地查看月份。「上个月 / 下个月 / 今天」用于切换视图；日期仅供查看，不提供事件或提醒。[月历指南](docs/month-calendar.zh-CN.md) · [验证范围](docs/month-calendar-validation.md)。
+点击时钟日期下方的「日历」，即可在本地查看月份。「上个月 / 下个月 / 今天」用于切换视图；日期仅供查看，不提供事件或提醒。无需联网，不保存浏览月份，也没有需要备份或同步的月历状态。[月历指南](docs/month-calendar.zh-CN.md) · [验证范围](docs/month-calendar-validation.md)。
 
 <details>
 <summary>月历实拍与尺寸记录</summary>
 
-![月历浅色宽窗口实拍](docs/screenshots/month-calendar/calendar-light-wide.png)
+浅色宽图为简体中文界面，深色窄图为英文界面。
 
-![月历深色窄窗口实拍](docs/screenshots/month-calendar/calendar-dark-narrow.png)
+![月历中文浅色宽窗口实拍：本地化日期与展开的月历](docs/screenshots/month-calendar/calendar-light-wide.png)
+
+![月历英文深色窄窗口实拍：展开的月历与日期](docs/screenshots/month-calendar/calendar-dark-narrow.png)
 
 [月历实拍与尺寸记录](docs/screenshots/month-calendar/capture-metadata.json)
 
@@ -194,16 +196,16 @@
 
 ### 离线世界时钟
 
-在设置中添加最多四个时区和可选的简短名称。沿用时钟格式，完全离线，并显示相对设备日历日期。 [使用及备份说明](docs/world-clocks.zh-CN.md)。
+在设置中添加最多四个时区和可选的简短名称。沿用时钟格式，完全离线，并显示相对设备日历日期。使用「上移 / 下移」调整顺序，再点击「保存时钟」或「保存设置」应用草稿。保存后会直接更新已打开的首页，并在配置备份和可选同步中保留顺序。[使用及备份说明](docs/world-clocks.zh-CN.md)。
 
 ### 离线倒计时
 
 为一个里程碑设置名称和日期，显示还有几天、今天或已过几天。默认隐藏，仅保存在此设备，支持明确保存、取消及文本导出。[使用和隐私说明](docs/local-countdown.zh-CN.md)。
 
 <details>
-<summary>更多模版与功能实拍</summary>
+<summary>倒计时实拍</summary>
 
-倒计时卡片的真实浅色与深色界面：
+倒计时卡片的真实浅色与深色界面（英文控件）：
 
 ![本地倒计时：浅色实拍](docs/screenshots/countdown/countdown-en-light-wide.png)
 
@@ -269,7 +271,7 @@
 
 扩展目前包含简体中文（`_locales/zh_CN`）和英文（`_locales/en`）界面资源，通过 `chrome.i18n` 使用浏览器语言，默认回退语言为英文。西班牙语目前仅为文档翻译。
 
-日期中的星期和月份名称优先使用当前中英文消息资源内的明确语言标记；不可用或无效时依次回退到 Chrome 预定义的 `@@ui_locale` 消息、Chrome 界面语言、浏览器首选语言和运行环境默认语言。时间格式及自定义语句中的日期占位符保持不变。新生成的欢迎语会本地化；已保存或导入的语句（包括旧版英文欢迎语）不会被翻译或迁移。原有语句校验行为不变，包括去除首尾空格及空字符串回退为英文欢迎语。缺少语句字段时使用新的本地化默认值。
+主时钟的完整日期（包括日期顺序、星期和月份名称）优先使用当前中英文消息资源内的明确语言标记；不可用或无效时依次回退到 Chrome 预定义的 `@@ui_locale` 消息、Chrome 界面语言、浏览器首选语言和运行环境默认语言。年内天数和 ISO 周数的标签也使用当前界面语言。时间格式及自定义语句中的日期占位符保持不变。新生成的欢迎语会本地化；已保存或导入的语句（包括旧版英文欢迎语）不会被翻译或迁移。原有语句校验行为不变，包括去除首尾空格及空字符串回退为英文欢迎语。缺少语句字段时使用新的本地化默认值。
 
 <a id="development"></a>
 

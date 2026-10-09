@@ -14,7 +14,7 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
-Real extension screenshots with the English interface and the same sample setup, including Chinese category names. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
+Real extension screenshots captured at different feature stages. Template previews use the English interface with Chinese sample category names; feature sections identify their capture languages. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
 
 **A / Clarity · Light · Grid layout**
 
@@ -114,7 +114,7 @@ Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protecti
 
 - **Find a setting**: Search built-in setting names across all six Settings tabs, then open the matching section with a click or keyboard. Queries stay temporary and local; saved content and form values are excluded. [Settings search guide](docs/settings-search.md).
 
-Settings saves only changed fields and keeps conflicting drafts for review. Open a new Settings tab after a whole restore or reset. [Save protection and scope](docs/settings-save-safety.md).
+Settings saves only changed fields and keeps conflicting drafts for review. The dashboard search selector and hide/show controls preserve the latest saved custom search URL, shortcut styles and other preferences. Open fresh Settings and dashboard pages after a whole restore, reset or applied Chrome Sync snapshot. [Save protection and scope](docs/settings-save-safety.md).
 
 ## Search and website management
 
@@ -167,11 +167,11 @@ Enable Scratchpad under Settings → Module Visibility for plain-text notes, lin
 Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Export it separately before uninstalling or clearing browser data. [Scope and validation](docs/local-scratchpad-validation.md).
 
 <details>
-<summary>More templates and actual feature captures</summary>
+<summary>Scratchpad TXT import captures</summary>
 
-![Scratchpad TXT import preview: actual light interface](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
+![Scratchpad TXT import preview: actual English light interface](docs/screenshots/scratchpad-import/scratchpad-import-light-wide.png)
 
-![Scratchpad TXT import preview: actual dark interface](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
+![Scratchpad TXT import preview: actual English dark interface](docs/screenshots/scratchpad-import/scratchpad-import-dark-wide.png)
 
 [Capture provenance and crop record](docs/screenshots/scratchpad-import/capture-metadata.json)
 
@@ -179,14 +179,16 @@ Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive 
 
 ### Local month calendar
 
-Open **Calendar** beneath the clock date to browse months locally. **Previous / Next / Today** change the view; dates are read-only, with no events or reminders. [Calendar guide](docs/month-calendar.en.md) · [Validation scope](docs/month-calendar-validation.md).
+Open **Calendar** beneath the clock date to browse months locally. **Previous / Next / Today** change the view; dates are read-only, with no events or reminders. It works offline, does not save the browsed month and has no calendar state to back up or sync. [Calendar guide](docs/month-calendar.en.md) · [Validation scope](docs/month-calendar-validation.md).
 
 <details>
 <summary>Calendar captures and dimensions</summary>
 
-![Month calendar in a real light wide window](docs/screenshots/month-calendar/calendar-light-wide.png)
+The light wide capture uses Simplified Chinese; the dark narrow capture uses English.
 
-![Month calendar in a real dark narrow window](docs/screenshots/month-calendar/calendar-dark-narrow.png)
+![Simplified Chinese month calendar in a real light wide window, with the localized date](docs/screenshots/month-calendar/calendar-light-wide.png)
+
+![English month calendar in a real dark narrow window, with the date and calendar expanded](docs/screenshots/month-calendar/calendar-dark-narrow.png)
 
 [Calendar captures and dimensions](docs/screenshots/month-calendar/capture-metadata.json)
 
@@ -194,16 +196,16 @@ Open **Calendar** beneath the clock date to browse months locally. **Previous / 
 
 ### Offline world clocks
 
-Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. [Setup and backup behavior](docs/world-clocks.en.md).
+Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. Use **Move up / Move down** to reorder the draft, then **Save clocks** or **Save settings** to apply it. Saved changes update open dashboards directly; configuration backups and optional Sync retain the saved order. [Setup and backup behavior](docs/world-clocks.en.md).
 
 ### Offline Countdown
 
 Name one milestone and see local calendar days left, Today, or days ago. Hidden by default, saved only on this device, with explicit Save/Cancel and text export. [Usage and privacy](docs/local-countdown.en.md).
 
 <details>
-<summary>More templates and actual feature captures</summary>
+<summary>Countdown captures</summary>
 
-Actual Countdown card in light and dark appearance:
+Actual Countdown card in light and dark appearance, with English controls:
 
 ![Local Countdown: actual light interface](docs/screenshots/countdown/countdown-en-light-wide.png)
 
@@ -269,7 +271,7 @@ The default README is [Simplified Chinese](README.md), with English and [Spanish
 
 The extension currently includes Simplified Chinese (`_locales/zh_CN`) and English (`_locales/en`) interface resources. It uses the browser language through `chrome.i18n`, with English as the fallback. Spanish is currently a documentation translation only.
 
-Date weekday/month names follow an explicit locale tag in the displayed CN/EN message catalog, falling back to Chrome’s predefined `@@ui_locale` message, Chrome’s UI language, the preferred browser language and then the runtime locale if unavailable or invalid. Time formatting and date placeholders in custom quotes are unchanged. Newly generated welcome text is localized; saved or imported quotes (including the old English welcome) are never translated or migrated. Existing quote validation, including trimming and the English fallback for empty strings, is unchanged. Missing quote fields receive the new localized default.
+The main clock’s complete date, including date order and weekday/month names, follows an explicit locale tag in the displayed CN/EN message catalog, falling back to Chrome’s predefined `@@ui_locale` message, Chrome’s UI language, the preferred browser language and then the runtime locale if unavailable or invalid. Day-of-year and ISO-week labels also use the interface language. Time formatting and date placeholders in custom quotes are unchanged. Newly generated welcome text is localized; saved or imported quotes (including the old English welcome) are never translated or migrated. Existing quote validation, including trimming and the English fallback for empty strings, is unchanged. Missing quote fields receive the new localized default.
 
 <a id="development"></a>
 
