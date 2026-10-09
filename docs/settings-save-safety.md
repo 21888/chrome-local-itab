@@ -56,10 +56,27 @@ Sync state or request permission.
 
 This change does not add a history or merge-conflict editor. Old-version pages,
 manual DevTools writes and third-party direct storage writes cannot be protected
-by a lock they do not use. Dashboard search selection and dashboard-hidden
-controls still have their pre-existing cached whole-object writers; they are not
-converted to field-level comparison in this Settings-scoped change. This is a
-source-review limitation, not a new native-browser reproduction claim.
+by a lock they do not use.
+
+### Dashboard controls
+
+The dashboard search selector writes only the chosen engine; hide/show writes
+only dashboard visibility. Each merges with the latest saved parent object inside
+the same lock, preserving custom search URLs, shortcut-title preferences, spacing,
+icon size and unknown sibling fields. These explicit choices can replace an earlier
+choice of the same field within the same configuration generation. A whole restore,
+reset or applied Sync snapshot invalidates their original page baseline instead.
+
+Custom-search Save still selects Custom and writes its URL together, comparing
+the entire original saved search pair. A conflicting URL/engine change retains
+the draft. Changing engines can refresh an untouched custom URL from storage,
+but never silently gives an existing dirty draft permission to replace that URL.
+Pending actions serialize, defer automatic reload and receive departure protection.
+An older completion cannot repaint a newer choice; a failed newest selection or
+hide/show action returns to the last confirmed local choice with visible feedback.
+Reinitializing the dashboard retires previous double-click handlers. No new
+permissions, network requests, backup schema or stored metadata are added here.
+
 
 ### Validation
 
@@ -93,7 +110,11 @@ JSON 或 Drive 整体恢复、重置、已应用的 Chrome 同步快照会让旧
 选择，冲突提示会明确说明。热榜增删改失败时会把修改保留在列表中供检查或复制。
 在线图标只有在可选权限请求完成且已授权后才能新开启。
 
-本次覆盖设置页及其背景、热榜、海报写入辅助逻辑，不修改首页搜索和隐藏看板控件
-原有的整对象写入方式。新增的本地整体替换标记不会进入导出、Drive、Chrome 同步
+本次覆盖设置页及其背景、热榜、海报写入辅助逻辑。首页搜索引擎选择和看板显隐也
+仅写入所选字段，在锁内合并最新的其他偏好，不会覆盖自定义搜索地址、标题或间距。
+同一配置版本内的明确选择可以替换同字段的旧选择，整体恢复后旧页面必须重新打开。
+自定义搜索保存仍核对完整的搜索配置；有冲突时保留草稿，切换引擎不会把未审阅的
+新地址变成旧草稿的覆盖许可。保存中保护离页，失败时恢复上次确认的选择并提示。
+新增的本地整体替换标记不会进入导出、Drive、Chrome 同步
 或导入格式，也不包含或修改待办、专注、便签、倒计时等私人内容。实际代码的多页
 存储模型回归覆盖并发、失败与草稿保留；浏览器画面和真实云端授权需另行验收。

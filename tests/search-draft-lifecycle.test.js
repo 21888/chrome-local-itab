@@ -11,12 +11,20 @@ function mount(engine = 'google', custom = '', locale = null) {
     const host = document.createElement('section'); host.id = 'search-container'; document.body.append(host);
     let reloads = 0, pulls = 0, confirms = 0, decision = false, ignore = false, applied = true;
     let openResult = { closed: false };
+    let savedConfig = {engine, custom};
     const storageManager = {
         syncMetaKey: 'meta', syncChunkPrefix: 'chunk', syncIdentityStateKey: 'guard',
         getSyncCompatibilityStatus: async () => null,
         shouldIgnoreRemoteSyncChange: async () => ignore,
         pullFromSync: async () => { pulls++; return { applied }; },
-        set: async (...args) => { writes.push(args); return true; }
+        set: async (...args) => { writes.push(args); return true; },
+        async patchDashboardPreferences(patch) {
+            const next = {...savedConfig, ...patch};
+            const success = await this.set('search', next);
+            if (!success) return false;
+            savedConfig = next;
+            return {generation: null, search: {...next}, searchSource: {...next}};
+        }
     };
     const window = {
         storageManager, addEventListener() {},
@@ -35,6 +43,8 @@ function mount(engine = 'google', custom = '', locale = null) {
     for (const file of ['shared/search-template.js', 'shared/local-calculator.js', 'shared/local-content-lifecycle.js', 'newtab.js']) {
         vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     }
+    const initializeSearch = context.initializeSearchComponent;
+    context.initializeSearchComponent = config => initializeSearch(config, {generation: null, values: {search: {...config}}});
     context.initializeSearchComponent({ engine, custom }); context.setupCloudSyncChangeListener();
     const input = host.querySelector('.search-input'), form = host.querySelector('form');
     const edit = value => { input.value = value; input.dispatch('input'); };

@@ -280,6 +280,68 @@ class StorageManager {
         return merged;
     }
 
+    dashboardPreferenceError(code = 'DASHBOARD_PREF_CONFLICT') {
+        const error = new Error('Saved preferences changed or could not be safely compared. Keep any draft and open a new tab before retrying.');
+        error.code = code; return error;
+    }
+
+    // Dashboard controls own these fields, never their cached parent objects.
+    // Select/toggle actions express a new value; an explicit custom-template
+    // Save additionally compares the original search pair before replacing it.
+    async patchDashboardPreferences(patch, baseline) {
+        if (!baseline || typeof baseline !== 'object' || Array.isArray(baseline) ||
+            !baseline.values || typeof baseline.values !== 'object' || Array.isArray(baseline.values) ||
+            !Object.prototype.hasOwnProperty.call(baseline, 'generation') ||
+            (baseline.generation !== null && (typeof baseline.generation !== 'string' || !baseline.generation))) {
+            throw this.dashboardPreferenceError('DASHBOARD_PREF_BASELINE_UNAVAILABLE');
+        }
+        const expected = {generation: baseline.generation, values: LayoutIdentity.copy(
+            Object.prototype.hasOwnProperty.call(baseline.values, 'search') ? {search: baseline.values.search} : {})};
+        if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw this.dashboardPreferenceError();
+        const requested = LayoutIdentity.copy(patch);
+        const keys = Object.keys(requested), has = key => Object.prototype.hasOwnProperty.call(requested, key);
+        if (!keys.length || keys.some(key => !['engine', 'custom', 'dashboardHidden'].includes(key)) ||
+            (has('engine') && !['google', 'bing', 'duck', 'custom'].includes(requested.engine)) ||
+            (has('dashboardHidden') && typeof requested.dashboardHidden !== 'boolean') ||
+            (has('custom') && (requested.engine !== 'custom' || typeof requested.custom !== 'string' ||
+                !requested.custom || this.validateSearchConfig({engine: 'custom', custom: requested.custom}).custom !== requested.custom))) {
+            throw this.dashboardPreferenceError();
+        }
+        await this.ensureSyncInitialized();
+        let result;
+        try {
+            result = await this.withLocalWriteLock(async () => {
+                const raw = await chrome.storage.local.get(['search', 'ui', this.settingsGenerationKey]);
+                if (this.settingsSnapshot(raw).generation !== expected.generation) throw this.dashboardPreferenceError();
+                if (has('custom') && !this.sameShortcutUndoValue(raw.search, expected.values.search)) throw this.dashboardPreferenceError();
+                const written = {};
+                for (const key of ['search', 'ui']) {
+                    if (key === 'search' ? !has('engine') && !has('custom') : !has('dashboardHidden')) continue;
+                    if (raw[key] !== undefined && (!raw[key] || typeof raw[key] !== 'object' || Array.isArray(raw[key]))) throw this.dashboardPreferenceError();
+                    written[key] = raw[key] === undefined ? {} : LayoutIdentity.copy(raw[key]);
+                }
+                if (has('engine')) written.search.engine = requested.engine;
+                if (has('custom')) written.search.custom = requested.custom;
+                if (has('dashboardHidden')) written.ui.dashboardHidden = requested.dashboardHidden;
+                const committed = {generation: expected.generation};
+                if (written.search) {
+                    committed.search = this.validateSearchConfig(written.search);
+                    committed.searchSource = LayoutIdentity.copy(written.search);
+                }
+                if (written.ui) committed.ui = this.validateUiConfig(written.ui);
+                await chrome.storage.local.set(written);
+                return committed;
+            }, true);
+        } catch (error) {
+            if (error.code === 'LINKS_LOCK_UNAVAILABLE') throw this.dashboardPreferenceError('DASHBOARD_PREF_LOCK_UNAVAILABLE');
+            if (error.code?.startsWith('SETTINGS_')) throw this.dashboardPreferenceError();
+            throw error;
+        }
+        try { if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush(); }
+        catch (error) { console.warn('Dashboard preference saved locally; Sync scheduling failed:', error); }
+        return result;
+    }
+
     async writeLocalValues(values, options = {}) {
         this.assertConfigurationKeys(Object.keys(values));
         const has = key => Object.prototype.hasOwnProperty.call(values, key);

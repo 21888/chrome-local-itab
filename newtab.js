@@ -4,6 +4,23 @@ if (typeof window !== 'undefined') {
     window.dashboardHiddenState = dashboardHiddenState;
 }
 let currentUiState = null;
+let dashboardPreferenceBaseline = null;
+let dashboardVisibilityQueue = Promise.resolve();
+let dashboardVisibilitySession = 0;
+let dashboardVisibilityRequest = 0;
+let dashboardVisibilityPending = 0;
+let dashboardSavedHiddenState = false;
+let dashboardVisibilityOwner = null;
+function dashboardPreferenceMessage(error) {
+    const conflict = error?.code?.startsWith('DASHBOARD_PREF_');
+    const unavailable = error?.code === 'DASHBOARD_PREF_LOCK_UNAVAILABLE';
+    const key = unavailable ? 'dashboardPreferenceLockUnavailable' : conflict ? 'dashboardPreferenceConflict' : 'dashboardPreferenceFailed';
+    const fallback = unavailable ? 'Safe preference saving is unavailable in this browser. Your saved settings are unchanged.'
+        : conflict ? 'Saved preferences changed or could not be safely read. Keep any draft and open a new tab before retrying.'
+        : 'Could not save this preference. Your last saved choice is still in use; try again.';
+    const translated = window.i18n?.t(key);
+    return translated && translated !== key ? translated : fallback;
+}
 let quoteRefreshIntervalId = null;
 const THEME_PRESETS = ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'];
 const SEARCH_ENGINES = {
@@ -142,7 +159,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             });
         }
 
-        setupDashboardVisibilityToggle(config?.ui);
+        setupDashboardVisibilityToggle(config?.ui, config?._settingsBaseline);
         setupThemeChangeListener();
         setupClockPreferenceListener(config);
         setupDashboardAppearance(config);
@@ -306,7 +323,7 @@ async function initializeDashboard() {
         }
 
         if (config.show.search) {
-            initializeSearchComponent(config.search);
+            initializeSearchComponent(config.search, config._settingsBaseline);
         }
 
 
@@ -642,7 +659,7 @@ function applyModuleVisibility(showConfig) {
     document.querySelector('.dashboard-main')?.classList.toggle('has-info-cards', hasCards);
 }
 
-function initializeSearchComponent(searchConfig = {}) {
+function initializeSearchComponent(searchConfig = {}, baseline = null) {
     const container = document.getElementById('search-container');
     if (!container) return;
 
@@ -652,6 +669,8 @@ function initializeSearchComponent(searchConfig = {}) {
         custom: typeof searchConfig.custom === 'string' ? searchConfig.custom.trim() : ''
     };
 
+    let searchBaseline = baseline ? JSON.parse(JSON.stringify({generation: baseline.generation,
+        values: Object.prototype.hasOwnProperty.call(baseline.values, 'search') ? {search: baseline.values.search} : {}})) : null;
     window.localCalculatorView?.clearResult?.();
     container.replaceChildren();
     const form = document.createElement('form');
@@ -742,13 +761,16 @@ function initializeSearchComponent(searchConfig = {}) {
     let customDraftBaseline = currentSearchConfig.custom;
     let customEditRevision = 0;
     let customSavePending = 0;
+    let searchConfigPending = 0;
+    let selectionRequest = 0;
     let customComposing = false;
     const searchOwner = {
         clearResult: clearCalculatorOutput,
+        get pending() { return searchConfigPending > 0; },
         hasUncommittedWork: () => window.localCalculatorView === searchOwner && (
             (input.isConnected && Boolean(input.value.trim()) &&
                 (isCalculation() || input.value !== submittedValue)) ||
-            (customInput.isConnected && (customSavePending > 0 || customComposing || customInput.value !== customDraftBaseline)))
+            (customInput.isConnected && (searchConfigPending > 0 || customSavePending > 0 || customComposing || customInput.value !== customDraftBaseline)))
     };
     window.localCalculatorView = searchOwner;
     const markSearchEdited = () => {
@@ -851,20 +873,34 @@ function initializeSearchComponent(searchConfig = {}) {
     };
 
     const isCurrentEditor = () => customInput.isConnected && window.localCalculatorView === searchOwner;
-    // Serialize this editor's writes only. Selection never persists draft text,
-    // and a selection queued behind Save uses its successfully saved template.
+    // Serialize intents from this editor without replaying cached sibling values.
     let configWrite = Promise.resolve();
-    const persistSearchConfig = (makeConfig) => {
+    const persistSearchConfig = (patch) => {
+        ++searchConfigPending;
         const operation = configWrite.then(async () => {
-            if (!isCurrentEditor() || !window.storageManager || typeof storageManager.set !== 'function') return false;
-            const nextConfig = makeConfig();
+            if (!isCurrentEditor()) return {saved: false};
+            const cleanCustom = customInput.value === customDraftBaseline && !customComposing;
+            const inputBefore = customInput.value, revision = customEditRevision;
             try {
-                const saved = await storageManager.set('search', nextConfig);
-                if (saved) currentSearchConfig = nextConfig;
-                return saved;
-            } catch (_) { return false; }
-        });
-        configWrite = operation;
+                if (!window.storageManager || typeof storageManager.patchDashboardPreferences !== 'function') throw new Error('Safe preference saving unavailable');
+                const committed = await storageManager.patchDashboardPreferences(patch, searchBaseline);
+                if (!committed) throw new Error('Preference was not saved');
+                currentSearchConfig = committed.search;
+                if (Object.prototype.hasOwnProperty.call(patch, 'custom')) {
+                    searchBaseline.values.search = committed.searchSource;
+                } else if (cleanCustom && isCurrentEditor() && customInput.value === inputBefore && customEditRevision === revision) {
+                    searchBaseline.values.search = committed.searchSource;
+                    customDraftBaseline = committed.search.custom;
+                    customInput.value = committed.search.custom;
+                } else {
+                    // A dirty template retains its original conflict baseline,
+                    // including when engine selection discovers an external URL.
+                    searchBaseline.values.search = {...(searchBaseline.values.search || {}), engine: patch.engine};
+                }
+                return {saved: true};
+            } catch (error) { return {saved: false, error}; }
+        }).finally(() => { --searchConfigPending; });
+        configWrite = operation.then(() => {});
         return operation;
     };
 
@@ -890,7 +926,7 @@ function initializeSearchComponent(searchConfig = {}) {
         }
 
         customSavePending++;
-        const saved = await persistSearchConfig(() => ({ engine: 'custom', custom: normalizedTemplate }));
+        const {saved, error} = await persistSearchConfig({engine: 'custom', custom: normalizedTemplate});
         customSavePending--;
         if (!isCurrentEditor()) return saved;
         // A successful write establishes the saved baseline even when a newer
@@ -900,7 +936,7 @@ function initializeSearchComponent(searchConfig = {}) {
         if (saved) customInput.value = normalizedTemplate;
         if (select.value !== engine) return saved;
         if (!saved) {
-            setCustomStatus((window.i18n && i18n.t('failedToSave')) || 'Failed to save. Please try again.', 'error');
+            setCustomStatus(dashboardPreferenceMessage(error), 'error');
             return false;
         }
 
@@ -913,15 +949,17 @@ function initializeSearchComponent(searchConfig = {}) {
     select.addEventListener('change', async () => {
         if (!isCurrentEditor()) return;
         markSearchEdited();
-        const engine = select.value;
+        const engine = select.value, request = ++selectionRequest;
         updateCustomConfigVisibility(engine === 'custom' && !currentSearchConfig.custom);
-
-        if (engine !== 'custom') {
-            await persistSearchConfig(() => ({ ...currentSearchConfig, engine }));
-            return;
+        const {saved, error} = await persistSearchConfig({engine});
+        if (!isCurrentEditor() || request !== selectionRequest || select.value !== engine) return;
+        if (!saved) {
+            select.value = currentSearchConfig.engine;
+            updateCustomConfigVisibility(false);
+            searchStatus.textContent = dashboardPreferenceMessage(error);
+            searchStatus.classList.remove('sr-only');
+            searchStatus.classList.add('is-error');
         }
-
-        await persistSearchConfig(() => ({ ...currentSearchConfig, engine: 'custom' }));
     });
 
     customSave.addEventListener('click', () => saveCustomSearch());
@@ -1930,13 +1968,18 @@ function applyUiPreferences(uiState) {
     }
 }
 
-function setupDashboardVisibilityToggle(uiConfig) {
+function setupDashboardVisibilityToggle(uiConfig, baseline = null) {
+    const session = ++dashboardVisibilitySession;
+    ++dashboardVisibilityRequest;
+    dashboardPreferenceBaseline = baseline ? {generation: baseline.generation, values: {}} : null;
     const defaults = (window.storageManager && storageManager.defaultConfig && storageManager.defaultConfig.ui)
         ? storageManager.defaultConfig.ui
         : { dashboardHidden: false, dashboardPadding: null, showShortcutTitles: true };
 
     currentUiState = { ...defaults, ...(uiConfig || {}) };
     dashboardHiddenState = !!currentUiState.dashboardHidden;
+    dashboardSavedHiddenState = dashboardHiddenState;
+    window.dashboardPreferenceView = {get pending() { return dashboardVisibilityPending > 0; }};
     applyDashboardHiddenState(dashboardHiddenState);
     applyUiPreferences(currentUiState);
     if (typeof window !== 'undefined') {
@@ -1944,10 +1987,11 @@ function setupDashboardVisibilityToggle(uiConfig) {
     }
 
     const dashboard = document.getElementById('dashboard');
+    dashboardVisibilityOwner = dashboard;
     if (!dashboard) return;
 
     dashboard.addEventListener('dblclick', (event) => {
-        if (!shouldToggleFromEvent(event)) {
+        if (session !== dashboardVisibilitySession || !shouldToggleFromEvent(event)) {
             return;
         }
 
@@ -1958,7 +2002,7 @@ function setupDashboardVisibilityToggle(uiConfig) {
 
         event.preventDefault();
         const nextState = !dashboardHiddenState;
-        setDashboardHidden(nextState);
+        return setDashboardHidden(nextState);
     });
 }
 
@@ -1974,29 +2018,40 @@ function applyDashboardHiddenState(hidden) {
 }
 
 function setDashboardHidden(hidden) {
-    if (hidden && window.localScratchpadView?.hasUncommittedWork()) return;
-    dashboardHiddenState = !!hidden;
-    applyDashboardHiddenState(dashboardHiddenState);
-    if (typeof window !== 'undefined') {
-        window.dashboardHiddenState = dashboardHiddenState;
-    }
-
-    if (!currentUiState) {
-        const defaults = (window.storageManager && storageManager.defaultConfig && storageManager.defaultConfig.ui)
-            ? storageManager.defaultConfig.ui
-            : { dashboardHidden: false };
-        currentUiState = { ...defaults };
-    }
-
-    currentUiState.dashboardHidden = dashboardHiddenState;
-
-    if (window.storageManager && typeof storageManager.set === 'function') {
-        storageManager.set('ui', currentUiState).catch((error) => {
-            console.error('Failed to persist dashboard hidden state:', error);
-        });
-    }
+    if (hidden && window.localScratchpadView?.hasUncommittedWork()) return Promise.resolve(false);
+    const owner = dashboardVisibilityOwner;
+    const ownsView = () => owner?.isConnected && owner === document.getElementById('dashboard');
+    if (!ownsView()) return Promise.resolve(false);
+    const desired = !!hidden, session = dashboardVisibilitySession, request = ++dashboardVisibilityRequest;
+    const baseline = dashboardPreferenceBaseline;
+    dashboardHiddenState = desired;
+    applyDashboardHiddenState(desired);
+    window.dashboardHiddenState = desired;
+    ++dashboardVisibilityPending;
+    const operation = dashboardVisibilityQueue.then(async () => {
+        if (session !== dashboardVisibilitySession || !ownsView()) return false;
+        try {
+            if (!window.storageManager || typeof storageManager.patchDashboardPreferences !== 'function') throw new Error('Safe preference saving unavailable');
+            const committed = await storageManager.patchDashboardPreferences({dashboardHidden: desired}, baseline);
+            if (!committed) throw new Error('Preference was not saved');
+            if (session === dashboardVisibilitySession && ownsView()) {
+                dashboardSavedHiddenState = committed.ui.dashboardHidden;
+                currentUiState = {...currentUiState, dashboardHidden: dashboardSavedHiddenState};
+            }
+            return true;
+        } catch (error) {
+            if (session === dashboardVisibilitySession && ownsView() && request === dashboardVisibilityRequest) {
+                dashboardHiddenState = dashboardSavedHiddenState;
+                window.dashboardHiddenState = dashboardSavedHiddenState;
+                applyDashboardHiddenState(dashboardSavedHiddenState);
+                showErrorMessage(dashboardPreferenceMessage(error));
+            }
+            return false;
+        }
+    }).finally(() => { --dashboardVisibilityPending; });
+    dashboardVisibilityQueue = operation.then(() => {});
+    return operation;
 }
-
 
 
 /**

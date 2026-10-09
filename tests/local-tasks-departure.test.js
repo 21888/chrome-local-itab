@@ -100,9 +100,13 @@ test('departure: existing settings guards stay intact and unrelated reload guard
         let dirty = true; h.window[name] = { hasUncommittedWork: () => dirty };
         h.guarded(true, name); dirty = false; h.guarded(false, `${name} released`); delete h.window[name];
     }
-    for (const name of ['localCountdownView', 'localScratchpadView', 'localCalculatorView', 'bookmarkImportView', 'workspacePresetsView']) {
+    for (const name of ['localCountdownView', 'localScratchpadView', 'bookmarkImportView', 'workspacePresetsView']) {
         h.window[name] = { controller: { pending: {} }, pending: {}, hasUncommittedWork: () => true };
         h.guarded(false, `${name} departure behavior unchanged`); delete h.window[name];
+    }
+    for (const name of ['localCalculatorView', 'dashboardPreferenceView']) {
+        h.window[name] = {pending: true}; h.guarded(true, `${name} preference save pending`);
+        h.window[name].pending = false; h.guarded(false, `${name} idle`); delete h.window[name];
     }
     h.destroy(); delete h.window.localTasksView; h.guarded(false, 'page without Tasks');
 });

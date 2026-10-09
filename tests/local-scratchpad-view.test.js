@@ -62,7 +62,9 @@ test('DOM model: export preserves stored CRLF and rejects lossy invalid Unicode 
 test('integration: unsettled Scratchpad blocks dashboard hide; saved follows normal visibility',()=>{
     const source=fs.readFileSync(require.resolve('../newtab.js'),'utf8');const start=source.indexOf('function setDashboardHidden(hidden)');const end=source.indexOf('\n}',start)+2;
     for(const unsettled of [true,false]) {
-        const context={window:{localScratchpadView:{hasUncommittedWork:()=>unsettled}},dashboardHiddenState:false,currentUiState:{},applied:null,applyDashboardHiddenState(value){this.applied=value;}};
+        const owner={isConnected:true};
+        const storageManager={patchDashboardPreferences:async patch=>({ui:{dashboardHidden:patch.dashboardHidden}})};
+        const context={document:{getElementById:()=>owner},dashboardVisibilityOwner:owner,window:{storageManager,localScratchpadView:{hasUncommittedWork:()=>unsettled}},storageManager, dashboardHiddenState:false,currentUiState:{},dashboardVisibilitySession:0,dashboardVisibilityRequest:0,dashboardPreferenceBaseline:{generation:null,values:{}},dashboardVisibilityPending:0,dashboardVisibilityQueue:Promise.resolve(),dashboardSavedHiddenState:false,applied:null,applyDashboardHiddenState(value){this.applied=value;}};
         vm.createContext(context);vm.runInContext(source.slice(start,end)+';setDashboardHidden(true);',context);assert.equal(context.dashboardHiddenState,!unsettled);
     }
     assert(source.includes('.local-scratchpad-card'));
