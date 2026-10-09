@@ -1529,18 +1529,15 @@ class ClockComponent {
      * @returns {string} - Formatted date string
      */
     formatDate(date) {
-        const locale = this.getDateLocale();
-        const dayOfWeek = date.toLocaleDateString(locale, { weekday: 'long' });
-        const month = date.toLocaleDateString(locale, { month: 'long' });
-        const day = date.getDate();
-        const year = date.getFullYear();
-
+        const fullDate = date.toLocaleDateString(this.getDateLocale(), {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
         const dayOfYear = this.getDayOfYear(date);
         const weekNumber = this.getWeekNumber(date);
 
-        const dayLabel = (window.i18n && i18n.t('dayOfYear')) || 'Day';
-        const weekLabel = (window.i18n && i18n.t('weekNumber')) || 'Week';
-        return `${dayOfWeek}, ${month} ${day}, ${year} • ${dayLabel} ${dayOfYear} • ${weekLabel} ${weekNumber}`;
+        const dayLabel = this.worldClockText('dayOfYear', `Day ${dayOfYear}`, [String(dayOfYear)]);
+        const weekLabel = this.worldClockText('weekNumber', `Week ${weekNumber}`, [String(weekNumber)]);
+        return `${fullDate} • ${dayLabel} • ${weekLabel}`;
     }
 
     /**

@@ -37,7 +37,7 @@ test('extension message locale wins when native browser UI and content locales d
     }, 'en-US');
     assert.equal(component.getDateLocale(), 'zh-CN');
     const date = new Date(2026, 9, 9, 12);
-    assert.ok(component.formatDate(date).startsWith(`${date.toLocaleDateString('zh-CN', { weekday: 'long' })}, ${date.toLocaleDateString('zh-CN', { month: 'long' })}`));
+    assert.ok(component.formatDate(date).startsWith(date.toLocaleDateString('zh-CN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })));
     for (const getMessage of [() => '', () => '@@ui_locale', () => null, () => 'invalid_locale_tag_!', () => { throw new Error('unavailable'); }]) {
         assert.equal(clock({ getMessage, getUILanguage: () => 'en-GB' }).getDateLocale(), 'en-GB');
     }
@@ -52,7 +52,7 @@ test('explicit catalog locale aligns dates when both native locale indicators re
         }, 'en-US');
         assert.equal(component.getDateLocale(), expected);
         const date = new Date(2026, 9, 9, 12);
-        assert.ok(component.formatDate(date).startsWith(`${date.toLocaleDateString(expected, { weekday: 'long' })}, ${date.toLocaleDateString(expected, { month: 'long' })}`));
+        assert.ok(component.formatDate(date).startsWith(date.toLocaleDateString(expected, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })));
     }
     for (const value of ['', 'dateFormattingLocale', null, 'bad_locale', 42]) {
         assert.equal(clock({ getMessage: key => key === 'dateFormattingLocale' ? value : 'zh_CN', getUILanguage: () => 'en-US' }).getDateLocale(), 'zh-CN');
@@ -64,7 +64,7 @@ test('calendar calculations, repeated date display and clock options stay stable
     const en = clock({ getUILanguage: () => 'en-US' });
     for (const date of [new Date(2026, 9, 9, 12), new Date(2024, 1, 29, 12), new Date(2026, 0, 1, 12), new Date(2026, 11, 31, 12)]) {
         const stamp = date.getTime();
-        const expected = `${date.toLocaleDateString('zh-CN', { weekday: 'long' })}, ${date.toLocaleDateString('zh-CN', { month: 'long' })} ${date.getDate()}, ${date.getFullYear()} • Day ${en.getDayOfYear(date)} • Week ${en.getWeekNumber(date)}`;
+        const expected = `${date.toLocaleDateString('zh-CN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} • Day ${en.getDayOfYear(date)} • Week ${en.getWeekNumber(date)}`;
         assert.equal(cn.formatDate(date), expected);
         assert.equal(cn.formatDate(date), expected);
         assert.equal(date.getTime(), stamp);

@@ -128,3 +128,30 @@ coverage where stated. No all-template/locale/IME/assistive-technology guarantee
 live Drive/Sync validation, native macOS/Windows acceptance or store submission
 is implied. Manifest version remains 1.1.5. Preserve the existing installation
 directory and make separate private-module backups before replacing files.
+
+
+## Offline calendar and localized dates — 2026-10-09
+
+This checkpoint adds the offline month calendar published at `4999964` and the
+separate localized clock-date correction recorded with this section. Its
+canonical runtime ZIP has 60 files, 1,216,532 source bytes and 1,223,794 archive
+bytes. SHA256:
+`a408ce5e8fb0e9b57b03ac3ab7afeaf01eadc66cc2b6d787744fb0ba896330a6`.
+It can be identified by this content hash regardless of download filename.
+Integrated verification passed 496 Node tests and 19 Python packaging tests.
+
+The exact candidate ZIP was verified, extracted to a fresh snapshot and loaded
+by normal-sandbox official Chrome for Testing 155.0.8059.39 on cloud Linux.
+All 60 file hashes matched the final source. Calendar navigation, focus,
+visibility and bounded template checks were performed on the preceding
+calendar snapshot; the final narrow-width/localization-only follow-up checked
+real Chinese/English date substitution, Chinese Monday-first display,
+514px expanded-date fit, collapsed restoration and unchanged wide geometry.
+See [calendar scope](month-calendar-validation.md) and
+[localized date acceptance](localized-date-validation.md) for the distinct
+verification stages and [exact screenshot crops](screenshots/month-calendar/capture-metadata.json).
+
+No full rerun of every earlier feature, all-template/locale/zoom matrix, live
+Sync/Drive test, screen-reader validation or native macOS/Windows acceptance is
+implied. Native windows could not be reduced below 510px, so 320/400px layout
+remains unverified. Manifest version stays 1.1.5; no store submission occurred.

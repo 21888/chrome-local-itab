@@ -150,6 +150,16 @@ test('runtime inventory/script order and narrow open-only layout are explicit', 
     assert.match(css, /\.month-calendar\[open\] \{ width: 17rem;/); assert.match(css, /aria-current="date".*outline:/);
 });
 
+test('expanded narrow calendar lets the date use its own row without changing collapsed geometry', () => {
+    const css = read('local-month-calendar.css');
+    const [base, narrow] = css.split('@media (max-width: 600px) {');
+    assert(narrow, 'expanded responsive rules exist');
+    assert.doesNotMatch(base, /\.date-display\s*\{/);
+    assert.match(narrow, /:root\[data-dashboard-template\] #dashboard \.dashboard-header:has\(\.month-calendar\[open\]\) \.date-display \{ max-width: 100%; \}/);
+    assert.equal((css.match(/\.date-display\s*\{/g) || []).length, 1);
+    assert.match(read('dashboard-templates.css'), /\.date-display \{ font-size: 10px; max-width: 135px; \}/);
+});
+
 test('detached host does not navigate, render or announce', () => {
     const h = model(); h.open(); const { clock, view } = h;
     const rows = view.body.children, caption = view.caption.textContent, month = clock.calendarMonth;

@@ -1,10 +1,11 @@
 {
   "captured": "2026-10-09",
+  "capture_set": "localized-date-v2",
   "browser": "Chrome for Testing 155.0.8059.39 Linux, normal sandbox",
   "transformation": "Exact RGB crops only; no resizing, retouching or reconstructed interface. Dimensions are crop pixels, not measured CSS viewports.",
   "runtime_sha256": {
-    "_locales/en/messages.json": "c9e190ddfaa2f6bf9c300d8d4db1133f70da7a627e571aae0ccb990911a2a214",
-    "_locales/zh_CN/messages.json": "88dc6e98d462d51281e47d4d2191f976f9bed68e24a3852625c34e8cb9a8a724",
+    "_locales/en/messages.json": "a42e233a33293918dbd346b304c4e03fb1877b9ada0c8231afd71947fe68f441",
+    "_locales/zh_CN/messages.json": "16599a6b1725b533cb831178dfb1e5fc1ecdf5f53caf89466cecd2a6cb759014",
     "appearance.css": "f77735d87dc0d25f29339483da3172d6efef6507fab4492a909bf84551f5bc99",
     "assets/icon128.png": "f9cf8257317337c3fb87e63ae5183ee23119d253b9ddcb1a29f460fac9c083c5",
     "assets/icon16.png": "16b2e8a78f50163572e2e465a21e9b963316498514fdef2c93ba7e0c01f88fd7",
@@ -20,13 +21,13 @@
     "i18n.js": "ceb56080b6f4d30e58df434a96e96f75003acc5407372c40e9b28243f9810604",
     "local-countdown.css": "c7c35e6caebb574f0ea5f95cf09c1b02021c55e4c31997db12f691dace886200",
     "local-focus.css": "f6b3b71c576e22ba69daf2f17d0a59e421ddd53a400de7db3ffe9a8bbc623cc9",
-    "local-month-calendar.css": "a88e80f2a7634267269b4153bf757de6895ccbbbe9aa214e28f42eb53a75f236",
+    "local-month-calendar.css": "f62b4d33046547a5a81b62a72ad732da0a4ffaa6055381c3a218ec8db673ced6",
     "local-scratchpad.css": "47516259567b173c7ffe032772028db375631cce46e441b66ecab3275982265b",
     "local-tasks.css": "27844d98c40ec80d6af37ca634f18550f4dd8eab38c18c015708f599a02c47c4",
     "manifest.json": "8659a1c3fca5d8201ee437bf1bf4b001b46efe6b63fe988ebbae6978cb379f8a",
     "newtab.css": "8013358613294eb1649428598c8e9dc4f25cfd49b81e83d6f240d810a670bd86",
     "newtab.html": "09fdb1d2b23e053ed8117fe7699f4f062a2f0b73aa7805ff93bf8653c0cc0e4c",
-    "newtab.js": "7a4dc8d81e491fdd7c768a215130abaae4f746508e1b126e56ccd58c00ae600b",
+    "newtab.js": "7194a137e8858face5a0239f7f816d2b0515715c787e7aef12d1ebc427620d46",
     "options.css": "7f4041811ba18c70dd01feb51c52fbc50dd23d6778a98d573760d04d98a3aac2",
     "options.html": "1e593e9279f73174a1c40461c75064bbab8a9d4d30c069d5f5893ac16f0a9fae",
     "options.js": "10b07790ddab5becad7eb5ebb29adf3f9d81cf15135183cf22e41c3e390be2b0",
@@ -66,8 +67,8 @@
   },
   "images": [
     {
-      "source_file": "07-clarity-light-wide.jpg",
-      "source_sha256": "7343d8ec72f303e088668f71cf2119cb34ff51b08cd9e65691731d50daa47a3a",
+      "source_file": "01-chinese-wide-clean.jpg",
+      "source_sha256": "01b6ff4d545bd1be076dc9743bc26022d0c7996e8bc4cdecd66bbcbe0099e607",
       "crop_box_xyxy": [
         89,
         233,
@@ -75,17 +76,17 @@
         879
       ],
       "output": "calendar-light-wide.png",
-      "output_sha256": "199005ca0dd9b4a70afb730504f565d1df1ff56be5618ca494ed316b1297df53",
+      "output_sha256": "9e0e0c9661d102d945ea55d4553af462ba1fa57f7a05a1c6a1288ba6695dc140",
       "dimensions": [
         1184,
         646
       ],
-      "state": "English Clarity light; opened calendar in normal desktop header",
+      "state": "Simplified Chinese Clarity light; corrected main date and opened month calendar",
       "native_outer_width": 1188
     },
     {
-      "source_file": "09-clarity-dark-514.jpg",
-      "source_sha256": "77d8e2dbdaa09c7c8b57a3891b762c134800aaf41c5d9e0e01a56ceec5435fad",
+      "source_file": "05-english-dark-514-clean.jpg",
+      "source_sha256": "4f376386a3f45dd17d7217f206faee9e455adc06ea3c054a6448271cc9f1d065",
       "crop_box_xyxy": [
         24,
         194,
@@ -93,12 +94,12 @@
         870
       ],
       "output": "calendar-dark-narrow.png",
-      "output_sha256": "ea1abd36b3390043209675744f59f708768d552cba945603be23b34d127e59e3",
+      "output_sha256": "b29330e900b64bb5dc8420d0e15cc8c5cb8d283544ec340d8c4105f38cdac5c3",
       "dimensions": [
         475,
         676
       ],
-      "state": "English Clarity dark; scrolled narrow view of calendar and search",
+      "state": "English Clarity dark; expanded calendar with date-width correction in scrolled narrow view",
       "native_outer_width": 514
     }
   ]
