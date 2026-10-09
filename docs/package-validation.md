@@ -69,3 +69,29 @@ Published snapshot `682b515e9fc28691f1d0676c058464826f154ad2` was packaged as `l
 The integrated source passed 406 Node tests and 19 Python packaging tests. Native checks separately established Countdown date/save/conflict/hide/export behavior; full-capacity Tasks import followed by exact record/history comparison of the actual download; and ordinary Scratchpad save/hide/restore/reload with readable migration guidance in wide/narrow windows. See [Countdown](local-countdown-validation.md), [Tasks full archive](tasks-full-archive-validation.md), [hidden-note correction](scratchpad-hidden-state-validation.md) and [migration guide](migration.en.md). The passive-storage-failure privacy cases remain independently source/model tested, not native fault injection.
 
 The current package was delivered as the existing download's updated version. Its runtime was matched to the tested unpacked snapshot rather than claiming a separate fresh-profile launch of the ZIP. All QA data were synthetic and owned test windows were closed. No store submission, manifest-version bump, new permission, live provider validation or user-computer operation was involved.
+
+
+## Settings search, selectable calculation results and safe backup reads
+
+Published source `f6b4c807c44614ce7fffefb7e52ce5545bed1bcc` was packaged as
+`local-itab-current-f6b4c80.zip`: 57 runtime files, 1,182,821 source bytes and
+1,189,709 archive bytes. SHA256:
+`5d903c465ebdc9a32ad40fa40808c3f681b006b88ea10e7cee223288d7616b3a`.
+The clean-checkout archive passed canonical source comparison and matched all
+57 final native runtime hashes. Integrated checks passed 415 Node tests and
+19 Python packaging tests.
+
+Actual browser acceptance established cross-tab static Settings search with
+retained private drafts and visible keyboard focus; literal calculator output
+selection and ordinary copy/paste of `7.5` and `1e+21`; and a downloaded Settings
+JSON containing the exact saved quote and world-clock preference. Read/lock
+failure prevention remains injected model evidence, not real provider failure
+injection. Chinese search and calculator labels received a separate native
+wide/narrow check. Details are in [Settings search](settings-search-validation.md),
+[calculator](local-calculator-validation.md) and
+[backup reads](backup-read-safety-validation.md).
+
+The existing downloadable package was updated and delivered. Runtime bytes were
+matched to tested unpacked snapshots; the ZIP was not separately launched in a
+new profile. Manifest version remains 1.1.5. This is not a store submission,
+version bump, live Drive/Sync test, or native macOS/Windows acceptance.

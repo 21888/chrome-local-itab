@@ -55,3 +55,14 @@ in this output-specific native pass. Prior calculator coverage remains separate.
 Frozen output-specific hashes:
 - `newtab.js`: `038c6bbeb61075b3753425c61a66b5df0f389f43ad71d9f8e3e895bc5614d3e1`
 - `newtab.css`: `8013358613294eb1649428598c8e9dc4f25cfd49b81e83d6f240d810a670bd86`
+
+
+### Chinese output-label follow-up
+
+The same final 57-file runtime (`f6b4c80`) was subsequently checked in an actual
+Chinese-language browser profile. `=(12+3)/2` returned `7.5` with the localized
+result and native-copy guidance. The label and field were readable in light and
+dark mode at a 514 × 848 outer window, and light mode at 1188 × 848. This closes
+the output-label rendering gap; native result-copy behavior was not repeated
+in Chinese, and real IME/assistive technology remain unverified. All runtime
+hashes matched; the owned browser was closed normally.

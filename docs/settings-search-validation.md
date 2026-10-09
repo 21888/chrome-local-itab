@@ -113,3 +113,14 @@ normally after discarding only its synthetic unsaved draft.
 [Actual panel captures](settings-search.md#actual-screenshots--实际截图) and
 [capture metadata](screenshots/settings-search/capture-metadata.json) preserve
 exact crop bounds, original image hashes and runtime evidence.
+
+
+## Chinese native follow-up
+
+A subsequent 2026-10-09 pass used an actual Chinese-language browser/extension
+profile with the same 57-file published runtime (`f6b4c80`). At a 514 × 848
+outer window, the pasted query `时钟` returned both localized destinations.
+Tab, Tab and Enter opened `世界时钟` and visibly focused its static heading.
+The Chinese query came from an ordinary local UTF-8 editor copy/paste operation;
+this is not a real IME-composition or assistive-technology test. This closes the
+bounded Chinese rendering/matching gap above, not an all-entry or all-theme audit.
