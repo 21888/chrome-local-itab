@@ -22,6 +22,7 @@ function createHarness() {
     };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync('shared/layout-identity.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('shared/world-clocks.js', 'utf8'), context);
     vm.runInContext(fs.readFileSync('storage.js', 'utf8'), context);
     // Use the real strict StorageManager read path, not a throw-only getAll stub.
     context.window.storageManager.set = async (key, value) => {

@@ -8,6 +8,10 @@ A local-first Chrome new tab page that keeps search, saved websites, and a small
 
 No build step or Local iTab account is required. The clock, shortcut management, local images, and manually maintained cards work offline; searches, website visits, and optional cloud features need a network connection.
 
+## Offline world clocks
+
+Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. [Setup and backup behavior](docs/world-clocks.en.md).
+
 ## Local calculator
 
 Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab: no search request, history or storage, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the previous result.

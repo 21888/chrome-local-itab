@@ -104,6 +104,22 @@
                             </div>
                         </section>
 
+                        <section class="settings-section" id="world-clock-settings" aria-labelledby="world-clock-heading">
+                            <h2 id="world-clock-heading" class="section-title" data-i18n="worldClocks">World clocks</h2>
+                            <p class="section-description" id="world-clock-help" data-i18n="worldClockHelp">Add up to four IANA time zones. Times use your clock format and stay offline. Save to apply.</p>
+                            <ul id="world-clock-list" class="world-clock-list"></ul>
+                            <div class="world-clock-inputs">
+                                <div><label for="world-clock-zone" class="form-label" data-i18n="worldClockZone">Time zone</label>
+                                    <input id="world-clock-zone" class="form-input" list="world-clock-suggestions" maxlength="100" placeholder="America/New_York" aria-describedby="world-clock-help world-clock-error" autocomplete="off">
+                                    <datalist id="world-clock-suggestions"><option value="America/New_York"></option><option value="America/Los_Angeles"></option><option value="Europe/London"></option><option value="Europe/Paris"></option><option value="Asia/Shanghai"></option><option value="Asia/Tokyo"></option><option value="Asia/Kolkata"></option><option value="Australia/Sydney"></option><option value="UTC"></option></datalist></div>
+                                <div><label for="world-clock-label" class="form-label" data-i18n="worldClockLabel">Short label (optional)</label>
+                                    <input id="world-clock-label" class="form-input" maxlength="80" aria-describedby="world-clock-help world-clock-error" autocomplete="off"></div>
+                                <button id="world-clock-add" type="button" class="btn btn-secondary" data-i18n="worldClockAdd">Add clock</button>
+                            </div>
+                            <p id="world-clock-error" role="alert"></p>
+                            <button id="world-clock-save" type="button" class="btn btn-primary" data-i18n="worldClockSave">Save clocks</button>
+                        </section>
+
                         <!-- Background Settings -->
                         <section class="settings-section" id="background-settings">
                             <div class="section-header">
@@ -640,6 +656,7 @@
     <script src="shared/layout-identity.js"></script>
     <script src="shared/dashboard-template-registry.js"></script>
     <script src="shared/bookmark-import.js"></script>
+    <script src="shared/world-clocks.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="shared/appearance.js"></script>

@@ -8,6 +8,68 @@ let driveActionInProgress = false;
 let cloudReplacementInProgress = false;
 
 // A category baseline belongs to this form, never to a later storage read.
+let clockBaseline = null;
+let clockFormInitialized = false;
+let worldClockDraft = [];
+let worldClockSaves = 0;
+const copyClock = value => ({hour12: value.hour12, showSeconds: value.showSeconds,
+    worldClocks: (value.worldClocks || []).map(entry => ({...entry}))});
+const sameClock = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function clockFormSnapshot(includeWorldClocks = false) {
+    return {hour12: document.getElementById('hour12-format')?.checked || false,
+        showSeconds: document.getElementById('show-seconds')?.checked !== false,
+        worldClocks: (includeWorldClocks ? worldClockDraft : clockBaseline?.worldClocks || []).map(entry => ({...entry}))};
+}
+function worldClockHasUncommittedWork() {
+    return worldClockSaves > 0 || Boolean(document.getElementById('world-clock-zone')?.value ||
+        document.getElementById('world-clock-label')?.value) || Boolean(clockBaseline &&
+        !sameClock(clockFormSnapshot(true), clockBaseline));
+}
+function renderWorldClockDraft() {
+    const list = document.getElementById('world-clock-list');
+    if (!list) return;
+    list.replaceChildren();
+    worldClockDraft.forEach((entry, index) => {
+        const item = document.createElement('li');
+        const name = document.createElement('span');
+        name.textContent = entry.label ? `${entry.label} · ${entry.timeZone}` : entry.timeZone;
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'btn btn-secondary';
+        remove.textContent = t('worldClockRemove', 'Remove');
+        remove.setAttribute('aria-label', `${remove.textContent}: ${name.textContent}`);
+        remove.addEventListener('click', () => {
+            worldClockDraft.splice(index, 1); renderWorldClockDraft();
+            const buttons = list.querySelectorAll('button');
+            (buttons[Math.min(index, buttons.length - 1)] || document.getElementById('world-clock-zone')).focus();
+        });
+        item.append(name, remove); list.append(item);
+    });
+}
+function setupWorldClocks() {
+    const add = document.getElementById('world-clock-add');
+    if (!add || add.dataset.bound) return;
+    add.dataset.bound = 'true';
+    const zone = document.getElementById('world-clock-zone');
+    const label = document.getElementById('world-clock-label');
+    const error = document.getElementById('world-clock-error');
+    const append = () => {
+        try {
+            worldClockDraft = window.WorldClocks.normalize([...worldClockDraft, {timeZone: zone.value, label: label.value}]);
+            zone.value = ''; label.value = ''; error.textContent = ''; zone.removeAttribute?.('aria-invalid');
+            renderWorldClockDraft(); zone.focus();
+        } catch (_) {
+            error.textContent = t('worldClockInvalid', 'Use a valid IANA time zone, a label of up to 40 characters, and at most four different zones.');
+            zone.setAttribute('aria-invalid', 'true'); zone.focus();
+        }
+    };
+    add.addEventListener('click', append);
+    for (const input of [zone, label]) input.addEventListener('keydown', event => {
+        if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); append(); }
+    });
+    document.getElementById('world-clock-save').addEventListener('click', () => saveAllSettings(true));
+    window.worldClockSettingsView = {hasUncommittedWork: worldClockHasUncommittedWork,
+        get pending() { return worldClockSaves > 0; }};
+}
+
 let categoryBaseline = null;
 let categoryRawBaseline = null;
 let settingsSaveQueue = Promise.resolve();
@@ -41,6 +103,7 @@ async function replaceSettings(operation) {
 // HTML migration owns a separate, additive transaction and never uses backup restore.
 let bookmarkImportPending = false;
 let bookmarkDeferredSettingsSave = false;
+let bookmarkDeferredWorldClockSave = false;
 function bookmarkImportText(en, zh) {
     const language = typeof chrome !== 'undefined' && chrome.i18n?.getUILanguage?.() || document.documentElement.lang || 'en';
     return language.toLowerCase().startsWith('zh') ? zh : en;
@@ -112,9 +175,11 @@ async function applyBookmarkImport(prepared) {
         bookmarkImportPending = false;
         if (bookmarkDeferredSettingsSave) {
             bookmarkDeferredSettingsSave = false;
+            const includeWorldClocks = bookmarkDeferredWorldClockSave;
+            bookmarkDeferredWorldClockSave = false;
             // Capture the form only after our successful category refresh; an
             // ordinary auto-save requested during import must not disappear.
-            await saveAllSettings();
+            await saveAllSettings(includeWorldClocks);
         }
     }
 }
@@ -445,6 +510,10 @@ async function populateFormFields(config) {
     
     if (hour12Checkbox) hour12Checkbox.checked = config.clock.hour12;
     if (showSecondsCheckbox) showSecondsCheckbox.checked = config.clock.showSeconds;
+    clockFormInitialized = true;
+    clockBaseline = config._clockBaseline ? copyClock(config._clockBaseline) : null;
+    worldClockDraft = (config.clock.worldClocks || []).map(entry => ({...entry}));
+    renderWorldClockDraft(); setupWorldClocks();
     
 
     
@@ -721,7 +790,7 @@ function setupEventListeners() {
     const saveButton = document.getElementById('save-settings');
     if (saveButton) {
         saveButton.addEventListener('click', async function() {
-            await saveAllSettings();
+            await saveAllSettings(true);
         });
     }
     
@@ -1573,12 +1642,14 @@ async function deleteDriveSnapshot(snapshot) {
     });
 }
 
-async function saveAllSettings() {
+async function saveAllSettings(includeWorldClocks = false) {
     if (settingsReplacementPending) return;
-    if (bookmarkImportPending) { bookmarkDeferredSettingsSave = true; return; }
+    if (bookmarkImportPending) { bookmarkDeferredSettingsSave = true; bookmarkDeferredWorldClockSave ||= includeWorldClocks; return; }
     const session = settingsSession;
+    const submittedClock = clockFormSnapshot(includeWorldClocks);
     const submittedCategories = categorySnapshot(getCategoriesFromDOM());
     const submittedCategorySignature = bookmarkCategorySignature();
+    ++worldClockSaves;
     return queueSettingsWrite(async () => {
         if (session !== settingsSession || settingsReplacementPending) return;
         try {
@@ -1586,6 +1657,15 @@ async function saveAllSettings() {
             const settings = await collectFormData();
             if (session !== settingsSession || settingsReplacementPending) return;
             const options = {};
+            if (clockFormInitialized && !clockBaseline) throw new Error(t('worldClockBaselineUnavailable', 'Clock settings could not be read safely. Reload Settings before saving.'));
+            // Queued unrelated saves inherit the latest successful own world-clock write.
+            if (!includeWorldClocks && clockBaseline) submittedClock.worldClocks = clockBaseline.worldClocks.map(entry => ({...entry}));
+            if (clockBaseline && sameClock(submittedClock, clockBaseline)) {
+                delete settings.clock;
+            } else {
+                settings.clock = submittedClock;
+                if (clockBaseline) options.expectedClock = copyClock(clockBaseline);
+            }
             if (categoryBaseline === null || sameCategories(submittedCategories, categoryBaseline)) {
                 // Untouched stale forms cannot resurrect, rename or delete categories.
                 delete settings.categories;
@@ -1596,6 +1676,7 @@ async function saveAllSettings() {
             const success = await storageManager.setAll(settings, options);
             // A committed own write remains the baseline even if a subsequent
             // reset/import fails. Only its obsolete presentation is suppressed.
+            if (success && settings.clock) clockBaseline = copyClock(submittedClock);
             if (success && options.expectedCategories) categoryBaseline = categorySnapshot(submittedCategories);
             // Canonical storage and raw form ownership are different baselines:
             // a saved whitespace/default-icon submission is clean, while edits
@@ -1612,9 +1693,10 @@ async function saveAllSettings() {
         } catch (error) {
             if (session !== settingsSession || settingsReplacementPending) return;
             console.error('Error saving settings:', error);
-            showMessage(`Error saving settings: ${error.message}`, 'error');
+            const detail = error.code === 'CLOCK_CONFLICT' ? t('worldClockConflict', 'Clock settings changed in another tab or could not be safely compared. Your edits are still here. Review the latest values in a new Settings tab before retrying.') : error.message;
+            showMessage(`Error saving settings: ${detail}`, 'error');
         }
-    });
+    }).finally(() => { --worldClockSaves; });
 }
 
 async function resetAllSettings() {
@@ -1624,6 +1706,20 @@ async function resetAllSettings() {
         // Clear all storage
         const cleared = await replaceSettings(() => storageManager.clear());
         if (!cleared) throw new Error('Settings could not be reset. Please try again.');
+        // The confirmed reset discards this configuration draft, even when a
+        // separate private-content draft still prevents the automatic reload.
+        if (clockFormInitialized) {
+            clockBaseline = copyClock(storageManager.defaultConfig.clock);
+            worldClockDraft = [];
+            const hour12 = document.getElementById('hour12-format');
+            const seconds = document.getElementById('show-seconds');
+            if (hour12) hour12.checked = clockBaseline.hour12;
+            if (seconds) seconds.checked = clockBaseline.showSeconds;
+            for (const id of ['world-clock-zone', 'world-clock-label']) {
+                const input = document.getElementById(id); if (input) input.value = '';
+            }
+            renderWorldClockDraft();
+        }
         
         // Reload the page to show defaults
         window.LocalItabContentLifecycle.reload();
@@ -1644,7 +1740,7 @@ async function collectFormData() {
     // Clock settings
     const hour12 = document.getElementById('hour12-format')?.checked || false;
     const showSeconds = document.getElementById('show-seconds')?.checked !== false;
-    settings.clock = { hour12, showSeconds };
+    settings.clock = { hour12, showSeconds, worldClocks: (clockBaseline?.worldClocks || []).map(entry => ({...entry})) };
     
 
     

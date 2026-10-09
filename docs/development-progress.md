@@ -157,3 +157,8 @@ Small, local-first improvements are kept in separate commits. No new network ser
 - Controlled native same-key simultaneous races, restore during a pending write, injected failures and conflict Retry/Reload paths remain model-tested rather than native stress-tested.
 - An actual 2560 × 1440 content viewport and exhaustive per-template custom-background/modal/zoom accessibility coverage remain unverified. The completed native matrix used 2560 × 1298 as its widest measured content viewport.
 - Context-menu assistive-technology announcements and exhaustive native key/modifier combinations remain unverified.
+
+
+## Offline world clocks
+
+Optional four-zone Intl card, explicit Settings draft editor and locked clock-baseline conflict protection. Saved clock preferences update existing homepages immediately without reloading unrelated drafts. The integrated automated suite passes 311 Node tests and 19 Python packaging tests. See [validation and native QA plan](world-clocks-validation.md) and [English guide](world-clocks.en.md).

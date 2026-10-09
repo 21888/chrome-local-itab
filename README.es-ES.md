@@ -239,3 +239,9 @@ El bloc no se incluye en la exportación de configuración, Chrome Sync ni las c
 ![Bloc local con Tareas y temporizador: interfaz oscura real](docs/screenshots/scratchpad/scratchpad-en-dark-wide.png)
 
 [Procedencia y recorte de capturas](docs/screenshots/scratchpad/capture-metadata.json)
+
+## Relojes mundiales sin conexión
+
+Añade hasta cuatro zonas horarias IANA en Ajustes → Apariencia. Puedes asignar una etiqueta, ver su hora y saber si allí es hoy, ayer o mañana respecto a tu fecha local. No requiere ubicación, servicios externos ni permisos nuevos; la lista empieza vacía.
+
+Pulsa Guardar relojes o Guardar ajustes para aplicar la lista. Estas preferencias forman parte de la configuración y se incluyen en sus exportaciones y en la sincronización opcional. Si otra pestaña cambia el reloj, el guardado obsoleto se rechaza conservando tu borrador. [Guía en inglés](docs/world-clocks.en.md).

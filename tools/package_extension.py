@@ -29,7 +29,7 @@ RUNTIME_FILES = (
     "appearance.css", "bookmark-import.css", "context-menu.css",
     "dashboard-template-gallery.css", "dashboard-templates.css", "local-focus.css",
     "local-scratchpad.css", "local-tasks.css", "newtab.css", "options.css", "shortcut-finder.css",
-    "shared/appearance.js", "shared/bookmark-import.js", "shared/bookmark-import-view.js",
+    "shared/world-clocks.js", "shared/appearance.js", "shared/bookmark-import.js", "shared/bookmark-import-view.js",
     "shared/dashboard-template-registry.js", "shared/dialog-focus.js", "shared/layout.js",
     "shared/layout-identity.js", "shared/local-calculator.js",
     "shared/local-content-lifecycle.js", "shared/local-focus-controller.js",

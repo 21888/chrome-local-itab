@@ -1182,8 +1182,8 @@
 
 /* Optional-widget absence. JS should set .has-info-cards from actual show state.
  * :has is a defensive fallback for the existing .module-hidden markup. */
-:root[data-dashboard-template] #dashboard #info-cards-container:not(:has(> :is(.info-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card):not(.module-hidden):not([hidden]))) { display: none; }
-:root[data-dashboard-template="folio"] #dashboard .dashboard-main:not(.has-info-cards):not(:has(> #info-cards-container > :is(.info-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card):not(.module-hidden):not([hidden]))) { grid-template-columns: minmax(0,1fr); }
+:root[data-dashboard-template] #dashboard #info-cards-container:not(:has(> :is(.info-card, .world-clocks-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card):not(.module-hidden):not([hidden]))) { display: none; }
+:root[data-dashboard-template="folio"] #dashboard .dashboard-main:not(.has-info-cards):not(:has(> #info-cards-container > :is(.info-card, .world-clocks-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card):not(.module-hidden):not([hidden]))) { grid-template-columns: minmax(0,1fr); }
 
 /* Visibility choices and keyboard focus win over template composition. */
 :root[data-dashboard-template] #dashboard [hidden],

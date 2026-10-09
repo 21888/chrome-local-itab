@@ -102,7 +102,7 @@ function harness(page) {
     const absenceRules = css.split('}').filter(rule => rule.includes(':not(:has(>') && rule.includes('info-cards-container'));
     assert.equal(absenceRules.length, 2);
     for (const rule of absenceRules) {
-        assert(rule.includes(':is(.info-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card):not(.module-hidden):not([hidden])'));
+        assert(rule.includes(':is(.info-card, .world-clocks-card, .local-tasks-card, .local-focus-card, .local-scratchpad-card):not(.module-hidden):not([hidden])'));
     }
     console.log('local content lifecycle tests ok (real page listeners and DOM/event models; no native or live-provider claim)');
 })().catch(error => { console.error(error); process.exitCode = 1; });

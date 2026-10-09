@@ -5,6 +5,7 @@
 
 const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require('./shared/layout-identity.js') : window.LocalItabIdentity;
 const DashboardTemplates = typeof module !== 'undefined' && module.exports ? require('./shared/dashboard-template-registry.js') : window.LocalItabTemplates;
+const ClockPreferences = typeof module !== 'undefined' && module.exports ? require('./shared/world-clocks.js') : window.WorldClocks;
 // Resolve lazily so non-import consumers need not load the bookmark parser.
 const getBookmarkImportPlanner = () => typeof module !== 'undefined' && module.exports ? require('./shared/bookmark-import.js') : window.LocalItabBookmarkImport;
 const BOOKMARK_IMPORT_STORAGE_LIMITS = Object.freeze({ links: 20000, categories: 2000, bytes: 32 * 1024 * 1024, nodes: 250000, depth: 32 });
@@ -51,7 +52,8 @@ class StorageManager {
         this.defaultConfig = {
             clock: { 
                 hour12: false, 
-                showSeconds: true 
+                showSeconds: true,
+                worldClocks: []
             },
             search: { 
                 engine: 'google', 
@@ -195,7 +197,7 @@ class StorageManager {
         }
     }
 
-    // Serialize writes that can replace the shortcut list within this extension origin.
+    // Serialize full clock, category, and shortcut writes within this extension origin.
     async withLocalWriteLock(operation, required = false) {
         if (typeof navigator !== 'undefined' && navigator.locks?.request) {
             return navigator.locks.request('local-itab-local-write', operation);
@@ -213,7 +215,16 @@ class StorageManager {
         const has = key => Object.prototype.hasOwnProperty.call(values, key);
         const replacesLayout = has('layout') || (has('links') && !Object.prototype.hasOwnProperty.call(options, 'expectedLinks'));
         const checksCategories = has('categories');
-        if (!has('links') && !replacesLayout && !checksCategories) {
+        const checksClock = has('clock');
+        const guardedClock = checksClock && Object.prototype.hasOwnProperty.call(options, 'expectedClock');
+        // Capture the expected value before waiting for another tab's write.
+        const expectedClock = guardedClock ? this.validateClockBaseline(options.expectedClock) : null;
+        if (guardedClock && !(typeof navigator !== 'undefined' && navigator.locks?.request)) {
+            const error = new Error('Safe clock saving is unavailable in this browser. Your edits have not been saved.');
+            error.code = 'CLOCK_LOCK_UNAVAILABLE';
+            throw error;
+        }
+        if (!has('links') && !replacesLayout && !checksCategories && !checksClock) {
             // Import disclosures are compared under this same lock. Preference
             // writes must queue with the commit instead of racing its last read.
             if (has('privacy') || has('sync')) return this.withLocalWriteLock(() => chrome.storage.local.set(values));
@@ -223,6 +234,15 @@ class StorageManager {
         const guardedCategories = checksCategories && Object.prototype.hasOwnProperty.call(options, 'expectedCategories');
         return this.withLocalWriteLock(async () => {
             const raw = await chrome.storage.local.get(null);
+            if (guardedClock && JSON.stringify(this.validateClockBaseline(raw.clock === undefined ? this.defaultConfig.clock : raw.clock)) !==
+                JSON.stringify(expectedClock)) {
+                const error = new Error('Clock settings changed in another tab. Your edits are still here. Review the latest clock settings in a new Settings tab before retrying.');
+                error.code = 'CLOCK_CONFLICT';
+                throw error;
+            }
+            // A clock-only transaction must not depend on shortcut validity.
+            // Its comparison still precedes the single atomic multi-key write.
+            if (!has('links') && !replacesLayout && !checksCategories) return chrome.storage.local.set(values);
             const latest = this.layoutSnapshot(raw);
             if (guardedCategories && JSON.stringify(this.validateCategoryBaseline(raw.categories === undefined ? this.defaultConfig.categories : raw.categories)) !==
                 JSON.stringify(this.validateCategoryBaseline(options.expectedCategories))) {
@@ -276,7 +296,7 @@ class StorageManager {
             if (invalidatesLayout) written[this.layoutGenerationKey] = this.createLayoutGeneration();
             await chrome.storage.local.set(written);
             return this.layoutSnapshot({ ...raw, ...written });
-        }, guarded || guardedCategories || LayoutIdentity.active(values.layout));
+        }, guarded || guardedCategories || guardedClock || LayoutIdentity.active(values.layout));
     }
 
     shortcutUndoError(code, message) {
@@ -501,6 +521,9 @@ class StorageManager {
         try {
             // Snapshot the caller value before yielding to another mutation.
             const validatedValue = this.validateData(key, value);
+            if (key === 'clock' && Object.prototype.hasOwnProperty.call(options, 'expectedClock')) {
+                options = { ...options, expectedClock: this.validateClockBaseline(options.expectedClock) };
+            }
             await this.ensureSyncInitialized();
 
             const committed = await this.writeLocalValues({ [key]: validatedValue }, options);
@@ -519,7 +542,7 @@ class StorageManager {
 
             return options.returnSnapshot ? committed : true;
         } catch (error) {
-            if (error.code === 'LINKS_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CATEGORIES_CONFLICT') throw error;
+            if (error.code === 'LINKS_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CATEGORIES_CONFLICT' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
             console.error(`Storage set error for key "${key}":`, error);
             
             // Handle quota exceeded error
@@ -875,6 +898,15 @@ class StorageManager {
             const result = await this.withLocalWriteLock(() => chrome.storage.local.get(null));
 
             const config = this.validateConfigObject(result);
+            // Only a successful, safely comparable read can authorize a clock
+            // replacement. Runtime recovery alone is not a write baseline.
+            try {
+                Object.defineProperty(config, '_clockBaseline', {
+                    value: this.validateClockBaseline(result.clock === undefined ? this.defaultConfig.clock : result.clock)
+                });
+            } catch (error) {
+                console.warn('Clock baseline unavailable:', error);
+            }
             // Kept out of JSON/spreads/backups. An absent property after a failed
             // read is distinct from a successful legacy baseline with no token.
             try {
@@ -900,16 +932,18 @@ class StorageManager {
     async setAll(data, options = {}) {
         this.assertConfigurationKeys(Object.keys(data));
         try {
+            // Snapshot values and the clock baseline before any asynchronous read.
+            const validatedData = {};
+            for (const [key, value] of Object.entries(data)) {
+                validatedData[key] = this.validateData(key, value);
+            }
+            if (Object.prototype.hasOwnProperty.call(data, 'clock') && Object.prototype.hasOwnProperty.call(options, 'expectedClock')) {
+                options = { ...options, expectedClock: this.validateClockBaseline(options.expectedClock) };
+            }
             if (!options.skipSyncInitialization) {
                 await this.ensureSyncInitialized();
             }
             const wasSyncEnabled = await this.isSyncEnabledLocally();
-            const validatedData = {};
-
-            // Validate each key-value pair
-            for (const [key, value] of Object.entries(data)) {
-                validatedData[key] = this.validateData(key, value);
-            }
 
             await this.writeLocalValues(validatedData, options);
 
@@ -924,7 +958,7 @@ class StorageManager {
 
             return true;
         } catch (error) {
-            if (error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE') throw error;
+            if (error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
             console.error('Storage setAll error:', error);
             
             if (error.message && error.message.includes('QUOTA_EXCEEDED')) {
@@ -1168,6 +1202,13 @@ class StorageManager {
             }
         };
         checkTypes(settings, this.defaultConfig, 'settings');
+        // Import/restore/Sync preflight is strict. Runtime recovery must never
+        // turn a malformed supplied list into an apparently valid empty backup.
+        let worldClocks;
+        if (settings.clock && has(settings.clock, 'worldClocks')) {
+            try { worldClocks = ClockPreferences.normalize(settings.clock.worldClocks); }
+            catch (_) { invalid('invalid world clocks'); }
+        }
         for (const link of settings.links) {
             checkTypes(link, { title: '', url: '', icon: '', category: '' }, 'shortcut');
         }
@@ -1209,6 +1250,7 @@ class StorageManager {
         }
 
         const validated = this.validateConfigObject(settings);
+        if (worldClocks !== undefined) validated.clock.worldClocks = worldClocks;
         if (settings.bg?.type === 'image' && settings.bg.value && !validated.bg.value) invalid('background image data is corrupt or unsupported');
         if (settings.movie?.poster && !validated.movie.poster) invalid('movie poster data is corrupt or unsupported');
         if (settings.search?.custom?.trim() && !validated.search.custom) invalid('custom search URL is invalid');
@@ -1858,8 +1900,27 @@ class StorageManager {
         
         return {
             hour12: typeof value.hour12 === 'boolean' ? value.hour12 : this.defaultConfig.clock.hour12,
-            showSeconds: typeof value.showSeconds === 'boolean' ? value.showSeconds : this.defaultConfig.clock.showSeconds
+            showSeconds: typeof value.showSeconds === 'boolean' ? value.showSeconds : this.defaultConfig.clock.showSeconds,
+            worldClocks: ClockPreferences.safe(value.worldClocks)
         };
+    }
+
+    // A tolerant display fallback must not authorize overwriting damaged data.
+    validateClockBaseline(value) {
+        try {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid clock');
+            const has = key => Object.prototype.hasOwnProperty.call(value, key);
+            if (['hour12', 'showSeconds'].some(key => has(key) && typeof value[key] !== 'boolean')) throw new Error('Invalid clock format');
+            return {
+                hour12: has('hour12') ? value.hour12 : this.defaultConfig.clock.hour12,
+                showSeconds: has('showSeconds') ? value.showSeconds : this.defaultConfig.clock.showSeconds,
+                worldClocks: has('worldClocks') ? ClockPreferences.normalize(value.worldClocks) : []
+            };
+        } catch (_) {
+            const error = new Error('Clock settings could not be safely compared. Your edits are still here; review the stored clock settings before retrying.');
+            error.code = 'CLOCK_CONFLICT';
+            throw error;
+        }
     }
 
     /**

@@ -1557,3 +1557,12 @@ textarea:focus-visible,
         font-size: 2rem;
     }
 }
+
+/* The optional clock editor wraps within every theme and narrow Settings panel. */
+.world-clock-inputs { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.world-clock-inputs > div { flex: 1 1 180px; min-width: 0; }
+.world-clock-inputs input { width: 100%; min-width: 0; box-sizing: border-box; }
+.world-clock-list { list-style: none; padding: 0; }
+.world-clock-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.world-clock-list li span { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+#world-clock-error { color: var(--text-primary); overflow-wrap: anywhere; }

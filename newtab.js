@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         setupDashboardVisibilityToggle(config?.ui);
         setupThemeChangeListener();
+        setupClockPreferenceListener(config);
         setupDashboardAppearance(config);
         setupCloudSyncChangeListener();
         // Performance guards: pause animations when tab hidden; honor reduced motion
@@ -273,6 +274,7 @@ async function initializeDashboard() {
         await applyBackgroundSettings(config.bg, window.localItabPrivacy);
 
         // Apply module visibility settings
+        window.localItabWorldClocksConfigured = false;
         applyModuleVisibility(config.show);
 
         // Initialize components based on visibility settings
@@ -567,6 +569,12 @@ function applyModuleVisibility(showConfig) {
     const weatherContainer = document.getElementById('weather-container');
     const hotContainer = document.getElementById('hot-container');
     const movieContainer = document.getElementById('movie-container');
+    const worldClocksContainer = document.getElementById('world-clocks-card');
+    const worldClocksVisible = showConfig.clock === true && window.localItabWorldClocksConfigured === true;
+    if (worldClocksContainer) {
+        worldClocksContainer.hidden = !worldClocksVisible;
+        worldClocksContainer.classList.toggle('module-hidden', !worldClocksVisible);
+    }
 
     // Apply visibility settings with CSS classes
     if (clockContainer) {
@@ -597,7 +605,7 @@ function applyModuleVisibility(showConfig) {
         container.classList.toggle('module-hidden', isVisible !== true);
         container.style.display = isVisible === true ? '' : 'none';
     });
-    const hasCards = window.localItabTasksVisible === true || window.localItabFocusVisible === true || window.localItabScratchpadVisible === true || ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
+    const hasCards = worldClocksVisible || window.localItabTasksVisible === true || window.localItabFocusVisible === true || window.localItabScratchpadVisible === true || ['weather', 'hot', 'movie'].some(key => showConfig[key] === true);
     document.getElementById('info-cards-container')?.classList.toggle('module-hidden', !hasCards);
     document.querySelector('.dashboard-main')?.classList.toggle('has-info-cards', hasCards);
 }
@@ -1057,7 +1065,66 @@ function renderMovieCard(movie, visible) {
     container.appendChild(display);
 }
 
+// One dashboard clock owns all local/world time rendering and its single timer.
+let clockComponentInstance = null;
+let clockPreferenceRefresh = null;
+function normalizeDashboardClockPreferences(value) {
+    const valid = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    return {hour12: typeof valid.hour12 === 'boolean' ? valid.hour12 : false,
+        showSeconds: typeof valid.showSeconds === 'boolean' ? valid.showSeconds : true,
+        worldClocks: window.WorldClocks?.safe(valid.worldClocks) || []};
+}
+function setupClockPreferenceListener(config) {
+    if (clockPreferenceRefresh) return clockPreferenceRefresh;
+    let clock = normalizeDashboardClockPreferences(config?.clock);
+    let enabled = config?.show?.clock !== false;
+    let clockRevision = 0, showRevision = 0, readRevision = 0;
+    const apply = () => {
+        // Refresh only clock visibility. Unrelated cards, drafts and providers
+        // retain their existing state and DOM ownership.
+        applyModuleVisibility({...window.localItabModuleVisibility, clock: enabled});
+        if (enabled || clockComponentInstance) initializeClockComponent(clock);
+        clockComponentInstance?.setEnabled(enabled);
+    };
+    const refresh = async () => {
+        if (!chrome?.storage?.local?.get) return;
+        const request = ++readRevision;
+        const clockAtRead = clockRevision, showAtRead = showRevision;
+        try {
+            const raw = await chrome.storage.local.get(['clock', 'show']);
+            if (request !== readRevision) return;
+            // A synchronous event for either key owns that key over an older
+            // read; unrelated-key events do not discard this fresh observation.
+            if (clockAtRead === clockRevision) clock = normalizeDashboardClockPreferences(raw.clock);
+            if (showAtRead === showRevision) enabled = raw.show?.clock !== false;
+            apply();
+        } catch (error) {
+            console.warn('Clock preference refresh unavailable:', error);
+        }
+    };
+    clockPreferenceRefresh = refresh;
+    chrome?.storage?.onChanged?.addListener((changes, area) => {
+        if (area !== 'local') return;
+        let changed = false;
+        if (Object.prototype.hasOwnProperty.call(changes, 'clock')) {
+            ++clockRevision; clock = normalizeDashboardClockPreferences(changes.clock.newValue); changed = true;
+        }
+        if (Object.prototype.hasOwnProperty.call(changes, 'show')) {
+            ++showRevision; enabled = changes.show.newValue?.clock !== false; changed = true;
+        }
+        if (changed) apply();
+    });
+    window.addEventListener('focus', refresh);
+    // Subscribe first, then close the async dashboard-initialization read gap.
+    refresh();
+    return refresh;
+}
+
 function initializeClockComponent(clockConfig) {
+    if (clockComponentInstance) {
+        clockComponentInstance.updateConfig(clockConfig);
+        return clockComponentInstance;
+    }
     const clockContainer = document.getElementById('clock-container');
     if (!clockContainer) return;
 
@@ -1070,8 +1137,9 @@ function initializeClockComponent(clockConfig) {
     `;
 
     // Initialize clock with configuration
-    const clockComponent = new ClockComponent(clockConfig);
-    clockComponent.start();
+    clockComponentInstance = new ClockComponent(clockConfig);
+    clockComponentInstance.start();
+    return clockComponentInstance;
 }
 
 /**
@@ -1081,9 +1149,13 @@ function initializeClockComponent(clockConfig) {
 class ClockComponent {
     constructor(config) {
         this.config = config;
+        this.enabled = true;
         this.intervalId = null;
         this.timeElement = document.getElementById('time-display');
         this.dateElement = document.getElementById('date-display');
+        this.worldClocksElement = document.getElementById('world-clocks-card');
+        this.worldClockRows = [];
+        this.renderWorldClocks();
         this._visBound = false;
         this._onVisChange = null;
     }
@@ -1122,9 +1194,10 @@ class ClockComponent {
      * Resume periodic updates if not already running
      */
     resume() {
-        if (this.intervalId) return;
-        // Update immediately
+        if (!this.enabled || document.hidden) { this.stop(); return; }
+        // Refresh immediately, including after a device time-zone change on focus.
         this.updateDisplay();
+        if (this.intervalId) return;
         // Set up interval for updates
         this.intervalId = setInterval(() => {
             this.updateDisplay();
@@ -1143,6 +1216,68 @@ class ClockComponent {
 
         if (this.dateElement) {
             this.dateElement.textContent = this.formatDate(now);
+        }
+        this.updateWorldClocks(now);
+    }
+
+    // The optional card shares this clock's timer and visibility lifecycle.
+    renderWorldClocks() {
+        const entries = window.WorldClocks?.safe(this.config.worldClocks) || [];
+        this.worldClockRows = [];
+        if (!this.worldClocksElement) return;
+        this.worldClocksElement.replaceChildren();
+        window.localItabWorldClocksConfigured = entries.length > 0;
+        if (entries.length) {
+            const heading = document.createElement('h2');
+            heading.id = 'world-clocks-heading';
+            heading.className = 'world-clocks-heading';
+            heading.textContent = this.worldClockText('worldClocks', 'World clocks');
+            const list = document.createElement('ul');
+            list.className = 'world-clocks-list';
+            for (const entry of entries) {
+                const row = document.createElement('li');
+                row.className = 'world-clock-row';
+                const label = document.createElement('span');
+                label.className = 'world-clock-label';
+                const reading = document.createElement('span');
+                reading.className = 'world-clock-reading';
+                const time = document.createElement('span');
+                time.className = 'world-clock-time';
+                const day = document.createElement('span');
+                day.className = 'world-clock-day';
+                reading.append(time, day);
+                row.append(label, reading);
+                list.appendChild(row);
+                this.worldClockRows.push({ entry, label, time, day });
+            }
+            this.worldClocksElement.append(heading, list);
+        }
+        if (window.localItabModuleVisibility) {
+            applyModuleVisibility(window.localItabModuleVisibility);
+        }
+    }
+
+    worldClockText(key, fallback, substitutions) {
+        const text = window.i18n?.t(key, substitutions);
+        return typeof text === 'string' && text && text !== key ? text : fallback;
+    }
+
+    worldClockDayLabel(dayDifference) {
+        if (dayDifference === 0) return this.worldClockText('worldClockToday', 'Today');
+        if (dayDifference === -1) return this.worldClockText('worldClockYesterday', 'Yesterday');
+        if (dayDifference === 1) return this.worldClockText('worldClockTomorrow', 'Tomorrow');
+        const signedDays = dayDifference > 0 ? `+${dayDifference}` : String(dayDifference);
+        // worldClockDays receives a single already-signed $1 substitution.
+        return this.worldClockText('worldClockDays', `${signedDays} days`, [signedDays]);
+    }
+
+    updateWorldClocks(now) {
+        for (const { entry, label, time, day } of this.worldClockRows) {
+            // Match the main clock's time locale and resolve the device zone anew.
+            const formatted = window.WorldClocks.format(entry, now, this.config, navigator.language || undefined);
+            label.textContent = formatted.label;
+            time.textContent = formatted.time;
+            day.textContent = this.worldClockDayLabel(formatted.dayDifference);
         }
     }
 
@@ -1242,8 +1377,15 @@ class ClockComponent {
      * Update configuration and refresh display
      * @param {Object} newConfig - New clock configuration
      */
+    setEnabled(enabled) {
+        this.enabled = enabled;
+        if (enabled) this.resume();
+        else this.stop();
+    }
+
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
+        this.renderWorldClocks();
         this.updateDisplay();
     }
 }
@@ -1624,7 +1766,7 @@ function setupDashboardVisibilityToggle(uiConfig) {
 }
 
 function shouldToggleFromEvent(event) {
-    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .local-tasks-card, .local-focus-card, .tasks-overlay, .local-scratchpad-card, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
+    const interactiveSelectors = 'button, a, input, textarea, select, summary, [contenteditable], .world-clocks-card, .local-tasks-card, .local-focus-card, .tasks-overlay, .local-scratchpad-card, .shortcut-item, .category-nav, .settings-button, .category-manage-btn, .shortcut-action-btn, .context-menu';
     if (!event || !event.target) return false;
     return !event.target.closest(interactiveSelectors);
 }
