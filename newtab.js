@@ -3437,7 +3437,10 @@ class ShortcutsComponent {
         this._cancelFreeDrag?.();
         const grid = this.gridEl;
         if (!grid) return;
+        let focusIntent = null;
         if (this._renderedGrouping !== undefined && this._renderedGrouping !== this.usesCollections()) {
+            // An external placement change can regroup a keyboard-focused tile.
+            focusIntent = this.captureGridFocus(grid);
             grid.replaceChildren(this.buildShortcutsFragment());
             window.categoryNavigation?.filterShortcuts({ reflow: false });
             this.updateCollectionVisibility();
@@ -3462,6 +3465,7 @@ class ShortcutsComponent {
                 if (!controller.modePending && !controller.pending && !controller.failedChange && persistMissing) controller.change({ autoArrange: false });
                 this.applyVisibleTransformsFromPositions();
                 this.positionAddTile();
+                if (focusIntent) this.restoreGridFocus(grid, focusIntent);
                 return;
             }
             this.initializeMissingPositions(persistMissing);
@@ -3469,6 +3473,7 @@ class ShortcutsComponent {
             this.positionAddTile();
             this.attachFreeDrag();
         }
+        if (focusIntent) this.restoreGridFocus(grid, focusIntent);
     }
 
     sanitizeColumns(value) {
