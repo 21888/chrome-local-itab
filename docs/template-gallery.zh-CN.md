@@ -19,4 +19,152 @@
 
 模版使用已经启用的真实模块，不生成示例待办、不启用联网功能，也不会自动应用功能组合。模块显示仍在设置中单独选择。无需新增资源下载、权限或账号。
 
-README 中原有 A/B/C 截图仍对应此前的三个模版。扩展模版的验证范围另行记录；颜色对比度计算不等于已检查所有自定义背景、原生控件或辅助技术组合。
+下方画廊包含新增十二种模版的真实浅色和深色截图；README 同时保留原有 A/B/C 与自由布局截图。截图仅展示捕获时可见的页面区域，不能代替交互、响应式或辅助技术验证。
+
+## 截图画廊
+
+2026-10-08 捕获。英文界面、中文分类、18 个示例网站；天气和其他卡片为手动填写的示例。每张裁切图为 1364 × 910 图片像素，不代表测得的 CSS 视口尺寸。仅移除浏览器顶部测试提示和底栏，保留焦点轮廓、滚动条、鼠标标记与底部未完全展示的内容。[来源与裁切记录](screenshots/templates/capture-manifest.json)。
+
+### 编排 / Atelier
+
+杂志式页眉、纤细分隔线与鲜明的字体层级。
+
+**浅色 / Light**
+
+![编排 / Atelier · 浅色 / Light](screenshots/templates/atelier-light.png)
+
+**深色 / Dark**
+
+![编排 / Atelier · 深色 / Dark](screenshots/templates/atelier-dark.png)
+
+### 留白 / Quiet
+
+居中留白画布，搭配柔和的矩形卡片。
+
+**浅色 / Light**
+
+![留白 / Quiet · 浅色 / Light](screenshots/templates/quiet-light.png)
+
+**深色 / Dark**
+
+![留白 / Quiet · 深色 / Dark](screenshots/templates/quiet-dark.png)
+
+### 工作室 / Studio
+
+边框导航栏与清晰有层次的卡片边缘。
+
+**浅色 / Light**
+
+![工作室 / Studio · 浅色 / Light](screenshots/templates/studio-light.png)
+
+**深色 / Dark**
+
+![工作室 / Studio · 深色 / Dark](screenshots/templates/studio-dark.png)
+
+### 终端 / Console
+
+等宽文字与紧凑的分组入口。
+
+**浅色 / Light**
+
+![终端 / Console · 浅色 / Light](screenshots/templates/console-light.png)
+
+**深色 / Dark**
+
+![终端 / Console · 深色 / Dark](screenshots/templates/console-dark.png)
+
+### 棱镜 / Prism
+
+几何点缀、大圆角与醒目的卡片轮廓。
+
+**浅色 / Light**
+
+![棱镜 / Prism · 浅色 / Light](screenshots/templates/prism-light.png)
+
+**深色 / Dark**
+
+![棱镜 / Prism · 深色 / Dark](screenshots/templates/prism-dark.png)
+
+### 书架 / Library
+
+衬线标题与有序分隔的链接索引。
+
+**浅色 / Light**
+
+![书架 / Library · 浅色 / Light](screenshots/templates/library-light.png)
+
+**深色 / Dark**
+
+![书架 / Library · 深色 / Dark](screenshots/templates/library-dark.png)
+
+### 地平线 / Horizon
+
+以时钟为焦点的开阔页眉与简洁横向入口。
+
+**浅色 / Light**
+
+![地平线 / Horizon · 浅色 / Light](screenshots/templates/horizon-light.png)
+
+**深色 / Dark**
+
+![地平线 / Horizon · 深色 / Dark](screenshots/templates/horizon-dark.png)
+
+### 条理 / Ledger
+
+紧凑的工作索引，强调对齐与分类计数。
+
+**浅色 / Light**
+
+![条理 / Ledger · 浅色 / Light](screenshots/templates/ledger-light.png)
+
+**深色 / Dark**
+
+![条理 / Ledger · 深色 / Dark](screenshots/templates/ledger-dark.png)
+
+### 草间 / Meadow
+
+轻盈居中的起始页与卵石般圆润的卡片。
+
+**浅色 / Light**
+
+![草间 / Meadow · 浅色 / Light](screenshots/templates/meadow-light.png)
+
+**深色 / Dark**
+
+![草间 / Meadow · 深色 / Dark](screenshots/templates/meadow-dark.png)
+
+### 蓝图 / Blueprint
+
+精准网格、方正控件与轻微的辅助线。
+
+**浅色 / Light**
+
+![蓝图 / Blueprint · 浅色 / Light](screenshots/templates/blueprint-light.png)
+
+**深色 / Dark**
+
+![蓝图 / Blueprint · 深色 / Dark](screenshots/templates/blueprint-dark.png)
+
+### 层台 / Terrace
+
+分组入口面板与错落有致的标题装饰。
+
+**浅色 / Light**
+
+![层台 / Terrace · 浅色 / Light](screenshots/templates/terrace-light.png)
+
+**深色 / Dark**
+
+![层台 / Terrace · 深色 / Dark](screenshots/templates/terrace-dark.png)
+
+### 专栏 / Column
+
+窄幅编辑式侧栏与宽敞的资料索引。
+
+**浅色 / Light**
+
+![专栏 / Column · 浅色 / Light](screenshots/templates/column-light.png)
+
+**深色 / Dark**
+
+![专栏 / Column · 深色 / Dark](screenshots/templates/column-dark.png)

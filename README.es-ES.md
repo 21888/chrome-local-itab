@@ -10,6 +10,18 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
+### Doce plantillas nuevas · Claro / Oscuro
+
+Capturas reales de las doce plantillas adicionales con la misma configuración de 18 sitios, controles en inglés y categorías en chino. Solo se recortaron el aviso de pruebas y la barra inferior del navegador; no se redibujó la interfaz. Las imágenes muestran el área visible al capturarlas; el contenido más largo continúa al desplazarse. El tiempo y las demás tarjetas contienen ejemplos introducidos manualmente, no datos en directo.
+
+![Doce plantillas claras: Atelier, Quiet, Studio, Console, Prism, Library, Horizon, Ledger, Meadow, Blueprint, Terrace y Column](docs/screenshots/templates/overview-light.png)
+
+![Las doce plantillas oscuras en el mismo orden que la vista clara](docs/screenshots/templates/overview-dark.png)
+
+[Ver las 24 capturas individuales y la guía en inglés](docs/template-gallery.en.md#screenshot-gallery) · [Origen y recorte de las capturas](docs/screenshots/templates/capture-manifest.json)
+
+### Plantillas originales A / B / C y disposición libre
+
 Capturas de la extensión real en inglés con la misma configuración de ejemplo y categorías en chino. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
 
 **A / Clarity · Claro · Cuadrícula**

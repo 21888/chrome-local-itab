@@ -10,6 +10,18 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
+### Twelve new templates · Light / Dark
+
+Actual interface captures of the twelve additional templates use the same 18-site sample setup, with English controls and Chinese categories. Only the browser's testing notice and bottom bar were cropped away; the interface was not redrawn. Images show the captured visible area, and longer content continues below it. Weather and other cards contain manually entered examples, not live data.
+
+![Twelve new light templates, ordered Atelier, Quiet, Studio, Console, Prism, Library, Horizon, Ledger, Meadow, Blueprint, Terrace, Column](docs/screenshots/templates/overview-light.png)
+
+![Twelve new dark templates in the same order as the light overview](docs/screenshots/templates/overview-dark.png)
+
+[View all 24 individual captures and the style guide](docs/template-gallery.en.md#screenshot-gallery) · [Capture provenance and crop details](docs/screenshots/templates/capture-manifest.json)
+
+### Original A / B / C templates and Free layout
+
 Real extension screenshots with the English interface and the same sample setup, including Chinese category names. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
 
 **A / Clarity · Light · Grid layout**

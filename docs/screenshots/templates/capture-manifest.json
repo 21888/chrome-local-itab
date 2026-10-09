@@ -1,0 +1,402 @@
+{
+  "captureDate": "2026-10-08",
+  "sourceCssSha256": "18b28d539c88bd1d812b8b6bb17d342be23b5a457d72f455da19fe54e3922d8c",
+  "capture": "Native Sky desktop screenshot of CfT F11 fullscreen; screenshot pixels are not measured page viewport. Browser notice and footer retained.",
+  "cropBoxXYXY": [
+    0,
+    57,
+    1364,
+    967
+  ],
+  "cropPixels": [
+    1364,
+    910
+  ],
+  "processing": "Original capture files have .png names but contain JPEG data. Exact decoded-pixel crop, lossless PNG encoding; original JPEG compression artifacts are preserved. No retouching, hiding controls, synthetic UI, or generative imagery. Contact sheets use proportionally downscaled crops with labels outside images. Overview composites are proportionally resized from 2158 × 2284 to 1536 × 1626 using Lanczos resampling; only the individual full-resolution crops retain exact decoded-pixel equality.",
+  "notes": [
+    "Image dimensions are not measured CSS viewport dimensions.",
+    "English interface with Chinese example categories and 18 saved sites.",
+    "Optional cards and Tasks shown are demonstration data; weather is manually entered, not a live feed.",
+    "Screenshots show the captured upper page area; content can continue below the frame.",
+    "Focus outlines and pointer highlights are retained as captured.",
+    "Originals are archived separately in the delivery package; only cropped PNGs and overview PNGs are proposed repository assets."
+  ],
+  "screenshots": [
+    {
+      "template": "atelier",
+      "mode": "light",
+      "file": "atelier-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "3f539c6f04c9ca6b038408bf9957736287acf48c311a89abbcccd5cf26a01cef",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/atelier-light.png",
+      "cropSha256": "22f7b1a3014ad3a6612389a25b0dc1beaad04a19f9ba311a7cfeba4622a217d5",
+      "cropBytes": 230161
+    },
+    {
+      "template": "atelier",
+      "mode": "dark",
+      "file": "atelier-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "7fddb14364506208db768606bec5412116783e58109ff058c7ea8fb432465f2f",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/atelier-dark.png",
+      "cropSha256": "0475a63869c6947404d8f1d50f6bb04622948e529f39b001bbaee3edeb7cc0a2",
+      "cropBytes": 233527
+    },
+    {
+      "template": "quiet",
+      "mode": "light",
+      "file": "quiet-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "473ec4525741ef55f4a9715e8b9ed3b052f0d017c0ef86276ec51b07cd9e0e30",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/quiet-light.png",
+      "cropSha256": "b1059e1d99528a2b4ab9d077bd070340499bba3d27476cd59dac208151e6e6ea",
+      "cropBytes": 210575
+    },
+    {
+      "template": "quiet",
+      "mode": "dark",
+      "file": "quiet-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "9163d4dbb109ec0c05b36e7f292d5161586ed2079845af318028a12f3129b90d",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/quiet-dark.png",
+      "cropSha256": "6dc5ff060b4b3d10aeeb9e19a4702a4eb5475e832b63f2c5e8af51cdc50ff194",
+      "cropBytes": 210369
+    },
+    {
+      "template": "studio",
+      "mode": "light",
+      "file": "studio-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "656974d04c6031a710a4f55d56b445d1900919a0dc4be59e96b4e96962539f5e",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/studio-light.png",
+      "cropSha256": "9926c756db60fe7d3dbeee2c158cecfe7086507be122384713375fc95ff491c0",
+      "cropBytes": 259942
+    },
+    {
+      "template": "studio",
+      "mode": "dark",
+      "file": "studio-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "6eb76d978b970bc090e80ae3e0920beedc82c07a8bdfbfaeede6b930d12c8bc6",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/studio-dark.png",
+      "cropSha256": "81527780b8579d2b08694e83d14046fc7f602d89baf40229a95d89d19acc61f5",
+      "cropBytes": 263553
+    },
+    {
+      "template": "console",
+      "mode": "light",
+      "file": "console-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "da0dab5d73622c293f9ee7493e9690cb26db4abe27956e02800a4a8925818842",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/console-light.png",
+      "cropSha256": "bff15707f0f029f57940961e5ea47a208de44b76ba47f4559aa513e2d279cf40",
+      "cropBytes": 277819
+    },
+    {
+      "template": "console",
+      "mode": "dark",
+      "file": "console-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "9015b7384ecfdb83855b4c5b27ed97acc5643ee5f3b48ae2c5bd9c9dd55abed2",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/console-dark.png",
+      "cropSha256": "a67f48d939faa15cbb5c8a02c25363ab4b5e3a9a90226fd17b53f0152f5ebfd7",
+      "cropBytes": 281825
+    },
+    {
+      "template": "prism",
+      "mode": "light",
+      "file": "prism-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "ba727105b61450426b2167189d7e5476b97ae6aac3dd47b8a40c41704d95a9d8",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/prism-light.png",
+      "cropSha256": "e35395847e2c5f36a049233508acc76b833598eec0a6b6107d54ee24100e550f",
+      "cropBytes": 291537
+    },
+    {
+      "template": "prism",
+      "mode": "dark",
+      "file": "prism-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "5ddc13b0912cf7c51bc5829046a863ee02480648812fc9cdaf2eeee780e14670",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/prism-dark.png",
+      "cropSha256": "fea957fa8be65264f9bd74b4077c03b43c353f007c6a6f591c5eeb3ab418866d",
+      "cropBytes": 285294
+    },
+    {
+      "template": "library",
+      "mode": "light",
+      "file": "library-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "e46e4f91fc7782c46b15df88efb0844706df488f0980ab00727807f60ad5f4c4",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/library-light.png",
+      "cropSha256": "372f33bf2f653f496e42eccf17ec7d0c4c866488696fbaf9df8a7af0aef6b054",
+      "cropBytes": 246165
+    },
+    {
+      "template": "library",
+      "mode": "dark",
+      "file": "library-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "550a264d22c9020b250606cac94d91cc6b4f3921e4214475f183ee0afdeb1917",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/library-dark.png",
+      "cropSha256": "2815900a287ca8326ad799b3946e492f83a5f80d48c06197f025d1c794e624ae",
+      "cropBytes": 247417
+    },
+    {
+      "template": "horizon",
+      "mode": "light",
+      "file": "horizon-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "83ee58a368489cb413ecee5e8bd0e1fa4772b7a9995dd0c07e53ee926eb26228",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/horizon-light.png",
+      "cropSha256": "ed84b69d5e31a12036039818f21b148a36206508356e212ecfe1b2c282b0e5dd",
+      "cropBytes": 240740
+    },
+    {
+      "template": "horizon",
+      "mode": "dark",
+      "file": "horizon-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "00d99812e82679e73c827e6af34c3629105cf13345c4c2205df3d117a86ec1f7",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/horizon-dark.png",
+      "cropSha256": "8c31d94ec42ad56342e6bd4b88169d0aa09164883bd0c90b94a7cd76fc7de056",
+      "cropBytes": 232748
+    },
+    {
+      "template": "ledger",
+      "mode": "light",
+      "file": "ledger-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "367601a7c7d6a1429b3ea874fc262e4f820061b6c88446dcd7c094b9563f501e",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/ledger-light.png",
+      "cropSha256": "5949311e6c5a844485c95d7a1b6960f7416ed6c3af8d2ff18b201cc0acdd7bdb",
+      "cropBytes": 256524
+    },
+    {
+      "template": "ledger",
+      "mode": "dark",
+      "file": "ledger-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "4f074b7e800ab7327d259faa154f10d807c922de8fa9938df6760efffda43730",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/ledger-dark.png",
+      "cropSha256": "d57643f71b448720d6e6136dab703e35118bc90b8f112d8c6c2b592acb83f713",
+      "cropBytes": 254379
+    },
+    {
+      "template": "meadow",
+      "mode": "light",
+      "file": "meadow-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "208c6cb4c5b66cceade92268cab54ff4c75bf0311c03b9f569d475dc24463c8a",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/meadow-light.png",
+      "cropSha256": "e06ca0e52427216833040cc27031c5226b32cdd4c17a9c81b77bcec5ef19d977",
+      "cropBytes": 244146
+    },
+    {
+      "template": "meadow",
+      "mode": "dark",
+      "file": "meadow-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "7d6b22275b8c627bf51d24f292307810c8f142cbeed7867595360e784cb56762",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/meadow-dark.png",
+      "cropSha256": "aa579377bf2027f2012d6afcd5c93b9e01cd3d9f544750d4c8ac3e41210fed1a",
+      "cropBytes": 243750
+    },
+    {
+      "template": "blueprint",
+      "mode": "light",
+      "file": "blueprint-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "6a4d1134f199aa7b335d5f854b9edf728c3027d59282ce01a6e73e407525a6b6",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/blueprint-light.png",
+      "cropSha256": "4544164fed6dabf7cc5f82993864065f91a525fe58ffd856840acc3b26582949",
+      "cropBytes": 253050
+    },
+    {
+      "template": "blueprint",
+      "mode": "dark",
+      "file": "blueprint-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "21a17a0b63dc41164a8224fa963771f0dd72439062d6ca9d7c9f2b589da9eeb3",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/blueprint-dark.png",
+      "cropSha256": "f43ee5346d750f35d1f9e337347ecb5d4b0009767e62578091b2a901466655a5",
+      "cropBytes": 241780
+    },
+    {
+      "template": "terrace",
+      "mode": "light",
+      "file": "terrace-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "788c38ba485aa4158216866bd15acfaa7e4cdb24aa848aa1f8f40ad67ade927a",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/terrace-light.png",
+      "cropSha256": "bb4ad771a33832341def692f606e924e30f74bb320e44cd3e0f6aa00eaf16839",
+      "cropBytes": 269410
+    },
+    {
+      "template": "terrace",
+      "mode": "dark",
+      "file": "terrace-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "f14d80c5b17ac3a0596330c5fe5a944ebc31817491ae0b31fe6d61b2aef13d11",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/terrace-dark.png",
+      "cropSha256": "d031f1f356103bb97d4a9a63509cf8ac4650e8c5e1d26cb3ead29c5c084f4f29",
+      "cropBytes": 262732
+    },
+    {
+      "template": "column",
+      "mode": "light",
+      "file": "column-light.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "7e5ec132d5f94107e8daeb2fa255dcbd50be57fa23baf11f54f255ea906705e9",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/column-light.png",
+      "cropSha256": "8bf38b7f0500065815d42e31879f2bd170ae2b48bf63629d0b43a37ca41953a4",
+      "cropBytes": 305228
+    },
+    {
+      "template": "column",
+      "mode": "dark",
+      "file": "column-dark.png",
+      "imagePixels": [
+        1364,
+        1024
+      ],
+      "originalSha256": "c0bd6f9d320c04935e2cc5766a4e21f0a469ae6e841e7f4ae5eb05ff6bca630e",
+      "originalFormat": "JPEG",
+      "cropFile": "docs/screenshots/templates/column-dark.png",
+      "cropSha256": "7a870cc707494c4e27688ef6b3c1107b40b22fc8c5edfde5cba9b17e8a56a67b",
+      "cropBytes": 298855
+    }
+  ],
+  "overviews": [
+    {
+      "file": "docs/screenshots/templates/overview-light.png",
+      "sha256": "5f8efd1b94bfcde9ceceddc5e5edba7361bdf0e75a1d895fc1b06bebf5e3be43",
+      "imagePixels": [
+        1536,
+        1626
+      ],
+      "arrangement": "3 columns × 4 rows",
+      "compositePixelsBeforeResize": [
+        2158,
+        2284
+      ],
+      "sourceThumbnailPixels": [
+        682,
+        455
+      ],
+      "bytes": 761942,
+      "resampling": "Lanczos, proportional downscale of the labeled composite to 1536 pixels wide; overview pixels are resampled, not pixel-identical to source crops."
+    },
+    {
+      "file": "docs/screenshots/templates/overview-dark.png",
+      "sha256": "a515b20dd75beb2007a4657e793695b43571a010412ad0ef80632b932ec9d149",
+      "imagePixels": [
+        1536,
+        1626
+      ],
+      "arrangement": "3 columns × 4 rows",
+      "compositePixelsBeforeResize": [
+        2158,
+        2284
+      ],
+      "sourceThumbnailPixels": [
+        682,
+        455
+      ],
+      "bytes": 762467,
+      "resampling": "Lanczos, proportional downscale of the labeled composite to 1536 pixels wide; overview pixels are resampled, not pixel-identical to source crops."
+    }
+  ]
+}
