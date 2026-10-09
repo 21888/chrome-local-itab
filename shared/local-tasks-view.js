@@ -184,8 +184,13 @@
             const state = this.controller.state, busy = !!this.controller.pending;
             // An unreadable initial store must expose its safe retry without changing visibility preferences.
             const showReadError = !state && !!this.controller.error;
-            this.host.hidden = !this.alwaysVisible && state?.enabled !== true && !showReadError;
-            this.onVisibility(state?.enabled === true || showReadError);
+            // A remote hide preference must not strand this page's quick-entry draft or save.
+            // Keep the preference unchanged, then honor it when the owner finishes or clears the draft.
+            const ownsPendingAdd = busy && this.controller.retryCommand?.kind === 'add' &&
+                this.controller.retryCommand.operationId === this.retryEffectOperationId;
+            const visible = this.alwaysVisible || state?.enabled === true || showReadError || this.input.value.length > 0 || ownsPendingAdd;
+            this.host.hidden = !visible;
+            this.onVisibility(visible);
             this.addButton.disabled = busy || !state;
             const focused = this.host.contains(document.activeElement) ? document.activeElement : null;
             const taskId = focused?.closest('[data-task-id]')?.dataset.taskId, action = focused?.dataset.taskAction;
