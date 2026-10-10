@@ -6,7 +6,7 @@ Enable **Tasks** under module visibility settings. It starts empty and is option
 - Add a plain-text task with Enter, or use Shift+Enter for a new line.
 - Complete or reopen a task. Open **Actions** to edit, pin one next action, move up/down, or remove it.
 - Use **Complete** beside **Next up** to finish the pinned task even when it is outside the four-row preview or current filter. The task text stays plain text; the button works with Enter or Space. Completing it clears the pin without choosing another task. If another page changes the pin or task first, the older action stops for review. Focus returns to Add a task only after a confirmed save, if you have not moved on.
-- **Undo removal** is immediate. **Removed** also lets you restore an item after reloading.
+- **Undo completion** reopens the last successfully completed task, including **Next up**, without restoring its old pin. It shares one page-local Undo slot with **Undo removal**: the latest completion or removal replaces the previous one, and reloading clears it. Later changes to that task prevent Undo; unrelated tasks and a newer pin stay unchanged. An uncertain save must be explicitly retried and confirmed first. **Completed** and **Removed** still let you reopen or restore items after reloading.
 - **Task data** contains separate export, reviewed import, and previous local copies.
 
 Tasks stay in this extension's storage on this device. Settings exports, Chrome Sync and Drive backups do not contain tasks, completed items, removed items or their previous copies. Export tasks separately before moving devices or removing browser data. A downloaded file is not automatically a cloud backup. Uninstalling the extension or clearing its data can remove local tasks.

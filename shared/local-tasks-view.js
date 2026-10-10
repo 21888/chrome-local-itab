@@ -8,7 +8,7 @@
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksActions: 'Actions', tasksUp: 'Move up', tasksDown: 'Move down', tasksMore: 'Show all tasks', tasksLess: 'Show fewer', tasksCompleted: 'Completed', tasksRemoved: 'Removed',
         tasksData: 'Task data', tasksHelp: 'Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks.',
-        tasksExport: 'Export tasks', tasksImport: 'Import tasks', tasksCopies: 'Previous local copies', tasksRecover: 'Review restore', tasksUndo: 'Undo removal',
+        tasksExport: 'Export tasks', tasksImport: 'Import tasks', tasksCopies: 'Previous local copies', tasksRecover: 'Review restore', tasksUndo: 'Undo removal', tasksUndoComplete: 'Undo completion',
         tasksLoading: 'Loading local tasks…', tasksDraftRemains: 'Last task saved. Your current draft is not saved yet.', tasksReady: 'Local tasks ready', tasksSaving: 'Saving on this device…', tasksSaved: 'Saved on this device', tasksRetry: 'Retry',
         tasksCancel: 'Cancel', tasksSave: 'Save task', tasksEditTitle: 'Edit task', tasksReviewTitle: 'Replace local tasks?', tasksReplace: 'Replace tasks',
         tasksReviewHelp: 'This replaces the current task list and pin on this device. A previous local copy is kept below Task data, except when a full archive is imported into an empty list with no previous copies. All imported copies are kept. Settings and cloud backups stay unchanged.',
@@ -53,7 +53,7 @@
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, alwaysVisible = false } = {}) {
             this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.alwaysVisible = alwaysVisible;
-            this.dialogs = new Set(); this.reviewGeneration = 0; this.pendingReview = false; this.expanded = false; this.draftGeneration = 0; this.undo = null; this.destroyed = false; this.localError = null;
+            this.dialogs = new Set(); this.reviewGeneration = 0; this.pendingReview = false; this.expanded = false; this.draftGeneration = 0; this.undo = null; this.actionGeneration = 0; this.destroyed = false; this.localError = null;
             host.classList.add('local-tasks-card'); host.setAttribute('aria-label', t('tasksTitle'));
             const header = el('header', 'tasks-header'); header.append(el('h2', '', t('tasksTitle')), el('span', 'tasks-local', t('tasksLocal')));
             this.next = el('div', 'tasks-next');
@@ -97,7 +97,7 @@
             this.retry.addEventListener('keydown', event => {
                 if (this.controller.retryCommand?.kind === 'completePinned' && event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
             });
-            this.undoButton = button('tasksUndo', () => this.undoRemove());
+            this.undoButton = button('tasksUndo', () => this.undoLast());
             this.feedback.append(this.status, this.retry, this.undoButton);
             host.replaceChildren(header, this.next, this.form, this.filter, this.filterStatus, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
@@ -121,10 +121,18 @@
             box.append(summary, list); return { box, summary, list, key };
         }
         async perform(command, success) {
-            if (this.controller.pending) return;
+            if (this.destroyed || this.controller.pending) return;
+            const generation = ++this.actionGeneration;
             this.localError = null;
             this.retryEffect = success; this.retryEffectOperationId = command.operationId;
-            try { const state = await this.controller.run(command); if (!this.destroyed) { success?.(state); this.retryEffect = null; this.render(); } }
+            try {
+                const state = await this.controller.run(command);
+                // Final controller notifications can start another action before this
+                // continuation runs. An older result must not replace its Undo/retry.
+                if (this.destroyed || generation !== this.actionGeneration || this.controller.pending ||
+                    (this.controller.retryCommand && this.controller.retryCommand.operationId !== command.operationId)) return;
+                this.rememberUndo(command, state); this.retryEffect = null; success?.(state); this.render();
+            }
             catch (_) { /* Controller owns safe, content-free feedback. */ }
         }
         async retryLast() {
@@ -133,9 +141,12 @@
             if (command?.kind === 'completePinned' && command.operationId === this.retryEffectOperationId) {
                 return this.performPinned(command, this.retry);
             }
+            if (command) {
+                if (command.operationId !== this.retryEffectOperationId) return;
+                return this.perform(command, this.retryEffect);
+            }
             this.localError = null;
-            const effect = this.controller.retryCommand?.operationId === this.retryEffectOperationId ? this.retryEffect : null;
-            try { const state = await this.controller.retry(); effect?.(state); this.retryEffect = null; this.render(); } catch (_) {}
+            try { await this.controller.retry(); if (!this.destroyed) this.render(); } catch (_) {}
         }
         add() {
             const text = this.input.value, generation = this.draftGeneration;
@@ -221,8 +232,8 @@
                 }
                 actions.append(button('tasksEdit', () => this.edit(task)), button('tasksRemove', () => {
                     const hadFocus = item.contains(document.activeElement);
-                    run('remove', {}, state => {
-                        this.undo = state.records.find(t => t.id === task.id); this.render();
+                    run('remove', {}, () => {
+                        this.render();
                         if (hadFocus && document.activeElement === document.body) this.undoButton.focus();
                     });
                 }));
@@ -301,16 +312,29 @@
             }
             this.host.querySelectorAll('button[data-task-action]').forEach(node => node.setAttribute('aria-disabled', String(busy)));
             this.nextComplete?.setAttribute('aria-disabled', String(busy));
-            this.undoButton.hidden = !this.undo || !state?.records.some(t => t.id === this.undo.id && t.version === this.undo.version && t.state === 'removed');
+            this.undoButton.textContent = t(this.undo?.state === 'done' ? 'tasksUndoComplete' : 'tasksUndo');
+            this.undoButton.hidden = !this.undo || !state?.records.some(t => t.id === this.undo.id && t.version === this.undo.version && t.state === this.undo.state);
             this.undoButton.disabled = busy;
             const error = this.localError || this.controller.error;
             this.status.textContent = error ? errorText(error) : this.controller.status === 'saved' && this.input.value ? t('tasksDraftRemains') : t({ loading: 'tasksLoading', saving: 'tasksSaving', saved: 'tasksSaved', ready: 'tasksReady' }[this.controller.status] || 'tasksReady');
             this.feedback.classList.toggle('is-error', !!error); this.retry.hidden = !error || !['READ', 'WRITE', 'VERIFY'].includes(error.code) || !!this.localError || (!!this.controller.retryCommand && this.controller.retryCommand.operationId !== this.retryEffectOperationId);
             this.retry.disabled = busy;
         }
-        undoRemove() {
-            if (!this.undo) return;
-            this.perform(this.controller.store.request('restore', { id: this.undo.id, version: this.undo.version }), () => { this.undo = null; });
+        rememberUndo(command, saved) {
+            const state = { complete: 'done', completePinned: 'done', remove: 'removed' }[command.kind];
+            if (!state) return;
+            const record = saved.records.find(task => task.id === command.id && task.state === state);
+            // Save only the exact confirmed result, never a remotely edited version.
+            this.undo = saved.receipts.at(-1) === command.operationId && record &&
+                this.controller.state?.records.some(task => task.id === record.id && task.version === record.version && task.state === state)
+                ? { ...record } : null;
+        }
+        undoLast() {
+            const record = this.undo;
+            if (!record || this.undoButton.hidden) return;
+            this.perform(this.controller.store.request(record.state === 'done' ? 'reopen' : 'restore', { id: record.id, version: record.version }), () => {
+                if (this.undo === record) this.undo = null;
+            });
         }
         edit(task) {
             let ownedOperationId = null;

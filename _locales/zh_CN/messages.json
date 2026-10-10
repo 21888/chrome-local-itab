@@ -178,6 +178,7 @@
 	"tasksCopies": {"message": "此前的本地副本"},
 	"tasksRecover": {"message": "查看并恢复"},
 	"tasksUndo": {"message": "撤销移除"},
+	"tasksUndoComplete": {"message": "撤销完成"},
 	"tasksLoading": {"message": "正在读取本地待办…"},
 	"tasksReady": {"message": "本地待办已就绪"},
 	"tasksSaving": {"message": "正在保存到此设备…"},

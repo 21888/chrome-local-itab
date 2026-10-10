@@ -178,6 +178,7 @@
 	"tasksCopies": {"message": "Previous local copies"},
 	"tasksRecover": {"message": "Review restore"},
 	"tasksUndo": {"message": "Undo removal"},
+	"tasksUndoComplete": {"message": "Undo completion"},
 	"tasksLoading": {"message": "Loading local tasks…"},
 	"tasksReady": {"message": "Local tasks ready"},
 	"tasksSaving": {"message": "Saving on this device…"},
