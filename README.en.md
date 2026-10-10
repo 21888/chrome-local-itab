@@ -14,11 +14,30 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
+### Release captures · 1.1.14
+
+Captured on 2026-10-10 from the published 1.1.14 runtime in an isolated Chrome profile. These two original fullscreen captures use the English interface, with no cropping, resizing or redrawing. The five sample sites came from Create Starter Set. Automatic update checks, online icons and sync stayed off by default; no account was signed in.
+
+**Version & updates · Light**: installed version, the disabled-by-default checking option, and the settings/Countdown backup shortcuts.
+
+![1.1.14 English light Version & updates with backup guidance and both export-navigation buttons](docs/screenshots/release-1.1.14/updates-backup-light-en.jpg)
+
+**New tab · Dark**: localized default categories, five starter examples and local letter/emoji icons.
+
+![1.1.14 English dark new tab with localized categories and starter-example sites](docs/screenshots/release-1.1.14/newtab-dark-en.jpg)
+
+[Release package](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.14) · [Capture provenance and checksums](docs/screenshots/release-1.1.14/capture-metadata.json) · [Backup-navigation validation scope](docs/upgrade-backup-navigation-validation.md)
+
+<details>
+<summary>Earlier feature and template captures</summary>
+
+These historical examples retain their own version and crop records; they were not all captured from 1.1.14.
+
 Real extension screenshots captured at different feature stages. Template previews use the English interface with Chinese sample category names; feature sections identify their capture languages. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
 
 [Narrow templates, focus spacing and upgrade-preservation checks](docs/narrow-template-and-upgrade-validation.md)
 
-### Latest interactions · Undo completion and scientific literals
+### Earlier interactions · 1.1.7 Undo completion and scientific literals
 
 Undo an accidental completion without automatically pinning the task again; the current draft and filter remain. Calculator results in scientific notation can now be reused, for example `=1e-7*2`. These are original 1.1.7 development desktop captures, including browser chrome, with no cropping or redrawing.
 
@@ -35,7 +54,7 @@ Undo an accidental completion without automatically pinning the task again; the 
 
 </details>
 
-### Latest feature captures · Tasks and Focus
+### Earlier feature captures · 1.1.7 Tasks and Focus
 
 Complete the pinned Next up task directly, without expanding a long list. Start stays disabled while minutes are unsaved; saving a duration never starts the timer. These actual 1.1.7 development captures use synthetic English tasks: the Chinese light interface shows saved 30-minute Ready state; the cropped English dark Focus card shows an unsaved 30-minute draft while the committed timer remains 25 minutes.
 
@@ -45,11 +64,11 @@ Complete the pinned Next up task directly, without expanding a long list. Start 
 
 [Capture provenance and crops](docs/screenshots/tasks-focus-1.1.7/capture-metadata.json) · [Tasks acceptance scope](docs/tasks-pinned-completion-validation.md) · [Focus draft protection](docs/focus-duration-draft-validation.md)
 
-### More actions captures
+### Earlier captures · More actions
 
 Every saved-site tile now has a visible “⋯” button for the existing Open, Edit, Delete and reorder menu, with keyboard access. These actual English-interface captures use six test sites and are cropped only, not redrawn.
 
-![Latest light wide interface with a site's More actions menu](docs/screenshots/shortcut-menu/more-light-wide.png)
+![Earlier light wide interface with a site's More actions menu](docs/screenshots/shortcut-menu/more-light-wide.png)
 
 <details>
 <summary>Dark narrow menu capture</summary>
@@ -64,7 +83,7 @@ Every saved-site tile now has a visible “⋯” button for the existing Open, 
 
 ![Local iTab Clarity light template with sample categorized shortcuts, search, and clock](docs/screenshots/clarity-light-grid.png)
 
-### Twelve new templates · Light / Dark
+### Earlier template captures · Twelve additional styles · Light / Dark
 
 Actual interface captures of the twelve additional templates use the same 18-site sample setup, with English controls and Chinese categories. Only the browser's testing notice and bottom bar were cropped away; the interface was not redrawn. Images show the captured visible area, and longer content continues below it. Weather and other cards contain manually entered examples, not live data.
 
@@ -79,7 +98,7 @@ The overviews below are contact sheets assembled from proportionally reduced act
 <details>
 <summary>More templates and actual feature captures</summary>
 
-### Current features
+### Earlier feature captures
 
 Actual interface captures with sample data and English controls. The images are cropped, never redrawn. Task captures focus on the cards; the other images show the visible page area at capture time. Some content requires scrolling.
 
@@ -124,6 +143,8 @@ Actual interface captures with sample data and English controls. The images are 
 **A / Clarity · Light · Free layout without grid snapping**
 
 ![Local iTab Clarity light Free layout after dragging GitHub, with Saved status visible](docs/screenshots/free-layout.png)
+
+</details>
 
 </details>
 

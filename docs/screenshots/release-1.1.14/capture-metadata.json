@@ -1,0 +1,54 @@
+{
+  "capture_date_utc": "2026-10-10",
+  "release_version": "1.1.14",
+  "release_tag": "v1.1.14",
+  "source_commit": "ba9497270864826cfa189e88a0f843506bb8a414",
+  "release_url": "https://github.com/21888/chrome-local-itab/releases/tag/v1.1.14",
+  "source_url": "https://github.com/21888/chrome-local-itab/commit/ba9497270864826cfa189e88a0f843506bb8a414",
+  "runtime_asset": "local-itab-1.1.14.zip",
+  "runtime_sha256": "0cee515f43eb4f532da62687eab135677ee56a740a3538fe7a8d9d9a890d8b86",
+  "runtime_files": 63,
+  "runtime_file_hashes": "runtime-provenance.json",
+  "runtime_verification": "Extracted the downloaded public release ZIP, verified its SHA-256 and every file against published PROVENANCE.json, and checked manifest version 1.1.14. Runtime files were not modified.",
+  "browser": "Google Chrome for Testing 155.0.8059.39",
+  "environment": "Cloud Linux desktop; isolated new English profile; native keyboard/mouse interaction and screenshots only.",
+  "capture_method": "Original native CUA window screenshot bytes in browser fullscreen mode; Chrome for Testing notice and bottom browser bar retained. No headless browser, debugging socket, injected JavaScript or rendered mockup.",
+  "transforms": "None. No cropping, resizing, redrawing, recompression or pixel edits.",
+  "sample_data": "Five built-in example sites created by clicking Create Starter Set through the normal new-tab UI. Default English category names retained. No personal data or signed-in account.",
+  "network_scope": "Automatic release checks, online favicon fetching and Chrome Sync were left at their off defaults. Drive was not connected. No release check, web search or example-site visit was triggered. Browser background networking was not measured.",
+  "ui_observations": [
+    "Installed version visibly reads 1.1.14.",
+    "Both Go to settings export and Go to Countdown export controls and their navigation-only explanation are visible.",
+    "Automatic checks are unchecked, with Not checked saved results.",
+    "The English categories Work, Social, Entertainment, Tools and Learning are visible in the dark new-tab screenshot."
+  ],
+  "limits": [
+    "This is a bounded documentation capture pass, not a complete feature, theme or locale regression run.",
+    "The backup navigation controls are shown; their destination/keyboard validation is recorded separately in docs/upgrade-backup-navigation-validation.md.",
+    "Existing README galleries are historical captures from their documented revisions.",
+    "The desktop clock differs from orchestration UTC; its displayed time was not altered."
+  ],
+  "cleanup": "Owned screenshot Chrome window closed through native UI. Pre-existing Chromium and file-manager windows were preserved.",
+  "images": [
+    {
+      "file": "updates-backup-light-en.jpg",
+      "description": "English light Version & updates with both backup-navigation buttons.",
+      "format": "JPEG",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 147959,
+      "sha256": "daa206deeaa97262515b9f801dde0757fb60bef411ffb315a9c5af9fe6cfc6dd",
+      "original": true
+    },
+    {
+      "file": "newtab-dark-en.jpg",
+      "description": "English dark Clarity new tab with five built-in starter examples.",
+      "format": "JPEG",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 104913,
+      "sha256": "f690d67becaa57a937e29c646a04374a8358009428816fb41bf21a8c62cdb614",
+      "original": true
+    }
+  ]
+}

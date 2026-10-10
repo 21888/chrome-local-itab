@@ -14,11 +14,30 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
+### Capturas de la versión publicada · 1.1.14
+
+Capturadas el 2026-10-10 con el paquete publicado 1.1.14 en un perfil aislado de Chrome. Estas dos capturas originales a pantalla completa usan la interfaz en inglés, sin recortar, redimensionar ni redibujar. Los cinco sitios de ejemplo se añadieron con Create Starter Set. Las comprobaciones automáticas, los iconos en línea y la sincronización permanecieron desactivados; no se inició sesión.
+
+**Versión y actualizaciones · Claro**: versión instalada, comprobación automática desactivada por defecto y accesos a las copias de ajustes y de la cuenta atrás.
+
+![1.1.14 en inglés y tema claro: versión, recordatorio de copias y dos accesos a la exportación](docs/screenshots/release-1.1.14/updates-backup-light-en.jpg)
+
+**Nueva pestaña · Oscuro**: categorías predeterminadas traducidas al inglés, cinco sitios de ejemplo e iconos locales de letras y emojis.
+
+![Nueva pestaña 1.1.14 en inglés y tema oscuro con categorías traducidas y sitios de ejemplo](docs/screenshots/release-1.1.14/newtab-dark-en.jpg)
+
+[Paquete publicado](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.14) · [Origen y sumas de comprobación](docs/screenshots/release-1.1.14/capture-metadata.json) · [Alcance de validación de los accesos a copias](docs/upgrade-backup-navigation-validation.md)
+
+<details>
+<summary>Capturas anteriores de funciones y plantillas</summary>
+
+Estos ejemplos históricos conservan sus propios registros de versión y recorte; no todos se capturaron con 1.1.14.
+
 Capturas reales de distintas etapas del desarrollo de las funciones. Las plantillas muestran controles en inglés y categorías de ejemplo en chino; cada sección de funciones indica el idioma de sus capturas. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
 
 [Verificación de plantillas estrechas, foco y conservación tras actualizar](docs/narrow-template-and-upgrade-validation.md)
 
-### Interacciones recientes · Deshacer una finalización y notación científica
+### Interacciones anteriores · 1.1.7 Deshacer una finalización y notación científica
 
 Puedes deshacer una finalización accidental sin volver a fijar la tarea automáticamente; se conservan el borrador y el filtro. Los resultados en notación científica pueden usarse en otro cálculo, por ejemplo `=1e-7*2`. Son capturas originales de escritorio de la versión de desarrollo 1.1.7, con el marco del navegador, sin recortar ni redibujar.
 
@@ -35,7 +54,7 @@ Puedes deshacer una finalización accidental sin volver a fijar la tarea automá
 
 </details>
 
-### Funciones recientes · Tareas y concentración
+### Funciones anteriores · 1.1.7 Tareas y concentración
 
 Completa directamente la tarea fijada sin ampliar la lista. Iniciar permanece desactivado mientras los minutos no estén guardados; guardar la duración no inicia el temporizador. Capturas reales de la versión de desarrollo 1.1.7 con tareas de ejemplo en inglés: la interfaz clara en chino muestra 30 minutos guardados; el recorte oscuro en inglés muestra un borrador de 30 minutos mientras el temporizador conserva 25.
 
@@ -45,7 +64,7 @@ Completa directamente la tarea fijada sin ampliar la lista. Iniciar permanece de
 
 [Origen y recortes](docs/screenshots/tasks-focus-1.1.7/capture-metadata.json) · [Validación de tareas](docs/tasks-pinned-completion-validation.md) · [Protección del borrador](docs/focus-duration-draft-validation.md)
 
-### Más acciones
+### Capturas anteriores · Más acciones
 
 Cada sitio guardado incluye ahora un botón visible “⋯” para abrir el menú existente de apertura, edición, eliminación y orden, también accesible con teclado. Estas capturas reales usan la interfaz en inglés y seis sitios de prueba; solo se recortaron, sin redibujar.
 
@@ -64,7 +83,7 @@ Cada sitio guardado incluye ahora un botón visible “⋯” para abrir el men�
 
 ![Plantilla Clarity clara de Local iTab con accesos por categorías, búsqueda y reloj](docs/screenshots/clarity-light-grid.png)
 
-### Doce plantillas nuevas · Claro / Oscuro
+### Capturas anteriores · Doce plantillas adicionales · Claro / Oscuro
 
 Capturas reales de las doce plantillas adicionales con la misma configuración de 18 sitios, controles en inglés y categorías en chino. Solo se recortaron el aviso de pruebas y la barra inferior del navegador; no se redibujó la interfaz. Las imágenes muestran el área visible al capturarlas; el contenido más largo continúa al desplazarse. El tiempo y las demás tarjetas contienen ejemplos introducidos manualmente, no datos en directo.
 
@@ -79,7 +98,7 @@ Los resúmenes siguientes son hojas de contacto de capturas reales reducidas pro
 <details>
 <summary>Más plantillas y capturas reales de funciones</summary>
 
-### Funciones actuales
+### Capturas anteriores de funciones
 
 Capturas reales con datos de ejemplo y controles en inglés. Las imágenes están recortadas, sin redibujar la interfaz. Las capturas de tareas se centran en las tarjetas; las demás muestran el área visible al capturarlas. Parte del contenido requiere desplazarse.
 
@@ -124,6 +143,8 @@ Capturas reales con datos de ejemplo y controles en inglés. Las imágenes está
 **A / Clarity · Claro · Disposición libre sin ajuste a la cuadrícula**
 
 ![Disposición libre de Clarity clara tras arrastrar GitHub, con el estado guardado visible](docs/screenshots/free-layout.png)
+
+</details>
 
 </details>
 
