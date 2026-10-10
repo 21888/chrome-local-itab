@@ -49,3 +49,13 @@ For a batch of N visible items and M existing identity entries, the top-level co
 ## Remaining limits
 
 This is operation-count and modeled-DOM evidence, not native latency, layout/paint, FPS, heap or interaction evidence. The dashboard still materializes every shortcut, template changes can rebuild all tiles, and successful layout saves still compare full-link serializations. Single drag writes still copy the complete identity map. Large accumulated view histories and orphan maps still cost memory/copying. These are separate concerns; this patch only removes repeated top-level copying during missing-position initialization.
+
+## Subsequent bounded native validation
+
+On 2026-10-10, official Chrome for Testing 155.0.8059.39 on the cloud Linux desktop exercised the frozen `2777995fda62661ae71151a59854b058fa86a038` runtime. All 60 runtime files stayed byte-identical. Two separate synthetic scenarios covered legacy URL positions and explicit schema-2 identified positions; only the latter exercises the optimized identity-map branch.
+
+With four initial identified links and two categories, native Grid-to-Free initialization, dragging and reload, independent All/Work/Reading positions, a new duplicate-URL link with a distinct identity, and return to Grid passed. Ordinary settings exports confirmed all eight existing per-ID/view coordinates remained exactly equal after adding the fifth identity. The complete position map survived return to Grid. Alpha retained All `(500,87)` and Work `(290,108)`; the new identity received separate All and Work seeds. The legacy scenario separately preserved its existing URL-keyed coordinates.
+
+Evidence includes 40 original screenshots (21 legacy, 19 identified), six ordinary synthetic settings exports, comparison code and hashes. Identified post-add screenshot SHA256: `a147f00f57917b8478e2de1d8f42f6355285aac60f0efcf0bc40b29eec117ef9`. Exact comparison JSON SHA256: `980ba30f09d66c0cd215bbe12a25bb101619e97b7153c99615ec0b27c3aebc47`.
+
+This adds small-fixture native functional evidence only. It does not establish large-data browser timing, memory, FPS, map-copy counts, provider behavior or concurrency safety. No signed-store upgrade was performed.
