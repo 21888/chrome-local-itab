@@ -48,3 +48,11 @@ Existing tests additionally cover duplicate/ambiguous identities, legacy duplica
 - `node --check` passed for the changed Finder module and both added test files.
 
 Native browser responsiveness, layout/paint, native keyboard interactions, assistive technology, real IME input and live providers were not tested in this pass. The isolated audit did not edit production or publish. Root integration and its independent checks are recorded above. Native Finder regression is a separate check and is not claimed here.
+
+## Independent native Finder regression
+
+After integration, official Chrome for Testing 155.0.8059.39 ran the extension on the cloud Linux desktop with a separate synthetic profile. All 60 runtime files matched published commit `70eaa15d098d0a149e69c420a0731d1ad219e89a` byte-for-byte.
+
+A 63-shortcut fixture was imported through the normal Settings UI. Native input verified first-page results 1–50, Next results 51–63, Previous, one exact text match, no-match, Clear, ArrowDown result focus followed by Escape cancellation, slash-key reopen with an empty query, and the Close button. The single local tab remained and no destination was activated. The owned test browser was closed afterward.
+
+This supplements the model tests with real dialog behavior, but does not measure a 20,000-item browser workload or native performance. Other operating systems, result activation, packet capture and assistive technology were not tested in this pass.
