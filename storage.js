@@ -1390,11 +1390,31 @@ class StorageManager {
         checkChoice(settings.search?.engine, ['google', 'bing', 'duck', 'custom'], 'search engine');
         checkChoice(settings.hot?.tab, ['baidu', 'weibo', 'zhihu'], 'topic source');
 
+        // Imports must produce category identities that ordinary guarded saves can
+        // compare. Reserve every explicit ID before assigning legacy missing IDs;
+        // never attach an orphan shortcut to a newly invented category by accident.
+        const explicitCategoryIds = new Set();
+        const usedCategoryIds = new Set(['all', ...this.defaultConfig.categories.map(category => category.id),
+            ...settings.links.map(link => link.category || 'work')]);
+        for (const category of settings.categories || []) {
+            if (!category.id) continue;
+            if (explicitCategoryIds.has(category.id)) invalid('duplicate category IDs');
+            explicitCategoryIds.add(category.id);
+            usedCategoryIds.add(category.id);
+        }
+        let nextCategoryId = 1;
+        const importCategories = settings.categories?.map(category => {
+            if (category.id) return category;
+            let id;
+            do { id = `cat_import_${nextCategoryId++}`; } while (usedCategoryIds.has(id));
+            usedCategoryIds.add(id);
+            return { ...category, id };
+        });
         let links;
         let categories;
         try {
             links = this.validateLinksConfig(settings.links);
-            if (has(settings, 'categories')) categories = this.validateCategoriesConfig(settings.categories);
+            if (has(settings, 'categories')) categories = this.validateCategoriesConfig(importCategories);
         } catch (_) {
             invalid('a shortcut or category is malformed');
         }
@@ -1411,7 +1431,7 @@ class StorageManager {
             }
         }
 
-        const validated = this.validateConfigObject(settings);
+        const validated = this.validateConfigObject(categories ? { ...settings, categories } : settings);
         if (worldClocks !== undefined) validated.clock.worldClocks = worldClocks;
         if (settings.bg?.type === 'image' && settings.bg.value && !validated.bg.value) invalid('background image data is corrupt or unsupported');
         if (settings.movie?.poster && !validated.movie.poster) invalid('movie poster data is corrupt or unsupported');

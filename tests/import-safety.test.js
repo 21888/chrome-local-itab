@@ -11,6 +11,7 @@ const malformed = [
     { links: [link, { title: 'Invalid', url: 'javascript:alert(1)' }] },
     { links: [{ title: '', url: 'https://example.com/' }] },
     { links: [], categories: [null] }, { links: [], categories: [{ name: '' }] },
+    { links: [], categories: [{ id: 'same', name: 'One', icon: '1' }, { id: 'same', name: 'Two', icon: '2' }] },
     { links: [], clock: [] }, { links: [], quote: false },
     { links: [], hot: { baidu: 'corrupt' } }, { links: [], hot: { weibo: [null] } },
     { links: [], hot: { zhihu: [{ s: 1 }] } },
