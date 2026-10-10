@@ -33,17 +33,23 @@
             const categories = new Map((snapshot.categories || []).map(item => [item.id, item.name]));
             const needle = fold(this.query.trim());
             const matches = [];
-            const baseline = JSON.stringify(links);
             links.forEach((link, index) => {
                 const category = categories.get(link.category || 'work') || link.category || 'work';
                 if (!needle || ![link.title, link.url, category].some(value => fold(value).includes(needle))) return;
-                const url = safeUrl(link.url);
-                matches.push({ title: link.title || link.url || '', url: link.url || '', domain: url?.hostname || '', category,
-                    safe: Boolean(url), token: { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } });
+                matches.push({ link, category, index });
             });
             this.page = Math.min(Math.max(0, Math.floor(page) || 0), Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1));
+            const visible = matches.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE);
+            // Only legacy rows need a complete snapshot for fresh-read identity checks.
+            // Keep icons and other unrelated data out of ordinary saved-ID searches.
+            const baseline = visible.some(({ link }) => !link.layoutId) ? JSON.stringify(links) : null;
+            const rows = visible.map(({ link, category, index }) => {
+                const url = safeUrl(link.url);
+                return { title: link.title || link.url || '', url: link.url || '', domain: url?.hostname || '', category,
+                    safe: Boolean(url), token: { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } };
+            });
             return { query: this.query, total: matches.length, saved: links.length, page: this.page,
-                start: this.page * PAGE_SIZE, rows: matches.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE),
+                start: this.page * PAGE_SIZE, rows,
                 hasPrevious: this.page > 0, hasNext: (this.page + 1) * PAGE_SIZE < matches.length };
         }
         resolve(token, links, fresh = false) {
