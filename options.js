@@ -376,6 +376,32 @@ function setupSettingsTabs() {
         });
     });
 
+    // Navigate to existing backup sections without remounting or saving the form.
+    // Focus the heading, never Export: a held activation key must not download a file.
+    const backupHost = document.getElementById('update-backup-shortcuts');
+    const backupTargets = { 'data-settings': 'data', 'countdown-settings': 'content' };
+    const blockedBackupEvent = event => event.repeat || event.isComposing || event.keyCode === 229 ||
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.detail > 1;
+    for (const button of backupHost?.querySelectorAll('button[data-update-backup-target]') || []) {
+        button.addEventListener('keydown', event => {
+            if (['Enter', ' ', 'Spacebar'].includes(event.key) && blockedBackupEvent(event)) event.preventDefault();
+        });
+        button.addEventListener('click', event => {
+            if (blockedBackupEvent(event) || button.disabled || !button.isConnected ||
+                document.getElementById('update-backup-shortcuts') !== backupHost || !backupHost.contains(button) ||
+                button.closest('[inert]') || !button.getClientRects().length) return;
+            const id = button.dataset.updateBackupTarget, tab = backupTargets[id];
+            const target = tab && document.getElementById(id), panel = target?.closest('.tab-panel');
+            const heading = target?.querySelector('h2.section-title');
+            if (!target?.isConnected || !panel?.isConnected || panel.dataset.tab !== tab ||
+                target.closest('[hidden], [inert]') || !heading || activateTab(tab) === false ||
+                !heading.getClientRects().length || window.getComputedStyle?.(heading)?.visibility === 'hidden') return;
+            heading.tabIndex = -1;
+            heading.focus({preventScroll: true});
+            target.scrollIntoView({behavior: 'instant', block: 'start'});
+        });
+    }
+
     const hash = window.location.hash ? window.location.hash.slice(1) : '';
     if (hash) {
         const targetSection = document.getElementById(hash);

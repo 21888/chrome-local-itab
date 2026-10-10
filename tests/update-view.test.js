@@ -67,3 +67,14 @@ test('failed manual check keeps cached version/timestamp and shows a local error
     assert.equal(h.fields['update-last-checked'].textContent,before);assert.equal(h.fields['update-check'].disabled,false);
     assert(!source.includes('innerHTML')); assert.equal(h.draft.value,'UNSAVED_WORLD_CLOCK');
 });
+
+test('checker initialization failure disables only update operations, leaving backup navigation available', () => {
+    const h = harness(), navigation = h.document.createElement('button');
+    navigation.type = 'button'; navigation.dataset.updateBackupTarget = 'data-settings'; h.host.append(navigation);
+    h.window.LocalItabUpdates.Checker = class {constructor() { throw new Error('unavailable'); }};
+    h.document.listeners.get('DOMContentLoaded')();
+    for (const id of ['update-check', 'update-ignore', 'update-automatic']) assert.equal(h.fields[id].disabled, true);
+    assert.notEqual(navigation.disabled, true);
+    assert.match(h.fields['update-status'].textContent, /could not be read or saved/);
+    assert.equal(h.draft.value, 'UNSAVED_WORLD_CLOCK');
+});

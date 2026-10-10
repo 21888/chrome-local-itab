@@ -389,6 +389,16 @@
                                     </div>
                                     <p id="update-status" class="update-status" role="status" aria-live="polite" aria-atomic="true"></p>
                                 </div>
+                                <div id="update-backup-shortcuts" class="setting-group full-width update-instructions" role="group" aria-labelledby="update-backup-title">
+                                    <h3 id="update-backup-title" data-i18n="updateBackupTitle">Back up before updating</h3>
+                                    <p class="form-hint" data-i18n="updateBackupScope">Save open edits first. Settings backups exclude Tasks, Focus, Scratchpad and Countdown. Back up Tasks, Scratchpad and Countdown separately; record Focus preferences manually. Focus sessions cannot be migrated.</p>
+                                    <div class="update-actions">
+                                        <button type="button" class="btn btn-secondary" data-update-backup-target="data-settings" aria-controls="data-settings" aria-describedby="update-backup-navigation" data-i18n="updateBackupSettings">Go to settings export</button>
+                                        <button type="button" class="btn btn-secondary" data-update-backup-target="countdown-settings" aria-controls="countdown-settings" aria-describedby="update-backup-navigation" data-i18n="updateBackupCountdown">Go to Countdown export</button>
+                                    </div>
+                                    <p id="update-backup-navigation" class="form-hint" data-i18n="updateBackupNavigation">These shortcuts only move within Settings. They do not save drafts or download files.</p>
+                                    <p class="form-hint" data-i18n="updateBackupCards">On the new tab page: Tasks → Task data → Export tasks; Scratchpad → Export text. If a card is hidden, enable it under Settings → Shortcuts → Module Visibility. Export Scratchpad from the tab containing the text you want to keep.</p>
+                                </div>
                                 <div class="setting-group full-width update-instructions">
                                     <div data-update-install="unpacked" hidden>
                                         <h3 data-i18n="updateUnpackedTitle">Update your unpacked extension</h3>

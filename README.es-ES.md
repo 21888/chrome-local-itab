@@ -390,6 +390,8 @@ El comando muestra la revisión Git y el estado de los cambios locales (o indica
 
 Ajustes → Privacidad → Versión y actualizaciones muestra la versión instalada y permite consultar manualmente la última versión publicada en GitHub. La consulta automática es opcional, como máximo una vez cada 24 horas al usar la nueva pestaña, con avisos discretos y la posibilidad de ignorar una versión. Está desactivada por defecto; las consultas explícitas conectan con GitHub, que recibe la dirección IP y datos normales de conexión, sin marcadores, tareas ni ajustes. No instala archivos ni recarga la extensión. [Guía y límites de verificación](docs/version-updates.md).
 
+Antes de actualizar, los accesos de esta sección llevan a los apartados existentes de exportación de ajustes y de cuenta atrás sin salir de Ajustes, guardar borradores ni descargar archivos. Las tareas y el bloc de notas se exportan desde sus tarjetas de nueva pestaña; se indican las rutas exactas. Anota las preferencias de concentración manualmente; las sesiones no se pueden migrar.
+
 
 ## Licencia
 

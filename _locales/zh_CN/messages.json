@@ -1,4 +1,10 @@
 {
+  "updateBackupTitle": {"message": "更新前先备份"},
+  "updateBackupScope": {"message": "先保存正在编辑的内容。设置备份不包含待办、专注计时、便笺和倒计时。请分别备份待办、便笺和倒计时；专注偏好需手动记录，专注会话无法迁移。"},
+  "updateBackupSettings": {"message": "前往设置导出"},
+  "updateBackupCountdown": {"message": "前往倒计时导出"},
+  "updateBackupNavigation": {"message": "这些入口只在设置页内定位，不会保存草稿或下载文件。"},
+  "updateBackupCards": {"message": "在新标签页中：待办 → 待办数据 → 导出待办；便笺 → 导出文本。如卡片已隐藏，可到「设置 → 快捷方式 → 模块显示」启用。请在包含要保留文本的标签页中导出便笺。"},
   "updateTitle": {"message": "版本与更新"},
   "updateDescription": {"message": "按需检查 GitHub 上已发布的版本；更新需要另行安装。"},
   "updateInstalled": {"message": "当前安装版本"},

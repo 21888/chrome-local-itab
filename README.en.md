@@ -384,6 +384,8 @@ The command reports the source Git revision (and working-tree status, or unavail
 
 Settings → Privacy → Version & updates shows the installed version and offers manual GitHub release checks. Optional checks run at most daily while using the new-tab page, with quiet notices and per-version ignore. No automatic installation or reload. See [version checks, privacy and installation guidance](docs/version-updates.md).
 
+Before updating, use the shortcuts in that section to reach the existing settings and Countdown export sections without leaving Settings, saving drafts or downloading files. Tasks and Scratchpad still export from their new-tab cards; the exact paths are listed alongside the shortcuts. Record Focus preferences manually; sessions cannot be migrated.
+
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.

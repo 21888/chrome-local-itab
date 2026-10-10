@@ -6,6 +6,8 @@
 .update-actions a { color: var(--text-accent); }
 .update-status { min-height: 1.5em; color: var(--text-secondary); }
 .update-instructions { color: var(--text-secondary); line-height: 1.65; }
+.update-instructions h3 { margin-block: 0 8px; }
+#data-settings > .section-header > .section-title:focus, #countdown-settings > .section-header > .section-title:focus { outline: 2px solid var(--template-focus, var(--text-accent)); outline-offset: 3px; }
 .update-instructions ol { padding-inline-start: 1.5rem; margin-block: 8px; }
 .update-instructions li + li { margin-top: 6px; }
 .update-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 14px; margin-top: 12px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm, 10px); background: var(--card-bg); color: var(--text-secondary); font-size: .8125rem; }

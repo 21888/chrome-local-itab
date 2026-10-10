@@ -26,6 +26,27 @@ The setting-name search also finds this section.
   Reset to Defaults clears update preferences, including opt-in, and cached
   metadata. Importing/restoring ordinary settings does not opt in another device.
 
+### Backup shortcuts
+
+**Back up before updating** provides two in-page buttons: **Go to settings export**
+selects Data and focuses its heading; **Go to Countdown export** selects
+Search & cards and focuses the Countdown heading. The existing export buttons
+remain a separate, deliberate action. Navigation preserves Settings fields,
+Countdown drafts, pending controllers and the setting-name search query/results.
+It does not save, remount, reload, change the URL, enable a module or download a file.
+The shortcuts remain usable if update-checker initialization fails.
+
+The adjacent instructions name the actual new-tab controls: **Tasks → Task data →
+Export tasks**, and **Scratchpad → Export text**. These are instructions rather
+than fake direct-export links. A hidden card can be enabled under **Settings →
+Shortcuts → Module Visibility**. Export Scratchpad from the existing tab containing
+the text you want to keep, especially an unsaved or conflicted draft.
+
+Settings exports still exclude all four private local modules. Tasks use their
+existing JSON export; Scratchpad and Countdown use their existing text exports.
+Record Focus preferences manually; an active Focus session cannot be migrated.
+These shortcuts neither verify backup completeness nor change formats or restore behavior.
+
 ### Privacy and safety
 
 The only automated request destination is
@@ -90,3 +111,39 @@ reloads a page/extension automatically.
 解压加载的用户应先保存并分别备份设置和本地模块，从 GitHub 下载运行文件 ZIP，
 替换原固定文件夹中的文件，再到 chrome://extensions 手动重新加载。不要移除扩展或
 更换文件夹。商店安装由 Chrome 更新，组织管理的安装由管理员处理。
+
+### 更新前备份入口
+
+「更新前先备份」提供两个设置页内入口：「前往设置导出」定位「数据」标题，
+「前往倒计时导出」定位「搜索与卡片」中的「倒计时」标题。焦点落在标题，
+导出按钮仍需另行点击。定位保留未保存的设置、倒计时草稿、待完成的控制器操作
+以及设置搜索内容与结果，不保存、不重新挂载、不重新加载、不修改网址，也不下载文件。
+更新检查器初始化失败时，备份入口仍可使用。
+
+待办的导出在新标签页「待办 → 待办数据 → 导出待办」，便笺则在卡片中选择
+「导出文本」。卡片隐藏时，可在「设置 → 快捷方式 → 模块显示」启用；请在包含
+要保留文本的原标签页中导出便笺，尤其是未保存或冲突草稿。
+这两个模块仅显示准确操作路径，不提供假冒的直接导出入口。
+
+设置备份仍不包含这四种本地模块。待办继续单独导出 JSON，便笺和倒计时继续导出
+文本；专注偏好需手动记录，会话无法迁移。新入口不验证备份是否完整，
+不改变格式、导入或恢复行为。
+
+## Español
+
+En Ajustes → Privacidad → Versión y actualizaciones, los accesos de copia de
+seguridad llevan al encabezado de Datos o al de Cuenta atrás en Búsqueda y tarjetas.
+Conservan los borradores y los resultados de búsqueda de ajustes. No guardan,
+recargan, habilitan tarjetas ni descargan nada: exportar requiere una acción aparte.
+
+Las tareas se exportan en la nueva pestaña, mediante **Tasks → Task data → Export
+tasks**; el bloc de notas, mediante **Scratchpad → Export text**. Si una tarjeta está
+oculta, actívala en **Settings → Shortcuts → Module Visibility**. Exporta el bloc de
+notas desde la pestaña que contiene el texto que quieres conservar. Estos nombres
+son los de la interfaz inglesa; la interfaz también tiene traducción al chino.
+
+La copia de ajustes no incluye tareas, concentración, bloc de notas ni cuenta atrás.
+Las tareas mantienen su exportación JSON; el bloc de notas y la cuenta atrás,
+exportaciones de texto. Anota las preferencias de concentración manualmente; sus
+sesiones no se pueden migrar. No se cambia el formato ni la restauración y no se
+verifica que la copia esté completa.

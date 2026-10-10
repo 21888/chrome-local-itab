@@ -138,7 +138,7 @@
             if (settings) {
                 settings.querySelector('#update-current-version').textContent = root.chrome?.runtime?.getManifest().version || '—';
                 settings.querySelector('#update-status').textContent = message('storage');
-                for (const button of settings.querySelectorAll('button, input')) button.disabled = true;
+                for (const button of settings.querySelectorAll('#update-check, #update-ignore, #update-automatic')) button.disabled = true;
             }
         }
     });

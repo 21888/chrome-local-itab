@@ -1,4 +1,10 @@
 {
+  "updateBackupTitle": {"message": "Back up before updating"},
+  "updateBackupScope": {"message": "Save open edits first. Settings backups exclude Tasks, Focus, Scratchpad and Countdown. Back up Tasks, Scratchpad and Countdown separately; record Focus preferences manually. Focus sessions cannot be migrated."},
+  "updateBackupSettings": {"message": "Go to settings export"},
+  "updateBackupCountdown": {"message": "Go to Countdown export"},
+  "updateBackupNavigation": {"message": "These shortcuts only move within Settings. They do not save drafts or download files."},
+  "updateBackupCards": {"message": "On the new tab page: Tasks → Task data → Export tasks; Scratchpad → Export text. If a card is hidden, enable it under Settings → Shortcuts → Module Visibility. Export Scratchpad from the tab containing the text you want to keep."},
   "updateTitle": {"message": "Version & updates"},
   "updateDescription": {"message": "Check published GitHub releases when you choose. Updates are installed separately."},
   "updateInstalled": {"message": "Installed version"},
