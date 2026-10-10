@@ -164,6 +164,8 @@
 
 快捷方式和待办编辑器会保留输入法组字期间按 Esc 时的对话框与草稿；组字结束后，普通 Esc 仍会关闭对话框。[行为与验证范围](docs/dialog-ime-validation.md#中文)。
 
+[本地功能断网测试与范围](docs/offline-local-validation.md)。
+
 ### 查找已保存的网站
 
 使用本地查找面板，按标题、地址和分类搜索已保存的网站，不向网页搜索服务发送查询。打开前会核对最新记录，查询不修改布局或待办。[查找使用说明](docs/shortcut-finder.zh-CN.md)。
