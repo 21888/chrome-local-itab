@@ -84,6 +84,8 @@ for (const locale of ['en', 'zh_CN']) for (const compact of [false, true]) {
         for (const field of entry.fields) assert(h.api.find(field).some(found => found.target === entry.target));
     }
     for (const value of privateValues) { h.query(value); assert.equal(h.buttons().length, 0); assert.equal(h.status.textContent, locales[locale].settingsSearchEmpty.message); }
+    h.query(locales[locale].finderShortcutSetting.message);
+    assert(h.buttons().some(button => button.querySelector('.settings-search-result-title').textContent.includes(locales[locale].moduleVisibility.message)));
     h.query('<img src=x onerror=alert(1)>'); assert.equal(h.buttons().length, 0);
     h.query('   '); assert(h.results.hidden); assert.equal(h.status.textContent, ''); assert(!h.clear.disabled);
     h.clear.dispatch('click'); assert.equal(h.input.value, ''); assert.equal(h.document.activeElement, h.input); assert(h.clear.disabled);

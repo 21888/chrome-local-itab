@@ -5,13 +5,13 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createDocument } = require('./helpers/finder-dom-model');
 const base = path.join(__dirname, '..');
-function setup({ opened = true, locale } = {}) {
+function setup({ opened = true, locale, shortcutEnabled } = {}) {
     const document = createDocument(); const host = document.createElement('header'); document.body.append(host);
     const calls = []; const links = [{ title: '中文 Café', url: 'https://a.test', category: 'work', layoutId: 'l_11111111111111111111111111111111' }, { title: '中文 Café', url: 'https://a.test', category: 'learn', layoutId: 'l_22222222222222222222222222222222' }];
     const messages = locale && JSON.parse(fs.readFileSync(path.join(base, '_locales', locale, 'messages.json'), 'utf8'));
     let notify; const context = { window: null, document, URL, i18n: { t: key => messages?.[key]?.message || key } }; context.window = context; vm.createContext(context);
     for (const file of ['../shared/dialog-focus.js', '../shared/shortcut-finder.js', '../shared/shortcut-finder-view.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, file), 'utf8'), context);
-    const view = context.LocalItabFinder.mount(host, { getSnapshot: () => ({ links, categories: [] }), activate: link => calls.push(link), subscribe(fn) { notify = fn; return () => { notify = null; }; } });
+    const view = context.LocalItabFinder.mount(host, { shortcutEnabled, getSnapshot: () => ({ links, categories: [] }), activate: link => calls.push(link), subscribe(fn) { notify = fn; return () => { notify = null; }; } });
     const opener = host.querySelector('button'); if (opened) { opener.focus(); opener.dispatch('click'); }
     return { document, host, links, calls, view, opener, context, notify: () => notify?.(), input: document.querySelector('input') };
 }
@@ -290,4 +290,40 @@ test('interrupted composition releases Slash after removal or focus departure wi
     emitPage(region, 'compositionend', {});
     assert.equal(emitPage(region).defaultPrevented, true);
     f.view.destroy();
+});
+
+test('disabled Slash is not canceled or advertised; localized visible opener and explicit results still work', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const f = setup({ opened: false, locale, shortcutEnabled: false });
+        assert.equal(emitPage(f.document.body).defaultPrevented, false);
+        assert.equal(f.document.querySelector('.finder-overlay'), null);
+        assert.equal(f.opener.getAttribute('aria-keyshortcuts'), undefined);
+        assert.equal(f.opener.getAttribute('aria-description'), undefined);
+        assert.ok(!f.opener.title); assert.equal(f.opener.querySelector('kbd'), null);
+        f.opener.focus(); assert.equal(emitPage(f.opener).defaultPrevented, false);
+        f.opener.dispatch('click');
+        const input = f.document.querySelector('.finder-input');
+        assert.ok(input); assert.equal(emitPage(input).defaultPrevented, false);
+        input.value = 'cafe'; input.dispatch('input');
+        emitPage(input, 'keydown', {key: 'Enter'}); assert.equal(f.calls.length, 0);
+        f.document.querySelector('.finder-result').dispatch('click', {detail: 0});
+        await new Promise(setImmediate); assert.equal(f.calls.length, 1);
+        input.dispatch('keydown', {key: 'Escape'}); assert.equal(f.document.activeElement, f.opener);
+        f.view.destroy();
+    }
+});
+
+test('host consumes the loaded preference; recreated Finder re-enables Slash without a live config listener', () => {
+    const f = setup({opened: false, shortcutEnabled: false});
+    f.view.destroy();
+    f.context.chrome = {storage: {onChanged: {addListener() {}, removeListener() {}}}};
+    vm.runInContext(fs.readFileSync(path.join(base, 'shared/shortcut-finder-host.js'), 'utf8'), f.context);
+    const component = {links: f.links, categories: [], finderShortcutEnabled: false};
+    let view = f.context.LocalItabFinder.mountForShortcuts(f.host, component);
+    assert.equal(emitPage(f.document.body).defaultPrevented, false);
+    view.destroy(); component.finderShortcutEnabled = true;
+    view = f.context.LocalItabFinder.mountForShortcuts(f.host, component);
+    assert.equal(f.host.querySelector('button').getAttribute('aria-keyshortcuts'), '/');
+    assert.equal(emitPage(f.document.body).defaultPrevented, true);
+    assert.ok(f.document.querySelector('.finder-overlay')); view.destroy();
 });

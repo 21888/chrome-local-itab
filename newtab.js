@@ -364,7 +364,7 @@ async function initializeDashboard() {
 
 
         if (config.show.shortcuts) {
-            initializeShortcutsComponent(config.links, config.layout, config.categories, config._layoutBaseline);
+            initializeShortcutsComponent(config.links, config.layout, config.categories, config._layoutBaseline, config.ui);
         }
 
         initializeLocalInfoCards(config);
@@ -1664,12 +1664,13 @@ class ClockComponent {
 
 
 
-function initializeShortcutsComponent(linksConfig, layoutConfig, categoriesConfig, layoutBaseline) {
+function initializeShortcutsComponent(linksConfig, layoutConfig, categoriesConfig, layoutBaseline, uiConfig) {
     const shortcutsContainer = document.getElementById('shortcuts-container');
     if (!shortcutsContainer) return;
 
     // Create shortcuts component
     const shortcutsComponent = new ShortcutsComponent(linksConfig, layoutConfig, categoriesConfig, layoutBaseline);
+    shortcutsComponent.finderShortcutEnabled = uiConfig?.finderShortcutEnabled !== false;
     shortcutsComponent.render();
     window.addEventListener('resize', () => {
         if (!shortcutsComponent.layout.autoArrange) {

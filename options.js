@@ -661,6 +661,7 @@ async function populateFormFields(config) {
     const showSearchCheckbox = document.getElementById('show-search');
     const showShortcutsCheckbox = document.getElementById('show-shortcuts');
     const showShortcutTitlesCheckbox = document.getElementById('show-shortcut-titles');
+    const finderShortcutCheckbox = document.getElementById('finder-shortcut-enabled');
     const showWeatherCheckbox = document.getElementById('show-weather');
     const showHotCheckbox = document.getElementById('show-hot');
     const showMovieCheckbox = document.getElementById('show-movie');
@@ -671,6 +672,7 @@ async function populateFormFields(config) {
     if (showWeatherCheckbox) showWeatherCheckbox.checked = config.show.weather === true;
     if (showHotCheckbox) showHotCheckbox.checked = config.show.hot === true;
     if (showMovieCheckbox) showMovieCheckbox.checked = config.show.movie === true;
+    if (finderShortcutCheckbox) finderShortcutCheckbox.checked = config.ui?.finderShortcutEnabled !== false;
     if (showShortcutTitlesCheckbox) {
         showShortcutTitlesCheckbox.checked = config.ui?.showShortcutTitles !== false;
     }
@@ -2056,6 +2058,7 @@ function collectFormData(validateSearch = true) {
         dashboardHidden: existingUi.dashboardHidden ?? false,
         dashboardPadding,
         showShortcutTitles,
+        finderShortcutEnabled: document.getElementById('finder-shortcut-enabled')?.checked ?? (existingUi.finderShortcutEnabled !== false),
         shortcutsStyle: {
             gapX: Number.isFinite(shortcutsGapXVal) ? Math.max(0, Math.min(80, shortcutsGapXVal)) : null,
             gapY: Number.isFinite(shortcutsGapYVal) ? Math.max(0, Math.min(80, shortcutsGapYVal)) : null,
@@ -2851,7 +2854,7 @@ function setupAutoSave() {
     
     const autoSaveInputs = [
         'hour12-format', 'show-seconds',
-        'show-clock', 'show-search', 'show-shortcuts', 'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles',
+        'show-clock', 'show-search', 'show-shortcuts', 'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles', 'finder-shortcut-enabled',
         'search-engine', 'search-custom',
         'shortcuts-gap-x', 'shortcuts-gap-y', 'shortcut-icon-size', 'shortcut-title-size',
         'shortcut-title-color', 'shortcut-title-color-text', 'shortcut-title-color-auto',

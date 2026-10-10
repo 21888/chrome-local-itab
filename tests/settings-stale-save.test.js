@@ -54,7 +54,7 @@ function fixture(initial) {
     async function page({initialize = true, events = false} = {}) {
         const storage = manager(), document = createDocument();
         for (const id of ['hour12-format', 'show-seconds', 'show-clock', 'show-search', 'show-shortcuts',
-            'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles', 'quote-text', 'search-engine',
+            'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles', 'finder-shortcut-enabled', 'quote-text', 'search-engine',
             'search-custom', 'privacy-online-favicons', 'weather-city', 'weather-temp', 'weather-condition',
             'weather-aqi-label', 'weather-aqi', 'weather-low', 'weather-high', 'hot-topics-tab', 'movie-title',
             'movie-note', 'bg-type', 'bg-color', 'bg-color-text', 'bg-image-upload', 'shortcuts-gap-x',
@@ -650,4 +650,46 @@ bounded('failed poster upload and removal keep baseline and preview available fo
     await a.context.removeMoviePoster(); assert.equal(a.messages.at(-1).type, 'error');
     assert.equal(f.state().movie.poster, NEW_IMAGE); assert.equal(a.field('movie-preview-img').src, NEW_IMAGE);
     f.hooks.write = null; await a.context.removeMoviePoster(); success(a); assert.equal(f.state().movie.poster, '');
+});
+
+bounded('Finder shortcut checkbox saves independently and stale unrelated UI saves preserve it', async () => {
+    const f = fixture(), a = await f.page(), b = await f.page();
+    assert.equal(a.field('finder-shortcut-enabled').checked, true);
+    a.field('finder-shortcut-enabled').checked = false; await a.save(); success(a);
+    assert.equal(f.state().ui.finderShortcutEnabled, false);
+    b.field('show-shortcut-titles').checked = false; await b.save(); success(b);
+    assert.equal(f.state().ui.finderShortcutEnabled, false);
+    assert.equal(f.state().ui.showShortcutTitles, false);
+    const c = await f.page(); assert.equal(c.field('finder-shortcut-enabled').checked, false);
+    c.field('finder-shortcut-enabled').checked = true; await c.save(); success(c);
+    assert.equal(f.state().ui.finderShortcutEnabled, true);
+    assert.equal(f.state().ui.showShortcutTitles, false);
+});
+bounded('Finder preference draft survives whole-restore conflict and defaults reset enables it', async () => {
+    const f = fixture(), a = await f.page(), b = await f.page();
+    a.field('finder-shortcut-enabled').checked = false;
+    assert.equal(a.context.window.settingsFormView.hasUncommittedWork(), true);
+    await b.import(f.state()); success(b);
+    const before = f.state(); await a.save(); conflict(a); same(f.state(), before);
+    assert.equal(a.field('finder-shortcut-enabled').checked, false);
+    const c = await f.page(); c.field('finder-shortcut-enabled').checked = false; await c.save(); success(c);
+    await c.context.resetAllSettings(); assert.equal((await c.storage.getAll()).ui.finderShortcutEnabled, true);
+});
+bounded('Finder checkbox uses ordinary debounced autosave and keeps a newer draft during pending save', async () => {
+    const f = fixture(), a = await f.page();
+    a.context.setupAutoSave();
+    a.field('finder-shortcut-enabled').checked = false;
+    a.field('finder-shortcut-enabled').dispatch('change');
+    assert.equal(a.timers.size, 1);
+    const entered = deferred(), release = deferred();
+    f.hooks.write = async () => { entered.resolve(); await release.promise; };
+    const pending = [...a.timers.values()][0]();
+    await entered.promise;
+    a.field('finder-shortcut-enabled').checked = true;
+    release.resolve(); await pending;
+    assert.equal(f.state().ui.finderShortcutEnabled, false);
+    assert.equal(a.field('finder-shortcut-enabled').checked, true);
+    assert.equal(a.context.window.settingsFormView.hasUncommittedWork(), true);
+    f.hooks.write = null; await a.save(); success(a);
+    assert.equal(f.state().ui.finderShortcutEnabled, true);
 });

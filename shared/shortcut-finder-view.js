@@ -23,15 +23,19 @@
         let overlay = null, input, list, status, alert, previous, next, cleanup, composing = false, compositionTarget = null;
         const opener = button(t('finderOpen'), open);
         opener.classList.add('finder-opener'); opener.setAttribute('aria-haspopup', 'dialog');
-        opener.setAttribute('aria-keyshortcuts', '/');
-        opener.setAttribute('aria-description', t('finderShortcutHint'));
-        opener.title = t('finderShortcutHint');
-        const keyHint = el('kbd', 'finder-key-hint', '/'); keyHint.setAttribute('aria-hidden', 'true');
-        opener.append(keyHint); host.append(opener);
+        const shortcutEnabled = options.shortcutEnabled !== false;
+        if (shortcutEnabled) {
+            opener.setAttribute('aria-keyshortcuts', '/');
+            opener.setAttribute('aria-description', t('finderShortcutHint'));
+            opener.title = t('finderShortcutHint');
+            const keyHint = el('kbd', 'finder-key-hint', '/'); keyHint.setAttribute('aria-hidden', 'true');
+            opener.append(keyHint);
+        }
+        host.append(opener);
         function handleShortcut(event) {
             // Match the typed character, not a US-only physical key. Shift may produce /.
             if (compositionTarget && (!compositionTarget.isConnected || !compositionTarget.contains(document.activeElement))) compositionTarget = null;
-            if (!host.isConnected || document.hidden || document.visibilityState === 'hidden' ||
+            if (!shortcutEnabled || !host.isConnected || document.hidden || document.visibilityState === 'hidden' ||
                 event.key !== '/' || event.defaultPrevented || event.repeat || event.isComposing ||
                 event.keyCode === 229 || compositionTarget || event.getModifierState?.('AltGraph') || event.ctrlKey || event.altKey || event.metaKey || overlay) return;
             const controls = 'input, textarea, select, audio, video, iframe, object, embed, [contenteditable], [inert], [role="textbox"], [role="combobox"], [role="listbox"], [role="slider"], [role="spinbutton"]';

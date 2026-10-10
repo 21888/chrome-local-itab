@@ -144,3 +144,9 @@ JSON 或 Drive 整体恢复、重置、已应用的 Chrome 同步快照会让旧
 覆盖。整体恢复、重置或已应用的同步副本会让旧外观控件失效，需重新打开页面。
 刷新显示最新外观不会自动解除保护，失败提示也不会被延迟刷新清除。视觉模板
 仍不自动应用推荐工作区；待办和专注计时器显隐继续需要单独预览并明确应用。
+
+## Finder keyboard preference
+
+The Shortcuts → Module Visibility checkbox “Use / to open Find saved sites” is an independent `ui.finderShortcutEnabled` field. It defaults to true, including older configurations and backups that omit it. False survives manual/Drive backup and validated restore, and follows the existing optional configuration-sync path; it creates no permission or provider requirement. Backup validation rejects non-boolean values. Reset restores the enabled default.
+
+Saving merges only that changed field under the existing settings lock. A stale save of other UI fields preserves the latest saved preference. Whole-configuration replacement fences stale drafts, including this checkbox. The dashboard reads the preference on initialization and keeps it through shortcut rerenders. Save then open a new tab, or finish your work before refreshing an existing tab. Existing guarded automatic refreshes still preserve unfinished work, including an open Finder; there is no new reload or live setting listener. Disabled mode removes the visual and accessible shortcut hints and does not cancel / key events. The visible Finder button and native result-button selection are unchanged.

@@ -6,6 +6,7 @@
         let revision = 0;
         let snapshot = { links: component.links || [], categories: component.categories || [] };
         return root.LocalItabFinder.mount(host, {
+            shortcutEnabled: component.finderShortcutEnabled !== false,
             getSnapshot: () => snapshot,
             async readSnapshot() {
                 // Native read only: do not run migration, provider initialization or writes.

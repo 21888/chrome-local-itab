@@ -122,6 +122,8 @@
 	"templateTerraceDescription": {"message": "Grouped launch panels with alternating header accents."},
 	"templateColumn": {"message": "Column"},
 	"templateColumnDescription": {"message": "A narrow editorial rail beside a spacious reference index."},
+	"finderShortcutSetting": {"message": "Use / to open Find saved sites"},
+	"finderShortcutSettingDesc": {"message": "Turn off to leave / typing unchanged. The Find saved sites button still works. Save, then open a new tab or finish your work before refreshing an existing tab."},
 	"finderOpen": {"message": "Find saved sites"},
 	"finderShortcutHint": {"message": "Press / outside editing fields to find saved sites."},
 	"finderScope": {"message": "Only your saved sites · all categories"},

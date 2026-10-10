@@ -122,6 +122,8 @@
 	"templateTerraceDescription": {"message": "分组入口面板与错落有致的标题装饰。"},
 	"templateColumn": {"message": "专栏"},
 	"templateColumnDescription": {"message": "窄幅编辑式侧栏与宽敞的资料索引。"},
+	"finderShortcutSetting": {"message": "使用 / 打开「查找已保存的网站」"},
+	"finderShortcutSettingDesc": {"message": "关闭后保留 / 原有输入行为，仍可点击「查找已保存的网站」按钮。保存后打开新标签页，或先完成当前操作再刷新已有标签页。"},
 	"finderOpen": {"message": "查找已保存的网站"},
 	"finderShortcutHint": {"message": "在非编辑区域按 /，查找已保存的网站。"},
 	"finderScope": {"message": "仅搜索已保存的网站 · 所有分类"},

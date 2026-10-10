@@ -20,7 +20,7 @@ const SETTINGS_FORM_PATHS = Object.freeze([
     ...['clock', 'search', 'shortcuts', 'weather', 'hot', 'movie'].map(key => `show.${key}`),
     ...['city', 'temp', 'cond', 'aqiLabel', 'aqi', 'low', 'high'].map(key => `weather.${key}`),
     ...['tab', 'baidu', 'weibo', 'zhihu'].map(key => `hot.${key}`),
-    'movie.title', 'movie.note', 'movie.poster', 'ui.dashboardPadding', 'ui.showShortcutTitles',
+    'movie.title', 'movie.note', 'movie.poster', 'ui.dashboardPadding', 'ui.showShortcutTitles', 'ui.finderShortcutEnabled',
     ...['gapX', 'gapY', 'iconSize', 'titleSize', 'titleColor'].map(key => `ui.shortcutsStyle.${key}`)
 ]);
 // Keep legacy empty-quote validation stable; only newly generated defaults localize.
@@ -128,6 +128,7 @@ class StorageManager {
                 dashboardHidden: false,
                 dashboardPadding: null,
                 showShortcutTitles: true,
+                finderShortcutEnabled: true,
                 shortcutsStyle: {
                     gapX: null,
                     gapY: null,
@@ -2480,6 +2481,9 @@ class StorageManager {
             showShortcutTitles: typeof value.showShortcutTitles === 'boolean'
                 ? value.showShortcutTitles
                 : defaults.showShortcutTitles,
+            finderShortcutEnabled: typeof value.finderShortcutEnabled === 'boolean'
+                ? value.finderShortcutEnabled
+                : defaults.finderShortcutEnabled,
             shortcutsStyle
         };
     }
