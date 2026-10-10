@@ -2273,9 +2273,54 @@ class ShortcutsComponent {
         window.categoryNavigation?.updateCounts?.(this.links);
     }
 
+    canReuseCollections() {
+        const grid = this.gridEl;
+        // Rebuilding retires the target of an open menu, even if the template
+        // later returns to its original value. Keep that invalidation path.
+        if (!this._renderedGrouping || !this.usesCollections() || this._shortcutWritesPending ||
+            document.querySelector('.context-menu') ||
+            !grid?.isConnected || grid !== document.getElementById('shortcuts-grid')) return false;
+        const category = this.getCurrentCategory();
+        const tiles = Array.from(grid.querySelectorAll('.shortcut-item:not(.add-shortcut)'));
+        if (tiles.length !== this.links.length || tiles.some(tile => {
+            const source = tile.querySelector('[data-action="more"]');
+            const saved = this._shortcutMenuTargets.get(source);
+            return !saved || saved.item !== tile || Number(tile.dataset.index) !== saved.index ||
+                Number(source.dataset.index) !== saved.index || !saved.isCurrent() ||
+                (tile.style.display !== 'none') !== (category === 'all' || (this.links[saved.index].category || 'work') === category);
+        })) return false;
+
+        // Compare the live collection headers as well as the existing tile
+        // records. No cached signature: local category edits must rebuild too.
+        const groups = new Map();
+        for (const category of this.categories || []) {
+            if (!groups.has(category.id)) groups.set(category.id, { name: category.name, count: 0 });
+        }
+        for (const link of this.links) {
+            const id = link.category || 'work';
+            if (!groups.has(id)) groups.set(id, { name: id, count: 0 });
+            groups.get(id).count++;
+        }
+        const expected = Array.from(groups).filter(([, group]) => group.count);
+        const rendered = Array.from(grid.querySelectorAll('.shortcut-collection'));
+        return rendered.length === expected.length && rendered.every((group, index) => {
+            const [id, { name, count }] = expected[index];
+            return group.dataset.category === id && group.querySelector('h3')?.textContent === name &&
+                group.querySelector('.collection-count')?.textContent === String(count);
+        });
+    }
+
     refreshTemplate() {
         this._cancelFreeDrag?.();
-        if (this.layout.autoArrange) this.updateGrid();
+        if (this.layout.autoArrange) {
+            // Grouped styles share markup. Keep controls attached when both the
+            // records and collection structure still match the current data.
+            if (this.canReuseCollections()) {
+                window.categoryNavigation?.filterShortcuts({ reflow: false });
+                this.updateCollectionVisibility();
+                this.applyLayoutMode();
+            } else this.updateGrid();
+        }
         else {
             // Manual tiles stay in the same flat plane. Repaint only: never
             // capture/replace a saved baseline merely to change the template.

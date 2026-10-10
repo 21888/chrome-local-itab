@@ -77,8 +77,13 @@ for (const size of [200, 2000, 20000]) test(`dashboard production render counts 
     c.refreshTemplate(); report('flat-to-grouped');
     reset(); nav.selectCategory('c0'); report('category');
     assert.equal(h.grid.querySelectorAll('.shortcut-item:not(.add-shortcut)').filter(el => el.style.display !== 'none').length, 10);
+    const groupedTiles = h.grid.querySelectorAll('.shortcut-item');
     reset(); h.document.documentElement.dataset.dashboardTemplate = 'folio';
     c.refreshTemplate(); report('grouped-to-grouped');
+    assert.equal(stats.createShortcutItem || 0, 0, 'equivalent grouping creates no tiles');
+    assert.equal(stats.buildShortcutsFragment || 0, 0, 'equivalent grouping creates no fragment');
+    assert.equal(stats.serializations || 0, 0, 'equivalent grouping serializes no focus keys');
+    h.grid.querySelectorAll('.shortcut-item').forEach((tile, index) => assert.equal(tile === groupedTiles[index], true));
     reset(); h.document.documentElement.dataset.dashboardTemplate = 'clarity';
     c.refreshTemplate(); report('grouped-to-flat');
     assert.equal(c.links.length, size);
