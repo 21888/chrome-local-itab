@@ -75,6 +75,39 @@ test('DOM model: old dismissed save cannot close/focus a new edit; guards clear 
     h.view.destroy();
 });
 
+for (const protection of ['flag', '229', 'lifecycle']) {
+    test(`DOM model: task editor preserves ${protection} IME Escape draft and reload guard`, async () => {
+        const h = model(); await settle(); const task = await seed(h); h.view.edit(task);
+        const input = editor(h); setInput(input, '任务草稿');
+        if (protection === 'lifecycle') input.dispatch('compositionstart');
+        const event = input.dispatch('keydown', { key: 'Escape', ...(protection === 'flag' ? { isComposing: true } : protection === '229' ? { keyCode: 229 } : {}) });
+        assert.equal(event.prevented, false, 'leave native IME cancellation available');
+        assert.equal(event.stopped, true); assert.equal(editor(h), input); assert.equal(input.value, '任务草稿');
+        assert.equal(h.document.activeElement, input); assert.equal(h.view.hasUncommittedWork(), true);
+        assert.equal(h.view.dialogs.size, 1); assert.equal(h.b.raw().records[0].text, 'first');
+        input.dispatch('compositionend'); input.dispatch('keydown', { key: 'Escape' });
+        assert.equal(modal(h), null); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.document.activeElement, h.search);
+        h.view.edit(task); editor(h).dispatch('keydown', { key: 'Escape' });
+        assert.equal(modal(h), null, 'reopened editor must not inherit composition'); h.view.destroy();
+    });
+}
+
+test('DOM model: IME Escape leaves a pending task save and newer draft owned by the editor', async () => {
+    const h = model(); await settle(); const task = await seed(h); h.view.edit(task);
+    const input = editor(h); setInput(input, 'submitted edit'); const wait = deferred(); h.b.delay = wait.promise;
+    click(modal(h), 'Save task'); setInput(input, '更新的草稿'); input.dispatch('compositionstart');
+    input.dispatch('keydown', { key: 'Escape' });
+    assert.ok(editor(h) === input, 'IME cancellation must retain the pending editor');
+    assert.equal(h.view.hasUncommittedWork(), true); assert(h.controller.pending);
+    wait.resolve(); await settle();
+    assert.equal(h.b.raw().records[0].text, 'submitted edit'); assert.equal(editor(h), input);
+    assert.equal(input.value, '更新的草稿'); assert.equal(h.document.activeElement, input);
+    assert.equal(h.view.hasUncommittedWork(), true); assert.equal(Boolean(h.controller.pending), false);
+    input.dispatch('keydown', { key: 'Escape' }); assert.equal(editor(h), input);
+    input.dispatch('compositionend'); input.dispatch('keydown', { key: 'Escape' });
+    assert.equal(modal(h), null); assert.equal(h.view.hasUncommittedWork(), false); h.view.destroy();
+});
+
 test('DOM model: overwrite is bound to the exact displayed conflict version', async () => {
     const h = model(); await settle(); const task = await seed(h); h.view.edit(task); setInput(editor(h), 'my draft');
     await h.store.mutate(h.store.request('edit', { id: task.id, version: task.version, text: 'remote A' })); await settle();

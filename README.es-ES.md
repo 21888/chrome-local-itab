@@ -162,6 +162,8 @@ Configuración guarda solo los campos modificados y conserva los borradores en c
 
 ## Búsqueda y gestión de sitios
 
+Los editores de accesos directos y tareas conservan el diálogo y el borrador al pulsar Escape durante la composición con un IME. Escape vuelve a cerrar el diálogo cuando termina la composición. [Comportamiento y alcance de las pruebas](docs/dialog-ime-validation.md#español).
+
 ### Buscar sitios guardados
 
 El buscador local encuentra títulos, direcciones y categorías guardados sin enviar consultas a la web. Comprueba el registro actual antes de abrirlo y no modifica la disposición ni las tareas. [Guía del buscador (en inglés)](docs/shortcut-finder.en.md).

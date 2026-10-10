@@ -162,6 +162,8 @@ Settings saves only changed fields and keeps conflicting drafts for review. The 
 
 ## Search and website management
 
+Shortcut and task editors keep the dialog and draft when Escape is used during IME composition. Ordinary Escape after composition still closes the dialog. [Behavior and verification scope](docs/dialog-ime-validation.md#english).
+
 ### Find saved sites
 
 Use the local shortcut finder to search saved titles, addresses and categories without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).
