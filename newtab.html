@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="newtab.css">
     <link rel="stylesheet" href="context-menu.css">
     <link rel="stylesheet" href="appearance.css">
+    <link rel="stylesheet" href="update-checker.css">
     <link rel="stylesheet" href="dashboard-templates.css">
     <link rel="stylesheet" href="dashboard-template-gallery.css">
     <link rel="stylesheet" href="local-month-calendar.css">
@@ -93,6 +94,10 @@
                 </section>
             </main>
             
+            <aside id="update-notice" class="update-notice" aria-label="Version update" data-i18n-aria-label="updateTitle" hidden>
+                <a href="options.html#version-update-settings" target="_blank" rel="noopener"></a>
+                <button type="button"></button>
+            </aside>
             <footer class="dashboard-footer">
                 <section id="quote-container" class="quote-section" aria-label="Daily quote">
                     <!-- Quote will be rendered here -->
@@ -107,6 +112,8 @@
     <script src="shared/month-calendar.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
+    <script src="shared/update-checker.js"></script>
+    <script src="shared/update-view.js"></script>
     <script src="favicon-cache.js"></script>
     <script src="error-handler.js"></script>
     <script src="context-menu.js"></script>

@@ -26,6 +26,8 @@ The core new tab page can work offline. The extension does not send search text 
 
 Online favicon fetching is disabled by default. When enabled and granted the optional host permission on the current device, Local iTab sends shortcut domain names to Google's favicon service at `https://www.google.com/s2/favicons` to retrieve icons. Valid cached icons can be reused locally.
 
+Version checks are manual by default. When you click Check GitHub now or opt in to at-most-daily checks while using the new-tab page, Local iTab requests public project release metadata from api.github.com. GitHub receives your IP address and ordinary connection details. The request sends no bookmarks, tasks, settings, installed-version parameter, account, token, cookies or request body. Version-check preferences and cached metadata remain on this device and are excluded from configuration exports, Chrome Sync and Drive backups. Settings reset clears them. No update is installed or reloaded automatically; opening a GitHub release page is a separate explicit navigation.
+
 Weather, topic, and movie cards display locally configured content. They do not fetch weather, trending topics, or movie feeds. Uploaded backgrounds are local image data.
 
 ### Browser Bookmark Import
@@ -54,7 +56,7 @@ There is no scheduled automatic Drive backup. After you confirm a restore, Local
 
 ## Data Collection
 
-The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. The optional service transmissions described above support the corresponding search, icon, sync, and backup features. Local iTab does not include analytics, tracking scripts, ads, or remote content feeds. Local use does not require an account; optional Chrome Sync and Google Drive use your Chrome or Google account.
+The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. The optional service transmissions described above support the corresponding search, icon, sync, backup, and version-check features. Local iTab does not include analytics, tracking scripts, ads, or remote content feeds. Local use does not require an account; optional Chrome Sync and Google Drive use your Chrome or Google account.
 
 ## Google API Limited Use
 

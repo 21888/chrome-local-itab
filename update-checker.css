@@ -1,0 +1,16 @@
+/* Reuses the extension's light/dark theme tokens; no overlay or focus stealing. */
+.update-facts { display: grid; grid-template-columns: minmax(9rem, 1fr) minmax(0, 2fr); gap: 8px 18px; margin: 0; }
+.update-facts dt { color: var(--text-secondary); }
+.update-facts dd { margin: 0; overflow-wrap: anywhere; }
+.update-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.update-actions a { color: var(--text-accent); }
+.update-status { min-height: 1.5em; color: var(--text-secondary); }
+.update-instructions { color: var(--text-secondary); line-height: 1.65; }
+.update-instructions ol { padding-inline-start: 1.5rem; margin-block: 8px; }
+.update-instructions li + li { margin-top: 6px; }
+.update-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 14px; margin-top: 12px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm, 10px); background: var(--card-bg); color: var(--text-secondary); font-size: .8125rem; }
+.update-notice a { color: var(--text-primary); text-decoration: underline; text-underline-offset: 3px; }
+.update-notice button { border: 1px solid var(--glass-border); border-radius: 6px; padding: 6px 10px; color: var(--text-secondary); background: var(--card-bg); font: inherit; cursor: pointer; }
+.update-notice :focus-visible, .update-actions a:focus-visible { outline: 2px solid var(--template-focus, var(--text-accent)); outline-offset: 3px; }
+.update-notice[hidden], #version-update-settings [hidden] { display: none !important; }
+@media (max-width: 480px) { .update-facts { grid-template-columns: 1fr; gap: 4px; } .update-facts dd { margin-bottom: 8px; } }

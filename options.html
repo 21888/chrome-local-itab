@@ -7,6 +7,7 @@
     <title data-i18n="optionsTitle">Local iTab Settings</title>
     <link rel="stylesheet" href="options.css">
     <link rel="stylesheet" href="appearance.css">
+    <link rel="stylesheet" href="update-checker.css">
     <link rel="stylesheet" href="dashboard-template-gallery.css">
     <link rel="stylesheet" href="local-tasks.css">
     <link rel="stylesheet" href="local-focus.css">
@@ -359,6 +360,53 @@
                     </div>
 
                     <div class="tab-panel" id="tab-privacy" data-tab="privacy" role="tabpanel">
+                        <section class="settings-section" id="version-update-settings" aria-labelledby="update-title">
+                            <div class="section-header">
+                                <h2 id="update-title" class="section-title" data-i18n="updateTitle">Version &amp; updates</h2>
+                                <p class="section-description" data-i18n="updateDescription">Check published GitHub releases when you choose. Updates are installed separately.</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <dl class="update-facts">
+                                        <dt data-i18n="updateInstalled">Installed version</dt><dd id="update-current-version">—</dd>
+                                        <dt data-i18n="updateLatest">Latest published version (saved result)</dt><dd id="update-latest-version">—</dd>
+                                        <dt data-i18n="updateLastChecked">Last successful check</dt><dd id="update-last-checked">—</dd>
+                                    </dl>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <p class="form-hint" id="update-privacy" data-i18n="updatePrivacy">Checking connects to api.github.com for this project's public release metadata. GitHub receives your IP address and ordinary connection details. No bookmarks, tasks, settings, account or token are sent.</p>
+                                    <label class="setting-label sync-toggle-card">
+                                        <input id="update-automatic" type="checkbox" class="setting-checkbox" aria-describedby="update-privacy update-automatic-help">
+                                        <span class="checkbox-custom"></span>
+                                        <span class="setting-info"><span class="setting-name" data-i18n="updateAutomatic">Check at most once a day</span><span id="update-automatic-help" class="setting-desc" data-i18n="updateAutomaticHelp">Off by default. Checks when you open or return to a new tab; at most one quiet notice per 24 hours. Saves immediately on this device.</span></span>
+                                    </label>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <div class="update-actions">
+                                        <button id="update-check" type="button" class="btn btn-secondary" aria-describedby="update-privacy" data-i18n="updateCheck">Check GitHub now</button>
+                                        <a id="update-release-link" href="https://github.com/21888/chrome-local-itab/releases" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" hidden data-i18n="updateReleaseLink">View release on GitHub</a>
+                                        <button id="update-ignore" type="button" class="btn btn-secondary" hidden>Ignore this version</button>
+                                    </div>
+                                    <p id="update-status" class="update-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                                </div>
+                                <div class="setting-group full-width update-instructions">
+                                    <div data-update-install="unpacked" hidden>
+                                        <h3 data-i18n="updateUnpackedTitle">Update your unpacked extension</h3>
+                                        <ol>
+                                            <li data-i18n="updateUnpackedBackup">Save open edits first. Export a settings backup and export Tasks, Scratchpad and Countdown separately if you use them; Focus preferences and sessions are not included.</li>
+                                            <li data-i18n="updateUnpackedReplace">From the GitHub release, download the runtime ZIP. Extract it and replace extension files in the same permanent folder you originally loaded. Do not remove the installed extension or switch folders.</li>
+                                            <li data-i18n="updateUnpackedReload">Open chrome://extensions, find Local iTab, and click Reload after saving your work. Then open a new tab and check the version here. Local iTab never replaces files or reloads for you.</li>
+                                        </ol>
+                                    </div>
+                                    <p data-update-install="store" hidden data-i18n="updateStore">Chrome manages updates for this store installation. GitHub can be ahead of store review; a published GitHub release does not mean a store update is available. Keep this installation and wait for Chrome's update.</p>
+                                    <p data-update-install="managed" hidden data-i18n="updateManaged">Your administrator manages this installation. Ask them about updates; the latest GitHub release may not be the version approved for your organization.</p>
+                                    <div data-update-install="unknown">
+                                        <p data-i18n="updateUnknown">The installation source could not be confirmed. If installed from the Chrome Web Store, let Chrome manage updates. If loaded unpacked, save and back up your work, replace files in the same permanent folder with the release ZIP contents, then reload Local iTab at chrome://extensions. Do not remove the extension.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
                         <section class="settings-section" id="privacy-settings">
                             <div class="section-header">
                                 <h2 class="section-title">🔒 <span data-i18n="privacyNetwork">Privacy &amp; Network</span></h2>
@@ -691,6 +739,8 @@
     <script src="shared/world-clocks.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
+    <script src="shared/update-checker.js"></script>
+    <script src="shared/update-view.js"></script>
     <script src="shared/appearance.js"></script>
     <script src="shared/layout.js"></script>
     <script src="shared/search-template.js"></script>

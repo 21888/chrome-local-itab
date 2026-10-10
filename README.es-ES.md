@@ -384,6 +384,11 @@ El comando muestra la revisión Git y el estado de los cambios locales (o indica
 - `shared/`: lógica compartida para plantillas de búsqueda y diálogos.
 - `_locales/`: traducciones de la interfaz; `assets/`: iconos y capturas; `tests/`: pruebas locales de regresión.
 
+### Versión y actualizaciones
+
+Ajustes → Privacidad → Versión y actualizaciones muestra la versión instalada y permite consultar manualmente la última versión publicada en GitHub. La consulta automática es opcional, como máximo una vez cada 24 horas al usar la nueva pestaña, con avisos discretos y la posibilidad de ignorar una versión. Está desactivada por defecto; las consultas explícitas conectan con GitHub, que recibe la dirección IP y datos normales de conexión, sin marcadores, tareas ni ajustes. No instala archivos ni recarga la extensión. [Guía y límites de verificación](docs/version-updates.md).
+
+
 ## Licencia
 
 La documentación existente identifica la licencia como MIT. El repositorio todavía no incluye un archivo `LICENSE` independiente.

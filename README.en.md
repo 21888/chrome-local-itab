@@ -378,6 +378,10 @@ The command reports the source Git revision (and working-tree status, or unavail
 - `shared/`: shared search-template and dialog logic.
 - `_locales/`: interface translations; `assets/`: icons and screenshots; `tests/`: local regression tests.
 
+### Version & updates
+
+Settings → Privacy → Version & updates shows the installed version and offers manual GitHub release checks. Optional checks run at most daily while using the new-tab page, with quiet notices and per-version ignore. No automatic installation or reload. See [version checks, privacy and installation guidance](docs/version-updates.md).
+
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.
