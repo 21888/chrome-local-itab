@@ -3846,24 +3846,32 @@ class ShortcutsComponent {
         const grid = this.gridEl;
         if (!grid) return;
         const width = grid.getBoundingClientRect().width;
+        const category = this.getCurrentCategory();
         const items = Array.from(grid.querySelectorAll('.shortcut-item'))
             .filter(el => !el.classList.contains('add-shortcut') && el.style.display !== 'none')
-            .map(el => ({ el, link: this.links[Number(el.dataset.index)], key: this.getPositionKey(this.links[Number(el.dataset.index)]), rect: el.getBoundingClientRect() }));
+            .map(el => ({ el, link: this.links[Number(el.dataset.index)], key: this.getPositionKey(this.links[Number(el.dataset.index)], category), rect: el.getBoundingClientRect() }));
         let bottom = 0;
         for (const { link, rect } of items) {
-            const position = this.getSavedPosition(link);
+            const position = this.getSavedPosition(link, category);
             if (position) bottom = Math.max(bottom, Math.max(0, position.y) + rect.height);
         }
         let x = 0, y = bottom ? bottom + 16 : 0, rowHeight = 0;
         const added = {}, identified = {};
+        let identityPositions = this.identityPositions;
         for (const { link, key, rect } of items) {
-            if (this.getSavedPosition(link)) continue;
+            if (this.getSavedPosition(link, category) || Object.prototype.hasOwnProperty.call(identified, key)) continue;
             if (x && x + rect.width > width) { x = 0; y += rowHeight + 16; rowHeight = 0; }
-            this.setSavedPosition(link, this.getCurrentCategory(), { x, y });
+            if (link.layoutId) {
+                // Own one top-level copy for this batch; saved maps and untouched
+                // views remain unchanged. Single drag writes keep their own setter.
+                if (identityPositions === this.identityPositions) identityPositions = { ...identityPositions };
+                identityPositions[link.layoutId] = { ...identityPositions[link.layoutId], [category]: { x, y } };
+            } else this.setSavedPosition(link, category, { x, y });
             (link.layoutId ? identified : added)[key] = { x, y };
             x += rect.width + 16;
             rowHeight = Math.max(rowHeight, rect.height);
         }
+        if (identityPositions !== this.identityPositions) this.identityPositions = identityPositions;
         if (persist && (Object.keys(added).length || Object.keys(identified).length)) this.saveLayoutDebounced(added, identified);
     }
 
