@@ -21,7 +21,7 @@ function model(options = {}) {
     const document = createDocument({ blurUnavailableFocus: options.blurUnavailableFocus }), host = document.createElement('article'), search = document.createElement('input');
     document.body.append(search, host); search.focus();
     const api = { ...tasks, Controller }, window = { LocalItabTasks: api };
-    const context = vm.createContext({ window, document, crypto: webcrypto, setTimeout, URL, Blob, console });
+    const context = vm.createContext({ window, document, crypto: webcrypto, setTimeout: options.setTimeout || setTimeout, URL: options.URL || URL, Blob, console });
     const dialogPath = path.resolve(__dirname, '../shared/dialog-focus.js');
     vm.runInContext(fs.readFileSync(fs.existsSync(dialogPath) ? dialogPath : path.resolve(__dirname, '../source-model/shared/dialog-focus.js'), 'utf8'), context);
     vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../shared/local-tasks-view.js'), 'utf8'), context);
@@ -312,4 +312,59 @@ test('keyboard valid edit still saves and restores previous focus', async () => 
     const h = model({ blurUnavailableFocus: true }); await settle(); const task = await seed(h); h.view.edit(task); setInput(editor(h), 'saved edit');
     tabToEditButton(h, 'Save task'); activeEditKey(h, 'Enter'); await settle(); assert.ok(modal(h) === null);
     assert.equal(h.b.raw().records[0].text, 'saved edit'); assert.ok(h.document.activeElement === h.search); h.view.destroy();
+});
+
+
+test('DOM model: task export download DOMException is reported as a file failure, not a save failure', async () => {
+    const h = model({ URL: { createObjectURL() { throw new DOMException('Blocked download', 'SecurityError'); } } });
+    await settle(); await seed(h, 'saved task'); setInput(h.view.input, 'unsent draft');
+    const before = structuredClone(h.b.raw());
+    await h.view.export();
+    assert.equal(h.view.input.value, 'unsent draft');
+    assert.deepEqual(h.b.raw(), before);
+    assert.equal(h.view.status.textContent, 'Could not read or download the task file. Please try again.');
+    h.view.destroy();
+});
+
+test('DOM model: task export failed link activation releases anchor and blob URL', async () => {
+    const revoked = [];
+    const h = model({ URL: { createObjectURL() { return 'blob:audit'; }, revokeObjectURL(url) { revoked.push(url); } } });
+    await settle(); await seed(h);
+    const create = h.document.createElement;
+    h.document.createElement = tag => { const node = create(tag); if (tag === 'a') node.click = () => { throw new Error('Activation failed'); }; return node; };
+    await h.view.export();
+    assert.match(h.view.status.textContent, /download the task file/);
+    assert.equal(h.document.querySelectorAll('a').length, 0);
+    assert.deepEqual(revoked, ['blob:audit']);
+    h.view.destroy();
+});
+
+
+test('DOM model: task export read failure retains storage feedback and never starts a download', async () => {
+    let created = 0;
+    const h = model({ URL: { createObjectURL() { created++; return 'blob:audit'; } } });
+    await settle(); await seed(h); setInput(h.view.input, 'keep unsent text');
+    h.b.failRead = true; await h.view.export();
+    assert.equal(created, 0); assert.equal(h.view.localError.code, 'READ');
+    assert.match(h.view.status.textContent, /Could not read local tasks/);
+    assert.equal(h.view.input.value, 'keep unsent text'); h.view.destroy();
+});
+
+test('DOM model: task export keeps current edit and quick-entry drafts, downloads saved JSON and releases resources', async () => {
+    const blobs = [], revoked = [], timers = [], clicked = [];
+    const h = model({ URL: { createObjectURL(blob) { blobs.push(blob); return 'blob:audit'; }, revokeObjectURL(url) { revoked.push(url); } },
+        setTimeout(fn, delay) { timers.push({ fn, delay }); } });
+    await settle(); const task = await seed(h, 'saved task');
+    setInput(h.view.input, 'unsent draft'); h.view.edit(task); setInput(editor(h), 'unsaved edit');
+    const before = structuredClone(h.b.raw()), create = h.document.createElement;
+    h.document.createElement = tag => { const node = create(tag); if (tag === 'a') node.click = () => clicked.push(node); return node; };
+    await h.view.export();
+    const parsed = JSON.parse(await blobs[0].text()), stored = JSON.parse(await h.store.export());
+    assert.deepEqual(parsed.content, stored.content); assert.deepEqual(parsed.recovery, stored.recovery);
+    assert.deepEqual(h.b.raw(), before); assert.equal(h.view.input.value, 'unsent draft'); assert.equal(editor(h).value, 'unsaved edit');
+    assert.equal(h.view.hasUncommittedWork(), true); assert.equal(h.view.localError, null);
+    assert.equal(clicked.length, 1); assert.match(clicked[0].download, /^local-itab-tasks-.*\.json$/);
+    assert.equal(clicked[0].isConnected, false); assert.equal(h.document.querySelectorAll('a').length, 0);
+    assert.deepEqual(revoked, []); assert.equal(timers.length, 1); assert.equal(timers[0].delay, 60000);
+    timers[0].fn(); assert.deepEqual(revoked, ['blob:audit']); h.view.destroy();
 });

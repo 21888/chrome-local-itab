@@ -514,13 +514,22 @@
             buttons.append(button('tasksCancel', close), overwrite, saveButton); modal.panel.append(input, hint, latest, feedback, buttons); modal.open(input);
         }
         async export() {
+            let source;
+            try { source = await this.controller.store.export(); }
+            catch (error) {
+                this.localError = typeof error?.code === 'string' ? error : api.fault('FILE');
+                this.render(); return;
+            }
+            let url, link;
             try {
-                const source = await this.controller.store.export();
-                const url = URL.createObjectURL(new Blob([source], { type: 'application/json' }));
-                const link = el('a'); link.href = url; link.download = `local-itab-tasks-${new Date().toISOString().slice(0, 10)}.json`;
-                document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000);
+                url = URL.createObjectURL(new Blob([source], { type: 'application/json' }));
+                link = el('a'); link.href = url; link.download = `local-itab-tasks-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.append(link); link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
                 this.localError = null;
-            } catch (error) { this.localError = error.code ? error : api.fault('FILE'); }
+            } catch (_) {
+                this.localError = api.fault('FILE');
+                if (url) URL.revokeObjectURL(url);
+            } finally { link?.remove(); }
             this.render();
         }
         async importFile() {
