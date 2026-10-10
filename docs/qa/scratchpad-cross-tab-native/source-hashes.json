@@ -1,0 +1,141 @@
+{
+  "version": "1.1.19",
+  "sourceCommit": "c6b6de6439b915774692a11967e58677da31df6a",
+  "publicZipSha256": "269dfdadc6de55b3e146739092a740ac1c18f52994becaddb27e58ddd260f7de",
+  "runtimeFiles": {
+    "_locales/en/messages.json": "c09b221967afa32c599537df5290838d3c086ff91dbe51bb6bbdac157f6377ed",
+    "_locales/zh_CN/messages.json": "094a5d18645db38ded9c76c6022607e0ca634c71525d90849868c48cfde2894b",
+    "appearance.css": "f77735d87dc0d25f29339483da3172d6efef6507fab4492a909bf84551f5bc99",
+    "assets/icon128.png": "f9cf8257317337c3fb87e63ae5183ee23119d253b9ddcb1a29f460fac9c083c5",
+    "assets/icon16.png": "16b2e8a78f50163572e2e465a21e9b963316498514fdef2c93ba7e0c01f88fd7",
+    "assets/icon48.png": "1190671b3c62323c809c4850972fdcdf91c3bd809bdddb6c8fb480eabe396306",
+    "bookmark-import.css": "2a05b752e03d61620c6855ce6faf91572354603807cb847081aa423c41d25cf2",
+    "context-menu.css": "d9982eda24dbbb4ae6d5f58b78eddde9963bd2a3cfcc0f5d66b5b96c44df89e7",
+    "context-menu.js": "43cd4036ea2d5c3653783f15a51a782568572cca7eea31de2771bb7090ffaef3",
+    "dashboard-template-gallery.css": "18b28d539c88bd1d812b8b6bb17d342be23b5a457d72f455da19fe54e3922d8c",
+    "dashboard-templates.css": "0cb65538fa2732926479cd6a5c8b9ca552f0f71af45a193330d75101bafaaa0b",
+    "drive-backup.js": "a532d41527e15a5b556736c9263cf012fdd5313d68ade589af31b3d35ea0b8b2",
+    "error-handler.js": "c81fdb69ae9b20a5343734c21214b47d2364dc7ceddabcd2e1ac14b27263f1b7",
+    "favicon-cache.js": "a7f80eb6d8d966d80dde6bb60bfe5f5d0db83e9def9847346454e133c7ee30fe",
+    "i18n.js": "729b1e0864a1902a13b718d4da8c9861df858275913207934c734e208e9298ef",
+    "local-countdown.css": "c7c35e6caebb574f0ea5f95cf09c1b02021c55e4c31997db12f691dace886200",
+    "local-focus.css": "7c218bf6d12e36aecb3d65f316c69a424282bc9315bedda0a87c7c19a8fa8fc8",
+    "local-month-calendar.css": "f62b4d33046547a5a81b62a72ad732da0a4ffaa6055381c3a218ec8db673ced6",
+    "local-scratchpad.css": "47516259567b173c7ffe032772028db375631cce46e441b66ecab3275982265b",
+    "local-tasks.css": "247d2aef3cc8ef4e65d81c4024e8efa6dc73b8fdda0c4be5928d8bd70ceace47",
+    "manifest.json": "40f9a64da744e266741758c080c42ed90dfc534eb1b54036b3270a30df1d0b75",
+    "newtab.css": "3623e5682f2c18eae4c72721290f51cca2509fa3a4cbf1b32eec26292e980284",
+    "newtab.html": "31de81c77946207832d1daa57de3e2518ad39da3216ded658f4fe8963e2ef6ed",
+    "newtab.js": "96ab4ecd343f455359bb058d2b611c150a5acf0c7f7cc96ee08548ea892390c8",
+    "options.css": "7f4041811ba18c70dd01feb51c52fbc50dd23d6778a98d573760d04d98a3aac2",
+    "options.html": "c23b8f13024769fdfe40cce0bbda711242f0650b68b43d888a21e58c82b7fc50",
+    "options.js": "81ed847b49c0a3668ebd95c3f90186fe0eb1b4802e424640d4bc9fe0f30023a1",
+    "shared/appearance.js": "0fe8f981d2fd88cf8fbdcb9eae1892ad1c29bae8aba5011080d8efcd35fae5de",
+    "shared/bookmark-export.js": "b7966ba1c97a7a96cf059a6c79e93f3085b5d5147defdd281d47611fd11664eb",
+    "shared/bookmark-import-view.js": "02703b36de98d4973e6d956ed82473f0d27393875bd29562b1a2fc2ffeb4562a",
+    "shared/bookmark-import.js": "634169a0227399609b9a4204b3a01143685553502407b5ff1161351ea6a4b0d0",
+    "shared/dashboard-template-registry.js": "57443721d90420f4452af6c6ea951f40ec41d6e0d551374361b4f5157a06a618",
+    "shared/dialog-focus.js": "7e583da81ac909acd6c114a2fa1cd83de949da7977d55e892cddbcb72f0590ac",
+    "shared/layout-identity.js": "5b75dd17cabd1a6be31c744312f29dbd538581c20c096f618960d111476862e2",
+    "shared/layout.js": "302c1592a30d4dfcba27b7274e1b2e309df09776ca4fc8b21e907b4dfd3e503f",
+    "shared/local-calculator.js": "e27dd4c92ed37b270f269d7019068c99dbf54f256130ea7ec653b231ecff2357",
+    "shared/local-content-lifecycle.js": "7b17eec9363e809a7f7dc7685cf3dcb39b215d88e7f11bc9928990448b1b5345",
+    "shared/local-countdown-controller.js": "466d1f5151458d8002bd9691bc2ff1bcac4f5f931da931d9762f2aebfd2121f6",
+    "shared/local-countdown-store.js": "1ad0ee7a80e07f64d2d72ec89f999708dce937526d883a1132f5daccb32a349e",
+    "shared/local-countdown-view.js": "54a06122560063aeed7697185021db69db6c82eb64d73d46c4de170232366a53",
+    "shared/local-focus-controller.js": "c7c08e57d5d1f1f64e1fe105486349b5b521b005f863a28464fa05063905ab6c",
+    "shared/local-focus-store.js": "8c994011f7cc856d61730e146648b1d095e3526679dee529d6569eb8e99e761c",
+    "shared/local-focus-view.js": "9e57006a421b0a8b8f39de0aee2fcb61694d33aa2c3656ff7acbe84fbecf980b",
+    "shared/local-scratchpad-controller.js": "b355b9359826d349868eef435ab6a2a05a3ab36c2647248a801050b57504d0fc",
+    "shared/local-scratchpad-store.js": "0aca60079a56ab6d06472bb3097ba659ca71fb9ea2218cb11c5f31c56c1796b7",
+    "shared/local-scratchpad-view.js": "3f27b41f4ac7e9732e0184bfc7e4745ecea8e8e81eb1b846f9d90d7b39a702b6",
+    "shared/local-tasks-controller.js": "5e0e431d7af9814e09f5a805da05570815c579c6bc9611050b1774259e371c56",
+    "shared/local-tasks-store.js": "2a09190bca53dcdb594edb763cd900b20fbde7e036df467226fc543bf65e0225",
+    "shared/local-tasks-view.js": "0e654efbaddc2f2381f80b63e2bd996c84f034aba37c4f4ef01334877ad5bd29",
+    "shared/month-calendar.js": "0e5dd35d48fe00a885fe8e4d1c0cde72c25444fb7de84e3408b97e52bd8b9d7d",
+    "shared/search-template.js": "29ebb2b052d067fde418aa825d11398b103a1f4fc4babcd3fe1aa71e37be1950",
+    "shared/settings-search.js": "03fb4dd9a81b84596dc1c2f3eb6b5ef91a1482ee99587c76baee4e9df2d4b511",
+    "shared/shortcut-finder-host.js": "48c5df7a186eff0d656e30de3cb5686e13c683282eb0466dae7cface62ac15d4",
+    "shared/shortcut-finder-view.js": "1ac17eda1cc9e6dc7a46c88e03dcd2f1f82dd9cdf3ae401d3472e0d8b0252491",
+    "shared/shortcut-finder.js": "86d3f7052cbe440eabd907af690ce45c91e7a44aeced80e836b77e217e0287fc",
+    "shared/update-checker.js": "8fad68cdf883e437d37cae0afe5f75947936aae67a8d424bc74c479646668742",
+    "shared/update-view.js": "4163a8a65f52f7872c408ed018d5cbd3c9a95bde44ca9fe81956b655fd1ee75e",
+    "shared/workspace-presets-view.js": "547e496827cd5469e943fb8173f94f9508c15f619217e0487f263ceef5223bea",
+    "shared/workspace-presets.js": "1fbea8547f1e0444ee142f64e1c011366725c252796ab4bbfbe12a5c5b2163f2",
+    "shared/world-clocks.js": "8f95d6acc0a9c61802e2a8a9c25eb6623a9875bdbaf38090aa5704e5e99fe600",
+    "shortcut-finder.css": "521fac85414816bb0a175334f77c9c009e9460009f725b5820caa305f0a64149",
+    "storage.js": "007acde88d419d03a552d26aa7b778f95836fc07136eb7f151100915418acfb5",
+    "update-checker.css": "b7056add128fccfa2a988dd7063e048c16ee3b1b080b231e5a8302b450dcad7f"
+  },
+  "publicZipUrl": "https://github.com/21888/chrome-local-itab/releases/download/v1.1.19/local-itab-1.1.19.zip",
+  "publicProvenanceUrl": "https://github.com/21888/chrome-local-itab/releases/download/v1.1.19/PROVENANCE.json",
+  "browser": "Official Chrome for Testing 155.0.8059.39, Linux native UI, normal sandbox",
+  "sessionUtc": "2026-10-10T16:25:00Z/2026-10-10T16:33:00Z",
+  "captureMethod": "Original native cloud desktop screenshots; unchanged JPEG bytes; no browser-injected JavaScript",
+  "files": [
+    {
+      "file": "expected-newer.txt",
+      "bytes": 21,
+      "sha256": "a4c130ee922cbda7f334b6d38a3edad9e21e8d89a21ccdbf0b5728cd847b2882"
+    },
+    {
+      "file": "fresh-replacement-preview.jpg",
+      "bytes": 96504,
+      "sha256": "dd9121692b2fc96c768a086178184ec6ae3b46b0fd4cc0ae72994374983e9a95",
+      "dimensions": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "originalNativeCapture": true
+    },
+    {
+      "file": "imported-after-reload.jpg",
+      "bytes": 90045,
+      "sha256": "50ad1783bcd646c05c667e641c0c1b2c38c6893b9252a2b60c34e3a488ff47f0",
+      "dimensions": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "originalNativeCapture": true
+    },
+    {
+      "file": "newer-after-stale-preview.txt",
+      "bytes": 21,
+      "sha256": "a4c130ee922cbda7f334b6d38a3edad9e21e8d89a21ccdbf0b5728cd847b2882"
+    },
+    {
+      "file": "replacement-after-reload.txt",
+      "bytes": 84,
+      "sha256": "6a60d6557e09a851a62a6262b5158eab8f1359c194740788a1ab9d54f03f64b2"
+    },
+    {
+      "file": "replacement-fixture.txt",
+      "bytes": 84,
+      "sha256": "6a60d6557e09a851a62a6262b5158eab8f1359c194740788a1ab9d54f03f64b2"
+    },
+    {
+      "file": "tab-a-preview-invalidated.jpg",
+      "bytes": 99533,
+      "sha256": "85022832964a871c5a0ebe257990175c717b8ffb38daa763ea6e7723b9866d9f",
+      "dimensions": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "originalNativeCapture": true
+    },
+    {
+      "file": "tab-a-preview.jpg",
+      "bytes": 96364,
+      "sha256": "574525accc53d53fe951e4814a323c5c04da74b65ad6bad428d55846a701c3e0",
+      "dimensions": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "originalNativeCapture": true
+    }
+  ]
+}

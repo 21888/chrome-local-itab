@@ -46,3 +46,10 @@ native simultaneous remote changes and Chrome storage failure injection remain
 unverified. Their applicable model coverage is listed above; it is not native
 browser proof. Native fixture line endings were LF; exact BOM/CRLF/CR handling
 was verified in the model tests, not by this downloaded fixture.
+
+## Later bounded cross-tab check — 2026-10-10
+
+Public 1.1.19 passed native completed-preview invalidation after an observed
+other-tab save, newer-note reload/export preservation, and fresh explicit TXT
+replacement with exact downloaded bytes. See [two-tab native validation](scratchpad-cross-tab-native-validation.md).
+This does not extend coverage to unseen concurrent writes or fault injection.

@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "publicVersion": "1.1.19",
+  "completedPreviewInvalidatedByObservedOtherTabSave": true,
+  "newerNoteVisibleInTabA": true,
+  "keyboardFocusUsable": "Textarea visibly focused after invalidation; Tab moved to Export text",
+  "newerNoteSurvivesReload": true,
+  "newerNativeExportExact": true,
+  "newerExportBytes": 21,
+  "freshExplicitReplacementSaved": true,
+  "replacementSurvivesReload": true,
+  "replacementNativeExportExact": true,
+  "replacementExportBytes": 84,
+  "runtimeFilesUnchanged": 63,
+  "scope": "Two normal tabs in one fresh synthetic profile; observed saved update only, no unseen CAS race or fault injection"
+}
