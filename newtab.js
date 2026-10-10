@@ -4386,8 +4386,13 @@ class CategoryNavigation {
     }
 
     updateCounts(links = []) {
+        const counts = new Map();
+        for (const link of links) {
+            const category = link.category || 'work';
+            counts.set(category, (counts.get(category) || 0) + 1);
+        }
         document.querySelectorAll('.category-item').forEach(item => {
-            const count = item.dataset.category === 'all' ? links.length : links.filter(link => (link.category || 'work') === item.dataset.category).length;
+            const count = item.dataset.category === 'all' ? links.length : counts.get(item.dataset.category) || 0;
             setText(item.querySelector('.category-count'), count);
         });
     }
