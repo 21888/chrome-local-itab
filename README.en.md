@@ -195,6 +195,8 @@ Limit: 256 characters after `=` and 32 combined levels of nested parentheses/una
 
 Enable the optional, empty-by-default Tasks card in module visibility settings. Add/edit/complete tasks, filter all task states locally by text, pin one next action and recover removed items. Tasks stay on this device; settings exports, Chrome Sync and Drive backups exclude all task content and recovery copies. Settings reset/import/restore preserve Tasks. Use the separate task export/import for backup and migration. [Task guide](docs/local-tasks.en.md).
 
+Use **Add multiple tasks** to paste one task per nonblank line, inspect a numbered preview and confirm the entire batch together. Spaces, bullet prefixes and duplicate lines stay intact; ordinary Add still supports Shift+Enter inside one task. Preview/cancel writes nothing. Limits stay at 500 total records (including completed/removed), 1,000 Unicode characters per task and a 2 MiB collection/file budget. A failed validation adds no tasks; uncertain saves retry the same batch safely. [Batch validation and screenshots](docs/tasks-batch-capture-validation.md).
+
 ### Local focus timer
 
 Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.

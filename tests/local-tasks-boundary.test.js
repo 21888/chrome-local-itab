@@ -45,6 +45,12 @@ for (const enabled of [false, true]) test(`real adapter isolates every content a
         let state = await store.mutate(store.request('enable', { enabled: true }));
         const sentinels = ['ACTIVE_PRIVATE_SENTINEL', 'DONE_PRIVATE_SENTINEL', 'REMOVED_PRIVATE_SENTINEL', 'PINNED_PRIVATE_SENTINEL', 'RECOVERY_PRIVATE_SENTINEL'];
         for (const text of sentinels) state = await store.mutate(store.request('add', { text }));
+        const batchSentinels = ['BATCH_PRIVATE_SENTINEL_A', 'BATCH_PRIVATE_SENTINEL_B'];
+        const beforeReview = clone(h.local()), priorWrites = h.localCalls.length;
+        const batchReview = await store.reviewBatch(batchSentinels.join('\n'));
+        assert.deepEqual(h.local(), beforeReview); assert.equal(h.localCalls.length, priorWrites, 'batch preview writes nothing');
+        state = await store.mutate(batchReview.command); sentinels.push(...batchSentinels);
+        assert.equal(h.localCalls.length, priorWrites + 1, 'one batch writes the personal key exactly once');
         const req = (kind, task, rest) => store.request(kind, { id: task.id, version: task.version, ...rest });
         state = await store.mutate(req('complete', state.records[1]));
         state = await store.mutate(req('remove', state.records[2]));

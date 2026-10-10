@@ -43,3 +43,7 @@ Seventeen focused tests cover remote and preset disable, clean/dirty state, pend
 Bounded native Chrome for Testing 155.0.8059.39 checks on cloud Linux used English Graphite and two real tabs: A retained its unsaved Add text after B disabled Tasks; clearing it hid the card while B stayed unchecked. Reenabling restored the clean card. In a second case, A saved the retained draft with keyboard Tab/Enter while the preference was disabled; the card hid, B remained unchecked, and reenabling/reloading showed the new task beside both existing tasks. Final shared/local-tasks-view.js SHA256: `d3c0c426b08feae12d8ee616b1e4dc47d5bf84d5ddc6c9c3c272e82c94a36b54`.
 
 Pending-write failures, workspace-preset interaction, IME and assistive-technology behavior were not newly verified natively; the applicable local cases above use models. This change does not claim that a volatile draft survives closing the browser.
+
+## Reviewed batch capture — 2026-10-10
+
+A separate editor now previews and atomically appends nonblank lines, preserving the existing ordinary Add workflow and v1 task/backup format. Sixty-three focused store/view model tests cover whole-batch limits, concurrency, uncertain-save receipts, draft/dialog ownership and EN/CN interaction. See [batch capture validation](tasks-batch-capture-validation.md) for exact coverage and native-check limits.

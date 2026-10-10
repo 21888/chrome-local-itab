@@ -37,6 +37,19 @@
         check(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value), 'TEXT');
         return value;
     }
+    function batchTexts(values) {
+        check(Array.isArray(values) && values.length > 0, 'TEXT');
+        check(values.length <= LIMITS.records, 'CAPACITY');
+        for (const value of values) text(value);
+        return values;
+    }
+    function parseBatch(source) {
+        check(typeof source === 'string', 'TEXT');
+        check(size(source) <= LIMITS.bytes, 'SIZE_LIMIT');
+        // Newlines are the only separators. Keep every nonblank line verbatim,
+        // including prefixes, whitespace, duplicate text and Unicode separators.
+        return batchTexts(source.split(/\r\n|\n|\r/).filter(line => line.trim().length > 0));
+    }
     function validateContent(value) {
         object(value, ['records', 'pinnedId']);
         check(Array.isArray(value.records) && value.records.length <= LIMITS.records, 'CAPACITY');
@@ -87,6 +100,29 @@
             done: state.records.filter(t => t.state === 'done').length,
             removed: state.records.filter(t => t.state === 'removed').length, recovery: state.recovery?.length || 0 };
     }
+    function appendBatch(next, command) {
+        const texts = batchTexts(command.texts);
+        check(next.records.length + texts.length <= LIMITS.records, 'CAPACITY');
+        check(Array.isArray(command.identities) && command.identities.length === texts.length);
+        check(date(command.createdAt));
+        // A replaced list can still hold this operation's tasks in recovery after
+        // its receipt ages out. Never replay those identities as a fresh append.
+        const seen = new Set([...next.records, ...next.recovery.flatMap(item => item.content.records)].map(task => task.id));
+        const records = texts.map((value, index) => {
+            const identity = command.identities[index];
+            object(identity, ['id', 'version']);
+            check(token(identity.id) && token(identity.version));
+            check(!seen.has(identity.id), 'CONFLICT'); seen.add(identity.id);
+            return { id: identity.id, version: identity.version, text: value,
+                state: 'active', removedFrom: null, createdAt: command.createdAt, updatedAt: command.createdAt };
+        });
+        next.records.push(...records);
+    }
+    function finish(next, operationId) {
+        next.revision += 1;
+        next.receipts = [...next.receipts, operationId].slice(-128);
+        return validate(next);
+    }
     function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks) {
         check(chromeApi?.storage?.local && locks?.request, 'UNAVAILABLE');
         return {
@@ -116,7 +152,15 @@
         }
         read() { return this.backend.lock(() => this.readRaw()); }
         subscribe(listener) { return this.backend.subscribe(listener); }
-        request(kind, values = {}) { return { ...values, kind, operationId: this.id() }; }
+        request(kind, values = {}) {
+            const operationId = this.id();
+            if (kind !== 'addBatch') return { ...values, kind, operationId };
+            // Capture identities before the lock and retain this exact command for
+            // retries. Mutating the editor's array cannot change a reviewed batch.
+            const texts = Object.freeze(batchTexts(values.texts).slice());
+            const identities = Object.freeze(texts.map(() => Object.freeze({ id: this.id(), version: this.id() })));
+            return Object.freeze({ ...values, texts, identities, createdAt: this.now(), kind, operationId });
+        }
         async mutate(command) {
             check(command && token(command.operationId), 'INVALID');
             return this.backend.lock(async () => {
@@ -145,6 +189,7 @@
                     next.records.push({ id: command.operationId, version: this.id(), text: command.text,
                         state: 'active', removedFrom: null, createdAt: now, updatedAt: now }); break;
                 }
+                case 'addBatch': appendBatch(next, command); break;
                 case 'edit': {
                     const task = find(); check(task.state !== 'removed', 'CONFLICT'); text(command.text);
                     task.text = command.text; touch(task); break;
@@ -209,9 +254,7 @@
                 }
                 default: throw fault('INVALID');
                 }
-                next.revision += 1;
-                next.receipts = [...next.receipts, command.operationId].slice(-128);
-                validate(next);
+                finish(next, command.operationId);
                 try { if (await this.backend.write(next) === false) throw fault('WRITE'); }
                 catch (_) { throw fault('WRITE'); }
                 // Never advertise Saved merely because the write promise resolved.
@@ -229,6 +272,18 @@
             // Build no replacement until explicit confirmation. Snapshot is a checked precondition.
             return { source, revision: current.revision, incoming: counts({ ...file.content, recovery: file.recovery }), current: counts(current) };
         }
+        async reviewBatch(source) {
+            const texts = parseBatch(source), command = this.request('addBatch', { texts });
+            return this.backend.lock(async () => {
+                const current = await this.readRaw(), next = clone(current);
+                appendBatch(next, command);
+                finish(next, command.operationId);
+                // Revision describes the preview only: an append can safely merge
+                // with newer changes if the complete batch still fits at commit.
+                return { texts, count: texts.length, currentTotal: current.records.length,
+                    remaining: LIMITS.records - current.records.length, revision: current.revision, command };
+            });
+        }
     }
-    return { KEY, LOCK, FORMAT, LIMITS, initial, Store, createChromeBackend, parseBackup, validate, counts, fault };
+    return { KEY, LOCK, FORMAT, LIMITS, initial, Store, createChromeBackend, parseBackup, parseBatch, validate, counts, fault };
 });

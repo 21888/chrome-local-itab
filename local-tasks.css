@@ -85,3 +85,13 @@
 .tasks-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .tasks-filter input { flex: 1 1 0; }
 .tasks-filter .tasks-button { flex: 0 0 auto; }
+
+/* Separate secondary entry keeps the ordinary single-task composer compact. */
+.tasks-batch-row { display: flex; justify-content: flex-end; margin: -8px 0 12px; }
+.tasks-batch-entry { color: var(--template-muted); font-size: 11px; }
+.tasks-batch-preview h3 { font-size: 13px; margin: 12px 0 6px; }
+.tasks-batch-list { max-height: 28vh; overflow-y: auto; margin: 0; padding-inline-start: 2.5em; }
+.tasks-batch-list li { white-space: pre-wrap; overflow-wrap: anywhere; padding: 3px 0; }
+
+.tasks-batch-feedback { color: var(--template-muted); }
+.tasks-batch-feedback.is-error { color: var(--template-error); }

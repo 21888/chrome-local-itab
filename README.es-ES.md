@@ -197,6 +197,8 @@ Activa la tarjeta opcional de Tareas en los ajustes de visibilidad de módulos. 
 
 Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exportaciones de ajustes, Chrome Sync y las copias de Google Drive no las incluyen. Restablecer, importar o restaurar los ajustes conserva las tareas. Usa la exportación e importación independiente de tareas para hacer copias y cambiar de dispositivo. Desinstalar la extensión o borrar sus datos puede eliminar las tareas locales. [Guía de tareas (en inglés)](docs/local-tasks.en.md).
 
+Usa **Añadir varias tareas** para pegar una tarea por línea no vacía, revisar una vista numerada y confirmar el lote completo. Se conservan espacios, viñetas y líneas duplicadas; la entrada habitual mantiene Shift+Enter dentro de una sola tarea. Vista previa y Cancelar no escriben datos. Siguen los límites de 500 registros (incluidos completados/eliminados), 1.000 caracteres Unicode por tarea y 2 MiB para la colección/archivo. Una validación fallida no añade tareas; los guardados inciertos reintentan el mismo lote de forma segura.
+
 ### Temporizador de concentración local
 
 Activa la tarjeta opcional en Ajustes. Está oculta de forma predeterminada y propone 25 minutos de concentración y 5 de descanso. Antes de iniciar, cada fase admite entre 1 y 180 minutos enteros. Iniciar, pausar/reanudar y detener/restablecer son acciones manuales; elegir la siguiente fase no la inicia.

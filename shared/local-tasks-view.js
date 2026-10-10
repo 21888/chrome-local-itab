@@ -5,6 +5,10 @@
         tasksTitle: 'Tasks', tasksLocal: 'On this device', tasksNext: 'Next up', tasksNoPin: 'Pin one task as your next action.',
         tasksAddLabel: 'Add a task', tasksPlaceholder: 'What’s the next small thing?', tasksAdd: 'Add', tasksEmpty: 'A clear list. Add something when you need it.',
         tasksFilterReorder: 'Clear the filter to reorder tasks.', tasksFilter: 'Filter tasks', tasksFilterPlaceholder: 'Find active, completed or removed tasks', tasksFilterClear: 'Clear filter', tasksFilterMatches: 'Matching tasks', tasksFilterEmpty: 'No matching tasks. Clear the filter to see your list.',
+        tasksBatch: 'Add multiple tasks', tasksBatchLabel: 'One task per line', tasksBatchHelp: 'Each nonblank line becomes one task, in order. Spaces, bullet prefixes and duplicate lines are kept. Nothing is added until you review and confirm.',
+        tasksBatchTextLimit: 'Plain text · 1,000 characters per task', tasksBatchReview: 'Review tasks', tasksBatchConfirm: 'Add reviewed tasks', tasksBatchCount: 'Tasks to add', tasksBatchCapacity: 'Stored tasks (including completed and removed)', tasksBatchRemaining: 'Available spaces',
+        tasksBatchPreview: 'Numbered preview', tasksBatchChanged: 'The list changed. Review again to check the latest capacity.', tasksBatchReady: 'Review the numbered list, then confirm to add every task together.',
+        tasksBatchRetry: 'Retry previous add', tasksBatchUncertain: 'The previous batch could not be confirmed. Retry that same batch safely before reviewing this draft.', tasksBatchDraftRemains: 'The previous batch was saved. Your current draft is still here; review it before adding anything else.',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksActions: 'Actions', tasksUp: 'Move up', tasksDown: 'Move down', tasksMore: 'Show all tasks', tasksLess: 'Show fewer', tasksCompleted: 'Completed', tasksRemoved: 'Removed',
         tasksData: 'Task data', tasksHelp: 'Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks.',
@@ -82,6 +86,8 @@
             });
             this.addButton = button('tasksAdd', () => this.add(), 'tasks-primary'); this.form.append(this.input, this.addButton);
             this.form.addEventListener('submit', event => { event.preventDefault(); this.add(); });
+            this.batchButton = button('tasksBatch', () => this.addBatch(), 'tasks-batch-entry');
+            const batchRow = el('div', 'tasks-batch-row'); batchRow.append(this.batchButton);
             this.list = el('ul', 'tasks-list'); this.more = button('tasksMore', () => { this.expanded = !this.expanded; this.renderedRevision = null; this.render(); });
             this.completed = this.section('tasksCompleted'); this.removed = this.section('tasksRemoved');
             this.data = el('details', 'tasks-data'); this.data.append(el('summary', '', t('tasksData')), el('p', 'tasks-help', t('tasksHelp')));
@@ -99,7 +105,7 @@
             });
             this.undoButton = button('tasksUndo', () => this.undoLast());
             this.feedback.append(this.status, this.retry, this.undoButton);
-            host.replaceChildren(header, this.next, this.form, this.filter, this.filterStatus, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
+            host.replaceChildren(header, this.next, this.form, batchRow, this.filter, this.filterStatus, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         applyFilter() {
@@ -155,6 +161,127 @@
                 // A late success must not clear newer text or focus another element.
                 if (this.draftGeneration === generation && this.input.value === text) this.input.value = '';
             });
+        }
+        addBatch() {
+            if (this.destroyed || this.dialogs.size) return;
+            let unsubscribe = () => {}, epoch = 0, generation = 0, reviewing = false, saving = false;
+            let review = null, attempt = null, retryCommand = null, composing = false;
+            const modal = this.createDialog(t('tasksBatch'), () => {
+                epoch++; unsubscribe();
+                if (this.batchSession === modal) this.batchSession = null;
+                this.controller.dismissRetry(attempt?.command.operationId); this.render();
+            });
+            if (!modal) return;
+            this.batchSession = modal;
+            const input = el('textarea', 'tasks-editor tasks-batch-editor'); input.rows = 7;
+            input.setAttribute('aria-label', t('tasksBatchLabel'));
+            const hint = el('p', 'tasks-help', `${t('tasksBatchHelp')} ${t('tasksBatchTextLimit')}`);
+            hint.id = `tasks-batch-help-${crypto.randomUUID()}`; input.setAttribute('aria-describedby', hint.id);
+            const count = el('p', 'tasks-help'); count.setAttribute('role', 'status'); count.setAttribute('aria-live', 'polite');
+            const preview = el('section', 'tasks-batch-preview'); preview.hidden = true;
+            const title = el('h3', '', t('tasksBatchPreview')), list = el('ol', 'tasks-batch-list'); preview.append(title, list);
+            const feedback = el('p', 'tasks-dialog-feedback tasks-batch-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+            const setFeedback = (text, isError = false) => { feedback.textContent = text; feedback.classList.toggle('is-error', isError); };
+            const owns = () => !this.destroyed && modal.isOpen && this.batchSession === modal && input.isConnected;
+            const setControl = (node, disabled, hidden = false) => {
+                // Chrome drops focus when its active control becomes disabled/hidden.
+                // Transfer only that control's focus before the transition, keeping
+                // Escape/Tab inside this opening without reclaiming newer focus.
+                if (owns() && document.activeElement === node && (disabled || hidden)) input.focus();
+                node.disabled = disabled; node.hidden = hidden;
+            };
+            const showReview = value => {
+                preview.hidden = !value; title.textContent = `${t('tasksBatchPreview')}${value ? ` (${value.count})` : ''}`;
+                list.replaceChildren(...(value ? value.texts.map(text => el('li', '', text)) : []));
+            };
+            const update = () => {
+                if (!owns()) return;
+                const state = this.controller.state;
+                const total = review && (!state || review.revision >= state.revision) ? review.currentTotal : state?.records.length;
+                const lines = input.value.split(/\r\n|\r|\n/).filter(line => line.trim().length > 0).length;
+                count.textContent = `${t('tasksBatchCount')}: ${lines} · ${t('tasksBatchCapacity')}: ${total ?? '—'}/${api.LIMITS.records} · ${t('tasksBatchRemaining')}: ${total === undefined ? '—' : api.LIMITS.records - total}`;
+                if (review && !saving && !retryCommand && this.controller.state?.revision > review.revision) {
+                    epoch++; review = null; showReview(null); setFeedback(t('tasksBatchChanged'));
+                }
+                const busy = saving || !!this.controller.pending;
+                setControl(reviewButton, busy || reviewing || !!retryCommand || composing);
+                setControl(confirm, busy || !review || composing, !review || !!retryCommand);
+                confirm.textContent = `${t('tasksBatchConfirm')}${review ? ` (${review.count})` : ''}`;
+                setControl(retry, busy || composing, !retryCommand);
+                retry.textContent = `${t('tasksBatchRetry')}${attempt && retryCommand ? ` (${attempt.review.count})` : ''}`;
+            };
+            const prepare = async () => {
+                if (!owns() || saving || this.controller.pending || retryCommand || composing) return;
+                const source = input.value, submittedGeneration = generation, ticket = ++epoch;
+                reviewing = true; review = null; showReview(null); setFeedback(t('tasksLoading')); update();
+                try {
+                    const value = await this.controller.store.reviewBatch(source);
+                    if (!owns() || ticket !== epoch || generation !== submittedGeneration || input.value !== source) return;
+                    if (this.controller.state?.revision > value.revision) { setFeedback(t('tasksBatchChanged')); return; }
+                    review = { ...value, source, generation: submittedGeneration };
+                    showReview(review); setFeedback(t('tasksBatchReady'));
+                } catch (error) {
+                    if (owns() && ticket === epoch) setFeedback(errorText(error), true);
+                } finally {
+                    if (owns() && ticket === epoch) { reviewing = false; update(); }
+                }
+            };
+            const submit = async (retryPrevious = false) => {
+                if (!owns() || saving || this.controller.pending || composing) return;
+                if (retryPrevious) { if (!retryCommand) return; }
+                else {
+                    if (!review || retryCommand || review.generation !== generation || review.source !== input.value) return;
+                    // An observed remote update always gets another numbered review.
+                    if (this.controller.state?.revision > review.revision) { update(); return; }
+                    attempt = { command: review.command, review };
+                }
+                const submitted = attempt, command = submitted.command;
+                saving = true; this.batchOperationId = command.operationId;
+                setFeedback(t('tasksSaving')); update();
+                try {
+                    const state = await this.controller.run(command);
+                    if (!owns()) return;
+                    retryCommand = null; review = null; attempt = null;
+                    // A confirmed old batch must not dismiss a newer draft or another dialog.
+                    // If a later state was already observed, leave the draft for review too.
+                    if (generation === submitted.review.generation && input.value === submitted.review.source &&
+                        this.controller.state?.revision === state.revision && !this.controller.pending &&
+                        (!this.controller.retryCommand || this.controller.retryCommand.operationId === command.operationId) &&
+                        state.receipts.at(-1) === command.operationId) modal.close();
+                    else { showReview(null); setFeedback(t('tasksBatchDraftRemains')); }
+                } catch (error) {
+                    if (!owns()) { this.controller.dismissRetry(command.operationId); return; }
+                    review = null;
+                    if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
+                        retryCommand = command; showReview(submitted.review);
+                        setFeedback(`${errorText(error)} ${t('tasksBatchUncertain')}`, true);
+                    } else {
+                        retryCommand = null; attempt = null; showReview(null);
+                        this.controller.dismissRetry(command.operationId); setFeedback(errorText(error), true);
+                    }
+                } finally {
+                    saving = false;
+                    if (!owns()) this.controller.dismissRetry(command.operationId);
+                    else update();
+                }
+            };
+            const reviewButton = button('tasksBatchReview', prepare);
+            const confirm = button('tasksBatchConfirm', event => { if (!(event.detail > 1)) submit(); }, 'tasks-primary');
+            const retry = button('tasksBatchRetry', event => { if (!(event.detail > 1)) submit(true); }, 'tasks-primary');
+            for (const node of [reviewButton, confirm, retry]) node.addEventListener('keydown', event => {
+                if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
+            });
+            input.addEventListener('input', () => {
+                generation++; epoch++; reviewing = false; review = null;
+                if (!retryCommand) { showReview(null); if (!saving) setFeedback(''); }
+                update();
+            });
+            input.addEventListener('compositionstart', () => { composing = true; update(); });
+            input.addEventListener('compositionend', () => { composing = false; update(); });
+            input.addEventListener('focusout', () => { composing = false; update(); });
+            const actions = el('div', 'tasks-dialog-actions'); actions.append(button('tasksCancel', () => modal.close()), reviewButton, retry, confirm);
+            modal.panel.append(input, hint, count, preview, feedback, actions);
+            unsubscribe = this.controller.subscribe(update); modal.open(input); update(); this.render();
         }
         renderNext(task) {
             // Keep an unchanged action mounted through filtering and unrelated row updates.
@@ -259,10 +386,12 @@
             // Keep the preference unchanged, then honor it when the owner finishes or clears the draft.
             const ownsPendingAdd = busy && this.controller.retryCommand?.kind === 'add' &&
                 this.controller.retryCommand.operationId === this.retryEffectOperationId;
-            const visible = this.alwaysVisible || state?.enabled === true || showReadError || this.input.value.length > 0 || ownsPendingAdd;
+            const ownsPendingBatch = busy && this.controller.retryCommand?.kind === 'addBatch' &&
+                this.controller.retryCommand.operationId === this.batchOperationId;
+            const visible = this.alwaysVisible || state?.enabled === true || showReadError || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
             this.host.hidden = !visible;
             this.onVisibility(visible);
-            this.addButton.disabled = busy || !state;
+            this.addButton.disabled = busy || !state; this.batchButton.disabled = busy || !state;
             const focused = this.host.contains(document.activeElement) ? document.activeElement : null;
             const taskId = focused?.closest('[data-task-id]')?.dataset.taskId, action = focused?.dataset.taskAction;
             this.filterInput.disabled = !state; this.filterClear.hidden = !this.filterInput.value;
