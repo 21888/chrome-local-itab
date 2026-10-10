@@ -159,3 +159,102 @@ test('device update state stays out of every configuration backup and sync paylo
     const state = {...manager.cloneDefaultConfig(), [api.KEY]: {...api.initial(), automatic: true, ignoredVersion: '1.1.11'}};
     for (const payload of [manager.validateConfigObject(state), manager.sanitizeConfigForBackup(state), manager.buildManualExportPayload(state), manager.buildDriveBackupPayload(state), manager.prepareSyncPayload(state), await manager.makeRecovery(state, 'beforeRestore')]) assert(!JSON.stringify(payload).includes(api.KEY));
 });
+
+test('clock rollback bounds rate-limit recovery and shares the corrected cooldown across tabs', async () => {
+    const h = fixture({fetch: () => response({}, {status: 429, headers: {'retry-after': '120'}})}), other = h.make();
+    await h.checker.setAutomatic(true);
+    assert.equal((await h.checker.check()).status, 'rateLimit');
+    h.advance(-5 * api.DAY);
+    assert.equal((await h.checker.check()).status, 'rateLimit');
+    assert.equal(h.state().lastAttempt, h.now());
+    assert.equal(h.state().retryAt, h.now() + 120000);
+    assert.equal((await other.check()).status, 'rateLimit');
+    assert.equal(h.requests.length, 1);
+    h.advance(119999);
+    assert.equal((await other.check()).status, 'rateLimit');
+    h.advance(1);
+    assert.equal((await other.check({automatic: true})).status, 'skipped');
+    assert.equal(h.requests.length, 1);
+    assert.equal((await other.check()).status, 'rateLimit');
+    assert.equal(h.requests.length, 2, 'manual checks recover only after the preserved server delay');
+});
+
+test('clock rollback recovers automatic checks and notices after one conservative daily cooldown', async () => {
+    let version = '1.1.11';
+    const h = fixture({fetch: () => response(release(version))}), other = h.make();
+    await h.checker.setAutomatic(true); await h.checker.check({automatic: true});
+    assert.equal((await h.checker.claimNotice()).version, version);
+    h.advance(-5 * api.DAY);
+    const corrected = h.now();
+    assert.equal((await h.checker.check({automatic: true})).status, 'skipped');
+    assert.equal(h.state().lastAttempt, corrected);
+    assert.equal(h.state().lastNoticeAt, corrected);
+    assert.equal(await other.claimNotice(), null);
+    assert.equal(h.state().lastNotifiedVersion, version);
+    h.advance(api.DAY - 1);
+    assert.equal((await other.check({automatic: true})).status, 'skipped');
+    assert.equal(h.state().lastAttempt, corrected, 'ordinary reads must not extend the correction');
+    h.advance(1); version = '1.1.12';
+    const results = await Promise.all([h.checker.check({automatic: true}), other.check({automatic: true})]);
+    assert.equal(results.filter(result => result.status === 'available').length, 1);
+    assert.equal(h.requests.length, 2);
+    assert.equal((await other.claimNotice()).version, version);
+    assert.equal(await h.checker.claimNotice(), null);
+});
+
+test('clock correction does not erase ignored or already-notified versions', async () => {
+    const h = fixture(); await h.checker.setAutomatic(true); await h.checker.check();
+    await h.checker.claimNotice(); await h.checker.ignore('1.1.11'); h.advance(-5 * api.DAY);
+    assert.equal(await h.checker.claimNotice(), null);
+    assert.equal(h.state().lastNoticeAt, h.now());
+    h.advance(api.DAY); await h.checker.check({automatic: true});
+    assert.equal(await h.checker.claimNotice(), null);
+    assert.equal(h.state().ignoredVersion, '1.1.11');
+    assert.equal(h.state().lastNotifiedVersion, '1.1.11');
+});
+
+test('clock rollback keeps an in-flight lease owned and cancellation still wins after correction', async () => {
+    const pending = deferred(), entered = deferred();
+    const h = fixture({fetch: () => { entered.resolve(); return pending.promise; }}), other = h.make();
+    await h.checker.setAutomatic(true);
+    const task = h.checker.check({automatic: true}); await entered.promise;
+    const owner = h.state().requestId; h.advance(-5 * api.DAY);
+    assert.equal((await other.check({automatic: true})).status, 'busy');
+    assert.equal(h.state().requestId, owner);
+    assert.equal(h.requests[0][1].signal.aborted, false);
+    assert.equal(h.requests.length, 1);
+    await other.setAutomatic(false);
+    pending.resolve(response()); assert.equal((await task).status, 'cancelled');
+    assert.equal(h.state().automatic, false); assert.equal(h.state().latest, null);
+    assert.equal(h.state().requestId, '');
+});
+
+test('clock rollback preserves the maximum bounded server delay without extending it on every check', async () => {
+    const h = fixture({fetch: () => response({}, {status: 429, headers: {'retry-after': '999999999'}})}), other = h.make();
+    await h.checker.check(); h.advance(-5 * api.DAY);
+    assert.equal((await other.check()).status, 'rateLimit');
+    const retryAt = h.now() + api.DAY; assert.equal(h.state().retryAt, retryAt);
+    h.advance(api.DAY - 1);
+    assert.equal((await h.checker.check()).status, 'rateLimit');
+    assert.equal(h.state().retryAt, retryAt); assert.equal(h.requests.length, 1);
+    h.advance(1); await other.check(); assert.equal(h.requests.length, 2);
+});
+
+test('a fresh rate limit after a mid-request clock rollback retains its full retry delay', async () => {
+    const pending = deferred(), entered = deferred(); let count = 0;
+    const h = fixture({fetch: () => { if (++count === 1) { entered.resolve(); return pending.promise; } return response(); }}), other = h.make();
+    const task = h.checker.check(); await entered.promise;
+    h.advance(-5 * api.DAY);
+    pending.resolve(response({}, {status: 429, headers: {'retry-after': '120'}}));
+    assert.equal((await task).status, 'rateLimit');
+    const retryAt = h.now() + 120000;
+    assert.equal(h.state().retryAt, retryAt);
+    assert.equal((await other.check()).status, 'rateLimit');
+    assert.equal(h.state().retryAt, retryAt);
+    assert.equal(h.requests.length, 1);
+    h.advance(119999);
+    assert.equal((await h.checker.check()).status, 'rateLimit');
+    h.advance(1);
+    assert.equal((await other.check()).status, 'available');
+    assert.equal(h.requests.length, 2);
+});

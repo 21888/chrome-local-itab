@@ -58,6 +58,18 @@
         state.error = ['offline', 'timeout', 'rateLimit', 'unavailable', 'noRelease', 'invalid', 'stale'].includes(value.error) ? value.error : '';
         return state;
     }
+    function recoverCooldowns(state, now) {
+        let changed = false;
+        if (state.lastAttempt > now) {
+            // A corrected device clock must not strand checks at an old future date.
+            // Preserve the server's full delay from that attempt, never bypass it.
+            if (state.retryAt) state.retryAt = now + Math.min(DAY, Math.max(0, state.retryAt - state.lastAttempt));
+            state.lastAttempt = now; changed = true;
+        }
+        if (state.lastNoticeAt > now) { state.lastNoticeAt = now; changed = true; }
+        if (state.retryAt > now + DAY) { state.retryAt = now + DAY; changed = true; }
+        return changed;
+    }
     function createBackend(chromeApi = root.chrome, locks = root.navigator?.locks) {
         if (!chromeApi?.storage?.local || !locks?.request) throw fault('storage');
         return {
@@ -136,9 +148,10 @@
             let requestId = '', skipped = 'skipped';
             const now = this.now();
             await this.change(state => {
-                if (state.retryAt > now) { skipped = 'rateLimit'; return false; }
-                if (state.requestId && state.lastAttempt <= now && now - state.lastAttempt < this.timeout + 1000) { skipped = 'busy'; return false; }
-                if (automatic && (!state.automatic || (state.lastAttempt && (now < state.lastAttempt || now - state.lastAttempt < DAY)))) return false;
+                const recovered = recoverCooldowns(state, now);
+                if (state.retryAt > now) { skipped = 'rateLimit'; return recovered; }
+                if (state.requestId && state.lastAttempt <= now && now - state.lastAttempt < this.timeout + 1000) { skipped = 'busy'; return recovered; }
+                if (automatic && (!state.automatic || (state.lastAttempt && now - state.lastAttempt < DAY))) return recovered;
                 requestId = this.id(); state.requestId = requestId; state.lastAttempt = now; state.error = '';
             });
             if (!requestId || this.disposed) return {status: this.disposed ? 'cancelled' : skipped};
@@ -172,6 +185,9 @@
             let status = 'cancelled';
             await this.change(state => {
                 if (this.disposed || state.requestId !== requestId || (automatic && !state.automatic)) return false;
+                // Re-anchor an attempt interrupted by clock correction before storing
+                // a new server deadline, which already uses the corrected clock.
+                recoverCooldowns(state, this.now());
                 state.requestId = ''; state.retryAt = retryAt;
                 if (error === 'cancelled') return;
                 if (!error && state.latest && compareVersions(result.version, state.latest.version) < 0) error = 'stale';
@@ -185,9 +201,10 @@
             let release = null;
             await this.change(state => {
                 const now = this.now();
+                const recovered = recoverCooldowns(state, now);
                 if (!state.automatic || !state.latest || state.error || !state.lastSuccess || now < state.lastSuccess || now - state.lastSuccess >= DAY ||
                     compareVersions(state.latest.version, this.currentVersion) <= 0 || state.latest.version === state.ignoredVersion ||
-                    state.latest.version === state.lastNotifiedVersion || (state.lastNoticeAt && (now < state.lastNoticeAt || now - state.lastNoticeAt < DAY))) return false;
+                    state.latest.version === state.lastNotifiedVersion || (state.lastNoticeAt && now - state.lastNoticeAt < DAY)) return recovered;
                 release = state.latest; state.lastNoticeAt = now; state.lastNotifiedVersion = release.version;
             });
             return release;

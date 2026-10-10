@@ -75,6 +75,12 @@ Release names, Markdown bodies, assets and remote URLs are never rendered or
 executed. Links are constructed from the fixed repository and validated tag.
 Opt-out, Settings reset and newer requests invalidate late responses.
 
+If the device clock moves backward past a recorded attempt or notice, the next
+check conservatively restarts that cooldown from the corrected time. A saved
+server retry delay is retained, bounded to 24 hours. The correction is shared
+across tabs and does not erase ignored or already-notified versions; the cached
+success timestamp stays unchanged until a fresh successful check.
+
 ### Installation
 
 For unpacked use, save open edits and export appropriate backups first. Download
