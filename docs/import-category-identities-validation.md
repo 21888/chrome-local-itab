@@ -17,3 +17,7 @@ Import validation now rejects duplicate explicit IDs before replacement. Missing
 - Independent code/test review found no blocking issue. No native browser, image-decoder, live Sync/Drive, traffic-capture or exhaustive security pass is implied.
 
 No permissions, storage schema, network defaults or dependencies changed.
+
+## Bounded native acceptance
+
+Official Chrome for Testing 155 on cloud Linux loaded the exact 60-file development runtime in an isolated profile with synthetic data. A duplicate-ID backup was rejected before the replacement confirmation; the prior quote, category and shortcut remained. A legacy backup with a missing category ID imported successfully, and a subsequent category-name edit persisted after reload. No other browser or operating-system pass is implied.

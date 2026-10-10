@@ -65,3 +65,7 @@ ownership. They do not verify native popup permissions, rendered dialog
 layout, real tab creation, destination loading or behavior on other operating
 systems. Existing native smoke results in `category-open-validation.md` apply
 to that earlier implementation, not this candidate.
+
+## Bounded native confirmation check
+
+Official Chrome for Testing 155 on cloud Linux showed “Open 2 new tabs for ‘Open QA batch’?” for a category with two valid links and a third link in a different category. Cancel dismissed the dialog and menu; the same two owned tabs and the local extension URL remained. The isolated fixture used example.invalid destinations, and none was opened. This is visible tab/navigation evidence, not a packet-level audit. Actual approval, real destination loading and partial native opener failures remain untested.
