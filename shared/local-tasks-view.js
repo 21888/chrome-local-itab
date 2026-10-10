@@ -475,31 +475,39 @@
             let baseline = task, generation = 0, open = true, failedCommand = null, pending = false, reviewedLatest = null;
             input.addEventListener('input', () => { generation++; failedCommand = null; });
             const originalClose = modal.close; const close = () => { open = false; originalClose(); };
+            const owns = () => !this.destroyed && open && modal.isOpen && input.isConnected;
+            const setControl = (node, disabled, hidden = node.hidden) => {
+                if (!owns()) return;
+                // Move only this opening's active control before Chrome blurs a
+                // disabled/hidden button. Async results never reclaim focus.
+                if (document.activeElement === node && (disabled || hidden)) input.focus();
+                node.disabled = disabled; node.hidden = hidden;
+            };
             // Escape is routed through the shared focus helper; detached input prevents late DOM/focus writes too.
             const save = async (replaceLatest = false) => {
-                if (pending || this.controller.pending) return;
+                if (!owns() || pending || this.controller.pending) return;
                 if (replaceLatest) {
                     if (!reviewedLatest) { feedback.textContent = t('tasksConflict'); return; }
                     baseline = reviewedLatest; failedCommand = null;
                 }
                 const text = input.value, submittedGeneration = generation;
                 const command = failedCommand || this.controller.store.request('edit', { id: baseline.id, version: baseline.version, text });
-                ownedOperationId = command.operationId; pending = true; saveButton.disabled = true; overwrite.disabled = true; feedback.textContent = t('tasksSaving');
+                ownedOperationId = command.operationId; pending = true; setControl(saveButton, true); setControl(overwrite, true); feedback.textContent = t('tasksSaving');
                 try {
                     const state = await this.controller.run(command);
-                    if (!open || !input.isConnected) return;
+                    if (!owns()) return;
                     baseline = state.records.find(t => t.id === task.id); failedCommand = null;
                     if (generation === submittedGeneration && input.value === text) close(); else feedback.textContent = t('tasksDraftRemains');
                 } catch (error) {
-                    if (!open || !input.isConnected) { this.controller.dismissRetry(command.operationId); return; }
+                    if (!owns()) { this.controller.dismissRetry(command.operationId); return; }
                     failedCommand = generation === submittedGeneration && input.value === text ? command : null; feedback.textContent = errorText(error);
                     if (error.code === 'CONFLICT') {
                         failedCommand = null;
                         const fresh = this.controller.state?.records.find(t => t.id === task.id && t.state !== 'removed');
                         reviewedLatest = fresh || null; latest.hidden = !fresh; latest.textContent = fresh ? `${t('tasksLatest')}: ${fresh.text}` : '';
-                        overwrite.hidden = !fresh;
+                        setControl(overwrite, pending, !fresh);
                     }
-                } finally { pending = false; saveButton.disabled = false; overwrite.disabled = false; }
+                } finally { pending = false; setControl(saveButton, false); setControl(overwrite, false); }
             };
             const buttons = el('div', 'tasks-dialog-actions');
             const saveButton = button('tasksSave', () => save(), 'tasks-primary'), overwrite = button('tasksOverwrite', () => save(true)); overwrite.hidden = true;

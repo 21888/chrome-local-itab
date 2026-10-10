@@ -47,3 +47,7 @@ Pending-write failures, workspace-preset interaction, IME and assistive-technolo
 ## Reviewed batch capture — 2026-10-10
 
 A separate editor now previews and atomically appends nonblank lines, preserving the existing ordinary Add workflow and v1 task/backup format. Sixty-three focused store/view model tests cover whole-batch limits, concurrency, uncertain-save receipts, draft/dialog ownership and EN/CN interaction. See [batch capture validation](tasks-batch-capture-validation.md) for exact coverage and native-check limits.
+
+## Ordinary Edit keyboard validation — 2026-10-10
+
+Native testing found and separately repaired lost Escape handling after keyboard Save failed validation. The focused control transfers to the same editor before disabling, with stale-callback ownership checks. [Regression coverage and native evidence scope](tasks-edit-keyboard-validation.md).

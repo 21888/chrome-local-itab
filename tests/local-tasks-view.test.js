@@ -18,7 +18,7 @@ function model(options = {}) {
         subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }, raw: () => raw
     };
     const store = new tasks.Store(b), controller = new Controller(store);
-    const document = createDocument(), host = document.createElement('article'), search = document.createElement('input');
+    const document = createDocument({ blurUnavailableFocus: options.blurUnavailableFocus }), host = document.createElement('article'), search = document.createElement('input');
     document.body.append(search, host); search.focus();
     const api = { ...tasks, Controller }, window = { LocalItabTasks: api };
     const context = vm.createContext({ window, document, crypto: webcrypto, setTimeout, URL, Blob, console });
@@ -247,4 +247,69 @@ test('DOM model: filtered rows disable hidden-neighbor reordering and keep focus
     assert.equal(h.document.activeElement.tagName, 'SUMMARY'); assert.equal(h.document.activeElement.closest('[data-task-id]').dataset.taskId, second.id);
     h.view.filterInput.focus(); await seed(h, 'matching new'); assert.equal(h.document.activeElement, h.view.filterInput);
     h.view.destroy();
+});
+
+// Dispatch keyboard events to current focus, including native-like Tab/Enter
+// defaults, so disabling a button cannot leave a misleading old-target test.
+function activeEditKey(h, key, fields = {}) {
+    const target = h.document.activeElement, event = target.dispatch('keydown', { key, ...fields });
+    if (!event.prevented && key === 'Enter' && target.tagName === 'BUTTON' && !target.disabled) target.dispatch('click', { detail: 0 });
+    if (!event.prevented && key === 'Tab') {
+        const nodes = modal(h)?.querySelectorAll('button, input, textarea').filter(node => !node.disabled && !node.closest('[hidden], [inert]') && node.getClientRects().length) || [];
+        nodes[nodes.indexOf(target) + (fields.shiftKey ? -1 : 1)]?.focus();
+    }
+    return event;
+}
+function tabToEditButton(h, label) {
+    for (let i = 0; i < 8 && h.document.activeElement !== button(modal(h), label); i++) activeEditKey(h, 'Tab');
+    assert.ok(h.document.activeElement === button(modal(h), label));
+}
+
+for (const value of ['', 'x'.repeat(1001), 'invalid\u0000text']) test(`keyboard edit validation keeps immediate Escape available (${value.length})`, async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); const task = await seed(h); h.view.edit(task); setInput(editor(h), value);
+    tabToEditButton(h, 'Save task'); activeEditKey(h, 'Enter');
+    assert.ok(h.document.activeElement === editor(h), 'transfer before disabling Save'); await settle();
+    assert.match(modal(h).querySelector('.tasks-dialog-feedback').textContent, /nonempty plain-text/);
+    activeEditKey(h, 'Escape'); assert.ok(modal(h) === null); assert.ok(h.document.activeElement === h.search);
+    assert.equal(h.b.raw().records[0].text, 'first'); h.view.destroy();
+});
+
+for (const action of ['save', 'retry', 'overwrite']) test(`keyboard edit ${action} keeps pending and failed focus inside`, async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); const task = await seed(h); h.view.edit(task); setInput(editor(h), 'my edit');
+    if (action === 'retry') { h.b.fail = true; click(modal(h), 'Save task'); await settle(); }
+    if (action === 'overwrite') {
+        await h.store.mutate(h.store.request('edit', { id: task.id, version: task.version, text: 'remote' })); await settle();
+        click(modal(h), 'Save task'); await settle();
+    }
+    const previous = h.controller.retryCommand, wait = deferred(); h.b.delay = wait.promise; h.b.fail = true;
+    tabToEditButton(h, action === 'overwrite' ? 'Replace latest with my edit' : 'Save task'); activeEditKey(h, 'Enter');
+    assert.ok(h.document.activeElement === editor(h));
+    const event = activeEditKey(h, 'Tab', { shiftKey: true }); assert.equal(event.prevented, true);
+    assert.ok(h.document.activeElement === button(modal(h), 'Cancel'));
+    wait.resolve(); await settle(); assert.ok(h.document.activeElement === button(modal(h), 'Cancel'), 'late error does not reclaim focus');
+    assert.equal(h.controller.error.code, 'WRITE');
+    if (action === 'retry') assert.equal(h.controller.retryCommand.operationId, previous.operationId, 'retry preserves exact request');
+    activeEditKey(h, 'Escape'); assert.ok(modal(h) === null); h.view.destroy();
+});
+
+for (const outcome of ['success', 'failure']) test(`keyboard late edit ${outcome} respects newer draft and IME focus`, async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); const task = await seed(h); h.view.edit(task); setInput(editor(h), 'submitted');
+    const wait = deferred(); h.b.delay = wait.promise; h.b.fail = outcome === 'failure'; tabToEditButton(h, 'Save task'); activeEditKey(h, 'Enter');
+    const input = editor(h); assert.ok(h.document.activeElement === input); setInput(input, 'newer 中文'); input.dispatch('compositionstart');
+    wait.resolve(); await settle(); assert.equal(editor(h), input); assert.ok(h.document.activeElement === input); assert.equal(input.value, 'newer 中文');
+    activeEditKey(h, 'Escape'); assert.equal(editor(h), input); input.dispatch('compositionend'); activeEditKey(h, 'Escape'); assert.ok(modal(h) === null); h.view.destroy();
+});
+
+for (const outcome of ['success', 'failure']) test(`keyboard late edit ${outcome} never steals reopened dialog focus`, async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); const task = await seed(h); h.view.edit(task); setInput(editor(h), 'submitted');
+    const wait = deferred(); h.b.delay = wait.promise; h.b.fail = outcome === 'failure'; tabToEditButton(h, 'Save task'); activeEditKey(h, 'Enter');
+    activeEditKey(h, 'Escape'); assert.ok(modal(h) === null); h.view.edit(task); const newer = editor(h); setInput(newer, 'reopened draft');
+    wait.resolve(); await settle(); assert.equal(editor(h), newer); assert.equal(newer.value, 'reopened draft'); assert.ok(h.document.activeElement === newer);
+    activeEditKey(h, 'Escape'); assert.ok(modal(h) === null); h.view.destroy();
+});
+
+test('keyboard valid edit still saves and restores previous focus', async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); const task = await seed(h); h.view.edit(task); setInput(editor(h), 'saved edit');
+    tabToEditButton(h, 'Save task'); activeEditKey(h, 'Enter'); await settle(); assert.ok(modal(h) === null);
+    assert.equal(h.b.raw().records[0].text, 'saved edit'); assert.ok(h.document.activeElement === h.search); h.view.destroy();
 });
