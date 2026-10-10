@@ -566,8 +566,12 @@
             const feedback = el('p', 'tasks-dialog-feedback'); feedback.setAttribute('role', 'status');
             const cancel = button('tasksCancel', () => modal.close());
             const confirm = button('tasksReplace', async () => {
-                if (this.controller.pending) return;
-                command ||= makeCommand(); confirm.disabled = true; feedback.textContent = t('tasksSaving');
+                if (this.destroyed || !modal.isOpen || !confirm.isConnected || this.controller.pending) return;
+                command ||= makeCommand();
+                // Keep keyboard events in this review before disabling its focused
+                // confirmation. Async results never reclaim newer focus.
+                if (document.activeElement === confirm) cancel.focus();
+                confirm.disabled = true; feedback.textContent = t('tasksSaving');
                 try { await this.controller.run(command); modal.close(); }
                 catch (error) { if (!modal.isOpen) { this.controller.dismissRetry(command.operationId); return; } feedback.textContent = errorText(error); if (error.code === 'CONFLICT') confirm.hidden = true; }
                 finally { confirm.disabled = false; }

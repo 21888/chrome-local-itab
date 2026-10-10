@@ -1,0 +1,9 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const context={module:{exports:{}},TextEncoder,structuredClone,console};vm.runInNewContext(fs.readFileSync(process.argv[2] || require('node:path').resolve(__dirname,'../../../shared/local-tasks-store.js'),'utf8'),context);const api=context.module.exports;
+let raw,seq=0,clock=0;const copy=v=>v===undefined?v:JSON.parse(JSON.stringify(v));const backend={lock:fn=>fn(),read:async()=>copy(raw),write:async v=>{raw=copy(v)},subscribe:()=>()=>{}};const store=new api.Store(backend,{id:()=>`synthetic_${String(++seq).padStart(6,'0')}`,now:()=>new Date(Date.UTC(2026,9,10,14,0,clock++)).toISOString()});
+const add=txt=>store.mutate(store.request('add',{text:txt}));const cmd=(k,t,extra={})=>store.request(k,{id:t.id,version:t.version,...extra});
+(async()=>{let s=await add('Archive A active');s=await add('Archive A pinned');s=await add('Archive A completed');s=await add('Archive A removed');s=await store.mutate(cmd('complete',s.records[2]));s=await store.mutate(cmd('remove',s.records[3]));s=await store.mutate(cmd('pin',s.records[1],{expectedPin:null}));const original=await store.export();
+// Preserve a distinguishable B copy using supported edit then reviewed replace.
+s=await store.mutate(cmd('edit',s.records[0],{text:'Archive B recovery target'}));s=await store.mutate(store.request('replace',await store.review(original)));
+for(let i=1;i<8;i++)s=await store.mutate(store.request('replace',await store.review(original)));
+const out=await store.export();assert.equal(api.parseBackup(out).recovery.length,8);fs.writeFileSync(require('node:path').join(require('node:os').tmpdir(),'local-itab-tasks-full-eight-reproduced.json'),out);console.log('fixture',out.length,'bytes',api.counts(s));})().catch(e=>{console.error(e);process.exit(1)});

@@ -1,0 +1,29 @@
+{
+  "publicVersion": "1.1.18",
+  "sourceCommit": "14acaaaf81256a340bacb72b6d6bf3fb267c8aea",
+  "publicZipSha256": "0df2440ed6abb51cf3897b744f27a6af8cc6e192d84ca16a10dadcc77b9dc7e6",
+  "runtimeFilesUnchanged": 63,
+  "cancelPreservedExactContentAndHistory": true,
+  "capacityRefusalPreservedExactContentAndHistory": true,
+  "recoveryTargetId": "synthetic_000017",
+  "recoveredTargetContentExceptRegeneratedVersions": true,
+  "retainedOtherSevenCopiesExact": true,
+  "priorDestinationRetainedExact": true,
+  "recoveryCopyCount": 8,
+  "nativeSentinelText": "native destination sentinel",
+  "nativeKeyboardDefect": "Replace via Enter loses visible focus; immediate Escape leaves review open",
+  "limits": "No browser DOM focus introspection or native fault injection",
+  "candidate": {
+    "label": "1.1.18 + one-file patch",
+    "keyboardRefusalCancelFocused": true,
+    "immediateEscapeCloses": true,
+    "focusReturnsToImport": true,
+    "startupDataExact": true,
+    "refusalDataExact": true,
+    "recoverySwapRestoresPriorDestinationExceptRegeneratedVersions": true,
+    "preservesOtherSevenCopiesExact": true,
+    "preservesPriorCurrentCopyExact": true,
+    "copies": 8
+  },
+  "verificationCommand": "node docs/qa/tasks-recovery-focus-native/verify.cjs"
+}

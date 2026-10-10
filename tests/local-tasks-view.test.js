@@ -368,3 +368,63 @@ test('DOM model: task export keeps current edit and quick-entry drafts, download
     assert.deepEqual(revoked, []); assert.equal(timers.length, 1); assert.equal(timers[0].delay, 60000);
     timers[0].fn(); assert.deepEqual(revoked, ['blob:audit']); h.view.destroy();
 });
+
+async function openTaskReplacement(h, source) {
+    const review = await h.store.review(source);
+    h.view.reviewReplacement(review, () => h.store.request('replace', { source, revision: review.revision }));
+    return modal(h).querySelectorAll('button').at(-1);
+}
+
+test('keyboard full-history replacement refusal retains Cancel focus and immediate Escape', async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); await seed(h, 'preserve local');
+    const original = await h.store.export();
+    for (let i = 0; i < tasks.LIMITS.recovery; i++) await h.store.mutate(h.store.request('replace', await h.store.review(original)));
+    await settle(); const before = structuredClone(h.b.raw());
+    const confirm = await openTaskReplacement(h, await h.store.export()); confirm.focus(); activeEditKey(h, 'Enter');
+    assert.ok(h.document.activeElement === button(modal(h), 'Cancel'), 'transfer before disabling confirmation');
+    await settle(); assert.equal(h.controller.error.code, 'RECOVERY_LIMIT'); assert.deepEqual(h.b.raw(), before);
+    activeEditKey(h, 'Escape'); assert.equal(modal(h), null); h.view.destroy();
+});
+
+test('keyboard stale replacement review keeps Escape after confirmation is hidden', async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); await seed(h);
+    const confirm = await openTaskReplacement(h, await h.store.export()); await seed(h, 'newer task');
+    const before = structuredClone(h.b.raw()); confirm.focus(); activeEditKey(h, 'Enter'); await settle();
+    assert.equal(h.controller.error.code, 'CONFLICT'); assert.equal(confirm.hidden, true);
+    assert.ok(h.document.activeElement === button(modal(h), 'Cancel')); assert.deepEqual(h.b.raw(), before);
+    activeEditKey(h, 'Escape'); assert.equal(modal(h), null); h.view.destroy();
+});
+
+for (const outcome of ['success', 'failure']) test(`keyboard replacement late ${outcome} cannot steal reopened editor focus`, async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); const task = await seed(h);
+    const confirm = await openTaskReplacement(h, await h.store.export()); const wait = deferred(); h.b.delay = wait.promise; h.b.fail = outcome === 'failure';
+    confirm.focus(); activeEditKey(h, 'Enter'); await settle();
+    assert.ok(h.document.activeElement === button(modal(h), 'Cancel')); activeEditKey(h, 'Escape'); assert.equal(modal(h), null);
+    h.view.edit(task); const newer = editor(h); setInput(newer, 'newer draft');
+    wait.resolve(); await settle(); assert.equal(editor(h), newer); assert.equal(newer.value, 'newer draft'); assert.ok(h.document.activeElement === newer);
+    activeEditKey(h, 'Escape'); h.view.destroy();
+});
+
+test('replacement activation preserves other focus and ignores closed confirmation', async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); await seed(h);
+    const confirm = await openTaskReplacement(h, await h.store.export());
+    const before = structuredClone(h.b.raw()); activeEditKey(h, 'Escape'); confirm.dispatch('click'); await settle();
+    assert.deepEqual(h.b.raw(), before); assert.ok(h.document.activeElement === h.search);
+    const next = await openTaskReplacement(h, await h.store.export()), activeCancel = button(modal(h), 'Cancel');
+    h.b.fail = true; next.dispatch('click'); await settle(); assert.ok(h.document.activeElement === activeCancel);
+    assert.equal(h.controller.error.code, 'WRITE'); activeEditKey(h, 'Escape'); h.view.destroy();
+});
+
+test('keyboard recovery write failure keeps Cancel and retry restores without dropping current copy', async () => {
+    const h = model({ blurUnavailableFocus: true }); await settle(); await seed(h, 'original');
+    const original = await h.store.export(); await seed(h, 'retained in recovery');
+    await h.store.mutate(h.store.request('replace', await h.store.review(original))); await settle();
+    const before = structuredClone(h.b.raw()); await h.view.reviewRecovery(before.recovery[0].id);
+    const confirm = modal(h).querySelectorAll('button').at(-1); h.b.fail = true; confirm.focus(); activeEditKey(h, 'Enter'); await settle();
+    assert.equal(h.controller.error.code, 'WRITE'); assert.deepEqual(h.b.raw(), before);
+    assert.ok(h.document.activeElement === button(modal(h), 'Cancel'));
+    const retry = h.controller.retryCommand.operationId; h.b.fail = false; confirm.focus(); activeEditKey(h, 'Enter'); await settle();
+    assert.equal(modal(h), null); assert.deepEqual(h.b.raw().records.map(record => record.text), ['original', 'retained in recovery']);
+    assert.equal(h.b.raw().recovery.length, 1); assert.deepEqual(h.b.raw().recovery[0].content.records, before.records);
+    assert.ok(h.b.raw().receipts.includes(retry)); h.view.destroy();
+});
