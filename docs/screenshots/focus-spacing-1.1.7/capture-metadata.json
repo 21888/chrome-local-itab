@@ -1,0 +1,25 @@
+{
+  "date_utc": "2026-10-10",
+  "original_runtime_commit": "291fb22836f24deee3ea8822aabddd7e5e396d92",
+  "after_css_commit": "9f1b5017ab87cc5475d1ae26cba8a02b94c75430",
+  "transforms": "None; original native JPEG bytes",
+  "viewport": "400x618 responsive toolbar, Graphite dark",
+  "images": [
+    {
+      "file": "after-dark-narrow.jpg",
+      "sha256": "36931b345529b0bb811cf7e94157459a673a9e6b9c372a4683baa48d90a2dde7",
+      "dimensions": [
+        1364,
+        1024
+      ]
+    },
+    {
+      "file": "before-dark-narrow.jpg",
+      "sha256": "2ef896e4a12ad457d6b27f843b4d921729092e4f147302cb5d6ef60be56f25ca",
+      "dimensions": [
+        1364,
+        1024
+      ]
+    }
+  ]
+}

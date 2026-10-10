@@ -16,6 +16,8 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 Real extension screenshots captured at different feature stages. Template previews use the English interface with Chinese sample category names; feature sections identify their capture languages. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
 
+[Narrow templates, focus spacing and upgrade-preservation checks](docs/narrow-template-and-upgrade-validation.md)
+
 ### Latest interactions · Undo completion and scientific literals
 
 Undo an accidental completion without automatically pinning the task again; the current draft and filter remain. Calculator results in scientific notation can now be reused, for example `=1e-7*2`. These are original 1.1.7 development desktop captures, including browser chrome, with no cropping or redrawing.

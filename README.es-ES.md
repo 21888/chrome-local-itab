@@ -16,6 +16,8 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 Capturas reales de distintas etapas del desarrollo de las funciones. Las plantillas muestran controles en inglés y categorías de ejemplo en chino; cada sección de funciones indica el idioma de sus capturas. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
 
+[Verificación de plantillas estrechas, foco y conservación tras actualizar](docs/narrow-template-and-upgrade-validation.md)
+
 ### Interacciones recientes · Deshacer una finalización y notación científica
 
 Puedes deshacer una finalización accidental sin volver a fijar la tarea automáticamente; se conservan el borrador y el filtro. Los resultados en notación científica pueden usarse en otro cálculo, por ejemplo `=1e-7*2`. Son capturas originales de escritorio de la versión de desarrollo 1.1.7, con el marco del navegador, sin recortar ni redibujar.
