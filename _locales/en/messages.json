@@ -118,6 +118,7 @@
   "iconFetchFailed": {
     "message": "Could not fetch the icon. Please try again."
   },
+	"documentLanguage": {"message": "en", "description": "HTML document language for this translation catalog; do not translate the language code."},
 	"dateFormattingLocale": {"message": "en", "description": "Locale tag used to format date words alongside this UI translation."},
 	"defaultWelcomeQuote": {"message": "Welcome to your personalized new tab page!"},
 	"templateAtelier": {"message": "Atelier"},

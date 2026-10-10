@@ -118,6 +118,7 @@
   "iconFetchFailed": {
     "message": "无法获取图标，请重试。"
   },
+	"documentLanguage": {"message": "zh-CN", "description": "HTML document language for this translation catalog; do not translate the language code."},
 	"dateFormattingLocale": {"message": "zh-CN", "description": "Locale tag used to format date words alongside this UI translation."},
 	"defaultWelcomeQuote": {"message": "欢迎来到你的个性化新标签页！"},
 	"templateAtelier": {"message": "编排"},

@@ -35,6 +35,14 @@
 
 	function localizeDocument(root) {
 		const scope = root || document;
+		if (typeof scope.querySelectorAll !== 'function') return;
+		// Match the displayed catalog, including Chrome's English catalog fallback.
+		const targetDocument = scope.ownerDocument || (scope.documentElement ? scope : null);
+		if (targetDocument && targetDocument.documentElement) {
+			const language = getMessage('documentLanguage');
+			// These are the language tags provided by our supported catalogs.
+			targetDocument.documentElement.lang = language === 'zh-CN' ? 'zh-CN' : 'en';
+		}
 		scope.querySelectorAll('[data-i18n], [data-i18n-title], [data-i18n-placeholder], [data-i18n-aria-label]')
 			.forEach(localizeElement);
 	}
