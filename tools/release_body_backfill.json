@@ -1,0 +1,74 @@
+[
+  {
+    "version": "1.1.8",
+    "release_id": 408922236,
+    "source_commit": "bddd9f87c314e84baf1d62a4b7f4adbf23990770",
+    "original_body_sha256": "eda4ef7c55ac0cf108492c9083c6101dd1118a4399533c2537de4789f465780d",
+    "assets": {
+      "local-itab-1.1.8.zip": {
+        "sha256": "4f2451069cfe68f260a9115676c8e94ac61eb03780b8e85861a783fa06cd0d77",
+        "bytes": 1314991
+      },
+      "PROVENANCE.json": {
+        "sha256": "37c40f3be1a86dfa21a60657163418b12df055d981c9b33dabf5c6afcfd6c4f3",
+        "bytes": 6159
+      },
+      "RELEASE-NOTES.md": {
+        "sha256": "eda4ef7c55ac0cf108492c9083c6101dd1118a4399533c2537de4789f465780d",
+        "bytes": 1813
+      },
+      "SHA256SUMS.txt": {
+        "sha256": "65634c2a32363c3e8583d7f7732bf0a0cbe7489dacf5c159b94def6ec2a54e56",
+        "bytes": 252
+      }
+    }
+  },
+  {
+    "version": "1.1.9",
+    "release_id": 408923713,
+    "source_commit": "e348f7721f7e6ebd5cd4c4436091b3d6cdea6e23",
+    "original_body_sha256": "b0299c12b06e015ac943b2eb96bf11d8181e8a230b8a0834abd12cad91fc0d12",
+    "assets": {
+      "local-itab-1.1.9.zip": {
+        "sha256": "f71458323e6bb2399e02416621aadb38eae66a13b8eae6d04acf49aabbd019e4",
+        "bytes": 1315787
+      },
+      "PROVENANCE.json": {
+        "sha256": "b4296e91c1b229276f47f918660e82aaf1e82201079797bf052e1f91484850c7",
+        "bytes": 6159
+      },
+      "RELEASE-NOTES.md": {
+        "sha256": "b0299c12b06e015ac943b2eb96bf11d8181e8a230b8a0834abd12cad91fc0d12",
+        "bytes": 1813
+      },
+      "SHA256SUMS.txt": {
+        "sha256": "827d1cc790a6e618edc7c93055de14b686e58f87996419a7dcd3711ec0d189fe",
+        "bytes": 252
+      }
+    }
+  },
+  {
+    "version": "1.1.10",
+    "release_id": 408928285,
+    "source_commit": "e296eea65605627c911871c0382069e6210e4bbc",
+    "original_body_sha256": "af876099e536e41cfb9267afaa7d8083d1dbcc40701870294f345e07c2fc8e59",
+    "assets": {
+      "local-itab-1.1.10.zip": {
+        "sha256": "124862988cbd3dc0ee3a3034c3d1b9e77f00bee246f2c81cb41ba09cc452a9d2",
+        "bytes": 1317025
+      },
+      "PROVENANCE.json": {
+        "sha256": "293041380fc3e898de70879f363830eb716c5ab60ada8796b5e5415dc1f354b4",
+        "bytes": 6160
+      },
+      "RELEASE-NOTES.md": {
+        "sha256": "af876099e536e41cfb9267afaa7d8083d1dbcc40701870294f345e07c2fc8e59",
+        "bytes": 1816
+      },
+      "SHA256SUMS.txt": {
+        "sha256": "c040918120a03096d8bd97661c2a10a274117114f98e38b06661fa645ec659eb",
+        "bytes": 253
+      }
+    }
+  }
+]

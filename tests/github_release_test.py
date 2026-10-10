@@ -213,6 +213,9 @@ class ReleaseTests(unittest.TestCase):
         (root / 'manifest.json').write_text('{"version":"1.1.7"}')
         def git(*args):
             return subprocess.check_output(['git', '-C', str(root), *args], stderr=subprocess.DEVNULL, text=True).strip()
+        record = root / 'docs/releases/1.1.8.md'
+        record.parent.mkdir(parents=True)
+        record.write_text((ROOT / 'docs/releases/1.1.8.md').read_text())
         git('init', '-q');git('add', '.')
         git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'base')
         (root / 'manifest.json').write_text('{"version":"1.1.8"}')

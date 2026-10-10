@@ -36,26 +36,39 @@ def validate_identity(sha, version):
     version_tuple(version)
 
 
-def notes(sha, version):
+def notes(sha, version, root=None, *, historical=False):
+    validate_identity(sha, version)
+    root = root or Path(__file__).resolve().parents[1]
+    record = root / 'docs' / 'releases' / f'{version}.md'
+    check(record.is_file() and not record.is_symlink(), f'Missing source-controlled change record: {version}')
+    changes = record.read_text().strip()
+    check(all(section in changes for section in ('## 新增', '## 修复', '## 注意事项', '## English')), 'Change record lacks required sections')
+    check(40 <= len(changes) <= 16000, 'Invalid change record length')
+    historical_note = ('\n历史说明补充：本页新增版本改动说明；已发布附件中的 RELEASE-NOTES.md 与校验文件保留原样。\nHistorical web-note update: downloadable notes, checksums and all other assets remain unchanged.\n' if historical else '')
     return f'''# Local iTab {version}
 
+{changes}
+{historical_note}
 Source / 源码: https://github.com/{REPOSITORY}/commit/{sha}
 
-简体中文：下载附件 local-itab-{version}.zip，解压到固定保留的文件夹，打开 chrome://extensions/，开启“开发者模式”，选择“加载已解压的扩展程序”，选中含 manifest.json 的文件夹。打开新标签页即可使用。这不是一键安装包或 Chrome 商店上架证明。升级前备份个人数据；已有手动安装请保留原加载目录，替换运行文件并重新加载。GitHub 的 Source code 下载是完整源码，不是精简运行包。
+SHA256SUMS.txt 校验附件；PROVENANCE.json 记录准确源码及运行文件哈希。自动化测试不替代原生浏览器验收或 Chrome 商店审核。
 
-English: Download local-itab-{version}.zip, extract it into a folder you will keep, open chrome://extensions/, enable Developer mode, select Load unpacked, and choose the folder containing manifest.json. Open a new tab. This is not a one-click installer or evidence of Chrome Web Store publication. Back up your data before upgrading; retain the original loaded folder when replacing runtime files and reload the extension. GitHub's Source code downloads are full source archives, not the runtime package.
+## 安装 / Installation
 
-The runtime ZIP excludes tests, screenshots, browser profiles, user backups and credentials. 核心本地功能可离线使用；搜索、访问网站及启用的在线功能需要联网。Optional Drive backup in self-packaged installations requires valid extension identity/OAuth configuration and Google authorization; packaging does not validate it.
+下载 local-itab-{version}.zip，解压到固定保留的文件夹，打开 chrome://extensions/，开启“开发者模式”，选择“加载已解压的扩展程序”，选中含 manifest.json 的文件夹。升级前备份个人数据；已有手动安装请保留原加载目录，替换运行文件并重新加载。GitHub 的 Source code 是完整源码，运行 ZIP 不是一键安装程序。
 
-SHA256SUMS.txt verifies the assets. PROVENANCE.json records the exact source and runtime-file hashes. Automated tests do not replace native browser acceptance. GitHub releases follow versioned master pushes; Chrome Web Store submissions remain consolidated at most once per UTC+08 day. Published files are never replaced.
+Download local-itab-{version}.zip, extract it to a folder you retain, open chrome://extensions/, enable Developer mode, choose Load unpacked and select the folder containing manifest.json. Back up your data before upgrading; retain the original loaded folder and reload after replacing runtime files. GitHub Source code archives differ from the runtime ZIP. This is not a one-click installer or proof of Chrome Web Store publication.
+
+核心本地功能可离线使用，在线功能需要联网。Optional Drive backup for unpacked installs requires valid extension identity/OAuth configuration and Google authorization; packaging does not validate it.
 '''
 
 
 def build(root, out, sha):
-    # Import source execution occurs only in the read-only build job.
+    # Packaging runs before the publication step receives GH_TOKEN.
     import package_extension as package
     version = json.loads((root / 'manifest.json').read_text())['version']
     validate_identity(sha, version)
+    body = notes(sha, version, root)
     head = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
     check(head == sha, 'Checkout differs from event SHA')
     check(not subprocess.check_output(['git', '-C', str(root), 'status', '--porcelain', '--untracked-files=normal'], text=True).strip(), 'Build requires a clean checkout')
@@ -72,7 +85,7 @@ def build(root, out, sha):
                   'runtime_count': len(files), 'runtime_sha256': sha256(archive.read_bytes()),
                   'files': {name: sha256(data) for name, data in files.items()}}
     (out / 'PROVENANCE.json').write_text(json.dumps(provenance, sort_keys=True, indent=2) + '\n')
-    (out / 'RELEASE-NOTES.md').write_text(notes(sha, version))
+    (out / 'RELEASE-NOTES.md').write_text(body)
     (out / 'SHA256SUMS.txt').write_text(''.join(f'{sha256(p.read_bytes())}  {p.name}\n' for p in sorted(out.iterdir())))
     return provenance
 
@@ -208,9 +221,75 @@ def publish(out, sha, api=None):
     return final['html_url']
 
 
+# This one-time migration is intentionally not a generic release-edit interface.
+BACKFILL_TARGETS = {
+    '1.1.8': (408922236, 'bddd9f87c314e84baf1d62a4b7f4adbf23990770'),
+    '1.1.9': (408923713, 'e348f7721f7e6ebd5cd4c4436091b3d6cdea6e23'),
+    '1.1.10': (408928285, 'e296eea65605627c911871c0382069e6210e4bbc'),
+}
+
+
+def load_backfill(root):
+    plan = json.loads((root / 'tools/release_body_backfill.json').read_text())
+    check(len(plan) == 3 and {x['version'] for x in plan} == BACKFILL_TARGETS.keys(), 'Unexpected backfill targets')
+    for item in plan:
+        check((item['release_id'], item['source_commit']) == BACKFILL_TARGETS[item['version']], 'Backfill identity mismatch')
+        check(re.fullmatch('[0-9a-f]{64}', item['original_body_sha256']), 'Invalid original body hash')
+        expected_names = {f"local-itab-{item['version']}.zip", 'PROVENANCE.json', 'RELEASE-NOTES.md', 'SHA256SUMS.txt'}
+        check(item['assets'].keys() == expected_names, 'Unexpected backfill asset set')
+        for asset in item['assets'].values():
+            check(re.fullmatch('[0-9a-f]{64}', asset['sha256']) and isinstance(asset['bytes'], int) and asset['bytes'] > 0, 'Invalid asset guard')
+    return plan
+
+
+def historical_state(api, item, desired):
+    tag = 'v' + item['version']
+    check(tag_commit(api, tag) == item['source_commit'], 'Historical tag source mismatch')
+    current = api.api(f"releases/{item['release_id']}")
+    check(current['id'] == item['release_id'] and current['tag_name'] == tag and not current['draft'] and not current['prerelease'], 'Historical release identity mismatch')
+    body_hash = sha256(current['body'].encode())
+    check(body_hash in (item['original_body_sha256'], sha256(desired.encode())), 'Historical body was edited unexpectedly')
+    assets = assets_for(api, item['release_id'])
+    check(len(assets) == 4 and {a['name'] for a in assets} == item['assets'].keys(), 'Historical asset set differs')
+    for asset in assets:
+        guard = item['assets'][asset['name']]
+        check(asset['state'] == 'uploaded' and asset['size'] == guard['bytes'], 'Historical asset metadata differs')
+        data = api.download(asset['id'])
+        check(len(data) == guard['bytes'] and sha256(data) == guard['sha256'], 'Historical asset bytes differ')
+    return current, [(a['id'], a['name'], a['size']) for a in assets]
+
+
+def backfill(root, out, sha, api=None):
+    version, _ = inspect_bundle(out, sha)
+    check(version == '1.1.11', 'Backfill is restricted to the 1.1.11 release workflow')
+    api = api or GitHub()
+    repo = api.api('')
+    check(repo['full_name'] == REPOSITORY and repo['private'] is False and repo['default_branch'] == 'master', 'Repository identity/visibility changed')
+    plan = load_backfill(root)
+    prepared = []
+    # Preflight all three before changing any body. A retry accepts only the
+    # exact original or exact desired text and always rechecks original assets.
+    for item in plan:
+        desired = notes(item['source_commit'], item['version'], root, historical=True)
+        current, assets = historical_state(api, item, desired)
+        prepared.append((item, desired, current, assets))
+    for item, desired, before, before_assets in prepared:
+        endpoint = f"releases/{item['release_id']}"
+        current = api.api(endpoint)
+        check(current['body'] == before['body'], 'Historical body changed during preflight')
+        if current['body'] != desired:
+            api.api(endpoint, {'body': desired}, method='PATCH')
+        after, after_assets = historical_state(api, item, desired)
+        check(after['body'] == desired, 'Backfill text not verified')
+        check(sorted(before_assets) == sorted(after_assets), 'Backfill changed asset identities')
+        for field in ('id', 'tag_name', 'name', 'draft', 'prerelease', 'target_commitish'):
+            check(after.get(field) == before.get(field), 'Backfill changed release identity')
+    return ['v' + item['version'] for item in plan]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['build', 'publish'])
+    parser.add_argument('action', choices=['build', 'publish', 'backfill'])
     parser.add_argument('--sha', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--expected-version')
@@ -230,7 +309,10 @@ def main():
         check(os.environ.get('GITHUB_REPOSITORY') == REPOSITORY, 'Unexpected repository context')
         check(os.environ.get('GITHUB_REF') == 'refs/heads/master' and os.environ.get('GITHUB_EVENT_NAME') == 'push', 'Publish requires a master push')
         check(args.sha == os.environ.get('GITHUB_SHA'), 'Source differs from event SHA')
-        print(publish(args.output.resolve(), args.sha))
+        if args.action == 'publish':
+            print(publish(args.output.resolve(), args.sha))
+        else:
+            print(backfill(Path(__file__).resolve().parents[1], args.output.resolve(), args.sha))
 
 
 if __name__ == '__main__':

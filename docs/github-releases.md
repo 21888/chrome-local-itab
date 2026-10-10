@@ -1,6 +1,6 @@
 # GitHub runtime releases
 
-One coherent, patch-versioned commit per push to `master`. Update `manifest.json` from x.y.z to x.y.(z+1) in that same commit, including documentation/workflow commits. No extra CI version-bump commit is created. A multi-commit push only releases its tip; push each intended release commit separately. Releases are not triggered by pull requests, tags, forks or schedules. Failed tests block publication rather than releasing a broken package.
+One coherent, patch-versioned commit per push to `master`. Update `manifest.json` from x.y.z to x.y.(z+1) and add `docs/releases/<version>.md` in that same commit, including documentation/workflow commits. No extra CI version-bump commit is created. A multi-commit push only releases its tip; push each intended release commit separately. Releases are not triggered by pull requests, tags, forks or schedules. Failed tests block publication rather than releasing a broken package.
 
 The first workflow integration is version **1.1.8**. Its exact source SHA will be the integration commit, not the earlier 1.1.7 candidate. Existing unpublished or unrelated working-tree changes must not be included accidentally.
 
@@ -43,3 +43,20 @@ python3 tools/github_release.py build --sha "$(git rev-parse HEAD)" --output /tm
 ```
 
 Publish mode requires the Actions master-push repository/SHA context and an authorized job token; do not discover or borrow local credentials to invoke it elsewhere.
+
+
+## Version-specific descriptions (from 1.1.11)
+
+Every release requires a tracked `docs/releases/<manifest version>.md`. Write useful, accurate Chinese-first **新增 / 修复 / 注意事项** sections and a concise **English** summary. If a category has no changes, say so; do not invent a feature. Describe user-visible effects and important limits, rather than copying a technical commit title. The build refuses a missing/malformed record instead of silently substituting an installation introduction.
+
+The renderer places that version's changes first, then source/integrity details, with installation guidance last. The same exact generated text is used in the web Release and its newly created downloadable RELEASE-NOTES.md. Records are part of the exact source SHA; they are not runtime ZIP inputs. Never edit an older record casually when preparing a newer version.
+
+### Bounded historical body correction
+
+The 1.1.11 publishing job has a one-time final step correcting only the web bodies of v1.1.8, v1.1.9 and v1.1.10. The script hardcodes those three release IDs and tag source SHAs; `tools/release_body_backfill.json` stores their original body and all four downloaded-asset hashes/sizes. No arbitrary release/version/payload is accepted. The existing contents:write job permission suffices; no new scope, schedule or credential is added.
+
+Before any edit, all three tags, identities, accepted body states and original asset bytes are checked. Each web body must equal the recorded original or the exact desired correction. Immediately before editing, the body is read again to detect an intervening edit. Only a `body` field is PATCHed, and tag/asset bytes/asset identities/release identity are checked again afterward. GitHub's REST update is not a multi-release transaction; an interrupted operation can be partially complete, and rerunning the same 1.1.11 workflow safely skips already-correct bodies after rechecking their assets. Unexpected manual edits or changed assets fail closed.
+
+Historical ZIPs, RELEASE-NOTES.md attachments, provenance, checksums, tags and source SHAs stay untouched. Historical web pages explicitly state that their downloadable notes remain original. The old 1.1.8–1.1.10 workflow source still expects the original web body; rerunning those old runs after this correction can intentionally fail its strict metadata equality check. Use the 1.1.11 bounded retry to finish this correction, not an old workflow or overwrite flag. No hash/source checks are relaxed to accommodate the correction.
+
+Future versions do not run the historical backfill step; each simply publishes its own reviewed record. Before pushing, run Python tests and preview `notes(source_sha, version)` from tools/github_release.py for text accuracy.

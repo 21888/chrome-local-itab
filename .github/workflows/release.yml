@@ -58,3 +58,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ github.sha }}
         run: python3 tools/github_release.py publish --sha "$SOURCE_SHA" --output "$RUNNER_TEMP/release-assets"
+      - name: Backfill only the three historical web descriptions
+        if: needs.validate.outputs.version == '1.1.11'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: python3 tools/github_release.py backfill --sha "$SOURCE_SHA" --output "$RUNNER_TEMP/release-assets"
