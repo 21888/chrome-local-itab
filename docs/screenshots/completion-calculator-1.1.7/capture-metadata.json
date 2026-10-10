@@ -1,0 +1,30 @@
+{
+  "runtime_commit": "b9597564fe36af268a2d69ce7e440a6409f04b12",
+  "capture_date_utc": "2026-10-10",
+  "environment": "Cloud Linux desktop, Chrome for Testing 155.0.8059.39",
+  "source": "Actual native desktop screenshots, synthetic data only",
+  "transforms": "None. Original JPEG bytes, including browser chrome.",
+  "images": [
+    {
+      "file": "tasks-undo-dark-en.jpg",
+      "original_capture": "13-dark-undo-completion.jpg",
+      "sha256": "6fe1b74a57d0f2d84cc2c63b7eca1829416c39519252fc229f89cf92a6443ece",
+      "width": 1364,
+      "height": 1024
+    },
+    {
+      "file": "tasks-undo-dark-zh.jpg",
+      "original_capture": "16-zh-undo-completion.jpg",
+      "sha256": "133945af559dd37be95a001cb6793c617f0f843723eccd2cd3f3f9fee401628d",
+      "width": 1364,
+      "height": 1024
+    },
+    {
+      "file": "calculator-scientific-light-en.jpg",
+      "original_capture": "02-calc-scientific-input.jpg",
+      "sha256": "f5566ff8b93f08a9c3b8ef1b2af7302970d12f6f790295215ec84b03639a333f",
+      "width": 1364,
+      "height": 1024
+    }
+  ]
+}

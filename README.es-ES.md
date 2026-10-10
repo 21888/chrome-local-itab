@@ -16,6 +16,23 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 Capturas reales de distintas etapas del desarrollo de las funciones. Las plantillas muestran controles en inglés y categorías de ejemplo en chino; cada sección de funciones indica el idioma de sus capturas. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
 
+### Interacciones recientes · Deshacer una finalización y notación científica
+
+Puedes deshacer una finalización accidental sin volver a fijar la tarea automáticamente; se conservan el borrador y el filtro. Los resultados en notación científica pueden usarse en otro cálculo, por ejemplo `=1e-7*2`. Son capturas originales de escritorio de la versión de desarrollo 1.1.7, con el marco del navegador, sin recortar ni redibujar.
+
+<details>
+<summary>Ver Tareas oscuras en chino / inglés y la calculadora clara</summary>
+
+![Tareas en chino: deshacer una finalización](docs/screenshots/completion-calculator-1.1.7/tasks-undo-dark-zh.jpg)
+
+![Tareas en inglés: borrador y filtro conservados](docs/screenshots/completion-calculator-1.1.7/tasks-undo-dark-en.jpg)
+
+![Calculadora en inglés: reutilizar notación científica](docs/screenshots/completion-calculator-1.1.7/calculator-scientific-light-en.jpg)
+
+[Origen de las capturas](docs/screenshots/completion-calculator-1.1.7/capture-metadata.json)
+
+</details>
+
 ### Funciones recientes · Tareas y concentración
 
 Completa directamente la tarea fijada sin ampliar la lista. Iniciar permanece desactivado mientras los minutos no estén guardados; guardar la duración no inicia el temporizador. Capturas reales de la versión de desarrollo 1.1.7 con tareas de ejemplo en inglés: la interfaz clara en chino muestra 30 minutos guardados; el recorte oscuro en inglés muestra un borrador de 30 minutos mientras el temporizador conserva 25.

@@ -16,6 +16,23 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 Real extension screenshots captured at different feature stages. Template previews use the English interface with Chinese sample category names; feature sections identify their capture languages. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
 
+### Latest interactions · Undo completion and scientific literals
+
+Undo an accidental completion without automatically pinning the task again; the current draft and filter remain. Calculator results in scientific notation can now be reused, for example `=1e-7*2`. These are original 1.1.7 development desktop captures, including browser chrome, with no cropping or redrawing.
+
+<details>
+<summary>View Chinese / English dark Tasks and the light calculator</summary>
+
+![Chinese dark Tasks: Undo completion](docs/screenshots/completion-calculator-1.1.7/tasks-undo-dark-zh.jpg)
+
+![English dark Tasks: draft and filter retained alongside Undo completion](docs/screenshots/completion-calculator-1.1.7/tasks-undo-dark-en.jpg)
+
+![English light calculator: reuse a scientific literal](docs/screenshots/completion-calculator-1.1.7/calculator-scientific-light-en.jpg)
+
+[Capture provenance](docs/screenshots/completion-calculator-1.1.7/capture-metadata.json)
+
+</details>
+
 ### Latest feature captures · Tasks and Focus
 
 Complete the pinned Next up task directly, without expanding a long list. Start stays disabled while minutes are unsaved; saving a duration never starts the timer. These actual 1.1.7 development captures use synthetic English tasks: the Chinese light interface shows saved 30-minute Ready state; the cropped English dark Focus card shows an unsaved 30-minute draft while the committed timer remains 25 minutes.

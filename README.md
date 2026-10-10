@@ -16,6 +16,23 @@
 
 以下为不同功能阶段拍摄的真实扩展截图。模版预览采用英文界面和中文示例分类；功能截图的界面语言见各节说明。网站选择、图标与卡片内容仅作展示；天气、热榜和电影卡片均为手动填写的示例，不是实时数据。
 
+### 最新操作实拍 · 撤销完成与科学记数法
+
+误点完成后可立即“撤销完成”，恢复任务但不会自动重新置顶；现有草稿和筛选会保留。计算器现在接受科学记数法结果再次参与计算，例如 `=1e-7*2`。以下为 1.1.7 开发版原始桌面截图，保留浏览器边框，未裁切或重绘。
+
+<details>
+<summary>查看中文 / 英文深色待办和浅色计算器实拍</summary>
+
+![中文深色待办：撤销完成](docs/screenshots/completion-calculator-1.1.7/tasks-undo-dark-zh.jpg)
+
+![英文深色待办：保留草稿与筛选并撤销完成](docs/screenshots/completion-calculator-1.1.7/tasks-undo-dark-en.jpg)
+
+![英文浅色计算器：科学记数法结果再次计算](docs/screenshots/completion-calculator-1.1.7/calculator-scientific-light-en.jpg)
+
+[截图来源记录](docs/screenshots/completion-calculator-1.1.7/capture-metadata.json)
+
+</details>
+
 ### 最新功能实拍 · 待办与专注
 
 置顶的“下一件事”可以直接完成，不必展开长列表。专注分钟数尚未保存时，“开始”会暂时禁用；保存只更新时长，不会自动启动计时。以下为 1.1.7 开发版真实截图，示例任务为英文：浅色图是中文界面的已保存 30 分钟状态；深色局部图显示未保存的 30 分钟输入与原有 25 分钟计时。
