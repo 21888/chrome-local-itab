@@ -356,6 +356,8 @@ The explicit runtime list includes the shared modules, both interface locales an
 
 The command reports the source Git revision (and working-tree status, or unavailable for a source download), file count and ZIP SHA256. `--verify` checks the ZIP against the current source bytes and canonical ZIP metadata, so a package from another revision may fail. This is packaging verification, not browser testing or release approval. Before uploading, extract the new ZIP into a separate directory, load that directory in Chrome and complete the [release checklist](docs/release-checklist.md). Packaging does not change the manifest version or publish anything.
 
+**Commit and release policy:** Commit each feature or fix separately and push promptly; `master` may be ahead of the store-approved release. Git commits identify source changes, while `version` in `manifest.json` identifies the extension version. A short source-hash suffix in a test package filename only traces its commit; it is not an extension version and can be supplied with `--output`, but is not added automatically. Prepare at most one consolidated store-submission version per calendar day (UTC+08), only with new tested changes and no version under review; otherwise, skip the release. Keep uploaded packages unchanged and put later fixes in a later release. Ordinary development test packages and individual fixes do not automatically trigger version bumps or store releases. This policy guarantees neither daily store availability nor review timing.
+
 ### Code map
 
 - `newtab.html` / `newtab.css` / `newtab.js`: new tab interface and interactions.
