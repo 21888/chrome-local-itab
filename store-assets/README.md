@@ -10,7 +10,7 @@ These files are prepared, not uploaded. As recorded on 2026-10-09, the 1.1.6 rev
 
 ## Upload files
 
-- Extension package: generate a fresh runtime ZIP with `python3 tools/package_extension.py --output dist/local-itab-1.1.6.zip`, then verify it with `python3 tools/package_extension.py --verify dist/local-itab-1.1.6.zip`. Existing output files are not overwritten. See the [packaging instructions](../README.en.md#build-and-verify-an-extension-zip). Do not use the historical `release/local-itab-1.1.5.zip` as current source; preserve historical archives. The tool does not publish or change the version.
+- Extension package: generate a fresh runtime ZIP with `python3 tools/package_extension.py --output dist/local-itab-current.zip`, then verify it with `python3 tools/package_extension.py --verify dist/local-itab-current.zip`. Existing output files are not overwritten. See the [packaging instructions](../README.en.md#build-and-verify-an-extension-zip). Do not use the historical `release/local-itab-1.1.5.zip` as current source; preserve historical archives. The tool does not publish or change the version. It packages the current manifest version, now development 1.1.7; it does not recreate the frozen 1.1.6 candidate. For that separately requested resubmission, use the already verified 1.1.6 archive recorded in [its provenance](1.1.6/provenance.json), not a newly built current-source ZIP renamed to 1.1.6.
 - Store icon: `icon/icon128.png`, unchanged.
 - Current screenshots: `1.1.6/screenshots/*.png`, in numbered order.
 - Required small promo: `1.1.6/promo/small-promo-440x280.png`.

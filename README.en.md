@@ -326,12 +326,12 @@ These checks cover logic regressions, JavaScript syntax, and JSON validity; they
 For unpacked development, no build is required. For an offline runtime-only ZIP, use Python 3.10+ (standard library only) from the repository root:
 
 ```bash
-python3 tools/package_extension.py
-python3 tools/package_extension.py --verify dist/local-itab-1.1.5.zip
+python3 tools/package_extension.py --output dist/local-itab-current.zip
+python3 tools/package_extension.py --verify dist/local-itab-current.zip
 python3 -m unittest discover -s tests -p '*_test.py'
 ```
 
-The default output is ignored `dist/local-itab-1.1.5.zip`. Existing files are never overwritten; use `--output /path/to/new-package.zip` for another output. Paths inside the source tree must be under `dist/`; historical `release/*.zip` files are preserved and are not current build inputs.
+The commands above explicitly use ignored `dist/local-itab-current.zip`. Without `--output`, the filename uses the version in `manifest.json`: `dist/local-itab-<version>.zip`. Existing files are never overwritten; use `--output /path/to/new-package.zip` for another output. Paths inside the source tree must be under `dist/`; historical `release/*.zip` files are preserved and are not current build inputs.
 
 The explicit runtime list includes the shared modules, both interface locales and used icons. Missing listed files or local HTML script/link/image, CSS `url()`/`@import`, and manifest entrypoint/icon references fail the check. New dependencies must be added to `RUNTIME_FILES` in the utility; JavaScript-generated paths and dynamic imports still require manual review. Tests, docs, screenshots, tooling, unlisted files and old archives are excluded. ZIP entries use sorted paths, fixed timestamps and uncompressed bytes for reproducibility.
 

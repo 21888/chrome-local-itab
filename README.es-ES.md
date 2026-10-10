@@ -332,12 +332,12 @@ Estas comprobaciones cubren regresiones de lógica, sintaxis JavaScript y valide
 El desarrollo con la extensión descomprimida no requiere compilación. Para crear un ZIP sin conexión con solo los archivos de ejecución, usa Python 3.10+ (solo la biblioteca estándar) desde la raíz del repositorio:
 
 ```bash
-python3 tools/package_extension.py
-python3 tools/package_extension.py --verify dist/local-itab-1.1.5.zip
+python3 tools/package_extension.py --output dist/local-itab-current.zip
+python3 tools/package_extension.py --verify dist/local-itab-current.zip
 python3 -m unittest discover -s tests -p '*_test.py'
 ```
 
-La salida predeterminada es `dist/local-itab-1.1.5.zip`, ignorada por Git. Nunca se sobrescriben archivos existentes; usa `--output /path/to/new-package.zip` para otro destino. Las salidas dentro del repositorio deben estar en `dist/`. Los archivos históricos `release/*.zip` se conservan y no se usan para generar el paquete actual.
+Los comandos anteriores usan explícitamente `dist/local-itab-current.zip`, ignorado por Git. Sin `--output`, el nombre usa la versión de `manifest.json`: `dist/local-itab-<versión>.zip`. Nunca se sobrescriben archivos existentes; usa `--output /path/to/new-package.zip` para otro destino. Las salidas dentro del repositorio deben estar en `dist/`. Los archivos históricos `release/*.zip` se conservan y no se usan para generar el paquete actual.
 
 La lista explícita incluye los módulos compartidos, ambos idiomas de la interfaz y los iconos utilizados. La comprobación falla si falta un archivo de la lista o una referencia local de script/link/image en HTML, `url()`/`@import` en CSS o entradas/iconos del manifest. Añade las dependencias nuevas a `RUNTIME_FILES` en la herramienta; las rutas generadas por JavaScript y las importaciones dinámicas aún necesitan revisión manual. Se excluyen pruebas, documentación, capturas, herramientas, archivos fuera de la lista y paquetes antiguos. El ZIP usa rutas ordenadas, fechas fijas y bytes sin compresión para ser reproducible.
 

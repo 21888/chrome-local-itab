@@ -326,12 +326,12 @@ git diff --check
 加载已解压的开发版无需构建。要离线生成仅包含运行文件的 ZIP，请安装 Python 3.10+（仅使用标准库），在仓库根目录运行：
 
 ```bash
-python3 tools/package_extension.py
-python3 tools/package_extension.py --verify dist/local-itab-1.1.5.zip
+python3 tools/package_extension.py --output dist/local-itab-current.zip
+python3 tools/package_extension.py --verify dist/local-itab-current.zip
 python3 -m unittest discover -s tests -p '*_test.py'
 ```
 
-默认输出为已被 Git 忽略的 `dist/local-itab-1.1.5.zip`，不会覆盖已有文件。可使用 `--output /path/to/new-package.zip` 指定新的输出路径；仓库内的输出必须位于 `dist/`。历史 `release/*.zip` 保持不变，不是当前打包的输入。
+上面的命令显式使用已被 Git 忽略的 `dist/local-itab-current.zip`。若省略 `--output`，文件名会自动使用 `manifest.json` 中的版本号（`dist/local-itab-<版本>.zip`），不会覆盖已有文件。可使用 `--output /path/to/new-package.zip` 指定新的输出路径；仓库内的输出必须位于 `dist/`。历史 `release/*.zip` 保持不变，不是当前打包的输入。
 
 显式运行文件清单包含共享模块、两种界面语言资源和实际使用的图标。清单文件缺失，或 HTML 的本地 script/link/image、CSS 的 `url()`/`@import`、manifest 的入口/图标引用缺失时，检查会失败。新增依赖需更新工具中的 `RUNTIME_FILES`；JavaScript 动态生成的路径和动态导入仍需人工检查。测试、文档、截图、工具、未列入清单的文件及旧压缩包均不打包。ZIP 使用排序路径、固定时间戳及不压缩的原始字节，确保相同输入可复现。
 
