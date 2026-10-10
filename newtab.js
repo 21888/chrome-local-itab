@@ -232,7 +232,14 @@ async function handleContextAction(action, payload) {
 // Own one category-opening batch per page, including its confirmation dialog.
 let categoryOpenOperation = null;
 
-// Open all links in a category with user confirmation and limited concurrency
+function categoryOpenText(key, fallback, substitutions = []) {
+    let translated;
+    try { translated = window.i18n?.t(key, substitutions); } catch (_) {}
+    if (typeof translated === 'string' && translated && translated !== key) return translated;
+    return fallback.replace(/\$(\d+)/g, (_, index) => substitutions[Number(index) - 1] ?? '');
+}
+
+// Open a confirmed snapshot of valid category URLs, with limited concurrency.
 async function openAllInCategory(categoryId) {
     if (categoryOpenOperation) return;
     const operation = { stopped: false, timers: new Set() };
@@ -240,29 +247,37 @@ async function openAllInCategory(categoryId) {
     try {
         const comp = window.shortcutsComponentInstance;
         if (!comp) return;
-        let links = comp.links || [];
-        if (categoryId && categoryId !== 'all') {
-            links = links.filter(l => (l.category || 'work') === categoryId);
-        }
-        if (!links.length) return;
-
-        const ok = confirm((window.i18n && i18n.t('openAllConfirm')) || 'Open all links in this category? This may open multiple tabs.');
-        if (!ok) return;
-
-        // Normalize URLs
-        const urls = links.map(l => {
+        const all = !categoryId || categoryId === 'all';
+        const links = Array.isArray(comp.links) ? comp.links : [];
+        // Capture normalized strings before asking. Later array edits cannot change
+        // the destinations or count the user is about to approve.
+        const urls = links.filter(link => all || (link?.category || 'work') === categoryId).map(link => {
             try {
-                return normalizeHttpUrl(l.url);
+                return normalizeHttpUrl(link?.url);
             } catch (_) {
                 return '';
             }
         }).filter(Boolean);
-        if (!urls.length) return;
+        const name = (Array.isArray(comp.categories) ? comp.categories : []).find(category => category?.id === categoryId)?.name;
+        const label = all ? categoryOpenText('allShortcuts', 'All shortcuts')
+            : typeof name === 'string' && name.trim() ? name.trim()
+                : categoryOpenText('categoryOpenUnnamed', 'this category');
+        if (!urls.length) {
+            showErrorMessage(categoryOpenText('categoryOpenNoUrls',
+                'No valid web addresses in “$1”. Check the saved addresses before trying again.', [label]));
+            return;
+        }
+
+        const ok = confirm(categoryOpenText(urls.length === 1 ? 'categoryOpenConfirmOne' : 'categoryOpenConfirmMany',
+            urls.length === 1 ? 'Open $1 new tab for “$2”?' : 'Open $1 new tabs for “$2”?', [String(urls.length), label]));
+        if (!ok) return;
 
         const concurrency = 5;
         const delayMs = 120;
         let active = 0;
         let i = 0;
+        let failed = 0;
+        let unknown = 0;
 
         await new Promise((resolve, reject) => {
             const tick = () => {
@@ -272,11 +287,20 @@ async function openAllInCategory(categoryId) {
                     while (active < concurrency && i < urls.length) {
                         const url = urls[i++];
                         active++;
-                        // Use window.open to avoid extra permissions
+                        // Use window.open to avoid extra permissions.
                         const timer = setTimeout(() => {
                             if (operation.stopped) return;
                             operation.timers.delete(timer);
-                            try { window.open(url, '_blank'); } catch (_) {}
+                            let opened;
+                            let outcome = 'unknown';
+                            try { opened = window.open(url, '_blank'); } catch (_) { outcome = 'failed'; }
+                            if (outcome !== 'failed') {
+                                // A null/closed/unreadable handle does not prove a popup was
+                                // blocked. An open handle also says nothing about page loading.
+                                try { if (opened && opened.closed === false) outcome = 'opened'; } catch (_) {}
+                            }
+                            if (outcome === 'failed') failed++;
+                            else if (outcome === 'unknown') unknown++;
                             active--;
                             tick();
                         }, delayMs);
@@ -290,6 +314,18 @@ async function openAllInCategory(categoryId) {
             };
             tick();
         });
+        // One aggregate notice; never retry automatically or claim that pages loaded.
+        if (failed && unknown) {
+            showErrorMessage(categoryOpenText('categoryOpenMixed',
+                'Of $1 requested tabs, $2 could not open and $3 could not be confirmed. Check your tabs and pop-up settings, then open missing sites individually.',
+                [String(urls.length), String(failed), String(unknown)]));
+        } else if (failed) {
+            showErrorMessage(categoryOpenText('categoryOpenFailed',
+                'Could not open $1 of $2 tabs. Check your tabs and pop-up settings, then open missing sites individually.', [String(failed), String(urls.length)]));
+        } else if (unknown) {
+            showErrorMessage(categoryOpenText('categoryOpenUnknown',
+                'Opening could not be confirmed for $1 of $2 tabs. Check your tabs and pop-up settings, then open missing sites individually.', [String(unknown), String(urls.length)]));
+        }
     } finally {
         operation.stopped = true;
         if (categoryOpenOperation === operation) categoryOpenOperation = null;
