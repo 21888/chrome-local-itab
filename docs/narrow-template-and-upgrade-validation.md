@@ -34,3 +34,15 @@ Before/after exports and native UI confirmed:
 The old archive SHA256 was `2256b00e487ccaf9ee692e69bd32e559d3f9b1ed1202236b6761554f99c06379`; the candidate archive was `9aeec8bb100b3d45b99fd7123633741ff092a6388664a3a4701b76b559149650`. The later one-line CSS spacing fix was not part of this frozen upgrade test and is covered separately above.
 
 This is unpacked-runtime preservation evidence, not a signed store-upgrade, downgrade, cross-device migration, live Sync/Drive, crash recovery or corrupt-record test. Full integrated code checks after the spacing fix passed 725 Node tests and 19 Python packaging tests.
+
+## Subsequent light, medium-width matrix
+
+On 2026-10-10, all 15 templates were checked in light appearance on official Chrome for Testing 155.0.8059.39, with the native responsive toolbar at 768×900 and 75% preview scale. The frozen runtime matched all 60 files from `85f91436900fa0deb2c6ad753d1cb5b71efb1de9` and docs-only source `a22858e86fc8faedce238c723d003edb726ba321`.
+
+Clarity, Graphite, Folio, Atelier, Quiet, Studio, Console, Prism, Library, Horizon, Ledger, Meadow, Blueprint, Terrace and Column each received native header/search/layout-control inspection, Finder filtering with complete long-title results, shortcut-menu opening/closing, and vertical traversal to Tasks/Focus and bottom actions. No concrete unintended overlap, horizontal clipping or unreachable visible control was observed in the tested states. Long tile titles intentionally ellipsized; Finder exposed their full text. Narrow module action rows wrapped, and the pinned summary's internal scroll remained usable.
+
+Spot checks covered task completion/Undo and Focus Start, Pause, reset, unsaved duration and Save-without-start. In Studio's narrow Focus module, focused draft29 remained separated from the minutes label, Save occupied its own row, prior28:00 stayed displayed and Start was disabled. Saving showed idle29:00 with Start enabled; it did not start the timer. Root pixel review also inspected Studio/Console wrapping and the focused draft.
+
+There are 94 original 1364×1024 desktop JPEGs with hashes and exact setup/transition distinctions. Full report SHA256: `0b44530d308d1f93817b175457479c118ed57c62bb61c389f17aeba9f50160ab`. All owned windows were closed and the source/runtime remained unchanged.
+
+Limits: one English/light fixture with four shortcuts, two categories and three tasks in Grid mode. Native Chrome's new-tab footer occupies part of the responsive area, so this is not a separately measured 900-CSS-pixel extension document. The 75% value is DevTools preview scaling. Other widths, physical devices/touch, locales, optional modules, high-count data, screen readers, numerical overflow and contrast certification were not covered. Finder/menu checks were repeated for each template; every mutation was not.
