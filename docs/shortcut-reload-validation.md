@@ -4,8 +4,12 @@ Application-triggered configuration reloads now wait while an Add/Edit dialog is
 open or a shortcut save is pending. Empty Add and unchanged Edit dialogs are also
 preserved. Cancel or completion of the current save releases the guard. A closed
 editor's pending write still blocks reload; an older save completion cannot
-release a newer open editor. Explicit discard asks once and is unavailable while
-a write is pending. Browser refresh/close protection is outside this change.
+release a newer open editor. Explicit discard asks its existing custom confirmation once and is unavailable
+while a write is pending. The later departure guard can additionally request a
+native warning for dirty shortcut drafts; canceling either prompt preserves them. Browser refresh/close protection was outside that original
+change; the later [shortcut departure guard](shortcut-departure-validation.md)
+adds dirty-draft and pending-save protection without changing these automatic
+reload rules.
 
 ## Automated regression
 
@@ -30,5 +34,6 @@ The tested lifecycle file SHA256 is
 
 Remote Sync while editing, pending-save races and storage failures were not
 exercised natively. Their evidence is the DOM/event model, not browser acceptance.
-No provider permissions, accounts, network behavior or browser unload warnings
-were changed.
+That original reload change did not alter provider permissions, accounts,
+network behavior or browser unload warnings. The later departure guard is
+validated separately.

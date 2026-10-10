@@ -164,6 +164,8 @@ Configuración guarda solo los campos modificados y conserva los borradores en c
 
 Los editores de accesos directos y tareas conservan el diálogo y el borrador al pulsar Escape durante la composición con un IME. Escape vuelve a cerrar el diálogo cuando termina la composición. [Comportamiento y alcance de las pruebas](docs/dialog-ime-validation.md#español).
 
+Al recargar o cerrar una pestaña, se solicita el aviso nativo de Chrome si un acceso directo tiene campos modificados o un guardado pendiente. Los formularios intactos o completamente revertidos no avisan. Cancelar, ×, el fondo y Escape normal siguen descartando el borrador; guardar correctamente libera la protección. Chrome puede omitir el aviso y los borradores sin guardar no se conservan tras salir. [Alcance y verificación](docs/shortcut-departure-validation.md#español).
+
 [Pruebas locales sin conexión y su alcance](docs/offline-local-validation.md).
 
 ### Buscar sitios guardados

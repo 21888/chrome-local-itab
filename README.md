@@ -164,6 +164,8 @@
 
 快捷方式和待办编辑器会保留输入法组字期间按 Esc 时的对话框与草稿；组字结束后，普通 Esc 仍会关闭对话框。[行为与验证范围](docs/dialog-ime-validation.md#中文)。
 
+新增或编辑快捷方式时，若字段有未保存改动或保存尚未完成，刷新或关闭标签页会请求 Chrome 原生离页提醒。未改动或完全还原的表单不提醒；取消、×、点击遮罩和普通 Esc 仍会丢弃草稿，保存成功后解除保护。Chrome 可能不显示提醒，未保存草稿不会持久化。[范围与验证](docs/shortcut-departure-validation.md#中文)。
+
 [本地功能断网测试与范围](docs/offline-local-validation.md)。
 
 ### 查找已保存的网站

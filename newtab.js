@@ -2202,6 +2202,7 @@ class ShortcutsComponent {
         this._isSaving = false;
         this._hasShortcutConflict = false;
         this._modalSession = 0;
+        this._shortcutDraftBaseline = null;
         this._pendingSave = null;
         this._pendingDelete = false;
         this._shortcutUndoReceipt = null;
@@ -2971,6 +2972,13 @@ class ShortcutsComponent {
                 : (defaultCat === 'all' ? 'work' : defaultCat);
         }
 
+        // Snapshot initialized raw fields per opening, not the mutable links list.
+        this._shortcutDraftBaseline = {
+            session: this._modalSession,
+            modal: this.modal,
+            values: this.readShortcutDraft()
+        };
+
         // Clear previous errors
         this.clearFormErrors();
 
@@ -2979,6 +2987,22 @@ class ShortcutsComponent {
         this._modalFocusOrigin = this.captureGridFocus();
         this._closeModal = window.LocalItabDialog.open(this.modal, titleInput, () => this.hideModal());
         this.refreshShortcutUndo();
+    }
+
+    readShortcutDraft() {
+        return ['title', 'url', 'icon', 'category'].map(field =>
+            this.modal?.querySelector(`#shortcut-${field}`)?.value ?? '');
+    }
+
+    hasUncommittedShortcutWork() {
+        // A dismissed editor can still own an unresolved write. Delete/Undo and
+        // conflict flags are not draft ownership and must not create warnings.
+        if (this._pendingSave) return true;
+        const baseline = this._shortcutDraftBaseline;
+        if (!baseline || baseline.session !== this._modalSession || baseline.modal !== this.modal ||
+            !this.modal?.classList.contains('active')) return false;
+        // Read at departure so IME and programmatic icon updates need no events.
+        return this.readShortcutDraft().some((value, index) => value !== baseline.values[index]);
     }
 
     /**
@@ -2996,6 +3020,7 @@ class ShortcutsComponent {
             }
             this.cancelIconRequest();
             this._modalSession++;
+            this._shortcutDraftBaseline = null;
             this.currentEditIndex = -1;
             this.setSavingState(Boolean(this._pendingSave || this._shortcutOrderPending));
         }

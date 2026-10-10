@@ -35,7 +35,7 @@
     // Browsers decide whether to show their native departure warning. Never
     // depend on an unload-time async save to preserve a draft or pending write.
     root.addEventListener?.('beforeunload', event => {
-        if (!root.dashboardPreferenceView?.pending && !root.localCalculatorView?.pending && !root.settingsFormView?.hasUncommittedWork() && !root.localCountdownSettingsView?.hasUncommittedWork() && !root.localScratchpadSettingsView?.hasUncommittedWork() && !root.worldClockSettingsView?.hasUncommittedWork() && !root.localFocusView?.hasUncommittedWork?.() && !root.localFocusView?.controller.pending && !root.localFocusSettingsView?.controller.pending && !root.localTasksView?.hasUncommittedWork() && !root.localTasksSettingsController?.pending) return;
+        if (!root.shortcutsComponentInstance?.hasUncommittedShortcutWork?.() && !root.dashboardPreferenceView?.pending && !root.localCalculatorView?.pending && !root.settingsFormView?.hasUncommittedWork() && !root.localCountdownSettingsView?.hasUncommittedWork() && !root.localScratchpadSettingsView?.hasUncommittedWork() && !root.worldClockSettingsView?.hasUncommittedWork() && !root.localFocusView?.hasUncommittedWork?.() && !root.localFocusView?.controller.pending && !root.localFocusSettingsView?.controller.pending && !root.localTasksView?.hasUncommittedWork() && !root.localTasksSettingsController?.pending) return;
         event.preventDefault(); event.returnValue = '';
     });
     root.LocalItabContentLifecycle = { hasUncommittedWork, reload };

@@ -164,6 +164,8 @@ Settings saves only changed fields and keeps conflicting drafts for review. The 
 
 Shortcut and task editors keep the dialog and draft when Escape is used during IME composition. Ordinary Escape after composition still closes the dialog. [Behavior and verification scope](docs/dialog-ime-validation.md#english).
 
+Reloading or closing a tab requests Chrome’s native warning while an Add/Edit shortcut has changed fields or an unresolved save. Pristine or fully reverted forms do not warn. Cancel, ×, backdrop clicks and ordinary Escape still discard the draft; successful saves release protection. Chrome may suppress the warning, and unsaved drafts are not persisted. [Scope and verification](docs/shortcut-departure-validation.md#english).
+
 [Offline local-workflow checks and scope](docs/offline-local-validation.md).
 
 ### Find saved sites

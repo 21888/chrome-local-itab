@@ -83,14 +83,14 @@ const submit = component => component.handleFormSubmit({ preventDefault() {} });
         assert.equal(pulls,0);assert.equal(h.reloads,0);
         await events[0]({meta:{newValue:{}}},'sync'); assert.equal(pulls,1);assert.equal(h.reloads,0);
     }
-    // Shortcuts do not gain a departure warning when the shared Tasks guard expands.
+    // Shortcut departure protection uses the existing shared listener.
     for(const file of ['newtab.js','options.js'])assert(!/beforeunload/.test(fs.readFileSync(file,'utf8')));
     {
         const h = createEditor(); h.component.openAddModal();
         h.fields.get('#shortcut-title').value = 'UNSAVED SHORTCUT';
         assert.equal(h.departureListeners.length, 1, 'one shared departure hook');
-        const event = { returnValue: undefined, preventDefault() { assert.fail('shortcut-only work must not expand the departure guard'); } };
-        h.departureListeners[0](event); assert.equal(event.returnValue, undefined);
+        const event = { returnValue: undefined, prevented: false, preventDefault() { this.prevented = true; } };
+        h.departureListeners[0](event); assert.equal(event.returnValue, ''); assert.equal(event.prevented, true);
     }
     console.log('PASS: Add/Edit empty/dirty/open; pending closed save; Cancel/current Save release; stale success/false/rejection ownership; explicit discard once; local events versus applied Sync reload; no duplicate beforeunload hook.');
 })().catch(e=>{console.error(e);process.exitCode=1});
