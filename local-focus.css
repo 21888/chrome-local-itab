@@ -5,7 +5,7 @@
 .focus-header { justify-content: space-between; margin-bottom: 16px; }
 .focus-header h2 { margin: 0; font-size: 18px; color: inherit; }
 .focus-local, .focus-help { color: var(--template-muted); font-size: 12px; line-height: 1.6; }
-.focus-minutes { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; }
+.focus-minutes { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12px; }
 .local-focus-card input, .local-focus-card select, .focus-button { box-sizing: border-box; max-width: 100%; min-height: 36px; padding: 7px 9px; border: 1px solid var(--template-border); border-radius: 7px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; font-size: 13px; }
 .local-focus-card input { width: 80px; }
 .focus-button { cursor: pointer; }
