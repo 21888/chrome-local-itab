@@ -1,0 +1,60 @@
+name: Versioned runtime release
+on:
+  push:
+    branches: [master]
+permissions: {}
+# No shared concurrency group: GitHub replaces pending runs in a group.
+# One coherent, patch-versioned commit per push; no Actions artifact/cache storage.
+jobs:
+  validate:
+    if: github.repository == '21888/chrome-local-itab' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      runtime_sha256: ${{ steps.bundle.outputs.runtime_sha256 }}
+      version: ${{ steps.bundle.outputs.version }}
+      source_commit: ${{ steps.bundle.outputs.source_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Test exact source
+        run: |
+          node --test --test-concurrency=1 tests/*.test.js
+          python3 -m unittest discover -s tests -p '*_test.py'
+      - name: Build runtime assets
+        id: bundle
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: python3 tools/github_release.py build --sha "$SOURCE_SHA" --output "$RUNNER_TEMP/release-assets"
+  publish:
+    needs: validate
+    if: github.repository == '21888/chrome-local-itab' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Rebuild and match validated runtime
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          EXPECTED_SOURCE: ${{ needs.validate.outputs.source_commit }}
+          EXPECTED_VERSION: ${{ needs.validate.outputs.version }}
+          EXPECTED_SHA256: ${{ needs.validate.outputs.runtime_sha256 }}
+        run: |
+          test "$SOURCE_SHA" = "$EXPECTED_SOURCE"
+          python3 tools/github_release.py build --sha "$SOURCE_SHA" --output "$RUNNER_TEMP/release-assets" --expected-version "$EXPECTED_VERSION" --expected-sha256 "$EXPECTED_SHA256"
+      - name: Publish verified immutable assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: python3 tools/github_release.py publish --sha "$SOURCE_SHA" --output "$RUNNER_TEMP/release-assets"
