@@ -3682,3 +3682,12 @@ textarea:focus-visible,
     outline: 3px solid var(--template-focus);
     outline-offset: 2px;
 }
+
+/* Comparison previews only the optional world-clock card. */
+.world-clock-comparison { min-width: 0; margin-top: 14px; color: var(--template-text); font-size: 12px; }
+.world-clock-comparison button { max-width: 100%; padding: 6px 10px; border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit; font: inherit; white-space: normal; cursor: pointer; }
+.world-clock-comparison button:focus-visible, .world-clock-comparison input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.world-clock-comparison [hidden] { display: none !important; }
+.world-clock-comparison label { display: block; margin-top: 10px; line-height: 1.5; }
+.world-clock-comparison input[type="range"] { display: block; width: 100%; min-width: 0; margin: 8px 0; accent-color: var(--template-accent); }
+.world-clock-comparison p { margin: 0; color: var(--template-muted); line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

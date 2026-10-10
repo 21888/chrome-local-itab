@@ -248,6 +248,8 @@ The light wide capture uses Simplified Chinese; the dark narrow capture uses Eng
 
 Add up to four time zones in Settings, with optional short labels. They share your clock format, work offline and compare each calendar date with your device date. Use **Move up / Move down** to reorder the draft, then **Save clocks** or **Save settings** to apply it. Saved changes update open dashboards directly; configuration backups and optional Sync retain the saved order. [Setup and backup behavior](docs/world-clocks.en.md).
 
+Choose **Compare times** on the world-clock card to preview a call time. The slider moves from −24 to +24 hours in 15-minute steps, measured as elapsed minutes from the instant you opened comparison. The preview stays fixed while the main clock, calendar and timers remain live. The local reference includes date, time and time-zone abbreviation; Same day / Previous day / Next day (or signed day counts) are relative to that reference date. Daylight-saving changes and half-/quarter-hour zones use the browser’s time-zone rules. Use the slider’s arrow keys or Home/End, and choose **Back to now** to restore live world clocks. Comparison is only on this page: no save, sync, backup, network request or added permission. Clock setting/template changes preserve the preview while the card exists; removing all clocks or reloading clears it.
+
 ### Offline Countdown
 
 Name one milestone and see local calendar days left, Today, or days ago. Hidden by default, saved only on this device, with explicit Save/Cancel and text export. [Usage and privacy](docs/local-countdown.en.md).

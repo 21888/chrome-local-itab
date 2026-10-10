@@ -1296,6 +1296,8 @@ class ClockComponent {
         this.dateElement = document.getElementById('date-display');
         this.worldClocksElement = document.getElementById('world-clocks-card');
         this.worldClockRows = [];
+        this.worldClockComparison = null;
+        this.worldClockComparisonView = null;
         this.renderWorldClocks();
         this.createMonthCalendar();
         this._visBound = false;
@@ -1497,7 +1499,13 @@ class ClockComponent {
         const entries = window.WorldClocks?.safe(this.config.worldClocks) || [];
         this.worldClockRows = [];
         if (!this.worldClocksElement) return;
+        const oldView = this.worldClockComparisonView;
+        const focusKey = oldView && ['toggle', 'range'].find(key => oldView[key] === document.activeElement);
         this.worldClocksElement.replaceChildren();
+        if (!entries.length) {
+            this.worldClockComparison = null;
+            this.worldClockComparisonView = null;
+        }
         window.localItabWorldClocksConfigured = entries.length > 0;
         if (entries.length) {
             const heading = document.createElement('h2');
@@ -1523,6 +1531,9 @@ class ClockComponent {
                 this.worldClockRows.push({ entry, label, time, day });
             }
             this.worldClocksElement.append(heading, list);
+            this.createWorldClockComparison();
+            this.updateWorldClocks(new Date());
+            if (focusKey) this.worldClockComparisonView[focusKey].focus();
         }
         if (window.localItabModuleVisibility) {
             applyModuleVisibility(window.localItabModuleVisibility);
@@ -1543,13 +1554,78 @@ class ClockComponent {
         return this.worldClockText('worldClockDays', `${signedDays} days`, [signedDays]);
     }
 
+    createWorldClockComparison() {
+        if (!this.worldClockComparisonView) {
+            const controls = document.createElement('div');
+            controls.className = 'world-clock-comparison';
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.setAttribute('aria-controls', 'world-clock-comparison-panel');
+            const panel = document.createElement('div');
+            panel.id = 'world-clock-comparison-panel';
+            const label = document.createElement('label');
+            label.htmlFor = 'world-clock-comparison-range';
+            const range = document.createElement('input');
+            range.id = 'world-clock-comparison-range';
+            range.type = 'range';
+            range.min = '-1440';
+            range.max = '1440';
+            range.step = '15';
+            const reference = document.createElement('p');
+            reference.id = 'world-clock-comparison-reference';
+            range.setAttribute('aria-describedby', reference.id);
+            panel.append(label, range, reference);
+            controls.append(toggle, panel);
+            const view = { controls, toggle, panel, label, range, reference };
+            this.worldClockComparisonView = view;
+            toggle.addEventListener('click', () => {
+                if (this.worldClockComparisonView !== view || !controls.isConnected || !this.enabled) return;
+                this.worldClockComparison = this.worldClockComparison ? null : { anchor: Date.now(), minutes: 0 };
+                this.updateWorldClocks(new Date());
+            });
+            range.addEventListener('input', () => {
+                if (this.worldClockComparisonView !== view || !controls.isConnected || !this.enabled || !this.worldClockComparison) return;
+                const minutes = Number(range.value);
+                if (!Number.isFinite(minutes)) return;
+                this.worldClockComparison.minutes = Math.max(-1440, Math.min(1440, Math.round(minutes / 15) * 15));
+                this.updateWorldClocks(new Date());
+            });
+        }
+        this.worldClocksElement.append(this.worldClockComparisonView.controls);
+    }
+
     updateWorldClocks(now) {
+        const comparison = this.worldClockComparison;
+        // Elapsed minutes from one captured instant, never wall-clock setters:
+        // crossing DST preserves the actual instant shared by every zone.
+        const instant = comparison ? new Date(comparison.anchor + comparison.minutes * 60000) : now;
+        const view = this.worldClockComparisonView;
+        if (view) {
+            view.toggle.textContent = comparison ? this.worldClockText('worldClockBackToNow', 'Back to now') : this.worldClockText('worldClockCompare', 'Compare times');
+            view.toggle.setAttribute('aria-expanded', String(Boolean(comparison)));
+            view.panel.hidden = !comparison;
+            view.label.textContent = this.worldClockText('worldClockCompareOffset', 'Time comparison: −24 to +24 hours (15-minute steps)');
+            view.range.value = String(comparison?.minutes || 0);
+            if (comparison) {
+                const date = instant.toLocaleDateString(this.getDateLocale(), { year: 'numeric', month: 'short', day: 'numeric' });
+                const time = instant.toLocaleTimeString(navigator.language || undefined, {
+                    hour: '2-digit', minute: '2-digit', ...(this.config.showSeconds ? { second: '2-digit' } : {}),
+                    hour12: this.config.hour12, timeZoneName: 'short'
+                });
+                const offset = `${comparison.minutes >= 0 ? '+' : ''}${comparison.minutes}`;
+                const reference = this.worldClockText('worldClockCompareReference', `Preview · Local: ${date}, ${time} · ${offset} min from start`, [date, time, offset]);
+                view.reference.textContent = reference;
+                view.range.setAttribute('aria-valuetext', reference);
+            }
+        }
         for (const { entry, label, time, day } of this.worldClockRows) {
             // Match the main clock's time locale and resolve the device zone anew.
-            const formatted = window.WorldClocks.format(entry, now, this.config, navigator.language || undefined);
+            const formatted = window.WorldClocks.format(entry, instant, this.config, navigator.language || undefined);
             label.textContent = formatted.label;
             time.textContent = formatted.time;
-            day.textContent = this.worldClockDayLabel(formatted.dayDifference);
+            const difference = formatted.dayDifference;
+            const relative = { '-1': ['worldClockPreviousDay', 'Previous day'], '0': ['worldClockSameDay', 'Same day'], '1': ['worldClockNextDay', 'Next day'] };
+            day.textContent = comparison && relative[difference] ? this.worldClockText(...relative[difference]) : this.worldClockDayLabel(difference);
         }
     }
 

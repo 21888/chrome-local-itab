@@ -1,4 +1,11 @@
 {
+  "worldClockCompare": {"message": "比较时间"},
+  "worldClockBackToNow": {"message": "返回当前时间"},
+  "worldClockCompareOffset": {"message": "时间比较：前后 24 小时（每步 15 分钟）"},
+  "worldClockCompareReference": {"message": "预览 · 本地：$1，$2 · 相对开始时间 $3 分钟"},
+  "worldClockPreviousDay": {"message": "前一天"},
+  "worldClockSameDay": {"message": "同一天"},
+  "worldClockNextDay": {"message": "后一天"},
   "tasksBatch": {"message": "批量添加待办"},
   "tasksBatchLabel": {"message": "每行一项待办"},
   "tasksBatchHelp": {"message": "每个非空行按顺序添加为一项待办，保留空格、项目符号和重复行。查看预览并确认后才会添加。"},

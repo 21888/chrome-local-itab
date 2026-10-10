@@ -1,4 +1,11 @@
 {
+  "worldClockCompare": {"message": "Compare times"},
+  "worldClockBackToNow": {"message": "Back to now"},
+  "worldClockCompareOffset": {"message": "Time comparison: −24 to +24 hours (15-minute steps)"},
+  "worldClockCompareReference": {"message": "Preview · Local: $1, $2 · $3 min from start"},
+  "worldClockPreviousDay": {"message": "Previous day"},
+  "worldClockSameDay": {"message": "Same day"},
+  "worldClockNextDay": {"message": "Next day"},
   "tasksBatch": {"message": "Add multiple tasks"},
   "tasksBatchLabel": {"message": "One task per line"},
   "tasksBatchHelp": {"message": "Each nonblank line becomes one task, in order. Spaces, bullet prefixes and duplicate lines are kept. Nothing is added until you review and confirm."},
