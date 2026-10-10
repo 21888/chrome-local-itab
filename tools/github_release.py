@@ -45,6 +45,17 @@ def notes(sha, version, root=None, *, historical=False):
     check(all(section in changes for section in ('## 新增', '## 修复', '## 注意事项', '## English')), 'Change record lacks required sections')
     check(40 <= len(changes) <= 16000, 'Invalid change record length')
     historical_note = ('\n历史说明补充：本页新增版本改动说明；已发布附件中的 RELEASE-NOTES.md 与校验文件保留原样。\nHistorical web-note update: downloadable notes, checksums and all other assets remain unchanged.\n' if historical else '')
+    # Keep historical release-body regeneration byte-for-byte unchanged.
+    upgrade_guidance = ''
+    if version_tuple(version) >= (1, 1, 17):
+        guide = f'https://github.com/{REPOSITORY}/blob/{sha}/docs/version-updates.md'
+        upgrade_guidance = f"""
+### 已有解压安装升级 / Upgrade an existing unpacked installation
+
+先保存打开页面中的编辑。设置 JSON 和 Drive 快照不含待办、专注、便笺或倒计时：待办单独导出 JSON，便笺和倒计时分别导出文本；专注偏好需手动记录，会话不可迁移。便笺须从包含要保留文本的原标签页导出，尤其是未保存或冲突草稿。将运行文件 ZIP 解压后的内容替换到最初加载的固定目录内，保持 manifest.json 位于目录根部；不要移除扩展或加载新目录，更换目录可能改变扩展身份并导致原数据无法访问。重新加载扩展后，刷新打开的新标签页和设置页，确认版本与原有数据。[完整备份与更新步骤]({guide})。
+
+Save edits in open pages first. Settings JSON and Drive snapshots exclude Tasks, Focus, Scratchpad and Countdown: export Tasks as JSON and Scratchpad/Countdown as separate text files; record Focus preferences manually, as sessions cannot be migrated. Export Scratchpad from the existing tab containing the text to keep, especially an unsaved or conflicted draft. Replace files with the extracted runtime ZIP contents inside the original permanent loaded folder, with manifest.json at its root. Do not remove the extension or load a new folder; changing folders may change its identity and make existing data inaccessible. After reloading the extension, refresh open new-tab and Settings pages and verify the version and existing data. [Full backup and upgrade steps]({guide}).
+"""
     return f'''# Local iTab {version}
 
 {changes}
@@ -60,7 +71,7 @@ SHA256SUMS.txt 校验附件；PROVENANCE.json 记录准确源码及运行文件�
 Download local-itab-{version}.zip, extract it to a folder you retain, open chrome://extensions/, enable Developer mode, choose Load unpacked and select the folder containing manifest.json. Back up your data before upgrading; retain the original loaded folder and reload after replacing runtime files. GitHub Source code archives differ from the runtime ZIP. This is not a one-click installer or proof of Chrome Web Store publication.
 
 核心本地功能可离线使用，在线功能需要联网。Optional Drive backup for unpacked installs requires valid extension identity/OAuth configuration and Google authorization; packaging does not validate it.
-'''
+{upgrade_guidance}'''
 
 
 def build(root, out, sha):

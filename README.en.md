@@ -157,11 +157,17 @@ Actual interface captures with sample data and English controls. The images are 
 3. Click **Load unpacked** and select **the folder that directly contains `manifest.json`**, usually `chrome-local-itab/` or the extracted repository folder. Do not select the ZIP file or its parent folder.
 4. Open a new tab, add your favorite websites, and visit Settings to customize appearance, search, and modules.
 
-After updating the source, click **Reload** on the extension management page, then refresh any open new tab and Settings pages. Export a backup before uninstalling the extension or clearing its data.
-
 Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protection also relies on `navigator.locks`; if the required browser API is unavailable, those writes fail with an error.
 
 **Backup reminder:** Settings JSON and Drive snapshots exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately; export Scratchpad and Countdown as separate text files. Focus sessions cannot be migrated. World-clock preferences belong to settings. Before uninstalling or clearing data, save the copies you need using the [migration checklist](docs/migration.en.md).
+
+### Upgrade an existing unpacked installation
+
+1. Save edits in all open pages and back up settings and the local modules you use separately. Settings JSON and Drive snapshots exclude Tasks, Focus, Scratchpad and Countdown: export Tasks as JSON and Scratchpad/Countdown as separate text files; record Focus preferences manually, as sessions cannot be migrated. Export Scratchpad from the existing tab containing the text you want to keep, especially an unsaved or conflicted draft.
+2. Download the runtime ZIP from the GitHub release, extract it, and replace files **inside the same permanent folder originally loaded**, keeping `manifest.json` at that folder's root. Do not remove the extension or load the newly extracted folder as another extension; changing folders may change its identity and make existing data inaccessible.
+3. Find Local iTab at `chrome://extensions/` and click **Reload**, then refresh open new-tab and Settings pages and verify the installed version and existing data.
+
+See [version checks, separate backup shortcuts and update steps](docs/version-updates.md). Checking for updates never downloads, replaces files or reloads automatically.
 
 <a id="features"></a>
 

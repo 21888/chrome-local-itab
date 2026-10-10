@@ -88,6 +88,22 @@ class NotesTests(unittest.TestCase):
         self.assertIn('快捷方式新增/编辑', bodies[2])
         self.assertIn('独立、随源码保存', bodies[3])
 
+    def test_new_upgrade_guidance_has_commit_pinned_link_and_backup_scopes(self):
+        body = release.notes(SHA, '1.1.17')
+        self.assertIn(f'https://github.com/{release.REPOSITORY}/blob/{SHA}/docs/version-updates.md', body)
+        self.assertNotIn('](docs/', body)
+        for required in ('Settings JSON and Drive snapshots exclude Tasks, Focus, Scratchpad and Countdown',
+                         'record Focus preferences manually', 'sessions cannot be migrated',
+                         'existing tab containing the text', 'unsaved or conflicted draft',
+                         'original permanent loaded folder', 'Do not remove the extension or load a new folder',
+                         'refresh open new-tab and Settings pages', 'verify the version and existing data'):
+            self.assertIn(required, body)
+
+    def test_historical_generated_bodies_remain_unchanged(self):
+        expected = {'1.1.8': 'e8119f480901412a0ee8237023b7fc9ce624920eacabfe6fe8590bc8ccfbdc75', '1.1.11': '2005d1d02158188ab9b732e79c6cc6d9875b5e0dc78abad94404b721203aac6e', '1.1.16': 'd2a1e4f7f27fd8e87cf15b25e71f8158ebad02e3195e79e068892c3af1aaa1d9'}
+        for version, digest in expected.items():
+            self.assertEqual(release.sha256(release.notes(SHA, version, ROOT, historical=True).encode()), digest)
+
     def test_missing_record_fails_no_generic_fallback(self):
         with self.assertRaisesRegex(ValueError, 'Missing source-controlled'):
             release.notes(SHA, '1.1.12', Path(self.temp.name))

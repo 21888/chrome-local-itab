@@ -31,3 +31,17 @@ test('README migration guides and their relative links resolve', () => {
         assert.match(content, /TXT/);
     }
 });
+
+
+test('README installation sections include safe unpacked upgrades before Features', () => {
+    for (const [file, terms] of [
+        ['README.en.md', ['same permanent folder originally loaded', 'Do not remove', 'record Focus preferences manually', 'unsaved or conflicted draft', 'verify the installed version and existing data']],
+        ['README.md', ['最初加载的固定文件夹内', '不要移除扩展', '专注偏好需手动记录', '未保存或冲突草稿', '确认安装版本及原有数据']],
+        ['README.es-ES.md', ['misma carpeta permanente cargada originalmente', 'No elimines la extensión', 'anota las preferencias de concentración manualmente', 'borrador sin guardar o en conflicto', 'verifica la versión instalada y los datos existentes']]
+    ]) {
+        const install = read(file).split('<a id="install"></a>')[1].split('<a id="features"></a>')[0];
+        for (const term of terms) assert(install.includes(term), `${file}: missing ${term}`);
+        assert(install.includes('](docs/version-updates.md)'), `${file}: missing upgrade guide`);
+        assert(install.includes('manifest.json'), `${file}: missing root-folder instruction`);
+    }
+});

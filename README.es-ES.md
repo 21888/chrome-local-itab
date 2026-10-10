@@ -157,11 +157,17 @@ Capturas reales con datos de ejemplo y controles en inglés. Las imágenes está
 3. Haz clic en **Cargar descomprimida** y selecciona **la carpeta que contiene directamente `manifest.json`**, normalmente `chrome-local-itab/` o la carpeta del repositorio extraído. No selecciones el ZIP ni la carpeta superior.
 4. Abre una nueva pestaña, añade tus sitios favoritos y entra en Configuración para ajustar el aspecto, la búsqueda y los módulos.
 
-Después de actualizar el código, pulsa **Recargar** en la página de extensiones y actualiza las páginas de nueva pestaña y Configuración que tengas abiertas. Exporta una copia antes de desinstalar la extensión o borrar sus datos.
-
 Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simultáneas de accesos directos y de su colocación también utiliza `navigator.locks`; si la API necesaria no está disponible, estas escrituras fallan y se muestra un error.
 
 **Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en inglés](docs/migration.en.md).
+
+### Actualizar una instalación descomprimida existente
+
+1. Guarda los cambios en todas las páginas abiertas y crea copias separadas de los ajustes y de los módulos locales que utilices. El JSON de ajustes y las instantáneas de Drive excluyen Tareas, Concentración, Bloc de notas y Cuenta atrás: exporta las tareas como JSON y el bloc y la cuenta atrás como archivos de texto separados; anota las preferencias de concentración manualmente, porque las sesiones no se pueden migrar. Exporta el bloc desde la pestaña que contiene el texto que quieras conservar, especialmente un borrador sin guardar o en conflicto.
+2. Descarga el ZIP de ejecución de la publicación de GitHub, descomprímelo y sustituye los archivos **dentro de la misma carpeta permanente cargada originalmente**, con `manifest.json` en la raíz de esa carpeta. No elimines la extensión ni cargues la nueva carpeta extraída como otra extensión; cambiar de carpeta puede cambiar su identidad y dejar los datos anteriores inaccesibles.
+3. Busca Local iTab en `chrome://extensions/`, pulsa **Recargar**, actualiza las páginas abiertas de nueva pestaña y Configuración y verifica la versión instalada y los datos existentes.
+
+Consulta la [guía de comprobación de versiones, copias separadas y actualización](docs/version-updates.md). La comprobación nunca descarga, sustituye archivos ni recarga automáticamente.
 
 <a id="features"></a>
 
