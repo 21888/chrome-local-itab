@@ -327,6 +327,8 @@ The extension currently includes Simplified Chinese (`_locales/zh_CN`) and Engli
 
 The main clock’s complete date, including date order and weekday/month names, follows an explicit locale tag in the displayed CN/EN message catalog, falling back to Chrome’s predefined `@@ui_locale` message, Chrome’s UI language, the preferred browser language and then the runtime locale if unavailable or invalid. Day-of-year and ISO-week labels also use the interface language. Time formatting and date placeholders in custom quotes are unchanged. Newly generated welcome text is localized; saved or imported quotes (including the old English welcome) are never translated or migrated. Existing quote validation, including trimming and the English fallback for empty strings, is unchanged. Missing quote fields receive the new localized default.
 
+New default category names follow the CN/EN message catalog actually selected by Chrome, with English fallback for other languages or unavailable messages. Category IDs, icons and order stay the same. Saved or imported names do not change with the interface language, including names matching old defaults and custom categories. Configurations without a category field and explicit resets receive localized defaults; a saved empty category list remains empty.
+
 <a id="development"></a>
 
 ## Local development and checks

@@ -333,6 +333,8 @@ La extensión incluye actualmente recursos de interfaz en chino simplificado (`_
 
 La fecha completa del reloj principal, incluido el orden de la fecha y los nombres del día y del mes, sigue una etiqueta de idioma explícita en los mensajes chinos o ingleses mostrados, con el mensaje predefinido de Chrome `@@ui_locale`, el idioma de la interfaz de Chrome, el idioma preferido del navegador y la configuración regional del entorno como alternativas si no está disponible o es inválido. Las etiquetas del día del año y de la semana ISO también usan el idioma de la interfaz. No cambian el formato de la hora ni los marcadores de fecha de las frases personalizadas. El texto de bienvenida recién generado se localiza; las frases guardadas o importadas (incluida la bienvenida anterior en inglés) no se traducen ni migran. Se conserva la validación existente, incluido el recorte de espacios y la bienvenida en inglés para cadenas vacías. Si falta el campo de frase, se usa el nuevo valor predeterminado localizado.
 
+Los nombres de las categorías predeterminadas nuevas siguen el catálogo chino o inglés que Chrome selecciona realmente; otros idiomas o mensajes no disponibles usan el inglés. Se mantienen los ID, los iconos y el orden. Los nombres guardados o importados no cambian con el idioma de la interfaz, incluidos los que coinciden con los valores predeterminados anteriores y las categorías personalizadas. Si falta el campo de categorías o después de un restablecimiento explícito, se generan valores predeterminados localizados; una lista guardada vacía sigue vacía.
+
 <a id="development"></a>
 
 ## Desarrollo y comprobaciones locales

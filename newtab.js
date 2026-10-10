@@ -4480,13 +4480,7 @@ class CategoryNavigation {
         this.storageKey = 'currentCategory';
         this.currentCategory = localStorage.getItem(this.storageKey) || 'all';
         this.categories = [];
-        this.defaultCategories = [
-            { id: 'work', name: '工作', icon: '💼' },
-            { id: 'social', name: '社交', icon: '👥' },
-            { id: 'entertainment', name: '娱乐', icon: '🎮' },
-            { id: 'tools', name: '工具', icon: '🔧' },
-            { id: 'learning', name: '学习', icon: '📚' }
-        ];
+        this.defaultCategories = storageManager.getDefaultValue('categories');
         this.init();
     }
 

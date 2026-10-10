@@ -33,6 +33,15 @@ function getDefaultWelcomeQuote() {
     return LEGACY_WELCOME_QUOTE;
 }
 
+// Only generated defaults are localized; saved category names are user content.
+function getDefaultCategoryName(key, fallback) {
+    try {
+        const message = typeof chrome !== 'undefined' && chrome.i18n?.getMessage?.(key);
+        if (typeof message === 'string' && message.trim() && message !== key) return message;
+    } catch (_) {}
+    return fallback;
+}
+
 class StorageManager {
     constructor() {
         this.syncMetaKey = '__localItabSyncMeta';
@@ -89,11 +98,11 @@ class StorageManager {
                 onlineFavicons: false
             },
             categories: [
-                { id: 'work', name: '\u5de5\u4f5c', icon: '\ud83d\udcbc' },
-                { id: 'social', name: '\u793e\u4ea4', icon: '\ud83d\udc65' },
-                { id: 'entertainment', name: '\u5a31\u4e50', icon: '\ud83c\udfae' },
-                { id: 'tools', name: '\u5de5\u5177', icon: '\ud83d\udd27' },
-                { id: 'learning', name: '\u5b66\u4e60', icon: '\ud83d\udcda' }
+                { id: 'work', name: getDefaultCategoryName('defaultCategoryWork', 'Work'), icon: '\ud83d\udcbc' },
+                { id: 'social', name: getDefaultCategoryName('defaultCategorySocial', 'Social'), icon: '\ud83d\udc65' },
+                { id: 'entertainment', name: getDefaultCategoryName('defaultCategoryEntertainment', 'Entertainment'), icon: '\ud83c\udfae' },
+                { id: 'tools', name: getDefaultCategoryName('defaultCategoryTools', 'Tools'), icon: '\ud83d\udd27' },
+                { id: 'learning', name: getDefaultCategoryName('defaultCategoryLearning', 'Learning'), icon: '\ud83d\udcda' }
             ],
             links: [],
             weather: {
