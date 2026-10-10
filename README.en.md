@@ -157,12 +157,12 @@ After deleting a shortcut, **Undo delete** restores the latest deletion on the s
 
 Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab: no search request, history or storage, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the previous result.
 
-After a successful calculation, Tab to the readonly result field to select its exact value, then press Ctrl/Cmd+C to copy with your browser. Calculation keeps focus on the expression; editing or starting IME composition clears the field. Results may display scientific notation even though that notation is not accepted as input.
+After a successful calculation, Tab to the readonly result field to select its exact value, then press Ctrl/Cmd+C to copy with your browser. Calculation keeps focus on the expression; editing or starting IME composition clears the field. Results may display scientific notation and can be pasted into a new calculation, for example `=1e-7 * 2`.
 
 <details>
 <summary>Calculator scope and precision limits</summary>
 
-Limit: 256 characters after `=` and 32 combined levels of nested parentheses/unary signs. Uses JavaScript floating-point numbers: decimal rounding, underflow and large-integer precision limits apply (`=0.1 + 0.2` gives `0.30000000000000004`). Not for exact financial calculations. Division by zero and non-finite results show local errors. Scientific notation, percentages, variables and unit conversions are not supported. A settings-sync reload is deferred while calculator input remains; explicitly reloading can discard it.
+Limit: 256 characters after `=` and 32 combined levels of nested parentheses/unary signs. Uses JavaScript floating-point numbers: decimal rounding, underflow and large-integer precision limits apply (`=0.1 + 0.2` gives `0.30000000000000004`). Not for exact financial calculations. Division by zero and non-finite results show local errors. Decimal literals accept an optional `e`/`E`, optional `+`/`-`, then one or more exponent digits, with no spaces inside the literal (for example `.5E+2`). Exponent digits count toward the same 256-character limit; overflow is an error, while underflow may become zero. Percentages, variables and unit conversions are not supported. A settings-sync reload is deferred while calculator input remains; explicitly reloading can discard it.
 
 </details>
 

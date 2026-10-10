@@ -27,7 +27,9 @@
                 if (expression[index++] !== ')') fail('syntax');
                 return value;
             }
-            const match = /^(?:\d+(?:\.\d*)?|\.\d+)/.exec(expression.slice(index));
+            // Optional exponent belongs to this literal; its sign is not a unary operator.
+            // The whole literal remains bounded by MAX_LENGTH, including exponent digits.
+            const match = /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/.exec(expression.slice(index));
             if (!match) fail('syntax');
             index += match[0].length;
             return finite(Number(match[0]));

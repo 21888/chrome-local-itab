@@ -60,6 +60,8 @@ for(const [engine,custom,expected] of [
     h.edit('https://example.com/?q=x');h.submit();assert.equal(h.calls[2][0],'https://example.com/?q=x');
     h.edit('');h.submit();assert.equal(h.calls.length,3);
     h.edit('1+2');h.submit();assert.equal(h.calls.length,4,'no implicit calculation');
+    h.edit('1e2');h.submit();assert.equal(h.calls.length,5,'scientific text without = stays search');
+    assert(h.calls[4][0].endsWith('q=1e2'));
 }
 {
  const h=mount('custom');h.edit('ordinary search');h.submit();assert.equal(h.calls.length,0);assert.equal(h.document.activeElement,h.host.querySelector('.search-custom-input'));
@@ -91,9 +93,13 @@ for (const locale of ['en','zh_CN']) {
   assert.equal(h.value.value,expected);assert.equal(h.input.value,expression);
   assert.equal(h.window.LocalItabContentLifecycle.hasUncommittedWork(),true,'selecting output retains expression ownership');
   h.input.focus();h.submit();assert.equal(h.value.value,expected,'repeat calculation stays exact');
+  const literal=h.value.value;
+  h.edit('=('+literal+')*1');h.submit();
+  assert.equal(h.output.hidden,false);assert.equal(h.value.value,expected,'displayed result can be reused in arithmetic');
+  assert.equal(h.calls.length,0);assert.equal(h.writes.length,0);assert.equal(h.io.length,0);
   h.edit(expression+' ');assert.equal(h.output.hidden,true);assert.equal(h.value.value,'');
  }
- for(const expression of ['=1/0','=foo','=1e+21','=','='+ '9'.repeat(257)]) {
+ for(const expression of ['=1/0','=foo','=1e+','=','='+ '9'.repeat(257)]) {
   h.edit('=2');h.submit();h.edit(expression);h.submit();
   assert.equal(h.output.hidden,true);assert.equal(h.value.value,'');assert(h.status.classList.contains('is-error'));
  }

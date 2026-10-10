@@ -20,7 +20,7 @@ These observations close the earlier Chinese rendering and localhost routing gap
 
 Successful calculations now also show a labeled readonly text field. Tab to it to select the exact displayed numeric value, then use the browser's ordinary Ctrl/Cmd+C copy command. Calculation never moves focus into it. Enter in this field is suppressed so it cannot submit the surrounding search form. Editing the expression, starting IME composition, errors and remounts clear and hide it. The live status remains unchanged, and selecting a result does not release the expression's reload protection.
 
-The value is `String(result.value)`, including zero, negatives, floating-point rounding and exponential output. Exponential notation remains unsupported as calculator input. There is no clipboard API, clipboard permission, history, persistence or new network use.
+The value is `String(result.value)`, including zero, negatives, floating-point rounding and exponential output. At that milestone, exponential notation remained unsupported as calculator input; the scientific-literal follow-up below changes that grammar. There is no clipboard API, clipboard permission, history, persistence or new network use.
 
 Deterministic real-initializer tests cover English/Chinese labels, exact values and selection ranges, retained expression focus, unchanged native copy key handling, Enter/repeat/composition suppression, error and missing-helper paths, stale clearing, remount/reentrant ownership and ordinary-search transitions. A test-local selection stub supplies only the DOM model's missing selection/focus event behavior; actual OS clipboard contents, native Tab order, screen-reader announcements and all-template visual layout still require browser acceptance. Existing native observations above predate this output field.
 
@@ -66,3 +66,12 @@ dark mode at a 514 × 848 outer window, and light mode at 1188 × 848. This clos
 the output-label rendering gap; native result-copy behavior was not repeated
 in Chinese, and real IME/assistive technology remain unverified. All runtime
 hashes matched; the owned browser was closed normally.
+
+## Scientific-literal roundtrip follow-up
+
+The decimal number grammar is now `(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?`.
+Examples include `1e2`, `.5E+2`, `1.e-2` and `-1e-7` (the leading minus remains a unary operator). The exponent's optional sign belongs to its literal and does not consume a unary nesting level. Whitespace within a literal, incomplete or repeated exponents, implicit multiplication, variables and executable expressions remain unsupported. Calculations still require the explicit leading `=` in search; ordinary `1e2` remains a search query.
+
+All exponent digits count toward the unchanged 256-character expression limit. The combined parentheses/unary depth limit remains 32. There is no separate token-count limit in the existing evaluator; the expression-length bound also bounds token work. Literals and arithmetic must produce finite IEEE-754 numbers. Overflow gives a local range error; underflow retains the existing rounding-to-zero behavior (`1e-324` becomes `0`, and dividing by it gives a zero-division error). There is no new exponent-magnitude limit: long zero-padded or underflowing exponents are permitted within the expression-length bound. Negative zero is still normalized to zero.
+
+An isolated archive based on `bfa9f4548d5687de31767ac552f43052a52ff330` passed all 691 Node tests and 19 Python packaging tests. Targeted tests cover upper/lowercase exponents, signed and trailing-dot decimals, unary/operator ambiguity, malformed and long exponents, overflow, underflow, smallest/largest finite doubles, expression/depth bounds, exact result-to-literal-to-arithmetic roundtrips, and the real search initializer in both locales without navigation, storage or clipboard I/O. JavaScript syntax and patch whitespace checks passed. No browser acceptance was performed for this follow-up; prior native checks above describe earlier milestones.

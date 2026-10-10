@@ -157,12 +157,12 @@ Después de eliminar un acceso directo, **Undo delete** permite deshacer la últ
 
 Empieza la búsqueda con `=` y pulsa Enter o Calcular, por ejemplo `=(12 + 3) / 2` → `7.5`. Admite decimales, signos unarios `+`/`-`, `+ - * /` y paréntesis. Las expresiones, resultados y errores permanecen en esta pestaña: sin búsquedas, historial ni almacenamiento, incluso sin configurar la URL del buscador personalizado. Quita `=` para volver a buscar. Al editar se borra el resultado anterior.
 
-Tras calcular, usa Tab para llegar al campo de resultado de solo lectura y seleccionar el valor exacto; pulsa Ctrl/Cmd+C para copiarlo con el navegador. El cálculo mantiene el foco en la expresión; editar o iniciar composición IME borra el campo. El resultado puede mostrarse en notación científica, aunque no se admite como entrada.
+Tras calcular, usa Tab para llegar al campo de resultado de solo lectura y seleccionar el valor exacto; pulsa Ctrl/Cmd+C para copiarlo con el navegador. El cálculo mantiene el foco en la expresión; editar o iniciar composición IME borra el campo. El resultado puede mostrarse en notación científica y pegarse en otro cálculo, por ejemplo `=1e-7 * 2`.
 
 <details>
 <summary>Alcance y precisión de la calculadora</summary>
 
-Límites: 256 caracteres después de `=` y 32 niveles combinados de paréntesis y signos unarios. Usa números de coma flotante de JavaScript: hay redondeo decimal, subdesbordamiento y límites de precisión para enteros grandes (`=0.1 + 0.2` da `0.30000000000000004`). No sirve para cálculos financieros exactos. La división por cero y los resultados no finitos muestran errores locales. No admite notación científica, porcentajes, variables ni conversiones. La recarga por sincronización de ajustes se aplaza mientras haya una expresión; una recarga explícita puede descartarla.
+Límites: 256 caracteres después de `=` y 32 niveles combinados de paréntesis y signos unarios. Usa números de coma flotante de JavaScript: hay redondeo decimal, subdesbordamiento y límites de precisión para enteros grandes (`=0.1 + 0.2` da `0.30000000000000004`). No sirve para cálculos financieros exactos. La división por cero y los resultados no finitos muestran errores locales. Los decimales admiten `e`/`E` opcional, un signo `+`/`-` opcional y uno o más dígitos de exponente, sin espacios dentro del número (por ejemplo `.5E+2`). Los dígitos del exponente cuentan dentro del límite de 256 caracteres; el desbordamiento produce un error y el subdesbordamiento puede dar cero. No admite porcentajes, variables ni conversiones. La recarga por sincronización de ajustes se aplaza mientras haya una expresión; una recarga explícita puede descartarla.
 
 </details>
 
