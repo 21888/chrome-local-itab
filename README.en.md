@@ -16,7 +16,17 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 Real extension screenshots captured at different feature stages. Template previews use the English interface with Chinese sample category names; feature sections identify their capture languages. Site choices, icons, and card content are illustrative; weather, topics, and movie cards are manually entered examples, not live feeds.
 
-### Latest interaction captures · More actions
+### Latest feature captures · Tasks and Focus
+
+Complete the pinned Next up task directly, without expanding a long list. Start stays disabled while minutes are unsaved; saving a duration never starts the timer. These actual 1.1.7 development captures use synthetic English tasks: the Chinese light interface shows saved 30-minute Ready state; the cropped English dark Focus card shows an unsaved 30-minute draft while the committed timer remains 25 minutes.
+
+![Chinese light interface: direct pinned-task completion and saved Focus duration](docs/screenshots/tasks-focus-1.1.7/tasks-focus-light-zh.png)
+
+![English dark interface: unsaved minutes reveal Save and disable Start](docs/screenshots/tasks-focus-1.1.7/tasks-focus-draft-dark-en.png)
+
+[Capture provenance and crops](docs/screenshots/tasks-focus-1.1.7/capture-metadata.json) · [Tasks acceptance scope](docs/tasks-pinned-completion-validation.md) · [Focus draft protection](docs/focus-duration-draft-validation.md)
+
+### More actions captures
 
 Every saved-site tile now has a visible “⋯” button for the existing Open, Edit, Delete and reorder menu, with keyboard access. These actual English-interface captures use six test sites and are cropped only, not redrawn.
 

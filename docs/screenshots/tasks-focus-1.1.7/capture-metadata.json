@@ -1,0 +1,42 @@
+{
+  "capturedOn": "2026-10-10",
+  "runtimeBaseRevision": "818234f34baa1bdf65a4b82916423f5f26a0c64a",
+  "changesRepresented": [
+    "Pinned task completion, published as 13e1a8ff23b14abf0bd9864e64912e832419ff15",
+    "Focus duration drafts, published as cf90eb10bb4f2c57855b3e3b8077e2463c9745e7"
+  ],
+  "browser": "Official Chrome for Testing 155.0.8059.39 on cloud Linux, isolated profile",
+  "data": "Synthetic tasks and timer settings; no live provider or personal account data",
+  "images": [
+    {
+      "file": "tasks-focus-light-zh.png",
+      "pixels": [
+        1180,
+        1031
+      ],
+      "sourceSha256": "63d9f5f8fd36342189696601a4ab02f2235d970bc3573ddd02f8a96bcc77bcde",
+      "sha256": "63d9f5f8fd36342189696601a4ab02f2235d970bc3573ddd02f8a96bcc77bcde",
+      "processing": "Unchanged native full-page screenshot; Chinese interface, English sample task text. Committed 30-minute Ready state; capture command blurred and saved the draft."
+    },
+    {
+      "file": "tasks-focus-draft-dark-en.png",
+      "pixels": [
+        459,
+        322
+      ],
+      "sourcePixels": [
+        1364,
+        1024
+      ],
+      "sourceSha256": "b5c4664aa823b65505dbda435846b0170d7a48178c2f3c6350781eda8b27b7e7",
+      "sha256": "7b5aba8dad5594a7b4f3a706952c02591a6ef5d84d117d67d04f7c0aa5b9b79b",
+      "cropBoxXYXY": [
+        784,
+        479,
+        1243,
+        801
+      ],
+      "processing": "Exact Focus-card crop from native desktop JPEG, encoded PNG. No resizing, UI redrawing or retouching. English interface. Unsaved 30-minute draft with saved 25-minute Ready state; Start disabled."
+    }
+  ]
+}

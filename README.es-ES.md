@@ -16,7 +16,17 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 Capturas reales de distintas etapas del desarrollo de las funciones. Las plantillas muestran controles en inglés y categorías de ejemplo en chino; cada sección de funciones indica el idioma de sus capturas. La selección de sitios, los iconos y las tarjetas son ilustrativos; el tiempo, los temas y la película se introducen manualmente y no son datos en tiempo real.
 
-### Capturas recientes · Más acciones
+### Funciones recientes · Tareas y concentración
+
+Completa directamente la tarea fijada sin ampliar la lista. Iniciar permanece desactivado mientras los minutos no estén guardados; guardar la duración no inicia el temporizador. Capturas reales de la versión de desarrollo 1.1.7 con tareas de ejemplo en inglés: la interfaz clara en chino muestra 30 minutos guardados; el recorte oscuro en inglés muestra un borrador de 30 minutos mientras el temporizador conserva 25.
+
+![Interfaz clara en chino: completar la tarea fijada y duración guardada](docs/screenshots/tasks-focus-1.1.7/tasks-focus-light-zh.png)
+
+![Interfaz oscura en inglés: minutos sin guardar y botón Iniciar desactivado](docs/screenshots/tasks-focus-1.1.7/tasks-focus-draft-dark-en.png)
+
+[Origen y recortes](docs/screenshots/tasks-focus-1.1.7/capture-metadata.json) · [Validación de tareas](docs/tasks-pinned-completion-validation.md) · [Protección del borrador](docs/focus-duration-draft-validation.md)
+
+### Más acciones
 
 Cada sitio guardado incluye ahora un botón visible “⋯” para abrir el menú existente de apertura, edición, eliminación y orden, también accesible con teclado. Estas capturas reales usan la interfaz en inglés y seis sitios de prueba; solo se recortaron, sin redibujar.
 

@@ -25,9 +25,9 @@ The DOM tests model activation and explicitly dispatch document-level ownership 
 
 ## Bounded native checks
 
-Official Chrome for Testing 155 on cloud Linux verified the pinned fifth task outside the collapsed four-row preview. Enter and Space completed only that task, cleared its pin without a replacement, preserved a quick-entry draft and returned focus to that draft. The Space run retained a filter that excluded the pinned task. Clicking/double-clicking the pinned text selected text without completing anything. Light and dark wide-layout screenshots were reviewed. A native responsive toolbar at 400 × 618 showed the card/button fitting, but that captured viewport was darkened; no narrow-screen contrast approval is claimed.
+Official Chrome for Testing 155 on cloud Linux verified the pinned fifth task outside the collapsed four-row preview. Enter and Space completed only that task, cleared its pin without a replacement, preserved a quick-entry draft and returned focus to that draft. The Space run retained a filter that excluded the pinned task. Clicking/double-clicking the pinned text selected text without completing anything. Light and dark wide-layout screenshots were reviewed. A native responsive toolbar at 400 × 618 showed the card and single-line pinned text/button fitting. A separate transient darkened frame was excluded from visual evidence. Long multiline narrow content and exhaustive mobile layouts were not tested.
 
-These observations use synthetic local data in one isolated browser profile. Chinese behavior is covered by the automated view tests, not yet native acceptance. Remote-race and assistive-technology claims remain limited to the coverage above.
+These observations use synthetic local data in one isolated browser profile. A Chinese browser locale also rendered the 完成 action; native Enter/Space completion was exercised in English. Remote-race and assistive-technology claims remain limited to the coverage above.
 
 ## Further native coverage
 
