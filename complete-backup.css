@@ -1,0 +1,57 @@
+.complete-backup { min-width: 0; color: var(--text-primary); }
+.complete-backup p { line-height: 1.6; overflow-wrap: anywhere; }
+.complete-backup [hidden] { display: none !important; }
+.complete-backup-modules { margin: 18px 0; padding: 14px; border: 1px solid var(--card-border); border-radius: var(--radius-md, 14px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.complete-backup-modules legend { padding: 0 6px; font-weight: 600; }
+.complete-backup-module { display: flex; gap: 10px; align-items: start; line-height: 1.5; }
+.complete-backup-module input { margin-top: 5px; flex: 0 0 auto; }
+.complete-backup-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.complete-backup .btn { white-space: normal; text-align: start; }
+.complete-backup .btn:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
+.complete-backup-preview { margin: 18px 0; padding: clamp(14px, 3vw, 24px); border: 1px solid var(--card-border); border-radius: var(--radius-md, 14px); background: var(--card-bg); }
+.complete-backup-counts { list-style: none; padding: 0; display: grid; gap: 14px; font-variant-numeric: tabular-nums; }
+.complete-backup-counts li { display: grid; gap: 4px; overflow-wrap: anywhere; }
+.complete-backup-counts span { color: var(--text-secondary); font-size: .9rem; }
+.complete-backup-warning { font-weight: 600; padding: 12px; border-inline-start: 3px solid var(--text-accent, currentColor); }
+.complete-backup :focus-visible, .complete-backup [tabindex="-1"]:focus { outline: 2px solid var(--text-accent, currentColor); outline-offset: 4px; }
+.complete-backup-reload { margin: 0 10px 14px 0; }
+@media (max-width: 560px) { .complete-backup-modules { grid-template-columns: minmax(0, 1fr); } .complete-backup-actions .btn { width: 100%; } }
+/* This destructive action needs its own opaque semantic pair: the generic
+   legacy danger style assumes a dark surface, including in light mode. */
+.complete-backup .complete-backup-apply.btn-danger {
+    --backup-action-text: #ffffff;
+    --backup-action-bg: #a52823;
+    --backup-action-hover: #871f1b;
+    --backup-action-disabled-text: #4b5563;
+    --backup-action-disabled-bg: #e5e7eb;
+    --backup-action-focus: #b91c1c;
+    color: var(--backup-action-text);
+    background: var(--backup-action-bg);
+    border: 1px solid var(--backup-action-bg);
+    opacity: 1;
+}
+:root[data-color-mode="dark"] .complete-backup .complete-backup-apply.btn-danger {
+    --backup-action-text: #ffd8d2;
+    --backup-action-bg: #67231d;
+    --backup-action-hover: #823129;
+    --backup-action-disabled-text: #cbd5e1;
+    --backup-action-disabled-bg: #374151;
+    --backup-action-focus: #fca5a5;
+}
+.complete-backup .complete-backup-apply.btn-danger:hover:not(:disabled) {
+    background: var(--backup-action-hover);
+    border-color: var(--backup-action-hover);
+}
+.complete-backup .complete-backup-apply.btn-danger:disabled {
+    color: var(--backup-action-disabled-text);
+    background: var(--backup-action-disabled-bg);
+    border-color: var(--backup-action-disabled-bg);
+    opacity: 1;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+.complete-backup .complete-backup-apply.btn-danger:focus-visible {
+    outline: 2px solid var(--backup-action-focus);
+    outline-offset: 4px;
+}

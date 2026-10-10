@@ -28,6 +28,8 @@
         "driveDeviceSelect": "Saved computers",
         "enableCloudSync": "Enable Chrome Sync",
         "exportSettings": "Export Settings",
+        "completeBackupTitle": "Complete local backup",
+        "completeBackupRecovery": "Download pre-restore recovery copy",
         "bookmarkExportButton": "Export bookmarks HTML",
         "finderShortcutSetting": "Use / to open Find saved sites",
         "focusEnable": "Show Focus timer on the new tab page",
@@ -136,7 +138,7 @@
         {"target": "local-card-settings", "tab": "content", "tabKey": "tabContent", "title": "localCards", "fields": ["weatherCity", "weatherCondition", "weatherTemp", "weatherLow", "weatherHigh", "weatherAqi", "weatherAqiLabel", "hotTopicGroup", "movieTitle", "movieNote"]},
         {"target": "drive-backup-settings", "tab": "sync", "tabKey": "tabSync", "title": "driveBackupsTitle", "fields": ["driveDeviceSelect", "driveCurrentDevice"]},
         {"target": "cloud-sync-settings", "tab": "sync", "tabKey": "tabSync", "title": "cloudSync", "fields": ["enableCloudSync"]},
-        {"target": "data-settings", "tab": "data", "tabKey": "tabData", "title": "dataManagement", "fields": ["quoteText", "exportSettings", "bookmarkExportButton", "importSettings", "settingsSearchBookmarks"]},
+        {"target": "data-settings", "tab": "data", "tabKey": "tabData", "title": "dataManagement", "fields": ["quoteText", "exportSettings", "bookmarkExportButton", "importSettings", "settingsSearchBookmarks", "completeBackupTitle", "completeBackupRecovery"]},
     ];
     const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().trim();
     function translate(key) {

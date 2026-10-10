@@ -1,0 +1,52 @@
+{
+  "format": "native-complete-backup-comparison-v1",
+  "passed": true,
+  "sourceCounts": {
+    "sites": 1,
+    "categories": 5,
+    "tasks": 4,
+    "taskHistory": 2
+  },
+  "checks": {
+    "cancelAndDirtyRefusalPreserveBaseline": true,
+    "recoveryMatchesAllBaselineModules": true,
+    "selectedConfigAndImageExact": true,
+    "selectedScratchpadExact": true,
+    "selectedTaskFieldsAndHistoryExact": true,
+    "allLiveTaskVersionsRefreshed": true,
+    "unselectedCountdownExact": true,
+    "unselectedFocusPreferencesExact": true,
+    "portableRuntimeMetadataExcluded": true,
+    "inputImageBytesExact": true
+  },
+  "selectiveExport": {
+    "module": "scratchpad",
+    "matchesRestoredNote": true
+  },
+  "files": {
+    "source-a.json": {
+      "bytes": 5279,
+      "sha256": "2502e15a9958e76f84c6a62d7fb7d7001cafa8568919cba573eab4f2a407de05"
+    },
+    "baseline-b.json": {
+      "bytes": 3946,
+      "sha256": "f1aea5a46ef1a6d2901fd4c3af38976cf784b111075d4b5ba03b2819b51fdd2f"
+    },
+    "after-cancel-dirty-refusal.json": {
+      "bytes": 3946,
+      "sha256": "8dd0d4837fcaa04c530e56fac84e2b127f606f0964cfb14430a9ee88ca875eeb"
+    },
+    "after-selected-restore-c.json": {
+      "bytes": 5284,
+      "sha256": "085bbdae4b8428a71f8173bd9f3b27f28de860393c50bec86a80de3fcd5a64a6"
+    },
+    "pre-restore-recovery.json": {
+      "bytes": 3946,
+      "sha256": "9b15384c523096b7c396921d5d8a09cf50e304f33c02252593c62af5879b8fdf"
+    },
+    "final-selective-export.json": {
+      "bytes": 211,
+      "sha256": "aeedbde9b96225452e109a6f4942bbc8129bb2d413023f09c00f993444745ed2"
+    }
+  }
+}

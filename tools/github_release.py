@@ -56,6 +56,13 @@ def notes(sha, version, root=None, *, historical=False):
 
 Save edits in open pages first. Settings JSON and Drive snapshots exclude Tasks, Focus, Scratchpad and Countdown: export Tasks as JSON and Scratchpad/Countdown as separate text files; record Focus preferences manually, as sessions cannot be migrated. Export Scratchpad from the existing tab containing the text to keep, especially an unsaved or conflicted draft. Replace files with the extracted runtime ZIP contents inside the original permanent loaded folder, with manifest.json at its root. Do not remove the extension or load a new folder; changing folders may change its identity and make existing data inaccessible. After reloading the extension, refresh open new-tab and Settings pages and verify the version and existing data. [Full backup and upgrade steps]({guide}).
 """
+    if version_tuple(version) >= (1, 1, 21):
+        upgrade_guidance = upgrade_guidance.replace(
+            '先保存打开页面中的编辑。设置 JSON',
+            '先保存打开页面中的编辑。已经使用 1.1.21 或更新版本的用户，可以在「设置 → 数据 → 完整本地备份」导出所选已保存模块（包括专注偏好）；未保存草稿和计时会话不包含在内。从较旧版本升级时，请先使用下述原有单独导出方式。设置 JSON')
+        upgrade_guidance = upgrade_guidance.replace(
+            'Save edits in open pages first. Settings JSON',
+            'Save edits in open pages first. If already using 1.1.21 or later, use Settings → Data → Complete local backup for selected saved modules, including Focus preferences. Unsaved drafts and timer sessions are excluded. When upgrading from an older version, use the existing separate exports below first. Settings JSON')
     return f'''# Local iTab {version}
 
 {changes}

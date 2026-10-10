@@ -2,6 +2,10 @@
 
 Keep the old installation until you have checked the restored data. Removing the extension or clearing browser data can erase its device-local content. Downloads stay wherever you save them; they are not automatically uploaded or synced.
 
+## Complete saved-data migration
+
+For one selectable JSON containing saved configuration and personal modules, use [Complete local backup](complete-backup.en.md). The individual migration paths below remain available.
+
 ## Before leaving the old browser
 
 - **Configuration:** Settings → Data → Export Settings saves configuration JSON, including shortcuts, categories, layout, appearance, local images and the saved world-clock list and order. This excludes **Tasks**, **Focus timer**, **Scratchpad** and **Countdown**, including their device-only visibility/preferences. Chrome Sync, Drive backups and configuration recovery copies exclude these modules too.

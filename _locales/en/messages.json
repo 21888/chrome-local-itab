@@ -771,5 +771,185 @@
   "dashboardPreferenceFailed": { "message": "Could not save this preference. Your last saved choice is still in use; try again." },
   "dashboardPreferenceLockUnavailable": { "message": "Safe preference saving is unavailable in this browser. Your saved settings are unchanged." },
   "importSettingsOpenFailed": { "message": "Could not open Import Settings. Please try again." },
-  "importSettingsOpenUnknown": { "message": "Unable to confirm whether Import Settings opened. Check your tabs before trying again." }
+  "importSettingsOpenUnknown": { "message": "Unable to confirm whether Import Settings opened. Check your tabs before trying again." },
+  "completeBackupTitle": {
+    "message": "Complete local backup"
+  },
+  "completeBackupHelp": {
+    "message": "Choose saved modules to export or restore. Configuration includes sites, categories, layout and local images. Tasks includes saved history. Separate exports below remain available."
+  },
+  "completeBackupSavedOnly": {
+    "message": "Only saved data is included. Save drafts first. Unsaved edits, open reviews, calculator input and running or paused Focus sessions are not migrated."
+  },
+  "completeBackupPrivacy": {
+    "message": "The JSON file can contain private notes, task history, URLs and images. Keep it private. This backup stays local; it does not add these modules to Chrome Sync or Google Drive."
+  },
+  "completeBackupModules": {
+    "message": "Modules to include"
+  },
+  "completeBackupConfig": {
+    "message": "Configuration, sites and local images"
+  },
+  "completeBackupTasks": {
+    "message": "Tasks and saved history"
+  },
+  "completeBackupScratchpad": {
+    "message": "Scratchpad"
+  },
+  "completeBackupCountdown": {
+    "message": "Countdown"
+  },
+  "completeBackupFocus": {
+    "message": "Focus preferences"
+  },
+  "completeBackupExport": {
+    "message": "Export selected modules"
+  },
+  "completeBackupChoose": {
+    "message": "Choose local backup JSON"
+  },
+  "completeBackupRecovery": {
+    "message": "Download pre-restore recovery copy"
+  },
+  "completeBackupRecoveryHelp": {
+    "message": "A verified local recovery copy is saved before replacement. Download it, then choose that JSON file here to review and restore. Starting a later confirmed restore may replace this snapshot, even if the target replacement does not finish."
+  },
+  "completeBackupReview": {
+    "message": "Review local replacement"
+  },
+  "completeBackupScope": {
+    "message": "Only selected modules will be replaced, not merged. Unselected modules stay unchanged. Review the incoming and current counts below."
+  },
+  "completeBackupFocusWarning": {
+    "message": "Only saved Focus preferences migrate. Restoration is blocked while this device has a running, paused or interrupted Focus session. Deselect Focus, or stop/reset the timer using its existing controls and preview again."
+  },
+  "completeBackupIncoming": {
+    "message": "Incoming"
+  },
+  "completeBackupCurrent": {
+    "message": "Currently saved"
+  },
+  "completeBackupReady": {
+    "message": "Review the selected modules, then explicitly confirm replacement."
+  },
+  "completeBackupApply": {
+    "message": "Replace selected saved modules"
+  },
+  "completeBackupCancel": {
+    "message": "Cancel review"
+  },
+  "completeBackupReading": {
+    "message": "Reading and checking the local file…"
+  },
+  "completeBackupApplying": {
+    "message": "Replacing selected saved modules… Wait for the result before closing this page."
+  },
+  "completeBackupCancelled": {
+    "message": "Review cancelled. Saved data and drafts were not changed."
+  },
+  "completeBackupExporting": {
+    "message": "Preparing saved data for download…"
+  },
+  "completeBackupDownload": {
+    "message": "Download requested. Check your browser’s downloads and keep the file safe; completion cannot be verified here."
+  },
+  "completeBackupSuccess": {
+    "message": "Selected saved modules were restored and verified. Reload to display the saved state. Any newly entered drafts remain on this page."
+  },
+  "completeBackupReload": {
+    "message": "Reload saved state"
+  },
+  "completeBackupNone": {
+    "message": "Select at least one module."
+  },
+  "completeBackupFile": {
+    "message": "Could not read the local file. Choose it again. Saved data and drafts were not changed."
+  },
+  "completeBackupInvalid": {
+    "message": "This is not a supported complete local backup. No replacement was made."
+  },
+  "completeBackupSize": {
+    "message": "The file exceeds the supported size limit. No replacement was made."
+  },
+  "completeBackupRead": {
+    "message": "Saved data could not be read safely. Check storage availability and try again."
+  },
+  "completeBackupConflict": {
+    "message": "Saved data changed after preview. Choose the file again for a fresh review. This attempt made no replacement."
+  },
+  "completeBackupDirty": {
+    "message": "Save or finish your current edits and pending actions before restoring. Your drafts remain here."
+  },
+  "completeBackupRecoveryError": {
+    "message": "The recovery copy could not be saved and verified. No replacement was made."
+  },
+  "completeBackupUnconfirmed": {
+    "message": "The replacement could not be verified. Some data may have changed. Do not retry automatically. Inspect saved data and download the pre-restore recovery copy if needed."
+  },
+  "completeBackupNoRecovery": {
+    "message": "No valid pre-restore recovery copy is available."
+  },
+  "completeBackupUnknown": {
+    "message": "The operation failed. Review saved data before retrying."
+  },
+  "completeBackupMissing": {
+    "message": "Not included in this file"
+  },
+  "completeBackupCountSites": {
+    "message": "Sites"
+  },
+  "completeBackupCountCategories": {
+    "message": "Categories"
+  },
+  "completeBackupCountImages": {
+    "message": "Local images"
+  },
+  "completeBackupCountActive": {
+    "message": "Active tasks"
+  },
+  "completeBackupCountDone": {
+    "message": "Completed tasks"
+  },
+  "completeBackupCountRemoved": {
+    "message": "Removed tasks"
+  },
+  "completeBackupCountRecovery": {
+    "message": "Saved history copies"
+  },
+  "completeBackupCountCharacters": {
+    "message": "Characters"
+  },
+  "completeBackupCountEnabled": {
+    "message": "Enabled"
+  },
+  "completeBackupCountTitle": {
+    "message": "Title characters"
+  },
+  "completeBackupCountTargetDate": {
+    "message": "Target date"
+  },
+  "completeBackupCountFocus": {
+    "message": "Focus minutes"
+  },
+  "completeBackupCountBreak": {
+    "message": "Break minutes"
+  },
+  "completeBackupYes": {
+    "message": "Yes"
+  },
+  "completeBackupNo": {
+    "message": "No"
+  },
+  "completeBackupLargeFile": {
+    "message": "JSON files up to 32 MiB are supported. Large image backups may briefly pause this page while they are checked."
+  },
+  "completeBackupRecoveryScope": {
+    "message": "One latest complete pre-restore snapshot is kept. Starting another confirmed restore may replace it. Download the existing recovery copy below before continuing if you need to keep it."
+  },
+  "completeBackupLargeConfirm": {
+    "message": "This file is larger than 10 MiB. Checking it may pause this page for a few seconds. Continue only after finishing time-sensitive work in this tab."
+  },
+  "completeBackupContinue": {
+    "message": "Continue checking large file"
+  }
 }

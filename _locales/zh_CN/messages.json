@@ -771,5 +771,185 @@
   "dashboardPreferenceFailed": { "message": "此偏好未能保存，当前仍使用上次保存的选择，请重试。" },
   "dashboardPreferenceLockUnavailable": { "message": "此浏览器不支持安全保存偏好，已保存的设置未更改。" },
   "importSettingsOpenFailed": { "message": "无法打开导入设置。请重试。" },
-  "importSettingsOpenUnknown": { "message": "无法确认是否已打开导入设置。请先检查已打开的标签页，再重试。" }
+  "importSettingsOpenUnknown": { "message": "无法确认是否已打开导入设置。请先检查已打开的标签页，再重试。" },
+  "completeBackupTitle": {
+    "message": "完整本地备份"
+  },
+  "completeBackupHelp": {
+    "message": "选择要导出或恢复的已保存模块。配置包含网站、分类、布局和本地图片；任务包含已保存历史。下方的独立导出功能仍可使用。"
+  },
+  "completeBackupSavedOnly": {
+    "message": "仅包含已保存的数据，请先保存草稿。未保存编辑、打开的预览、计算器输入及正在运行或暂停的专注会话不会迁移。"
+  },
+  "completeBackupPrivacy": {
+    "message": "JSON 文件可能包含私人笔记、任务历史、网址和图片，请妥善保管。此备份仅在本地使用，不会将这些模块加入 Chrome 同步或 Google 云盘。"
+  },
+  "completeBackupModules": {
+    "message": "包含的模块"
+  },
+  "completeBackupConfig": {
+    "message": "配置、网站及本地图片"
+  },
+  "completeBackupTasks": {
+    "message": "任务及已保存历史"
+  },
+  "completeBackupScratchpad": {
+    "message": "便笺"
+  },
+  "completeBackupCountdown": {
+    "message": "倒计时"
+  },
+  "completeBackupFocus": {
+    "message": "专注偏好"
+  },
+  "completeBackupExport": {
+    "message": "导出所选模块"
+  },
+  "completeBackupChoose": {
+    "message": "选择本地备份 JSON"
+  },
+  "completeBackupRecovery": {
+    "message": "下载恢复前的备份副本"
+  },
+  "completeBackupRecoveryHelp": {
+    "message": "替换前会保存并验证本地恢复副本。下载后在此选择该 JSON 文件，即可预览并恢复。启动下一次已确认的恢复操作可能替换此快照，即使最终替换未完成。"
+  },
+  "completeBackupReview": {
+    "message": "预览本地替换"
+  },
+  "completeBackupScope": {
+    "message": "只替换所选模块，不进行合并；未选模块保持不变。请核对下方导入与当前数量。"
+  },
+  "completeBackupFocusWarning": {
+    "message": "仅迁移已保存的专注偏好。本机专注会话正在运行、暂停或中断时无法恢复。请取消勾选专注，或使用现有控件停止／重置计时器后重新预览。"
+  },
+  "completeBackupIncoming": {
+    "message": "导入数据"
+  },
+  "completeBackupCurrent": {
+    "message": "当前已保存"
+  },
+  "completeBackupReady": {
+    "message": "请核对所选模块，再明确确认替换。"
+  },
+  "completeBackupApply": {
+    "message": "替换所选已保存模块"
+  },
+  "completeBackupCancel": {
+    "message": "取消预览"
+  },
+  "completeBackupReading": {
+    "message": "正在读取并检查本地文件…"
+  },
+  "completeBackupApplying": {
+    "message": "正在替换所选已保存模块… 请等待结果后再关闭页面。"
+  },
+  "completeBackupCancelled": {
+    "message": "已取消预览，已保存数据和草稿均未改变。"
+  },
+  "completeBackupExporting": {
+    "message": "正在准备已保存数据的下载…"
+  },
+  "completeBackupDownload": {
+    "message": "已请求下载。请检查浏览器下载列表并妥善保管文件；此处无法确认下载完成。"
+  },
+  "completeBackupSuccess": {
+    "message": "所选已保存模块已恢复并验证。请重新加载以显示已保存状态；新输入的草稿仍保留在本页。"
+  },
+  "completeBackupReload": {
+    "message": "重新加载已保存状态"
+  },
+  "completeBackupNone": {
+    "message": "请至少选择一个模块。"
+  },
+  "completeBackupFile": {
+    "message": "无法读取本地文件，请重新选择。已保存数据和草稿均未改变。"
+  },
+  "completeBackupInvalid": {
+    "message": "此文件不是受支持的完整本地备份，未进行替换。"
+  },
+  "completeBackupSize": {
+    "message": "文件超过支持的大小限制，未进行替换。"
+  },
+  "completeBackupRead": {
+    "message": "无法安全读取已保存数据，请检查存储可用性后重试。"
+  },
+  "completeBackupConflict": {
+    "message": "预览后已保存数据发生变化。请重新选择文件并预览，本次未进行替换。"
+  },
+  "completeBackupDirty": {
+    "message": "请先保存或完成当前编辑及待处理操作，再恢复。草稿仍保留在本页。"
+  },
+  "completeBackupRecoveryError": {
+    "message": "无法保存并验证恢复副本，未进行替换。"
+  },
+  "completeBackupUnconfirmed": {
+    "message": "无法验证替换结果，部分数据可能已改变。请勿自动重试。请检查已保存数据，并按需下载恢复前的备份副本。"
+  },
+  "completeBackupNoRecovery": {
+    "message": "没有可用且有效的恢复前备份副本。"
+  },
+  "completeBackupUnknown": {
+    "message": "操作失败，请核对已保存数据后再重试。"
+  },
+  "completeBackupMissing": {
+    "message": "此文件不包含该模块"
+  },
+  "completeBackupCountSites": {
+    "message": "网站"
+  },
+  "completeBackupCountCategories": {
+    "message": "分类"
+  },
+  "completeBackupCountImages": {
+    "message": "本地图片"
+  },
+  "completeBackupCountActive": {
+    "message": "未完成任务"
+  },
+  "completeBackupCountDone": {
+    "message": "已完成任务"
+  },
+  "completeBackupCountRemoved": {
+    "message": "已移除任务"
+  },
+  "completeBackupCountRecovery": {
+    "message": "历史副本"
+  },
+  "completeBackupCountCharacters": {
+    "message": "字符"
+  },
+  "completeBackupCountEnabled": {
+    "message": "已启用"
+  },
+  "completeBackupCountTitle": {
+    "message": "标题字符"
+  },
+  "completeBackupCountTargetDate": {
+    "message": "目标日期"
+  },
+  "completeBackupCountFocus": {
+    "message": "专注分钟"
+  },
+  "completeBackupCountBreak": {
+    "message": "休息分钟"
+  },
+  "completeBackupYes": {
+    "message": "是"
+  },
+  "completeBackupNo": {
+    "message": "否"
+  },
+  "completeBackupLargeFile": {
+    "message": "支持最大 32 MiB 的 JSON 文件。检查含大量图片的备份时，此页面可能短暂停顿。"
+  },
+  "completeBackupRecoveryScope": {
+    "message": "仅保留最新一份完整的恢复前快照。启动下一次已确认的恢复操作可能替换它。如需保留，请先下载下方的现有恢复副本再继续。"
+  },
+  "completeBackupLargeConfirm": {
+    "message": "此文件超过 10 MiB，检查时页面可能暂停数秒。请先完成本标签页中需要及时操作的工作，再继续。"
+  },
+  "completeBackupContinue": {
+    "message": "继续检查大文件"
+  }
 }

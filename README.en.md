@@ -187,6 +187,10 @@ See [version checks, separate backup shortcuts and update steps](docs/version-up
 
 Settings saves only changed fields and keeps conflicting drafts for review. The dashboard search selector and hide/show controls preserve the latest saved custom search URL, shortcut styles and other preferences. Open fresh Settings and dashboard pages after a whole restore, reset or applied Chrome Sync snapshot. [Save protection and scope](docs/settings-save-safety.md).
 
+### Complete local backup
+
+Settings → Data can export selected saved configuration, sites, local images, Tasks and history, Scratchpad, Countdown and Focus preferences together. Review and select modules before replacement; unselected modules remain unchanged. A complete local recovery snapshot is retained before restore, with no automatic page reload. Unsaved drafts and live timer sessions are excluded; unfinished Focus sessions block restoring Focus preferences. Chrome Sync and Drive scope is unchanged. [Guide, limits and recovery](docs/complete-backup.en.md).
+
 ## Search and website management
 
 Shortcut and task editors keep the dialog and draft when Escape is used during IME composition. Ordinary Escape after composition still closes the dialog. [Behavior and verification scope](docs/dialog-ime-validation.md#english).

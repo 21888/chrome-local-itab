@@ -266,6 +266,34 @@ function setupBookmarkImport() {
     }
 }
 
+// Complete restore never saves or discards a page-local draft implicitly.
+function completeBackupHasDrafts() {
+    return settingsHasUncommittedWork() || worldClockHasUncommittedWork() ||
+        Boolean(window.localScratchpadSettingsView?.hasUncommittedWork()) ||
+        Boolean(window.localCountdownSettingsView?.hasUncommittedWork()) ||
+        Boolean(window.localFocusSettingsView?.hasUncommittedWork?.()) ||
+        Boolean(window.localFocusSettingsView?.controller.pending) ||
+        Boolean(window.localTasksSettingsController?.pending) ||
+        Boolean(window.bookmarkImportView?.hasUncommittedWork()) ||
+        Boolean(window.workspacePresetsView?.hasUncommittedWork()) ||
+        bookmarkImportPending || driveActionInProgress || cloudReplacementInProgress;
+}
+function setupCompleteBackup() {
+    const host = document.getElementById('complete-backup');
+    if (!host || window.completeBackupView || !window.LocalItabCompleteBackup || !window.LocalItabCompleteBackupView) return;
+    const store = new window.LocalItabCompleteBackup.Store(storageManager);
+    window.completeBackupView = window.LocalItabCompleteBackupView.mount(host, {
+        store,
+        restore: (preview, isCurrent) => queueSettingsWrite(async () => {
+            if (!isCurrent()) throw Object.assign(new Error(), {code: 'CANCELLED'});
+            if (completeBackupHasDrafts()) throw Object.assign(new Error(), {code: 'DIRTY'});
+            // Core owns the lock, recovery, baseline check and read-back verification.
+            // No confirm(), reload or form refresh belongs inside this transaction.
+            return store.restore(preview, {confirmed: true, isCurrent: () => isCurrent() && !completeBackupHasDrafts()});
+        })
+    });
+}
+
 // Serialize background-only writes while the newest request owns the controls.
 // A rejected operation must not poison the next upload/removal/type-change attempt.
 let backgroundRequest = 0;
@@ -611,6 +639,7 @@ async function initializeOptionsPage() {
         await populateFormFields(config);
         setupCategoryManagement(config.categories);
         setupBookmarkImport();
+        setupCompleteBackup();
         const countdownHost = document.getElementById('local-countdown-settings');
         if (countdownHost && window.LocalItabCountdown && !window.localCountdownSettingsView) {
             window.localCountdownSettingsView = window.LocalItabCountdown.mountSettings(countdownHost);

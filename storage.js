@@ -1450,6 +1450,83 @@ class StorageManager {
         return validated;
     }
 
+    // Strict allowlisted configuration boundary for the opt-in complete local
+    // archive. Provider settings, authorization, update preferences and private
+    // module storage keys never enter this portable payload.
+    validateCompleteBackupConfig(value) {
+        const keys = Object.keys(this.defaultConfig).filter(key => key !== 'sync');
+        const object = entry => entry && typeof entry === 'object' && !Array.isArray(entry);
+        if (!object(value) || Object.keys(value).length !== 2 || !Object.hasOwn(value, 'schemaVersion') ||
+            !Object.hasOwn(value, 'data') || ![1, 2].includes(value.schemaVersion) || !object(value.data) ||
+            Object.keys(value.data).length !== keys.length || !keys.every(key => Object.hasOwn(value.data, key))) {
+            throw new Error('Invalid complete backup configuration.');
+        }
+        const checked = this.validateImportPayload(value);
+        delete checked.sync;
+        if (!this.sameShortcutUndoValue(checked, value.data)) throw new Error('Complete backup configuration is malformed or noncanonical.');
+        return LayoutIdentity.copy(value);
+    }
+
+    completeBackupConfigFromRaw(raw) {
+        if (Object.hasOwn(raw, 'schemaVersion') && ![1, 2].includes(raw.schemaVersion)) throw new Error('Unknown stored configuration schema.');
+        this.readLayoutGeneration(raw); this.settingsSnapshot(raw);
+        const defaults = this.cloneDefaultConfig(), data = {};
+        const object = value => value && typeof value === 'object' && !Array.isArray(value);
+        // Older saved settings legitimately omit fields introduced later. Fill
+        // only absent known dictionary fields, never repair a supplied value or
+        // an array record. Unknown fields survive for strict validation below.
+        const fillMissing = (value, schema) => {
+            if (!object(value) || !object(schema)) return value;
+            const filled = { ...value };
+            for (const [key, fallback] of Object.entries(schema)) {
+                filled[key] = Object.hasOwn(value, key) ? fillMissing(value[key], fallback) : LayoutIdentity.copy(fallback);
+            }
+            return filled;
+        };
+        for (const key of Object.keys(defaults)) {
+            if (key !== 'sync') data[key] = Object.hasOwn(raw, key) ? fillMissing(raw[key], defaults[key]) : defaults[key];
+        }
+        // Older saved shortcut/category records may omit their cosmetic defaults.
+        // Fill only absent properties. Supplied invalid values and unknown fields
+        // remain present for the strict portable validator below to reject.
+        if (Array.isArray(data.links)) data.links = data.links.map(link =>
+            object(link) ? { icon: '🌐', category: 'work', ...link } : link);
+        if (Array.isArray(data.categories)) data.categories = data.categories.map(category =>
+            object(category) ? { icon: '📁', ...category } : category);
+        // A single padding number is an explicitly supported legacy format.
+        // Expand it without rounding/clamping malformed supplied numbers.
+        if (object(data.ui)) {
+            const padding = data.ui.dashboardPadding;
+            if (Number.isInteger(padding) && padding >= 0 && padding <= 160) {
+                data.ui.dashboardPadding = { top: padding, right: padding, bottom: padding, left: padding };
+            } else if (object(padding)) {
+                data.ui.dashboardPadding = fillMissing(padding, { top: null, right: null, bottom: null, left: null });
+            }
+        }
+        // Missing appearance is a supported legacy configuration, not a draft.
+        if (!Object.hasOwn(raw, 'appearance')) data.appearance = this.resolveAppearance(raw);
+        const schemaVersion = LayoutIdentity.active(data.layout) ? 2 : 1;
+        if (Object.hasOwn(raw, 'schemaVersion') && raw.schemaVersion !== schemaVersion) throw new Error('Stored schema does not match layout identities.');
+        return this.validateCompleteBackupConfig({ schemaVersion, data });
+    }
+
+    completeBackupConfigWrite(value, raw) {
+        const checked = this.validateCompleteBackupConfig(value);
+        const written = { ...checked.data,
+            [this.layoutGenerationKey]: this.createLayoutGeneration(),
+            [this.settingsGenerationKey]: this.createLayoutGeneration()
+        };
+        if (Object.hasOwn(raw, 'schemaVersion')) written.schemaVersion = checked.schemaVersion;
+        // Preserve raw provider preferences exactly, including any future fields.
+        // The existing persisted restore block prevents a queued Sync push from
+        // propagating a local replacement without the user's separate review.
+        if (raw.sync?.enabled) written[this.syncIdentityStateKey] = {
+            ...(raw[this.syncIdentityStateKey] || {}),
+            blocked: { kind: 'restore', reason: 'Restored data is kept locally. Review compatible cloud data before resuming Sync.' }
+        };
+        return written;
+    }
+
     prepareRestoredConfig(importData, currentConfig = null) {
         const restored = this.validateImportPayload(importData);
         if (currentConfig && typeof currentConfig === 'object') {

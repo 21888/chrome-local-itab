@@ -423,3 +423,7 @@ Antes de actualizar, los accesos de esta sección llevan a los apartados existen
 ## Licencia
 
 La documentación existente identifica la licencia como MIT. El repositorio todavía no incluye un archivo `LICENSE` independiente.
+
+### Copia local completa
+
+Ajustes → Datos permite exportar y restaurar módulos guardados seleccionados en un JSON local: configuración e imágenes, Tasks con historial, Scratchpad, Countdown y preferencias de Focus. No incluye borradores ni sesiones activas. [Guía de copia completa y recuperación](docs/complete-backup.es-ES.md).

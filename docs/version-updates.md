@@ -28,6 +28,13 @@ The setting-name search also finds this section.
 
 ### Backup shortcuts
 
+From **1.1.21**, Settings → Data → **Complete local backup** can export selected
+saved settings/sites/images, Tasks/history, Scratchpad, Countdown and Focus
+preferences together. It excludes unsaved drafts and timer sessions. See the
+[complete backup guide](complete-backup.en.md). When upgrading from an older
+version, use its existing separate exports described below before replacing files.
+The separate Settings JSON and Drive formats retain their original scope.
+
 **Back up before updating** provides two in-page buttons: **Go to settings export**
 selects Data and focuses its heading; **Go to Countdown export** selects
 Search & cards and focuses the Countdown heading. The existing export buttons
@@ -120,6 +127,11 @@ reloads a page/extension automatically.
 
 ### 更新前备份入口
 
+从 **1.1.21** 开始，可在「设置 → 数据 → 完整本地备份」一次导出所选已保存设置、
+网站、本地图片、待办及历史、便笺、倒计时和专注偏好；不包含未保存草稿或计时会话。
+详见[完整备份指南](complete-backup.zh-CN.md)。从旧版升级时，先按下述原有入口分别
+导出，再替换扩展文件。单独设置 JSON 与 Drive 的范围没有改变。
+
 「更新前先备份」提供两个设置页内入口：「前往设置导出」定位「数据」标题，
 「前往倒计时导出」定位「搜索与卡片」中的「倒计时」标题。焦点落在标题，
 导出按钮仍需另行点击。定位保留未保存的设置、倒计时草稿、待完成的控制器操作
@@ -136,6 +148,12 @@ reloads a page/extension automatically.
 不改变格式、导入或恢复行为。
 
 ## Español
+
+Desde **1.1.21**, **Settings → Data → Complete local backup** permite exportar los
+módulos guardados seleccionados, incluidas las preferencias de concentración.
+No incluye borradores sin guardar ni sesiones del temporizador. Consulta la
+[guía de copia completa](complete-backup.es-ES.md). Al actualizar desde una versión
+anterior, utiliza primero las exportaciones individuales indicadas a continuación.
 
 En Ajustes → Privacidad → Versión y actualizaciones, los accesos de copia de
 seguridad llevan al encabezado de Datos o al de Cuenta atrás en Búsqueda y tarjetas.

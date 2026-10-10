@@ -1,0 +1,90 @@
+{
+  "format": "native-complete-backup-captures-v1",
+  "dateUtc": "2026-10-10",
+  "candidateLabel": "1.1.20 + complete-backup patch; unpublished candidate",
+  "browser": {
+    "name": "Chrome for Testing",
+    "version": "155.0.8059.39",
+    "platform": "Linux x64",
+    "officialMetadataUrl": "https://googlechromelabs.github.io/chrome-for-testing/155.0.8059.39.json",
+    "officialDownloadUrl": "https://storage.googleapis.com/chrome-for-testing-public/155.0.8059.39/linux64/chrome-linux64.zip",
+    "zipSha256": "55672d1f392fd3e7b7a08621b6e804e6bcb39d40cf155504abb74b3a021ea8ea"
+  },
+  "method": "Original native app screenshots saved directly as JPEG bytes; no redraw, crop, rescale or annotation. Native mouse, keyboard and file chooser only. No DOM injection or debug/headless protocol. The 536 x 848 capture is an actual resized native window, not device emulation.",
+  "profiles": [
+    "Isolated English synthetic QA profile, retained across the two-file overlay",
+    "Separate fresh zh-CN profile; locale selected through LANG, LANGUAGE and Chrome --lang at launch"
+  ],
+  "captures": [
+    {
+      "file": "04-dirty-refusal.jpg",
+      "runtime": "initial",
+      "description": "Unrelated unsaved Countdown draft blocks selected restore",
+      "capturedAtUtc": "2026-10-10T19:29:55.994551+00:00",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 146402,
+      "sha256": "70c505846d83df437fd493dde881f94c41db9f0b0f8e770f19f6a29371496cdc"
+    },
+    {
+      "file": "06-enabled-light-button-contrast-defect.jpg",
+      "runtime": "initial",
+      "description": "Original enabled Replace contrast defect, before fix",
+      "capturedAtUtc": "2026-10-10T19:31:16.840565+00:00",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 144028,
+      "sha256": "c8cf8d64529fcadb9070189c5815cabcf73cb030d8879fbb35124cb87041d62c"
+    },
+    {
+      "file": "08-restored-modules-and-paused-focus.jpg",
+      "runtime": "initial",
+      "description": "Restored source image, Tasks and note with destination paused Focus retained",
+      "capturedAtUtc": "2026-10-10T19:31:55.837495+00:00",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 121332,
+      "sha256": "682a2e5e1056d6edfcd8bb0fea6822f8141d608f0b132e1030fb2c5c51d1ed0f"
+    },
+    {
+      "file": "10-final-light-enabled-focus.jpg",
+      "runtime": "final",
+      "description": "Corrected light enabled Replace with keyboard focus",
+      "capturedAtUtc": "2026-10-10T19:36:36.816181+00:00",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 144375,
+      "sha256": "2c8ac5d84f0697f9fe174d84733eba0c36a5122f504aa321da0a0ccac0f4769c"
+    },
+    {
+      "file": "11-final-dark-disabled-cancel-focus.jpg",
+      "runtime": "final",
+      "description": "Dark disabled Replace; Tab skips to Cancel",
+      "capturedAtUtc": "2026-10-10T19:37:12.269024+00:00",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 148932,
+      "sha256": "572a58675a7a1b5a70c6666410966b524943187d45af9231f7900b7a9befdf92"
+    },
+    {
+      "file": "13-final-narrow-enabled-focus.jpg",
+      "runtime": "final",
+      "description": "Native narrow window: wrapped review and focused enabled Replace",
+      "capturedAtUtc": "2026-10-10T19:38:37.563044+00:00",
+      "width": 536,
+      "height": 848,
+      "bytes": 74001,
+      "sha256": "31c9630233a6969cc66fc7d1990efc0f855ac1aa6f97cd811660114afafd26e7"
+    },
+    {
+      "file": "15-final-chinese-backup-panel.jpg",
+      "runtime": "final",
+      "description": "Fresh zh-CN profile: complete backup panel labels and guidance",
+      "capturedAtUtc": "2026-10-10T19:42:46.580925+00:00",
+      "width": 1364,
+      "height": 1024,
+      "bytes": 132454,
+      "sha256": "ee25b65d00b16d5efd27161d6eef218194ef31585176089bbf5bb15e0513c2a8"
+    }
+  ]
+}

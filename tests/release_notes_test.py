@@ -99,6 +99,14 @@ class NotesTests(unittest.TestCase):
                          'refresh open new-tab and Settings pages', 'verify the version and existing data'):
             self.assertIn(required, body)
 
+    def test_complete_backup_guidance_is_version_gated(self):
+        old = release.notes(SHA, '1.1.20')
+        new = release.notes(SHA, '1.1.21')
+        self.assertNotIn('If already using 1.1.21 or later', old)
+        self.assertIn('If already using 1.1.21 or later', new)
+        self.assertIn('When upgrading from an older version', new)
+        self.assertIn('Unsaved drafts and timer sessions are excluded', new)
+
     def test_historical_generated_bodies_remain_unchanged(self):
         expected = {'1.1.8': 'e8119f480901412a0ee8237023b7fc9ce624920eacabfe6fe8590bc8ccfbdc75', '1.1.11': '2005d1d02158188ab9b732e79c6cc6d9875b5e0dc78abad94404b721203aac6e', '1.1.16': 'd2a1e4f7f27fd8e87cf15b25e71f8158ebad02e3195e79e068892c3af1aaa1d9'}
         for version, digest in expected.items():
