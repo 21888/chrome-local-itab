@@ -612,6 +612,12 @@
     "focusError": {
         "message": "Could not confirm the timer change. Read the latest state before trying again."
     },
+    "focusSaveMinutes": {
+        "message": "Save minutes"
+    },
+    "focusDraftRetained": {
+        "message": "Your unsaved minutes are kept on this page. Finish editing when that interval is ready."
+    },
     "focusConflict": {
         "message": "Another page changed this timer. The latest saved state is shown; choose again."
     },

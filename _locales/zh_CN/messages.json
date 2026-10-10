@@ -612,6 +612,12 @@
     "focusError": {
         "message": "无法确认计时器更改。请读取最新状态后再试。"
     },
+    "focusSaveMinutes": {
+        "message": "保存分钟数"
+    },
+    "focusDraftRetained": {
+        "message": "尚未保存的分钟数会保留在此页面。该时段准备就绪后，可继续编辑。"
+    },
     "focusConflict": {
         "message": "另一个页面已更改计时器。当前显示最新保存的状态，请重新选择。"
     },
