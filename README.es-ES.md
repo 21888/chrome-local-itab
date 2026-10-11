@@ -197,7 +197,7 @@ Capturas reales con datos de ejemplo y controles en inglés. Las imágenes está
 
 Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simultáneas de accesos directos y de su colocación también utiliza `navigator.locks`; si la API necesaria no está disponible, estas escrituras fallan y se muestra un error.
 
-**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en inglés](docs/migration.en.md).
+**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en español](docs/migration.es-ES.md).
 
 ### Actualizar una instalación descomprimida existente
 
@@ -374,11 +374,11 @@ Revisa y aplica la visibilidad local de Tareas y del temporizador por separado d
 
 ## Datos, privacidad y conexiones de red
 
-**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en inglés](docs/migration.en.md).
+**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en español](docs/migration.es-ES.md).
 
 ### Cambiar de navegador o dispositivo
 
-Las copias de configuración no incluyen Tasks, Focus timer, Scratchpad ni Countdown. Antes de desinstalar o borrar datos, guarda copias separadas siguiendo la [lista de migración en inglés](docs/migration.en.md).
+Las copias de configuración no incluyen Tasks, Focus timer, Scratchpad ni Countdown. Antes de desinstalar o borrar datos, guarda copias separadas siguiendo la [lista de migración en español](docs/migration.es-ES.md).
 
 La configuración, los accesos directos y las imágenes cargadas se guardan principalmente en `chrome.storage.local`. Los iconos de sitios usan una caché local en IndexedDB, y parte del estado de la interfaz se guarda en el almacenamiento local del navegador. La extensión no incluye scripts de analítica ni publicidad.
 

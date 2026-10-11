@@ -1,5 +1,7 @@
 # Complete local backup: native validation
 
+Historical five-module schema-1 evidence only. It does not certify current workspace/Trash or global prompt/collection restoration, nor an installed older-release upgrade. See the [current automated acceptance and missing native checks](upgrade-backup-acceptance.md).
+
 **PASS**, 2026-10-10, cloud Linux / official Chrome for Testing 155.0.8059.39. Tested an unpublished **1.1.20 + complete-backup patch** candidate based on `86bfc0003660ae63cccc96583da377460b0f4a53`, not a published release. The [initial 66-file runtime](qa/complete-backup-native/source-hashes.json) and [final two-file overlay](qa/complete-backup-native/overlay-source-hashes.json) have separate hashes.
 
 Release integration: after this native run, the manifest was bumped from 1.1.20 to 1.1.21 and storage.js received a narrow stored-legacy compatibility fix: absent optional shortcut icon/category and category icon fields are projected without writing storage. Seven added automated regressions verify valid omissions, rejection of supplied invalid values and strict portable imports. This last storage-only fix was not replayed in the native browser; all other final runtime files match the frozen final native candidate. Documentation and release tooling were updated separately.

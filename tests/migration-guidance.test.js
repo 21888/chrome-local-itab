@@ -21,7 +21,7 @@ test('Data backup warning names every device-local personal module in both langu
 });
 
 test('README migration guides and their relative links resolve', () => {
-    for (const [readme, guide] of [['README.en.md', 'docs/migration.en.md'], ['README.md', 'docs/migration.zh-CN.md'], ['README.es-ES.md', 'docs/migration.en.md']]) {
+    for (const [readme, guide] of [['README.en.md', 'docs/migration.en.md'], ['README.md', 'docs/migration.zh-CN.md'], ['README.es-ES.md', 'docs/migration.es-ES.md']]) {
         assert(read(readme).includes(`](${guide})`), `${readme}: missing migration guide`);
         const content = read(guide);
         for (const [, target] of content.matchAll(/\]\(([^)]+)\)/g)) {
@@ -43,5 +43,18 @@ test('README installation sections include safe unpacked upgrades before Feature
         for (const term of terms) assert(install.includes(term), `${file}: missing ${term}`);
         assert(install.includes('](docs/version-updates.md)'), `${file}: missing upgrade guide`);
         assert(install.includes('manifest.json'), `${file}: missing root-folder instruction`);
+    }
+});
+
+
+test('complete-backup and migration guides describe all seven modules and reviewed global/workspace scope in three languages', () => {
+    for (const locale of ['en','zh-CN','es-ES']) {
+        for (const prefix of ['complete-backup','migration']) {
+            const content=read(`docs/${prefix}.${locale}.md`);
+            assert.match(content,/schema.?1/i);
+            assert.match(content,locale==='zh-CN'?/七个模块/:locale==='en'?/seven modules/:/siete módulos/);
+            assert.match(content,locale==='zh-CN'?/回收站/:locale==='en'?/Trash/:/papelera/);
+            assert.match(content,locale==='zh-CN'?/全局/:/global/);
+        }
     }
 });

@@ -4,14 +4,17 @@ Keep the old installation until you have checked the restored data. Removing the
 
 ## Complete saved-data migration
 
-For one selectable JSON containing saved configuration and personal modules, use [Complete local backup](complete-backup.en.md). The individual migration paths below remain available.
+For one selectable JSON containing saved configuration and personal modules, use [Complete local backup](complete-backup.en.md). Choose among seven modules: five per workspace (configuration, Tasks, Scratchpad, Countdown and Focus preferences), plus global prompts and global AI collections. The archive includes recoverable workspace Trash and saved prompt/collection versions. Review the workspace replacement scope and each selected global destination. A legacy schema-1 file requires choosing one live destination workspace. Exact collection links can remain unresolved if their prompt versions are not restored.
+
+Finish saving first and verify the downloaded file. After a confirmed restore, reopen pages and check every workspace, Trash, old prompt versions and linked collection excerpts before removing the original installation. Unselected globals stay unchanged; the pre-restore copy contains all workspace modules plus only selected global libraries. The individual migration paths below remain available.
 
 ## Before leaving the old browser
 
-- **Configuration:** Settings → Data → Export Settings saves configuration JSON, including shortcuts, categories, layout, appearance, local images and the saved world-clock list and order. This excludes **Tasks**, **Focus timer**, **Scratchpad** and **Countdown**, including their device-only visibility/preferences. Chrome Sync, Drive backups and configuration recovery copies exclude these modules too.
+- **Configuration:** Settings → Data → Export Settings saves configuration JSON, including shortcuts, categories, layout, appearance, local images and the saved world-clock list and order. This excludes **Tasks**, **Focus timer**, **Scratchpad** and **Countdown**, including their device-only visibility/preferences. It also excludes the global prompt and AI collection libraries. Chrome Sync, Drive backups and configuration recovery copies exclude these modules too.
 - **Tasks:** In the Tasks card, open **Task data → Export tasks**. This separate JSON includes active/completed/removed tasks, the pin and previous local copies. Finish saving task edits first; the export reads saved data.
 - **Scratchpad:** Choose **Export text** to save the current visible draft, including unsaved text. Keep every draft you want when different tabs conflict.
 - **Countdown:** Choose **Export text**. The card exports saved values; Settings exports its current draft, which may be incomplete or invalid. Check the title and target date in the file.
+- **Global prompts and AI collections:** Use complete backup with both global modules selected to preserve exact linked versions, or their separate reviewed JSON exports/imports. Their Markdown/text exports are readable copies, not full restoration formats.
 - **Focus timer:** Manually note your focus/break durations and whether the card is shown. There is no dedicated export/import for preferences or timer state; an active or paused session cannot be migrated. Note other local cards' visibility too.
 
 ## In the new browser
