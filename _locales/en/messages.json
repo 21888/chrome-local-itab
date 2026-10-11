@@ -4258,5 +4258,11 @@
   },
   "cardLayoutPreview": {
     "message": "Grid preview including hidden cards"
+  },
+  "customizeHexLabel": {
+    "message": "(hex)"
+  },
+  "customizeHexInvalid": {
+    "message": "Enter # followed by 6 hexadecimal digits (0–9, A–F), for example #336699."
   }
 }

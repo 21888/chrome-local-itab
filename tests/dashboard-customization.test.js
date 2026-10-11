@@ -185,3 +185,115 @@ test('modeled badInput with an empty numeric value keeps Save blocked until an i
     assert.equal(control.getAttribute('aria-invalid'), 'false');
     p.button('Cancel').dispatch('click'); assert.equal(f.writes.length, 0);
 });
+
+const hexField = (p, field) => p.document.querySelector(`[data-customize-hex="${field}"]`);
+const enterHex = (p, field, value) => { const input = hexField(p, field); input.value = value; input.dispatch('input'); return input; };
+
+test('exact hex fields accept typing/paste, synchronize pickers and save only valid normalized colors', async () => {
+    const f = fixture(), p = page(f); await p.open();
+    assert.equal(hexField(p, 'backgroundStart').disabled, true);
+    p.change('backgroundMode', 'solid');
+    assert.equal(hexField(p, 'backgroundStart').disabled, false);
+    assert.equal(hexField(p, 'backgroundEnd').disabled, true);
+    const text = enterHex(p, 'backgroundStart', '#A1B2C3');
+    assert.equal(text.value, '#a1b2c3'); assert.equal(p.control('backgroundStart').value, '#a1b2c3');
+    assert.equal(p.document.documentElement.style['--custom-background'], '#a1b2c3');
+    assert.equal(f.writes.length, 0);
+    p.change('backgroundMode', 'gradient'); enterHex(p, 'backgroundEnd', '#102030');
+    assert.equal(p.document.documentElement.style['--custom-background'], 'linear-gradient(135deg, #a1b2c3, #102030)');
+    p.button('Save').dispatch('click'); await tick(); await tick();
+    assert.equal(f.read().appearance.customization.backgroundStart, '#a1b2c3');
+    assert.equal(f.read().appearance.customization.backgroundEnd, '#102030');
+    await p.open(); assert.equal(hexField(p, 'backgroundStart').value, '#a1b2c3');
+    p.button('Cancel').dispatch('click');
+});
+
+test('invalid and incomplete hex drafts retain visible input, errors and saved-state protection', async () => {
+    const f = fixture(), p = page(f); await p.open(); p.change('backgroundMode', 'gradient');
+    enterHex(p, 'backgroundStart', '#123456');
+    const preview = p.document.documentElement.style['--custom-background'];
+    for (const bad of ['', '#', '#abc', '123456', '#gg1122', '#12345678', ' #123456', '#123456\n', 'url(https://example.com)']) {
+        const text = enterHex(p, 'backgroundStart', bad);
+        assert.equal(text.value, bad); assert.equal(text.getAttribute('aria-invalid'), 'true');
+        assert.equal(p.button('Save').disabled, true);
+        assert.match(p.document.querySelector('.customize-status').textContent, /6 hexadecimal/);
+        assert.equal(p.document.documentElement.style['--custom-background'], preview);
+        p.button('Save').dispatch('click'); await tick(); assert.equal(f.writes.length, 0);
+    }
+    p.change('cardGap', '20'); enterHex(p, 'backgroundEnd', '#abcdef');
+    assert.equal(hexField(p, 'backgroundStart').value, 'url(https://example.com)');
+    assert.equal(p.button('Save').disabled, true);
+    assert.match(p.document.getElementById(hexField(p, 'backgroundStart').getAttribute('aria-describedby')).textContent, /#336699/);
+    enterHex(p, 'backgroundStart', '#223344'); assert.equal(p.button('Save').disabled, false);
+    assert.equal(hexField(p, 'backgroundStart').getAttribute('aria-invalid'), 'false');
+    assert.equal(p.document.querySelector('.customize-color-error').textContent, '');
+    p.button('Cancel').dispatch('click'); assert.equal(f.writes.length, 0);
+});
+
+test('picker correction and Reset clear invalid hex drafts while Cancel discards preview', async () => {
+    const f = fixture(), p = page(f); await p.open(); p.change('backgroundMode', 'gradient');
+    enterHex(p, 'backgroundStart', '#bad'); p.change('backgroundStart', '#445566');
+    assert.equal(hexField(p, 'backgroundStart').value, '#445566'); assert.equal(p.button('Save').disabled, false);
+    enterHex(p, 'backgroundStart', '#'); enterHex(p, 'backgroundEnd', 'oops');
+    p.button('Reset preview').dispatch('click');
+    for (const key of ['backgroundStart', 'backgroundEnd']) {
+        assert.equal(hexField(p, key).getAttribute('aria-invalid'), 'false');
+        assert.equal(hexField(p, key).value, p.control(key).value);
+        assert.equal(hexField(p, key).disabled, true);
+    }
+    assert.equal(p.button('Save').disabled, false); assert.equal(p.document.querySelector('.customize-status').textContent, '');
+    p.button('Cancel').dispatch('click'); assert.equal(f.writes.length, 0);
+    assert.equal(p.document.documentElement.dataset.customBackground, 'false');
+});
+
+test('hex fields obey pending-save lock and recover focus on failed save', async () => {
+    const f = fixture(), p = page(f), gate = deferred();
+    f.storage.patchDashboardCustomization = async () => { await gate.promise; throw new Error('synthetic write failure'); };
+    await p.open(); p.change('backgroundMode', 'solid'); const text = enterHex(p, 'backgroundStart', '#223344'); text.focus();
+    p.button('Save').dispatch('click');
+    assert.equal(text.disabled, true); assert.equal(p.document.activeElement === p.document.querySelector('.customize-panel'), true);
+    enterHex(p, 'backgroundStart', '#'); p.button('Reset preview').dispatch('click');
+    gate.resolve(); await tick(); await tick();
+    assert.equal(text.disabled, false); assert.equal(text.value, '#223344');
+    assert.equal(p.document.activeElement === text, true); assert.equal(p.button('Save').disabled, false);
+    assert.match(p.document.querySelector('.customize-status').textContent, /Could not save/);
+    text.dispatch('keydown', { key: 'Escape' }); assert.equal(Boolean(p.document.querySelector('[role="dialog"]')), false);
+    assert.equal(f.writes.length, 0);
+});
+
+test('switching background mode discards only invalid inactive color and angle text', async () => {
+    for (const mode of ['solid', 'template']) {
+        const f = fixture(), p = page(f); await p.open(); p.change('backgroundMode', 'gradient');
+        enterHex(p, 'backgroundStart', '#112233'); enterHex(p, 'backgroundEnd', '#445566'); p.change('backgroundAngle', '90');
+        enterHex(p, 'backgroundEnd', '#'); p.change('backgroundAngle', '999');
+        assert.equal(p.button('Save').disabled, true);
+        p.change('backgroundMode', mode);
+        assert.equal(p.button('Save').disabled, false, `${mode} must not trap an inactive invalid draft`);
+        assert.equal(hexField(p, 'backgroundEnd').value, '#445566'); assert.equal(p.control('backgroundAngle').value, '90');
+        assert.equal(hexField(p, 'backgroundEnd').getAttribute('aria-invalid'), 'false');
+        assert.equal(p.control('backgroundAngle').getAttribute('aria-invalid'), 'false');
+        assert.equal(p.document.querySelector('.customize-status').textContent, '');
+        p.button('Save').dispatch('click'); await tick(); await tick();
+        assert.equal(f.read().appearance.customization.backgroundMode, mode);
+        assert.equal(f.read().appearance.customization.backgroundEnd, '#445566');
+        assert.equal(f.read().appearance.customization.backgroundAngle, 90);
+    }
+});
+
+test('mode transitions retain active errors and clear first-color error only when it becomes inactive', async () => {
+    const f = fixture(), p = page(f); await p.open(); p.change('backgroundMode', 'gradient');
+    enterHex(p, 'backgroundStart', '#112233'); enterHex(p, 'backgroundStart', '#');
+    enterHex(p, 'backgroundEnd', 'bad'); p.change('cardGap', '99');
+    p.change('backgroundMode', 'solid');
+    assert.equal(hexField(p, 'backgroundStart').value, '#');
+    assert.equal(hexField(p, 'backgroundStart').getAttribute('aria-invalid'), 'true');
+    assert.equal(p.control('cardGap').value, '99'); assert.equal(p.button('Save').disabled, true);
+    p.change('backgroundMode', 'template');
+    assert.equal(hexField(p, 'backgroundStart').value, '#112233');
+    assert.equal(hexField(p, 'backgroundStart').getAttribute('aria-invalid'), 'false');
+    assert.equal(p.control('cardGap').getAttribute('aria-invalid'), 'true');
+    assert.equal(p.button('Save').disabled, true);
+    p.change('cardGap', '20'); assert.equal(p.button('Save').disabled, false);
+    p.change('backgroundMode', 'gradient'); assert.equal(hexField(p, 'backgroundStart').value, '#112233');
+    p.button('Cancel').dispatch('click'); assert.equal(f.writes.length, 0);
+});

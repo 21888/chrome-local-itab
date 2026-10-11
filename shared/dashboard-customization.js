@@ -94,7 +94,7 @@
             }
             panel.append(sample);
             const fields = doc.createElement('div'); fields.className = 'customize-fields'; panel.append(fields);
-            const controls = {};
+            const controls = {}, colorTexts = {}, colorErrors = {};
             const invalid = new Set();
             const labels = [
                 ['backgroundMode', 'customizeBackground', 'Background', [['template', 'customizeUseSaved', 'Use saved background'], ['solid', 'customizeSolid', 'Solid color'], ['gradient', 'customizeGradient', 'Two-color gradient']]],
@@ -114,7 +114,19 @@
                 if (Array.isArray(type)) for (const [value, optionKey, text] of type) {
                     const option = doc.createElement('option'); option.value = value; option.textContent = tr(optionKey, text); input.append(option);
                 } else { input.type = type; if (type === 'number') { input.min = String(min); input.max = String(max); input.step = '1'; input.placeholder = tr('customizeAuto', 'Template default'); } }
-                label.append(title, input); fields.append(label); controls[key] = input;
+                label.append(title, input); controls[key] = input;
+                if (type === 'color') {
+                    // Separate labels keep both native picker and exact text entry accessible.
+                    const group = doc.createElement('div'); group.className = 'customize-color-field';
+                    const textLabel = doc.createElement('label'); textLabel.className = 'customize-field';
+                    const textTitle = doc.createElement('span'); textTitle.textContent = `${tr(labelKey, fallback)} ${tr('customizeHexLabel', '(hex)')}`;
+                    const text = doc.createElement('input'); text.type = 'text'; text.dataset.customizeHex = key;
+                    text.placeholder = '#RRGGBB'; text.autocomplete = 'off'; text.spellcheck = false;
+                    const error = doc.createElement('span'); error.id = `customize-${key}-error`; error.className = 'customize-color-error';
+                    text.setAttribute('aria-describedby', error.id); text.setAttribute('aria-invalid', 'false');
+                    textLabel.append(textTitle, text); group.append(label, textLabel, error); fields.append(group);
+                    colorTexts[key] = text; colorErrors[key] = error;
+                } else fields.append(label);
             }
             let editor, focusBeforePending = null;
             panel.tabIndex = -1;
@@ -136,6 +148,10 @@
                 for (const [key, control] of Object.entries(controls)) { if (!invalid.has(key)) control.value = value[key] == null ? '' : String(value[key]); control.disabled = pending; }
                 controls.backgroundStart.disabled = pending || value.backgroundMode === 'template';
                 controls.backgroundEnd.disabled = controls.backgroundAngle.disabled = pending || value.backgroundMode !== 'gradient';
+                for (const [key, text] of Object.entries(colorTexts)) {
+                    if (!invalid.has(key)) text.value = value[key];
+                    text.disabled = controls[key].disabled;
+                }
                 sample.style.background = value.backgroundMode === 'gradient' ? `linear-gradient(${value.backgroundAngle}deg, ${value.backgroundStart}, ${value.backgroundEnd})` : value.backgroundMode === 'solid' ? value.backgroundStart : 'var(--template-page)';
                 sample.style.gap = `${value.cardGap ?? 12}px`;
                 sample.style.gridTemplateColumns = `repeat(${value.cardColumns ?? 3}, minmax(0, 1fr))`;
@@ -145,7 +161,7 @@
                     card.style.background = `color-mix(in srgb, var(--template-surface) ${value.cardOpacity ?? 100}%, transparent)`;
                 }
                 reset.disabled = cancel.disabled = pending; save.disabled = pending || invalid.size > 0;
-                status.textContent = message; panel.setAttribute('aria-busy', String(pending));
+                status.textContent = message || (invalid.size ? tr('customizeInvalid', 'Use a valid color or a number within the shown range.') : ''); panel.setAttribute('aria-busy', String(pending));
                 // Disabled Save/card controls can send native focus to body.
                 // Keep pending/error keyboard events inside this dialog.
                 if (pending) panel.focus({ preventScroll: true });
@@ -155,14 +171,43 @@
             const close = () => { if (editor.cancel()) finish(); };
             const cleanup = global.LocalItabDialog.open(overlay, controls.backgroundMode, close);
             for (const [key, control] of Object.entries(controls)) control.addEventListener('input', () => {
+                if (control.disabled || editor.pending || editor.closed) return;
                 // Keep invalid intermediate number input visible; never save it silently.
                 if (control.type === 'number' && (control.validity?.badInput || (control.value !== '' && (!Number.isInteger(Number(control.value)) || Number(control.value) < Number(control.min) || Number(control.value) > Number(control.max))))) {
                     invalid.add(key); control.setAttribute('aria-invalid', 'true'); save.disabled = true; status.textContent = tr('customizeInvalid', 'Use a valid color or a number within the shown range.'); return;
                 }
+                if (key === 'backgroundMode') {
+                    // Hidden-by-mode drafts must not trap Save behind disabled fields.
+                    // The controller still holds each field's last validated value.
+                    const inactive = control.value === 'template' ? ['backgroundStart', 'backgroundEnd', 'backgroundAngle']
+                        : control.value === 'solid' ? ['backgroundEnd', 'backgroundAngle'] : [];
+                    for (const field of inactive) {
+                        invalid.delete(field); controls[field].setAttribute('aria-invalid', 'false');
+                        if (colorTexts[field]) { colorTexts[field].setAttribute('aria-invalid', 'false'); colorErrors[field].textContent = ''; }
+                    }
+                }
                 invalid.delete(key); control.setAttribute('aria-invalid', 'false');
+                if (colorTexts[key]) { colorTexts[key].setAttribute('aria-invalid', 'false'); colorErrors[key].textContent = ''; }
                 editor.change(key, control.type === 'number' ? (control.value === '' ? (key === 'backgroundAngle' ? 135 : null) : Number(control.value)) : control.value);
             });
-            reset.addEventListener('click', () => { invalid.clear(); for (const control of Object.values(controls)) control.setAttribute('aria-invalid', 'false'); editor.reset(); }); cancel.addEventListener('click', close);
+            for (const [key, text] of Object.entries(colorTexts)) text.addEventListener('input', () => {
+                if (text.disabled || editor.pending || editor.closed) return;
+                // Incomplete typing/pastes remain visible, never entering preview or storage.
+                if (text.value.length !== 7 || !/^#[0-9a-fA-F]{6}$/.test(text.value)) {
+                    invalid.add(key); text.setAttribute('aria-invalid', 'true'); save.disabled = true;
+                    colorErrors[key].textContent = tr('customizeHexInvalid', 'Enter # followed by 6 hexadecimal digits (0–9, A–F), for example #336699.');
+                    status.textContent = colorErrors[key].textContent; return;
+                }
+                invalid.delete(key); text.setAttribute('aria-invalid', 'false'); colorErrors[key].textContent = '';
+                editor.change(key, text.value);
+            });
+            reset.addEventListener('click', () => {
+                if (editor.pending || editor.closed) return;
+                invalid.clear();
+                for (const control of [...Object.values(controls), ...Object.values(colorTexts)]) control.setAttribute('aria-invalid', 'false');
+                for (const error of Object.values(colorErrors)) error.textContent = '';
+                editor.reset();
+            }); cancel.addEventListener('click', close);
             save.addEventListener('click', async () => { if (!invalid.size && await editor.save()) finish(); });
             overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
         });

@@ -78,3 +78,10 @@
 @media (max-width: 620px) { .card-layout-preview { --card-layout-available: 1; } }
 
 .card-layout-editor button[aria-disabled="true"] { opacity: .55; }
+
+/* Pair native swatches with editable exact colors without widening the dialog. */
+.customize-color-field { display: grid; gap: 6px; min-width: 0; }
+.customize-color-field input[type="text"] { font-family: ui-monospace, monospace; }
+.customize-color-error { color: var(--template-error); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.customize-color-error:empty { display: none; }
+.customize-field input[aria-invalid="true"] { border-color: var(--template-error); }

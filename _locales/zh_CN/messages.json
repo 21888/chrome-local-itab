@@ -4258,5 +4258,11 @@
   },
   "cardLayoutPreview": {
     "message": "卡片网格预览（包含隐藏卡片）"
+  },
+  "customizeHexLabel": {
+    "message": "（十六进制）"
+  },
+  "customizeHexInvalid": {
+    "message": "请输入 # 和 6 位十六进制数字（0–9、A–F），例如 #336699。"
   }
 }
