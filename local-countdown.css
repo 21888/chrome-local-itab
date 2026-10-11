@@ -24,3 +24,7 @@
 .countdown-saved-preview { max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--template-border); border-radius: 7px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .local-countdown-card { padding: 16px; } .countdown-fields { grid-template-columns: minmax(0, 1fr); } }
 /* No motion and no calendar-day live announcements. */
+
+.countdown-import { margin-top: 12px; padding: 12px; border: 1px solid var(--template-border); border-radius: 7px; }
+.countdown-import-preview { max-height: 240px; overflow: auto; }
+textarea.countdown-input { resize: vertical; }

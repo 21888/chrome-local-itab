@@ -3760,5 +3760,29 @@
   },
   "scratchpadImportAppend": {
     "message": "Append to Scratchpad"
+  },
+  "countdownImport": {
+    "message": "Import text"
+  },
+  "countdownImportPreview": {
+    "message": "Countdown text preview"
+  },
+  "countdownImportApply": {
+    "message": "Use title and date in draft"
+  },
+  "countdownImportCancel": {
+    "message": "Cancel import"
+  },
+  "countdownImportReading": {
+    "message": "Reading text…"
+  },
+  "countdownImportReady": {
+    "message": "Review the title and date below. Applying replaces those draft fields only; visibility stays unchanged. Choose Save separately to keep them."
+  },
+  "countdownImportHelp": {
+    "message": "Choose a UTF-8 .txt exported by Countdown (up to 32,000 characters and 128 KiB). A complete title and real date are required. Multiline or long recovery titles are preserved in the draft, but must be edited to a single line of up to 80 characters before saving."
+  },
+  "countdownImportError": {
+    "message": "Could not read this Countdown export. Choose a complete UTF-8 .txt with a title, a real YYYY-MM-DD date on its last content line, and a final newline. Incomplete recovery exports cannot be imported. Your draft is unchanged."
   }
 }

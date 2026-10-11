@@ -17,7 +17,7 @@ function model({ raw: initial, failRead: initiallyFail = false, settings = false
     };
     const api = { ...storeApi, Controller };
     const window = {
-        LocalItabCountdown: api, Blob, i18n: translate ? { t: translate } : undefined,
+        LocalItabCountdown: api, Blob, TextDecoder, i18n: translate ? { t: translate } : undefined,
         URL: { createObjectURL(blob) { blobs.push(blob); return 'blob:test'; }, revokeObjectURL() {} },
         chrome: { runtime: { getURL(path) { return `chrome-extension://test/${path}`; } } },
         confirm(message) { confirms.push(message); return approve; },
@@ -51,7 +51,7 @@ test('DOM model: default Countdown is hidden and idle without any storage write'
 
 test('DOM model: native labelled settings fields use explicit Save/Cancel and no browser date coercion', async () => {
     const m = model({ settings: true }); assert(m.view.title.disabled); await m.flush();
-    assert.equal(m.view.title.type, 'text'); assert.equal(m.view.date.type, 'text'); assert.equal(m.view.enabled.type, 'checkbox');
+    assert.equal(m.view.title.tagName, 'TEXTAREA'); assert.equal(m.view.date.type, 'text'); assert.equal(m.view.enabled.type, 'checkbox');
     assert.equal(m.view.title.getAttribute('aria-label'), 'Milestone title (up to 80 characters)'); assert.match(m.view.date.getAttribute('aria-label'), /YYYY-MM-DD/);
     assert.equal(m.view.date.getAttribute('maxlength'), undefined); assert.equal(m.view.title.getAttribute('maxlength'), undefined);
     m.input('title', 'Release'); m.input('date', '2026-12-31'); m.view.enabled.checked = true; m.view.enabled.dispatch('change');
@@ -228,4 +228,88 @@ test('DOM model: clean remote Hide does not acquire recovery visibility on a lat
     assert(m.host.hidden);assert.equal(m.controller.lastAttempt,null);
     m.readFail(true);await assert.rejects(m.controller.refresh());
     assert(m.host.hidden);assert.equal(m.tickCount(),0);assert.equal(m.writes,1);m.view.destroy();
+});
+
+function importFile(text, name = 'countdown.txt') {
+    const bytes = new TextEncoder().encode(text);
+    return { name, size: bytes.byteLength, arrayBuffer: async () => bytes.buffer };
+}
+async function previewImport(m, file) {
+    m.view.chooseImport(); m.view.importFile.files = [file]; await m.view.readImport();
+}
+
+test('Countdown TXT import previews literal multiline text, applies draft only and keeps explicit Save validation', async () => {
+    const m = model({ raw: configured({ enabled: false }), settings: true }); await m.flush();
+    const title = '里程碑 🎉\n<img src=x onerror=alert(1)>\n';
+    await previewImport(m, importFile(storeApi.exportText({ title, targetDate: '2028-02-29' })));
+    assert.equal(m.view.importPreview.children.length, 0); assert.equal(m.view.importPreview.textContent, `${title}\n2028-02-29\n`);
+    assert.equal(m.controller.draft.title, 'Launch'); assert.equal(m.writes, 0);
+    m.view.importApply.dispatch('click'); assert.equal(m.controller.draft.title, title); assert.equal(m.view.title.value, title);
+    assert.equal(m.controller.draft.enabled, false); assert.equal(m.raw.title, 'Launch'); assert.equal(m.writes, 0);
+    assert(m.view.importPanel.hidden); assert.equal(m.document.activeElement, m.view.title);
+    m.view.saveButton.dispatch('click'); await m.flush(); assert.equal(m.writes, 0); assert.match(m.view.status.textContent, /plain-text title/);
+    m.input('title', '里程碑 🎉'); m.view.saveButton.dispatch('click'); await m.flush();
+    assert.equal(m.raw.title, '里程碑 🎉'); assert.equal(m.raw.targetDate, '2028-02-29'); assert.equal(m.raw.enabled, false); assert.equal(m.writes, 1); m.view.destroy();
+});
+
+test('Countdown TXT import Cancel, Escape and native picker cancellation leave draft and storage untouched', async () => {
+    const m = model({ raw: configured(), settings: true }); await m.flush(); m.input('title', 'Existing unsaved');
+    for (const action of ['cancel', 'escape', 'picker']) {
+        await previewImport(m, importFile('Imported\n2028-02-29\n'));
+        if (action === 'cancel') m.view.importCancel.dispatch('click');
+        else if (action === 'escape') m.view.importPanel.dispatch('keydown', { key: 'Escape' });
+        else m.view.importFile.dispatch('cancel');
+        assert(m.view.importPanel.hidden); assert.equal(m.controller.draft.title, 'Existing unsaved'); assert.equal(m.writes, 0);
+    }
+    m.view.destroy();
+});
+
+test('Countdown TXT import rejects malformed, oversized and invalid UTF-8 files, supports choosing the same file again after failure', async () => {
+    const m = model({ raw: configured(), settings: true }); await m.flush();
+    const badBytes = new Uint8Array([0xc3, 0x28]);
+    for (const file of [importFile('Title\n\n'), importFile('Title\n2026-02-29\n'), importFile('Title\n2028-02-29'), importFile('x'.repeat(32001)), importFile('Title\n2028-02-29\n', 'bad.html'),
+        { name: 'bad.txt', size: 2, arrayBuffer: async () => badBytes.buffer },
+        { name: 'bad.txt', size: 131073, arrayBuffer: async () => { throw Error('must not read'); } },
+        { name: 'retry.txt', size: 1, arrayBuffer: async () => { throw Error('read failed'); } }]) {
+        await previewImport(m, file); assert(m.view.importApply.disabled); assert.match(m.view.importInfo.textContent, /Could not read/);
+        assert.equal(m.controller.draft.title, 'Launch'); assert.equal(m.writes, 0); assert.equal(m.view.importFile.value, '');
+    }
+    await previewImport(m, importFile('Recovered\n2028-02-29\n', 'retry.txt')); assert(!m.view.importApply.disabled);
+    m.view.importApply.dispatch('click'); assert.equal(m.controller.draft.title, 'Recovered'); assert.equal(m.writes, 0); m.view.destroy();
+});
+
+test('Countdown TXT import delayed reads cannot overwrite edits, IME, Cancel, another file, departure or destroyed view', async () => {
+    for (const action of ['edit', 'ime', 'cancel', 'another', 'pagehide', 'detach', 'destroy']) {
+        const m = model({ raw: configured(), settings: true }); await m.flush();
+        let release; const file = importFile('Stale\n2028-02-29\n'), bytes = await file.arrayBuffer(); file.arrayBuffer = () => new Promise(done => release = done);
+        m.view.chooseImport(); m.view.importFile.files = [file]; const pending = m.view.readImport();
+        if (action === 'edit') m.input('title', 'Newer');
+        if (action === 'ime') { m.view.title.dispatch('compositionstart'); m.view.title.value = '输入'; }
+        if (action === 'cancel') m.view.importCancel.dispatch('click');
+        if (action === 'another') await previewImport(m, importFile('New file\n2029-01-01\n'));
+        if (action === 'pagehide') m.fire('pagehide');
+        if (action === 'detach') m.host.remove();
+        if (action === 'destroy') m.view.destroy();
+        release(bytes); await pending;
+        assert.notEqual(m.controller.draft.title, 'Stale'); assert(!m.view.importPreview.textContent.includes('Stale')); assert.equal(m.writes, 0);
+        if (action === 'another') { assert.match(m.view.importPreview.textContent, /New file/); m.view.importApply.dispatch('click'); assert.equal(m.controller.draft.title, 'New file'); }
+        if (action === 'edit') assert.equal(m.controller.draft.title, 'Newer');
+        if (action === 'ime') { assert.equal(m.view.title.value, '输入'); m.view.title.dispatch('compositionend'); }
+        if (action !== 'destroy') m.view.destroy();
+    }
+});
+
+test('Countdown TXT import invalidates reviewed preview on newer edits, remote updates, visibility changes and storage failures', async () => {
+    for (const action of ['edit', 'visibility', 'remote', 'readfail', 'save']) {
+        const m = model({ raw: configured(), settings: true }); await m.flush(); m.input('title', 'My draft');
+        await previewImport(m, importFile('Imported\n2028-02-29\n'));
+        if (action === 'edit') m.input('date', '2030-01-01');
+        if (action === 'visibility') { m.view.enabled.checked = false; m.view.enabled.dispatch('change'); }
+        if (action === 'remote') { await new m.api.Store(m.backend).mutate({ kind: 'visibility', value: false, revision: m.raw.revision }); await m.flush(); assert(m.controller.conflict); }
+        if (action === 'readfail') { m.readFail(true); await assert.rejects(m.controller.refresh()); }
+        if (action === 'save') { m.view.saveButton.dispatch('click'); await m.flush(); }
+        assert(m.view.importPanel.hidden); m.view.importApply.dispatch('click'); assert.equal(m.controller.draft.title, 'My draft');
+        if (action === 'readfail') { assert(m.view.importButton.disabled); m.readFail(false); await m.controller.retry(); assert(!m.view.importButton.disabled); }
+        m.view.destroy();
+    }
 });

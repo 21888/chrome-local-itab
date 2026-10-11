@@ -90,6 +90,22 @@
         check(new TextEncoder().encode(text).length <= LIMITS.exportBytes, 'SIZE_LIMIT');
         return text;
     }
+    // Export format: title (possibly multiline), LF, strict ISO date, final LF.
+    // A leading UTF-8 BOM is a transport marker; CRLF is normalized to LF.
+    // Recovery-only titles remain drafts; existing single-line Save rules still apply.
+    function parseText(text) {
+        check(isUnicode(text), 'TEXT');
+        check(Array.from(text).length <= LIMITS.exportCharacters && new TextEncoder().encode(text).length <= LIMITS.exportBytes, 'SIZE_LIMIT');
+        text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+        check(!/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]/u.test(text), 'TEXT');
+        check(text.endsWith('\n'), 'IMPORT_FORMAT');
+        const body = text.slice(0, -1), separator = body.lastIndexOf('\n');
+        check(separator > 0, 'IMPORT_FORMAT');
+        const title = body.slice(0, separator), targetDate = body.slice(separator + 1);
+        check(title.trim().length > 0 && targetDate.length > 0, 'IMPORT_FORMAT');
+        parseDate(targetDate);
+        return { title, targetDate };
+    }
     function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks, workspace = globalThis.LocalItabWorkspaces?.session) {
         if (workspace) return workspace.createBackend(KEY);
         check(chromeApi?.storage?.local && locks?.request, 'UNAVAILABLE');
@@ -150,5 +166,5 @@
             });
         }
     }
-    return { KEY, LOCK, LIMITS, Store, initial, validate, fields, title, isUnicode, parseDate, calendarDifference, display, exportText, fault, createChromeBackend };
+    return { KEY, LOCK, LIMITS, Store, initial, validate, fields, title, isUnicode, parseDate, calendarDifference, display, exportText, parseText, fault, createChromeBackend };
 });

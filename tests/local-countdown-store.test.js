@@ -362,3 +362,24 @@ test('UMD export works offline in a browser global with no eager storage or netw
     assert.equal(browser.parseDate('0001-01-01').year, 1);
     assert.throws(() => browser.createChromeBackend(), code('UNAVAILABLE'));
 });
+
+
+test('Countdown TXT parser round-trips Unicode, multiline recovery titles, literal HTML and strict leap dates', () => {
+    const api = require('../shared/local-countdown-store');
+    for (const title of ['里程碑 🎉', 'first\nsecond', 'first\n', '\nfirst', '<b>literal</b>', '😀'.repeat(81)]) {
+        const fields = { title, targetDate: '2000-02-29' };
+        assert.deepEqual(api.parseText(api.exportText(fields)), fields);
+    }
+    assert.deepEqual(api.parseText('\uFEFF中文 🎉\r\n第二行\r\n2028-02-29\r\n'), { title: '中文 🎉\n第二行', targetDate: '2028-02-29' });
+    for (const targetDate of ['0001-01-01', '9999-12-31']) assert.equal(api.parseText(`Title\n${targetDate}\n`).targetDate, targetDate);
+});
+
+test('Countdown TXT parser rejects incomplete recovery exports, malformed dates, controls, invalid Unicode and bounds without truncation', () => {
+    const api = require('../shared/local-countdown-store');
+    for (const text of ['', '\n2028-02-29\n', 'Title\n\n', 'Title\n2028-02-29', 'Title\n2028-02-29\n\n',
+        'Title\n1900-02-29\n', 'Title\n0000-01-01\n', 'Title\n2028-2-29\n', 'Title\n2028-02-29 \n',
+        'Title\rbroken\n2028-02-29\n', 'Title\u0000\n2028-02-29\n', 'Title\ud800\n2028-02-29\n',
+        'Title\n2028-02-29\n<script>bad</script>', 'x'.repeat(32001)]) assert.throws(() => api.parseText(text));
+    const full = '😀'.repeat(31988) + '\n2028-02-29\n'; assert.equal(Array.from(full).length, 32000); assert.equal(api.parseText(full).title.length, 63976);
+    assert.throws(() => api.parseText('😀' + full), { code: 'SIZE_LIMIT' });
+});

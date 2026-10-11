@@ -20,6 +20,12 @@
         countdownUnconfigured: 'Add a title and target date before showing Countdown.',
         countdownRetry: 'Retry', countdownUseSaved: 'Load saved', countdownReplace: 'Replace with my draft',
         countdownSave: 'Save', countdownCancel: 'Cancel', countdownHide: 'Hide', countdownEdit: 'Edit',
+        countdownImport: 'Import text', countdownImportPreview: 'Countdown text preview',
+        countdownImportApply: 'Use title and date in draft', countdownImportCancel: 'Cancel import',
+        countdownImportReading: 'Reading text…',
+        countdownImportReady: 'Review the title and date below. Applying replaces those draft fields only; visibility stays unchanged. Choose Save separately to keep them.',
+        countdownImportHelp: 'Choose a UTF-8 .txt exported by Countdown (up to 32,000 characters and 128 KiB). A complete title and real date are required. Multiline or long recovery titles are preserved in the draft, but must be edited to a single line of up to 80 characters before saving.',
+        countdownImportError: 'Could not read this Countdown export. Choose a complete UTF-8 .txt with a title, a real YYYY-MM-DD date on its last content line, and a final newline. Incomplete recovery exports cannot be imported. Your draft is unchanged.',
         countdownExport: 'Export text', countdownExportError: 'Could not export a text copy. Your draft is still here.',
         countdownExportTooLarge: 'This draft is too large to export. Keep the full copy within 32,000 characters and 128 KiB of UTF-8 text. Your draft is still here.',
         countdownDiscardConfirm: 'Discard this unsaved Countdown draft and load the latest saved title, date and visibility?',
@@ -138,7 +144,7 @@
             this.host = host; this.controller = controller; this.closed = false;
             host.classList.add('local-countdown-settings');
             const titleLabel = el('label', 'countdown-field', t('countdownEventLabel'));
-            this.title = el('input', 'countdown-input'); this.title.type = 'text'; this.title.setAttribute('aria-label', t('countdownEventLabel')); this.title.autocomplete = 'off';
+            this.title = el('textarea', 'countdown-input'); this.title.rows = 2; this.title.setAttribute('aria-label', t('countdownEventLabel')); this.title.autocomplete = 'off';
             titleLabel.append(this.title);
             const dateLabel = el('label', 'countdown-field', t('countdownDateLabel'));
             this.date = el('input', 'countdown-input'); this.date.type = 'text'; this.date.placeholder = 'YYYY-MM-DD'; this.date.setAttribute('aria-label', t('countdownDateLabel'));
@@ -157,10 +163,24 @@
                 if (root.confirm(t('countdownReplaceConfirm'))) run(() => controller.replaceWithDraft());
             });
             this.exportButton = button('countdownExport', () => this.exportText());
-            const controls = el('div', 'countdown-controls'); controls.append(this.saveButton, this.cancelButton, this.exportButton, this.retry, this.useSaved, this.replace);
+            this.importButton = button('countdownImport', () => this.chooseImport());
+            this.importFile = el('input'); this.importFile.type = 'file'; this.importFile.accept = '.txt,text/plain'; this.importFile.hidden = true;
+            this.importFile.addEventListener('change', () => run(() => this.readImport()));
+            this.importFile.addEventListener('cancel', () => this.cancelImport(true));
+            this.importPanel = el('section', 'countdown-import'); this.importPanel.hidden = true;
+            this.importInfo = el('p', 'countdown-help'); this.importInfo.setAttribute('role', 'status');
+            this.importPreview = el('pre', 'countdown-saved-preview countdown-import-preview'); this.importPreview.tabIndex = 0;
+            this.importPreview.setAttribute('aria-label', t('countdownImportPreview'));
+            this.importApply = button('countdownImportApply', () => this.applyImport());
+            this.importCancel = button('countdownImportCancel', () => this.cancelImport(true));
+            const importControls = el('div', 'countdown-controls'); importControls.append(this.importApply, this.importCancel);
+            this.importPanel.append(this.importInfo, this.importPreview, el('p', 'countdown-help', t('countdownImportHelp')), importControls);
+            this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
+            this.pagehide = () => this.cancelImport(); root.addEventListener?.('pagehide', this.pagehide);
+            const controls = el('div', 'countdown-controls'); controls.append(this.saveButton, this.cancelButton, this.exportButton, this.importButton, this.retry, this.useSaved, this.replace);
             this.savedLabel = el('p', 'countdown-help', t('countdownSavedPreview'));
             this.savedPreview = el('pre', 'countdown-saved-preview'); this.savedPreview.setAttribute('aria-label', t('countdownSavedPreview'));
-            host.replaceChildren(inputs, el('p', 'countdown-help', t('countdownDateHelp')), enableLabel, el('p', 'countdown-help', t('countdownEnableHelp')), controls, this.status, this.savedLabel, this.savedPreview, el('p', 'countdown-help', t('countdownHelp')));
+            host.replaceChildren(inputs, el('p', 'countdown-help', t('countdownDateHelp')), enableLabel, el('p', 'countdown-help', t('countdownEnableHelp')), controls, this.importFile, this.importPanel, this.status, this.savedLabel, this.savedPreview, el('p', 'countdown-help', t('countdownHelp')));
             this.title.addEventListener('input', () => { if (controller.loaded) controller.setDraft({ title: this.title.value }); });
             this.date.addEventListener('input', () => { if (controller.loaded) controller.setDraft({ targetDate: this.date.value }); });
             this.enabled.addEventListener('change', () => { if (controller.loaded) controller.setDraft({ enabled: this.enabled.checked }); });
@@ -169,6 +189,54 @@
                 field.addEventListener('compositionend', () => { if (controller.loaded) controller.setDraft({ [key]: field.value }); controller.setComposing(false); });
             }
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
+        }
+        canImport() {
+            const c = this.controller;
+            return !this.closed && this.host.isConnected && c.loaded && !c.pending && !c.composing && !c.readError && !c.conflict && !c.error;
+        }
+        importCurrent(session) {
+            return this.importSession === session && this.canImport() && this.controller.state === session.state && this.controller.generation === session.generation;
+        }
+        cancelImport(focus = false) {
+            const restore = this.importPanel.contains(document.activeElement);
+            this.importSession = null; this.importPanel.hidden = true; this.importPreview.textContent = ''; this.importInfo.textContent = '';
+            this.importApply.disabled = true; this.importFile.value = '';
+            if (focus && this.canImport()) this.importButton.focus();
+            else if (restore && !this.closed) this.title.focus();
+        }
+        chooseImport() {
+            this.cancelImport();
+            if (!this.canImport()) return;
+            this.importSession = { state: this.controller.state, generation: this.controller.generation };
+            this.importFile.click();
+        }
+        async readImport() {
+            const session = this.importSession;
+            if (!session || !this.importCurrent(session)) { this.cancelImport(); return; }
+            const files = Array.from(this.importFile.files || []); this.importFile.value = '';
+            if (!files.length) { this.cancelImport(true); return; }
+            const owned = this.importSession = { state: session.state, generation: session.generation };
+            this.importPanel.hidden = false; this.importApply.disabled = true; this.importPreview.textContent = '';
+            this.importInfo.textContent = t('countdownImportReading'); this.importCancel.focus();
+            try {
+                const file = files[0];
+                if (files.length !== 1 || !/\.txt$/i.test(file.name) || !Number.isSafeInteger(file.size) || file.size < 0 || file.size > api.LIMITS.exportBytes) throw api.fault('SIZE_LIMIT');
+                const bytes = await file.arrayBuffer();
+                if (!this.importCurrent(owned)) return;
+                if (bytes.byteLength !== file.size || bytes.byteLength > api.LIMITS.exportBytes) throw api.fault('SIZE_LIMIT');
+                owned.fields = api.parseText(new root.TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes));
+                this.importPreview.textContent = api.exportText(owned.fields);
+                this.importInfo.textContent = t('countdownImportReady'); this.importApply.disabled = false;
+            } catch (_) {
+                if (this.importCurrent(owned)) this.importInfo.textContent = t('countdownImportError');
+            }
+        }
+        applyImport() {
+            const session = this.importSession;
+            if (!session || !this.importCurrent(session) || !session.fields) { this.cancelImport(); return; }
+            const fields = session.fields; this.cancelImport();
+            // Import never saves, changes visibility, or bypasses existing conflict handling.
+            this.controller.setDraft({ title: fields.title, targetDate: fields.targetDate }); this.title.focus();
         }
         loadSaved() {
             const c = this.controller;
@@ -183,6 +251,8 @@
         render() {
             if (this.closed) return;
             const c = this.controller, draft = c.draft || {};
+            if (this.importSession && !this.importCurrent(this.importSession)) this.cancelImport();
+            this.importButton.disabled = !this.canImport();
             // The controller owns input generations. Never replace values during
             // composition or rewrite an unchanged value (caret/undo preservation).
             if (!c.composing) {
@@ -204,7 +274,7 @@
             setText(this.status, statusText(c)); this.status.classList.toggle('countdown-error', Boolean(c.error || c.readError || c.conflict));
         }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
-        destroy() { this.closed = true; this.unsubscribe(); this.controller.destroy(); }
+        destroy() { this.closed = true; this.cancelImport(); root.removeEventListener?.('pagehide', this.pagehide); this.unsubscribe(); this.controller.destroy(); }
     }
     Object.assign(api, { View, SettingsView, mount: (host, options) => new View(host, options), mountSettings: (host, options) => new SettingsView(host, options) });
 })(window);

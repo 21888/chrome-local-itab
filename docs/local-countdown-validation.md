@@ -40,3 +40,28 @@ The impossible date 2026-02-30 was rejected with its draft retained. Edit opened
 These checks do not establish native injected failure/uncertain-ack recovery, corrupt-storage handling, actual IME, assistive-technology announcements, all-template combinations or other operating systems. Those that have source/model coverage remain identified as such.
 
 The actual browser download flow produced a 25-byte text export, and the native text viewer displayed the saved title/date. Clean light/dark captures at a 1188×848 native window and dark card/Settings captures at 510×848 were readable with reachable controls. The [published card crops](screenshots/countdown/capture-metadata.json) are exact pixels from native screenshots, without resizing or retouching. Original images and source hashes are included; the CSS viewport was not instrumented.
+
+## Exported TXT import into an unsaved draft
+
+Focused command: `node --test tests/local-countdown-{store,view,controller,boundary,integration}.test.js`.
+
+Added parser and DOM-model coverage for literal Chinese, emoji, multiline/leading/trailing title newlines, HTML-looking text, real leap days and year bounds; BOM/CRLF handling; missing final newline/title/date, invalid dates, controls, invalid Unicode/UTF-8 and size limits; exact draft-only apply with unchanged saved state and visibility; existing Save rejection followed by correction; Cancel/Escape/native picker cancellation; same-file retry after failure; delayed completion after newer edit, IME, cancellation, another file, pagehide, detachment and destruction; reviewed-preview invalidation on remote conflict, visibility edit, save and failed read. Existing Countdown storage/controller/boundary/integration tests remain included.
+
+These are automated model checks, not native-browser or operating-system file-picker acceptance. Native focus, IME and file selection remain separate acceptance checks.
+
+## Integrated TXT-import checks — version 1.1.44
+
+The complete serial Node suite passed 1,791 tests with no failures or skips; all 53 Python packaging tests passed. The 90-file verified runtime ZIP SHA-256 is 32777f03b2a8e0400bb26e7e425dcb99cc9f1477a516bcacaf90a116e91e07c1. Parent-document rebases changed no runtime files.
+
+Independent review passed 78 focused Countdown tests and six additional adversarial probes, covering leap-date validation across Gregorian years 1–9999, malformed UTF-8/controls/surrogates, file-size mismatches, late reads, IME models, cancellation/departure, repeated Apply without storage writes, preserved visibility and unchanged Save validation. This evidence is deterministic, not native IME or file-picker coverage.
+
+## Bounded native TXT-import acceptance — 2026-10-11
+
+Cloud Chrome for Testing 155.0.8059.39 used a fresh synthetic extension, ordinary Settings controls, the real GTK chooser, explicit Save, reload and genuine TXT downloads. Runtime hashes before/after were identical.
+
+- A valid Chinese/emoji title and leap date 2028-02-29 displayed literally in preview. Escape preserved the baseline and returned Import focus.
+- Apply changed title/date in the unsaved draft, focused the title and left visibility off. Explicit draft Cancel restored the baseline, demonstrating no automatic save. Reapplying and choosing Save persisted the imported values.
+- Invalid 2027-02-29 text failed closed with an explanation and disabled Apply. Multiline recovery text retained its literal markup/newline in preview and draft; existing Save validation rejected it. Discarding that draft and reloading restored the previously saved valid data.
+- Four genuine exports were compared without normalization. Baseline and canceled exports were exactly 30 bytes, SHA-256 fdce03d28e81a28df8b921c8292ed731ec7473e54ce5905a7d530fa8bb5e28e6. Saved and reopened exports both exactly matched the 38-byte input, SHA-256 9d36fe8def56487023bdaa1304e72b2466d7e84ea11d3754ffc4a8b6da4fcc8e.
+
+Native scope was English desktop/light UI with Chinese fixture text, not Chinese UI localization. Dark/narrow layouts, actual IME, file-size/encoding boundaries, asynchronous races and revision-token equality were not retested natively. TXT exports contain neither visibility nor revisions; retained unchecked visibility was observed in the UI. A temporary host-wide tool stall recovered without source changes and was not treated as a product defect. New screenshots and raw exports remain local.

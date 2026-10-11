@@ -3760,5 +3760,29 @@
   },
   "scratchpadImportAppend": {
     "message": "追加到便笺"
+  },
+  "countdownImport": {
+    "message": "导入文本"
+  },
+  "countdownImportPreview": {
+    "message": "倒计时文本预览"
+  },
+  "countdownImportApply": {
+    "message": "将标题和日期填入草稿"
+  },
+  "countdownImportCancel": {
+    "message": "取消导入"
+  },
+  "countdownImportReading": {
+    "message": "正在读取文本…"
+  },
+  "countdownImportReady": {
+    "message": "请核对下方标题和日期。应用后仅替换这两个草稿字段，不改变显示状态。仍需另外点击“保存”才能保留。"
+  },
+  "countdownImportHelp": {
+    "message": "请选择倒计时导出的 UTF-8 .txt 文件（最多 32,000 个字符、128 KiB）。文件须包含完整标题及真实日期。多行或过长的恢复标题会原样保留在草稿中，但保存前须改为不超过 80 个字符的单行标题。"
+  },
+  "countdownImportError": {
+    "message": "无法读取此倒计时导出文件。请选择完整的 UTF-8 .txt：须包含标题、最后一行内容为真实的 YYYY-MM-DD 日期，并以换行结束。不完整的恢复导出无法导入。现有草稿未改变。"
   }
 }
