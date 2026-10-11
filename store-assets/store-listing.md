@@ -7,7 +7,7 @@
 - Language: English, Chinese (Simplified)
 - Homepage URL: https://github.com/21888/chrome-local-itab
 - Support URL: https://github.com/21888/chrome-local-itab/issues
-- Privacy policy URL: publish `store-assets/privacy-policy.md` to a public URL before final submission
+- Privacy policy URL: verify the actual public URL entered in the Developer Dashboard opens without sign-in and contains the policy for the selected release. `store-assets/privacy-policy.md` is the repository source, not a verified live URL; publish or update it as needed and record the real URL before submission.
 
 ## Short Description
 
@@ -83,13 +83,15 @@ Provide a private, customizable Chrome new tab dashboard for search, shortcuts, 
 
 ## Privacy Practices Form
 
-Recommended selections:
+Submission review guidance, not a record of the live Dashboard answers:
 
-- Data collected: No user data is collected by the developer.
-- Data sale: No.
-- Third-party use unrelated to extension purpose: No.
-- Creditworthiness or lending use: No.
-- Remote code: No remote code is executed. Extension pages run packaged JavaScript only.
+- Review the data-type checkboxes individually against the selected release's actual handling, storage and transmissions. “The developer has no collection backend” is an architectural fact, not a substitute for the form's data disclosures. Do not copy a blanket “no user data” answer.
+- Inventory user-entered text and saved content; selected text and optional source addresses; shortcut URLs/domains; reviewed prompts, questions, excerpts and responses; temporary API-key authentication; configuration, images and snapshot metadata. Map these to the Dashboard's current definitions, including authentication, website/content or browsing-related categories where applicable. This list is a review input, not a claim that every named category must be selected; resolve the mapping from actual behavior before submission.
+- Distinguish device-local handling from user-initiated transfers to the selected search engine/model provider and enabled Google services. Optional features and explicit Send do not by themselves settle the disclosure categories. Check the public policy, listing, in-product disclosures and saved form for consistency.
+- Separately review the data-use certifications: no sale, no unrelated third-party use, and no creditworthiness/lending use. Verify the selected build supports these statements before certifying them; this document has not inspected or changed the Dashboard.
+- Remote code: the extension runs packaged JavaScript; provider responses are displayed as text, not executed. Verify this separately from the data disclosures.
+
+Official references checked on 2026-10-11: [Fill out the privacy fields](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy) and [User Data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq). The FAQ also addresses local-only/Sync storage and user-specified servers; review those provisions in context rather than assuming the absence of a developer backend removes all obligations.
 
 Notes for reviewer:
 
@@ -98,20 +100,16 @@ Notes for reviewer:
 - Enabled Chrome Sync shares supported configuration and subsequent changes; initialization may apply an existing enabled configuration from the same Chrome account.
 - Authorized Drive snapshots include configuration, shortcut URLs, local images and device/snapshot metadata. Connecting, refreshing, uploading, downloading, restoring, deleting and pruning snapshots may contact Google APIs. A confirmed restore first attempts a safety upload of the current configuration and asks whether to continue if it fails. There is no scheduled automatic Drive backup.
 - Tasks, previous task copies and the Focus session are excluded from configuration exports, Sync and Drive. Calculator data is memory-only. The bookmark importer reads the source file locally; applied records follow existing enabled network preferences. These local features do not disable unrelated network activity. See [the privacy policy](privacy-policy.md) for details.
+- Optional BYOK requests send the exact reviewed prompt and model ID, with any entered temporary API key, directly to the user-selected HTTPS Chat Completions endpoint only after explicit Send. The provider receives ordinary connection metadata and may charge. Keys from the password field are not persisted in extension storage, Sync, backups or logs; closing/changing the connection or completing a request clears them. Responses remain temporary until explicitly saved. No developer relay backend is used.
+- AI context Q&A sends only the question and explicitly selected, editable, reviewed global collection excerpts/saved workspace note, within the complete reviewed prompt. No sources are selected automatically; no ambient browsing or page scraping is attached. Task proposals require a separate exact-list review and Add action and are never executed.
+- Saving a Q&A answer normally excludes its question/source snapshot. A separate default-off option retains the reviewed question, source IDs/labels/text, complete prompt, endpoint and model with the saved answer. That historical input and saved responses can contain private text and enter unencrypted collection/complete local backups. API-key fields and authentication headers are excluded, but user-entered secrets in ordinary text are not automatically removed. This optional input snapshot is distinct from Google Drive configuration snapshots; global AI libraries do not enter ordinary settings exports, Chrome Sync or Drive snapshots. See [Q&A scope](../docs/ai-context-workflow.md) and [the privacy policy](privacy-policy.md).
 
 ## Reviewer Notes
 
 Local iTab is a Manifest V3 new tab replacement whose core page works offline. Test a fresh profile without enabled sync data separately from a same-account installation with an existing enabled configuration. To test online icons, open Settings > Privacy, enable online favicon fetching and grant the optional host permission. Drive is a separate optional flow in Settings requiring Google authorization; verify connect, snapshot listing, manual backup, download, restore, delete and cleanup. Restore attempts a safety upload before replacing configuration. Do not present Identity/API permissions as optional manifest permissions.
 
+For BYOK and Q&A, use synthetic content to verify review → origin-specific optional permission → explicit Send separation; granting permission alone must not send content. Inspect the exact endpoint, model and outgoing prompt. API-key entry is temporary; connection presets persist only name/endpoint/model metadata locally and are excluded from exports, Sync and Drive. Do not put credentials in those metadata fields. Real provider calls need the reviewer's own authorized credentials and may incur charges; do not treat synthetic tests as live-provider acceptance. Verify cancellation, explicit response saving, the default-off Q&A input snapshot and unencrypted backup warnings. Imported snapshots and model citations are not proof of model output. Technical scope: [model workflow](../docs/ai-model-workflow.md), [Q&A workflow](../docs/ai-context-workflow.md).
+
 ## Screenshots
 
-Upload the files from `store-assets/screenshots-1280x800/` in this order:
-
-1. `01-dashboard-overview-1280x800.png`
-2. `02-shortcuts-grid-1280x800.png`
-3. `03-settings-appearance-1280x800.png`
-4. `04-privacy-controls-1280x800.png`
-5. `05-sync-data-controls-1280x800.png`
-
-Fallback accepted dimensions are available in `store-assets/screenshots-640x400/`.
-
+Choose images using [the asset and release-selection guidance](README.md). Existing versioned and unversioned screenshot directories are historical; verify their content against the selected release before reuse, retain provenance, and check global/localized image order in the Dashboard. Do not infer that old screenshots cover BYOK, Q&A or later features.
