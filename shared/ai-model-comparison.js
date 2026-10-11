@@ -35,15 +35,18 @@
             close.disabled = saving();
             for (const target of targets) {
                 target.select.disabled = Boolean(trial) || locked || targets.some(item => item.attempted);
-                target.key.disabled = Boolean(trial && target !== targets[0]) || locked || !target.reviewed || target.attempted;
-                target.allow.disabled = Boolean(trial && target !== targets[0]) || locked || !target.reviewed || target.attempted;
+                target.key.disabled = Boolean(trial && target !== targets[0]) || locked || !target.reviewed || (target.attempted && !target.retryReady);
+                target.allow.disabled = Boolean(trial && target !== targets[0]) || locked || !target.reviewed || (target.attempted && !target.retryReady);
+                target.retryReview.hidden = target.retrySend.hidden = Boolean(trial) || !target.attempted || Boolean(target.response);
+                target.retryReview.disabled = Boolean(trial) || locked || !target.attempted || Boolean(target.response);
+                target.retrySend.disabled = Boolean(trial) || locked || !target.retryReady || Boolean(target.response);
                 target.stop.disabled = !target.running;
                 target.save.disabled = Boolean(trial) || closed || stale || sending || saving() || !target.response || target.saved;
             }
         }
         function invalidate(message, permanent = false) {
             generation++; batch = null; reviewedValues = null; stale ||= permanent;
-            for (const target of targets) { if (!trial) target.heading.textContent = `${t('Target', 'Target')} ${targets.indexOf(target) + 1}`; if (trial) { target.response = null; target.output.value = ''; target.output.hidden = true; target.attempted = false; target.message.textContent = ''; target.reviewText.textContent = ''; } target.aborter?.abort(); target.key.value = ''; target.reviewed = null; target.reviewText.hidden = true; }
+            for (const target of targets) { target.retryReady = false; if (!trial && !permanent) target.heading.textContent = `${t('Target', 'Target')} ${targets.indexOf(target) + 1}`; if (trial) { target.response = null; target.output.value = ''; target.output.hidden = true; target.attempted = false; target.message.textContent = ''; target.reviewText.textContent = ''; } target.aborter?.abort(); target.key.value = ''; target.reviewed = null; target.reviewText.hidden = true; }
             if (message) status.textContent = message;
             update();
         }
@@ -72,7 +75,7 @@
             const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
             const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 10; output.hidden = true; output.setAttribute('aria-label', `${t('Response', 'Model response')} ${index + 1}`);
             const message = el('p', 'prompt-help'); message.setAttribute('role', 'status'); message.setAttribute('aria-live', 'polite');
-            const target = { select, key, reviewText, output, message, heading, reviewed: null, response: null, running: false, attempted: false, saving: false, saved: false, permissionPending: false, command: null };
+            const target = { select, key, reviewText, output, message, heading, reviewed: null, response: null, running: false, attempted: false, saving: false, saved: false, permissionPending: false, command: null, retryReady: false, snapshot: null };
             target.allow = button('Allow', 'Allow this endpoint', async () => {
                 if (!checkSource() || target.allow.disabled || !target.reviewed) return;
                 const snapshot = target.reviewed, token = generation; target.permissionPending = true; update();
@@ -82,6 +85,24 @@
                 } catch (_) { if (active(token)) message.textContent = failure('PERMISSION'); }
                 finally { target.permissionPending = false; if (!closed) update(); }
             });
+            target.retryReview = button('RetryReview', 'Review retry for this failed target', () => {
+                if (trial || !checkSource() || target.retryReview.disabled || !target.snapshot) return;
+                target.key.value = ''; target.retryReady = false;
+                try {
+                    const { preset } = target.snapshot;
+                    const request = root.LocalItabAIModel.review({ url: preset.url, model: preset.model, prompt: preview.text });
+                    target.snapshot = { target, preset, request }; target.reviewed = request;
+                    target.reviewText.textContent = `${t('Endpoint', 'Full endpoint URL')}: ${request.url}\n${t('Model', 'Model ID')}: ${request.model}\n\n${request.prompt}`;
+                    target.reviewText.hidden = false; target.retryReady = true;
+                    target.message.textContent = t('RetryCost', 'Review this exact endpoint, model and prompt. Enter a fresh temporary key if needed. Send retry makes one additional request that may cost money, even if the earlier attempt was stopped. The other target is not sent again. Allowing access sends nothing.');
+                } catch (_) { invalidate(t('ProfileChanged', 'A selected connection changed or was deleted. Close and reopen to load it, then review again.'), true); }
+                update();
+            });
+            target.retrySend = button('RetrySend', 'Send reviewed retry (1 additional request)', () => {
+                if (trial || !checkSource() || target.retrySend.disabled || !target.snapshot) return;
+                execute([target.snapshot]);
+            });
+            target.retryReview.hidden = target.retrySend.hidden = Boolean(trial);
             target.stop = button('Stop', 'Stop this target', () => {
                 if (!target.running) return; target.aborter?.abort(); key.value = ''; message.textContent = failure('CANCELLED'); update();
             });
@@ -105,7 +126,7 @@
             });
             if (trial) { target.save.hidden = true; target.allow.hidden = index === 1; output.setAttribute('aria-label', index === 0 ? t('TrialOriginal', 'Original saved template answer') : t('TrialProposal', 'Unsaved proposal answer')); }
             select.addEventListener('change', () => { if (!select.disabled && checkSource()) invalidate(t('ReviewAgain', 'Connections changed. Review both targets again before sending.')); });
-            const buttons = el('div', 'prompt-actions'); buttons.append(target.allow, target.stop, target.save);
+            const buttons = el('div', 'prompt-actions'); buttons.append(target.allow, target.stop, target.save, target.retryReview, target.retrySend);
             panel.append(heading, selectLabel, keyLabel, reviewText, buttons, message, output); grid.append(panel); targets.push(target);
         }
         const review = button('Review', 'Review comparison requests', () => {
@@ -129,7 +150,7 @@
                 batch = reviewed;
                 if (trial) reviewedValues = JSON.stringify(variables.map(({ input }) => input.value));
                 for (const { target, request, preset } of reviewed) {
-                    target.reviewed = request;
+                    target.reviewed = request; target.snapshot = { target, request, preset };
                     target.heading.textContent = trial ? (targets.indexOf(target) === 0 ? t('TrialOriginal', 'Original saved template answer') : t('TrialProposal', 'Unsaved proposal answer')) : `${t('Target', 'Target')} ${targets.indexOf(target) + 1}: ${preset.name}`;
                     target.reviewText.textContent = `${t('Endpoint', 'Full endpoint URL')}: ${request.url}\n${t('Model', 'Model ID')}: ${request.model}\n\n${request.prompt}`;
                     target.reviewText.hidden = false;
@@ -138,9 +159,22 @@
             } catch (_) { batch = null; targets.forEach(target => { target.reviewed = null; target.reviewText.hidden = true; }); status.textContent = trial ? t('TrialInvalid', 'Enter every test value and use a proposal with exactly matching placeholders. Both requests must fit the request limit.') : t('Duplicate', 'Choose valid, distinct endpoint and model combinations. Duplicate targets are not sent.'); }
             update();
         });
-        const send = button('Send', 'Send reviewed comparison (up to 2 requests)', async () => {
+        const send = button('Send', 'Send reviewed comparison (up to 2 requests)', () => {
             if (!checkSource() || send.disabled || !batch) return;
-            sending = true; const token = generation, snapshots = batch.slice(); update();
+            execute(batch.slice());
+        });
+        // Abort settles the UI even if a transport/permission callback never completes.
+        // The losing promise remains observed and can never publish a late result.
+        function cancellable(promise, signal) {
+            return new Promise((resolve, reject) => {
+                const cancel = () => { signal.removeEventListener('abort', cancel); reject({ code: 'CANCELLED' }); };
+                signal.addEventListener('abort', cancel, { once: true });
+                Promise.resolve(promise).then(resolve, reject).finally(() => signal.removeEventListener('abort', cancel));
+                if (signal.aborted) cancel();
+            });
+        }
+        async function execute(snapshots) {
+            sending = true; const token = generation; update();
             // Re-read saved metadata immediately before sending. External edits require a new review.
             try {
                 const current = await presetStore.read();
@@ -152,14 +186,14 @@
                 if (trial) targets[0].key.value = '';
                 await Promise.all(snapshots.map(async ({ target, request }) => {
                     if (!active(token)) return;
-                    target.attempted = true; target.running = true; target.aborter = new AbortController(); const signal = target.aborter.signal;
+                    target.retryReady = false; target.attempted = true; target.running = true; target.aborter = new AbortController(); const signal = target.aborter.signal;
                     const secret = trial ? trialSecret : target.key.value; target.key.value = ''; update();
                     try {
-                        const permitted = await root.chrome.permissions.contains({ origins: [request.permission] });
+                        const permitted = await cancellable(root.chrome.permissions.contains({ origins: [request.permission] }), signal);
                         if (!active(token) || signal.aborted) return;
                         if (!permitted) throw { code: 'PERMISSION' };
                         target.message.textContent = t('Running', 'Waiting for this model…');
-                        const result = await root.LocalItabAIModel.run(request, { key: secret, signal });
+                        const result = await cancellable(root.LocalItabAIModel.run(request, { key: secret, signal }), signal);
                         if (!active(token) || signal.aborted) return;
                         target.response = result; target.output.value = result.text; target.output.hidden = false;
                         target.message.textContent = trial ? t('TrialReady', 'Temporary test answer. No score or automatic acceptance. Close the trial to decide whether to accept the proposal separately.') : t('Ready', 'Review this result. Save only if you want it in local collections and unencrypted backups.');
@@ -168,7 +202,7 @@
                 }));
             } catch (_) { if (active(token)) invalidate(t('LoadError', 'Saved connections could not be verified. No requests were started. Close and reopen to try again.'), true); }
             finally { sending = false; targets.forEach(target => { target.key.value = ''; }); if (!closed) update(); }
-        });
+        }
         function guard(event) { if (sending || saving() || targets.some(target => target.response && !target.saved)) { event.preventDefault(); event.returnValue = ''; } }
         function hide() { if (!closed) { trial?.onInterrupt?.(); invalidate(t('Interrupted', 'Comparison interrupted. Close and reopen before starting more work.'), true); } }
         function storageChanged(changes, area) {
@@ -180,7 +214,7 @@
             if (closed || saving()) return;
             if ((sending || targets.some(target => target.response && !target.saved)) && !root.confirm(t('Discard', 'Stop pending requests and discard unsaved comparison results?'))) return;
             closed = true; generation++;
-            targets.forEach(target => { target.aborter?.abort(); target.key.value = ''; target.response = target.reviewed = target.command = null; target.output.value = ''; if (trial) target.reviewText.textContent = ''; });
+            targets.forEach(target => { target.aborter?.abort(); target.key.value = ''; target.response = target.reviewed = target.command = target.snapshot = null; target.output.value = ''; if (trial) target.reviewText.textContent = ''; });
             batch = null; reviewedValues = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); root.chrome?.storage?.onChanged?.removeListener(storageChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.checkModelComparison = null; view.cancelModelDialog = null;

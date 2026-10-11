@@ -4486,5 +4486,8 @@
   },
   "cardLayoutShortcuts": {
     "message": "Shortcuts"
-  }
+  },
+  "promptsCompareRetryReview": {"message": "Review retry for this failed target"},
+  "promptsCompareRetrySend": {"message": "Send reviewed retry (1 additional request)"},
+  "promptsCompareRetryCost": {"message": "Review this exact endpoint, model and prompt. Enter a fresh temporary key if needed. Send retry makes one additional request that may cost money, even if the earlier attempt was stopped. The other target is not sent again. Allowing access sends nothing."}
 }
