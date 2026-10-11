@@ -236,3 +236,82 @@ test('Import text adds no network, storage keys or permissions and uses controll
     assert(!/fetch\(|XMLHttpRequest|chrome\.storage|localStorage|sessionStorage/.test(importCode));
     assert(importCode.includes('this.controller.setDraft(text)')); assert(importCode.includes('this.controller.save()'));
 });
+
+function appendImport(m, checked = true) {
+    m.view.importAppend.checked = checked; m.view.importAppend.dispatch('change');
+}
+for (const [before, after, expected] of [
+    ['saved', 'new', 'saved\nnew'], ['saved\r\n', 'new', 'saved\r\nnew'],
+    ['saved\r', 'new', 'saved\rnew'], ['saved', '\nnew', 'saved\nnew'],
+    ['', 'new', 'new'], ['saved', '', 'saved'], ['', '', ''],
+    [' \t中文 😀', '\uFEFF<script>literal</script>\r\n', ' \t中文 😀\n\uFEFF<script>literal</script>\r\n']
+]) test(`Append import previews and saves exact combined text: ${JSON.stringify([before, after])}`, async () => {
+    const m = await importModel(); m.controller.setDraft(before); await m.controller.save();
+    await importFile(m, after); const writes = m.writes;
+    appendImport(m); assert.equal(m.view.importPreview.textContent, expected);
+    assert.equal(m.view.importApply.textContent, 'Append to Scratchpad'); assert(!m.view.importApply.disabled);
+    assert.equal(m.writes, writes, 'preview must not write'); assert.equal(m.controller.draft, before);
+    assert.equal(m.view.importPreview.children.length, 0);
+    m.view.importApply.dispatch('click'); m.view.importApply.dispatch('click'); await m.flush();
+    assert.equal(m.raw.content, expected); assert.equal(m.document.activeElement, m.view.textarea);
+    m.view.destroy();
+});
+test('Append import: mode toggles update final preview; cancel resets mode without writes', async () => {
+    const m = await importModel(); m.controller.setDraft('saved'); await m.controller.save();
+    await importFile(m, 'new'); const writes = m.writes;
+    appendImport(m); assert.equal(m.view.importPreview.textContent, 'saved\nnew');
+    appendImport(m, false); assert.equal(m.view.importPreview.textContent, 'new');
+    assert.equal(m.view.importApply.textContent, 'Replace Scratchpad text');
+    appendImport(m); m.view.importCancel.dispatch('click'); assert.equal(m.writes, writes);
+    assert.equal(m.document.activeElement, m.view.importButton); await importFile(m, 'next');
+    assert.equal(m.view.importAppend.checked, false); assert.equal(m.view.importPreview.textContent, 'next'); m.view.destroy();
+});
+test('Append import: combined character budget includes separator and validates before mutation', async () => {
+    const m = await importModel(); const before = '😀'.repeat(31998);
+    m.controller.setDraft(before); await m.controller.save(); await importFile(m, 'x'); appendImport(m);
+    assert(!m.view.importApply.disabled); assert.match(m.view.importInfo.textContent, /32,000/);
+    await importFile(m, 'xx'); appendImport(m); const writes = m.writes;
+    assert(m.view.importApply.disabled); assert.match(m.view.importInfo.textContent, /combined text exceeds/);
+    assert.equal(m.view.importPreview.textContent, ''); m.view.applyImport(); await m.flush();
+    assert.equal(m.writes, writes); assert.equal(m.controller.draft, before); assert(!m.view.importPanel.hidden);
+    appendImport(m, false); assert(!m.view.importApply.disabled); assert.equal(m.view.importPreview.textContent, 'xx');
+    m.view.applyImport(); await m.flush(); assert.equal(m.raw.content, 'xx'); m.view.destroy();
+});
+for (const change of ['edit', 'IME', 'refresh', 'remote', 'hide', 'destroy']) {
+    test(`Append import: completed combined preview cannot apply after ${change}`, async () => {
+        const m = await importModel(); m.controller.setDraft('saved'); await m.controller.save();
+        await importFile(m, 'new'); appendImport(m);
+        if (change === 'edit') m.controller.setDraft('newer draft');
+        if (change === 'IME') { m.controller.setComposing(true); m.controller.setComposing(false); }
+        if (change === 'refresh') await m.controller.refresh();
+        if (change === 'remote') { await new m.api.Store(m.backend).mutate({kind:'content',value:'remote',revision:m.raw.revision}); await m.flush(); }
+        if (change === 'hide') { await m.controller.setEnabled(false); }
+        if (change === 'destroy') m.view.destroy();
+        m.view.applyImport(); await m.flush(); assert.notEqual(m.raw.content, 'saved\nnew');
+        assert(!m.view.importSession); m.view.destroy();
+    });
+}
+test('Append import: unseen concurrent write keeps combined draft in existing conflict recovery', async () => {
+    const m = await importModel(); m.controller.setDraft('saved'); await m.controller.save();
+    await importFile(m, 'new'); appendImport(m); m.controller.unsubscribe(); m.controller.unsubscribe = null;
+    await new m.api.Store(m.backend).mutate({kind:'content',value:'remote',revision:m.raw.revision});
+    m.view.applyImport(); await m.flush(); assert.equal(m.raw.content, 'remote');
+    assert.equal(m.controller.draft, 'saved\nnew'); assert(m.controller.conflict);
+    m.view.exportText(); assert.equal(await m.blobs[0].text(), 'saved\nnew'); m.view.destroy();
+});
+test('Append import: failed save retries the already combined draft without appending twice', async () => {
+    const m = await importModel(); m.controller.setDraft('saved'); await m.controller.save();
+    await importFile(m, 'new'); appendImport(m); m.writeFail(true); m.view.applyImport(); await m.flush();
+    assert.equal(m.controller.draft, 'saved\nnew'); assert.equal(m.raw.content, 'saved'); assert(!m.view.retry.hidden);
+    m.writeFail(false); await m.controller.retry(); await m.flush(); assert.equal(m.raw.content, 'saved\nnew');
+    assert.match(m.view.status.textContent, /Saved/); m.view.destroy();
+});
+test('Append import: a second file selection retires decoded text before its asynchronous read', async () => {
+    const m = await importModel(); m.controller.setDraft('saved'); await m.controller.save();
+    await importFile(m, 'first'); appendImport(m); const writes = m.writes;
+    let resolve; m.view.importFile.files = [{name:'second.txt',size:6,arrayBuffer:()=>new Promise(r=>resolve=r)}];
+    const pending = m.view.readImport(); assert(m.view.importApply.disabled); assert(m.view.importAppend.disabled);
+    m.view.applyImport(); assert.equal(m.writes, writes); assert.equal(m.controller.draft, 'saved');
+    resolve(new TextEncoder().encode('second').buffer); await pending;
+    assert.equal(m.writes, writes); assert(m.view.importPanel.hidden); m.view.destroy();
+});

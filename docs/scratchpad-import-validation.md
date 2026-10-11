@@ -2,7 +2,7 @@
 
 ## Scope
 
-One local UTF-8 TXT file; explicit preview and whole-note replacement only. No new schema, storage keys, permissions, network requests, file watchers or history. Existing Scratchpad Store/Controller remain unchanged. The file must be at most 128 KiB before reading; returned bytes are checked again, fatal UTF-8 decoding preserves a leading BOM, and existing content validation enforces 32,000 Unicode characters / 128 KiB. Import is disabled until the visible saved note is settled. Export remains available.
+One local UTF-8 TXT file; explicit preview and whole-note replacement, with an opt-in append mode added later (see [append validation](scratchpad-append-validation.md)). No new schema, storage keys, permissions, network requests, file watchers or history. Existing Scratchpad Store/Controller remain unchanged. The file must be at most 128 KiB before reading; returned bytes are checked again, fatal UTF-8 decoding preserves a leading BOM, and existing content validation enforces 32,000 Unicode characters / 128 KiB. Import is disabled until the visible saved note is settled. Export remains available.
 
 Chooser and async selection own a captured state reference plus edit generation. Editing (including edit then undo), IME, refreshed/changed state, errors, cancellation, a new chooser and destruction invalidate earlier work. Preview text and filename use textContent. Selection writes nothing. Apply hands original decoded text to the existing draft/save path, preserving line endings independently of textarea normalization. Store compare-and-swap handles unseen remote changes, and verified readback governs saved status. Failed imports after Apply retain an ordinary recoverable draft.
 

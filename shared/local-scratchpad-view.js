@@ -13,8 +13,10 @@
         scratchpadConflict: 'Another page changed the saved text. Your draft is still here. Use saved text to discard this draft, or replace saved text with this draft.',
         scratchpadRetry: 'Retry', scratchpadUseSaved: 'Use saved text', scratchpadReplace: 'Replace with my draft',
         scratchpadImport: 'Import text', scratchpadImportReplace: 'Replace Scratchpad text',
-        scratchpadImportCancel: 'Cancel', scratchpadImportPreview: 'Text to import',
-        scratchpadImportHelp: 'Preview only. Replace will overwrite the saved Scratchpad text. Export a copy first if you want to keep it.',
+        scratchpadImportAppend: 'Append to Scratchpad', scratchpadImportAppendMode: 'Keep saved text and append this file',
+        scratchpadImportAppendLimit: 'The combined text exceeds the Scratchpad limit. Export your saved text and shorten the file, or turn off append to preview replacement.',
+        scratchpadImportCancel: 'Cancel', scratchpadImportPreview: 'Resulting Scratchpad text',
+        scratchpadImportHelp: 'Preview of the resulting note. Append keeps saved text and adds a line break if needed. Replace overwrites it. Nothing changes until you confirm; export a copy first to keep a backup.',
         scratchpadImportReading: 'Reading local text file…',
         scratchpadImportError: 'Could not read this file. Choose one UTF-8 .txt file, up to 32,000 Unicode characters and 128 KiB. Scratchpad was not changed.',
         scratchpadExport: 'Export text', scratchpadDetails: 'Storage and backups',
@@ -61,10 +63,14 @@
             this.importPanel = el('section', 'scratchpad-import'); this.importPanel.hidden = true;
             this.importInfo = el('p', 'scratchpad-help'); this.importInfo.setAttribute('role', 'status');
             this.importPreview = el('pre', 'scratchpad-import-preview'); this.importPreview.tabIndex = 0; this.importPreview.setAttribute('aria-label', t('scratchpadImportPreview'));
+            this.importAppend = el('input'); this.importAppend.type = 'checkbox';
+            this.importAppend.addEventListener('change', () => this.renderImportPreview());
+            const appendLabel = el('label', 'scratchpad-enable-label scratchpad-help');
+            appendLabel.append(this.importAppend, el('span', '', t('scratchpadImportAppendMode')));
             this.importApply = button('scratchpadImportReplace', () => this.applyImport());
             this.importCancel = button('scratchpadImportCancel', () => this.cancelImport(true));
             const importControls = el('div', 'scratchpad-controls'); importControls.append(this.importApply, this.importCancel);
-            this.importPanel.append(this.importInfo, this.importPreview, el('p', 'scratchpad-help', t('scratchpadImportHelp')), importControls);
+            this.importPanel.append(appendLabel, this.importInfo, this.importPreview, el('p', 'scratchpad-help', t('scratchpadImportHelp')), importControls);
             this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
             const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.importButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
@@ -106,7 +112,7 @@
         }
         cancelImport(focus = false) {
             const focused = document.activeElement, restore = this.importPanel.contains(focused);
-            this.importSession = null; this.importPanel.hidden = true; this.importPreview.textContent = ''; this.importInfo.textContent = ''; this.importFile.value = '';
+            this.importSession = null; this.importApply.textContent = t('scratchpadImportReplace'); this.importAppend.checked = false; this.importAppend.disabled = true; this.importPanel.hidden = true; this.importPreview.textContent = ''; this.importInfo.textContent = ''; this.importFile.value = '';
             if (focus && this.canImport()) this.importButton.focus();
             else if (restore && !this.closed) {
                 if (this.controller.state?.enabled) this.textarea.focus();
@@ -126,8 +132,8 @@
             const files = Array.from(this.importFile.files || []);
             this.importFile.value = '';
             if (!files.length) { this.cancelImport(true); return; }
-            this.importSession = { ...session }; const owned = this.importSession;
-            this.importPanel.hidden = false; this.importApply.disabled = true;
+            this.importSession = { state: session.state, generation: session.generation }; const owned = this.importSession;
+            this.importPanel.hidden = false; this.importApply.disabled = true; this.importAppend.disabled = true;
             this.importPreview.textContent = ''; this.importInfo.textContent = t('scratchpadImportReading');
             this.importCancel.focus();
             try {
@@ -138,17 +144,37 @@
                 if (bytes.byteLength > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
                 // Preserve a literal leading BOM as text, like our own UTF-8 export.
                 const text = api.content(new root.TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes));
-                owned.text = text;
-                this.importInfo.textContent = `${file.name} · ${Array.from(text).length.toLocaleString()} / 32,000 · ${bytes.byteLength.toLocaleString()} B`;
-                this.importPreview.textContent = text; this.importApply.disabled = false;
+                owned.text = text; owned.name = file.name;
+                this.importAppend.disabled = false; this.renderImportPreview();
             } catch (_) {
                 if (this.importCurrent(owned)) this.importInfo.textContent = t('scratchpadImportError');
+            }
+        }
+        importResult(session) {
+            const before = session.state.content, after = session.text;
+            // Preserve both inputs exactly; separate adjacent non-empty lines only.
+            const separator = before && after && !/[\r\n]$/.test(before) && !/^[\r\n]/.test(after) ? '\n' : '';
+            return api.content(this.importAppend.checked ? before + separator + after : after);
+        }
+        renderImportPreview() {
+            const session = this.importSession;
+            if (!session || !this.importCurrent(session) || typeof session.text !== 'string') return;
+            this.importApply.textContent = t(this.importAppend.checked ? 'scratchpadImportAppend' : 'scratchpadImportReplace');
+            try {
+                const text = this.importResult(session);
+                this.importInfo.textContent = `${session.name} · ${Array.from(text).length.toLocaleString()} / 32,000 · ${new root.Blob([text]).size.toLocaleString()} B`;
+                this.importPreview.textContent = text; this.importApply.disabled = false;
+            } catch (_) {
+                this.importPreview.textContent = ''; this.importApply.disabled = true;
+                this.importInfo.textContent = t('scratchpadImportAppendLimit');
             }
         }
         applyImport() {
             const session = this.importSession;
             if (!session || !this.importCurrent(session) || typeof session.text !== 'string') { this.cancelImport(); return; }
-            const text = session.text; this.cancelImport();
+            let text;
+            try { text = this.importResult(session); } catch (_) { this.renderImportPreview(); return; }
+            this.cancelImport();
             // The controller owns the draft from here: existing CAS, Retry, conflict
             // recovery, export and verified-save status apply without new storage.
             this.controller.setDraft(text); this.textarea.focus();

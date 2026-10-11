@@ -278,10 +278,10 @@
     "message": "取消"
   },
   "scratchpadImportPreview": {
-    "message": "待导入文本"
+    "message": "导入后的便笺内容"
   },
   "scratchpadImportHelp": {
-    "message": "仅供预览。替换将覆盖已保存的便笺文本。如需保留，请先导出副本。"
+    "message": "预览最终便笺内容。追加会保留已保存文本，必要时补一个换行；替换会覆盖原文。确认前不会修改内容，请先导出副本以保留备份。"
   },
   "scratchpadImportReading": {
     "message": "正在读取本地文本文件…"
@@ -3751,5 +3751,14 @@
   },
   "finderCategoryHint": {
     "message": "数量为文字筛选前已保存的网站数。选择分类后，无需输入即可浏览。"
+  },
+  "scratchpadImportAppendLimit": {
+    "message": "合并后的文本超过便笺限制。请导出已保存内容并缩短文件，或关闭追加以预览替换。"
+  },
+  "scratchpadImportAppendMode": {
+    "message": "保留已保存内容并追加此文件"
+  },
+  "scratchpadImportAppend": {
+    "message": "追加到便笺"
   }
 }

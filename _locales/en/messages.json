@@ -278,10 +278,10 @@
     "message": "Cancel"
   },
   "scratchpadImportPreview": {
-    "message": "Text to import"
+    "message": "Resulting Scratchpad text"
   },
   "scratchpadImportHelp": {
-    "message": "Preview only. Replace will overwrite the saved Scratchpad text. Export a copy first if you want to keep it."
+    "message": "Preview of the resulting note. Append keeps saved text and adds a line break if needed. Replace overwrites it. Nothing changes until you confirm; export a copy first to keep a backup."
   },
   "scratchpadImportReading": {
     "message": "Reading local text file…"
@@ -3751,5 +3751,14 @@
   },
   "finderCategoryHint": {
     "message": "Counts show saved sites before text filtering. Choose a category to browse without typing."
+  },
+  "scratchpadImportAppendLimit": {
+    "message": "The combined text exceeds the Scratchpad limit. Export your saved text and shorten the file, or turn off append to preview replacement."
+  },
+  "scratchpadImportAppendMode": {
+    "message": "Keep saved text and append this file"
+  },
+  "scratchpadImportAppend": {
+    "message": "Append to Scratchpad"
   }
 }
