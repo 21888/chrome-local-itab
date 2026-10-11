@@ -428,3 +428,101 @@ test('keyboard recovery write failure keeps Cancel and retry restores without dr
     assert.equal(h.b.raw().recovery.length, 1); assert.deepEqual(h.b.raw().recovery[0].content.records, before.records);
     assert.ok(h.b.raw().receipts.includes(retry)); h.view.destroy();
 });
+
+for (const route of ['Enter', 'Add', 'submit', 'direct']) {
+    test(`DOM model: quick-entry composition guards ${route} until compositionend`, async () => {
+        const h = model(); await settle(); h.view.input.focus();
+        h.view.input.dispatch('compositionstart'); setInput(h.view.input, '中文草稿');
+        const invoke = () => route === 'Enter' ? h.view.input.dispatch('keydown', { key: 'Enter' }) :
+            route === 'Add' ? h.view.addButton.dispatch('click') : route === 'submit' ? h.view.form.dispatch('submit') : h.view.add();
+        const event = invoke(); await settle();
+        if (route === 'Enter') assert.equal(event.prevented, false, 'native candidate confirmation stays available');
+        assert.equal(h.b.raw(), undefined); assert.equal(h.controller.pending, null);
+        assert.equal(h.view.input.value, '中文草稿'); assert.equal(h.view.hasUncommittedWork(), true);
+        assert.equal(h.view.addButton.disabled, true);
+        h.view.input.dispatch('compositionend'); setInput(h.view.input, '中文任务');
+        invoke(); invoke(); await settle();
+        assert.equal(h.controller.state.records.length, 1); assert.equal(h.controller.state.records[0].text, '中文任务');
+        assert.equal(h.view.input.value, ''); assert.equal(h.view.hasUncommittedWork(), false); h.view.destroy();
+    });
+}
+
+test('DOM model: quick-entry fallback flags, Shift and repeat preserve draft after composition', async () => {
+    const h = model(); await settle(); setInput(h.view.input, 'draft');
+    for (const fields of [{ isComposing: true }, { keyCode: 229 }, { shiftKey: true }, { repeat: true }]) {
+        h.view.input.dispatch('keydown', { key: 'Enter', ...fields }); await settle();
+        assert.equal(h.controller.state.records.length, 0); assert.equal(h.view.input.value, 'draft');
+    }
+    h.view.input.dispatch('keydown', { key: 'Enter' }); await settle();
+    assert.equal(h.controller.state.records.length, 1); h.view.destroy();
+});
+
+test('DOM model: quick-entry blur waits for final IME input and cancellation releases an empty draft', async () => {
+    const callbacks = [], h = model({ setTimeout: fn => callbacks.push(fn) }); await settle();
+    h.view.input.dispatch('compositionstart'); setInput(h.view.input, '拼');
+    h.view.input.dispatch('focusout'); h.view.addButton.dispatch('click');
+    assert.equal(h.b.raw(), undefined); assert.equal(h.view.hasUncommittedWork(), true);
+    setInput(h.view.input, '拼音'); h.view.input.dispatch('compositionend');
+    while (callbacks.length) callbacks.shift()(); assert.equal(h.view.input.value, '拼音');
+    h.view.add(); await settle(); assert.equal(h.controller.state.records[0].text, '拼音');
+    h.view.input.dispatch('compositionstart'); h.view.input.dispatch('focusout');
+    assert.equal(h.view.hasUncommittedWork(), true); callbacks.shift()();
+    assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.view.addButton.disabled, false);
+    h.view.input.dispatch('compositionstart'); h.view.input.dispatch('focusout');
+    h.view.input.dispatch('compositionstart'); callbacks.shift()();
+    assert.equal(h.view.hasUncommittedWork(), true, 'old blur cannot release a newer composition');
+    h.view.input.dispatch('compositionend'); while (callbacks.length) callbacks.shift()(); assert.equal(h.view.hasUncommittedWork(), false);
+    h.view.input.dispatch('compositionstart'); h.view.input.dispatch('focusout'); h.view.destroy(); callbacks.shift()();
+    assert.equal(h.view.hasUncommittedWork(), false); h.view.add();
+    assert.equal(h.controller.state.records.length, 1, 'destroyed view cannot add');
+});
+
+test('DOM model: a new composition protects same-text draft from an older pending add', async () => {
+    const h = model(); await settle(); setInput(h.view.input, '任务');
+    const wait = deferred(); h.b.delay = wait.promise; h.view.add();
+    h.view.input.dispatch('compositionstart'); wait.resolve(); await settle();
+    assert.equal(h.view.input.value, '任务'); assert.equal(h.view.hasUncommittedWork(), true);
+    h.view.input.dispatch('compositionend'); setInput(h.view.input, '更新任务'); h.b.delay = null;
+    h.view.add(); await settle(); assert.equal(h.controller.state.records.length, 2);
+    assert.equal(h.controller.state.records[1].text, '更新任务'); h.view.destroy();
+});
+
+test('DOM model: remote hide cannot hide empty active quick-entry composition', async () => {
+    const callbacks = [], h = model({ alwaysVisible: false, setTimeout: fn => callbacks.push(fn) }); await settle(); await h.controller.action('enable', { enabled: true });
+    h.view.input.focus(); h.view.input.dispatch('compositionstart');
+    await h.controller.action('enable', { enabled: false }); await settle();
+    assert.equal(h.host.hidden, false); assert.equal(h.view.hasUncommittedWork(), true);
+    h.view.input.dispatch('compositionend'); assert.equal(h.host.hidden, false, 'wait for final input');
+    setInput(h.view.input, '最终任务'); while (callbacks.length) callbacks.shift()();
+    assert.equal(h.host.hidden, false); assert.equal(h.view.hasUncommittedWork(), true);
+    h.view.add(); await settle(); assert.equal(h.host.hidden, true); h.view.destroy();
+});
+
+test('DOM model: quick-entry refocus retains composition; later blur cancels and Add remains usable', async () => {
+    const callbacks = [], h = model({ setTimeout: fn => callbacks.push(fn) }); await settle();
+    h.view.input.focus(); h.view.input.dispatch('compositionstart'); setInput(h.view.input, '草稿');
+    h.search.focus(); h.view.input.dispatch('focusout'); h.view.input.focus(); callbacks.shift()();
+    h.view.add(); assert.equal(h.b.raw(), undefined, 'refocused active composition is not released');
+    h.search.focus(); h.view.input.dispatch('focusout'); callbacks.shift()();
+    h.view.input.focus(); h.view.addButton.dispatch('click'); await settle();
+    assert.equal(h.controller.state.records[0].text, '草稿'); assert.equal(h.view.input.value, '');
+    h.view.input.dispatch('compositionstart'); h.search.focus(); h.view.input.dispatch('focusout'); callbacks.shift()();
+    h.view.input.value = '迟来的输入'; h.view.input.dispatch('input', { isComposing: true });
+    h.view.add(); assert.equal(h.controller.state.records.length, 1);
+    h.view.input.dispatch('compositionend'); h.view.add(); await settle();
+    while (callbacks.length) callbacks.shift()();
+    assert.equal(h.controller.state.records.length, 2, 'deliberate post-composition Add works without waiting');
+    assert.equal(h.view.input.value, ''); h.view.destroy();
+});
+
+test('DOM model: flagged final input after blur retains a fenced omitted-end cancellation fallback', async () => {
+    const callbacks = [], h = model({ setTimeout: fn => callbacks.push(fn) }); await settle();
+    h.view.input.focus(); h.view.input.dispatch('compositionstart');
+    h.search.focus(); h.view.input.dispatch('focusout');
+    h.view.input.value = '最终草稿'; h.view.input.dispatch('input', { isComposing: true });
+    h.view.add(); assert.equal(h.b.raw(), undefined, 'same-turn add stays guarded');
+    while (callbacks.length) callbacks.shift()();
+    h.view.input.dispatch('input', { isComposing: false }); h.view.input.focus(); h.view.add(); await settle();
+    assert.equal(h.controller.state.records.length, 1); assert.equal(h.controller.state.records[0].text, '最终草稿');
+    assert.equal(h.view.hasUncommittedWork(), false); h.view.destroy();
+});

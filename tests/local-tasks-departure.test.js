@@ -110,3 +110,17 @@ test('departure: existing settings guards stay intact and unrelated reload guard
     }
     h.destroy(); delete h.window.localTasksView; h.guarded(false, 'page without Tasks');
 });
+
+test('departure: quick-entry composition blocks autosave and guards even before text arrives', async () => {
+    const h = harness(); await settle();
+    h.view.input.dispatch('compositionstart'); h.guarded(true, 'empty active composition');
+    assert.equal(await h.window.LocalItabContentLifecycle.saveDrafts(), false);
+    assert.equal(h.controller.state.records.length, 0);
+    input(h.view.input, '未确认'); h.guarded(true, 'composition draft');
+    assert.equal(await h.window.LocalItabContentLifecycle.saveDrafts(), false);
+    assert.equal(h.controller.state.records.length, 0); assert.equal(h.view.input.value, '未确认');
+    h.view.input.dispatch('compositionend'); input(h.view.input, '确认任务');
+    assert.equal(await h.window.LocalItabContentLifecycle.saveDrafts(), true);
+    assert.equal(h.controller.state.records.length, 1); assert.equal(h.controller.state.records[0].text, '确认任务');
+    h.guarded(false, 'confirmed draft saved'); h.destroy();
+});

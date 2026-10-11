@@ -78,9 +78,37 @@
             this.filterStatus.setAttribute('aria-live', 'polite');
             this.form = el('form', 'tasks-add'); this.input = el('textarea'); this.input.rows = 1;
             this.input.setAttribute('aria-label', t('tasksAddLabel')); this.input.placeholder = t('tasksPlaceholder');
-            this.input.addEventListener('input', () => { this.draftGeneration++; this.render(); });
+            this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.quickEntryCompositionEpoch = 0;
+            this.input.addEventListener('compositionstart', () => {
+                if (this.destroyed) return;
+                this.quickEntryCompositionEpoch++; this.quickEntryComposing = true; this.quickEntryCompositionSettling = false;
+                // Even an empty/new composition owns the draft while an older add settles.
+                this.draftGeneration++; this.render();
+            });
+            this.input.addEventListener('compositionend', () => {
+                if (this.destroyed) return;
+                const epoch = ++this.quickEntryCompositionEpoch;
+                this.quickEntryComposing = false; this.quickEntryCompositionSettling = true;
+                // Keep an empty field visible through a following final input event.
+                // A cancelled composition need not send input, so release next turn.
+                setTimeout(() => {
+                    if (this.destroyed || epoch !== this.quickEntryCompositionEpoch) return;
+                    this.quickEntryCompositionSettling = false; this.render();
+                }, 0);
+                this.render();
+            });
+            this.input.addEventListener('focusout', () => this.deferQuickEntryBlur());
+            this.input.addEventListener('input', event => {
+                if (this.destroyed) return;
+                this.draftGeneration++;
+                if (event.isComposing) {
+                    this.quickEntryCompositionEpoch++; this.quickEntryComposing = true;
+                    if (document.activeElement !== this.input) this.deferQuickEntryBlur();
+                }
+                this.quickEntryCompositionSettling = false; this.render();
+            });
             this.input.addEventListener('keydown', event => {
-                if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+                if (event.key === 'Enter' && !event.shiftKey && !this.quickEntryComposing && !event.isComposing && event.keyCode !== 229) {
                     event.preventDefault(); if (!event.repeat) this.add();
                 }
             });
@@ -108,11 +136,21 @@
             host.replaceChildren(header, this.next, this.form, batchRow, this.filter, this.filterStatus, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
+        deferQuickEntryBlur() {
+            if (!this.quickEntryComposing || this.destroyed) return;
+            const epoch = this.quickEntryCompositionEpoch;
+            // Blur may precede final IME input. Keep the guard this event turn,
+            // then recover an inactive field if cancellation omitted compositionend.
+            setTimeout(() => {
+                if (this.destroyed || epoch !== this.quickEntryCompositionEpoch || document.activeElement === this.input) return;
+                this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.render();
+            }, 0);
+        }
         applyFilter() {
             this.filterQuery = this.filterInput.value.trim().toLowerCase();
             this.render();
         }
-        hasUncommittedWork() { return this.input.value.length > 0 || this.dialogs.size > 0 || this.pendingReview || !!this.controller.pending; }
+        hasUncommittedWork() { return !this.destroyed && (this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || this.dialogs.size > 0 || this.pendingReview || !!this.controller.pending); }
         createDialog(title, onClose) {
             if (this.destroyed || this.dialogs.size) return null;
             this.reviewGeneration++; this.pendingReview = false;
@@ -155,11 +193,12 @@
             try { await this.controller.retry(); if (!this.destroyed) this.render(); } catch (_) {}
         }
         add() {
+            if (this.destroyed || this.quickEntryComposing || this.controller.pending) return;
             const text = this.input.value, generation = this.draftGeneration;
             const command = this.controller.store.request('add', { text });
             this.perform(command, () => {
                 // A late success must not clear newer text or focus another element.
-                if (this.draftGeneration === generation && this.input.value === text) this.input.value = '';
+                if (!this.quickEntryComposing && this.draftGeneration === generation && this.input.value === text) this.input.value = '';
             });
         }
         addBatch() {
@@ -388,10 +427,10 @@
                 this.controller.retryCommand.operationId === this.retryEffectOperationId;
             const ownsPendingBatch = busy && this.controller.retryCommand?.kind === 'addBatch' &&
                 this.controller.retryCommand.operationId === this.batchOperationId;
-            const visible = this.alwaysVisible || state?.enabled === true || showReadError || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
+            const visible = this.alwaysVisible || state?.enabled === true || showReadError || this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
             this.host.hidden = !visible;
             this.onVisibility(visible);
-            this.addButton.disabled = busy || !state; this.batchButton.disabled = busy || !state;
+            this.addButton.disabled = busy || !state || this.quickEntryComposing; this.batchButton.disabled = busy || !state;
             const focused = this.host.contains(document.activeElement) ? document.activeElement : null;
             const taskId = focused?.closest('[data-task-id]')?.dataset.taskId, action = focused?.dataset.taskAction;
             this.filterInput.disabled = !state; this.filterClear.hidden = !this.filterInput.value;
@@ -580,7 +619,7 @@
             modal.panel.append(el('p', 'tasks-help', t('tasksReviewHelp')), el('p', '', `${t('tasksCurrent')}: ${summarize(review.current)}`),
                 el('p', '', `${t('tasksIncoming')}: ${summarize(review.incoming)}`), feedback, actions); modal.open(cancel);
         }
-        destroy() { this.destroyed = true; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
+        destroy() { this.destroyed = true; this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
     }
     function mount(host, options) {
         if (host.localTasksView) return host.localTasksView;
