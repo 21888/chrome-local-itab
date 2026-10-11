@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "sourceIntegrity": {
+    "status": "passed",
+    "filesChecked": 82
+  },
+  "download": {
+    "name": "local-itab-complete-2026-10-10 (16).json",
+    "bytes": 3649,
+    "sha256": "e1e3880f4af61f6342e58aa57b6161344fb29b2f1ba19c3365d15f99227208bc"
+  },
+  "checks": {
+    "exactOlderPromptAndBodyVersionIDs": true,
+    "threeExactPromptBodiesRetained": true,
+    "newerCurrentBodyDoesNotRebind": true,
+    "renamedArchivedPromptRetained": true,
+    "collectionBodyAndSingleHistoryUnchanged": true,
+    "unappliedSelectionAndDiscardDoNotWrite": true
+  },
+  "promptId": "07f5df28-d9b7-46c5-a8d7-f8e3fe826e89",
+  "linkedBodyVersionId": "ecb950da-d779-4a1d-98fa-84b287f64d42",
+  "currentBodyVersionId": "7f777367-20d6-4ea4-8c90-98b851bfa5f1",
+  "collectionId": "3cf1f5d7-6721-4f51-8449-81045046ff0f"
+}

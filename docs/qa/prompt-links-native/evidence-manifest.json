@@ -1,0 +1,70 @@
+{
+  "acceptance-notes.md": {
+    "bytes": 5716,
+    "sha256": "250e4b6da8a3df814a335039c4c4be366c7aa01ed67dc502f728652951666e46"
+  },
+  "verify.cjs": {
+    "bytes": 3031,
+    "sha256": "e7958fd0c99d2f0deab0a877e7dd0ef8ee658465420114e10c5bdcba70299188"
+  },
+  "comparison.json": {
+    "bytes": 897,
+    "sha256": "55e2f7a909fc1c12c359d3b65dbecc0e2e6ebe22cdea5b8628883c6e8e240c20"
+  },
+  "verifier-output.txt": {
+    "bytes": 897,
+    "sha256": "55e2f7a909fc1c12c359d3b65dbecc0e2e6ebe22cdea5b8628883c6e8e240c20"
+  },
+  "run.sh": {
+    "bytes": 455,
+    "sha256": "7fd3e22dbd752e9bd1a7f80ef24a54e9b7d24f9b4f0d62c2475c0e94da5156f4"
+  },
+  "source-hashes.json": {
+    "bytes": 8173,
+    "sha256": "b41a786a4ca785daf5149dc3471a4f10583d5aa122bd1ca2015c7d257a797766"
+  },
+  "source-integrity.json": {
+    "bytes": 816,
+    "sha256": "ba5242d63a4a37662ac700519d49c4498658f917f9fe51b32be7817575efa2e4"
+  },
+  "historical-comparison-with-runtime.json": {
+    "bytes": 771,
+    "sha256": "b8fbe2e3e827bed57ad7830e8dea857e58df2367abd102007d4ded4f6b4be8d1"
+  },
+  "evidence/01-older-version-before-apply.jpg": {
+    "bytes": 130039,
+    "sha256": "fa9473b105f36050c7510b2cf22d1411b9c85e917f2d73bad2165a6023bff268"
+  },
+  "evidence/02-discard-kept-no-link.jpg": {
+    "bytes": 125598,
+    "sha256": "96c2ac96b030f26fb8e7765d2933f485788485faa394b5b72d5a41eea5918c07"
+  },
+  "evidence/03-reloaded-exact-v1.jpg": {
+    "bytes": 128024,
+    "sha256": "6ac3c0199a610afb366d49c1224bfe747f7f5522f65499ed14f626c0c2278e07"
+  },
+  "evidence/04-renamed-v3-still-linked-v1.jpg": {
+    "bytes": 129362,
+    "sha256": "10f492ba322345ad84b64d36a1ec0b39f9069f90b2f0e3df89a60c508c147898"
+  },
+  "evidence/05-archived-exact-body.jpg": {
+    "bytes": 129490,
+    "sha256": "15882399308cb2f9d85aa48da2374b22d541377bcdb4c6d3c5479bc985c11739"
+  },
+  "evidence/06-unlink-discard-restores-exact-link.jpg": {
+    "bytes": 129887,
+    "sha256": "69a7ab175d05b77d068c7694e9e69618949146700355bfdadaebb5472d064d96"
+  },
+  "evidence/07-narrow-125-picker-keyboard.jpg": {
+    "bytes": 134703,
+    "sha256": "ca294c143130ca3419077e3c9a6fd3474c294c6626182c3ec74e3aae4148dc73"
+  },
+  "evidence/08-complete-download.jpg": {
+    "bytes": 98836,
+    "sha256": "8603fd62c66fd34eb876589b866545d48cb8dc5cf77a8ed2fd40374986ec0528"
+  },
+  "exports/local-itab-complete-2026-10-10 (16).json": {
+    "bytes": 3649,
+    "sha256": "e1e3880f4af61f6342e58aa57b6161344fb29b2f1ba19c3365d15f99227208bc"
+  }
+}

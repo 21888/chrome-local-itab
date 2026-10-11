@@ -3322,5 +3322,22 @@
   },
   "completeBackupCollectionConflicts": {
     "message": "Matching collection IDs whose saved content differs"
-  }
+  },
+"collectionsPromptLinkHeading": {"message": "Exact prompt link"},
+"collectionsPromptLinkHelp": {"message": "Choose a local prompt and an immutable body version. Apply changes only the draft; Save locally keeps the link. Links never follow the latest version."},
+"collectionsPromptPickerLabel": {"message": "Local prompt"},
+"collectionsPromptVersionLabel": {"message": "Exact body version"},
+"collectionsPromptApplyLink": {"message": "Apply link to draft"},
+"collectionsPromptUnlink": {"message": "Unlink in draft"},
+"collectionsPromptRefresh": {"message": "Refresh local prompts"},
+"collectionsPromptUnlinked": {"message": "No prompt linked."},
+"collectionsPromptLoading": {"message": "Reading local prompts…"},
+"collectionsPromptReadError": {"message": "Local prompts could not be read. Any existing exact link is kept. Refresh to retry."},
+"collectionsPromptMissing": {"message": "This exact prompt version is missing locally. Its IDs are kept; no substitute is used."},
+"collectionsPromptResolved": {"message": "Exact linked prompt version"},
+"collectionsPromptRecovery": {"message": "Recovery snapshot"},
+"collectionsPromptChoose": {"message": "Choose a prompt"},
+"collectionsPromptChooseVersion": {"message": "Choose a version"},
+"collectionsPromptPreview": {"message": "Selected prompt version preview"},
+"collectionsPromptEmpty": {"message": "No local prompt versions are available."}
 }

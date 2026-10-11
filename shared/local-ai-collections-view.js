@@ -7,7 +7,7 @@
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false;
-            controller.onChange = kind => kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render();
+            controller.onChange = kind => kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render();
             this.build();
         }
         el(tag, className = '', text) { const node = this.doc.createElement(tag); node.className = className; if (text !== undefined) node.textContent = text; return node; }
@@ -74,7 +74,7 @@
             if (c.error) { this.status.append(this.el('span', '', this.errorText(c.error.code)), this.button('Refresh', 'Refresh saved data', () => c.refresh())); if (c.pendingCommand) this.status.append(this.button('Retry', 'Check / retry the same save', () => c.retry())); }
             else if (c.busy) this.status.textContent = this.t('Saving', 'Saving locally…'); else if (c.notice) this.status.textContent = this.t('Saved', 'Saved locally.');
             const focused = this.doc.activeElement?.getAttribute?.('data-collection-field');
-            this.main.replaceChildren(); this.editor = null;
+            this.main.replaceChildren(); this.editor = null; this.promptPanel = null;
             if (!c.state) { this.main.append(this.el('h2', '', this.t(c.error ? 'Unavailable' : 'Loading', c.error ? 'The library could not be read' : 'Loading your collection…'))); return; }
             const draft = c.draft(), record = c.record();
             if (draft) this.renderEditor(draft); else if (record) this.renderDetail(record); else {
@@ -93,20 +93,84 @@
             this.main.append(this.paragraph('DraftScope', 'Drafts stay in this tab until you save. Switching items keeps them; closing this page does not.'));
             if (draft.conflict) { const box = this.el('div', 'prompt-conflict'); box.append(this.paragraph('ConflictError', 'Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item.'), this.button('SaveCopy', 'Save draft as new item', () => this.save(true))); const latest = c.record(); if (latest) box.append(this.el('pre', 'prompt-readonly', `${latest.title}\n\n${latest.body}\n\n${latest.notes}`)); this.main.append(box); }
             this.editor = { fields: {} };
-            for (const [name, label, multiline] of [['title', 'Title'], ['body', 'Exact excerpt', true], ['notes', 'Your annotations', true], ['tagsText', 'Tags (comma-separated)'], ['tool', 'Tool / model label'], ['sourceUrl', 'Source URL (optional)'], ['promptId', 'Exact prompt ID (optional)'], ['bodyVersionId', 'Exact prompt body-version ID']]) {
+            for (const [name, label, multiline] of [['title', 'Title'], ['body', 'Exact excerpt', true], ['notes', 'Your annotations', true], ['tagsText', 'Tags (comma-separated)'], ['tool', 'Tool / model label'], ['sourceUrl', 'Source URL (optional)']]) {
                 const input = this.field(form, name, label, draft.input[name], value => c.update(name, value), multiline); this.editor.fields[name] = input;
                 if (name === 'body') { input.className = 'prompt-body-editor'; input.readOnly = Boolean(draft.id); if (draft.id) form.append(this.paragraph('BodySeparate', 'Saved excerpts are read-only here. Use “Revise excerpt” to review an explicit new body version.')); }
                 if (name === 'sourceUrl') { input.type = 'url'; form.append(this.paragraph('SourceHelp', 'User-provided attribution only. This page never fetches the link; the original account or permission may be needed.')); }
-                if (name === 'bodyVersionId') form.append(this.paragraph('ReferenceHelp', 'References retain both exact IDs and remain unresolved here. They never follow the latest prompt automatically. Leave both blank to unlink.'));
             }
             const label = this.el('label', 'prompt-field'), type = this.el('select'); label.append(this.el('span', '', this.t('type', 'Type')), type);
             for (const name of ['answer', 'code', 'plan', 'other']) { const option = this.el('option', '', this.t(name, name)); option.value = name; type.append(option); } type.value = draft.input.type; type.addEventListener('change', () => c.update('type', type.value)); form.append(label); this.editor.fields.type = type;
+            this.buildPromptPanel(form, true);
             const actions = this.el('div', 'prompt-actions prompt-form-actions'); this.editor.save = this.button('Save', 'Save locally', () => this.save(), 'prompt-primary'); actions.append(this.editor.save, this.button('Discard', 'Discard draft', () => this.discard())); form.append(actions); form.addEventListener('submit', event => { event.preventDefault(); void this.save(); }); this.main.append(form); this.updateEditor();
         }
         updateEditor() {
             const c = this.controller, draft = c.draft(); if (!this.editor || !draft) return;
             this.editor.save.disabled = c.busy || Boolean(c.pendingCommand) || draft.conflict || !draft.input.title.trim() || !draft.input.body.length;
             for (const input of Object.values(this.editor.fields)) input.disabled = c.busy || Boolean(c.pendingCommand);
+            this.updatePromptPanel();
+        }
+        buildPromptPanel(parent, editable) {
+            const c = this.controller, box = this.el('section', 'prompt-section collection-prompt-link');
+            box.append(this.el('h3', '', this.t('PromptLinkHeading', 'Exact prompt link')),
+                this.paragraph('PromptLinkHelp', 'Choose a local prompt and an immutable body version. Apply changes only the draft; Save locally keeps the link. Links never follow the latest version.'));
+            const linked = this.el('div'), sourceStatus = this.el('p', 'prompt-help'); sourceStatus.setAttribute('role', 'status'); box.append(sourceStatus, linked);
+            this.promptPanel = { box, linked, sourceStatus, editable };
+            if (editable) {
+                for (const [name, key, fallback] of [['prompt', 'PromptPickerLabel', 'Local prompt'], ['version', 'PromptVersionLabel', 'Exact body version']]) {
+                    const label = this.el('label', 'prompt-field'), select = this.el('select');
+                    label.append(this.el('span', '', this.t(key, fallback)), select); box.append(label); this.promptPanel[name] = select;
+                }
+                const panel = this.promptPanel;
+                panel.prompt.addEventListener('change', () => c.choosePrompt(panel.prompt.value));
+                panel.version.addEventListener('change', () => c.choosePrompt(panel.prompt.value, panel.version.value));
+                panel.preview = this.el('div'); box.append(panel.preview);
+                panel.apply = this.button('PromptApplyLink', 'Apply link to draft', () => c.applyPrompt());
+                panel.unlink = this.button('PromptUnlink', 'Unlink in draft', () => c.unlinkPrompt());
+                box.append(panel.apply, panel.unlink);
+            }
+            box.append(this.button('PromptRefresh', 'Refresh local prompts', () => c.refreshPrompts()));
+            parent.append(box); this.updatePromptPanel();
+        }
+        promptResult(target, reference, preview = false) {
+            target.replaceChildren(); const result = this.controller.promptResolution(reference);
+            const messages = {
+                unlinked: ['PromptUnlinked', 'No prompt linked.'], loading: ['PromptLoading', 'Reading local prompts…'],
+                unavailable: ['PromptReadError', 'Local prompts could not be read. Any existing exact link is kept. Refresh to retry.'],
+                unresolved: ['PromptMissing', 'This exact prompt version is missing locally. Its IDs are kept; no substitute is used.'],
+                resolved: ['PromptResolved', 'Exact linked prompt version']
+            };
+            const [key, fallback] = preview && result.status === 'resolved' ? ['PromptPreview', 'Selected prompt version preview'] : messages[result.status]; target.append(this.paragraph(key, fallback));
+            if (reference) target.append(this.el('pre', 'prompt-help collection-url', `${reference.promptId}\n${reference.bodyVersionId}`));
+            if (result.version) {
+                const provenance = result.provenance;
+                target.append(this.el('p', 'prompt-help', [provenance?.title, provenance?.archived ? this.t('Archived', 'Archived') : '', provenance?.recoveryId ? `${this.t('PromptRecovery', 'Recovery snapshot')} · ${provenance.recoveryId}` : ''].filter(Boolean).join(' · ')), this.el('pre', 'prompt-readonly', result.version.body));
+            }
+            return result;
+        }
+        updatePromptPanel() {
+            const p = this.promptPanel, c = this.controller; if (!p) return;
+            const input = c.draft()?.input, ref = input ? (input.promptId || input.bodyVersionId ? { promptId: input.promptId, bodyVersionId: input.bodyVersionId } : null) : c.record()?.promptRef;
+            p.sourceStatus.textContent = c.promptLoading ? this.t('PromptLoading', 'Reading local prompts…') : c.promptError || !c.promptState ? this.t('PromptReadError', 'Local prompts could not be read. Any existing exact link is kept. Refresh to retry.') : !c.promptOptions().length ? this.t('PromptEmpty', 'No local prompt versions are available.') : '';
+            this.promptResult(p.linked, ref);
+            if (!p.editable || !c.draft()) return;
+            const candidate = c.draft().promptCandidate || { promptId: '', bodyVersionId: '' }, options = c.promptOptions();
+            const populate = (select, items, value, key, fallback) => {
+                select.replaceChildren(); const empty = this.el('option', '', this.t(key, fallback)); empty.value = ''; select.append(empty);
+                for (const item of items) { const option = this.el('option', '', item.label); option.value = item.value; select.append(option); }
+                if (value && !items.some(item => item.value === value)) { const retained = this.el('option', '', value); retained.value = value; select.append(retained); }
+                select.value = value;
+            };
+            const seen = new Set();
+            populate(p.prompt, options.filter(item => { if (seen.has(item.promptId)) return false; seen.add(item.promptId); return true; }).map(item => ({ value: item.promptId, label: `${item.title} · ${item.promptId}${item.archived ? ` · ${this.t('Archived', 'Archived')}` : ''}${item.recoveryId ? ` · ${this.t('PromptRecovery', 'Recovery snapshot')}` : ''}` })), candidate.promptId, 'PromptChoose', 'Choose a prompt');
+            populate(p.version, options.filter(item => item.promptId === candidate.promptId).slice().reverse().map(item => ({ value: item.bodyVersionId, label: `${new Date(item.createdAt).toLocaleString()} · ${item.bodyVersionId}${item.current ? ` · ${this.t('Current', 'Current')}` : ''}${item.recoveryId ? ` · ${this.t('PromptRecovery', 'Recovery snapshot')}` : ''}` })), candidate.bodyVersionId, 'PromptChooseVersion', 'Choose a version');
+            const complete = candidate.promptId && candidate.bodyVersionId;
+            p.preview.replaceChildren();
+            const result = complete ? this.promptResult(p.preview, candidate, true) : null;
+            const blocked = c.busy || Boolean(c.pendingCommand);
+            p.prompt.disabled = blocked || c.promptLoading || Boolean(c.promptError) || !c.promptState;
+            p.version.disabled = p.prompt.disabled || !candidate.promptId;
+            p.apply.disabled = blocked || c.promptLoading || result?.status !== 'resolved';
+            p.unlink.disabled = blocked || !ref;
         }
         async save(asCopy = false) {
             const c = this.controller; if (this.openDialog || c.busy || c.pendingCommand || !c.draft()) return;
@@ -133,7 +197,7 @@
             const source = root.LocalItabAICollections.sourceMetadata(record.sourceUrl), section = this.el('section', 'prompt-section'); section.append(this.el('h3', '', this.t('Source', 'Source')));
             if (source.provided) { const link = this.el('a', 'collection-source', `${this.t('OpenSource', 'Open user-provided source')} · ${source.host}`); link.href = source.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.referrerPolicy = 'no-referrer'; section.append(link, this.el('p', 'prompt-help collection-url', record.sourceUrl), this.paragraph('SourceHelp', 'User-provided attribution only. This page never fetches the link; the original account or permission may be needed.')); }
             else section.append(this.paragraph('NoSource', 'No source URL supplied.')); this.main.append(section);
-            if (record.promptRef) { const refs = this.el('section', 'prompt-section'); refs.append(this.el('h3', '', this.t('Unresolved', 'Unresolved exact prompt reference')), this.el('pre', 'prompt-readonly', `${record.promptRef.promptId}\n${record.promptRef.bodyVersionId}`), this.paragraph('ReferenceHelp', 'References retain both exact IDs and remain unresolved here. They never follow the latest prompt automatically. Leave both blank to unlink.')); this.main.append(refs); }
+            if (record.promptRef) this.buildPromptPanel(this.main, false);
             const history = this.el('details', 'prompt-history'); history.append(this.el('summary', '', this.t('History', 'Excerpt version history')));
             record.history.slice().reverse().forEach((version, index) => { const item = this.el('section', 'prompt-section'); item.append(this.el('h3', '', `${new Date(version.createdAt).toLocaleString()}${index === 0 ? ` · ${this.t('Current', 'Current')}` : ''}`), this.el('pre', 'prompt-readonly', version.body)); if (index !== 0 && !record.deletedAt) { const restore = this.button('ReviewRestore', 'Review restoring this text', () => this.revise(record, version)); restore.disabled = c.busy || Boolean(c.pendingCommand); item.append(restore); } history.append(item); }); this.main.append(history);
         }

@@ -1,9 +1,9 @@
 /* Collection drafts remain in this page. No implicit body revisions or fallback writer. */
 (function (root, factory) {
-    const api = factory(typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections);
+    const api = factory(typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections, typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabCollectionsController = api;
-})(typeof window === 'undefined' ? globalThis : window, function (Core) {
+})(typeof window === 'undefined' ? globalThis : window, function (Core, Prompts) {
     'use strict';
     const copy = value => JSON.parse(JSON.stringify(value));
     const editable = ['title', 'body', 'type', 'tool', 'sourceUrl', 'notes'];
@@ -17,8 +17,9 @@
         return { ...Object.fromEntries(editable.map(key => [key, input[key]])), tags, promptRef: input.promptId || input.bodyVersionId ? { promptId: input.promptId, bodyVersionId: input.bodyVersionId } : null };
     }
     class Controller {
-        constructor({ store, onChange = () => {} } = {}) {
+        constructor({ store, promptStore = null, onChange = () => {} } = {}) {
             if (!store) throw new Error('A fenced collection backend is required'); this.store = store; this.onChange = onChange;
+            this.promptStore = promptStore; this.promptState = null; this.promptError = null; this.promptLoading = false; this.promptGeneration = 0;
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0;
@@ -26,10 +27,66 @@
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
+            this.unsubscribePrompts = this.promptStore?.subscribe(() => { void this.refreshPrompts(); });
             this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); });
-            await this.refresh();
+            await Promise.all([this.refresh(), this.refreshPrompts()]);
         }
-        dispose() { this.disposed = true; this.readGeneration++; this.unsubscribe?.(); }
+        dispose() { this.disposed = true; this.readGeneration++; this.unsubscribe?.(); this.promptGeneration++; this.unsubscribePrompts?.(); }
+        async refreshPrompts() {
+            if (!this.promptStore || this.disposed) return null;
+            const generation = ++this.promptGeneration;
+            this.promptLoading = true; this.promptError = null; this.notify('prompts');
+            try {
+                const state = Prompts.validate(await this.promptStore.read());
+                if (this.disposed || generation !== this.promptGeneration) return null;
+                this.promptState = state; this.promptLoading = false; this.notify('prompts'); return state;
+            } catch (error) {
+                if (this.disposed || generation !== this.promptGeneration) return null;
+                this.promptLoading = false; this.promptError = error.code || 'READ'; this.notify('prompts'); return null;
+            }
+        }
+        promptOptions() {
+            if (!this.promptState || this.promptError || this.promptLoading) return [];
+            const seen = new Set(), result = [];
+            for (const group of [{ records: this.promptState.records, recoveryId: null }, ...this.promptState.recovery.map(item => ({ records: item.content.records, recoveryId: item.id }))]) {
+                for (const record of group.records) for (const version of record.history) {
+                    const key = JSON.stringify([record.id, version.id]); if (seen.has(key)) continue; seen.add(key);
+                    result.push({ promptId: record.id, bodyVersionId: version.id, title: record.title, archived: Boolean(record.deletedAt), recoveryId: group.recoveryId,
+                        current: !group.recoveryId && version.id === record.currentVersionId, createdAt: version.createdAt });
+                }
+            }
+            return result;
+        }
+        promptResolution(reference) {
+            if (!reference) return { status: 'unlinked', reference: null };
+            if (this.promptLoading) return { status: 'loading', reference };
+            if (!this.promptState || this.promptError) return { status: 'unavailable', reference };
+            // Use the collection validator and the prompt library's exact lookup.
+            const shell = this.record() || null;
+            const record = shell ? { ...shell, promptRef: reference } : null;
+            const version = Prompts.getVersion(this.promptState, reference.promptId, reference.bodyVersionId);
+            const resolved = record ? Core.resolvePromptReference(record, () => version) : { status: version ? 'resolved' : 'unresolved', reference, version };
+            return { ...resolved, provenance: this.promptOptions().find(item => item.promptId === reference.promptId && item.bodyVersionId === reference.bodyVersionId) };
+        }
+        choosePrompt(promptId, bodyVersionId = '') {
+            const draft = this.draft(); if (this.disposed || !draft || this.busy || this.pendingCommand || this.promptLoading || this.promptError) return false;
+            draft.promptCandidate = { promptId, bodyVersionId }; this.notify('prompts'); return true;
+        }
+        async applyPrompt() {
+            const draft = this.draft(), selected = this.selected, candidate = draft?.promptCandidate;
+            if (this.disposed || !candidate?.promptId || !candidate.bodyVersionId || this.busy || this.pendingCommand || this.promptLoading || this.promptError) return false;
+            const input = draft.input, exact = { ...candidate }, generation = this.promptGeneration + 1, state = await this.refreshPrompts();
+            if (!state || this.disposed || generation !== this.promptGeneration || this.promptLoading || this.promptError || this.selected !== selected || this.draft() !== draft || draft.input !== input || this.busy || this.pendingCommand || JSON.stringify(draft.promptCandidate) !== JSON.stringify(exact)) return false;
+            const version = Prompts.getVersion(state, exact.promptId, exact.bodyVersionId);
+            if (!version || version.recordId !== exact.promptId || version.id !== exact.bodyVersionId) return false;
+            // Both IDs enter the draft together; persistence belongs only to Save.
+            draft.input = { ...draft.input, promptId: exact.promptId, bodyVersionId: exact.bodyVersionId };
+            this.notify('prompts'); this.notify('draft'); return true;
+        }
+        unlinkPrompt() {
+            const draft = this.draft(); if (this.disposed || !draft || this.busy || this.pendingCommand) return false;
+            draft.input = { ...draft.input, promptId: '', bodyVersionId: '' }; this.notify('prompts'); this.notify('draft'); return true;
+        }
         async refresh() {
             if (this.busy) { this.refreshQueued = true; return; }
             const generation = ++this.readGeneration;

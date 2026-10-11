@@ -94,9 +94,9 @@ test('view renders loading/empty/editor and input updates preserve textarea focu
 test('edit body is readonly; duplicate cancel does not save or merge', async () => {
     let approved = false; const h = await mount(async () => approved), c = h.controller; const record = await add(c, 'First', 'same'); c.edit(); assert.equal(h.view.editor.fields.body.readOnly, true); c.discard(); c.create(); c.update('title', 'Second'); c.update('body', 'same'); await h.view.save(); assert.equal(c.state.records.length, 1); assert.ok(c.draft()); approved = true; await h.view.save(); assert.equal(c.state.records.length, 2); assert.equal(c.state.records[0].id, record.id); c.dispose();
 });
-test('source link shows actual host and never creates previews; refs visibly unresolved', async () => {
+test('source link shows actual host and never creates previews; unavailable prompt reads keep IDs', async () => {
     const h = await mount(), c = h.controller; await add(c); c.edit(); c.update('sourceUrl', 'https://example.com:8443/private?q=1'); c.update('promptId', 'prompt_0001'); c.update('bodyVersionId', 'version_0001'); await c.save();
-    const link = h.host.querySelector('.collection-source'); assert.match(link.textContent, /example.com:8443/); assert.equal(link.target, '_blank'); assert.equal(link.rel, 'noopener noreferrer'); assert.equal(link.referrerPolicy, 'no-referrer'); assert.match(text(h.host), /Unresolved exact prompt reference/); c.dispose();
+    const link = h.host.querySelector('.collection-source'); assert.match(link.textContent, /example.com:8443/); assert.equal(link.target, '_blank'); assert.equal(link.rel, 'noopener noreferrer'); assert.equal(link.referrerPolicy, 'no-referrer'); assert.match(text(h.host), /Local prompts could not be read/); c.dispose();
 });
 test('revision cancel and failure retain proposed text in tab and guard departure', async () => {
     const h = await mount(), c = h.controller; const record = await add(c); let calls = 0;

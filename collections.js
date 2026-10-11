@@ -18,7 +18,7 @@
     async function boot() {
         root.i18n?.localizeDocument();
         const host = root.document.getElementById('collection-library');
-        let store;
+        let store, promptStore;
         try {
             store = new root.LocalItabAICollections.Store(root.LocalItabWorkspaces.manager.createCollectionBackend(root.LocalItabAICollections));
         } catch (error) {
@@ -26,7 +26,11 @@
             // that bypasses a complete-backup restore fence.
             store = { subscribe: () => () => {}, read: async () => { throw error; } };
         }
-        const controller = new root.LocalItabCollectionsController.Controller({ store });
+        try {
+            const prompts = new root.LocalItabPrompts.Store(root.LocalItabWorkspaces.manager.createPromptBackend(root.LocalItabPrompts));
+            promptStore = { read: () => prompts.read(), subscribe: listener => prompts.subscribe(listener) };
+        } catch (error) { promptStore = { subscribe: () => () => {}, read: async () => { throw error; } }; }
+        const controller = new root.LocalItabCollectionsController.Controller({ store, promptStore });
         const view = new root.LocalItabCollectionsView.View({ host, controller });
         root.localCollectionsView = view; view.attachDepartureGuard(); view.render();
         void applyAppearance(); await controller.start();

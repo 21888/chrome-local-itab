@@ -3322,5 +3322,22 @@
   },
   "completeBackupCollectionConflicts": {
     "message": "标识相同但保存内容不同的收藏"
-  }
+  },
+"collectionsPromptLinkHeading": {"message": "精确提示词链接"},
+"collectionsPromptLinkHelp": {"message": "选择本地提示词及不可变的正文版本。应用只会更改草稿，点击“保存到本地”后才会保留链接。链接不会自动跟随最新版本。"},
+"collectionsPromptPickerLabel": {"message": "本地提示词"},
+"collectionsPromptVersionLabel": {"message": "精确正文版本"},
+"collectionsPromptApplyLink": {"message": "将链接应用到草稿"},
+"collectionsPromptUnlink": {"message": "在草稿中移除链接"},
+"collectionsPromptRefresh": {"message": "刷新本地提示词"},
+"collectionsPromptUnlinked": {"message": "尚未链接提示词。"},
+"collectionsPromptLoading": {"message": "正在读取本地提示词…"},
+"collectionsPromptReadError": {"message": "无法读取本地提示词。已有的精确链接已保留，请刷新重试。"},
+"collectionsPromptMissing": {"message": "本地缺少此精确提示词版本。其 ID 已保留，不会替换为其他版本。"},
+"collectionsPromptResolved": {"message": "已链接的精确提示词版本"},
+"collectionsPromptRecovery": {"message": "恢复快照"},
+"collectionsPromptChoose": {"message": "选择提示词"},
+"collectionsPromptChooseVersion": {"message": "选择版本"},
+"collectionsPromptPreview": {"message": "所选提示词版本预览"},
+"collectionsPromptEmpty": {"message": "暂无可用的本地提示词版本。"}
 }
