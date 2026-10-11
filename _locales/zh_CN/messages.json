@@ -4264,5 +4264,47 @@
   },
   "customizeHexInvalid": {
     "message": "请输入 # 和 6 位十六进制数字（0–9、A–F），例如 #336699。"
+  },
+  "promptsModelRefineTitle": {
+    "message": "优化已保存提示词"
+  },
+  "promptsModelRefineHelp": {
+    "message": "优化当前已保存模板，不使用填写后的预览或历史版本预览。不会包含变量填写值。发送前请核对接收地址、优化要求及完整发送文本。服务商可能收费。凭据仅临时保留。只有明确接受建议后才保存新版本。"
+  },
+  "promptsModelRefineInstruction": {
+    "message": "优化要求"
+  },
+  "promptsModelRefineBefore": {
+    "message": "优化前：当前已保存模板（不含变量填写值）"
+  },
+  "promptsModelRefineAfter": {
+    "message": "优化后：建议模板（尚未保存）"
+  },
+  "promptsModelRefineAccept": {
+    "message": "接受为提示词新版本"
+  },
+  "promptsModelRefineInstructionError": {
+    "message": "请输入优化要求（最多 4,000 字符）。"
+  },
+  "promptsModelRefinePlaceholderError": {
+    "message": "建议修改了变量占位符或其数量，无法接受。请关闭后修改优化要求重试。"
+  },
+  "promptsModelRefineProposalError": {
+    "message": "建议为空或超过已保存提示词的长度限制。"
+  },
+  "promptsModelRefineUnchanged": {
+    "message": "建议与已保存模板相同，无需创建新版本。"
+  },
+  "promptsModelRefineStale": {
+    "message": "原始提示词或工作区已变化。请关闭后从当前已保存提示词重新开始。"
+  },
+  "promptsModelRefineHistoryLimit": {
+    "message": "此提示词已达到历史版本上限，未作更改。如需单独保留建议，请手动复制。"
+  },
+  "promptsModelRefineReady": {
+    "message": "请比较上方已保存模板与下方纯文本建议。明确接受后创建新版本，原文仍保留在历史记录中。"
+  },
+  "promptsModelRefineSaved": {
+    "message": "已接受为提示词新版本，原始模板保留在历史记录中。"
   }
 }

@@ -484,3 +484,5 @@ Before updating, use the shortcuts in that section to reach the existing setting
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.
 
 **Ask selected saved context:** the new-tab **AI context Q&A** panel lets you choose global saved AI excerpts and this workspace’s saved note, edit and review the exact outbound content, then ask your selected model. Save an answer explicitly, or review strict task JSON before adding the exact list to Tasks. No source is selected automatically. [Workflow and privacy](docs/ai-context-workflow.md)
+
+**Reviewed prompt refinement:** choose a saved prompt, review the exact template and refinement instruction sent to your model, compare the proposal, and explicitly accept a new version. Filled values are excluded; original history and variable placeholders are protected. [Workflow](docs/ai-prompt-refinement.md)

@@ -377,8 +377,12 @@
                         createdAt: now, updatedAt: now, deletedAt: null, currentVersionId: bodyId, history: [{ id: bodyId, body: value.body, createdAt: now }] }); break;
                 }
                 case 'edit': {
-                    check(Object.keys(command).every(key => ['operationId', 'kind', 'id', 'version', ...EDITABLE].includes(key)));
+                    check(Object.keys(command).every(key => ['operationId', 'kind', 'id', 'version', 'refinementSource', ...EDITABLE].includes(key)));
                     const record = find(); check(record.deletedAt === null, 'CONFLICT');
+                    if (Object.hasOwn(command, 'refinementSource')) {
+                        object(command.refinementSource, ['body', 'bodyVersionId']);
+                        check(record.body === command.refinementSource.body && record.currentVersionId === command.refinementSource.bodyVersionId, 'CONFLICT');
+                    }
                     const values = fields(record); for (const key of EDITABLE) if (Object.hasOwn(command, key)) values[key] = command[key];
                     editable(values); if (same(fields(record), values)) return current;
                     if (record.body !== values.body) appendVersion(record, values.body);
@@ -440,5 +444,5 @@
         }
     }
     return { KEY, LOCK, FORMAT, LIMITS, Store, createChromeBackend, initial, validate, validateRecord, validateContent,
-        parseBackup, counts, content, createDraft, search, previewTemplate, renderTemplate, getVersion, fault };
+        parseBackup, counts, content, createDraft, search, templateTokens: body => scanTemplate(body).pieces.filter(piece => piece.variable).map(piece => ({ variable: piece.variable, text: piece.text })), previewTemplate, renderTemplate, getVersion, fault };
 });

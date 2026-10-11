@@ -39,3 +39,7 @@ Presets are intentionally device-local connection preferences, excluded from man
 Selecting, saving or deleting a connection, or editing its endpoint/model, clears the key and invalidates the request review. Always review the exact endpoint, model and outgoing text again, then separately allow the endpoint if needed and press Send. Preset selection does not select Q&A sources or alter the task/question. No preset action makes a network call or requests permission.
 
 Focused preset validation: `timeout 60 node --max-old-space-size=256 --test tests/ai-model-presets.test.js tests/ai-model-view.test.js tests/ai-context-view.test.js tests/complete-backup.test.js`.
+
+## Refine a saved template
+
+Use **Refine saved prompt** to review an instruction and the current stored template, receive a plain-text proposal, then explicitly accept a new history version. Filled variables are excluded and placeholder changes block acceptance. [Refinement workflow and safeguards](ai-prompt-refinement.md).

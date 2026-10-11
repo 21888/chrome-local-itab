@@ -5,11 +5,11 @@ const vm = require('node:vm');
 const Core = require('../shared/local-prompts-store');
 const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
-const { setup, add, tick } = require('./helpers/prompts-harness');
-async function mount({ run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore } = {}) {
-    const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic prompt', 'Synthetic input <script>text</script>');
+const { setup, add, tick, settle } = require('./helpers/prompts-harness');
+async function mount({ run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
+    const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic prompt', body);
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map(); let runs = 0, grants = 0, writes = 0, command;
-    const root = { document: doc, LocalItabPrompts: Core, LocalItabAIModel: { ...Client, run: async (...args) => { runs++; return run ? run(...args) : { text: '<script>synthetic output</script>', model: 'fixture-model', origin: 'https://synthetic.test' }; } },
+    const root = { document: doc, LocalItabPrompts: Core, LocalItabAIPromptRefinement: require('../shared/ai-prompt-refinement'), LocalItabAIModel: { ...Client, run: async (...args) => { runs++; return run ? run(...args) : { text: '<script>synthetic output</script>', model: 'fixture-model', origin: 'https://synthetic.test' }; } },
         chrome: { permissions: { contains, request: async (...args) => { grants++; return request(...args); } } }, confirm: () => true,
         addEventListener: (name, fn) => events.set(name, fn), removeEventListener: name => events.delete(name) };
     const context = vm.createContext({ window: root, AbortController });
@@ -18,7 +18,7 @@ async function mount({ run, contains = async () => true, request = async () => t
         el(tag, className, text) { const el = doc.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; },
         button(name, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
     const store = { request(kind, values) { return { kind, ...values, operationId: 'synthetic_operation' }; }, async mutate(value, validator) { writes++; command = value; assert.equal(validator(h.raw, value.promptRef), true); return mutate(value); } };
-    const ui = root.LocalItabAIModelView.open({ view, collectionStore: store, presetStore });
+    const ui = root.LocalItabAIModelView.open({ view, collectionStore: store, presetStore, mode });
     ui.url.value = 'https://synthetic.test/v1/chat/completions'; ui.model.value = 'fixture-model';
     return { h, ui, root, events, doc, view, get runs() { return runs; }, get grants() { return grants; }, get writes() { return writes; }, get command() { return command; } };
 }
@@ -67,7 +67,7 @@ test('all model labels and errors have both locales and packaged runtime is decl
     const keys = new Set([...source.matchAll(/\b(?:t|button|field)\('([A-Za-z]+)', /g), ...source.matchAll(/\['([A-Za-z]+)', '[^']*'\]/g)].map(match => `promptsModel${match[1]}`));
     for (const language of ['en', 'zh_CN']) { const catalog = JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${language}/messages.json`, 'utf8')); for (const key of keys) assert.ok(catalog[key]?.message, `${language} ${key}`); }
     const inventory = fs.readFileSync(`${__dirname}/../tools/package_extension.py`, 'utf8');
-    for (const file of ['shared/ai-model-client.js', 'shared/ai-model-presets.js', 'shared/ai-model-view.js', 'ai-model.css']) assert.ok(inventory.includes(`"${file}"`));
+    for (const file of ['shared/ai-model-client.js', 'shared/ai-model-presets.js', 'shared/ai-model-view.js', 'shared/ai-prompt-refinement.js', 'ai-model.css']) assert.ok(inventory.includes(`"${file}"`));
 });
 
 const Presets = require('../shared/ai-model-presets');
@@ -103,4 +103,92 @@ test('preset write pending blocks review and sends; closing ignores late complet
     h.ui.key.value = 'synthetic-secret'; h.ui.presetName.value = 'Saved'; h.ui.presetSave.dispatch('click');
     assert.equal(h.ui.key.value, ''); assert.equal(h.ui.review.disabled, true); await click(h.ui.review); await click(h.ui.send); assert.equal(h.runs, 0);
     await click(h.ui.close); pending.resolve({ version: 1, records: [{ name: 'Saved', url: h.ui.url.value, model: h.ui.model.value }] }); await tick(); assert.equal(h.view.openDialog, false); h.h.controller.dispose();
+});
+
+test('refinement sends only reviewed current stored template and instruction; explicit accept preserves history', async () => {
+    let sent;
+    const h = await mount({ mode: 'refine', body: 'Explain {{topic}}.', run: async request => { sent = request; return { text: 'Explain {{topic}} clearly.', model: 'fixture', origin: 'https://synthetic.test' }; } });
+    h.h.controller.setVariable('topic', 'PRIVATE FILLED VALUE');
+    h.ui.instruction.value = 'Be clearer'; await click(h.ui.review);
+    assert.match(h.ui.reviewText.textContent, /synthetic.test/); assert.match(h.ui.prompt.value, /Be clearer/);
+    assert.match(h.ui.prompt.value, /Explain \{\{topic\}\}\./); assert.doesNotMatch(h.ui.prompt.value, /PRIVATE FILLED VALUE/);
+    const beforeWrites = h.h.writes; await click(h.ui.send);
+    assert.equal(h.h.writes, beforeWrites); assert.equal(sent.prompt, h.ui.prompt.value);
+    assert.equal(h.ui.before.value, 'Explain {{topic}}.'); assert.equal(h.ui.output.value, 'Explain {{topic}} clearly.');
+    await click(h.ui.save); await settle(h.h.controller); await click(h.ui.save);
+    assert.equal(h.h.writes, beforeWrites + 1, h.ui.status.textContent + JSON.stringify(h.h.controller.error)); assert.equal(h.h.controller.record().body, 'Explain {{topic}} clearly.');
+    assert.equal(h.h.controller.record().history[0].body, 'Explain {{topic}}.');
+    assert.equal(h.h.controller.record().history.length, 2); await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement instruction edits invalidate review and missing or semantically changed placeholders cannot be accepted', async () => {
+    for (const proposal of ['Explain topic.', 'Explain \\{{topic}}.']) {
+        const h = await mount({ mode: 'refine', body: 'Explain {{topic}}.', run: async () => ({ text: proposal }) });
+        h.ui.instruction.value = 'Be clearer'; await click(h.ui.review); h.ui.key.value = 'synthetic-key';
+        h.ui.instruction.dispatch('input'); assert.equal(h.ui.send.disabled, true); assert.equal(h.ui.key.value, '');
+        await click(h.ui.review); const writes = h.h.writes; await click(h.ui.send); await click(h.ui.save);
+        assert.equal(h.h.writes, writes); assert.match(h.ui.status.textContent, /placeholders/);
+        await click(h.ui.close); h.h.controller.dispose();
+    }
+});
+test('refinement rejects source edits before send and before accept; uncertain save reuses receipt', async () => {
+    const stale = await mount({ mode: 'refine', run: async () => ({ text: 'New proposal' }) });
+    stale.ui.instruction.value = 'Improve'; await click(stale.ui.review);
+    await stale.h.store.mutate(stale.h.store.request('edit', { id: stale.h.controller.record().id, version: stale.h.controller.record().version, body: 'Changed elsewhere' })); await tick();
+    await click(stale.ui.send); assert.equal(stale.runs, 0); assert.match(stale.ui.status.textContent, /source or workspace changed/);
+    await click(stale.ui.close); stale.h.controller.dispose();
+    const h = await mount({ mode: 'refine', run: async () => ({ text: 'New proposal' }) });
+    h.ui.instruction.value = 'Improve'; await click(h.ui.review); await click(h.ui.send);
+    h.h.failOnce(); const writes = h.h.writes; await click(h.ui.save); await settle(h.h.controller);
+    assert.ok(h.h.controller.pendingCommand, h.ui.status.textContent + JSON.stringify(h.h.controller.error)); const operation = h.h.controller.pendingCommand;
+    await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.writes, writes + 1); assert.equal(h.h.controller.pendingCommand, null);
+    assert.equal(h.h.controller.record().history.length, 2); assert.equal(operation.command.body, 'New proposal');
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('proposal acceptance rejects changed/deleted sources and history capacity without bypass', async () => {
+    for (const kind of ['edit', 'remove', 'history']) {
+        const h = await mount({ mode: 'refine', run: async () => ({ text: 'New proposal' }) });
+        if (kind === 'history') {
+            const raw = h.h.raw, record = raw.records[0];
+            record.history = Array.from({ length: Core.LIMITS.versions }, (_, i) => ({ id: `synthetic_history_${i}`, body: record.body, createdAt: record.createdAt }));
+            record.currentVersionId = record.history.at(-1).id;
+            await h.h.backend.write(raw); await tick(); h.h.controller.clearPreviewSessions(); await click(h.ui.close);
+            h.ui = h.root.LocalItabAIModelView.open({ view: h.view, mode: 'refine' }); h.ui.url.value = 'https://synthetic.test/v1/chat/completions'; h.ui.model.value = 'fixture-model';
+        }
+        h.ui.instruction.value = 'Improve'; await click(h.ui.review); await click(h.ui.send);
+        if (kind !== 'history') {
+            const record = h.h.controller.record();
+            await h.h.store.mutate(h.h.store.request(kind, { id: record.id, version: record.version, ...(kind === 'edit' ? { body: 'External change' } : {}) })); await tick();
+        }
+        const writes = h.h.writes; await click(h.ui.save); await settle(h.h.controller);
+        assert.equal(h.h.writes, writes); assert.match(h.ui.status.textContent, kind === 'history' ? /history limit/ : /source or workspace changed/);
+        await click(h.ui.close); h.h.controller.dispose();
+    }
+});
+test('refinement uses current saved body when historical preview is selected and never filled variables', async () => {
+    const h = await mount({ mode: 'refine', body: 'Old {{topic}}' }); await click(h.ui.close);
+    const record = h.h.controller.record(), original = record.currentVersionId;
+    await h.h.store.mutate(h.h.store.request('edit', { id: record.id, version: record.version, body: 'Current {{topic}}' })); await tick();
+    h.h.controller.useVersion(original, 'Old {{topic}}'); h.h.controller.setVariable('topic', 'PRIVATE');
+    h.ui = h.root.LocalItabAIModelView.open({ view: h.view, mode: 'refine' }); h.ui.url.value = 'https://synthetic.test/v1/chat/completions'; h.ui.model.value = 'fixture-model';
+    h.ui.instruction.value = 'Improve'; await click(h.ui.review);
+    assert.equal(h.ui.before.value, 'Current {{topic}}'); assert.match(h.ui.prompt.value, /Current/); assert.doesNotMatch(h.ui.prompt.value, /Old|PRIVATE/);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('pagehide and close invalidate received refinement proposals and pending late responses', async () => {
+    for (const action of ['pagehide', 'close', 'stop']) {
+        const pending = deferred(), h = await mount({ mode: 'refine', run: () => pending.promise });
+        h.ui.instruction.value = 'Improve'; await click(h.ui.review); await click(h.ui.send);
+        if (action === 'pagehide') h.events.get('pagehide')(); else await click(action === 'close' ? h.ui.close : h.ui.cancel);
+        pending.resolve({ text: 'Late proposal' }); await tick(); const writes = h.h.writes;
+        await click(h.ui.save); assert.equal(h.h.writes, writes); assert.equal(h.ui.output.hidden, true);
+        await click(h.ui.close); h.h.controller.dispose();
+    }
+    for (const action of ['pagehide', 'close']) {
+        const h = await mount({ mode: 'refine', run: async () => ({ text: 'Received proposal' }) });
+        h.ui.instruction.value = 'Improve'; await click(h.ui.review); await click(h.ui.send); const writes = h.h.writes;
+        if (action === 'pagehide') h.events.get('pagehide')(); else await click(h.ui.close);
+        await click(h.ui.save); assert.equal(h.h.writes, writes);
+        if (action === 'pagehide') { assert.equal(h.ui.output.hidden, true); await click(h.ui.review); await click(h.ui.save); assert.equal(h.h.writes, writes); }
+        await click(h.ui.close); h.h.controller.dispose();
+    }
 });

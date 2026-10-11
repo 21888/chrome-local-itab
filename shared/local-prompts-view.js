@@ -325,6 +325,7 @@
             previewSection.append(heading, this.el('p', 'prompt-help', this.t('ClearValuesHelp', 'Clear values resets the active and current version’s values and returns to the current body. Other versions keep their values.')), preview, status, actions); section.append(previewSection); this.main.append(section);
             const run = root.LocalItabAIModelView ? this.button('ModelTitle', 'Run with your model', () => root.LocalItabAIModelView.open({ view: this, collectionStore: this.modelCollectionStore })) : null;
             if (run) actions.append(run);
+            if (root.LocalItabAIPromptRefinement && root.LocalItabAIModelView) actions.append(this.button('ModelRefineTitle', 'Refine saved prompt', () => root.LocalItabAIModelView.open({ view: this, mode: 'refine' })));
             this.previewElements = { literal, variables, preview, status, copy, run }; this.updatePreview();
             this.main.append(this.linkedSection(record.id, c.session(record).versionId, true));
         }

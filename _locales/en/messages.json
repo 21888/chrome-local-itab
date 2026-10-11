@@ -4264,5 +4264,47 @@
   },
   "customizeHexInvalid": {
     "message": "Enter # followed by 6 hexadecimal digits (0–9, A–F), for example #336699."
+  },
+  "promptsModelRefineTitle": {
+    "message": "Refine saved prompt"
+  },
+  "promptsModelRefineHelp": {
+    "message": "Refine the current saved template, not the completed preview or a historical preview. Filled variable values are never included. Review the destination, instruction and exact outgoing text before sending. The provider may charge you. Credentials stay temporary. Nothing is saved until you accept the proposal as a new version."
+  },
+  "promptsModelRefineInstruction": {
+    "message": "Refinement instruction"
+  },
+  "promptsModelRefineBefore": {
+    "message": "Before: current saved template (no filled values)"
+  },
+  "promptsModelRefineAfter": {
+    "message": "After: proposed template (not saved)"
+  },
+  "promptsModelRefineReady": {
+    "message": "Compare the stored template above with the plain-text proposal below. Accept explicitly to create a new version; the original remains in history."
+  },
+  "promptsModelRefineSaved": {
+    "message": "Accepted as a new prompt version. The original template remains in history."
+  },
+  "promptsModelRefineInstructionError": {
+    "message": "Enter a refinement instruction (up to 4,000 characters)."
+  },
+  "promptsModelRefinePlaceholderError": {
+    "message": "The proposal changed variable placeholders or their counts. It cannot be accepted. Close and try a new refinement instruction."
+  },
+  "promptsModelRefineProposalError": {
+    "message": "The proposal is empty or exceeds the saved prompt limit."
+  },
+  "promptsModelRefineUnchanged": {
+    "message": "The proposal matches the saved template. No new version is needed."
+  },
+  "promptsModelRefineStale": {
+    "message": "The saved source or workspace changed. Close and reopen refinement from the current saved prompt."
+  },
+  "promptsModelRefineHistoryLimit": {
+    "message": "This prompt has reached its history limit. Nothing was changed. Copy the proposal manually if you want to keep it separately."
+  },
+  "promptsModelRefineAccept": {
+    "message": "Accept as new prompt version"
   }
 }
