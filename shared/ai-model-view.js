@@ -30,9 +30,17 @@
         const prompt = field('Prompt', 'Exact prompt to send', 'textarea', refining ? '' : preview.text); prompt.readOnly = true; prompt.rows = 6;
         const status = el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
-        const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', refining ? t('RefineAfter', 'After: proposed template (not saved)') : t('Response', 'Model response'));
-        const proposalLabel = refining ? el('h3', '', t('RefineAfter', 'After: proposed template (not saved)')) : null;
+        const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', refining ? t('RefineAfter', 'Proposed template draft (editable; not saved)') : t('Response', 'Model response'));
+        const proposalLabel = refining ? el('h3', '', t('RefineAfter', 'Proposed template draft (editable; not saved)')) : null;
         if (proposalLabel) proposalLabel.hidden = true;
+        const originalDetails = refining ? el('details') : null;
+        const originalOutput = refining ? el('textarea', 'prompt-readonly') : null;
+        if (originalDetails) {
+            originalDetails.hidden = true;
+            const label = t('RefineModelOriginal', 'Original model response (read-only)');
+            originalOutput.readOnly = true; originalOutput.rows = 6; originalOutput.setAttribute('aria-label', label);
+            originalDetails.append(el('summary', '', label), originalOutput);
+        }
         const presetLabel = el('label', 'ai-model-field', t('PresetLabel', 'Saved connections (this device only)'));
         const presetSelect = el('select'); presetLabel.append(presetSelect);
         const presetHelp = el('p', 'prompt-help', t('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.'));
@@ -55,7 +63,7 @@
                 NETWORK: ['NetworkError', 'Could not reach this endpoint. Check the address, provider availability and browser access.'],
                 PERMISSION: ['PermissionError', 'Endpoint access is not granted. Allow only this origin before sending.'],
                 INSTRUCTION: ['RefineInstructionError', 'Enter a refinement instruction (up to 4,000 characters).'],
-                PLACEHOLDERS: ['RefinePlaceholderError', 'The proposal changed variable placeholders or their counts. It cannot be accepted. Close and try a new refinement instruction.'],
+                PLACEHOLDERS: ['RefinePlaceholderError', 'The proposal changed variable placeholders or their counts. Edit the draft to restore the exact placeholders before testing or accepting.'],
                 PROPOSAL: ['RefineProposalError', 'The proposal is empty or exceeds the saved prompt limit.'],
                 UNCHANGED: ['RefineUnchanged', 'The proposal matches the saved template. No new version is needed.'],
                 STALE: ['RefineStale', 'The saved source or workspace changed. Close and reopen refinement from the current saved prompt.'],
@@ -65,14 +73,15 @@
             }; const message = messages[code] || messages.SAVE; return t(...message);
         };
         function update() {
-            if (trialButton) {
-                let valid = false;
+            let valid = !refining;
+            if (refining) {
                 try { valid = Boolean(response && refinement.current(c, template) && refinement.validateProposal(template, response.text)); } catch (_) {}
-                trialButton.disabled = busy || saving || saved || suspended || !valid;
+                output.readOnly = !response || busy || saving || saved || suspended || Boolean(command) || Boolean(trialUI);
             }
+            if (trialButton) trialButton.disabled = busy || saving || saved || suspended || Boolean(command) || !valid;
             review.disabled = busy || saving || permissionPending || presetPending; allow.disabled = busy || saving || permissionPending || !reviewed; send.disabled = busy || saving || permissionPending || !reviewed || Boolean(response);
             if (instruction) instruction.disabled = busy || saving || Boolean(response);
-            cancel.disabled = !busy; save.disabled = busy || saving || !response || saved || (refining && suspended); close.disabled = saving;
+            cancel.disabled = !busy; save.disabled = busy || saving || !response || saved || (refining && (suspended || (!valid && !command))); close.disabled = saving;
             url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
             presetSelect.disabled = presetName.disabled = presetSave.disabled = !presetAvailable || busy || saving || permissionPending || presetPending || Boolean(response);
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
@@ -119,7 +128,7 @@
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
             suspended = true; aborter?.abort(); key.value = ''; reviewed = null; reviewText.hidden = true;
-            if (refining) { response = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; }
+            if (refining) { response = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
             update();
         }
         const review = button('Review', 'Review request', () => {
@@ -156,8 +165,9 @@
                 if (c.disposed || closed || suspended || signal.aborted) return;
                 response = result; output.value = result.text; output.hidden = false; if (proposalLabel) proposalLabel.hidden = false;
                 if (refining) {
+                    originalOutput.value = result.text; originalDetails.hidden = false;
                     refinement.validateProposal(template, result.text);
-                    status.textContent = t('RefineReady', 'Compare the stored template above with the plain-text proposal below. Accept explicitly to create a new version; the original remains in history.');
+                    status.textContent = t('RefineReady', 'Edit this draft locally, then test or accept the exact edited text. Editing sends and saves nothing. Accept explicitly to create a new version; the saved original remains in history.');
                 } else status.textContent = t('Ready', 'Response received. Review it, then explicitly save it to your AI collection.');
             } catch (error) { if (!closed && !suspended) status.textContent = failure(error.code || 'NETWORK'); }
             finally { key.value = ''; busy = false; if (!closed) update(); }
@@ -170,7 +180,7 @@
                     refinement.validateProposal(template, response.text);
                     if (!command) command = refinement.operation(c, template, response.text);
                     else if (c.pendingCommand !== command && !refinement.current(c, template)) throw { code: 'STALE' };
-                    if (!(await c.execute(command))) throw { code: c.error?.code || 'SAVE' };
+                    if (!(await (c.pendingCommand === command ? c.retry() : c.execute(command)))) throw { code: c.error?.code || 'SAVE' };
                     saved = true; status.textContent = t('RefineSaved', 'Accepted as a new prompt version. The original template remains in history.');
                     return;
                 }
@@ -184,7 +194,12 @@
                     try { return root.LocalItabPrompts.validate(raw).records.some(item => item.id === reference.promptId && !item.deletedAt && item.history.some(version => version.id === reference.bodyVersionId)); } catch (_) { return false; }
                 });
                 saved = true; status.textContent = t('Saved', 'Saved to your AI collection, linked to this prompt version.');
-            } catch (error) { status.textContent = failure(refining ? (error.code || 'SAVE') : 'SAVE'); }
+            } catch (error) {
+                if (refining && command && c.pendingCommand !== command) command = null;
+                status.textContent = refining && command
+                    ? t('RefineSaveUncertain', 'Could not confirm acceptance. The submitted draft is locked; retry accepts the exact same text using the same operation. Inspect history before leaving.')
+                    : failure(refining ? (error.code || 'SAVE') : 'SAVE');
+            }
             finally { saving = false; update(); }
         });
         const trialButton = refining && root.LocalItabAIModelComparison ? button('RefineTrial', 'Test original versus proposal', () => {
@@ -206,20 +221,32 @@
                 }
                 return { records: [connection] };
             } } });
-            if (!trialUI) restore();
+            if (!trialUI) restore(); else update();
         }) : null;
         const close = button('Close', 'Close', finish), collections = el('a', 'prompt-link', t('OpenCollection', 'Open AI collection')); collections.href = 'collections.html';
         collections.addEventListener('click', event => { if (busy || saving || (response && !saved)) { event.preventDefault(); status.textContent = t('SaveFirst', 'Save or close this response before leaving.'); } });
+        if (refining) output.addEventListener('input', () => {
+            if (closed || c.disposed || !response || busy || saving || saved || suspended || command || trialUI) {
+                output.value = response?.text || ''; return;
+            }
+            response = { ...response, text: output.value };
+            try {
+                if (!refinement.current(c, template)) throw { code: 'STALE' };
+                refinement.validateProposal(template, response.text);
+                status.textContent = t('RefineEdited', 'Draft edited locally. Previous trial answers were discarded when the trial closed. Test again to compare this draft, or explicitly accept it. Nothing has been sent or saved.');
+            } catch (error) { status.textContent = failure(error.code); }
+            update();
+        });
         if (instruction) instruction.addEventListener('input', () => { prompt.value = ''; invalidateConnection(); });
         for (const input of [url, model]) input.addEventListener('input', invalidateConnection);
         actions.append(review, allow, send, cancel); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
-        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(output, resultActions); overlay.append(box); view.doc.body.append(overlay);
+        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(output); if (originalDetails) box.append(originalDetails); box.append(resultActions); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.cancelModelDialog = hide; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide);
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
-        return { trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
+        return { originalOutput, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);

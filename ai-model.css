@@ -5,3 +5,5 @@
 .ai-model-review { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; padding: 12px; border: 1px solid var(--template-border, #b6bcc6); border-radius: 8px; font-size: 13px; }
 .ai-model-dialog > textarea { box-sizing: border-box; width: 100%; margin-block: 12px; }
 .ai-model-dialog .prompt-actions { flex-wrap: wrap; }
+.ai-model-dialog details > textarea { box-sizing: border-box; width: 100%; margin-block: 8px; }
+.ai-model-dialog details > summary { cursor: pointer; }

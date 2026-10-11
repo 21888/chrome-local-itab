@@ -349,3 +349,92 @@ test('workspace or restore interruption of trial also invalidates its retained p
     await click(h.ui.save); assert.equal(h.h.controller.record().history.length, 1); assert.equal(h.writes, 0);
     await click(h.ui.close); h.h.controller.dispose();
 });
+
+test('editable proposal stays local, preserves model reply and accepts exactly the edited draft', async () => {
+    const h = await mount({ mode: 'refine', body: 'Original {{topic}}', run: async () => ({ text: 'Generated {{topic}}' }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    const writes = h.h.writes, originalVersion = h.h.controller.record().currentVersionId;
+    assert.equal(h.ui.output.readOnly, false); assert.equal(h.ui.before.readOnly, true); assert.equal(h.ui.originalOutput.readOnly, true);
+    h.ui.output.value = 'Locally edited {{topic}}'; h.ui.output.dispatch('input');
+    assert.equal(h.ui.originalOutput.value, 'Generated {{topic}}'); assert.equal(h.ui.before.value, 'Original {{topic}}');
+    assert.equal(h.runs, 1); assert.equal(h.grants, 0); assert.equal(h.h.writes, writes);
+    assert.equal(h.h.controller.record().currentVersionId, originalVersion); assert.equal(h.ui.save.disabled, false);
+    await click(h.ui.save); await settle(h.h.controller);
+    assert.equal(h.h.controller.record().body, 'Locally edited {{topic}}'); assert.equal(h.h.controller.record().history[0].body, 'Original {{topic}}');
+    assert.equal(h.ui.output.readOnly, true); await click(h.ui.close); h.h.controller.dispose();
+});
+test('placeholder errors can be repaired locally, including counts and escaped active variables', async () => {
+    const h = await mount({ mode: 'refine', body: 'Original {{topic}} / {{topic}}', run: async () => ({ text: 'Broken model output' }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); const writes = h.h.writes;
+    assert.equal(h.ui.output.readOnly, false); assert.equal(h.ui.save.disabled, true);
+    for (const invalid of ['', 'Changed {{topic}}', 'Changed \\{{topic}} / {{topic}}', 'Changed {{topic}} / {{topic}} / {{extra}}', 'Original {{topic}} / {{topic}}', 'x'.repeat(Core.LIMITS.body + 1)]) {
+        h.ui.output.value = invalid; h.ui.output.dispatch('input');
+        assert.equal(h.ui.save.disabled, true); assert.equal(h.ui.trialButton.disabled, true); await click(h.ui.save);
+        assert.equal(h.h.writes, writes);
+    }
+    h.ui.output.value = 'Repaired {{topic}} / {{topic}}'; h.ui.output.dispatch('input');
+    assert.equal(h.ui.save.disabled, false); assert.equal(h.ui.trialButton.disabled, false); assert.equal(h.runs, 1); assert.equal(h.grants, 0);
+    await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.controller.record().body, 'Repaired {{topic}} / {{topic}}');
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('each trial and acceptance use the same edited proposal, and editing after a trial cannot retain old results', async () => {
+    const requests = []; const h = await mount({ mode: 'refine', body: 'Original {{topic}}', run: async input => { requests.push(input.prompt); return { text: requests.length === 1 ? 'Generated {{topic}}' : 'Synthetic answer', model: input.model, origin: input.origin }; } });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    h.ui.output.value = 'Edited once {{topic}}'; h.ui.output.dispatch('input'); await click(h.ui.trialButton); await tick();
+    const first = h.ui.trial; assert.equal(h.ui.output.readOnly, true);
+    first.variables[0].input.value = 'test value'; first.variables[0].input.dispatch('input'); await click(first.review); await click(first.send);
+    assert.equal(requests[2], 'Edited once test value'); await click(first.close);
+    assert.equal(h.ui.output.readOnly, false); for (const target of first.targets) assert.equal(target.output.value, '');
+    h.ui.output.value = 'Edited twice {{topic}}'; h.ui.output.dispatch('input'); assert.equal(h.runs, 3);
+    await click(h.ui.trialButton); await tick(); const second = h.ui.trial;
+    assert.notEqual(second, first); assert.equal(second.variables[0].input.value, '');
+    for (const target of second.targets) assert.equal(target.output.value, '');
+    second.variables[0].input.value = 'new value'; second.variables[0].input.dispatch('input'); await click(second.review); await click(second.send);
+    assert.equal(requests[4], 'Edited twice new value'); await click(second.close);
+    await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.controller.record().body, 'Edited twice {{topic}}'); assert.equal(h.runs, 5);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('in-flight trial freezes local proposal input and keeps the exact tested proposal', async () => {
+    const pending = deferred(); let calls = 0;
+    const h = await mount({ mode: 'refine', body: 'Original', run: async input => ++calls === 1 ? { text: 'Generated', model: input.model, origin: input.origin } : pending.promise });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    h.ui.output.value = 'Edited draft'; h.ui.output.dispatch('input'); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    await click(trial.review); trial.send.dispatch('click'); await tick(); assert.equal(h.runs, 3); assert.equal(h.ui.output.readOnly, true);
+    h.ui.output.value = 'Attempted edit during trial'; h.ui.output.dispatch('input'); assert.equal(h.ui.output.value, 'Edited draft');
+    pending.resolve({ text: 'Synthetic answer', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+    assert.equal(trial.targets[1].output.value, 'Synthetic answer'); await click(trial.close);
+    await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.controller.record().body, 'Edited draft');
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('stale saved source cannot be overwritten by locally repairing the proposal', async () => {
+    const h = await mount({ mode: 'refine', body: 'Original', run: async () => ({ text: 'Generated' }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    const record = h.h.controller.record(); await h.h.store.mutate(h.h.store.request('edit', { id: record.id, version: record.version, body: 'External change' })); await tick();
+    h.ui.output.value = 'Locally edited'; h.ui.output.dispatch('input'); const writes = h.h.writes;
+    assert.equal(h.ui.save.disabled, true); assert.equal(h.ui.trialButton.disabled, true); assert.match(h.ui.status.textContent, /source or workspace changed/);
+    await click(h.ui.save); assert.equal(h.h.writes, writes); assert.equal(h.h.controller.record().body, 'External change');
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('uncertain acceptance freezes the exact edited draft and retry keeps its operation', async () => {
+    const h = await mount({ mode: 'refine', body: 'Original', run: async () => ({ text: 'Generated' }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    h.ui.output.value = 'Exact submitted edit'; h.ui.output.dispatch('input'); h.h.failOnce(); const writes = h.h.writes;
+    await click(h.ui.save); await settle(h.h.controller); const operation = h.h.controller.pendingCommand; assert.ok(operation);
+    assert.equal(operation.command.body, 'Exact submitted edit'); assert.equal(h.ui.output.readOnly, true); assert.equal(h.ui.trialButton.disabled, true); assert.match(h.ui.status.textContent, /locked/);
+    h.ui.output.value = 'Attempted changed retry'; h.ui.output.dispatch('input'); assert.equal(h.ui.output.value, 'Exact submitted edit');
+    await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.controller.pendingCommand, null); assert.equal(h.h.writes, writes + 1);
+    assert.equal(h.h.controller.record().body, 'Exact submitted edit'); assert.equal(h.h.controller.record().history.length, 2); assert.equal(h.runs, 1);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('declining Close keeps edited proposal; confirmed Close or pagehide discards without saving', async () => {
+    for (const ending of ['close', 'pagehide']) {
+        const h = await mount({ mode: 'refine', body: 'Original', run: async () => ({ text: 'Generated' }) });
+        h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); const writes = h.h.writes;
+        h.ui.output.value = 'Unsaved local edit'; h.ui.output.dispatch('input'); h.root.confirm = () => false;
+        await click(h.ui.close); assert.equal(h.ui.overlay.isConnected, true); assert.equal(h.ui.output.value, 'Unsaved local edit');
+        if (ending === 'pagehide') { h.events.get('pagehide')(); assert.equal(h.ui.output.value, ''); assert.equal(h.ui.originalOutput.value, ''); assert.equal(h.ui.save.disabled, true); }
+        h.root.confirm = () => true; await click(h.ui.close); assert.equal(h.ui.overlay.isConnected, false);
+        assert.equal(h.h.writes, writes); assert.equal(h.h.controller.record().body, 'Original'); assert.equal(h.runs, 1); h.h.controller.dispose();
+    }
+});
