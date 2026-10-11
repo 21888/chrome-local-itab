@@ -14,6 +14,15 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
+### Capturas de colecciones de IA · candidata local 1.1.24
+
+Capturadas el 2026-10-10 en Chrome nativo de Linux en la nube con datos de prueba aislados. Estas dos imágenes originales proceden del paquete corregido y congelado de 82 archivos (manifest 1.1.21); la candidata local 1.1.24 solo cambia el número de versión respecto a ese paquete. La vista clara incluye las correcciones del tema predeterminado y del encabezado. La ventana oscura tiene 553 píxeles de ancho exterior, no es un teléfono físico ni una anchura CSS medida. La candidata no se ha enviado al repositorio remoto ni publicado; al redactar este registro, la versión pública sigue siendo 1.1.21 y 1.1.22 / 1.1.23 también son solo locales.
+
+![Colección de IA clara: detalles de escritorio corregidos y fragmento literal](docs/qa/collections-native/evidence/04-corrected-desktop-light.png)
+![Colección de IA oscura en ventana estrecha: detalles apilados, notas y fuente](docs/qa/collections-native/evidence/15-narrow-dark-detail.png)
+
+[Validación nativa y límites (inglés)](docs/ai-collections-native-validation.md) · [Descargas reales y comparación de restauración](docs/qa/collections-native/acceptance-notes.md) · [Cambios de 1.1.24 (inglés)](docs/releases/1.1.24.md#english)
+
 ### Capturas de la biblioteca de prompts · candidata local 1.1.23
 
 Capturadas el 2026-10-10 en Chrome nativo de Linux en la nube con datos de prueba aislados. Estas imágenes originales muestran el paquete integrado congelado de 76 archivos (manifest 1.1.21); el código actual 1.1.23 solo cambia el número de versión de ejecución. No son capturas posteriores a la publicación. La imagen estrecha usa una ventana exterior de 553 píxeles, no un teléfono físico ni una anchura CSS medida.
@@ -197,6 +206,8 @@ Consulta la [guía de comprobación de versiones, copias separadas y actualizaci
 <a id="features"></a>
 
 ## Funciones
+
+- **Colecciones de resultados de IA (candidata local 1.1.24)**: Guarda manualmente fragmentos literales con notas separadas, tipos, etiquetas de herramientas y etiquetas en una biblioteca local compartida entre espacios; busca, archiva y recupera registros. Los cambios del texto requieren revisión; recuperar una versión añade otra al historial y las pestañas desactualizadas no sobrescriben los datos nuevos. La exportación JSON independiente puede omitir las URL de origen solo en la copia. La copia completa con esquema 4 admite reemplazo global de colecciones, copia previa de recuperación y verificación por relectura. Los ID exactos de prompt y versión siguen sin resolverse. Sin captura automática, llamadas a modelos, nuevas solicitudes de red ni permisos nuevos; no es una copia de conversaciones completas. [Uso, privacidad y límites (chino)](docs/ai-collections.zh-CN.md) · [Validación nativa (inglés)](docs/ai-collections-native-validation.md).
 
 - **Biblioteca personal de prompts (candidata local 1.1.23)**: Una biblioteca local de texto plano compartida por todos los espacios, con categorías, etiquetas, favoritos, búsqueda, vista previa y copia de `{{variables}}`, historial del texto y papelera recuperable. La copia local completa con esquema 3 puede incluir prompts; la exportación normal de ajustes, Chrome Sync y Drive no los incluyen. Sin ejecución de modelos, campos de claves API, permisos nuevos ni cargas automáticas. [Uso y límites (chino)](docs/prompt-library.zh-CN.md) · [Alcance de validación nativa (inglés)](docs/prompt-library-native-validation.md) · [Cambios y límites de 1.1.23 (inglés)](docs/releases/1.1.23.md#english). El número de la candidata no significa que esté publicada.
 

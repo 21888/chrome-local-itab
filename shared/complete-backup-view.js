@@ -8,19 +8,21 @@
     "GlobalLibrary": "Global prompt library on this device",
     "PromptTargetRequired": "Choose the global prompt library target, then review again. Its saved active and archived prompts will be replaced.",
     "PromptScope": "The selected global prompt library is replaced once, including archived prompts. Current saved records and their versions are retained in recovery. Visibility stays unchanged.",
-    "GlobalOnlyScope": "Only the global prompt library will be replaced. Saved workspaces and Trash stay unchanged.",
+    "GlobalOnlyScope": "Only the selected global libraries will be replaced. Saved workspaces and Trash stay unchanged.",
     "PromptConflicts": "Matching prompt IDs whose saved metadata or body differs",
+    "CountCollectionActive": "Saved excerpts",
+    "CountCollectionRemoved": "Archived excerpts",
     "CountPromptActive": "Active prompts",
     "CountPromptRemoved": "Archived prompts",
     "CountVersions": "Saved body versions",
-    "PromptLimit": "The prompt library or its retained recovery/history exceeds its safe limit. No replacement was made. Keep a backup; no history is deleted automatically.",
-    "PromptIdentity": "A saved prompt or body-version ID has conflicting content. No replacement was made. Keep both files for review.",
+    "PromptLimit": "A selected global library or its retained recovery/history exceeds its safe limit. No replacement was made. Keep a backup; no history is deleted automatically.",
+    "PromptIdentity": "A saved record or body-version ID has conflicting content. No replacement was made. Keep both files for review.",
     "RestorePending": "A combined restore was interrupted. Saving is paused to protect both saved copies. Download the pre-restore copy and inspect the interrupted restore below before making another change.",
     "InspectInterrupted": "Inspect interrupted restore",
-    "InterruptedReview": "Saving is paused. The following action restores all workspaces, Trash and the prompt library to their verified pre-restore state. It does not merge drafts. Download the pre-restore copy first if you need a separate file.",
+    "InterruptedReview": "Saving is paused. The following action restores all affected workspaces, Trash and selected global libraries to their verified pre-restore state. It does not merge drafts. Download the pre-restore copy first if you need a separate file.",
     "RecoverInterrupted": "Restore verified previous state",
     "NoInterrupted": "No interrupted combined restore needs recovery. You can reload to inspect the saved state; no recovery action was taken.",
-    "RecoveredInterrupted": "The previous workspace and prompt states were restored and verified. Reload to show them; drafts remain in this page.",
+    "RecoveredInterrupted": "The previous workspace and selected global library states were restored and verified. Reload to show them; drafts remain in this page.",
     "DownloadInterrupted": "Download both saved copies",
     "InterruptedChanged": "A retained saved copy changed after the interrupted restore. Automatic rollback is blocked to avoid losing newer content. Download both saved copies for review; the pre-restore download is also available.",
     "Title": "Complete local backup",
@@ -97,17 +99,18 @@
     "LargeConfirm": "This file is larger than 10 MiB. Checking it may pause this page for a few seconds. Continue only after finishing time-sensitive work in this tab.",
     "Continue": "Continue checking large file"
 };
-    const MODULES = ['config', 'tasks', 'scratchpad', 'countdown', 'focus', 'prompts'];
+    Object.assign(fallback, {"Collections": "AI collections and saved versions", "CollectionHelp": "Collections are one global library shared across workspaces. Full backups include manually saved excerpts, notes, source URLs, prompt references, archived records and versions. Check private content before sharing; provider credentials are excluded.", "CollectionTarget": "Destination for AI collections", "ChooseCollectionTarget": "Choose the collections destination", "GlobalCollections": "Global AI collections on this device", "CollectionTargetRequired": "Choose the global AI collections target, then review again. Active and archived collections will be replaced.", "CollectionScope": "The selected global AI collections are replaced once, including archived records. Existing content and saved versions remain in recovery. Prompt references retain their exact IDs and may be unresolved.", "CollectionConflicts": "Matching collection IDs whose saved content differs"});
+    const MODULES = ['config', 'tasks', 'scratchpad', 'countdown', 'focus', 'prompts', 'collections'];
     const titleKey = id => id[0].toUpperCase() + id.slice(1);
     function mount(host, {store, restore = (preview, isCurrent) => store.restore(preview, {confirmed: true, isCurrent}), recoverInterruptedRestore = (review, isCurrent) => store.recoverInterruptedRestore(review, { confirmed: true, isCurrent }), reload = () => root.LocalItabContentLifecycle?.reload(), download = downloadFile} = {}) {
         if (!host?.ownerDocument || !store) throw new TypeError('Complete backup needs a host and store.');
         const doc = host.ownerDocument;
         const t = key => { const id = 'completeBackup' + key; const value = root.i18n?.t(id); return value && value !== id ? value : fallback[key]; };
-        let generation = 0, source = null, preview = null, targetWorkspaceId, promptTarget, interruptedReview = null, phase = '', destroyed = false, pendingLargeFile = null;
+        let generation = 0, source = null, preview = null, targetWorkspaceId, promptTarget, collectionTarget, interruptedReview = null, phase = '', destroyed = false, pendingLargeFile = null;
         const make = (tag, cls, text, parent) => { const el = doc.createElement(tag); if (cls) el.className = cls; if (text !== undefined) el.textContent = text; parent?.append(el); return el; };
         const shell = make('section', 'complete-backup', undefined, host);
         make('h3', 'section-title', t('Title'), shell);
-        for (const key of ['Help', 'WorkspaceHelp', 'SyncSafety', 'PromptHelp', 'SavedOnly', 'Privacy', 'LargeFile']) make('p', 'form-hint', t(key), shell);
+        for (const key of ['Help', 'WorkspaceHelp', 'SyncSafety', 'PromptHelp', 'CollectionHelp', 'SavedOnly', 'Privacy', 'LargeFile']) make('p', 'form-hint', t(key), shell);
         const choices = make('fieldset', 'complete-backup-modules', undefined, shell);
         make('legend', '', t('Modules'), choices);
         const inputs = {};
@@ -131,6 +134,10 @@
         make('span', 'form-label', t('PromptTarget'), promptDestination);
         const promptTargetSelect = make('select', 'form-select complete-backup-prompt-target', undefined, promptDestination);
         const promptSummary = make('p', 'complete-backup-prompt-summary', '', panel); promptSummary.hidden = true;
+        const collectionDestination = make('label', 'form-group complete-backup-collection-destination', undefined, panel); collectionDestination.hidden = true;
+        make('span', 'form-label', t('CollectionTarget'), collectionDestination);
+        const collectionTargetSelect = make('select', 'form-select complete-backup-collection-target', undefined, collectionDestination);
+        const collectionSummary = make('p', 'complete-backup-collection-summary', '', panel); collectionSummary.hidden = true;
         const workspaceSummary = make('p', 'complete-backup-workspaces', '', panel); workspaceSummary.hidden = true;
         const counts = make('ul', 'complete-backup-counts', undefined, panel);
         const warning = make('p', 'complete-backup-warning', t('FocusWarning'), panel);
@@ -151,9 +158,9 @@
             const busy = ['applying', 'exporting'].includes(phase);
             for (const id of MODULES) inputs[id].disabled = busy || Boolean(preview && !preview.modules.includes(id));
             exportButton.disabled = choose.disabled = file.disabled = recovery.disabled = busy;
-            target.disabled = promptTargetSelect.disabled = busy || phase === 'reading';
+            target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = busy || phase === 'reading';
             inspectInterrupted.disabled = downloadInterrupted.disabled = busy; recoverInterrupted.disabled = busy || !interruptedReview;
-            apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
+            apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
             cancel.disabled = phase === 'applying';
             shell.setAttribute('aria-busy', String(['reading', 'applying', 'exporting'].includes(phase)));
         }
@@ -170,14 +177,15 @@
             if (error?.mayHaveCommitted || error?.code === 'UNCONFIRMED') return t('Unconfirmed');
             return t(({INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
         };
-        function clear() { preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = true; summary.textContent = t('Scope'); for (const input of Object.values(inputs)) input.disabled = false; }
-        function abandon() { if (phase === 'applying') return; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; targetWorkspaceId = promptTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
+        function clear() { preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); for (const input of Object.values(inputs)) input.disabled = false; }
+        function abandon() { if (phase === 'applying') return; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
         const countText = (value, module) => {
             if (!value || typeof value !== 'object') return '';
             const parts = [];
             const add = (key, n) => { if (Number.isSafeInteger(n) && n >= 0) parts.push(`${t(key)}: ${n}`); };
             add('CountSites', value.shortcuts); add('CountCategories', value.categories); if (Number.isSafeInteger(value.dataUrlIcons)) add('CountImages', value.dataUrlIcons + Number(value.hasBackgroundImage === true) + Number(value.hasMoviePoster === true));
-            for (const key of ['active', 'done', 'removed', 'recovery', 'characters', 'versions']) add('Count' + (module === 'prompts' && ['active', 'removed'].includes(key) ? 'Prompt' : '') + titleKey(key), value[key]);
+            const recordKind = module === 'prompts' ? 'Prompt' : module === 'collections' ? 'Collection' : '';
+            for (const key of ['active', 'done', 'removed', 'recovery', 'characters', 'versions']) add('Count' + (['active', 'removed'].includes(key) ? recordKind : '') + titleKey(key), value[key]);
             if (typeof value.enabled === 'boolean') parts.push(`${t('CountEnabled')}: ${t(value.enabled ? 'Yes' : 'No')}`);
             if (typeof value.title === 'string') add('CountTitle', Array.from(value.title).length);
             if (typeof value.targetDate === 'string' && /^\d{4}-\d\d-\d\d$/.test(value.targetDate)) parts.push(`${t('CountTargetDate')}: ${value.targetDate}`);
@@ -192,9 +200,9 @@
                 // Yield so reading feedback can paint before bounded core validation.
                 await new Promise(resolve => setTimeout(resolve, 0));
                 if (!current(token)) return;
-                const result = await store.review(source, initial ? undefined : selection, { ...(targetWorkspaceId === undefined ? {} : {targetWorkspaceId}), ...(promptTarget === undefined ? {} : {promptTarget}) });
+                const result = await store.review(source, initial ? undefined : selection, { ...(targetWorkspaceId === undefined ? {} : {targetWorkspaceId}), ...(promptTarget === undefined ? {} : {promptTarget}), ...(collectionTarget === undefined ? {} : {collectionTarget}) });
                 if (!current(token)) return;
-                preview = result; phase = result.requiresTarget || result.requiresPromptTarget ? 'target' : 'ready';
+                preview = result; phase = result.requiresTarget || result.requiresPromptTarget || result.requiresCollectionTarget ? 'target' : 'ready';
                 if (result.schemaVersion === 1 && Array.isArray(result.destinations)) {
                     destination.hidden = false; target.replaceChildren();
                     const placeholder = make('option', '', t('ChooseTarget'), target); placeholder.value = '';
@@ -213,6 +221,13 @@
                     promptTargetSelect.value = promptTarget || '';
                     promptSummary.textContent = `${t('PromptScope')} ${t('PromptConflicts')}: ${result.prompts.conflicts?.filter(item => item.changed).length || 0}.`;
                 }
+                if (result.collections && result.selected.includes('collections')) {
+                    collectionDestination.hidden = collectionSummary.hidden = false; collectionTargetSelect.replaceChildren();
+                    const placeholder = make('option', '', t('ChooseCollectionTarget'), collectionTargetSelect); placeholder.value = '';
+                    const global = make('option', '', t('GlobalCollections'), collectionTargetSelect); global.value = 'global-collections';
+                    collectionTargetSelect.value = collectionTarget || '';
+                    collectionSummary.textContent = `${t('CollectionScope')} ${t('CollectionConflicts')}: ${result.collections.conflicts?.filter(item => item.changed).length || 0}.`;
+                }
                 for (const id of MODULES) {
                     inputs[id].checked = result.selected.includes(id);
                     if (!result.modules.includes(id)) continue;
@@ -221,13 +236,13 @@
                     make('span', '', `${t('Incoming')}: ${countText(result.incoming[id], id)}`, row);
                     make('span', '', `${t('Current')}: ${countText(result.current[id], id)}`, row);
                 }
-                warning.hidden = !result.selected.includes('focus'); status.textContent = result.requiresTarget ? t('TargetRequired') : result.requiresPromptTarget ? t('PromptTargetRequired') : result.selected.includes('focus') && result.current.focus?.activeSession ? t('FocusWarning') : result.selected.length ? t('Ready') : t('None'); controls(); move(summary);
+                warning.hidden = !result.selected.includes('focus'); status.textContent = result.requiresTarget ? t('TargetRequired') : result.requiresPromptTarget ? t('PromptTargetRequired') : result.requiresCollectionTarget ? t('CollectionTargetRequired') : result.selected.includes('focus') && result.current.focus?.activeSession ? t('FocusWarning') : result.selected.length ? t('Ready') : t('None'); controls(); move(summary);
             } catch (error) { if (current(token)) { phase = ''; clear(); status.textContent = errorText(error); controls(); move(status); } }
             finally { move(current(token) ? status : null); }
         }
         choose.addEventListener('click', () => { if (!current(generation) || choose.disabled) return; file.value = ''; file.click(); });
         async function readFile(chosen, token) {
-            const move = focusOwner(choose); pendingLargeFile = null; source = null; targetWorkspaceId = promptTarget = undefined; clear(); phase = 'reading'; panel.hidden = false; warning.hidden = true; status.textContent = t('Reading'); controls();
+            const move = focusOwner(choose); pendingLargeFile = null; source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; clear(); phase = 'reading'; panel.hidden = false; warning.hidden = true; status.textContent = t('Reading'); controls();
             try {
                 let text;
                 try { text = await chosen.text(); } catch (_) { throw {code:'FILE'}; }
@@ -240,7 +255,7 @@
         file.addEventListener('change', () => {
             if (!current(generation) || file.disabled) return;
             const chosen = file.files?.[0]; file.value = ''; if (!chosen) return;
-            const token = ++generation; source = null; targetWorkspaceId = promptTarget = undefined; pendingLargeFile = null; clear();
+            const token = ++generation; source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear();
             if (!Number.isSafeInteger(chosen.size) || chosen.size < 0 || chosen.size > (root.LocalItabCompleteBackup?.LIMITS.bytes || 32 * 1024 * 1024)) {
                 phase = ''; controls(); status.textContent = t('Size'); status.focus(); return;
             }
@@ -257,6 +272,7 @@
         for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (!current(generation) || input.disabled || !source) return; review(++generation, input); });
         target.addEventListener('change', () => { if (!current(generation) || target.disabled || !source) return; targetWorkspaceId = target.value || undefined; review(++generation, target); });
         promptTargetSelect.addEventListener('change', () => { if (!current(generation) || promptTargetSelect.disabled || !source) return; promptTarget = promptTargetSelect.value || undefined; review(++generation, promptTargetSelect); });
+        collectionTargetSelect.addEventListener('change', () => { if (!current(generation) || collectionTargetSelect.disabled || !source) return; collectionTarget = collectionTargetSelect.value || undefined; review(++generation, collectionTargetSelect); });
         cancel.addEventListener('click', abandon);
         shell.addEventListener('keydown', event => {
             if (event.key === 'Escape' && phase !== 'applying' && (source !== null || ['reading', 'large'].includes(phase))) { event.preventDefault(); abandon(); }
@@ -271,7 +287,7 @@
                 if (!current(token)) return;
                 await restore(ticket, () => current(token));
                 if (!current(token)) return;
-                source = null; targetWorkspaceId = promptTarget = undefined; phase = ''; clear(); controls(); status.textContent = t('Success'); reloadButton.hidden = false;
+                source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; phase = ''; clear(); controls(); status.textContent = t('Success'); reloadButton.hidden = false;
             } catch (error) { if (current(token)) { phase = ''; source = null; clear(); controls(); status.textContent = errorText(error, true); } }
             finally { move(current(token) ? status : null); }
         });
@@ -280,7 +296,7 @@
             const ids = selected(); if (!isRecovery && !ids.length) { status.textContent = t('None'); return; }
             const token = ++generation, origin = isRecovery ? recovery : exportButton, move = focusOwner(origin);
             const keepPreview = isRecovery && phase === 'ready';
-            if (!keepPreview) { source = null; targetWorkspaceId = promptTarget = undefined; pendingLargeFile = null; clear(); }
+            if (!keepPreview) { source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear(); }
             phase = 'exporting'; controls(); status.textContent = t('Exporting');
             try {
                 await new Promise(resolve => setTimeout(resolve, 0));

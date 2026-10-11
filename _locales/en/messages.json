@@ -1,749 +1,2062 @@
 {
-  "completeBackupInterruptedChanged": {"message": "A retained saved copy changed after the interrupted restore. Automatic rollback is blocked to avoid losing newer content. Download both saved copies for review; the pre-restore download is also available."},
-  "completeBackupDownloadInterrupted": {"message": "Download both saved copies"},
-  "completeBackupPrompts": {"message": "Prompt library and saved versions"},
-  "completeBackupPromptHelp": {"message": "Prompts are one global reusable library shared across workspaces. This includes saved versions and archived prompts, but excludes drafts, variable values and provider credentials."},
-  "completeBackupPromptTarget": {"message": "Destination for the prompt library"},
-  "completeBackupChoosePromptTarget": {"message": "Choose the prompt library destination"},
-  "completeBackupGlobalLibrary": {"message": "Global prompt library on this device"},
-  "completeBackupPromptTargetRequired": {"message": "Choose the global prompt library target, then review again. Its saved active and archived prompts will be replaced."},
-  "completeBackupPromptScope": {"message": "The selected global prompt library is replaced once, including archived prompts. Current saved records and their versions are retained in recovery. Visibility stays unchanged."},
-  "completeBackupGlobalOnlyScope": {"message": "Only the global prompt library will be replaced. Saved workspaces and Trash stay unchanged."},
-  "completeBackupPromptConflicts": {"message": "Matching prompt IDs whose saved metadata or body differs"},
-  "completeBackupCountPromptActive": {"message": "Active prompts"},
-  "completeBackupCountPromptRemoved": {"message": "Archived prompts"},
-  "completeBackupCountVersions": {"message": "Saved body versions"},
-  "completeBackupPromptLimit": {"message": "The prompt library or its retained recovery/history exceeds its safe limit. No replacement was made. Keep a backup; no history is deleted automatically."},
-  "completeBackupPromptIdentity": {"message": "A saved prompt or body-version ID has conflicting content. No replacement was made. Keep both files for review."},
-  "completeBackupRestorePending": {"message": "A combined restore was interrupted. Saving is paused to protect both saved copies. Download the pre-restore copy and inspect the interrupted restore below before making another change."},
-  "completeBackupInspectInterrupted": {"message": "Inspect interrupted restore"},
-  "completeBackupInterruptedReview": {"message": "Saving is paused. The following action restores all workspaces, Trash and the prompt library to their verified pre-restore state. It does not merge drafts. Download the pre-restore copy first if you need a separate file."},
-  "completeBackupRecoverInterrupted": {"message": "Restore verified previous state"},
-  "completeBackupNoInterrupted": {"message": "No interrupted combined restore needs recovery. You can reload to inspect the saved state; no recovery action was taken."},
-  "completeBackupRecoveredInterrupted": {"message": "The previous workspace and prompt states were restored and verified. Reload to show them; drafts remain in this page."},
-  "updateBackupTitle": {"message": "Back up before updating"},
-  "updateBackupScope": {"message": "Save open edits first. Settings backups exclude Tasks, Focus, Scratchpad and Countdown. Back up Tasks, Scratchpad and Countdown separately; record Focus preferences manually. Focus sessions cannot be migrated."},
-  "updateBackupSettings": {"message": "Go to settings export"},
-  "updateBackupCountdown": {"message": "Go to Countdown export"},
-  "updateBackupNavigation": {"message": "These shortcuts only move within Settings. They do not save drafts or download files."},
-  "updateBackupCards": {"message": "On the new tab page: Tasks → Task data → Export tasks; Scratchpad → Export text. If a card is hidden, enable it under Settings → Shortcuts → Module Visibility. Export Scratchpad from the tab containing the text you want to keep."},
-  "updateTitle": {"message": "Version & updates"},
-  "updateDescription": {"message": "Check published GitHub releases when you choose. Updates are installed separately."},
-  "updateInstalled": {"message": "Installed version"},
-  "updateLatest": {"message": "Latest published version (saved result)"},
-  "updateLastChecked": {"message": "Last successful check"},
-  "updatePrivacy": {"message": "Checking connects to api.github.com for this project's public release metadata. GitHub receives your IP address and ordinary connection details. No bookmarks, tasks, settings, account or token are sent."},
-  "updateAutomatic": {"message": "Check at most once a day"},
-  "updateAutomaticHelp": {"message": "Off by default. Checks when you open or return to a new tab; at most one quiet notice per 24 hours. Saves immediately on this device."},
-  "updateCheck": {"message": "Check GitHub now"},
-  "updateReleaseLink": {"message": "View release on GitHub"},
-  "updateIgnore": {"message": "Ignore this version"},
-  "updateIgnored": {"message": "Ignored for automatic notices"},
-  "updateUnpackedTitle": {"message": "Update your unpacked extension"},
-  "updateUnpackedBackup": {"message": "Save open edits first. Export a settings backup and export Tasks, Scratchpad and Countdown separately if you use them; Focus preferences and sessions are not included."},
-  "updateUnpackedReplace": {"message": "From the GitHub release, download the runtime ZIP. Extract it and replace extension files in the same permanent folder you originally loaded. Do not remove the installed extension or switch folders."},
-  "updateUnpackedReload": {"message": "Open chrome://extensions, find Local iTab, and click Reload after saving your work. Then open a new tab and check the version here. Local iTab never replaces files or reloads for you."},
-  "updateStore": {"message": "Chrome manages updates for this store installation. GitHub can be ahead of store review; a published GitHub release does not mean a store update is available. Keep this installation and wait for Chrome's update."},
-  "updateManaged": {"message": "Your administrator manages this installation. Ask them about updates; the latest GitHub release may not be the version approved for your organization."},
-  "updateUnknown": {"message": "The installation source could not be confirmed. If installed from the Chrome Web Store, let Chrome manage updates. If loaded unpacked, save and back up your work, replace files in the same permanent folder with the release ZIP contents, then reload Local iTab at chrome://extensions. Do not remove the extension."},
-  "updateChecking": {"message": "Checking GitHub…"},
-  "updateAvailable": {"message": "A newer published version is available."},
-  "updateCurrent": {"message": "Your installed version is as new as, or newer than, the latest published release."},
-  "updateOffline": {"message": "Could not reach GitHub. Check your connection and try again."},
-  "updateTimeout": {"message": "GitHub did not respond in time. Try again later."},
-  "updateRateLimit": {"message": "GitHub is limiting requests. Please wait before checking again."},
-  "updateUnavailable": {"message": "GitHub could not complete this check. Try again later."},
-  "updateNoRelease": {"message": "No published release was found."},
-  "updateInvalid": {"message": "GitHub returned unexpected version data. It was not used."},
-  "updateStale": {"message": "GitHub returned an older release than the saved result. The saved result is shown."},
-  "updateBusy": {"message": "A check is already running in another tab."},
-  "updateStorageError": {"message": "Update preferences could not be read or saved. Try again."},
-  "updatePreferenceSaved": {"message": "Update preference saved on this device."},
-  "updateCancelled": {"message": "Check cancelled."},
-  "updateIdle": {"message": "No check yet. Checking is manual by default."},
-  "updateNotChecked": {"message": "Not checked"},
-  "updateNotice": {"message": "Local iTab $version$ is available. View update details.", "placeholders": {"version": {"content": "$1"}}},
-  "worldClockCompare": {"message": "Compare times"},
-  "worldClockBackToNow": {"message": "Back to now"},
-  "worldClockCompareOffset": {"message": "Time comparison: −24 to +24 hours (15-minute steps)"},
-  "worldClockCompareReference": {"message": "Preview · Local: $1, $2 · $3 min from start"},
-  "worldClockPreviousDay": {"message": "Previous day"},
-  "worldClockSameDay": {"message": "Same day"},
-  "worldClockNextDay": {"message": "Next day"},
-  "tasksBatch": {"message": "Add multiple tasks"},
-  "tasksBatchLabel": {"message": "One task per line"},
-  "tasksBatchHelp": {"message": "Each nonblank line becomes one task, in order. Spaces, bullet prefixes and duplicate lines are kept. Nothing is added until you review and confirm."},
-  "tasksBatchTextLimit": {"message": "Plain text · 1,000 characters per task"},
-  "tasksBatchReview": {"message": "Review tasks"},
-  "tasksBatchConfirm": {"message": "Add reviewed tasks"},
-  "tasksBatchCount": {"message": "Tasks to add"},
-  "tasksBatchCapacity": {"message": "Stored tasks (including completed and removed)"},
-  "tasksBatchRemaining": {"message": "Available spaces"},
-  "tasksBatchPreview": {"message": "Numbered preview"},
-  "tasksBatchChanged": {"message": "The list changed. Review again to check the latest capacity."},
-  "tasksBatchReady": {"message": "Review the numbered list, then confirm to add every task together."},
-  "tasksBatchRetry": {"message": "Retry previous add"},
-  "tasksBatchUncertain": {"message": "The previous batch could not be confirmed. Retry that same batch safely before reviewing this draft."},
-  "tasksBatchDraftRemains": {"message": "The previous batch was saved. Your current draft is still here; review it before adding anything else."},
-  "scratchpadImport": {"message": "Import text"},
-  "scratchpadImportReplace": {"message": "Replace Scratchpad text"},
-  "scratchpadImportCancel": {"message": "Cancel"},
-  "scratchpadImportPreview": {"message": "Text to import"},
-  "scratchpadImportHelp": {"message": "Preview only. Replace will overwrite the saved Scratchpad text. Export a copy first if you want to keep it."},
-  "scratchpadImportReading": {"message": "Reading local text file…"},
-  "scratchpadImportError": {"message": "Could not read this file. Choose one UTF-8 .txt file, up to 32,000 Unicode characters and 128 KiB. Scratchpad was not changed."},
-  "countdownCardConflict": {"message": "Another page changed this Countdown. Load saved before choosing Hide again."},
-  "countdownExportTooLarge": {"message": "This draft is too large to export. Keep the full copy within 32,000 characters and 128 KiB of UTF-8 text. Your draft is still here."},
-  "countdownTitle": {"message": "Countdown"},
-  "countdownLocal": {"message": "On this device"},
-  "countdownEventLabel": {"message": "Milestone title (up to 80 characters)"},
-  "countdownDateLabel": {"message": "Target date (YYYY-MM-DD)"},
-  "countdownDateHelp": {"message": "Use a real calendar date from 0001-01-01 to 9999-12-31. Days are counted by your device’s local calendar, not 24-hour periods."},
-  "countdownEnable": {"message": "Show Countdown on the new tab page"},
-  "countdownEnableHelp": {"message": "Optional and device-local. Hiding Countdown keeps its saved title and date."},
-  "countdownHelp": {"message": "Saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. No notifications or network requests. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup."},
-  "countdownLoading": {"message": "Loading local Countdown…"},
-  "countdownSaving": {"message": "Saving…"},
-  "countdownSaved": {"message": "Saved on this device"},
-  "countdownUnsaved": {"message": "Unsaved changes"},
-  "countdownLoadError": {"message": "Could not load Countdown. Retry to read the saved state. Your draft is still here."},
-  "countdownSaveError": {"message": "Could not confirm the save. Your draft is still here. Retry or export a text copy before leaving."},
-  "countdownConflict": {"message": "Another page changed this Countdown. Your draft is still here. Load saved to discard this draft, or replace the saved Countdown with this draft."},
-  "countdownInvalidDate": {"message": "Enter a real date in YYYY-MM-DD format, from 0001-01-01 to 9999-12-31."},
-  "countdownInvalidTitle": {"message": "Use a plain-text title without control characters or invalid Unicode."},
-  "countdownTitleTooLong": {"message": "This title is too long to save. Shorten it or export a text copy before leaving."},
-  "countdownUnconfigured": {"message": "Add a title and target date before showing Countdown."},
-  "countdownRetry": {"message": "Retry"},
-  "countdownUseSaved": {"message": "Load saved"},
-  "countdownReplace": {"message": "Replace with my draft"},
-  "countdownSave": {"message": "Save"},
-  "countdownCancel": {"message": "Cancel"},
-  "countdownHide": {"message": "Hide"},
-  "countdownEdit": {"message": "Edit"},
-  "countdownExport": {"message": "Export text"},
-  "countdownExportError": {"message": "Could not export a text copy. Your draft is still here."},
-  "countdownDiscardConfirm": {"message": "Discard this unsaved Countdown draft and load the latest saved title, date and visibility?"},
-  "countdownReplaceConfirm": {"message": "Replace the latest saved Countdown with this draft? Other open pages will receive this change."},
-  "countdownSavedPreview": {"message": "Latest saved Countdown"},
-  "countdownNotConfigured": {"message": "Not configured"},
-  "countdownShown": {"message": "Shown"},
-  "countdownHidden": {"message": "Hidden"},
-  "countdownToday": {"message": "Today"},
-  "countdownDayLeft": {"message": "1 day left"},
-  "countdownDaysLeft": {"message": "$1 days left"},
-  "countdownDayAgo": {"message": "1 day ago"},
-  "countdownDaysAgo": {"message": "$1 days ago"},
-  "worldClockConflict": {"message": "Clock settings changed in another tab or could not be safely compared. Your edits are still here. Review the latest values in a new Settings tab before retrying."},
-  "worldClocks": {"message": "World clocks"},
-  "worldClockToday": {"message": "Today"},
-  "worldClockYesterday": {"message": "Yesterday"},
-  "worldClockTomorrow": {"message": "Tomorrow"},
-  "worldClockDays": {"message": "$1 days"},
-  "worldClockHelp": {"message": "Add up to four IANA time zones. Times use your clock format and stay offline. Save to apply."},
-  "worldClockZone": {"message": "Time zone"},
-  "worldClockLabel": {"message": "Short label (optional)"},
-  "worldClockAdd": {"message": "Add clock"},
-  "worldClockMoveUp": {"message": "Move up"},
-  "worldClockMoveDown": {"message": "Move down"},
-  "worldClockRemove": {"message": "Remove"},
-  "worldClockSave": {"message": "Save clocks"},
-  "worldClockInvalid": {"message": "Use a valid IANA time zone, a label of up to 40 characters, and at most four different zones."},
-  "worldClockBaselineUnavailable": {"message": "Clock settings could not be read safely. Reload Settings before saving."},
-  "scratchpadLimits": {"message": "Up to 32,000 Unicode characters and 128 KiB of UTF-8 text. Longer drafts stay here until shortened; export a copy before leaving."},
-  "scratchpadTooLong": {"message": "This draft is too long to save. It is still here. Shorten it or export a text copy before leaving."},
-  "scratchpadInvalidText": {"message": "This draft contains invalid Unicode text and cannot be saved or exported exactly. Your text is still here. Correct it before saving or exporting."},
-  "scratchpadTitle": {"message": "Scratchpad"},
-  "scratchpadLocal": {"message": "On this device"},
-  "scratchpadLabel": {"message": "Scratchpad text"},
-  "scratchpadEnable": {"message": "Show Scratchpad on the new tab page"},
-  "scratchpadEnableHelp": {"message": "Optional and device-local. Hiding Scratchpad keeps your saved text."},
-  "scratchpadHelp": {"message": "Plain text saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup."},
-  "scratchpadLoading": {"message": "Loading local Scratchpad…"},
-  "scratchpadSaving": {"message": "Saving…"},
-  "scratchpadSaved": {"message": "Saved on this device"},
-  "scratchpadUnsaved": {"message": "Unsaved changes"},
-  "scratchpadLoadError": {"message": "Could not load Scratchpad. Retry before editing."},
-  "scratchpadSaveError": {"message": "Could not confirm the save. Your draft is still here. Retry or export a text copy before leaving."},
-  "scratchpadConflict": {"message": "Another page changed the saved text. Your draft is still here. Use saved text to discard this draft, or replace saved text with this draft."},
-  "scratchpadRetry": {"message": "Retry"},
-  "scratchpadUseSaved": {"message": "Use saved text"},
-  "scratchpadReplace": {"message": "Replace with my draft"},
-  "scratchpadExport": {"message": "Export text"},
-  "scratchpadDetails": {"message": "Storage and backups"},
-  "scratchpadSavedPreview": {"message": "Latest saved text"},
-  "scratchpadSettingsConflict": {"message": "Scratchpad changed on another page. Read the latest saved state before changing visibility."},
-  "scratchpadReadLatest": {"message": "Read latest saved state"},
-  "scratchpadExportError": {"message": "Could not export a text copy. Your draft is still here."},
-  "shortcutUndoNotice": {"message": "Shortcut deleted. Undo is available only on this page until refresh; later changes may make it unavailable."},
-  "shortcutUndoAction": {"message": "Undo delete"},
-  "shortcutUndoInvalidData": {"message": "This shortcut data cannot be changed safely. Refresh and review it before trying again."},
-  "shortcutUndoUnverified": {"message": "Could not verify the result. Refresh this page to check your shortcuts."},
-  "shortcutUndoUnavailable": {"message": "Undo is no longer available. Refresh this page to check the latest shortcuts."},
+  "completeBackupInterruptedChanged": {
+    "message": "A retained saved copy changed after the interrupted restore. Automatic rollback is blocked to avoid losing newer content. Download both saved copies for review; the pre-restore download is also available."
+  },
+  "completeBackupDownloadInterrupted": {
+    "message": "Download both saved copies"
+  },
+  "completeBackupPrompts": {
+    "message": "Prompt library and saved versions"
+  },
+  "completeBackupPromptHelp": {
+    "message": "Prompts are one global reusable library shared across workspaces. This includes saved versions and archived prompts, but excludes drafts, variable values and provider credentials."
+  },
+  "completeBackupPromptTarget": {
+    "message": "Destination for the prompt library"
+  },
+  "completeBackupChoosePromptTarget": {
+    "message": "Choose the prompt library destination"
+  },
+  "completeBackupGlobalLibrary": {
+    "message": "Global prompt library on this device"
+  },
+  "completeBackupPromptTargetRequired": {
+    "message": "Choose the global prompt library target, then review again. Its saved active and archived prompts will be replaced."
+  },
+  "completeBackupPromptScope": {
+    "message": "The selected global prompt library is replaced once, including archived prompts. Current saved records and their versions are retained in recovery. Visibility stays unchanged."
+  },
+  "completeBackupGlobalOnlyScope": {
+    "message": "Only the selected global libraries will be replaced. Saved workspaces and Trash stay unchanged."
+  },
+  "completeBackupPromptConflicts": {
+    "message": "Matching prompt IDs whose saved metadata or body differs"
+  },
+  "completeBackupCountCollectionActive": {
+    "message": "Saved excerpts"
+  },
+  "completeBackupCountCollectionRemoved": {
+    "message": "Archived excerpts"
+  },
+  "completeBackupCountPromptActive": {
+    "message": "Active prompts"
+  },
+  "completeBackupCountPromptRemoved": {
+    "message": "Archived prompts"
+  },
+  "completeBackupCountVersions": {
+    "message": "Saved body versions"
+  },
+  "completeBackupPromptLimit": {
+    "message": "A selected global library or its retained recovery/history exceeds its safe limit. No replacement was made. Keep a backup; no history is deleted automatically."
+  },
+  "completeBackupPromptIdentity": {
+    "message": "A saved record or body-version ID has conflicting content. No replacement was made. Keep both files for review."
+  },
+  "completeBackupRestorePending": {
+    "message": "A combined restore was interrupted. Saving is paused to protect both saved copies. Download the pre-restore copy and inspect the interrupted restore below before making another change."
+  },
+  "completeBackupInspectInterrupted": {
+    "message": "Inspect interrupted restore"
+  },
+  "completeBackupInterruptedReview": {
+    "message": "Saving is paused. The following action restores all affected workspaces, Trash and selected global libraries to their verified pre-restore state. It does not merge drafts. Download the pre-restore copy first if you need a separate file."
+  },
+  "completeBackupRecoverInterrupted": {
+    "message": "Restore verified previous state"
+  },
+  "completeBackupNoInterrupted": {
+    "message": "No interrupted combined restore needs recovery. You can reload to inspect the saved state; no recovery action was taken."
+  },
+  "completeBackupRecoveredInterrupted": {
+    "message": "The previous workspace and selected global library states were restored and verified. Reload to show them; drafts remain in this page."
+  },
+  "updateBackupTitle": {
+    "message": "Back up before updating"
+  },
+  "updateBackupScope": {
+    "message": "Save open edits first. Settings backups exclude Tasks, Focus, Scratchpad and Countdown. Back up Tasks, Scratchpad and Countdown separately; record Focus preferences manually. Focus sessions cannot be migrated."
+  },
+  "updateBackupSettings": {
+    "message": "Go to settings export"
+  },
+  "updateBackupCountdown": {
+    "message": "Go to Countdown export"
+  },
+  "updateBackupNavigation": {
+    "message": "These shortcuts only move within Settings. They do not save drafts or download files."
+  },
+  "updateBackupCards": {
+    "message": "On the new tab page: Tasks → Task data → Export tasks; Scratchpad → Export text. If a card is hidden, enable it under Settings → Shortcuts → Module Visibility. Export Scratchpad from the tab containing the text you want to keep."
+  },
+  "updateTitle": {
+    "message": "Version & updates"
+  },
+  "updateDescription": {
+    "message": "Check published GitHub releases when you choose. Updates are installed separately."
+  },
+  "updateInstalled": {
+    "message": "Installed version"
+  },
+  "updateLatest": {
+    "message": "Latest published version (saved result)"
+  },
+  "updateLastChecked": {
+    "message": "Last successful check"
+  },
+  "updatePrivacy": {
+    "message": "Checking connects to api.github.com for this project's public release metadata. GitHub receives your IP address and ordinary connection details. No bookmarks, tasks, settings, account or token are sent."
+  },
+  "updateAutomatic": {
+    "message": "Check at most once a day"
+  },
+  "updateAutomaticHelp": {
+    "message": "Off by default. Checks when you open or return to a new tab; at most one quiet notice per 24 hours. Saves immediately on this device."
+  },
+  "updateCheck": {
+    "message": "Check GitHub now"
+  },
+  "updateReleaseLink": {
+    "message": "View release on GitHub"
+  },
+  "updateIgnore": {
+    "message": "Ignore this version"
+  },
+  "updateIgnored": {
+    "message": "Ignored for automatic notices"
+  },
+  "updateUnpackedTitle": {
+    "message": "Update your unpacked extension"
+  },
+  "updateUnpackedBackup": {
+    "message": "Save open edits first. Export a settings backup and export Tasks, Scratchpad and Countdown separately if you use them; Focus preferences and sessions are not included."
+  },
+  "updateUnpackedReplace": {
+    "message": "From the GitHub release, download the runtime ZIP. Extract it and replace extension files in the same permanent folder you originally loaded. Do not remove the installed extension or switch folders."
+  },
+  "updateUnpackedReload": {
+    "message": "Open chrome://extensions, find Local iTab, and click Reload after saving your work. Then open a new tab and check the version here. Local iTab never replaces files or reloads for you."
+  },
+  "updateStore": {
+    "message": "Chrome manages updates for this store installation. GitHub can be ahead of store review; a published GitHub release does not mean a store update is available. Keep this installation and wait for Chrome's update."
+  },
+  "updateManaged": {
+    "message": "Your administrator manages this installation. Ask them about updates; the latest GitHub release may not be the version approved for your organization."
+  },
+  "updateUnknown": {
+    "message": "The installation source could not be confirmed. If installed from the Chrome Web Store, let Chrome manage updates. If loaded unpacked, save and back up your work, replace files in the same permanent folder with the release ZIP contents, then reload Local iTab at chrome://extensions. Do not remove the extension."
+  },
+  "updateChecking": {
+    "message": "Checking GitHub…"
+  },
+  "updateAvailable": {
+    "message": "A newer published version is available."
+  },
+  "updateCurrent": {
+    "message": "Your installed version is as new as, or newer than, the latest published release."
+  },
+  "updateOffline": {
+    "message": "Could not reach GitHub. Check your connection and try again."
+  },
+  "updateTimeout": {
+    "message": "GitHub did not respond in time. Try again later."
+  },
+  "updateRateLimit": {
+    "message": "GitHub is limiting requests. Please wait before checking again."
+  },
+  "updateUnavailable": {
+    "message": "GitHub could not complete this check. Try again later."
+  },
+  "updateNoRelease": {
+    "message": "No published release was found."
+  },
+  "updateInvalid": {
+    "message": "GitHub returned unexpected version data. It was not used."
+  },
+  "updateStale": {
+    "message": "GitHub returned an older release than the saved result. The saved result is shown."
+  },
+  "updateBusy": {
+    "message": "A check is already running in another tab."
+  },
+  "updateStorageError": {
+    "message": "Update preferences could not be read or saved. Try again."
+  },
+  "updatePreferenceSaved": {
+    "message": "Update preference saved on this device."
+  },
+  "updateCancelled": {
+    "message": "Check cancelled."
+  },
+  "updateIdle": {
+    "message": "No check yet. Checking is manual by default."
+  },
+  "updateNotChecked": {
+    "message": "Not checked"
+  },
+  "updateNotice": {
+    "message": "Local iTab $version$ is available. View update details.",
+    "placeholders": {
+      "version": {
+        "content": "$1"
+      }
+    }
+  },
+  "worldClockCompare": {
+    "message": "Compare times"
+  },
+  "worldClockBackToNow": {
+    "message": "Back to now"
+  },
+  "worldClockCompareOffset": {
+    "message": "Time comparison: −24 to +24 hours (15-minute steps)"
+  },
+  "worldClockCompareReference": {
+    "message": "Preview · Local: $1, $2 · $3 min from start"
+  },
+  "worldClockPreviousDay": {
+    "message": "Previous day"
+  },
+  "worldClockSameDay": {
+    "message": "Same day"
+  },
+  "worldClockNextDay": {
+    "message": "Next day"
+  },
+  "tasksBatch": {
+    "message": "Add multiple tasks"
+  },
+  "tasksBatchLabel": {
+    "message": "One task per line"
+  },
+  "tasksBatchHelp": {
+    "message": "Each nonblank line becomes one task, in order. Spaces, bullet prefixes and duplicate lines are kept. Nothing is added until you review and confirm."
+  },
+  "tasksBatchTextLimit": {
+    "message": "Plain text · 1,000 characters per task"
+  },
+  "tasksBatchReview": {
+    "message": "Review tasks"
+  },
+  "tasksBatchConfirm": {
+    "message": "Add reviewed tasks"
+  },
+  "tasksBatchCount": {
+    "message": "Tasks to add"
+  },
+  "tasksBatchCapacity": {
+    "message": "Stored tasks (including completed and removed)"
+  },
+  "tasksBatchRemaining": {
+    "message": "Available spaces"
+  },
+  "tasksBatchPreview": {
+    "message": "Numbered preview"
+  },
+  "tasksBatchChanged": {
+    "message": "The list changed. Review again to check the latest capacity."
+  },
+  "tasksBatchReady": {
+    "message": "Review the numbered list, then confirm to add every task together."
+  },
+  "tasksBatchRetry": {
+    "message": "Retry previous add"
+  },
+  "tasksBatchUncertain": {
+    "message": "The previous batch could not be confirmed. Retry that same batch safely before reviewing this draft."
+  },
+  "tasksBatchDraftRemains": {
+    "message": "The previous batch was saved. Your current draft is still here; review it before adding anything else."
+  },
+  "scratchpadImport": {
+    "message": "Import text"
+  },
+  "scratchpadImportReplace": {
+    "message": "Replace Scratchpad text"
+  },
+  "scratchpadImportCancel": {
+    "message": "Cancel"
+  },
+  "scratchpadImportPreview": {
+    "message": "Text to import"
+  },
+  "scratchpadImportHelp": {
+    "message": "Preview only. Replace will overwrite the saved Scratchpad text. Export a copy first if you want to keep it."
+  },
+  "scratchpadImportReading": {
+    "message": "Reading local text file…"
+  },
+  "scratchpadImportError": {
+    "message": "Could not read this file. Choose one UTF-8 .txt file, up to 32,000 Unicode characters and 128 KiB. Scratchpad was not changed."
+  },
+  "countdownCardConflict": {
+    "message": "Another page changed this Countdown. Load saved before choosing Hide again."
+  },
+  "countdownExportTooLarge": {
+    "message": "This draft is too large to export. Keep the full copy within 32,000 characters and 128 KiB of UTF-8 text. Your draft is still here."
+  },
+  "countdownTitle": {
+    "message": "Countdown"
+  },
+  "countdownLocal": {
+    "message": "On this device"
+  },
+  "countdownEventLabel": {
+    "message": "Milestone title (up to 80 characters)"
+  },
+  "countdownDateLabel": {
+    "message": "Target date (YYYY-MM-DD)"
+  },
+  "countdownDateHelp": {
+    "message": "Use a real calendar date from 0001-01-01 to 9999-12-31. Days are counted by your device’s local calendar, not 24-hour periods."
+  },
+  "countdownEnable": {
+    "message": "Show Countdown on the new tab page"
+  },
+  "countdownEnableHelp": {
+    "message": "Optional and device-local. Hiding Countdown keeps its saved title and date."
+  },
+  "countdownHelp": {
+    "message": "Saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. No notifications or network requests. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup."
+  },
+  "countdownLoading": {
+    "message": "Loading local Countdown…"
+  },
+  "countdownSaving": {
+    "message": "Saving…"
+  },
+  "countdownSaved": {
+    "message": "Saved on this device"
+  },
+  "countdownUnsaved": {
+    "message": "Unsaved changes"
+  },
+  "countdownLoadError": {
+    "message": "Could not load Countdown. Retry to read the saved state. Your draft is still here."
+  },
+  "countdownSaveError": {
+    "message": "Could not confirm the save. Your draft is still here. Retry or export a text copy before leaving."
+  },
+  "countdownConflict": {
+    "message": "Another page changed this Countdown. Your draft is still here. Load saved to discard this draft, or replace the saved Countdown with this draft."
+  },
+  "countdownInvalidDate": {
+    "message": "Enter a real date in YYYY-MM-DD format, from 0001-01-01 to 9999-12-31."
+  },
+  "countdownInvalidTitle": {
+    "message": "Use a plain-text title without control characters or invalid Unicode."
+  },
+  "countdownTitleTooLong": {
+    "message": "This title is too long to save. Shorten it or export a text copy before leaving."
+  },
+  "countdownUnconfigured": {
+    "message": "Add a title and target date before showing Countdown."
+  },
+  "countdownRetry": {
+    "message": "Retry"
+  },
+  "countdownUseSaved": {
+    "message": "Load saved"
+  },
+  "countdownReplace": {
+    "message": "Replace with my draft"
+  },
+  "countdownSave": {
+    "message": "Save"
+  },
+  "countdownCancel": {
+    "message": "Cancel"
+  },
+  "countdownHide": {
+    "message": "Hide"
+  },
+  "countdownEdit": {
+    "message": "Edit"
+  },
+  "countdownExport": {
+    "message": "Export text"
+  },
+  "countdownExportError": {
+    "message": "Could not export a text copy. Your draft is still here."
+  },
+  "countdownDiscardConfirm": {
+    "message": "Discard this unsaved Countdown draft and load the latest saved title, date and visibility?"
+  },
+  "countdownReplaceConfirm": {
+    "message": "Replace the latest saved Countdown with this draft? Other open pages will receive this change."
+  },
+  "countdownSavedPreview": {
+    "message": "Latest saved Countdown"
+  },
+  "countdownNotConfigured": {
+    "message": "Not configured"
+  },
+  "countdownShown": {
+    "message": "Shown"
+  },
+  "countdownHidden": {
+    "message": "Hidden"
+  },
+  "countdownToday": {
+    "message": "Today"
+  },
+  "countdownDayLeft": {
+    "message": "1 day left"
+  },
+  "countdownDaysLeft": {
+    "message": "$1 days left"
+  },
+  "countdownDayAgo": {
+    "message": "1 day ago"
+  },
+  "countdownDaysAgo": {
+    "message": "$1 days ago"
+  },
+  "worldClockConflict": {
+    "message": "Clock settings changed in another tab or could not be safely compared. Your edits are still here. Review the latest values in a new Settings tab before retrying."
+  },
+  "worldClocks": {
+    "message": "World clocks"
+  },
+  "worldClockToday": {
+    "message": "Today"
+  },
+  "worldClockYesterday": {
+    "message": "Yesterday"
+  },
+  "worldClockTomorrow": {
+    "message": "Tomorrow"
+  },
+  "worldClockDays": {
+    "message": "$1 days"
+  },
+  "worldClockHelp": {
+    "message": "Add up to four IANA time zones. Times use your clock format and stay offline. Save to apply."
+  },
+  "worldClockZone": {
+    "message": "Time zone"
+  },
+  "worldClockLabel": {
+    "message": "Short label (optional)"
+  },
+  "worldClockAdd": {
+    "message": "Add clock"
+  },
+  "worldClockMoveUp": {
+    "message": "Move up"
+  },
+  "worldClockMoveDown": {
+    "message": "Move down"
+  },
+  "worldClockRemove": {
+    "message": "Remove"
+  },
+  "worldClockSave": {
+    "message": "Save clocks"
+  },
+  "worldClockInvalid": {
+    "message": "Use a valid IANA time zone, a label of up to 40 characters, and at most four different zones."
+  },
+  "worldClockBaselineUnavailable": {
+    "message": "Clock settings could not be read safely. Reload Settings before saving."
+  },
+  "scratchpadLimits": {
+    "message": "Up to 32,000 Unicode characters and 128 KiB of UTF-8 text. Longer drafts stay here until shortened; export a copy before leaving."
+  },
+  "scratchpadTooLong": {
+    "message": "This draft is too long to save. It is still here. Shorten it or export a text copy before leaving."
+  },
+  "scratchpadInvalidText": {
+    "message": "This draft contains invalid Unicode text and cannot be saved or exported exactly. Your text is still here. Correct it before saving or exporting."
+  },
+  "scratchpadTitle": {
+    "message": "Scratchpad"
+  },
+  "scratchpadLocal": {
+    "message": "On this device"
+  },
+  "scratchpadLabel": {
+    "message": "Scratchpad text"
+  },
+  "scratchpadEnable": {
+    "message": "Show Scratchpad on the new tab page"
+  },
+  "scratchpadEnableHelp": {
+    "message": "Optional and device-local. Hiding Scratchpad keeps your saved text."
+  },
+  "scratchpadHelp": {
+    "message": "Plain text saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup."
+  },
+  "scratchpadLoading": {
+    "message": "Loading local Scratchpad…"
+  },
+  "scratchpadSaving": {
+    "message": "Saving…"
+  },
+  "scratchpadSaved": {
+    "message": "Saved on this device"
+  },
+  "scratchpadUnsaved": {
+    "message": "Unsaved changes"
+  },
+  "scratchpadLoadError": {
+    "message": "Could not load Scratchpad. Retry before editing."
+  },
+  "scratchpadSaveError": {
+    "message": "Could not confirm the save. Your draft is still here. Retry or export a text copy before leaving."
+  },
+  "scratchpadConflict": {
+    "message": "Another page changed the saved text. Your draft is still here. Use saved text to discard this draft, or replace saved text with this draft."
+  },
+  "scratchpadRetry": {
+    "message": "Retry"
+  },
+  "scratchpadUseSaved": {
+    "message": "Use saved text"
+  },
+  "scratchpadReplace": {
+    "message": "Replace with my draft"
+  },
+  "scratchpadExport": {
+    "message": "Export text"
+  },
+  "scratchpadDetails": {
+    "message": "Storage and backups"
+  },
+  "scratchpadSavedPreview": {
+    "message": "Latest saved text"
+  },
+  "scratchpadSettingsConflict": {
+    "message": "Scratchpad changed on another page. Read the latest saved state before changing visibility."
+  },
+  "scratchpadReadLatest": {
+    "message": "Read latest saved state"
+  },
+  "scratchpadExportError": {
+    "message": "Could not export a text copy. Your draft is still here."
+  },
+  "shortcutUndoNotice": {
+    "message": "Shortcut deleted. Undo is available only on this page until refresh; later changes may make it unavailable."
+  },
+  "shortcutUndoAction": {
+    "message": "Undo delete"
+  },
+  "shortcutUndoInvalidData": {
+    "message": "This shortcut data cannot be changed safely. Refresh and review it before trying again."
+  },
+  "shortcutUndoUnverified": {
+    "message": "Could not verify the result. Refresh this page to check your shortcuts."
+  },
+  "shortcutUndoUnavailable": {
+    "message": "Undo is no longer available. Refresh this page to check the latest shortcuts."
+  },
   "iconFetchFailed": {
     "message": "Could not fetch the icon. Please try again."
   },
-	"documentLanguage": {"message": "en", "description": "HTML document language for this translation catalog; do not translate the language code."},
-	"dateFormattingLocale": {"message": "en", "description": "Locale tag used to format date words alongside this UI translation."},
-	"defaultWelcomeQuote": {"message": "Welcome to your personalized new tab page!"},
-	"defaultCategoryWork": {"message": "Work"},
-	"defaultCategorySocial": {"message": "Social"},
-	"defaultCategoryEntertainment": {"message": "Entertainment"},
-	"defaultCategoryTools": {"message": "Tools"},
-	"defaultCategoryLearning": {"message": "Learning"},
-	"templateAtelier": {"message": "Atelier"},
-	"templateAtelierDescription": {"message": "An editorial masthead, fine rules and confident typography."},
-	"templateQuiet": {"message": "Quiet"},
-	"templateQuietDescription": {"message": "A centered, pared-back canvas with soft rectangular tiles."},
-	"templateStudio": {"message": "Studio"},
-	"templateStudioDescription": {"message": "A framed navigation rail and tactile, offset tile edges."},
-	"templateConsole": {"message": "Console"},
-	"templateConsoleDescription": {"message": "Monospaced labels and compact grouped command rows."},
-	"templatePrism": {"message": "Prism"},
-	"templatePrismDescription": {"message": "Geometric accents, generous corners and bold tile outlines."},
-	"templateLibrary": {"message": "Library"},
-	"templateLibraryDescription": {"message": "A reading index with serif titles and ruled link collections."},
-	"templateHorizon": {"message": "Horizon"},
-	"templateHorizonDescription": {"message": "A wide clock-led header and understated horizontal links."},
-	"templateLedger": {"message": "Ledger"},
-	"templateLedgerDescription": {"message": "A compact working index with strong alignment and counters."},
-	"templateMeadow": {"message": "Meadow"},
-	"templateMeadowDescription": {"message": "An airy centered start page with rounded, pebble-like tiles."},
-	"templateBlueprint": {"message": "Blueprint"},
-	"templateBlueprintDescription": {"message": "A precise technical grid, square controls and subtle guide lines."},
-	"templateTerrace": {"message": "Terrace"},
-	"templateTerraceDescription": {"message": "Grouped launch panels with alternating header accents."},
-	"templateColumn": {"message": "Column"},
-	"templateColumnDescription": {"message": "A narrow editorial rail beside a spacious reference index."},
-	"finderShortcutSetting": {"message": "Use / to open Find saved sites"},
-	"finderShortcutSettingDesc": {"message": "Turn off to leave / typing unchanged. The Find saved sites button still works. Save, then open a new tab or finish your work before refreshing an existing tab."},
-	"finderOpen": {"message": "Find saved sites"},
-	"finderShortcutHint": {"message": "Press / outside editing fields to find saved sites."},
-	"finderScope": {"message": "Only your saved sites · all categories"},
-	"finderLabel": {"message": "Title, address or category"},
-	"finderHint": {"message": "Type to find a saved site. This does not search the web."},
-	"finderEmpty": {"message": "No saved sites yet."},
-	"finderNone": {"message": "No matching saved sites."},
-	"finderClose": {"message": "Close"},
-	"finderClear": {"message": "Clear"},
-	"finderPrevious": {"message": "Previous results"},
-	"finderNext": {"message": "Next results"},
-	"finderResults": {"message": "Results"},
-	"finderShowing": {"message": "Showing"},
-	"finderChanged": {"message": "This saved site changed or is no longer available. Results refreshed; choose again."},
-	"finderUnsafe": {"message": "Unsupported address"},
-	"finderPending": {"message": "Checking the latest saved site…"},
-	"finderReadError": {"message": "Could not verify the saved site. Nothing was opened. Try again."},
-	"finderBlocked": {"message": "Could not open a new tab. Allow this page to open tabs and try again."},
-	"workspaceReloadDeferred": {"message": "Settings changed. Your open work is still here. Finish it before reloading."},
-	"workspaceReloadPending": {"message": "An action is still running. Wait for it to finish, then reload."},
-	"workspaceReloadConfirm": {"message": "Reload and discard unsaved drafts, open reviews, saved-site searches and calculator input? Saved data stays on this device."},
-	"tasksTitle": {"message": "Tasks"},
-	"tasksLocal": {"message": "On this device"},
-	"tasksNext": {"message": "Next up"},
-	"tasksNoPin": {"message": "Pin one task as your next action."},
-	"tasksAddLabel": {"message": "Add a task"},
-	"tasksFilter": {"message": "Filter tasks"},
-	"tasksFilterPlaceholder": {"message": "Find active, completed or removed tasks"},
-	"tasksFilterClear": {"message": "Clear filter"},
-	"tasksFilterMatches": {"message": "Matching tasks"},
-	"tasksFilterEmpty": {"message": "No matching tasks. Clear the filter to see your list."},
-	"tasksFilterReorder": {"message": "Clear the filter to reorder tasks."},
-	"tasksPlaceholder": {"message": "What’s the next small thing?"},
-	"tasksAdd": {"message": "Add"},
-	"tasksEmpty": {"message": "A clear list. Add something when you need it."},
-	"tasksComplete": {"message": "Complete"},
-	"tasksReopen": {"message": "Reopen"},
-	"tasksPin": {"message": "Pin next"},
-	"tasksUnpin": {"message": "Unpin"},
-	"tasksEdit": {"message": "Edit"},
-	"tasksRemove": {"message": "Remove"},
-	"tasksRestore": {"message": "Restore"},
-	"tasksActions": {"message": "Actions"},
-	"tasksUp": {"message": "Move up"},
-	"tasksDown": {"message": "Move down"},
-	"tasksMore": {"message": "Show all tasks"},
-	"tasksLess": {"message": "Show fewer"},
-	"tasksCompleted": {"message": "Completed"},
-	"tasksRemoved": {"message": "Removed"},
-	"tasksData": {"message": "Task data"},
-	"tasksHelp": {"message": "Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks."},
-	"tasksExport": {"message": "Export tasks"},
-	"tasksImport": {"message": "Import tasks"},
-	"tasksCopies": {"message": "Previous local copies"},
-	"tasksRecover": {"message": "Review restore"},
-	"tasksUndo": {"message": "Undo removal"},
-	"tasksUndoComplete": {"message": "Undo completion"},
-	"tasksLoading": {"message": "Loading local tasks…"},
-	"tasksReady": {"message": "Local tasks ready"},
-	"tasksSaving": {"message": "Saving on this device…"},
-	"tasksSaved": {"message": "Saved on this device"},
-	"tasksRetry": {"message": "Retry"},
-	"tasksCancel": {"message": "Cancel"},
-	"tasksSave": {"message": "Save task"},
-	"tasksEditTitle": {"message": "Edit task"},
-	"tasksReviewTitle": {"message": "Replace local tasks?"},
-	"tasksReplace": {"message": "Replace tasks"},
-	"tasksReviewHelp": {"message": "This replaces the current task list and pin on this device. A previous local copy is kept below Task data, except when a full archive is imported into an empty list with no previous copies. All imported copies are kept. Settings and cloud backups stay unchanged."},
-	"tasksCurrent": {"message": "Current"},
-	"tasksIncoming": {"message": "Replacement"},
-	"tasksActive": {"message": "Active"},
-	"tasksDone": {"message": "Completed"},
-	"tasksDeleted": {"message": "Removed"},
-	"tasksRecoveryCount": {"message": "Previous copies"},
-	"tasksConflict": {"message": "This task list changed in another page. Your draft is still here. Review the latest version before retrying."},
-	"tasksLatest": {"message": "Latest saved task"},
-	"tasksOverwrite": {"message": "Replace latest with my edit"},
-	"tasksEnable": {"message": "Show Tasks on the new tab page"},
-	"tasksEnableHelp": {"message": "Optional and device-local. Hiding the card keeps its tasks."},
-	"tasksErrorRead": {"message": "Could not read local tasks. Nothing was replaced. Retry when storage is available."},
-	"tasksErrorWrite": {"message": "Could not confirm the save. Your draft is still here. Retry safely."},
-	"tasksErrorText": {"message": "Enter a nonempty plain-text task, up to 1,000 characters. Text is never silently shortened."},
-	"tasksErrorCapacity": {"message": "This local list holds up to 500 tasks, including completed and removed items. No items were erased."},
-	"tasksErrorRecovery": {"message": "All 8 previous local copies are retained. This replacement was not saved. You can still export tasks or restore a previous copy."},
-	"tasksErrorSize": {"message": "This task file or local collection is too large (2 MB maximum). Nothing was replaced."},
-	"tasksErrorInvalid": {"message": "This is not a supported, valid task backup. Nothing was replaced."},
-	"tasksErrorUnavailable": {"message": "Safe local task storage is unavailable in this page."},
-	"tasksErrorFile": {"message": "Could not read or download the task file. Please try again."},
-	"tasksTextLimit": {"message": "Plain text · 1,000 characters maximum"},
-	"tasksRestoreTitle": {"message": "Restore this previous local copy?"},
-	"tasksDraftRemains": {"message": "Last task saved. Your current draft is not saved yet."},
-	"tasksSettingsBoundary": {"message": "Settings backups, Chrome Sync and Drive exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately as JSON; export Scratchpad and Countdown as text and restore them manually. Note Focus preferences manually; its session cannot be migrated. Resetting or restoring settings preserves these local modules."},
-	"tasksReloadDeferred": {"message": "Settings changed. Your task work is still here. Finish or export it before reloading."},
-	"tasksReloadPage": {"message": "Reload page"},
-	"tasksReloadPending": {"message": "A task save is still running. Wait for it to finish, then reload."},
-	"tasksReloadConfirm": {"message": "Reload and discard unsaved task drafts or open reviews? Saved tasks stay on this device."},
-	"syncCompatibilityNotice": {"message": "Chrome Sync needs review. Local settings are preserved. Open settings."},
-	"syncCompatibilityDetails": {"message": "Sync is paused for compatibility. Local settings and your enabled preference are preserved. Update other devices and retry Download, or explicitly choose which copy to replace."},
-	"syncReplaceLocal": {"message": "Replace this device with cloud copy…"},
-	"syncReplaceLocalConfirm": {"message": "Replace this device with the current cloud copy ($1 shortcuts)? Independent positions missing from that copy will be removed. A recovery backup of this device must be saved locally first. Other devices may overwrite the cloud again; update them before continuing."},
-	"syncBlockedClearConfirm": {"message": "This removes the conflicting cloud copy and keeps this device. A readable cloud copy must be saved locally for recovery first. Other devices may upload again. Continue?"},
-	"layoutRecoveryDescription": {"message": "Local recovery copies are kept before independent duplicate placement and before the latest replacement. Export them before Reset, which removes them too. Import a downloaded copy to restore it."},
-	"layoutRecoveryOriginal": {"message": "Download pre-upgrade backup"},
-	"layoutRecoveryLatest": {"message": "Download latest recovery backup"},
-	"recoveryDownloaded": {"message": "Recovery backup downloaded. Use Import Settings to review and restore it."},
-	"identityExported": {"message": "Settings exported in schema 2. Import with an updated version that supports independent positions."},
-	"restoreRecoveryConfirm": {"message": "A local recovery backup will be kept before replacing settings. Continue?"},
-	"contextTargetChanged": {"message": "This item changed. Reopen the action and try again."},
-	"shortcutMoreActions": {"message": "More actions"},
-	"contextShortcutActions": {"message": "Shortcut actions"},
-	"contextCategoryActions": {"message": "Category actions"},
-	"contextPageActions": {"message": "Page actions"},
-	"layoutReload": {"message": "Reload page"},
-	"layoutChangedElsewhere": {"message": "Layout changed in another page. Review it, then retry your change."},
-	"layoutContextChanged": {"message": "Page data changed or could not be read safely. Reload before arranging shortcuts."},
-	"layoutSavingUnavailable": {"message": "Safe layout saving is unavailable. Update Chrome and reload this page."},
-	"layoutRetry": {"message": "Retry save"},
-	"placementMode": {"message": "Placement"},
-	"placementGrid": {"message": "Grid (default)"},
-	"placementFree": {"message": "Free placement"},
-	"placementSnap": {"message": "Manual · snap to grid"},
-	"placementModeDesc": {"message": "Grid arranges shortcuts automatically. Free placement keeps exact drag positions. Saved positions remain when switching modes."},
-	"layoutSaving": {"message": "Saving…"},
-	"layoutSaved": {"message": "Saved"},
-	"layoutSaveFailed": {"message": "Could not save layout. Please try again."},
-
-	"largeLocalImportConfirm": {"message": "This backup is $SIZE$ MiB. Reading a large file can use substantial memory and may make this tab unresponsive. Continue reading it?", "placeholders": {"size": {"content": "$1"}}},
-	"localImportReadCancelled": {"message": "Import cancelled before reading the file."},
-	"freeLayoutNoSpace": { "message": "No free grid space is available. The shortcut stayed in its original position." },
-	"shortcutsChangedElsewhere": { "message": "Shortcuts changed in another tab. The list has been refreshed. Please try again." },
-	"shortcutDraftConflict": { "message": "Shortcuts changed in another tab. Your draft is still here; copy it if needed, then close and reopen the shortcut to retry." },
-	"shortcutSavingUnavailable": { "message": "Safe shortcut saving is unavailable. Update Chrome and reopen this page to retry." },
-	"appName": { "message": "Local iTab" },
-	"appDescription": { "message": "Private local-first new tab with search, shortcuts, and opt-in online enhancements." },
-	"newTabTitle": { "message": "New Tab" },
-	"all": { "message": "All" },
-	"category": { "message": "Categories" },
-	"manageCategories": { "message": "Manage Categories" },
-	"openSettings": { "message": "Open Settings" },
-	"addShortcut": { "message": "Add Shortcut" },
-	"editShortcut": { "message": "Edit Shortcut" },
-	"title": { "message": "Title" },
-	"url": { "message": "URL" },
-	"icon": { "message": "Icon" },
-	"categoryLabel": { "message": "Category" },
-	"autoFetchIcon": { "message": "Auto-fetch website icon" },
-	"cancel": { "message": "Cancel" },
-	"save": { "message": "Save" },
-	"titleRequired": { "message": "Title is required" },
-	"titleTooLong": { "message": "Title must be 50 characters or less" },
-	"urlRequired": { "message": "URL is required" },
-	"urlInvalid": { "message": "Please enter a valid URL" },
-	"deleteShortcut": { "message": "Delete Shortcut" },
-	"deleteShortcutConfirm": { "message": "Are you sure you want to delete this shortcut?" },
-	"delete": { "message": "Delete" },
-	"failedToSave": { "message": "Failed to save shortcut. Please try again." },
-	"failedToDelete": { "message": "Failed to delete shortcut. Please try again." },
-	"failedToLoadDashboard": { "message": "Failed to load dashboard. Please try refreshing the page." },
-	"openInNewTab": { "message": "Open in new tab" },
-	"edit": { "message": "Edit" },
-	"remove": { "message": "Delete" },
-	"openAll": { "message": "Open all links" },
-	"categoryOpenUnnamed": { "message": "this category" },
-	"categoryOpenNoUrls": { "message": "No valid web addresses in “$1”. Check the saved addresses before trying again." },
-	"categoryOpenConfirmOne": { "message": "Open $1 new tab for “$2”?" },
-	"categoryOpenConfirmMany": { "message": "Open $1 new tabs for “$2”?" },
-	"categoryOpenMixed": { "message": "Of $1 requested tabs, $2 could not open and $3 could not be confirmed. Check your tabs and pop-up settings, then open missing sites individually." },
-	"categoryOpenFailed": { "message": "Could not open $1 of $2 tabs. Check your tabs and pop-up settings, then open missing sites individually." },
-	"categoryOpenUnknown": { "message": "Opening could not be confirmed for $1 of $2 tabs. Check your tabs and pop-up settings, then open missing sites individually." },
-	"openAllConfirm": { "message": "Open all links in this category? This may open multiple tabs." },
-	"contextCloseHint": { "message": "Tap outside or press Esc to close" },
-	"optionsTitle": { "message": "Local iTab Settings" },
-	"optionsSubtitle": { "message": "Tune a private, local-first start page" },
-	"themePresets": { "message": "Theme presets" },
-	"themePresetsDesc": { "message": "Choose a restrained visual baseline for daily use" },
-	"themeAuroraGlass": { "message": "Slate focus" },
-	"themeAuroraGlassDesc": { "message": "Dark neutral workspace with a muted blue accent" },
-	"themeInkPaper": { "message": "Paper light" },
-	"themeInkPaperDesc": { "message": "Calm light theme with warm neutral surfaces" },
-	"themeWarmStudio": { "message": "Walnut" },
-	"themeWarmStudioDesc": { "message": "Warm dark theme with amber details" },
-	"themeSignalPop": { "message": "High contrast" },
-	"themeSignalPopDesc": { "message": "Sharper contrast for dense shortcut scanning" },
-	"backToDashboard": { "message": "Back to Dashboard" },
-	"timeDisplay": { "message": "Time Display" },
-	"timeDisplayDesc": { "message": "Configure how time and date are displayed" },
-	"hour12": { "message": "12-Hour Format" },
-	"showSeconds": { "message": "Show Seconds" },
-	"background": { "message": "Background" },
-	"backgroundDesc": { "message": "Customize your dashboard background" },
-	"bgType": { "message": "Background Type" },
-	"bgGradient": { "message": "Template background" },
-	"bgColor": { "message": "Solid Color" },
-	"bgImage": { "message": "Custom Image" },
-	"moduleVisibility": { "message": "Module Visibility" },
-	"showClock": { "message": "Clock Module" },
-	"showShortcuts": { "message": "Shortcuts Module" },
-	"showShortcutTitles": { "message": "Shortcut Titles" },
-	"dashboardPadding": { "message": "Dashboard padding (px)" },
-	"dashboardPaddingAuto": { "message": "Use automatic spacing" },
-	"paddingTop": { "message": "Top" },
-	"paddingRight": { "message": "Right" },
-	"paddingBottom": { "message": "Bottom" },
-	"paddingLeft": { "message": "Left" },
-	"tabAppearance": { "message": "Appearance" },
-	"tabLayout": { "message": "Shortcuts" },
-	"tabContent": { "message": "Search & cards" },
-	"tabSync": { "message": "Sync" },
-	"tabData": { "message": "Data" },
-	"shortcutsGapX": { "message": "Shortcut gap (horizontal)" },
-	"shortcutsGapY": { "message": "Shortcut gap (vertical)" },
-	"shortcutIconSize": { "message": "Shortcut icon size (px)" },
-	"shortcutTitleSize": { "message": "Shortcut title size (px)" },
-	"shortcutTitleColor": { "message": "Shortcut title color" },
-	"shortcutTitleColorAuto": { "message": "Use theme color" },
-	"categories": { "message": "Categories" },
-	"categoriesDesc": { "message": "Add, edit, and reorder shortcut categories" },
-	"addCategory": { "message": "Add Category" },
-	"dataManagement": { "message": "Data Management" },
-	"dataManagementDesc": { "message": "Import, export, and manage your settings" },
-	"cloudSync": { "message": "Chrome Sync" },
-	"cloudSyncDesc": { "message": "Lightweight Chrome-account sync with a small quota" },
-	"legacy": { "message": "Legacy" },
-	"enableCloudSync": { "message": "Enable Chrome Sync" },
-	"enableCloudSyncDesc": { "message": "Large local images stay on this device because Chrome Sync has a small quota." },
-	"syncStatus": { "message": "Status" },
-	"loading": { "message": "Loading..." },
-		"syncUploadNow": { "message": "Upload Now" },
-		"syncDownloadNow": { "message": "Download Now" },
-		"syncClearCloud": { "message": "Clear Cloud Copy" },
-		"driveBackupsTitle": { "message": "Google Drive Computer Backups" },
-		"driveBackupsDesc": { "message": "Create named computer backups in your hidden Google Drive app data folder" },
-		"driveDeviceSelect": { "message": "Saved computers" },
-		"driveCurrentDevice": { "message": "Computer name" },
-		"driveActiveComputer": { "message": "Active computer" },
-		"driveDefaultDeviceName": { "message": "This device" },
-		"driveDevicePlaceholder": { "message": "Home computer" },
-		"driveDeviceHelp": { "message": "Backups are grouped by this computer name, so you can restore a snapshot from home, office, or any other saved computer." },
-		"driveAddDevice": { "message": "Add computer" },
-		"driveRename": { "message": "Save name" },
-		"driveConnect": { "message": "Connect Google Drive" },
-		"driveBackupNow": { "message": "Backup now" },
-		"driveRefreshList": { "message": "Refresh backup list" },
-		"driveEmptyState": { "message": "Connect Google Drive, then refresh to see backup history." },
-		"driveEmptyStateUnavailable": { "message": "Google Drive backup is not ready on this device." },
-		"driveEmptyStateNoBackups": { "message": "No Google Drive backups yet." },
-		"driveEmptyDevice": { "message": "No backups for this computer yet." },
-		"driveStatusUnavailable": { "message": "Unavailable" },
-		"driveStatusIdentityUnavailable": { "message": "Reload extension" },
-		"driveStatusStorageUnavailable": { "message": "Storage unavailable" },
-		"driveStatusNetworkUnavailable": { "message": "Network unavailable" },
-		"driveStatusOAuthNeeded": { "message": "OAuth client needed" },
-		"driveOAuthMissingHelp": { "message": "Configure a real Google OAuth client ID in manifest.json before connecting Google Drive." },
-		"driveStatusConnected": { "message": "Connected" },
-		"driveStatusNotConnected": { "message": "Not connected" },
-		"driveLatestBackup": { "message": "Latest backup" },
-		"driveLatestRestore": { "message": "Latest restore" },
-		"driveUnknownDevice": { "message": "Unknown device" },
-		"driveCurrentComputerBadge": { "message": "Current" },
-		"driveBackupSnapshot": { "message": "Backup snapshot" },
-		"driveBackupCount": { "message": "$1 backups" },
-		"driveShortcutCount": { "message": "$1 shortcuts" },
-		"driveIncludesLocalImages": { "message": "Includes local images" },
-		"driveRestore": { "message": "Restore" },
-		"driveDownload": { "message": "Download" },
-		"driveConnecting": { "message": "Connecting Google Drive..." },
-		"driveConnected": { "message": "Google Drive connected." },
-		"driveConnectedListFailed": { "message": "Connected, but backup list refresh failed." },
-		"driveSelectingDevice": { "message": "Switching computer..." },
-		"driveDeviceSelected": { "message": "Computer selected. New backups will use this computer name." },
-		"driveAddingDevice": { "message": "Adding computer..." },
-		"driveDeviceAdded": { "message": "Computer added. New backups will be grouped under it." },
-		"driveDeviceNameRequired": { "message": "Enter a computer name first." },
-		"driveRenaming": { "message": "Saving computer name..." },
-		"driveRenamed": { "message": "Computer name saved. Future backups will use the new name." },
-		"drivePreparingBackup": { "message": "Preparing Google Drive backup..." },
-		"driveBackupTooLarge": { "message": "Backup is too large ($1). Reduce local images or use manual export." },
-		"driveLargeBackupConfirm": { "message": "Backup is large ($1). Upload may take a while. Continue?" },
-		"driveBackupCancelled": { "message": "Google Drive backup cancelled." },
-		"driveUploading": { "message": "Uploading backup to Google Drive..." },
-		"driveBackupCreated": { "message": "Google Drive backup created." },
-		"driveCleanupFailed": { "message": "Backup created, but old snapshot cleanup failed." },
-		"driveBackupCreatedListFailed": { "message": "Backup created, but list refresh failed." },
-		"driveRefreshing": { "message": "Refreshing Google Drive backups..." },
-		"driveListRefreshed": { "message": "Google Drive backup list refreshed." },
-		"driveActionRunning": { "message": "A Google Drive action is already running." },
-		"driveFailed": { "message": "Google Drive backup failed: $1" },
-		"driveSafetyBackupTooLarge": { "message": "Safety backup is too large ($1)." },
-		"driveRestoreConfirm": { "message": "Restore the $1 backup from $2? Local settings on this device will be replaced." },
-		"driveCreatingSafetyBackup": { "message": "Creating safety backup before restore..." },
-		"driveSafetyBackupFailedConfirm": { "message": "Could not create a safety backup: $1\n\nContinue restore without a safety backup?" },
-		"driveRestoreCancelled": { "message": "Restore cancelled." },
-		"driveDownloadingSelected": { "message": "Downloading selected backup..." },
-		"driveRestoreSaveFailed": { "message": "Failed to save restored settings." },
-		"driveSettingsRestored": { "message": "Settings restored. Reloading..." },
-		"driveDownloadingBackup": { "message": "Downloading Google Drive backup..." },
-		"driveBackupJsonDownloaded": { "message": "Backup JSON downloaded." },
-		"driveDeleteConfirm": { "message": "Delete this Google Drive backup permanently?" },
-		"driveDeleting": { "message": "Deleting Google Drive backup..." },
-		"driveDeleted": { "message": "Google Drive backup deleted." },
-		"driveDeletedListFailed": { "message": "Backup deleted, but list refresh failed." },
-		"quoteText": { "message": "Quote Text" },
-		"quoteTextHint": { "message": "Displayed at the bottom of your dashboard" },
-	"exportSettings": { "message": "Export Settings" },
-	"importSettings": { "message": "Import Settings" },
-	"saveSettings": { "message": "Save Settings" },
-	"resetSettings": { "message": "Reset to Defaults" },
-	"autoArrangeIcons": { "message": "Auto arrange icons" },
-        "alignToGrid": { "message": "Align to grid" },
-        "toggleDashboardHidden": { "message": "Hide dashboard content" },
-        "iconLayout": { "message": "Icon Layout" },
-	"iconLayoutDesc": { "message": "Desktop-style icon layout behavior" },
-	"autoArrangeIconsDesc": { "message": "Reflow icons by rows and columns" },
-	"alignToGridDesc": { "message": "Snap icons to nearest grid on drop" },
-        "gridSize": { "message": "Grid size (px)" },
-        "shortcutsPerRow": { "message": "Shortcuts per row" },
-        "shortcutsPerRowDesc": { "message": "Limit how many shortcuts appear in each row when auto arrange is on" },
-        "tabPrivacy": { "message": "Privacy" },
-        "privacyNetwork": { "message": "Privacy & Network" },
-        "privacyNetworkDesc": { "message": "Local iTab works offline by default. Enable these only if you want online enhancements." },
-        "onlineFavicons": { "message": "Online favicon fetching" },
-        "onlineFaviconsDesc": { "message": "Allows requests to https://www.google.com/s2/favicons for shortcut icons." },
-        "onlineFaviconsPermissionMissing": { "message": "Permission is not granted on this device, so this synced setting is not active here." },
-        "privacyHint": { "message": "When disabled, the new tab page uses only local data, uploaded images, emoji icons, and cached icons." },
-        "showSearch": { "message": "Search Module" },
-        "showWeather": { "message": "Weather Card" },
-        "showHot": { "message": "Hot Topics Card" },
-        "showMovie": { "message": "Movie Card" },
-        "searchSettings": { "message": "Search" },
-        "searchSettingsDesc": { "message": "Configure the local search box. Typing stays local; submit opens the selected engine." },
-        "searchEngine": { "message": "Search engine" },
-        "customSearch": { "message": "Custom" },
-        "customSearchUrl": { "message": "Custom search URL" },
-        "customSearchUrlDesc": { "message": "Use %s where the encoded query should be inserted." },
-        "customSearchUrlRequired": { "message": "Custom search URL is required" },
-        "customSearchUrlInvalid": { "message": "Enter a valid HTTP or HTTPS search URL" },
-        "customSearchSaved": { "message": "Custom search saved" },
-        "searchPlaceholder": { "message": "Search or enter a URL" },
-        "search": { "message": "Search" },
-        "localCards": { "message": "Local Cards" },
-        "localCardsDesc": { "message": "Weather, topics, and movie cards are manually maintained local content." },
-        "weatherCard": { "message": "Weather" },
-        "hotTopics": { "message": "Hot Topics" },
-        "movieCard": { "message": "Movie" },
-        "weatherCity": { "message": "Weather city" },
-        "weatherCondition": { "message": "Condition" },
-        "weatherTemp": { "message": "Temperature" },
-        "weatherLow": { "message": "Low" },
-        "weatherHigh": { "message": "High" },
-        "weatherAqi": { "message": "AQI" },
-        "weatherAqiLabel": { "message": "AQI label" },
-        "hotTopicGroup": { "message": "Topic group" },
-        "movieTitle": { "message": "Movie title" },
-        "movieNote": { "message": "Movie note" },
-        "emptyShortcuts": { "message": "Your local start page is empty." },
-        "createStarterSet": { "message": "Create Starter Set" },
-        "onlineFaviconsDisabled": { "message": "Enable online icon fetching and grant permission in Settings > Privacy." },
-        "emptyLocalTopics": { "message": "Add local topics in settings." },
-        "lowHigh": { "message": "Low/High" },
-        "aqi": { "message": "AQI" },
-        "dayOfYear": { "message": "Day $1" },
-        "weekNumber": { "message": "Week $1" },
-        "add": { "message": "Add" },
-        "topicTitlePlaceholder": { "message": "Topic title" },
-        "topicScorePlaceholder": { "message": "Score" },
-	        "unavailable": { "message": "Unavailable" },
-	        "unknown": { "message": "Unknown" },
-	        "enabled": { "message": "Enabled" },
-        "off": { "message": "Off" },
-        "lastSync": { "message": "Last sync" },
-	        "cloudUsage": { "message": "Cloud usage" },
-	        "never": { "message": "Never" },
-	        "localStorage": { "message": "Local" },
-	        "chromeSync": { "message": "Chrome Sync" },
-	        "localOnlyAssets": { "message": "Local-only assets" },
-	        "iconHint": { "message": "Enter an emoji, text, or click the button to auto-fetch the website icon" },
-	        "urlRequiredFirst": { "message": "Please enter a URL first" },
-	        "syncUploadStart": { "message": "Uploading settings to Chrome Sync..." },
-	        "syncUploadDone": { "message": "Settings uploaded to Chrome Sync." },
-	        "syncDownloadStart": { "message": "Downloading settings from Chrome Sync..." },
-	        "syncEnableStart": { "message": "Enabling Chrome Sync..." },
-	        "syncEnableDone": { "message": "Chrome Sync enabled. Current settings uploaded." },
-	        "syncDisableStart": { "message": "Disabling Chrome Sync..." },
-	        "syncDisableDone": { "message": "Chrome Sync disabled on this profile." },
-	        "syncFailed": { "message": "Chrome Sync failed: $1" },
-	        "syncUploadFailed": { "message": "Upload failed: $1" },
-	        "syncDownloadDone": { "message": "Cloud settings applied. Reloading..." },
-	        "syncRemoteUpdated": { "message": "Cloud settings updated. Reloading..." },
-	        "syncAlreadyUpToDate": { "message": "Already up to date." },
-	        "syncDownloadFailed": { "message": "Download failed: $1" },
-	        "syncClearStart": { "message": "Clearing cloud copy..." },
-	        "syncClearDone": { "message": "Cloud copy cleared." },
-	        "syncClearFailed": { "message": "Clear failed: $1" },
-	        "syncClearConfirm": { "message": "Clear the cloud copy from Chrome Sync? Local settings will stay on this device." },
-	        "topicTitleRequired": { "message": "Please enter a topic title" },
-    "dashboardTemplate": {"message": "Template"},
-    "colorMode": {"message": "Appearance"},
-    "colorModeLight": {"message": "Light"},
-    "colorModeDark": {"message": "Dark"},
-    "templateClarity": {"message": "A · Clarity"},
-    "templateGraphite": {"message": "B · Graphite"},
-    "templateFolio": {"message": "C · Folio"},
-    "appearanceSaving": {"message": "Saving…"},
-    "appearanceSaved": {"message": "Saved"},
-    "appearanceSaveFailed": {"message": "Could not save. Please try again."},
-    "templateAppearance": {"message": "Template & appearance"},
-    "templateAppearanceDesc": {"message": "Choose a visual template and light or dark colors for this workspace. Saves immediately; your sites and layout stay unchanged."},
-    "templateBrandDescription": {"message": "Your local start page"},
-    "templateClarityDescription": {"message": "A clear sidebar and spacious shortcut tiles."},
-    "templateGraphiteDescription": {"message": "A compact rail and grouped collections."},
-    "templateFolioDescription": {"message": "An editorial workspace and numbered collections."},
-    "templateClarityHeading": {"message": "Start here. Make today yours."},
-    "templateClarityIntro": {"message": "A clear place for the sites you use every day."},
-    "templateGraphiteHeading": {"message": "Open your workspace."},
-    "templateGraphiteIntro": {"message": "Less distraction. More focus."},
-    "templateFolioHeading": {"message": "Your everyday, thoughtfully collected."},
-    "templateFolioIntro": {"message": "Work, reading and inspiration, each in its place."},
-    "emptyCategory": {"message": "No shortcuts in this category yet."},
-    "showAllShortcuts": {"message": "Show all shortcuts"},
-    "allShortcuts": {"message": "All shortcuts"},
-    "focusTitle": {
-        "message": "Focus timer"
-    },
-    "focusLocal": {
-        "message": "On this device"
-    },
-    "focusPhase": {
-        "message": "Interval"
-    },
-    "focusWork": {
-        "message": "Focus"
-    },
-    "focusBreak": {
-        "message": "Break"
-    },
-    "focusMinutes": {
-        "message": "Minutes (1–180)"
-    },
-    "focusStart": {
-        "message": "Start"
-    },
-    "focusPause": {
-        "message": "Pause"
-    },
-    "focusResume": {
-        "message": "Resume"
-    },
-    "focusReset": {
-        "message": "Stop / reset"
-    },
-    "focusNextBreak": {
-        "message": "Choose break"
-    },
-    "focusNextWork": {
-        "message": "Choose focus"
-    },
-    "focusRemaining": {
-        "message": "Remaining time"
-    },
-    "focusReady": {
-        "message": "Ready to start"
-    },
-    "focusRunning": {
-        "message": "Running"
-    },
-    "focusPaused": {
-        "message": "Paused"
-    },
-    "focusCompleted": {
-        "message": "Interval complete. Choose your next interval when ready."
-    },
-    "focusUncertain": {
-        "message": "The clocks disagree. Exact remaining time is uncertain. Stop / reset, then start deliberately."
-    },
-    "focusBrief": {
-        "message": "One timer shared on this device. No sound or background alert."
-    },
-    "focusDetails": {
-        "message": "How timing works"
-    },
-    "focusHelp": {
-        "message": "Each workspace shares one timer across its own new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it."
-    },
-    "focusEnable": {
-        "message": "Show Focus timer on the new tab page"
-    },
-    "focusEnableHelp": {
-        "message": "Optional and device-local. Hiding it keeps the current session and deadline."
-    },
-    "focusLoading": {
-        "message": "Loading local timer…"
-    },
-    "focusSaving": {
-        "message": "Saving timer…"
-    },
-    "focusError": {
-        "message": "Could not confirm the timer change. Read the latest state before trying again."
-    },
-    "focusSaveMinutes": {
-        "message": "Save minutes"
-    },
-    "focusDraftRetained": {
-        "message": "Your unsaved minutes are kept on this page. Finish editing when that interval is ready."
-    },
-    "focusConflict": {
-        "message": "Another page changed this timer. The latest saved state is shown; choose again."
-    },
-    "focusRetry": {
-        "message": "Read latest state"
-    },
-    "focusInvalidMinutes": {
-        "message": "Enter whole minutes from 1 to 180."
-    },
-    "workspacePresetTitle": {"message": "Recommended modules"},
-    "workspacePresetHelp": {"message": "Preview Tasks and Focus timer visibility for the selected template. Applying a visual template alone never changes these modules."},
-    "workspacePresetReview": {"message": "Preview recommended modules"},
-    "workspacePresetBoundary": {"message": "Only visibility changes on this device. Tasks, previous copies, timer duration and session, sites, positions and appearance stay unchanged. A hidden running timer keeps counting. Settings backups and Sync do not carry these modules."},
-    "workspacePresetApply": {"message": "Apply recommended modules"},
-    "workspacePresetCancel": {"message": "Cancel"},
-    "workspacePresetConflict": {"message": "Tasks or timer changed. Preview again before applying."},
-    "workspacePresetCancelled": {"message": "Preview cancelled. Choose the template and preview again."},
-    "workspacePresetError": {"message": "Could not confirm the result. Some visibility changes may have saved. Preview again to check the current state; nothing will be retried automatically."},
-    "workspacePresetWait": {"message": "Wait for the template to finish saving, then preview again."},
-    "workspacePresetFor": {"message": "Modules for"},
-    "workspacePresetShown": {"message": "Shown"},
-    "workspacePresetHidden": {"message": "Hidden"},
-    "workspacePresetReady": {"message": "Review the visibility changes below, then apply or cancel."},
-    "workspacePresetSaved": {"message": "Module visibility saved in this workspace."},
+  "documentLanguage": {
+    "message": "en",
+    "description": "HTML document language for this translation catalog; do not translate the language code."
+  },
+  "dateFormattingLocale": {
+    "message": "en",
+    "description": "Locale tag used to format date words alongside this UI translation."
+  },
+  "defaultWelcomeQuote": {
+    "message": "Welcome to your personalized new tab page!"
+  },
+  "defaultCategoryWork": {
+    "message": "Work"
+  },
+  "defaultCategorySocial": {
+    "message": "Social"
+  },
+  "defaultCategoryEntertainment": {
+    "message": "Entertainment"
+  },
+  "defaultCategoryTools": {
+    "message": "Tools"
+  },
+  "defaultCategoryLearning": {
+    "message": "Learning"
+  },
+  "templateAtelier": {
+    "message": "Atelier"
+  },
+  "templateAtelierDescription": {
+    "message": "An editorial masthead, fine rules and confident typography."
+  },
+  "templateQuiet": {
+    "message": "Quiet"
+  },
+  "templateQuietDescription": {
+    "message": "A centered, pared-back canvas with soft rectangular tiles."
+  },
+  "templateStudio": {
+    "message": "Studio"
+  },
+  "templateStudioDescription": {
+    "message": "A framed navigation rail and tactile, offset tile edges."
+  },
+  "templateConsole": {
+    "message": "Console"
+  },
+  "templateConsoleDescription": {
+    "message": "Monospaced labels and compact grouped command rows."
+  },
+  "templatePrism": {
+    "message": "Prism"
+  },
+  "templatePrismDescription": {
+    "message": "Geometric accents, generous corners and bold tile outlines."
+  },
+  "templateLibrary": {
+    "message": "Library"
+  },
+  "templateLibraryDescription": {
+    "message": "A reading index with serif titles and ruled link collections."
+  },
+  "templateHorizon": {
+    "message": "Horizon"
+  },
+  "templateHorizonDescription": {
+    "message": "A wide clock-led header and understated horizontal links."
+  },
+  "templateLedger": {
+    "message": "Ledger"
+  },
+  "templateLedgerDescription": {
+    "message": "A compact working index with strong alignment and counters."
+  },
+  "templateMeadow": {
+    "message": "Meadow"
+  },
+  "templateMeadowDescription": {
+    "message": "An airy centered start page with rounded, pebble-like tiles."
+  },
+  "templateBlueprint": {
+    "message": "Blueprint"
+  },
+  "templateBlueprintDescription": {
+    "message": "A precise technical grid, square controls and subtle guide lines."
+  },
+  "templateTerrace": {
+    "message": "Terrace"
+  },
+  "templateTerraceDescription": {
+    "message": "Grouped launch panels with alternating header accents."
+  },
+  "templateColumn": {
+    "message": "Column"
+  },
+  "templateColumnDescription": {
+    "message": "A narrow editorial rail beside a spacious reference index."
+  },
+  "finderShortcutSetting": {
+    "message": "Use / to open Find saved sites"
+  },
+  "finderShortcutSettingDesc": {
+    "message": "Turn off to leave / typing unchanged. The Find saved sites button still works. Save, then open a new tab or finish your work before refreshing an existing tab."
+  },
+  "finderOpen": {
+    "message": "Find saved sites"
+  },
+  "finderShortcutHint": {
+    "message": "Press / outside editing fields to find saved sites."
+  },
+  "finderScope": {
+    "message": "Only your saved sites · all categories"
+  },
+  "finderLabel": {
+    "message": "Title, address or category"
+  },
+  "finderHint": {
+    "message": "Type to find a saved site. This does not search the web."
+  },
+  "finderEmpty": {
+    "message": "No saved sites yet."
+  },
+  "finderNone": {
+    "message": "No matching saved sites."
+  },
+  "finderClose": {
+    "message": "Close"
+  },
+  "finderClear": {
+    "message": "Clear"
+  },
+  "finderPrevious": {
+    "message": "Previous results"
+  },
+  "finderNext": {
+    "message": "Next results"
+  },
+  "finderResults": {
+    "message": "Results"
+  },
+  "finderShowing": {
+    "message": "Showing"
+  },
+  "finderChanged": {
+    "message": "This saved site changed or is no longer available. Results refreshed; choose again."
+  },
+  "finderUnsafe": {
+    "message": "Unsupported address"
+  },
+  "finderPending": {
+    "message": "Checking the latest saved site…"
+  },
+  "finderReadError": {
+    "message": "Could not verify the saved site. Nothing was opened. Try again."
+  },
+  "finderBlocked": {
+    "message": "Could not open a new tab. Allow this page to open tabs and try again."
+  },
+  "workspaceReloadDeferred": {
+    "message": "Settings changed. Your open work is still here. Finish it before reloading."
+  },
+  "workspaceReloadPending": {
+    "message": "An action is still running. Wait for it to finish, then reload."
+  },
+  "workspaceReloadConfirm": {
+    "message": "Reload and discard unsaved drafts, open reviews, saved-site searches and calculator input? Saved data stays on this device."
+  },
+  "tasksTitle": {
+    "message": "Tasks"
+  },
+  "tasksLocal": {
+    "message": "On this device"
+  },
+  "tasksNext": {
+    "message": "Next up"
+  },
+  "tasksNoPin": {
+    "message": "Pin one task as your next action."
+  },
+  "tasksAddLabel": {
+    "message": "Add a task"
+  },
+  "tasksFilter": {
+    "message": "Filter tasks"
+  },
+  "tasksFilterPlaceholder": {
+    "message": "Find active, completed or removed tasks"
+  },
+  "tasksFilterClear": {
+    "message": "Clear filter"
+  },
+  "tasksFilterMatches": {
+    "message": "Matching tasks"
+  },
+  "tasksFilterEmpty": {
+    "message": "No matching tasks. Clear the filter to see your list."
+  },
+  "tasksFilterReorder": {
+    "message": "Clear the filter to reorder tasks."
+  },
+  "tasksPlaceholder": {
+    "message": "What’s the next small thing?"
+  },
+  "tasksAdd": {
+    "message": "Add"
+  },
+  "tasksEmpty": {
+    "message": "A clear list. Add something when you need it."
+  },
+  "tasksComplete": {
+    "message": "Complete"
+  },
+  "tasksReopen": {
+    "message": "Reopen"
+  },
+  "tasksPin": {
+    "message": "Pin next"
+  },
+  "tasksUnpin": {
+    "message": "Unpin"
+  },
+  "tasksEdit": {
+    "message": "Edit"
+  },
+  "tasksRemove": {
+    "message": "Remove"
+  },
+  "tasksRestore": {
+    "message": "Restore"
+  },
+  "tasksActions": {
+    "message": "Actions"
+  },
+  "tasksUp": {
+    "message": "Move up"
+  },
+  "tasksDown": {
+    "message": "Move down"
+  },
+  "tasksMore": {
+    "message": "Show all tasks"
+  },
+  "tasksLess": {
+    "message": "Show fewer"
+  },
+  "tasksCompleted": {
+    "message": "Completed"
+  },
+  "tasksRemoved": {
+    "message": "Removed"
+  },
+  "tasksData": {
+    "message": "Task data"
+  },
+  "tasksHelp": {
+    "message": "Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks."
+  },
+  "tasksExport": {
+    "message": "Export tasks"
+  },
+  "tasksImport": {
+    "message": "Import tasks"
+  },
+  "tasksCopies": {
+    "message": "Previous local copies"
+  },
+  "tasksRecover": {
+    "message": "Review restore"
+  },
+  "tasksUndo": {
+    "message": "Undo removal"
+  },
+  "tasksUndoComplete": {
+    "message": "Undo completion"
+  },
+  "tasksLoading": {
+    "message": "Loading local tasks…"
+  },
+  "tasksReady": {
+    "message": "Local tasks ready"
+  },
+  "tasksSaving": {
+    "message": "Saving on this device…"
+  },
+  "tasksSaved": {
+    "message": "Saved on this device"
+  },
+  "tasksRetry": {
+    "message": "Retry"
+  },
+  "tasksCancel": {
+    "message": "Cancel"
+  },
+  "tasksSave": {
+    "message": "Save task"
+  },
+  "tasksEditTitle": {
+    "message": "Edit task"
+  },
+  "tasksReviewTitle": {
+    "message": "Replace local tasks?"
+  },
+  "tasksReplace": {
+    "message": "Replace tasks"
+  },
+  "tasksReviewHelp": {
+    "message": "This replaces the current task list and pin on this device. A previous local copy is kept below Task data, except when a full archive is imported into an empty list with no previous copies. All imported copies are kept. Settings and cloud backups stay unchanged."
+  },
+  "tasksCurrent": {
+    "message": "Current"
+  },
+  "tasksIncoming": {
+    "message": "Replacement"
+  },
+  "tasksActive": {
+    "message": "Active"
+  },
+  "tasksDone": {
+    "message": "Completed"
+  },
+  "tasksDeleted": {
+    "message": "Removed"
+  },
+  "tasksRecoveryCount": {
+    "message": "Previous copies"
+  },
+  "tasksConflict": {
+    "message": "This task list changed in another page. Your draft is still here. Review the latest version before retrying."
+  },
+  "tasksLatest": {
+    "message": "Latest saved task"
+  },
+  "tasksOverwrite": {
+    "message": "Replace latest with my edit"
+  },
+  "tasksEnable": {
+    "message": "Show Tasks on the new tab page"
+  },
+  "tasksEnableHelp": {
+    "message": "Optional and device-local. Hiding the card keeps its tasks."
+  },
+  "tasksErrorRead": {
+    "message": "Could not read local tasks. Nothing was replaced. Retry when storage is available."
+  },
+  "tasksErrorWrite": {
+    "message": "Could not confirm the save. Your draft is still here. Retry safely."
+  },
+  "tasksErrorText": {
+    "message": "Enter a nonempty plain-text task, up to 1,000 characters. Text is never silently shortened."
+  },
+  "tasksErrorCapacity": {
+    "message": "This local list holds up to 500 tasks, including completed and removed items. No items were erased."
+  },
+  "tasksErrorRecovery": {
+    "message": "All 8 previous local copies are retained. This replacement was not saved. You can still export tasks or restore a previous copy."
+  },
+  "tasksErrorSize": {
+    "message": "This task file or local collection is too large (2 MB maximum). Nothing was replaced."
+  },
+  "tasksErrorInvalid": {
+    "message": "This is not a supported, valid task backup. Nothing was replaced."
+  },
+  "tasksErrorUnavailable": {
+    "message": "Safe local task storage is unavailable in this page."
+  },
+  "tasksErrorFile": {
+    "message": "Could not read or download the task file. Please try again."
+  },
+  "tasksTextLimit": {
+    "message": "Plain text · 1,000 characters maximum"
+  },
+  "tasksRestoreTitle": {
+    "message": "Restore this previous local copy?"
+  },
+  "tasksDraftRemains": {
+    "message": "Last task saved. Your current draft is not saved yet."
+  },
+  "tasksSettingsBoundary": {
+    "message": "Settings backups, Chrome Sync and Drive exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately as JSON; export Scratchpad and Countdown as text and restore them manually. Note Focus preferences manually; its session cannot be migrated. Resetting or restoring settings preserves these local modules."
+  },
+  "tasksReloadDeferred": {
+    "message": "Settings changed. Your task work is still here. Finish or export it before reloading."
+  },
+  "tasksReloadPage": {
+    "message": "Reload page"
+  },
+  "tasksReloadPending": {
+    "message": "A task save is still running. Wait for it to finish, then reload."
+  },
+  "tasksReloadConfirm": {
+    "message": "Reload and discard unsaved task drafts or open reviews? Saved tasks stay on this device."
+  },
+  "syncCompatibilityNotice": {
+    "message": "Chrome Sync needs review. Local settings are preserved. Open settings."
+  },
+  "syncCompatibilityDetails": {
+    "message": "Sync is paused for compatibility. Local settings and your enabled preference are preserved. Update other devices and retry Download, or explicitly choose which copy to replace."
+  },
+  "syncReplaceLocal": {
+    "message": "Replace this device with cloud copy…"
+  },
+  "syncReplaceLocalConfirm": {
+    "message": "Replace this device with the current cloud copy ($1 shortcuts)? Independent positions missing from that copy will be removed. A recovery backup of this device must be saved locally first. Other devices may overwrite the cloud again; update them before continuing."
+  },
+  "syncBlockedClearConfirm": {
+    "message": "This removes the conflicting cloud copy and keeps this device. A readable cloud copy must be saved locally for recovery first. Other devices may upload again. Continue?"
+  },
+  "layoutRecoveryDescription": {
+    "message": "Local recovery copies are kept before independent duplicate placement and before the latest replacement. Export them before Reset, which removes them too. Import a downloaded copy to restore it."
+  },
+  "layoutRecoveryOriginal": {
+    "message": "Download pre-upgrade backup"
+  },
+  "layoutRecoveryLatest": {
+    "message": "Download latest recovery backup"
+  },
+  "recoveryDownloaded": {
+    "message": "Recovery backup downloaded. Use Import Settings to review and restore it."
+  },
+  "identityExported": {
+    "message": "Settings exported in schema 2. Import with an updated version that supports independent positions."
+  },
+  "restoreRecoveryConfirm": {
+    "message": "A local recovery backup will be kept before replacing settings. Continue?"
+  },
+  "contextTargetChanged": {
+    "message": "This item changed. Reopen the action and try again."
+  },
+  "shortcutMoreActions": {
+    "message": "More actions"
+  },
+  "contextShortcutActions": {
+    "message": "Shortcut actions"
+  },
+  "contextCategoryActions": {
+    "message": "Category actions"
+  },
+  "contextPageActions": {
+    "message": "Page actions"
+  },
+  "layoutReload": {
+    "message": "Reload page"
+  },
+  "layoutChangedElsewhere": {
+    "message": "Layout changed in another page. Review it, then retry your change."
+  },
+  "layoutContextChanged": {
+    "message": "Page data changed or could not be read safely. Reload before arranging shortcuts."
+  },
+  "layoutSavingUnavailable": {
+    "message": "Safe layout saving is unavailable. Update Chrome and reload this page."
+  },
+  "layoutRetry": {
+    "message": "Retry save"
+  },
+  "placementMode": {
+    "message": "Placement"
+  },
+  "placementGrid": {
+    "message": "Grid (default)"
+  },
+  "placementFree": {
+    "message": "Free placement"
+  },
+  "placementSnap": {
+    "message": "Manual · snap to grid"
+  },
+  "placementModeDesc": {
+    "message": "Grid arranges shortcuts automatically. Free placement keeps exact drag positions. Saved positions remain when switching modes."
+  },
+  "layoutSaving": {
+    "message": "Saving…"
+  },
+  "layoutSaved": {
+    "message": "Saved"
+  },
+  "layoutSaveFailed": {
+    "message": "Could not save layout. Please try again."
+  },
+  "largeLocalImportConfirm": {
+    "message": "This backup is $SIZE$ MiB. Reading a large file can use substantial memory and may make this tab unresponsive. Continue reading it?",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "localImportReadCancelled": {
+    "message": "Import cancelled before reading the file."
+  },
+  "freeLayoutNoSpace": {
+    "message": "No free grid space is available. The shortcut stayed in its original position."
+  },
+  "shortcutsChangedElsewhere": {
+    "message": "Shortcuts changed in another tab. The list has been refreshed. Please try again."
+  },
+  "shortcutDraftConflict": {
+    "message": "Shortcuts changed in another tab. Your draft is still here; copy it if needed, then close and reopen the shortcut to retry."
+  },
+  "shortcutSavingUnavailable": {
+    "message": "Safe shortcut saving is unavailable. Update Chrome and reopen this page to retry."
+  },
+  "appName": {
+    "message": "Local iTab"
+  },
+  "appDescription": {
+    "message": "Private local-first new tab with search, shortcuts, and opt-in online enhancements."
+  },
+  "newTabTitle": {
+    "message": "New Tab"
+  },
+  "all": {
+    "message": "All"
+  },
+  "category": {
+    "message": "Categories"
+  },
+  "manageCategories": {
+    "message": "Manage Categories"
+  },
+  "openSettings": {
+    "message": "Open Settings"
+  },
+  "addShortcut": {
+    "message": "Add Shortcut"
+  },
+  "editShortcut": {
+    "message": "Edit Shortcut"
+  },
+  "title": {
+    "message": "Title"
+  },
+  "url": {
+    "message": "URL"
+  },
+  "icon": {
+    "message": "Icon"
+  },
+  "categoryLabel": {
+    "message": "Category"
+  },
+  "autoFetchIcon": {
+    "message": "Auto-fetch website icon"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "titleRequired": {
+    "message": "Title is required"
+  },
+  "titleTooLong": {
+    "message": "Title must be 50 characters or less"
+  },
+  "urlRequired": {
+    "message": "URL is required"
+  },
+  "urlInvalid": {
+    "message": "Please enter a valid URL"
+  },
+  "deleteShortcut": {
+    "message": "Delete Shortcut"
+  },
+  "deleteShortcutConfirm": {
+    "message": "Are you sure you want to delete this shortcut?"
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "failedToSave": {
+    "message": "Failed to save shortcut. Please try again."
+  },
+  "failedToDelete": {
+    "message": "Failed to delete shortcut. Please try again."
+  },
+  "failedToLoadDashboard": {
+    "message": "Failed to load dashboard. Please try refreshing the page."
+  },
+  "openInNewTab": {
+    "message": "Open in new tab"
+  },
+  "edit": {
+    "message": "Edit"
+  },
+  "remove": {
+    "message": "Delete"
+  },
+  "openAll": {
+    "message": "Open all links"
+  },
+  "categoryOpenUnnamed": {
+    "message": "this category"
+  },
+  "categoryOpenNoUrls": {
+    "message": "No valid web addresses in “$1”. Check the saved addresses before trying again."
+  },
+  "categoryOpenConfirmOne": {
+    "message": "Open $1 new tab for “$2”?"
+  },
+  "categoryOpenConfirmMany": {
+    "message": "Open $1 new tabs for “$2”?"
+  },
+  "categoryOpenMixed": {
+    "message": "Of $1 requested tabs, $2 could not open and $3 could not be confirmed. Check your tabs and pop-up settings, then open missing sites individually."
+  },
+  "categoryOpenFailed": {
+    "message": "Could not open $1 of $2 tabs. Check your tabs and pop-up settings, then open missing sites individually."
+  },
+  "categoryOpenUnknown": {
+    "message": "Opening could not be confirmed for $1 of $2 tabs. Check your tabs and pop-up settings, then open missing sites individually."
+  },
+  "openAllConfirm": {
+    "message": "Open all links in this category? This may open multiple tabs."
+  },
+  "contextCloseHint": {
+    "message": "Tap outside or press Esc to close"
+  },
+  "optionsTitle": {
+    "message": "Local iTab Settings"
+  },
+  "optionsSubtitle": {
+    "message": "Tune a private, local-first start page"
+  },
+  "themePresets": {
+    "message": "Theme presets"
+  },
+  "themePresetsDesc": {
+    "message": "Choose a restrained visual baseline for daily use"
+  },
+  "themeAuroraGlass": {
+    "message": "Slate focus"
+  },
+  "themeAuroraGlassDesc": {
+    "message": "Dark neutral workspace with a muted blue accent"
+  },
+  "themeInkPaper": {
+    "message": "Paper light"
+  },
+  "themeInkPaperDesc": {
+    "message": "Calm light theme with warm neutral surfaces"
+  },
+  "themeWarmStudio": {
+    "message": "Walnut"
+  },
+  "themeWarmStudioDesc": {
+    "message": "Warm dark theme with amber details"
+  },
+  "themeSignalPop": {
+    "message": "High contrast"
+  },
+  "themeSignalPopDesc": {
+    "message": "Sharper contrast for dense shortcut scanning"
+  },
+  "backToDashboard": {
+    "message": "Back to Dashboard"
+  },
+  "timeDisplay": {
+    "message": "Time Display"
+  },
+  "timeDisplayDesc": {
+    "message": "Configure how time and date are displayed"
+  },
+  "hour12": {
+    "message": "12-Hour Format"
+  },
+  "showSeconds": {
+    "message": "Show Seconds"
+  },
+  "background": {
+    "message": "Background"
+  },
+  "backgroundDesc": {
+    "message": "Customize your dashboard background"
+  },
+  "bgType": {
+    "message": "Background Type"
+  },
+  "bgGradient": {
+    "message": "Template background"
+  },
+  "bgColor": {
+    "message": "Solid Color"
+  },
+  "bgImage": {
+    "message": "Custom Image"
+  },
+  "moduleVisibility": {
+    "message": "Module Visibility"
+  },
+  "showClock": {
+    "message": "Clock Module"
+  },
+  "showShortcuts": {
+    "message": "Shortcuts Module"
+  },
+  "showShortcutTitles": {
+    "message": "Shortcut Titles"
+  },
+  "dashboardPadding": {
+    "message": "Dashboard padding (px)"
+  },
+  "dashboardPaddingAuto": {
+    "message": "Use automatic spacing"
+  },
+  "paddingTop": {
+    "message": "Top"
+  },
+  "paddingRight": {
+    "message": "Right"
+  },
+  "paddingBottom": {
+    "message": "Bottom"
+  },
+  "paddingLeft": {
+    "message": "Left"
+  },
+  "tabAppearance": {
+    "message": "Appearance"
+  },
+  "tabLayout": {
+    "message": "Shortcuts"
+  },
+  "tabContent": {
+    "message": "Search & cards"
+  },
+  "tabSync": {
+    "message": "Sync"
+  },
+  "tabData": {
+    "message": "Data"
+  },
+  "shortcutsGapX": {
+    "message": "Shortcut gap (horizontal)"
+  },
+  "shortcutsGapY": {
+    "message": "Shortcut gap (vertical)"
+  },
+  "shortcutIconSize": {
+    "message": "Shortcut icon size (px)"
+  },
+  "shortcutTitleSize": {
+    "message": "Shortcut title size (px)"
+  },
+  "shortcutTitleColor": {
+    "message": "Shortcut title color"
+  },
+  "shortcutTitleColorAuto": {
+    "message": "Use theme color"
+  },
+  "categories": {
+    "message": "Categories"
+  },
+  "categoriesDesc": {
+    "message": "Add, edit, and reorder shortcut categories"
+  },
+  "addCategory": {
+    "message": "Add Category"
+  },
+  "dataManagement": {
+    "message": "Data Management"
+  },
+  "dataManagementDesc": {
+    "message": "Import, export, and manage your settings"
+  },
+  "cloudSync": {
+    "message": "Chrome Sync"
+  },
+  "cloudSyncDesc": {
+    "message": "Lightweight Chrome-account sync with a small quota"
+  },
+  "legacy": {
+    "message": "Legacy"
+  },
+  "enableCloudSync": {
+    "message": "Enable Chrome Sync"
+  },
+  "enableCloudSyncDesc": {
+    "message": "Large local images stay on this device because Chrome Sync has a small quota."
+  },
+  "syncStatus": {
+    "message": "Status"
+  },
+  "loading": {
+    "message": "Loading..."
+  },
+  "syncUploadNow": {
+    "message": "Upload Now"
+  },
+  "syncDownloadNow": {
+    "message": "Download Now"
+  },
+  "syncClearCloud": {
+    "message": "Clear Cloud Copy"
+  },
+  "driveBackupsTitle": {
+    "message": "Google Drive Computer Backups"
+  },
+  "driveBackupsDesc": {
+    "message": "Create named computer backups in your hidden Google Drive app data folder"
+  },
+  "driveDeviceSelect": {
+    "message": "Saved computers"
+  },
+  "driveCurrentDevice": {
+    "message": "Computer name"
+  },
+  "driveActiveComputer": {
+    "message": "Active computer"
+  },
+  "driveDefaultDeviceName": {
+    "message": "This device"
+  },
+  "driveDevicePlaceholder": {
+    "message": "Home computer"
+  },
+  "driveDeviceHelp": {
+    "message": "Backups are grouped by this computer name, so you can restore a snapshot from home, office, or any other saved computer."
+  },
+  "driveAddDevice": {
+    "message": "Add computer"
+  },
+  "driveRename": {
+    "message": "Save name"
+  },
+  "driveConnect": {
+    "message": "Connect Google Drive"
+  },
+  "driveBackupNow": {
+    "message": "Backup now"
+  },
+  "driveRefreshList": {
+    "message": "Refresh backup list"
+  },
+  "driveEmptyState": {
+    "message": "Connect Google Drive, then refresh to see backup history."
+  },
+  "driveEmptyStateUnavailable": {
+    "message": "Google Drive backup is not ready on this device."
+  },
+  "driveEmptyStateNoBackups": {
+    "message": "No Google Drive backups yet."
+  },
+  "driveEmptyDevice": {
+    "message": "No backups for this computer yet."
+  },
+  "driveStatusUnavailable": {
+    "message": "Unavailable"
+  },
+  "driveStatusIdentityUnavailable": {
+    "message": "Reload extension"
+  },
+  "driveStatusStorageUnavailable": {
+    "message": "Storage unavailable"
+  },
+  "driveStatusNetworkUnavailable": {
+    "message": "Network unavailable"
+  },
+  "driveStatusOAuthNeeded": {
+    "message": "OAuth client needed"
+  },
+  "driveOAuthMissingHelp": {
+    "message": "Configure a real Google OAuth client ID in manifest.json before connecting Google Drive."
+  },
+  "driveStatusConnected": {
+    "message": "Connected"
+  },
+  "driveStatusNotConnected": {
+    "message": "Not connected"
+  },
+  "driveLatestBackup": {
+    "message": "Latest backup"
+  },
+  "driveLatestRestore": {
+    "message": "Latest restore"
+  },
+  "driveUnknownDevice": {
+    "message": "Unknown device"
+  },
+  "driveCurrentComputerBadge": {
+    "message": "Current"
+  },
+  "driveBackupSnapshot": {
+    "message": "Backup snapshot"
+  },
+  "driveBackupCount": {
+    "message": "$1 backups"
+  },
+  "driveShortcutCount": {
+    "message": "$1 shortcuts"
+  },
+  "driveIncludesLocalImages": {
+    "message": "Includes local images"
+  },
+  "driveRestore": {
+    "message": "Restore"
+  },
+  "driveDownload": {
+    "message": "Download"
+  },
+  "driveConnecting": {
+    "message": "Connecting Google Drive..."
+  },
+  "driveConnected": {
+    "message": "Google Drive connected."
+  },
+  "driveConnectedListFailed": {
+    "message": "Connected, but backup list refresh failed."
+  },
+  "driveSelectingDevice": {
+    "message": "Switching computer..."
+  },
+  "driveDeviceSelected": {
+    "message": "Computer selected. New backups will use this computer name."
+  },
+  "driveAddingDevice": {
+    "message": "Adding computer..."
+  },
+  "driveDeviceAdded": {
+    "message": "Computer added. New backups will be grouped under it."
+  },
+  "driveDeviceNameRequired": {
+    "message": "Enter a computer name first."
+  },
+  "driveRenaming": {
+    "message": "Saving computer name..."
+  },
+  "driveRenamed": {
+    "message": "Computer name saved. Future backups will use the new name."
+  },
+  "drivePreparingBackup": {
+    "message": "Preparing Google Drive backup..."
+  },
+  "driveBackupTooLarge": {
+    "message": "Backup is too large ($1). Reduce local images or use manual export."
+  },
+  "driveLargeBackupConfirm": {
+    "message": "Backup is large ($1). Upload may take a while. Continue?"
+  },
+  "driveBackupCancelled": {
+    "message": "Google Drive backup cancelled."
+  },
+  "driveUploading": {
+    "message": "Uploading backup to Google Drive..."
+  },
+  "driveBackupCreated": {
+    "message": "Google Drive backup created."
+  },
+  "driveCleanupFailed": {
+    "message": "Backup created, but old snapshot cleanup failed."
+  },
+  "driveBackupCreatedListFailed": {
+    "message": "Backup created, but list refresh failed."
+  },
+  "driveRefreshing": {
+    "message": "Refreshing Google Drive backups..."
+  },
+  "driveListRefreshed": {
+    "message": "Google Drive backup list refreshed."
+  },
+  "driveActionRunning": {
+    "message": "A Google Drive action is already running."
+  },
+  "driveFailed": {
+    "message": "Google Drive backup failed: $1"
+  },
+  "driveSafetyBackupTooLarge": {
+    "message": "Safety backup is too large ($1)."
+  },
+  "driveRestoreConfirm": {
+    "message": "Restore the $1 backup from $2? Local settings on this device will be replaced."
+  },
+  "driveCreatingSafetyBackup": {
+    "message": "Creating safety backup before restore..."
+  },
+  "driveSafetyBackupFailedConfirm": {
+    "message": "Could not create a safety backup: $1\n\nContinue restore without a safety backup?"
+  },
+  "driveRestoreCancelled": {
+    "message": "Restore cancelled."
+  },
+  "driveDownloadingSelected": {
+    "message": "Downloading selected backup..."
+  },
+  "driveRestoreSaveFailed": {
+    "message": "Failed to save restored settings."
+  },
+  "driveSettingsRestored": {
+    "message": "Settings restored. Reloading..."
+  },
+  "driveDownloadingBackup": {
+    "message": "Downloading Google Drive backup..."
+  },
+  "driveBackupJsonDownloaded": {
+    "message": "Backup JSON downloaded."
+  },
+  "driveDeleteConfirm": {
+    "message": "Delete this Google Drive backup permanently?"
+  },
+  "driveDeleting": {
+    "message": "Deleting Google Drive backup..."
+  },
+  "driveDeleted": {
+    "message": "Google Drive backup deleted."
+  },
+  "driveDeletedListFailed": {
+    "message": "Backup deleted, but list refresh failed."
+  },
+  "quoteText": {
+    "message": "Quote Text"
+  },
+  "quoteTextHint": {
+    "message": "Displayed at the bottom of your dashboard"
+  },
+  "exportSettings": {
+    "message": "Export Settings"
+  },
+  "importSettings": {
+    "message": "Import Settings"
+  },
+  "saveSettings": {
+    "message": "Save Settings"
+  },
+  "resetSettings": {
+    "message": "Reset to Defaults"
+  },
+  "autoArrangeIcons": {
+    "message": "Auto arrange icons"
+  },
+  "alignToGrid": {
+    "message": "Align to grid"
+  },
+  "toggleDashboardHidden": {
+    "message": "Hide dashboard content"
+  },
+  "iconLayout": {
+    "message": "Icon Layout"
+  },
+  "iconLayoutDesc": {
+    "message": "Desktop-style icon layout behavior"
+  },
+  "autoArrangeIconsDesc": {
+    "message": "Reflow icons by rows and columns"
+  },
+  "alignToGridDesc": {
+    "message": "Snap icons to nearest grid on drop"
+  },
+  "gridSize": {
+    "message": "Grid size (px)"
+  },
+  "shortcutsPerRow": {
+    "message": "Shortcuts per row"
+  },
+  "shortcutsPerRowDesc": {
+    "message": "Limit how many shortcuts appear in each row when auto arrange is on"
+  },
+  "tabPrivacy": {
+    "message": "Privacy"
+  },
+  "privacyNetwork": {
+    "message": "Privacy & Network"
+  },
+  "privacyNetworkDesc": {
+    "message": "Local iTab works offline by default. Enable these only if you want online enhancements."
+  },
+  "onlineFavicons": {
+    "message": "Online favicon fetching"
+  },
+  "onlineFaviconsDesc": {
+    "message": "Allows requests to https://www.google.com/s2/favicons for shortcut icons."
+  },
+  "onlineFaviconsPermissionMissing": {
+    "message": "Permission is not granted on this device, so this synced setting is not active here."
+  },
+  "privacyHint": {
+    "message": "When disabled, the new tab page uses only local data, uploaded images, emoji icons, and cached icons."
+  },
+  "showSearch": {
+    "message": "Search Module"
+  },
+  "showWeather": {
+    "message": "Weather Card"
+  },
+  "showHot": {
+    "message": "Hot Topics Card"
+  },
+  "showMovie": {
+    "message": "Movie Card"
+  },
+  "searchSettings": {
+    "message": "Search"
+  },
+  "searchSettingsDesc": {
+    "message": "Configure the local search box. Typing stays local; submit opens the selected engine."
+  },
+  "searchEngine": {
+    "message": "Search engine"
+  },
+  "customSearch": {
+    "message": "Custom"
+  },
+  "customSearchUrl": {
+    "message": "Custom search URL"
+  },
+  "customSearchUrlDesc": {
+    "message": "Use %s where the encoded query should be inserted."
+  },
+  "customSearchUrlRequired": {
+    "message": "Custom search URL is required"
+  },
+  "customSearchUrlInvalid": {
+    "message": "Enter a valid HTTP or HTTPS search URL"
+  },
+  "customSearchSaved": {
+    "message": "Custom search saved"
+  },
+  "searchPlaceholder": {
+    "message": "Search or enter a URL"
+  },
+  "search": {
+    "message": "Search"
+  },
+  "localCards": {
+    "message": "Local Cards"
+  },
+  "localCardsDesc": {
+    "message": "Weather, topics, and movie cards are manually maintained local content."
+  },
+  "weatherCard": {
+    "message": "Weather"
+  },
+  "hotTopics": {
+    "message": "Hot Topics"
+  },
+  "movieCard": {
+    "message": "Movie"
+  },
+  "weatherCity": {
+    "message": "Weather city"
+  },
+  "weatherCondition": {
+    "message": "Condition"
+  },
+  "weatherTemp": {
+    "message": "Temperature"
+  },
+  "weatherLow": {
+    "message": "Low"
+  },
+  "weatherHigh": {
+    "message": "High"
+  },
+  "weatherAqi": {
+    "message": "AQI"
+  },
+  "weatherAqiLabel": {
+    "message": "AQI label"
+  },
+  "hotTopicGroup": {
+    "message": "Topic group"
+  },
+  "movieTitle": {
+    "message": "Movie title"
+  },
+  "movieNote": {
+    "message": "Movie note"
+  },
+  "emptyShortcuts": {
+    "message": "Your local start page is empty."
+  },
+  "createStarterSet": {
+    "message": "Create Starter Set"
+  },
+  "onlineFaviconsDisabled": {
+    "message": "Enable online icon fetching and grant permission in Settings > Privacy."
+  },
+  "emptyLocalTopics": {
+    "message": "Add local topics in settings."
+  },
+  "lowHigh": {
+    "message": "Low/High"
+  },
+  "aqi": {
+    "message": "AQI"
+  },
+  "dayOfYear": {
+    "message": "Day $1"
+  },
+  "weekNumber": {
+    "message": "Week $1"
+  },
+  "add": {
+    "message": "Add"
+  },
+  "topicTitlePlaceholder": {
+    "message": "Topic title"
+  },
+  "topicScorePlaceholder": {
+    "message": "Score"
+  },
+  "unavailable": {
+    "message": "Unavailable"
+  },
+  "unknown": {
+    "message": "Unknown"
+  },
+  "enabled": {
+    "message": "Enabled"
+  },
+  "off": {
+    "message": "Off"
+  },
+  "lastSync": {
+    "message": "Last sync"
+  },
+  "cloudUsage": {
+    "message": "Cloud usage"
+  },
+  "never": {
+    "message": "Never"
+  },
+  "localStorage": {
+    "message": "Local"
+  },
+  "chromeSync": {
+    "message": "Chrome Sync"
+  },
+  "localOnlyAssets": {
+    "message": "Local-only assets"
+  },
+  "iconHint": {
+    "message": "Enter an emoji, text, or click the button to auto-fetch the website icon"
+  },
+  "urlRequiredFirst": {
+    "message": "Please enter a URL first"
+  },
+  "syncUploadStart": {
+    "message": "Uploading settings to Chrome Sync..."
+  },
+  "syncUploadDone": {
+    "message": "Settings uploaded to Chrome Sync."
+  },
+  "syncDownloadStart": {
+    "message": "Downloading settings from Chrome Sync..."
+  },
+  "syncEnableStart": {
+    "message": "Enabling Chrome Sync..."
+  },
+  "syncEnableDone": {
+    "message": "Chrome Sync enabled. Current settings uploaded."
+  },
+  "syncDisableStart": {
+    "message": "Disabling Chrome Sync..."
+  },
+  "syncDisableDone": {
+    "message": "Chrome Sync disabled on this profile."
+  },
+  "syncFailed": {
+    "message": "Chrome Sync failed: $1"
+  },
+  "syncUploadFailed": {
+    "message": "Upload failed: $1"
+  },
+  "syncDownloadDone": {
+    "message": "Cloud settings applied. Reloading..."
+  },
+  "syncRemoteUpdated": {
+    "message": "Cloud settings updated. Reloading..."
+  },
+  "syncAlreadyUpToDate": {
+    "message": "Already up to date."
+  },
+  "syncDownloadFailed": {
+    "message": "Download failed: $1"
+  },
+  "syncClearStart": {
+    "message": "Clearing cloud copy..."
+  },
+  "syncClearDone": {
+    "message": "Cloud copy cleared."
+  },
+  "syncClearFailed": {
+    "message": "Clear failed: $1"
+  },
+  "syncClearConfirm": {
+    "message": "Clear the cloud copy from Chrome Sync? Local settings will stay on this device."
+  },
+  "topicTitleRequired": {
+    "message": "Please enter a topic title"
+  },
+  "dashboardTemplate": {
+    "message": "Template"
+  },
+  "colorMode": {
+    "message": "Appearance"
+  },
+  "colorModeLight": {
+    "message": "Light"
+  },
+  "colorModeDark": {
+    "message": "Dark"
+  },
+  "templateClarity": {
+    "message": "A · Clarity"
+  },
+  "templateGraphite": {
+    "message": "B · Graphite"
+  },
+  "templateFolio": {
+    "message": "C · Folio"
+  },
+  "appearanceSaving": {
+    "message": "Saving…"
+  },
+  "appearanceSaved": {
+    "message": "Saved"
+  },
+  "appearanceSaveFailed": {
+    "message": "Could not save. Please try again."
+  },
+  "templateAppearance": {
+    "message": "Template & appearance"
+  },
+  "templateAppearanceDesc": {
+    "message": "Choose a visual template and light or dark colors for this workspace. Saves immediately; your sites and layout stay unchanged."
+  },
+  "templateBrandDescription": {
+    "message": "Your local start page"
+  },
+  "templateClarityDescription": {
+    "message": "A clear sidebar and spacious shortcut tiles."
+  },
+  "templateGraphiteDescription": {
+    "message": "A compact rail and grouped collections."
+  },
+  "templateFolioDescription": {
+    "message": "An editorial workspace and numbered collections."
+  },
+  "templateClarityHeading": {
+    "message": "Start here. Make today yours."
+  },
+  "templateClarityIntro": {
+    "message": "A clear place for the sites you use every day."
+  },
+  "templateGraphiteHeading": {
+    "message": "Open your workspace."
+  },
+  "templateGraphiteIntro": {
+    "message": "Less distraction. More focus."
+  },
+  "templateFolioHeading": {
+    "message": "Your everyday, thoughtfully collected."
+  },
+  "templateFolioIntro": {
+    "message": "Work, reading and inspiration, each in its place."
+  },
+  "emptyCategory": {
+    "message": "No shortcuts in this category yet."
+  },
+  "showAllShortcuts": {
+    "message": "Show all shortcuts"
+  },
+  "allShortcuts": {
+    "message": "All shortcuts"
+  },
+  "focusTitle": {
+    "message": "Focus timer"
+  },
+  "focusLocal": {
+    "message": "On this device"
+  },
+  "focusPhase": {
+    "message": "Interval"
+  },
+  "focusWork": {
+    "message": "Focus"
+  },
+  "focusBreak": {
+    "message": "Break"
+  },
+  "focusMinutes": {
+    "message": "Minutes (1–180)"
+  },
+  "focusStart": {
+    "message": "Start"
+  },
+  "focusPause": {
+    "message": "Pause"
+  },
+  "focusResume": {
+    "message": "Resume"
+  },
+  "focusReset": {
+    "message": "Stop / reset"
+  },
+  "focusNextBreak": {
+    "message": "Choose break"
+  },
+  "focusNextWork": {
+    "message": "Choose focus"
+  },
+  "focusRemaining": {
+    "message": "Remaining time"
+  },
+  "focusReady": {
+    "message": "Ready to start"
+  },
+  "focusRunning": {
+    "message": "Running"
+  },
+  "focusPaused": {
+    "message": "Paused"
+  },
+  "focusCompleted": {
+    "message": "Interval complete. Choose your next interval when ready."
+  },
+  "focusUncertain": {
+    "message": "The clocks disagree. Exact remaining time is uncertain. Stop / reset, then start deliberately."
+  },
+  "focusBrief": {
+    "message": "One timer shared on this device. No sound or background alert."
+  },
+  "focusDetails": {
+    "message": "How timing works"
+  },
+  "focusHelp": {
+    "message": "Each workspace shares one timer across its own new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it."
+  },
+  "focusEnable": {
+    "message": "Show Focus timer on the new tab page"
+  },
+  "focusEnableHelp": {
+    "message": "Optional and device-local. Hiding it keeps the current session and deadline."
+  },
+  "focusLoading": {
+    "message": "Loading local timer…"
+  },
+  "focusSaving": {
+    "message": "Saving timer…"
+  },
+  "focusError": {
+    "message": "Could not confirm the timer change. Read the latest state before trying again."
+  },
+  "focusSaveMinutes": {
+    "message": "Save minutes"
+  },
+  "focusDraftRetained": {
+    "message": "Your unsaved minutes are kept on this page. Finish editing when that interval is ready."
+  },
+  "focusConflict": {
+    "message": "Another page changed this timer. The latest saved state is shown; choose again."
+  },
+  "focusRetry": {
+    "message": "Read latest state"
+  },
+  "focusInvalidMinutes": {
+    "message": "Enter whole minutes from 1 to 180."
+  },
+  "workspacePresetTitle": {
+    "message": "Recommended modules"
+  },
+  "workspacePresetHelp": {
+    "message": "Preview Tasks and Focus timer visibility for the selected template. Applying a visual template alone never changes these modules."
+  },
+  "workspacePresetReview": {
+    "message": "Preview recommended modules"
+  },
+  "workspacePresetBoundary": {
+    "message": "Only visibility changes on this device. Tasks, previous copies, timer duration and session, sites, positions and appearance stay unchanged. A hidden running timer keeps counting. Settings backups and Sync do not carry these modules."
+  },
+  "workspacePresetApply": {
+    "message": "Apply recommended modules"
+  },
+  "workspacePresetCancel": {
+    "message": "Cancel"
+  },
+  "workspacePresetConflict": {
+    "message": "Tasks or timer changed. Preview again before applying."
+  },
+  "workspacePresetCancelled": {
+    "message": "Preview cancelled. Choose the template and preview again."
+  },
+  "workspacePresetError": {
+    "message": "Could not confirm the result. Some visibility changes may have saved. Preview again to check the current state; nothing will be retried automatically."
+  },
+  "workspacePresetWait": {
+    "message": "Wait for the template to finish saving, then preview again."
+  },
+  "workspacePresetFor": {
+    "message": "Modules for"
+  },
+  "workspacePresetShown": {
+    "message": "Shown"
+  },
+  "workspacePresetHidden": {
+    "message": "Hidden"
+  },
+  "workspacePresetReady": {
+    "message": "Review the visibility changes below, then apply or cancel."
+  },
+  "workspacePresetSaved": {
+    "message": "Module visibility saved in this workspace."
+  },
   "shortcutMoveEarlier": {
     "message": "Move earlier"
   },
@@ -753,47 +2066,129 @@
   "shortcutOrderFailed": {
     "message": "Could not save shortcut order. Please try again."
   },
-  "shortcutOrderPending": { "message": "Wait for shortcut order to finish saving, then try again." },
-  "calculatorDiscover": {"message": "Tip: start with = to calculate locally, for example =(12 + 3) / 2"},
-  "calculatorHint": {"message": "Local calculator · Enter to calculate. Use decimals, + - * / and parentheses."},
-  "calculatorCalculate": {"message": "Calculate"},
-  "calculatorResult": {"message": "Local result"},
-  "calculatorCopyResult": {"message": "Result · select and press Ctrl/Cmd+C to copy"},
-  "calculatorSyntax": {"message": "Check the expression. Use decimals, + - * / and parentheses only."},
-  "calculatorLength": {"message": "Expression too long. Use at most 256 characters after =."},
-  "calculatorDepth": {"message": "Too many nested parentheses or signs. Use at most 32 levels."},
-  "calculatorZero": {"message": "Cannot divide by zero."},
-  "calculatorRange": {"message": "The calculation exceeds the supported number range."},
-  "calculatorUnavailable": {"message": "The local calculator is unavailable. Reload the page to retry."},
-  "searchOpenFailed": {"message": "Could not open a new tab. Your input is still here; you can submit it again."},
-  "searchOpenUnknown": {"message": "Unable to confirm whether a new tab opened. Your input is still here; check your tabs before submitting again."},
-    "settingsSearchLabel": {"message": "Find a setting"},
-    "settingsSearchPlaceholder": {"message": "Search setting names"},
-    "settingsSearchHelp": {"message": "Search setting names across all tabs. Your saved content is not searched."},
-    "settingsSearchClear": {"message": "Clear search"},
-    "settingsSearchCount": {"message": "{count} settings sections found"},
-    "settingsSearchEmpty": {"message": "No matching settings. Try another setting name."},
-    "settingsSearchBookmarks": {"message": "Import browser bookmarks"},
-  "bookmarkExportButton": { "message": "Export bookmarks HTML" },
-  "bookmarkExportScope": { "message": "Local file of saved shortcut titles, full URLs and category folders only. URLs may contain private query parameters. Unsaved edits, icons, settings and private local tools are excluded. Keep the file private." },
-  "bookmarkExportConfirm": { "message": "Download saved shortcut titles, full URLs and category names as a local HTML file? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private." },
-  "bookmarkExportStarted": { "message": "Bookmark HTML download requested." },
-  "bookmarkExportFailed": { "message": "No bookmark export completed. Saved data could not be read or is unsupported or too large. Check your saved shortcuts and try again." },
-  "monthCalendar": { "message": "Calendar" },
-  "monthCalendarPrevious": { "message": "Previous" },
-  "monthCalendarNext": { "message": "Next" },
-  "monthCalendarToday": { "message": "Today" },
-  "settingsBaselineUnavailable": { "message": "Settings could not be read safely. Your edits are still here. Open a new Settings tab before saving." },
-  "settingsLockUnavailable": { "message": "Safe Settings saving is unavailable in this browser. Your edits have not been saved." },
-  "settingsPermissionRequired": { "message": "Online favicon permission is still pending or was not granted. Finish the permission request or turn this setting off before saving." },
-  "settingsSaveConflict": { "message": "Settings changed in another tab or were replaced. Your edits are still here. Open a new Settings tab to review the latest values and copy your changes there." },
-  "settingsImageSaveConflict": { "message": "The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again." },
-  "settingsBackgroundColorInvalid": { "message": "Enter a valid background color, such as #112233, before saving." },
-  "dashboardPreferenceConflict": { "message": "Saved preferences changed or could not be safely read. Keep any draft and open a new tab before retrying." },
-  "dashboardPreferenceFailed": { "message": "Could not save this preference. Your last saved choice is still in use; try again." },
-  "dashboardPreferenceLockUnavailable": { "message": "Safe preference saving is unavailable in this browser. Your saved settings are unchanged." },
-  "importSettingsOpenFailed": { "message": "Could not open Import Settings. Please try again." },
-  "importSettingsOpenUnknown": { "message": "Unable to confirm whether Import Settings opened. Check your tabs before trying again." },
+  "shortcutOrderPending": {
+    "message": "Wait for shortcut order to finish saving, then try again."
+  },
+  "calculatorDiscover": {
+    "message": "Tip: start with = to calculate locally, for example =(12 + 3) / 2"
+  },
+  "calculatorHint": {
+    "message": "Local calculator · Enter to calculate. Use decimals, + - * / and parentheses."
+  },
+  "calculatorCalculate": {
+    "message": "Calculate"
+  },
+  "calculatorResult": {
+    "message": "Local result"
+  },
+  "calculatorCopyResult": {
+    "message": "Result · select and press Ctrl/Cmd+C to copy"
+  },
+  "calculatorSyntax": {
+    "message": "Check the expression. Use decimals, + - * / and parentheses only."
+  },
+  "calculatorLength": {
+    "message": "Expression too long. Use at most 256 characters after =."
+  },
+  "calculatorDepth": {
+    "message": "Too many nested parentheses or signs. Use at most 32 levels."
+  },
+  "calculatorZero": {
+    "message": "Cannot divide by zero."
+  },
+  "calculatorRange": {
+    "message": "The calculation exceeds the supported number range."
+  },
+  "calculatorUnavailable": {
+    "message": "The local calculator is unavailable. Reload the page to retry."
+  },
+  "searchOpenFailed": {
+    "message": "Could not open a new tab. Your input is still here; you can submit it again."
+  },
+  "searchOpenUnknown": {
+    "message": "Unable to confirm whether a new tab opened. Your input is still here; check your tabs before submitting again."
+  },
+  "settingsSearchLabel": {
+    "message": "Find a setting"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "Search setting names"
+  },
+  "settingsSearchHelp": {
+    "message": "Search setting names across all tabs. Your saved content is not searched."
+  },
+  "settingsSearchClear": {
+    "message": "Clear search"
+  },
+  "settingsSearchCount": {
+    "message": "{count} settings sections found"
+  },
+  "settingsSearchEmpty": {
+    "message": "No matching settings. Try another setting name."
+  },
+  "settingsSearchBookmarks": {
+    "message": "Import browser bookmarks"
+  },
+  "bookmarkExportButton": {
+    "message": "Export bookmarks HTML"
+  },
+  "bookmarkExportScope": {
+    "message": "Local file of saved shortcut titles, full URLs and category folders only. URLs may contain private query parameters. Unsaved edits, icons, settings and private local tools are excluded. Keep the file private."
+  },
+  "bookmarkExportConfirm": {
+    "message": "Download saved shortcut titles, full URLs and category names as a local HTML file? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private."
+  },
+  "bookmarkExportStarted": {
+    "message": "Bookmark HTML download requested."
+  },
+  "bookmarkExportFailed": {
+    "message": "No bookmark export completed. Saved data could not be read or is unsupported or too large. Check your saved shortcuts and try again."
+  },
+  "monthCalendar": {
+    "message": "Calendar"
+  },
+  "monthCalendarPrevious": {
+    "message": "Previous"
+  },
+  "monthCalendarNext": {
+    "message": "Next"
+  },
+  "monthCalendarToday": {
+    "message": "Today"
+  },
+  "settingsBaselineUnavailable": {
+    "message": "Settings could not be read safely. Your edits are still here. Open a new Settings tab before saving."
+  },
+  "settingsLockUnavailable": {
+    "message": "Safe Settings saving is unavailable in this browser. Your edits have not been saved."
+  },
+  "settingsPermissionRequired": {
+    "message": "Online favicon permission is still pending or was not granted. Finish the permission request or turn this setting off before saving."
+  },
+  "settingsSaveConflict": {
+    "message": "Settings changed in another tab or were replaced. Your edits are still here. Open a new Settings tab to review the latest values and copy your changes there."
+  },
+  "settingsImageSaveConflict": {
+    "message": "The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again."
+  },
+  "settingsBackgroundColorInvalid": {
+    "message": "Enter a valid background color, such as #112233, before saving."
+  },
+  "dashboardPreferenceConflict": {
+    "message": "Saved preferences changed or could not be safely read. Keep any draft and open a new tab before retrying."
+  },
+  "dashboardPreferenceFailed": {
+    "message": "Could not save this preference. Your last saved choice is still in use; try again."
+  },
+  "dashboardPreferenceLockUnavailable": {
+    "message": "Safe preference saving is unavailable in this browser. Your saved settings are unchanged."
+  },
+  "importSettingsOpenFailed": {
+    "message": "Could not open Import Settings. Please try again."
+  },
+  "importSettingsOpenUnknown": {
+    "message": "Unable to confirm whether Import Settings opened. Check your tabs before trying again."
+  },
   "completeBackupTitle": {
     "message": "Complete local backup"
   },
@@ -973,76 +2368,196 @@
   },
   "completeBackupContinue": {
     "message": "Continue checking large file"
-  }
-,
-    "spacesTitle": {"message":"Workspaces"},
-    "spacesCurrent": {"message":"Current workspace"},
-    "spacesSwitch": {"message":"Switch workspace"},
-    "spacesManage": {"message":"Manage workspaces"},
-    "spacesHelp": {"message":"Keep separate sites, layout, visual template, tasks, notes, countdown and Focus timer on this device."},
-    "spacesPinned": {"message":"This tab stays in its workspace. New tabs open the last workspace you choose."},
-    "spacesShared": {"message":"Language, privacy permissions and cloud accounts are shared. Chrome Sync and Drive apply to Default only. Complete backups include every workspace and Trash."},
-    "spacesCreate": {"message":"New workspace"},
-    "spacesCreateTitle": {"message":"Create a workspace"},
-    "spacesName": {"message":"Workspace name"},
-    "spacesNameHint": {"message":"1–80 characters. Names can repeat; each workspace has its own identity."},
-    "spacesCreateHelp": {"message":"Starts with default settings and empty personal modules. Your existing workspaces stay unchanged."},
-    "spacesRename": {"message":"Rename"},
-    "spacesRenameTitle": {"message":"Rename workspace"},
-    "spacesDuplicate": {"message":"Duplicate"},
-    "spacesDuplicateTitle": {"message":"Duplicate workspace"},
-    "spacesDuplicateHelp": {"message":"Copies saved sites, layout, template and personal content. Unsaved drafts are not copied. A copied Focus timer starts ready, with no active session."},
-    "spacesDelete": {"message":"Move to Trash"},
-    "spacesDeleteTitle": {"message":"Move workspace to Trash?"},
-    "spacesDeleteHelp": {
+  },
+  "spacesTitle": {
+    "message": "Workspaces"
+  },
+  "spacesCurrent": {
+    "message": "Current workspace"
+  },
+  "spacesSwitch": {
+    "message": "Switch workspace"
+  },
+  "spacesManage": {
+    "message": "Manage workspaces"
+  },
+  "spacesHelp": {
+    "message": "Keep separate sites, layout, visual template, tasks, notes, countdown and Focus timer on this device."
+  },
+  "spacesPinned": {
+    "message": "This tab stays in its workspace. New tabs open the last workspace you choose."
+  },
+  "spacesShared": {
+    "message": "Language, privacy permissions and cloud accounts are shared. Chrome Sync and Drive apply to Default only. Complete backups include every workspace and Trash."
+  },
+  "spacesCreate": {
+    "message": "New workspace"
+  },
+  "spacesCreateTitle": {
+    "message": "Create a workspace"
+  },
+  "spacesName": {
+    "message": "Workspace name"
+  },
+  "spacesNameHint": {
+    "message": "1–80 characters. Names can repeat; each workspace has its own identity."
+  },
+  "spacesCreateHelp": {
+    "message": "Starts with default settings and empty personal modules. Your existing workspaces stay unchanged."
+  },
+  "spacesRename": {
+    "message": "Rename"
+  },
+  "spacesRenameTitle": {
+    "message": "Rename workspace"
+  },
+  "spacesDuplicate": {
+    "message": "Duplicate"
+  },
+  "spacesDuplicateTitle": {
+    "message": "Duplicate workspace"
+  },
+  "spacesDuplicateHelp": {
+    "message": "Copies saved sites, layout, template and personal content. Unsaved drafts are not copied. A copied Focus timer starts ready, with no active session."
+  },
+  "spacesDelete": {
+    "message": "Move to Trash"
+  },
+  "spacesDeleteTitle": {
+    "message": "Move workspace to Trash?"
+  },
+  "spacesDeleteHelp": {
     "message": "Saved content is kept in Trash until you restore it. Open tabs cannot save to a deleted workspace. Copy or export unsaved drafts before leaving those tabs. A running Focus timer is paused at deletion; restoring never starts it automatically."
   },
-    "spacesDefault": {"message":"Default"},
-    "spacesDefaultHelp": {"message":"Default keeps existing settings and cloud compatibility and cannot be deleted."},
-    "spacesActive": {"message":"Open in this tab"},
-    "spacesLoaded": {"message":"This tab"},
-    "spacesLastUsed": {"message":"New tabs"},
-    "spacesTrash": {"message":"Trash"},
-    "spacesTrashHelp": {
+  "spacesDefault": {
+    "message": "Default"
+  },
+  "spacesDefaultHelp": {
+    "message": "Default keeps existing settings and cloud compatibility and cannot be deleted."
+  },
+  "spacesActive": {
+    "message": "Open in this tab"
+  },
+  "spacesLoaded": {
+    "message": "This tab"
+  },
+  "spacesLastUsed": {
+    "message": "New tabs"
+  },
+  "spacesTrash": {
+    "message": "Trash"
+  },
+  "spacesTrashHelp": {
     "message": "Restore saved content here. Focus keeps its saved paused, ready, completed or interrupted state. Old open tabs stay unable to save after restoration; reopen the workspace to start a fresh session."
   },
-    "spacesEmptyTrash": {"message":"No workspaces in Trash."},
-    "spacesRestore": {"message":"Restore"},
-    "spacesCancel": {"message":"Cancel"},
-    "spacesClose": {"message":"Close"},
-    "spacesStay": {"message":"Stay here"},
-    "spacesSaving": {"message":"Saving…"},
-    "spacesLoading": {"message":"Loading workspaces…"},
-    "spacesWaiting": {"message":"Waiting for current actions to finish…"},
-    "spacesSwitching": {"message":"Opening workspace…"},
-    "spacesCreated": {"message":"Workspace created. Open it when you are ready."},
-    "spacesRenamed": {"message":"Workspace renamed."},
-    "spacesDuplicated": {"message":"Saved content duplicated. The copy is ready to open."},
-    "spacesDeleted": {"message":"Workspace moved to Trash. Saved content can be restored below."},
-    "spacesRestored": {"message":"Workspace restored. Open it to use a fresh session."},
-    "spacesError": {"message":"Could not confirm the action. Check the current list before trying again. Your draft is still here."},
-    "spacesLoadError": {"message":"Could not load workspaces. Your current page is unchanged."},
-    "spacesRetry": {"message":"Refresh list"},
-    "spacesNameError": {"message":"Enter a workspace name with 1–80 characters."},
-    "spacesDraftTitle": {"message":"Before changing workspaces"},
-    "spacesDraftHelp": {"message":"This page has unsaved drafts or open reviews. Save supported edits, finish the open editor, or explicitly discard them. Nothing is saved during unload."},
-    "spacesSaveSwitch": {"message":"Save and switch"},
-    "spacesDiscardSwitch": {"message":"Discard drafts and switch"},
-    "spacesSaveIncomplete": {"message":"Some edits need attention in their original editor. Stay here to finish or export them, or choose Discard drafts and switch."},
-    "spacesSaveFailed": {"message":"Could not save every draft. This page and its drafts are still here. Stay here to review the error."},
-    "spacesInvalid": {"message":"This workspace was deleted or replaced elsewhere. This page can no longer save. Copy or export your drafts before reopening a workspace. Restoring a workspace does not reconnect this old tab."},
-    "spacesExportDrafts": {"message":"Export page text"},
-    "spacesExportHelp": {"message":"Downloads editable text from this page, including unsaved form values. Keep this private; it is a text copy, not a restorable backup."},
-    "spacesExportRequested": {"message":"Text download requested. Check your downloads before leaving this page."},
-    "spacesExportFailed": {"message":"Could not export page text. Copy the fields you need before leaving."},
-    "spacesWaitFailed": {"message":"An action is still running. Stay here and try switching again when it finishes."},
-    "spacesOpen": {"message":"Open"},
-    "spacesAvailable": {"message":"Available workspaces"},
-    "spacesSavedOnly": {"message":"Operations here use saved content. Open drafts stay in their original tabs."},
-    "spacesProviderDefault": {"message":"Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups."}
-,
-    "spacesResetConfirm": {"message": "Reset this workspace’s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy."},
-    "spacesResetScope": {"message": "Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept."},
+  "spacesEmptyTrash": {
+    "message": "No workspaces in Trash."
+  },
+  "spacesRestore": {
+    "message": "Restore"
+  },
+  "spacesCancel": {
+    "message": "Cancel"
+  },
+  "spacesClose": {
+    "message": "Close"
+  },
+  "spacesStay": {
+    "message": "Stay here"
+  },
+  "spacesSaving": {
+    "message": "Saving…"
+  },
+  "spacesLoading": {
+    "message": "Loading workspaces…"
+  },
+  "spacesWaiting": {
+    "message": "Waiting for current actions to finish…"
+  },
+  "spacesSwitching": {
+    "message": "Opening workspace…"
+  },
+  "spacesCreated": {
+    "message": "Workspace created. Open it when you are ready."
+  },
+  "spacesRenamed": {
+    "message": "Workspace renamed."
+  },
+  "spacesDuplicated": {
+    "message": "Saved content duplicated. The copy is ready to open."
+  },
+  "spacesDeleted": {
+    "message": "Workspace moved to Trash. Saved content can be restored below."
+  },
+  "spacesRestored": {
+    "message": "Workspace restored. Open it to use a fresh session."
+  },
+  "spacesError": {
+    "message": "Could not confirm the action. Check the current list before trying again. Your draft is still here."
+  },
+  "spacesLoadError": {
+    "message": "Could not load workspaces. Your current page is unchanged."
+  },
+  "spacesRetry": {
+    "message": "Refresh list"
+  },
+  "spacesNameError": {
+    "message": "Enter a workspace name with 1–80 characters."
+  },
+  "spacesDraftTitle": {
+    "message": "Before changing workspaces"
+  },
+  "spacesDraftHelp": {
+    "message": "This page has unsaved drafts or open reviews. Save supported edits, finish the open editor, or explicitly discard them. Nothing is saved during unload."
+  },
+  "spacesSaveSwitch": {
+    "message": "Save and switch"
+  },
+  "spacesDiscardSwitch": {
+    "message": "Discard drafts and switch"
+  },
+  "spacesSaveIncomplete": {
+    "message": "Some edits need attention in their original editor. Stay here to finish or export them, or choose Discard drafts and switch."
+  },
+  "spacesSaveFailed": {
+    "message": "Could not save every draft. This page and its drafts are still here. Stay here to review the error."
+  },
+  "spacesInvalid": {
+    "message": "This workspace was deleted or replaced elsewhere. This page can no longer save. Copy or export your drafts before reopening a workspace. Restoring a workspace does not reconnect this old tab."
+  },
+  "spacesExportDrafts": {
+    "message": "Export page text"
+  },
+  "spacesExportHelp": {
+    "message": "Downloads editable text from this page, including unsaved form values. Keep this private; it is a text copy, not a restorable backup."
+  },
+  "spacesExportRequested": {
+    "message": "Text download requested. Check your downloads before leaving this page."
+  },
+  "spacesExportFailed": {
+    "message": "Could not export page text. Copy the fields you need before leaving."
+  },
+  "spacesWaitFailed": {
+    "message": "An action is still running. Stay here and try switching again when it finishes."
+  },
+  "spacesOpen": {
+    "message": "Open"
+  },
+  "spacesAvailable": {
+    "message": "Available workspaces"
+  },
+  "spacesSavedOnly": {
+    "message": "Operations here use saved content. Open drafts stay in their original tabs."
+  },
+  "spacesProviderDefault": {
+    "message": "Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups."
+  },
+  "spacesResetConfirm": {
+    "message": "Reset this workspace’s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy."
+  },
+  "spacesResetScope": {
+    "message": "Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept."
+  },
   "completeBackupWorkspaceHelp": {
     "message": "Exports include every live workspace and recoverable workspace in Trash. Device privacy, provider settings, credentials and update preferences are excluded."
   },
@@ -1480,5 +2995,332 @@
   },
   "promptsRetainedVariables": {
     "message": "The saved body changed. This form keeps your previous body and variable values. Clear values when you are ready to use the latest body."
+  },
+  "collectionsAcceptRevision": {
+    "message": "Accept new body version"
+  },
+  "collectionsActive": {
+    "message": "Saved"
+  },
+  "collectionsAfter": {
+    "message": "Proposed excerpt"
+  },
+  "collectionsAll": {
+    "message": "All"
+  },
+  "collectionsArchive": {
+    "message": "Archive"
+  },
+  "collectionsArchived": {
+    "message": "Archived"
+  },
+  "collectionsBack": {
+    "message": "New tab"
+  },
+  "collectionsBefore": {
+    "message": "Current saved excerpt"
+  },
+  "collectionsBodySeparate": {
+    "message": "Saved excerpts are read-only here. Use “Revise excerpt” to review an explicit new body version."
+  },
+  "collectionsBrowse": {
+    "message": "Browse saved excerpts"
+  },
+  "collectionsCancel": {
+    "message": "Cancel"
+  },
+  "collectionsConflictError": {
+    "message": "Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item."
+  },
+  "collectionsCopied": {
+    "message": "Excerpt copied."
+  },
+  "collectionsCopy": {
+    "message": "Copy excerpt"
+  },
+  "collectionsCopyBlocked": {
+    "message": "Copy was blocked. Select the excerpt text to copy it manually."
+  },
+  "collectionsCurrent": {
+    "message": "Current"
+  },
+  "collectionsDiscard": {
+    "message": "Discard draft"
+  },
+  "collectionsDiscardBody": {
+    "message": "Discard only this unsaved draft? Saved content is unchanged."
+  },
+  "collectionsDiscardProposal": {
+    "message": "Discard proposed text"
+  },
+  "collectionsDownload": {
+    "message": "Download JSON"
+  },
+  "collectionsDraft": {
+    "message": "Draft"
+  },
+  "collectionsDraftScope": {
+    "message": "Drafts stay in this tab until you save. Switching items keeps them; closing this page does not."
+  },
+  "collectionsDuplicate": {
+    "message": "Similar excerpts already exist"
+  },
+  "collectionsDuplicateBody": {
+    "message": "These exact-text matches are suggestions only. Nothing will be merged. Save a separate item?"
+  },
+  "collectionsEdit": {
+    "message": "Edit details"
+  },
+  "collectionsEmpty": {
+    "message": "Keep the useful part"
+  },
+  "collectionsEmptyBody": {
+    "message": "A clear explanation. A code snippet. A plan you want to revisit. Save the exact text and keep your annotations separate."
+  },
+  "collectionsEntry": {
+    "message": "AI collection"
+  },
+  "collectionsExistingDraft": {
+    "message": "Finish or discard the existing new-item draft first. Your proposed excerpt is still kept."
+  },
+  "collectionsExport": {
+    "message": "Export"
+  },
+  "collectionsExportFailed": {
+    "message": "Export could not be created. Saved content is unchanged."
+  },
+  "collectionsExportWarning": {
+    "message": "Download an unencrypted JSON copy of all saved and archived items, body history, annotations, prompt references and recovery snapshots. Unsaved drafts are excluded. Keep it somewhere private."
+  },
+  "collectionsEyebrow": {
+    "message": "YOUR LOCAL REFERENCE SHELF"
+  },
+  "collectionsGenericError": {
+    "message": "This operation was refused. Your draft is kept. Check the fields and available capacity, then refresh saved data."
+  },
+  "collectionsHistory": {
+    "message": "Excerpt version history"
+  },
+  "collectionsHistoryLimit": {
+    "message": "This item already has 20 body versions. No history was removed. Keep the proposed text or save it as a new item."
+  },
+  "collectionsInvalid": {
+    "message": "Check the fields: title and excerpt are required, source must be an HTTP(S) URL without credentials, and a prompt reference needs both exact IDs. Limits reject the whole save."
+  },
+  "collectionsItems": {
+    "message": "items"
+  },
+  "collectionsLeave": {
+    "message": "Leave this page?"
+  },
+  "collectionsLeaveBody": {
+    "message": "Unsaved drafts live only in this tab and will be lost."
+  },
+  "collectionsLimitError": {
+    "message": "A content or storage limit was reached. Your draft is kept. Shorten it or export your collection before making changes."
+  },
+  "collectionsLimits": {
+    "message": "Limits: 200 items including archived · 32,000 characters per excerpt · 20 body versions per item · 2 MiB total. Capacity errors keep your draft; no text or history is silently removed."
+  },
+  "collectionsLoading": {
+    "message": "Loading your collection…"
+  },
+  "collectionsNew": {
+    "message": "Save an excerpt"
+  },
+  "collectionsNoResults": {
+    "message": "No matching excerpts. Try another search or filter."
+  },
+  "collectionsNoSource": {
+    "message": "No source URL supplied."
+  },
+  "collectionsOmitUrls": {
+    "message": "Remove source URLs from this copy only (text may still contain private information)"
+  },
+  "collectionsOpenSource": {
+    "message": "Open user-provided source"
+  },
+  "collectionsPageTitle": {
+    "message": "AI result collection · Local iTab"
+  },
+  "collectionsPlainText": {
+    "message": "Plain text only. Saved code and markup are never executed."
+  },
+  "collectionsPrivacy": {
+    "message": "Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text."
+  },
+  "collectionsPrompts": {
+    "message": "Prompt library"
+  },
+  "collectionsProposalAsNew": {
+    "message": "Use proposed text in a new draft"
+  },
+  "collectionsProposalKept": {
+    "message": "A proposed excerpt is kept in this tab. Resume its review or discard it."
+  },
+  "collectionsProposed": {
+    "message": "Proposed exact excerpt"
+  },
+  "collectionsQueryLong": {
+    "message": "Search is too long. Use up to 500 characters."
+  },
+  "collectionsReadError": {
+    "message": "Saved data could not be read. Nothing has been replaced. Try refreshing."
+  },
+  "collectionsReferenceHelp": {
+    "message": "References retain both exact IDs and remain unresolved here. They never follow the latest prompt automatically. Leave both blank to unlink."
+  },
+  "collectionsRefresh": {
+    "message": "Refresh saved data"
+  },
+  "collectionsRestore": {
+    "message": "Restore from archive"
+  },
+  "collectionsResumeRevision": {
+    "message": "Resume revision"
+  },
+  "collectionsRetry": {
+    "message": "Check / retry the same save"
+  },
+  "collectionsReview": {
+    "message": "Review change"
+  },
+  "collectionsReviewRestore": {
+    "message": "Review restoring this text"
+  },
+  "collectionsReviewRevision": {
+    "message": "Review excerpt revision"
+  },
+  "collectionsRevise": {
+    "message": "Revise excerpt"
+  },
+  "collectionsRevisionConfirm": {
+    "message": "Accepting creates a new body version. All earlier versions remain. Annotations and source details are unchanged."
+  },
+  "collectionsRevisionHelp": {
+    "message": "Enter proposed text. The saved excerpt stays unchanged until you review and accept a new version."
+  },
+  "collectionsSave": {
+    "message": "Save locally"
+  },
+  "collectionsSaveCopy": {
+    "message": "Save draft as new item"
+  },
+  "collectionsSaveSeparate": {
+    "message": "Save separate item"
+  },
+  "collectionsSaved": {
+    "message": "Saved locally."
+  },
+  "collectionsSaving": {
+    "message": "Saving locally…"
+  },
+  "collectionsScope": {
+    "message": "Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model."
+  },
+  "collectionsSearch": {
+    "message": "Search title, excerpt and tags"
+  },
+  "collectionsSkip": {
+    "message": "Skip to excerpt"
+  },
+  "collectionsSource": {
+    "message": "Source"
+  },
+  "collectionsSourceHelp": {
+    "message": "User-provided attribution only. This page never fetches the link; the original account or permission may be needed."
+  },
+  "collectionsSubtitle": {
+    "message": "Keep the answers worth returning to. Paste an exact excerpt, then add your own context."
+  },
+  "collectionsHeading": {
+    "message": "AI result collection"
+  },
+  "collectionsUnavailable": {
+    "message": "The library could not be read"
+  },
+  "collectionsUncertain": {
+    "message": "The save could not be confirmed. Your draft is kept. Check / retry the same save before starting another."
+  },
+  "collectionsUnchanged": {
+    "message": "The excerpt is unchanged."
+  },
+  "collectionsUnresolved": {
+    "message": "Unresolved exact prompt reference"
+  },
+  "collectionsUntitled": {
+    "message": "Untitled"
+  },
+  "collectionsUpdated": {
+    "message": "Updated"
+  },
+  "collectionsVersions": {
+    "message": "body versions"
+  },
+  "collectionsanswer": {
+    "message": "Answer"
+  },
+  "collectionsbody": {
+    "message": "Exact excerpt"
+  },
+  "collectionsbodyVersionId": {
+    "message": "Exact prompt body-version ID"
+  },
+  "collectionscode": {
+    "message": "Code"
+  },
+  "collectionsnotes": {
+    "message": "Your annotations"
+  },
+  "collectionsother": {
+    "message": "Other"
+  },
+  "collectionsplan": {
+    "message": "Plan"
+  },
+  "collectionspromptId": {
+    "message": "Exact prompt ID (optional)"
+  },
+  "collectionssourceUrl": {
+    "message": "Source URL (optional)"
+  },
+  "collectionstag": {
+    "message": "Tag"
+  },
+  "collectionstagsText": {
+    "message": "Tags (comma-separated)"
+  },
+  "collectionstitle": {
+    "message": "Title"
+  },
+  "collectionstool": {
+    "message": "Tool / model label"
+  },
+  "collectionstype": {
+    "message": "Type"
+  },
+  "completeBackupCollections": {
+    "message": "AI collections and saved versions"
+  },
+  "completeBackupCollectionHelp": {
+    "message": "Collections are one global library shared across workspaces. Full backups include manually saved excerpts, notes, source URLs, prompt references, archived records and versions. Check private content before sharing; provider credentials are excluded."
+  },
+  "completeBackupCollectionTarget": {
+    "message": "Destination for AI collections"
+  },
+  "completeBackupChooseCollectionTarget": {
+    "message": "Choose the collections destination"
+  },
+  "completeBackupGlobalCollections": {
+    "message": "Global AI collections on this device"
+  },
+  "completeBackupCollectionTargetRequired": {
+    "message": "Choose the global AI collections target, then review again. Active and archived collections will be replaced."
+  },
+  "completeBackupCollectionScope": {
+    "message": "The selected global AI collections are replaced once, including archived records. Existing content and saved versions remain in recovery. Prompt references retain their exact IDs and may be unresolved."
+  },
+  "completeBackupCollectionConflicts": {
+    "message": "Matching collection IDs whose saved content differs"
   }
 }

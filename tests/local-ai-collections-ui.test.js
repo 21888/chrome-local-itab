@@ -1,0 +1,157 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const Core = require('../shared/local-ai-collections-store.js');
+const { setup, add, tick, settle } = require('./helpers/collections-harness.js');
+const { createDocument } = require('./helpers/task-dom-model.js');
+const text = node => [node.textContent || '', ...node.children.map(text)].join(' ');
+async function mount(confirm = async () => true, i18n) {
+    const h = setup(), doc = createDocument({ blurUnavailableFocus: true }), events = new Map();
+    const host = doc.createElement('div'); doc.body.append(host);
+    const root = { i18n, document: doc, LocalItabAICollections: Core, addEventListener: (key, fn) => events.set(key, fn), location: { assign() {} } };
+    const context = vm.createContext({ window: root, Intl, Date, Object, Array, Boolean, String, Promise, Map });
+    vm.runInContext(fs.readFileSync('shared/dialog-focus.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('shared/local-ai-collections-view.js', 'utf8'), context);
+    const view = new root.LocalItabCollectionsView.View({ host, controller: h.controller, confirm }); view.attachDepartureGuard(); view.render(); await h.controller.start();
+    return { ...h, h, host, doc, view, events, root };
+}
+for (const omitSourceUrls of [false, true]) test(`downloaded collection JSON parses once and preserves exact content (omit URLs: ${omitSourceUrls})`, async () => {
+    const h = await mount(), c = h.controller;
+    const body = '  <script>"literal"</script>\r\n中文 🧪 {{topic}}\\path\t  ';
+    const notes = '  My notes\r\n中文 🧪 <b>literal</b>  ';
+    await add(c, 'Original', body);
+    c.edit(); c.update('sourceUrl', 'https://example.com/private'); c.update('notes', notes); await c.save();
+    const plan = await c.reviewBody(`${body}\r\nRevision`); assert.equal(await c.acceptRevision(plan), true);
+    const source = await h.store.export();
+    await h.store.mutate(h.store.request('replace', await h.store.review(source)));
+    await tick();
+    const before = await h.store.read(), writes = h.h.writes;
+    const expected = JSON.parse(await h.store.export({ omitSourceUrls }));
+    // The model view and real store occupy separate VM realms; browser code does not.
+    const exportCopy = h.store.export.bind(h.store);
+    h.store.export = options => exportCopy(JSON.parse(JSON.stringify(options)));
+    const blobs = [], clicks = [], revoked = [], timers = [];
+    h.root.Blob = Blob;
+    h.root.URL = { createObjectURL(blob) { blobs.push(blob); return 'blob:collection-export'; }, revokeObjectURL(url) { revoked.push(url); } };
+    h.root.setTimeout = fn => { timers.push(fn); };
+    const createElement = h.doc.createElement;
+    h.doc.createElement = tag => {
+        const node = createElement(tag);
+        if (tag === 'a') node.click = () => clicks.push({ href: node.href, filename: node.download, connected: node.isConnected });
+        return node;
+    };
+    const downloading = h.view.exportFile();
+    const dialog = h.doc.body.querySelector('.prompt-dialog-overlay');
+    const checkbox = dialog.querySelector('input'); checkbox.checked = omitSourceUrls; checkbox.dispatch('change');
+    dialog.querySelector('.prompt-primary').dispatch('click');
+    await downloading;
+    assert.equal(blobs.length, 1);
+    assert.equal(blobs[0].type, 'application/json');
+    const bytes = Buffer.from(await blobs[0].arrayBuffer());
+    const downloaded = JSON.parse(bytes.toString('utf8'));
+    assert.equal(typeof downloaded, 'object', 'one JSON parse yields the backup object, not a quoted JSON string');
+    assert.deepEqual(downloaded, expected);
+    assert.deepEqual(Core.parseBackup(bytes.toString('utf8')), expected);
+    for (const group of [downloaded.content, ...downloaded.recovery.map(item => item.content)]) {
+        assert.equal(group.records[0].body, `${body}\r\nRevision`);
+        assert.equal(group.records[0].history[0].body, body);
+        assert.equal(group.records[0].notes, notes);
+        assert.equal(group.records[0].sourceUrl, omitSourceUrls ? '' : 'https://example.com/private');
+    }
+    assert.equal(downloaded.recovery.length, 1);
+    assert.deepEqual(await h.store.read(), before, 'URL omission affects only the downloaded copy');
+    assert.equal(h.h.writes, writes);
+    assert.deepEqual(clicks, [{ href: 'blob:collection-export', filename: 'local-itab-ai-collection.json', connected: true }]);
+    assert.equal(h.doc.body.querySelectorAll('a').some(node => node.href === 'blob:collection-export'), false);
+    timers.forEach(fn => fn()); assert.deepEqual(revoked, ['blob:collection-export']);
+    c.dispose();
+});
+test('capture keeps exact text and separates annotations; drafts never write before save', async () => {
+    const h = setup(), c = h.controller; await c.start(); c.create(); c.update('title', 'Useful'); c.update('body', '  <script>\r\nexact\t'); c.update('notes', 'My interpretation'); assert.equal(h.writes, 0); await c.save();
+    assert.equal(c.record().body, '  <script>\r\nexact\t'); assert.equal(c.record().notes, 'My interpretation'); assert.equal(c.record().history.length, 1); c.dispose();
+});
+test('metadata saves cannot revise body; explicit preview and acceptance append history', async () => {
+    const h = setup(), c = h.controller; await c.start(); await add(c); c.edit(); c.update('body', 'new text'); assert.equal(await c.save(), false); assert.equal(c.error.code, 'REVIEW_REQUIRED'); c.discard();
+    const plan = await c.reviewBody('new text'); assert.notEqual(c.record().body, 'new text'); assert.equal(await c.acceptRevision(plan), true); assert.equal(c.record().body, 'new text'); assert.equal(c.record().history.length, 2); c.dispose();
+});
+test('archiving and restore retain body history and unresolved references', async () => {
+    const h = setup(), c = h.controller; await c.start(); await add(c); c.edit(); c.update('promptId', 'prompt_0001'); c.update('bodyVersionId', 'version_0001'); await c.save(); const ref = c.record().promptRef;
+    await c.action('remove'); assert.equal(c.results().length, 0); c.filter({ mode: 'trash' }); assert.equal(c.results().length, 1); await c.action('restore'); assert.deepEqual(c.record().promptRef, ref); assert.equal(Core.resolvePromptReference(c.record()).status, 'unresolved'); c.dispose();
+});
+test('type, tool and tag filters intersect local body search', async () => {
+    const h = setup(), c = h.controller; await c.start(); await add(c, 'Snippet', '中文 exact code'); c.edit(); c.update('type', 'code'); c.update('tool', 'Example'); c.update('tagsText', 'research, 中文'); await c.save(); c.filter({ query: '中文', type: 'code', tool: 'Example', tag: 'research' }); assert.equal(c.results().length, 1); c.filter({ tool: 'Other' }); assert.equal(c.results().length, 0); c.dispose();
+});
+test('uncertain committed add retries exact operation without duplicate and preserves draft', async () => {
+    const h = setup(), c = h.controller; await c.start(); c.create(); c.update('title', 'Title'); c.update('body', 'Exact'); h.failOnce(); assert.equal(await c.save(), false); assert.ok(c.pendingCommand); assert.ok(c.draft()); const command = c.pendingCommand.command; await c.refresh(); await c.retry(); assert.equal(c.state.records.length, 1); assert.equal(c.record().id, command.operationId); assert.equal(c.draft(), undefined); c.dispose();
+});
+test('stale metadata draft is retained and can only become a new independent item', async () => {
+    const h = setup(), c = h.controller; await c.start(); const record = await add(c); c.edit(); c.update('notes', 'draft'); await h.store.mutate(h.store.request('edit', { id: record.id, version: record.version, notes: 'remote' })); await tick(); assert.equal(c.draft().conflict, true); assert.equal(await c.save(), false); assert.equal(await c.save(true), true); assert.equal(c.state.records.length, 2); assert.equal(c.record().notes, 'draft'); c.dispose();
+});
+test('view renders loading/empty/editor and input updates preserve textarea focus', async () => {
+    const h = await mount(), c = h.controller; assert.match(text(h.host), /Keep the useful part/); h.view.newButton.dispatch('click'); const field = h.view.editor.fields.body; field.focus(); field.value = '<img onerror=x>\n  exact'; field.dispatch('input'); assert.equal(h.doc.activeElement, field); assert.equal(h.view.editor.fields.body, field); c.update('title', 'Title'); await h.view.save(); assert.match(text(h.host), /<img onerror=x>/); assert.equal(h.host.querySelectorAll('img, script, iframe').length, 0); c.dispose();
+});
+test('edit body is readonly; duplicate cancel does not save or merge', async () => {
+    let approved = false; const h = await mount(async () => approved), c = h.controller; const record = await add(c, 'First', 'same'); c.edit(); assert.equal(h.view.editor.fields.body.readOnly, true); c.discard(); c.create(); c.update('title', 'Second'); c.update('body', 'same'); await h.view.save(); assert.equal(c.state.records.length, 1); assert.ok(c.draft()); approved = true; await h.view.save(); assert.equal(c.state.records.length, 2); assert.equal(c.state.records[0].id, record.id); c.dispose();
+});
+test('source link shows actual host and never creates previews; refs visibly unresolved', async () => {
+    const h = await mount(), c = h.controller; await add(c); c.edit(); c.update('sourceUrl', 'https://example.com:8443/private?q=1'); c.update('promptId', 'prompt_0001'); c.update('bodyVersionId', 'version_0001'); await c.save();
+    const link = h.host.querySelector('.collection-source'); assert.match(link.textContent, /example.com:8443/); assert.equal(link.target, '_blank'); assert.equal(link.rel, 'noopener noreferrer'); assert.equal(link.referrerPolicy, 'no-referrer'); assert.match(text(h.host), /Unresolved exact prompt reference/); c.dispose();
+});
+test('revision cancel and failure retain proposed text in tab and guard departure', async () => {
+    const h = await mount(), c = h.controller; const record = await add(c); let calls = 0;
+    h.view.dialog = async options => { calls++; if (options.onInput) { options.onInput('proposed exact'); return true; } return false; };
+    await h.view.revise(record); assert.equal(c.record().body, record.body); assert.equal(h.view.proposals.get(record.id), 'proposed exact'); assert.match(text(h.host), /proposed excerpt is kept/);
+    const e = { preventDefault() { this.prevented = true; } }; h.events.get('beforeunload')(e); assert.equal(e.prevented, true); assert.equal(calls, 2); c.dispose();
+});
+test('modal cancel restores focus and preserves IME escape', async () => {
+    const h = await mount(); h.view.newButton.focus(); const promise = h.view.dialog({ title: 'Review', body: 'Text', accept: 'Accept' }); const overlay = h.doc.body.querySelector('.prompt-dialog-overlay'), button = overlay.querySelector('button'); button.dispatch('keydown', { key: 'Escape', isComposing: true }); assert.equal(h.view.openDialog, true); button.dispatch('keydown', { key: 'Escape' }); assert.equal(await promise, false); assert.equal(h.doc.activeElement, h.view.newButton); h.controller.dispose();
+});
+test('bootstrap requires fenced backend; no fetch, HTML parsing, providers, remote scripts or write fallback', () => {
+    const src = fs.readFileSync('collections.js', 'utf8') + fs.readFileSync('shared/local-ai-collections-view.js', 'utf8'); assert.match(src, /createCollectionBackend/); assert.doesNotMatch(src, /innerHTML|outerHTML|insertAdjacentHTML|fetch\(|XMLHttpRequest|readText\(|chrome\.permissions|eval\(|storage\.local\.set/); assert.doesNotMatch(fs.readFileSync('collections.html', 'utf8'), /https?:\/\//);
+});
+test('revision begun before a cross-tab change refuses stale comparison and preserves proposal', async () => {
+    const h = await mount(), c = h.controller; const record = await add(c); h.view.dialog = async options => { options.onInput('proposed'); await h.store.mutate(h.store.request('edit', { id: record.id, version: record.version, notes: 'other tab' })); await tick(); return true; };
+    await h.view.revise(record); assert.equal(c.error.code, 'CONFLICT'); assert.equal(c.record().body, record.body); assert.equal(h.view.proposals.get(record.id), 'proposed'); c.dispose();
+});
+test('a kept revision can be resumed and explicitly accepted without dropping original history', async () => {
+    const h = await mount(), c = h.controller; const record = await add(c); h.view.proposals.set(record.id, 'kept text'); h.view.dialog = async () => true; await h.view.revise(record); assert.equal(c.record().body, 'kept text'); assert.equal(c.record().history[0].body, record.body); assert.equal(h.view.proposals.size, 0); c.dispose();
+});
+test('saving annotations leaves exact body history unchanged', async () => {
+    const h = setup(), c = h.controller; await c.start(); const record = await add(c); c.edit(); c.update('notes', 'different notes'); c.update('tagsText', 'local'); await c.save(); assert.deepEqual(c.record().history, record.history); assert.equal(c.record().currentVersionId, record.currentVersionId); c.dispose();
+});
+test('new draft from a proposed revision cannot overwrite an existing new draft', async () => {
+    const h = await mount(), c = h.controller; const record = await add(c); h.view.proposals.set(record.id, 'proposal'); c.create(); c.update('body', 'existing draft'); c.select(record.id); h.view.proposalAsNew(record); assert.equal(c.draft().input.body, 'existing draft'); c.discard(); h.view.proposalAsNew(record); assert.equal(c.draft().input.body, 'proposal'); assert.equal(c.draft().id, undefined); await c.save(); assert.equal(c.state.records.length, 2); c.dispose();
+});
+test('English and Chinese catalogs include all static collection labels', () => {
+    const source = fs.readFileSync('shared/local-ai-collections-view.js', 'utf8'); const keys = [...source.matchAll(/(?:this\.t|this\.button|this\.paragraph)\('([^']+)', '/g)].map(match => `collections${match[1]}`);
+    for (const locale of ['en', 'zh_CN']) { const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8')); for (const key of keys) assert.ok(messages[key]?.message, `${locale}: ${key}`); }
+});
+
+for (const locale of ['en', 'zh_CN']) test(`collection heading and title field stay distinct in Chrome's case-insensitive catalog (${locale})`, async () => {
+    const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+    const normalized = new Map();
+    for (const [key, value] of Object.entries(messages)) {
+        assert.equal(normalized.has(key.toLowerCase()), false, `Case-insensitive duplicate: ${key}`);
+        normalized.set(key.toLowerCase(), value.message);
+    }
+    const h = await mount(undefined, { t: key => normalized.get(key.toLowerCase()) || key });
+    assert.equal(h.host.querySelector('h1').textContent, locale === 'en' ? 'AI result collection' : 'AI 结果收藏');
+    h.controller.create();
+    assert.equal(h.view.editor.fields.title.parentElement.querySelector('span').textContent, locale === 'en' ? 'Title' : '标题');
+    h.controller.dispose();
+});
+test('collection page supplies theme tokens before appearance storage loads', () => {
+    const html = fs.readFileSync('collections.html', 'utf8');
+    const root = html.match(/<html\b[^>]*>/)[0];
+    assert.match(root, /data-dashboard-template="clarity"/);
+    assert.match(root, /data-color-mode="light"/);
+    assert.ok(html.indexOf('href="appearance.css"') < html.indexOf('href="prompts.css"'));
+    const appearance = fs.readFileSync('appearance.css', 'utf8');
+    for (const mode of ['light', 'dark']) {
+        assert.ok(appearance.includes(`:root[data-dashboard-template][data-color-mode="${mode}"]`));
+    }
+    const css = fs.readFileSync('prompts.css', 'utf8');
+    assert.match(css, /border: 1px solid var\(--template-border\)/);
+    assert.match(css, /outline: 3px solid var\(--template-focus\)/);
+});

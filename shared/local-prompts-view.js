@@ -28,6 +28,8 @@
             const actions = this.el('div', 'prompt-header-actions');
             const home = this.el('a', 'prompt-link', this.t('Back', 'Back to new tab')); home.href = 'newtab.html';
             home.addEventListener('click', event => { if (c.busy || c.hasUncommittedWork()) { event.preventDefault(); void this.leave(home.href); } });
+            const collections = this.el('a', 'prompt-link', root.i18n?.t('collectionsEntry') || 'AI collection'); collections.href = 'collections.html';
+            collections.addEventListener('click', event => { if (c.busy || c.hasUncommittedWork()) { event.preventDefault(); void this.leave(collections.href); } }); actions.append(collections);
             this.newButton = this.button('New', 'New prompt', () => { if (c.create()) this.focusDetail('title'); }, 'prompt-primary');
             this.focusKey(this.newButton, 'new'); actions.append(home, this.newButton); header.append(title, actions);
             this.status = this.el('div', 'prompt-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');

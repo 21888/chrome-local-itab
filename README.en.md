@@ -14,6 +14,15 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
+### AI collection screenshots · local 1.1.24 candidate
+
+Captured on 2026-10-10 in native cloud Linux Chrome with isolated synthetic data. These two original screenshots come from the corrected, frozen 82-file runtime (manifest 1.1.21); the local 1.1.24 candidate changes only the version number relative to that runtime. The light view includes the default-theme and heading fixes. The dark view uses a 553-pixel outer browser window, not a physical phone or measured CSS viewport. This candidate has not been pushed or released; at the time of this record, the public version remains 1.1.21 and 1.1.22 / 1.1.23 are also local only.
+
+![Light AI collection: corrected desktop details and literal excerpt](docs/qa/collections-native/evidence/04-corrected-desktop-light.png)
+![Dark AI collection in a narrow window: stacked details, notes and source](docs/qa/collections-native/evidence/15-narrow-dark-detail.png)
+
+[Native acceptance and untested scope](docs/ai-collections-native-validation.md) · [Actual downloads and restore comparisons](docs/qa/collections-native/acceptance-notes.md) · [1.1.24 changes](docs/releases/1.1.24.md#english)
+
 ### Prompt library screenshots · local 1.1.23 candidate
 
 Captured on 2026-10-10 in native cloud Linux Chrome with isolated synthetic data. These original screenshots show the frozen 76-file integrated runtime (manifest 1.1.21); the current 1.1.23 source changes only the runtime version number. They are not post-publication screenshots. The narrow image uses a 553-pixel outer browser window, not a physical phone or a measured CSS viewport.
@@ -197,6 +206,8 @@ See [version checks, separate backup shortcuts and update steps](docs/version-up
 <a id="features"></a>
 
 ## Features
+
+- **AI result collections (local 1.1.24 candidate)**: Manually save literal excerpts with separate notes, types, tool labels and tags in one local library shared across workspaces; search, archive and restore records. Body changes require review, restoring history appends a version, and stale tabs cannot overwrite newer saves. Standalone JSON export can omit source URLs from the exported copy only. Complete backup schema 4 supports global collection replacement, pre-restore recovery and read-back verification. Exact prompt / body-version IDs remain unresolved. No automatic capture, model calls, new network requests or new permissions; this is not a full conversation backup. [Usage, privacy and limits (Chinese)](docs/ai-collections.zh-CN.md) · [Native acceptance](docs/ai-collections-native-validation.md).
 
 - **Personal prompt library (local 1.1.23 candidate)**: One local plain-text library shared by all workspaces, with categories, tags, favorites, search, `{{variable}}` preview and copying, body-version history and recoverable Trash. Complete local backup schema 3 can include prompts; ordinary settings exports, Chrome Sync and Drive do not. No model execution, API-key fields, new permissions or automatic uploads. [Usage and limits (Chinese)](docs/prompt-library.zh-CN.md) · [Native acceptance scope](docs/prompt-library-native-validation.md) · [1.1.23 changes and limits](docs/releases/1.1.23.md#english). The candidate version number does not indicate publication.
 

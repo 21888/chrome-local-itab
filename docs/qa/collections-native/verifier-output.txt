@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "checks": {
+    "singleParseStandaloneObject": true,
+    "exactLiteralPlaintext": true,
+    "metadataOnlyBodyPreserved": true,
+    "reviewedVersionAndHistoricRestore": true,
+    "sourceHistory": 3,
+    "changedHistory": 4,
+    "sourceOmissionOnlyExportCopy": true,
+    "savedRecordUnchangedAfterOmit": true,
+    "singleGlobalCollection": true,
+    "restoredIdentityBodyMetadataHistory": true,
+    "renewedEditorFence": true,
+    "completeRecoveryMatchesBefore": true,
+    "displacedCollectionRecoveryExact": true,
+    "unsavedStaleDraftExcluded": true
+  },
+  "files": {
+    "local-itab-ai-collection.json": {
+      "bytes": 1081,
+      "sha256": "4218cfc07bad1c224ecb87d8d52167fa8a59a7fae1b53be684a902e88b74bfba"
+    },
+    "local-itab-ai-collection (1).json": {
+      "bytes": 1045,
+      "sha256": "4f6a0b3d0fc096299c3c171e66b9b47bf95b0bf1c381562cb4f94d0f1aa902c7"
+    },
+    "local-itab-complete-2026-10-10 (13).json": {
+      "bytes": 3169,
+      "sha256": "1e75ff45991019c03c760a85deb3fc187ccef44e6827c93ee4f43539caa06fa2"
+    },
+    "local-itab-complete-2026-10-10 (14).json": {
+      "bytes": 3348,
+      "sha256": "ea00d218bee5f1d95adc93bcffb46461cf82dc11994aea3be9e4f3a17f707c96"
+    },
+    "local-itab-complete-2026-10-10 (15).json": {
+      "bytes": 4403,
+      "sha256": "823eb65bfdb9a71b46e442454d72f1a47531ffefe57fe3b1e7d5e773ac7c8477"
+    },
+    "local-itab-pre-restore-2026-10-10 (3).json": {
+      "bytes": 3348,
+      "sha256": "15e4f900da62f47cb256c3ed0a454fa31b9524b0b594d3e665c8319e8dbc18cf"
+    }
+  }
+}

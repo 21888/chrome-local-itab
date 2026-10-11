@@ -14,6 +14,15 @@
 
 ## 界面预览
 
+### AI 收藏实拍 · 1.1.24 本地候选
+
+2026-10-10，云端 Linux 原生 Chrome，独立合成数据。以下两张为原始截图，来自最终修正后的 82 文件冻结运行包（manifest 1.1.21）；本地 1.1.24 候选相对该运行包仅变更版本号。浅色图已包含默认主题和标题修正；深色窄图的浏览器外窗口宽 553 像素，不是实体手机或测量后的 CSS 视口。此候选尚未推送或发布；记录时公开版本仍为 1.1.21，1.1.22 / 1.1.23 也仅在本地。
+
+![AI 收藏浅色实拍：修正后的桌面详情与原文摘录](docs/qa/collections-native/evidence/04-corrected-desktop-light.png)
+![AI 收藏深色窄窗口实拍：堆叠详情、注释与来源](docs/qa/collections-native/evidence/15-narrow-dark-detail.png)
+
+[原生验收与未测范围](docs/ai-collections-native-validation.md) · [实际下载与恢复比对](docs/qa/collections-native/acceptance-notes.md) · [1.1.24 变更](docs/releases/1.1.24.md)
+
 ### 提示词库实拍 · 1.1.23 本地候选
 
 2026-10-10，云端 Linux 原生 Chrome，独立合成数据。截图来自已冻结的 76 文件集成运行包（manifest 1.1.21）；当前 1.1.23 源码相对该运行包仅修改运行版本号，不代表发布后截图。以下为原始截图；窄图浏览器外窗口宽 553 像素，不是实体手机或测量后的 CSS 视口。
@@ -197,6 +206,8 @@
 <a id="features"></a>
 
 ## 主要功能
+
+- **AI 结果收藏（1.1.24 本地候选）**：手动保存原文摘录与独立注释，添加类型、工具备注和标签，在跨工作空间共用的本地资料库中搜索、归档与恢复。正文修订需审阅确认，历史恢复追加版本，过时标签页不能覆盖最新保存；独立 JSON 导出可仅对副本移除来源网址。完整本地备份 schema 4 支持全局收藏替换、恢复前副本及读回验证。准确提示词 ID / 版本 ID 当前仍未解析。无自动采集、模型调用、新网络请求或新权限；不是完整对话备份。[使用、隐私与容量限制](docs/ai-collections.zh-CN.md) · [原生验收](docs/ai-collections-native-validation.md)。
 
 - **个人提示词库（1.1.23 本地候选）**：全部工作空间共用一份本地纯文本资料库，支持分类、标签、收藏、搜索、`{{变量}}` 预览与复制、正文历史版本和可恢复回收站。完整本地备份 schema 3 可选择包含提示词；普通配置导出、Chrome Sync 和 Drive 不包含它。没有模型执行、API 密钥字段、新权限或自动上传。[使用与容量限制](docs/prompt-library.zh-CN.md) · [原生验收范围](docs/prompt-library-native-validation.md) · [1.1.23 变更与限制](docs/releases/1.1.23.md)。候选版本号不表示已发布。
 

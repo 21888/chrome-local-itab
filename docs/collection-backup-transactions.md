@@ -1,0 +1,15 @@
+# Global AI collection complete backups
+
+Full workspace backups now use schema 4 and carry `globals.collections` once, alongside optional `globals.prompts`. Collection-only exports are valid schema 4; exports without collections keep schema 2 or schema 3 unchanged. Schema 1, 2 and 3 imports cannot erase collections. A deselected global module is neither replaced nor included in the pre-restore recovery archive.
+
+Collections require the explicit reviewed `collectionTarget: 'global-collections'` destination. Prompts separately require `promptTarget: 'global-library'`. Review includes active/archived/version/recovery counts and matching-ID conflicts. The private reviewed ticket binds the exact source, selected modules and current collection state; changing the public preview cannot expand its authority. New saves invalidate old reviews.
+
+Portable content retains record IDs, excerpt history and current-version IDs, notes, user-entered source URLs, exact prompt/version references and archived records. Restored mutation versions are refreshed for stale-editor safety. References are not rebound or merged; missing prompt versions remain unresolved. Existing collection content enters retained recovery. Recovery/history/identity limits fail closed instead of evicting records. Visibility remains device-local. Provider keys, authentication, privacy settings and runtime drafts stay excluded. Saved notes, excerpts and source URLs can themselves be private: inspect before sharing a backup.
+
+Lock order is workspace lifecycle → prompt → collections for reviewed snapshots and combined restores. Coordinated collection writers acquire workspace → collections. Direct collection writers acquire only collections and never acquire workspace or prompt while holding it. All paths check the durable combined-restore fence; prompt writers retain their existing fence.
+
+Restore verifies the portable pre-restore recovery copy before staging any authority replacement. Staged workspace generations are verified before submission. The prepared marker retains selected prior/next authorities and a digest of the raw prior workspace snapshot. Exactly one combined authority submission is followed by readback and a verified marker. This is **not browser-crash atomicity**. Any uncertain submission is not automatically retried or rolled back. Pending markers block cooperating writers after reload.
+
+Inspection and explicit recovery retain the prior audit's protections: verify marker/recovery checksum, raw prior workspace digest, current snapshot and authority identities; reject drift before repair; perform one verified prior-authority submission only after separate user confirmation. Unselected global libraries remain untouched. Download candidates include both global libraries for manual review.
+
+Focused validation includes prior prompt independent audit, existing workspace-backup tests, collection identity/history and legacy-preservation cases, five uncertain mixed-write outcomes, recovery, stale-review rejection, explicit target UI/cancel gates and lock contention. Native browser validation remains separate.

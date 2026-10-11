@@ -1,749 +1,2062 @@
 {
-  "completeBackupInterruptedChanged": {"message": "中断恢复后，保留的数据副本发生变化。为避免丢失较新内容，自动回退已阻止。请下载两份已保存数据以供核对，也可下载恢复前副本。"},
-  "completeBackupDownloadInterrupted": {"message": "下载两份已保存数据"},
-  "completeBackupPrompts": {"message": "提示词库与已保存版本"},
-  "completeBackupPromptHelp": {"message": "提示词是所有工作区共用的全局资料库。备份包括已保存版本与已归档提示词，不含草稿、变量填写值或提供商凭据。"},
-  "completeBackupPromptTarget": {"message": "提示词库恢复目标"},
-  "completeBackupChoosePromptTarget": {"message": "选择提示词库恢复目标"},
-  "completeBackupGlobalLibrary": {"message": "此设备的全局提示词库"},
-  "completeBackupPromptTargetRequired": {"message": "请选择全局提示词库目标并重新预览。当前已保存和已归档的提示词将被替换。"},
-  "completeBackupPromptScope": {"message": "所选全局提示词库只替换一次，包括已归档提示词。当前记录及版本将保留在恢复副本中，显示偏好不变。"},
-  "completeBackupGlobalOnlyScope": {"message": "只替换全局提示词库。工作区及其回收站保持不变。"},
-  "completeBackupPromptConflicts": {"message": "相同提示词 ID 中资料或正文不同的数量"},
-  "completeBackupCountPromptActive": {"message": "使用中的提示词"},
-  "completeBackupCountPromptRemoved": {"message": "已归档提示词"},
-  "completeBackupCountVersions": {"message": "已保存正文版本"},
-  "completeBackupPromptLimit": {"message": "提示词库或其保留的恢复副本、历史已达到安全容量上限。未进行替换。请保留备份；系统不会自动删除历史。"},
-  "completeBackupPromptIdentity": {"message": "提示词或正文版本 ID 对应的内容发生冲突。未进行替换。请保留两份文件以便核对。"},
-  "completeBackupRestorePending": {"message": "一次组合恢复已中断。为保护两份已保存数据，当前暂停写入。请先下载恢复前副本，并在下方检查中断的恢复。"},
-  "completeBackupInspectInterrupted": {"message": "检查中断的恢复"},
-  "completeBackupInterruptedReview": {"message": "当前暂停写入。以下操作将把所有工作区、工作区回收站和提示词库恢复到经过验证的恢复前状态，不会合并草稿。如需独立文件，请先下载恢复前副本。"},
-  "completeBackupRecoverInterrupted": {"message": "恢复经过验证的之前状态"},
-  "completeBackupNoInterrupted": {"message": "没有需要处理的中断恢复。可重新载入以检查已保存状态；本次未执行恢复操作。"},
-  "completeBackupRecoveredInterrupted": {"message": "之前的工作区与提示词状态已恢复并验证。请重新载入以显示；本页草稿仍保留。"},
-  "updateBackupTitle": {"message": "更新前先备份"},
-  "updateBackupScope": {"message": "先保存正在编辑的内容。设置备份不包含待办、专注计时、便笺和倒计时。请分别备份待办、便笺和倒计时；专注偏好需手动记录，专注会话无法迁移。"},
-  "updateBackupSettings": {"message": "前往设置导出"},
-  "updateBackupCountdown": {"message": "前往倒计时导出"},
-  "updateBackupNavigation": {"message": "这些入口只在设置页内定位，不会保存草稿或下载文件。"},
-  "updateBackupCards": {"message": "在新标签页中：待办 → 待办数据 → 导出待办；便笺 → 导出文本。如卡片已隐藏，可到「设置 → 快捷方式 → 模块显示」启用。请在包含要保留文本的标签页中导出便笺。"},
-  "updateTitle": {"message": "版本与更新"},
-  "updateDescription": {"message": "按需检查 GitHub 上已发布的版本；更新需要另行安装。"},
-  "updateInstalled": {"message": "当前安装版本"},
-  "updateLatest": {"message": "最新已发布版本（已保存的检查结果）"},
-  "updateLastChecked": {"message": "上次成功检查"},
-  "updatePrivacy": {"message": "检查会连接 api.github.com，读取本项目的公开版本信息。GitHub 会收到你的 IP 地址及常规连接信息；不会发送书签、任务、设置、账号或令牌。"},
-  "updateAutomatic": {"message": "每天最多检查一次"},
-  "updateAutomaticHelp": {"message": "默认关闭。打开或返回新标签页时检查，每 24 小时最多显示一次轻提示。仅在此设备立即保存。"},
-  "updateCheck": {"message": "现在检查 GitHub"},
-  "updateReleaseLink": {"message": "在 GitHub 查看此版本"},
-  "updateIgnore": {"message": "忽略此版本"},
-  "updateIgnored": {"message": "已忽略此版本的自动提醒"},
-  "updateUnpackedTitle": {"message": "更新解压加载的扩展"},
-  "updateUnpackedBackup": {"message": "先保存正在编辑的内容，并导出设置备份。如使用任务、便笺和倒计时，请分别导出；专注计时偏好和会话不包含在备份中。"},
-  "updateUnpackedReplace": {"message": "从 GitHub 此版本页面下载扩展运行文件 ZIP，解压后替换最初加载的固定文件夹内的扩展文件。不要移除已安装的扩展，也不要更换文件夹。"},
-  "updateUnpackedReload": {"message": "保存工作后，打开 chrome://extensions，找到 Local iTab 并点击重新加载。再打开新标签页，在此确认版本。Local iTab 不会代你替换文件或重新加载。"},
-  "updateStore": {"message": "此商店安装由 Chrome 管理更新。GitHub 的版本可能领先于商店审核；GitHub 已发布并不表示商店已有更新。请保留当前安装，等待 Chrome 更新。"},
-  "updateManaged": {"message": "此安装由管理员管理，请联系管理员了解更新。GitHub 最新版本不一定是组织批准使用的版本。"},
-  "updateUnknown": {"message": "无法确认安装来源。若从 Chrome 应用商店安装，请由 Chrome 管理更新；若为解压加载，请先保存并备份，在原固定文件夹内替换为此版本 ZIP 中的文件，再到 chrome://extensions 重新加载 Local iTab。不要移除扩展。"},
-  "updateChecking": {"message": "正在检查 GitHub…"},
-  "updateAvailable": {"message": "发现更新的已发布版本。"},
-  "updateCurrent": {"message": "当前安装版本已是最新，或领先于最新已发布版本。"},
-  "updateOffline": {"message": "无法连接 GitHub，请检查网络后重试。"},
-  "updateTimeout": {"message": "GitHub 响应超时，请稍后重试。"},
-  "updateRateLimit": {"message": "GitHub 请求次数已受限，请稍后再检查。"},
-  "updateUnavailable": {"message": "GitHub 暂时无法完成检查，请稍后重试。"},
-  "updateNoRelease": {"message": "暂未找到已发布的版本。"},
-  "updateInvalid": {"message": "GitHub 返回的版本数据格式异常，未采用。"},
-  "updateStale": {"message": "GitHub 返回的版本比已保存的结果旧，仍显示已保存的结果。"},
-  "updateBusy": {"message": "其他标签页正在检查。"},
-  "updateStorageError": {"message": "无法读取或保存更新偏好，请重试。"},
-  "updatePreferenceSaved": {"message": "已在此设备保存更新偏好。"},
-  "updateCancelled": {"message": "检查已取消。"},
-  "updateIdle": {"message": "尚未检查，默认仅手动检查。"},
-  "updateNotChecked": {"message": "尚未检查"},
-  "updateNotice": {"message": "Local iTab $version$ 已发布，查看更新详情。", "placeholders": {"version": {"content": "$1"}}},
-  "worldClockCompare": {"message": "比较时间"},
-  "worldClockBackToNow": {"message": "返回当前时间"},
-  "worldClockCompareOffset": {"message": "时间比较：前后 24 小时（每步 15 分钟）"},
-  "worldClockCompareReference": {"message": "预览 · 本地：$1，$2 · 相对开始时间 $3 分钟"},
-  "worldClockPreviousDay": {"message": "前一天"},
-  "worldClockSameDay": {"message": "同一天"},
-  "worldClockNextDay": {"message": "后一天"},
-  "tasksBatch": {"message": "批量添加待办"},
-  "tasksBatchLabel": {"message": "每行一项待办"},
-  "tasksBatchHelp": {"message": "每个非空行按顺序添加为一项待办，保留空格、项目符号和重复行。查看预览并确认后才会添加。"},
-  "tasksBatchTextLimit": {"message": "纯文本 · 每项最多 1,000 个字符"},
-  "tasksBatchReview": {"message": "预览待办"},
-  "tasksBatchConfirm": {"message": "添加已预览的待办"},
-  "tasksBatchCount": {"message": "待添加数量"},
-  "tasksBatchCapacity": {"message": "已存待办（含已完成和已移除）"},
-  "tasksBatchRemaining": {"message": "剩余名额"},
-  "tasksBatchPreview": {"message": "编号预览"},
-  "tasksBatchChanged": {"message": "待办列表已变化，请重新预览以检查最新容量。"},
-  "tasksBatchReady": {"message": "请检查编号列表，确认后一次性添加全部待办。"},
-  "tasksBatchRetry": {"message": "重试上次添加"},
-  "tasksBatchUncertain": {"message": "上次批量添加的结果尚未确认。请先安全重试同一批待办，再预览当前草稿。"},
-  "tasksBatchDraftRemains": {"message": "上次批量添加已保存。当前草稿仍保留，再次添加前请重新预览。"},
-  "scratchpadImport": {"message": "导入文本"},
-  "scratchpadImportReplace": {"message": "替换便笺文本"},
-  "scratchpadImportCancel": {"message": "取消"},
-  "scratchpadImportPreview": {"message": "待导入文本"},
-  "scratchpadImportHelp": {"message": "仅供预览。替换将覆盖已保存的便笺文本。如需保留，请先导出副本。"},
-  "scratchpadImportReading": {"message": "正在读取本地文本文件…"},
-  "scratchpadImportError": {"message": "无法读取此文件。请选择一个 UTF-8 .txt 文件，最多 32,000 个 Unicode 字符、128 KiB。便笺未被修改。"},
-  "countdownCardConflict": {"message": "其他页面更改了此倒计时。请先载入已保存内容，再选择隐藏。"},
-  "countdownExportTooLarge": {"message": "草稿过大，无法导出。完整副本最多支持 32,000 个字符和 128 KiB UTF-8 文本。您的草稿仍保留在此处。"},
-  "countdownTitle": {"message": "倒计时"},
-  "countdownLocal": {"message": "仅在此设备"},
-  "countdownEventLabel": {"message": "里程碑名称（最多 80 个字符）"},
-  "countdownDateLabel": {"message": "目标日期（YYYY-MM-DD）"},
-  "countdownDateHelp": {"message": "请输入 0001-01-01 至 9999-12-31 之间的真实日期。天数根据设备本地日历计算，而非每 24 小时计算。"},
-  "countdownEnable": {"message": "在新标签页显示倒计时"},
-  "countdownEnableHelp": {"message": "可选的本地功能。隐藏倒计时会保留已保存的名称和日期。"},
-  "countdownHelp": {"message": "仅保存在此设备的当前浏览器配置中，不包含在设置导出、浏览器同步和 Google 云盘备份中。不发送通知，也不联网。移除扩展或清除浏览器数据可能导致内容丢失。可导出文本副本自行备份。"},
-  "countdownLoading": {"message": "正在读取本地倒计时…"},
-  "countdownSaving": {"message": "正在保存…"},
-  "countdownSaved": {"message": "已保存在此设备"},
-  "countdownUnsaved": {"message": "有未保存的更改"},
-  "countdownLoadError": {"message": "无法读取倒计时。请重试读取已保存状态，您的草稿仍保留在此处。"},
-  "countdownSaveError": {"message": "无法确认保存结果。您的草稿仍在此处，请重试或在离开前导出文本副本。"},
-  "countdownConflict": {"message": "另一个页面更改了此倒计时。您的草稿仍在此处。可载入已保存内容以放弃草稿，或用此草稿替换已保存的倒计时。"},
-  "countdownInvalidDate": {"message": "请输入 YYYY-MM-DD 格式的真实日期，范围为 0001-01-01 至 9999-12-31。"},
-  "countdownInvalidTitle": {"message": "请输入纯文本名称，不含控制字符或无效 Unicode 字符。"},
-  "countdownTitleTooLong": {"message": "名称过长，无法保存。请缩短名称，或在离开前导出文本副本。"},
-  "countdownUnconfigured": {"message": "请先填写名称和目标日期，再显示倒计时。"},
-  "countdownRetry": {"message": "重试"},
-  "countdownUseSaved": {"message": "载入已保存内容"},
-  "countdownReplace": {"message": "用我的草稿替换"},
-  "countdownSave": {"message": "保存"},
-  "countdownCancel": {"message": "取消"},
-  "countdownHide": {"message": "隐藏"},
-  "countdownEdit": {"message": "编辑"},
-  "countdownExport": {"message": "导出文本"},
-  "countdownExportError": {"message": "无法导出文本副本。您的草稿仍保留在此处。"},
-  "countdownDiscardConfirm": {"message": "放弃未保存的倒计时草稿，并载入最新保存的名称、日期和显示状态？"},
-  "countdownReplaceConfirm": {"message": "用此草稿替换最新保存的倒计时？其他已打开页面也会收到此更改。"},
-  "countdownSavedPreview": {"message": "最新保存的倒计时"},
-  "countdownNotConfigured": {"message": "尚未设置"},
-  "countdownShown": {"message": "显示"},
-  "countdownHidden": {"message": "隐藏"},
-  "countdownToday": {"message": "今天"},
-  "countdownDayLeft": {"message": "还有 1 天"},
-  "countdownDaysLeft": {"message": "还有 $1 天"},
-  "countdownDayAgo": {"message": "已过 1 天"},
-  "countdownDaysAgo": {"message": "已过 $1 天"},
-  "worldClockConflict": {"message": "时钟设置已在其他标签页更改，或无法安全比较。您的编辑仍保留在此处。请在新的设置标签页查看最新值后再重试。"},
-  "worldClocks": {"message": "世界时钟"},
-  "worldClockToday": {"message": "今天"},
-  "worldClockYesterday": {"message": "昨天"},
-  "worldClockTomorrow": {"message": "明天"},
-  "worldClockDays": {"message": "$1 天"},
-  "worldClockHelp": {"message": "最多添加四个 IANA 时区。时间沿用时钟格式，完全离线。保存后生效。"},
-  "worldClockZone": {"message": "时区"},
-  "worldClockLabel": {"message": "简短名称（可选）"},
-  "worldClockAdd": {"message": "添加时钟"},
-  "worldClockMoveUp": {"message": "上移"},
-  "worldClockMoveDown": {"message": "下移"},
-  "worldClockRemove": {"message": "移除"},
-  "worldClockSave": {"message": "保存时钟"},
-  "worldClockInvalid": {"message": "请输入有效的 IANA 时区，名称不超过 40 个字符，最多添加四个不重复的时区。"},
-  "worldClockBaselineUnavailable": {"message": "无法安全读取时钟设置。请重新加载设置后再保存。"},
-  "scratchpadLimits": {"message": "最多保存 32,000 个 Unicode 字符和 128 KiB 的 UTF-8 文本。超长草稿会保留在此页面，缩短后才能保存；请在离开前导出副本。"},
-  "scratchpadTooLong": {"message": "此草稿过长，无法保存。草稿仍保留在此页面。请在离开前缩短内容或导出文本副本。"},
-  "scratchpadInvalidText": {"message": "草稿包含无效的 Unicode 文本，无法准确保存或导出。文本仍在此处，请修正后再保存或导出。"},
-  "scratchpadTitle": {"message": "便笺"},
-  "scratchpadLocal": {"message": "仅在此设备"},
-  "scratchpadLabel": {"message": "便笺文本"},
-  "scratchpadEnable": {"message": "在新标签页显示便笺"},
-  "scratchpadEnableHelp": {"message": "可选功能，仅保存在此设备。隐藏便笺会保留已保存的文本。"},
-  "scratchpadHelp": {"message": "纯文本仅保存在此设备的当前浏览器配置文件中。不包含在设置导出、浏览器同步或 Google Drive 备份中。卸载扩展或清除浏览器数据可能导致内容丢失。请导出文本副本自行备份。"},
-  "scratchpadLoading": {"message": "正在加载本地便笺…"},
-  "scratchpadSaving": {"message": "正在保存…"},
-  "scratchpadSaved": {"message": "已保存在此设备"},
-  "scratchpadUnsaved": {"message": "有未保存的更改"},
-  "scratchpadLoadError": {"message": "无法加载便笺。请重试后再编辑。"},
-  "scratchpadSaveError": {"message": "无法确认保存。草稿仍保留在此页面。请在离开前重试或导出文本副本。"},
-  "scratchpadConflict": {"message": "另一页面更改了已保存的文本。你的草稿仍保留在此页面。使用已保存文本会放弃此草稿，也可以用此草稿替换已保存的文本。"},
-  "scratchpadRetry": {"message": "重试"},
-  "scratchpadUseSaved": {"message": "使用已保存文本"},
-  "scratchpadReplace": {"message": "用我的草稿替换"},
-  "scratchpadExport": {"message": "导出文本"},
-  "scratchpadDetails": {"message": "存储与备份"},
-  "scratchpadSavedPreview": {"message": "最新保存的文本"},
-  "scratchpadSettingsConflict": {"message": "另一页面更改了便笺。请先读取最新保存的状态，再更改显示设置。"},
-  "scratchpadReadLatest": {"message": "读取最新保存的状态"},
-  "scratchpadExportError": {"message": "无法导出文本副本。草稿仍保留在此页面。"},
-  "shortcutUndoNotice": {"message": "快捷方式已删除。仅当前页面刷新前可撤销，后续修改可能使撤销失效。"},
-  "shortcutUndoAction": {"message": "撤销删除"},
-  "shortcutUndoInvalidData": {"message": "无法安全修改这些快捷方式数据，请刷新并检查后再操作。"},
-  "shortcutUndoUnverified": {"message": "无法核实操作结果，请刷新页面查看快捷方式。"},
-  "shortcutUndoUnavailable": {"message": "已无法撤销，请刷新页面查看最新快捷方式。"},
+  "completeBackupInterruptedChanged": {
+    "message": "中断恢复后，保留的数据副本发生变化。为避免丢失较新内容，自动回退已阻止。请下载两份已保存数据以供核对，也可下载恢复前副本。"
+  },
+  "completeBackupDownloadInterrupted": {
+    "message": "下载两份已保存数据"
+  },
+  "completeBackupPrompts": {
+    "message": "提示词库与已保存版本"
+  },
+  "completeBackupPromptHelp": {
+    "message": "提示词是所有工作区共用的全局资料库。备份包括已保存版本与已归档提示词，不含草稿、变量填写值或提供商凭据。"
+  },
+  "completeBackupPromptTarget": {
+    "message": "提示词库恢复目标"
+  },
+  "completeBackupChoosePromptTarget": {
+    "message": "选择提示词库恢复目标"
+  },
+  "completeBackupGlobalLibrary": {
+    "message": "此设备的全局提示词库"
+  },
+  "completeBackupPromptTargetRequired": {
+    "message": "请选择全局提示词库目标并重新预览。当前已保存和已归档的提示词将被替换。"
+  },
+  "completeBackupPromptScope": {
+    "message": "所选全局提示词库只替换一次，包括已归档提示词。当前记录及版本将保留在恢复副本中，显示偏好不变。"
+  },
+  "completeBackupGlobalOnlyScope": {
+    "message": "只替换所选全局资料库。已保存工作区和回收站保持不变。"
+  },
+  "completeBackupPromptConflicts": {
+    "message": "相同提示词 ID 中资料或正文不同的数量"
+  },
+  "completeBackupCountCollectionActive": {
+    "message": "已保存摘录"
+  },
+  "completeBackupCountCollectionRemoved": {
+    "message": "已归档摘录"
+  },
+  "completeBackupCountPromptActive": {
+    "message": "使用中的提示词"
+  },
+  "completeBackupCountPromptRemoved": {
+    "message": "已归档提示词"
+  },
+  "completeBackupCountVersions": {
+    "message": "已保存正文版本"
+  },
+  "completeBackupPromptLimit": {
+    "message": "所选全局资料库或其恢复记录、版本历史超出安全上限。未执行替换。请保留备份；系统不会自动删除历史。"
+  },
+  "completeBackupPromptIdentity": {
+    "message": "已保存记录或正文版本的标识对应不同内容。未执行替换。请保留两个文件以便检查。"
+  },
+  "completeBackupRestorePending": {
+    "message": "一次组合恢复已中断。为保护两份已保存数据，当前暂停写入。请先下载恢复前副本，并在下方检查中断的恢复。"
+  },
+  "completeBackupInspectInterrupted": {
+    "message": "检查中断的恢复"
+  },
+  "completeBackupInterruptedReview": {
+    "message": "保存已暂停。以下操作会将受影响的工作区、回收站及所选全局资料库恢复到经过验证的恢复前状态，不会合并草稿。如需单独保留文件，请先下载恢复前副本。"
+  },
+  "completeBackupRecoverInterrupted": {
+    "message": "恢复经过验证的之前状态"
+  },
+  "completeBackupNoInterrupted": {
+    "message": "没有需要处理的中断恢复。可重新载入以检查已保存状态；本次未执行恢复操作。"
+  },
+  "completeBackupRecoveredInterrupted": {
+    "message": "已恢复并验证原工作区及所选全局资料库状态。请重新加载以查看；草稿仍保留在本页。"
+  },
+  "updateBackupTitle": {
+    "message": "更新前先备份"
+  },
+  "updateBackupScope": {
+    "message": "先保存正在编辑的内容。设置备份不包含待办、专注计时、便笺和倒计时。请分别备份待办、便笺和倒计时；专注偏好需手动记录，专注会话无法迁移。"
+  },
+  "updateBackupSettings": {
+    "message": "前往设置导出"
+  },
+  "updateBackupCountdown": {
+    "message": "前往倒计时导出"
+  },
+  "updateBackupNavigation": {
+    "message": "这些入口只在设置页内定位，不会保存草稿或下载文件。"
+  },
+  "updateBackupCards": {
+    "message": "在新标签页中：待办 → 待办数据 → 导出待办；便笺 → 导出文本。如卡片已隐藏，可到「设置 → 快捷方式 → 模块显示」启用。请在包含要保留文本的标签页中导出便笺。"
+  },
+  "updateTitle": {
+    "message": "版本与更新"
+  },
+  "updateDescription": {
+    "message": "按需检查 GitHub 上已发布的版本；更新需要另行安装。"
+  },
+  "updateInstalled": {
+    "message": "当前安装版本"
+  },
+  "updateLatest": {
+    "message": "最新已发布版本（已保存的检查结果）"
+  },
+  "updateLastChecked": {
+    "message": "上次成功检查"
+  },
+  "updatePrivacy": {
+    "message": "检查会连接 api.github.com，读取本项目的公开版本信息。GitHub 会收到你的 IP 地址及常规连接信息；不会发送书签、任务、设置、账号或令牌。"
+  },
+  "updateAutomatic": {
+    "message": "每天最多检查一次"
+  },
+  "updateAutomaticHelp": {
+    "message": "默认关闭。打开或返回新标签页时检查，每 24 小时最多显示一次轻提示。仅在此设备立即保存。"
+  },
+  "updateCheck": {
+    "message": "现在检查 GitHub"
+  },
+  "updateReleaseLink": {
+    "message": "在 GitHub 查看此版本"
+  },
+  "updateIgnore": {
+    "message": "忽略此版本"
+  },
+  "updateIgnored": {
+    "message": "已忽略此版本的自动提醒"
+  },
+  "updateUnpackedTitle": {
+    "message": "更新解压加载的扩展"
+  },
+  "updateUnpackedBackup": {
+    "message": "先保存正在编辑的内容，并导出设置备份。如使用任务、便笺和倒计时，请分别导出；专注计时偏好和会话不包含在备份中。"
+  },
+  "updateUnpackedReplace": {
+    "message": "从 GitHub 此版本页面下载扩展运行文件 ZIP，解压后替换最初加载的固定文件夹内的扩展文件。不要移除已安装的扩展，也不要更换文件夹。"
+  },
+  "updateUnpackedReload": {
+    "message": "保存工作后，打开 chrome://extensions，找到 Local iTab 并点击重新加载。再打开新标签页，在此确认版本。Local iTab 不会代你替换文件或重新加载。"
+  },
+  "updateStore": {
+    "message": "此商店安装由 Chrome 管理更新。GitHub 的版本可能领先于商店审核；GitHub 已发布并不表示商店已有更新。请保留当前安装，等待 Chrome 更新。"
+  },
+  "updateManaged": {
+    "message": "此安装由管理员管理，请联系管理员了解更新。GitHub 最新版本不一定是组织批准使用的版本。"
+  },
+  "updateUnknown": {
+    "message": "无法确认安装来源。若从 Chrome 应用商店安装，请由 Chrome 管理更新；若为解压加载，请先保存并备份，在原固定文件夹内替换为此版本 ZIP 中的文件，再到 chrome://extensions 重新加载 Local iTab。不要移除扩展。"
+  },
+  "updateChecking": {
+    "message": "正在检查 GitHub…"
+  },
+  "updateAvailable": {
+    "message": "发现更新的已发布版本。"
+  },
+  "updateCurrent": {
+    "message": "当前安装版本已是最新，或领先于最新已发布版本。"
+  },
+  "updateOffline": {
+    "message": "无法连接 GitHub，请检查网络后重试。"
+  },
+  "updateTimeout": {
+    "message": "GitHub 响应超时，请稍后重试。"
+  },
+  "updateRateLimit": {
+    "message": "GitHub 请求次数已受限，请稍后再检查。"
+  },
+  "updateUnavailable": {
+    "message": "GitHub 暂时无法完成检查，请稍后重试。"
+  },
+  "updateNoRelease": {
+    "message": "暂未找到已发布的版本。"
+  },
+  "updateInvalid": {
+    "message": "GitHub 返回的版本数据格式异常，未采用。"
+  },
+  "updateStale": {
+    "message": "GitHub 返回的版本比已保存的结果旧，仍显示已保存的结果。"
+  },
+  "updateBusy": {
+    "message": "其他标签页正在检查。"
+  },
+  "updateStorageError": {
+    "message": "无法读取或保存更新偏好，请重试。"
+  },
+  "updatePreferenceSaved": {
+    "message": "已在此设备保存更新偏好。"
+  },
+  "updateCancelled": {
+    "message": "检查已取消。"
+  },
+  "updateIdle": {
+    "message": "尚未检查，默认仅手动检查。"
+  },
+  "updateNotChecked": {
+    "message": "尚未检查"
+  },
+  "updateNotice": {
+    "message": "Local iTab $version$ 已发布，查看更新详情。",
+    "placeholders": {
+      "version": {
+        "content": "$1"
+      }
+    }
+  },
+  "worldClockCompare": {
+    "message": "比较时间"
+  },
+  "worldClockBackToNow": {
+    "message": "返回当前时间"
+  },
+  "worldClockCompareOffset": {
+    "message": "时间比较：前后 24 小时（每步 15 分钟）"
+  },
+  "worldClockCompareReference": {
+    "message": "预览 · 本地：$1，$2 · 相对开始时间 $3 分钟"
+  },
+  "worldClockPreviousDay": {
+    "message": "前一天"
+  },
+  "worldClockSameDay": {
+    "message": "同一天"
+  },
+  "worldClockNextDay": {
+    "message": "后一天"
+  },
+  "tasksBatch": {
+    "message": "批量添加待办"
+  },
+  "tasksBatchLabel": {
+    "message": "每行一项待办"
+  },
+  "tasksBatchHelp": {
+    "message": "每个非空行按顺序添加为一项待办，保留空格、项目符号和重复行。查看预览并确认后才会添加。"
+  },
+  "tasksBatchTextLimit": {
+    "message": "纯文本 · 每项最多 1,000 个字符"
+  },
+  "tasksBatchReview": {
+    "message": "预览待办"
+  },
+  "tasksBatchConfirm": {
+    "message": "添加已预览的待办"
+  },
+  "tasksBatchCount": {
+    "message": "待添加数量"
+  },
+  "tasksBatchCapacity": {
+    "message": "已存待办（含已完成和已移除）"
+  },
+  "tasksBatchRemaining": {
+    "message": "剩余名额"
+  },
+  "tasksBatchPreview": {
+    "message": "编号预览"
+  },
+  "tasksBatchChanged": {
+    "message": "待办列表已变化，请重新预览以检查最新容量。"
+  },
+  "tasksBatchReady": {
+    "message": "请检查编号列表，确认后一次性添加全部待办。"
+  },
+  "tasksBatchRetry": {
+    "message": "重试上次添加"
+  },
+  "tasksBatchUncertain": {
+    "message": "上次批量添加的结果尚未确认。请先安全重试同一批待办，再预览当前草稿。"
+  },
+  "tasksBatchDraftRemains": {
+    "message": "上次批量添加已保存。当前草稿仍保留，再次添加前请重新预览。"
+  },
+  "scratchpadImport": {
+    "message": "导入文本"
+  },
+  "scratchpadImportReplace": {
+    "message": "替换便笺文本"
+  },
+  "scratchpadImportCancel": {
+    "message": "取消"
+  },
+  "scratchpadImportPreview": {
+    "message": "待导入文本"
+  },
+  "scratchpadImportHelp": {
+    "message": "仅供预览。替换将覆盖已保存的便笺文本。如需保留，请先导出副本。"
+  },
+  "scratchpadImportReading": {
+    "message": "正在读取本地文本文件…"
+  },
+  "scratchpadImportError": {
+    "message": "无法读取此文件。请选择一个 UTF-8 .txt 文件，最多 32,000 个 Unicode 字符、128 KiB。便笺未被修改。"
+  },
+  "countdownCardConflict": {
+    "message": "其他页面更改了此倒计时。请先载入已保存内容，再选择隐藏。"
+  },
+  "countdownExportTooLarge": {
+    "message": "草稿过大，无法导出。完整副本最多支持 32,000 个字符和 128 KiB UTF-8 文本。您的草稿仍保留在此处。"
+  },
+  "countdownTitle": {
+    "message": "倒计时"
+  },
+  "countdownLocal": {
+    "message": "仅在此设备"
+  },
+  "countdownEventLabel": {
+    "message": "里程碑名称（最多 80 个字符）"
+  },
+  "countdownDateLabel": {
+    "message": "目标日期（YYYY-MM-DD）"
+  },
+  "countdownDateHelp": {
+    "message": "请输入 0001-01-01 至 9999-12-31 之间的真实日期。天数根据设备本地日历计算，而非每 24 小时计算。"
+  },
+  "countdownEnable": {
+    "message": "在新标签页显示倒计时"
+  },
+  "countdownEnableHelp": {
+    "message": "可选的本地功能。隐藏倒计时会保留已保存的名称和日期。"
+  },
+  "countdownHelp": {
+    "message": "仅保存在此设备的当前浏览器配置中，不包含在设置导出、浏览器同步和 Google 云盘备份中。不发送通知，也不联网。移除扩展或清除浏览器数据可能导致内容丢失。可导出文本副本自行备份。"
+  },
+  "countdownLoading": {
+    "message": "正在读取本地倒计时…"
+  },
+  "countdownSaving": {
+    "message": "正在保存…"
+  },
+  "countdownSaved": {
+    "message": "已保存在此设备"
+  },
+  "countdownUnsaved": {
+    "message": "有未保存的更改"
+  },
+  "countdownLoadError": {
+    "message": "无法读取倒计时。请重试读取已保存状态，您的草稿仍保留在此处。"
+  },
+  "countdownSaveError": {
+    "message": "无法确认保存结果。您的草稿仍在此处，请重试或在离开前导出文本副本。"
+  },
+  "countdownConflict": {
+    "message": "另一个页面更改了此倒计时。您的草稿仍在此处。可载入已保存内容以放弃草稿，或用此草稿替换已保存的倒计时。"
+  },
+  "countdownInvalidDate": {
+    "message": "请输入 YYYY-MM-DD 格式的真实日期，范围为 0001-01-01 至 9999-12-31。"
+  },
+  "countdownInvalidTitle": {
+    "message": "请输入纯文本名称，不含控制字符或无效 Unicode 字符。"
+  },
+  "countdownTitleTooLong": {
+    "message": "名称过长，无法保存。请缩短名称，或在离开前导出文本副本。"
+  },
+  "countdownUnconfigured": {
+    "message": "请先填写名称和目标日期，再显示倒计时。"
+  },
+  "countdownRetry": {
+    "message": "重试"
+  },
+  "countdownUseSaved": {
+    "message": "载入已保存内容"
+  },
+  "countdownReplace": {
+    "message": "用我的草稿替换"
+  },
+  "countdownSave": {
+    "message": "保存"
+  },
+  "countdownCancel": {
+    "message": "取消"
+  },
+  "countdownHide": {
+    "message": "隐藏"
+  },
+  "countdownEdit": {
+    "message": "编辑"
+  },
+  "countdownExport": {
+    "message": "导出文本"
+  },
+  "countdownExportError": {
+    "message": "无法导出文本副本。您的草稿仍保留在此处。"
+  },
+  "countdownDiscardConfirm": {
+    "message": "放弃未保存的倒计时草稿，并载入最新保存的名称、日期和显示状态？"
+  },
+  "countdownReplaceConfirm": {
+    "message": "用此草稿替换最新保存的倒计时？其他已打开页面也会收到此更改。"
+  },
+  "countdownSavedPreview": {
+    "message": "最新保存的倒计时"
+  },
+  "countdownNotConfigured": {
+    "message": "尚未设置"
+  },
+  "countdownShown": {
+    "message": "显示"
+  },
+  "countdownHidden": {
+    "message": "隐藏"
+  },
+  "countdownToday": {
+    "message": "今天"
+  },
+  "countdownDayLeft": {
+    "message": "还有 1 天"
+  },
+  "countdownDaysLeft": {
+    "message": "还有 $1 天"
+  },
+  "countdownDayAgo": {
+    "message": "已过 1 天"
+  },
+  "countdownDaysAgo": {
+    "message": "已过 $1 天"
+  },
+  "worldClockConflict": {
+    "message": "时钟设置已在其他标签页更改，或无法安全比较。您的编辑仍保留在此处。请在新的设置标签页查看最新值后再重试。"
+  },
+  "worldClocks": {
+    "message": "世界时钟"
+  },
+  "worldClockToday": {
+    "message": "今天"
+  },
+  "worldClockYesterday": {
+    "message": "昨天"
+  },
+  "worldClockTomorrow": {
+    "message": "明天"
+  },
+  "worldClockDays": {
+    "message": "$1 天"
+  },
+  "worldClockHelp": {
+    "message": "最多添加四个 IANA 时区。时间沿用时钟格式，完全离线。保存后生效。"
+  },
+  "worldClockZone": {
+    "message": "时区"
+  },
+  "worldClockLabel": {
+    "message": "简短名称（可选）"
+  },
+  "worldClockAdd": {
+    "message": "添加时钟"
+  },
+  "worldClockMoveUp": {
+    "message": "上移"
+  },
+  "worldClockMoveDown": {
+    "message": "下移"
+  },
+  "worldClockRemove": {
+    "message": "移除"
+  },
+  "worldClockSave": {
+    "message": "保存时钟"
+  },
+  "worldClockInvalid": {
+    "message": "请输入有效的 IANA 时区，名称不超过 40 个字符，最多添加四个不重复的时区。"
+  },
+  "worldClockBaselineUnavailable": {
+    "message": "无法安全读取时钟设置。请重新加载设置后再保存。"
+  },
+  "scratchpadLimits": {
+    "message": "最多保存 32,000 个 Unicode 字符和 128 KiB 的 UTF-8 文本。超长草稿会保留在此页面，缩短后才能保存；请在离开前导出副本。"
+  },
+  "scratchpadTooLong": {
+    "message": "此草稿过长，无法保存。草稿仍保留在此页面。请在离开前缩短内容或导出文本副本。"
+  },
+  "scratchpadInvalidText": {
+    "message": "草稿包含无效的 Unicode 文本，无法准确保存或导出。文本仍在此处，请修正后再保存或导出。"
+  },
+  "scratchpadTitle": {
+    "message": "便笺"
+  },
+  "scratchpadLocal": {
+    "message": "仅在此设备"
+  },
+  "scratchpadLabel": {
+    "message": "便笺文本"
+  },
+  "scratchpadEnable": {
+    "message": "在新标签页显示便笺"
+  },
+  "scratchpadEnableHelp": {
+    "message": "可选功能，仅保存在此设备。隐藏便笺会保留已保存的文本。"
+  },
+  "scratchpadHelp": {
+    "message": "纯文本仅保存在此设备的当前浏览器配置文件中。不包含在设置导出、浏览器同步或 Google Drive 备份中。卸载扩展或清除浏览器数据可能导致内容丢失。请导出文本副本自行备份。"
+  },
+  "scratchpadLoading": {
+    "message": "正在加载本地便笺…"
+  },
+  "scratchpadSaving": {
+    "message": "正在保存…"
+  },
+  "scratchpadSaved": {
+    "message": "已保存在此设备"
+  },
+  "scratchpadUnsaved": {
+    "message": "有未保存的更改"
+  },
+  "scratchpadLoadError": {
+    "message": "无法加载便笺。请重试后再编辑。"
+  },
+  "scratchpadSaveError": {
+    "message": "无法确认保存。草稿仍保留在此页面。请在离开前重试或导出文本副本。"
+  },
+  "scratchpadConflict": {
+    "message": "另一页面更改了已保存的文本。你的草稿仍保留在此页面。使用已保存文本会放弃此草稿，也可以用此草稿替换已保存的文本。"
+  },
+  "scratchpadRetry": {
+    "message": "重试"
+  },
+  "scratchpadUseSaved": {
+    "message": "使用已保存文本"
+  },
+  "scratchpadReplace": {
+    "message": "用我的草稿替换"
+  },
+  "scratchpadExport": {
+    "message": "导出文本"
+  },
+  "scratchpadDetails": {
+    "message": "存储与备份"
+  },
+  "scratchpadSavedPreview": {
+    "message": "最新保存的文本"
+  },
+  "scratchpadSettingsConflict": {
+    "message": "另一页面更改了便笺。请先读取最新保存的状态，再更改显示设置。"
+  },
+  "scratchpadReadLatest": {
+    "message": "读取最新保存的状态"
+  },
+  "scratchpadExportError": {
+    "message": "无法导出文本副本。草稿仍保留在此页面。"
+  },
+  "shortcutUndoNotice": {
+    "message": "快捷方式已删除。仅当前页面刷新前可撤销，后续修改可能使撤销失效。"
+  },
+  "shortcutUndoAction": {
+    "message": "撤销删除"
+  },
+  "shortcutUndoInvalidData": {
+    "message": "无法安全修改这些快捷方式数据，请刷新并检查后再操作。"
+  },
+  "shortcutUndoUnverified": {
+    "message": "无法核实操作结果，请刷新页面查看快捷方式。"
+  },
+  "shortcutUndoUnavailable": {
+    "message": "已无法撤销，请刷新页面查看最新快捷方式。"
+  },
   "iconFetchFailed": {
     "message": "无法获取图标，请重试。"
   },
-	"documentLanguage": {"message": "zh-CN", "description": "HTML document language for this translation catalog; do not translate the language code."},
-	"dateFormattingLocale": {"message": "zh-CN", "description": "Locale tag used to format date words alongside this UI translation."},
-	"defaultWelcomeQuote": {"message": "欢迎来到你的个性化新标签页！"},
-	"defaultCategoryWork": {"message": "工作"},
-	"defaultCategorySocial": {"message": "社交"},
-	"defaultCategoryEntertainment": {"message": "娱乐"},
-	"defaultCategoryTools": {"message": "工具"},
-	"defaultCategoryLearning": {"message": "学习"},
-	"templateAtelier": {"message": "编排"},
-	"templateAtelierDescription": {"message": "杂志式页眉、纤细分隔线与鲜明的字体层级。"},
-	"templateQuiet": {"message": "留白"},
-	"templateQuietDescription": {"message": "居中留白画布，搭配柔和的矩形卡片。"},
-	"templateStudio": {"message": "工作室"},
-	"templateStudioDescription": {"message": "边框导航栏与清晰有层次的卡片边缘。"},
-	"templateConsole": {"message": "终端"},
-	"templateConsoleDescription": {"message": "等宽文字与紧凑的分组入口。"},
-	"templatePrism": {"message": "棱镜"},
-	"templatePrismDescription": {"message": "几何点缀、大圆角与醒目的卡片轮廓。"},
-	"templateLibrary": {"message": "书架"},
-	"templateLibraryDescription": {"message": "衬线标题与有序分隔的链接索引。"},
-	"templateHorizon": {"message": "地平线"},
-	"templateHorizonDescription": {"message": "以时钟为焦点的开阔页眉与简洁横向入口。"},
-	"templateLedger": {"message": "条理"},
-	"templateLedgerDescription": {"message": "紧凑的工作索引，强调对齐与分类计数。"},
-	"templateMeadow": {"message": "草间"},
-	"templateMeadowDescription": {"message": "轻盈居中的起始页与卵石般圆润的卡片。"},
-	"templateBlueprint": {"message": "蓝图"},
-	"templateBlueprintDescription": {"message": "精准网格、方正控件与轻微的辅助线。"},
-	"templateTerrace": {"message": "层台"},
-	"templateTerraceDescription": {"message": "分组入口面板与错落有致的标题装饰。"},
-	"templateColumn": {"message": "专栏"},
-	"templateColumnDescription": {"message": "窄幅编辑式侧栏与宽敞的资料索引。"},
-	"finderShortcutSetting": {"message": "使用 / 打开「查找已保存的网站」"},
-	"finderShortcutSettingDesc": {"message": "关闭后保留 / 原有输入行为，仍可点击「查找已保存的网站」按钮。保存后打开新标签页，或先完成当前操作再刷新已有标签页。"},
-	"finderOpen": {"message": "查找已保存的网站"},
-	"finderShortcutHint": {"message": "在非编辑区域按 /，查找已保存的网站。"},
-	"finderScope": {"message": "仅搜索已保存的网站 · 所有分类"},
-	"finderLabel": {"message": "标题、网址或分类"},
-	"finderHint": {"message": "输入文字查找已保存的网站。这里不会进行网页搜索。"},
-	"finderEmpty": {"message": "尚未保存任何网站。"},
-	"finderNone": {"message": "没有匹配的已保存网站。"},
-	"finderClose": {"message": "关闭"},
-	"finderClear": {"message": "清空"},
-	"finderPrevious": {"message": "上一页结果"},
-	"finderNext": {"message": "下一页结果"},
-	"finderResults": {"message": "结果"},
-	"finderShowing": {"message": "显示"},
-	"finderChanged": {"message": "此网站已更改或不可用。结果已刷新，请重新选择。"},
-	"finderUnsafe": {"message": "不支持的网址"},
-	"finderPending": {"message": "正在核对最新保存的网站…"},
-	"finderReadError": {"message": "无法核实已保存的网站，未打开任何网站。请重试。"},
-	"finderBlocked": {"message": "无法打开新标签页。请允许此页面打开标签页后重试。"},
-	"workspaceReloadDeferred": {"message": "设置已更改，当前操作仍保留。请完成后再刷新。"},
-	"workspaceReloadPending": {"message": "操作仍在进行中，请等待完成后再刷新。"},
-	"workspaceReloadConfirm": {"message": "重新加载并放弃未保存的草稿、打开的预览、已保存网站搜索和计算器输入？已保存的数据仍保留在此设备上。"},
-	"tasksTitle": {"message": "待办"},
-	"tasksLocal": {"message": "仅此设备"},
-	"tasksNext": {"message": "下一件事"},
-	"tasksNoPin": {"message": "置顶一项，作为下一件事。"},
-	"tasksAddLabel": {"message": "添加待办"},
-	"tasksFilter": {"message": "筛选任务"},
-	"tasksFilterPlaceholder": {"message": "查找待办、已完成或已移除的任务"},
-	"tasksFilterClear": {"message": "清除筛选"},
-	"tasksFilterMatches": {"message": "匹配任务"},
-	"tasksFilterEmpty": {"message": "没有匹配的任务。清除筛选以查看列表。"},
-	"tasksFilterReorder": {"message": "清除筛选后可调整任务顺序。"},
-	"tasksPlaceholder": {"message": "下一件小事是什么？"},
-	"tasksAdd": {"message": "添加"},
-	"tasksEmpty": {"message": "清爽的清单，想起一件事时随手记下。"},
-	"tasksComplete": {"message": "完成"},
-	"tasksReopen": {"message": "重新开始"},
-	"tasksPin": {"message": "设为下一件事"},
-	"tasksUnpin": {"message": "取消置顶"},
-	"tasksEdit": {"message": "编辑"},
-	"tasksRemove": {"message": "移除"},
-	"tasksRestore": {"message": "恢复"},
-	"tasksActions": {"message": "操作"},
-	"tasksUp": {"message": "上移"},
-	"tasksDown": {"message": "下移"},
-	"tasksMore": {"message": "显示全部待办"},
-	"tasksLess": {"message": "收起"},
-	"tasksCompleted": {"message": "已完成"},
-	"tasksRemoved": {"message": "已移除"},
-	"tasksData": {"message": "待办数据"},
-	"tasksHelp": {"message": "待办仅保存在此设备。设置导出、Chrome 同步和 Drive 备份不包含待办，请单独导出。卸载扩展或清除浏览器数据可能导致本地待办丢失。"},
-	"tasksExport": {"message": "导出待办"},
-	"tasksImport": {"message": "导入待办"},
-	"tasksCopies": {"message": "此前的本地副本"},
-	"tasksRecover": {"message": "查看并恢复"},
-	"tasksUndo": {"message": "撤销移除"},
-	"tasksUndoComplete": {"message": "撤销完成"},
-	"tasksLoading": {"message": "正在读取本地待办…"},
-	"tasksReady": {"message": "本地待办已就绪"},
-	"tasksSaving": {"message": "正在保存到此设备…"},
-	"tasksSaved": {"message": "已保存到此设备"},
-	"tasksRetry": {"message": "重试"},
-	"tasksCancel": {"message": "取消"},
-	"tasksSave": {"message": "保存待办"},
-	"tasksEditTitle": {"message": "编辑待办"},
-	"tasksReviewTitle": {"message": "替换本地待办？"},
-	"tasksReplace": {"message": "替换待办"},
-	"tasksReviewHelp": {"message": "此操作会替换此设备的当前待办列表和置顶项。此前的本地副本将保留在「待办数据」中；但将含 8 个历史副本的备份导入没有待办项和历史副本的空列表时，不再额外保存空列表。所有导入的副本都会保留。设置与云端备份不会变化。"},
-	"tasksCurrent": {"message": "当前"},
-	"tasksIncoming": {"message": "替换内容"},
-	"tasksActive": {"message": "未完成"},
-	"tasksDone": {"message": "已完成"},
-	"tasksDeleted": {"message": "已移除"},
-	"tasksRecoveryCount": {"message": "此前副本"},
-	"tasksConflict": {"message": "其他页面修改了待办。你的草稿仍在，请核对最新内容后重试。"},
-	"tasksLatest": {"message": "最新保存的待办"},
-	"tasksOverwrite": {"message": "用我的编辑替换此版本"},
-	"tasksEnable": {"message": "在新标签页显示待办"},
-	"tasksEnableHelp": {"message": "可选且仅此设备。隐藏卡片会保留待办。"},
-	"tasksErrorRead": {"message": "无法读取本地待办，未替换任何内容。存储可用后请重试。"},
-	"tasksErrorWrite": {"message": "无法确认是否保存成功。你的草稿仍在，可以安全重试。"},
-	"tasksErrorText": {"message": "请输入非空的纯文本待办，最多 1,000 个字符。文本不会被自动截断。"},
-	"tasksErrorCapacity": {"message": "本地最多保存 500 项待办，包括已完成和已移除的项目。未删除任何内容。"},
-	"tasksErrorRecovery": {"message": "已保留全部 8 份此前的本地副本。此次替换未保存。你仍可导出待办或恢复此前的副本。"},
-	"tasksErrorSize": {"message": "此待办文件或本地集合过大，上限为 2 MB。未替换任何内容。"},
-	"tasksErrorInvalid": {"message": "这不是受支持的有效待办备份，未替换任何内容。"},
-	"tasksErrorUnavailable": {"message": "此页面暂时无法安全使用本地待办存储。"},
-	"tasksErrorFile": {"message": "无法读取或下载待办文件，请重试。"},
-	"tasksTextLimit": {"message": "纯文本 · 最多 1,000 个字符"},
-	"tasksRestoreTitle": {"message": "恢复这份此前的本地副本？"},
-	"tasksDraftRemains": {"message": "上一项已保存。当前草稿尚未保存。"},
-	"tasksSettingsBoundary": {"message": "设置备份、Chrome 同步和云盘备份均不包含待办、专注计时器、便笺和倒计时。待办请单独导出/导入 JSON；便笺和倒计时请导出文本后手动恢复。专注偏好请手动记录，计时会话无法迁移。重置或恢复设置会保留这些本地模块。"},
-	"tasksReloadDeferred": {"message": "设置已更新，您的待办操作仍保留在此页面。请先完成或导出，再重新加载。"},
-	"tasksReloadPage": {"message": "重新加载页面"},
-	"tasksReloadPending": {"message": "待办仍在保存中。请等待保存完成后再重新加载。"},
-	"tasksReloadConfirm": {"message": "重新加载并放弃未保存的待办草稿或打开的确认窗口？已保存的待办会保留在此设备。"},
-	"syncCompatibilityNotice": {"message": "Chrome 同步需要检查。本机设置已保留，点击打开设置。"},
-	"syncCompatibilityDetails": {"message": "因版本兼容问题，同步已暂停。本机设置和同步开关保持不变。请更新其他设备后重试下载，或明确选择要替换的副本。"},
-	"syncReplaceLocal": {"message": "用云端副本替换本机…"},
-	"syncReplaceLocalConfirm": {"message": "用当前云端副本（$1 个快捷网站）替换本机设置？云端副本中没有的独立坐标将被移除。继续前必须先在本机保存恢复备份。其他设备仍可能覆盖云端，请先更新它们。"},
-	"syncBlockedClearConfirm": {"message": "这会移除有冲突的云端副本并保留本机数据。必须先将可读取的云端副本保存到本机，以便恢复。其他设备仍可能再次上传。继续吗？"},
-	"layoutRecoveryDescription": {"message": "在为重复网址启用独立位置前，以及最近一次替换设置前，会保留本机恢复副本。重置也会删除这些副本，请先下载。可通过“导入设置”恢复已下载的副本。"},
-	"layoutRecoveryOriginal": {"message": "下载升级前备份"},
-	"layoutRecoveryLatest": {"message": "下载最近的恢复备份"},
-	"recoveryDownloaded": {"message": "恢复备份已下载。可通过“导入设置”检查并恢复。"},
-	"identityExported": {"message": "设置已按格式 2 导出，请使用支持独立位置的新版导入此备份。"},
-	"restoreRecoveryConfirm": {"message": "替换设置前会保留本机恢复备份。继续吗？"},
-	"contextTargetChanged": {"message": "此项目已更改。请重新发起操作后重试。"},
-	"shortcutMoreActions": {"message": "更多操作"},
-	"contextShortcutActions": {"message": "快捷方式操作"},
-	"contextCategoryActions": {"message": "分类操作"},
-	"contextPageActions": {"message": "页面操作"},
-	"layoutReload": {"message": "重新加载页面"},
-	"layoutChangedElsewhere": {"message": "布局已在其他页面中更改。请查看最新布局，再重试你的更改。"},
-	"layoutContextChanged": {"message": "页面数据已更改或无法安全读取。请重新加载后再调整布局。"},
-	"layoutSavingUnavailable": {"message": "当前无法安全保存布局。请更新 Chrome 并重新加载此页面。"},
-	"layoutRetry": {"message": "重试保存"},
-	"placementMode": {"message": "摆放模式"},
-	"placementGrid": {"message": "网格（默认）"},
-	"placementFree": {"message": "自由摆放"},
-	"placementSnap": {"message": "手动 · 吸附网格"},
-	"placementModeDesc": {"message": "网格模式自动排列；自由模式按拖动位置精确摆放。切换模式不会清除已保存的位置。"},
-	"layoutSaving": {"message": "正在保存…"},
-	"layoutSaved": {"message": "已保存"},
-	"layoutSaveFailed": {"message": "布局保存失败，请重试。"},
-
-	"largeLocalImportConfirm": {"message": "这份备份为 $SIZE$ MiB。读取大文件会占用较多内存，可能使此标签页暂时无响应。要继续读取吗？", "placeholders": {"size": {"content": "$1"}}},
-	"localImportReadCancelled": {"message": "已取消导入，尚未读取文件。"},
-	"freeLayoutNoSpace": { "message": "没有可用的网格空间，快捷方式已保留在原来的位置。" },
-	"shortcutsChangedElsewhere": { "message": "快捷方式已在其他标签页中更改，列表已刷新。请重试。" },
-	"shortcutDraftConflict": { "message": "快捷方式已在其他标签页中更改。未保存的内容仍在表单中；如有需要请先复制，再关闭并重新打开快捷方式重试。" },
-	"shortcutSavingUnavailable": { "message": "当前无法安全保存快捷方式。请更新 Chrome 并重新打开此页面后重试。" },
-	"appName": { "message": "Local iTab" },
-	"appDescription": { "message": "隐私优先的本地新标签页，包含搜索、快捷方式与可选在线增强。" },
-	"newTabTitle": { "message": "新标签页" },
-	"all": { "message": "全部" },
-	"category": { "message": "分类" },
-	"manageCategories": { "message": "分类管理" },
-	"openSettings": { "message": "打开设置" },
-	"addShortcut": { "message": "添加快捷方式" },
-	"editShortcut": { "message": "编辑快捷方式" },
-	"title": { "message": "标题" },
-	"url": { "message": "网址" },
-	"icon": { "message": "图标" },
-	"categoryLabel": { "message": "分类" },
-	"autoFetchIcon": { "message": "自动获取网站图标" },
-	"cancel": { "message": "取消" },
-	"save": { "message": "保存" },
-	"titleRequired": { "message": "标题为必填项" },
-	"titleTooLong": { "message": "标题不能超过 50 个字符" },
-	"urlRequired": { "message": "网址为必填项" },
-	"urlInvalid": { "message": "请输入有效的网址" },
-	"deleteShortcut": { "message": "删除快捷方式" },
-	"deleteShortcutConfirm": { "message": "确定要删除该快捷方式吗？" },
-	"delete": { "message": "删除" },
-	"failedToSave": { "message": "保存失败，请重试" },
-	"failedToDelete": { "message": "删除失败，请重试" },
-	"failedToLoadDashboard": { "message": "仪表盘加载失败，请刷新重试" },
-	"openInNewTab": { "message": "新标签打开" },
-	"edit": { "message": "编辑" },
-	"remove": { "message": "删除" },
-	"openAll": { "message": "打开所有网址" },
-	"categoryOpenUnnamed": { "message": "此分类" },
-	"categoryOpenNoUrls": { "message": "“$1”中没有有效的网页地址。请检查已保存的网址后重试。" },
-	"categoryOpenConfirmOne": { "message": "是否为“$2”打开 $1 个新标签页？" },
-	"categoryOpenConfirmMany": { "message": "是否为“$2”打开 $1 个新标签页？" },
-	"categoryOpenMixed": { "message": "请求打开 $1 个标签页，其中 $2 个未能打开，$3 个无法确认是否已打开。请检查现有标签页和弹出式窗口设置，再逐个打开缺少的网站。" },
-	"categoryOpenFailed": { "message": "$2 个标签页中有 $1 个未能打开。请检查现有标签页和弹出式窗口设置，再逐个打开缺少的网站。" },
-	"categoryOpenUnknown": { "message": "$2 个标签页中有 $1 个无法确认是否已打开。请检查现有标签页和弹出式窗口设置，再逐个打开缺少的网站。" },
-	"openAllConfirm": { "message": "是否打开此分类下的所有链接？可能会打开多个标签。" },
-	"contextCloseHint": { "message": "点空白或按 Esc 关闭" },
-	"optionsTitle": { "message": "Local iTab 设置" },
-	"optionsSubtitle": { "message": "调整一个隐私优先、本地可控的起始页" },
-	"themePresets": { "message": "主题预设" },
-	"themePresetsDesc": { "message": "选择适合长期使用的克制视觉基线" },
-	"themeAuroraGlass": { "message": "石板专注" },
-	"themeAuroraGlassDesc": { "message": "深色中性工作区，保留低饱和蓝色强调" },
-	"themeInkPaper": { "message": "纸面浅色" },
-	"themeInkPaperDesc": { "message": "柔和浅色主题与暖调中性表面" },
-	"themeWarmStudio": { "message": "胡桃深色" },
-	"themeWarmStudioDesc": { "message": "暖调深色主题与琥珀细节" },
-	"themeSignalPop": { "message": "高对比" },
-	"themeSignalPopDesc": { "message": "更强对比，适合密集扫描快捷方式" },
-	"backToDashboard": { "message": "返回主页" },
-	"timeDisplay": { "message": "时间显示" },
-	"timeDisplayDesc": { "message": "配置时间与日期的显示方式" },
-	"hour12": { "message": "12 小时制" },
-	"showSeconds": { "message": "显示秒" },
-	"background": { "message": "背景" },
-	"backgroundDesc": { "message": "自定义仪表盘背景" },
-	"bgType": { "message": "背景类型" },
-	"bgGradient": { "message": "模版背景" },
-	"bgColor": { "message": "纯色" },
-	"bgImage": { "message": "自定义图片" },
-	"moduleVisibility": { "message": "模块显示" },
-	"showClock": { "message": "时钟模块" },
-	"showShortcuts": { "message": "快捷方式模块" },
-	"showShortcutTitles": { "message": "快捷方式标题" },
-	"dashboardPadding": { "message": "仪表盘内边距（像素）" },
-	"dashboardPaddingAuto": { "message": "使用自动间距" },
-	"paddingTop": { "message": "上" },
-	"paddingRight": { "message": "右" },
-	"paddingBottom": { "message": "下" },
-	"paddingLeft": { "message": "左" },
-	"tabAppearance": { "message": "外观" },
-	"tabLayout": { "message": "快捷方式" },
-	"tabContent": { "message": "搜索与卡片" },
-	"tabSync": { "message": "同步" },
-	"tabData": { "message": "数据" },
-	"shortcutsGapX": { "message": "快捷方式水平间距" },
-	"shortcutsGapY": { "message": "快捷方式垂直间距" },
-	"shortcutIconSize": { "message": "快捷方式图标大小（像素）" },
-	"shortcutTitleSize": { "message": "快捷方式标题大小（像素）" },
-	"shortcutTitleColor": { "message": "快捷方式标题颜色" },
-	"shortcutTitleColorAuto": { "message": "使用主题颜色" },
-	"categories": { "message": "分类" },
-	"categoriesDesc": { "message": "新增、编辑与排序快捷方式分类" },
-	"addCategory": { "message": "新增分类" },
-	"dataManagement": { "message": "数据管理" },
-	"dataManagementDesc": { "message": "导入、导出与管理设置" },
-	"cloudSync": { "message": "Chrome 同步" },
-	"cloudSyncDesc": { "message": "通过 Chrome 账号进行轻量同步，云端配额较小" },
-	"legacy": { "message": "旧版" },
-	"enableCloudSync": { "message": "启用 Chrome 同步" },
-	"enableCloudSyncDesc": { "message": "由于 Chrome 同步配额较小，大型本地图片会保留在当前设备。" },
-	"syncStatus": { "message": "状态" },
-	"loading": { "message": "加载中..." },
-		"syncUploadNow": { "message": "立即上传" },
-		"syncDownloadNow": { "message": "立即下载" },
-		"syncClearCloud": { "message": "清除云端副本" },
-		"driveBackupsTitle": { "message": "Google 云盘电脑备份" },
-		"driveBackupsDesc": { "message": "为家里电脑、办公室电脑等名称分别创建备份，快照会保存到隐藏的 Google 云盘应用数据文件夹" },
-		"driveDeviceSelect": { "message": "已保存电脑" },
-		"driveCurrentDevice": { "message": "电脑名称" },
-		"driveActiveComputer": { "message": "当前备份电脑" },
-		"driveDefaultDeviceName": { "message": "此设备" },
-		"driveDevicePlaceholder": { "message": "家里的电脑" },
-		"driveDeviceHelp": { "message": "备份会按这个电脑名称分组，你可以随时从家里、办公室或其他电脑名称下恢复某一条快照。" },
-		"driveAddDevice": { "message": "添加电脑" },
-		"driveRename": { "message": "保存名称" },
-		"driveConnect": { "message": "连接 Google 云盘" },
-		"driveBackupNow": { "message": "立即备份" },
-		"driveRefreshList": { "message": "刷新备份列表" },
-		"driveEmptyState": { "message": "连接 Google 云盘后刷新，即可查看备份历史。" },
-		"driveEmptyStateUnavailable": { "message": "此设备上的 Google 云盘备份尚未就绪。" },
-		"driveEmptyStateNoBackups": { "message": "还没有 Google 云盘备份。" },
-		"driveEmptyDevice": { "message": "这个电脑名称下还没有备份。" },
-		"driveStatusUnavailable": { "message": "不可用" },
-		"driveStatusIdentityUnavailable": { "message": "请重新加载扩展" },
-		"driveStatusStorageUnavailable": { "message": "存储不可用" },
-		"driveStatusNetworkUnavailable": { "message": "网络不可用" },
-		"driveStatusOAuthNeeded": { "message": "需要配置 OAuth 客户端" },
-		"driveOAuthMissingHelp": { "message": "需要先在 manifest.json 中配置真实的 Google OAuth 客户端 ID，之后才能连接 Google 云盘。" },
-		"driveStatusConnected": { "message": "已连接" },
-		"driveStatusNotConnected": { "message": "未连接" },
-		"driveLatestBackup": { "message": "最近备份" },
-		"driveLatestRestore": { "message": "最近恢复" },
-		"driveUnknownDevice": { "message": "未知设备" },
-		"driveCurrentComputerBadge": { "message": "当前" },
-		"driveBackupSnapshot": { "message": "备份快照" },
-		"driveBackupCount": { "message": "$1 个备份" },
-		"driveShortcutCount": { "message": "$1 个快捷方式" },
-		"driveIncludesLocalImages": { "message": "包含本地图片" },
-		"driveRestore": { "message": "恢复" },
-		"driveDownload": { "message": "下载" },
-		"driveConnecting": { "message": "正在连接 Google 云盘..." },
-		"driveConnected": { "message": "Google 云盘已连接。" },
-		"driveConnectedListFailed": { "message": "已连接，但备份列表刷新失败。" },
-		"driveSelectingDevice": { "message": "正在切换电脑..." },
-		"driveDeviceSelected": { "message": "已切换电脑，后续备份会使用这个电脑名称。" },
-		"driveAddingDevice": { "message": "正在添加电脑..." },
-		"driveDeviceAdded": { "message": "电脑已添加，后续备份会归到这个名称下。" },
-		"driveDeviceNameRequired": { "message": "请先输入电脑名称。" },
-		"driveRenaming": { "message": "正在保存电脑名称..." },
-		"driveRenamed": { "message": "电脑名称已保存，后续备份将使用新名称。" },
-		"drivePreparingBackup": { "message": "正在准备 Google 云盘备份..." },
-		"driveBackupTooLarge": { "message": "备份过大（$1）。请减少本地图片，或改用手动导出。" },
-		"driveLargeBackupConfirm": { "message": "备份较大（$1），上传可能需要一段时间。继续吗？" },
-		"driveBackupCancelled": { "message": "已取消 Google 云盘备份。" },
-		"driveUploading": { "message": "正在上传备份到 Google 云盘..." },
-		"driveBackupCreated": { "message": "Google 云盘备份已创建。" },
-		"driveCleanupFailed": { "message": "备份已创建，但旧快照清理失败。" },
-		"driveBackupCreatedListFailed": { "message": "备份已创建，但列表刷新失败。" },
-		"driveRefreshing": { "message": "正在刷新 Google 云盘备份..." },
-		"driveListRefreshed": { "message": "Google 云盘备份列表已刷新。" },
-		"driveActionRunning": { "message": "已有 Google 云盘操作正在进行。" },
-		"driveFailed": { "message": "Google 云盘备份失败：$1" },
-		"driveSafetyBackupTooLarge": { "message": "安全备份过大（$1）。" },
-		"driveRestoreConfirm": { "message": "要恢复 $2 的 $1 这条备份吗？本设备上的本地设置将被替换。" },
-		"driveCreatingSafetyBackup": { "message": "恢复前正在创建安全备份..." },
-		"driveSafetyBackupFailedConfirm": { "message": "无法创建安全备份：$1\n\n是否继续在没有安全备份的情况下恢复？" },
-		"driveRestoreCancelled": { "message": "已取消恢复。" },
-		"driveDownloadingSelected": { "message": "正在下载所选备份..." },
-		"driveRestoreSaveFailed": { "message": "保存恢复后的设置失败。" },
-		"driveSettingsRestored": { "message": "设置已恢复，正在重新加载..." },
-		"driveDownloadingBackup": { "message": "正在下载 Google 云盘备份..." },
-		"driveBackupJsonDownloaded": { "message": "备份 JSON 已下载。" },
-		"driveDeleteConfirm": { "message": "永久删除这个 Google 云盘备份？" },
-		"driveDeleting": { "message": "正在删除 Google 云盘备份..." },
-		"driveDeleted": { "message": "Google 云盘备份已删除。" },
-		"driveDeletedListFailed": { "message": "备份已删除，但列表刷新失败。" },
-		"quoteText": { "message": "引用文案" },
-		"quoteTextHint": { "message": "显示在主页底部" },
-	"exportSettings": { "message": "导出设置" },
-	"importSettings": { "message": "导入设置" },
-	"saveSettings": { "message": "保存设置" },
-	"resetSettings": { "message": "恢复默认" },
-	"autoArrangeIcons": { "message": "自动排列图标" },
-        "alignToGrid": { "message": "图标对齐网格" },
-        "toggleDashboardHidden": { "message": "隐藏仪表盘内容" },
-        "iconLayout": { "message": "图标布局" },
-	"iconLayoutDesc": { "message": "桌面风格图标布局行为" },
-	"autoArrangeIconsDesc": { "message": "按行列自动重新排列图标" },
-	"alignToGridDesc": { "message": "拖拽释放后吸附到最近网格" },
-        "gridSize": { "message": "网格大小（像素）" },
-        "shortcutsPerRow": { "message": "每行快捷方式数量" },
-        "shortcutsPerRowDesc": { "message": "自动排列开启时，每行显示的快捷方式数量" },
-        "tabPrivacy": { "message": "隐私" },
-        "privacyNetwork": { "message": "隐私与联网" },
-        "privacyNetworkDesc": { "message": "Local iTab 默认离线工作；只有需要在线增强时才开启下面的能力。" },
-        "onlineFavicons": { "message": "在线获取网站图标" },
-        "onlineFaviconsDesc": { "message": "允许请求 https://www.google.com/s2/favicons 来获取快捷方式图标。" },
-        "onlineFaviconsPermissionMissing": { "message": "当前设备尚未授予权限，因此这个同步过来的设置暂未在本机生效。" },
-        "privacyHint": { "message": "关闭时，新标签页只使用本地数据、上传图片、表情图标和已缓存图标。" },
-        "showSearch": { "message": "搜索模块" },
-        "showWeather": { "message": "天气卡片" },
-        "showHot": { "message": "热榜卡片" },
-        "showMovie": { "message": "电影卡片" },
-        "searchSettings": { "message": "搜索" },
-        "searchSettingsDesc": { "message": "配置本地搜索框；输入过程保持本地，提交后才打开所选引擎。" },
-        "searchEngine": { "message": "搜索引擎" },
-        "customSearch": { "message": "自定义" },
-        "customSearchUrl": { "message": "自定义搜索网址" },
-        "customSearchUrlDesc": { "message": "使用 %s 表示编码后的搜索词位置。" },
-        "customSearchUrlRequired": { "message": "请填写自定义搜索网址" },
-        "customSearchUrlInvalid": { "message": "请输入有效的 HTTP 或 HTTPS 搜索网址" },
-        "customSearchSaved": { "message": "自定义搜索已保存" },
-        "searchPlaceholder": { "message": "搜索或输入网址" },
-        "search": { "message": "搜索" },
-        "localCards": { "message": "本地卡片" },
-        "localCardsDesc": { "message": "天气、热榜与电影卡片均由你手动维护，默认不联网抓取。" },
-        "weatherCard": { "message": "天气" },
-        "hotTopics": { "message": "热榜" },
-        "movieCard": { "message": "电影" },
-        "weatherCity": { "message": "天气城市" },
-        "weatherCondition": { "message": "天气状况" },
-        "weatherTemp": { "message": "温度" },
-        "weatherLow": { "message": "低温" },
-        "weatherHigh": { "message": "高温" },
-        "weatherAqi": { "message": "AQI" },
-        "weatherAqiLabel": { "message": "AQI 文案" },
-        "hotTopicGroup": { "message": "热榜分组" },
-        "movieTitle": { "message": "电影标题" },
-        "movieNote": { "message": "电影备注" },
-        "emptyShortcuts": { "message": "你的本地起始页还是空的。" },
-        "createStarterSet": { "message": "创建初始站点" },
-        "onlineFaviconsDisabled": { "message": "请先在 设置 > 隐私 中启用在线图标获取并授予权限。" },
-        "emptyLocalTopics": { "message": "在设置中添加本地热榜内容。" },
-        "lowHigh": { "message": "低/高" },
-        "aqi": { "message": "AQI" },
-        "dayOfYear": { "message": "第$1天" },
-        "weekNumber": { "message": "第$1周" },
-        "add": { "message": "添加" },
-        "topicTitlePlaceholder": { "message": "热榜标题" },
-        "topicScorePlaceholder": { "message": "分数" },
-	        "unavailable": { "message": "不可用" },
-	        "unknown": { "message": "未知" },
-	        "enabled": { "message": "已启用" },
-        "off": { "message": "关闭" },
-        "lastSync": { "message": "上次同步" },
-	        "cloudUsage": { "message": "云端用量" },
-	        "never": { "message": "从未" },
-	        "localStorage": { "message": "本地" },
-	        "chromeSync": { "message": "Chrome 同步" },
-	        "localOnlyAssets": { "message": "仅本地资源" },
-	        "iconHint": { "message": "输入 emoji、文字，或点击按钮自动获取网站图标" },
-	        "urlRequiredFirst": { "message": "请先输入网址" },
-	        "syncUploadStart": { "message": "正在上传设置到 Chrome 同步..." },
-	        "syncUploadDone": { "message": "设置已上传到 Chrome 同步。" },
-	        "syncDownloadStart": { "message": "正在从 Chrome 同步下载设置..." },
-	        "syncEnableStart": { "message": "正在启用 Chrome 同步..." },
-	        "syncEnableDone": { "message": "Chrome 同步已启用，当前设置已上传。" },
-	        "syncDisableStart": { "message": "正在停用 Chrome 同步..." },
-	        "syncDisableDone": { "message": "此配置中的 Chrome 同步已停用。" },
-	        "syncFailed": { "message": "Chrome 同步失败：$1" },
-	        "syncUploadFailed": { "message": "上传失败：$1" },
-	        "syncDownloadDone": { "message": "云端设置已应用，正在重新加载..." },
-	        "syncRemoteUpdated": { "message": "云端设置已更新，正在重新加载..." },
-	        "syncAlreadyUpToDate": { "message": "已经是最新。" },
-	        "syncDownloadFailed": { "message": "下载失败：$1" },
-	        "syncClearStart": { "message": "正在清除云端副本..." },
-	        "syncClearDone": { "message": "云端副本已清除。" },
-	        "syncClearFailed": { "message": "清除失败：$1" },
-	        "syncClearConfirm": { "message": "清除 Chrome 同步中的云端副本？本机设置会保留。" },
-	        "topicTitleRequired": { "message": "请输入热榜标题" },
-    "dashboardTemplate": {"message": "模版"},
-    "colorMode": {"message": "明暗"},
-    "colorModeLight": {"message": "浅色"},
-    "colorModeDark": {"message": "深色"},
-    "templateClarity": {"message": "A · 澄明"},
-    "templateGraphite": {"message": "B · 墨序"},
-    "templateFolio": {"message": "C · 拾页"},
-    "appearanceSaving": {"message": "正在保存…"},
-    "appearanceSaved": {"message": "已保存"},
-    "appearanceSaveFailed": {"message": "保存失败，请重试。"},
-    "templateAppearance": {"message": "模版与明暗"},
-    "templateAppearanceDesc": {"message": "为此工作区选择视觉模板和明暗配色。更改会立即保存，不影响网站和布局。"},
-    "templateBrandDescription": {"message": "让每次打开，都更从容"},
-    "templateClarityDescription": {"message": "清晰侧栏与舒展的网站卡片。"},
-    "templateGraphiteDescription": {"message": "紧凑导航与分组网站收藏。"},
-    "templateFolioDescription": {"message": "纸感工作台与编号分类索引。"},
-    "templateClarityHeading": {"message": "从这里，开始今天。"},
-    "templateClarityIntro": {"message": "为常用的网站，留一个清晰的位置。"},
-    "templateGraphiteHeading": {"message": "打开你的工作空间"},
-    "templateGraphiteIntro": {"message": "少一点干扰，多一点专注。"},
-    "templateFolioHeading": {"message": "你的日常，井然成集。"},
-    "templateFolioIntro": {"message": "工作、阅读与灵感，各得其所。"},
-    "emptyCategory": {"message": "这个分类还没有网站。"},
-    "showAllShortcuts": {"message": "查看全部网站"},
-    "allShortcuts": {"message": "全部快捷方式"},
-    "focusTitle": {
-        "message": "专注计时器"
-    },
-    "focusLocal": {
-        "message": "仅此设备"
-    },
-    "focusPhase": {
-        "message": "时段"
-    },
-    "focusWork": {
-        "message": "专注"
-    },
-    "focusBreak": {
-        "message": "休息"
-    },
-    "focusMinutes": {
-        "message": "分钟（1–180）"
-    },
-    "focusStart": {
-        "message": "开始"
-    },
-    "focusPause": {
-        "message": "暂停"
-    },
-    "focusResume": {
-        "message": "继续"
-    },
-    "focusReset": {
-        "message": "停止 / 重置"
-    },
-    "focusNextBreak": {
-        "message": "选择休息"
-    },
-    "focusNextWork": {
-        "message": "选择专注"
-    },
-    "focusRemaining": {
-        "message": "剩余时间"
-    },
-    "focusReady": {
-        "message": "准备开始"
-    },
-    "focusRunning": {
-        "message": "计时中"
-    },
-    "focusPaused": {
-        "message": "已暂停"
-    },
-    "focusCompleted": {
-        "message": "本时段已结束。准备好后，可自行选择下一个时段。"
-    },
-    "focusUncertain": {
-        "message": "设备时钟不一致，无法确认准确的剩余时间。请先停止 / 重置，再自行开始。"
-    },
-    "focusBrief": {
-        "message": "本设备的页面共享一个计时器。无声音或后台提醒。"
-    },
-    "focusDetails": {
-        "message": "计时方式说明"
-    },
-    "focusHelp": {
-        "message": "此设备的新标签页共用一个计时器。没有声音或后台提醒。关闭或隐藏页面后会保留结束时间；重新打开时，会按设备时钟估算已经过的时间。页面关闭期间调整时钟可能影响估算。每个时段都需要点击“开始”。设置导出和云端备份不包含计时器。移除扩展或清除浏览器数据可能将其删除。"
-    },
-    "focusEnable": {
-        "message": "在新标签页显示专注计时器"
-    },
-    "focusEnableHelp": {
-        "message": "可选，仅在此设备保存。隐藏后仍保留当前时段和结束时间。"
-    },
-    "focusLoading": {
-        "message": "正在读取本地计时器…"
-    },
-    "focusSaving": {
-        "message": "正在保存计时器…"
-    },
-    "focusError": {
-        "message": "无法确认计时器更改。请读取最新状态后再试。"
-    },
-    "focusSaveMinutes": {
-        "message": "保存分钟数"
-    },
-    "focusDraftRetained": {
-        "message": "尚未保存的分钟数会保留在此页面。该时段准备就绪后，可继续编辑。"
-    },
-    "focusConflict": {
-        "message": "另一个页面已更改计时器。当前显示最新保存的状态，请重新选择。"
-    },
-    "focusRetry": {
-        "message": "读取最新状态"
-    },
-    "focusInvalidMinutes": {
-        "message": "请输入 1 到 180 之间的整数分钟。"
-    },
-    "workspacePresetTitle": {"message": "推荐模块"},
-    "workspacePresetHelp": {"message": "预览所选模板推荐的待办与专注计时器显示状态。仅切换视觉模板不会改变这些模块。"},
-    "workspacePresetReview": {"message": "预览推荐模块"},
-    "workspacePresetBoundary": {"message": "仅改变本设备上的显示状态。待办、历史副本、计时器时长与会话、网站、位置及外观均保持不变。隐藏正在运行的计时器仍会继续计时。设置备份与同步不包含这些模块。"},
-    "workspacePresetApply": {"message": "应用推荐模块"},
-    "workspacePresetCancel": {"message": "取消"},
-    "workspacePresetConflict": {"message": "待办或计时器已发生变化，请重新预览后再应用。"},
-    "workspacePresetCancelled": {"message": "预览已取消，请选择模板并重新预览。"},
-    "workspacePresetError": {"message": "无法确认结果，部分显示设置可能已保存。请重新预览以查看当前状态；不会自动重试。"},
-    "workspacePresetWait": {"message": "请等待模板保存完成，然后重新预览。"},
-    "workspacePresetFor": {"message": "模板推荐模块"},
-    "workspacePresetShown": {"message": "显示"},
-    "workspacePresetHidden": {"message": "隐藏"},
-    "workspacePresetReady": {"message": "请查看下方的显示状态变化，再选择应用或取消。"},
-    "workspacePresetSaved": {"message": "已保存此工作区的模块显示设置。"},
+  "documentLanguage": {
+    "message": "zh-CN",
+    "description": "HTML document language for this translation catalog; do not translate the language code."
+  },
+  "dateFormattingLocale": {
+    "message": "zh-CN",
+    "description": "Locale tag used to format date words alongside this UI translation."
+  },
+  "defaultWelcomeQuote": {
+    "message": "欢迎来到你的个性化新标签页！"
+  },
+  "defaultCategoryWork": {
+    "message": "工作"
+  },
+  "defaultCategorySocial": {
+    "message": "社交"
+  },
+  "defaultCategoryEntertainment": {
+    "message": "娱乐"
+  },
+  "defaultCategoryTools": {
+    "message": "工具"
+  },
+  "defaultCategoryLearning": {
+    "message": "学习"
+  },
+  "templateAtelier": {
+    "message": "编排"
+  },
+  "templateAtelierDescription": {
+    "message": "杂志式页眉、纤细分隔线与鲜明的字体层级。"
+  },
+  "templateQuiet": {
+    "message": "留白"
+  },
+  "templateQuietDescription": {
+    "message": "居中留白画布，搭配柔和的矩形卡片。"
+  },
+  "templateStudio": {
+    "message": "工作室"
+  },
+  "templateStudioDescription": {
+    "message": "边框导航栏与清晰有层次的卡片边缘。"
+  },
+  "templateConsole": {
+    "message": "终端"
+  },
+  "templateConsoleDescription": {
+    "message": "等宽文字与紧凑的分组入口。"
+  },
+  "templatePrism": {
+    "message": "棱镜"
+  },
+  "templatePrismDescription": {
+    "message": "几何点缀、大圆角与醒目的卡片轮廓。"
+  },
+  "templateLibrary": {
+    "message": "书架"
+  },
+  "templateLibraryDescription": {
+    "message": "衬线标题与有序分隔的链接索引。"
+  },
+  "templateHorizon": {
+    "message": "地平线"
+  },
+  "templateHorizonDescription": {
+    "message": "以时钟为焦点的开阔页眉与简洁横向入口。"
+  },
+  "templateLedger": {
+    "message": "条理"
+  },
+  "templateLedgerDescription": {
+    "message": "紧凑的工作索引，强调对齐与分类计数。"
+  },
+  "templateMeadow": {
+    "message": "草间"
+  },
+  "templateMeadowDescription": {
+    "message": "轻盈居中的起始页与卵石般圆润的卡片。"
+  },
+  "templateBlueprint": {
+    "message": "蓝图"
+  },
+  "templateBlueprintDescription": {
+    "message": "精准网格、方正控件与轻微的辅助线。"
+  },
+  "templateTerrace": {
+    "message": "层台"
+  },
+  "templateTerraceDescription": {
+    "message": "分组入口面板与错落有致的标题装饰。"
+  },
+  "templateColumn": {
+    "message": "专栏"
+  },
+  "templateColumnDescription": {
+    "message": "窄幅编辑式侧栏与宽敞的资料索引。"
+  },
+  "finderShortcutSetting": {
+    "message": "使用 / 打开「查找已保存的网站」"
+  },
+  "finderShortcutSettingDesc": {
+    "message": "关闭后保留 / 原有输入行为，仍可点击「查找已保存的网站」按钮。保存后打开新标签页，或先完成当前操作再刷新已有标签页。"
+  },
+  "finderOpen": {
+    "message": "查找已保存的网站"
+  },
+  "finderShortcutHint": {
+    "message": "在非编辑区域按 /，查找已保存的网站。"
+  },
+  "finderScope": {
+    "message": "仅搜索已保存的网站 · 所有分类"
+  },
+  "finderLabel": {
+    "message": "标题、网址或分类"
+  },
+  "finderHint": {
+    "message": "输入文字查找已保存的网站。这里不会进行网页搜索。"
+  },
+  "finderEmpty": {
+    "message": "尚未保存任何网站。"
+  },
+  "finderNone": {
+    "message": "没有匹配的已保存网站。"
+  },
+  "finderClose": {
+    "message": "关闭"
+  },
+  "finderClear": {
+    "message": "清空"
+  },
+  "finderPrevious": {
+    "message": "上一页结果"
+  },
+  "finderNext": {
+    "message": "下一页结果"
+  },
+  "finderResults": {
+    "message": "结果"
+  },
+  "finderShowing": {
+    "message": "显示"
+  },
+  "finderChanged": {
+    "message": "此网站已更改或不可用。结果已刷新，请重新选择。"
+  },
+  "finderUnsafe": {
+    "message": "不支持的网址"
+  },
+  "finderPending": {
+    "message": "正在核对最新保存的网站…"
+  },
+  "finderReadError": {
+    "message": "无法核实已保存的网站，未打开任何网站。请重试。"
+  },
+  "finderBlocked": {
+    "message": "无法打开新标签页。请允许此页面打开标签页后重试。"
+  },
+  "workspaceReloadDeferred": {
+    "message": "设置已更改，当前操作仍保留。请完成后再刷新。"
+  },
+  "workspaceReloadPending": {
+    "message": "操作仍在进行中，请等待完成后再刷新。"
+  },
+  "workspaceReloadConfirm": {
+    "message": "重新加载并放弃未保存的草稿、打开的预览、已保存网站搜索和计算器输入？已保存的数据仍保留在此设备上。"
+  },
+  "tasksTitle": {
+    "message": "待办"
+  },
+  "tasksLocal": {
+    "message": "仅此设备"
+  },
+  "tasksNext": {
+    "message": "下一件事"
+  },
+  "tasksNoPin": {
+    "message": "置顶一项，作为下一件事。"
+  },
+  "tasksAddLabel": {
+    "message": "添加待办"
+  },
+  "tasksFilter": {
+    "message": "筛选任务"
+  },
+  "tasksFilterPlaceholder": {
+    "message": "查找待办、已完成或已移除的任务"
+  },
+  "tasksFilterClear": {
+    "message": "清除筛选"
+  },
+  "tasksFilterMatches": {
+    "message": "匹配任务"
+  },
+  "tasksFilterEmpty": {
+    "message": "没有匹配的任务。清除筛选以查看列表。"
+  },
+  "tasksFilterReorder": {
+    "message": "清除筛选后可调整任务顺序。"
+  },
+  "tasksPlaceholder": {
+    "message": "下一件小事是什么？"
+  },
+  "tasksAdd": {
+    "message": "添加"
+  },
+  "tasksEmpty": {
+    "message": "清爽的清单，想起一件事时随手记下。"
+  },
+  "tasksComplete": {
+    "message": "完成"
+  },
+  "tasksReopen": {
+    "message": "重新开始"
+  },
+  "tasksPin": {
+    "message": "设为下一件事"
+  },
+  "tasksUnpin": {
+    "message": "取消置顶"
+  },
+  "tasksEdit": {
+    "message": "编辑"
+  },
+  "tasksRemove": {
+    "message": "移除"
+  },
+  "tasksRestore": {
+    "message": "恢复"
+  },
+  "tasksActions": {
+    "message": "操作"
+  },
+  "tasksUp": {
+    "message": "上移"
+  },
+  "tasksDown": {
+    "message": "下移"
+  },
+  "tasksMore": {
+    "message": "显示全部待办"
+  },
+  "tasksLess": {
+    "message": "收起"
+  },
+  "tasksCompleted": {
+    "message": "已完成"
+  },
+  "tasksRemoved": {
+    "message": "已移除"
+  },
+  "tasksData": {
+    "message": "待办数据"
+  },
+  "tasksHelp": {
+    "message": "待办仅保存在此设备。设置导出、Chrome 同步和 Drive 备份不包含待办，请单独导出。卸载扩展或清除浏览器数据可能导致本地待办丢失。"
+  },
+  "tasksExport": {
+    "message": "导出待办"
+  },
+  "tasksImport": {
+    "message": "导入待办"
+  },
+  "tasksCopies": {
+    "message": "此前的本地副本"
+  },
+  "tasksRecover": {
+    "message": "查看并恢复"
+  },
+  "tasksUndo": {
+    "message": "撤销移除"
+  },
+  "tasksUndoComplete": {
+    "message": "撤销完成"
+  },
+  "tasksLoading": {
+    "message": "正在读取本地待办…"
+  },
+  "tasksReady": {
+    "message": "本地待办已就绪"
+  },
+  "tasksSaving": {
+    "message": "正在保存到此设备…"
+  },
+  "tasksSaved": {
+    "message": "已保存到此设备"
+  },
+  "tasksRetry": {
+    "message": "重试"
+  },
+  "tasksCancel": {
+    "message": "取消"
+  },
+  "tasksSave": {
+    "message": "保存待办"
+  },
+  "tasksEditTitle": {
+    "message": "编辑待办"
+  },
+  "tasksReviewTitle": {
+    "message": "替换本地待办？"
+  },
+  "tasksReplace": {
+    "message": "替换待办"
+  },
+  "tasksReviewHelp": {
+    "message": "此操作会替换此设备的当前待办列表和置顶项。此前的本地副本将保留在「待办数据」中；但将含 8 个历史副本的备份导入没有待办项和历史副本的空列表时，不再额外保存空列表。所有导入的副本都会保留。设置与云端备份不会变化。"
+  },
+  "tasksCurrent": {
+    "message": "当前"
+  },
+  "tasksIncoming": {
+    "message": "替换内容"
+  },
+  "tasksActive": {
+    "message": "未完成"
+  },
+  "tasksDone": {
+    "message": "已完成"
+  },
+  "tasksDeleted": {
+    "message": "已移除"
+  },
+  "tasksRecoveryCount": {
+    "message": "此前副本"
+  },
+  "tasksConflict": {
+    "message": "其他页面修改了待办。你的草稿仍在，请核对最新内容后重试。"
+  },
+  "tasksLatest": {
+    "message": "最新保存的待办"
+  },
+  "tasksOverwrite": {
+    "message": "用我的编辑替换此版本"
+  },
+  "tasksEnable": {
+    "message": "在新标签页显示待办"
+  },
+  "tasksEnableHelp": {
+    "message": "可选且仅此设备。隐藏卡片会保留待办。"
+  },
+  "tasksErrorRead": {
+    "message": "无法读取本地待办，未替换任何内容。存储可用后请重试。"
+  },
+  "tasksErrorWrite": {
+    "message": "无法确认是否保存成功。你的草稿仍在，可以安全重试。"
+  },
+  "tasksErrorText": {
+    "message": "请输入非空的纯文本待办，最多 1,000 个字符。文本不会被自动截断。"
+  },
+  "tasksErrorCapacity": {
+    "message": "本地最多保存 500 项待办，包括已完成和已移除的项目。未删除任何内容。"
+  },
+  "tasksErrorRecovery": {
+    "message": "已保留全部 8 份此前的本地副本。此次替换未保存。你仍可导出待办或恢复此前的副本。"
+  },
+  "tasksErrorSize": {
+    "message": "此待办文件或本地集合过大，上限为 2 MB。未替换任何内容。"
+  },
+  "tasksErrorInvalid": {
+    "message": "这不是受支持的有效待办备份，未替换任何内容。"
+  },
+  "tasksErrorUnavailable": {
+    "message": "此页面暂时无法安全使用本地待办存储。"
+  },
+  "tasksErrorFile": {
+    "message": "无法读取或下载待办文件，请重试。"
+  },
+  "tasksTextLimit": {
+    "message": "纯文本 · 最多 1,000 个字符"
+  },
+  "tasksRestoreTitle": {
+    "message": "恢复这份此前的本地副本？"
+  },
+  "tasksDraftRemains": {
+    "message": "上一项已保存。当前草稿尚未保存。"
+  },
+  "tasksSettingsBoundary": {
+    "message": "设置备份、Chrome 同步和云盘备份均不包含待办、专注计时器、便笺和倒计时。待办请单独导出/导入 JSON；便笺和倒计时请导出文本后手动恢复。专注偏好请手动记录，计时会话无法迁移。重置或恢复设置会保留这些本地模块。"
+  },
+  "tasksReloadDeferred": {
+    "message": "设置已更新，您的待办操作仍保留在此页面。请先完成或导出，再重新加载。"
+  },
+  "tasksReloadPage": {
+    "message": "重新加载页面"
+  },
+  "tasksReloadPending": {
+    "message": "待办仍在保存中。请等待保存完成后再重新加载。"
+  },
+  "tasksReloadConfirm": {
+    "message": "重新加载并放弃未保存的待办草稿或打开的确认窗口？已保存的待办会保留在此设备。"
+  },
+  "syncCompatibilityNotice": {
+    "message": "Chrome 同步需要检查。本机设置已保留，点击打开设置。"
+  },
+  "syncCompatibilityDetails": {
+    "message": "因版本兼容问题，同步已暂停。本机设置和同步开关保持不变。请更新其他设备后重试下载，或明确选择要替换的副本。"
+  },
+  "syncReplaceLocal": {
+    "message": "用云端副本替换本机…"
+  },
+  "syncReplaceLocalConfirm": {
+    "message": "用当前云端副本（$1 个快捷网站）替换本机设置？云端副本中没有的独立坐标将被移除。继续前必须先在本机保存恢复备份。其他设备仍可能覆盖云端，请先更新它们。"
+  },
+  "syncBlockedClearConfirm": {
+    "message": "这会移除有冲突的云端副本并保留本机数据。必须先将可读取的云端副本保存到本机，以便恢复。其他设备仍可能再次上传。继续吗？"
+  },
+  "layoutRecoveryDescription": {
+    "message": "在为重复网址启用独立位置前，以及最近一次替换设置前，会保留本机恢复副本。重置也会删除这些副本，请先下载。可通过“导入设置”恢复已下载的副本。"
+  },
+  "layoutRecoveryOriginal": {
+    "message": "下载升级前备份"
+  },
+  "layoutRecoveryLatest": {
+    "message": "下载最近的恢复备份"
+  },
+  "recoveryDownloaded": {
+    "message": "恢复备份已下载。可通过“导入设置”检查并恢复。"
+  },
+  "identityExported": {
+    "message": "设置已按格式 2 导出，请使用支持独立位置的新版导入此备份。"
+  },
+  "restoreRecoveryConfirm": {
+    "message": "替换设置前会保留本机恢复备份。继续吗？"
+  },
+  "contextTargetChanged": {
+    "message": "此项目已更改。请重新发起操作后重试。"
+  },
+  "shortcutMoreActions": {
+    "message": "更多操作"
+  },
+  "contextShortcutActions": {
+    "message": "快捷方式操作"
+  },
+  "contextCategoryActions": {
+    "message": "分类操作"
+  },
+  "contextPageActions": {
+    "message": "页面操作"
+  },
+  "layoutReload": {
+    "message": "重新加载页面"
+  },
+  "layoutChangedElsewhere": {
+    "message": "布局已在其他页面中更改。请查看最新布局，再重试你的更改。"
+  },
+  "layoutContextChanged": {
+    "message": "页面数据已更改或无法安全读取。请重新加载后再调整布局。"
+  },
+  "layoutSavingUnavailable": {
+    "message": "当前无法安全保存布局。请更新 Chrome 并重新加载此页面。"
+  },
+  "layoutRetry": {
+    "message": "重试保存"
+  },
+  "placementMode": {
+    "message": "摆放模式"
+  },
+  "placementGrid": {
+    "message": "网格（默认）"
+  },
+  "placementFree": {
+    "message": "自由摆放"
+  },
+  "placementSnap": {
+    "message": "手动 · 吸附网格"
+  },
+  "placementModeDesc": {
+    "message": "网格模式自动排列；自由模式按拖动位置精确摆放。切换模式不会清除已保存的位置。"
+  },
+  "layoutSaving": {
+    "message": "正在保存…"
+  },
+  "layoutSaved": {
+    "message": "已保存"
+  },
+  "layoutSaveFailed": {
+    "message": "布局保存失败，请重试。"
+  },
+  "largeLocalImportConfirm": {
+    "message": "这份备份为 $SIZE$ MiB。读取大文件会占用较多内存，可能使此标签页暂时无响应。要继续读取吗？",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "localImportReadCancelled": {
+    "message": "已取消导入，尚未读取文件。"
+  },
+  "freeLayoutNoSpace": {
+    "message": "没有可用的网格空间，快捷方式已保留在原来的位置。"
+  },
+  "shortcutsChangedElsewhere": {
+    "message": "快捷方式已在其他标签页中更改，列表已刷新。请重试。"
+  },
+  "shortcutDraftConflict": {
+    "message": "快捷方式已在其他标签页中更改。未保存的内容仍在表单中；如有需要请先复制，再关闭并重新打开快捷方式重试。"
+  },
+  "shortcutSavingUnavailable": {
+    "message": "当前无法安全保存快捷方式。请更新 Chrome 并重新打开此页面后重试。"
+  },
+  "appName": {
+    "message": "Local iTab"
+  },
+  "appDescription": {
+    "message": "隐私优先的本地新标签页，包含搜索、快捷方式与可选在线增强。"
+  },
+  "newTabTitle": {
+    "message": "新标签页"
+  },
+  "all": {
+    "message": "全部"
+  },
+  "category": {
+    "message": "分类"
+  },
+  "manageCategories": {
+    "message": "分类管理"
+  },
+  "openSettings": {
+    "message": "打开设置"
+  },
+  "addShortcut": {
+    "message": "添加快捷方式"
+  },
+  "editShortcut": {
+    "message": "编辑快捷方式"
+  },
+  "title": {
+    "message": "标题"
+  },
+  "url": {
+    "message": "网址"
+  },
+  "icon": {
+    "message": "图标"
+  },
+  "categoryLabel": {
+    "message": "分类"
+  },
+  "autoFetchIcon": {
+    "message": "自动获取网站图标"
+  },
+  "cancel": {
+    "message": "取消"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "titleRequired": {
+    "message": "标题为必填项"
+  },
+  "titleTooLong": {
+    "message": "标题不能超过 50 个字符"
+  },
+  "urlRequired": {
+    "message": "网址为必填项"
+  },
+  "urlInvalid": {
+    "message": "请输入有效的网址"
+  },
+  "deleteShortcut": {
+    "message": "删除快捷方式"
+  },
+  "deleteShortcutConfirm": {
+    "message": "确定要删除该快捷方式吗？"
+  },
+  "delete": {
+    "message": "删除"
+  },
+  "failedToSave": {
+    "message": "保存失败，请重试"
+  },
+  "failedToDelete": {
+    "message": "删除失败，请重试"
+  },
+  "failedToLoadDashboard": {
+    "message": "仪表盘加载失败，请刷新重试"
+  },
+  "openInNewTab": {
+    "message": "新标签打开"
+  },
+  "edit": {
+    "message": "编辑"
+  },
+  "remove": {
+    "message": "删除"
+  },
+  "openAll": {
+    "message": "打开所有网址"
+  },
+  "categoryOpenUnnamed": {
+    "message": "此分类"
+  },
+  "categoryOpenNoUrls": {
+    "message": "“$1”中没有有效的网页地址。请检查已保存的网址后重试。"
+  },
+  "categoryOpenConfirmOne": {
+    "message": "是否为“$2”打开 $1 个新标签页？"
+  },
+  "categoryOpenConfirmMany": {
+    "message": "是否为“$2”打开 $1 个新标签页？"
+  },
+  "categoryOpenMixed": {
+    "message": "请求打开 $1 个标签页，其中 $2 个未能打开，$3 个无法确认是否已打开。请检查现有标签页和弹出式窗口设置，再逐个打开缺少的网站。"
+  },
+  "categoryOpenFailed": {
+    "message": "$2 个标签页中有 $1 个未能打开。请检查现有标签页和弹出式窗口设置，再逐个打开缺少的网站。"
+  },
+  "categoryOpenUnknown": {
+    "message": "$2 个标签页中有 $1 个无法确认是否已打开。请检查现有标签页和弹出式窗口设置，再逐个打开缺少的网站。"
+  },
+  "openAllConfirm": {
+    "message": "是否打开此分类下的所有链接？可能会打开多个标签。"
+  },
+  "contextCloseHint": {
+    "message": "点空白或按 Esc 关闭"
+  },
+  "optionsTitle": {
+    "message": "Local iTab 设置"
+  },
+  "optionsSubtitle": {
+    "message": "调整一个隐私优先、本地可控的起始页"
+  },
+  "themePresets": {
+    "message": "主题预设"
+  },
+  "themePresetsDesc": {
+    "message": "选择适合长期使用的克制视觉基线"
+  },
+  "themeAuroraGlass": {
+    "message": "石板专注"
+  },
+  "themeAuroraGlassDesc": {
+    "message": "深色中性工作区，保留低饱和蓝色强调"
+  },
+  "themeInkPaper": {
+    "message": "纸面浅色"
+  },
+  "themeInkPaperDesc": {
+    "message": "柔和浅色主题与暖调中性表面"
+  },
+  "themeWarmStudio": {
+    "message": "胡桃深色"
+  },
+  "themeWarmStudioDesc": {
+    "message": "暖调深色主题与琥珀细节"
+  },
+  "themeSignalPop": {
+    "message": "高对比"
+  },
+  "themeSignalPopDesc": {
+    "message": "更强对比，适合密集扫描快捷方式"
+  },
+  "backToDashboard": {
+    "message": "返回主页"
+  },
+  "timeDisplay": {
+    "message": "时间显示"
+  },
+  "timeDisplayDesc": {
+    "message": "配置时间与日期的显示方式"
+  },
+  "hour12": {
+    "message": "12 小时制"
+  },
+  "showSeconds": {
+    "message": "显示秒"
+  },
+  "background": {
+    "message": "背景"
+  },
+  "backgroundDesc": {
+    "message": "自定义仪表盘背景"
+  },
+  "bgType": {
+    "message": "背景类型"
+  },
+  "bgGradient": {
+    "message": "模版背景"
+  },
+  "bgColor": {
+    "message": "纯色"
+  },
+  "bgImage": {
+    "message": "自定义图片"
+  },
+  "moduleVisibility": {
+    "message": "模块显示"
+  },
+  "showClock": {
+    "message": "时钟模块"
+  },
+  "showShortcuts": {
+    "message": "快捷方式模块"
+  },
+  "showShortcutTitles": {
+    "message": "快捷方式标题"
+  },
+  "dashboardPadding": {
+    "message": "仪表盘内边距（像素）"
+  },
+  "dashboardPaddingAuto": {
+    "message": "使用自动间距"
+  },
+  "paddingTop": {
+    "message": "上"
+  },
+  "paddingRight": {
+    "message": "右"
+  },
+  "paddingBottom": {
+    "message": "下"
+  },
+  "paddingLeft": {
+    "message": "左"
+  },
+  "tabAppearance": {
+    "message": "外观"
+  },
+  "tabLayout": {
+    "message": "快捷方式"
+  },
+  "tabContent": {
+    "message": "搜索与卡片"
+  },
+  "tabSync": {
+    "message": "同步"
+  },
+  "tabData": {
+    "message": "数据"
+  },
+  "shortcutsGapX": {
+    "message": "快捷方式水平间距"
+  },
+  "shortcutsGapY": {
+    "message": "快捷方式垂直间距"
+  },
+  "shortcutIconSize": {
+    "message": "快捷方式图标大小（像素）"
+  },
+  "shortcutTitleSize": {
+    "message": "快捷方式标题大小（像素）"
+  },
+  "shortcutTitleColor": {
+    "message": "快捷方式标题颜色"
+  },
+  "shortcutTitleColorAuto": {
+    "message": "使用主题颜色"
+  },
+  "categories": {
+    "message": "分类"
+  },
+  "categoriesDesc": {
+    "message": "新增、编辑与排序快捷方式分类"
+  },
+  "addCategory": {
+    "message": "新增分类"
+  },
+  "dataManagement": {
+    "message": "数据管理"
+  },
+  "dataManagementDesc": {
+    "message": "导入、导出与管理设置"
+  },
+  "cloudSync": {
+    "message": "Chrome 同步"
+  },
+  "cloudSyncDesc": {
+    "message": "通过 Chrome 账号进行轻量同步，云端配额较小"
+  },
+  "legacy": {
+    "message": "旧版"
+  },
+  "enableCloudSync": {
+    "message": "启用 Chrome 同步"
+  },
+  "enableCloudSyncDesc": {
+    "message": "由于 Chrome 同步配额较小，大型本地图片会保留在当前设备。"
+  },
+  "syncStatus": {
+    "message": "状态"
+  },
+  "loading": {
+    "message": "加载中..."
+  },
+  "syncUploadNow": {
+    "message": "立即上传"
+  },
+  "syncDownloadNow": {
+    "message": "立即下载"
+  },
+  "syncClearCloud": {
+    "message": "清除云端副本"
+  },
+  "driveBackupsTitle": {
+    "message": "Google 云盘电脑备份"
+  },
+  "driveBackupsDesc": {
+    "message": "为家里电脑、办公室电脑等名称分别创建备份，快照会保存到隐藏的 Google 云盘应用数据文件夹"
+  },
+  "driveDeviceSelect": {
+    "message": "已保存电脑"
+  },
+  "driveCurrentDevice": {
+    "message": "电脑名称"
+  },
+  "driveActiveComputer": {
+    "message": "当前备份电脑"
+  },
+  "driveDefaultDeviceName": {
+    "message": "此设备"
+  },
+  "driveDevicePlaceholder": {
+    "message": "家里的电脑"
+  },
+  "driveDeviceHelp": {
+    "message": "备份会按这个电脑名称分组，你可以随时从家里、办公室或其他电脑名称下恢复某一条快照。"
+  },
+  "driveAddDevice": {
+    "message": "添加电脑"
+  },
+  "driveRename": {
+    "message": "保存名称"
+  },
+  "driveConnect": {
+    "message": "连接 Google 云盘"
+  },
+  "driveBackupNow": {
+    "message": "立即备份"
+  },
+  "driveRefreshList": {
+    "message": "刷新备份列表"
+  },
+  "driveEmptyState": {
+    "message": "连接 Google 云盘后刷新，即可查看备份历史。"
+  },
+  "driveEmptyStateUnavailable": {
+    "message": "此设备上的 Google 云盘备份尚未就绪。"
+  },
+  "driveEmptyStateNoBackups": {
+    "message": "还没有 Google 云盘备份。"
+  },
+  "driveEmptyDevice": {
+    "message": "这个电脑名称下还没有备份。"
+  },
+  "driveStatusUnavailable": {
+    "message": "不可用"
+  },
+  "driveStatusIdentityUnavailable": {
+    "message": "请重新加载扩展"
+  },
+  "driveStatusStorageUnavailable": {
+    "message": "存储不可用"
+  },
+  "driveStatusNetworkUnavailable": {
+    "message": "网络不可用"
+  },
+  "driveStatusOAuthNeeded": {
+    "message": "需要配置 OAuth 客户端"
+  },
+  "driveOAuthMissingHelp": {
+    "message": "需要先在 manifest.json 中配置真实的 Google OAuth 客户端 ID，之后才能连接 Google 云盘。"
+  },
+  "driveStatusConnected": {
+    "message": "已连接"
+  },
+  "driveStatusNotConnected": {
+    "message": "未连接"
+  },
+  "driveLatestBackup": {
+    "message": "最近备份"
+  },
+  "driveLatestRestore": {
+    "message": "最近恢复"
+  },
+  "driveUnknownDevice": {
+    "message": "未知设备"
+  },
+  "driveCurrentComputerBadge": {
+    "message": "当前"
+  },
+  "driveBackupSnapshot": {
+    "message": "备份快照"
+  },
+  "driveBackupCount": {
+    "message": "$1 个备份"
+  },
+  "driveShortcutCount": {
+    "message": "$1 个快捷方式"
+  },
+  "driveIncludesLocalImages": {
+    "message": "包含本地图片"
+  },
+  "driveRestore": {
+    "message": "恢复"
+  },
+  "driveDownload": {
+    "message": "下载"
+  },
+  "driveConnecting": {
+    "message": "正在连接 Google 云盘..."
+  },
+  "driveConnected": {
+    "message": "Google 云盘已连接。"
+  },
+  "driveConnectedListFailed": {
+    "message": "已连接，但备份列表刷新失败。"
+  },
+  "driveSelectingDevice": {
+    "message": "正在切换电脑..."
+  },
+  "driveDeviceSelected": {
+    "message": "已切换电脑，后续备份会使用这个电脑名称。"
+  },
+  "driveAddingDevice": {
+    "message": "正在添加电脑..."
+  },
+  "driveDeviceAdded": {
+    "message": "电脑已添加，后续备份会归到这个名称下。"
+  },
+  "driveDeviceNameRequired": {
+    "message": "请先输入电脑名称。"
+  },
+  "driveRenaming": {
+    "message": "正在保存电脑名称..."
+  },
+  "driveRenamed": {
+    "message": "电脑名称已保存，后续备份将使用新名称。"
+  },
+  "drivePreparingBackup": {
+    "message": "正在准备 Google 云盘备份..."
+  },
+  "driveBackupTooLarge": {
+    "message": "备份过大（$1）。请减少本地图片，或改用手动导出。"
+  },
+  "driveLargeBackupConfirm": {
+    "message": "备份较大（$1），上传可能需要一段时间。继续吗？"
+  },
+  "driveBackupCancelled": {
+    "message": "已取消 Google 云盘备份。"
+  },
+  "driveUploading": {
+    "message": "正在上传备份到 Google 云盘..."
+  },
+  "driveBackupCreated": {
+    "message": "Google 云盘备份已创建。"
+  },
+  "driveCleanupFailed": {
+    "message": "备份已创建，但旧快照清理失败。"
+  },
+  "driveBackupCreatedListFailed": {
+    "message": "备份已创建，但列表刷新失败。"
+  },
+  "driveRefreshing": {
+    "message": "正在刷新 Google 云盘备份..."
+  },
+  "driveListRefreshed": {
+    "message": "Google 云盘备份列表已刷新。"
+  },
+  "driveActionRunning": {
+    "message": "已有 Google 云盘操作正在进行。"
+  },
+  "driveFailed": {
+    "message": "Google 云盘备份失败：$1"
+  },
+  "driveSafetyBackupTooLarge": {
+    "message": "安全备份过大（$1）。"
+  },
+  "driveRestoreConfirm": {
+    "message": "要恢复 $2 的 $1 这条备份吗？本设备上的本地设置将被替换。"
+  },
+  "driveCreatingSafetyBackup": {
+    "message": "恢复前正在创建安全备份..."
+  },
+  "driveSafetyBackupFailedConfirm": {
+    "message": "无法创建安全备份：$1\n\n是否继续在没有安全备份的情况下恢复？"
+  },
+  "driveRestoreCancelled": {
+    "message": "已取消恢复。"
+  },
+  "driveDownloadingSelected": {
+    "message": "正在下载所选备份..."
+  },
+  "driveRestoreSaveFailed": {
+    "message": "保存恢复后的设置失败。"
+  },
+  "driveSettingsRestored": {
+    "message": "设置已恢复，正在重新加载..."
+  },
+  "driveDownloadingBackup": {
+    "message": "正在下载 Google 云盘备份..."
+  },
+  "driveBackupJsonDownloaded": {
+    "message": "备份 JSON 已下载。"
+  },
+  "driveDeleteConfirm": {
+    "message": "永久删除这个 Google 云盘备份？"
+  },
+  "driveDeleting": {
+    "message": "正在删除 Google 云盘备份..."
+  },
+  "driveDeleted": {
+    "message": "Google 云盘备份已删除。"
+  },
+  "driveDeletedListFailed": {
+    "message": "备份已删除，但列表刷新失败。"
+  },
+  "quoteText": {
+    "message": "引用文案"
+  },
+  "quoteTextHint": {
+    "message": "显示在主页底部"
+  },
+  "exportSettings": {
+    "message": "导出设置"
+  },
+  "importSettings": {
+    "message": "导入设置"
+  },
+  "saveSettings": {
+    "message": "保存设置"
+  },
+  "resetSettings": {
+    "message": "恢复默认"
+  },
+  "autoArrangeIcons": {
+    "message": "自动排列图标"
+  },
+  "alignToGrid": {
+    "message": "图标对齐网格"
+  },
+  "toggleDashboardHidden": {
+    "message": "隐藏仪表盘内容"
+  },
+  "iconLayout": {
+    "message": "图标布局"
+  },
+  "iconLayoutDesc": {
+    "message": "桌面风格图标布局行为"
+  },
+  "autoArrangeIconsDesc": {
+    "message": "按行列自动重新排列图标"
+  },
+  "alignToGridDesc": {
+    "message": "拖拽释放后吸附到最近网格"
+  },
+  "gridSize": {
+    "message": "网格大小（像素）"
+  },
+  "shortcutsPerRow": {
+    "message": "每行快捷方式数量"
+  },
+  "shortcutsPerRowDesc": {
+    "message": "自动排列开启时，每行显示的快捷方式数量"
+  },
+  "tabPrivacy": {
+    "message": "隐私"
+  },
+  "privacyNetwork": {
+    "message": "隐私与联网"
+  },
+  "privacyNetworkDesc": {
+    "message": "Local iTab 默认离线工作；只有需要在线增强时才开启下面的能力。"
+  },
+  "onlineFavicons": {
+    "message": "在线获取网站图标"
+  },
+  "onlineFaviconsDesc": {
+    "message": "允许请求 https://www.google.com/s2/favicons 来获取快捷方式图标。"
+  },
+  "onlineFaviconsPermissionMissing": {
+    "message": "当前设备尚未授予权限，因此这个同步过来的设置暂未在本机生效。"
+  },
+  "privacyHint": {
+    "message": "关闭时，新标签页只使用本地数据、上传图片、表情图标和已缓存图标。"
+  },
+  "showSearch": {
+    "message": "搜索模块"
+  },
+  "showWeather": {
+    "message": "天气卡片"
+  },
+  "showHot": {
+    "message": "热榜卡片"
+  },
+  "showMovie": {
+    "message": "电影卡片"
+  },
+  "searchSettings": {
+    "message": "搜索"
+  },
+  "searchSettingsDesc": {
+    "message": "配置本地搜索框；输入过程保持本地，提交后才打开所选引擎。"
+  },
+  "searchEngine": {
+    "message": "搜索引擎"
+  },
+  "customSearch": {
+    "message": "自定义"
+  },
+  "customSearchUrl": {
+    "message": "自定义搜索网址"
+  },
+  "customSearchUrlDesc": {
+    "message": "使用 %s 表示编码后的搜索词位置。"
+  },
+  "customSearchUrlRequired": {
+    "message": "请填写自定义搜索网址"
+  },
+  "customSearchUrlInvalid": {
+    "message": "请输入有效的 HTTP 或 HTTPS 搜索网址"
+  },
+  "customSearchSaved": {
+    "message": "自定义搜索已保存"
+  },
+  "searchPlaceholder": {
+    "message": "搜索或输入网址"
+  },
+  "search": {
+    "message": "搜索"
+  },
+  "localCards": {
+    "message": "本地卡片"
+  },
+  "localCardsDesc": {
+    "message": "天气、热榜与电影卡片均由你手动维护，默认不联网抓取。"
+  },
+  "weatherCard": {
+    "message": "天气"
+  },
+  "hotTopics": {
+    "message": "热榜"
+  },
+  "movieCard": {
+    "message": "电影"
+  },
+  "weatherCity": {
+    "message": "天气城市"
+  },
+  "weatherCondition": {
+    "message": "天气状况"
+  },
+  "weatherTemp": {
+    "message": "温度"
+  },
+  "weatherLow": {
+    "message": "低温"
+  },
+  "weatherHigh": {
+    "message": "高温"
+  },
+  "weatherAqi": {
+    "message": "AQI"
+  },
+  "weatherAqiLabel": {
+    "message": "AQI 文案"
+  },
+  "hotTopicGroup": {
+    "message": "热榜分组"
+  },
+  "movieTitle": {
+    "message": "电影标题"
+  },
+  "movieNote": {
+    "message": "电影备注"
+  },
+  "emptyShortcuts": {
+    "message": "你的本地起始页还是空的。"
+  },
+  "createStarterSet": {
+    "message": "创建初始站点"
+  },
+  "onlineFaviconsDisabled": {
+    "message": "请先在 设置 > 隐私 中启用在线图标获取并授予权限。"
+  },
+  "emptyLocalTopics": {
+    "message": "在设置中添加本地热榜内容。"
+  },
+  "lowHigh": {
+    "message": "低/高"
+  },
+  "aqi": {
+    "message": "AQI"
+  },
+  "dayOfYear": {
+    "message": "第$1天"
+  },
+  "weekNumber": {
+    "message": "第$1周"
+  },
+  "add": {
+    "message": "添加"
+  },
+  "topicTitlePlaceholder": {
+    "message": "热榜标题"
+  },
+  "topicScorePlaceholder": {
+    "message": "分数"
+  },
+  "unavailable": {
+    "message": "不可用"
+  },
+  "unknown": {
+    "message": "未知"
+  },
+  "enabled": {
+    "message": "已启用"
+  },
+  "off": {
+    "message": "关闭"
+  },
+  "lastSync": {
+    "message": "上次同步"
+  },
+  "cloudUsage": {
+    "message": "云端用量"
+  },
+  "never": {
+    "message": "从未"
+  },
+  "localStorage": {
+    "message": "本地"
+  },
+  "chromeSync": {
+    "message": "Chrome 同步"
+  },
+  "localOnlyAssets": {
+    "message": "仅本地资源"
+  },
+  "iconHint": {
+    "message": "输入 emoji、文字，或点击按钮自动获取网站图标"
+  },
+  "urlRequiredFirst": {
+    "message": "请先输入网址"
+  },
+  "syncUploadStart": {
+    "message": "正在上传设置到 Chrome 同步..."
+  },
+  "syncUploadDone": {
+    "message": "设置已上传到 Chrome 同步。"
+  },
+  "syncDownloadStart": {
+    "message": "正在从 Chrome 同步下载设置..."
+  },
+  "syncEnableStart": {
+    "message": "正在启用 Chrome 同步..."
+  },
+  "syncEnableDone": {
+    "message": "Chrome 同步已启用，当前设置已上传。"
+  },
+  "syncDisableStart": {
+    "message": "正在停用 Chrome 同步..."
+  },
+  "syncDisableDone": {
+    "message": "此配置中的 Chrome 同步已停用。"
+  },
+  "syncFailed": {
+    "message": "Chrome 同步失败：$1"
+  },
+  "syncUploadFailed": {
+    "message": "上传失败：$1"
+  },
+  "syncDownloadDone": {
+    "message": "云端设置已应用，正在重新加载..."
+  },
+  "syncRemoteUpdated": {
+    "message": "云端设置已更新，正在重新加载..."
+  },
+  "syncAlreadyUpToDate": {
+    "message": "已经是最新。"
+  },
+  "syncDownloadFailed": {
+    "message": "下载失败：$1"
+  },
+  "syncClearStart": {
+    "message": "正在清除云端副本..."
+  },
+  "syncClearDone": {
+    "message": "云端副本已清除。"
+  },
+  "syncClearFailed": {
+    "message": "清除失败：$1"
+  },
+  "syncClearConfirm": {
+    "message": "清除 Chrome 同步中的云端副本？本机设置会保留。"
+  },
+  "topicTitleRequired": {
+    "message": "请输入热榜标题"
+  },
+  "dashboardTemplate": {
+    "message": "模版"
+  },
+  "colorMode": {
+    "message": "明暗"
+  },
+  "colorModeLight": {
+    "message": "浅色"
+  },
+  "colorModeDark": {
+    "message": "深色"
+  },
+  "templateClarity": {
+    "message": "A · 澄明"
+  },
+  "templateGraphite": {
+    "message": "B · 墨序"
+  },
+  "templateFolio": {
+    "message": "C · 拾页"
+  },
+  "appearanceSaving": {
+    "message": "正在保存…"
+  },
+  "appearanceSaved": {
+    "message": "已保存"
+  },
+  "appearanceSaveFailed": {
+    "message": "保存失败，请重试。"
+  },
+  "templateAppearance": {
+    "message": "模版与明暗"
+  },
+  "templateAppearanceDesc": {
+    "message": "为此工作区选择视觉模板和明暗配色。更改会立即保存，不影响网站和布局。"
+  },
+  "templateBrandDescription": {
+    "message": "让每次打开，都更从容"
+  },
+  "templateClarityDescription": {
+    "message": "清晰侧栏与舒展的网站卡片。"
+  },
+  "templateGraphiteDescription": {
+    "message": "紧凑导航与分组网站收藏。"
+  },
+  "templateFolioDescription": {
+    "message": "纸感工作台与编号分类索引。"
+  },
+  "templateClarityHeading": {
+    "message": "从这里，开始今天。"
+  },
+  "templateClarityIntro": {
+    "message": "为常用的网站，留一个清晰的位置。"
+  },
+  "templateGraphiteHeading": {
+    "message": "打开你的工作空间"
+  },
+  "templateGraphiteIntro": {
+    "message": "少一点干扰，多一点专注。"
+  },
+  "templateFolioHeading": {
+    "message": "你的日常，井然成集。"
+  },
+  "templateFolioIntro": {
+    "message": "工作、阅读与灵感，各得其所。"
+  },
+  "emptyCategory": {
+    "message": "这个分类还没有网站。"
+  },
+  "showAllShortcuts": {
+    "message": "查看全部网站"
+  },
+  "allShortcuts": {
+    "message": "全部快捷方式"
+  },
+  "focusTitle": {
+    "message": "专注计时器"
+  },
+  "focusLocal": {
+    "message": "仅此设备"
+  },
+  "focusPhase": {
+    "message": "时段"
+  },
+  "focusWork": {
+    "message": "专注"
+  },
+  "focusBreak": {
+    "message": "休息"
+  },
+  "focusMinutes": {
+    "message": "分钟（1–180）"
+  },
+  "focusStart": {
+    "message": "开始"
+  },
+  "focusPause": {
+    "message": "暂停"
+  },
+  "focusResume": {
+    "message": "继续"
+  },
+  "focusReset": {
+    "message": "停止 / 重置"
+  },
+  "focusNextBreak": {
+    "message": "选择休息"
+  },
+  "focusNextWork": {
+    "message": "选择专注"
+  },
+  "focusRemaining": {
+    "message": "剩余时间"
+  },
+  "focusReady": {
+    "message": "准备开始"
+  },
+  "focusRunning": {
+    "message": "计时中"
+  },
+  "focusPaused": {
+    "message": "已暂停"
+  },
+  "focusCompleted": {
+    "message": "本时段已结束。准备好后，可自行选择下一个时段。"
+  },
+  "focusUncertain": {
+    "message": "设备时钟不一致，无法确认准确的剩余时间。请先停止 / 重置，再自行开始。"
+  },
+  "focusBrief": {
+    "message": "本设备的页面共享一个计时器。无声音或后台提醒。"
+  },
+  "focusDetails": {
+    "message": "计时方式说明"
+  },
+  "focusHelp": {
+    "message": "此设备的新标签页共用一个计时器。没有声音或后台提醒。关闭或隐藏页面后会保留结束时间；重新打开时，会按设备时钟估算已经过的时间。页面关闭期间调整时钟可能影响估算。每个时段都需要点击“开始”。设置导出和云端备份不包含计时器。移除扩展或清除浏览器数据可能将其删除。"
+  },
+  "focusEnable": {
+    "message": "在新标签页显示专注计时器"
+  },
+  "focusEnableHelp": {
+    "message": "可选，仅在此设备保存。隐藏后仍保留当前时段和结束时间。"
+  },
+  "focusLoading": {
+    "message": "正在读取本地计时器…"
+  },
+  "focusSaving": {
+    "message": "正在保存计时器…"
+  },
+  "focusError": {
+    "message": "无法确认计时器更改。请读取最新状态后再试。"
+  },
+  "focusSaveMinutes": {
+    "message": "保存分钟数"
+  },
+  "focusDraftRetained": {
+    "message": "尚未保存的分钟数会保留在此页面。该时段准备就绪后，可继续编辑。"
+  },
+  "focusConflict": {
+    "message": "另一个页面已更改计时器。当前显示最新保存的状态，请重新选择。"
+  },
+  "focusRetry": {
+    "message": "读取最新状态"
+  },
+  "focusInvalidMinutes": {
+    "message": "请输入 1 到 180 之间的整数分钟。"
+  },
+  "workspacePresetTitle": {
+    "message": "推荐模块"
+  },
+  "workspacePresetHelp": {
+    "message": "预览所选模板推荐的待办与专注计时器显示状态。仅切换视觉模板不会改变这些模块。"
+  },
+  "workspacePresetReview": {
+    "message": "预览推荐模块"
+  },
+  "workspacePresetBoundary": {
+    "message": "仅改变本设备上的显示状态。待办、历史副本、计时器时长与会话、网站、位置及外观均保持不变。隐藏正在运行的计时器仍会继续计时。设置备份与同步不包含这些模块。"
+  },
+  "workspacePresetApply": {
+    "message": "应用推荐模块"
+  },
+  "workspacePresetCancel": {
+    "message": "取消"
+  },
+  "workspacePresetConflict": {
+    "message": "待办或计时器已发生变化，请重新预览后再应用。"
+  },
+  "workspacePresetCancelled": {
+    "message": "预览已取消，请选择模板并重新预览。"
+  },
+  "workspacePresetError": {
+    "message": "无法确认结果，部分显示设置可能已保存。请重新预览以查看当前状态；不会自动重试。"
+  },
+  "workspacePresetWait": {
+    "message": "请等待模板保存完成，然后重新预览。"
+  },
+  "workspacePresetFor": {
+    "message": "模板推荐模块"
+  },
+  "workspacePresetShown": {
+    "message": "显示"
+  },
+  "workspacePresetHidden": {
+    "message": "隐藏"
+  },
+  "workspacePresetReady": {
+    "message": "请查看下方的显示状态变化，再选择应用或取消。"
+  },
+  "workspacePresetSaved": {
+    "message": "已保存此工作区的模块显示设置。"
+  },
   "shortcutMoveEarlier": {
     "message": "向前移动"
   },
@@ -753,47 +2066,129 @@
   "shortcutOrderFailed": {
     "message": "无法保存快捷方式顺序，请重试。"
   },
-  "shortcutOrderPending": { "message": "请等待快捷方式顺序保存完成后重试。" },
-  "calculatorDiscover": {"message": "提示：以 = 开头进行本地计算，例如 =(12 + 3) / 2"},
-  "calculatorHint": {"message": "本地计算器 · 按 Enter 计算。支持小数、+ - * / 和括号。"},
-  "calculatorCalculate": {"message": "计算"},
-  "calculatorResult": {"message": "本地结果"},
-  "calculatorCopyResult": {"message": "结果 · 选中后按 Ctrl/Cmd+C 复制"},
-  "calculatorSyntax": {"message": "请检查表达式。仅支持小数、+ - * / 和括号。"},
-  "calculatorLength": {"message": "表达式过长。= 后最多 256 个字符。"},
-  "calculatorDepth": {"message": "括号或正负号嵌套过多。最多支持 32 层。"},
-  "calculatorZero": {"message": "不能除以零。"},
-  "calculatorRange": {"message": "计算超出了支持的数值范围。"},
-  "calculatorUnavailable": {"message": "本地计算器不可用。请重新加载页面后重试。"},
-  "searchOpenFailed": {"message": "未能打开新标签页。输入已保留，你可以再次提交。"},
-  "searchOpenUnknown": {"message": "无法确认新标签页是否已打开。输入已保留；再次提交前，请先检查标签页。"},
-    "settingsSearchLabel": {"message": "查找设置"},
-    "settingsSearchPlaceholder": {"message": "搜索设置名称"},
-    "settingsSearchHelp": {"message": "搜索所有标签页中的设置名称，不会搜索您保存的内容。"},
-    "settingsSearchClear": {"message": "清除搜索"},
-    "settingsSearchCount": {"message": "找到 {count} 个设置区域"},
-    "settingsSearchEmpty": {"message": "没有匹配的设置，请尝试其他设置名称。"},
-    "settingsSearchBookmarks": {"message": "导入浏览器书签"},
-  "bookmarkExportButton": { "message": "导出书签 HTML" },
-  "bookmarkExportScope": { "message": "本地文件仅包含已保存的快捷方式标题、完整网址和分类文件夹。网址可能含有私密查询参数。不包含未保存的修改、图标、设置和本地私人小工具。请妥善保管文件。" },
-  "bookmarkExportConfirm": { "message": "将已保存的快捷方式标题、完整网址和分类名称下载为本地 HTML 文件？网址可能含有私密查询参数。不包含未保存的修改、图标、设置、任务、专注计时器、便签和倒计时。请妥善保管此文件。" },
-  "bookmarkExportStarted": { "message": "已请求下载书签 HTML 文件。" },
-  "bookmarkExportFailed": { "message": "书签未能导出。无法读取已保存的数据，或数据不受支持、超过限制。请检查已保存的快捷方式后重试。" },
-  "monthCalendar": { "message": "日历" },
-  "monthCalendarPrevious": { "message": "上个月" },
-  "monthCalendarNext": { "message": "下个月" },
-  "monthCalendarToday": { "message": "今天" },
-  "settingsBaselineUnavailable": { "message": "无法安全读取设置。当前编辑仍保留在此页，请打开新的设置标签页后再保存。" },
-  "settingsLockUnavailable": { "message": "此浏览器不支持安全保存设置，当前编辑尚未保存。" },
-  "settingsPermissionRequired": { "message": "在线网站图标权限仍在等待确认或未获授权。请先完成权限请求，或关闭此选项后再保存。" },
-  "settingsSaveConflict": { "message": "设置已在其他标签页更改或被整体替换。当前编辑仍保留在此页，请打开新的设置标签页查看最新内容，再把需要的修改复制过去。" },
-  "settingsImageSaveConflict": { "message": "设置已更改或无法安全核对，图片未保存。请保留此页中的其他编辑，打开新的设置标签页并重新选择图片。" },
-  "settingsBackgroundColorInvalid": { "message": "请先输入有效的背景颜色，例如 #112233，再保存。" },
-  "dashboardPreferenceConflict": { "message": "已保存的偏好已更改或无法安全读取。请保留当前草稿，打开新的标签页后再试。" },
-  "dashboardPreferenceFailed": { "message": "此偏好未能保存，当前仍使用上次保存的选择，请重试。" },
-  "dashboardPreferenceLockUnavailable": { "message": "此浏览器不支持安全保存偏好，已保存的设置未更改。" },
-  "importSettingsOpenFailed": { "message": "无法打开导入设置。请重试。" },
-  "importSettingsOpenUnknown": { "message": "无法确认是否已打开导入设置。请先检查已打开的标签页，再重试。" },
+  "shortcutOrderPending": {
+    "message": "请等待快捷方式顺序保存完成后重试。"
+  },
+  "calculatorDiscover": {
+    "message": "提示：以 = 开头进行本地计算，例如 =(12 + 3) / 2"
+  },
+  "calculatorHint": {
+    "message": "本地计算器 · 按 Enter 计算。支持小数、+ - * / 和括号。"
+  },
+  "calculatorCalculate": {
+    "message": "计算"
+  },
+  "calculatorResult": {
+    "message": "本地结果"
+  },
+  "calculatorCopyResult": {
+    "message": "结果 · 选中后按 Ctrl/Cmd+C 复制"
+  },
+  "calculatorSyntax": {
+    "message": "请检查表达式。仅支持小数、+ - * / 和括号。"
+  },
+  "calculatorLength": {
+    "message": "表达式过长。= 后最多 256 个字符。"
+  },
+  "calculatorDepth": {
+    "message": "括号或正负号嵌套过多。最多支持 32 层。"
+  },
+  "calculatorZero": {
+    "message": "不能除以零。"
+  },
+  "calculatorRange": {
+    "message": "计算超出了支持的数值范围。"
+  },
+  "calculatorUnavailable": {
+    "message": "本地计算器不可用。请重新加载页面后重试。"
+  },
+  "searchOpenFailed": {
+    "message": "未能打开新标签页。输入已保留，你可以再次提交。"
+  },
+  "searchOpenUnknown": {
+    "message": "无法确认新标签页是否已打开。输入已保留；再次提交前，请先检查标签页。"
+  },
+  "settingsSearchLabel": {
+    "message": "查找设置"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "搜索设置名称"
+  },
+  "settingsSearchHelp": {
+    "message": "搜索所有标签页中的设置名称，不会搜索您保存的内容。"
+  },
+  "settingsSearchClear": {
+    "message": "清除搜索"
+  },
+  "settingsSearchCount": {
+    "message": "找到 {count} 个设置区域"
+  },
+  "settingsSearchEmpty": {
+    "message": "没有匹配的设置，请尝试其他设置名称。"
+  },
+  "settingsSearchBookmarks": {
+    "message": "导入浏览器书签"
+  },
+  "bookmarkExportButton": {
+    "message": "导出书签 HTML"
+  },
+  "bookmarkExportScope": {
+    "message": "本地文件仅包含已保存的快捷方式标题、完整网址和分类文件夹。网址可能含有私密查询参数。不包含未保存的修改、图标、设置和本地私人小工具。请妥善保管文件。"
+  },
+  "bookmarkExportConfirm": {
+    "message": "将已保存的快捷方式标题、完整网址和分类名称下载为本地 HTML 文件？网址可能含有私密查询参数。不包含未保存的修改、图标、设置、任务、专注计时器、便签和倒计时。请妥善保管此文件。"
+  },
+  "bookmarkExportStarted": {
+    "message": "已请求下载书签 HTML 文件。"
+  },
+  "bookmarkExportFailed": {
+    "message": "书签未能导出。无法读取已保存的数据，或数据不受支持、超过限制。请检查已保存的快捷方式后重试。"
+  },
+  "monthCalendar": {
+    "message": "日历"
+  },
+  "monthCalendarPrevious": {
+    "message": "上个月"
+  },
+  "monthCalendarNext": {
+    "message": "下个月"
+  },
+  "monthCalendarToday": {
+    "message": "今天"
+  },
+  "settingsBaselineUnavailable": {
+    "message": "无法安全读取设置。当前编辑仍保留在此页，请打开新的设置标签页后再保存。"
+  },
+  "settingsLockUnavailable": {
+    "message": "此浏览器不支持安全保存设置，当前编辑尚未保存。"
+  },
+  "settingsPermissionRequired": {
+    "message": "在线网站图标权限仍在等待确认或未获授权。请先完成权限请求，或关闭此选项后再保存。"
+  },
+  "settingsSaveConflict": {
+    "message": "设置已在其他标签页更改或被整体替换。当前编辑仍保留在此页，请打开新的设置标签页查看最新内容，再把需要的修改复制过去。"
+  },
+  "settingsImageSaveConflict": {
+    "message": "设置已更改或无法安全核对，图片未保存。请保留此页中的其他编辑，打开新的设置标签页并重新选择图片。"
+  },
+  "settingsBackgroundColorInvalid": {
+    "message": "请先输入有效的背景颜色，例如 #112233，再保存。"
+  },
+  "dashboardPreferenceConflict": {
+    "message": "已保存的偏好已更改或无法安全读取。请保留当前草稿，打开新的标签页后再试。"
+  },
+  "dashboardPreferenceFailed": {
+    "message": "此偏好未能保存，当前仍使用上次保存的选择，请重试。"
+  },
+  "dashboardPreferenceLockUnavailable": {
+    "message": "此浏览器不支持安全保存偏好，已保存的设置未更改。"
+  },
+  "importSettingsOpenFailed": {
+    "message": "无法打开导入设置。请重试。"
+  },
+  "importSettingsOpenUnknown": {
+    "message": "无法确认是否已打开导入设置。请先检查已打开的标签页，再重试。"
+  },
   "completeBackupTitle": {
     "message": "完整本地备份"
   },
@@ -973,76 +2368,196 @@
   },
   "completeBackupContinue": {
     "message": "继续检查大文件"
-  }
-,
-    "spacesTitle": {"message":"工作区"},
-    "spacesCurrent": {"message":"当前工作区"},
-    "spacesSwitch": {"message":"切换工作区"},
-    "spacesManage": {"message":"管理工作区"},
-    "spacesHelp": {"message":"在本设备上分别保存网站、布局、视觉模板、任务、笔记、倒计时和专注计时器。"},
-    "spacesPinned": {"message":"此标签页始终属于当前工作区。新标签页会打开你上次选择的工作区。"},
-    "spacesShared": {"message":"语言、隐私权限和云端账号共用。Chrome 同步与云盘备份仅作用于默认工作区。完整备份包含所有工作区及回收站。"},
-    "spacesCreate": {"message":"新建工作区"},
-    "spacesCreateTitle": {"message":"创建工作区"},
-    "spacesName": {"message":"工作区名称"},
-    "spacesNameHint": {"message":"1–80 个字符。名称可以相同；每个工作区都有独立标识。"},
-    "spacesCreateHelp": {"message":"从默认设置和空白个人模块开始。现有工作区保持不变。"},
-    "spacesRename": {"message":"重命名"},
-    "spacesRenameTitle": {"message":"重命名工作区"},
-    "spacesDuplicate": {"message":"复制"},
-    "spacesDuplicateTitle": {"message":"复制工作区"},
-    "spacesDuplicateHelp": {"message":"复制已保存的网站、布局、模板及个人内容，不包含未保存的草稿。复制后的专注计时器处于待开始状态，不会延续当前计时。"},
-    "spacesDelete": {"message":"移至回收站"},
-    "spacesDeleteTitle": {"message":"将工作区移至回收站？"},
-    "spacesDeleteHelp": {
+  },
+  "spacesTitle": {
+    "message": "工作区"
+  },
+  "spacesCurrent": {
+    "message": "当前工作区"
+  },
+  "spacesSwitch": {
+    "message": "切换工作区"
+  },
+  "spacesManage": {
+    "message": "管理工作区"
+  },
+  "spacesHelp": {
+    "message": "在本设备上分别保存网站、布局、视觉模板、任务、笔记、倒计时和专注计时器。"
+  },
+  "spacesPinned": {
+    "message": "此标签页始终属于当前工作区。新标签页会打开你上次选择的工作区。"
+  },
+  "spacesShared": {
+    "message": "语言、隐私权限和云端账号共用。Chrome 同步与云盘备份仅作用于默认工作区。完整备份包含所有工作区及回收站。"
+  },
+  "spacesCreate": {
+    "message": "新建工作区"
+  },
+  "spacesCreateTitle": {
+    "message": "创建工作区"
+  },
+  "spacesName": {
+    "message": "工作区名称"
+  },
+  "spacesNameHint": {
+    "message": "1–80 个字符。名称可以相同；每个工作区都有独立标识。"
+  },
+  "spacesCreateHelp": {
+    "message": "从默认设置和空白个人模块开始。现有工作区保持不变。"
+  },
+  "spacesRename": {
+    "message": "重命名"
+  },
+  "spacesRenameTitle": {
+    "message": "重命名工作区"
+  },
+  "spacesDuplicate": {
+    "message": "复制"
+  },
+  "spacesDuplicateTitle": {
+    "message": "复制工作区"
+  },
+  "spacesDuplicateHelp": {
+    "message": "复制已保存的网站、布局、模板及个人内容，不包含未保存的草稿。复制后的专注计时器处于待开始状态，不会延续当前计时。"
+  },
+  "spacesDelete": {
+    "message": "移至回收站"
+  },
+  "spacesDeleteTitle": {
+    "message": "将工作区移至回收站？"
+  },
+  "spacesDeleteHelp": {
     "message": "已保存的内容会保留在回收站中，可随时还原。已打开的标签页将无法再保存到已删除的工作区。离开这些标签页前，请复制或导出未保存的草稿。运行中的专注计时器会在删除时暂停；还原时不会自动开始。"
   },
-    "spacesDefault": {"message":"默认"},
-    "spacesDefaultHelp": {"message":"默认工作区保留现有设置并兼容云端功能，无法删除。"},
-    "spacesActive": {"message":"在此标签页打开"},
-    "spacesLoaded": {"message":"此标签页"},
-    "spacesLastUsed": {"message":"新标签页"},
-    "spacesTrash": {"message":"回收站"},
-    "spacesTrashHelp": {
+  "spacesDefault": {
+    "message": "默认"
+  },
+  "spacesDefaultHelp": {
+    "message": "默认工作区保留现有设置并兼容云端功能，无法删除。"
+  },
+  "spacesActive": {
+    "message": "在此标签页打开"
+  },
+  "spacesLoaded": {
+    "message": "此标签页"
+  },
+  "spacesLastUsed": {
+    "message": "新标签页"
+  },
+  "spacesTrash": {
+    "message": "回收站"
+  },
+  "spacesTrashHelp": {
     "message": "在此还原已保存的内容。专注计时器会保留已保存的暂停、待开始、完成或中断状态。还原后，旧标签页仍无法保存；请重新打开工作区以开始新的会话。"
   },
-    "spacesEmptyTrash": {"message":"回收站中没有工作区。"},
-    "spacesRestore": {"message":"还原"},
-    "spacesCancel": {"message":"取消"},
-    "spacesClose": {"message":"关闭"},
-    "spacesStay": {"message":"留在这里"},
-    "spacesSaving": {"message":"正在保存…"},
-    "spacesLoading": {"message":"正在加载工作区…"},
-    "spacesWaiting": {"message":"正在等待当前操作完成…"},
-    "spacesSwitching": {"message":"正在打开工作区…"},
-    "spacesCreated": {"message":"工作区已创建。准备好后即可打开。"},
-    "spacesRenamed": {"message":"工作区已重命名。"},
-    "spacesDuplicated": {"message":"已复制保存的内容，可以打开副本了。"},
-    "spacesDeleted": {"message":"工作区已移至回收站。可在下方还原已保存的内容。"},
-    "spacesRestored": {"message":"工作区已还原。重新打开后即可开始使用。"},
-    "spacesError": {"message":"无法确认操作结果。重试前请查看当前列表。你的草稿仍保留在这里。"},
-    "spacesLoadError": {"message":"无法加载工作区。当前页面保持不变。"},
-    "spacesRetry": {"message":"刷新列表"},
-    "spacesNameError": {"message":"请输入 1–80 个字符的工作区名称。"},
-    "spacesDraftTitle": {"message":"切换工作区之前"},
-    "spacesDraftHelp": {"message":"此页面有未保存的草稿或待确认的预览。可以保存支持直接保存的编辑、回到原编辑器完成操作，或明确放弃草稿。离开页面时不会尝试自动保存。"},
-    "spacesSaveSwitch": {"message":"保存并切换"},
-    "spacesDiscardSwitch": {"message":"放弃草稿并切换"},
-    "spacesSaveIncomplete": {"message":"部分编辑需要在原编辑器中处理。请留在这里完成或导出，或选择“放弃草稿并切换”。"},
-    "spacesSaveFailed": {"message":"未能保存全部草稿。页面和草稿仍保留在这里。请留在这里查看错误。"},
-    "spacesInvalid": {"message":"此工作区已在其他页面删除或替换，此标签页无法继续保存。重新打开工作区前，请复制或导出草稿。还原工作区不会使旧标签页重新获得保存权限。"},
-    "spacesExportDrafts": {"message":"导出页面文字"},
-    "spacesExportHelp": {"message":"下载本页面的可编辑文字，包括未保存的表单内容。请妥善保管；这是文字副本，不是可还原的备份。"},
-    "spacesExportRequested": {"message":"已请求下载文字副本。离开此页面前，请检查下载是否完成。"},
-    "spacesExportFailed": {"message":"无法导出页面文字。离开前请手动复制需要的内容。"},
-    "spacesWaitFailed": {"message":"仍有操作正在进行。请留在这里，待操作完成后再次切换。"},
-    "spacesOpen": {"message":"打开"},
-    "spacesAvailable": {"message":"可用工作区"},
-    "spacesSavedOnly": {"message":"这里的操作仅处理已保存的内容。打开的草稿保留在原标签页。"},
-    "spacesProviderDefault": {"message":"云端备份仅用于默认工作区。请打开默认工作区的设置以管理或还原云端备份。"}
-,
-    "spacesResetConfirm": {"message": "将此工作区的网站、布局和设置恢复默认？任务、笔记、倒计时、专注计时器以及共用的隐私和云端偏好会保留。此操作无法撤销；如需保留副本，请先导出备份。"},
-    "spacesResetScope": {"message": "恢复默认仅影响此工作区的设置。个人模块及共用的设备偏好会保留。"},
+  "spacesEmptyTrash": {
+    "message": "回收站中没有工作区。"
+  },
+  "spacesRestore": {
+    "message": "还原"
+  },
+  "spacesCancel": {
+    "message": "取消"
+  },
+  "spacesClose": {
+    "message": "关闭"
+  },
+  "spacesStay": {
+    "message": "留在这里"
+  },
+  "spacesSaving": {
+    "message": "正在保存…"
+  },
+  "spacesLoading": {
+    "message": "正在加载工作区…"
+  },
+  "spacesWaiting": {
+    "message": "正在等待当前操作完成…"
+  },
+  "spacesSwitching": {
+    "message": "正在打开工作区…"
+  },
+  "spacesCreated": {
+    "message": "工作区已创建。准备好后即可打开。"
+  },
+  "spacesRenamed": {
+    "message": "工作区已重命名。"
+  },
+  "spacesDuplicated": {
+    "message": "已复制保存的内容，可以打开副本了。"
+  },
+  "spacesDeleted": {
+    "message": "工作区已移至回收站。可在下方还原已保存的内容。"
+  },
+  "spacesRestored": {
+    "message": "工作区已还原。重新打开后即可开始使用。"
+  },
+  "spacesError": {
+    "message": "无法确认操作结果。重试前请查看当前列表。你的草稿仍保留在这里。"
+  },
+  "spacesLoadError": {
+    "message": "无法加载工作区。当前页面保持不变。"
+  },
+  "spacesRetry": {
+    "message": "刷新列表"
+  },
+  "spacesNameError": {
+    "message": "请输入 1–80 个字符的工作区名称。"
+  },
+  "spacesDraftTitle": {
+    "message": "切换工作区之前"
+  },
+  "spacesDraftHelp": {
+    "message": "此页面有未保存的草稿或待确认的预览。可以保存支持直接保存的编辑、回到原编辑器完成操作，或明确放弃草稿。离开页面时不会尝试自动保存。"
+  },
+  "spacesSaveSwitch": {
+    "message": "保存并切换"
+  },
+  "spacesDiscardSwitch": {
+    "message": "放弃草稿并切换"
+  },
+  "spacesSaveIncomplete": {
+    "message": "部分编辑需要在原编辑器中处理。请留在这里完成或导出，或选择“放弃草稿并切换”。"
+  },
+  "spacesSaveFailed": {
+    "message": "未能保存全部草稿。页面和草稿仍保留在这里。请留在这里查看错误。"
+  },
+  "spacesInvalid": {
+    "message": "此工作区已在其他页面删除或替换，此标签页无法继续保存。重新打开工作区前，请复制或导出草稿。还原工作区不会使旧标签页重新获得保存权限。"
+  },
+  "spacesExportDrafts": {
+    "message": "导出页面文字"
+  },
+  "spacesExportHelp": {
+    "message": "下载本页面的可编辑文字，包括未保存的表单内容。请妥善保管；这是文字副本，不是可还原的备份。"
+  },
+  "spacesExportRequested": {
+    "message": "已请求下载文字副本。离开此页面前，请检查下载是否完成。"
+  },
+  "spacesExportFailed": {
+    "message": "无法导出页面文字。离开前请手动复制需要的内容。"
+  },
+  "spacesWaitFailed": {
+    "message": "仍有操作正在进行。请留在这里，待操作完成后再次切换。"
+  },
+  "spacesOpen": {
+    "message": "打开"
+  },
+  "spacesAvailable": {
+    "message": "可用工作区"
+  },
+  "spacesSavedOnly": {
+    "message": "这里的操作仅处理已保存的内容。打开的草稿保留在原标签页。"
+  },
+  "spacesProviderDefault": {
+    "message": "云端备份仅用于默认工作区。请打开默认工作区的设置以管理或还原云端备份。"
+  },
+  "spacesResetConfirm": {
+    "message": "将此工作区的网站、布局和设置恢复默认？任务、笔记、倒计时、专注计时器以及共用的隐私和云端偏好会保留。此操作无法撤销；如需保留副本，请先导出备份。"
+  },
+  "spacesResetScope": {
+    "message": "恢复默认仅影响此工作区的设置。个人模块及共用的设备偏好会保留。"
+  },
   "completeBackupWorkspaceHelp": {
     "message": "导出包含所有现有工作区及回收站中可恢复的工作区。不包含设备隐私、同步服务设置、凭据和更新偏好。"
   },
@@ -1480,5 +2995,332 @@
   },
   "promptsRetainedVariables": {
     "message": "已保存的正文有变化。当前表单仍保留之前的正文和变量值，准备好后可清空变量，开始使用最新正文。"
+  },
+  "collectionsAcceptRevision": {
+    "message": "确认新正文版本"
+  },
+  "collectionsActive": {
+    "message": "已收藏"
+  },
+  "collectionsAfter": {
+    "message": "拟修订摘录"
+  },
+  "collectionsAll": {
+    "message": "全部"
+  },
+  "collectionsArchive": {
+    "message": "归档"
+  },
+  "collectionsArchived": {
+    "message": "已归档"
+  },
+  "collectionsBack": {
+    "message": "新标签页"
+  },
+  "collectionsBefore": {
+    "message": "当前已保存摘录"
+  },
+  "collectionsBodySeparate": {
+    "message": "此处的已保存摘录为只读。请使用“修订摘录”审阅并确认新的正文版本。"
+  },
+  "collectionsBrowse": {
+    "message": "浏览已收藏的摘录"
+  },
+  "collectionsCancel": {
+    "message": "取消"
+  },
+  "collectionsConflictError": {
+    "message": "另一个标签页修改了已保存的数据。草稿仍然保留。请核对最新版本，或将草稿另存为新记录。"
+  },
+  "collectionsCopied": {
+    "message": "已复制摘录。"
+  },
+  "collectionsCopy": {
+    "message": "复制摘录"
+  },
+  "collectionsCopyBlocked": {
+    "message": "复制被阻止。请选中摘录文本并手动复制。"
+  },
+  "collectionsCurrent": {
+    "message": "当前版本"
+  },
+  "collectionsDiscard": {
+    "message": "放弃草稿"
+  },
+  "collectionsDiscardBody": {
+    "message": "仅放弃此未保存草稿？已保存内容不会改变。"
+  },
+  "collectionsDiscardProposal": {
+    "message": "放弃拟修订文本"
+  },
+  "collectionsDownload": {
+    "message": "下载 JSON"
+  },
+  "collectionsDraft": {
+    "message": "草稿"
+  },
+  "collectionsDraftScope": {
+    "message": "草稿保存前仅保留在此标签页。切换记录会保留草稿，关闭页面则不会。"
+  },
+  "collectionsDuplicate": {
+    "message": "已有相似摘录"
+  },
+  "collectionsDuplicateBody": {
+    "message": "以下原文相同的记录仅供参考，不会合并。是否仍然保存独立的新记录？"
+  },
+  "collectionsEdit": {
+    "message": "编辑详情"
+  },
+  "collectionsEmpty": {
+    "message": "留下有用的内容"
+  },
+  "collectionsEmptyBody": {
+    "message": "清楚的解释、代码片段、值得回顾的计划。保存准确原文，并将自己的注释单独记录。"
+  },
+  "collectionsEntry": {
+    "message": "AI 收藏"
+  },
+  "collectionsExistingDraft": {
+    "message": "请先完成或放弃已有的新记录草稿。拟修订摘录仍然保留。"
+  },
+  "collectionsExport": {
+    "message": "导出"
+  },
+  "collectionsExportFailed": {
+    "message": "无法创建导出文件，已保存内容未改变。"
+  },
+  "collectionsExportWarning": {
+    "message": "下载未加密的 JSON 文件，包含所有已收藏与归档记录、正文历史、注释、提示词关联和恢复快照，不包含未保存草稿。请妥善保管。"
+  },
+  "collectionsEyebrow": {
+    "message": "你的本地参考资料"
+  },
+  "collectionsGenericError": {
+    "message": "此操作未完成，草稿仍然保留。请检查字段和剩余容量，然后刷新已保存的数据。"
+  },
+  "collectionsHistory": {
+    "message": "摘录版本历史"
+  },
+  "collectionsHistoryLimit": {
+    "message": "此记录已达到 20 个正文版本。没有删除任何历史。请保留拟修改文本，或将其保存为新记录。"
+  },
+  "collectionsInvalid": {
+    "message": "请检查字段：标题和摘录必填；来源必须是无账号凭据的 HTTP(S) 网址；提示词关联需要两个准确 ID。超出上限时整次保存会被拒绝。"
+  },
+  "collectionsItems": {
+    "message": "条记录"
+  },
+  "collectionsLeave": {
+    "message": "离开此页面？"
+  },
+  "collectionsLeaveBody": {
+    "message": "未保存的草稿仅保留在此标签页，离开后将丢失。"
+  },
+  "collectionsLimitError": {
+    "message": "已达到内容或存储上限。草稿仍然保留。请缩短内容，或先导出收藏。"
+  },
+  "collectionsLimits": {
+    "message": "上限：含归档共 200 条；每条摘录 32,000 字符；每条 20 个正文版本；总容量 2 MiB。达到上限时保留草稿，不会静默删减正文或历史。"
+  },
+  "collectionsLoading": {
+    "message": "正在加载收藏…"
+  },
+  "collectionsNew": {
+    "message": "收藏摘录"
+  },
+  "collectionsNoResults": {
+    "message": "没有匹配的摘录。请尝试其他搜索词或筛选条件。"
+  },
+  "collectionsNoSource": {
+    "message": "未提供来源网址。"
+  },
+  "collectionsOmitUrls": {
+    "message": "仅从此副本移除来源网址（文本仍可能包含私人信息）"
+  },
+  "collectionsOpenSource": {
+    "message": "打开用户提供的来源"
+  },
+  "collectionsPageTitle": {
+    "message": "AI 结果收藏 · Local iTab"
+  },
+  "collectionsPlainText": {
+    "message": "仅显示纯文本，不会执行保存的代码或标记。"
+  },
+  "collectionsPrivacy": {
+    "message": "这不是加密保险库，请勿存放密钥。导出包含私人文本、注释、历史和对话链接；移除来源网址并不等于文本匿名化。"
+  },
+  "collectionsPrompts": {
+    "message": "提示词库"
+  },
+  "collectionsProposalAsNew": {
+    "message": "将拟修订文本用于新草稿"
+  },
+  "collectionsProposalKept": {
+    "message": "拟修订的摘录保留在此标签页。你可以继续审阅或放弃。"
+  },
+  "collectionsProposed": {
+    "message": "拟修订的原文摘录"
+  },
+  "collectionsQueryLong": {
+    "message": "搜索词过长，请控制在 500 个字符以内。"
+  },
+  "collectionsReadError": {
+    "message": "无法读取已保存的数据，未替换任何内容。请尝试刷新。"
+  },
+  "collectionsReferenceHelp": {
+    "message": "关联保留两个准确 ID，在此处显示为未解析，不会自动跟随提示词的最新版本。清空两项可取消关联。"
+  },
+  "collectionsRefresh": {
+    "message": "刷新已保存的数据"
+  },
+  "collectionsRestore": {
+    "message": "从归档恢复"
+  },
+  "collectionsResumeRevision": {
+    "message": "继续修订"
+  },
+  "collectionsRetry": {
+    "message": "检查 / 重试同一次保存"
+  },
+  "collectionsReview": {
+    "message": "审阅修改"
+  },
+  "collectionsReviewRestore": {
+    "message": "审阅恢复此文本"
+  },
+  "collectionsReviewRevision": {
+    "message": "审阅摘录修订"
+  },
+  "collectionsRevise": {
+    "message": "修订摘录"
+  },
+  "collectionsRevisionConfirm": {
+    "message": "确认后将新增一个正文版本，保留所有旧版本。注释和来源详情不会改变。"
+  },
+  "collectionsRevisionHelp": {
+    "message": "输入拟修订文本。在你审阅并确认新版本之前，已保存摘录不会改变。"
+  },
+  "collectionsSave": {
+    "message": "保存到本地"
+  },
+  "collectionsSaveCopy": {
+    "message": "将草稿另存为新记录"
+  },
+  "collectionsSaveSeparate": {
+    "message": "保存独立记录"
+  },
+  "collectionsSaved": {
+    "message": "已保存到本地。"
+  },
+  "collectionsSaving": {
+    "message": "正在本地保存…"
+  },
+  "collectionsScope": {
+    "message": "内容保存在此设备上。摘录由你手动提供，并非完整对话。本页不会抓取网页、执行内容或向模型发送信息。"
+  },
+  "collectionsSearch": {
+    "message": "搜索标题、摘录和标签"
+  },
+  "collectionsSkip": {
+    "message": "跳转到摘录"
+  },
+  "collectionsSource": {
+    "message": "来源"
+  },
+  "collectionsSourceHelp": {
+    "message": "来源仅由用户提供，本页不会访问该链接。打开时可能需要原账号或相应权限。"
+  },
+  "collectionsSubtitle": {
+    "message": "留下值得回看的回答。粘贴原文摘录，再添加自己的注释。"
+  },
+  "collectionsHeading": {
+    "message": "AI 结果收藏"
+  },
+  "collectionsUnavailable": {
+    "message": "无法读取收藏库"
+  },
+  "collectionsUncertain": {
+    "message": "无法确认此次保存是否成功。草稿仍然保留。在开始新的保存前，请检查 / 重试同一次保存。"
+  },
+  "collectionsUnchanged": {
+    "message": "摘录没有变化。"
+  },
+  "collectionsUnresolved": {
+    "message": "未解析的准确提示词关联"
+  },
+  "collectionsUntitled": {
+    "message": "未命名"
+  },
+  "collectionsUpdated": {
+    "message": "更新于"
+  },
+  "collectionsVersions": {
+    "message": "个正文版本"
+  },
+  "collectionsanswer": {
+    "message": "回答"
+  },
+  "collectionsbody": {
+    "message": "原文摘录"
+  },
+  "collectionsbodyVersionId": {
+    "message": "准确的提示词正文版本 ID"
+  },
+  "collectionscode": {
+    "message": "代码"
+  },
+  "collectionsnotes": {
+    "message": "你的注释"
+  },
+  "collectionsother": {
+    "message": "其他"
+  },
+  "collectionsplan": {
+    "message": "计划"
+  },
+  "collectionspromptId": {
+    "message": "准确的提示词 ID（可选）"
+  },
+  "collectionssourceUrl": {
+    "message": "来源网址（可选）"
+  },
+  "collectionstag": {
+    "message": "标签"
+  },
+  "collectionstagsText": {
+    "message": "标签（以逗号分隔）"
+  },
+  "collectionstitle": {
+    "message": "标题"
+  },
+  "collectionstool": {
+    "message": "工具 / 模型标签"
+  },
+  "collectionstype": {
+    "message": "类型"
+  },
+  "completeBackupCollections": {
+    "message": "AI 收藏与已保存版本"
+  },
+  "completeBackupCollectionHelp": {
+    "message": "收藏是所有工作区共用的全局资料库。完整备份包含手动保存的内容、备注、来源网址、提示词引用、已归档记录及版本。分享前请检查隐私内容；备份不含服务商凭据。"
+  },
+  "completeBackupCollectionTarget": {
+    "message": "AI 收藏的恢复位置"
+  },
+  "completeBackupChooseCollectionTarget": {
+    "message": "请选择收藏的恢复位置"
+  },
+  "completeBackupGlobalCollections": {
+    "message": "此设备的全局 AI 收藏"
+  },
+  "completeBackupCollectionTargetRequired": {
+    "message": "请选择全局 AI 收藏目标后重新预览。现有及已归档收藏将被替换。"
+  },
+  "completeBackupCollectionScope": {
+    "message": "所选全局 AI 收藏只替换一次，包括已归档记录。原有内容和版本将保留在恢复快照中。提示词引用保留原始标识，可能无法解析。"
+  },
+  "completeBackupCollectionConflicts": {
+    "message": "标识相同但保存内容不同的收藏"
   }
 }

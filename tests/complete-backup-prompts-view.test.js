@@ -36,7 +36,7 @@ test('Cancel and new files forget global prompt target',async()=>{
 });
 test('interrupted recovery requires a read-only inspection and separate confirmation',async()=>{
     const m=model();let inspected=0,repaired=0;m.store.inspectInterruptedRestore=async()=>{inspected++;return {pending:true,id:'transaction',target:'previous-complete-state'};};m.store.recoverInterruptedRestore=async()=>{repaired++;};
-    m.get('inspect-interrupted').dispatch('click');await flush();assert.equal(inspected,1);assert.equal(repaired,0);assert(!m.get('recover-interrupted').hidden);assert.match(m.get('interrupted-summary').textContent,/all workspaces, Trash and the prompt library/);
+    m.get('inspect-interrupted').dispatch('click');await flush();assert.equal(inspected,1);assert.equal(repaired,0);assert(!m.get('recover-interrupted').hidden);assert.match(m.get('interrupted-summary').textContent,/all affected workspaces, Trash and selected global libraries/);
     m.get('recover-interrupted').dispatch('click');m.get('recover-interrupted').dispatch('click');await flush();assert.equal(repaired,1);assert.match(m.get('status').textContent,/restored and verified/);assert(!m.get('reload').hidden);
 });
 test('uncertain recovery never repeats or declares success; Cancel abandons recovery review',async()=>{

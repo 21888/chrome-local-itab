@@ -58,7 +58,7 @@ async function changedPlan(f) {
     const incoming=fixture({extra:false,trash:false});
     await add(incoming,'Incoming','New body','incoming_id');
     incoming.values('default')[Scratchpad.KEY].content='New incoming note';
-    return f.store.review(await incoming.store.export(),null,accepted);
+    return f.store.review(await incoming.store.export(Backup.MODULES.filter(name => name !== 'collections')),null,accepted);
 }
 async function pendingFixture() {
     const f=fixture({extra:false,trash:false});

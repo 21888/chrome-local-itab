@@ -50,12 +50,12 @@ async function add(f, title = 'Explain', body = 'Explain {{topic}}', seed = 'pro
     const state = await store.mutate(store.request('add', {title,body}));
     return {store,record:state.records.at(-1)};
 }
-const accepted = {promptTarget:'global-library'};
+const accepted = {promptTarget:'global-library',collectionTarget:'global-collections'};
 test('global prompt module exports once with saved history and excludes device fields', async()=>{
     const f=fixture(), {store,record}=await add(f);
     await store.mutate(store.request('edit',{id:record.id,version:record.version,body:'Second {{topic}}'}));
     const source=await f.store.export(), file=Backup.parse(source,f.manager);
-    assert.equal(file.schemaVersion,3); assert.deepEqual(file.modules,Backup.MODULES);
+    assert.equal(file.schemaVersion,4); assert.deepEqual(file.modules,Backup.MODULES);
     assert.equal(file.globals.prompts.content.records[0].history.length,2);
     assert(file.workspaces.every(item=>!Object.hasOwn(item.modules,'prompts')));
     assert.equal(file.globals.prompts.content.records[0].id,record.id);
@@ -80,7 +80,7 @@ test('combined restore submits both authorities once after complete verified rec
     const submit=f.writes.filter(write=>Object.hasOwn(write,Workspaces.REGISTRY_KEY));assert.equal(submit.length,1);
     assert(Object.hasOwn(submit[0],Prompts.KEY));assert(Object.hasOwn(submit[0],Workspaces.RESTORE_TRANSACTION_KEY));
     assert.equal(f.raw[Workspaces.RESTORE_TRANSACTION_KEY].status,'verified');
-    const recovery=Backup.parse(await f.store.recovery(),f.manager);assert.equal(recovery.schemaVersion,3);assert.equal(recovery.globals.prompts.content.records[0].title,'Existing');
+    const recovery=Backup.parse(await f.store.recovery(),f.manager);assert.equal(recovery.schemaVersion,4);assert.equal(recovery.globals.prompts.content.records[0].title,'Existing');
     assert.equal(recovery.registry.entries.length,1);assert.equal(f.raw[Prompts.KEY].recovery[0].content.records[0].title,'Existing');
     for(const key of ['privacy','sync','__auth','__updatePreferences'])assert.deepEqual(f.raw[key],before[key]);
     for(const entry of before[Workspaces.REGISTRY_KEY].workspaces)assert.deepEqual(f.raw[Workspaces.bundleKey(entry)],before[Workspaces.bundleKey(entry)]);

@@ -21,6 +21,7 @@
     const reviewedLegacyConflicts = new WeakMap();
     const PREFIX = '__localItabWorkspaceV1:';
     const LOCK = 'local-itab-workspaces-v1';
+    const COLLECTIONS_KEY = '__localItabAICollectionsV1', COLLECTIONS_LOCK = 'local-itab-ai-collections-v1';
     const PROMPTS_KEY = '__localItabPersonalPromptsV1', PROMPTS_LOCK = 'local-itab-personal-prompts-v1';
     const RESTORE_TRANSACTION_KEY = '__localItabCombinedRestoreV1';
     const DEFAULT_ID = 'default';
@@ -218,19 +219,44 @@
                 }
             };
         }
+        createCollectionBackend(api) {
+            check(api?.KEY === COLLECTIONS_KEY && api?.LOCK === COLLECTIONS_LOCK && typeof api.validate === 'function', 'BOUNDARY');
+            const manager = this;
+            return {
+                // Global ordering: workspace lifecycle lock, then collection lock.
+                // No initialization, session capture or provider/config hydration.
+                lock: action => { manager.available(); return manager.locks.request(LOCK, { mode: 'exclusive' }, () => manager.locks.request(COLLECTIONS_LOCK, { mode: 'exclusive' }, async () => {
+                    try { await manager.assertRestoreSettled(); }
+                    catch (error) {
+                        if (workspaceFaults.has(error) && error.code === 'WORKSPACE_RESTORE_PENDING') throw api.fault('RESTORE_PENDING');
+                        throw error;
+                    }
+                    return action();
+                })); },
+                read: async () => (await manager.get([COLLECTIONS_KEY]))[COLLECTIONS_KEY],
+                write: state => { api.validate(state); return manager.verifiedSet({ [COLLECTIONS_KEY]: state }); },
+                subscribe(listener) {
+                    const changed = (changes, area) => { if (area === 'local' && (own(changes, COLLECTIONS_KEY) || own(changes, RESTORE_TRANSACTION_KEY))) listener(); };
+                    manager.chrome.storage.onChanged.addListener(changed); return () => manager.chrome.storage.onChanged.removeListener(changed);
+                }
+            };
+        }
+        globalLocks(action) { return this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, () => this.locks.request(COLLECTIONS_LOCK, { mode: 'exclusive' }, action)); }
         async inspectRestoreTransaction() {
             this.available();
-            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.globalLocks(async () => {
                 const value = await this.restoreTransaction();
                 if (!value || ['verified', 'recovered'].includes(value.status)) return { pending: false };
                 check(Object.keys(value).length === 9 && ['schemaVersion', 'id', 'createdAt', 'status', 'prior', 'next', 'recoveryKey', 'recoveryChecksum', 'priorWorkspaceDigest'].every(key => own(value, key)) && date(value.createdAt), 'RESTORE_PENDING');
                 check(value.recoveryKey === '__localItabCompleteRecoveryV2' && /^[a-f0-9]{64}$/.test(value.recoveryChecksum) && /^[a-f0-9]{64}$/.test(value.priorWorkspaceDigest), 'RESTORE_PENDING');
                 object(value.prior); object(value.next);
-                check(Object.keys(value.prior).length === 2 && Object.keys(value.next).length === 2 && [REGISTRY_KEY, PROMPTS_KEY].every(key => own(value.prior, key) && own(value.next, key)), 'RESTORE_PENDING');
+                const authorityKeys = Object.keys(value.prior);
+                check(authorityKeys.includes(REGISTRY_KEY) && authorityKeys.length >= 2 && authorityKeys.every(key => [REGISTRY_KEY, PROMPTS_KEY, COLLECTIONS_KEY].includes(key)) && same(authorityKeys.sort(), Object.keys(value.next).sort()), 'RESTORE_PENDING');
                 const api = typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts;
                 check(api?.validate, 'VALIDATOR_UNAVAILABLE');
-                for (const pair of [value.prior, value.next]) { validateRegistry(pair[REGISTRY_KEY]); api.validate(pair[PROMPTS_KEY]); }
-                const current = await this.get([REGISTRY_KEY, PROMPTS_KEY]);
+                const collectionApi = typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections;
+                for (const pair of [value.prior, value.next]) { validateRegistry(pair[REGISTRY_KEY]); if (own(pair, PROMPTS_KEY)) api.validate(pair[PROMPTS_KEY]); if (own(pair, COLLECTIONS_KEY)) { check(collectionApi?.validate, 'VALIDATOR_UNAVAILABLE'); collectionApi.validate(pair[COLLECTIONS_KEY]); } }
+                const current = await this.get(authorityKeys);
                 let priorIntact = false, currentSnapshot = null;
                 try { priorIntact = await digest(await this.readSnapshot(value.prior[REGISTRY_KEY])) === value.priorWorkspaceDigest; } catch (_) {}
                 try { currentSnapshot = await this.readSnapshot(validateRegistry(current[REGISTRY_KEY])); } catch (_) {}
@@ -242,18 +268,18 @@
         }
         async readInterruptedCandidates() {
             this.available();
-            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.globalLocks(async () => {
                 const marker = await this.restoreTransaction();
                 check(marker && ['prepared', 'submitted'].includes(marker.status), 'NO_RECOVERY');
                 const registry = await this.registry(), snapshot = await this.readSnapshot(registry);
-                const state = await this.get([PROMPTS_KEY, '__localItabCompleteRecoveryV2']);
-                return { snapshot, prompts: state[PROMPTS_KEY], recovery: state.__localItabCompleteRecoveryV2 };
+                const state = await this.get([PROMPTS_KEY, COLLECTIONS_KEY, '__localItabCompleteRecoveryV2']);
+                return { snapshot, prompts: state[PROMPTS_KEY], collections: state[COLLECTIONS_KEY], recovery: state.__localItabCompleteRecoveryV2 };
             }));
         }
         async recoverInterruptedRestore(review, { confirmed = false, isCurrent = () => true } = {}) {
             const ticket = this._recoveryReviews.get(review); check(confirmed && ticket && isCurrent(), 'REVIEW_REQUIRED'); check(review.canRecover, 'RECOVERY'); this._recoveryReviews.delete(review);
-            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
-                check(same(await this.restoreTransaction(), ticket.value) && same(await this.get([REGISTRY_KEY, PROMPTS_KEY]), ticket.current), 'CONFLICT');
+            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.globalLocks(async () => {
+                check(same(await this.restoreTransaction(), ticket.value) && same(await this.get(Object.keys(ticket.value.prior)), ticket.current), 'CONFLICT');
                 const recovery = (await this.get([ticket.value.recoveryKey]))[ticket.value.recoveryKey];
                 check(recovery && recovery.checksum === ticket.value.recoveryChecksum && typeof recovery.source === 'string', 'RECOVERY');
                 check(await digest(recovery.source) === recovery.checksum, 'RECOVERY');
@@ -262,7 +288,7 @@
                 // Explicit recovery restores both authorities together. Never retry
                 // or roll back an unacknowledged submission automatically.
                 check(same(await this.readSnapshot(validateRegistry(ticket.current[REGISTRY_KEY])), ticket.currentSnapshot), 'CONFLICT');
-                const actual = await this.get([REGISTRY_KEY, PROMPTS_KEY]);
+                const actual = await this.get(Object.keys(ticket.value.prior));
                 check(same(actual, ticket.current) && same(await this.restoreTransaction(), ticket.value), 'CONFLICT');
                 check(isCurrent(), 'CANCELED');
                 await this.verifiedSet(ticket.value.prior);
@@ -449,9 +475,10 @@
         select(id, options = {}) { return this.change(id, (entry, registry) => { check(entry.deletedAt === null, 'DELETED'); registry.lastUsedId = entry.id; }, options); }
         async exportSnapshot(keys = null) { return this.transaction(registry => this.readSnapshot(registry, keys)); }
         async replaceSnapshot(snapshot, options = {}) { const input = copy(snapshot); return this.transaction(registry => this.replaceLocked(registry, input, options), options); }
-        async withSnapshotLock(action) { return this.transaction(registry => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+        async withSnapshotLock(action) { return this.transaction(registry => this.globalLocks(async () => {
             await this.assertRestoreSettled();
             return action({ registry: copy(registry), snapshot: keys => this.readSnapshot(registry, keys ?? null),
+                collectionState: async () => (await this.get([COLLECTIONS_KEY]))[COLLECTIONS_KEY],
                 promptState: async () => (await this.get([PROMPTS_KEY]))[PROMPTS_KEY],
                 replace: (snapshot, options = {}) => this.replaceLocked(registry, copy(snapshot), options) });
         })); }
@@ -486,25 +513,30 @@
                 check(same(await this.readSnapshot(await this.registry()), prior), 'CONFLICT');
                 check(!options.isCurrent || options.isCurrent(), 'CANCELED');
             }
-            if (options.promptReplacement) {
-                const prompt = options.promptReplacement;
-                check(prompt.api?.KEY === PROMPTS_KEY && typeof prompt.api.validate === 'function', 'BOUNDARY');
-                prompt.api.validate(prompt.next); prompt.api.validate(prompt.prior);
-                const currentPrompt = (await this.get([PROMPTS_KEY]))[PROMPTS_KEY];
-                check(same(currentPrompt === undefined ? prompt.api.initial() : currentPrompt, prompt.prior), 'CONFLICT');
-                const recovery = (await this.get([prompt.recoveryKey]))[prompt.recoveryKey];
-                check(recovery && recovery.checksum === prompt.recoveryChecksum, 'RECOVERY');
+            const replacements = [options.promptReplacement, options.collectionReplacement].filter(Boolean);
+            if (replacements.length) {
+                const priorAuthority = { [REGISTRY_KEY]: current }, nextAuthority = { [REGISTRY_KEY]: validateRegistry(incoming) };
+                for (const item of replacements) {
+                    check([PROMPTS_KEY, COLLECTIONS_KEY].includes(item.api?.KEY) && typeof item.api.validate === 'function', 'BOUNDARY');
+                    item.api.validate(item.next); item.api.validate(item.prior);
+                    const actual = (await this.get([item.api.KEY]))[item.api.KEY];
+                    check(same(actual === undefined ? item.api.initial() : actual, item.prior), 'CONFLICT');
+                    priorAuthority[item.api.KEY] = copy(item.prior); nextAuthority[item.api.KEY] = copy(item.next);
+                }
+                const first = replacements[0];
+                check(replacements.every(item => item.recoveryKey === first.recoveryKey && item.recoveryChecksum === first.recoveryChecksum), 'RECOVERY');
+                const recovery = (await this.get([first.recoveryKey]))[first.recoveryKey];
+                check(recovery && recovery.checksum === first.recoveryChecksum && await digest(recovery.source) === recovery.checksum, 'RECOVERY');
                 const marker = { schemaVersion: 1, id: this.id(), createdAt: this.now(), status: 'prepared',
-                    prior: { [REGISTRY_KEY]: current, [PROMPTS_KEY]: copy(prompt.prior) },
-                    next: { [REGISTRY_KEY]: validateRegistry(incoming), [PROMPTS_KEY]: copy(prompt.next) },
-                    recoveryKey: prompt.recoveryKey, recoveryChecksum: prompt.recoveryChecksum, priorWorkspaceDigest: await digest(prior) };
+                    prior: priorAuthority, next: nextAuthority,
+                    recoveryKey: first.recoveryKey, recoveryChecksum: first.recoveryChecksum, priorWorkspaceDigest: await digest(prior) };
                 // A durable fence comes before the multi-key authority submission.
                 // Prepared/submitted fences block every cooperating writer, even
                 // after reload. No browser-crash atomicity is assumed.
                 try {
                 await this.verifiedSet({ [RESTORE_TRANSACTION_KEY]: marker });
-                const authoritative = await this.get([REGISTRY_KEY, PROMPTS_KEY]);
-                check(same(authoritative[REGISTRY_KEY], current) && same(authoritative[PROMPTS_KEY] === undefined ? prompt.api.initial() : authoritative[PROMPTS_KEY], prompt.prior), 'CONFLICT');
+                const authoritative = await this.get(Object.keys(priorAuthority));
+                check(same(authoritative[REGISTRY_KEY], current) && replacements.every(item => same(authoritative[item.api.KEY] === undefined ? item.api.initial() : authoritative[item.api.KEY], item.prior)), 'CONFLICT');
                 check(same(await this.readSnapshot(current), prior), 'CONFLICT');
                 check(!options.isCurrent || options.isCurrent(), 'CANCELED');
                 await this.verifiedSet({ ...marker.next, [RESTORE_TRANSACTION_KEY]: { ...marker, status: 'submitted' } });
@@ -605,5 +637,5 @@
             return { workspace: this, lock: fn => this.withLock(fn), read: async () => (await this.get([key]))[key], write: state => this.set({ [key]: state }), subscribe: listener => this.subscribe(changes => { if (own(changes, key)) listener(); }) };
         }
     }
-    return { createManager: options => new Manager(options), Manager, Session, validateRegistry, validateValues, bundleKey, copy, same, fault, DEFAULT_ID, REGISTRY_KEY, ACTIVATION_KEY, SNAPSHOT_KEY, STAGE_KEY, RECOVERY_KEY, LEGACY_CONFLICT_KEY, LEGACY_RECOVERY_PREFIX, PREFIX, LOCK, PROMPTS_KEY, PROMPTS_LOCK, RESTORE_TRANSACTION_KEY, CONFIG_KEYS, PERSONAL_KEYS, SCOPED_KEYS, GLOBAL_KEYS };
+    return { createManager: options => new Manager(options), Manager, Session, validateRegistry, validateValues, bundleKey, copy, same, fault, DEFAULT_ID, REGISTRY_KEY, ACTIVATION_KEY, SNAPSHOT_KEY, STAGE_KEY, RECOVERY_KEY, LEGACY_CONFLICT_KEY, LEGACY_RECOVERY_PREFIX, PREFIX, LOCK, PROMPTS_KEY, PROMPTS_LOCK, COLLECTIONS_KEY, COLLECTIONS_LOCK, RESTORE_TRANSACTION_KEY, CONFIG_KEYS, PERSONAL_KEYS, SCOPED_KEYS, GLOBAL_KEYS };
 });

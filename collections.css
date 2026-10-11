@@ -1,0 +1,10 @@
+.collection-shell .prompt-header-actions { gap: 14px; }
+.collection-shell .prompt-layout { grid-template-columns: minmax(260px, 310px) minmax(0, 1fr); }
+.collection-shell .prompt-readonly { margin-top: 9px; margin-bottom: 12px; }
+.collection-source, .collection-url { overflow-wrap: anywhere; word-break: break-word; }
+.collection-source { display: inline-block; margin-top: 9px; }
+.collection-review-dialog { width: min(840px, 100%); }
+.collection-review-dialog .prompt-readonly { max-height: 220px; margin: 9px 0 20px; }
+.collection-review-dialog textarea { min-height: 240px; font: 13px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.collection-shell input:read-only, .collection-shell textarea:read-only { background: var(--template-page); }
+@media (max-width: 600px) { .collection-shell .prompt-layout { grid-template-columns: 1fr; } .collection-shell .prompt-list { max-height: 270px; overflow: auto; } }
