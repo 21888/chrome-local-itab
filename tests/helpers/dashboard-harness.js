@@ -40,8 +40,25 @@ function createDocument() {
             });
         }
         closest(selector) { return this.matches(selector) ? this : this.parentElement?.closest(selector) || null; }
-        querySelectorAll(selector) { return this.children.flatMap(child => [...(child.matches(selector) ? [child] : []), ...child.querySelectorAll(selector)]); }
-        querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+        querySelectorAll(selector) {
+            const results = [];
+            const visit = node => {
+                for (const child of node.children) {
+                    if (child.matches(selector)) results.push(child);
+                    visit(child);
+                }
+            };
+            visit(this);
+            return results;
+        }
+        querySelector(selector) {
+            for (const child of this.children) {
+                if (child.matches(selector)) return child;
+                const match = child.querySelector(selector);
+                if (match) return match;
+            }
+            return null;
+        }
         addEventListener(type, fn) { if (!this.listeners.has(type)) this.listeners.set(type, []); this.listeners.get(type).push(fn); }
         removeEventListener(type, fn) { this.listeners.set(type, (this.listeners.get(type) || []).filter(item => item !== fn)); }
         getClientRects() { for (let node = this; node; node = node.parentElement) if (node.hidden || node.style.display === 'none' || (node.classList.contains('modal-overlay') && !node.classList.contains('active'))) return []; return this.isConnected ? [{}] : []; }
