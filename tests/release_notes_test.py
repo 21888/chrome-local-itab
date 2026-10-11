@@ -77,6 +77,11 @@ class NotesTests(unittest.TestCase):
         with patch.object(release, 'load_backfill', return_value=self.api.plan):
             return release.backfill(ROOT, self.out, SHA, self.api)
 
+    def test_current_manifest_release_record_passes_publisher_validation(self):
+        version = json.loads((ROOT / 'manifest.json').read_text())['version']
+        body = release.notes(SHA, version, ROOT)
+        self.assertTrue(body.startswith(f'# Local iTab {version}\n'))
+
     def test_changes_are_first_and_unique(self):
         bodies = [release.notes(SHA, version) for version in ('1.1.8', '1.1.9', '1.1.10', '1.1.11')]
         for body in bodies:
