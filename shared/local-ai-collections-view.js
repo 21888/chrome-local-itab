@@ -6,7 +6,7 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller;
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
-            this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false;
+            this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0;
             controller.onChange = kind => kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render();
             this.build();
         }
@@ -69,6 +69,7 @@
             if (!results.length && c.state) this.list.append(this.paragraph('NoResults', 'No matching excerpts. Try another search or filter.', 'prompt-no-results'));
         }
         render() {
+            this.detailGeneration++;
             this.renderCaptureStatus();
             const c = this.controller;
             this.renderList(); this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand); this.exportButton.disabled = !c.state || c.busy;
@@ -243,7 +244,21 @@
             const draft = c.makeDraft(record); delete draft.id; delete draft.version; draft.input.body = this.proposals.get(record.id); draft.baseline = {};
             c.drafts.set('new', draft); c.select('new');
         }
-        async copy(body) { if (this.copying) return; this.copying = true; try { await this.clipboard.writeText(body); this.status.textContent = this.t('Copied', 'Excerpt copied.'); } catch (_) { this.status.textContent = this.t('CopyBlocked', 'Copy was blocked. Select the excerpt text to copy it manually.'); } finally { this.copying = false; } }
+        async copy(body) {
+            const c = this.controller, record = c.record();
+            if (this.copying || c.disposed || !record || c.draft() || record.body !== body) return;
+            const context = { generation: this.detailGeneration, id: record.id, version: record.version, body };
+            const isCurrent = () => !c.disposed && !c.busy && !c.pendingCommand && !c.draft() &&
+                this.detailGeneration === context.generation && c.record()?.id === context.id &&
+                c.record().version === context.version && c.record().body === context.body;
+            this.copying = true;
+            try {
+                await this.clipboard.writeText(body);
+                if (isCurrent()) this.status.textContent = this.t('Copied', 'Excerpt copied.');
+            } catch (_) {
+                if (isCurrent()) this.status.textContent = this.t('CopyBlocked', 'Copy was blocked. Select the excerpt text to copy it manually.');
+            } finally { this.copying = false; }
+        }
         async revise(record, historic) {
             if (this.openDialog || this.controller.busy || this.controller.pendingCommand || this.revisionDraft !== null) return;
             let body = historic?.body ?? this.proposals.get(record.id) ?? record.body;

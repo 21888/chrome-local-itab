@@ -72,7 +72,10 @@
         announce(message, error = false) { this.status.classList.toggle('error', error); this.status.replaceChildren(this.el('span', '', message)); }
         render(kind = 'render') {
             const c = this.controller;
-            if (kind === 'preview') { this.updatePreview(); return; }
+            if (kind === 'preview') {
+                // Even an edit back to the original text supersedes pending feedback.
+                this.copyGeneration++; this.updatePreview(); return;
+            }
             if (kind === 'draft') { this.renderStatus(); this.renderDrafts(); this.updateDraftState(); return; }
             this.renderStatus(); this.renderList();
             if (kind === 'list') return;
@@ -259,24 +262,42 @@
             const c = this.controller, ui = this.previewElements; if (!ui) return;
             const result = c.preview(); if (!result) return;
             ui.literal.checked = c.session().literal; ui.variables.hidden = ui.literal.checked;
-            ui.preview.value = result.text; ui.copy.disabled = !result.complete || c.busy || Boolean(c.pendingCommand) || this.copying;
+            ui.preview.value = result.text; this.updateCopyEligibility(result);
             ui.status.textContent = result.error ? this.errorText(result.error) : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('PreviewReady', 'Ready to copy. Your saved template will not change.');
         }
+        updateCopyEligibility(result = this.controller.preview()) {
+            if (this.previewElements) this.previewElements.copy.disabled = !result?.complete || this.controller.disposed || this.controller.busy || Boolean(this.controller.pendingCommand) || this.copying;
+        }
         async copy() {
-            const c = this.controller, result = c.preview();
-            if (!result?.complete || c.busy || c.pendingCommand || this.copying) return;
+            const c = this.controller, result = c.preview(), ui = this.previewElements;
+            if (!ui || c.disposed || !result?.complete || c.busy || c.pendingCommand || this.copying) return;
             this.copying = true;
-            const generation = ++this.copyGeneration, ui = this.previewElements; ui.copy.disabled = true;
+            const generation = ++this.copyGeneration, record = c.record(), session = c.session();
+            const context = { id: record.id, version: record.version, currentVersionId: record.currentVersionId, versionId: session.versionId, literal: session.literal, text: result.text };
+            // A pending clipboard write belongs to this exact preview, not just its DOM nodes.
+            const isCurrent = () => {
+                if (c.disposed) return false;
+                const current = c.record(), active = c.session(), preview = c.preview();
+                return generation === this.copyGeneration && this.previewElements === ui && !c.busy && !c.pendingCommand &&
+                    current?.id === context.id && current.version === context.version && current.currentVersionId === context.currentVersionId &&
+                    active?.versionId === context.versionId && active.literal === context.literal && preview?.complete && preview.text === context.text;
+            };
+            this.updateCopyEligibility(result);
             try {
                 if (!this.clipboard?.writeText) throw new Error('Clipboard unavailable');
-                await this.clipboard.writeText(result.text);
-                if (generation !== this.copyGeneration || this.previewElements !== ui) return;
+                await this.clipboard.writeText(context.text);
+                if (!isCurrent()) return;
                 ui.status.textContent = this.t('Copied', 'Copied. Paste it into the tool you choose.');
             } catch (_) {
-                if (generation !== this.copyGeneration || this.previewElements !== ui) return;
+                if (!isCurrent()) return;
                 ui.status.textContent = this.t('CopyFailed', 'Copy was blocked. Your preview is still here. Select the text and use your browser’s Copy command.');
                 ui.preview.focus(); ui.preview.select?.();
-            } finally { this.copying = false; if (generation === this.copyGeneration && this.previewElements === ui) ui.copy.disabled = !c.preview()?.complete; }
+            } finally {
+                this.copying = false;
+                // Navigation may have replaced the button while the old write was pending.
+                // Refresh only eligibility so a current success/fallback message stays visible.
+                this.updateCopyEligibility();
+            }
         }
         renderHistory(record) {
             const c = this.controller, details = this.el('details', 'prompt-history');

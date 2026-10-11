@@ -76,3 +76,86 @@ test('no unrequested network, HTML interpretation, clipboard read, provider or c
     const page = fs.readFileSync(`${__dirname}/../prompts.html`, 'utf8'); assert.doesNotMatch(page, /https?:\/\//); assert.match(page, /shared\/workspaces\.js/);
     assert.match(source, /createPromptBackend/); assert.doesNotMatch(source, /storage\.local\.set|storageManager|\.initialize\(/);
 });
+
+function deferredClipboard() {
+    let resolve, reject;
+    const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
+}
+for (const outcome of ['resolve', 'reject']) {
+    for (const change of ['variable', 'literal', 'clear', 'selection', 'version', 'variable round trip', 'literal round trip']) {
+        test(`pending copy ${outcome} ignores stale ${change} preview and permits a later explicit copy`, async () => {
+            const wait = deferredClipboard(), copied = [];
+            const h = await mount({ clipboard: { writeText(value) { copied.push(value); return wait.promise; } } }), c = h.controller;
+            const other = await add(c, 'Other', 'Different prompt');
+            await add(c, 'Title', 'Explain {{topic}}'); c.setVariable('topic', 'first');
+            const original = h.view.previewElements, pending = h.view.copy();
+            await h.view.copy(); assert.deepEqual(copied, ['Explain first']);
+            if (change === 'variable') c.setVariable('topic', 'second');
+            if (change === 'literal') c.setLiteral(true);
+            if (change === 'variable round trip') { c.setVariable('topic', 'second'); c.setVariable('topic', 'first'); }
+            if (change === 'literal round trip') { c.setLiteral(true); c.setLiteral(false); }
+            if (change === 'clear') c.clearVariables();
+            if (change === 'selection') c.select(other.id);
+            if (change === 'version') { c.record().version = 'changed-record-version'; c.record().currentVersionId = 'changed-version'; h.view.updatePreview(); }
+            const current = h.view.previewElements, readyStatus = current.status.textContent;
+            const focus = change === 'variable' ? current.variables.querySelector('textarea') : h.view.search;
+            focus.focus();
+            assert.equal(current.copy.disabled, true, 'only one clipboard operation may run');
+            await h.view.copy(); assert.equal(copied.length, 1, 'changes never trigger automatic recopy');
+            if (outcome === 'resolve') wait.resolve(); else wait.reject(new Error('blocked'));
+            await pending;
+            assert.equal(current.status.textContent, readyStatus, 'stale result never announces success or failure');
+            assert.equal(h.doc.activeElement, focus, 'stale failure never steals focus');
+            assert.equal(current.copy.disabled, change === 'clear', 'current eligibility is refreshed');
+            assert.equal(h.view.copying, false);
+            if (change === 'variable' || change === 'literal' || change === 'version' || change.endsWith('round trip')) assert.equal(current, original, 'exercise reused preview DOM');
+            if (change === 'clear') c.setVariable('topic', 'after clear');
+            const expected = c.preview().text;
+            h.view.clipboard = { async writeText(value) { copied.push(value); } };
+            await h.view.copy();
+            assert.deepEqual(copied, ['Explain first', expected]);
+            assert.match(h.view.previewElements.status.textContent, /Copied/);
+            assert.equal(h.view.previewElements.copy.disabled, false);
+            c.dispose();
+        });
+    }
+    test(`pending copy ${outcome} keeps unchanged preview feedback and manual fallback`, async () => {
+        const wait = deferredClipboard(), h = await mount({ clipboard: { writeText() { return wait.promise; } } });
+        await add(h.controller, 'Title', 'Exact\n  code');
+        const ui = h.view.previewElements; h.view.search.focus(); const pending = h.view.copy();
+        if (outcome === 'resolve') wait.resolve(); else wait.reject(new Error('blocked'));
+        await pending;
+        assert.equal(ui.copy.disabled, false); assert.equal(ui.preview.value, 'Exact\n  code');
+        assert.match(ui.status.textContent, outcome === 'resolve' ? /Copied/ : /Copy was blocked/);
+        assert.equal(h.doc.activeElement, outcome === 'resolve' ? h.view.search : ui.preview);
+        h.controller.dispose();
+    });
+    test(`pending copy ${outcome} suppresses feedback after controller disposal`, async () => {
+        const wait = deferredClipboard(), copied = [];
+        const h = await mount({ clipboard: { writeText(value) { copied.push(value); return wait.promise; } } });
+        await add(h.controller, 'Title', 'Exact text');
+        const ui = h.view.previewElements, status = ui.status.textContent, pending = h.view.copy();
+        h.controller.dispose(); h.view.search.focus();
+        if (outcome === 'resolve') wait.resolve(); else wait.reject(new Error('blocked'));
+        await pending;
+        assert.equal(ui.status.textContent, status); assert.equal(h.doc.activeElement, h.view.search);
+        assert.equal(ui.copy.disabled, true); assert.equal(h.view.copying, false);
+        await h.view.copy(); assert.deepEqual(copied, ['Exact text']);
+    });
+    for (const gate of ['busy', 'pendingCommand']) {
+        test(`pending copy ${outcome} respects ${gate} on settlement`, async () => {
+            const wait = deferredClipboard(), h = await mount({ clipboard: { writeText() { return wait.promise; } } }), c = h.controller;
+            await add(c, 'Title', 'Exact text'); const pending = h.view.copy();
+            c[gate] = gate === 'busy' ? true : { type: 'edit' };
+            h.view.search.focus();
+            if (outcome === 'resolve') wait.resolve(); else wait.reject(new Error('blocked'));
+            await pending;
+            assert.equal(h.view.previewElements.copy.disabled, true);
+            assert.doesNotMatch(h.view.previewElements.status.textContent, /Copied|Copy was blocked/);
+            assert.equal(h.doc.activeElement, h.view.search);
+            c[gate] = gate === 'busy' ? false : null; h.view.updatePreview();
+            assert.equal(h.view.previewElements.copy.disabled, false); c.dispose();
+        });
+    }
+}

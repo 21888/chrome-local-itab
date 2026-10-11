@@ -155,3 +155,39 @@ test('collection page supplies theme tokens before appearance storage loads', ()
     assert.match(css, /border: 1px solid var\(--template-border\)/);
     assert.match(css, /outline: 3px solid var\(--template-focus\)/);
 });
+
+for (const outcome of ['resolve', 'reject']) {
+    for (const change of ['selection', 'selection round trip', 'saved version', 'disposed', 'unchanged']) {
+        test(`pending excerpt copy ${outcome} handles ${change} without stale feedback`, async () => {
+            const h = await mount(), c = h.controller;
+            const a = await add(c, 'Collection A', 'Text A'), b = await add(c, 'Collection B', 'Text B');
+            c.select(a.id);
+            let resolve, reject;
+            const promise = new Promise((yes, no) => { resolve = yes; reject = no; }), writes = [];
+            h.view.clipboard = { writeText(body) { writes.push(body); return promise; } };
+            const pending = h.view.copy(a.body); await h.view.copy(a.body);
+            assert.deepEqual(writes, ['Text A'], 'double-click cannot start another write');
+            if (change === 'selection') c.select(b.id);
+            if (change === 'selection round trip') { c.select(b.id); c.select(a.id); }
+            if (change === 'saved version') {
+                c.edit(); c.update('title', 'Updated title'); assert.equal(await c.save(), true); await settle(c);
+                assert.notEqual(c.record().version, a.version); assert.equal(c.record().body, a.body);
+            }
+            if (change === 'disposed') c.dispose();
+            const status = h.view.status.textContent;
+            h.view.search.focus(); const focus = h.doc.activeElement;
+            if (outcome === 'resolve') resolve(); else reject(new Error('blocked'));
+            await pending;
+            assert.deepEqual(writes, ['Text A'], 'no automatic recopy');
+            assert.equal(h.view.copying, false, 'clipboard lock always releases');
+            assert.equal(h.doc.activeElement, focus);
+            if (change === 'unchanged') assert.match(h.view.status.textContent, outcome === 'resolve' ? /Excerpt copied/ : /Copy was blocked/);
+            else assert.equal(h.view.status.textContent, status, 'current detail retains its own feedback');
+            h.view.clipboard = { async writeText(body) { writes.push(body); } };
+            await h.view.copy(c.record().body);
+            if (change === 'disposed') assert.deepEqual(writes, ['Text A']);
+            else { assert.deepEqual(writes, ['Text A', c.record().body]); assert.match(h.view.status.textContent, /Excerpt copied/); }
+            c.dispose();
+        });
+    }
+}
