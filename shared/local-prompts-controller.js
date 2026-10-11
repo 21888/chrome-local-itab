@@ -32,7 +32,7 @@
             this.state = null; this.selected = null; this.drafts = new Map(); this.sessions = new Map(); this.activeSessions = new Map();
             this.filters = { query: '', mode: 'all', category: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
-            this.excerptEpoch = 0; this.pendingCommand = null; this.disposed = false; this.refreshQueued = false;
+            this.excerptEpoch = 0; this.pendingCommand = null; this.pendingInspection = false; this.disposed = false; this.refreshQueued = false;
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
@@ -285,14 +285,19 @@
             if (kind === 'restoreVersion') data.versionId = versionId;
             return this.execute({ command: this.store.request(kind === 'favorite' ? 'edit' : kind, data), recordId: record.id, action: kind });
         }
-        async retry() { if (this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand); }
-        async execute(operation) {
+        async retry() { if (this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand, this.pendingInspection); }
+        async execute(operation, inspect = false) {
             if (this.busy) return false;
             this.excerptEpoch++; this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
             try {
-                const state = await this.store.mutate(operation.command);
+                let state;
+                if (inspect) {
+                    const result = await this.store.inspectOperation(operation.command);
+                    if (!result.committed) throw Core.fault('OUTCOME_UNCERTAIN');
+                    state = result.state;
+                } else state = await this.store.mutate(operation.command);
                 if (this.disposed) return false;
-                this.pendingCommand = null;
+                this.pendingCommand = null; this.pendingInspection = false;
                 if (operation.action === 'save') {
                     // Add IDs are the owned operationId, including exact retries.
                     const savedId = operation.command.kind === 'edit' ? operation.command.id : operation.command.operationId;
@@ -300,12 +305,17 @@
                     this.drafts.delete(operation.draftKey);
                     if (saved) this.selected = saved.id;
                 }
-                this.accept(state); this.notice = operation.action === 'save' ? 'saved' : operation.action;
+                this.accept(state); this.notice = inspect ? 'reconciled' : operation.action === 'save' ? 'saved' : operation.action;
                 return true;
             } catch (error) {
                 if (this.disposed) return false;
                 this.error = { code: error.code || 'WRITE', scope: operation.action };
-                if (uncertain(error.code) || !error.code) this.pendingCommand = operation;
+                if (this.pendingCommand === operation) {
+                    // A later rejection proves nothing about an earlier lost acknowledgement.
+                    // Keep the same frozen command and allow only read-only inspection now.
+                    if (!uncertain(error.code) || inspect) this.pendingInspection = true;
+                    this.error = { code: this.pendingInspection ? 'OUTCOME_UNCERTAIN' : error.code || 'WRITE', scope: operation.action };
+                } else if (uncertain(error.code) || !error.code) this.pendingCommand = operation;
                 else {
                     this.pendingCommand = null;
                     if (error.code === 'HISTORY_LIMIT' && operation.action === 'restoreVersion') {

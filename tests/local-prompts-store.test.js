@@ -311,3 +311,13 @@ test('browser global loads without accessing providers, pages, model APIs or net
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-prompts-store.js'), 'utf8'), context);
     assert.ok(context.LocalItabPrompts); assert.equal(context.LocalItabPrompts.renderTemplate('static text'), 'static text');
 });
+
+test('historical receipt inspection is read-only, digest-bound and does not relax replay CAS', async () => {
+    const { a, b } = fixture(); const first = a.request('add', { title: 'Original', body: 'Body' });
+    await a.mutate(first); await add(a, 'Other tab'); const writes = b.writes;
+    await assert.rejects(a.mutate(first), { code: 'CONFLICT' });
+    assert.equal((await a.inspectOperation(first)).committed, true);
+    assert.equal((await a.inspectOperation({ ...first, body: 'Different' })).committed, false);
+    assert.equal((await a.inspectOperation(a.request('add', { title: 'Absent', body: 'Body' }))).committed, false);
+    assert.equal(b.writes, writes);
+});

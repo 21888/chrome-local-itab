@@ -4487,7 +4487,25 @@
   "cardLayoutShortcuts": {
     "message": "快捷方式"
   },
-  "promptsCompareRetryReview": {"message": "重新审核此失败目标的重试请求"},
-  "promptsCompareRetrySend": {"message": "发送已审核的重试请求（额外 1 次请求）"},
-  "promptsCompareRetryCost": {"message": "请审核此处完整端点、模型和提示词，并按需重新输入临时密钥。发送重试会额外发起一次可能收费的请求，即使上次请求已停止。不会再次请求另一个目标。允许访问不会发送请求。"}
+  "promptsCompareRetryReview": {
+    "message": "重新审核此失败目标的重试请求"
+  },
+  "promptsCompareRetrySend": {
+    "message": "发送已审核的重试请求（额外 1 次请求）"
+  },
+  "promptsCompareRetryCost": {
+    "message": "请审核此处完整端点、模型和提示词，并按需重新输入临时密钥。发送重试会额外发起一次可能收费的请求，即使上次请求已停止。不会再次请求另一个目标。允许访问不会发送请求。"
+  },
+  "promptsSaveCopyHelp": {
+    "message": "将编辑器中的内容另存为独立提示词，仅含一个正文版本。原提示词及历史保持不变，不复制临时预览变量值。"
+  },
+  "promptsInspectSave": {
+    "message": "核验保存结果"
+  },
+  "promptsOutcomeVerified": {
+    "message": "已核验先前的保存确实完成。当前显示最新保存状态，可能包含之后的更改。"
+  },
+  "promptsOutcomeUncertain": {
+    "message": "先前的保存可能已经完成。草稿仍保留，新的保存已暂停。请核验保存回执；若匹配回执已不再保留，请保持此标签页打开，检查资料库后再处理。"
+  }
 }

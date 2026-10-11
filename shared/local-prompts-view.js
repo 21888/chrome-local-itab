@@ -60,7 +60,7 @@
             const button = this.el('button', className, this.t(name, fallback)); button.type = 'button';
             if (action) button.addEventListener('click', action); return button;
         }
-        heading(text) { const h = this.el('h2', 'prompt-detail-heading', text); h.tabIndex = -1; return h; }
+        heading(text) { const h = this.el('h2', 'prompt-detail-heading', text); h.tabIndex = -1; return this.focusKey(h, 'detail-heading'); }
         focusKey(element, value) { element.dataset.promptFocus = value; return element; }
         build() {
             const c = this.controller;
@@ -154,10 +154,10 @@
         renderStatus() {
             const c = this.controller; this.status.classList.toggle('error', Boolean(c.error));
             let message = c.error ? this.errorText(c.error.code) : c.busy ? this.t('Saving', 'Saving… Keep this tab open.') : '';
-            if (!message && c.notice) message = ({ saved: this.t('Saved', 'Saved on this device.'), remove: this.t('Removed', 'Moved to Trash. You can restore it at any time.'), restore: this.t('Restored', 'Restored to your library.'), restoreVersion: this.t('VersionRestored', 'Restored as a new body version. Later history is still here.'), favorite: this.t('FavoriteSaved', 'Favorite updated.') })[c.notice] || '';
+            if (!message && c.notice) message = ({ reconciled: this.t('OutcomeVerified', 'The original save was committed. Showing the latest saved state, which may include later changes.'), saved: this.t('Saved', 'Saved on this device.'), remove: this.t('Removed', 'Moved to Trash. You can restore it at any time.'), restore: this.t('Restored', 'Restored to your library.'), restoreVersion: this.t('VersionRestored', 'Restored as a new body version. Later history is still here.'), favorite: this.t('FavoriteSaved', 'Favorite updated.') })[c.notice] || '';
             if (!message && c.draftCount()) message = this.t('DraftNotice', 'Unsaved drafts stay in this tab while you browse. Save them before leaving.');
             this.status.replaceChildren(this.el('span', '', message));
-            if (c.pendingCommand) { const retry = this.button('RetrySave', 'Retry same save', () => void c.retry()); retry.disabled = c.busy; this.status.append(retry); }
+            if (c.pendingCommand) { const retry = this.button(c.pendingInspection ? 'InspectSave' : 'RetrySave', c.pendingInspection ? 'Check saved outcome' : 'Retry same save', () => void c.retry()); retry.disabled = c.busy; this.status.append(retry); }
             else if (c.error?.scope === 'read') this.status.append(this.button('RetryRead', 'Read again', () => void c.refresh()));
             if (c.error?.code?.includes('RESTORE_PENDING')) this.status.append(this.backupLink());
         }
@@ -219,14 +219,14 @@
             if (draft.conflict) {
                 const conflict = this.el('div', 'prompt-conflict'); conflict.append(this.el('p', '', this.t('Conflict', 'This prompt changed in another tab or was restored from backup. Your draft is intact. Review the saved prompt before choosing what to keep.')));
                 const actions = this.el('div', 'prompt-actions');
-                actions.append(this.button('SaveCopy', 'Save draft as new prompt', () => void c.save(true), 'prompt-primary'), this.button('UseSaved', 'Discard draft and use saved', () => void this.discardDraft())); conflict.append(actions);
+                actions.append(this.button('UseSaved', 'Discard draft and use saved', () => void this.discardDraft())); conflict.append(actions);
                 const latest = c.record();
                 if (latest) { const details = this.el('details', 'prompt-latest'); details.append(this.el('summary', '', this.t('ReviewSaved', 'Review current saved prompt')), this.el('h3', '', latest.title), this.el('pre', 'prompt-readonly', latest.body)); conflict.append(details); }
                 else conflict.append(this.el('p', 'prompt-help', this.t('MissingSaved', 'This item is no longer in the saved library. Your draft can still be saved as a new prompt.')));
                 form.append(conflict);
             }
             if (c.error?.code === 'HISTORY_LIMIT' || (c.record()?.history.length >= root.LocalItabPrompts.LIMITS.versions && draft.input.body !== c.record()?.body)) {
-                const limit = this.el('div', 'prompt-conflict'); limit.append(this.el('p', '', this.t('HistoryLimit', 'This prompt has reached 20 body versions. Save this draft as a new prompt to continue. The old prompt and all its history will stay unchanged.')), this.button('SaveCopy', 'Save draft as new prompt', () => void c.save(true), 'prompt-primary')); form.append(limit);
+                const limit = this.el('div', 'prompt-conflict'); limit.append(this.el('p', '', this.t('HistoryLimit', 'This prompt has reached 20 body versions. Save this draft as a new prompt to continue. The old prompt and all its history will stay unchanged.'))); form.append(limit);
             }
             if (['CAPACITY', 'SIZE_LIMIT', 'RECOVERY_LIMIT', 'HISTORY_LIMIT'].includes(c.error?.code)) {
                 const help = this.el('p', 'prompt-help'); help.append(this.backupLink()); form.append(help);
@@ -249,13 +249,23 @@
             const footer = this.el('div', 'prompt-form-actions prompt-actions');
             const save = this.button('Save', 'Save prompt', null, 'prompt-primary'); save.type = 'submit'; this.focusKey(save, 'save');
             const cancel = this.button('CancelEdit', 'Close editor', () => void this.discardDraft()); this.focusKey(cancel, 'cancel');
-            const state = this.el('span', 'prompt-help'); footer.append(save, cancel, state); form.append(footer); this.main.append(form);
-            this.editorElements = { controls, save, cancel, state }; this.updateDraftState();
+            const saveCopy = draft.id ? this.focusKey(this.button('SaveCopy', 'Save draft as new prompt', () => void c.save(true)), 'save-copy') : null;
+            footer.append(save); if (saveCopy) footer.append(saveCopy);
+            const state = this.el('span', 'prompt-help'); footer.append(cancel, state); form.append(footer);
+            if (saveCopy) {
+                const help = this.el('p', 'prompt-help', this.t('SaveCopyHelp', 'Save these editor fields as a separate prompt with one body version. The original and its history stay unchanged; temporary preview values are not copied.'));
+                help.id = 'prompt-save-copy-help'; saveCopy.setAttribute('aria-describedby', help.id); form.append(help);
+            }
+            this.main.append(form);
+            this.editorElements = { controls, save, saveCopy, cancel, state }; this.updateDraftState();
         }
         updateDraftState() {
             const c = this.controller, draft = c.draft(), ui = this.editorElements; if (!draft || !ui) return;
             const blocked = c.busy || Boolean(c.pendingCommand); for (const control of ui.controls) control.disabled = blocked;
-            ui.save.disabled = blocked || draft.conflict || !draft.input.title.trim() || !draft.input.body.trim(); ui.cancel.disabled = blocked;
+            const requiredMissing = !draft.input.title.trim() || !draft.input.body.trim();
+            ui.save.disabled = blocked || draft.conflict || requiredMissing;
+            if (ui.saveCopy) ui.saveCopy.disabled = blocked || requiredMissing;
+            ui.cancel.disabled = blocked;
             ui.state.textContent = c.dirty() ? this.t('Unsaved', 'Unsaved changes · Ctrl/⌘ + S') : this.t('NoChanges', 'No unsaved changes');
         }
         async discardDraft() {
@@ -582,6 +592,7 @@
             try { return new Intl.DateTimeFormat(this.doc.documentElement.lang || 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); } catch (_) { return value; }
         }
         errorText(code) {
+            if (code === 'OUTCOME_UNCERTAIN') return this.t('OutcomeUncertain', 'The earlier save may already have completed. Your draft is kept and new saves are paused. Check its saved receipt; if no matching receipt remains, keep this tab open and inspect the library before taking further action.');
             if (code === 'SESSION_LIMIT') return this.t('PreviewSessionLimit', 'Temporary preview memory is full or this value is too large. Shorten values, clear this preview, or explicitly clear all preview values in this tab. Existing preview values are kept.');
             if (code === 'PREVIEW_UNAVAILABLE') return this.t('PreviewUnavailable', 'This exact preview source cannot currently be verified. Your body and values are kept; copying and saved-excerpt insertion are paused. Read again or explicitly return to the current version.');
             if (code === 'CONFLICT') return this.t('Conflict', 'This prompt changed in another tab or was restored from backup. Your draft is intact. Review the saved prompt before choosing what to keep.');

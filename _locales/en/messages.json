@@ -4487,7 +4487,25 @@
   "cardLayoutShortcuts": {
     "message": "Shortcuts"
   },
-  "promptsCompareRetryReview": {"message": "Review retry for this failed target"},
-  "promptsCompareRetrySend": {"message": "Send reviewed retry (1 additional request)"},
-  "promptsCompareRetryCost": {"message": "Review this exact endpoint, model and prompt. Enter a fresh temporary key if needed. Send retry makes one additional request that may cost money, even if the earlier attempt was stopped. The other target is not sent again. Allowing access sends nothing."}
+  "promptsCompareRetryReview": {
+    "message": "Review retry for this failed target"
+  },
+  "promptsCompareRetrySend": {
+    "message": "Send reviewed retry (1 additional request)"
+  },
+  "promptsCompareRetryCost": {
+    "message": "Review this exact endpoint, model and prompt. Enter a fresh temporary key if needed. Send retry makes one additional request that may cost money, even if the earlier attempt was stopped. The other target is not sent again. Allowing access sends nothing."
+  },
+  "promptsSaveCopyHelp": {
+    "message": "Save these editor fields as a separate prompt with one body version. The original and its history stay unchanged; temporary preview values are not copied."
+  },
+  "promptsInspectSave": {
+    "message": "Check saved outcome"
+  },
+  "promptsOutcomeVerified": {
+    "message": "The original save was committed. Showing the latest saved state, which may include later changes."
+  },
+  "promptsOutcomeUncertain": {
+    "message": "The earlier save may already have completed. Your draft is kept and new saves are paused. Check its saved receipt; if no matching receipt remains, keep this tab open and inspect the library before taking further action."
+  }
 }

@@ -18,6 +18,10 @@
    复制。没有后台剪贴板读取。
 5. 修改正文并保存会保留历史版本。元数据修改不新建正文版本；恢复历史正文
    会生成新版本，并保留后续历史。
+6. 编辑已有提示词时，可随时点击「将草稿另存为新提示词」。这会复制编辑器中的
+   标题、正文、分类、标签、工具备注和收藏，生成新 ID 和一个初始正文版本，
+   原提示词及完整历史保持不变。它不复制临时变量值或当前选中的历史预览；
+   未修改的模板也可以另存。新建编辑器只提供普通保存，避免重复操作。
 
 草稿、变量和预览只存在当前标签页的内存中。浏览库内其他条目时会保留，离开
 页面前有提示；仍应主动保存草稿，不能依赖浏览器一定弹出离开警告。变量不会
@@ -50,6 +54,24 @@ in the current tab; navigation within the library keeps them, but leaving can
 lose them. Cross-tab conflicts preserve your draft and require an explicit choice.
 Only body edits create versions. Restoring appends a version and keeps later
 history. Trash is recoverable; this slice has no permanent deletion or purge.
+
+While editing any saved prompt, choose **Save draft as new prompt** to keep a
+separate variation. It copies the editor's title, body, category, tags, tool note
+and favorite into a fresh ID with one initial body version; the original record
+and full history are untouched. Filled preview values and a selected historical
+preview are not substituted for the editor draft. An unchanged template can also
+be saved separately. New-prompt editors keep just the normal Save action.
+
+Both save actions require a title and body. Invalid input or capacity errors keep
+the draft. If a save result is uncertain, use **Retry same save**; editing and new
+saves stay blocked while that operation is pending. Repeated clicks are guarded,
+and retry reuses the operation when its receipt remains the latest saved receipt.
+If another write intervenes, the original operation stays pending and the action
+changes to **Check saved outcome**. This only reads the exact operation receipt;
+a matching digest confirms the original save without writing another copy.
+The current library may include later edits. Missing or mismatched receipts never
+unlock a fresh save: keep this tab open to retain the draft and inspect the library.
+Ctrl/⌘ + S still performs the normal Save, never Save as new.
 
 At 20 versions, save your draft as a new prompt to continue with a fresh ID while
 retaining the original history. The 200-record count includes Trash. Capacity

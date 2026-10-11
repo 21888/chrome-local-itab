@@ -87,3 +87,143 @@ test('history-limit restore offers the requested historical body as an unsaved d
     assert.equal(await c.action('restoreVersion', record.currentVersionId), false); await tick(); assert.equal(c.error.code, 'HISTORY_LIMIT'); assert.equal(c.draft().input.body, 'v1'); assert.equal(c.record().body, 'v20');
     await c.save(true); await tick(); assert.equal(c.record().body, 'v1'); assert.equal(h.raw.records.find(r => r.id === record.id).history.length, 20); c.dispose();
 });
+
+test('normal save-as-new copies every draft field with fresh history, never historical preview or filled values', async () => {
+    const h = setup(), c = h.controller; await c.start();
+    const original = await add(c, 'Original', 'Historical {{topic}}');
+    c.edit(); c.update('body', 'Current {{topic}}'); await c.save(); await tick();
+    c.setVariable('topic', 'TEMPORARY CURRENT VALUE');
+    c.useVersion(original.currentVersionId); c.setVariable('topic', 'TEMPORARY HISTORICAL VALUE');
+    const before = JSON.stringify(h.raw.records[0]);
+    c.edit(); assert.equal(c.draft().input.body, 'Current {{topic}}');
+    const fields = { title: 'Variant 中文', body: 'Draft {{topic}}\r\n  exact\n', category: 'Writing', tagsText: '中文, Review', tool: 'Any tool', favorite: true };
+    for (const [name, value] of Object.entries(fields)) c.update(name, value);
+    assert.equal(await c.save(true), true); await tick();
+    const saved = c.record();
+    assert.notEqual(saved.id, original.id); assert.notEqual(saved.currentVersionId, original.currentVersionId);
+    assert.equal(JSON.stringify(h.raw.records.find(record => record.id === original.id)), before);
+    for (const name of ['title', 'body', 'category', 'tool', 'favorite']) assert.equal(saved[name], fields[name]);
+    assert.deepEqual(saved.tags, ['中文', 'Review']); assert.equal(saved.history.length, 1);
+    assert.equal(saved.history[0].body, fields.body); assert.equal(saved.currentVersionId, saved.history[0].id);
+    assert.deepEqual(Object.keys(c.session().values), []); assert.equal(c.draft(), undefined);
+    assert.doesNotMatch(JSON.stringify(h.raw), /TEMPORARY/);
+    c.select(original.id); assert.equal(c.session().values.topic, 'TEMPORARY HISTORICAL VALUE'); c.dispose();
+});
+
+test('save-as-new permits an unchanged template and normal Save still edits its original ID', async () => {
+    const h = setup(), c = h.controller; await c.start(); const original = await add(c);
+    const before = JSON.stringify(original); c.edit(); assert.equal(c.dirty(), false);
+    assert.equal(await c.save(true), true); await tick();
+    assert.notEqual(c.record().id, original.id); assert.equal(c.record().body, original.body);
+    assert.equal(JSON.stringify(h.raw.records[0]), before);
+    const id = c.record().id; c.edit(); c.update('title', 'Renamed copy'); await c.save(); await tick();
+    assert.equal(c.record().id, id); assert.equal(h.raw.records.length, 2); c.dispose();
+});
+
+test('save-as-new validation failures preserve all draft fields and saved bytes', async () => {
+    const h = setup(), c = h.controller; await c.start(); await add(c);
+    for (const [field, value] of [['title', ' '], ['title', 'x'.repeat(Core.LIMITS.title + 1)], ['body', ''], ['tagsText', 'same, same']]) {
+        c.discard(); c.edit(); c.update(field, value);
+        const draft = JSON.stringify(c.draft()), before = JSON.stringify(h.raw), writes = h.writes;
+        assert.equal(await c.save(true), false); await tick();
+        assert.equal(JSON.stringify(c.draft()), draft); assert.equal(JSON.stringify(h.raw), before);
+        assert.equal(h.writes, writes); assert.equal(c.pendingCommand, null);
+    }
+    c.dispose();
+});
+
+test('save-as-new at record capacity preserves the draft and every saved record', async () => {
+    const h = setup(), c = h.controller; await c.start(); const original = await add(c, 'Original', 'Body');
+    const full = h.raw;
+    for (let n = 1; n < Core.LIMITS.records; n++) {
+        const id = `capacity_record_${n}`, version = `capacity_version_${n}`;
+        full.records.push({ ...original, id, version, currentVersionId: version, history: [{ ...original.history[0], id: version }] });
+    }
+    full.revision++; await h.backend.write(Core.validate(full)); await tick();
+    c.edit(); c.update('title', 'Retained variant'); c.update('body', 'Unsaved {{topic}}');
+    const draft = JSON.stringify(c.draft()), before = JSON.stringify(h.raw), writes = h.writes;
+    assert.equal(await c.save(true), false); await tick();
+    assert.equal(c.error.code, 'CAPACITY'); assert.equal(JSON.stringify(c.draft()), draft);
+    assert.equal(JSON.stringify(h.raw), before); assert.equal(h.writes, writes); assert.equal(c.pendingCommand, null); c.dispose();
+});
+
+test('uncertain save-as-new retries the exact add once without changing the original', async () => {
+    const h = setup(), c = h.controller; await c.start(); const original = await add(c);
+    const before = JSON.stringify(original); c.edit(); c.update('body', 'Variant {{topic}}');
+    const draft = JSON.stringify(c.draft()), writes = h.writes; h.failOnce();
+    const pending = c.save(true); assert.equal(await c.save(true), false);
+    assert.equal(await pending, false); await tick();
+    const operation = c.pendingCommand; assert.equal(operation.command.kind, 'add');
+    assert.equal(JSON.stringify(c.draft()), draft); c.update('body', 'blocked'); assert.equal(JSON.stringify(c.draft()), draft);
+    assert.equal(await c.save(true), false); assert.equal(c.pendingCommand, operation);
+    const retry = c.retry(); assert.equal(await c.retry(), false); assert.equal(await retry, true); await tick();
+    assert.equal(h.writes, writes + 1); assert.equal(h.raw.records.length, 2);
+    assert.equal(c.record().id, operation.command.operationId); assert.equal(c.record().history.length, 1);
+    assert.equal(JSON.stringify(h.raw.records.find(record => record.id === original.id)), before);
+    assert.equal(c.pendingCommand, null); assert.equal(c.draft(), undefined); c.dispose();
+});
+
+test('lost copy acknowledgement plus other-tab write retains operation until read-only receipt proof', async () => {
+    const h = setup(), c = h.controller; await c.start(); const original = await add(c, 'Original', 'Template');
+    c.edit(); c.update('body', 'Variant'); h.failOnce();
+    assert.equal(await c.save(true), false); await tick(); const operation = c.pendingCommand;
+    assert.ok(Object.isFrozen(operation.command));
+    await h.store.mutate(h.store.request('edit', { id: original.id, version: original.version, title: 'Other tab title' })); await tick();
+    const before = JSON.stringify(h.raw), writes = h.writes;
+    assert.equal(await c.retry(), false); await tick();
+    assert.equal(c.error.code, 'OUTCOME_UNCERTAIN'); assert.equal(c.pendingCommand, operation);
+    assert.equal(c.pendingInspection, true); assert.equal(await c.save(true), false);
+    c.update('body', 'blocked'); assert.equal(c.draft().input.body, 'Variant'); assert.equal(c.discard(), false);
+    assert.equal(await c.retry(), true); await tick();
+    assert.equal(c.notice, 'reconciled'); assert.equal(c.pendingCommand, null);
+    assert.equal(c.record().id, operation.command.operationId); assert.equal(c.record().history.length, 1);
+    assert.equal(c.draft(), undefined); assert.equal(JSON.stringify(h.raw), before); assert.equal(h.writes, writes);
+    assert.equal(h.raw.records.length, 2); c.dispose();
+});
+
+test('missing or mismatched receipt cannot unlock an uncertain copy or start another add', async () => {
+    for (const mismatch of [false, true]) {
+        const h = setup(), c = h.controller; await c.start(); await add(c); c.edit(); c.update('body', 'Variant');
+        h.failOnce(); await c.save(true); await tick(); const operation = c.pendingCommand;
+        const state = h.raw;
+        state.receipts = mismatch ? state.receipts.map(r => r.id === operation.command.operationId ? { ...r, digest: '0'.repeat(64) } : r) : [];
+        await h.backend.write(state); await tick(); const writes = h.writes;
+        assert.equal(await c.retry(), false); await tick(); assert.equal(c.pendingInspection, true);
+        for (let n = 0; n < 3; n++) {
+            assert.equal(await c.retry(), false); await tick(); assert.equal(c.pendingCommand, operation);
+            assert.equal(await c.save(true), false); assert.equal(c.create(), false); assert.equal(c.discard(), false);
+        }
+        assert.equal(h.raw.records.length, 2); assert.equal(h.writes, writes); c.dispose();
+    }
+});
+
+test('delayed copy acknowledgement blocks repeated activations and preserves the original', async () => {
+    const h = setup(), c = h.controller; await c.start(); const original = await add(c); c.edit(); c.update('body', 'Variant');
+    const write = h.backend.write; let release; const wait = new Promise(resolve => { release = resolve; });
+    h.backend.write = async value => { await wait; return write(value); };
+    const pending = c.save(true); assert.equal(await c.save(true), false); assert.equal(await c.retry(), false);
+    assert.equal(c.discard(), false); release(); assert.equal(await pending, true); await tick();
+    assert.equal(h.raw.records.length, 2); assert.deepEqual(h.raw.records[0], original); c.dispose();
+});
+
+test('receipt proof preserves subsequent changes to the saved copy', async () => {
+    const h = setup(), c = h.controller; await c.start(); await add(c); c.edit(); c.update('body', 'Variant');
+    h.failOnce(); await c.save(true); await tick(); const operation = c.pendingCommand;
+    const saved = h.raw.records.find(record => record.id === operation.command.operationId);
+    await h.store.mutate(h.store.request('edit', { id: saved.id, version: saved.version, body: 'Later external edit' })); await tick();
+    const before = JSON.stringify(h.raw), writes = h.writes;
+    assert.equal(await c.retry(), false); await tick(); assert.equal(await c.retry(), true); await tick();
+    assert.equal(c.record().body, 'Later external edit'); assert.equal(c.record().history.length, 2);
+    assert.equal(JSON.stringify(h.raw), before); assert.equal(h.writes, writes); c.dispose();
+});
+
+test('bounded receipt eviction leaves an uncertain copy frozen instead of creating a new ID', async () => {
+    const h = setup(), c = h.controller; await c.start(); await add(c); c.edit(); c.update('body', 'Variant');
+    h.failOnce(); await c.save(true); await tick(); const operation = c.pendingCommand;
+    for (let n = 0; n < 128; n++) await h.store.mutate(h.store.request('add', { title: `Other ${n}`, body: 'Synthetic' }));
+    await tick(); assert.equal(h.raw.receipts.some(r => r.id === operation.command.operationId), false);
+    const writes = h.writes; assert.equal(await c.retry(), false); await tick();
+    assert.equal(await c.retry(), false); await tick(); assert.equal(c.pendingCommand, operation);
+    assert.equal(c.draft().input.body, 'Variant'); assert.equal(await c.save(true), false);
+    assert.equal(h.writes, writes); assert.equal(h.raw.records.length, 130); c.dispose();
+});

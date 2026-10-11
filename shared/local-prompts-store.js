@@ -336,6 +336,16 @@
             next.records = this.renewRecords(file.content.records, current);
             return next;
         }
+        // Read-only historical acknowledgement; never relax mutate's latest-receipt CAS.
+        async inspectOperation(command) {
+            command = clone(command); dictionary(command); check(token(command.operationId));
+            const digest = await commandDigest(command);
+            return this.locked(async () => {
+                const state = await this.readRaw();
+                const receipt = state.receipts.find(item => item.id === command.operationId);
+                return { state, committed: Boolean(receipt && receipt.digest === digest) };
+            });
+        }
         async mutate(command) {
             command = clone(command); dictionary(command); check(token(command.operationId));
             // Freeze direct callers too, before waiting for another page's lock.

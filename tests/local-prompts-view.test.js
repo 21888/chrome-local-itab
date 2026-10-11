@@ -159,3 +159,67 @@ for (const outcome of ['resolve', 'reject']) {
         });
     }
 }
+
+for (const language of ['en', 'zh_CN']) {
+    test(`save-as-new is a single localized secondary action only for existing editors (${language})`, async () => {
+        const h = await mount({ language }), c = h.controller;
+        c.create(); assert.equal(h.view.editorElements.saveCopy, null);
+        assert.equal(h.view.main.querySelector('[data-prompt-focus="save-copy"]'), null);
+        c.update('title', 'Original'); c.update('body', 'Template {{topic}}'); await c.save(); await settle(c);
+        c.edit(); const ui = h.view.editorElements;
+        assert.equal(ui.saveCopy.type, 'button'); assert.equal(ui.save.type, 'submit');
+        assert.equal(ui.saveCopy.disabled, false); assert.equal(ui.saveCopy.className.includes('prompt-primary'), false);
+        assert.equal(ui.saveCopy.textContent, language === 'en' ? 'Save draft as new prompt' : '将草稿另存为新提示词');
+        assert.ok(h.doc.getElementById(ui.saveCopy.getAttribute('aria-describedby')));
+        ui.saveCopy.focus(); assert.ok(h.doc.activeElement === ui.saveCopy, 'save-as-new can receive focus');
+        c.update('title', ' '); assert.equal(ui.saveCopy.disabled, true); assert.equal(ui.save.disabled, true);
+        c.update('title', 'Variant'); c.update('body', ''); assert.equal(ui.saveCopy.disabled, true);
+        c.update('body', 'Draft {{topic}}'); assert.equal(ui.saveCopy.disabled, false);
+        c.draft().conflict = true; c.error = { code: 'HISTORY_LIMIT', scope: 'save' }; h.view.render();
+        assert.equal(h.view.main.querySelectorAll('button').filter(button => button.dataset.promptFocus === 'save-copy').length, 1);
+        assert.equal(h.view.main.querySelectorAll('button').filter(button => button.textContent === ui.saveCopy.textContent).length, 1);
+        assert.equal(h.view.editorElements.save.disabled, true); assert.equal(h.view.editorElements.saveCopy.disabled, false);
+        h.view.editorElements.saveCopy.focus(); h.view.editorElements.saveCopy.dispatch('click'); await settle(c);
+        assert.equal(c.state.records.length, 2); assert.equal(c.record().body, 'Draft {{topic}}');
+        assert.ok(h.doc.activeElement === h.view.main.querySelector('.prompt-detail-heading'), 'saved prompt heading receives focus'); c.dispose();
+    });
+}
+
+test('save-as-new double activation is guarded and pending recovery disables the unified action', async () => {
+    const h = await mount(), c = h.controller; await add(c); c.edit(); c.update('body', 'Draft');
+    const original = c.record(), writes = h.h.writes; h.h.failOnce();
+    const button = h.view.editorElements.saveCopy; button.focus(); button.dispatch('click'); button.dispatch('click');
+    assert.equal(h.view.editorElements.saveCopy.disabled, true); await settle(c);
+    assert.ok(c.pendingCommand); assert.equal(h.view.editorElements.saveCopy.disabled, true);
+    assert.equal(h.view.editorElements.save.disabled, true); assert.equal(h.view.editorElements.cancel.disabled, true);
+    assert.equal(c.draft().input.body, 'Draft');
+    const retry = h.view.status.querySelector('button'); assert.equal(retry.textContent, 'Retry same save');
+    retry.dispatch('click'); retry.dispatch('click'); await settle(c);
+    assert.equal(h.h.writes, writes + 1); assert.equal(c.state.records.length, 2);
+    assert.equal(JSON.stringify(c.state.records.find(record => record.id === original.id)), JSON.stringify(original));
+    assert.equal(c.record().body, 'Draft'); c.dispose();
+});
+
+test('failed save-as-new restores focus to its action and preserves editor fields', async () => {
+    const h = await mount(), c = h.controller; await add(c); c.edit(); c.update('body', 'Retained draft');
+    const mutate = h.store.mutate.bind(h.store);
+    h.store.mutate = async () => { const error = new Error('capacity'); error.code = 'CAPACITY'; throw error; };
+    h.view.editorElements.saveCopy.focus(); h.view.editorElements.saveCopy.dispatch('click'); await settle(c);
+    assert.equal(c.error.code, 'CAPACITY'); assert.equal(c.draft().input.body, 'Retained draft');
+    assert.ok(h.doc.activeElement === h.view.editorElements.saveCopy, 'failed copy restores action focus');
+    assert.equal(h.view.editorElements.saveCopy.disabled, false); assert.equal(h.view.editorElements.save.disabled, false);
+    h.store.mutate = mutate; h.view.editorElements.saveCopy.dispatch('click'); await settle(c);
+    assert.equal(c.state.records.length, 2); assert.equal(c.record().body, 'Retained draft'); c.dispose();
+});
+for (const language of ['en', 'zh_CN']) test(`interleaved uncertain copy exposes read-only outcome check (${language})`, async () => {
+    const h = await mount({ language }), c = h.controller; const original = await add(c);
+    c.edit(); c.update('body', 'Variant'); h.h.failOnce(); await c.save(true); await settle(c);
+    await h.store.mutate(h.store.request('edit', { id: original.id, version: original.version, title: 'Other tab' })); await settle(c);
+    await c.retry(); await settle(c);
+    assert.equal(h.view.editorElements.saveCopy.disabled, true);
+    const inspect = h.view.status.querySelector('button');
+    assert.equal(inspect.textContent, language === 'en' ? 'Check saved outcome' : '核验保存结果');
+    assert.match(text(h.view.status), language === 'en' ? /may already have completed/ : /可能已经完成/);
+    const writes = h.h.writes; inspect.dispatch('click'); await settle(c);
+    assert.equal(h.h.writes, writes); assert.equal(c.pendingCommand, null); assert.equal(c.notice, 'reconciled'); c.dispose();
+});
