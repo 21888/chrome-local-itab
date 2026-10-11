@@ -7,7 +7,7 @@ const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick } = require('./helpers/prompts-harness');
 const click = async button => { button.dispatch('click'); await tick(); };
-async function mount({ trial = null, run, contains = async () => true, request = async () => true, mutate = async () => {} } = {}) {
+async function mount({ trial = null, run, contains = async () => true, request = async () => true, mutate = async () => {}, inspectOperation = async () => ({ committed: true }) } = {}) {
     const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic comparison', 'Same synthetic input');
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map();
     const profiles = [{ name: 'Synthetic A', url: 'https://a.synthetic.test/v1/chat/completions', model: 'model-a' }, { name: 'Synthetic B', url: 'https://b.synthetic.test/v1/chat/completions', model: 'model-b' }];
@@ -20,7 +20,7 @@ async function mount({ trial = null, run, contains = async () => true, request =
     const view = { doc, controller: h.controller, t: (_, fallback) => fallback,
         el(tag, className, text) { const element = doc.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; },
         button(_, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
-    const store = { request(kind, values) { return { kind, ...values, operationId: `synthetic_${values.tool}` }; }, async mutate(command, validator) { writes.push(command); if (!validator(h.raw, command.promptRef)) throw Error('STALE'); return mutate(command); } };
+    const store = { inspectOperation, request(kind, values) { return { kind, ...values, operationId: `synthetic_${values.tool}` }; }, async mutate(command, validator) { writes.push(command); if (!validator(h.raw, command.promptRef)) throw Error('STALE'); return mutate(command); } };
     const ui = root.LocalItabAIModelComparison.open({ view, trial, collectionStore: store, presetStore: { read: async () => ({ records: profiles.map(item => ({ ...item })) }) } });
     await tick();
     const choose = (index, value) => { ui.targets[index].select.value = value; ui.targets[index].select.dispatch('change'); };
@@ -87,11 +87,11 @@ test('pagehide and close discard late results and clear transient keys', async (
     const pending = deferred(), h = await mount({ run: () => pending.promise }); h.selectBoth(); await click(h.ui.review); h.ui.send.dispatch('click'); await tick(); h.events.get('pagehide')();
     pending.resolve({ text: 'late', model: 'fixture', origin: 'https://synthetic.test' }); await tick(); assert.equal(h.ui.targets.every(target => target.output.hidden), true); assert.equal(h.ui.send.disabled, true); await h.done(); assert.equal(h.view.openDialog, false);
 });
-test('uncertain result save retries same operation and cannot close while save is pending', async () => {
-    let count = 0; const pending = deferred(); const h = await mount({ mutate: async () => { if (++count === 1) throw Error('uncertain'); return pending.promise; } });
+test('uncertain result save checks same operation read-only and cannot close while checking', async () => {
+    const checked = []; const pending = deferred(); const h = await mount({ mutate: async () => { throw Error('uncertain'); }, inspectOperation: async command => { checked.push(command); return pending.promise; } });
     h.choose(0, '0'); await click(h.ui.review); await click(h.ui.send); await click(h.ui.targets[0].save); h.ui.targets[0].save.dispatch('click'); await tick(); await click(h.ui.close);
-    assert.equal(h.view.openDialog, true); assert.equal(h.writes.length, 2); assert.equal(h.writes[0] === h.writes[1], true);
-    pending.resolve(); await tick(); await click(h.ui.targets[0].save); assert.equal(h.writes.length, 2); await h.done();
+    assert.equal(h.view.openDialog, true); assert.equal(h.writes.length, 1); assert.equal(h.writes[0] === checked[0], true);
+    pending.resolve({ committed: true }); await tick(); await click(h.ui.targets[0].save); assert.equal(h.writes.length, 1); await h.done();
 });
 test('model comparison locales and explicit package inventory are complete', () => {
     const source = fs.readFileSync(`${__dirname}/../shared/ai-model-comparison.js`, 'utf8');
@@ -188,13 +188,13 @@ test('retry fails closed on unannounced preset edits and source edit-back', asyn
     }
 });
 test('pending or uncertain successful-peer save retains command and blocks destructive retry races', async () => {
-    let saves = 0; const pending = deferred();
-    const h = await mount({ run: async input => { if (input.model === 'model-a') throw { code: 'AUTH' }; return { text: 'B', model: input.model, origin: input.origin }; }, mutate: async () => { if (++saves === 1) throw Error('uncertain'); return pending.promise; } });
+    const checked = []; const pending = deferred();
+    const h = await mount({ run: async input => { if (input.model === 'model-a') throw { code: 'AUTH' }; return { text: 'B', model: input.model, origin: input.origin }; }, mutate: async () => { throw Error('uncertain'); }, inspectOperation: async command => { checked.push(command); return pending.promise; } });
     h.selectBoth(); await click(h.ui.review); await click(h.ui.send); const [a, b] = h.ui.targets;
     await click(b.save); const command = b.command;
     await click(a.retryReview); await click(a.retrySend); assert.equal(b.command, command);
     b.save.dispatch('click'); await tick(); assert.equal(a.retryReview.disabled, true); await click(a.retryReview); await click(h.ui.close); assert.equal(h.view.openDialog, true);
-    pending.resolve(); await tick(); assert.equal(b.saved, true); assert.equal(h.writes[0], h.writes[1]); await h.done();
+    pending.resolve({ committed: true }); await tick(); assert.equal(b.saved, true); assert.equal(h.writes.length, 1); assert.equal(h.writes[0], checked[0]); await h.done();
 });
 test('stop while permission is pending fences its late grant and allows explicit fresh retry', async () => {
     const permission = deferred(); let checks = 0;
@@ -229,4 +229,28 @@ test('stale successful results retain original target labels but cannot save or 
     assert.deepEqual(h.ui.targets.map(target => target.heading.textContent), labels);
     for (const target of h.ui.targets) { assert.equal(target.save.disabled, true); assert.equal(target.retryReview.disabled, true); assert.match(target.output.value, /model-/); }
     await h.done();
+});
+
+test('A lost acknowledgement then B save confirms A without another write', async () => {
+    const Collections = require('../shared/local-ai-collections-store');
+    let raw, writes = 0, id = 0, lose = true;
+    const store = new Collections.Store({ lock: action => action(), read: async () => structuredClone(raw),
+        write: async value => { raw = structuredClone(value); writes++; if (lose) { lose = false; throw Error('lost ack'); } } }, { id: () => `receipt_identity_${++id}` });
+    const h = await mount({ mutate: command => store.mutate(structuredClone(command)), inspectOperation: command => store.inspectOperation(structuredClone(command)) });
+    h.selectBoth(); await click(h.ui.review); await click(h.ui.send);
+    const [a, b] = h.ui.targets;
+    const save = async target => { await click(target.save); while (target.saving) await new Promise(resolve => setTimeout(resolve, 1)); };
+    await save(a); assert.equal(a.saved, false); assert.match(a.save.textContent, /Check/);
+    await save(b); assert.equal(b.saved, true); assert.equal(writes, 2);
+    await save(a); assert.equal(a.saved, true); assert.equal(writes, 2); assert.equal(raw.records.length, 2);
+    await h.done();
+});
+test('missing confirmation evidence stays unconfirmed without repeated writes; source changes block checking', async () => {
+    let checks = 0;
+    const h = await mount({ mutate: async () => { throw Error('uncertain'); }, inspectOperation: async () => { checks++; return { committed: false }; } });
+    h.choose(0, '0'); await click(h.ui.review); await click(h.ui.send);
+    const a = h.ui.targets[0]; await click(a.save); await click(a.save); await click(a.save);
+    assert.equal(h.writes.length, 1); assert.equal(checks, 2); assert.equal(a.saved, false); assert.match(a.message.textContent, /Missing, expired/);
+    h.h.controller.excerptEpoch++; h.ui.checkSource(); await click(a.save);
+    assert.equal(checks, 2); assert.equal(a.save.disabled, true); await h.done();
 });

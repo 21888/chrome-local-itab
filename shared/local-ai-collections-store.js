@@ -9,7 +9,7 @@
     const FORMAT = 'local-itab-ai-collections';
     const TYPES = Object.freeze(['answer', 'code', 'plan', 'other']);
     const LIMITS = Object.freeze({ records: 200, title: 200, body: 32000, notes: 16000, tags: 20, tag: 64,
-        tool: 200, url: 2048, versions: 20, recovery: 8, bytes: 2 * 1024 * 1024, query: 500 });
+        tool: 200, url: 2048, versions: 20, recovery: 8, receipts: 64, bytes: 2 * 1024 * 1024, query: 500 });
     const EDITABLE = ['title', 'body', 'type', 'tags', 'tool', 'sourceUrl', 'notes', 'promptRef'];
     const RECORD_KEYS = ['id', 'version', 'revision', ...EDITABLE, 'createdAt', 'updatedAt', 'deletedAt', 'currentVersionId', 'history'];
     const REVISION_KEYS = ['reviewId', 'id', 'version', 'body', 'previousVersionId', 'restoredFromVersionId'];
@@ -187,11 +187,12 @@
         check(Number.isSafeInteger(value.revision) && value.revision >= 0 && typeof value.enabled === 'boolean');
         contentSchema({ records: value.records }); recoverySchema(value.recovery);
         checkIdentities([{ records: value.records }, ...value.recovery.map(item => item.content)]);
-        check(Array.isArray(value.receipts) && value.receipts.length <= 1);
+        check(Array.isArray(value.receipts) && value.receipts.length <= LIMITS.receipts);
         for (const receipt of value.receipts) {
             object(receipt, ['id', 'digest', 'stateDigest']); check(token(receipt.id) &&
                 [receipt.digest, receipt.stateDigest].every(value => typeof value === 'string' && /^[0-9a-f]{64}$/.test(value)));
         }
+        check(new Set(value.receipts.map(receipt => receipt.id)).size === value.receipts.length);
         check(bytes(value) <= LIMITS.bytes - 16384, 'SIZE_LIMIT'); return value;
     }
     const validate = value => stateSchema(snapshot(value));
@@ -342,7 +343,7 @@
             return freeze({ ...values, kind, operationId: this.nextId() });
         }
         finish(next, operationId, hash) {
-            next.revision++; next.receipts = [{ id: operationId, digest: hash, stateDigest: '0'.repeat(64) }]; return stateSchema(next);
+            next.revision++; next.receipts = [{ id: operationId, digest: hash, stateDigest: '0'.repeat(64) }, ...next.receipts].slice(0, LIMITS.receipts); return stateSchema(next);
         }
         remember(plan, privateValue) {
             check(!this.reviews.has(plan.reviewId), 'CONFLICT'); this.reviews.set(plan.reviewId, { public: plan, ...privateValue });
@@ -368,7 +369,19 @@
                 check(next.recovery.length < LIMITS.recovery, 'RECOVERY_LIMIT'); check(!next.recovery.some(item => item.id === snapshotId), 'CONFLICT');
                 next.recovery.push({ id: snapshotId, createdAt: now, content: storedContent(current) });
             }
-            next.records = this.renewRecords(file.content.records, current); return next;
+            next.records = this.renewRecords(file.content.records, current); next.receipts = []; return next;
+        }
+        // Historical acknowledgement only. Mutate retains its strict latest-state CAS.
+        // Restore paths discard receipts: matching content alone is never evidence.
+        async inspectOperation(command) {
+            command = snapshot(command); dictionary(command); check(token(command.operationId));
+            const hash = await digest(command);
+            return this.locked(async () => {
+                const state = await this.readRaw(), receipt = state.receipts.find(item => item.id === command.operationId);
+                const committed = Boolean(receipt && receipt.digest === hash &&
+                    state.receipts[0].stateDigest === await digest({ ...state, receipts: [] }));
+                return { state, committed };
+            });
         }
         async mutate(command, validatePrompt = null) {
             command = snapshot(command); dictionary(command); check(token(command.operationId));
@@ -378,6 +391,7 @@
                 if (receipt?.id === command.operationId) {
                     check(receipt.digest === hash && receipt.stateDigest === await digest({ ...current, receipts: [] }), 'CONFLICT'); return current;
                 }
+                check(!current.receipts.some(item => item.id === command.operationId), 'CONFLICT');
                 // Ephemeral handoff guard, inside the existing workspace/collection fence.
                 // Receipt reconciliation above must remain possible after a later archive.
                 if (validatePrompt) {
@@ -450,6 +464,7 @@
                 }
                 default: throw fault('INVALID');
                 }
+                if (['replace', 'recover'].includes(command.kind)) next.receipts = [];
                 this.finish(next, command.operationId, hash);
                 next.receipts[0].stateDigest = await digest({ ...next, receipts: [] });
                 try { if (await this.backend.write(next) === false) throw fault('WRITE'); } catch (_) { throw fault('WRITE'); }

@@ -396,3 +396,37 @@ test('snapshot near-capacity refusal is atomic and never truncates the selected 
     assert.equal(b.writes, writes); assert.deepEqual(await a.read(), state);
     await add(a, 'answer'); assert.equal(b.writes, writes + 1);
 });
+
+test('historical operation inspection confirms exact command read-only without weakening latest CAS', async () => {
+    const { a, c, b } = fixture();
+    const first = a.request('add', { title: 'Synthetic A', body: 'Synthetic answer A' });
+    b.failVerify = true; await assert.rejects(() => a.mutate(first), { code: 'READ' }); b.failRead = false;
+    await add(c, 'Synthetic B'); const writes = b.writes;
+    await assert.rejects(() => a.mutate(first), { code: 'CONFLICT' });
+    assert.equal((await a.inspectOperation(first)).committed, true);
+    assert.equal((await a.inspectOperation({ ...first, body: 'Different answer' })).committed, false);
+    assert.equal(b.writes, writes); assert.equal((await a.read()).records.length, 2);
+    const state = b.raw(); state.enabled = !state.enabled; b.corrupt(state);
+    assert.equal((await a.inspectOperation(first)).committed, false);
+});
+test('bounded receipts accept legacy schema, reject duplicate evidence and expire without guessing', async () => {
+    const { a, b } = fixture();
+    const first = a.request('add', { title: 'Synthetic', body: 'Synthetic answer' });
+    await a.mutate(first); assert.equal(api.validate(b.raw()).receipts.length, 1);
+    for (let i = 0; i < api.LIMITS.receipts; i++) {
+        const state = await a.read(); await a.mutate(a.request('enable', { revision: state.revision, enabled: !state.enabled }));
+    }
+    assert.equal(b.raw().receipts.length, api.LIMITS.receipts);
+    assert.equal((await a.inspectOperation(first)).committed, false);
+    const duplicate = b.raw(); duplicate.receipts[1] = duplicate.receipts[0]; assert.throws(() => api.validate(duplicate));
+    const exported = JSON.parse(await a.export()); assert.equal(Object.hasOwn(exported, 'receipts'), false);
+});
+test('replacement and recovery invalidate historical acknowledgements even for unchanged content', async () => {
+    const { a, b } = fixture();
+    const first = a.request('add', { title: 'Synthetic', body: 'Same content' }); await a.mutate(first);
+    const backup = await a.export(); await replace(a, backup);
+    assert.equal((await a.inspectOperation(first)).committed, false); assert.equal(b.raw().receipts.length, 1);
+    const second = a.request('add', { title: 'Synthetic B', body: 'New content' }); await a.mutate(second);
+    let state = await a.read(); await a.mutate(a.request('recover', { id: state.recovery[0].id, revision: state.revision }));
+    assert.equal((await a.inspectOperation(second)).committed, false); assert.equal(b.raw().receipts.length, 1);
+});

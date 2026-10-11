@@ -109,3 +109,12 @@ test('optional reviewed context snapshot survives full archive parse and restore
     const malformed = JSON.parse(source); malformed.globals.collections.content.records[1].contextSnapshot.key = 'not-allowed';
     assert.throws(() => Backup.parse(JSON.stringify(malformed), target.manager));
 });
+
+test('complete collection restore accepts receipt history but never restores historical confirmations', async () => {
+ const f=fixture(); const {store}=await save(f); const command=store.request('add',{title:'Synthetic evidence',body:'Synthetic exact answer'}); await store.mutate(command);
+ const state=await store.read(); assert.equal(state.receipts.length,2); assert.equal((await store.inspectOperation(command)).committed,true);
+ const restored=f.store.collectionReplacement(state,f.store.collectionArchive(state)); assert.deepEqual(restored.receipts,[]);
+ f.raw[Collections.KEY]=restored;
+ assert.equal((await store.inspectOperation(command)).committed,false);
+ assert.equal(restored.records.some(record=>record.id===command.operationId),true);
+});

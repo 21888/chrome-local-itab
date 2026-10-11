@@ -75,7 +75,7 @@
             const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
             const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 10; output.hidden = true; output.setAttribute('aria-label', `${t('Response', 'Model response')} ${index + 1}`);
             const message = el('p', 'prompt-help'); message.setAttribute('role', 'status'); message.setAttribute('aria-live', 'polite');
-            const target = { select, key, reviewText, output, message, heading, reviewed: null, response: null, running: false, attempted: false, saving: false, saved: false, permissionPending: false, command: null, retryReady: false, snapshot: null };
+            const target = { select, key, reviewText, output, message, heading, reviewed: null, response: null, running: false, attempted: false, saving: false, saved: false, uncertain: false, permissionPending: false, command: null, retryReady: false, snapshot: null };
             target.allow = button('Allow', 'Allow this endpoint', async () => {
                 if (!checkSource() || target.allow.disabled || !target.reviewed) return;
                 const snapshot = target.reviewed, token = generation; target.permissionPending = true; update();
@@ -116,12 +116,19 @@
                         notes: t('SavedNote', 'Comparison result from the same explicitly reviewed completed prompt. The link identifies its saved template version. Filled values are not stored separately but may appear in this response. No API key is saved.'),
                         promptRef: { promptId: source.promptId, bodyVersionId: source.bodyVersionId }
                     });
-                    await collectionStore.mutate(target.command, (raw, reference) => {
+                    if (target.uncertain) {
+                        const checked = await collectionStore.inspectOperation(target.command);
+                        if (!checked.committed) throw new Error('UNCONFIRMED');
+                    } else await collectionStore.mutate(target.command, (raw, reference) => {
                         if (!sourceCurrent() || stale || closed) return false;
                         try { return root.LocalItabPrompts.validate(raw).records.some(item => item.id === reference.promptId && !item.deletedAt && item.history.some(version => version.id === reference.bodyVersionId)); } catch (_) { return false; }
                     });
                     target.saved = true; message.textContent = t('Saved', 'Saved and linked to the original prompt version.');
-                } catch (_) { message.textContent = t('SaveError', 'Could not confirm the save. This result remains here; retry uses the same save operation.'); }
+                } catch (_) {
+                    target.uncertain = true;
+                    target.save.textContent = t('CheckSave', 'Check whether this result was saved');
+                    message.textContent = t('SaveUnconfirmed', 'Save is unconfirmed. Check performs a read-only lookup of this exact operation; it never writes again. Missing, expired or restored-away evidence cannot confirm success. Keep this result until you have checked your collection.');
+                }
                 finally { target.saving = false; if (!closed) update(); }
             });
             if (trial) { target.save.hidden = true; target.allow.hidden = index === 1; output.setAttribute('aria-label', index === 0 ? t('TrialOriginal', 'Original saved template answer') : t('TrialProposal', 'Unsaved proposal answer')); }
