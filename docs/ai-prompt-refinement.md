@@ -13,3 +13,15 @@ Acceptance rejects removed, changed, or restored sources. Both source body and i
 An uncertain save retries the same command/receipt. Do not assume an uncertain save failed; inspect the prompt history if leaving the dialog. Model output can still be wrong or change the meaning of ordinary prose: review it before accepting. Saved versions are local and included in unencrypted prompt backups. No real provider requests are used by the automated tests.
 
 Navigating away/page hiding discards any unsaved refinement proposal and invalidates request review. Returning from the browser cache requires a new review and request; an old proposal cannot be accepted. Any already-started uncertain local write retains its original receipt in the existing controller retry flow.
+
+## Optional original-versus-proposal trial
+
+After a valid refinement arrives, **Test original versus proposal** opens a temporary trial without accepting the proposal. Enter a fresh test value for each variable once. The original saved template and the unsaved proposal use exactly that same mapping and the same endpoint/model chosen for refinement. Previously filled preview values are not copied into the trial.
+
+Review both exact completed outgoing prompts and the full endpoint/model before explicitly sending. This can add up to two provider requests beyond the refinement request; each may cost money. One optional temporary API key is used for both requests and cleared afterward. Endpoint access alone sends nothing. There are no automatic requests, retries, scores or winner selection.
+
+The two answers are independently labeled **Original saved template answer** and **Unsaved proposal answer**. They cannot be saved from this trial, so an unsaved proposal is never represented as a saved template version. Closing clears the trial values and answers and returns to the unchanged proposal. **Accept as new prompt version** remains a separate action with the existing source, history and placeholder checks.
+
+Changing test values clears the prior review and answers. Source/proposal/connection changes invalidate the trial; pending or late responses cannot replace current results. Closing stops pending requests, although already-started work may still be billed.
+
+Synthetic DOM/transport tests cover shared values/model/key, exact previews and cost disclosure, no save/accept side effects, invalid placeholders, edit/review fencing, source refresh during permission checks, connection revalidation, independently failed requests, cancellation, late results and return focus. No real provider calls, keys, grants, billing or user data are used. Native-browser layout has not been verified for this addition.

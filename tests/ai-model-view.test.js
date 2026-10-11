@@ -13,7 +13,7 @@ async function mount({ run, contains = async () => true, request = async () => t
         chrome: { permissions: { contains, request: async (...args) => { grants++; return request(...args); } } }, confirm: () => true,
         addEventListener: (name, fn) => events.set(name, fn), removeEventListener: name => events.delete(name) };
     const context = vm.createContext({ window: root, AbortController });
-    for (const file of ['shared/dialog-focus.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
+    for (const file of ['shared/dialog-focus.js', 'shared/ai-model-comparison.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
     const view = { doc, controller: h.controller, t: (_, fallback) => fallback,
         el(tag, className, text) { const el = doc.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; },
         button(name, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
@@ -191,4 +191,161 @@ test('pagehide and close invalidate received refinement proposals and pending la
         if (action === 'pagehide') { assert.equal(h.ui.output.hidden, true); await click(h.ui.review); await click(h.ui.save); assert.equal(h.h.writes, writes); }
         await click(h.ui.close); h.h.controller.dispose();
     }
+});
+
+
+test('refinement trial reviews two exact prompts with shared temporary mapping/model/key and never saves or accepts', async () => {
+    const requests = [];
+    const h = await mount({ mode: 'refine', body: 'Original {{topic}} / {{topic}} for {{reader}}', run: async (input, options) => {
+        requests.push({ input, key: options.key });
+        return { text: requests.length === 1 ? 'Improved {{topic}} / {{topic}} for {{reader}}' : `Answer ${requests.length}: ${input.prompt}`, model: input.model, origin: input.origin };
+    } });
+    h.h.controller.setVariable('topic', 'previous private input');
+    h.ui.instruction.value = 'Make clearer'; await click(h.ui.review); await click(h.ui.send);
+    const originalVersion = h.h.controller.record().currentVersionId;
+    await click(h.ui.trialButton); const trial = h.ui.trial; await tick();
+    assert.ok(trial); assert.equal(h.ui.overlay.hidden, true); assert.equal(h.runs, 1);
+    assert.equal(trial.variables[0].input.value, ''); await click(trial.review);
+    assert.equal(trial.send.disabled, true); assert.match(trial.status.textContent, /every test value/);
+    for (const { name, input } of trial.variables) { input.value = name === 'topic' ? 'synthetic topic' : 'synthetic reader'; input.dispatch('input'); }
+    await click(trial.review);
+    assert.equal(h.runs, 1); assert.equal(h.grants, 0); assert.match(trial.status.textContent, /requests: 2/);
+    assert.match(trial.status.textContent, /cost money/);
+    assert.match(trial.targets[0].reviewText.textContent, /Original synthetic topic \/ synthetic topic for synthetic reader/);
+    assert.match(trial.targets[1].reviewText.textContent, /Improved synthetic topic \/ synthetic topic for synthetic reader/);
+    for (const target of trial.targets) { assert.match(target.reviewText.textContent, /https:\/\/synthetic.test\/v1\/chat\/completions/); assert.match(target.reviewText.textContent, /fixture-model/); assert.doesNotMatch(target.reviewText.textContent, /previous private input/); }
+    trial.targets[0].key.value = 'synthetic-trial-key'; await click(trial.send); await click(trial.send);
+    assert.equal(h.runs, 3); assert.equal(requests[1].key, 'synthetic-trial-key'); assert.equal(requests[2].key, 'synthetic-trial-key');
+    assert.equal(Object.hasOwn(requests[2].input, 'promptRef'), false); assert.equal(Object.hasOwn(requests[2].input, 'bodyVersionId'), false);
+    assert.equal(requests[1].input.model, requests[2].input.model); assert.equal(requests[1].input.url, requests[2].input.url);
+    assert.match(trial.targets[0].heading.textContent, /Original saved template/); assert.match(trial.targets[1].heading.textContent, /Unsaved proposal/);
+    for (const target of trial.targets) { assert.equal(target.key.value, ''); assert.equal(target.save.hidden, true); await click(target.save); assert.equal(target.output.hidden, false); }
+    await click(h.ui.save); assert.equal(h.h.controller.record().currentVersionId, originalVersion); assert.equal(h.writes, 0);
+    await click(trial.close); assert.equal(h.ui.trial, null); assert.equal(h.ui.overlay.hidden, false); assert.equal(h.view.openDialog, true);
+    assert.equal(h.doc.activeElement === h.ui.trialButton, true); assert.equal(h.ui.output.value, 'Improved {{topic}} / {{topic}} for {{reader}}');
+    for (const { input } of trial.variables) assert.equal(input.value, '');
+    await click(h.ui.save); await settle(h.h.controller); assert.notEqual(h.h.controller.record().currentVersionId, originalVersion, h.ui.status.textContent + JSON.stringify(h.h.controller.error));
+    assert.equal(h.h.controller.record().history.length, 2); assert.equal(h.writes, 0);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('trial value edits invalidate prior review and answers; new review never sends automatically', async () => {
+    let count = 0; const h = await mount({ mode: 'refine', body: 'Original {{topic}}', run: async input => ({ text: ++count === 1 ? 'Improved {{topic}}' : input.prompt, model: input.model, origin: input.origin }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick();
+    const trial = h.ui.trial, input = trial.variables[0].input; input.value = 'first'; input.dispatch('input'); await click(trial.review); await click(trial.send);
+    assert.equal(h.runs, 3); input.value = 'second'; input.dispatch('input'); assert.equal(trial.send.disabled, true);
+    for (const target of trial.targets) { assert.equal(target.output.value, ''); assert.equal(target.output.hidden, true); assert.equal(target.reviewText.textContent, ''); }
+    await click(trial.send); assert.equal(h.runs, 3); await click(trial.review); assert.equal(h.runs, 3); assert.match(trial.targets[1].reviewText.textContent, /Improved second/);
+    await click(trial.close); await click(h.ui.close); h.h.controller.dispose();
+});
+test('incompatible refinement proposal cannot enter trial and changed proposal invalidates pending trial', async () => {
+    const h = await mount({ mode: 'refine', body: 'Original {{topic}}', run: async () => ({ text: 'Missing placeholders', model: 'fixture-model', origin: 'https://synthetic.test' }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); assert.equal(h.ui.trialButton.disabled, true); await click(h.ui.trialButton); assert.equal(h.ui.trial, null);
+    await click(h.ui.close); h.h.controller.dispose();
+    let count = 0; const pending = deferred(); const next = await mount({ mode: 'refine', body: 'Original', run: async input => ++count === 1 ? { text: 'Improved', model: input.model, origin: input.origin } : pending.promise });
+    next.ui.instruction.value = 'Clarify'; await click(next.ui.review); await click(next.ui.send); await click(next.ui.trialButton); await tick(); const trial = next.ui.trial;
+    await click(trial.review); trial.send.dispatch('click'); await tick(); next.ui.output.value = 'Changed proposal'; trial.checkSource();
+    pending.resolve({ text: 'late unsafe answer', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+    for (const target of trial.targets) { assert.equal(target.output.hidden, true); assert.equal(target.output.value, ''); }
+    assert.equal(trial.send.disabled, true); await click(trial.close); await click(next.ui.close); next.h.controller.dispose();
+});
+test('trial permission wait is fenced against source refresh', async () => {
+    const permission = deferred(); let checks = 0;
+    const h = await mount({ mode: 'refine', body: 'Original', contains: async () => ++checks === 1 ? true : permission.promise, run: async input => ({ text: 'Improved', model: input.model, origin: input.origin }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    await click(trial.review); trial.targets[0].key.value = 'temporary'; trial.send.dispatch('click'); await tick(); await h.h.controller.refresh(); permission.resolve(true); await tick();
+    assert.equal(h.runs, 1); assert.equal(trial.send.disabled, true); assert.equal(trial.targets[0].key.value, ''); await click(trial.close); assert.equal(h.ui.trialButton.disabled, true);
+    await click(h.ui.save); assert.equal(h.h.controller.record().history.length, 1); await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('trial close aborts both transports and preserves the separate proposal without late answers', async () => {
+    const pending = deferred(), signals = []; let count = 0;
+    const h = await mount({ mode: 'refine', body: 'Original', run: async (input, options) => {
+        if (++count === 1) return { text: 'Improved', model: input.model, origin: input.origin };
+        signals.push(options.signal); return pending.promise;
+    } });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    assert.equal(h.doc.activeElement === trial.close, true);
+    await click(trial.review); trial.send.dispatch('click'); await tick(); assert.equal(signals.length, 2);
+    await click(trial.close); assert.equal(signals.every(signal => signal.aborted), true); assert.equal(h.ui.trial, null);
+    pending.resolve({ text: 'late', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+    for (const target of trial.targets) assert.equal(target.output.value, '');
+    assert.equal(h.ui.output.value, 'Improved'); assert.equal(h.h.controller.record().history.length, 1); assert.equal(h.writes, 0);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('trial preserves one successful answer when the other fails and never retries automatically', async () => {
+    let count = 0; const h = await mount({ mode: 'refine', body: 'Original', run: async input => {
+        if (++count === 1) return { text: 'Improved', model: input.model, origin: input.origin };
+        if (input.prompt === 'Original') throw { code: 'AUTH' };
+        return { text: '<script>synthetic proposal answer</script>', model: input.model, origin: input.origin };
+    } });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    await click(trial.review); await click(trial.send); await click(trial.send);
+    assert.equal(h.runs, 3); assert.match(trial.targets[0].message.textContent, /failed/); assert.equal(trial.targets[0].output.hidden, true);
+    assert.equal(trial.targets[1].output.value, '<script>synthetic proposal answer</script>'); assert.equal(h.doc.querySelectorAll('script').length, 0);
+    assert.equal(h.h.controller.record().history.length, 1); await click(trial.close); await click(h.ui.close); h.h.controller.dispose();
+});
+test('trial rechecks chosen saved connection before sending either request', async () => {
+    const f = presetFixture(); const h = await mount({ mode: 'refine', body: 'Original', presetStore: f.store, run: async input => ({ text: 'Improved', model: input.model, origin: input.origin }) }); await tick();
+    h.ui.presetSelect.value = '0'; h.ui.presetSelect.dispatch('change'); h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    await click(h.ui.trialButton); await tick(); const trial = h.ui.trial; await click(trial.review);
+    f.state.records[0].model = 'changed model'; await click(trial.send); assert.equal(h.runs, 1); assert.equal(trial.send.disabled, true); assert.match(trial.status.textContent, /connection changed/);
+    await click(trial.close); await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('trial rejects divergent target selection and edited temporary values during async permission wait', async () => {
+    const permission = deferred(); let checks = 0;
+    const h = await mount({ mode: 'refine', body: 'Original {{topic}}', contains: async () => ++checks === 1 ? true : permission.promise, run: async input => ({ text: 'Improved {{topic}}', model: input.model, origin: input.origin }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    const input = trial.variables[0].input; input.value = 'first'; input.dispatch('input');
+    trial.targets[1].select.value = ''; await click(trial.review); assert.equal(trial.send.disabled, true);
+    trial.targets[1].select.value = '0'; await click(trial.review); trial.send.dispatch('click'); await tick();
+    assert.equal(input.disabled, true); input.value = 'changed while waiting'; permission.resolve(true); await tick();
+    assert.equal(h.runs, 1); assert.equal(trial.send.disabled, true); assert.equal(trial.targets[0].reviewText.hidden, true);
+    await click(trial.close); await click(h.ui.close); h.h.controller.dispose();
+});
+test('trial rejects temporary variable edits during transport and ignores both late answers', async () => {
+    const pending = deferred(); let calls = 0;
+    const h = await mount({ mode: 'refine', body: 'Original {{topic}}', run: async input => ++calls === 1 ? { text: 'Improved {{topic}}', model: input.model, origin: input.origin } : pending.promise });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    trial.variables[0].input.value = 'first'; await click(trial.review); trial.send.dispatch('click'); await tick(); assert.equal(h.runs, 3);
+    trial.variables[0].input.value = 'changed'; pending.resolve({ text: 'late', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+    for (const target of trial.targets) assert.equal(target.output.value, ''); assert.equal(trial.send.disabled, true);
+    await click(trial.close); await click(h.ui.close); h.h.controller.dispose();
+});
+test('closing parent while trial is active does not discard proposal; later uncertain acceptance reuses its operation', async () => {
+    const h = await mount({ mode: 'refine', body: 'Original', run: async input => ({ text: 'Improved', model: input.model, origin: input.origin }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    await click(h.ui.close); assert.equal(h.ui.trial === trial, true); assert.equal(trial.overlay.isConnected, true); assert.equal(h.ui.overlay.isConnected, true);
+    await click(trial.close); h.h.failOnce(); const writes = h.h.writes;
+    await click(h.ui.save); await settle(h.h.controller); const operation = h.h.controller.pendingCommand; assert.ok(operation);
+    await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.controller.pendingCommand, null); assert.equal(h.h.writes, writes + 1);
+    assert.equal(h.h.controller.record().history.length, 2); assert.equal(operation.command.body, 'Improved'); assert.equal(h.writes, 0);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('trial source and proposal changes fence both permission waits and transport replies', async () => {
+    for (const change of ['source', 'proposal']) for (const phase of ['permission', 'transport']) {
+        const pending = deferred(); let calls = 0, checks = 0;
+        const h = await mount({ mode: 'refine', body: 'Original',
+            contains: async () => ++checks > 1 && phase === 'permission' ? pending.promise : true,
+            run: async input => ++calls === 1 ? { text: 'Improved', model: input.model, origin: input.origin } : pending.promise });
+        h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+        await click(trial.review); trial.send.dispatch('click'); await tick();
+        if (change === 'source') await h.h.controller.refresh(); else h.ui.output.value = 'Different proposal';
+        pending.resolve(phase === 'permission' ? true : { text: 'late', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+        assert.equal(h.runs, phase === 'permission' ? 1 : 3); assert.equal(trial.send.disabled, true);
+        for (const target of trial.targets) { assert.equal(target.output.hidden, true); assert.equal(target.output.value, ''); }
+        assert.equal(h.h.controller.record().history.length, 1); assert.equal(h.writes, 0);
+        await click(trial.close); assert.equal(h.ui.output.value, ''); assert.equal(h.ui.save.disabled, true);
+        await click(h.ui.save); assert.equal(h.h.controller.record().history.length, 1);
+        await click(h.ui.close); h.h.controller.dispose();
+    }
+});
+
+test('workspace or restore interruption of trial also invalidates its retained parent proposal', async () => {
+    const h = await mount({ mode: 'refine', body: 'Original', run: async input => ({ text: 'Improved', model: input.model, origin: input.origin }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+    await click(trial.review); h.view.cancelModelDialog(); assert.equal(trial.send.disabled, true);
+    await click(trial.close); assert.equal(h.ui.output.hidden, true); assert.equal(h.ui.output.value, ''); assert.equal(h.ui.save.disabled, true);
+    await click(h.ui.save); assert.equal(h.h.controller.record().history.length, 1); assert.equal(h.writes, 0);
+    await click(h.ui.close); h.h.controller.dispose();
 });

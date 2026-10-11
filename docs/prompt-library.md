@@ -1,7 +1,7 @@
 # 个人提示词库 / Personal prompt library
 
-这是 AI 浏览器工作台的提示词管理基础。当前切片负责本机保存和复用，不会
-连接模型、运行提示词或自动上传内容；未来模型能力需要独立实现与授权。
+这是 AI 浏览器工作台的提示词管理基础。本机保存、搜索和预览不会自动连接模型或上传内容。
+可选模型功能在审核明确的目标和内容并点击发送后才发起请求；授予访问权限本身不会发送。
 
 从新标签页右上角的「提示词库」打开独立页面。全部工作空间共用同一份资料，
 当前版本没有工作空间归属编辑或筛选。
@@ -43,7 +43,7 @@
 Open **Prompt library** from the new-tab header. Create a titled prompt, optionally
 add tags/category/tool notes/favorite, then explicitly save it. Search saved text,
 fill `{{variables}}`, review the completed text and copy it into your chosen tool.
-No model runs or network requests are made by this feature.
+Local saving, search and preview do not call a model. Optional model workflows send only after explicit destination/content review and Send; granting access alone never sends anything.
 
 One global library serves every workspace. Drafts and variable values remain only
 in the current tab; navigation within the library keeps them, but leaving can

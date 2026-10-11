@@ -78,6 +78,8 @@ Provide a private, customizable Chrome new tab dashboard for search, shortcuts, 
 - `identity`: Supports Google authorization for the optional Drive backup feature.
 - Declared host permission `https://www.googleapis.com/*` and OAuth scope `https://www.googleapis.com/auth/drive.appdata`: Allow authorized manual backups in Drive's hidden app-specific data folder, including snapshot listing, upload, download, restore, deletion and old-snapshot cleanup. These are declared manifest permissions; using Drive remains optional.
 - Optional host permission `https://www.google.com/*`: Used only when the user enables online favicon fetching and grants permission; fetches shortcut favicon images from Google's favicon endpoint.
+- Optional `https://*/*`: Supports user-chosen HTTPS model providers. Runtime permission requests name only the reviewed hostname and port. Granting access alone never sends content; explicit reviewed Send is required.
+- `contextMenus`: Adds the explicit selection-capture action that opens a local draft for review; it does not automatically scrape pages or send selected text to a model.
 
 ## Privacy Practices Form
 

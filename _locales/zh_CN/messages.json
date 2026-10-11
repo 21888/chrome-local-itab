@@ -4405,5 +4405,44 @@
   },
   "promptsCompareNone": {
     "message": "不向此目标发送"
+  },
+  "promptsCompareTrialTitle": {
+    "message": "试运行原模板与未保存提案"
+  },
+  "promptsCompareTrialHelp": {
+    "message": "为两个模板一次填写同一组临时测试值。核对发送到同一模型的两条完整请求后，再明确点击发送。最多额外发送两次请求，每次都可能收费。答案仅临时显示，不评分、不保存。关闭试运行后，是否接受提案由您另行决定。"
+  },
+  "promptsCompareTrialTemplate": {
+    "message": "填入测试值前的原始已保存模板"
+  },
+  "promptsCompareTrialValue": {
+    "message": "临时测试值"
+  },
+  "promptsCompareTrialChanged": {
+    "message": "测试值已修改。请重新核对两条完整请求。"
+  },
+  "promptsCompareTrialKey": {
+    "message": "两次试运行共用的 API 密钥（可选；不保存）"
+  },
+  "promptsCompareTrialOriginal": {
+    "message": "原始已保存模板的答案"
+  },
+  "promptsCompareTrialProposal": {
+    "message": "未保存提案的答案"
+  },
+  "promptsCompareTrialCost": {
+    "message": "两条请求使用相同模型和测试值，每次都可能收费。请核对上方两条完整内容和目标地址。不会接受或保存任何内容。"
+  },
+  "promptsCompareTrialInvalid": {
+    "message": "请填写每个测试值，并使用占位符完全匹配的提案。两条请求都必须符合长度限制。"
+  },
+  "promptsCompareTrialReady": {
+    "message": "临时测试答案，不评分、不自动接受。关闭试运行后，可另行决定是否接受提案。"
+  },
+  "promptsCompareTrialStart": {
+    "message": "填写临时值并核对两条请求。尚未发送试运行请求。"
+  },
+  "promptsModelRefineTrial": {
+    "message": "试运行原模板与提案"
   }
 }

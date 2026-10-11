@@ -60,6 +60,7 @@ test('duplicate endpoint/model is rejected and one selected connection makes onl
 });
 test('connection selection clears both keys and both reviews without granting or sending', async () => {
     const h = await mount(); h.selectBoth(); await click(h.ui.review); h.ui.targets.forEach(target => { target.key.value = 'secret'; }); h.choose(1, '');
+    assert.equal(h.ui.targets[1].heading.textContent, 'Target 2');
     assert.equal(h.ui.send.disabled, true); for (const target of h.ui.targets) { assert.equal(target.key.value, ''); assert.equal(target.reviewText.hidden, true); }
     assert.equal(h.grants.length, 0); assert.equal(h.runs.length, 0); await h.done();
 });

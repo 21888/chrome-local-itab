@@ -414,6 +414,7 @@ Los permisos declarados en [manifest.json](manifest.json) incluyen:
 - `storage` y `unlimitedStorage`: configuración e imágenes locales.
 - `identity` y `https://www.googleapis.com/*`: autorización y copias opcionales en Google Drive.
 - El permiso opcional `https://www.google.com/*`: descarga de iconos de sitios.
+- El permiso opcional `https://*/*`: proveedores de modelos HTTPS elegidos por el usuario. En ejecución se solicita solo el host y puerto revisados; conceder acceso por sí solo no envía contenido.
 
 ## Idiomas de la documentación y de la interfaz
 

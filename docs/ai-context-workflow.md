@@ -27,7 +27,7 @@ The task-store API accepts an optional synchronous, ephemeral pre-write guard un
 
 ## Dismissal and lifecycle
 
-The new-tab dialog uses the existing focus trap and IME-aware Escape behavior. Closing restores the entry's focus. Unsaved responses prompt before discard; pending saves block dismissal. Cancel clears volatile source selection and draft text without saving. Workspace departure/reload guards include the open panel and active work. Page departure aborts outstanding network work, clears the key and invalidates callbacks; it does not save drafts automatically. Nothing here stores a key, provider setting or private context snapshot.
+The new-tab dialog uses the existing focus trap and IME-aware Escape behavior. Closing restores the entry's focus. Unsaved responses prompt before discard; pending saves block dismissal. Cancel clears volatile source selection and draft text without saving. Workspace departure/reload guards include the open panel and active work. Page departure aborts outstanding network work, clears the key and invalidates callbacks; it does not save drafts automatically. API keys and private context snapshots are not stored by this workflow. Optional connection presets separately store only explicitly saved device-local name, endpoint and model metadata.
 
 ## Verification and limits
 

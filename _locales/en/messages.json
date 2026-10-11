@@ -4405,5 +4405,44 @@
   },
   "promptsCompareNone": {
     "message": "Do not send to this target"
+  },
+  "promptsCompareTrialTitle": {
+    "message": "Test original versus unsaved proposal"
+  },
+  "promptsCompareTrialHelp": {
+    "message": "Enter temporary test values once for both templates. Review both completed requests to the same model, then explicitly Send. Up to two additional provider requests may each cost money. Answers are temporary, unscored and never saved. Accepting the proposal is a separate action after closing this trial."
+  },
+  "promptsCompareTrialTemplate": {
+    "message": "Original saved template before test values"
+  },
+  "promptsCompareTrialValue": {
+    "message": "Temporary test value"
+  },
+  "promptsCompareTrialChanged": {
+    "message": "Test values changed. Review both completed requests again."
+  },
+  "promptsCompareTrialKey": {
+    "message": "API key for both trial requests (optional; never saved)"
+  },
+  "promptsCompareTrialOriginal": {
+    "message": "Original saved template answer"
+  },
+  "promptsCompareTrialProposal": {
+    "message": "Unsaved proposal answer"
+  },
+  "promptsCompareTrialCost": {
+    "message": "Both requests use the same model and test values. Each request may cost money. Review both exact completed prompts and their destination above. Nothing is accepted or saved."
+  },
+  "promptsCompareTrialInvalid": {
+    "message": "Enter every test value and use a proposal with exactly matching placeholders. Both requests must fit the request limit."
+  },
+  "promptsCompareTrialReady": {
+    "message": "Temporary test answer. No score or automatic acceptance. Close the trial to decide whether to accept the proposal separately."
+  },
+  "promptsCompareTrialStart": {
+    "message": "Fill temporary values and review both requests. No trial request has been sent."
+  },
+  "promptsModelRefineTrial": {
+    "message": "Test original versus proposal"
   }
 }

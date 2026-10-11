@@ -411,6 +411,7 @@ The permissions declared in [manifest.json](manifest.json) include:
 - `storage` and `unlimitedStorage`: settings and local image data.
 - `identity` and `https://www.googleapis.com/*`: optional Google Drive authorization and backups.
 - Optional `https://www.google.com/*`: online website icon fetching.
+- Optional `https://*/*`: user-chosen HTTPS model providers. Runtime permission requests name only the reviewed hostname and port; granting access alone never sends content.
 
 ## Documentation and interface languages
 
@@ -486,6 +487,8 @@ The existing project documentation identifies the license as MIT. A separate `LI
 **Ask selected saved context:** the new-tab **AI context Q&A** panel lets you choose global saved AI excerpts and this workspace’s saved note, edit and review the exact outbound content, then ask your selected model. Save an answer explicitly, or review strict task JSON before adding the exact list to Tasks. No source is selected automatically. [Workflow and privacy](docs/ai-context-workflow.md)
 
 **Reviewed prompt refinement:** choose a saved prompt, review the exact template and refinement instruction sent to your model, compare the proposal, and explicitly accept a new version. Filled values are excluded; original history and variable placeholders are protected. [Workflow](docs/ai-prompt-refinement.md)
+
+The optional original-versus-proposal trial uses one fresh temporary variable mapping and the same model for both reviewed requests. Answers remain temporary; accepting the proposal is still a separate decision.
 
 ### Compare models on the same completed prompt
 
