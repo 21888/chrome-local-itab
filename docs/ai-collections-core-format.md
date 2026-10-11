@@ -267,3 +267,29 @@ a Chrome-shaped local-storage/Web-Lock API. It does not establish native Chrome,
 UI, clipboard, unified search, complete-backup or workspace acceptance. No full
 suite was run during concurrent native-browser work, and this core was not
 committed, pushed or released.
+
+
+### Exact-preview result draft handoff
+
+The prompt preview offers **Save a result for this version** in a new tab.
+Its URL contains only `promptId` and `bodyVersionId`, taken from the actual
+preview session (which may retain an older saved body while variables are filled).
+No prompt body, variable values, collection text, clipboard content, or source URL
+is transferred. The source tab and its edits stay intact.
+
+Collection startup accepts exactly one valid ID pair. Duplicate selectors,
+unknown parameters accompanying the pair, and competing record/selection-capture
+routes fail closed before any route can claim the page. A fresh fenced prompt
+read must find the active prompt and that version in its own history; archived,
+missing, recovery-only, failed, or superseded reads cannot substitute another
+version. Existing drafts, interactions and review dialogs block late hydration.
+
+The destination is a new unsaved draft with blank title and body and a visible
+exact-reference/body review. Only explicit Save persists it. Handoff drafts use
+an ephemeral save guard under the existing workspace/collection write fence:
+`readPromptState` reads the raw prompt snapshot without re-entering a lock, then
+the guard checks the still-active exact reference. Runtime prompt mutations and
+complete restores share the workspace fence. Unsupported backends fail closed;
+ordinary collection drafts are unchanged. Already-committed receipt retries are
+recognized before this guard, even if the prompt is subsequently archived. No
+persistent fields, permissions, external calls, or model integration are added.

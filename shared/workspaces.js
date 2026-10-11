@@ -234,6 +234,8 @@
                     return action();
                 })); },
                 read: async () => (await manager.get([COLLECTIONS_KEY]))[COLLECTIONS_KEY],
+                // Called only by Store.mutate while the shared workspace fence is held.
+                readPromptState: async () => (await manager.get([PROMPTS_KEY]))[PROMPTS_KEY],
                 write: state => { api.validate(state); return manager.verifiedSet({ [COLLECTIONS_KEY]: state }); },
                 subscribe(listener) {
                     const changed = (changes, area) => { if (area === 'local' && (own(changes, COLLECTIONS_KEY) || own(changes, RESTORE_TRANSACTION_KEY))) listener(); };

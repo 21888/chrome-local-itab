@@ -15,7 +15,7 @@ async function fixture(language = 'en') {
     const h = setup(), results = collections.setup(), c = new Controller({ store: h.store, collectionStore: { read: () => results.store.read(), subscribe: fn => results.store.subscribe(fn) } });
     const doc = createDocument({ blurUnavailableFocus: true }); doc.documentElement.lang = language;
     const host = doc.createElement('div'); doc.body.append(host);
-    const root = { LocalItabPrompts: Prompts, LocalItabAISearch: Search, document: doc, addEventListener() {}, navigator: { clipboard: { writeText() { throw new Error('No clipboard use'); } } } };
+    const root = { LocalItabPrompts: Prompts, LocalItabAISearch: Search, LocalItabPromptDraft: require('../shared/collection-prompt-draft.js'), document: doc, addEventListener() {}, navigator: { clipboard: { writeText() { throw new Error('No clipboard use'); } } } };
     const context = vm.createContext({ window: root, Intl, Date, Object, Array, Boolean, String, Promise });
     vm.runInContext(fs.readFileSync(`${__dirname}/../shared/local-prompts-view.js`, 'utf8'), context);
     const messages = JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${language}/messages.json`, 'utf8'));
@@ -130,4 +130,34 @@ test('throwing prompt unsubscribe cannot preserve collection state or prevent in
     c.unsubscribeCollections = () => { unsubscribed++; };
     assert.doesNotThrow(() => c.dispose()); assert.equal(c.collectionState, null); assert.ok(c.collectionGeneration > generation); assert.equal(unsubscribed, 1);
     assert.equal(link.dispatch('click').prevented, true);
+});
+
+test('new-result link uses actual retained preview version, opens isolated tab and preserves source values', async () => {
+    const h = await fixture(), { c, view } = h;
+    c.setVariable('topic', 'private source value');
+    const oldVersion = c.session().versionId;
+    c.edit(); c.update('body', 'New {{topic}}'); await c.save(); await tick();
+    assert.notEqual(c.record().currentVersionId, oldVersion);
+    const link = view.main.querySelector('.prompt-result-draft');
+    assert.equal(link.href, `collections.html?promptId=${c.record().id}&bodyVersionId=${oldVersion}`);
+    assert.equal(link.target, '_blank'); assert.equal(link.rel, 'noopener noreferrer');
+    const before = JSON.stringify(c.session()), writes = h.h.writes;
+    assert.equal(link.dispatch('click').prevented, false); assert.equal(link.dispatch('auxclick').prevented, false);
+    assert.equal(JSON.stringify(c.session()), before); assert.equal(h.h.writes, writes); assert.equal(h.results.writes, 0);
+    assert.equal(view.main.querySelectorAll('.prompt-result-draft').length, 1);
+    c.edit(); c.update('body', 'Unsaved editor'); assert.equal(link.dispatch('click').prevented, true);
+    assert.equal(c.draft().input.body, 'Unsaved editor'); assert.equal(c.session().values.topic, 'private source value');
+    assert.equal(view.main.querySelector('.prompt-result-draft'), null); c.dispose();
+});
+test('stale result links reject loading, archived, removed-version and changed retained body snapshots', async () => {
+    for (const mode of ['loading', 'archived', 'missing', 'body', 'disposed']) {
+        const h = await fixture(), { c, view } = h; c.setVariable('topic', 'retained');
+        const link = view.main.querySelector('.prompt-result-draft'); assert.ok(link);
+        if (mode === 'loading') c.pendingReadGeneration = 9;
+        if (mode === 'archived') c.record().deletedAt = c.record().updatedAt;
+        if (mode === 'missing') c.record().history = [];
+        if (mode === 'body') c.record().history[0].body = 'Changed same-ID body';
+        if (mode === 'disposed') c.dispose();
+        assert.equal(link.dispatch('click').prevented, true, mode); assert.equal(link.dispatch('auxclick').prevented, true, mode); c.dispose();
+    }
 });

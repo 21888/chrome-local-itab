@@ -93,6 +93,10 @@
         renderCaptureStatus() {
             if (!this.captureStatus) return;
             this.captureStatus.replaceChildren(); const capture = this.controller.capture;
+            if (this.controller.resultDraftStatus === 'loading') this.captureStatus.append(this.paragraph('PromptLoading', 'Reading local prompts…'));
+            if (['invalid', 'unavailable'].includes(this.controller.resultDraftStatus)) {
+                this.captureStatus.append(this.paragraph('ResultDraftUnavailable', 'The exact prompt version could not be opened safely. Nothing was saved. Return to the prompt, refresh its saved data and open a new result draft.'));
+            }
             if (!capture || capture.state === 'done') return;
             const messages = {
                 ready: ['CaptureLoading', 'Preparing the selected text for review…'], loading: ['CaptureLoading', 'Preparing the selected text for review…'],
@@ -114,6 +118,7 @@
             if (capture.state === 'ack' || (capture.state === 'error' && ['guarded', 'unavailable'].includes(capture.error))) this.captureStatus.append(this.button('CaptureRetry', 'Retry handoff', capture.retry));
         }
         errorText(code) {
+            if (code === 'PROMPT_UNAVAILABLE') return this.t('ResultDraftSaveUnavailable', 'The linked prompt or exact version is no longer active or available. Your draft is kept. Refresh local prompts, then review a new link or explicitly unlink before saving.');
             const errors = { CONFLICT: ['ConflictError', 'Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item.'], HISTORY_LIMIT: ['HistoryLimit', 'This item already has 20 body versions. No history was removed. Keep the proposed text or save it as a new item.'], LIMIT: ['LimitError', 'A content or storage limit was reached. Your draft is kept. Shorten it or export your collection before making changes.'], WRITE: ['Uncertain', 'The save could not be confirmed. Your draft is kept. Check / retry the same save before starting another.'], VERIFY: ['Uncertain', 'The save could not be confirmed. Your draft is kept. Check / retry the same save before starting another.'], READ: ['ReadError', 'Saved data could not be read. Nothing has been replaced. Try refreshing.'], INVALID: ['Invalid', 'Check the fields: title and excerpt are required, source must be an HTTP(S) URL without credentials, and a prompt reference needs both exact IDs. Limits reject the whole save.'] };
             if (['CAPACITY', 'SIZE_LIMIT', 'TEXT_LIMIT', 'INPUT_LIMIT', 'RECOVERY_LIMIT'].includes(code)) code = 'LIMIT';
             if (['SOURCE_URL', 'TEXT', 'TAGS', 'TYPE', 'PROMPT_REFERENCE'].includes(code)) code = 'INVALID';
@@ -124,6 +129,7 @@
             this.main.append(this.paragraph('DraftScope', 'Drafts stay in this tab until you save. Switching items keeps them; closing this page does not.'));
             if (draft.conflict) { const box = this.el('div', 'prompt-conflict'); box.append(this.paragraph('ConflictError', 'Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item.'), this.button('SaveCopy', 'Save draft as new item', () => this.save(true))); const latest = c.record(); if (latest) box.append(this.el('pre', 'prompt-readonly', `${latest.title}\n\n${latest.body}\n\n${latest.notes}`)); this.main.append(box); }
             this.editor = { fields: {} };
+            if (draft.exactResult) form.append(this.paragraph('ResultDraftReview', 'Review the exact linked prompt version below, then add your title and result text. This new draft is unsaved; only Save locally keeps it.'));
             if (draft.captured) {
                 form.append(this.paragraph('CaptureReview', 'Review this exact browser-provided selection, add a title, and choose Save locally to keep it. It has not been saved.'));
                 if (draft.captureSource) {

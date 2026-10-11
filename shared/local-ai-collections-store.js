@@ -341,13 +341,20 @@
             }
             next.records = this.renewRecords(file.content.records, current); return next;
         }
-        async mutate(command) {
+        async mutate(command, validatePrompt = null) {
             command = snapshot(command); dictionary(command); check(token(command.operationId));
             const hash = await digest(command);
             return this.locked(async () => {
                 const current = await this.readRaw(), receipt = current.receipts[0];
                 if (receipt?.id === command.operationId) {
                     check(receipt.digest === hash && receipt.stateDigest === await digest({ ...current, receipts: [] }), 'CONFLICT'); return current;
+                }
+                // Ephemeral handoff guard, inside the existing workspace/collection fence.
+                // Receipt reconciliation above must remain possible after a later archive.
+                if (validatePrompt) {
+                    check(typeof validatePrompt === 'function' && typeof this.backend.readPromptState === 'function', 'PROMPT_UNAVAILABLE');
+                    let prompts; try { prompts = await this.backend.readPromptState(); } catch (_) { throw fault('READ'); }
+                    check(validatePrompt(prompts, command.promptRef) === true, 'PROMPT_UNAVAILABLE');
                 }
                 let next = clone(current); const now = this.timestamp();
                 const find = () => {

@@ -389,6 +389,19 @@
             const scope = index < 0 ? versionId : `v${index + 1}`;
             section.append(this.el('p', 'prompt-help', `${this.t(session ? 'LinkedPreviewScope' : 'LinkedHistoryScope', session ? 'Exact version used by this preview:' : 'Exact body version selected in history:')} ${scope}`));
             section.append(this.el('p', 'prompt-help', this.t('LinkedHelp', 'Only active saved results explicitly linked to this prompt and body version. Opens in a new tab; your draft and variable values stay here.')));
+            if (session) {
+                const href = root.LocalItabPromptDraft?.href(promptId, versionId);
+                const available = () => !c.disposed && !c.busy && !c.pendingCommand && c.pendingReadGeneration === null &&
+                    !c.linkedPromptUnavailable && !c.draft() && c.record()?.id === promptId && !c.record()?.deletedAt &&
+                    c.record()?.history.some(version => version.id === versionId && version.body === c.session()?.body) && c.session()?.versionId === versionId;
+                if (href && available()) {
+                    const link = this.el('a', 'prompt-link prompt-result-draft', this.t('SaveVersionResult', 'Save a result for this version'));
+                    link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+                    const guard = event => { if (!available() || !this.main.contains(section) || !section.contains(link)) event.preventDefault(); };
+                    link.addEventListener('click', guard); link.addEventListener('auxclick', guard); section.append(link);
+                    section.append(this.el('p', 'prompt-help', this.t('SaveVersionResultHelp', 'Opens a blank, unsaved draft in a new tab with this exact prompt version linked. Nothing is copied or saved.')));
+                }
+            }
             const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status');
             if (c.collectionLoading || c.pendingReadGeneration !== null) status.textContent = this.t('LinkedLoading', 'Reading saved results…');
             else if (c.collectionError || !c.collectionState || c.linkedPromptUnavailable || c.disposed) {

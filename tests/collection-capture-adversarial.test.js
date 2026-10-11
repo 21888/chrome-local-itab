@@ -67,6 +67,7 @@ function bootstrap({ startGate, claimGate }) {
         LocalItabPrompts: { Store: function () { return { read() {}, subscribe() {} }; } },
         LocalItabWorkspaces: { manager: { createCollectionBackend() {}, createPromptBackend() {} } },
         LocalItabCollectionsController: { Controller: function () { return c; } },
+        LocalItabPromptDraft: require('../shared/collection-prompt-draft.js'),
         LocalItabAISearch: { prepareTarget() {} }, LocalItabCapturePage: { Handoff },
         LocalItabCollectionsView: { View: class { constructor() { this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; } attachDepartureGuard() {} render() {} } },
         chrome: { storage: { local: { get: async () => { throw Error('appearance unavailable'); } }, onChanged: { addListener() {} } },

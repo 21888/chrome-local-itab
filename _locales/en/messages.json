@@ -3649,5 +3649,20 @@
   },
   "promptsCompareNo": {
     "message": "No"
+  },
+  "promptsSaveVersionResult": {
+    "message": "Save a result for this version"
+  },
+  "promptsSaveVersionResultHelp": {
+    "message": "Opens a blank, unsaved draft in a new tab with this exact prompt version linked. Nothing is copied or saved."
+  },
+  "collectionsResultDraftUnavailable": {
+    "message": "The exact prompt version could not be opened safely. Nothing was saved. Return to the prompt, refresh its saved data and open a new result draft."
+  },
+  "collectionsResultDraftReview": {
+    "message": "Review the exact linked prompt version below, then add your title and result text. This new draft is unsaved; only Save locally keeps it."
+  },
+  "collectionsResultDraftSaveUnavailable": {
+    "message": "The linked prompt or exact version is no longer active or available. Your draft is kept. Refresh local prompts, then review a new link or explicitly unlink before saving."
   }
 }

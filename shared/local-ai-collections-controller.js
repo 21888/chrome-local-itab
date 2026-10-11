@@ -190,7 +190,13 @@
                 const command = this.store.request(draft.id && !asCopy ? 'edit' : 'add', {
                     ...values(draft.input), ...(draft.id && !asCopy ? { id: draft.id, version: draft.version } : {})
                 });
-                return await this.execute({ command, draftKey, action: 'save' });
+                const validatePrompt = draft.exactResult && command.promptRef ? (raw, reference) => {
+                    try {
+                        const state = Prompts.validate(raw), record = state.records.find(item => item.id === reference.promptId && !item.deletedAt);
+                        return Boolean(record?.history.some(version => version.id === reference.bodyVersionId));
+                    } catch (_) { return false; }
+                } : null;
+                return await this.execute({ command, draftKey, action: 'save', validatePrompt });
             } catch (error) { this.error = { code: error.code || 'INVALID', scope: 'save' }; this.notify(); return false; }
         }
         async action(kind) {
@@ -203,7 +209,7 @@
             if (this.busy) return false;
             this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
             try {
-                const state = await this.store.mutate(operation.command);
+                const state = await this.store.mutate(operation.command, operation.validatePrompt);
                 if (this.disposed) return false;
                 this.pendingCommand = null;
                 if (operation.action === 'save') {

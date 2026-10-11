@@ -3649,5 +3649,20 @@
   },
   "promptsCompareNo": {
     "message": "否"
+  },
+  "promptsSaveVersionResult": {
+    "message": "为此版本保存结果"
+  },
+  "promptsSaveVersionResultHelp": {
+    "message": "在新标签页打开空白、未保存的草稿，并关联此确切提示词版本。不会复制或保存任何内容。"
+  },
+  "collectionsResultDraftUnavailable": {
+    "message": "无法安全打开此确切提示词版本，未保存任何内容。请返回提示词，刷新已保存的数据后重新打开结果草稿。"
+  },
+  "collectionsResultDraftReview": {
+    "message": "请核对下方关联的确切提示词版本，再填写标题和结果正文。此新草稿尚未保存；只有点击“保存到本地”才会保留。"
+  },
+  "collectionsResultDraftSaveUnavailable": {
+    "message": "关联的提示词或确切版本已停用或不可用。草稿已保留。请刷新本地提示词，核对新的关联，或明确取消关联后再保存。"
   }
 }

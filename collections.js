@@ -31,17 +31,23 @@
             promptStore = { read: () => prompts.read(), subscribe: listener => prompts.subscribe(listener) };
         } catch (error) { promptStore = { subscribe: () => () => {}, read: async () => { throw error; } }; }
         const controller = new root.LocalItabCollectionsController.Controller({ store, promptStore });
-        root.LocalItabAISearch.prepareTarget(controller, root.location.search);
+        const resultRequest = root.LocalItabPromptDraft.target(root.location.search);
+        if (!resultRequest) root.LocalItabAISearch.prepareTarget(controller, root.location.search);
         const view = new root.LocalItabCollectionsView.View({ host, controller });
         root.localCollectionsView = view; view.attachDepartureGuard(); view.render();
         root.addEventListener?.('pagehide', event => { if (!event.persisted) controller.dispose(); });
-        const capture = new root.LocalItabCapturePage.Handoff({
+        const resultDraft = resultRequest ? new root.LocalItabPromptDraft.Handoff({
+            controller, request: resultRequest,
+            clearURL: () => root.history.replaceState(null, '', root.location.pathname),
+            blocked: () => view.openDialog || view.revisionDraft !== null || view.proposals.size > 0
+        }) : null;
+        const capture = resultRequest ? null : new root.LocalItabCapturePage.Handoff({
             controller, search: root.location.search,
             send: message => root.chrome.runtime.sendMessage(message),
             clearURL: () => root.history.replaceState(null, '', root.location.pathname),
             blocked: () => view.openDialog || view.revisionDraft !== null || view.proposals.size > 0
         });
-        void applyAppearance(); await controller.start(); await capture.run();
+        void applyAppearance(); await controller.start(); if (resultDraft) await resultDraft.run(); else await capture.run();
         root.chrome?.storage?.onChanged?.addListener((changes, area) => {
             if (area === 'local' && Object.keys(changes).some(key => key === 'appearance' || key.startsWith('__localItabWorkspace'))) void applyAppearance();
         });
