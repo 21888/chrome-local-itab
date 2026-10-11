@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STAMP = (1980, 1, 1, 0, 0, 0)
 RUNTIME_FILES = (
     "dashboard-customization.css", "shared/dashboard-customization.js", "shared/dashboard-card-layout.js",
+    "shared/ai-model-comparison.js", "ai-model-comparison.css",
     "manifest.json", "shared/local-ai-markdown.js",
     "shared/ai-model-client.js", "shared/ai-model-presets.js", "shared/ai-model-view.js", "shared/ai-prompt-refinement.js", "ai-model.css",
     "collection-capture-background.js", "shared/collection-capture.js", "shared/collection-capture-page.js", "shared/collection-prompt-draft.js",

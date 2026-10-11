@@ -486,3 +486,7 @@ The existing project documentation identifies the license as MIT. A separate `LI
 **Ask selected saved context:** the new-tab **AI context Q&A** panel lets you choose global saved AI excerpts and this workspace’s saved note, edit and review the exact outbound content, then ask your selected model. Save an answer explicitly, or review strict task JSON before adding the exact list to Tasks. No source is selected automatically. [Workflow and privacy](docs/ai-context-workflow.md)
 
 **Reviewed prompt refinement:** choose a saved prompt, review the exact template and refinement instruction sent to your model, compare the proposal, and explicitly accept a new version. Filled values are excluded; original history and variable placeholders are protected. [Workflow](docs/ai-prompt-refinement.md)
+
+### Compare models on the same completed prompt
+
+The Prompt library's **Compare models** action can send the same reviewed prompt to one or two saved connections, with separate temporary keys, explicit origin access and a disclosed request count. Side-by-side results fail/cancel independently and are saved individually only on request. No automatic calls or retries. See [comparison workflow and verification boundaries](docs/ai-model-comparison.md).

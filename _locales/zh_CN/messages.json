@@ -3606,7 +3606,7 @@
     "message": "比较已保存版本"
   },
   "promptsCompareHelp": {
-    "message": "只读比较已保存正文，不填充变量。“原版本 → 新版本”决定删除与新增的文本。"
+    "message": "选择最多两个已保存的连接。核对各目标将收到的同一份完整提示词，再明确点击发送。最多会发起两次服务商请求，各服务商都可能收费。每个目标的密钥独立且仅临时使用；不会自动重试。"
   },
   "promptsCompareFrom": {
     "message": "原版本"
@@ -3636,7 +3636,7 @@
     "message": "已保存原文（原版本 / 新版本）"
   },
   "promptsCompareClose": {
-    "message": "关闭比较"
+    "message": "关闭"
   },
   "promptsCompareEndings": {
     "message": "换行符数量"
@@ -4306,5 +4306,104 @@
   },
   "promptsModelRefineSaved": {
     "message": "已接受为提示词新版本，原始模板保留在历史记录中。"
+  },
+  "promptsCompareTitle": {
+    "message": "对比模型"
+  },
+  "promptsComparePrompt": {
+    "message": "所有目标共用的完整提示词"
+  },
+  "promptsCompareSourceChanged": {
+    "message": "提示词或来源已变更。请关闭并重新打开对比，核对当前提示词。此处不能再发起请求或保存。"
+  },
+  "promptsComparePermissionError": {
+    "message": "尚未获得端点访问权限。未向此目标发送请求。"
+  },
+  "promptsCompareCancelled": {
+    "message": "已停止。服务商可能仍对已经开始的工作收费。"
+  },
+  "promptsCompareRequestError": {
+    "message": "此目标请求失败。请检查端点、模型、密钥或服务商状态。不会自动重试；另一份结果仍保留。"
+  },
+  "promptsCompareTarget": {
+    "message": "目标"
+  },
+  "promptsCompareConnection": {
+    "message": "已保存的连接"
+  },
+  "promptsCompareKey": {
+    "message": "仅用于此目标的 API 密钥（可选；绝不保存）"
+  },
+  "promptsCompareResponse": {
+    "message": "模型回复"
+  },
+  "promptsCompareAllow": {
+    "message": "允许此端点"
+  },
+  "promptsCompareAllowed": {
+    "message": "已允许访问。只有点击发送才会发起请求。"
+  },
+  "promptsCompareStop": {
+    "message": "停止此目标"
+  },
+  "promptsCompareSave": {
+    "message": "将此结果保存到 AI 收藏"
+  },
+  "promptsCompareSavedNote": {
+    "message": "此对比结果来自明确核对过的同一份完整提示词。链接对应已保存的模板版本。填写的变量值不会单独保存，但可能出现在回复中。不会保存 API 密钥。"
+  },
+  "promptsCompareSaved": {
+    "message": "已保存，并关联到原提示词版本。"
+  },
+  "promptsCompareSaveError": {
+    "message": "无法确认保存成功。此结果仍保留；重试将使用同一个保存操作。"
+  },
+  "promptsCompareReviewAgain": {
+    "message": "连接已变更。发送前请重新核对两个目标。"
+  },
+  "promptsCompareReview": {
+    "message": "核对对比请求"
+  },
+  "promptsCompareSelect": {
+    "message": "请选择一个或两个已保存的连接。可先在“用自己的模型运行”中创建连接。"
+  },
+  "promptsCompareEndpoint": {
+    "message": "完整端点 URL"
+  },
+  "promptsCompareModel": {
+    "message": "模型 ID"
+  },
+  "promptsCompareCount": {
+    "message": "最多服务商请求数"
+  },
+  "promptsCompareCost": {
+    "message": "各目标可能分别收费。请核对上方每个端点、模型及相同提示词。仅允许访问不会发送内容。"
+  },
+  "promptsCompareDuplicate": {
+    "message": "请选择有效且不同的端点与模型组合。不会发送重复目标。"
+  },
+  "promptsCompareSend": {
+    "message": "发送已核对的对比（最多 2 次请求）"
+  },
+  "promptsCompareProfileChanged": {
+    "message": "所选连接已变更或被删除。请关闭并重新打开以加载连接，再次核对。"
+  },
+  "promptsCompareRunning": {
+    "message": "正在等待此模型回复…"
+  },
+  "promptsCompareReady": {
+    "message": "请核对这份结果。只有希望将其存入本地收藏及未加密备份时，才点击保存。"
+  },
+  "promptsCompareLoadError": {
+    "message": "无法验证已保存的连接。未发起请求。请关闭并重新打开重试。"
+  },
+  "promptsCompareInterrupted": {
+    "message": "对比已中断。请关闭并重新打开后再继续操作。"
+  },
+  "promptsCompareDiscard": {
+    "message": "停止待完成的请求并丢弃未保存的对比结果？"
+  },
+  "promptsCompareNone": {
+    "message": "不向此目标发送"
   }
 }

@@ -88,3 +88,7 @@ Optional direct-model requests send only the reviewed single prompt, model ID an
 ## Device-local model connection presets
 
 Connection presets are optional, explicitly saved device-local metadata shared by the prompt-model dialog and saved-context Q&A panel. Only the preset name, validated HTTPS endpoint and model ID are stored as unencrypted text. The dedicated API-key/password field is never included. Do not put credentials or other secrets in preset names, endpoint paths or model IDs. Presets are excluded from manual exports, complete backups, Chrome Sync and Drive snapshots; restoring a backup preserves the destination device’s existing presets. Selecting or saving a preset never grants endpoint permission or sends a request; every request still needs exact destination/content review and explicit Send.
+
+### Optional model comparison
+
+When you explicitly choose Compare models, you can select up to two saved model connections and review each full endpoint, model ID and the same completed prompt. Only Send starts up to two provider requests; each provider may charge separately. Each target uses its own temporary API key and separate optional origin-permission action. Opening, selecting, reviewing or granting access never sends the prompt. Keys are not saved or copied between targets. Responses remain transient unless you explicitly save each result to local AI collections, where the original prompt-version reference and response may enter unencrypted backups.

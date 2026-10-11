@@ -1,0 +1,7 @@
+.ai-compare-dialog { width: min(1120px, calc(100vw - 32px)); max-width: 1120px; }
+.ai-compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-block: 16px; }
+.ai-compare-target { min-width: 0; padding: 12px; border: 1px solid var(--template-border, #b6bcc6); border-radius: 10px; }
+.ai-compare-target h3 { overflow-wrap: anywhere; }
+.ai-compare-target > textarea { box-sizing: border-box; width: 100%; }
+.ai-compare-target .ai-model-field { margin-block: 12px; }
+@media (max-width: 720px) { .ai-compare-grid { grid-template-columns: 1fr; } }

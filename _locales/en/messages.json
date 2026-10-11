@@ -3606,7 +3606,7 @@
     "message": "Compare saved versions"
   },
   "promptsCompareHelp": {
-    "message": "Read-only comparison of saved bodies. Variables are not filled in. From → To determines removed and added text."
+    "message": "Select up to two saved connections. Review the same completed prompt for each target, then explicitly Send. This makes up to two provider requests; each provider may charge you. Keys are temporary and separate for each target. No automatic retries."
   },
   "promptsCompareFrom": {
     "message": "From"
@@ -3636,7 +3636,7 @@
     "message": "Original saved text (From / To)"
   },
   "promptsCompareClose": {
-    "message": "Close comparison"
+    "message": "Close"
   },
   "promptsCompareEndings": {
     "message": "Line endings"
@@ -4306,5 +4306,104 @@
   },
   "promptsModelRefineAccept": {
     "message": "Accept as new prompt version"
+  },
+  "promptsCompareTitle": {
+    "message": "Compare models"
+  },
+  "promptsComparePrompt": {
+    "message": "Same completed prompt for all targets"
+  },
+  "promptsCompareSourceChanged": {
+    "message": "The prompt or source changed. Close and reopen comparison to review the current prompt. No more requests or saves can start here."
+  },
+  "promptsComparePermissionError": {
+    "message": "Endpoint access is not granted. No request was sent to this target."
+  },
+  "promptsCompareCancelled": {
+    "message": "Stopped. Work already started may still be billed."
+  },
+  "promptsCompareRequestError": {
+    "message": "This target failed. Check its endpoint, model, key or provider status. Nothing retries automatically; the other result is kept."
+  },
+  "promptsCompareTarget": {
+    "message": "Target"
+  },
+  "promptsCompareConnection": {
+    "message": "Saved connection"
+  },
+  "promptsCompareKey": {
+    "message": "API key for this target only (optional; never saved)"
+  },
+  "promptsCompareResponse": {
+    "message": "Model response"
+  },
+  "promptsCompareAllow": {
+    "message": "Allow this endpoint"
+  },
+  "promptsCompareAllowed": {
+    "message": "Access allowed. Only Send starts requests."
+  },
+  "promptsCompareStop": {
+    "message": "Stop this target"
+  },
+  "promptsCompareSave": {
+    "message": "Save this result to AI collection"
+  },
+  "promptsCompareSavedNote": {
+    "message": "Comparison result from the same explicitly reviewed completed prompt. The link identifies its saved template version. Filled values are not stored separately but may appear in this response. No API key is saved."
+  },
+  "promptsCompareSaved": {
+    "message": "Saved and linked to the original prompt version."
+  },
+  "promptsCompareSaveError": {
+    "message": "Could not confirm the save. This result remains here; retry uses the same save operation."
+  },
+  "promptsCompareReviewAgain": {
+    "message": "Connections changed. Review both targets again before sending."
+  },
+  "promptsCompareReview": {
+    "message": "Review comparison requests"
+  },
+  "promptsCompareSelect": {
+    "message": "Select one or two saved connections. Create connections with Run with your model first."
+  },
+  "promptsCompareEndpoint": {
+    "message": "Full endpoint URL"
+  },
+  "promptsCompareModel": {
+    "message": "Model ID"
+  },
+  "promptsCompareCount": {
+    "message": "Maximum provider requests"
+  },
+  "promptsCompareCost": {
+    "message": "Each target may charge separately. Review every endpoint, model and identical prompt above. Allowing access sends nothing."
+  },
+  "promptsCompareDuplicate": {
+    "message": "Choose valid, distinct endpoint and model combinations. Duplicate targets are not sent."
+  },
+  "promptsCompareSend": {
+    "message": "Send reviewed comparison (up to 2 requests)"
+  },
+  "promptsCompareProfileChanged": {
+    "message": "A selected connection changed or was deleted. Close and reopen to load it, then review again."
+  },
+  "promptsCompareRunning": {
+    "message": "Waiting for this model…"
+  },
+  "promptsCompareReady": {
+    "message": "Review this result. Save only if you want it in local collections and unencrypted backups."
+  },
+  "promptsCompareLoadError": {
+    "message": "Saved connections could not be verified. No requests were started. Close and reopen to try again."
+  },
+  "promptsCompareInterrupted": {
+    "message": "Comparison interrupted. Close and reopen before starting more work."
+  },
+  "promptsCompareDiscard": {
+    "message": "Stop pending requests and discard unsaved comparison results?"
+  },
+  "promptsCompareNone": {
+    "message": "Do not send to this target"
   }
 }
