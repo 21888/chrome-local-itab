@@ -296,7 +296,7 @@ function dashboardHarness(initial = baseline) {
         const active = h.component._cancelFreeDrag;
         gate.resolve(); await first;
         assert.equal(h.component._cancelFreeDrag, active, 'earlier successful save leaves the active pointer owned');
-        h.document.listeners.get(end)(event); await h.controller.flush();
+        h.document.listeners.get(end)({ ...event, clientX: 53.5, clientY: 81.25 }); await h.controller.flush();
         assert.equal(h.component._cancelFreeDrag, null);
         assert.deepEqual(h.data.layout.positions['all|https://example.com/a'], { x: 51.25, y: 71.75 });
         if (end === 'pointerup') assert.deepEqual(h.data.layout.positions['all|https://example.com/b'], { x: 43.5, y: 71.25 });

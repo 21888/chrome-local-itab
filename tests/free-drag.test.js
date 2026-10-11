@@ -17,7 +17,11 @@ function classes(...initial) {
 }
 function createHarness({ width = 288, height = 288, tileWidth = 80, tileHeight = 80, gridSize = 96 } = {}) {
     const document = { ...eventTarget(), getElementById(id) { return id === 'shortcuts-grid' ? grid : null; } };
-    const context = { document, window: { addEventListener() {} }, storageManager: { defaultConfig: { layout: { columns: 6 } } }, console };
+    const frames = new Map();
+    let nextFrame = 0;
+    const window = { ...eventTarget(), requestAnimationFrame(fn) { frames.set(++nextFrame, fn); return nextFrame; }, cancelAnimationFrame(id) { frames.delete(id); } };
+    const frame = () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn()); };
+    const context = { document, window, storageManager: { defaultConfig: { layout: { columns: 6 } } }, console };
     vm.createContext(context);
     vm.runInContext(fs.readFileSync('newtab.js', 'utf8') + '\nthis.ShortcutsComponent = ShortcutsComponent; this.errors = []; showErrorMessage = message => errors.push(message);', context);
     const items = [0, 1].map(index => ({
@@ -42,12 +46,20 @@ function createHarness({ width = 288, height = 288, tileWidth = 80, tileHeight =
     let saves = 0, opens = 0;
     component.saveLayoutDebounced = () => { saves++; };
     component.openShortcut = () => { opens++; };
+    // A synthetic release defaults to the last delivered endpoint, as an
+    // unchanged real pointer does; tests may explicitly provide a newer one.
+    let clientX = 10, clientY = 10;
+    const emit = document.emit;
+    document.emit = (type, event) => {
+        if (type === 'pointermove' && event.pointerId === 1) { clientX = event.clientX; clientY = event.clientY; }
+        emit(type, event);
+    };
     const event = (overrides = {}) => ({
-        pointerId: 1, button: 0, isPrimary: true, clientX: 10, clientY: 10, target: items[0],
+        pointerId: 1, button: 0, isPrimary: true, clientX, clientY, target: items[0],
         prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...overrides
     });
     const pointerListeners = () => ['pointermove', 'pointerup', 'pointercancel'].reduce((sum, type) => sum + (document.listeners.get(type)?.size || 0), 0);
-    return { component, context, document, grid, items, event, pointerListeners, saves: () => saves, opens: () => opens };
+    return { component, context, document, window, frames, frame, grid, items, event, pointerListeners, saves: () => saves, opens: () => opens };
 }
 
 for (const jitter of [0, 3]) {
@@ -272,4 +284,116 @@ for (const alignToGrid of [false, true]) {
     h.document.emit('pointerup', h.event());
     assert.equal(h.component.getSavedPosition(h.component.links[0]).x, alignToGrid ? 384 : 360);
     assert.equal(h.saves(), 1);
+}
+
+
+// Live client-to-canvas coordinate model: the actual handlers see rectangles
+// derived from CSS placement, ancestor movement and local canvas scroll.
+function scrollingHarness(alignToGrid = false) {
+    const h = createHarness({ width: 500, height: 1000 });
+    h.component.layout.alignToGrid = alignToGrid;
+    const geometry = { left: 30, top: 200, width: 500, height: 1000, tileWidth: 80, tileHeight: 80 };
+    h.grid.scrollLeft = 0; h.grid.scrollTop = 0;
+    h.grid.scrollWidth = 800; h.grid.scrollHeight = 1000;
+    h.grid.getBoundingClientRect = () => ({ ...geometry });
+    h.items.forEach(item => {
+        item.getBoundingClientRect = () => ({
+            left: geometry.left + parseFloat(item.style.left) - h.grid.scrollLeft,
+            top: geometry.top + parseFloat(item.style.top) - h.grid.scrollTop,
+            width: geometry.tileWidth, height: geometry.tileHeight
+        });
+    });
+    h.component.links.forEach((link, i) => { link.layoutId = `scroll-${i}`; link.url = 'https://example.com/duplicate'; });
+    h.component.identityPositions = { 'scroll-0': { all: { x: 0, y: 0 } }, 'scroll-1': { all: { x: 96, y: 0 } } };
+    const saved = [];
+    h.component.saveLayoutDebounced = (...args) => saved.push(args);
+    h.component.positionAddTile = () => {};
+    const down = h.event({ clientX: 40, clientY: 210 });
+    const move = h.event({ clientX: 70, clientY: 250 });
+    h.component.onPointerDown(down);
+    return { ...h, geometry, saved, down, move };
+}
+for (const trigger of ['pointermove', 'document-scroll', 'nested-scroll', 'frame', 'pointerup']) {
+    const h = scrollingHarness();
+    h.document.emit('pointermove', h.move);
+    h.geometry.top = 100;
+    if (trigger === 'pointermove') h.document.emit('pointermove', h.move);
+    if (trigger.endsWith('scroll')) h.document.emit('scroll', { target: trigger === 'nested-scroll' ? { scrollTop: 100 } : h.document });
+    if (trigger === 'frame') h.frame();
+    if (trigger !== 'pointerup') assert.equal(h.items[0].getBoundingClientRect().top, 240, `${trigger}: original grab point stays under a stationary pointer`);
+    h.document.emit('pointerup', h.move);
+    assert.deepEqual(JSON.parse(JSON.stringify(h.component.identityPositions['scroll-0'].all)), { x: 30, y: 140 });
+    assert.equal(h.saved.length, 1);
+    assert.equal(h.frames.size, 0);
+    assert.equal(h.document.listeners.get('scroll').size, 0);
+    assert.equal(h.window.listeners.get('resize').size, 0);
+}
+for (const alignToGrid of [false, true]) {
+    const h = scrollingHarness(alignToGrid);
+    const untouched = JSON.stringify(h.component.identityPositions['scroll-1']);
+    h.document.emit('pointermove', h.move);
+    h.geometry.left = -20; h.geometry.top = 100;
+    h.grid.scrollLeft = 150; h.grid.scrollTop = 40;
+    h.document.emit('scroll', { target: h.grid });
+    assert.equal(h.items[0].getBoundingClientRect().left, 60);
+    assert.equal(h.items[0].getBoundingClientRect().top, 240);
+    assert.equal(h.saved.length, 0, 'scroll/frame tracking never writes');
+    h.document.emit('pointerup', h.move);
+    const position = h.component.identityPositions['scroll-0'].all;
+    assert.equal(position.x, alignToGrid ? 192 : 230);
+    assert.equal(position.y, alignToGrid ? 192 : 180);
+    assert.equal(JSON.stringify(h.component.identityPositions['scroll-1']), untouched);
+    assert.equal(h.saved.length, 1);
+    assert.deepEqual(Object.keys(h.saved[0][0]), []);
+    assert.deepEqual(Object.keys(h.saved[0][1]), ['["all","scroll-0"]']);
+}
+for (const end of ['pointercancel', 'lostpointercapture', 'detach']) {
+    const h = scrollingHarness();
+    const original = { ...h.items[0].style }, before = JSON.stringify(h.component.identityPositions);
+    h.document.emit('pointermove', h.move);
+    h.geometry.top = 100; h.grid.scrollLeft = 150;
+    h.frame();
+    const lateFrame = [...h.frames.values()][0];
+    if (end === 'detach') h.component.detachFreeDrag();
+    else (end === 'lostpointercapture' ? h.items[0] : h.document).emit(end, h.move);
+    lateFrame();
+    h.document.emit('scroll', {}); h.window.emit('resize', {}); h.document.emit('pointerup', h.move);
+    assert.deepEqual(h.items[0].style, original);
+    assert.equal(JSON.stringify(h.component.identityPositions), before);
+    assert.equal(h.saved.length, 0);
+    assert.equal(h.frames.size, 0);
+    assert.equal(h.document.listeners.get('scroll').size, 0);
+    assert.equal(h.window.listeners.get('resize').size, 0);
+}
+{
+    const h = scrollingHarness();
+    const original = { ...h.items[0].style };
+    h.geometry.top = 100;
+    h.document.emit('scroll', {}); h.window.emit('resize', {}); h.frame();
+    h.document.emit('pointerup', h.down);
+    assert.deepEqual(h.items[0].style, original, 'scroll without an intentional pointer drag does not reposition');
+    assert.equal(h.saved.length, 0);
+    assert.equal(h.frames.size, 0);
+}
+{
+    const h = scrollingHarness();
+    h.document.emit('pointermove', h.move);
+    h.geometry.left = -600; h.geometry.top = -800;
+    h.geometry.tileWidth = 120; h.geometry.tileHeight = 150;
+    h.window.emit('resize', {});
+    assert.equal(h.items[0].style.left, '660px');
+    assert.equal(h.items[0].style.top, '850px', 'live resized tile clamps to current canvas bounds');
+    h.document.emit('pointerup', h.move);
+    assert.equal(h.component.identityPositions['scroll-0'].all.y, 850);
+    assert.equal(h.saved.length, 1);
+}
+console.log('free drag live scroll, layout-shift, resize and cleanup tests ok');
+
+{
+    const h = scrollingHarness();
+    h.document.emit('pointermove', h.move);
+    h.geometry.top = 100;
+    h.document.emit('pointerup', h.event({ clientX: 100, clientY: 300 }));
+    assert.deepEqual(JSON.parse(JSON.stringify(h.component.identityPositions['scroll-0'].all)), { x: 60, y: 190 }, 'release uses its newest client endpoint and current canvas origin');
+    assert.equal(h.saved.length, 1);
 }

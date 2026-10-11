@@ -3757,7 +3757,7 @@ class ShortcutsComponent {
         const gridRect = this.gridEl.getBoundingClientRect();
         const itemRect = item.getBoundingClientRect();
         const origLeft = itemRect.left - gridRect.left + (this.gridEl.scrollLeft || 0);
-        const origTop = itemRect.top - gridRect.top;
+        const origTop = itemRect.top - gridRect.top + (this.gridEl.scrollTop || 0);
         const originalStyle = { left: item.style.left, top: item.style.top, transform: item.style.transform };
         const priorClickSuppression = this._suppressClickUntil;
         const offsetX = e.clientX - itemRect.left;
@@ -3768,26 +3768,53 @@ class ShortcutsComponent {
         this._dragStartPos = { x: e.clientX, y: e.clientY };
         this._dragMoved = false;
 
+        let pointer = { x: e.clientX, y: e.clientY };
+        let frame = null;
+        const updatePosition = () => {
+            if (!moved || finished) return;
+            // Client coordinates must be converted against today's canvas, not
+            // the pointerdown rectangle: ancestors and the canvas can scroll or
+            // move while capture keeps the pointer on the same shortcut.
+            const liveGrid = this.gridEl.getBoundingClientRect();
+            const liveItem = item.getBoundingClientRect();
+            current = this.clampToBounds(
+                pointer.x - liveGrid.left - offsetX + (this.gridEl.scrollLeft || 0),
+                pointer.y - liveGrid.top - offsetY + (this.gridEl.scrollTop || 0),
+                liveItem.width, liveItem.height,
+                Math.max(liveGrid.width, this.gridEl.scrollWidth || 0),
+                Math.max(liveGrid.height, this.gridEl.scrollHeight || 0)
+            );
+            item.style.left = `${current.x}px`;
+            item.style.top = `${current.y}px`;
+            item.style.transform = 'none';
+        };
+        const trackGeometry = () => {
+            frame = null;
+            if (finished || !moved) return;
+            updatePosition();
+            // Layout shifts need not dispatch scroll or resize. Track them only
+            // for the lifetime of an actual drag, including a stationary pointer.
+            frame = window.requestAnimationFrame?.(trackGeometry) ?? null;
+        };
         const onMove = event => {
             if (event.pointerId !== e.pointerId || finished) return;
             if (!moved && Math.abs(event.clientX - e.clientX) <= 3 && Math.abs(event.clientY - e.clientY) <= 3) return;
             event.preventDefault();
             event.stopPropagation();
             moved = true;
+            pointer = { x: event.clientX, y: event.clientY };
             this._dragMoved = true;
             item.classList.add('drag-free');
-            current = this.clampToBounds(
-                event.clientX - gridRect.left - offsetX + (this.gridEl.scrollLeft || 0),
-                event.clientY - gridRect.top - offsetY,
-                itemRect.width, itemRect.height, Math.max(gridRect.width, this.gridEl.scrollWidth || 0), gridRect.height
-            );
-            item.style.left = `${current.x}px`;
-            item.style.top = `${current.y}px`;
-            item.style.transform = 'none';
+            updatePosition();
+            if (frame === null) frame = window.requestAnimationFrame?.(trackGeometry) ?? null;
         };
         const finish = (event, commit) => {
             if (finished || (event && event.pointerId !== e.pointerId)) return;
+            if (commit && moved) updatePosition();
             finished = true;
+            if (frame !== null) window.cancelAnimationFrame?.(frame);
+            document.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener?.('resize', updatePosition);
             // Clear ownership/listeners before releasePointerCapture can emit lostcapture.
             this._cancelFreeDrag = null;
             document.removeEventListener('pointermove', onMove);
@@ -3799,11 +3826,11 @@ class ShortcutsComponent {
                 event?.stopPropagation();
                 const finalGrid = this.gridEl.getBoundingClientRect();
                 const finalItem = item.getBoundingClientRect();
-                let target = this.clampToBounds(current.x, current.y, finalItem.width, finalItem.height, Math.max(finalGrid.width, this.gridEl.scrollWidth || 0), finalGrid.height);
+                let target = this.clampToBounds(current.x, current.y, finalItem.width, finalItem.height, Math.max(finalGrid.width, this.gridEl.scrollWidth || 0), Math.max(finalGrid.height, this.gridEl.scrollHeight || 0));
                 if (this.layout.alignToGrid) {
                     target = this.snapToGrid(target.x, target.y, gs);
                     target = this.avoidOverlap(target.x, target.y, gs, {
-                        width: Math.max(finalGrid.width, this.gridEl.scrollWidth || 0), height: finalGrid.height,
+                        width: Math.max(finalGrid.width, this.gridEl.scrollWidth || 0), height: Math.max(finalGrid.height, this.gridEl.scrollHeight || 0),
                         tileWidth: finalItem.width, tileHeight: finalItem.height
                     }, key);
                 }
@@ -3838,10 +3865,17 @@ class ShortcutsComponent {
                 this.positionAddTile();
             }
         };
-        const onUp = event => finish(event, true);
+        const onUp = event => {
+            if (event.pointerId !== e.pointerId || finished) return;
+            // Release may carry a newer endpoint than the last pointermove.
+            pointer = { x: event.clientX, y: event.clientY };
+            finish(event, true);
+        };
         const onCancel = event => finish(event, false);
         this._cancelFreeDrag = () => finish(null, false);
         this.refreshShortcutUndo();
+        document.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
         document.addEventListener('pointermove', onMove, { passive: false });
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onCancel);
@@ -3881,7 +3915,7 @@ class ShortcutsComponent {
             // A template/resize may fit a saved coordinate for display only.
             // Collide with the visible obstacle, without rewriting its raw position.
             const left = rectangle.left - gridRect.left + (grid.scrollLeft || 0);
-            const top = rectangle.top - gridRect.top;
+            const top = rectangle.top - gridRect.top + (grid.scrollTop || 0);
             obstacles.push({ left, top, right: left + rectangle.width, bottom: top + rectangle.height });
         }
 
