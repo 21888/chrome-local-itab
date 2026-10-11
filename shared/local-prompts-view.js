@@ -120,7 +120,7 @@
             const c = this.controller;
             this.checkExcerptDialog?.();
             if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
-            if (kind === 'linkedResults') { this.updateLinkedResults(); return; }
+            if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); return; }
             if (kind === 'preview') {
                 // Even an edit back to the original text supersedes pending feedback.
                 this.copyGeneration++; this.updatePreview(); return;
@@ -137,7 +137,10 @@
             if (!c.state) this.renderUnavailable();
             else if (c.draft()) this.renderEditor();
             else if (c.record()) this.renderRecord(c.record());
-            else if (!root.LocalItabAISearchView?.showTargetError(c, this)) this.renderEmpty();
+            else if (c.activeSessions.has(c.selected)) {
+                this.main.append(this.el('p', 'prompt-conflict', this.t('PreviewMissingRecord', 'This prompt is no longer available. Your preview values are retained in this tab. Read again or choose another saved prompt.')),
+                    this.button('ReadAgain', 'Read again', () => void c.refresh()));
+            } else if (!root.LocalItabAISearchView?.showTargetError(c, this)) this.renderEmpty();
             if (c.busy || c.pendingCommand) for (const control of this.main.querySelectorAll('button, input, textarea, select')) control.disabled = true;
             if (desiredFocus) {
                 const target = Array.from(this.main.querySelectorAll('[data-prompt-focus]')).find(node => node.dataset.promptFocus === desiredFocus);
@@ -288,28 +291,38 @@
         renderUse(record) {
             const c = this.controller, section = this.el('section'); section.append(this.el('h3', '', this.t('Use', 'Prepare to use')),
                 this.el('p', 'prompt-help', this.t('UseHelp', 'Variable values stay only in this tab. Preview the completed text, then copy it to the tool you choose.')));
-            if (c.session(record).versionId !== record.currentVersionId) {
-                const retained = this.el('div', 'prompt-conflict'); retained.append(this.el('p', '', this.t('RetainedVariables', 'The saved body changed. This form keeps your previous body and variable values. Clear values when you are ready to use the latest body.'))); section.append(retained);
+            const session = c.session(record), index = record.history.findIndex(version => version.id === session.versionId && version.body === session.body);
+            section.append(this.el('p', 'prompt-help', `${this.t('ActivePreviewVersion', 'Preview body version:')} ${index < 0 ? this.t('UnavailableVersion', 'unavailable') : `v${index + 1}`}${session.versionId === record.currentVersionId && session.body === record.body ? ` · ${this.t('Current', 'current')}` : ''}`));
+            if (!c.sessionSourceCurrent(record, session) || session.versionId !== record.currentVersionId) {
+                const retained = this.el('div', 'prompt-conflict');
+                retained.append(this.el('p', '', this.t('RetainedPreview', 'This preview keeps its exact body and values. Switching versions preserves each version’s values in this tab.')),
+                    this.button('ReturnCurrentVersion', 'Return to current version', () => { if (c.returnToCurrent()) this.focusDetail('preview'); })); section.append(retained);
+            }
+            if (session.capacity || c.error?.code === 'SESSION_LIMIT') {
+                section.append(this.el('p', 'prompt-help', this.errorText('SESSION_LIMIT')),
+                    this.button('ClearTabPreviews', 'Clear all preview values in this tab', async () => {
+                        if (await this.confirm({ title: this.t('ClearTabPreviews', 'Clear all preview values in this tab'), body: this.t('ClearTabPreviewsHelp', 'Discard all temporary variable values and literal choices in this tab? Saved prompts, history and editor drafts stay unchanged.'), accept: this.t('ClearTabPreviews', 'Clear all preview values in this tab') })) c.clearPreviewSessions();
+                    }));
             }
             const literalWrap = this.el('label', 'prompt-check'), literal = this.el('input'); literal.type = 'checkbox'; literal.checked = c.session(record).literal;
-            literal.addEventListener('change', () => c.setLiteral(literal.checked)); literalWrap.append(literal, this.el('span', '', this.t('Literal', 'Use the template literally (do not replace variables)'))); section.append(literalWrap);
+            literal.addEventListener('change', () => { c.setLiteral(literal.checked); literal.checked = c.session(record).literal; }); literalWrap.append(literal, this.el('span', '', this.t('Literal', 'Use the template literally (do not replace variables)'))); section.append(literalWrap);
             const variables = this.el('div', 'prompt-variables');
             for (const name of c.variables(record)) {
-                const entry = this.el('div', 'prompt-variable'), field = this.field(name, `variable-${name}`, c.session(record).values[name] || '', { multiline: true, change: value => c.setVariable(name, value) });
-                const empty = this.button('EmptyValue', 'Use empty value', () => { field.input.value = ''; c.setVariable(name, ''); }, 'prompt-empty-value'); empty.setAttribute('aria-label', `${this.t('EmptyValue', 'Use empty value')}: ${name}`); const choose = this.button('ExcerptChoose', 'Choose saved excerpt', () => void this.chooseExcerpt(name, field.input), 'prompt-empty-value');
+                const entry = this.el('div', 'prompt-variable'), field = this.field(name, `variable-${name}`, c.session(record).values[name] || '', { multiline: true, change: value => { if (!c.setVariable(name, value)) field.input.value = c.session(record).values[name] || ''; } });
+                const empty = this.button('EmptyValue', 'Use empty value', () => { c.setVariable(name, ''); field.input.value = c.session(record).values[name] || ''; }, 'prompt-empty-value'); empty.setAttribute('aria-label', `${this.t('EmptyValue', 'Use empty value')}: ${name}`); const choose = this.button('ExcerptChoose', 'Choose saved excerpt', () => void this.chooseExcerpt(name, field.input), 'prompt-empty-value');
                 choose.setAttribute('aria-label', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); this.focusKey(choose, `excerpt-${name}`);
                 entry.append(field.wrap, empty, choose); variables.append(entry);
             }
             section.append(variables);
             const previewSection = this.el('div', 'prompt-section'), heading = this.el('div', 'prompt-section-heading');
             heading.append(this.el('h3', '', this.t('Preview', 'Completed preview')));
-            const clear = this.button('ClearValues', 'Clear values', () => { c.clearVariables(); this.focusDetail(); }, 'prompt-clear'); clear.hidden = !c.variables(record).length; heading.append(clear);
+            const clear = this.button('ClearValues', 'Clear values', () => { c.clearVariables(); this.focusDetail(); }, 'prompt-clear'); clear.hidden = !c.variables(record).length && !session.literal && session.versionId === record.currentVersionId; heading.append(clear);
             const preview = this.el('textarea', 'prompt-readonly prompt-preview'); preview.readOnly = true; preview.setAttribute('aria-label', this.t('Preview', 'Completed preview')); this.focusKey(preview, 'preview'); preview.rows = 9;
             const status = this.el('p', 'prompt-preview-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
             const actions = this.el('div', 'prompt-actions prompt-section');
             const copy = this.button('CopyCompleted', 'Copy completed prompt', () => void this.copy(), 'prompt-primary'); this.focusKey(copy, 'copy');
             const select = this.button('SelectPreview', 'Select text', () => { preview.focus(); preview.select?.(); }); actions.append(copy, select);
-            previewSection.append(heading, preview, status, actions); section.append(previewSection); this.main.append(section);
+            previewSection.append(heading, this.el('p', 'prompt-help', this.t('ClearValuesHelp', 'Clear values resets the active and current version’s values and returns to the current body. Other versions keep their values.')), preview, status, actions); section.append(previewSection); this.main.append(section);
             this.previewElements = { literal, variables, preview, status, copy }; this.updatePreview();
             this.main.append(this.linkedSection(record.id, c.session(record).versionId, true));
         }
@@ -391,7 +404,7 @@
             section.append(this.el('p', 'prompt-help', this.t('LinkedHelp', 'Only active saved results explicitly linked to this prompt and body version. Opens in a new tab; your draft and variable values stay here.')));
             if (session) {
                 const href = root.LocalItabPromptDraft?.href(promptId, versionId);
-                const available = () => !c.disposed && !c.busy && !c.pendingCommand && c.pendingReadGeneration === null &&
+                const available = () => c.sessionReady() && !c.disposed && !c.busy && !c.pendingCommand && c.pendingReadGeneration === null &&
                     !c.linkedPromptUnavailable && !c.draft() && c.record()?.id === promptId && !c.record()?.deletedAt &&
                     c.record()?.history.some(version => version.id === versionId && version.body === c.session()?.body) && c.session()?.versionId === versionId;
                 if (href && available()) {
@@ -403,6 +416,7 @@
                 }
             }
             const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status');
+            if (session && !c.sessionSourceCurrent()) { status.textContent = this.errorText('PREVIEW_UNAVAILABLE'); section.append(status); return; }
             if (c.collectionLoading || c.pendingReadGeneration !== null) status.textContent = this.t('LinkedLoading', 'Reading saved results…');
             else if (c.collectionError || !c.collectionState || c.linkedPromptUnavailable || c.disposed) {
                 status.textContent = this.t('LinkedUnavailable', 'Saved results could not be read safely. This is not an empty result list.');
@@ -418,7 +432,7 @@
                         link.append(this.el('span', 'prompt-card-title', row.title), this.el('span', 'prompt-card-meta', row.tool || this.t('LinkedNoTool', 'No tool specified')),
                             this.el('span', 'prompt-card-meta', this.t('LinkedNewTab', 'Open saved result in a new tab')));
                         const guard = event => {
-                            if (!this.main.contains(section) || !section.contains(link) || !c.linkedResultCurrent(row, promptId, versionId) || (session && c.session()?.versionId !== versionId)) event.preventDefault();
+                            if (!this.main.contains(section) || !section.contains(link) || !c.linkedResultCurrent(row, promptId, versionId) || (session && (!c.sessionReady() || c.session()?.versionId !== versionId))) event.preventDefault();
                         };
                         link.addEventListener('click', guard); link.addEventListener('auxclick', guard); item.append(link); list.append(item);
                     }
@@ -431,8 +445,10 @@
             const c = this.controller, ui = this.previewElements; if (!ui) return;
             const result = c.preview(); if (!result) return;
             ui.literal.checked = c.session().literal; ui.variables.hidden = ui.literal.checked;
+            ui.literal.disabled = !c.sessionReady();
+            for (const control of ui.variables.querySelectorAll('input, textarea, button')) control.disabled = !c.sessionReady();
             ui.preview.value = result.text; this.updateCopyEligibility(result);
-            ui.status.textContent = result.error ? this.errorText(result.error) : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('PreviewReady', 'Ready to copy. Your saved template will not change.');
+            ui.status.textContent = c.error?.scope === 'preview' ? this.errorText(c.error.code) : result.error ? this.errorText(result.error) : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('PreviewReady', 'Ready to copy. Your saved template will not change.');
         }
         updateCopyEligibility(result = this.controller.preview()) {
             if (this.previewElements) this.previewElements.copy.disabled = !result?.complete || this.controller.disposed || this.controller.busy || Boolean(this.controller.pendingCommand) || this.copying;
@@ -478,16 +494,20 @@
                 if (!await this.confirm({ title: this.t('RestoreVersionTitle', 'Restore this body version?'), body: this.t('RestoreVersionBody', 'The selected body will become a new version. Title, tags and category stay unchanged. All later versions remain available.'), accept: this.t('RestoreVersion', 'Restore as new version') })) return;
                 if (c.selected !== record.id) return; await c.action('restoreVersion', versionId, record.version); this.focusDetail();
             });
+            let selectedVersion;
+            const use = this.button('UseVersion', 'Use this version', () => {
+                if (selectedVersion && c.useVersion(selectedVersion.id, selectedVersion.body, record.id)) this.focusDetail('preview');
+            });
             const linked = this.linkedSection(record.id, record.currentVersionId);
             const linkedEntry = this.linkedSections[this.linkedSections.length - 1];
-            const paint = version => { linkedEntry.versionId = version.id; this.paintLinkedResults(linkedEntry); this.historyId = version.id; body.textContent = version.body; caption.textContent = `${this.t('VersionSaved', 'Body saved')} ${this.date(version.createdAt)}`; restore.disabled = c.busy || Boolean(c.pendingCommand) || Boolean(record.deletedAt) || version.id === record.currentVersionId;
+            const paint = version => { selectedVersion = version; use.disabled = c.busy || Boolean(c.pendingCommand) || c.pendingReadGeneration !== null || c.linkedPromptUnavailable || Boolean(record.deletedAt); linkedEntry.versionId = version.id; this.paintLinkedResults(linkedEntry); this.historyId = version.id; body.textContent = version.body; caption.textContent = `${this.t('VersionSaved', 'Body saved')} ${this.date(version.createdAt)}`; restore.disabled = c.busy || Boolean(c.pendingCommand) || Boolean(record.deletedAt) || version.id === record.currentVersionId;
                 for (const button of list.children) button.setAttribute('aria-pressed', String(button.dataset.versionId === version.id)); };
             for (const [index, version] of [...record.history].entries()) {
                 const button = this.el('button', '', `v${index + 1}${version.id === record.currentVersionId ? ` · ${this.t('Current', 'current')}` : ''}`); button.type = 'button'; button.dataset.versionId = version.id; button.addEventListener('click', () => paint(version)); list.append(button);
             }
-            details.append(list, caption, body, linked, this.el('div', 'prompt-section')); details.lastElementChild?.append(restore);
+            details.append(list, caption, body, linked, this.el('div', 'prompt-section')); details.lastElementChild?.append(use, restore);
             // append directly when running the small synthetic DOM model as well.
-            if (!restore.parentElement) details.append(restore);
+            if (!restore.parentElement) details.append(use, restore);
             paint(record.history.find(version => version.id === this.historyId) || record.history[record.history.length - 1]);
             this.renderComparison(record, details); this.main.append(details);
         }
@@ -554,6 +574,8 @@
             try { return new Intl.DateTimeFormat(this.doc.documentElement.lang || 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); } catch (_) { return value; }
         }
         errorText(code) {
+            if (code === 'SESSION_LIMIT') return this.t('PreviewSessionLimit', 'Temporary preview memory is full or this value is too large. Shorten values, clear this preview, or explicitly clear all preview values in this tab. Existing preview values are kept.');
+            if (code === 'PREVIEW_UNAVAILABLE') return this.t('PreviewUnavailable', 'This exact preview source cannot currently be verified. Your body and values are kept; copying and saved-excerpt insertion are paused. Read again or explicitly return to the current version.');
             if (code === 'CONFLICT') return this.t('Conflict', 'This prompt changed in another tab or was restored from backup. Your draft is intact. Review the saved prompt before choosing what to keep.');
             if (['WRITE', 'VERIFY'].includes(code)) return this.t('WriteUncertain', 'The save could not be verified. Your draft is kept. Retry the same save before editing further; do not assume it was saved.');
             if (code === 'READ') return this.t('ReadFailed', 'Saved data could not be read safely. Your current draft is kept. Try again.');

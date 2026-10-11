@@ -6,6 +6,7 @@
 })(typeof window === 'undefined' ? globalThis : window, function (Core, Collections) {
     'use strict';
     const copy = value => JSON.parse(JSON.stringify(value));
+    const SESSION_LIMIT = 100, SESSION_VALUE_LIMIT = 2 * 1024 * 1024;
     const editable = ['title', 'body', 'category', 'tool', 'favorite'];
     const uncertain = code => ['WRITE', 'READ', 'VERIFY'].includes(code);
     function fields(record) {
@@ -41,7 +42,7 @@
             await Promise.all([this.refresh(), this.refreshCollections()]);
         }
         dispose() {
-            this.excerptEpoch++; this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null;
+            this.excerptEpoch++; this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null; this.sessions.clear(); this.activeSessions.clear();
             // Teardown must invalidate cards even if one backend's cleanup fails.
             for (const unsubscribe of [this.unsubscribe, this.unsubscribeCollections]) { try { unsubscribe?.(); } catch (_) { /* Continue independent cleanup. */ } }
         }
@@ -141,36 +142,95 @@
             if (key === 'new') this.selected = this.results()[0]?.record.id || null;
             this.error = null; this.notice = ''; this.notify(); return true;
         }
-        session(record = this.record()) {
-            if (!record) return null;
-            const previousKey = this.activeSessions.get(record.id), previous = this.sessions.get(previousKey);
-            if (previous && Object.keys(previous.values).length) return previous;
-            const key = `${record.id}:${record.currentVersionId}`;
-            if (!this.sessions.has(key)) this.sessions.set(key, { values: Object.create(null), literal: false, body: record.body, versionId: record.currentVersionId });
+        sessionSourceCurrent(record = this.record(), session = this.session(record)) {
+            return Boolean(record && !record.deletedAt && session && !session.capacity &&
+                record.history.some(version => version.id === session.versionId && version.body === session.body));
+        }
+        sessionReady() {
+            return !this.disposed && !this.busy && !this.pendingCommand && this.pendingReadGeneration === null &&
+                !this.linkedPromptUnavailable && !this.draft() && this.sessionSourceCurrent();
+        }
+        cachedSession(record, version) {
+            // Include the exact body: a backup may reuse IDs with different content.
+            const key = JSON.stringify([record.id, version.id, version.body]);
+            if (!this.sessions.has(key)) {
+                // Empty, inactive sessions carry no user input and can be reclaimed.
+                for (const [oldKey, session] of this.sessions) {
+                    if (this.sessions.size < SESSION_LIMIT) break;
+                    if (!session.literal && !Object.keys(session.values).length && ![...this.activeSessions.values()].includes(oldKey)) this.sessions.delete(oldKey);
+                }
+                if (this.sessions.size >= SESSION_LIMIT) return null;
+                this.sessions.set(key, { values: Object.create(null), literal: false, body: version.body, versionId: version.id });
+            }
             this.activeSessions.set(record.id, key); return this.sessions.get(key);
         }
+        session(record = this.record()) {
+            if (!record) return null;
+            if (this.disposed) return { values: Object.create(null), literal: false, body: record.body, versionId: record.currentVersionId };
+            const previous = this.sessions.get(this.activeSessions.get(record.id));
+            if (previous && (previous.explicit || previous.literal || Object.keys(previous.values).length || !this.sessionSourceCurrent(record, previous))) return previous;
+            return this.cachedSession(record, { id: record.currentVersionId, body: record.body }) ||
+                { values: Object.create(null), literal: false, body: record.body, versionId: record.currentVersionId, capacity: true };
+        }
+        useVersion(versionId, expectedBody, recordId = this.selected) {
+            const record = this.record();
+            if (this.disposed || this.busy || this.pendingCommand || this.pendingReadGeneration !== null || this.linkedPromptUnavailable || this.draft() || !record || record.deletedAt || record.id !== recordId) return false;
+            const version = record.history.find(item => item.id === versionId && (expectedBody === undefined || item.body === expectedBody));
+            if (!version) return false;
+            // Materialize current input before switching, even when it has no variables.
+            this.session(record);
+            const session = this.cachedSession(record, version);
+            if (!session) { this.error = { code: 'SESSION_LIMIT', scope: 'preview' }; this.notify(); return false; }
+            session.explicit = true; this.excerptEpoch++; this.error = null; this.notify(); return true;
+        }
+        returnToCurrent() { const record = this.record(); return record ? this.useVersion(record.currentVersionId, record.body) : false; }
         variables(record = this.record()) { try { return record ? Core.previewTemplate(this.session(record).body).variables : []; } catch (_) { return []; } }
         setVariable(name, value) {
             const record = this.record();
-            if (!record || !this.variables(record).includes(name)) return;
-            this.excerptEpoch++; this.session(record).values[name] = value; this.notify('preview');
+            if (!this.sessionReady() || !this.variables(record).includes(name)) return false;
+            const session = this.session(record);
+            const total = [...this.sessions.values()].reduce((sum, item) => sum + Object.values(item.values).reduce((n, text) => n + text.length, 0), 0);
+            if (typeof value !== 'string' || Array.from(value).length > Core.LIMITS.value || total - (session.values[name]?.length || 0) + value.length > SESSION_VALUE_LIMIT) {
+                this.error = { code: 'SESSION_LIMIT', scope: 'preview' }; this.notify(); return false;
+            }
+            this.excerptEpoch++; if (this.error?.scope === 'preview') this.error = null; session.values[name] = value; this.notify('preview'); return true;
         }
-        clearVariables() { const session = this.session(); if (!session) return; this.excerptEpoch++; session.values = Object.create(null); session.literal = false; this.activeSessions.delete(this.selected); this.notify(); }
-        setLiteral(value) { const session = this.session(); if (session) { this.excerptEpoch++; session.literal = value; this.notify('preview'); } }
+        clearVariables() {
+            const session = this.session(); if (!session || this.disposed || this.busy || this.pendingCommand) return;
+            this.excerptEpoch++;
+            // Keep the shipped reset-to-current semantics. Clear both source and
+            // destination so a cached current template never resurrects input.
+            session.values = Object.create(null); session.literal = false; session.explicit = false;
+            const record = this.record();
+            const currentKey = JSON.stringify([record.id, record.currentVersionId, record.body]);
+            const current = this.sessions.get(currentKey);
+            if (current) { current.values = Object.create(null); current.literal = false; current.explicit = false; }
+            const oldKey = this.activeSessions.get(this.selected);
+            this.activeSessions.delete(this.selected); this.sessions.delete(oldKey);
+            this.error = null; this.notify();
+        }
+        clearPreviewSessions() {
+            if (this.disposed || this.busy || this.pendingCommand) return;
+            this.excerptEpoch++; this.sessions.clear(); this.activeSessions.clear(); this.error = null; this.notify();
+        }
+        setLiteral(value) { const session = this.session(); if (session && this.sessionReady()) { this.excerptEpoch++; session.literal = value; this.notify('preview'); } }
         preview() {
             const record = this.record(), session = this.session(record);
             if (!record) return null;
-            try { return Core.previewTemplate(session.body, session.literal ? {} : session.values, { literal: session.literal }); }
-            catch (error) { return { text: '', variables: [], missing: [], complete: false, error: error.code || 'INVALID' }; }
+            try {
+                const preview = Core.previewTemplate(session.body, session.literal ? {} : session.values, { literal: session.literal });
+                if (!this.sessionReady()) return { ...preview, complete: false, error: session.capacity ? 'SESSION_LIMIT' : 'PREVIEW_UNAVAILABLE' };
+                return preview;
+            } catch (error) { return { text: '', variables: [], missing: [], complete: false, error: error.code || 'INVALID' }; }
         }
         // One review capability belongs to one exact prompt/session/variable. Never persist it.
         excerptContext(name) {
             const record = this.record(), session = this.session();
-            if (this.disposed || this.busy || this.pendingCommand || this.pendingReadGeneration !== null || this.linkedPromptUnavailable || this.draft() || !record || record.deletedAt || session.literal || !this.variables().includes(name)) return null;
+            if (!this.sessionReady() || session.literal || !this.variables().includes(name)) return null;
             return { name, id: record.id, version: record.version, session, epoch: this.excerptEpoch, cancelled: false };
         }
         excerptCurrent(context) {
-            return Boolean(context && !context.cancelled && !this.disposed && !this.busy && !this.pendingCommand && this.pendingReadGeneration === null && !this.linkedPromptUnavailable && !this.draft() &&
+            return Boolean(context && this.sessionReady() && !context.cancelled && !this.disposed && !this.busy && !this.pendingCommand && this.pendingReadGeneration === null && !this.linkedPromptUnavailable && !this.draft() &&
                 this.excerptEpoch === context.epoch && this.record()?.id === context.id && this.record()?.version === context.version && !this.record()?.deletedAt && this.session() === context.session && !context.session.literal);
         }
         excerptRows(context) {
@@ -194,16 +254,15 @@
                 const [collections, prompts] = await Promise.all([this.collectionStore.read(), this.store.read()]);
                 const source = Collections.validate(collections).records.find(item => item.id === review.id);
                 const prompt = Core.validate(prompts).records.find(item => item.id === review.context.id);
-                if (!this.excerptReviewCurrent(review) || !source || source.deletedAt !== null || source.version !== review.version || source.currentVersionId !== review.bodyVersion || source.body !== review.body || !prompt || prompt.deletedAt !== null || prompt.version !== review.context.version) return { ok: false, code: 'STALE' };
+                if (!this.excerptReviewCurrent(review) || !source || source.deletedAt !== null || source.version !== review.version || source.currentVersionId !== review.bodyVersion || source.body !== review.body || !prompt || prompt.deletedAt !== null || prompt.version !== review.context.version || !this.sessionSourceCurrent(prompt, review.context.session)) return { ok: false, code: 'STALE' };
                 const { session, name } = review.context;
                 Core.previewTemplate(session.body, { ...session.values, [name]: review.body });
-                this.setVariable(name, review.body);
-                return { ok: true };
+                return this.setVariable(name, review.body) ? { ok: true } : { ok: false, code: this.error?.code || 'STALE' };
             } catch (error) { return { ok: false, code: error.code || 'READ' }; }
         }
         hasUncommittedWork() {
             return this.busy || Boolean(this.pendingCommand) || [...this.drafts.keys()].some(id => this.dirty(id)) ||
-                [...this.sessions.values()].some(session => Object.keys(session.values).length > 0);
+                [...this.sessions.values()].some(session => session.literal || Object.keys(session.values).length > 0);
         }
         draftCount() { return [...this.drafts.keys()].filter(id => this.dirty(id)).length; }
         async save(asCopy = false) {
@@ -264,5 +323,5 @@
             }
         }
     }
-    return { Controller, fields, values, linkedResults };
+    return { Controller, fields, values, linkedResults, SESSION_LIMIT, SESSION_VALUE_LIMIT };
 });

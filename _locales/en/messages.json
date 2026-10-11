@@ -3664,5 +3664,41 @@
   },
   "collectionsResultDraftSaveUnavailable": {
     "message": "The linked prompt or exact version is no longer active or available. Your draft is kept. Refresh local prompts, then review a new link or explicitly unlink before saving."
+  },
+  "promptsPreviewMissingRecord": {
+    "message": "This prompt is no longer available. Your preview values are retained in this tab. Read again or choose another saved prompt."
+  },
+  "promptsReadAgain": {
+    "message": "Read again"
+  },
+  "promptsActivePreviewVersion": {
+    "message": "Preview body version:"
+  },
+  "promptsUnavailableVersion": {
+    "message": "unavailable"
+  },
+  "promptsRetainedPreview": {
+    "message": "This preview keeps its exact body and values. Switching versions preserves each version’s values in this tab."
+  },
+  "promptsReturnCurrentVersion": {
+    "message": "Return to current version"
+  },
+  "promptsClearTabPreviews": {
+    "message": "Clear all preview values in this tab"
+  },
+  "promptsClearTabPreviewsHelp": {
+    "message": "Discard all temporary variable values and literal choices in this tab? Saved prompts, history and editor drafts stay unchanged."
+  },
+  "promptsClearValuesHelp": {
+    "message": "Clear values resets the active and current version’s values and returns to the current body. Other versions keep their values."
+  },
+  "promptsUseVersion": {
+    "message": "Use this version"
+  },
+  "promptsPreviewSessionLimit": {
+    "message": "Temporary preview memory is full or this value is too large. Shorten values, clear this preview, or explicitly clear all preview values in this tab. Existing preview values are kept."
+  },
+  "promptsPreviewUnavailable": {
+    "message": "This exact preview source cannot currently be verified. Your body and values are kept; copying and saved-excerpt insertion are paused. Read again or explicitly return to the current version."
   }
 }

@@ -3664,5 +3664,41 @@
   },
   "collectionsResultDraftSaveUnavailable": {
     "message": "关联的提示词或确切版本已停用或不可用。草稿已保留。请刷新本地提示词，核对新的关联，或明确取消关联后再保存。"
+  },
+  "promptsPreviewMissingRecord": {
+    "message": "此提示词已不可用。本标签页仍保留预览变量值。请重新读取或选择其他已保存提示词。"
+  },
+  "promptsReadAgain": {
+    "message": "Read again"
+  },
+  "promptsActivePreviewVersion": {
+    "message": "预览正文版本："
+  },
+  "promptsUnavailableVersion": {
+    "message": "不可用"
+  },
+  "promptsRetainedPreview": {
+    "message": "此预览保留确切的正文和变量值。切换版本时，每个版本的变量值都会保留在本标签页中。"
+  },
+  "promptsReturnCurrentVersion": {
+    "message": "返回当前版本"
+  },
+  "promptsClearTabPreviews": {
+    "message": "清除本标签页所有预览变量值"
+  },
+  "promptsClearTabPreviewsHelp": {
+    "message": "丢弃本标签页所有临时变量值和原样使用选项？已保存提示词、历史和编辑草稿不受影响。"
+  },
+  "promptsClearValuesHelp": {
+    "message": "清空变量值会清除使用中版本和当前版本的变量值，并返回当前正文。其他历史版本的变量值会保留。"
+  },
+  "promptsUseVersion": {
+    "message": "使用此版本"
+  },
+  "promptsPreviewSessionLimit": {
+    "message": "临时预览内存已满或此变量值过长。请缩短变量值、清空此预览，或明确清除本标签页所有预览变量值。原有预览变量值已保留。"
+  },
+  "promptsPreviewUnavailable": {
+    "message": "目前无法核验此预览的确切来源。正文和变量值已保留；复制和插入收藏摘录已暂停。请重新读取或明确返回当前版本。"
   }
 }

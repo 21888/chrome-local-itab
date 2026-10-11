@@ -55,3 +55,5 @@ At 20 versions, save your draft as a new prompt to continue with a fresh ID whil
 retaining the original history. The 200-record count includes Trash. Capacity
 errors preserve drafts and never truncate or evict saved content. Backups are
 unencrypted. Do not store passwords or API keys.
+
+See [temporary historical-version previews / 临时使用历史版本](prompt-history-preview.md) for exact-version switching and Clear values behavior.
