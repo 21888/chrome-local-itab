@@ -223,3 +223,83 @@ for (const language of ['en', 'zh_CN']) test(`interleaved uncertain copy exposes
     const writes = h.h.writes; inspect.dispatch('click'); await settle(c);
     assert.equal(h.h.writes, writes); assert.equal(c.pendingCommand, null); assert.equal(c.notice, 'reconciled'); c.dispose();
 });
+
+for (const dismiss of ['Cancel', 'Escape']) {
+    test(`dirty editor confirmation ${dismiss} restores its replaced opener after external refresh`, async () => {
+        const h = await mount(), c = h.controller; await add(c, 'Synthetic prompt', 'Synthetic saved body');
+        c.edit(); c.update('body', 'Synthetic unsaved draft');
+        for (let opening = 0; opening < 2; opening++) {
+            const opener = h.view.editorElements.cancel; opener.focus();
+            const pending = h.view.discardDraft(), overlay = h.doc.querySelector('.prompt-dialog-overlay');
+            assert.equal(await h.view.dialog({ title: 'Duplicate', body: '', accept: 'Accept' }), false);
+            await c.refresh();
+            assert.equal(opener.isConnected, false);
+            assert.equal(h.doc.activeElement === overlay.querySelector('button'), true);
+            if (dismiss === 'Cancel') h.doc.activeElement.dispatch('click');
+            else h.doc.activeElement.dispatch('keydown', { key: 'Escape' });
+            await pending;
+            assert.equal(c.draft().input.body, 'Synthetic unsaved draft');
+            assert.equal(h.doc.activeElement === h.view.editorElements.cancel, true);
+            assert.equal(h.host.inert, false);
+            assert.equal(h.doc.querySelector('.prompt-dialog-overlay'), null);
+        }
+        // A completed confirmation leaves no deferred restoration behind.
+        h.view.search.focus(); await c.refresh(); assert.equal(h.doc.activeElement === h.view.search, true);
+        c.dispose();
+    });
+}
+
+test('confirmation cancellation without refresh restores its connected editor opener', async () => {
+    const h = await mount(), c = h.controller; await add(c); c.edit(); c.update('body', 'Synthetic draft');
+    const opener = h.view.editorElements.cancel; opener.focus(); const pending = h.view.discardDraft();
+    h.doc.activeElement.dispatch('keydown', { key: 'Escape' }); await pending;
+    assert.equal(h.doc.activeElement === opener, true); assert.equal(c.draft().input.body, 'Synthetic draft'); c.dispose();
+});
+
+for (const change of ['new focus', 'dispose', 'remove host', 'new selection', 'selection round trip', 'replaced draft']) {
+    test(`refreshed confirmation cancellation does not restore stale focus after ${change}`, async () => {
+        const h = await mount(), c = h.controller; const other = await add(c, 'Synthetic other', 'Other');
+        const record = await add(c, 'Synthetic prompt', 'Saved'); c.edit(); c.update('body', 'Synthetic draft');
+        h.view.editorElements.cancel.focus(); const pending = h.view.discardDraft();
+        const overlay = h.doc.querySelector('.prompt-dialog-overlay'), cancel = overlay.querySelector('button');
+        await c.refresh();
+        let newer;
+        if (change === 'new focus') {
+            newer = h.doc.createElement('button'); h.doc.body.append(newer); newer.focus();
+        } else if (change === 'dispose') c.dispose();
+        else if (change === 'remove host') h.host.remove();
+        else if (change === 'new selection') c.select(other.id);
+        else if (change === 'selection round trip') { c.select(other.id); c.select(record.id); }
+        else { c.discard(); c.edit(); }
+        cancel.dispatch('click'); await pending;
+        assert.equal(h.doc.activeElement === (newer || h.doc.body), true);
+        if (change !== 'replaced draft') assert.equal(c.drafts.get(record.id).input.body, 'Synthetic draft');
+        c.dispose();
+    });
+}
+
+test('a late old Cancel cannot dismiss a newly opened confirmation', async () => {
+    const h = await mount(); h.view.newButton.focus();
+    const first = h.view.dialog({ title: 'First', body: '', accept: 'Accept' });
+    const oldCancel = h.doc.activeElement; oldCancel.dispatch('click'); await first;
+    const second = h.view.dialog({ title: 'Second', body: '', accept: 'Accept' });
+    const currentCancel = h.doc.activeElement; oldCancel.dispatch('click');
+    assert.equal(h.view.openDialog, true); assert.equal(h.doc.activeElement === currentCancel, true);
+    currentCancel.dispatch('click'); assert.equal(await second, false); h.controller.dispose();
+});
+
+test('refreshed confirmation preserves IME cancellation and nested-dialog focus ownership', async () => {
+    const h = await mount(), c = h.controller; await add(c); c.edit(); c.update('body', 'Synthetic draft');
+    h.view.editorElements.cancel.focus(); const pending = h.view.discardDraft();
+    const overlay = h.doc.querySelector('.prompt-dialog-overlay'); await c.refresh();
+    const cancel = h.doc.activeElement;
+    const composing = cancel.dispatch('keydown', { key: 'Escape', isComposing: true });
+    assert.equal(composing.prevented, false); assert.equal(h.view.openDialog, true);
+    assert.equal(h.doc.activeElement === cancel, true);
+    // A separate overlay can take focus while an old confirmation callback exists.
+    const nested = h.doc.createElement('div'), nestedButton = h.doc.createElement('button');
+    nested.append(nestedButton); h.doc.body.append(nested); overlay.inert = true; nestedButton.focus();
+    cancel.dispatch('click'); await pending;
+    assert.equal(h.doc.activeElement === nestedButton, true);
+    assert.equal(c.draft().input.body, 'Synthetic draft'); nested.remove(); c.dispose();
+});

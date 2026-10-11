@@ -118,6 +118,8 @@
         announce(message, error = false) { this.status.classList.toggle('error', error); this.status.replaceChildren(this.el('span', '', message)); }
         render(kind = 'render') {
             const c = this.controller;
+            const dialogFocus = this.dialogFocus;
+            if (dialogFocus && (c.selected !== dialogFocus.selected || c.draft() !== dialogFocus.draft)) dialogFocus.stale = true;
             this.checkModelComparison?.();
             this.checkExcerptDialog?.();
             if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
@@ -648,6 +650,9 @@
         dialog({ title, body, accept, markdownPreview, sourceCheckbox, sourceValue, markdownCurrent }) {
             if (this.openDialog) return Promise.resolve(false);
             return new Promise(resolve => {
+                const c = this.controller, opener = this.doc.activeElement;
+                const focus = { selected: c.selected, draft: c.draft(), key: this.main.contains(opener) ? opener?.dataset.promptFocus : null, stale: false };
+                this.dialogFocus = focus;
                 const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', 'prompt-dialog'); overlay.setAttribute('aria-hidden', 'true');
                 box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'prompt-dialog-title'); box.setAttribute('aria-describedby', 'prompt-dialog-body');
                 const heading = this.el('h2', '', title); heading.id = 'prompt-dialog-title'; const content = this.el('p', '', body); content.id = 'prompt-dialog-body';
@@ -659,8 +664,25 @@
                     input.addEventListener('change', () => { sourceCheckbox(input.checked); source.hidden = !input.checked; });
                     label.append(input, this.el('span', '', this.t('MarkdownSource', 'Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information.'))); box.append(label, source);
                 }
-                const actions = this.el('div', 'prompt-actions'); let close;
-                const finish = answer => { if (!this.openDialog) return; this.openDialog = false; if (markdownPreview !== undefined) this.cancelMarkdownDialog = null; close?.(markdownPreview === undefined || !markdownCurrent || markdownCurrent()); overlay.remove(); resolve(answer); };
+                const actions = this.el('div', 'prompt-actions'); let close, finished = false;
+                const finish = answer => {
+                    if (finished) return;
+                    finished = true; this.openDialog = false; this.dialogFocus = null;
+                    if (markdownPreview !== undefined) this.cancelMarkdownDialog = null;
+                    const active = this.doc.activeElement;
+                    const usable = node => node?.isConnected && !node.disabled && !node.closest('[hidden], [inert]') && node.getClientRects().length;
+                    // A newer selection or a nested dialog owns its own focus. Only
+                    // recover a replaced opener while this confirmation still owns it.
+                    const restore = !c.disposed && !focus.stale && c.selected === focus.selected && c.draft() === focus.draft &&
+                        (markdownPreview === undefined || !markdownCurrent || markdownCurrent()) &&
+                        (overlay.contains(active) || active === this.doc.body || active === this.doc.documentElement || !usable(active));
+                    close?.(restore); overlay.remove();
+                    if (restore && !opener?.isConnected && focus.key) {
+                        const target = Array.from(this.main.querySelectorAll('[data-prompt-focus]')).find(node => node.dataset.promptFocus === focus.key);
+                        if (usable(target)) target.focus();
+                    }
+                    resolve(answer);
+                };
                 if (markdownPreview !== undefined) this.cancelMarkdownDialog = () => finish(false);
                 const cancel = this.button('Cancel', 'Cancel', () => finish(false)), proceed = this.el('button', 'prompt-primary', accept); proceed.type = 'button'; proceed.addEventListener('click', () => finish(true));
                 actions.append(cancel, proceed); box.append(actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true;
