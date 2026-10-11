@@ -117,17 +117,35 @@
             invalidateConnection();
         });
         renderPresets(); presetActions.append(presetSave, presetDelete);
+        function cancellable(promise, signal) {
+            return new Promise((resolve, reject) => {
+                const cancel = () => { signal.removeEventListener('abort', cancel); reject({ code: 'CANCELLED' }); };
+                signal.addEventListener('abort', cancel, { once: true });
+                Promise.resolve(promise).then(resolve, reject).finally(() => signal.removeEventListener('abort', cancel));
+                if (signal.aborted) cancel();
+            });
+        }
+        function releaseRequest(request) {
+            // Only the owning request can clear credentials or unlock the dialog.
+            if (!request || aborter !== request) return;
+            aborter = null; key.value = ''; busy = false;
+            if (!closed) update();
+        }
+        function stopRequest() {
+            const request = aborter;
+            request?.abort(); releaseRequest(request);
+        }
         function finish() {
             if (saving || closed || trialUI) return;
             if ((busy || (response && !saved)) && !root.confirm(t('Discard', 'Stop this request and discard any unsaved response?'))) return;
-            closed = true; aborter?.abort(); key.value = ''; response = reviewed = command = null;
+            closed = true; stopRequest(); key.value = ''; response = reviewed = command = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.cancelModelDialog = null;
         }
         function guard(event) { if (busy || saving || (response && !saved)) { event.preventDefault(); event.returnValue = ''; } }
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
-            suspended = true; aborter?.abort(); key.value = ''; reviewed = null; reviewText.hidden = true;
+            suspended = true; stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
             if (refining) { response = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
             update();
         }
@@ -154,25 +172,29 @@
         const send = button('Send', 'Send reviewed prompt', async () => {
             if (c.disposed || !reviewed || busy || saving || permissionPending || response || suspended) return;
             if (refining && !refinement.current(c, template)) { status.textContent = failure('STALE'); return; }
-            busy = true; aborter = new AbortController(); const snapshot = reviewed, signal = aborter.signal; update(); cancel.focus();
+            busy = true; aborter = new AbortController(); const request = aborter, snapshot = reviewed, signal = request.signal;
+            const active = () => aborter === request && !c.disposed && !closed && !suspended && !signal.aborted; update(); cancel.focus();
             try {
-                const permitted = await root.chrome.permissions.contains({ origins: [snapshot.permission] });
-                if (c.disposed || closed || suspended || signal.aborted) return;
+                const permitted = await cancellable(root.chrome.permissions.contains({ origins: [snapshot.permission] }), signal);
+                if (!active()) return;
                 if (refining && !refinement.current(c, template)) throw { code: 'STALE' };
                 if (!permitted) throw { code: 'PERMISSION' };
                 status.textContent = t('Running', 'Waiting for model response…');
-                const result = await root.LocalItabAIModel.run(snapshot, { key: key.value, signal });
-                if (c.disposed || closed || suspended || signal.aborted) return;
+                const result = await cancellable(root.LocalItabAIModel.run(snapshot, { key: key.value, signal }), signal);
+                if (!active()) return;
                 response = result; output.value = result.text; output.hidden = false; if (proposalLabel) proposalLabel.hidden = false;
                 if (refining) {
                     originalOutput.value = result.text; originalDetails.hidden = false;
                     refinement.validateProposal(template, result.text);
                     status.textContent = t('RefineReady', 'Edit this draft locally, then test or accept the exact edited text. Editing sends and saves nothing. Accept explicitly to create a new version; the saved original remains in history.');
                 } else status.textContent = t('Ready', 'Response received. Review it, then explicitly save it to your AI collection.');
-            } catch (error) { if (!closed && !suspended) status.textContent = failure(error.code || 'NETWORK'); }
-            finally { key.value = ''; busy = false; if (!closed) update(); }
+            } catch (error) { if (active()) status.textContent = failure(error.code || 'NETWORK'); }
+            finally { releaseRequest(request); }
         });
-        const cancel = button('Stop', 'Stop request', () => { key.value = ''; aborter?.abort(); status.textContent = failure('CANCELLED'); });
+        const cancel = button('Stop', 'Stop request', () => {
+            if (closed || !busy) return;
+            stopRequest(); status.textContent = failure('CANCELLED');
+        });
         const save = button(refining ? 'RefineAccept' : 'Save', refining ? 'Accept as new prompt version' : 'Save response to AI collection', async () => {
             if (c.disposed || trialUI || !response || saving || saved || closed || (refining && suspended)) return; saving = true; update();
             try {

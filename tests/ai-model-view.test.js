@@ -438,3 +438,64 @@ test('declining Close keeps edited proposal; confirmed Close or pagehide discard
         assert.equal(h.h.writes, writes); assert.equal(h.h.controller.record().body, 'Original'); assert.equal(h.runs, 1); h.h.controller.dispose();
     }
 });
+
+function rejectableDeferred() {
+    let resolve, reject;
+    const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
+}
+
+for (const mode of ['run', 'refine']) {
+    for (const phase of ['permission', 'transport']) for (const ending of ['resolve', 'reject']) {
+        test(`${mode}: Stop releases pending ${phase}; late ${ending} cannot touch a replacement request`, async () => {
+            const old = rejectableDeferred(), next = rejectableDeferred(), answer = rejectableDeferred(); let checks = 0, transports = 0;
+            const h = await mount({ mode, body: 'Synthetic original',
+                contains: () => ++checks === 1 && phase === 'permission' ? old.promise : next.promise,
+                run: () => ++transports === 1 && phase === 'transport' ? old.promise : answer.promise });
+            if (h.ui.instruction) h.ui.instruction.value = 'Clarify';
+            await click(h.ui.review); h.ui.key.value = 'synthetic-old-key'; h.ui.send.dispatch('click');
+            if (phase === 'transport') { next.resolve(true); await tick(); }
+            assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.send.disabled, true);
+            h.ui.cancel.dispatch('click');
+            // Recovery is synchronous even when the API never settles.
+            assert.equal(h.ui.key.value, ''); assert.equal(h.ui.review.disabled, false);
+            assert.equal(h.ui.send.disabled, false); assert.equal(h.ui.cancel.disabled, true);
+            assert.match(h.ui.status.textContent, /stopped/); assert.equal(h.ui.save.disabled, true);
+            h.ui.key.value = 'synthetic-new-key'; h.ui.send.dispatch('click');
+            await tick(); // The old cancellation's finally must not unlock or clear the new request.
+            assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.send.disabled, true);
+            assert.equal(h.ui.key.value, 'synthetic-new-key');
+            const status = h.ui.status.textContent, runs = h.runs;
+            if (ending === 'reject') old.reject({ code: 'AUTH' });
+            else old.resolve(phase === 'permission' ? true : { text: 'Old synthetic reply' });
+            await tick();
+            assert.equal(h.runs, runs); assert.equal(h.ui.status.textContent, status);
+            assert.equal(h.ui.output.hidden, true); assert.equal(h.ui.save.disabled, true);
+            assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.key.value, 'synthetic-new-key');
+            next.resolve(true); await tick(); answer.resolve({ text: 'Fresh synthetic reply' }); await tick();
+            assert.equal(h.ui.output.value, 'Fresh synthetic reply'); assert.equal(h.ui.key.value, '');
+            assert.equal(h.ui.review.disabled, false); assert.equal(h.ui.save.disabled, false);
+            assert.equal(h.writes, 0); assert.equal(h.h.controller.record().body, 'Synthetic original');
+            await click(h.ui.close); h.h.controller.dispose();
+        });
+    }
+    for (const action of ['pagehide', 'close', 'interrupt']) for (const ending of ['resolve', 'reject']) {
+        test(`${mode}: ${action} settles pending precheck and fences late ${ending}`, async () => {
+            const pending = rejectableDeferred(); const h = await mount({ mode, contains: () => pending.promise });
+            if (h.ui.instruction) h.ui.instruction.value = 'Clarify';
+            await click(h.ui.review); h.ui.key.value = 'synthetic-key'; h.ui.send.dispatch('click');
+            if (action === 'pagehide') h.events.get('pagehide')();
+            else if (action === 'interrupt') h.view.cancelModelDialog();
+            else h.ui.close.dispatch('click');
+            assert.equal(h.ui.key.value, '');
+            if (action !== 'close') { assert.equal(h.ui.review.disabled, false); assert.equal(h.ui.send.disabled, true); }
+            else { assert.equal(h.view.openDialog, false); assert.equal(h.ui.overlay.isConnected, false); }
+            const status = h.ui.status.textContent;
+            if (ending === 'reject') pending.reject({ code: 'AUTH' }); else pending.resolve(true);
+            await tick(); assert.equal(h.runs, 0); assert.equal(h.ui.status.textContent, status);
+            assert.equal(h.ui.output.hidden, true); assert.equal(h.writes, 0);
+            if (action !== 'close') { await click(h.ui.review); assert.equal(h.ui.send.disabled, false); await click(h.ui.close); }
+            h.h.controller.dispose();
+        });
+    }
+}
