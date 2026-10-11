@@ -31,7 +31,7 @@
             this.state = null; this.selected = null; this.drafts = new Map(); this.sessions = new Map(); this.activeSessions = new Map();
             this.filters = { query: '', mode: 'all', category: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
-            this.pendingCommand = null; this.disposed = false; this.refreshQueued = false;
+            this.excerptEpoch = 0; this.pendingCommand = null; this.disposed = false; this.refreshQueued = false;
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
@@ -41,7 +41,7 @@
             await Promise.all([this.refresh(), this.refreshCollections()]);
         }
         dispose() {
-            this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null;
+            this.excerptEpoch++; this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null;
             // Teardown must invalidate cards even if one backend's cleanup fails.
             for (const unsubscribe of [this.unsubscribe, this.unsubscribeCollections]) { try { unsubscribe?.(); } catch (_) { /* Continue independent cleanup. */ } }
         }
@@ -70,7 +70,7 @@
         }
         async refresh() {
             if (this.busy) { this.refreshQueued = true; return; }
-            const generation = ++this.readGeneration;
+            this.excerptEpoch++; const generation = ++this.readGeneration;
             this.pendingReadGeneration = generation; this.notify('linkedResults');
             try {
                 const next = await this.store.read();
@@ -108,7 +108,7 @@
             return Core.search(this.state, this.filters.query, options);
         }
         filter(patch) { Object.assign(this.filters, patch); this.notify('list'); }
-        select(id) { if (this.busy) return false; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
+        select(id) { if (this.busy) return false; this.excerptEpoch++; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
         makeDraft(record) {
             const input = fields(record);
             return { input, baseline: copy(input), id: record?.id, version: record?.version, conflict: false };
@@ -117,12 +117,12 @@
             if (this.busy || this.pendingCommand) return false;
             const record = this.record(id);
             if (!record || record.deletedAt) return false;
-            if (!this.drafts.has(id)) this.drafts.set(id, this.makeDraft(record));
+            this.excerptEpoch++; if (!this.drafts.has(id)) this.drafts.set(id, this.makeDraft(record));
             this.selected = id; this.notify(); return true;
         }
         create() {
             if (this.busy || this.pendingCommand) return false;
-            if (!this.drafts.has('new')) this.drafts.set('new', this.makeDraft());
+            this.excerptEpoch++; if (!this.drafts.has('new')) this.drafts.set('new', this.makeDraft());
             this.selected = 'new'; this.error = null; this.notice = ''; this.notify(); return true;
         }
         draft() { return this.drafts.get(this.selected); }
@@ -153,15 +153,53 @@
         setVariable(name, value) {
             const record = this.record();
             if (!record || !this.variables(record).includes(name)) return;
-            this.session(record).values[name] = value; this.notify('preview');
+            this.excerptEpoch++; this.session(record).values[name] = value; this.notify('preview');
         }
-        clearVariables() { const session = this.session(); if (!session) return; session.values = Object.create(null); session.literal = false; this.activeSessions.delete(this.selected); this.notify(); }
-        setLiteral(value) { const session = this.session(); if (session) { session.literal = value; this.notify('preview'); } }
+        clearVariables() { const session = this.session(); if (!session) return; this.excerptEpoch++; session.values = Object.create(null); session.literal = false; this.activeSessions.delete(this.selected); this.notify(); }
+        setLiteral(value) { const session = this.session(); if (session) { this.excerptEpoch++; session.literal = value; this.notify('preview'); } }
         preview() {
             const record = this.record(), session = this.session(record);
             if (!record) return null;
             try { return Core.previewTemplate(session.body, session.literal ? {} : session.values, { literal: session.literal }); }
             catch (error) { return { text: '', variables: [], missing: [], complete: false, error: error.code || 'INVALID' }; }
+        }
+        // One review capability belongs to one exact prompt/session/variable. Never persist it.
+        excerptContext(name) {
+            const record = this.record(), session = this.session();
+            if (this.disposed || this.busy || this.pendingCommand || this.pendingReadGeneration !== null || this.linkedPromptUnavailable || this.draft() || !record || record.deletedAt || session.literal || !this.variables().includes(name)) return null;
+            return { name, id: record.id, version: record.version, session, epoch: this.excerptEpoch, cancelled: false };
+        }
+        excerptCurrent(context) {
+            return Boolean(context && !context.cancelled && !this.disposed && !this.busy && !this.pendingCommand && this.pendingReadGeneration === null && !this.linkedPromptUnavailable && !this.draft() &&
+                this.excerptEpoch === context.epoch && this.record()?.id === context.id && this.record()?.version === context.version && !this.record()?.deletedAt && this.session() === context.session && !context.session.literal);
+        }
+        excerptRows(context) {
+            if (!this.excerptCurrent(context) || this.collectionLoading || this.collectionError || !this.collectionState) return [];
+            return this.collectionState.records.filter(record => record.deletedAt === null).map(record => ({ id: record.id, title: record.title, generation: this.collectionGeneration }));
+        }
+        reviewExcerpt(context, row) {
+            if (!this.excerptCurrent(context) || row.generation !== this.collectionGeneration || this.collectionLoading || this.collectionError) return null;
+            const record = this.collectionState?.records.find(item => item.id === row.id && item.deletedAt === null);
+            if (!record) return null;
+            return { context, id: record.id, version: record.version, bodyVersion: record.currentVersionId, body: record.body, generation: this.collectionGeneration, used: false };
+        }
+        excerptReviewCurrent(review) {
+            return Boolean(review && this.excerptCurrent(review.context) && review.generation === this.collectionGeneration && !this.collectionLoading && !this.collectionError);
+        }
+        async applyExcerpt(review) {
+            if (!this.excerptReviewCurrent(review) || review.used) return { ok: false, code: 'STALE' };
+            review.used = true;
+            try {
+                // Re-read both sources before applying: subscription delivery may be delayed.
+                const [collections, prompts] = await Promise.all([this.collectionStore.read(), this.store.read()]);
+                const source = Collections.validate(collections).records.find(item => item.id === review.id);
+                const prompt = Core.validate(prompts).records.find(item => item.id === review.context.id);
+                if (!this.excerptReviewCurrent(review) || !source || source.deletedAt !== null || source.version !== review.version || source.currentVersionId !== review.bodyVersion || source.body !== review.body || !prompt || prompt.deletedAt !== null || prompt.version !== review.context.version) return { ok: false, code: 'STALE' };
+                const { session, name } = review.context;
+                Core.previewTemplate(session.body, { ...session.values, [name]: review.body });
+                this.setVariable(name, review.body);
+                return { ok: true };
+            } catch (error) { return { ok: false, code: error.code || 'READ' }; }
         }
         hasUncommittedWork() {
             return this.busy || Boolean(this.pendingCommand) || [...this.drafts.keys()].some(id => this.dirty(id)) ||
@@ -191,7 +229,7 @@
         async retry() { if (this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand); }
         async execute(operation) {
             if (this.busy) return false;
-            this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
+            this.excerptEpoch++; this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
             try {
                 const state = await this.store.mutate(operation.command);
                 if (this.disposed) return false;

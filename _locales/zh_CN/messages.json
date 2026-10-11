@@ -3574,5 +3574,29 @@
   },
   "promptsLinkedNewTab": {
     "message": "在新标签页打开已保存结果"
+  },
+  "promptsExcerptChoose": {
+    "message": "选择已收藏摘录"
+  },
+  "promptsExcerptHelp": {
+    "message": "查看一条未归档的收藏摘录，再用其完整正文替换这一个变量。不包含笔记、链接或历史版本。变量值仅保留在本标签页，不会修改已保存的模板。"
+  },
+  "promptsExcerptApply": {
+    "message": "替换此变量"
+  },
+  "promptsExcerptStale": {
+    "message": "所选内容已变化或不可用。请取消后重新选择。"
+  },
+  "promptsExcerptSelect": {
+    "message": "选择一条摘录以查看其当前完整正文。"
+  },
+  "promptsExcerptEmpty": {
+    "message": "暂无未归档的收藏摘录。"
+  },
+  "promptsExcerptBody": {
+    "message": "已保存的完整正文"
+  },
+  "promptsExcerptPrevious": {
+    "message": "将被替换的当前变量值"
   }
 }

@@ -9,7 +9,7 @@
             this.confirm = confirm || (options => this.dialog(options)); this.historyId = null; this.copyGeneration = 0; this.copying = false; this.pendingFocus = null;
             root.addEventListener?.('pagehide', () => {
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
-                this.cancelMarkdownDialog?.();
+                this.cancelMarkdownDialog?.(); this.cancelExcerptDialog?.();
             });
             this.build(); controller.onChange = kind => this.render(kind);
         }
@@ -76,6 +76,7 @@
         announce(message, error = false) { this.status.classList.toggle('error', error); this.status.replaceChildren(this.el('span', '', message)); }
         render(kind = 'render') {
             const c = this.controller;
+            this.checkExcerptDialog?.();
             if (kind === 'linkedResults') { this.updateLinkedResults(); return; }
             if (kind === 'preview') {
                 // Even an edit back to the original text supersedes pending feedback.
@@ -252,7 +253,9 @@
             const variables = this.el('div', 'prompt-variables');
             for (const name of c.variables(record)) {
                 const entry = this.el('div', 'prompt-variable'), field = this.field(name, `variable-${name}`, c.session(record).values[name] || '', { multiline: true, change: value => c.setVariable(name, value) });
-                const empty = this.button('EmptyValue', 'Use empty value', () => { field.input.value = ''; c.setVariable(name, ''); }, 'prompt-empty-value'); empty.setAttribute('aria-label', `${this.t('EmptyValue', 'Use empty value')}: ${name}`); entry.append(field.wrap, empty); variables.append(entry);
+                const empty = this.button('EmptyValue', 'Use empty value', () => { field.input.value = ''; c.setVariable(name, ''); }, 'prompt-empty-value'); empty.setAttribute('aria-label', `${this.t('EmptyValue', 'Use empty value')}: ${name}`); const choose = this.button('ExcerptChoose', 'Choose saved excerpt', () => void this.chooseExcerpt(name, field.input), 'prompt-empty-value');
+                choose.setAttribute('aria-label', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); this.focusKey(choose, `excerpt-${name}`);
+                entry.append(field.wrap, empty, choose); variables.append(entry);
             }
             section.append(variables);
             const previewSection = this.el('div', 'prompt-section'), heading = this.el('div', 'prompt-section-heading');
@@ -266,6 +269,67 @@
             previewSection.append(heading, preview, status, actions); section.append(previewSection); this.main.append(section);
             this.previewElements = { literal, variables, preview, status, copy }; this.updatePreview();
             this.main.append(this.linkedSection(record.id, c.session(record).versionId, true));
+        }
+        async chooseExcerpt(name, input) {
+            const c = this.controller;
+            if (this.openDialog) return;
+            const context = c.excerptContext(name); if (!context) return;
+            const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', 'prompt-dialog prompt-excerpt-dialog');
+            overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+            box.setAttribute('aria-labelledby', 'excerpt-title'); box.setAttribute('aria-describedby', 'excerpt-help');
+            const title = this.el('h2', '', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); title.id = 'excerpt-title';
+            const help = this.el('p', '', this.t('ExcerptHelp', 'Review one active saved excerpt, then replace only this variable with its exact body. Notes, links and history are excluded. Values stay in this tab; your saved template will not change.')); help.id = 'excerpt-help';
+            const status = this.el('p', 'prompt-help', this.t('LinkedLoading', 'Reading saved results…')); status.setAttribute('role', 'status');
+            const list = this.el('div', 'prompt-excerpt-list'), review = this.el('div'), actions = this.el('div', 'prompt-actions');
+            let selection = null, close, finished = false, applying = false, generation = null;
+            const finish = () => {
+                if (finished) return; finished = true; context.cancelled = true; this.openDialog = false;
+                this.cancelExcerptDialog = null; this.checkExcerptDialog = null; close?.(); overlay.remove();
+            };
+            const cancel = this.button('Cancel', 'Cancel', finish), apply = this.button('ExcerptApply', 'Replace this variable', async () => {
+                if (applying || !selection || !c.excerptReviewCurrent(selection)) return;
+                // Keep keyboard cancellation reachable when disabling the active Apply button.
+                cancel.focus(); applying = true; apply.disabled = true;
+                for (const button of list.querySelectorAll('button')) button.disabled = true;
+                const chosen = selection;
+                const result = await c.applyExcerpt(chosen);
+                if (finished) return;
+                if (result.ok) { input.value = chosen.body; finish(); }
+                else { status.textContent = result.code === 'STALE' ? this.t('ExcerptStale', 'This selection changed or is no longer available. Cancel and choose again.') : this.errorText(result.code); }
+                applying = false;
+            }, 'prompt-primary'); apply.disabled = true;
+            this.checkExcerptDialog = () => {
+                if (!c.excerptCurrent(context) || (generation !== null && generation !== c.collectionGeneration)) {
+                    if (this.doc.activeElement === apply || list.contains(this.doc.activeElement)) cancel.focus();
+                    apply.disabled = true; selection = null;
+                    for (const button of list.querySelectorAll('button')) button.disabled = true;
+                    status.textContent = this.t('ExcerptStale', 'This selection changed or is no longer available. Cancel and choose again.');
+                }
+            };
+            actions.append(cancel, apply); box.append(title, help, status, list, review, actions); overlay.append(box); this.doc.body.append(overlay);
+            this.openDialog = true; this.cancelExcerptDialog = finish; close = root.LocalItabDialog.open(overlay, cancel, finish);
+            await c.refreshCollections();
+            if (finished) return;
+            if (!c.excerptCurrent(context)) { this.checkExcerptDialog(); return; }
+            generation = c.collectionGeneration;
+            if (c.collectionError || !c.collectionState || c.collectionLoading) { status.textContent = this.t('LinkedUnavailable', 'Saved results could not be read safely. This is not an empty result list.'); return; }
+            const rows = c.excerptRows(context);
+            status.textContent = rows.length ? this.t('ExcerptSelect', 'Select an excerpt to review its full current body.') : this.t('ExcerptEmpty', 'No active saved excerpts are available.');
+            for (const row of rows) {
+                const button = this.el('button', 'prompt-excerpt-choice', row.title); button.type = 'button'; button.setAttribute('aria-pressed', 'false');
+                button.addEventListener('click', () => {
+                    if (applying) return;
+                    const selected = c.reviewExcerpt(context, row); if (!selected) { this.checkExcerptDialog(); return; }
+                    selection = selected; review.replaceChildren();
+                    for (const item of list.children) item.setAttribute('aria-pressed', String(item === button));
+                    review.append(this.el('h3', '', this.t('ExcerptBody', 'Exact saved body')), this.el('pre', 'prompt-readonly', selected.body));
+                    const previous = context.session.values[name];
+                    if (previous) review.append(this.el('h3', '', this.t('ExcerptPrevious', 'Current variable value that will be replaced')), this.el('pre', 'prompt-readonly', previous));
+                    for (const pre of review.querySelectorAll('pre')) pre.tabIndex = 0;
+                    apply.disabled = false;
+                });
+                list.append(button);
+            }
         }
         linkedSection(promptId, versionId, session = false) {
             const section = this.el('section', 'prompt-linked-results');

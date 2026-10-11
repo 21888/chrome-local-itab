@@ -3574,5 +3574,29 @@
   },
   "promptsLinkedNewTab": {
     "message": "Open saved result in a new tab"
+  },
+  "promptsExcerptChoose": {
+    "message": "Choose saved excerpt"
+  },
+  "promptsExcerptHelp": {
+    "message": "Review one active saved excerpt, then replace only this variable with its exact body. Notes, links and history are excluded. Values stay in this tab; your saved template will not change."
+  },
+  "promptsExcerptApply": {
+    "message": "Replace this variable"
+  },
+  "promptsExcerptStale": {
+    "message": "This selection changed or is no longer available. Cancel and choose again."
+  },
+  "promptsExcerptSelect": {
+    "message": "Select an excerpt to review its full current body."
+  },
+  "promptsExcerptEmpty": {
+    "message": "No active saved excerpts are available."
+  },
+  "promptsExcerptBody": {
+    "message": "Exact saved body"
+  },
+  "promptsExcerptPrevious": {
+    "message": "Current variable value that will be replaced"
   }
 }
