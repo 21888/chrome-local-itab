@@ -4189,8 +4189,10 @@ class ShortcutsComponent {
         if (!addEl) return;
         const gridRect = grid.getBoundingClientRect();
         let bottom = 0;
-        Array.from(grid.querySelectorAll('.shortcut-item')).forEach(el => {
-            if (el.classList.contains('add-shortcut') || el.style.display === 'none') return;
+        // Empty dashboards and empty category filters keep their message/actions
+        // in normal flow. Reserve that visible block before placing absolute Add.
+        Array.from(grid.querySelectorAll('.shortcut-item, .shortcuts-empty-state')).forEach(el => {
+            if (el.classList.contains('add-shortcut') || el.hidden || el.style.display === 'none') return;
             const rect = el.getBoundingClientRect();
             bottom = Math.max(bottom, rect.top - gridRect.top + rect.height);
         });
