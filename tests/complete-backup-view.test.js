@@ -4,6 +4,11 @@ const fs = require('node:fs'), vm = require('node:vm');
 const {createDocument, deferred} = require('./helpers/task-dom-model');
 const source = fs.readFileSync('shared/complete-backup-view.js', 'utf8');
 const flush = async () => { await new Promise(resolve => setTimeout(resolve, 10)); };
+const waitFor = async (predicate) => {
+    const deadline = Date.now() + 2000;
+    while (!predicate() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 1));
+    assert(predicate(), 'expected backup UI state settled');
+};
 const modules = ['config','tasks','scratchpad','countdown','focus'];
 function model() {
     const document = createDocument({blurUnavailableFocus:true}); const host = document.createElement('div'); document.body.append(host);
@@ -66,7 +71,16 @@ test('Escape cancels the large-file prompt before read',async()=>{
     const m=model();let reads=0;m.select('x',{size:11*1024*1024,text:async()=>{reads++;return 'x';}});m.get('large').dispatch('keydown',{key:'Escape'});m.get('large').dispatch('click');await flush();assert.equal(reads,0);assert(m.get('preview').hidden);assert.equal(m.document.activeElement,m.get('choose'));
 });
 test('recovery download retains an existing review and reports unavailable recovery honestly',async()=>{
-    const m=model();m.select();await flush();m.get('recovery').dispatch('click');await flush();assert(!m.get('preview').hidden);assert(!m.get('apply').disabled);assert.equal(m.calls.downloads[0][0],'RECOVERY');m.store.recovery=async()=>{throw {code:'INVALID'};};m.get('recovery').dispatch('click');await flush();assert.match(m.get('status').textContent,/No valid pre-restore recovery copy/);assert(!m.get('preview').hidden);
+    const m=model();
+    // Wait for the actual review, including delayed file reading and paint yields.
+    m.select('saved', {text: () => new Promise(resolve => setTimeout(() => resolve('saved'), 25))});
+    await waitFor(() => !m.get('apply').disabled);
+    m.get('recovery').dispatch('click');
+    await waitFor(() => m.calls.downloads.length === 1 && !m.get('recovery').disabled);
+    assert(!m.get('preview').hidden);assert(!m.get('apply').disabled);assert.equal(m.calls.downloads[0][0],'RECOVERY');
+    m.store.recovery=async()=>{throw {code:'INVALID'};};m.get('recovery').dispatch('click');
+    await waitFor(() => !m.get('recovery').disabled);
+    assert.match(m.get('status').textContent,/No valid pre-restore recovery copy/);assert(!m.get('preview').hidden);
 });
 
 test('older single-workspace files require a deliberate destination selection before apply',async()=>{
