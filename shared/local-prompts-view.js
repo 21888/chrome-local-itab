@@ -2,6 +2,48 @@
 (function (root) {
     'use strict';
     const key = name => `prompts${name}`;
+    // Retain line terminators: CRLF, a final newline and Unicode remain literal.
+    // LCS is capped before allocation; large edits use exact common edges instead.
+    function compareBodies(before, after) {
+        const lines = text => text.match(/[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+$/g) || [];
+        const a = lines(before), b = lines(after), groups = [];
+        const append = (kind, text) => {
+            if (!text) return;
+            const last = groups[groups.length - 1];
+            if (last?.kind === kind) last.parts.push(text); else groups.push({ kind, parts: [text] });
+        };
+        let start = 0, endA = a.length, endB = b.length;
+        while (start < endA && start < endB && a[start] === b[start]) append('unchanged', a[start++]);
+        while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) { endA--; endB--; }
+        const n = endA - start, m = endB - start, fallback = (n + 1) * (m + 1) > 250000;
+        if (fallback) {
+            append('removed', a.slice(start, endA).join(''));
+            append('added', b.slice(start, endB).join(''));
+        } else {
+            const width = m + 1, table = new Uint32Array((n + 1) * width);
+            for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) {
+                table[i * width + j] = a[start + i] === b[start + j] ? 1 + table[(i + 1) * width + j + 1] : Math.max(table[(i + 1) * width + j], table[i * width + j + 1]);
+            }
+            let i = 0, j = 0;
+            while (i < n || j < m) {
+                if (i < n && j < m && a[start + i] === b[start + j]) { append('unchanged', a[start + i++]); j++; }
+                else if (i < n && (j === m || table[(i + 1) * width + j] >= table[i * width + j + 1])) append('removed', a[start + i++]);
+                else append('added', b[start + j++]);
+            }
+        }
+        append('unchanged', a.slice(endA).join(''));
+        const endings = tokens => {
+            const counts = { crlf: 0, lf: 0, cr: 0, final: false };
+            for (const token of tokens) {
+                if (token.endsWith('\r\n')) counts.crlf++;
+                else if (token.endsWith('\n')) counts.lf++;
+                else if (token.endsWith('\r')) counts.cr++;
+            }
+            counts.final = /[\r\n]$/.test(tokens[tokens.length - 1] || '');
+            return counts;
+        };
+        return { equal: before === after, fallback, beforeEndings: endings(a), afterEndings: endings(b), groups: groups.map(group => ({ kind: group.kind, text: group.parts.join('') })) };
+    }
     class View {
         constructor({ host, controller, translate = (name, fallback) => root.i18n?.t(key(name)) || fallback, clipboard = root.navigator?.clipboard, confirm } = {}) {
             this.host = host; this.doc = host.ownerDocument; this.controller = controller; this.clipboard = clipboard;
@@ -77,6 +119,7 @@
         render(kind = 'render') {
             const c = this.controller;
             this.checkExcerptDialog?.();
+            if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
             if (kind === 'linkedResults') { this.updateLinkedResults(); return; }
             if (kind === 'preview') {
                 // Even an edit back to the original text supersedes pending feedback.
@@ -432,7 +475,67 @@
             details.append(list, caption, body, linked, this.el('div', 'prompt-section')); details.lastElementChild?.append(restore);
             // append directly when running the small synthetic DOM model as well.
             if (!restore.parentElement) details.append(restore);
-            paint(record.history.find(version => version.id === this.historyId) || record.history[record.history.length - 1]); this.main.append(details);
+            paint(record.history.find(version => version.id === this.historyId) || record.history[record.history.length - 1]);
+            this.renderComparison(record, details); this.main.append(details);
+        }
+        renderComparison(record, history) {
+            const c = this.controller, panel = this.el('section', 'prompt-comparison');
+            const opener = this.focusKey(this.button('Compare', 'Compare saved versions', () => {
+                if (c.selected !== record.id || c.error?.scope === 'read') return;
+                const from = record.history.find(v => v.id === this.historyId) || record.history[0];
+                const to = record.history.find(v => v.id !== from.id && v.id === record.currentVersionId) || record.history.find(v => v.id !== from.id) || from;
+                this.comparison = { recordId: record.id, from: from.id, to: to.id }; paint();
+                panel.querySelector('select')?.focus();
+            }), 'compare-open');
+            opener.disabled = c.error?.scope === 'read';
+            const close = () => { this.comparison = null; paint(); opener.focus(); };
+            panel.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 && !event.repeat) { event.preventDefault(); event.stopPropagation(); close(); }
+            });
+            const paint = () => {
+                panel.replaceChildren(); panel.hidden = !this.comparison; opener.setAttribute('aria-expanded', String(!panel.hidden));
+                if (!this.comparison) return;
+                const state = this.comparison;
+                panel.append(this.el('h3', '', this.t('Compare', 'Compare saved versions')),
+                    this.el('p', 'prompt-help', this.t('CompareHelp', 'Read-only comparison of saved bodies. Variables are not filled in. From → To determines removed and added text.')));
+                const selectors = this.el('div', 'prompt-compare-grid');
+                for (const [side, name, fallback] of [['from', 'CompareFrom', 'From'], ['to', 'CompareTo', 'To']]) {
+                    const label = this.el('label', 'prompt-field'), select = this.focusKey(this.el('select'), `compare-${side}`);
+                    label.append(this.el('span', '', this.t(name, fallback)));
+                    for (const [index, version] of record.history.entries()) {
+                        const option = this.el('option', '', `v${index + 1} · ${this.date(version.createdAt)}`); option.value = version.id; select.append(option);
+                    }
+                    select.value = state[side]; select.addEventListener('change', () => {
+                        if (this.comparison !== state || c.selected !== record.id || c.error?.scope === 'read' || !record.history.some(v => v.id === select.value)) return;
+                        state[side] = select.value; paint(); panel.querySelector(`[data-prompt-focus="compare-${side}"]`)?.focus();
+                    }); label.append(select); selectors.append(label);
+                }
+                panel.append(selectors);
+                const from = record.history.find(v => v.id === state.from), to = record.history.find(v => v.id === state.to);
+                if (!from || !to) { close(); return; }
+                const result = compareBodies(from.body, to.body), status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status');
+                status.textContent = result.equal ? this.t('CompareEqual', 'These saved bodies are identical.') : result.fallback ? this.t('CompareFallback', 'Large change: unchanged edges are matched; the middle is shown as removed and added blocks.') : this.t('CompareLegend', '− Removed · + Added · = Unchanged. Line endings are compared exactly.');
+                panel.append(status);
+                // Explain invisible differences outside the unmodified literal bodies.
+                for (const [name, fallback, counts] of [['CompareFrom', 'From', result.beforeEndings], ['CompareTo', 'To', result.afterEndings]]) {
+                    panel.append(this.el('p', 'prompt-help prompt-compare-endings', `${this.t(name, fallback)} · ${this.t('CompareEndings', 'Line endings')}: CRLF ${counts.crlf} · LF ${counts.lf} · CR ${counts.cr} · ${this.t('CompareFinalNewline', 'Ends with newline')}: ${counts.final ? this.t('CompareYes', 'Yes') : this.t('CompareNo', 'No')}`));
+                }
+                const changes = this.el('div', 'prompt-compare-changes');
+                for (const group of result.groups) {
+                    const block = this.el('section', `prompt-compare-${group.kind}`);
+                    block.append(this.el('h4', '', this.t(`Compare${group.kind}`, ({ removed: '− Removed', added: '+ Added', unchanged: '= Unchanged' })[group.kind])));
+                    const pre = this.el('pre', 'prompt-readonly', group.text); pre.tabIndex = 0; block.append(pre); changes.append(block);
+                }
+                panel.append(changes);
+                const originals = this.el('details', 'prompt-compare-originals');
+                originals.append(this.el('summary', '', this.t('CompareOriginals', 'Original saved text (From / To)')));
+                for (const [name, fallback, version] of [['CompareFrom', 'From', from], ['CompareTo', 'To', to]]) {
+                    originals.append(this.el('h4', '', this.t(name, fallback)));
+                    const pre = this.el('pre', 'prompt-readonly', version.body); pre.tabIndex = 0; originals.append(pre);
+                }
+                panel.append(originals, this.focusKey(this.button('CompareClose', 'Close comparison', close), 'compare-close'));
+            };
+            history.append(opener, panel); if (this.comparison) history.open = true; paint();
         }
         date(value) {
             try { return new Intl.DateTimeFormat(this.doc.documentElement.lang || 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); } catch (_) { return value; }
@@ -519,5 +622,5 @@
             });
         }
     }
-    root.LocalItabPromptsView = { View };
+    root.LocalItabPromptsView = { View, compareBodies };
 })(typeof window === 'undefined' ? globalThis : window);

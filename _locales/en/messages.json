@@ -3601,5 +3601,53 @@
   },
   "promptsExcerptPrevious": {
     "message": "Current variable value that will be replaced"
+  },
+  "promptsCompare": {
+    "message": "Compare saved versions"
+  },
+  "promptsCompareHelp": {
+    "message": "Read-only comparison of saved bodies. Variables are not filled in. From → To determines removed and added text."
+  },
+  "promptsCompareFrom": {
+    "message": "From"
+  },
+  "promptsCompareTo": {
+    "message": "To"
+  },
+  "promptsCompareEqual": {
+    "message": "These saved bodies are identical."
+  },
+  "promptsCompareFallback": {
+    "message": "Large change: unchanged edges are matched; the middle is shown as removed and added blocks."
+  },
+  "promptsCompareLegend": {
+    "message": "− Removed · + Added · = Unchanged. Line endings are compared exactly."
+  },
+  "promptsCompareremoved": {
+    "message": "− Removed"
+  },
+  "promptsCompareadded": {
+    "message": "+ Added"
+  },
+  "promptsCompareunchanged": {
+    "message": "= Unchanged"
+  },
+  "promptsCompareOriginals": {
+    "message": "Original saved text (From / To)"
+  },
+  "promptsCompareClose": {
+    "message": "Close comparison"
+  },
+  "promptsCompareEndings": {
+    "message": "Line endings"
+  },
+  "promptsCompareFinalNewline": {
+    "message": "Ends with newline"
+  },
+  "promptsCompareYes": {
+    "message": "Yes"
+  },
+  "promptsCompareNo": {
+    "message": "No"
   }
 }

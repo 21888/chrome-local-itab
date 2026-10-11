@@ -111,3 +111,14 @@ h3 { font-size: 15px; }
 .prompt-excerpt-choice { text-align: start; overflow-wrap: anywhere; }
 .prompt-excerpt-choice[aria-pressed="true"] { border-color: var(--prompt-accent, #587462); }
 .prompt-excerpt-dialog .prompt-readonly { max-height: 240px; overflow: auto; }
+
+.prompt-comparison { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--template-border); min-width: 0; }
+.prompt-compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.prompt-compare-grid select { width: 100%; min-width: 0; }
+.prompt-compare-changes { max-height: 480px; overflow: auto; margin-block: 12px; }
+.prompt-compare-changes section { margin-bottom: 10px; border-inline-start: 3px solid var(--template-border); padding-inline-start: 10px; }
+.prompt-compare-changes h4, .prompt-compare-originals h4 { margin: 8px 0; font-size: 12px; }
+.prompt-compare-changes .prompt-compare-removed { border-inline-start-color: var(--template-error); }
+.prompt-compare-changes .prompt-compare-added { border-inline-start-color: var(--template-accent); }
+.prompt-compare-originals { margin: 16px 0; }
+@media (max-width: 560px) { .prompt-compare-grid { grid-template-columns: 1fr; } }

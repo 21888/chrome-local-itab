@@ -3601,5 +3601,53 @@
   },
   "promptsExcerptPrevious": {
     "message": "将被替换的当前变量值"
+  },
+  "promptsCompare": {
+    "message": "比较已保存版本"
+  },
+  "promptsCompareHelp": {
+    "message": "只读比较已保存正文，不填充变量。“原版本 → 新版本”决定删除与新增的文本。"
+  },
+  "promptsCompareFrom": {
+    "message": "原版本"
+  },
+  "promptsCompareTo": {
+    "message": "新版本"
+  },
+  "promptsCompareEqual": {
+    "message": "这两个已保存正文完全相同。"
+  },
+  "promptsCompareFallback": {
+    "message": "改动较大：匹配未变的开头与结尾，中间内容按删除和新增文本块显示。"
+  },
+  "promptsCompareLegend": {
+    "message": "− 删除 · + 新增 · = 未变。换行符也参与精确比较。"
+  },
+  "promptsCompareremoved": {
+    "message": "− 删除"
+  },
+  "promptsCompareadded": {
+    "message": "+ 新增"
+  },
+  "promptsCompareunchanged": {
+    "message": "= 未变"
+  },
+  "promptsCompareOriginals": {
+    "message": "已保存原文（原版本 / 新版本）"
+  },
+  "promptsCompareClose": {
+    "message": "关闭比较"
+  },
+  "promptsCompareEndings": {
+    "message": "换行符数量"
+  },
+  "promptsCompareFinalNewline": {
+    "message": "末尾有换行符"
+  },
+  "promptsCompareYes": {
+    "message": "是"
+  },
+  "promptsCompareNo": {
+    "message": "否"
   }
 }
