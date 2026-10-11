@@ -3381,7 +3381,7 @@
     "message": "Current saved prompts and AI excerpts · on this device · opens in a new tab"
   },
   "aiSearchQuery": {
-    "message": "Search title, body or tags"
+    "message": "Search title, body, tags or excerpt notes"
   },
   "aiSearchFilter": {
     "message": "Record type"
@@ -3430,6 +3430,9 @@
   },
   "aiSearchTitle": {
     "message": "Title"
+  },
+  "aiSearchNotes": {
+    "message": "Notes"
   },
   "aiSearchTags": {
     "message": "Tags"

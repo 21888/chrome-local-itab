@@ -3381,7 +3381,7 @@
     "message": "当前保存的提示词与 AI 摘录 · 仅此设备 · 在新标签页打开"
   },
   "aiSearchQuery": {
-    "message": "搜索标题、正文或标签"
+    "message": "搜索标题、正文、标签或摘录备注"
   },
   "aiSearchFilter": {
     "message": "内容类型"
@@ -3430,6 +3430,9 @@
   },
   "aiSearchTitle": {
     "message": "标题"
+  },
+  "aiSearchNotes": {
+    "message": "备注"
   },
   "aiSearchTags": {
     "message": "标签"

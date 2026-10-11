@@ -12,7 +12,7 @@ const state = (...records) => ({ revision: 1, records });
 const tick = () => new Promise(setImmediate);
 function store(value) { let listener; return { value, fail: false, read: async function () { if (this.fail) throw Error('secret internal error'); return this.value; }, subscribe(fn) { listener = fn; return () => { listener = null; }; }, notify() { listener?.(); } }; }
 
-test('searches literal current title/body/tags only, labels types and sorts ties by stable ID', () => {
+test('searches literal current title/body/tags and ignores prompt notes, labels types and sorts ties by stable ID', () => {
     const first = record('record_01', { title: 'Same', history: [{ body: 'historyonly' }], notes: 'notesonly' });
     const snapshots = { prompt: state(first, record('record_02', { title: 'Same', deletedAt: 'archived' })), collection: state(record('record_04', { title: 'Same' }), record('record_03', { title: 'Same' })) };
     const before = JSON.stringify(snapshots);
@@ -137,7 +137,7 @@ test('runtime wiring, locales and search remain read-only and packageable', () =
     assert.match(source, /textContent/); assert.match(source, /LocalItabDialog.open/);
     for (const locale of ['en', 'zh_CN']) {
         const messages = JSON.parse(read(`_locales/${locale}/messages.json`));
-        for (const key of ['Open', 'Scope', 'Query', 'Filter', 'All', 'Prompt', 'Collection', 'Loading', 'Empty', 'None', 'PromptError', 'CollectionError', 'Partial', 'Unavailable', 'Retry', 'Clear', 'Close', 'Results', 'Body', 'Title', 'Tags', 'Invalid', 'Missing', 'Archived']) assert.ok(messages[`aiSearch${key}`]?.message, `${locale} ${key}`);
+        for (const key of ['Open', 'Scope', 'Query', 'Filter', 'All', 'Prompt', 'Collection', 'Loading', 'Empty', 'None', 'PromptError', 'CollectionError', 'Partial', 'Unavailable', 'Retry', 'Clear', 'Close', 'Results', 'Body', 'Title', 'Tags', 'Notes', 'Invalid', 'Missing', 'Archived']) assert.ok(messages[`aiSearch${key}`]?.message, `${locale} ${key}`);
     }
     for (const file of ['local-ai-search.js', 'shared/local-ai-search.js', 'shared/local-ai-search-view.js']) assert.ok(read('tools/package_extension.py').includes(`"${file}"`));
     for (const page of ['prompts', 'collections']) {
@@ -174,4 +174,78 @@ test('snippet offsets preserve Unicode after case-fold expansion before the matc
     const row = api.search({ prompt: state(record('prompt_01', { body })) }, 'needle')[0];
     assert.ok(row.snippet.includes('needle 😀'));
     assert.equal(row.snippet, '…' + 'İ'.repeat(45) + 'needle 😀');
+});
+
+test('only current collection string notes match, with exact routes and type filters', () => {
+    const snapshots = {
+        prompt: state(record('prompt_01', { notes: 'notes-only' })),
+        collection: { ...state(
+            record('collect_01', { notes: 'Notes-only' }),
+            record('collect_02', { notes: 'notes-only', deletedAt: 'archived' }),
+            record('collect_03', { history: [{ notes: 'history-only' }], sourceUrl: 'https://example.com/source-only' }),
+            ...[undefined, null, 42, {}, ['notes-only']].map((notes, index) => record(`absent_0${index}`, { notes }))
+        ), recovery: [{ content: state(record('recover_01', { notes: 'recovery-only' })) }] }
+    };
+    const before = JSON.stringify(snapshots);
+    for (const filter of ['all', 'collection']) {
+        const rows = api.search(snapshots, 'NOTES-ONLY', filter);
+        assert.deepEqual(rows, [{ type: 'collection', id: 'collect_01', title: 'Saved', field: 'notes', snippet: 'Notes-only', href: 'collections.html?record=collect_01' }]);
+    }
+    assert.deepEqual(api.search(snapshots, 'notes-only', 'prompt'), []);
+    for (const query of ['history-only', 'recovery-only', 'source-only', '42', '[object Object]']) assert.deepEqual(api.search(snapshots, query), []);
+    assert.equal(JSON.stringify(snapshots), before);
+});
+
+test('notes follow body, title and tags priority without duplicating a record or replacing empty-query snippets', () => {
+    for (const [rest, field] of [
+        [{ body: 'needle', title: 'needle', tags: ['needle'], notes: 'needle' }, 'body'],
+        [{ title: 'needle', tags: ['needle'], notes: 'needle' }, 'title'],
+        [{ tags: ['needle'], notes: 'needle' }, 'tags'],
+        [{ notes: 'needle' }, 'notes']
+    ]) {
+        const saved = record('collect_01', rest), snapshots = { collection: state(saved) };
+        const rows = api.search(snapshots, 'needle');
+        assert.equal(rows.length, 1); assert.equal(rows[0].field, field);
+        for (const query of ['', '   ']) {
+            const row = api.search(snapshots, query)[0];
+            assert.equal(row.field, 'body'); assert.equal(row.snippet, saved.body);
+        }
+    }
+});
+
+test('notes snippets preserve Unicode offsets and render literal HTML with the Notes label', async () => {
+    const notes = 'İ'.repeat(250) + '备注 😀 <img src=x onerror=alert(1)> & {{literal}}';
+    const saved = record('collect_01', { notes });
+    const row = api.search({ collection: state(saved) }, '备注')[0];
+    assert.equal(row.field, 'notes'); assert.equal(row.snippet, '…' + 'İ'.repeat(45) + '备注 😀 <img src=x onerror=alert(1)> & {{literal}}');
+    assert.ok(row.snippet.isWellFormed());
+    const edge = api.search({ collection: state(record('collect_02', { notes: 'z'.repeat(179) + '😀tail' })) }, 'z')[0];
+    assert.ok(edge.snippet.isWellFormed()); assert.ok(edge.snippet.endsWith('😀…'));
+    const f = viewSetup();
+    try {
+        f.c.value = state(saved); f.c.notify(); await tick();
+        f.input.value = '备注'; f.input.dispatch('input');
+        const links = f.document.querySelectorAll('.ai-search-result'); assert.equal(links.length, 1);
+        assert.equal(links[0].querySelector('.finder-meta').textContent, 'AI excerpt · Notes');
+        assert.equal(links[0].querySelector('.ai-search-snippet').textContent, row.snippet);
+        assert.equal(links[0].querySelector('img'), null);
+        assert.equal(links[0].href, 'collections.html?record=collect_01');
+        assert.equal(links[0].dispatch('click').prevented, false);
+        assert.ok(f.document.querySelectorAll('label').some(label => label.textContent === 'Search title, body, tags or excerpt notes'));
+    } finally { f.view.destroy(); }
+});
+
+test('notes results invalidate during stale and failed reads, then reflect only recovered current notes', async () => {
+    const p = store(state()), c = store(state(record('collect_01', { notes: 'old-notes' })));
+    const controller = new api.Controller({ stores: { prompt: p, collection: c } });
+    await controller.start(); const old = controller.results('old-notes')[0]; assert.ok(controller.current(old));
+    const pending = deferred(); c.read = () => pending.promise;
+    const stale = controller.refresh(); assert.deepEqual(controller.results('old-notes'), []); assert.equal(controller.current(old), false);
+    await tick(); c.read = async () => { throw new Error('private notes failure'); };
+    await controller.refresh(); assert.deepEqual(controller.errors, { collection: true });
+    pending.resolve(state(record('collect_01', { notes: 'old-notes' }))); await stale;
+    assert.deepEqual(controller.results('old-notes'), []); assert.deepEqual(controller.errors, { collection: true });
+    c.read = async () => state(record('collect_01', { notes: 'new-notes' })); await controller.refresh();
+    assert.deepEqual(controller.results('old-notes'), []); assert.equal(controller.results('new-notes')[0].field, 'notes');
+    assert.deepEqual(controller.errors, {}); controller.dispose();
 });

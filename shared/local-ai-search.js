@@ -43,6 +43,7 @@
             for (const record of snapshots[type]?.records || []) {
                 if (record.deletedAt || !href(type, record.id)) continue;
                 const fields = [['body', record.body], ['title', record.title], ['tags', record.tags.join(', ')]];
+                if (type === 'collection' && typeof record.notes === 'string') fields.push(['notes', record.notes]);
                 const match = needle ? fields.find(([, value]) => value.toLowerCase().includes(needle)) : fields[0];
                 if (!match) continue;
                 rows.push({ type, id: record.id, title: record.title, field: match[0], snippet: snippet(match[1], needle), href: href(type, record.id) });

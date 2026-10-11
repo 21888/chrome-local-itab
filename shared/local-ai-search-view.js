@@ -3,11 +3,11 @@
     'use strict';
     const labels = {
         Open: 'Search AI library', Scope: 'Current saved prompts and AI excerpts · on this device · opens in a new tab',
-        Query: 'Search title, body or tags', Filter: 'Record type', All: 'All types', Prompt: 'Prompt', Collection: 'AI excerpt',
+        Query: 'Search title, body, tags or excerpt notes', Filter: 'Record type', All: 'All types', Prompt: 'Prompt', Collection: 'AI excerpt',
         Loading: 'Reading current saved libraries…', Empty: 'No saved items in this scope.', None: 'No matching saved items.',
         PromptError: 'Prompt library unavailable. Try reading again.', CollectionError: 'AI collection unavailable. Try reading again.',
         Unavailable: 'Both libraries are unavailable. Try reading again.', Partial: 'Only available libraries are shown.', Retry: 'Read again', Clear: 'Clear', Close: 'Close', Results: 'Results',
-        Body: 'Body', Title: 'Title', Tags: 'Tags', Invalid: 'This record link is invalid. Choose a saved item from the list.',
+        Body: 'Body', Title: 'Title', Tags: 'Tags', Notes: 'Notes', Invalid: 'This record link is invalid. Choose a saved item from the list.',
         Missing: 'This saved record is no longer available. Nothing else was selected.', Archived: 'This record is archived. Open Archived / Trash to review it.'
     };
     const t = name => { const key = `aiSearch${name}`, value = root.i18n?.t(key); return value && value !== key ? value : labels[name]; };
