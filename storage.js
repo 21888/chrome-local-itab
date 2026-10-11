@@ -582,6 +582,69 @@ class StorageManager {
             if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Shortcuts saved locally; sync scheduling failed:', error); }
     }
 
+    async readShortcutOrganizerSnapshot() {
+        return this.withLocalWriteLock(async () => {
+            const raw = await this._local.get(null);
+            const snapshot = this.shortcutUndoSnapshot(raw);
+            return { ...snapshot, categories: this.copyBookmarkImportValue(raw.categories === undefined ? this.defaultConfig.categories : raw.categories),
+                state: this.shortcutUndoState(raw) };
+        }, true);
+    }
+
+    async moveShortcutsToCategory(request) {
+        // The same review object is the retry identity. Never infer completion
+        // from matching titles/URLs, which may represent distinct legacy twins.
+        this._organizerRequests ||= new WeakMap();
+        let ticket = this._organizerRequests.get(request);
+        if (!ticket) {
+            ticket = { plan: this.copyBookmarkImportValue(request), attempted: false };
+            this._organizerRequests.set(request, ticket);
+        }
+        if (ticket.pending) return ticket.pending;
+        ticket.pending = this.withLocalWriteLock(async () => {
+            const raw = await this._local.get(null);
+            const current = this.shortcutUndoState(raw);
+            if (ticket.attempted && this.sameShortcutUndoValue(current, ticket.after)) { ticket.completed = true; return this.shortcutUndoSnapshot(raw); }
+            const conflict = () => this.shortcutUndoError('ORGANIZER_CONFLICT', 'Saved sites, categories or layout changed. Cancel and reopen to review the latest sites.');
+            if (ticket.completed || !this.sameShortcutUndoValue(current, ticket.plan.baseline)) throw conflict();
+            const snapshot = this.shortcutUndoSnapshot(raw);
+            const categories = raw.categories === undefined ? this.defaultConfig.categories : raw.categories;
+            const {indices, destination} = ticket.plan;
+            if (!Array.isArray(categories) || categories.filter(category => category.id === destination).length !== 1 ||
+                !Array.isArray(indices) || !indices.length || new Set(indices).size !== indices.length ||
+                indices.some(index => !Number.isInteger(index) || !snapshot.links[index] || snapshot.links[index].category === destination)) throw conflict();
+            const selected = new Set(indices);
+            const links = snapshot.links.map((link, index) => selected.has(index) ? { ...link, category: destination } : link);
+            LayoutIdentity.validateBundle({ ...raw, links });
+            ticket.after = this.shortcutUndoState({ ...raw, links });
+            ticket.attempted = true;
+            // One atomic write; no identity allocation, reordering or coordinate
+            // migration. All source categories and unknown fields stay intact.
+            let failure;
+            try { await this._local.set({ links }); } catch (error) { failure = error; }
+            try {
+                const readback = await this._local.get(null);
+                const actual = this.shortcutUndoState(readback);
+                if (this.sameShortcutUndoValue(actual, ticket.after)) {
+                    this._shortcutUndoTicket = null; ticket.completed = true;
+                    return this.shortcutUndoSnapshot(readback);
+                }
+                if (this.sameShortcutUndoValue(actual, ticket.plan.baseline)) {
+                    const error = this.shortcutUndoError('ORGANIZER_FAILED', 'Nothing was moved. Retry the reviewed move.');
+                    error.cause = failure; throw error;
+                }
+            } catch (error) { if (error.code === 'ORGANIZER_FAILED' || error.code?.startsWith('WORKSPACE_')) throw error; }
+            const error = this.shortcutUndoError('ORGANIZER_UNVERIFIED', 'Could not verify the move. Retry checks the saved result before writing.');
+            error.mayHaveCommitted = true; throw error;
+        }, true);
+        try {
+            const saved = await ticket.pending;
+            // Provider scheduling cannot turn a verified local save into a failure.
+            try { await this.scheduleShortcutUndoSync(); } catch (_) {}
+            return saved;
+        } finally { ticket.pending = null; }
+    }
+
     async deleteShortcutWithUndo(index, options = {}) {
         const expected = this.copyBookmarkImportValue(options.expectedLinks);
         await this.ensureSyncInitialized();

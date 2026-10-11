@@ -26,6 +26,7 @@ RUNTIME_FILES = (
     "collection-capture-background.js", "shared/collection-capture.js", "shared/collection-capture-page.js", "shared/collection-prompt-draft.js",
     "local-ai-search.js", "shared/local-ai-search.js", "shared/local-ai-search-view.js",
     "newtab.html", "options.html",
+    "shared/shortcut-organizer.js", "shared/shortcut-organizer-view.js", "shortcut-organizer.css",
     "collections.html", "collections.js", "collections.css",
     "shared/local-ai-collections-store.js", "shared/local-ai-collections-controller.js", "shared/local-ai-collections-view.js",
     "prompts.html", "prompts.js", "prompts.css", "prompt-library-entry.css",

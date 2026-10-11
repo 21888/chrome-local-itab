@@ -3784,5 +3784,71 @@
   },
   "countdownImportError": {
     "message": "无法读取此倒计时导出文件。请选择完整的 UTF-8 .txt：须包含标题、最后一行内容为真实的 YYYY-MM-DD 日期，并以换行结束。不完整的恢复导出无法导入。现有草稿未改变。"
+  },
+  "organizerSubmit": {
+    "message": "移动已确认的网站"
+  },
+  "organizerSelected": {
+    "message": "已选网站"
+  },
+  "organizerSaved": {
+    "message": "已移动网站"
+  },
+  "organizerDestination": {
+    "message": "移至现有分类"
+  },
+  "organizerLayout": {
+    "message": "请先完成或重试尚未保存的布局更改，再重新打开网站整理。"
+  },
+  "organizerUnverified": {
+    "message": "无法确认移动结果。重试会先核对已保存的结果，再决定是否写入。"
+  },
+  "organizerFailed": {
+    "message": "未移动任何网站。可以重试已确认的移动。"
+  },
+  "organizerBusy": {
+    "message": "请先完成其他网站操作。"
+  },
+  "organizerCancel": {
+    "message": "取消"
+  },
+  "organizerReview": {
+    "message": "预览移动"
+  },
+  "organizerBack": {
+    "message": "返回"
+  },
+  "organizerChoose": {
+    "message": "选择目标分类"
+  },
+  "organizerHelp": {
+    "message": "逐条选择网站。无法选择已经属于目标分类的网站。不会删除任何分类。"
+  },
+  "organizerRetry": {
+    "message": "重试已确认的移动"
+  },
+  "organizerChanged": {
+    "message": "网站、分类或布局已更改。请取消并重新打开，查看最新网站。"
+  },
+  "organizerOrphan": {
+    "message": "分类已不在列表中"
+  },
+  "organizerPending": {
+    "message": "正在检查并保存…"
+  },
+  "organizerLoading": {
+    "message": "正在读取已保存网站…"
+  },
+  "organizerError": {
+    "message": "无法读取已保存网站。请关闭后重试。"
+  },
+  "organizerEmpty": {
+    "message": "暂无已保存网站。"
+  },
+  "organizerOpen": {
+    "message": "整理已保存网站"
+  },
+  "organizerReviewTitle": {
+    "message": "确认具体网站和目标分类"
   }
 }

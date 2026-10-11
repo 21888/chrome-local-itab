@@ -170,6 +170,7 @@
         } else if (payload.type === 'category') {
             menu.setAttribute('aria-label', translate('contextCategoryActions', 'Category actions'));
             createItem(session, 'openAll', 'Open all', 'open_all');
+            createItem(session, 'organizerOpen', 'Organize saved sites', 'organize_sites');
         } else {
             menu.setAttribute('aria-label', translate('contextPageActions', 'Page actions'));
             const auto = component?.layout?.autoArrange !== false;

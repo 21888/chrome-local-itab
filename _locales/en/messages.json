@@ -3784,5 +3784,71 @@
   },
   "countdownImportError": {
     "message": "Could not read this Countdown export. Choose a complete UTF-8 .txt with a title, a real YYYY-MM-DD date on its last content line, and a final newline. Incomplete recovery exports cannot be imported. Your draft is unchanged."
+  },
+  "organizerSubmit": {
+    "message": "Move reviewed sites"
+  },
+  "organizerSelected": {
+    "message": "Selected sites"
+  },
+  "organizerSaved": {
+    "message": "Sites moved"
+  },
+  "organizerDestination": {
+    "message": "Move to existing category"
+  },
+  "organizerLayout": {
+    "message": "Finish or retry the pending layout change first. Then reopen the organizer."
+  },
+  "organizerUnverified": {
+    "message": "Could not verify the move. Retry checks the saved result before writing."
+  },
+  "organizerFailed": {
+    "message": "Nothing was moved. Retry the reviewed move."
+  },
+  "organizerBusy": {
+    "message": "Finish the other shortcut action first."
+  },
+  "organizerCancel": {
+    "message": "Cancel"
+  },
+  "organizerReview": {
+    "message": "Review move"
+  },
+  "organizerBack": {
+    "message": "Back"
+  },
+  "organizerChoose": {
+    "message": "Choose a destination"
+  },
+  "organizerHelp": {
+    "message": "Select individual records. Sites already in the destination cannot be selected. No categories are removed."
+  },
+  "organizerRetry": {
+    "message": "Retry reviewed move"
+  },
+  "organizerChanged": {
+    "message": "Saved sites, categories or layout changed. Cancel and reopen to review the latest sites."
+  },
+  "organizerOrphan": {
+    "message": "Category no longer listed"
+  },
+  "organizerPending": {
+    "message": "Checking and saving…"
+  },
+  "organizerLoading": {
+    "message": "Reading saved sites…"
+  },
+  "organizerError": {
+    "message": "Could not read saved sites. Close and try again."
+  },
+  "organizerEmpty": {
+    "message": "No saved sites."
+  },
+  "organizerOpen": {
+    "message": "Organize saved sites"
+  },
+  "organizerReviewTitle": {
+    "message": "Review exact sites and destination"
   }
 }
