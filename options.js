@@ -290,6 +290,11 @@ function setupCompleteBackup() {
             // Core owns the lock, recovery, baseline check and read-back verification.
             // No confirm(), reload or form refresh belongs inside this transaction.
             return store.restore(preview, {confirmed: true, isCurrent: () => isCurrent() && !completeBackupHasDrafts()});
+        }),
+        recoverInterruptedRestore: (review, isCurrent) => queueSettingsWrite(async () => {
+            if (!isCurrent()) throw Object.assign(new Error(), {code: 'CANCELLED'});
+            if (completeBackupHasDrafts()) throw Object.assign(new Error(), {code: 'DIRTY'});
+            return store.recoverInterruptedRestore(review, {confirmed: true, isCurrent: () => isCurrent() && !completeBackupHasDrafts()});
         })
     });
 }

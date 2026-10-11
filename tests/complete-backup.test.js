@@ -57,7 +57,7 @@ function code(expected) { return error => error.code === expected; }
 
 test('fresh defaults and selected archive round-trip, read-only and no providers', async () => {
     const f = fixture(); const file = JSON.parse(await f.store.export());
-    assert.deepEqual(Object.keys(file.modules), Backup.MODULES);
+    assert.deepEqual(Object.keys(file.modules), Backup.SCOPED_MODULES);
     assert.equal(file.format, Backup.FORMAT); assert.equal(file.schemaVersion, 1);
     assert.equal(f.writes.length, 0);
     const partial = JSON.parse(await f.store.export(['scratchpad', 'config']));

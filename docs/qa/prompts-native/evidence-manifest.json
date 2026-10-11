@@ -1,0 +1,70 @@
+{
+  "acceptance-notes.md": {
+    "bytes": 5625,
+    "sha256": "8bff5e7b66c9e65f02361feecff3c07ecb9eac862292c876e6f102547beb748a"
+  },
+  "verify.cjs": {
+    "bytes": 2658,
+    "sha256": "e99a5f5d07c2d038c1ecef25a2f854e846faa85a8bec093f0a7991271b217e0f"
+  },
+  "comparison.json": {
+    "bytes": 939,
+    "sha256": "62e27bb9b3c403395dce3c774257fd34a8599cf797e48681036e012e9d55a8d3"
+  },
+  "package-evidence.py": {
+    "bytes": 936,
+    "sha256": "5ba2b63aed1f3670c463629235fbb36ab0b29e8e5f1b8bcbbe59e3f51b52ece5"
+  },
+  "evidence/01-restored-body-history.jpg": {
+    "bytes": 93512,
+    "sha256": "eba6a3c25b5955ecca250dfe48344f998439a711abc7f916022738f93b76ae3d"
+  },
+  "evidence/02-stale-draft-preserved.jpg": {
+    "bytes": 123213,
+    "sha256": "7ea9bf0270025a18dda2207aad2fff1def3d6148a50187ef7cbcc3e042837647"
+  },
+  "evidence/03-stale-versus-saved.jpg": {
+    "bytes": 117510,
+    "sha256": "681727c3e66d9b4e8d730d39ca1779d2297c31943faf4f39c5dede931cdd6449"
+  },
+  "evidence/04-light-tag-search.jpg": {
+    "bytes": 111967,
+    "sha256": "89d4a091b405c24ecfb156df58f787145c6a6ef748995dab22ee44fd63387a84"
+  },
+  "evidence/05-backup-review-counts.jpg": {
+    "bytes": 130352,
+    "sha256": "1651846a03589e1a0204650c1636eb5e32be30368fd6e91fb758396be074ef52"
+  },
+  "evidence/06-restore-verified.jpg": {
+    "bytes": 156482,
+    "sha256": "e7ee5de7225822d44dcf775674a34d8d9793c1c52b525bbf7a1a9da1de207d5e"
+  },
+  "evidence/07-four-native-downloads.jpg": {
+    "bytes": 103826,
+    "sha256": "0a37236ab159c2c0729711cba9d748c91d3725dfe1d346098806c220022d196d"
+  },
+  "evidence/08-narrow-dark-553-window.jpg": {
+    "bytes": 62739,
+    "sha256": "1339c88c8425f268824f889e458c81f2cf533c2d338197f9587685bedd93db3a"
+  },
+  "evidence/09-narrow-dark-detail.jpg": {
+    "bytes": 57821,
+    "sha256": "63ad2ad123be9d39fc24e66f7c7771792051222593cee0742652d35c0a656e26"
+  },
+  "exports/source-a.json": {
+    "bytes": 3205,
+    "sha256": "feccb4cdb4d3546356b725fa8bf9f96831893b2eda414f85f2fd01373d2ed0a4"
+  },
+  "exports/changed-b.json": {
+    "bytes": 3438,
+    "sha256": "70406bb39b29a9454f7fb8699e12503ae80d9844002ec7a417434654a4abf5b7"
+  },
+  "exports/restored-c.json": {
+    "bytes": 4693,
+    "sha256": "d22998fe5c27378f30963060428ee91d0d90cd448ae3826c41a76839b6edf711"
+  },
+  "exports/recovery-b.json": {
+    "bytes": 3438,
+    "sha256": "775975b6c68341837602c38ed7c3d9ffa84e78b0a27bb0f8aa23b3ffa78c611f"
+  }
+}

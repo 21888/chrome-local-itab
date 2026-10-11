@@ -24,6 +24,8 @@ STAMP = (1980, 1, 1, 0, 0, 0)
 RUNTIME_FILES = (
     "manifest.json",
     "newtab.html", "options.html",
+    "prompts.html", "prompts.js", "prompts.css", "prompt-library-entry.css",
+    "shared/local-prompts-store.js", "shared/local-prompts-controller.js", "shared/local-prompts-view.js",
     "context-menu.js", "drive-backup.js", "error-handler.js", "favicon-cache.js",
     "i18n.js", "newtab.js", "options.js", "storage.js",
     "workspaces.css", "appearance.css", "bookmark-import.css", "complete-backup.css", "context-menu.css", "update-checker.css",

@@ -14,9 +14,18 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
+### Capturas de la biblioteca de prompts · candidata local 1.1.23
+
+Capturadas el 2026-10-10 en Chrome nativo de Linux en la nube con datos de prueba aislados. Estas imágenes originales muestran el paquete integrado congelado de 76 archivos (manifest 1.1.21); el código actual 1.1.23 solo cambia el número de versión de ejecución. No son capturas posteriores a la publicación. La imagen estrecha usa una ventana exterior de 553 píxeles, no un teléfono físico ni una anchura CSS medida.
+
+![Biblioteca clara: búsqueda por etiqueta](docs/qa/prompts-native/evidence/04-light-tag-search.jpg)
+![Biblioteca oscura en ventana estrecha: detalle y variables](docs/qa/prompts-native/evidence/09-narrow-dark-detail.jpg)
+
+[Validación nativa y límites](docs/prompt-library-native-validation.md) · [Flujos y comparación de copias](docs/qa/prompts-native/acceptance-notes.md)
+
 ### Capturas actuales · validación previa a 1.1.22
 
-Capturadas en Chrome nativo de Linux el 2026-10-10 con datos de prueba. La versión fotografiada es 1.1.21 más la función de espacios independientes; la publicación 1.1.22 solo cambia el número de versión. Son imágenes originales, no capturas realizadas tras la publicación.
+Capturadas en Chrome nativo de Linux el 2026-10-10 con datos de prueba. La versión fotografiada es 1.1.21 más la función de espacios independientes; la candidata local 1.1.22 solo cambia el número de versión y aún no se ha enviado al repositorio remoto. Son imágenes originales, no capturas realizadas tras la publicación.
 
 ![Folio claro con selector de espacio](docs/qa/workspaces-native/screenshots/05-folio-workspace-bar.jpg)
 ![Gestión de espacios y papelera](docs/qa/workspaces-native/screenshots/15-workspace-manager-light.jpg)
@@ -188,6 +197,8 @@ Consulta la [guía de comprobación de versiones, copias separadas y actualizaci
 <a id="features"></a>
 
 ## Funciones
+
+- **Biblioteca personal de prompts (candidata local 1.1.23)**: Una biblioteca local de texto plano compartida por todos los espacios, con categorías, etiquetas, favoritos, búsqueda, vista previa y copia de `{{variables}}`, historial del texto y papelera recuperable. La copia local completa con esquema 3 puede incluir prompts; la exportación normal de ajustes, Chrome Sync y Drive no los incluyen. Sin ejecución de modelos, campos de claves API, permisos nuevos ni cargas automáticas. [Uso y límites (chino)](docs/prompt-library.zh-CN.md) · [Alcance de validación nativa (inglés)](docs/prompt-library-native-validation.md) · [Cambios y límites de 1.1.23 (inglés)](docs/releases/1.1.23.md#english). El número de la candidata no significa que esté publicada.
 
 - **Exportar marcadores del navegador**: En Ajustes → Datos, exporta títulos, URL completas y carpetas de categorías guardadas a un archivo HTML local. Revisa la confirmación de privacidad; se excluyen cambios sin guardar, iconos, ajustes y herramientas locales. [Alcance y límites](docs/bookmark-export.md).
 
@@ -448,4 +459,4 @@ La documentación existente identifica la licencia como MIT. El repositorio toda
 
 ### Copia local completa
 
-Ajustes → Datos permite exportar y restaurar módulos guardados seleccionados en un JSON local: configuración e imágenes, Tasks con historial, Scratchpad, Countdown y preferencias de Focus. No incluye borradores ni sesiones activas. [Guía de copia completa y recuperación](docs/complete-backup.es-ES.md).
+Ajustes → Datos permite exportar y restaurar módulos guardados seleccionados en un JSON local: configuración e imágenes, Tasks con historial, Scratchpad, Countdown, preferencias de Focus y la biblioteca global de prompts (esquema 3 cuando se incluyen prompts). No incluye borradores ni sesiones activas. [Guía de copia completa y recuperación](docs/complete-backup.es-ES.md).

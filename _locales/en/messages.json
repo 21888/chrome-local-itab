@@ -1,4 +1,26 @@
 {
+  "completeBackupInterruptedChanged": {"message": "A retained saved copy changed after the interrupted restore. Automatic rollback is blocked to avoid losing newer content. Download both saved copies for review; the pre-restore download is also available."},
+  "completeBackupDownloadInterrupted": {"message": "Download both saved copies"},
+  "completeBackupPrompts": {"message": "Prompt library and saved versions"},
+  "completeBackupPromptHelp": {"message": "Prompts are one global reusable library shared across workspaces. This includes saved versions and archived prompts, but excludes drafts, variable values and provider credentials."},
+  "completeBackupPromptTarget": {"message": "Destination for the prompt library"},
+  "completeBackupChoosePromptTarget": {"message": "Choose the prompt library destination"},
+  "completeBackupGlobalLibrary": {"message": "Global prompt library on this device"},
+  "completeBackupPromptTargetRequired": {"message": "Choose the global prompt library target, then review again. Its saved active and archived prompts will be replaced."},
+  "completeBackupPromptScope": {"message": "The selected global prompt library is replaced once, including archived prompts. Current saved records and their versions are retained in recovery. Visibility stays unchanged."},
+  "completeBackupGlobalOnlyScope": {"message": "Only the global prompt library will be replaced. Saved workspaces and Trash stay unchanged."},
+  "completeBackupPromptConflicts": {"message": "Matching prompt IDs whose saved metadata or body differs"},
+  "completeBackupCountPromptActive": {"message": "Active prompts"},
+  "completeBackupCountPromptRemoved": {"message": "Archived prompts"},
+  "completeBackupCountVersions": {"message": "Saved body versions"},
+  "completeBackupPromptLimit": {"message": "The prompt library or its retained recovery/history exceeds its safe limit. No replacement was made. Keep a backup; no history is deleted automatically."},
+  "completeBackupPromptIdentity": {"message": "A saved prompt or body-version ID has conflicting content. No replacement was made. Keep both files for review."},
+  "completeBackupRestorePending": {"message": "A combined restore was interrupted. Saving is paused to protect both saved copies. Download the pre-restore copy and inspect the interrupted restore below before making another change."},
+  "completeBackupInspectInterrupted": {"message": "Inspect interrupted restore"},
+  "completeBackupInterruptedReview": {"message": "Saving is paused. The following action restores all workspaces, Trash and the prompt library to their verified pre-restore state. It does not merge drafts. Download the pre-restore copy first if you need a separate file."},
+  "completeBackupRecoverInterrupted": {"message": "Restore verified previous state"},
+  "completeBackupNoInterrupted": {"message": "No interrupted combined restore needs recovery. You can reload to inspect the saved state; no recovery action was taken."},
+  "completeBackupRecoveredInterrupted": {"message": "The previous workspace and prompt states were restored and verified. Reload to show them; drafts remain in this page."},
   "updateBackupTitle": {"message": "Back up before updating"},
   "updateBackupScope": {"message": "Save open edits first. Settings backups exclude Tasks, Focus, Scratchpad and Countdown. Back up Tasks, Scratchpad and Countdown separately; record Focus preferences manually. Focus sessions cannot be migrated."},
   "updateBackupSettings": {"message": "Go to settings export"},
@@ -1122,5 +1144,341 @@
   },
   "spacesOpenDefault": {
     "message": "Open Default workspace"
+  },
+  "promptsEyebrow": {
+    "message": "Your reusable instructions"
+  },
+  "promptsTitle": {
+    "message": "Prompt library"
+  },
+  "promptsSubtitle": {
+    "message": "Save a good prompt once. Find it, fill in the details, and use it again."
+  },
+  "promptsBack": {
+    "message": "Back to new tab"
+  },
+  "promptsNew": {
+    "message": "New prompt"
+  },
+  "promptsBrowse": {
+    "message": "Browse prompts"
+  },
+  "promptsSearchLabel": {
+    "message": "Search your library"
+  },
+  "promptsSearchPlaceholder": {
+    "message": "Title, body, tags…"
+  },
+  "promptsViews": {
+    "message": "Library views"
+  },
+  "promptsCategory": {
+    "message": "Category"
+  },
+  "promptsClearFilters": {
+    "message": "Clear filters"
+  },
+  "promptsResults": {
+    "message": "Saved prompts"
+  },
+  "promptsScope": {
+    "message": "One library across all workspaces. Saved on this device; copying is always your choice."
+  },
+  "promptsPrivacy": {
+    "message": "This is not an encrypted vault. Device access and unencrypted backups can expose saved text. Do not store passwords or API keys."
+  },
+  "promptsBusyLeave": {
+    "message": "A save is still running. Wait for it to finish before leaving."
+  },
+  "promptsLeaveTitle": {
+    "message": "Leave this library?"
+  },
+  "promptsLeaveBody": {
+    "message": "Unsaved drafts and variable values exist only in this tab. Leaving will discard them. Saved prompts will stay on this device."
+  },
+  "promptsLeave": {
+    "message": "Leave page"
+  },
+  "promptsSaving": {
+    "message": "Saving… Keep this tab open."
+  },
+  "promptsSaved": {
+    "message": "Saved on this device."
+  },
+  "promptsRemoved": {
+    "message": "Moved to Trash. You can restore it at any time."
+  },
+  "promptsRestored": {
+    "message": "Restored to your library."
+  },
+  "promptsVersionRestored": {
+    "message": "Restored as a new body version. Later history is still here."
+  },
+  "promptsFavoriteSaved": {
+    "message": "Favorite updated."
+  },
+  "promptsDraftNotice": {
+    "message": "Unsaved drafts stay in this tab while you browse. Save them before leaving."
+  },
+  "promptsRetrySave": {
+    "message": "Retry same save"
+  },
+  "promptsRetryRead": {
+    "message": "Read again"
+  },
+  "promptsBackupSettings": {
+    "message": "Open backup settings"
+  },
+  "promptsDraft": {
+    "message": "Draft"
+  },
+  "promptsUntitled": {
+    "message": "Untitled"
+  },
+  "promptsAllCategories": {
+    "message": "All categories"
+  },
+  "promptsPromptCount": {
+    "message": "prompts"
+  },
+  "promptsTrashEmpty": {
+    "message": "Trash is empty. Deleted prompts remain recoverable here."
+  },
+  "promptsNoResults": {
+    "message": "No matching prompts. Clear filters or create a new one."
+  },
+  "promptsLoading": {
+    "message": "Opening your library…"
+  },
+  "promptsUnavailable": {
+    "message": "Your library could not be read safely"
+  },
+  "promptsUnavailableBody": {
+    "message": "Saved data has not been replaced. Try reading it again."
+  },
+  "promptsEmptyTitle": {
+    "message": "Keep the prompts worth reusing"
+  },
+  "promptsEmptyBody": {
+    "message": "Start with a prompt you already use. Add {{topic}} or {{audience}} where the details change, then fill them in each time."
+  },
+  "promptsCreateFirst": {
+    "message": "Create a prompt"
+  },
+  "promptsEditTitle": {
+    "message": "Edit prompt"
+  },
+  "promptsNewTitle": {
+    "message": "New prompt"
+  },
+  "promptsEditorHelp": {
+    "message": "Title and body are required. Only explicit body saves create a version."
+  },
+  "promptsConflict": {
+    "message": "This prompt changed in another tab or was restored from backup. Your draft is intact. Review the saved prompt before choosing what to keep."
+  },
+  "promptsSaveCopy": {
+    "message": "Save draft as new prompt"
+  },
+  "promptsUseSaved": {
+    "message": "Discard draft and use saved"
+  },
+  "promptsReviewSaved": {
+    "message": "Review current saved prompt"
+  },
+  "promptsMissingSaved": {
+    "message": "This item is no longer in the saved library. Your draft can still be saved as a new prompt."
+  },
+  "promptsHistoryLimit": {
+    "message": "This prompt has reached 20 body versions. Save this draft as a new prompt to continue. The old prompt and all its history will stay unchanged."
+  },
+  "promptsTitleField": {
+    "message": "Title"
+  },
+  "promptsBodyField": {
+    "message": "Prompt body"
+  },
+  "promptsVariableHelp": {
+    "message": "Use {{name}} for a variable. Use \\{{name}} for literal braces. Expressions and code are never run."
+  },
+  "promptsCategoryOptional": {
+    "message": "Category (optional)"
+  },
+  "promptsTags": {
+    "message": "Tags (optional)"
+  },
+  "promptsTagsHelp": {
+    "message": "Separate tags with commas."
+  },
+  "promptsTool": {
+    "message": "Tool or usage note (optional)"
+  },
+  "promptsToolHelp": {
+    "message": "A label for your reference. This does not connect to a provider."
+  },
+  "promptsFavorite": {
+    "message": "Favorite"
+  },
+  "promptsSave": {
+    "message": "Save prompt"
+  },
+  "promptsCancelEdit": {
+    "message": "Close editor"
+  },
+  "promptsUnsaved": {
+    "message": "Unsaved changes · Ctrl/⌘ + S"
+  },
+  "promptsNoChanges": {
+    "message": "No unsaved changes"
+  },
+  "promptsDiscardTitle": {
+    "message": "Discard this draft?"
+  },
+  "promptsDiscardBody": {
+    "message": "Only unsaved edits will be discarded. The saved prompt and its versions will stay in the library."
+  },
+  "promptsDiscard": {
+    "message": "Discard draft"
+  },
+  "promptsInTrash": {
+    "message": "In Trash"
+  },
+  "promptsSavedPrompt": {
+    "message": "Saved prompt"
+  },
+  "promptsCreated": {
+    "message": "Created"
+  },
+  "promptsUpdated": {
+    "message": "Updated"
+  },
+  "promptsRestore": {
+    "message": "Restore prompt"
+  },
+  "promptsTrashHelp": {
+    "message": "The body and all versions are kept. Restore to edit or reuse this prompt."
+  },
+  "promptsEdit": {
+    "message": "Edit prompt"
+  },
+  "promptsMoveTrash": {
+    "message": "Move to Trash"
+  },
+  "promptsTrashTitle": {
+    "message": "Move this prompt to Trash?"
+  },
+  "promptsTrashBody": {
+    "message": "It will leave normal search results. Its body and versions are kept, and you can restore it from Trash."
+  },
+  "promptsUse": {
+    "message": "Prepare to use"
+  },
+  "promptsUseHelp": {
+    "message": "Variable values stay only in this tab. Preview the completed text, then copy it to the tool you choose."
+  },
+  "promptsLiteral": {
+    "message": "Use the template literally (do not replace variables)"
+  },
+  "promptsEmptyValue": {
+    "message": "Use empty value"
+  },
+  "promptsPreview": {
+    "message": "Completed preview"
+  },
+  "promptsClearValues": {
+    "message": "Clear values"
+  },
+  "promptsCopyCompleted": {
+    "message": "Copy completed prompt"
+  },
+  "promptsSelectPreview": {
+    "message": "Select text"
+  },
+  "promptsMissingValues": {
+    "message": "Fill these variables before copying:"
+  },
+  "promptsPreviewReady": {
+    "message": "Ready to copy. Your saved template will not change."
+  },
+  "promptsCopied": {
+    "message": "Copied. Paste it into the tool you choose."
+  },
+  "promptsCopyFailed": {
+    "message": "Copy was blocked. Your preview is still here. Select the text and use your browser’s Copy command."
+  },
+  "promptsHistory": {
+    "message": "Body version history"
+  },
+  "promptsHistoryHelp": {
+    "message": "Only saved body changes create versions. Restoring keeps later history and creates a new version."
+  },
+  "promptsRestoreVersion": {
+    "message": "Restore as new version"
+  },
+  "promptsRestoreVersionTitle": {
+    "message": "Restore this body version?"
+  },
+  "promptsRestoreVersionBody": {
+    "message": "The selected body will become a new version. Title, tags and category stay unchanged. All later versions remain available."
+  },
+  "promptsVersionSaved": {
+    "message": "Body saved"
+  },
+  "promptsCurrent": {
+    "message": "current"
+  },
+  "promptsWriteUncertain": {
+    "message": "The save could not be verified. Your draft is kept. Retry the same save before editing further; do not assume it was saved."
+  },
+  "promptsReadFailed": {
+    "message": "Saved data could not be read safely. Your current draft is kept. Try again."
+  },
+  "promptsCapacity": {
+    "message": "The library limit is 200 prompts, including Trash. Your draft is kept. Export a full backup; moving items to Trash does not free capacity."
+  },
+  "promptsRecoveryLimit": {
+    "message": "All 8 recovery slots are occupied. Your draft is kept. Export a full backup before managing stored recovery data. Nothing was removed automatically."
+  },
+  "promptsSizeLimit": {
+    "message": "The 2 MiB library limit has been reached. Your draft is kept. Export a full backup. No body or history was truncated."
+  },
+  "promptsValidation": {
+    "message": "Check the required title and body, field lengths, and unique tags. Limits: title 200, body 32,000, category 100, tool note 200 characters; up to 20 tags of 64 characters."
+  },
+  "promptsPreviewLimit": {
+    "message": "This preview is too large or has too many variables. Reduce variable values or use the literal template. Nothing was copied."
+  },
+  "promptsStorageBlocked": {
+    "message": "Safe storage is temporarily unavailable or needs recovery. Your draft is kept. Finish any backup restore and try again."
+  },
+  "promptsInvalid": {
+    "message": "This content could not be saved safely. Your draft is kept. Review the fields and try again."
+  },
+  "promptsCancel": {
+    "message": "Cancel"
+  },
+  "promptsPageTitle": {
+    "message": "Prompt library · Local iTab"
+  },
+  "promptsSkip": {
+    "message": "Skip to prompt"
+  },
+  "promptsAll": {
+    "message": "All"
+  },
+  "promptsFavorites": {
+    "message": "Favorites"
+  },
+  "promptsTrash": {
+    "message": "Trash"
+  },
+  "promptsUnfavorite": {
+    "message": "Remove favorite"
+  },
+  "promptsEntry": {
+    "message": "Prompt library"
+  },
+  "promptsRetainedVariables": {
+    "message": "The saved body changed. This form keeps your previous body and variable values. Clear values when you are ready to use the latest body."
   }
 }

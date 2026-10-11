@@ -1,4 +1,26 @@
 {
+  "completeBackupInterruptedChanged": {"message": "中断恢复后，保留的数据副本发生变化。为避免丢失较新内容，自动回退已阻止。请下载两份已保存数据以供核对，也可下载恢复前副本。"},
+  "completeBackupDownloadInterrupted": {"message": "下载两份已保存数据"},
+  "completeBackupPrompts": {"message": "提示词库与已保存版本"},
+  "completeBackupPromptHelp": {"message": "提示词是所有工作区共用的全局资料库。备份包括已保存版本与已归档提示词，不含草稿、变量填写值或提供商凭据。"},
+  "completeBackupPromptTarget": {"message": "提示词库恢复目标"},
+  "completeBackupChoosePromptTarget": {"message": "选择提示词库恢复目标"},
+  "completeBackupGlobalLibrary": {"message": "此设备的全局提示词库"},
+  "completeBackupPromptTargetRequired": {"message": "请选择全局提示词库目标并重新预览。当前已保存和已归档的提示词将被替换。"},
+  "completeBackupPromptScope": {"message": "所选全局提示词库只替换一次，包括已归档提示词。当前记录及版本将保留在恢复副本中，显示偏好不变。"},
+  "completeBackupGlobalOnlyScope": {"message": "只替换全局提示词库。工作区及其回收站保持不变。"},
+  "completeBackupPromptConflicts": {"message": "相同提示词 ID 中资料或正文不同的数量"},
+  "completeBackupCountPromptActive": {"message": "使用中的提示词"},
+  "completeBackupCountPromptRemoved": {"message": "已归档提示词"},
+  "completeBackupCountVersions": {"message": "已保存正文版本"},
+  "completeBackupPromptLimit": {"message": "提示词库或其保留的恢复副本、历史已达到安全容量上限。未进行替换。请保留备份；系统不会自动删除历史。"},
+  "completeBackupPromptIdentity": {"message": "提示词或正文版本 ID 对应的内容发生冲突。未进行替换。请保留两份文件以便核对。"},
+  "completeBackupRestorePending": {"message": "一次组合恢复已中断。为保护两份已保存数据，当前暂停写入。请先下载恢复前副本，并在下方检查中断的恢复。"},
+  "completeBackupInspectInterrupted": {"message": "检查中断的恢复"},
+  "completeBackupInterruptedReview": {"message": "当前暂停写入。以下操作将把所有工作区、工作区回收站和提示词库恢复到经过验证的恢复前状态，不会合并草稿。如需独立文件，请先下载恢复前副本。"},
+  "completeBackupRecoverInterrupted": {"message": "恢复经过验证的之前状态"},
+  "completeBackupNoInterrupted": {"message": "没有需要处理的中断恢复。可重新载入以检查已保存状态；本次未执行恢复操作。"},
+  "completeBackupRecoveredInterrupted": {"message": "之前的工作区与提示词状态已恢复并验证。请重新载入以显示；本页草稿仍保留。"},
   "updateBackupTitle": {"message": "更新前先备份"},
   "updateBackupScope": {"message": "先保存正在编辑的内容。设置备份不包含待办、专注计时、便笺和倒计时。请分别备份待办、便笺和倒计时；专注偏好需手动记录，专注会话无法迁移。"},
   "updateBackupSettings": {"message": "前往设置导出"},
@@ -1122,5 +1144,341 @@
   },
   "spacesOpenDefault": {
     "message": "打开默认工作区"
+  },
+  "promptsEyebrow": {
+    "message": "可以反复使用的好指令"
+  },
+  "promptsTitle": {
+    "message": "提示词库"
+  },
+  "promptsSubtitle": {
+    "message": "保存一条好提示词。需要时找到它、填写变量，再次使用。"
+  },
+  "promptsBack": {
+    "message": "返回新标签页"
+  },
+  "promptsNew": {
+    "message": "新建提示词"
+  },
+  "promptsBrowse": {
+    "message": "浏览提示词"
+  },
+  "promptsSearchLabel": {
+    "message": "搜索提示词库"
+  },
+  "promptsSearchPlaceholder": {
+    "message": "标题、正文、标签…"
+  },
+  "promptsViews": {
+    "message": "提示词视图"
+  },
+  "promptsCategory": {
+    "message": "分类"
+  },
+  "promptsClearFilters": {
+    "message": "清除筛选"
+  },
+  "promptsResults": {
+    "message": "已保存的提示词"
+  },
+  "promptsScope": {
+    "message": "所有工作空间共用一个提示词库。内容保存在本机，只有你点击后才会复制。"
+  },
+  "promptsPrivacy": {
+    "message": "这里不是加密保险箱。能访问设备的人或未加密备份可能看到已保存的文本。请勿保存密码或 API 密钥。"
+  },
+  "promptsBusyLeave": {
+    "message": "正在保存，请等待完成后再离开。"
+  },
+  "promptsLeaveTitle": {
+    "message": "离开提示词库？"
+  },
+  "promptsLeaveBody": {
+    "message": "未保存的草稿和变量值只保留在当前标签页，离开后会丢弃。已保存的提示词仍会保留在本机。"
+  },
+  "promptsLeave": {
+    "message": "离开页面"
+  },
+  "promptsSaving": {
+    "message": "正在保存… 请保持此标签页打开。"
+  },
+  "promptsSaved": {
+    "message": "已保存在本机。"
+  },
+  "promptsRemoved": {
+    "message": "已移至回收站，随时可以恢复。"
+  },
+  "promptsRestored": {
+    "message": "已恢复到提示词库。"
+  },
+  "promptsVersionRestored": {
+    "message": "已恢复为新的正文版本，之后的历史版本仍然保留。"
+  },
+  "promptsFavoriteSaved": {
+    "message": "已更新收藏状态。"
+  },
+  "promptsDraftNotice": {
+    "message": "浏览其他提示词时，未保存的草稿会留在当前标签页。请在离开前保存。"
+  },
+  "promptsRetrySave": {
+    "message": "重试这次保存"
+  },
+  "promptsRetryRead": {
+    "message": "重新读取"
+  },
+  "promptsBackupSettings": {
+    "message": "打开备份设置"
+  },
+  "promptsDraft": {
+    "message": "草稿"
+  },
+  "promptsUntitled": {
+    "message": "未命名"
+  },
+  "promptsAllCategories": {
+    "message": "全部分类"
+  },
+  "promptsPromptCount": {
+    "message": "条提示词"
+  },
+  "promptsTrashEmpty": {
+    "message": "回收站为空。删除的提示词会保留在这里，可随时恢复。"
+  },
+  "promptsNoResults": {
+    "message": "没有匹配的提示词。可以清除筛选或新建一条。"
+  },
+  "promptsLoading": {
+    "message": "正在打开提示词库…"
+  },
+  "promptsUnavailable": {
+    "message": "暂时无法安全读取提示词库"
+  },
+  "promptsUnavailableBody": {
+    "message": "没有替换已保存的数据，请重新读取。"
+  },
+  "promptsEmptyTitle": {
+    "message": "把值得复用的提示词留下来"
+  },
+  "promptsEmptyBody": {
+    "message": "从一条常用的提示词开始。把每次变化的内容写成 {{主题}} 或 {{读者}}，使用时再填写。"
+  },
+  "promptsCreateFirst": {
+    "message": "创建提示词"
+  },
+  "promptsEditTitle": {
+    "message": "编辑提示词"
+  },
+  "promptsNewTitle": {
+    "message": "新建提示词"
+  },
+  "promptsEditorHelp": {
+    "message": "标题和正文必填。只有明确保存正文修改时，才会创建新版本。"
+  },
+  "promptsConflict": {
+    "message": "这条提示词已在其他标签页修改，或被备份恢复替换。你的草稿仍在，请先查看已保存的内容，再决定保留哪一份。"
+  },
+  "promptsSaveCopy": {
+    "message": "将草稿另存为新提示词"
+  },
+  "promptsUseSaved": {
+    "message": "丢弃草稿，使用已保存内容"
+  },
+  "promptsReviewSaved": {
+    "message": "查看当前已保存的提示词"
+  },
+  "promptsMissingSaved": {
+    "message": "这条提示词已不在保存的库中。仍可将你的草稿另存为新提示词。"
+  },
+  "promptsHistoryLimit": {
+    "message": "这条提示词已达到 20 个正文版本。可将草稿另存为新提示词继续修改，原提示词及全部历史将保持不变。"
+  },
+  "promptsTitleField": {
+    "message": "标题"
+  },
+  "promptsBodyField": {
+    "message": "提示词正文"
+  },
+  "promptsVariableHelp": {
+    "message": "使用 {{名称}} 表示变量，使用 \\{{名称}} 保留字面括号。不会执行表达式或代码。"
+  },
+  "promptsCategoryOptional": {
+    "message": "分类（选填）"
+  },
+  "promptsTags": {
+    "message": "标签（选填）"
+  },
+  "promptsTagsHelp": {
+    "message": "用逗号分隔多个标签。"
+  },
+  "promptsTool": {
+    "message": "适用工具或用途说明（选填）"
+  },
+  "promptsToolHelp": {
+    "message": "仅供自己参考，不会连接模型服务。"
+  },
+  "promptsFavorite": {
+    "message": "收藏"
+  },
+  "promptsSave": {
+    "message": "保存提示词"
+  },
+  "promptsCancelEdit": {
+    "message": "关闭编辑"
+  },
+  "promptsUnsaved": {
+    "message": "有未保存的修改 · Ctrl/⌘ + S"
+  },
+  "promptsNoChanges": {
+    "message": "没有未保存的修改"
+  },
+  "promptsDiscardTitle": {
+    "message": "丢弃这份草稿？"
+  },
+  "promptsDiscardBody": {
+    "message": "只会丢弃未保存的修改。已保存的提示词和历史版本仍保留在库中。"
+  },
+  "promptsDiscard": {
+    "message": "丢弃草稿"
+  },
+  "promptsInTrash": {
+    "message": "在回收站中"
+  },
+  "promptsSavedPrompt": {
+    "message": "已保存的提示词"
+  },
+  "promptsCreated": {
+    "message": "创建于"
+  },
+  "promptsUpdated": {
+    "message": "更新于"
+  },
+  "promptsRestore": {
+    "message": "恢复提示词"
+  },
+  "promptsTrashHelp": {
+    "message": "正文和所有历史版本均已保留。恢复后可以编辑和复用这条提示词。"
+  },
+  "promptsEdit": {
+    "message": "编辑提示词"
+  },
+  "promptsMoveTrash": {
+    "message": "移至回收站"
+  },
+  "promptsTrashTitle": {
+    "message": "将这条提示词移至回收站？"
+  },
+  "promptsTrashBody": {
+    "message": "它将退出普通搜索结果。正文和版本都会保留，可以从回收站恢复。"
+  },
+  "promptsUse": {
+    "message": "准备使用"
+  },
+  "promptsUseHelp": {
+    "message": "变量值只保留在当前标签页。先预览完整文本，再复制到你选择的工具。"
+  },
+  "promptsLiteral": {
+    "message": "按原文使用模板（不替换变量）"
+  },
+  "promptsEmptyValue": {
+    "message": "使用空值"
+  },
+  "promptsPreview": {
+    "message": "完成版预览"
+  },
+  "promptsClearValues": {
+    "message": "清空变量"
+  },
+  "promptsCopyCompleted": {
+    "message": "复制完成版提示词"
+  },
+  "promptsSelectPreview": {
+    "message": "选中文本"
+  },
+  "promptsMissingValues": {
+    "message": "复制前请填写以下变量："
+  },
+  "promptsPreviewReady": {
+    "message": "可以复制，已保存的原模板不会改变。"
+  },
+  "promptsCopied": {
+    "message": "已复制，可粘贴到你选择的工具中。"
+  },
+  "promptsCopyFailed": {
+    "message": "复制被阻止了，预览仍然保留。请选中文本，使用浏览器的复制命令。"
+  },
+  "promptsHistory": {
+    "message": "正文版本历史"
+  },
+  "promptsHistoryHelp": {
+    "message": "只有保存正文修改才会生成版本。恢复会生成新版本，并保留后续历史。"
+  },
+  "promptsRestoreVersion": {
+    "message": "恢复为新版本"
+  },
+  "promptsRestoreVersionTitle": {
+    "message": "恢复这个正文版本？"
+  },
+  "promptsRestoreVersionBody": {
+    "message": "所选正文会成为新的版本。标题、标签和分类不会改变，之后的所有版本仍会保留。"
+  },
+  "promptsVersionSaved": {
+    "message": "正文保存于"
+  },
+  "promptsCurrent": {
+    "message": "当前"
+  },
+  "promptsWriteUncertain": {
+    "message": "暂时无法确认保存结果。草稿已保留，请先重试同一次保存，再继续编辑；目前不能视为保存成功。"
+  },
+  "promptsReadFailed": {
+    "message": "暂时无法安全读取已保存的数据。当前草稿仍在，请重试。"
+  },
+  "promptsCapacity": {
+    "message": "提示词库最多保存 200 条，包含回收站中的内容。草稿仍在，请先导出完整备份；移至回收站不会释放容量。"
+  },
+  "promptsRecoveryLimit": {
+    "message": "8 个恢复副本位置均已占用。草稿仍在，请在管理恢复数据前导出完整备份。没有自动删除任何内容。"
+  },
+  "promptsSizeLimit": {
+    "message": "提示词库已达到 2 MiB 容量上限。草稿仍在，请导出完整备份。没有截断正文或历史版本。"
+  },
+  "promptsValidation": {
+    "message": "请检查必填的标题和正文、字段长度以及重复标签。上限：标题 200、正文 32,000、分类 100、用途说明 200 个字符；最多 20 个标签，每个 64 个字符。"
+  },
+  "promptsPreviewLimit": {
+    "message": "预览过长或变量过多。请缩短变量值，或按原文使用模板。没有复制任何内容。"
+  },
+  "promptsStorageBlocked": {
+    "message": "安全存储暂时不可用或需要恢复。草稿仍在，请完成正在进行的备份恢复后重试。"
+  },
+  "promptsInvalid": {
+    "message": "无法安全保存这些内容。草稿仍在，请检查字段后重试。"
+  },
+  "promptsCancel": {
+    "message": "取消"
+  },
+  "promptsPageTitle": {
+    "message": "提示词库 · Local iTab"
+  },
+  "promptsSkip": {
+    "message": "跳到提示词内容"
+  },
+  "promptsAll": {
+    "message": "全部"
+  },
+  "promptsFavorites": {
+    "message": "收藏"
+  },
+  "promptsTrash": {
+    "message": "回收站"
+  },
+  "promptsUnfavorite": {
+    "message": "取消收藏"
+  },
+  "promptsEntry": {
+    "message": "提示词库"
+  },
+  "promptsRetainedVariables": {
+    "message": "已保存的正文有变化。当前表单仍保留之前的正文和变量值，准备好后可清空变量，开始使用最新正文。"
   }
 }

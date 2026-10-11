@@ -1,14 +1,17 @@
 /* Explicit local-only archive. Never initialize Sync or call provider APIs here. */
 (function (root, factory) {
     const api = typeof module === 'object' && module.exports
-        ? factory(require('./local-tasks-store.js'), require('./local-scratchpad-store.js'), require('./local-countdown-store.js'), require('./local-focus-store.js'))
-        : factory(root.LocalItabTasks, root.LocalItabScratchpad, root.LocalItabCountdown, root.LocalItabFocus);
+        ? factory(require('./local-tasks-store.js'), require('./local-scratchpad-store.js'), require('./local-countdown-store.js'), require('./local-focus-store.js'), require('./local-prompts-store.js'))
+        : factory(root.LocalItabTasks, root.LocalItabScratchpad, root.LocalItabCountdown, root.LocalItabFocus, root.LocalItabPrompts);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabCompleteBackup = api;
-})(typeof window === 'undefined' ? globalThis : window, function (tasks, scratchpad, countdown, focus) {
+})(typeof window === 'undefined' ? globalThis : window, function (tasks, scratchpad, countdown, focus, prompts) {
     'use strict';
     const FORMAT = 'local-itab-complete-backup', RECOVERY_KEY = '__localItabCompleteRecoveryV1', WORKSPACE_RECOVERY_KEY = '__localItabCompleteRecoveryV2';
-    const MODULES = Object.freeze(['config', 'tasks', 'scratchpad', 'countdown', 'focus']);
+    const SCOPED_MODULES = Object.freeze(['config', 'tasks', 'scratchpad', 'countdown', 'focus']);
+    const MODULES = Object.freeze([...SCOPED_MODULES, 'prompts']);
+    const scopedSelection = names => names.filter(name => name !== 'prompts');
+    const allScoped = names => SCOPED_MODULES.every(name => names.includes(name));
     const LIMITS = Object.freeze({ bytes: 32 * 1024 * 1024, nodes: 250000, depth: 32, workspaces: 100, name: 80 });
     const apis = { tasks, scratchpad, countdown, focus };
     const parsedFiles = new WeakMap();
@@ -78,11 +81,11 @@
         check(typeof source === 'string', 'INVALID'); check(source.length <= LIMITS.bytes && bytes(source) <= LIMITS.bytes, 'SIZE_LIMIT');
         let file; try { file = JSON.parse(source); } catch (_) { throw fault('INVALID'); }
         try { file = boundedCopy(file); } catch (_) { throw fault('SIZE_LIMIT'); }
-        check(file?.format === FORMAT && [1, 2].includes(file.schemaVersion), 'VERSION');
-        if (file.schemaVersion === 2) return validateWorkspaceFile(file, manager);
+        check(file?.format === FORMAT && [1, 2, 3].includes(file.schemaVersion), 'VERSION');
+        if (file.schemaVersion >= 2) return validateWorkspaceFile(file, manager);
         object(file, ['format', 'schemaVersion', 'exportedAt', 'modules']);
         check(typeof file.exportedAt === 'string' && /^\d{4}-\d\d-\d\dT/.test(file.exportedAt) && Number.isFinite(Date.parse(file.exportedAt)));
-        object(file.modules); selection(Object.keys(file.modules));
+        object(file.modules); selection(Object.keys(file.modules), SCOPED_MODULES);
         for (const name of Object.keys(file.modules)) validateModule(name, file.modules[name], manager);
         return file;
     }
@@ -101,9 +104,14 @@
         return value;
     }
     function validateWorkspaceFile(file, manager) {
-        object(file, ['format', 'schemaVersion', 'exportedAt', 'modules', 'registry', 'workspaces', 'trash']);
-        check(file.format === FORMAT && file.schemaVersion === 2, 'VERSION'); check(date(file.exportedAt));
-        const names = selection(file.modules); check(same(names, file.modules));
+        object(file, ['format', 'schemaVersion', 'exportedAt', 'modules', 'registry', 'workspaces', 'trash', ...(file.schemaVersion === 3 ? ['globals'] : [])]);
+        check(file.format === FORMAT && [2, 3].includes(file.schemaVersion), 'VERSION'); check(date(file.exportedAt));
+        const selected = selection(file.modules, file.schemaVersion === 3 ? MODULES : SCOPED_MODULES); check(same(selected, file.modules));
+        const names = scopedSelection(selected);
+        if (file.schemaVersion === 3) {
+            check(selected.includes('prompts')); object(file.globals, ['prompts']);
+            check(prompts, 'UNAVAILABLE'); prompts.parseBackup(JSON.stringify(file.globals.prompts));
+        }
         object(file.registry, ['defaultId', 'lastUsedId', 'entries']);
         check(file.registry.defaultId === 'default' && workspaceId(file.registry.lastUsedId));
         check(Array.isArray(file.registry.entries) && file.registry.entries.length > 0 && Array.isArray(file.workspaces) && Array.isArray(file.trash));
@@ -173,7 +181,7 @@
                 return boundedCopy(raw);
             } catch (_) { throw fault('CORRUPT'); }
         }
-        snapshot(raw, names = MODULES, workspace = false) {
+        snapshot(raw, names = SCOPED_MODULES, workspace = false) {
             const modules = {};
             try {
                 if (names.includes('config')) modules.config = workspace && this.manager.validateWorkspaceConfig
@@ -188,30 +196,31 @@
             check(typeof file.exportedAt === 'string' && /^\d{4}-\d\d-\d\dT/.test(file.exportedAt) && Number.isFinite(Date.parse(file.exportedAt)));
             return { file, source: serialize(file) };
         }
-        workspaceSnapshot(snapshot, names = MODULES) {
+        workspaceSnapshot(snapshot, names = SCOPED_MODULES, promptState = null) {
             try {
                 workspaceShape(snapshot);
                 const entries = snapshot.registry.workspaces, bundles = new Map(snapshot.bundles.map(value => [value.id, value]));
                 const metadata = entry => ({ id: entry.id, name: entry.name, createdAt: entry.createdAt, updatedAt: entry.updatedAt });
                 const modules = entry => {
-                    const raw = bundles.get(entry.id).values, result = this.snapshot(raw, names, true).file.modules;
+                    const raw = bundles.get(entry.id).values, result = this.snapshot(raw, scopedSelection(names), true).file.modules;
                     if (result.config) delete result.config.data.privacy;
                     return result;
                 };
-                const file = { format: FORMAT, schemaVersion: 2, exportedAt: this.now(), modules: [...names],
+                const file = { format: FORMAT, schemaVersion: names.includes('prompts') ? 3 : 2, exportedAt: this.now(), modules: [...names],
                     registry: { defaultId: 'default', lastUsedId: snapshot.registry.lastUsedId, entries: entries.filter(entry => entry.deletedAt === null).sort((a, b) => a.order - b.order).map(metadata) },
                     workspaces: entries.filter(entry => entry.deletedAt === null).map(entry => ({ id: entry.id, modules: modules(entry) })),
                     trash: entries.filter(entry => entry.deletedAt !== null).map(entry => ({ ...metadata(entry), deletedAt: entry.deletedAt, modules: modules(entry) })) };
+                if (names.includes('prompts')) file.globals = { prompts: this.promptArchive(promptState) };
                 validateWorkspaceFile(file, this.manager); return { file, source: serialize(file) };
             } catch (error) { if (error.code === 'SIZE_LIMIT') throw error; throw fault('CORRUPT'); }
         }
         async workspaceRead(tx, names = null) {
-            let snapshot; try { snapshot = await tx.snapshot(names ? workspaceKeys(this.manager, names) : null); }
+            let snapshot; try { snapshot = await tx.snapshot(names ? workspaceKeys(this.manager, scopedSelection(names)) : null); }
             catch (error) { if (error.code) throw error; throw fault('READ'); }
             try { return workspaceShape(boundedCopy(snapshot)); } catch (_) { throw fault('CORRUPT'); }
         }
         workspaceExport(names) {
-            return this.workspaces.withSnapshotLock(async tx => this.workspaceSnapshot(await this.workspaceRead(tx, names), names).source);
+            return this.workspaces.withSnapshotLock(async tx => this.workspaceSnapshot(await this.workspaceRead(tx, names), names, names.includes('prompts') ? await this.promptState(tx) : null).source);
         }
         workspaceCounts(file) {
             const result = {};
@@ -227,28 +236,54 @@
             }
             return result;
         }
+        promptArchive(state) {
+            check(prompts, 'UNAVAILABLE'); prompts.validate(state);
+            return prompts.parseBackup(JSON.stringify({ format: prompts.FORMAT, schemaVersion: 1, exportedAt: this.now(), content: prompts.content(state), recovery: state.recovery }));
+        }
+        async promptState(tx) {
+            check(prompts && typeof tx.promptState === 'function', 'UNAVAILABLE');
+            let raw; try { raw = await tx.promptState(); } catch (_) { throw fault('READ'); }
+            try { return raw === undefined ? prompts.initial() : clone(prompts.validate(raw)); } catch (_) { throw fault('CORRUPT'); }
+        }
+        promptReplacement(current, archive) {
+            const planner = new prompts.Store({}, { now: this.now, id: this.id });
+            const next = planner.replacement(current, archive, planner.nextId(), planner.timestamp());
+            return planner.finish(next, planner.nextId());
+        }
         workspaceReview(file, names, options) {
-            const targetWorkspaceId = options.targetWorkspaceId;
+            const targetWorkspaceId = options.targetWorkspaceId, scope = scopedSelection(names), hasPrompts = names.includes('prompts');
             return this.workspaces.withSnapshotLock(async tx => {
                 const snapshot = await this.workspaceRead(tx), current = this.workspaceSnapshot(snapshot).file;
                 const destinations = current.registry.entries.map(({id, name}) => ({id, name}));
                 const target = file.schemaVersion === 1 ? destinations.find(entry => entry.id === targetWorkspaceId) : null;
                 if (file.schemaVersion === 1 && targetWorkspaceId !== undefined) check(target, 'TARGET');
+                if (hasPrompts && options.promptTarget !== undefined) check(options.promptTarget === 'global-library', 'TARGET');
                 const currentModules = target ? current.workspaces.find(entry => entry.id === target.id).modules : null;
                 const currentCounts = currentModules ? this.counts(currentModules) : this.workspaceCounts(current);
                 const relevant = snapshot.bundles.filter(bundle => !target || bundle.id === target.id);
                 currentCounts.focus = { ...(currentCounts.focus || {}), activeSession: relevant.some(bundle => ['running', 'paused', 'uncertain'].includes(bundle.values[focus.KEY]?.session?.status)) };
-                const preview = { schemaVersion: file.schemaVersion, modules: file.schemaVersion === 2 ? [...file.modules] : Object.keys(file.modules), selected: [...names], exportedAt: file.exportedAt,
-                    incoming: file.schemaVersion === 2 ? this.workspaceCounts(file) : this.counts(file.modules), current: currentCounts,
-                    requiresTarget: file.schemaVersion === 1 && !target, destinations, targetWorkspace: target ? clone(target) : null,
-                    workspaces: { incoming: file.schemaVersion === 2 ? file.registry.entries.map(({id, name}) => ({id, name})) : [], current: destinations,
-                        incomingTrash: file.schemaVersion === 2 ? file.trash.map(({id, name}) => ({id, name})) : [], currentTrash: current.trash.map(({id, name}) => ({id, name})),
-                        incomingTrashCount: file.schemaVersion === 2 ? file.trash.length : 0, currentTrashCount: current.trash.length, scope: file.schemaVersion === 1 ? 'single' : names.length === MODULES.length ? 'all' : 'matching' } };
-                if (file.schemaVersion === 2 && names.length !== MODULES.length) {
+                const preview = { schemaVersion: file.schemaVersion, modules: file.schemaVersion >= 2 ? [...file.modules] : Object.keys(file.modules), selected: [...names], exportedAt: file.exportedAt,
+                    incoming: file.schemaVersion >= 2 ? this.workspaceCounts(file) : this.counts(file.modules), current: currentCounts,
+                    requiresTarget: file.schemaVersion === 1 && !target, requiresPromptTarget: hasPrompts && options.promptTarget !== 'global-library', destinations, targetWorkspace: target ? clone(target) : null,
+                    workspaces: { incoming: file.schemaVersion >= 2 ? file.registry.entries.map(({id, name}) => ({id, name})) : [], current: destinations,
+                        incomingTrash: file.schemaVersion >= 2 ? file.trash.map(({id, name}) => ({id, name})) : [], currentTrash: current.trash.map(({id, name}) => ({id, name})),
+                        incomingTrashCount: file.schemaVersion >= 2 ? file.trash.length : 0, currentTrashCount: current.trash.length,
+                        scope: !scope.length ? 'global-only' : file.schemaVersion === 1 ? 'single' : allScoped(scope) ? 'all' : 'matching' } };
+                let promptState = null, nextPrompts = null;
+                if (hasPrompts) {
+                    promptState = await this.promptState(tx); nextPrompts = this.promptReplacement(promptState, file.globals.prompts);
+                    const local = new Map(promptState.records.map(record => [record.id, record]));
+                    preview.incoming.prompts = prompts.counts({ ...file.globals.prompts.content, recovery: file.globals.prompts.recovery });
+                    preview.current.prompts = prompts.counts(promptState);
+                    preview.prompts = { target: 'global-library', incoming: clone(preview.incoming.prompts), current: clone(preview.current.prompts),
+                        conflicts: file.globals.prompts.content.records.filter(record => local.has(record.id)).map(record => ({ id: record.id, changed: !same(record, local.get(record.id)),
+                            localVersionId: local.get(record.id).currentVersionId, incomingVersionId: record.currentVersionId })) };
+                }
+                if (file.schemaVersion >= 2 && scope.length && !allScoped(scope)) {
                     const signature = value => JSON.stringify({live: value.registry.entries.map(entry => entry.id).sort(), trash: value.trash.map(entry => entry.id).sort()});
                     check(signature(file) === signature(current), 'TOPOLOGY');
                 }
-                if (!preview.requiresTarget) this.tickets.set(preview, { workspace: true, file, names: [...names], snapshot, targetWorkspaceId: target?.id });
+                if (!preview.requiresTarget && !preview.requiresPromptTarget) this.tickets.set(preview, { workspace: true, file, names: [...names], snapshot, promptState, nextPrompts, targetWorkspaceId: target?.id });
                 return preview;
             });
         }
@@ -274,7 +309,8 @@
             return written;
         }
         workspaceReplacement(ticket, snapshot) {
-            const next = clone(snapshot), names = ticket.names, oldBundles = new Map(snapshot.bundles.map(bundle => [bundle.id, bundle]));
+            const next = clone(snapshot), names = scopedSelection(ticket.names), oldBundles = new Map(snapshot.bundles.map(bundle => [bundle.id, bundle]));
+            if (!names.length) return next;
             if (ticket.file.schemaVersion === 1) {
                 const target = next.bundles.find(bundle => bundle.id === ticket.targetWorkspaceId);
                 check(target && next.registry.workspaces.some(entry => entry.id === target.id && entry.deletedAt === null), 'TARGET');
@@ -282,7 +318,7 @@
                 return next;
             }
             const incoming = ticket.file, incomingBundles = new Map([...incoming.workspaces, ...incoming.trash].map(bundle => [bundle.id, bundle]));
-            if (names.length === MODULES.length) {
+            if (allScoped(names)) {
                 const live = incoming.registry.entries.map((entry, order) => ({ ...entry, order, deletedAt: null }));
                 const trash = incoming.trash.map((entry, index) => ({ id: entry.id, name: entry.name, createdAt: entry.createdAt, updatedAt: entry.updatedAt, deletedAt: entry.deletedAt, order: live.length + index }));
                 next.registry.workspaces = [...live, ...trash].map(entry => ({ ...entry, generation: oldBundles.get(entry.id)?.generation || this.id() }));
@@ -299,24 +335,29 @@
             return this.workspaces.withSnapshotLock(async tx => {
                 check(isCurrent(), 'CANCELLED');
                 const snapshot = await this.workspaceRead(tx); check(same(snapshot, ticket.snapshot), 'CONFLICT');
+                if (ticket.promptState) check(same(await this.promptState(tx), ticket.promptState), 'CONFLICT');
                 if (ticket.names.includes('focus')) {
                     const affected = snapshot.bundles.filter(bundle => !ticket.targetWorkspaceId || bundle.id === ticket.targetWorkspaceId);
                     check(!affected.some(bundle => ['running', 'paused', 'uncertain'].includes(bundle.values[focus.KEY]?.session?.status)), 'FOCUS_ACTIVE');
                 }
                 const replacement = this.workspaceReplacement(ticket, snapshot);
-                const source = this.workspaceSnapshot(snapshot).source, recovery = { source, checksum: await this.manager.fingerprint(source) };
+                const source = this.workspaceSnapshot(snapshot, ticket.promptState ? MODULES : SCOPED_MODULES, ticket.promptState).source, recovery = { source, checksum: await this.manager.fingerprint(source) };
                 check(isCurrent(), 'CANCELLED');
                 try {
                     check(await this.backend.write({ [WORKSPACE_RECOVERY_KEY]: recovery }) !== false, 'RECOVERY');
                     check(same(await this.backend.readRecovery(WORKSPACE_RECOVERY_KEY), recovery), 'RECOVERY');
                 } catch (_) { throw fault('RECOVERY'); }
                 check(isCurrent(), 'CANCELLED');
-                check(same(await this.workspaceRead(tx), snapshot), 'CONFLICT'); check(isCurrent(), 'CANCELLED');
+                check(same(await this.workspaceRead(tx), snapshot), 'CONFLICT');
+                if (ticket.promptState) check(same(await this.promptState(tx), ticket.promptState), 'CONFLICT');
+                check(isCurrent(), 'CANCELLED');
                 // The workspace service stages+verifies every replacement bundle
                 // before its one registry authority switch. Old generations remain
                 // recoverable; an unacknowledged switch is never retried here.
-                try { await tx.replace(replacement, { isCurrent, blockDefaultSync: ticket.names.includes('config') && (!ticket.targetWorkspaceId || ticket.targetWorkspaceId === 'default') }); }
+                try { await tx.replace(replacement, { isCurrent, blockDefaultSync: ticket.names.includes('config') && (!ticket.targetWorkspaceId || ticket.targetWorkspaceId === 'default'),
+                    promptReplacement: ticket.promptState ? { api: prompts, prior: ticket.promptState, next: ticket.nextPrompts, recoveryKey: WORKSPACE_RECOVERY_KEY, recoveryChecksum: recovery.checksum } : null }); }
                 catch (error) {
+                    if (error.pendingRestore) { const uncertain = fault('UNCONFIRMED'); uncertain.mayHaveCommitted = true; throw uncertain; }
                     if (['WORKSPACE_CANCELED', 'WORKSPACE_CANCELLED'].includes(error.code)) throw fault('CANCELLED');
                     if (error.code === 'WORKSPACE_CONFLICT') throw fault('CONFLICT');
                     const uncertain = fault('UNCONFIRMED'); uncertain.mayHaveCommitted = true; uncertain.cause = error; throw uncertain;
@@ -336,8 +377,9 @@
             }
             return result;
         }
-        export(selected = MODULES) {
+        export(selected = this.workspaces ? MODULES : SCOPED_MODULES) {
             const names = selection(selected);
+            if (!this.workspaces) check(!names.includes('prompts'), 'UNAVAILABLE');
             if (this.workspaces) return this.workspaceExport(names);
             // An explicit partial export depends only on selected saved modules.
             // Configuration still includes its schema/generation safety checks,
@@ -353,7 +395,7 @@
                 cached = { source, file: parse(source, this.manager) };
                 parsedFiles.set(this, cached);
             }
-            const file = cached.file, available = file.schemaVersion === 2 ? file.modules : Object.keys(file.modules), names = selection(selected || available, available);
+            const file = cached.file, available = file.schemaVersion >= 2 ? file.modules : Object.keys(file.modules), names = selection(selected || available, available);
             if (this.workspaces) return this.workspaceReview(file, names, options);
             check(file.schemaVersion === 1, 'UNAVAILABLE');
             return this.backend.lock(async () => {
@@ -362,6 +404,28 @@
                 preview.current.focus.activeSession = ['running', 'paused', 'uncertain'].includes(raw[focus.KEY]?.session?.status);
                 this.tickets.set(preview, { file, names, raw }); return preview;
             });
+        }
+        inspectInterruptedRestore() {
+            check(this.workspaces?.inspectRestoreTransaction, 'UNAVAILABLE');
+            return this.workspaces.inspectRestoreTransaction();
+        }
+        async exportInterruptedCandidates() {
+            check(this.workspaces?.readInterruptedCandidates, 'UNAVAILABLE');
+            const saved = await this.workspaces.readInterruptedCandidates();
+            check(saved.recovery && await this.manager.fingerprint(saved.recovery.source) === saved.recovery.checksum, 'RECOVERY');
+            const before = parse(saved.recovery.source, this.manager);
+            const state = saved.prompts === undefined ? prompts.initial() : prompts.validate(saved.prompts);
+            const current = this.workspaceSnapshot(saved.snapshot, MODULES, state).file;
+            const source = JSON.stringify({ format: 'local-itab-interrupted-restore-candidates', schemaVersion: 1, before, current });
+            check(bytes(source) <= 2 * LIMITS.bytes + 1024, 'SIZE_LIMIT'); return source;
+        }
+        async recoverInterruptedRestore(review, { confirmed = false, isCurrent = () => true } = {}) {
+            check(confirmed && isCurrent(), 'CONFIRMATION');
+            check(this.workspaces?.recoverInterruptedRestore, 'UNAVAILABLE');
+            // Verify portable recovery independently before any repair submission.
+            await this.recovery(); check(isCurrent(), 'CANCELLED');
+            try { return await this.workspaces.recoverInterruptedRestore(review, { confirmed: true, isCurrent }); }
+            catch (error) { if (error.code === 'WORKSPACE_CONFLICT') throw fault('CONFLICT'); const uncertain = fault('UNCONFIRMED'); uncertain.mayHaveCommitted = true; throw uncertain; }
         }
         async recovery() {
             let saved; try {
@@ -372,7 +436,7 @@
             object(saved, ['source', 'checksum']);
             check(typeof saved.source === 'string' && saved.source.length <= LIMITS.bytes && bytes(saved.source) <= LIMITS.bytes && typeof saved.checksum === 'string' && /^[a-f0-9]{64}$/.test(saved.checksum), 'RECOVERY');
             check(await this.manager.fingerprint(saved.source) === saved.checksum, 'RECOVERY');
-            const file = parse(saved.source, this.manager); check(MODULES.every(name => file.schemaVersion === 2 ? file.modules.includes(name) : Object.hasOwn(file.modules, name)), 'RECOVERY');
+            const file = parse(saved.source, this.manager); check(SCOPED_MODULES.every(name => file.schemaVersion >= 2 ? file.modules.includes(name) : Object.hasOwn(file.modules, name)), 'RECOVERY');
             return saved.source;
         }
         restore(preview, { confirmed = false, isCurrent = () => true } = {}) {
@@ -423,5 +487,5 @@
             });
         }
     }
-    return { FORMAT, MODULES, LIMITS, RECOVERY_KEY, WORKSPACE_RECOVERY_KEY, Store, createBackend, parse, fault };
+    return { FORMAT, MODULES, SCOPED_MODULES, LIMITS, RECOVERY_KEY, WORKSPACE_RECOVERY_KEY, Store, createBackend, parse, fault };
 });

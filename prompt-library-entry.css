@@ -1,0 +1,5 @@
+/* A visible library entry, scoped to the existing new-tab navigation. */
+.settings-nav .prompt-library-entry { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 7px 11px; border: 1px solid var(--template-border); border-radius: 8px; background: var(--template-surface); color: var(--template-text); text-decoration: none; font: 600 12px/1.4 system-ui, sans-serif; white-space: nowrap; }
+.settings-nav .prompt-library-entry:hover { background: var(--template-surface-raised); }
+.settings-nav .prompt-library-entry:focus-visible { outline: 3px solid var(--template-focus); outline-offset: 3px; }
+@media (max-width: 560px) { .settings-nav .prompt-library-entry { padding: 7px 9px; } }

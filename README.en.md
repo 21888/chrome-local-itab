@@ -14,9 +14,18 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
+### Prompt library screenshots · local 1.1.23 candidate
+
+Captured on 2026-10-10 in native cloud Linux Chrome with isolated synthetic data. These original screenshots show the frozen 76-file integrated runtime (manifest 1.1.21); the current 1.1.23 source changes only the runtime version number. They are not post-publication screenshots. The narrow image uses a 553-pixel outer browser window, not a physical phone or a measured CSS viewport.
+
+![Light prompt library: tag search](docs/qa/prompts-native/evidence/04-light-tag-search.jpg)
+![Dark prompt library in a narrow window: detail and variables](docs/qa/prompts-native/evidence/09-narrow-dark-detail.jpg)
+
+[Native acceptance and untested scope](docs/prompt-library-native-validation.md) · [Detailed flows and backup comparisons](docs/qa/prompts-native/acceptance-notes.md)
+
 ### Current workspace screenshots · pre-release 1.1.22 acceptance
 
-Captured in native cloud Linux Chrome on 2026-10-10 with disposable synthetic data. The frozen runtime is 1.1.21 plus the complete workspace feature; the 1.1.22 release changes only its version number. These original screenshots are not represented as post-release captures.
+Captured in native cloud Linux Chrome on 2026-10-10 with disposable synthetic data. The frozen runtime is 1.1.21 plus the complete workspace feature; the local 1.1.22 candidate changes only its version number and has not been pushed. These original screenshots are not represented as post-release captures.
 
 ![Light Folio dashboard with workspace navigation](docs/qa/workspaces-native/screenshots/05-folio-workspace-bar.jpg)
 ![Light workspace manager and Trash](docs/qa/workspaces-native/screenshots/15-workspace-manager-light.jpg)
@@ -189,6 +198,8 @@ See [version checks, separate backup shortcuts and update steps](docs/version-up
 
 ## Features
 
+- **Personal prompt library (local 1.1.23 candidate)**: One local plain-text library shared by all workspaces, with categories, tags, favorites, search, `{{variable}}` preview and copying, body-version history and recoverable Trash. Complete local backup schema 3 can include prompts; ordinary settings exports, Chrome Sync and Drive do not. No model execution, API-key fields, new permissions or automatic uploads. [Usage and limits (Chinese)](docs/prompt-library.zh-CN.md) · [Native acceptance scope](docs/prompt-library-native-validation.md) · [1.1.23 changes and limits](docs/releases/1.1.23.md#english). The candidate version number does not indicate publication.
+
 - **Browser bookmark export**: In Settings → Data, export saved site titles, full URLs and category folders to a local HTML file. Review the privacy confirmation first; unsaved edits, icons, settings and local tools are excluded. [Scope and limits](docs/bookmark-export.md).
 
 - **Search and go**: Use Google, Bing, DuckDuckGo, or a custom search URL, or open a website directly. Use `%s` for the search term in a custom template, such as `https://example.com/search?q=%s`.
@@ -205,7 +216,7 @@ Settings saves only changed fields and keeps conflicting drafts for review. The 
 
 ### Complete local backup
 
-Settings → Data can export selected saved configuration, sites, local images, Tasks and history, Scratchpad, Countdown and Focus preferences together. Review and select modules before replacement; unselected modules remain unchanged. A complete local recovery snapshot is retained before restore, with no automatic page reload. Unsaved drafts and live timer sessions are excluded; unfinished Focus sessions block restoring Focus preferences. Chrome Sync and Drive scope is unchanged. [Guide, limits and recovery](docs/complete-backup.en.md).
+Settings → Data can export selected saved configuration, sites, local images, Tasks and history, Scratchpad, Countdown, Focus preferences and the global prompt library together (schema 3 when prompts are included). Review and select modules before replacement; unselected modules remain unchanged. A complete local recovery snapshot is retained before restore, with no automatic page reload. Unsaved drafts and live timer sessions are excluded; unfinished Focus sessions block restoring Focus preferences. Chrome Sync and Drive scope is unchanged. [Guide, limits and recovery](docs/complete-backup.en.md).
 
 ## Search and website management
 

@@ -21,6 +21,8 @@
     const reviewedLegacyConflicts = new WeakMap();
     const PREFIX = '__localItabWorkspaceV1:';
     const LOCK = 'local-itab-workspaces-v1';
+    const PROMPTS_KEY = '__localItabPersonalPromptsV1', PROMPTS_LOCK = 'local-itab-personal-prompts-v1';
+    const RESTORE_TRANSACTION_KEY = '__localItabCombinedRestoreV1';
     const DEFAULT_ID = 'default';
     const CONFIG_KEYS = Object.freeze(['clock', 'search', 'bg', 'themePreset', 'appearance', 'show', 'categories', 'links', 'weather', 'hot', 'movie', 'quote', 'layout', 'ui']);
     const PERSONAL_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1']);
@@ -29,7 +31,15 @@
     const scoped = key => SCOPED_KEYS.includes(key);
     const own = (value, key) => Object.hasOwn(value, key);
     const same = (a, b) => a === b || Boolean(a && b && typeof a === 'object' && typeof b === 'object' && Array.isArray(a) === Array.isArray(b) && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(key => own(b, key) && same(a[key], b[key])));
-    function fault(code) { const error = new Error(`Local workspaces: ${code}`); error.code = `WORKSPACE_${code}`; return error; }
+    async function digest(value) {
+        const stable = item => Array.isArray(item) ? item.map(stable) : item && typeof item === 'object'
+            ? Object.fromEntries(Object.keys(item).sort().map(key => [key, stable(item[key])])) : item;
+        check(root.crypto?.subtle, 'UNAVAILABLE');
+        const hashed = await root.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(stable(value))));
+        return Array.from(new Uint8Array(hashed), byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+    const workspaceFaults = new WeakSet();
+    function fault(code) { const error = new Error(`Local workspaces: ${code}`); error.code = `WORKSPACE_${code}`; workspaceFaults.add(error); return error; }
     function check(value, code = 'INVALID') { if (!value) throw fault(code); }
     function object(value) { check(value && typeof value === 'object' && !Array.isArray(value)); return value; }
     // Reject values JSON would silently drop/change and never invoke accessors.
@@ -80,7 +90,7 @@
     class Manager {
         constructor({ chrome = root.chrome, locks = root.navigator?.locks, now = () => new Date().toISOString(), id = () => root.crypto.randomUUID(), validate } = {}) {
             this.chrome = chrome; this.locks = locks; this.now = now; this.id = id; this.validate = validate || null;
-            this._ready = null; this._listeners = new Set(); this._activated = false; this._legacyConflict = false; this._legacyPending = null;
+            this._recoveryReviews = new WeakMap(); this._ready = null; this._listeners = new Set(); this._activated = false; this._legacyConflict = false; this._legacyPending = null;
             chrome?.storage?.onChanged?.addListener((changes, area) => {
                 if (area !== 'local') return;
                 if (own(changes, LEGACY_CONFLICT_KEY)) {
@@ -176,6 +186,91 @@
             try { const result = await this.chrome.storage.local.get(keys); return object(copy(result)); }
             catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
         }
+        async restoreTransaction() {
+            const value = (await this.get([RESTORE_TRANSACTION_KEY]))[RESTORE_TRANSACTION_KEY];
+            if (value === undefined) return null;
+            object(value); check(value.schemaVersion === 1 && token(value.id) && ['prepared', 'submitted', 'verified', 'recovered'].includes(value.status), 'RESTORE_PENDING');
+            return value;
+        }
+        async assertRestoreSettled() {
+            const value = await this.restoreTransaction();
+            check(!value || ['verified', 'recovered'].includes(value.status), 'RESTORE_PENDING');
+        }
+        createPromptBackend(api) {
+            check(api?.KEY === PROMPTS_KEY && api?.LOCK === PROMPTS_LOCK && typeof api.validate === 'function', 'BOUNDARY');
+            const manager = this;
+            return {
+                // Global ordering: workspace lifecycle lock, then prompt lock.
+                // No initialization, session capture or provider/config hydration.
+                lock: action => { manager.available(); return manager.locks.request(LOCK, { mode: 'exclusive' }, () => manager.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+                    try { await manager.assertRestoreSettled(); }
+                    catch (error) {
+                        if (workspaceFaults.has(error) && error.code === 'WORKSPACE_RESTORE_PENDING') throw api.fault('WORKSPACE_RESTORE_PENDING');
+                        throw error;
+                    }
+                    return action();
+                })); },
+                read: async () => (await manager.get([PROMPTS_KEY]))[PROMPTS_KEY],
+                write: state => { api.validate(state); return manager.verifiedSet({ [PROMPTS_KEY]: state }); },
+                subscribe(listener) {
+                    const changed = (changes, area) => { if (area === 'local' && (own(changes, PROMPTS_KEY) || own(changes, RESTORE_TRANSACTION_KEY))) listener(); };
+                    manager.chrome.storage.onChanged.addListener(changed); return () => manager.chrome.storage.onChanged.removeListener(changed);
+                }
+            };
+        }
+        async inspectRestoreTransaction() {
+            this.available();
+            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+                const value = await this.restoreTransaction();
+                if (!value || ['verified', 'recovered'].includes(value.status)) return { pending: false };
+                check(Object.keys(value).length === 9 && ['schemaVersion', 'id', 'createdAt', 'status', 'prior', 'next', 'recoveryKey', 'recoveryChecksum', 'priorWorkspaceDigest'].every(key => own(value, key)) && date(value.createdAt), 'RESTORE_PENDING');
+                check(value.recoveryKey === '__localItabCompleteRecoveryV2' && /^[a-f0-9]{64}$/.test(value.recoveryChecksum) && /^[a-f0-9]{64}$/.test(value.priorWorkspaceDigest), 'RESTORE_PENDING');
+                object(value.prior); object(value.next);
+                check(Object.keys(value.prior).length === 2 && Object.keys(value.next).length === 2 && [REGISTRY_KEY, PROMPTS_KEY].every(key => own(value.prior, key) && own(value.next, key)), 'RESTORE_PENDING');
+                const api = typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts;
+                check(api?.validate, 'VALIDATOR_UNAVAILABLE');
+                for (const pair of [value.prior, value.next]) { validateRegistry(pair[REGISTRY_KEY]); api.validate(pair[PROMPTS_KEY]); }
+                const current = await this.get([REGISTRY_KEY, PROMPTS_KEY]);
+                let priorIntact = false, currentSnapshot = null;
+                try { priorIntact = await digest(await this.readSnapshot(value.prior[REGISTRY_KEY])) === value.priorWorkspaceDigest; } catch (_) {}
+                try { currentSnapshot = await this.readSnapshot(validateRegistry(current[REGISTRY_KEY])); } catch (_) {}
+                const result = Object.freeze({ pending: true, canRecover: priorIntact && currentSnapshot !== null, priorIntact, id: value.id, status: value.status,
+                    outcome: same(current, value.next) ? 'replacement-present' : same(current, value.prior) ? 'previous-present' : 'mixed-or-changed',
+                    recoveryAvailable: true, target: 'previous-complete-state' });
+                this._recoveryReviews.set(result, { value, current, currentSnapshot }); return result;
+            }));
+        }
+        async readInterruptedCandidates() {
+            this.available();
+            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+                const marker = await this.restoreTransaction();
+                check(marker && ['prepared', 'submitted'].includes(marker.status), 'NO_RECOVERY');
+                const registry = await this.registry(), snapshot = await this.readSnapshot(registry);
+                const state = await this.get([PROMPTS_KEY, '__localItabCompleteRecoveryV2']);
+                return { snapshot, prompts: state[PROMPTS_KEY], recovery: state.__localItabCompleteRecoveryV2 };
+            }));
+        }
+        async recoverInterruptedRestore(review, { confirmed = false, isCurrent = () => true } = {}) {
+            const ticket = this._recoveryReviews.get(review); check(confirmed && ticket && isCurrent(), 'REVIEW_REQUIRED'); check(review.canRecover, 'RECOVERY'); this._recoveryReviews.delete(review);
+            return this.locks.request(LOCK, { mode: 'exclusive' }, () => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+                check(same(await this.restoreTransaction(), ticket.value) && same(await this.get([REGISTRY_KEY, PROMPTS_KEY]), ticket.current), 'CONFLICT');
+                const recovery = (await this.get([ticket.value.recoveryKey]))[ticket.value.recoveryKey];
+                check(recovery && recovery.checksum === ticket.value.recoveryChecksum && typeof recovery.source === 'string', 'RECOVERY');
+                check(await digest(recovery.source) === recovery.checksum, 'RECOVERY');
+                const priorSnapshot = await this.readSnapshot(validateRegistry(ticket.value.prior[REGISTRY_KEY]));
+                check(await digest(priorSnapshot) === ticket.value.priorWorkspaceDigest, 'RECOVERY');
+                // Explicit recovery restores both authorities together. Never retry
+                // or roll back an unacknowledged submission automatically.
+                check(same(await this.readSnapshot(validateRegistry(ticket.current[REGISTRY_KEY])), ticket.currentSnapshot), 'CONFLICT');
+                const actual = await this.get([REGISTRY_KEY, PROMPTS_KEY]);
+                check(same(actual, ticket.current) && same(await this.restoreTransaction(), ticket.value), 'CONFLICT');
+                check(isCurrent(), 'CANCELED');
+                await this.verifiedSet(ticket.value.prior);
+                await this.verifiedSet({ [RESTORE_TRANSACTION_KEY]: { ...ticket.value, status: 'recovered' } });
+                this._knownRegistry = copy(ticket.value.prior[REGISTRY_KEY]);
+                return { recovered: true, reloadRequired: true };
+            }));
+        }
         async verifiedSet(values) {
             try { check((await this.chrome.storage.local.set(copy(values))) !== false, 'WRITE'); }
             catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('WRITE'); }
@@ -195,6 +290,7 @@
                     const registry = validateRegistry(metadata[REGISTRY_KEY]); this.validateActivation(metadata[ACTIVATION_KEY], registry);
                     await this.checkLegacySource(); await this.readSnapshot(registry); return registry;
                 }
+                await this.assertRestoreSettled();
                 const raw = await this.get(null);
                 // An interrupted activation is resumable only from its verified stage.
                 if (own(raw, REGISTRY_KEY) || own(raw, ACTIVATION_KEY) || own(raw, STAGE_KEY) || own(raw, SNAPSHOT_KEY)) {
@@ -269,6 +365,7 @@
             return validateValues(bundle.values);
         }
         async writeBundle(entry, values) {
+            await this.assertRestoreSettled();
             await this.validateBundle(values);
             await this.verifiedSet({ [bundleKey(entry)]: { schemaVersion: 1, id: entry.id, generation: entry.generation, values: copy(values) } });
         }
@@ -288,12 +385,13 @@
             const expectedRevision = options.expectedRevision;
             await this.ready();
             return this.locks.request(LOCK, { mode: 'exclusive' }, async () => {
+                await this.assertRestoreSettled();
                 const registry = await this.registry();
                 if (expectedRevision !== undefined) check(expectedRevision === registry.revision, 'CONFLICT');
                 return action(registry);
             });
         }
-        async commit(registry) { const checked = validateRegistry(registry); await this.verifiedSet({ [REGISTRY_KEY]: checked }); this._knownRegistry = copy(checked); return copy(checked); }
+        async commit(registry) { await this.assertRestoreSettled(); const checked = validateRegistry(registry); await this.verifiedSet({ [REGISTRY_KEY]: checked }); this._knownRegistry = copy(checked); return copy(checked); }
         async change(id, action, options) {
             return this.transaction(async registry => {
                 const entry = registry.workspaces.find(entry => entry.id === id); check(entry, 'NOT_FOUND');
@@ -351,7 +449,12 @@
         select(id, options = {}) { return this.change(id, (entry, registry) => { check(entry.deletedAt === null, 'DELETED'); registry.lastUsedId = entry.id; }, options); }
         async exportSnapshot(keys = null) { return this.transaction(registry => this.readSnapshot(registry, keys)); }
         async replaceSnapshot(snapshot, options = {}) { const input = copy(snapshot); return this.transaction(registry => this.replaceLocked(registry, input, options), options); }
-        async withSnapshotLock(action) { return this.transaction(registry => action({ registry: copy(registry), snapshot: keys => this.readSnapshot(registry, keys ?? null), replace: (snapshot, options = {}) => this.replaceLocked(registry, copy(snapshot), options) })); }
+        async withSnapshotLock(action) { return this.transaction(registry => this.locks.request(PROMPTS_LOCK, { mode: 'exclusive' }, async () => {
+            await this.assertRestoreSettled();
+            return action({ registry: copy(registry), snapshot: keys => this.readSnapshot(registry, keys ?? null),
+                promptState: async () => (await this.get([PROMPTS_KEY]))[PROMPTS_KEY],
+                replace: (snapshot, options = {}) => this.replaceLocked(registry, copy(snapshot), options) });
+        })); }
         async replaceLocked(current, input, options = {}) {
             object(input); const incoming = validateRegistry(input.registry);
             check(Array.isArray(input.bundles) && input.bundles.length === incoming.workspaces.length);
@@ -382,6 +485,32 @@
                 // never activate unchecked data or resume an old cloud copy.
                 check(same(await this.readSnapshot(await this.registry()), prior), 'CONFLICT');
                 check(!options.isCurrent || options.isCurrent(), 'CANCELED');
+            }
+            if (options.promptReplacement) {
+                const prompt = options.promptReplacement;
+                check(prompt.api?.KEY === PROMPTS_KEY && typeof prompt.api.validate === 'function', 'BOUNDARY');
+                prompt.api.validate(prompt.next); prompt.api.validate(prompt.prior);
+                const currentPrompt = (await this.get([PROMPTS_KEY]))[PROMPTS_KEY];
+                check(same(currentPrompt === undefined ? prompt.api.initial() : currentPrompt, prompt.prior), 'CONFLICT');
+                const recovery = (await this.get([prompt.recoveryKey]))[prompt.recoveryKey];
+                check(recovery && recovery.checksum === prompt.recoveryChecksum, 'RECOVERY');
+                const marker = { schemaVersion: 1, id: this.id(), createdAt: this.now(), status: 'prepared',
+                    prior: { [REGISTRY_KEY]: current, [PROMPTS_KEY]: copy(prompt.prior) },
+                    next: { [REGISTRY_KEY]: validateRegistry(incoming), [PROMPTS_KEY]: copy(prompt.next) },
+                    recoveryKey: prompt.recoveryKey, recoveryChecksum: prompt.recoveryChecksum, priorWorkspaceDigest: await digest(prior) };
+                // A durable fence comes before the multi-key authority submission.
+                // Prepared/submitted fences block every cooperating writer, even
+                // after reload. No browser-crash atomicity is assumed.
+                try {
+                await this.verifiedSet({ [RESTORE_TRANSACTION_KEY]: marker });
+                const authoritative = await this.get([REGISTRY_KEY, PROMPTS_KEY]);
+                check(same(authoritative[REGISTRY_KEY], current) && same(authoritative[PROMPTS_KEY] === undefined ? prompt.api.initial() : authoritative[PROMPTS_KEY], prompt.prior), 'CONFLICT');
+                check(same(await this.readSnapshot(current), prior), 'CONFLICT');
+                check(!options.isCurrent || options.isCurrent(), 'CANCELED');
+                await this.verifiedSet({ ...marker.next, [RESTORE_TRANSACTION_KEY]: { ...marker, status: 'submitted' } });
+                await this.verifiedSet({ [RESTORE_TRANSACTION_KEY]: { ...marker, status: 'verified' } });
+                this._knownRegistry = copy(incoming); return copy(incoming);
+                } catch (error) { error.pendingRestore = true; throw error; }
             }
             return this.commit(incoming);
         }
@@ -438,7 +567,7 @@
             if (this._suspended) return Promise.reject(fault('SWITCH_PENDING'));
             const promise = (async () => {
                 await this.ready();
-                return this.manager.locks.request(LOCK, { mode: 'shared' }, () => this.manager.locks.request(`${LOCK}:write`, { mode: 'exclusive' }, async () => { await this.assertActive(); return action(this.lockedLocal); }));
+                return this.manager.locks.request(LOCK, { mode: 'shared' }, () => this.manager.locks.request(`${LOCK}:write`, { mode: 'exclusive' }, async () => { await this.manager.assertRestoreSettled(); await this.assertActive(); return action(this.lockedLocal); }));
             })();
             this._pending.add(promise); promise.then(() => this._pending.delete(promise), () => this._pending.delete(promise)); return promise;
         }
@@ -455,6 +584,7 @@
             return result;
         }
         async set(input) {
+            await this.manager.assertRestoreSettled();
             const values = object(copy(input)), keys = Object.keys(values); check(keys.every(key => scoped(key) || GLOBAL_KEYS.includes(key)), 'BOUNDARY');
             const entry = await this.assertActive(), scopedValues = Object.fromEntries(Object.entries(values).filter(([key]) => scoped(key)));
             check(entry.id === DEFAULT_ID || !keys.some(key => key === 'sync' || key === '__localItabSyncIdentityState'), 'PROVIDER_BOUNDARY');
@@ -465,6 +595,7 @@
             if (Object.keys(globals).length) await this.manager.verifiedSet(globals);
         }
         async remove(keys) {
+            await this.manager.assertRestoreSettled();
             const requested = typeof keys === 'string' ? [keys] : keys; check(Array.isArray(requested) && requested.every(scoped), 'BOUNDARY');
             const entry = await this.assertActive(), values = await this.manager.readBundle(entry); for (const key of requested) delete values[key]; await this.manager.writeBundle(entry, values);
         }
@@ -474,5 +605,5 @@
             return { workspace: this, lock: fn => this.withLock(fn), read: async () => (await this.get([key]))[key], write: state => this.set({ [key]: state }), subscribe: listener => this.subscribe(changes => { if (own(changes, key)) listener(); }) };
         }
     }
-    return { createManager: options => new Manager(options), Manager, Session, validateRegistry, validateValues, bundleKey, copy, same, fault, DEFAULT_ID, REGISTRY_KEY, ACTIVATION_KEY, SNAPSHOT_KEY, STAGE_KEY, RECOVERY_KEY, LEGACY_CONFLICT_KEY, LEGACY_RECOVERY_PREFIX, PREFIX, LOCK, CONFIG_KEYS, PERSONAL_KEYS, SCOPED_KEYS, GLOBAL_KEYS };
+    return { createManager: options => new Manager(options), Manager, Session, validateRegistry, validateValues, bundleKey, copy, same, fault, DEFAULT_ID, REGISTRY_KEY, ACTIVATION_KEY, SNAPSHOT_KEY, STAGE_KEY, RECOVERY_KEY, LEGACY_CONFLICT_KEY, LEGACY_RECOVERY_PREFIX, PREFIX, LOCK, PROMPTS_KEY, PROMPTS_LOCK, RESTORE_TRANSACTION_KEY, CONFIG_KEYS, PERSONAL_KEYS, SCOPED_KEYS, GLOBAL_KEYS };
 });

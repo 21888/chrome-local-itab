@@ -515,13 +515,13 @@ bounded('full portable archive round-trips live spaces, Trash and saved content 
     await manager.capture(live.id).local.set({ [Scratchpad.KEY]: { ...Scratchpad.initial(), content: 'READING_PRIVATE_NOTE' } });
     await manager.capture(removed.id).local.set({ [Scratchpad.KEY]: { ...Scratchpad.initial(), content: 'TRASH_PRIVATE_NOTE' } });
     await manager.trash(removed.id); await manager.select(live.id);
-    const exported = await backup(source, manager).export(), file = JSON.parse(exported);
+    const exported = await backup(source, manager).export(CompleteBackup.SCOPED_MODULES), file = JSON.parse(exported);
     assert.equal(file.schemaVersion, 2); assert.equal(file.workspaces.length, 2); assert.equal(file.trash.length, 1);
     assert(exported.includes('READING_PRIVATE_NOTE')); assert(exported.includes('TRASH_PRIVATE_NOTE'));
     for (const excluded of ['SYNTHETIC_AUTH_DO_NOT_EXPORT', '__futureOpaqueKey', '__updatePreferences', '"privacy"', '"sync"', '"session"', '"receipts"']) assert(!exported.includes(excluded), excluded);
     const destination = fixture({ ...seeded(), quote: 'BEFORE_COMPLETE_RESTORE', privacy: { onlineFavicons: true } }), target = await selected(destination), store = backup(destination, target.manager);
     const preview = await store.review(exported); await store.restore(preview, { confirmed: true });
-    const roundtrip = JSON.parse(await store.export());
+    const roundtrip = JSON.parse(await store.export(CompleteBackup.SCOPED_MODULES));
     // Editor versions deliberately rotate at restore; record identity/content,
     // retained recovery, workspace topology and portable preferences round-trip.
     const portableContent = value => {
@@ -564,7 +564,7 @@ bounded('legacy partial import requires explicit reviewed target and preserves s
 
 bounded('full portable restore refuses overwriting any active Focus before recovery or staging', async () => {
     const f = fixture(), { manager } = await selected(f), entry = await manager.create('Focus');
-    const store = backup(f, manager), source = await store.export(), session = manager.capture(entry.id);
+    const store = backup(f, manager), source = await store.export(CompleteBackup.SCOPED_MODULES), session = manager.capture(entry.id);
     const focus = new Focus.Store(session.createBackend(Focus.KEY), { now: () => 100000, id: () => 'running_full_restore' });
     await focus.mutate({ kind: 'start', revision: 0 });
     const preview = await store.review(source), before = copy(f.raw), writes = f.writes.length;

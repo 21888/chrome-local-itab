@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "checks": {
+    "singleGlobalPromptLibrary": true,
+    "exactPlaintext": true,
+    "clipboardCompletedText": true,
+    "sourceHistory": 4,
+    "changedHistory": 5,
+    "restoredIdentityContentHistory": true,
+    "renewedEditorFence": true,
+    "completeRecoveryMatchesBefore": true,
+    "displacedPromptRecovery": true,
+    "unsavedDraftExcluded": true
+  },
+  "files": {
+    "source-a.json": {
+      "bytes": 3205,
+      "sha256": "feccb4cdb4d3546356b725fa8bf9f96831893b2eda414f85f2fd01373d2ed0a4"
+    },
+    "changed-b.json": {
+      "bytes": 3438,
+      "sha256": "70406bb39b29a9454f7fb8699e12503ae80d9844002ec7a417434654a4abf5b7"
+    },
+    "restored-c.json": {
+      "bytes": 4693,
+      "sha256": "d22998fe5c27378f30963060428ee91d0d90cd448ae3826c41a76839b6edf711"
+    },
+    "recovery-b.json": {
+      "bytes": 3438,
+      "sha256": "775975b6c68341837602c38ed7c3d9ffa84e78b0a27bb0f8aa23b3ffa78c611f"
+    }
+  }
+}
