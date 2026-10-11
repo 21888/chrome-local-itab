@@ -4280,6 +4280,18 @@
   "promptsModelRefineAfter": {
     "message": "Proposed template draft (editable; not saved)"
   },
+  "promptsModelRefineAfterSaved": {
+    "message": "Accepted template (read-only; saved as a new version)"
+  },
+  "promptsModelRefineAfterSaving": {
+    "message": "Submitted template (read-only; acceptance pending)"
+  },
+  "promptsModelRefineAfterUncertain": {
+    "message": "Submitted template (read-only; acceptance unconfirmed)"
+  },
+  "promptsModelRefineAfterReadonly": {
+    "message": "Proposed template draft (read-only; not saved)"
+  },
   "promptsModelRefineReady": {
     "message": "Edit this draft locally, then test or accept the exact edited text. Editing sends and saves nothing. Accept explicitly to create a new version; the saved original remains in history."
   },

@@ -77,6 +77,13 @@
             if (refining) {
                 try { valid = Boolean(response && refinement.current(c, template) && refinement.validateProposal(template, response.text)); } catch (_) {}
                 output.readOnly = !response || busy || saving || saved || suspended || Boolean(command) || Boolean(trialUI);
+                // Labels follow confirmed acceptance, never merely a submitted write.
+                const label = saved ? t('RefineAfterSaved', 'Accepted template (read-only; saved as a new version)')
+                    : saving ? t('RefineAfterSaving', 'Submitted template (read-only; acceptance pending)')
+                    : command ? t('RefineAfterUncertain', 'Submitted template (read-only; acceptance unconfirmed)')
+                    : output.readOnly ? t('RefineAfterReadonly', 'Proposed template draft (read-only; not saved)')
+                    : t('RefineAfter', 'Proposed template draft (editable; not saved)');
+                proposalLabel.textContent = label; output.setAttribute('aria-label', label);
             }
             if (trialButton) trialButton.disabled = busy || saving || saved || suspended || Boolean(command) || !valid;
             review.disabled = busy || saving || permissionPending || presetPending; allow.disabled = busy || saving || permissionPending || !reviewed; send.disabled = busy || saving || permissionPending || !reviewed || Boolean(response);

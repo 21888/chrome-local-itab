@@ -4301,6 +4301,18 @@
   "promptsModelRefineHistoryLimit": {
     "message": "此提示词已达到历史版本上限，未作更改。如需单独保留建议，请手动复制。"
   },
+  "promptsModelRefineAfterSaved": {
+    "message": "已采纳的模板（只读；已保存为新版本）"
+  },
+  "promptsModelRefineAfterSaving": {
+    "message": "已提交的模板（只读；正在确认采纳）"
+  },
+  "promptsModelRefineAfterUncertain": {
+    "message": "已提交的模板（只读；采纳结果未确认）"
+  },
+  "promptsModelRefineAfterReadonly": {
+    "message": "优化稿（只读；未保存）"
+  },
   "promptsModelRefineReady": {
     "message": "可在本地编辑草稿，再测试或采纳编辑后的准确文本。编辑不会发送请求或保存。只有明确采纳才会创建新版本；已保存的原文仍保留在历史中。"
   },

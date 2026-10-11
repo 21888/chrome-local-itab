@@ -6,7 +6,7 @@ const Core = require('../shared/local-prompts-store');
 const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick, settle } = require('./helpers/prompts-harness');
-async function mount({ run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
+async function mount({ locale, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
     const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic prompt', body);
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map(); let runs = 0, grants = 0, writes = 0, command;
     const root = { document: doc, LocalItabPrompts: Core, LocalItabAIPromptRefinement: require('../shared/ai-prompt-refinement'), LocalItabAIModel: { ...Client, run: async (...args) => { runs++; return run ? run(...args) : { text: '<script>synthetic output</script>', model: 'fixture-model', origin: 'https://synthetic.test' }; } },
@@ -14,7 +14,8 @@ async function mount({ run, contains = async () => true, request = async () => t
         addEventListener: (name, fn) => events.set(name, fn), removeEventListener: name => events.delete(name) };
     const context = vm.createContext({ window: root, AbortController });
     for (const file of ['shared/dialog-focus.js', 'shared/ai-model-comparison.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
-    const view = { doc, controller: h.controller, t: (_, fallback) => fallback,
+    const catalog = locale ? JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8')) : {};
+    const view = { doc, controller: h.controller, t: (key, fallback) => catalog[`prompts${key}`]?.message || fallback,
         el(tag, className, text) { const el = doc.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; },
         button(name, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
     const store = { request(kind, values) { return { kind, ...values, operationId: 'synthetic_operation' }; }, async mutate(value, validator) { writes++; command = value; assert.equal(validator(h.raw, value.promptRef), true); return mutate(value); } };
@@ -498,4 +499,66 @@ for (const mode of ['run', 'refine']) {
             h.h.controller.dispose();
         });
     }
+}
+
+
+for (const locale of ['en', 'zh_CN']) {
+    const messages = JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8'));
+    const assertProposalLabel = (h, key) => {
+        const expected = messages[`promptsModel${key}`].message;
+        assert.equal(h.ui.output.getAttribute('aria-label'), expected);
+        assert.equal(h.ui.overlay.querySelector('h3').textContent, expected);
+        assert.equal(h.ui.originalOutput.readOnly, true);
+        assert.equal(h.ui.originalOutput.getAttribute('aria-label'), messages.promptsModelRefineModelOriginal.message);
+        assert.equal(h.ui.originalOutput.value, 'Generated');
+    };
+    async function proposal() {
+        const h = await mount({ locale, mode: 'refine', body: 'Original', run: async () => ({ text: 'Generated' }) });
+        h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+        assertProposalLabel(h, 'RefineAfter'); return h;
+    }
+    test(`${locale}: proposal heading and accessible name follow pending and confirmed acceptance`, async () => {
+        const h = await proposal(), pending = deferred(), mutate = h.h.store.mutate.bind(h.h.store);
+        const writes = h.h.writes;
+        h.h.store.mutate = async command => { await pending.promise; return mutate(command); };
+        h.ui.save.dispatch('click'); await tick();
+        assertProposalLabel(h, 'RefineAfterSaving'); assert.equal(h.ui.output.readOnly, true); assert.equal(h.h.writes, writes);
+        pending.resolve(); await settle(h.h.controller);
+        assertProposalLabel(h, 'RefineAfterSaved'); assert.equal(h.ui.output.readOnly, true);
+        assert.equal(h.h.controller.record().history[0].body, 'Original'); assert.equal(h.h.writes, writes + 1);
+        await click(h.ui.close); h.h.controller.dispose();
+    });
+    for (const inspect of [false, true]) test(`${locale}: uncertain acceptance labels stay unconfirmed until ${inspect ? 'read-only reconciliation' : 'same-operation retry'} succeeds`, async () => {
+        const h = await proposal(), writes = h.h.writes; h.h.failOnce();
+        await click(h.ui.save); await settle(h.h.controller);
+        const operation = h.h.controller.pendingCommand; assert.ok(operation);
+        assertProposalLabel(h, 'RefineAfterUncertain'); assert.equal(h.ui.output.readOnly, true);
+        if (inspect) {
+            h.h.store.mutate = async () => { throw { code: 'CONFLICT' }; };
+            await click(h.ui.save); await settle(h.h.controller);
+            assert.equal(h.h.controller.pendingInspection, true); assert.equal(h.h.controller.pendingCommand, operation);
+            assertProposalLabel(h, 'RefineAfterUncertain');
+        }
+        await click(h.ui.save); await settle(h.h.controller);
+        assertProposalLabel(h, 'RefineAfterSaved'); assert.equal(h.h.controller.pendingCommand, null);
+        assert.equal(h.h.writes, writes + 1); assert.equal(h.h.controller.record().history.length, 2);
+        assert.equal(h.h.controller.record().history[0].body, 'Original'); assert.equal(h.runs, 1);
+        if (inspect) assert.equal(h.h.controller.notice, 'reconciled');
+        await click(h.ui.close); h.h.controller.dispose();
+    });
+    for (const reason of ['CONFLICT', 'STALE']) test(`${locale}: ${reason} acceptance leaves proposal explicitly unsaved`, async () => {
+        const h = await proposal(), writes = h.h.writes;
+        if (reason === 'CONFLICT') h.h.store.mutate = async () => { throw { code: 'CONFLICT' }; };
+        else await h.h.controller.refresh();
+        await click(h.ui.save); await settle(h.h.controller);
+        assertProposalLabel(h, 'RefineAfter'); assert.equal(h.h.writes, writes); assert.equal(h.h.controller.record().body, 'Original');
+        assert.equal(h.h.controller.record().history.length, 1); assert.equal(h.ui.status.textContent, messages.promptsModelRefineStale.message);
+        await click(h.ui.close); h.h.controller.dispose();
+    });
+    test(`${locale}: trial freezes unsaved proposal labels and restores editable draft on close`, async () => {
+        const h = await proposal(); await click(h.ui.trialButton); await tick();
+        assertProposalLabel(h, 'RefineAfterReadonly');
+        await click(h.ui.trial.close); assertProposalLabel(h, 'RefineAfter');
+        assert.equal(h.h.controller.record().body, 'Original'); await click(h.ui.close); h.h.controller.dispose();
+    });
 }
