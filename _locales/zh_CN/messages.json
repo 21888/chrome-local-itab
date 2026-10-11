@@ -3303,7 +3303,7 @@
     "message": "AI 收藏与已保存版本"
   },
   "completeBackupCollectionHelp": {
-    "message": "收藏是所有工作区共用的全局资料库。完整备份包含手动保存的内容、备注、来源网址、提示词引用、已归档记录及版本。分享前请检查隐私内容；备份不含服务商凭据。"
+    "message": "收藏是所有工作区共用的全局资料库。完整备份包含手动保存的内容、备注、来源网址、提示词引用、已归档记录及版本。分享前请检查隐私内容；备份不含服务商凭据。 主动保存的问题／资料快照与确切接口／模型信息也会原样包含；备份未加密。"
   },
   "completeBackupCollectionTarget": {
     "message": "AI 收藏的恢复位置"
@@ -4444,5 +4444,29 @@
   },
   "promptsModelRefineTrial": {
     "message": "试运行原模板与提案"
+  },
+  "aiContextSaveContext": {
+    "message": "同时保存本次确切问题与已审核的资料摘录"
+  },
+  "aiContextSaveContextPrivacy": {
+    "message": "可选，默认关闭。下方确切问题、已编辑摘录、来源 ID 与标签、完整已审核提示词、接口地址和模型将进入全局 AI 收藏及未加密备份。保存前请检查文本是否含私人资料或秘密。不会包含 API 密钥字段或认证请求头。备份时移除来源网址不会移除此快照。"
+  },
+  "aiContextSnapshotLimit": {
+    "message": "已审核快照超过容量限制，未写入任何内容。可取消勾选快照选项，再明确选择仅保存答案。"
+  },
+  "aiContextSnapshotCapacity": {
+    "message": "收藏剩余空间不足，未写入任何内容。可释放空间，或取消勾选快照选项，再明确选择仅保存答案。"
+  },
+  "aiContextUncertainAnswer": {
+    "message": "先前保存的答案可能已进入全局收藏，请先检查，再决定是否重新保存。本面板保留原操作及快照选择供重试，不会重复添加。"
+  },
+  "collectionsContextSnapshotTitle": {
+    "message": "已保存的问题与审核资料"
+  },
+  "collectionsContextSnapshotHelp": {
+    "message": "这是下方首个已保存答案版本的历史输入，后续编辑的答案可能不同。原资料修改或删除不会改变此快照。来源 ID 与标签标识已审核输入；答案引用仍是未经核验的模型声明，不构成证明。导入的快照是用户提供的元数据，不是模型输出的加密证明。未加密备份会包含此快照，即使选择移除来源网址。"
+  },
+  "collectionsContextSnapshotExportWarning": {
+    "message": "已保存的问题／资料快照会完整包含在备份中，可能带有私人文本与接口网址，即使选择移除归属来源网址。"
   }
 }

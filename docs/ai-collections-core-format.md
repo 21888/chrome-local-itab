@@ -293,3 +293,12 @@ complete restores share the workspace fence. Unsupported backends fail closed;
 ordinary collection drafts are unchanged. Already-committed receipt retries are
 recognized before this guard, even if the prompt is subsequently archived. No
 persistent fields, permissions, external calls, or model integration are added.
+
+
+## Optional reviewed-context metadata
+
+An answer record may include a creation-only `contextSnapshot` field. Its absence preserves the original exact record shape. Supplied null, extra fields, malformed values or oversized snapshots fail closed. See [Q&A snapshot limits and consent](ai-context-workflow.md#optional-historical-questionsource-snapshot) for the version-1 allowlist and size bounds.
+
+The immutable snapshot is associated with the original `history[0]` answer version, not later edited bodies. Cross-copy identity checks reject either a changed snapshot or changed first history entry for the same record, including during collection replacement and full backup restore. Ordinary metadata edits, archive/restore and body revision retain it. A saved-as-new manual copy does not copy historical request metadata; the original record keeps its snapshot. This is historical user-provided metadata, not cryptographic proof of provenance or model output.
+
+Collection/full archives include optional snapshots unchanged, including recovery records. The omit-source-URLs switch affects only attribution `sourceUrl`, not question/source text or the historical endpoint. Existing total byte budgets and receipt/workspace write fences remain authoritative. Older application versions reject snapshot-bearing records rather than discard unknown data; snapshot-free old archives remain supported.

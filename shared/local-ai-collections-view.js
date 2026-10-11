@@ -252,6 +252,14 @@
             const source = root.LocalItabAICollections.sourceMetadata(record.sourceUrl), section = this.el('section', 'prompt-section'); section.append(this.el('h3', '', this.t('Source', 'Source')));
             if (source.provided) { const link = this.el('a', 'collection-source', `${this.t('OpenSource', 'Open user-provided source')} · ${source.host}`); link.href = source.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.referrerPolicy = 'no-referrer'; section.append(link, this.el('p', 'prompt-help collection-url', record.sourceUrl), this.paragraph('SourceHelp', 'User-provided attribution only. This page never fetches the link; the original account or permission may be needed.')); }
             else section.append(this.paragraph('NoSource', 'No source URL supplied.')); this.main.append(section);
+            if (record.contextSnapshot) {
+                const snapshotSection = this.el('section', 'prompt-section collection-context-snapshot');
+                snapshotSection.append(this.el('h3', '', this.t('ContextSnapshotTitle', 'Saved question and reviewed sources')),
+                    this.paragraph('ContextSnapshotHelp', 'Historical input for the first saved answer version below. Later answer edits may differ. This snapshot does not change when original sources change or are deleted. Source IDs and labels identify reviewed input; answer citations remain unverified model claims, not proof. Imported snapshots are user-provided metadata, not cryptographic proof of model output. It is included in unencrypted backups, even when source URLs are omitted.'),
+                    this.el('p', 'prompt-help', record.history[0].id),
+                    this.el('pre', 'prompt-readonly', JSON.stringify(record.contextSnapshot, null, 2)));
+                this.main.append(snapshotSection);
+            }
             if (record.promptRef) this.buildPromptPanel(this.main, false);
             const history = this.el('details', 'prompt-history'); history.append(this.el('summary', '', this.t('History', 'Excerpt version history')));
             record.history.slice().reverse().forEach((version, index) => { const item = this.el('section', 'prompt-section'); item.append(this.el('h3', '', `${new Date(version.createdAt).toLocaleString()}${index === 0 ? ` · ${this.t('Current', 'Current')}` : ''}`), this.el('pre', 'prompt-readonly', version.body)); if (index !== 0 && !record.deletedAt) { const restore = this.button('ReviewRestore', 'Review restoring this text', () => this.revise(record, version)); restore.disabled = c.busy || Boolean(c.pendingCommand); item.append(restore); } history.append(item); }); this.main.append(history);
@@ -350,7 +358,7 @@
         async exportFile() {
             if (this.openDialog || this.controller.busy) return;
             let omit = false;
-            if (!(await this.dialog({ title: this.t('Export', 'Export'), body: this.t('ExportWarning', 'Download an unencrypted JSON copy of all saved and archived items, body history, annotations, prompt references and recovery snapshots. Unsaved drafts are excluded. Keep it somewhere private.'), accept: this.t('Download', 'Download JSON'), checkbox: value => { omit = value; } }))) return;
+            if (!(await this.dialog({ title: this.t('Export', 'Export'), body: this.t('ContextSnapshotExportWarning', 'Saved question/source snapshots, when present, are included in full and may contain private text and endpoint URLs even if attribution source URLs are omitted.') + '\n\n' + this.t('ExportWarning', 'Download an unencrypted JSON copy of all saved and archived items, body history, annotations, prompt references and recovery snapshots. Unsaved drafts are excluded. Keep it somewhere private.'), accept: this.t('Download', 'Download JSON'), checkbox: value => { omit = value; } }))) return;
             try {
                 // Store.export() already serializes the backup; download those JSON bytes directly.
                 const data = await this.controller.store.export({ omitSourceUrls: omit }); const blob = new root.Blob([data], { type: 'application/json' }); const url = root.URL.createObjectURL(blob); const a = this.el('a'); a.href = url; a.download = 'local-itab-ai-collection.json'; this.doc.body.append(a); a.click(); a.remove(); root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);

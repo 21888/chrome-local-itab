@@ -26,7 +26,7 @@ See the [privacy policy](../store-assets/privacy-policy.md) and [extension manif
 
 ### Reviewed context Q&A
 
-The new-tab AI context panel reads active global AI collection bodies and the pinned workspace's saved note only after it is opened. No source is preselected. Users choose and can edit exact outgoing excerpts, review the full request and endpoint, and explicitly send through the common model client. Excerpts and credentials are volatile; no new storage or backup boundary is introduced. Model responses are unverified literal text. Answer saving and reviewed task-list insertion are separate explicit actions into existing stores; neither generation nor cancellation writes content. See [context workflow and validation limits](ai-context-workflow.md).
+The new-tab AI context panel reads active global AI collection bodies and the pinned workspace's saved note only after it is opened. No source is preselected. Users choose and can edit exact outgoing excerpts, review the full request and endpoint, and explicitly send through the common model client. Credentials remain temporary. By default, saving keeps only the answer; an optional, default-off choice also saves the exact reviewed question, edited source IDs/labels/text, full prompt, endpoint and model in the global collection and unencrypted collection/complete backups. API-key fields and authentication headers are excluded; omitting attribution source URLs does not remove this snapshot. Model responses are unverified literal text. Answer saving and reviewed task-list insertion are separate explicit actions into existing stores; neither generation nor cancellation writes content. See [context workflow and validation limits](ai-context-workflow.md).
 
 ## Device-local model connection presets
 

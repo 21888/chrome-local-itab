@@ -13,6 +13,9 @@ async function model(presetStore) {
     const transport = { review: input => ({ ...input, origin: 'https://mock.example', permission: 'https://mock.example:443/*' }), run: async (input, options) => { calls.push({ input, options }); return { text: await reply }; } };
     const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => {},
         readSources: async () => [{ id: 'collection:synthetic', label: '<img src=x>', text: 'synthetic saved text', scope: 'library' }], taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
+    // The DOM model executes UI in a VM; real UI/controller share one realm.
+    const review = controller.review.bind(controller);
+    controller.review = input => review(JSON.parse(JSON.stringify(input)));
     vm.runInNewContext(fs.readFileSync('shared/ai-context-view.js', 'utf8'), { window });
     const view = window.LocalItabAIContextView.mount(host, { controller, presetStore }); await view.ready;
     const field = type => host.querySelectorAll('input').find(node => node.type === type);
@@ -103,4 +106,32 @@ test('Q&A reuses saved metadata without sources, grants or automatic requests', 
     h.view.presetName.value = 'Renamed'; h.view.presetSave.dispatch('click'); await settle(); assert.equal(writes, 1); assert.equal(state.records[0].name, 'Renamed');
     h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed.request.url, state.records[0].url);
     h.view.presetDelete.dispatch('click'); await settle(); assert.equal(writes, 2); assert.equal(h.controller.reviewed, null); assert.equal(h.field('url').value, ''); assert.equal(h.calls.length, 0); h.view.destroy();
+});
+
+test('snapshot save UI defaults off, previews exact reviewed data, and persists only on explicit choice', async () => {
+    const h = await model(); h.setReply('Synthetic answer');
+    const source = h.host.querySelector('.ai-context-source'), check = source.querySelector('input');
+    check.checked = true; check.dispatch('change'); h.input(source.querySelector('textarea'), '<script>edited evidence</script>');
+    await send(h, 'answer');
+    const section = h.host.querySelector('.ai-context-save-context'), option = section.querySelector('input'), preview = section.querySelector('pre');
+    assert.equal(option.checked, false); assert.equal(preview.hidden, true); assert.equal(h.c.writes, 0);
+    option.checked = true; option.dispatch('change');
+    const snapshot = JSON.parse(preview.textContent);
+    assert.equal(snapshot.sources[0].text, '<script>edited evidence</script>');
+    assert.equal(snapshot.prompt, h.controller.reviewed.request.prompt);
+    assert.equal(h.host.querySelectorAll('script').length, 0);
+    assert.match(section.querySelector('p').textContent, /unencrypted backups/);
+    h.click('Save answer');
+    for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
+    assert.deepEqual((await h.controller.collectionStore.read()).records[0].contextSnapshot, snapshot);
+    assert.equal(option.disabled, true);
+});
+
+test('changing or cancelling the reviewed request clears snapshot consent and preview', async () => {
+    const h = await model(); h.setReply('Synthetic answer'); await send(h, 'answer');
+    const section = h.host.querySelector('.ai-context-save-context'), option = section.querySelector('input');
+    option.checked = true; option.dispatch('change');
+    h.input(h.field('url'), 'https://other.example/v1/chat/completions');
+    assert.equal(option.checked, false); assert.equal(section.hidden, true); assert.equal(section.querySelector('pre').textContent, '');
+    assert.equal(h.c.writes, 0);
 });

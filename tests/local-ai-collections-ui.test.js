@@ -191,3 +191,16 @@ for (const outcome of ['resolve', 'reject']) {
         });
     }
 }
+
+test('saved context detail shows literal historical input and original answer version after revision', async () => {
+    const h = await mount();
+    const packed = require('../shared/ai-context').pack('<script>Question</script>', [{ id: 'source', label: '<img src=x>', text: 'Synthetic reviewed text' }]);
+    const contextSnapshot = { schemaVersion: 1, question: packed.question, sources: packed.sources, prompt: packed.prompt, endpoint: 'https://model.example/v1/chat/completions', model: 'mock' };
+    let saved = await h.store.mutate(h.store.request('add', { title: 'Snapshot', body: 'First answer', contextSnapshot }));
+    const first = saved.records[0], plan = await h.store.reviewRevision({ id: first.id, version: first.version, body: 'Edited answer' });
+    saved = await h.store.mutate(h.store.request('revise', plan)); await h.controller.refresh(); h.controller.select(first.id); h.view.render();
+    const panel = h.host.querySelector('.collection-context-snapshot'); assert.equal(Boolean(panel), true);
+    assert.equal(panel.querySelector('pre').textContent, JSON.stringify(contextSnapshot, null, 2));
+    assert.match(text(panel), new RegExp(first.currentVersionId)); assert.match(text(panel), /Imported snapshots are user-provided/);
+    assert.equal(h.host.querySelectorAll('script').length, 0); assert.equal(h.host.querySelectorAll('img').length, 0);
+});

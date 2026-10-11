@@ -86,3 +86,26 @@ test('concurrent direct collection, coordinated collection and complete restore 
  const f=fixture(),incoming=fixture();await save(incoming);const local=await save(f);const direct=new Collections.Store(Collections.createChromeBackend(f.chrome,f.locks),{now:()=>now,id:()=> 'direct_operation'});
  const outcomes=await Promise.race([Promise.allSettled([direct.read(),local.store.read(),f.store.export(),f.store.review(await incoming.store.export(),null,accepted)]),new Promise((_,reject)=>setTimeout(()=>reject(Error('deadlock')),1500))]);assert(outcomes.every(r=>r.status==='fulfilled'));
 });
+
+test('optional reviewed context snapshot survives full archive parse and restore without device secrets', async () => {
+    const incoming = fixture(), target = fixture();
+    const { store } = await save(incoming);
+    const packed = require('../shared/ai-context').pack('Exact synthetic question', [{ id: 'collection:synthetic', label: 'Synthetic source', text: 'Edited source excerpt' }]);
+    const contextSnapshot = { schemaVersion: 1, question: packed.question, sources: packed.sources, prompt: packed.prompt, endpoint: 'https://model.example/v1/chat/completions', model: 'mock' };
+    const saved = await store.mutate(store.request('add', { title: 'Answer with snapshot', body: 'Synthetic response', contextSnapshot }));
+    const source = await incoming.store.export(), parsed = Backup.parse(source, incoming.manager);
+    assert.deepEqual(parsed.globals.collections.content.records[1].contextSnapshot, contextSnapshot);
+    assert.equal(JSON.stringify(parsed).includes('SECRET'), false);
+    await target.store.restore(await target.store.review(source, null, accepted), { confirmed: true });
+    const restored = target.raw[Collections.KEY].records[1];
+    assert.deepEqual(restored.contextSnapshot, contextSnapshot);
+    assert.deepEqual(restored.history, saved.records[1].history);
+    const forged = JSON.parse(source), incomingRecord = forged.globals.collections.content.records[1];
+    incomingRecord.currentVersionId = 'forged_first_version'; incomingRecord.body = 'Unrelated answer';
+    incomingRecord.history = [{ id: incomingRecord.currentVersionId, body: incomingRecord.body, createdAt: incomingRecord.createdAt }];
+    const writes = target.writes.length;
+    await assert.rejects(target.store.review(JSON.stringify(forged), null, accepted));
+    assert.equal(target.writes.length, writes);
+    const malformed = JSON.parse(source); malformed.globals.collections.content.records[1].contextSnapshot.key = 'not-allowed';
+    assert.throws(() => Backup.parse(JSON.stringify(malformed), target.manager));
+});

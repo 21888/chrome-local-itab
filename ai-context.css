@@ -14,3 +14,7 @@
 .ai-context-close { display: block; margin-inline-start: auto; padding: .6rem 1rem; font: inherit; }
 .ai-context-dialog :focus-visible { outline: 3px solid var(--template-focus, #456fe8); outline-offset: 2px; }
 @media (max-width: 560px) { .ai-context-overlay { padding: .4rem; } .ai-context-dialog { padding: .5rem; max-height: calc(100dvh - .8rem); } .ai-context { padding: .7rem; } }
+.ai-context-save-context { margin-block: 1rem; padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .5rem; }
+.ai-context-save-context > label { display: flex; align-items: flex-start; gap: .5rem; }
+.ai-context-save-context input[type=checkbox] { flex: none; width: 1.2rem; height: 1.2rem; }
+.ai-context-save-context p { overflow-wrap: anywhere; }

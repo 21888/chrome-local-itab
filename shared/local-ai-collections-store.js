@@ -97,6 +97,31 @@
         if (value === null) return;
         object(value, ['promptId', 'bodyVersionId']); check(token(value.promptId) && token(value.bodyVersionId), 'PROMPT_REFERENCE');
     }
+    // Optional, creation-only historical request. Never resolved against live sources.
+    function contextSnapshot(value) {
+        object(value, ['schemaVersion', 'question', 'sources', 'endpoint', 'model', 'prompt']);
+        check(value.schemaVersion === 1, 'VERSION');
+        const bounded = (value, limit) => {
+            check(typeof value === 'string' && unicode(value) && value.trim().length > 0 && value.length <= limit, 'CONTEXT_LIMIT');
+        };
+        bounded(value.question, 4000); bounded(value.prompt, 32000); bounded(value.model, 120);
+        check(value.model === value.model.trim() && !/[\p{Cc}]/u.test(value.model), 'CONTEXT_INVALID');
+        bounded(value.endpoint, 2048); sourceMetadata(value.endpoint);
+        const endpoint = new URL(value.endpoint);
+        check(endpoint.protocol === 'https:' && !endpoint.hostname.includes('*') && !endpoint.search && !endpoint.hash &&
+            endpoint.pathname.endsWith('/chat/completions') && endpoint.href === value.endpoint, 'CONTEXT_INVALID');
+        check(Array.isArray(value.sources) && value.sources.length <= 12, 'CONTEXT_LIMIT');
+        const ids = new Set();
+        for (const source of value.sources) {
+            object(source, ['id', 'label', 'text']); bounded(source.id, 300); bounded(source.label, 200); bounded(source.text, 16000);
+            check(!ids.has(source.id), 'CONTEXT_INVALID'); ids.add(source.id);
+        }
+        // Both structured excerpts and the exact prompt must describe the same request.
+        const suffix = JSON.stringify({ question: value.question, sources: value.sources });
+        check(value.prompt.endsWith('\n' + suffix), 'CONTEXT_INVALID');
+        check(bytes(value) <= 128 * 1024, 'CONTEXT_LIMIT');
+        return value;
+    }
     function editable(value) {
         text(value.title, LIMITS.title, true); text(value.body, LIMITS.body, true, true);
         text(value.tool, LIMITS.tool); text(value.notes, LIMITS.notes, false, true); sourceMetadata(value.sourceUrl); reference(value.promptRef);
@@ -110,7 +135,9 @@
     }
     function fields(value) { return Object.fromEntries(EDITABLE.map(key => [key, clone(value[key])])); }
     function recordSchema(record) {
-        object(record, RECORD_KEYS); check(token(record.id) && token(record.version));
+        object(record, Object.hasOwn(record, 'contextSnapshot') ? [...RECORD_KEYS, 'contextSnapshot'] : RECORD_KEYS);
+        if (Object.hasOwn(record, 'contextSnapshot')) contextSnapshot(record.contextSnapshot);
+        check(token(record.id) && token(record.version));
         check(Number.isSafeInteger(record.revision) && record.revision >= 1); editable(record);
         check(date(record.createdAt) && date(record.updatedAt) && record.updatedAt >= record.createdAt);
         check(record.deletedAt === null || (date(record.deletedAt) && record.deletedAt >= record.createdAt && record.deletedAt <= record.updatedAt));
@@ -135,9 +162,11 @@
         return value;
     }
     function checkIdentities(contents) {
-        const records = new Map(), versions = new Map();
+        const records = new Map(), versions = new Map(), contexts = new Map();
         for (const group of contents) for (const record of group.records) {
             check(!records.has(record.id) || records.get(record.id) === record.createdAt, 'IDENTITY_CONFLICT'); records.set(record.id, record.createdAt);
+            const context = record.contextSnapshot ? { snapshot: record.contextSnapshot, firstAnswer: record.history[0] } : null;
+            check(!contexts.has(record.id) || same(contexts.get(record.id), context), 'IDENTITY_CONFLICT'); contexts.set(record.id, context);
             for (const entry of record.history) {
                 const identity = { recordId: record.id, ...entry }, previous = versions.get(entry.id);
                 check(!previous || same(previous, identity), 'IDENTITY_CONFLICT'); versions.set(entry.id, identity);
@@ -375,14 +404,16 @@
                     object(command, ['operationId', 'kind', 'enabled', 'revision']); check(current.revision === command.revision, 'CONFLICT'); check(typeof command.enabled === 'boolean');
                     if (next.enabled === command.enabled) return current; next.enabled = command.enabled; break;
                 case 'add': {
-                    check(Object.keys(command).every(key => ['operationId', 'kind', ...EDITABLE].includes(key)));
+                    check(Object.keys(command).every(key => ['operationId', 'kind', 'contextSnapshot', ...EDITABLE].includes(key)));
                     const value = editable({ type: 'answer', tags: [], tool: '', sourceUrl: '', notes: '', promptRef: null, ...command });
                     check(next.records.length < LIMITS.records, 'CAPACITY');
                     check(![...next.records, ...next.recovery.flatMap(item => item.content.records)].some(item => item.id === command.operationId), 'CONFLICT');
+                    if (Object.hasOwn(command, 'contextSnapshot')) contextSnapshot(command.contextSnapshot);
                     const bodyId = this.nextId(), version = this.nextId();
                     check(![...next.records, ...next.recovery.flatMap(item => item.content.records)].some(item => item.history.some(entry => entry.id === bodyId)), 'CONFLICT');
                     check(!next.records.some(item => item.version === version), 'CONFLICT');
-                    next.records.push({ id: command.operationId, version, revision: 1, ...fields(value), createdAt: now, updatedAt: now,
+                    next.records.push({ id: command.operationId, version, revision: 1, ...fields(value),
+                        ...(Object.hasOwn(command, 'contextSnapshot') ? { contextSnapshot: clone(command.contextSnapshot) } : {}), createdAt: now, updatedAt: now,
                         deletedAt: null, currentVersionId: bodyId, history: [{ id: bodyId, body: value.body, createdAt: now }] }); break;
                 }
                 case 'edit': {
@@ -471,5 +502,5 @@
         }
     }
     return { KEY, LOCK, FORMAT, TYPES, LIMITS, Store, createChromeBackend, initial, validate, validateRecord, validateContent,
-        parseBackup, counts, content, createDraft, search, sourceMetadata, findDuplicates, getVersion, resolvePromptReference, fault };
+        parseBackup, counts, content, createDraft, search, sourceMetadata, validateContextSnapshot: value => freeze(contextSnapshot(snapshot(value))), findDuplicates, getVersion, resolvePromptReference, fault };
 });

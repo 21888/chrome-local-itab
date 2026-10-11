@@ -36,10 +36,18 @@
         const outputLabel = el('label', 'ai-context-field', label('Response', 'Model response (unverified text; task JSON can be edited before review)'));
         const output = el('textarea'); output.rows = 8; output.maxLength = 32000; outputLabel.append(output); outputLabel.hidden = true;
         const answerTitle = field('SaveTitle', 'Title for saved answer', 'text'); answerTitle.maxLength = 200;
+        const contextSave = el('section', 'ai-context-save-context'); contextSave.hidden = true;
+        const contextLabel = el('label'), includeContext = el('input'); includeContext.type = 'checkbox'; includeContext.checked = false;
+        contextLabel.append(includeContext, el('span', '', label('SaveContext', 'Also save this exact question and reviewed source excerpts')));
+        const contextPreview = el('pre', 'ai-context-review'); contextPreview.hidden = true;
+        contextSave.append(contextLabel, el('p', '', label('SaveContextPrivacy', 'Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot.')), contextPreview);
         const taskList = el('ol', 'ai-context-tasks'); taskList.hidden = true;
         let disposed = false, pending = false;
         const error = code => {
-            const errors = { TASK_UNCERTAIN: ['UncertainTasks', 'The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch.'], TASK_FORMAT: ['TaskFormat', 'Use exactly {"tasks":["one task","another task"]}, with 1–50 single-line tasks and no extra fields.'], LIMIT: ['Limit', 'The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request.'], CONFLICT: ['Changed', 'The task list changed. Review the extracted tasks again before adding them.'], PERMISSION: ['Permission', 'Allow the reviewed endpoint before sending.'] };
+            if (controller.saveCommand && controller.saveUncertain) {
+                status.textContent = label('UncertainAnswer', 'The earlier answer save may already be in the global collection. Check it before starting another save. This panel keeps the original operation and snapshot choice for retry; it will not add a duplicate.'); return;
+            }
+            const errors = { CONTEXT_LIMIT: ['SnapshotLimit', 'The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer.'], SIZE_LIMIT: ['SnapshotCapacity', 'The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer.'], TASK_UNCERTAIN: ['UncertainTasks', 'The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch.'], TASK_FORMAT: ['TaskFormat', 'Use exactly {"tasks":["one task","another task"]}, with 1–50 single-line tasks and no extra fields.'], LIMIT: ['Limit', 'The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request.'], CONFLICT: ['Changed', 'The task list changed. Review the extracted tasks again before adding them.'], PERMISSION: ['Permission', 'Allow the reviewed endpoint before sending.'] };
             if (errors[code]) { status.textContent = label(...errors[code]); return; }
             status.textContent = label('Error', 'Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation.'); };
         function update() {
@@ -51,12 +59,16 @@
             reviewTasks.disabled = busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry;
+            contextSave.hidden = !controller.result || controller.result.mode !== 'answer';
+            includeContext.disabled = busy || retry || controller.saved;
+            contextPreview.hidden = !includeContext.checked || contextSave.hidden;
+            contextPreview.textContent = !contextPreview.hidden ? JSON.stringify(controller.answerSnapshot(), null, 2) : '';
             presetName.disabled = presetSelect.disabled = presetSave.disabled = !presetAvailable || busy || retry || Boolean(controller.result);
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
             if (focused?.disabled && box.contains(focused)) status.focus();
         }
         function invalidate() {
-            try { controller.edit(); reviewText.hidden = outputLabel.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
+            try { controller.edit(); includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
             update();
         }
         function renderPresets() {
@@ -109,7 +121,7 @@
             finally { key.value = ''; }
         }, ['Received', 'Response received, not saved. Model claims and source citations have not been verified.']));
         const stop = button('Stop', 'Stop request', () => { controller.stop(); key.value = ''; status.textContent = label('Stopped', 'Stopped. The provider may still charge for work already started.'); });
-        const save = button('Save', 'Save answer to AI collection', () => action(() => controller.saveAnswer(answerTitle.value), ['Saved', 'Saved to the existing global AI collection. Saved answers join unencrypted local backups.']));
+        const save = button('Save', 'Save answer to AI collection', () => action(() => controller.saveAnswer(answerTitle.value, { includeContext: includeContext.checked }), ['Saved', 'Saved to the existing global AI collection. Saved answers join unencrypted local backups.']));
         const reviewTasks = button('ReviewTasks', 'Review extracted tasks', () => action(async () => {
             const result = await controller.reviewTasks(); taskList.replaceChildren(...result.texts.map(value => el('li', '', value))); taskList.hidden = false;
             confirm.textContent = `${label('Confirm', 'Add these tasks')} (${result.count})`;
@@ -121,7 +133,8 @@
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
-        box.append(actions, reviewText, status, outputLabel, taskList, results); host.append(box);
+        includeContext.addEventListener('change', update);
+        box.append(actions, reviewText, status, outputLabel, contextSave, taskList, results); host.append(box);
         for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         const ready = action(async () => {

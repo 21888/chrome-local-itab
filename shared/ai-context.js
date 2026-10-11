@@ -53,7 +53,7 @@
         constructor({ transport, permissions, ensureActive, readSources, taskStore, collectionStore }) {
             Object.assign(this, { transport, permissions, ensureActive, readSources, taskStore, collectionStore });
             this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.result = null;
-            this.taskReview = null; this.saveCommand = null; this.saved = false; this.taskCommand = null; this.taskUncertain = false;
+            this.taskReview = null; this.saveCommand = null; this.saved = false; this.saveUncertain = false; this.taskCommand = null; this.taskUncertain = false;
             // This controller owns a dedicated collection Store. Fence immediately at its
             // backend write, after all receipt/hash awaits, without changing its schema/API.
             const backend = collectionStore.backend;
@@ -61,7 +61,7 @@
                 write: value => { this.current(this.saveGeneration); return backend.write(value); } };
         }
         current(generation) { check(!this.closed && this.generation === generation, 'STALE'); }
-        edit() { check(!this.busy && !this.taskCommand && !this.saveCommand, 'BUSY'); this.generation++; this.reviewed = this.result = this.taskReview = null; this.saved = false; }
+        edit() { check(!this.busy && !this.taskCommand && !this.saveCommand, 'BUSY'); this.generation++; this.reviewed = this.result = this.taskReview = null; this.saved = false; this.saveUncertain = false; }
         async loadSources() { const generation = this.generation; await this.ensureActive(); const result = await this.readSources(); await this.ensureActive(); this.current(generation); return result; }
         async review({ url, model, question, selected, mode }) {
             this.edit(); const generation = this.generation;
@@ -121,16 +121,30 @@
                 throw error;
             } finally { this.busy = false; }
         }
-        async saveAnswer(title) {
-            check(this.result && !this.busy && !this.saved && !this.closed, 'STALE'); text(title, 200);
+        answerSnapshot() {
+            check(this.result?.mode === 'answer' && this.reviewed && !this.closed, 'STALE');
+            const { packed, request } = this.reviewed;
+            return Object.freeze({ schemaVersion: 1, question: packed.question, sources: packed.sources,
+                endpoint: request.url, model: request.model, prompt: request.prompt });
+        }
+        async saveAnswer(title, { includeContext = false } = {}) {
+            check(this.result?.mode === 'answer' && !this.busy && !this.saved && !this.closed, 'STALE'); text(title, 200);
+            check(typeof includeContext === 'boolean');
             const generation = this.generation; this.busy = true;
             try {
                 await this.ensureActive(); this.current(generation);
                 this.saveGeneration = generation;
                 this.saveCommand ||= this.collectionStore.request('add', { title, body: this.result.text, type: 'answer', tool: this.result.model, sourceUrl: this.result.origin,
-                    notes: 'AI-generated from user-reviewed excerpts. Source references in the answer are model claims, not verified provenance.', promptRef: null });
+                    notes: 'AI-generated from user-reviewed excerpts. Source references in the answer are model claims, not verified provenance.', promptRef: null,
+                    ...(includeContext ? { contextSnapshot: this.answerSnapshot() } : {}) });
                 const saved = await this.collectionStore.mutate(this.saveCommand);
-                this.current(generation); this.saved = true; this.saveCommand = null; return saved;
+                this.current(generation); this.saved = true; this.saveCommand = null; this.saveUncertain = false; return saved;
+            } catch (error) {
+                if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) this.saveUncertain = true;
+                // These validation failures happen before persistence. Let the user explicitly
+                // deselect context and save only the answer; never silently drop the snapshot.
+                if (!this.saveUncertain && ['SIZE_LIMIT', 'CONTEXT_LIMIT', 'CONTEXT_INVALID', 'CAPACITY', 'INPUT_LIMIT'].includes(error.code)) this.saveCommand = null;
+                throw error;
             } finally { this.busy = false; }
         }
         close() { this.closed = true; this.generation++; this.stop(); this.reviewed = this.result = this.taskReview = null; }

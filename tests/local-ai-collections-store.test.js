@@ -379,3 +379,20 @@ test('unexpected post-callback lock failure remains uncertain and exact retry do
     rejectAfter = false; const state = await a.mutate(request); assert.equal(state.records.length, 1); assert.equal(b.writes, 1);
     b.lock = () => { throw hostile; }; await assert.rejects(() => a.read(), { code: 'LOCK' }); assert.equal(getterCalls, 0);
 });
+
+test('snapshot near-capacity refusal is atomic and never truncates the selected input', async () => {
+    const { a, b } = fixture(); await add(a, 'x'.repeat(32000));
+    const state = await a.read(), base = state.records[0];
+    state.records = Array.from({ length: 31 }, (_, i) => ({ ...copy(base), id: `synthetic_record_${i}`, version: `synthetic_version_${i}`,
+        currentVersionId: `synthetic_body_${i}`, history: [{ ...base.history[0], id: `synthetic_body_${i}` }] }));
+    state.receipts = [];
+    const size = () => new TextEncoder().encode(JSON.stringify(state)).length;
+    const target = api.LIMITS.bytes - 16384 - 2000;
+    for (const record of state.records) { const extra = Math.min(16000, target - size()); if (extra > 0) record.notes = 'x'.repeat(extra); }
+    api.validate(state); b.corrupt(state); const writes = b.writes;
+    const packed = require('../shared/ai-context').pack('Question', [{ id: 'synthetic', label: 'Synthetic', text: 'x'.repeat(4000) }]);
+    const contextSnapshot = { schemaVersion: 1, question: packed.question, sources: packed.sources, prompt: packed.prompt, endpoint: 'https://model.example/v1/chat/completions', model: 'mock' };
+    await assert.rejects(add(a, 'answer', { contextSnapshot }), { code: 'SIZE_LIMIT' });
+    assert.equal(b.writes, writes); assert.deepEqual(await a.read(), state);
+    await add(a, 'answer'); assert.equal(b.writes, writes + 1);
+});

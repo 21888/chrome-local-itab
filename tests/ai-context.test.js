@@ -121,3 +121,94 @@ test('workspace changed while permission check awaited prevents the outbound req
     h.deactivate(); permission.resolve(true); await assert.rejects(sent, { code: 'WORKSPACE_INVALIDATED' });
     assert.equal(h.calls.sends, 0); assert.equal(h.taskBackend.writes + h.collectionBackend.writes, 0);
 });
+
+test('answer context is explicit, immutable exact reviewed input and survives original source changes', async () => {
+    const h = setup(), selected = [{ id: 'collection:synthetic', label: '<b>Source</b>', text: 'edited excerpt' }];
+    const reviewed = await h.controller.review({ url: 'https://model.example/v1/chat/completions', model: 'mock', question: 'Exact question?', selected, mode: 'answer' });
+    selected[0].text = 'later original edit'; selected.pop();
+    await h.controller.send('synthetic-key');
+    const expected = h.controller.answerSnapshot();
+    assert.equal(expected.sources[0].text, 'edited excerpt'); assert.equal(expected.prompt, reviewed.request.prompt);
+    assert.equal(Object.isFrozen(expected.sources[0]), true);
+    h.collectionBackend.failAfter = true;
+    await assert.rejects(h.controller.saveAnswer('Snapshot', { includeContext: true }), { code: 'WRITE' });
+    // Retry keeps the originally selected scope, even if a caller supplies another choice.
+    await h.controller.saveAnswer('Changed title', { includeContext: false });
+    const state = await h.controller.collectionStore.read(), record = state.records[0];
+    assert.deepEqual(record.contextSnapshot, expected); assert.equal(h.collectionBackend.writes, 1);
+    assert.equal(JSON.stringify(record).includes('synthetic-key'), false);
+    const file = Collections.parseBackup(await h.controller.collectionStore.export({ omitSourceUrls: true }));
+    assert.deepEqual(file.content.records[0].contextSnapshot, expected);
+    const target = new Collections.Store(backend());
+    const review = await target.review(JSON.stringify(file));
+    const restored = await target.mutate(target.request('replace', review));
+    assert.deepEqual(restored.records[0].contextSnapshot, expected);
+});
+test('default answer saves retain legacy record shape; snapshot cannot be edited after creation', async () => {
+    const h = setup(); await review(h, 'answer'); await h.controller.send(); await h.controller.saveAnswer('Plain');
+    const plain = (await h.controller.collectionStore.read()).records[0]; assert.equal(Object.hasOwn(plain, 'contextSnapshot'), false);
+    const h2 = setup(); await review(h2, 'answer'); await h2.controller.send(); await h2.controller.saveAnswer('With context', { includeContext: true });
+    const store = h2.controller.collectionStore, record = (await store.read()).records[0];
+    await assert.rejects(store.mutate(store.request('edit', { id: record.id, version: record.version, contextSnapshot: null })));
+    const edited = await store.mutate(store.request('edit', { id: record.id, version: record.version, title: 'Updated title' }));
+    assert.deepEqual(edited.records[0].contextSnapshot, record.contextSnapshot);
+    const plan = await store.reviewRevision({ id: record.id, version: edited.records[0].version, body: 'Later edited answer' });
+    const revised = await store.mutate(store.request('revise', plan));
+    assert.deepEqual(revised.records[0].contextSnapshot, record.contextSnapshot);
+    assert.equal(revised.records[0].history[0].id, record.currentVersionId);
+});
+test('optional snapshot validates strict fields, transport bounds and exact structured excerpts', async () => {
+    const h = setup(); await review(h, 'answer'); await h.controller.send();
+    const snapshot = structuredClone(h.controller.answerSnapshot());
+    assert.deepEqual(Collections.validateContextSnapshot(snapshot), snapshot);
+    for (const value of [null, { ...snapshot, key: 'secret' }, { ...snapshot, schemaVersion: 2 },
+        { ...snapshot, question: 'q'.repeat(4001) }, { ...snapshot, model: ' model ' },
+        { ...snapshot, endpoint: 'https://model.example/v1/chat/completions?key=secret' },
+        { ...snapshot, endpoint: 'https://user:secret@model.example/v1/chat/completions' },
+        { ...snapshot, prompt: snapshot.prompt + 'changed' }, { ...snapshot, sources: [{ id: 'x', label: 'X', text: 'different' }] }]) {
+        assert.throws(() => Collections.validateContextSnapshot(value));
+    }
+});
+test('snapshot capacity failures have no partial write and allow an explicit answer-only save', async () => {
+    const h = setup();
+    await h.controller.review({ url: 'https://model.example/v1/chat/completions', model: 'mock', question: 'q', selected: [{ id: 'one', label: 'One', text: '界'.repeat(13000) }, { id: 'two', label: 'Two', text: '界'.repeat(13000) }], mode: 'answer' });
+    await h.controller.send();
+    await assert.rejects(h.controller.saveAnswer('Answer', { includeContext: true }), { code: 'CONTEXT_LIMIT' });
+    assert.equal(h.collectionBackend.writes, 0); assert.equal(h.controller.saveCommand, null);
+    await h.controller.saveAnswer('Answer', { includeContext: false });
+    const record = (await h.controller.collectionStore.read()).records[0];
+    assert.equal(Object.hasOwn(record, 'contextSnapshot'), false);
+});
+
+test('uncertain snapshot save after interleaving write retains identity and cannot duplicate', async () => {
+    const h = setup(); await review(h, 'answer'); await h.controller.send(); h.collectionBackend.failAfter = true;
+    await assert.rejects(h.controller.saveAnswer('Snapshot', { includeContext: true }), { code: 'WRITE' });
+    const command = h.controller.saveCommand, store = h.controller.collectionStore;
+    await store.mutate(store.request('add', { title: 'Concurrent', body: 'Synthetic' }));
+    await assert.rejects(h.controller.saveAnswer('Changed', { includeContext: false }), { code: 'CONFLICT' });
+    assert.equal(h.controller.saveCommand, command); assert.equal(h.collectionBackend.writes, 2);
+    const records = (await store.read()).records; assert.equal(records.length, 2);
+    assert.deepEqual(records[0].contextSnapshot, command.contextSnapshot);
+});
+
+test('restore cannot rebind immutable request snapshot to a different first answer version', async () => {
+    const h = setup(); await review(h, 'answer'); await h.controller.send(); await h.controller.saveAnswer('Snapshot', { includeContext: true });
+    const store = h.controller.collectionStore, file = JSON.parse(await store.export()), record = file.content.records[0];
+    record.currentVersionId = 'forged_body_version'; record.history[0].id = record.currentVersionId;
+    record.history[0].body = record.body = 'Different first answer';
+    const writes = h.collectionBackend.writes;
+    await assert.rejects(store.review(JSON.stringify(file)), { code: 'IDENTITY_CONFLICT' });
+    assert.equal(h.collectionBackend.writes, writes);
+});
+
+test('resolved save uncertainty does not contaminate capacity refusal in a later question', async () => {
+    const h = setup(); await review(h, 'answer'); await h.controller.send(); h.collectionBackend.failAfter = true;
+    await assert.rejects(h.controller.saveAnswer('First', { includeContext: true }), { code: 'WRITE' });
+    assert.equal(h.controller.saveUncertain, true);
+    await h.controller.saveAnswer('First', { includeContext: true }); assert.equal(h.controller.saveUncertain, false);
+    h.controller.edit(); assert.equal(h.controller.saveUncertain, false);
+    await h.controller.review({ url: 'https://model.example/v1/chat/completions', model: 'mock', question: 'q', mode: 'answer', selected: [{ id: 'one', label: 'One', text: '界'.repeat(13000) }, { id: 'two', label: 'Two', text: '界'.repeat(13000) }] });
+    await h.controller.send();
+    await assert.rejects(h.controller.saveAnswer('Second', { includeContext: true }), { code: 'CONTEXT_LIMIT' });
+    assert.equal(h.controller.saveCommand, null); assert.equal(h.controller.saveUncertain, false); assert.equal(h.collectionBackend.writes, 1);
+});

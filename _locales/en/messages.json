@@ -3303,7 +3303,7 @@
     "message": "AI collections and saved versions"
   },
   "completeBackupCollectionHelp": {
-    "message": "Collections are one global library shared across workspaces. Full backups include manually saved excerpts, notes, source URLs, prompt references, archived records and versions. Check private content before sharing; provider credentials are excluded."
+    "message": "Collections are one global library shared across workspaces. Full backups include manually saved excerpts, notes, source URLs, prompt references, archived records and versions. Check private content before sharing; provider credentials are excluded. Explicitly saved question/source snapshots and exact endpoint/model metadata are included unchanged; backups are unencrypted."
   },
   "completeBackupCollectionTarget": {
     "message": "Destination for AI collections"
@@ -4444,5 +4444,29 @@
   },
   "promptsModelRefineTrial": {
     "message": "Test original versus proposal"
+  },
+  "aiContextSaveContext": {
+    "message": "Also save this exact question and reviewed source excerpts"
+  },
+  "aiContextSaveContextPrivacy": {
+    "message": "Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot."
+  },
+  "aiContextSnapshotLimit": {
+    "message": "The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer."
+  },
+  "aiContextSnapshotCapacity": {
+    "message": "The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer."
+  },
+  "aiContextUncertainAnswer": {
+    "message": "The earlier answer save may already be in the global collection. Check it before starting another save. This panel keeps the original operation and snapshot choice for retry; it will not add a duplicate."
+  },
+  "collectionsContextSnapshotTitle": {
+    "message": "Saved question and reviewed sources"
+  },
+  "collectionsContextSnapshotHelp": {
+    "message": "Historical input for the first saved answer version below. Later answer edits may differ. This snapshot does not change when original sources change or are deleted. Source IDs and labels identify reviewed input; answer citations remain unverified model claims, not proof. Imported snapshots are user-provided metadata, not cryptographic proof of model output. It is included in unencrypted backups, even when source URLs are omitted."
+  },
+  "collectionsContextSnapshotExportWarning": {
+    "message": "Saved question/source snapshots, when present, are included in full and may contain private text and endpoint URLs even if attribution source URLs are omitted."
   }
 }
