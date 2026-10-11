@@ -27,3 +27,7 @@ See the [privacy policy](../store-assets/privacy-policy.md) and [extension manif
 ### Reviewed context Q&A
 
 The new-tab AI context panel reads active global AI collection bodies and the pinned workspace's saved note only after it is opened. No source is preselected. Users choose and can edit exact outgoing excerpts, review the full request and endpoint, and explicitly send through the common model client. Excerpts and credentials are volatile; no new storage or backup boundary is introduced. Model responses are unverified literal text. Answer saving and reviewed task-list insertion are separate explicit actions into existing stores; neither generation nor cancellation writes content. See [context workflow and validation limits](ai-context-workflow.md).
+
+## Device-local model connection presets
+
+Connection presets are optional, explicitly saved device-local metadata shared by the prompt-model dialog and saved-context Q&A panel. Only the preset name, validated HTTPS endpoint and model ID are stored as unencrypted text. The dedicated API-key/password field is never included. Do not put credentials or other secrets in preset names, endpoint paths or model IDs. Presets are excluded from manual exports, complete backups, Chrome Sync and Drive snapshots; restoring a backup preserves the destination device’s existing presets. Selecting or saving a preset never grants endpoint permission or sends a request; every request still needs exact destination/content review and explicit Send.

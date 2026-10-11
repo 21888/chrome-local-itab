@@ -4174,5 +4174,38 @@
   },
   "customizeSampleThree": {
     "message": "Focus"
+  },
+  "promptsModelPresetName": {
+    "message": "Connection preset name"
+  },
+  "promptsModelPresetLabel": {
+    "message": "Saved connections (this device only)"
+  },
+  "promptsModelPresetHelp": {
+    "message": "Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything."
+  },
+  "promptsModelPresetManual": {
+    "message": "New / unsaved connection"
+  },
+  "promptsModelPresetSave": {
+    "message": "Save connection preset"
+  },
+  "promptsModelPresetDelete": {
+    "message": "Delete connection preset"
+  },
+  "promptsModelPresetSaved": {
+    "message": "Connection preset saved on this device. Review again before sending."
+  },
+  "promptsModelPresetDeleted": {
+    "message": "Connection preset deleted."
+  },
+  "promptsModelPresetConflict": {
+    "message": "This preset changed in another tab. Close and reopen this dialog before editing it."
+  },
+  "promptsModelPresetError": {
+    "message": "Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved."
+  },
+  "promptsModelPresetUnavailable": {
+    "message": "Saved connections are unavailable. You can still enter a connection manually."
   }
 }

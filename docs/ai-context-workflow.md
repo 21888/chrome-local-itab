@@ -39,3 +39,7 @@ Focused commands:
 
     timeout 60 node --max-old-space-size=256 --test tests/ai-context.test.js tests/ai-context-view.test.js tests/local-tasks-batch-store.test.js
     python3 -m unittest discover -s tests -p 'package_extension_test.py'
+
+## Reusable device-local connections
+
+The Q&A panel and prompt model dialog share explicit connection presets (name, HTTPS endpoint and model ID only). Select, edit, Save or Delete a preset; this clears the API-key field and invalidates the reviewed request without selecting sources or sending anything. Each request still requires reviewing the exact receiver and content before Send. Presets are unencrypted device-local metadata, excluded from backups and sync and preserved on the destination during restore. Never put secrets in preset metadata. See [connection preset behavior and limits](ai-model-workflow.md#device-local-connection-presets).

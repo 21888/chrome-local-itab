@@ -1,7 +1,7 @@
 .ai-model-dialog { width: min(760px, calc(100vw - 32px)); max-width: 760px; max-height: calc(100dvh - 32px); overflow: auto; }
 .ai-model-fields { display: grid; gap: 12px; margin-block: 16px; }
 .ai-model-field { display: grid; gap: 6px; font-size: 14px; }
-.ai-model-field input, .ai-model-field textarea { box-sizing: border-box; width: 100%; border: 1px solid var(--template-border, #b6bcc6); border-radius: 8px; padding: 10px; color: inherit; background: var(--template-surface, #fff); font: inherit; }
+.ai-model-field input, .ai-model-field textarea, .ai-model-field select { box-sizing: border-box; width: 100%; border: 1px solid var(--template-border, #b6bcc6); border-radius: 8px; padding: 10px; color: inherit; background: var(--template-surface, #fff); font: inherit; }
 .ai-model-review { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; padding: 12px; border: 1px solid var(--template-border, #b6bcc6); border-radius: 8px; font-size: 13px; }
 .ai-model-dialog > textarea { box-sizing: border-box; width: 100%; margin-block: 12px; }
 .ai-model-dialog .prompt-actions { flex-wrap: wrap; }

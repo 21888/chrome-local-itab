@@ -6,7 +6,7 @@ const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 function backend() { let raw; return { writes: 0, lock: fn => fn(), read: async () => structuredClone(raw), async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
-async function model() {
+async function model(presetStore) {
     const document = createDocument(), host = document.createElement('main'); document.body.append(host);
     const events = new Map(), window = { document, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
     const b = backend(), c = backend(), calls = []; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
@@ -14,7 +14,7 @@ async function model() {
     const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => {},
         readSources: async () => [{ id: 'collection:synthetic', label: '<img src=x>', text: 'synthetic saved text', scope: 'library' }], taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
     vm.runInNewContext(fs.readFileSync('shared/ai-context-view.js', 'utf8'), { window });
-    const view = window.LocalItabAIContextView.mount(host, { controller }); await view.ready;
+    const view = window.LocalItabAIContextView.mount(host, { controller, presetStore }); await view.ready;
     const field = type => host.querySelectorAll('input').find(node => node.type === type);
     const byText = text => host.querySelectorAll('button').find(node => node.textContent.startsWith(text));
     const click = text => { const node = byText(text); assert(node); assert.equal(Boolean(node.disabled), false, `${text} enabled`); node.dispatch('click'); return node; };
@@ -91,4 +91,16 @@ test('source integration and runtime inventory include context without a new per
     for (const file of ['shared/ai-model-client.js', 'shared/ai-context.js', 'shared/ai-context-view.js', 'ai-context.js', 'ai-context.css']) { assert(html.includes(file)); assert(inventory.includes(`"${file}"`)); }
     const lifecycle = fs.readFileSync('shared/local-content-lifecycle.js', 'utf8'); assert(lifecycle.includes('root.aiContextView?.pending')); assert(lifecycle.includes('root.aiContextView?.hasUncommittedWork?.()'));
     for (const file of ['shared/ai-context.js', 'shared/ai-context-view.js', 'ai-context.js']) assert(!/storage\.(local|sync)|localStorage|innerHTML|eval\(/.test(fs.readFileSync(file, 'utf8')));
+});
+
+test('Q&A reuses saved metadata without sources, grants or automatic requests', async () => {
+    const Presets = require('../shared/ai-model-presets');
+    let state = { version: 1, records: [{ name: 'Synthetic', url: 'https://mock.example/v1/chat/completions', model: 'mock' }] }, writes = 0;
+    const presetStore = Presets.createStore({ chromeApi: { storage: { local: { get: async () => ({ [Presets.KEY]: state }), set: async value => { writes++; state = structuredClone(value[Presets.KEY]); } } } }, locks: { request: (_, fn) => fn() } });
+    const h = await model(presetStore); h.click('Review exact'); await settle(); h.input(h.field('password'), 'synthetic-secret');
+    h.view.presetSelect.value = '0'; h.view.presetSelect.dispatch('change');
+    assert.equal(h.field('password').value, ''); assert.equal(h.controller.reviewed, null); assert.equal(h.field('checkbox').checked, false); assert.equal(writes, 0);
+    h.view.presetName.value = 'Renamed'; h.view.presetSave.dispatch('click'); await settle(); assert.equal(writes, 1); assert.equal(state.records[0].name, 'Renamed');
+    h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed.request.url, state.records[0].url);
+    h.view.presetDelete.dispatch('click'); await settle(); assert.equal(writes, 2); assert.equal(h.controller.reviewed, null); assert.equal(h.field('url').value, ''); assert.equal(h.calls.length, 0); h.view.destroy();
 });

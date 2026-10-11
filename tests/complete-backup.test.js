@@ -444,3 +444,17 @@ test('imported portable archives still require optional cosmetics explicitly pre
         const f=fixture(),file=JSON.parse(await source());mutate(file);assert.throws(()=>f.store.review(JSON.stringify(file)));assert.equal(f.writes.length,0);
     }
 });
+
+test('device-local connection presets are excluded from complete backup and preserved through restore/recovery', async () => {
+    const Presets = require('../shared/ai-model-presets');
+    const presets = { version: 1, records: [{ name: 'Synthetic device connection', url: 'https://synthetic-presets.test/v1/chat/completions', model: 'synthetic-private-model' }] };
+    const f = fixture({ ...populated(), [Presets.KEY]: presets });
+    const archive = await f.store.export();
+    assert(!archive.includes(Presets.KEY)); assert(!archive.includes('synthetic-presets')); assert(!archive.includes('synthetic-private-model'));
+    const preview = await f.store.review(await source()); await f.store.restore(preview, { confirmed: true });
+    assert.deepEqual(f.raw[Presets.KEY], presets);
+    for (const write of f.writes) assert(!Object.hasOwn(write, Presets.KEY));
+    const recovery = await f.store.recovery(); assert(!recovery.includes('synthetic-presets')); assert(!recovery.includes(Presets.KEY));
+    const manual = f.manager.buildManualExportPayload({ ...f.manager.defaultConfig, [Presets.KEY]: presets });
+    assert(!JSON.stringify(manual).includes('synthetic-presets')); assert(!JSON.stringify(manual).includes(Presets.KEY));
+});

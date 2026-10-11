@@ -1,7 +1,7 @@
 /* Plain-text, opt-in context UI. No source is selected by default. */
 (function (root) {
     'use strict';
-    function mount(host, { controller, t = (_, fallback) => fallback } = {}) {
+    function mount(host, { controller, t = (_, fallback) => fallback, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }) } = {}) {
         const doc = host.ownerDocument || root.document;
         const el = (tag, cls = '', value = '') => { const node = doc.createElement(tag); node.className = cls; node.textContent = value; return node; };
         const label = (key, fallback) => t(`aiContext${key}`, fallback);
@@ -16,12 +16,19 @@
         }
         const url = field('Endpoint', 'Full HTTPS endpoint URL', 'url'); url.maxLength = 2048;
         const model = field('Model', 'Model ID', 'text'); model.maxLength = 120;
+        const presetName = field('PresetName', 'Connection preset name', 'text'); presetName.maxLength = 80;
         const key = field('Key', 'API key (optional; never saved)', 'password'); key.maxLength = 4096;
         const question = field('Question', 'Question or task extraction instruction'); question.maxLength = 4000; question.rows = 3;
         const modeLabel = el('label', 'ai-context-field', label('Mode', 'Output'));
         const mode = el('select');
         for (const [value, name, fallback] of [['answer', 'Answer', 'Answer'], ['tasks', 'Tasks', 'Draft tasks for review']]) { const option = el('option', '', label(name, fallback)); option.value = value; mode.append(option); }
         mode.value = 'answer'; modeLabel.append(mode); box.append(modeLabel); controls.push(mode);
+        const presetText = (name, fallback) => t(`promptsModel${name}`, fallback);
+        const presetLabel = el('label', 'ai-context-field', presetText('PresetLabel', 'Saved connections (this device only)'));
+        const presetSelect = el('select'); presetLabel.append(presetSelect); box.append(presetLabel);
+        box.append(el('p', '', presetText('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.')));
+        const presetActions = el('div', 'ai-context-actions'); box.append(presetActions);
+        let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false;
         box.append(el('p', '', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included.')));
         const sourceList = el('div', 'ai-context-sources'); box.append(sourceList);
         const sourceRows = [], reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
@@ -36,7 +43,7 @@
             if (errors[code]) { status.textContent = label(...errors[code]); return; }
             status.textContent = label('Error', 'Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation.'); };
         function update() {
-            const focused = doc.activeElement, busy = pending || controller.busy, retry = Boolean(controller.taskCommand || controller.saveCommand);
+            const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
             for (const row of sourceRows) { row.check.disabled = row.input.disabled = busy || retry; }
             review.disabled = busy || retry; allow.disabled = send.disabled = busy || !controller.reviewed || Boolean(controller.result);
@@ -44,14 +51,44 @@
             reviewTasks.disabled = busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry;
+            presetName.disabled = presetSelect.disabled = presetSave.disabled = !presetAvailable || busy || retry || Boolean(controller.result);
+            presetDelete.disabled = presetSelect.disabled || !selectedPreset;
             if (focused?.disabled && box.contains(focused)) status.focus();
         }
         function invalidate() {
             try { controller.edit(); reviewText.hidden = outputLabel.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
             update();
         }
+        function renderPresets() {
+            presetSelect.replaceChildren();
+            const manual = el('option', '', presetText('PresetManual', 'New / unsaved connection')); manual.value = ''; presetSelect.append(manual);
+            presets.forEach((item, index) => { const option = el('option', '', item.name); option.value = String(index); presetSelect.append(option); });
+            presetSelect.value = selectedPreset ? String(presets.findIndex(item => item.name === selectedPreset.name)) : '';
+        }
+        async function changePreset(removing) {
+            if (disposed || !presetAvailable || presetPending || pending || controller.busy || controller.result || controller.taskCommand || controller.saveCommand || (removing && !selectedPreset)) return;
+            presetPending = true; key.value = ''; invalidate();
+            try {
+                const value = { name: presetName.value, url: url.value, model: model.value };
+                const result = removing ? await presetStore.remove(selectedPreset) : await presetStore.save(value, selectedPreset);
+                if (disposed) return;
+                presets = result.records; selectedPreset = removing ? null : presets.find(item => item.name === value.name.trim());
+                presetName.value = selectedPreset?.name || ''; url.value = selectedPreset?.url || ''; model.value = selectedPreset?.model || '';
+                renderPresets(); status.textContent = presetText(removing ? 'PresetDeleted' : 'PresetSaved', removing ? 'Connection preset deleted.' : 'Connection preset saved on this device. Review again before sending.');
+            } catch (reason) { if (!disposed) status.textContent = presetText(reason?.code === 'CONFLICT' ? 'PresetConflict' : 'PresetError', reason?.code === 'CONFLICT' ? 'This preset changed in another tab. Close and reopen this dialog before editing it.' : 'Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved.'); }
+            finally { presetPending = false; if (!disposed) update(); }
+        }
+        const presetSave = button('PresetSave', 'Save connection preset', () => changePreset(false));
+        const presetDelete = button('PresetDelete', 'Delete connection preset', () => changePreset(true));
+        presetActions.append(presetSave, presetDelete); renderPresets();
+        presetSelect.addEventListener('change', () => {
+            if (presetSelect.disabled || disposed) return;
+            selectedPreset = presetSelect.value === '' ? null : presets[Number(presetSelect.value)];
+            presetName.value = selectedPreset?.name || ''; url.value = selectedPreset?.url || ''; model.value = selectedPreset?.model || '';
+            key.value = ''; invalidate();
+        });
         async function action(fn, message) {
-            if (disposed || pending) return; pending = true; update();
+            if (disposed || pending || presetPending) return; pending = true; update();
             try { const operation = fn(); update(); await operation; if (!disposed) status.textContent = label(...message); }
             catch (reason) { if (!disposed) error(reason.code); }
             finally { pending = false; if (!disposed) update(); }
@@ -85,7 +122,7 @@
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
         box.append(actions, reviewText, status, outputLabel, taskList, results); host.append(box);
-        for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url) key.value = ''; invalidate(); });
+        for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         const ready = action(async () => {
             const values = await controller.loadSources(); if (disposed) return;
@@ -101,7 +138,11 @@
         function guard(event) { if (controller.busy || controller.result || controller.taskCommand || controller.saveCommand) { event.preventDefault(); event.returnValue = ''; } }
         function destroy() { if (disposed) return; disposed = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
-        update(); return { controller, ready, destroy, hasUncommittedWork: () => Boolean(controller.busy || controller.result || controller.taskCommand || controller.saveCommand) };
+        const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
+            if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();
+        }).catch(() => { if (!disposed) status.textContent = presetText('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!disposed) update(); }) : Promise.resolve();
+        presetPending = Boolean(presetStore);
+        update(); return { controller, ready: Promise.all([ready, presetsReady]), destroy, presetSelect, presetName, presetSave, presetDelete, hasUncommittedWork: () => Boolean(controller.busy || controller.result || controller.taskCommand || controller.saveCommand) };
     }
     root.LocalItabAIContextView = { mount };
 })(typeof window === 'undefined' ? globalThis : window);

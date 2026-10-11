@@ -1,7 +1,7 @@
-/* Optional model workbench. All fields live only in this dialog until explicit save. */
+/* Optional model workbench. Credentials remain dialog-only; presets save metadata explicitly. */
 (function (root) {
     'use strict';
-    function open({ view, collectionStore }) {
+    function open({ view, collectionStore, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }) }) {
         const c = view.controller, preview = c.preview(), record = c.record(), session = c.session();
         if (view.openDialog || !preview?.complete || c.busy || c.pendingCommand || c.disposed) return;
         const t = (key, fallback) => view.t(`Model${key}`, fallback), el = (...args) => view.el(...args);
@@ -18,11 +18,17 @@
         }
         const url = field('Endpoint', 'Full endpoint URL', 'url'); url.placeholder = 'https://api.example.com/v1/chat/completions'; url.maxLength = 2048;
         const model = field('Name', 'Model ID', 'text'); model.maxLength = root.LocalItabAIModel.LIMITS.model;
+        const presetName = field('PresetName', 'Connection preset name', 'text'); presetName.maxLength = 80;
         const key = field('Key', 'API key (optional; never saved)', 'password'); key.maxLength = root.LocalItabAIModel.LIMITS.key;
         const prompt = field('Prompt', 'Exact prompt to send', 'textarea', preview.text); prompt.readOnly = true; prompt.rows = 6;
         const status = el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
         const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', t('Response', 'Model response'));
+        const presetLabel = el('label', 'ai-model-field', t('PresetLabel', 'Saved connections (this device only)'));
+        const presetSelect = el('select'); presetLabel.append(presetSelect);
+        const presetHelp = el('p', 'prompt-help', t('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.'));
+        const presetActions = el('div', 'prompt-actions');
+        let presets = [], selectedPreset = null, presetPending = Boolean(presetStore), presetAvailable = false;
         const actions = el('div', 'prompt-actions'), resultActions = el('div', 'prompt-actions');
         let reviewed = null, response = null, aborter = null, busy = false, closed = false, saving = false, saved = false, permissionPending = false, suspended = false, command = null, cleanup;
         const button = (name, fallback, action) => view.button(`Model${name}`, fallback, action);
@@ -43,10 +49,43 @@
             }; const message = messages[code] || messages.SAVE; return t(...message);
         };
         function update() {
-            review.disabled = busy || saving || permissionPending; allow.disabled = busy || saving || permissionPending || !reviewed; send.disabled = busy || saving || permissionPending || !reviewed || Boolean(response);
+            review.disabled = busy || saving || permissionPending || presetPending; allow.disabled = busy || saving || permissionPending || !reviewed; send.disabled = busy || saving || permissionPending || !reviewed || Boolean(response);
             cancel.disabled = !busy; save.disabled = busy || saving || !response || saved; close.disabled = saving;
-            url.disabled = model.disabled = key.disabled = busy || saving || Boolean(response);
+            url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
+            presetSelect.disabled = presetName.disabled = presetSave.disabled = !presetAvailable || busy || saving || permissionPending || presetPending || Boolean(response);
+            presetDelete.disabled = presetSelect.disabled || !selectedPreset;
         }
+        function invalidateConnection() { key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); }
+        function renderPresets() {
+            presetSelect.replaceChildren();
+            const manual = el('option', '', t('PresetManual', 'New / unsaved connection')); manual.value = ''; presetSelect.append(manual);
+            presets.forEach((item, index) => { const option = el('option', '', item.name); option.value = String(index); presetSelect.append(option); });
+            presetSelect.value = selectedPreset ? String(presets.findIndex(item => item.name === selectedPreset.name)) : '';
+        }
+        const presetFailure = error => t(error?.code === 'CONFLICT' ? 'PresetConflict' : 'PresetError', error?.code === 'CONFLICT' ? 'This preset changed in another tab. Close and reopen this dialog before editing it.' : 'Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved.');
+        async function changePreset(removing) {
+            if (closed || c.disposed || !presetAvailable || presetPending || busy || saving || permissionPending || response || (removing && !selectedPreset)) return;
+            presetPending = true; invalidateConnection();
+            try {
+                const value = { name: presetName.value, url: url.value, model: model.value };
+                const result = removing ? await presetStore.remove(selectedPreset) : await presetStore.save(value, selectedPreset);
+                if (closed || c.disposed) return;
+                presets = result.records; selectedPreset = removing ? null : presets.find(item => item.name === value.name.trim());
+                if (removing) { presetName.value = ''; url.value = ''; model.value = ''; }
+                else { presetName.value = selectedPreset.name; url.value = selectedPreset.url; model.value = selectedPreset.model; }
+                renderPresets(); status.textContent = t(removing ? 'PresetDeleted' : 'PresetSaved', removing ? 'Connection preset deleted.' : 'Connection preset saved on this device. Review again before sending.');
+            } catch (error) { if (!closed) status.textContent = presetFailure(error); }
+            finally { presetPending = false; if (!closed) update(); }
+        }
+        const presetSave = button('PresetSave', 'Save connection preset', () => changePreset(false));
+        const presetDelete = button('PresetDelete', 'Delete connection preset', () => changePreset(true));
+        presetSelect.addEventListener('change', () => {
+            if (presetSelect.disabled || closed || c.disposed) return;
+            selectedPreset = presetSelect.value === '' ? null : presets[Number(presetSelect.value)];
+            presetName.value = selectedPreset?.name || ''; url.value = selectedPreset?.url || ''; model.value = selectedPreset?.model || '';
+            invalidateConnection();
+        });
+        renderPresets(); presetActions.append(presetSave, presetDelete);
         function finish() {
             if (saving || closed) return;
             if ((busy || (response && !saved)) && !root.confirm(t('Discard', 'Stop this request and discard any unsaved response?'))) return;
@@ -57,7 +96,7 @@
         function guard(event) { if (busy || saving || (response && !saved)) { event.preventDefault(); event.returnValue = ''; } }
         function hide() { suspended = true; aborter?.abort(); key.value = ''; reviewed = null; reviewText.hidden = true; update(); }
         const review = button('Review', 'Review request', () => {
-            if (c.disposed || busy || saving || permissionPending) return;
+            if (c.disposed || busy || saving || permissionPending || presetPending) return;
             suspended = false;
             try { reviewed = root.LocalItabAIModel.review({ url: url.value, model: model.value, prompt: prompt.value });
                 reviewText.textContent = `${t('Destination', 'Destination')}: ${reviewed.url}\n${t('Name', 'Model ID')}: ${reviewed.model}\n\n${reviewed.prompt}`;
@@ -88,7 +127,7 @@
             } catch (error) { if (!closed && !suspended) status.textContent = failure(error.code || 'NETWORK'); }
             finally { key.value = ''; busy = false; if (!closed) update(); }
         });
-        const cancel = button('Stop', 'Stop request', () => { aborter?.abort(); status.textContent = failure('CANCELLED'); });
+        const cancel = button('Stop', 'Stop request', () => { key.value = ''; aborter?.abort(); status.textContent = failure('CANCELLED'); });
         const save = button('Save', 'Save response to AI collection', async () => {
             if (c.disposed || !response || saving || saved || closed) return; saving = true; update();
             try {
@@ -107,12 +146,15 @@
         });
         const close = button('Close', 'Close', finish), collections = el('a', 'prompt-link', t('OpenCollection', 'Open AI collection')); collections.href = 'collections.html';
         collections.addEventListener('click', event => { if (busy || saving || (response && !saved)) { event.preventDefault(); status.textContent = t('SaveFirst', 'Save or close this response before leaving.'); } });
-        for (const input of [url, model]) input.addEventListener('input', () => { if (input === url) key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); });
+        for (const input of [url, model]) input.addEventListener('input', invalidateConnection);
         actions.append(review, allow, send, cancel); resultActions.append(save, collections, close);
-        box.append(title, help, fields, reviewText, actions, status, output, resultActions); overlay.append(box); view.doc.body.append(overlay);
+        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status, output, resultActions); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.cancelModelDialog = hide; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide);
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
-        return { url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
+        if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
+            if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
+        }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
+        return { presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);

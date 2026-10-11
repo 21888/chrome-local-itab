@@ -4174,5 +4174,38 @@
   },
   "customizeSampleThree": {
     "message": "专注"
+  },
+  "promptsModelPresetName": {
+    "message": "连接预设名称"
+  },
+  "promptsModelPresetLabel": {
+    "message": "已保存的连接（仅此设备）"
+  },
+  "promptsModelPresetHelp": {
+    "message": "仅保存名称、端点和模型 ID，请勿在这些字段中输入凭据。预设仅保存在此设备，不包含在备份中。选择预设不会授权访问或发送任何内容。"
+  },
+  "promptsModelPresetManual": {
+    "message": "新建／未保存的连接"
+  },
+  "promptsModelPresetSave": {
+    "message": "保存连接预设"
+  },
+  "promptsModelPresetDelete": {
+    "message": "删除连接预设"
+  },
+  "promptsModelPresetSaved": {
+    "message": "连接预设已保存在此设备。发送前请重新审阅。"
+  },
+  "promptsModelPresetDeleted": {
+    "message": "连接预设已删除。"
+  },
+  "promptsModelPresetConflict": {
+    "message": "此预设已在另一标签页更改。请关闭并重新打开此对话框后再编辑。"
+  },
+  "promptsModelPresetError": {
+    "message": "无法保存或加载预设。请使用唯一名称、有效端点和模型 ID。凭据不会保存。"
+  },
+  "promptsModelPresetUnavailable": {
+    "message": "已保存的连接暂不可用，仍可手动输入连接信息。"
   }
 }
