@@ -3850,5 +3850,122 @@
   },
   "organizerReviewTitle": {
     "message": "确认具体网站和目标分类"
+  },
+  "promptsModelTitle": {
+    "message": "使用自己的模型运行"
+  },
+  "promptsModelHelp": {
+    "message": "选择兼容 OpenAI 的 HTTPS 接口。只有点击“发送”后，才会发送已审阅的提示词；服务商可能收费。API 密钥仅暂存于此对话框，每次请求后清除。回复可能重复私人输入；保存后，回复将进入本地收藏和未加密备份。"
+  },
+  "promptsModelEndpoint": {
+    "message": "完整接口 URL"
+  },
+  "promptsModelName": {
+    "message": "模型 ID"
+  },
+  "promptsModelKey": {
+    "message": "API 密钥（可选，不保存）"
+  },
+  "promptsModelPrompt": {
+    "message": "即将发送的完整提示词"
+  },
+  "promptsModelResponse": {
+    "message": "模型回复"
+  },
+  "promptsModelDiscard": {
+    "message": "停止请求，并丢弃尚未保存的回复？"
+  },
+  "promptsModelReview": {
+    "message": "审阅请求"
+  },
+  "promptsModelDestination": {
+    "message": "接收地址"
+  },
+  "promptsModelReviewed": {
+    "message": "请审阅上方完整地址和内容。仅允许访问不会发送请求。"
+  },
+  "promptsModelAllow": {
+    "message": "允许访问此接口"
+  },
+  "promptsModelAllowed": {
+    "message": "已允许访问接口。请审阅请求后再点击发送。可在 Chrome 扩展设置中移除网站访问权限。"
+  },
+  "promptsModelSend": {
+    "message": "发送已审阅的提示词"
+  },
+  "promptsModelRunning": {
+    "message": "等待模型回复…"
+  },
+  "promptsModelReady": {
+    "message": "已收到回复。请审阅后，自行选择是否保存到 AI 收藏。"
+  },
+  "promptsModelStop": {
+    "message": "停止请求"
+  },
+  "promptsModelSave": {
+    "message": "将回复保存到 AI 收藏"
+  },
+  "promptsModelSavedNote": {
+    "message": "由已审阅的提示词生成。链接指向保存的模板版本；填写的变量值不会单独保存，但可能出现在回复中。API 密钥不会保存。"
+  },
+  "promptsModelSaved": {
+    "message": "已保存到 AI 收藏，并关联此提示词版本。"
+  },
+  "promptsModelClose": {
+    "message": "关闭"
+  },
+  "promptsModelOpenCollection": {
+    "message": "打开 AI 收藏"
+  },
+  "promptsModelSaveFirst": {
+    "message": "请先保存或关闭此回复，再离开此页。"
+  },
+  "promptsModelEndpointError": {
+    "message": "请输入完整的 HTTPS /chat/completions 地址，不含账号密码、查询参数或片段。"
+  },
+  "promptsModelNameError": {
+    "message": "请输入模型 ID。"
+  },
+  "promptsModelPromptError": {
+    "message": "提示词为空，或超过请求长度限制。"
+  },
+  "promptsModelKeyError": {
+    "message": "密钥含不支持的字符，或长度超限。"
+  },
+  "promptsModelAuthError": {
+    "message": "身份验证失败，请检查服务商和密钥。"
+  },
+  "promptsModelRateError": {
+    "message": "服务商限制了请求频率，不会自动重试。"
+  },
+  "promptsModelProviderError": {
+    "message": "服务商拒绝了请求，请检查模型支持情况和服务状态。"
+  },
+  "promptsModelFormatError": {
+    "message": "回复格式不受支持，请使用兼容 Chat Completions 的接口。"
+  },
+  "promptsModelLimitError": {
+    "message": "回复超过安全限制，已丢弃。请尝试更简短的请求。"
+  },
+  "promptsModelEmptyError": {
+    "message": "服务商没有返回文字。"
+  },
+  "promptsModelIncompleteError": {
+    "message": "回复不完整或已被过滤，未保存任何内容。"
+  },
+  "promptsModelTimeoutError": {
+    "message": "请求超过 60 秒，已停止。服务商仍可能对已开始的处理计费。"
+  },
+  "promptsModelCancelled": {
+    "message": "请求已停止。服务商仍可能对已开始的处理计费。"
+  },
+  "promptsModelNetworkError": {
+    "message": "无法连接接口，请检查地址、服务状态和浏览器访问权限。"
+  },
+  "promptsModelPermissionError": {
+    "message": "尚未授予接口访问权限。请先仅允许此地址，再发送。"
+  },
+  "promptsModelSaveError": {
+    "message": "无法确认保存成功。回复仍保留在此处；重试会使用同一个保存操作。"
   }
 }

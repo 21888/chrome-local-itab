@@ -56,7 +56,7 @@ There is no scheduled automatic Drive backup. After you confirm a restore, Local
 
 ## Data Collection
 
-The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. The optional service transmissions described above support the corresponding search, icon, sync, backup, and version-check features. Local iTab does not include analytics, tracking scripts, ads, or remote content feeds. Local use does not require an account; optional Chrome Sync and Google Drive use your Chrome or Google account.
+The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. The optional service transmissions described above support the corresponding search, icon, sync, backup, version-check and explicitly requested model features. Local iTab does not include analytics, tracking scripts, ads, or remote content feeds. Local use does not require an account; optional Chrome Sync and Google Drive use your Chrome or Google account.
 
 ## Google API Limited Use
 
@@ -80,3 +80,7 @@ An explicit selection context-menu action may temporarily hold the browser-provi
 For support or privacy questions, use the project issue tracker:
 
 https://github.com/21888/chrome-local-itab/issues
+
+## Optional direct-model requests
+
+Optional direct-model requests send only the reviewed single prompt, model ID and any entered API key to the user-selected HTTPS Chat Completions endpoint after an explicit Send. The provider receives ordinary connection metadata and may charge. No ambient workspace, collection or browsing content is attached. Keys remain only in the dialog and are cleared after each request, endpoint edit or page departure; no key is saved in extension storage, Sync, backups or logs. Responses are saved only on explicit Save and then join the existing unencrypted collection/complete-backup formats; they may repeat private input. The optional `https://*/*` manifest declaration enables user-selected providers, but runtime permission requests name only the reviewed HTTPS hostname and port. Redirects are rejected and cookies/referrer omitted. See [reviewed model workflow](../docs/ai-model-workflow.md).

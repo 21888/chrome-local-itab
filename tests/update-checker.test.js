@@ -144,13 +144,13 @@ test('installation detection does not require or infer broad management permissi
     assert.equal(await api.installation(chrome('normal', 'https://evil.example/update')), 'unknown');
     assert.equal(await api.installation({}), 'unknown');
 });
-test('update provider keeps exact GitHub CSP connection and unchanged host permissions alongside explicit capture permission', () => {
+test('update provider retains narrow required hosts alongside optional model HTTPS access', () => {
     const manifest = JSON.parse(fs.readFileSync('manifest.json'));
     assert.deepEqual(manifest.permissions, ['storage', 'unlimitedStorage', 'identity', 'contextMenus']);
     assert.deepEqual(manifest.host_permissions, ['https://www.googleapis.com/*']);
-    assert.deepEqual(manifest.optional_host_permissions, ['https://www.google.com/*']);
+    assert.deepEqual(manifest.optional_host_permissions, ['https://www.google.com/*', 'https://*/*']);
     assert.equal(manifest.content_security_policy.extension_pages.split(';').find(item => item.includes('script-src')).trim(), "script-src 'self'");
-    assert(manifest.content_security_policy.extension_pages.includes('https://api.github.com'));
+    assert.equal(manifest.content_security_policy.extension_pages.split(';').find(item => item.includes('connect-src')).trim(), "connect-src 'self' https:");
     const source = fs.readFileSync('shared/update-checker.js', 'utf8') + fs.readFileSync('shared/update-view.js', 'utf8');
     assert(!/runtime\.reload|requestUpdateCheck|\.innerHTML|eval\(|downloads\.|tabs\.reload/.test(source));
 });

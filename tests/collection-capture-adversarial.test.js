@@ -89,11 +89,11 @@ test('adversarial: departure while claim waits cannot hydrate or acknowledge aft
     h.events.get('pagehide')({ persisted: false }); claimGate.resolve({ ok: true, payload }); await tick();
     assert.equal(h.controller.drafts.size, 0); assert.deepEqual(h.sent, [Worker.CLAIM]); assert.equal(h.writes, 0);
 });
-test('adversarial: only the intended contextMenus permission is added to the pre-existing manifest', () => {
+test('adversarial: capture retains limited required permissions alongside optional user-chosen model origins', () => {
     const candidate = JSON.parse(fs.readFileSync('manifest.json'));
-    // Pre-capture manifest values verified against the integrated search candidate.
+    // Required grants stay narrow; model HTTPS origins remain optional, never pre-granted.
     const baseline = { permissions: ['storage', 'unlimitedStorage', 'identity'],
-        host_permissions: ['https://www.googleapis.com/*'], optional_host_permissions: ['https://www.google.com/*'] };
+        host_permissions: ['https://www.googleapis.com/*'], optional_host_permissions: ['https://www.google.com/*', 'https://*/*'] };
     assert.deepEqual(candidate.permissions.filter(value => !baseline.permissions.includes(value)), ['contextMenus']);
     assert.deepEqual(candidate.host_permissions, baseline.host_permissions);
     assert.deepEqual(candidate.optional_host_permissions, baseline.optional_host_permissions);

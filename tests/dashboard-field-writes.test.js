@@ -378,7 +378,7 @@ bounded('field-only writes leave private content/token boundaries and provider p
     const manifest = JSON.parse(source('manifest.json'));
     same(manifest.permissions, ['storage', 'unlimitedStorage', 'identity', 'contextMenus']);
     same(manifest.host_permissions, ['https://www.googleapis.com/*']);
-    same(manifest.optional_host_permissions, ['https://www.google.com/*']);
+    same(manifest.optional_host_permissions, ['https://www.google.com/*', 'https://*/*']);
 });
 
 bounded('unrelated malformed parent does not block an otherwise safe owned-field commit', async () => {

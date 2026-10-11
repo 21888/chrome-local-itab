@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "1.1.46",
+  "version": "1.1.47",
   "description": "__MSG_appDescription__",
   "permissions": [
     "storage",
@@ -19,7 +19,8 @@
     "https://www.googleapis.com/*"
   ],
   "optional_host_permissions": [
-    "https://www.google.com/*"
+    "https://www.google.com/*",
+    "https://*/*"
   ],
   "default_locale": "en",
   "chrome_url_overrides": {
@@ -32,7 +33,7 @@
     "128": "assets/icon128.png"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:; connect-src 'self' https://www.google.com https://www.googleapis.com https://api.github.com"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' data: blob: https: http:; connect-src 'self' https:"
   },
   "background": {
     "service_worker": "collection-capture-background.js"

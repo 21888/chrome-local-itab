@@ -3850,5 +3850,122 @@
   },
   "organizerReviewTitle": {
     "message": "Review exact sites and destination"
+  },
+  "promptsModelTitle": {
+    "message": "Run with your model"
+  },
+  "promptsModelHelp": {
+    "message": "Choose an OpenAI-compatible HTTPS endpoint. Only the reviewed prompt is sent, after you press Send. The provider may charge you. Your API key stays in this dialog only and is cleared after each request. Responses may repeat private input. Saving adds the response to local collections and unencrypted backups."
+  },
+  "promptsModelEndpoint": {
+    "message": "Full endpoint URL"
+  },
+  "promptsModelName": {
+    "message": "Model ID"
+  },
+  "promptsModelKey": {
+    "message": "API key (optional; never saved)"
+  },
+  "promptsModelPrompt": {
+    "message": "Exact prompt to send"
+  },
+  "promptsModelResponse": {
+    "message": "Model response"
+  },
+  "promptsModelDiscard": {
+    "message": "Stop this request and discard any unsaved response?"
+  },
+  "promptsModelReview": {
+    "message": "Review request"
+  },
+  "promptsModelDestination": {
+    "message": "Destination"
+  },
+  "promptsModelReviewed": {
+    "message": "Review the full destination and content above. Allowing access alone does not send anything."
+  },
+  "promptsModelAllow": {
+    "message": "Allow this endpoint"
+  },
+  "promptsModelAllowed": {
+    "message": "Endpoint access allowed. Press Send only after reviewing the request. You can remove site access in Chrome’s extension settings."
+  },
+  "promptsModelSend": {
+    "message": "Send reviewed prompt"
+  },
+  "promptsModelRunning": {
+    "message": "Waiting for model response…"
+  },
+  "promptsModelReady": {
+    "message": "Response received. Review it, then explicitly save it to your AI collection."
+  },
+  "promptsModelStop": {
+    "message": "Stop request"
+  },
+  "promptsModelSave": {
+    "message": "Save response to AI collection"
+  },
+  "promptsModelSavedNote": {
+    "message": "Generated from a reviewed prompt. The link identifies the saved template version; filled variable values are not stored separately, but may appear in the response. The API key is not saved."
+  },
+  "promptsModelSaved": {
+    "message": "Saved to your AI collection, linked to this prompt version."
+  },
+  "promptsModelClose": {
+    "message": "Close"
+  },
+  "promptsModelOpenCollection": {
+    "message": "Open AI collection"
+  },
+  "promptsModelSaveFirst": {
+    "message": "Save or close this response before leaving."
+  },
+  "promptsModelEndpointError": {
+    "message": "Use a full HTTPS /chat/completions URL without credentials, query or fragment."
+  },
+  "promptsModelNameError": {
+    "message": "Enter a model ID."
+  },
+  "promptsModelPromptError": {
+    "message": "This prompt is empty or exceeds the model request limit."
+  },
+  "promptsModelKeyError": {
+    "message": "The key contains unsupported characters or is too long."
+  },
+  "promptsModelAuthError": {
+    "message": "Authentication failed. Check the provider and key."
+  },
+  "promptsModelRateError": {
+    "message": "The provider rate-limited this request. Nothing will retry automatically."
+  },
+  "promptsModelProviderError": {
+    "message": "The provider rejected the request. Check its model support and service status."
+  },
+  "promptsModelFormatError": {
+    "message": "The provider returned an unsupported response. Use a Chat Completions-compatible endpoint."
+  },
+  "promptsModelLimitError": {
+    "message": "The response exceeded the safety limit and was discarded. Try a shorter request."
+  },
+  "promptsModelEmptyError": {
+    "message": "The provider returned no text."
+  },
+  "promptsModelIncompleteError": {
+    "message": "The response was incomplete or filtered. Nothing was saved."
+  },
+  "promptsModelTimeoutError": {
+    "message": "The request timed out after 60 seconds. The provider may still bill work already started."
+  },
+  "promptsModelCancelled": {
+    "message": "Request stopped. The provider may still bill work already started."
+  },
+  "promptsModelNetworkError": {
+    "message": "Could not reach this endpoint. Check the address, provider availability and browser access."
+  },
+  "promptsModelPermissionError": {
+    "message": "Endpoint access is not granted. Allow only this origin before sending."
+  },
+  "promptsModelSaveError": {
+    "message": "Could not confirm the save. Your response remains here. Retry uses the same save operation."
   }
 }

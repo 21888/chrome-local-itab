@@ -10,7 +10,7 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 [Preview](#preview) · [Install](#install) · [Features](#features) · [Privacy & backups](#privacy) · [Development](#development)
 
-**A local AI workflow:** organize prompts and body versions, review variable previews, and save results linked to the exact version. Content stays on this device; you run prompts in your chosen tool. [Usage](#local-ai)
+**A local AI workflow:** organize prompts and body versions, review variable previews, and save results linked to the exact version. Optionally connect your own model provider, review the destination and exact prompt, send it, and choose whether to save the response. [Usage](#local-ai)
 
 <a id="preview"></a>
 
@@ -211,7 +211,7 @@ See [version checks, separate backup shortcuts and update steps](docs/version-up
 
 ### Local AI libraries: from prompts to saved results
 
-Prompt library and AI collections are device-local libraries shared across workspaces. They do not call models, generate results or upload content automatically.
+Prompt library and AI collections are device-local libraries shared across workspaces. They do not call models or upload content automatically. The optional [model workflow](docs/ai-model-workflow.md) lets you choose an OpenAI-compatible HTTPS endpoint, grant that origin access, review the exact prompt and explicitly send it. Providers may charge. Keys stay only in the dialog and never enter storage or backups; saving the response is a separate action.
 
 1. **Save a template and review its preview.** Create a title and body, optionally add categories, tags and `{{variables}}`, then explicitly Save. Fill variables, review the completed text and choose Copy to use it in your chosen tool. Saving body changes retains version history. [Prompt library guide](docs/prompt-library.md#english)
 2. **Choose the version to use.** Selecting a history row only inspects its body; **Use this version** switches the usable preview, and **Return to current version** explicitly switches back. Each exact version keeps separate temporary variable values in this tab. Reloading or closing loses them; they never enter saved bodies, history or backups. **Clear values** clears the active and current versions' values and returns to current. Compare two saved versions from history to inspect added, removed and unchanged lines and newline summaries, without restoring or editing either body. [Historical previews](docs/prompt-history-preview.md) · [Version comparison](docs/prompt-version-comparison.md)

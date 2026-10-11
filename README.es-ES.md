@@ -10,7 +10,7 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 [Vista previa](#preview) · [Instalación](#install) · [Funciones](#features) · [Privacidad y copias](#privacy) · [Desarrollo](#development)
 
-**Un flujo de IA local:** organiza prompts y versiones del texto, revisa las variables y guarda resultados vinculados a la versión exacta. El contenido permanece en este dispositivo; ejecutas los prompts en la herramienta que elijas. [Uso](#local-ai)
+**Un flujo de IA local:** organiza prompts y versiones del texto, revisa las variables y guarda resultados vinculados a la versión exacta. Puedes conectar opcionalmente tu propio proveedor, revisar el destino y el prompt, enviarlo y decidir si guardas la respuesta. [Uso](#local-ai)
 
 <a id="preview"></a>
 
@@ -215,7 +215,7 @@ Consulta la [guía de comprobación de versiones, copias separadas y actualizaci
 
 ### Bibliotecas de IA locales: del prompt al resultado guardado
 
-La biblioteca de prompts y las colecciones de IA se guardan en este dispositivo y se comparten entre espacios de trabajo. No llaman a modelos, generan resultados ni suben contenido automáticamente.
+La biblioteca de prompts y las colecciones de IA se guardan en este dispositivo y se comparten entre espacios de trabajo. No llaman a modelos ni suben contenido automáticamente. El [flujo de modelos opcional](docs/ai-model-workflow.md) permite elegir un endpoint HTTPS compatible con OpenAI, autorizar ese origen y enviar explícitamente el prompt revisado. El proveedor puede cobrar. La clave permanece solo en el diálogo y no entra en el almacenamiento ni las copias; guardar la respuesta es una acción separada.
 
 1. **Guarda una plantilla y revisa la vista previa.** Crea un título y un texto, añade categorías, etiquetas y `{{variables}}` si lo deseas, y pulsa Guardar explícitamente. Completa las variables, revisa el texto y cópialo a la herramienta que elijas. Guardar cambios del texto conserva el historial de versiones. [Guía de prompts (inglés)](docs/prompt-library.md#english)
 2. **Elige la versión que vas a usar.** Seleccionar una fila del historial solo muestra su texto; **Use this version** cambia la vista previa utilizable y **Return to current version** vuelve explícitamente a la actual. Cada versión exacta conserva valores temporales independientes en esta pestaña. Se pierden al recargar o cerrar y no entran en el texto guardado, el historial ni las copias. **Clear values** borra los valores de la versión en uso y de la actual, y vuelve a la actual. Compara dos versiones guardadas desde el historial para ver líneas añadidas, eliminadas y sin cambios, junto con un resumen de saltos de línea, sin restaurar ni editar textos. [Vistas previas históricas](docs/prompt-history-preview.md) · [Comparación (inglés)](docs/prompt-version-comparison.md)

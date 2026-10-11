@@ -18,7 +18,7 @@
     async function boot() {
         root.i18n?.localizeDocument();
         const host = root.document.getElementById('prompt-library');
-        let store, collectionStore;
+        let store, collectionStore, modelCollectionStore;
         try {
             store = new root.LocalItabPrompts.Store(root.LocalItabWorkspaces.manager.createPromptBackend(root.LocalItabPrompts));
         } catch (error) {
@@ -28,11 +28,13 @@
         }
         try {
             const collections = new root.LocalItabAICollections.Store(root.LocalItabWorkspaces.manager.createCollectionBackend(root.LocalItabAICollections));
+            modelCollectionStore = collections;
             collectionStore = { read: () => collections.read(), subscribe: listener => collections.subscribe(listener) };
         } catch (error) { collectionStore = { subscribe: () => () => {}, read: async () => { throw error; } }; }
         const controller = new root.LocalItabPromptsController.Controller({ store, collectionStore });
         root.LocalItabAISearch.prepareTarget(controller, root.location.search);
         const view = new root.LocalItabPromptsView.View({ host, controller });
+        view.modelCollectionStore = modelCollectionStore;
         root.localPromptsView = view; view.attachDepartureGuard(); view.render();
         root.addEventListener?.('pagehide', event => { if (!event.persisted) controller.dispose(); });
         void applyAppearance(); await controller.start();

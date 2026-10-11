@@ -323,7 +323,9 @@
             const copy = this.button('CopyCompleted', 'Copy completed prompt', () => void this.copy(), 'prompt-primary'); this.focusKey(copy, 'copy');
             const select = this.button('SelectPreview', 'Select text', () => { preview.focus(); preview.select?.(); }); actions.append(copy, select);
             previewSection.append(heading, this.el('p', 'prompt-help', this.t('ClearValuesHelp', 'Clear values resets the active and current version’s values and returns to the current body. Other versions keep their values.')), preview, status, actions); section.append(previewSection); this.main.append(section);
-            this.previewElements = { literal, variables, preview, status, copy }; this.updatePreview();
+            const run = root.LocalItabAIModelView ? this.button('ModelTitle', 'Run with your model', () => root.LocalItabAIModelView.open({ view: this, collectionStore: this.modelCollectionStore })) : null;
+            if (run) actions.append(run);
+            this.previewElements = { literal, variables, preview, status, copy, run }; this.updatePreview();
             this.main.append(this.linkedSection(record.id, c.session(record).versionId, true));
         }
         async chooseExcerpt(name, input) {
@@ -451,6 +453,7 @@
             ui.status.textContent = c.error?.scope === 'preview' ? this.errorText(c.error.code) : result.error ? this.errorText(result.error) : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('PreviewReady', 'Ready to copy. Your saved template will not change.');
         }
         updateCopyEligibility(result = this.controller.preview()) {
+            if (this.previewElements?.run) this.previewElements.run.disabled = !result?.complete || this.controller.disposed || this.controller.busy || Boolean(this.controller.pendingCommand);
             if (this.previewElements) this.previewElements.copy.disabled = !result?.complete || this.controller.disposed || this.controller.busy || Boolean(this.controller.pendingCommand) || this.copying;
         }
         async copy() {

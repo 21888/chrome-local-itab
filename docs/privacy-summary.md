@@ -1,6 +1,6 @@
 # Privacy summary
 
-Local iTab's core new tab page can work offline. Optional cloud features send data to Google when used. Optional version checks contact GitHub only after a manual check or explicit opt-in.
+Local iTab's core new tab page can work offline. Optional cloud features send data to Google or a user-selected model provider when used. Optional version checks contact GitHub only after a manual check or explicit opt-in.
 
 - Configuration, shortcuts, categories, layout and theme settings, uploaded backgrounds, and local card content are primarily stored in `chrome.storage.local`. Website icons use local IndexedDB with a browser Cache API fallback; some interface state uses browser local storage.
 - Tasks (including completed/removed items and previous local copies) and the Focus timer session are stored separately on this device. They are excluded from configuration exports, Chrome Sync and Drive snapshots; Tasks has its own explicit export/import. Tasks/Focus visibility and Focus durations are also device-only and excluded. Visibility settings for the weather, topic and movie cards remain ordinary configuration. Settings reset/import/restore preserve task content and the Focus session.
@@ -21,3 +21,5 @@ Local iTab's core new tab page can work offline. Optional cloud features send da
 - Explicit selected-text capture uses `contextMenus` only after a menu click. A bounded, expiring `chrome.storage.session` handoff opens an unsaved review draft; only explicit Save writes the collection. Source inclusion is unchecked by default, sanitized, and optional. Editable and private-window selections are excluded. There is no page scanning, model call or new network request. See [selection capture](selection-capture.md).
 
 See the [privacy policy](../store-assets/privacy-policy.md) and [extension manifest](../manifest.json) for details.
+
+- Optional direct-model requests send only the reviewed single prompt, model ID and any entered API key to the user-selected HTTPS Chat Completions endpoint after an explicit Send. The provider receives ordinary connection metadata and may charge. No ambient workspace, collection or browsing content is attached. Keys remain only in the dialog and are cleared after each request, endpoint edit or page departure; no key is saved in extension storage, Sync, backups or logs. Responses are saved only on explicit Save and then join the existing unencrypted collection/complete-backup formats; they may repeat private input. The optional `https://*/*` manifest declaration enables user-selected providers, but runtime permission requests name only the reviewed HTTPS hostname and port. Redirects are rejected and cookies/referrer omitted. See [reviewed model workflow](ai-model-workflow.md).
