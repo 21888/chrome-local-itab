@@ -1,0 +1,137 @@
+{
+  "captures": [
+    {
+      "file": "screenshots/03-migrated-default-positions.jpg",
+      "caption": "Migrated Default: local background and saved free positions",
+      "sha256": "9d329f4b17854d712c98b87ba7591f5b2d0d318a0600da03259b11e781045be3",
+      "bytes": 107057,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:07:16.079534+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/04-migrated-paused-modules.jpg",
+      "caption": "Migration retains Tasks/history, Unicode note and paused Focus",
+      "sha256": "44288f7cb9cf6f25a3dad975a49890262a9035d4eeb67f68533ddd344845307e",
+      "bytes": 119787,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:07:16.671548+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/05-folio-workspace-bar.jpg",
+      "caption": "Candidate Folio dashboard with workspace bar between header and search",
+      "sha256": "cdff0783d55f4ba922d3a572b03f390eb88dfa4207a4ad04a029abb177acf518",
+      "bytes": 122407,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:12:11.690482+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/10-trash-draft-write-refused.jpg",
+      "caption": "Trashed Lab old tab retains draft and refuses Add",
+      "sha256": "70fdd8c84f9b13b819549a68be9b345fed4dfbdf3243ddd3124a4c8e437736ec",
+      "bytes": 105203,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:22:24.176877+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/12-invalid-draft-switch-refused.jpg",
+      "caption": "Invalid Countdown Save and switch refuses navigation",
+      "sha256": "2b3c82fd9945357d339d7ef5f9f25ae73c6a8a67a40cd3ac5e3a1dc4cec325fa",
+      "bytes": 118998,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:26:17.370362+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/14-workspaces-restored.jpg",
+      "caption": "All selected modules restored and verified with explicit reload and recovery controls",
+      "sha256": "f77f0acc7a14a7498885cdffae1d3e11c0b6a9ae64142e237325a7597689ff83",
+      "bytes": 164894,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:36:07.936236+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/15-workspace-manager-light.jpg",
+      "caption": "Light workspace manager after complete archive restore",
+      "sha256": "592d8370cccbc7ef1f667d2e6435c64df6a9acd568d080fceaa3fc4c325eac3d",
+      "bytes": 132502,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:36:54.877340+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/16-workspace-dashboard-dark.jpg",
+      "caption": "Dark Default workspace dashboard after roundtrip",
+      "sha256": "3f0fc915258080e4ba0fa374fb3cb2c780dd181340de52930e7382992cff5d2e",
+      "bytes": 110638,
+      "pixels": [
+        1364,
+        1024
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:39:36.841144+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    },
+    {
+      "file": "screenshots/18-workspace-picker-dark-narrow.jpg",
+      "caption": "Dark picker at 510-pixel native window width with visible keyboard focus",
+      "sha256": "5d7a51bebffefed8fd2b066cf9ad7b32eaee4618b705a4f773068969cf9a4585",
+      "bytes": 52825,
+      "pixels": [
+        510,
+        846
+      ],
+      "format": "JPEG",
+      "capturedAtUtc": "2026-10-10T20:40:40.450633+00:00",
+      "originalPixels": true,
+      "runtime": "1.1.21 + true-workspace candidate; unpublished"
+    }
+  ],
+  "readmeSuggested": [
+    "screenshots/05-folio-workspace-bar.jpg",
+    "screenshots/15-workspace-manager-light.jpg",
+    "screenshots/16-workspace-dashboard-dark.jpg",
+    "screenshots/18-workspace-picker-dark-narrow.jpg"
+  ],
+  "captureMethod": "Native cloud Chrome screenshots; original JPEG bytes, no crop, redraw or rescaling. Narrow screenshot includes a 510 x 846 native window; no claim of 390 CSS-pixel coverage."
+}

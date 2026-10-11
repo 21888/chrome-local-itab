@@ -2,6 +2,12 @@
 (function(root) {
     'use strict';
     const labels = {
+        "spacesTitle": "Workspaces",
+        "spacesCreate": "New workspace",
+        "spacesRename": "Rename",
+        "spacesDuplicate": "Duplicate",
+        "spacesTrash": "Trash",
+        "spacesRestore": "Restore",
         "addCategory": "Add Category",
         "background": "Background",
         "bgColor": "Solid Color",
@@ -115,12 +121,13 @@
         "weatherHigh": "High",
         "weatherLow": "Low",
         "weatherTemp": "Temperature",
-        "workspacePresetTitle": "Recommended workspace",
+        "workspacePresetTitle": "Recommended modules",
         "worldClockLabel": "Short label (optional)",
         "worldClockZone": "Time zone",
         "worldClocks": "World clocks"
     };
     const registry = [
+        {"target": "workspace-settings", "tab": "workspaces", "tabKey": "spacesTitle", "title": "spacesTitle", "fields": ["spacesCreate", "spacesRename", "spacesDuplicate", "spacesTrash", "spacesRestore"]},
         {"target": "theme-settings", "tab": "appearance", "tabKey": "tabAppearance", "title": "templateAppearance", "fields": ["dashboardTemplate", "colorMode", "colorModeLight", "colorModeDark", "templateClarity", "templateGraphite", "templateFolio", "templateAtelier", "templateQuiet", "templateStudio", "templateConsole", "templatePrism", "templateLibrary", "templateHorizon", "templateLedger", "templateMeadow", "templateBlueprint", "templateTerrace", "templateColumn", "workspacePresetTitle"]},
         {"target": "time-settings", "tab": "appearance", "tabKey": "tabAppearance", "title": "timeDisplay", "fields": ["hour12", "showSeconds"]},
         {"target": "world-clock-settings", "tab": "appearance", "tabKey": "tabAppearance", "title": "worldClocks", "fields": ["worldClockZone", "worldClockLabel"]},

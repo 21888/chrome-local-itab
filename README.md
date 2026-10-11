@@ -14,6 +14,22 @@
 
 ## 界面预览
 
+### 当前工作空间功能实拍 · 1.1.22 发布前验收
+
+2026-10-10，云端 Linux 原生 Chrome 的真实截图，使用独立合成数据。拍摄运行源为 1.1.21 加完整工作空间功能的冻结候选；正式 1.1.22 仅变更版本号，未把旧图标注成发布后截图。以下为原始图像，未重绘。
+
+![浅色 Folio：独立工作空间与快捷方式](docs/qa/workspaces-native/screenshots/05-folio-workspace-bar.jpg)
+![浅色设置：工作空间管理与回收站](docs/qa/workspaces-native/screenshots/15-workspace-manager-light.jpg)
+![深色首页：独立工作空间](docs/qa/workspaces-native/screenshots/16-workspace-dashboard-dark.jpg)
+
+<details><summary>窄窗口和键盘焦点</summary>
+
+![510 像素原生窗口：深色工作空间选择器与焦点](docs/qa/workspaces-native/screenshots/18-workspace-picker-dark-narrow.jpg)
+
+</details>
+
+[真实验收与未测范围](docs/workspaces-native-validation.md) · [截图来源与校验](docs/qa/workspaces-native/captures.json)
+
 ### 发布版实拍 · 1.1.14
 
 2026-10-10 使用已发布的 1.1.14 运行包，在独立 Chrome 配置中拍摄。以下两张为英文界面的原始全屏截图，未裁切、缩放或重绘；新标签页的五个网站由「创建入门配置」生成，仅作示例。自动更新检查、在线图标和同步保持默认关闭，未登录账号。
@@ -301,6 +317,12 @@
 </details>
 
 ## 外观与工作空间
+
+### 独立工作空间
+
+把工作、学习或个人资料分开：网站、分类、布局、外观及待办、便笺、倒计时、专注状态各自保存。支持新建、改名、复制和可恢复回收站；已打开页面固定在原空间，切换时明确处理未保存草稿。首次升级保留原数据到 Default，完整本地备份覆盖正常空间和回收站。Chrome Sync / Drive 仍只对应默认空间的原有配置范围。工作空间不是账户或安全隔离区。[使用与恢复说明](docs/workspaces.zh-CN.md)。
+
+以下「推荐工作空间」只控制模块显示组合，与上述独立数据空间不同。
 
 ### 推荐工作空间
 

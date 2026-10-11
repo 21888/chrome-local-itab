@@ -152,8 +152,8 @@
         for (const [field, select] of Object.entries(controls)) {
             select.addEventListener('change', () => controller.select(field, select.value));
         }
-        if (global.chrome?.storage?.onChanged) {
-            global.chrome.storage.onChanged.addListener((changes, area) => {
+        if (global.storageManager?.onLocalChanged) {
+            global.storageManager.onLocalChanged((changes, area) => {
                 if (area === 'local' && (changes.appearance || changes.themePreset)) controller.refresh();
             });
         }

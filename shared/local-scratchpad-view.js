@@ -70,7 +70,7 @@
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
             host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.importFile, this.importPanel, details);
-            this.beforeUnload = event => { if (!this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
+            this.beforeUnload = event => { if (root.LocalItabContentLifecycle?.departing || !this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
             root.addEventListener?.('beforeunload', this.beforeUnload);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
         }

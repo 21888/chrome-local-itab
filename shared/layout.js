@@ -282,7 +282,7 @@
         doc.addEventListener('visibilitychange', () => {
             if (doc.visibilityState === 'hidden') controller.flush();
         });
-        global.chrome?.storage?.onChanged?.addListener((changes, area) => {
+        global.storageManager?.onLocalChanged((changes, area) => {
             // Own notifications can arrive before set() resolves or after it.
             // Do not let them erase a later failure or reinitialize failed keys.
             const value = changes.layout?.newValue;

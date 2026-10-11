@@ -11,7 +11,7 @@
             async readSnapshot() {
                 // Native read only: do not run migration, provider initialization or writes.
                 const ownRevision = ++revision;
-                const fresh = await root.chrome.storage.local.get(['links', 'categories']);
+                const fresh = await root.storageManager.local.get(['links', 'categories']);
                 const next = { links: fresh.links || [], categories: fresh.categories || [] };
                 if (revision === ownRevision) snapshot = next;
                 return next;
@@ -51,8 +51,7 @@
                     };
                     notify();
                 };
-                root.chrome?.storage?.onChanged?.addListener(onChanged);
-                return () => root.chrome?.storage?.onChanged?.removeListener(onChanged);
+                return root.storageManager.onLocalChanged(onChanged);
             }
         });
     };

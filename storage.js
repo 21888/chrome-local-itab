@@ -1,6 +1,6 @@
 /**
  * Storage Manager for Local iTab Extension
- * Handles all chrome.storage.local operations with error handling and validation
+ * Handles all local storage operations with error handling and validation
  */
 
 const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require('./shared/layout-identity.js') : window.LocalItabIdentity;
@@ -43,7 +43,11 @@ function getDefaultCategoryName(key, fallback) {
 }
 
 class StorageManager {
-    constructor() {
+    constructor(options = {}) {
+        // A page owns one immutable workspace session. Never resolve the current
+        // global selection after an asynchronous operation has started.
+        this.workspace = options.workspace || (typeof window !== 'undefined' ? window.LocalItabWorkspaces?.session : null) || null;
+        this._defaultWorkspaceManager = null;
         this.syncMetaKey = '__localItabSyncMeta';
         this.layoutGenerationKey = '__localItabLayoutGeneration';
         this.settingsGenerationKey = '__localItabSettingsGeneration';
@@ -61,7 +65,7 @@ class StorageManager {
         this._syncCompatibilityError = null;
         this._syncPushTimer = null;
         this._shortcutUndoTicket = null;
-        if (typeof chrome !== 'undefined') chrome.storage?.onChanged?.addListener((changes, area) => {
+        this.chromeApi?.storage?.onChanged?.addListener((changes, area) => {
             if (area === 'local' && changes[this.syncIdentityStateKey]) {
                 const next = changes[this.syncIdentityStateKey].newValue;
                 this._syncCompatibilityError = next?.blocked || null;
@@ -153,6 +157,62 @@ class StorageManager {
                 includeLargeAssets: false
             }
         };
+        if (this.workspace) this.workspace.manager.configureValidation((values, globals) => this.validateWorkspaceValues(values, globals));
+    }
+
+    get chromeApi() { return this.workspace?.manager.chrome || (typeof chrome !== 'undefined' ? chrome : null); }
+
+    get local() { return this.workspace?.local || this.chromeApi.storage.local; }
+
+    // Writers in this class are enclosed by withLocalWriteLock. Keeping the
+    // already-locked facade separate avoids reentrant locks without relying on
+    // a shared boolean that would accidentally admit unrelated async callers.
+    get _local() { return this.workspace?.lockedLocal || this.chromeApi.storage.local; }
+
+    onLocalChanged(listener) {
+        if (this.workspace) return this.workspace.subscribe(listener);
+        const changed = (changes, area) => { if (area === 'local') listener(changes, area); };
+        chrome.storage.onChanged.addListener(changed);
+        return () => chrome.storage.onChanged.removeListener(changed);
+    }
+
+    forDefaultWorkspace() {
+        if (!this.workspace || this.workspace.requestedId === 'default' || this.workspace.id === 'default') return this;
+        if (!this._defaultWorkspaceManager) this._defaultWorkspaceManager = new StorageManager({ workspace: this.workspace.manager.capture('default') });
+        return this._defaultWorkspaceManager;
+    }
+
+    async isDefaultWorkspace() {
+        if (!this.workspace) return true;
+        return (await this.workspace.ready()).id === 'default';
+    }
+
+    validateWorkspaceConfig(values) {
+        // Old shortcuts/categories may omit cosmetic optional fields. Validate
+        // their documented default projection without rewriting original IDs,
+        // receipts, positions or stored content during migration.
+        const projected = LayoutIdentity.copy(values);
+        if (Array.isArray(projected.links)) projected.links = projected.links.map(link =>
+            link && typeof link === 'object' && !Array.isArray(link)
+                ? { icon: '🌐', category: 'work', ...link } : link);
+        if (Array.isArray(projected.categories)) projected.categories = projected.categories.map(category =>
+            category && typeof category === 'object' && !Array.isArray(category)
+                ? { icon: '📁', ...category } : category);
+        return this.completeBackupConfigFromRaw(projected);
+    }
+
+    validateWorkspaceValues(values, globals = {}) {
+        // Fill absent legacy fields only; supplied corruption must never activate
+        // as a fresh/default workspace or silently replace the user's content.
+        this.validateWorkspaceConfig({ ...values, ...(Object.hasOwn(globals, 'privacy') ? { privacy: globals.privacy } : {}) });
+        const names = ['Tasks', 'Focus', 'Scratchpad', 'Countdown'];
+        for (const name of names) {
+            const api = typeof module !== 'undefined' && module.exports
+                ? require(`./shared/local-${name.toLowerCase()}-store.js`)
+                : window[`LocalItab${name}`];
+            if (!api) throw new Error('Workspace content validation is unavailable.');
+            if (Object.hasOwn(values, api.KEY)) api.validate(values[api.KEY]);
+        }
     }
 
     /**
@@ -165,7 +225,11 @@ class StorageManager {
         this.assertConfigurationKeys([key]);
         try {
             await this.ensureSyncInitialized();
-            const result = await chrome.storage.local.get([key]);
+            const result = await this._local.get(this.workspace ? null : [key]);
+            if (this.workspace) {
+                try { this.validateWorkspaceConfig(result); }
+                catch (_) { const error = new Error('Workspace settings are invalid. Saved data has not been replaced.'); error.code = 'WORKSPACE_CORRUPT'; throw error; }
+            }
             
             if (result[key] !== undefined) {
                 // Validate retrieved data
@@ -173,6 +237,7 @@ class StorageManager {
                     const validatedValue = this.validateData(key, result[key]);
                     return validatedValue;
                 } catch (validationError) {
+                    if (this.workspace) { const error = new Error('Workspace settings are invalid. Saved data has not been replaced.'); error.code = 'WORKSPACE_CORRUPT'; throw error; }
                     console.warn(`Data validation failed for key "${key}", using default:`, validationError);
                     
                     // Notify about data corruption recovery
@@ -200,6 +265,7 @@ class StorageManager {
             
             return this.getDefaultValue(key);
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             console.error(`Storage get error for key "${key}":`, error);
             
             // Handle specific storage errors
@@ -221,6 +287,7 @@ class StorageManager {
 
     // Serialize configuration writes within this extension origin.
     async withLocalWriteLock(operation, required = false) {
+        if (this.workspace) return this.workspace.withLock(operation);
         if (typeof navigator !== 'undefined' && navigator.locks?.request) {
             return navigator.locks.request('local-itab-local-write', operation);
         }
@@ -321,7 +388,7 @@ class StorageManager {
         let result;
         try {
             result = await this.withLocalWriteLock(async () => {
-                const raw = await chrome.storage.local.get(['search', 'ui', this.settingsGenerationKey]);
+                const raw = await this._local.get(['search', 'ui', this.settingsGenerationKey]);
                 if (this.settingsSnapshot(raw).generation !== expected.generation) throw this.dashboardPreferenceError();
                 if (has('custom') && !this.sameShortcutUndoValue(raw.search, expected.values.search)) throw this.dashboardPreferenceError();
                 const written = {};
@@ -339,31 +406,37 @@ class StorageManager {
                     committed.searchSource = LayoutIdentity.copy(written.search);
                 }
                 if (written.ui) committed.ui = this.validateUiConfig(written.ui);
-                await chrome.storage.local.set(written);
+                await this._local.set(written);
                 return committed;
             }, true);
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'LINKS_LOCK_UNAVAILABLE') throw this.dashboardPreferenceError('DASHBOARD_PREF_LOCK_UNAVAILABLE');
             if (error.code?.startsWith('SETTINGS_')) throw this.dashboardPreferenceError();
             throw error;
         }
         try { if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush(); }
-        catch (error) { console.warn('Dashboard preference saved locally; Sync scheduling failed:', error); }
+        catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Dashboard preference saved locally; Sync scheduling failed:', error); }
         return result;
     }
 
     async writeLocalValues(values, options = {}) {
         this.assertConfigurationKeys(Object.keys(values));
+        if (this.workspace) {
+            values = LayoutIdentity.copy(values);
+            if (!(await this.isDefaultWorkspace())) delete values.sync;
+        }
         const has = key => Object.prototype.hasOwnProperty.call(values, key);
         const guardedSettings = Object.prototype.hasOwnProperty.call(options, 'expectedSettings');
-        if (guardedSettings && !(typeof navigator !== 'undefined' && navigator.locks?.request)) throw this.settingsError('SETTINGS_LOCK_UNAVAILABLE');
+        if (guardedSettings && !(this.workspace?.manager.locks?.request || (typeof navigator !== 'undefined' && navigator.locks?.request))) throw this.settingsError('SETTINGS_LOCK_UNAVAILABLE');
         const replacesLayout = has('layout') || (has('links') && !Object.prototype.hasOwnProperty.call(options, 'expectedLinks'));
         const checksCategories = has('categories');
         const checksClock = has('clock');
         const guardedClock = checksClock && Object.prototype.hasOwnProperty.call(options, 'expectedClock');
         // Capture the expected value before waiting for another tab's write.
         const expectedClock = guardedClock ? this.validateClockBaseline(options.expectedClock) : null;
-        if (guardedClock && !(typeof navigator !== 'undefined' && navigator.locks?.request)) {
+        if (guardedClock && !(this.workspace?.manager.locks?.request || (typeof navigator !== 'undefined' && navigator.locks?.request))) {
             const error = new Error('Safe clock saving is unavailable in this browser. Your edits have not been saved.');
             error.code = 'CLOCK_LOCK_UNAVAILABLE';
             throw error;
@@ -371,12 +444,12 @@ class StorageManager {
         if (!has('links') && !replacesLayout && !checksCategories && !checksClock && !guardedSettings) {
             // Unguarded dedicated writers must still serialize with Settings
             // comparisons and import disclosures rather than race their reads.
-            return this.withLocalWriteLock(() => chrome.storage.local.set(values));
+            return this.withLocalWriteLock(() => this._local.set(values));
         }
         const guarded = Object.prototype.hasOwnProperty.call(options, 'expectedLinks');
         const guardedCategories = checksCategories && Object.prototype.hasOwnProperty.call(options, 'expectedCategories');
         return this.withLocalWriteLock(async () => {
-            const raw = await chrome.storage.local.get(null);
+            const raw = await this._local.get(null);
             if (guardedSettings) values = this.mergeSettingsPatch(raw, values, options);
             if (guardedClock && JSON.stringify(this.validateClockBaseline(raw.clock === undefined ? this.defaultConfig.clock : raw.clock)) !==
                 JSON.stringify(expectedClock)) {
@@ -387,7 +460,7 @@ class StorageManager {
             // A clock-only transaction must not depend on shortcut validity.
             // Its comparison still precedes the single atomic multi-key write.
             if (!has('links') && !replacesLayout && !checksCategories) {
-                if (Object.keys(values).length) await chrome.storage.local.set(values);
+                if (Object.keys(values).length) await this._local.set(values);
                 return;
             }
             const latest = this.layoutSnapshot(raw);
@@ -417,7 +490,7 @@ class StorageManager {
             }
             LayoutIdentity.validateBundle(candidate);
             const protectedBefore = LayoutIdentity.active(latest.layout);
-            if (protectedBefore && !(typeof navigator !== 'undefined' && navigator.locks?.request)) { const error = new Error('Safe identity writes require Web Locks.'); error.code = 'LAYOUT_LOCK_UNAVAILABLE'; throw error; }
+            if (protectedBefore && !(this.workspace?.manager.locks?.request || (typeof navigator !== 'undefined' && navigator.locks?.request))) { const error = new Error('Safe identity writes require Web Locks.'); error.code = 'LAYOUT_LOCK_UNAVAILABLE'; throw error; }
             const losesIdentity = protectedBefore && this.losesIdentityHistory(latest, this.layoutSnapshot(candidate));
             if (losesIdentity && !options.confirmedRestore) {
                 LayoutIdentity.invalid('Replacing identity-bearing shortcuts requires a confirmed whole backup restore.');
@@ -434,15 +507,16 @@ class StorageManager {
                 written[this.settingsGenerationKey] = this.createLayoutGeneration();
                 // Provider preferences belong to this device at commit time, not
                 // to the imported file or an earlier preview read.
-                written.sync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
+                if (!this.workspace || this.workspace.id === 'default') written.sync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
+                else delete written.sync;
                 written[this.restoreRecoveryKey] = await this.makeRecovery(raw, 'beforeRestore');
-                if (raw.sync?.enabled) written[this.syncIdentityStateKey] = {
+                if ((!this.workspace || this.workspace.id === 'default') && raw.sync?.enabled) written[this.syncIdentityStateKey] = {
                     ...(raw[this.syncIdentityStateKey] || {}),
                     blocked: { kind: 'restore', reason: 'Restored data is kept locally. Review compatible cloud data before resuming Sync.' }
                 };
             }
             if (invalidatesLayout) written[this.layoutGenerationKey] = this.createLayoutGeneration();
-            await chrome.storage.local.set(written);
+            await this._local.set(written);
             return this.layoutSnapshot({ ...raw, ...written });
         }, guardedSettings || guarded || guardedCategories || guardedClock || LayoutIdentity.active(values.layout));
     }
@@ -487,8 +561,8 @@ class StorageManager {
 
     async verifyShortcutUndoWrite(raw, written) {
         try {
-            await chrome.storage.local.set(written);
-            const readback = await chrome.storage.local.get(null);
+            await this._local.set(written);
+            const readback = await this._local.get(null);
             const actual = this.shortcutUndoState(readback);
             if (!this.sameShortcutUndoValue(actual, this.shortcutUndoState({ ...raw, ...written }))) {
                 throw new Error('Shortcut write did not match its readback.');
@@ -504,7 +578,8 @@ class StorageManager {
         // Local success stands independently of provider scheduling.
         try {
             if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush();
-        } catch (error) { console.warn('Shortcuts saved locally; sync scheduling failed:', error); }
+        } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Shortcuts saved locally; sync scheduling failed:', error); }
     }
 
     async deleteShortcutWithUndo(index, options = {}) {
@@ -513,7 +588,7 @@ class StorageManager {
         let result;
         try {
             result = await this.withLocalWriteLock(async () => {
-                const raw = await chrome.storage.local.get(null);
+                const raw = await this._local.get(null);
                 const currentState = this.shortcutUndoState(raw);
                 if (this._shortcutUndoTicket && !this.sameShortcutUndoValue(currentState, this._shortcutUndoTicket.state)) {
                     this._shortcutUndoTicket = null;
@@ -546,6 +621,7 @@ class StorageManager {
                 return { snapshot: verified.snapshot, receipt };
             }, true);
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             // A definite pre-write failure does not erase the previous verified
             // deletion. Its next Undo still performs an authoritative lock read.
             if (error.code === 'LINKS_CONFLICT' || error.mayHaveCommitted) this._shortcutUndoTicket = null;
@@ -562,7 +638,7 @@ class StorageManager {
         this._shortcutUndoTicket = null; // Consume before awaiting: double clicks cannot retry.
         await this.ensureSyncInitialized();
         const result = await this.withLocalWriteLock(async () => {
-            const raw = await chrome.storage.local.get(null);
+            const raw = await this._local.get(null);
             if (!this.sameShortcutUndoValue(this.shortcutUndoState(raw), ticket.state)) {
                 throw this.shortcutUndoError('SHORTCUT_UNDO_CONFLICT', 'Shortcuts, categories, or layout changed. This deletion can no longer be undone.');
             }
@@ -632,7 +708,7 @@ class StorageManager {
 
     async getRecoveryBackup(kind = 'latest') {
         const keys = kind === 'original' ? [this.identityRecoveryKey] : [this.restoreRecoveryKey, this.identityRecoveryKey];
-        const raw = await chrome.storage.local.get(keys);
+        const raw = await this._local.get(keys);
         const recovery = keys.map(key => raw[key]).find(Boolean);
         if (!recovery) throw new Error('No recovery backup is available.');
         if (await this.fingerprint(recovery.payload) !== recovery.checksum) throw new Error('Recovery backup integrity check failed.');
@@ -641,12 +717,12 @@ class StorageManager {
     }
 
     async getRecoveryAvailability() {
-        const raw = await chrome.storage.local.get([this.restoreRecoveryKey, this.identityRecoveryKey]);
+        const raw = await this._local.get([this.restoreRecoveryKey, this.identityRecoveryKey]);
         return { original: Boolean(raw[this.identityRecoveryKey]), latest: Boolean(raw[this.restoreRecoveryKey] || raw[this.identityRecoveryKey]) };
     }
 
     async getSyncCompatibilityStatus() {
-        const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+        const raw = await this._local.get([this.syncIdentityStateKey]);
         return raw[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError;
     }
 
@@ -690,6 +766,7 @@ class StorageManager {
 
             return options.returnSnapshot ? committed : true;
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'LINKS_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CATEGORIES_CONFLICT' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
             console.error(`Storage set error for key "${key}":`, error);
             
@@ -704,7 +781,7 @@ class StorageManager {
 
     // Mutation reads must never turn unavailable/corrupt data into a default.
     async getLayoutForUpdate() {
-        const raw = await chrome.storage.local.get(['layout']);
+        const raw = await this._local.get(['layout']);
         return this.validateStoredLayout(raw.layout);
     }
 
@@ -743,7 +820,7 @@ class StorageManager {
     }
 
     async getLayoutSnapshotForUpdate({ underLock = false } = {}) {
-        const read = async () => this.layoutSnapshot(await chrome.storage.local.get(['layout', 'links', this.layoutGenerationKey]));
+        const read = async () => this.layoutSnapshot(await this._local.get(['layout', 'links', this.layoutGenerationKey]));
         return underLock ? read() : this.withLocalWriteLock(read);
     }
 
@@ -848,7 +925,7 @@ class StorageManager {
     async getBookmarkImportSnapshot() {
         // Never use getAll/ensureSyncInitialized here: preview must not repair
         // damaged data, initialize providers, or write a fallback configuration.
-        return this.withLocalWriteLock(async () => this.bookmarkImportSnapshot(await chrome.storage.local.get(this.bookmarkImportReadKeys())), true);
+        return this.withLocalWriteLock(async () => this.bookmarkImportSnapshot(await this._local.get(this.bookmarkImportReadKeys())), true);
     }
 
     async appendBookmarkImport({ text, expectedSnapshot, expectedPrivacy, batchId, rootLabel } = {}) {
@@ -880,7 +957,7 @@ class StorageManager {
         };
         if (!same(expectedSnapshot.privacy, expectedPrivacy)) throw this.bookmarkImportError('BOOKMARK_IMPORT_INVALID_REQUEST', 'Bookmark privacy confirmation does not match the preview.');
         const result = await this.withLocalWriteLock(async () => {
-            const latest = this.bookmarkImportSnapshot(await chrome.storage.local.get(this.bookmarkImportReadKeys()));
+            const latest = this.bookmarkImportSnapshot(await this._local.get(this.bookmarkImportReadKeys()));
             if (!same(latest.privacy, expectedPrivacy)) throw this.bookmarkImportError('BOOKMARK_IMPORT_PRIVACY_CHANGED', 'Sync or online icon settings changed. Preview the file again before importing.');
             if (latest.generation !== expectedSnapshot.generation || !same(latest.links, expectedSnapshot.links) ||
                 !same(latest.categories, expectedSnapshot.categories) || !same(latest.context, expectedSnapshot.context)) {
@@ -923,8 +1000,8 @@ class StorageManager {
                 ...(latest.context.present.schemaVersion ? { schemaVersion: latest.context.schemaVersion } : {}) };
             this.bookmarkImportSnapshot(candidateRaw);
             try {
-                await chrome.storage.local.set(written);
-                const readback = await chrome.storage.local.get(this.bookmarkImportReadKeys());
+                await this._local.set(written);
+                const readback = await this._local.get(this.bookmarkImportReadKeys());
                 // Bound and validate the readback before recursively comparing it.
                 const committed = this.bookmarkImportSnapshot(readback);
                 if (Object.keys(written).some(key => !same(readback[key], written[key]))) throw new Error('Bookmark write did not match its readback.');
@@ -939,7 +1016,8 @@ class StorageManager {
             return result;
         }, true);
         if (result.applied && result.snapshot.privacy.syncEnabled && !this._isApplyingSync) {
-            try { this.scheduleSyncPush(); } catch (error) { console.warn('Bookmarks saved locally; sync scheduling failed:', error); }
+            try { this.scheduleSyncPush(); } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Bookmarks saved locally; sync scheduling failed:', error); }
         }
         return result;
     }
@@ -1006,15 +1084,16 @@ class StorageManager {
                     written.links = links;
                     written[this.layoutGenerationKey] = this.createLayoutGeneration();
                     if (!LayoutIdentity.active(latest.layout)) {
-                        const raw = await chrome.storage.local.get(null);
+                        const raw = await this._local.get(null);
                         if (!raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
                     }
                 }
                 onWrite(copy(candidate));
-                await chrome.storage.local.set(written);
+                await this._local.set(written);
                 return { ...latest, links, layout: candidate, generation: written[this.layoutGenerationKey] || latest.generation };
             }, true);
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'LINKS_LOCK_UNAVAILABLE') error.code = 'LAYOUT_LOCK_UNAVAILABLE';
             throw error;
         }
@@ -1022,13 +1101,14 @@ class StorageManager {
         // local layout. The sync module owns its separate status/recovery.
         try {
             if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush();
-        } catch (error) { console.warn('Layout saved locally; sync scheduling failed:', error); }
+        } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Layout saved locally; sync scheduling failed:', error); }
         return copy(result);
     }
 
     // Mutation recovery must distinguish a failed read from a missing setting.
     async getBackgroundForUpdate() {
-        const result = await chrome.storage.local.get(['bg']);
+        const result = await this._local.get(['bg']);
         const background = result.bg === undefined ? this.defaultConfig.bg : result.bg;
         if (!background || typeof background !== 'object' || Array.isArray(background)) {
             throw new Error('Stored background settings are invalid.');
@@ -1042,7 +1122,7 @@ class StorageManager {
     async getAllForBackup() {
         await this.ensureSyncInitialized();
         return this.withLocalWriteLock(async () => {
-            const raw = await chrome.storage.local.get(Object.keys(this.defaultConfig));
+            const raw = await this._local.get(Object.keys(this.defaultConfig));
             if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
                 throw new Error('Stored settings could not be read safely. No backup was created.');
             }
@@ -1060,11 +1140,16 @@ class StorageManager {
     async getAll() {
         try {
             await this.ensureSyncInitialized();
-            const result = await this.withLocalWriteLock(() => chrome.storage.local.get(null));
+            const result = await this.withLocalWriteLock(() => this._local.get(null));
 
+            if (this.workspace) {
+                try { this.validateWorkspaceConfig(result); }
+                catch (_) { const error = new Error('Workspace settings are invalid. Saved data has not been replaced.'); error.code = 'WORKSPACE_CORRUPT'; throw error; }
+            }
             const config = this.validateConfigObject(result);
             try { Object.defineProperty(config, '_settingsBaseline', { value: this.settingsSnapshot(result) }); }
-            catch (error) { console.warn('Settings baseline unavailable:', error); }
+            catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Settings baseline unavailable:', error); }
             // Only a successful, safely comparable read can authorize a clock
             // replacement. Runtime recovery alone is not a write baseline.
             try {
@@ -1072,6 +1157,7 @@ class StorageManager {
                     value: this.validateClockBaseline(result.clock === undefined ? this.defaultConfig.clock : result.clock)
                 });
             } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
                 console.warn('Clock baseline unavailable:', error);
             }
             // Kept out of JSON/spreads/backups. An absent property after a failed
@@ -1079,12 +1165,14 @@ class StorageManager {
             try {
                 Object.defineProperty(config, '_layoutBaseline', { value: this.layoutSnapshot(result) });
             } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
                 // Do not replace otherwise readable configuration merely because
                 // its layout cannot authorize a safe write. Controls fail closed.
                 console.warn('Layout baseline unavailable:', error);
             }
             return config;
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'LAYOUT_IDENTITY_INVALID') throw error;
             console.error('Storage getAll error:', error);
             return { ...this.defaultConfig };
@@ -1127,9 +1215,11 @@ class StorageManager {
                         await this.disableRemoteSync();
                     }
                 }
-            } catch (error) { console.warn('Settings saved locally; sync scheduling failed:', error); }
+            } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Settings saved locally; sync scheduling failed:', error); }
             return true;
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code?.startsWith('SETTINGS_') || error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
             console.error('Storage setAll error:', error);
             
@@ -1147,21 +1237,27 @@ class StorageManager {
      */
     async clear() {
         try {
-            const current = await chrome.storage.local.get(['sync']);
-            const wasSyncing = current.sync?.enabled === true;
+            const current = await this._local.get(['sync']);
+            const wasSyncing = !this.workspace && current.sync?.enabled === true;
             await this.withLocalWriteLock(async () => {
-                const stored = await chrome.storage.local.get(null);
+                const stored = await this._local.get(null);
                 // Settings reset retains whole local personal-content records.
                 // Preserve a new generation while removing configuration. If set fails,
                 // do not clear; if removal fails, old pages are still invalidated.
-                await chrome.storage.local.set({ [this.layoutGenerationKey]: this.createLayoutGeneration(), [this.settingsGenerationKey]: this.createLayoutGeneration() });
-                await chrome.storage.local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey && key !== this.settingsGenerationKey && !LOCAL_PERSONAL_CONTENT_KEYS.includes(key)));
+                const fences = { [this.layoutGenerationKey]: this.createLayoutGeneration(), [this.settingsGenerationKey]: this.createLayoutGeneration() };
+                if (this.workspace?.id === 'default' && stored.sync?.enabled) fences[this.syncIdentityStateKey] = {
+                    ...(stored[this.syncIdentityStateKey] || {}),
+                    blocked: { kind: 'restore', reason: 'Default workspace settings were reset locally. Review compatible cloud data before resuming Sync.' }
+                };
+                await this._local.set(fences);
+                await this._local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey && key !== this.settingsGenerationKey && !LOCAL_PERSONAL_CONTENT_KEYS.includes(key) && (!this.workspace || !['privacy', 'sync', this.syncIdentityStateKey].includes(key))));
             });
             if (wasSyncing) {
                 await this.disableRemoteSync();
             }
             return true;
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             console.error('Storage clear error:', error);
             return false;
         }
@@ -1173,11 +1269,11 @@ class StorageManager {
      */
     async getStorageInfo() {
         try {
-            const bytesInUse = await chrome.storage.local.getBytesInUse();
-            const quota = chrome.storage.local.QUOTA_BYTES || 5242880; // 5MB default
+            const bytesInUse = await this._local.getBytesInUse();
+            const quota = this._local.QUOTA_BYTES || 5242880; // 5MB default
             const syncAvailable = this.isSyncAvailable();
-            const syncBytesInUse = syncAvailable ? await chrome.storage.sync.getBytesInUse(null) : 0;
-            const syncQuota = syncAvailable ? (chrome.storage.sync.QUOTA_BYTES || 102400) : 0;
+            const syncBytesInUse = syncAvailable ? await this.chromeApi.storage.sync.getBytesInUse(null) : 0;
+            const syncQuota = syncAvailable ? (this.chromeApi.storage.sync.QUOTA_BYTES || 102400) : 0;
 
             return {
                 bytesInUse,
@@ -1199,6 +1295,7 @@ class StorageManager {
                 }
             };
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             console.error('Storage info error:', error);
             return {
                 bytesInUse: 0,
@@ -1520,7 +1617,7 @@ class StorageManager {
         // Preserve raw provider preferences exactly, including any future fields.
         // The existing persisted restore block prevents a queued Sync push from
         // propagating a local replacement without the user's separate review.
-        if (raw.sync?.enabled) written[this.syncIdentityStateKey] = {
+        if ((!this.workspace || this.workspace.id === 'default') && raw.sync?.enabled) written[this.syncIdentityStateKey] = {
             ...(raw[this.syncIdentityStateKey] || {}),
             blocked: { kind: 'restore', reason: 'Restored data is kept locally. Review compatible cloud data before resuming Sync.' }
         };
@@ -1574,7 +1671,7 @@ class StorageManager {
 
     // Strict and small: a failed read must not be mistaken for a fresh preference.
     async getAppearanceForUpdate() {
-        const raw = await chrome.storage.local.get(['appearance', 'themePreset']);
+        const raw = await this._local.get(['appearance', 'themePreset']);
         return this.resolveAppearance(raw);
     }
 
@@ -1601,30 +1698,33 @@ class StorageManager {
         let committed;
         try {
             committed = await this.withLocalWriteLock(async () => {
-                const raw = await chrome.storage.local.get(['appearance', 'themePreset', this.settingsGenerationKey]);
+                const raw = await this._local.get(['appearance', 'themePreset', this.settingsGenerationKey]);
                 if (this.settingsSnapshot(raw).generation !== generation) throw this.appearanceError();
                 if (raw.appearance !== undefined && (!raw.appearance || typeof raw.appearance !== 'object' || Array.isArray(raw.appearance))) throw this.appearanceError();
                 const appearance = { ...this.resolveAppearance(raw), ...raw.appearance, ...requested };
-                await chrome.storage.local.set({ appearance });
+                await this._local.set({ appearance });
                 return this.validateAppearanceConfig(appearance);
             }, true);
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'LINKS_LOCK_UNAVAILABLE') throw this.appearanceError('APPEARANCE_LOCK_UNAVAILABLE');
             if (error.code?.startsWith('SETTINGS_')) throw this.appearanceError();
             throw error;
         }
         try { if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush(); }
-        catch (error) { console.warn('Appearance saved locally; Sync scheduling failed:', error); }
+        catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Appearance saved locally; Sync scheduling failed:', error); }
         return committed;
     }
 
     isSyncAvailable() {
-        return !!(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync);
+        return !!this.chromeApi?.storage?.sync;
     }
 
     async isSyncEnabledLocally() {
+        if (!(await this.isDefaultWorkspace())) return false;
         try {
-            const result = await chrome.storage.local.get(['sync']);
+            const result = await this._local.get(['sync']);
             return result.sync?.enabled === true;
         } catch (_) {
             return false;
@@ -1632,7 +1732,7 @@ class StorageManager {
     }
 
     async getLocalProviderState() {
-        const result = await chrome.storage.local.get(['sync']);
+        const result = await this._local.get(['sync']);
         return {
             sync: this.validateSyncConfig(result.sync || this.defaultConfig.sync)
         };
@@ -1655,11 +1755,11 @@ class StorageManager {
         this._syncCompatibilityError = blocked;
         try {
             await this.withLocalWriteLock(async () => {
-                const raw = await chrome.storage.local.get(null);
+                const raw = await this._local.get(null);
                 const guard = raw[this.syncIdentityStateKey] || {};
                 const config = this.validateConfigObject(raw); delete config.sync;
                 const localFingerprint = guard.blocked?.localFingerprint || error.localFingerprint || await this.fingerprint(config);
-                await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard,
+                await this._local.set({ [this.syncIdentityStateKey]: { ...guard,
                     blocked: guard.blocked?.kind === 'restore' ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
                 } });
             }, true);
@@ -1672,7 +1772,7 @@ class StorageManager {
 
     async isOwnSyncMeta(meta) {
         if (!meta?.revision || !meta.payloadHash) return false;
-        const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+        const raw = await this._local.get([this.syncIdentityStateKey]);
         return (raw[this.syncIdentityStateKey]?.ownWrites || []).some(write =>
             write.revision === meta.revision && write.fingerprint === meta.payloadHash && write.schema === meta.configurationSchemaVersion);
     }
@@ -1680,6 +1780,7 @@ class StorageManager {
     async readSyncSnapshot() {
         try { return await this.readSyncSnapshotOnce(); }
         catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             // A read begun before this profile's explicit off transition may
             // observe its removed chunks. Recognize only that exact revision.
             if (error.code === 'SYNC_IDENTITY_COMPATIBILITY') {
@@ -1707,7 +1808,8 @@ class StorageManager {
         }
         let validated;
         try { validated = this.validateImportPayload(schema === 2 ? { version: '1.0', schemaVersion: 2, data: payload } : payload); }
-        catch (error) { throw this.compatibilityError(`Cloud settings were not applied: ${error.message}`); }
+        catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error; throw this.compatibilityError(`Cloud settings were not applied: ${error.message}`); }
         const fingerprint = await this.fingerprint({ schema, payload });
         if (meta.payloadHash && meta.payloadHash !== fingerprint) throw this.compatibilityError('Cloud snapshot is incomplete or changed while reading. Retry after it finishes syncing.', 'incomplete');
         const reread = await this.getRemoteMeta();
@@ -1735,6 +1837,7 @@ class StorageManager {
     async checkSyncIdentityAtRead(local, remote, guard, raw, options) {
         try { this.checkSyncIdentity(local, remote, guard, options); }
         catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             // Bind a newly detected conflict to the same locked local read;
             // later edits cannot be mistaken for the unchanged blocked copy.
             const config = this.validateConfigObject(raw); delete config.sync;
@@ -1745,7 +1848,7 @@ class StorageManager {
 
     async acceptSyncSnapshot(remote, { confirmedReplacement = false, initializing = false } = {}) {
         return this.withLocalWriteLock(async () => {
-            const raw = await chrome.storage.local.get(null);
+            const raw = await this._local.get(null);
             const local = this.layoutSnapshot(raw);
             const guard = raw[this.syncIdentityStateKey] || {};
             if (guard.blocked && !confirmedReplacement) {
@@ -1760,7 +1863,7 @@ class StorageManager {
             // replay an older full snapshot over a newer local edit.
             if ((own || unchanged) && !confirmedReplacement) {
                 const written = { [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null } };
-                await chrome.storage.local.set(written);
+                await this._local.set(written);
                 this._syncCompatibilityError = null;
                 return { applied: false, acknowledged: true };
             }
@@ -1772,7 +1875,7 @@ class StorageManager {
                 const localPayload = this.prepareSyncPayload(this.validateConfigObject(raw)).payload;
                 const fingerprint = await this.fingerprint({ schema: LayoutIdentity.active(raw.layout) ? 2 : 1, payload: localPayload });
                 if (fingerprint === remote.fingerprint) {
-                    await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null } });
+                    await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null } });
                     this._syncCompatibilityError = null;
                 }
                 return { applied: false, acknowledged: fingerprint === remote.fingerprint };
@@ -1785,13 +1888,14 @@ class StorageManager {
                 [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null }
             };
             if (confirmedReplacement) written[this.restoreRecoveryKey] = await this.makeRecovery(raw, 'beforeCloudReplacement');
-            await chrome.storage.local.set(written);
+            await this._local.set(written);
             this._syncCompatibilityError = null;
             return { applied: true };
         }, true);
     }
 
     async ensureSyncInitialized() {
+        if (!(await this.isDefaultWorkspace())) { this._syncInitialized = true; return; }
         if (this._syncInitialized) return;
         if (this._syncInitPromise) return this._syncInitPromise;
         this._syncInitPromise = (async () => {
@@ -1800,6 +1904,7 @@ class StorageManager {
                 const remote = await this.readSyncSnapshot();
                 if (remote.meta?.enabled) await this.acceptSyncSnapshot(remote, { initializing: true });
             } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
                 if (error.code === 'SYNC_IDENTITY_COMPATIBILITY' || error.code === 'LAYOUT_IDENTITY_INVALID') {
                     await this.blockSync(error);
                 } else {
@@ -1813,8 +1918,9 @@ class StorageManager {
     }
 
     async getSyncStatus() {
+        if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().getSyncStatus(...arguments);
         await this.ensureSyncInitialized();
-        const raw = await chrome.storage.local.get(['sync', this.syncIdentityStateKey]);
+        const raw = await this._local.get(['sync', this.syncIdentityStateKey]);
         const localSync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
         return { available: this.isSyncAvailable(), enabled: localSync.enabled, local: localSync,
             compatibilityBlocked: raw[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError,
@@ -1823,27 +1929,31 @@ class StorageManager {
     }
 
     async setSyncEnabled(enabled) {
+        if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().setSyncEnabled(...arguments);
         await this.ensureSyncInitialized();
         if (!enabled) { await this.disableRemoteSync(); return this.getSyncStatus(); }
         const previous = await this.withLocalWriteLock(async () => {
-            const raw = await chrome.storage.local.get(['sync']);
+            const raw = await this._local.get(['sync']);
             const current = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
-            await chrome.storage.local.set({ sync: { ...current, enabled, lastError: '' } });
+            await this._local.set({ sync: { ...current, enabled, lastError: '' } });
             return current;
         });
         try { return await this.pushToSync(); }
         catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             await this.updateLocalSyncState({ enabled: error.code === 'SYNC_IDENTITY_COMPATIBILITY' ? previous.enabled : false, lastError: error.message || String(error) });
             throw error;
         }
     }
 
     async withSyncWriteLock(operation) {
-        if (!(typeof navigator !== 'undefined' && navigator.locks?.request)) throw new Error('Safe Chrome Sync writes require Web Locks.');
-        return navigator.locks.request('local-itab-sync-write', operation);
+        const locks = this.workspace?.manager.locks || (typeof navigator !== 'undefined' ? navigator.locks : null);
+        if (!locks?.request) throw new Error('Safe Chrome Sync writes require Web Locks.');
+        return locks.request('local-itab-sync-write', operation);
     }
 
     async pushToSync() {
+        if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().pushToSync(...arguments);
         this.cancelSyncPush();
         if (this._isApplyingSync) return this.getSyncStatus();
         if (!this.isSyncAvailable()) throw new Error('Chrome Sync storage is not available in this browser.');
@@ -1852,7 +1962,7 @@ class StorageManager {
             return await this.withSyncWriteLock(async () => {
                 const remote = await this.readSyncSnapshot();
                 const ticket = await this.withLocalWriteLock(async () => {
-                    const raw = await chrome.storage.local.get(null);
+                    const raw = await this._local.get(null);
                     const guard = raw[this.syncIdentityStateKey] || {};
                     const local = this.layoutSnapshot(raw);
                     await this.checkSyncIdentityAtRead(local, remote, guard, raw, { pushing: true });
@@ -1867,30 +1977,30 @@ class StorageManager {
                     chunks.forEach((chunk, index) => { items[`${this.syncChunkPrefix}${index}`] = chunk; });
                     if (this.getSyncItemsBytes(items) > this.syncTotalBudget) throw new Error('Cloud sync payload exceeds its storage quota. Keep a manual or Drive backup; no identity data was omitted.');
                     const own = { revision, fingerprint, schema };
-                    await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), own] } });
+                    await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), own] } });
                     return { items, meta, own, generation: local.generation };
                 }, true);
                 // Recheck shared state after asynchronous snapshot preparation;
                 // another page may have blocked Sync while this upload waited.
                 let upload;
                 await this.withLocalWriteLock(async () => {
-                    const latest = await chrome.storage.local.get([this.syncIdentityStateKey, this.layoutGenerationKey]);
+                    const latest = await this._local.get([this.syncIdentityStateKey, this.layoutGenerationKey]);
                     if (latest[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError) throw this.compatibilityError(latest[this.syncIdentityStateKey]?.blocked?.reason || this._syncCompatibilityError.reason);
                     if ((latest[this.layoutGenerationKey] || null) !== ticket.generation) throw new Error('Local data was replaced before upload. Review it and retry.');
                     // Enqueue under the same local lock as persisted blocking.
                     // Provider completion is awaited outside the critical section.
-                    upload = chrome.storage.sync.set(ticket.items);
+                    upload = this.chromeApi.storage.sync.set(ticket.items);
                     upload.catch(() => {});
                 }, true);
                 await upload;
                 const oldCount = Number.isFinite(remote.meta?.chunkCount) ? remote.meta.chunkCount : 0;
-                if (oldCount > ticket.meta.chunkCount) await chrome.storage.sync.remove(Array.from({ length: oldCount - ticket.meta.chunkCount }, (_, index) => `${this.syncChunkPrefix}${index + ticket.meta.chunkCount}`));
+                if (oldCount > ticket.meta.chunkCount) await this.chromeApi.storage.sync.remove(Array.from({ length: oldCount - ticket.meta.chunkCount }, (_, index) => `${this.syncChunkPrefix}${index + ticket.meta.chunkCount}`));
                 await this.withLocalWriteLock(async () => {
-                    const raw = await chrome.storage.local.get(['sync', this.syncIdentityStateKey, this.layoutGenerationKey]);
+                    const raw = await this._local.get(['sync', this.syncIdentityStateKey, this.layoutGenerationKey]);
                     const guard = raw[this.syncIdentityStateKey] || {};
                     if ((raw[this.layoutGenerationKey] || null) !== ticket.generation) throw new Error('Local data was replaced during upload. Its Sync state was not changed.');
                     if (guard.blocked) throw this.compatibilityError(guard.blocked.reason);
-                    await chrome.storage.local.set({
+                    await this._local.set({
                         sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: true, lastSync: ticket.meta.updatedAt, lastError: '' }),
                         [this.syncIdentityStateKey]: { ...guard, ack: ticket.own }
                     });
@@ -1898,6 +2008,7 @@ class StorageManager {
                 return this.getSyncStatus();
             });
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'SYNC_IDENTITY_COMPATIBILITY' || error.code === 'LAYOUT_IDENTITY_INVALID') await this.blockSync(error);
             else await this.updateLocalSyncState({ lastError: error.message || String(error) });
             throw error;
@@ -1905,12 +2016,14 @@ class StorageManager {
     }
 
     async previewCloudReplacement() {
+        if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().previewCloudReplacement(...arguments);
         const remote = await this.readSyncSnapshot();
         if (!remote.payload) throw new Error('No complete cloud copy is available.');
         return { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema, shortcuts: remote.validated.links.length };
     }
 
     async pullFromSync(options = {}) {
+        if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().pullFromSync(...arguments);
         if (!this.isSyncAvailable()) throw new Error('Chrome Sync storage is not available in this browser.');
         try {
             const remote = await this.readSyncSnapshot();
@@ -1918,26 +2031,28 @@ class StorageManager {
             if (!remote.meta?.enabled) {
                 if (remote.meta?.enabled === false && await this.isOwnSyncMeta(remote.meta)) return { applied: false, status: await this.getSyncStatus() };
                 await this.withLocalWriteLock(async () => {
-                    const raw = await chrome.storage.local.get(null);
+                    const raw = await this._local.get(null);
                     if (raw.sync?.enabled && (LayoutIdentity.active(raw.layout) || raw[this.syncIdentityStateKey]?.blocked)) {
                         const error = this.compatibilityError('The cloud copy was removed or disabled. Local data and the enabled preference are preserved. Review Sync settings before replacing either copy.');
                         const config = this.validateConfigObject(raw); delete config.sync;
                         error.localFingerprint = await this.fingerprint(config);
                         throw error;
                     }
-                    await chrome.storage.local.set({ sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: false }) });
+                    await this._local.set({ sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: false }) });
                 }, true);
                 return { applied: false, status: await this.getSyncStatus() };
             }
             const result = await this.acceptSyncSnapshot(remote, options);
             return { ...result, status: await this.getSyncStatus() };
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'SYNC_IDENTITY_COMPATIBILITY' || error.code === 'LAYOUT_IDENTITY_INVALID') await this.blockSync(error);
             throw error;
         }
     }
 
     async clearSync() {
+        if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().clearSync(...arguments);
         if (!this.isSyncAvailable()) {
             throw new Error('Chrome Sync storage is not available in this browser.');
         }
@@ -1948,7 +2063,7 @@ class StorageManager {
 
     async getRemoteMeta() {
         if (!this.isSyncAvailable()) return null;
-        const result = await chrome.storage.sync.get([this.syncMetaKey]);
+        const result = await this.chromeApi.storage.sync.get([this.syncMetaKey]);
         const meta = result[this.syncMetaKey];
         return meta && typeof meta === 'object' ? meta : null;
     }
@@ -1957,37 +2072,38 @@ class StorageManager {
         const count = meta?.chunkCount;
         if (!Number.isInteger(count) || count <= 0 || count > this.syncMaxChunks) throw this.compatibilityError('Cloud snapshot chunk count is invalid.', 'incomplete');
         const keys = Array.from({ length: count }, (_, index) => `${this.syncChunkPrefix}${index}`);
-        const raw = await chrome.storage.sync.get(keys);
+        const raw = await this.chromeApi.storage.sync.get(keys);
         if (keys.some(key => typeof raw[key] !== 'string' || !raw[key])) throw this.compatibilityError('Cloud snapshot is still incomplete. Nothing was applied.', 'incomplete');
         try { return JSON.parse(keys.map(key => raw[key]).join('')); }
         catch (_) { throw this.compatibilityError('Cloud snapshot could not be read safely. Nothing was applied.', 'incomplete'); }
     }
 
     async disableRemoteSync(clearChunks = false) {
+        if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().disableRemoteSync(...arguments);
         this.cancelSyncPush();
         if (!this.isSyncAvailable()) return;
         await this.withSyncWriteLock(async () => {
             const oldMeta = await this.getRemoteMeta();
-            const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+            const raw = await this._local.get([this.syncIdentityStateKey]);
             if (raw[this.syncIdentityStateKey]?.blocked && oldMeta?.enabled) {
                 // The UI explicitly confirmed off/clear. Retain the divergent
                 // readable cloud copy before removing its chunks.
                 const cloud = await this.readSyncSnapshot();
                 const payload = this.buildManualExportPayload(cloud.validated);
-                await chrome.storage.local.set({ [this.restoreRecoveryKey]: { reason: 'beforeCloudClear', payload, checksum: await this.fingerprint(payload) } });
+                await this.local.set({ [this.restoreRecoveryKey]: { reason: 'beforeCloudClear', payload, checksum: await this.fingerprint(payload) } });
             }
             const disabledMeta = { enabled: false, version: 2, configurationSchemaVersion: 0, revision: this.createLayoutGeneration(), payloadHash: await this.fingerprint({ enabled: false }), updatedAt: new Date().toISOString(), chunkCount: 0, payloadBytes: 0, omittedAssets: [] };
             await this.withLocalWriteLock(async () => {
-                const raw = await chrome.storage.local.get([this.syncIdentityStateKey]);
+                const raw = await this._local.get([this.syncIdentityStateKey]);
                 const guard = raw[this.syncIdentityStateKey] || {};
-                await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), { revision: disabledMeta.revision, fingerprint: disabledMeta.payloadHash, schema: 0 }] } });
+                await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), { revision: disabledMeta.revision, fingerprint: disabledMeta.payloadHash, schema: 0 }] } });
             }, true);
             const oldCount = Number.isFinite(oldMeta?.chunkCount) ? oldMeta.chunkCount : 0;
-            await chrome.storage.sync.set({ [this.syncMetaKey]: disabledMeta });
-            if (oldCount) await chrome.storage.sync.remove(Array.from({ length: oldCount }, (_, index) => `${this.syncChunkPrefix}${index}`));
+            await this.chromeApi.storage.sync.set({ [this.syncMetaKey]: disabledMeta });
+            if (oldCount) await this.chromeApi.storage.sync.remove(Array.from({ length: oldCount }, (_, index) => `${this.syncChunkPrefix}${index}`));
             await this.withLocalWriteLock(async () => {
-                const raw = await chrome.storage.local.get([this.syncIdentityStateKey, 'sync']);
-                await chrome.storage.local.set({ [this.syncIdentityStateKey]: { ...(raw[this.syncIdentityStateKey] || {}), blocked: null, ack: null },
+                const raw = await this._local.get([this.syncIdentityStateKey, 'sync']);
+                await this._local.set({ [this.syncIdentityStateKey]: { ...(raw[this.syncIdentityStateKey] || {}), blocked: null, ack: null },
                     sync: this.validateSyncConfig({ ...(raw.sync || this.defaultConfig.sync), enabled: false, lastError: '' }) });
             }, true);
             this._syncCompatibilityError = null;
@@ -2012,7 +2128,7 @@ class StorageManager {
 
     getSyncItemQuotaBytes() {
         const quota = this.isSyncAvailable()
-            ? chrome.storage.sync.QUOTA_BYTES_PER_ITEM
+            ? this.chromeApi.storage.sync.QUOTA_BYTES_PER_ITEM
             : null;
         return Number.isFinite(quota) ? quota : 8192;
     }
@@ -2066,14 +2182,15 @@ class StorageManager {
     async updateLocalSyncState(partial) {
         try {
             await this.withLocalWriteLock(async () => {
-                const current = await chrome.storage.local.get(['sync']);
+                const current = await this._local.get(['sync']);
                 const next = this.validateSyncConfig({
                     ...(current.sync || this.defaultConfig.sync),
                     ...partial
                 });
-                await chrome.storage.local.set({ sync: next });
+                await this._local.set({ sync: next });
             });
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             console.warn('Failed to update local sync state:', error);
         }
     }
@@ -2126,6 +2243,7 @@ class StorageManager {
     }
 
     scheduleSyncPush(delayMs = 900) {
+        if (this.workspace && this.workspace.id !== 'default') return;
         if (!this.isSyncAvailable() || this._isApplyingSync || this._syncCompatibilityError) return;
         if (this._syncPushTimer) {
             clearTimeout(this._syncPushTimer);
@@ -2133,12 +2251,13 @@ class StorageManager {
         this._syncPushTimer = setTimeout(async () => {
             this._syncPushTimer = null;
             try {
-                const shared = await chrome.storage.local.get([this.syncIdentityStateKey]);
+                const shared = await this._local.get([this.syncIdentityStateKey]);
                 if (shared[this.syncIdentityStateKey]?.blocked) return;
                 if (await this.isSyncEnabledLocally()) {
                     await this.pushToSync();
                 }
             } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
                 console.warn('Background cloud sync failed:', error);
                 if (error.code !== 'SYNC_IDENTITY_COMPATIBILITY') await this.updateLocalSyncState({ lastError: error.message || String(error) });
             }
@@ -2194,7 +2313,9 @@ class StorageManager {
                     return value;
             }
         } catch (error) {
+            if (error.code?.startsWith('WORKSPACE_')) throw error;
             if (error.code === 'LAYOUT_IDENTITY_INVALID') throw error;
+            if (this.workspace) { const failure = new Error('Workspace settings are invalid.'); failure.code = 'WORKSPACE_CORRUPT'; throw failure; }
             console.warn(`Validation failed for ${key}, using default:`, error);
             return this.getDefaultValue(key);
         }

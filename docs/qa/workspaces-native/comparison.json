@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "migrationPortableModulesExact": true,
+  "sourceLiveWorkspaces": 3,
+  "sourceTrashWorkspaces": 1,
+  "destinationOnlyDeliberateNoteDelta": true,
+  "recoveryExactDestinationExceptExportedAt": true,
+  "restoredExactSourceExceptDocumentedMetadata": true,
+  "regeneratedTaskVersionCount": 7,
+  "regeneratedTaskVersions": [
+    {
+      "workspaceId": "default",
+      "taskId": "synthetic_000001"
+    },
+    {
+      "workspaceId": "default",
+      "taskId": "synthetic_000003"
+    },
+    {
+      "workspaceId": "default",
+      "taskId": "synthetic_000005"
+    },
+    {
+      "workspaceId": "default",
+      "taskId": "synthetic_000007"
+    },
+    {
+      "workspaceId": "0c644cf5-7f1a-413d-94f3-23e7c0c56f62",
+      "taskId": "ae660704-fa71-484f-a29a-8c3f8760a8e4"
+    },
+    {
+      "workspaceId": "6083f32b-c35a-42d9-a1a2-e1a6349ea283",
+      "taskId": "ae660704-fa71-484f-a29a-8c3f8760a8e4"
+    },
+    {
+      "workspaceId": "f00ebda3-d33d-41d6-96e7-a5d834fae2e3",
+      "taskId": "ae660704-fa71-484f-a29a-8c3f8760a8e4"
+    }
+  ],
+  "preservedTaskHistoryCopies": 2,
+  "staleDraftExportContainsExactText": true
+}

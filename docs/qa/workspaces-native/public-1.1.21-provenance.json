@@ -1,0 +1,31 @@
+{
+  "version": "1.1.21",
+  "source": "9e3fa8848daafd1b1390415a82bb7ba5d295dcab",
+  "tag_verified": true,
+  "actions_run": 38081737939,
+  "actions": "success",
+  "runtime_files": 66,
+  "assets": [
+    {
+      "name": "local-itab-1.1.21.zip",
+      "sha256": "4ea7600c0c6f6538d212f558fa8f2aa62314fdceb0f253c9f9bf691349ece674",
+      "bytes": 1424155
+    },
+    {
+      "name": "PROVENANCE.json",
+      "sha256": "2d57aabdde8a97c01bfac16cfd3500c57888f536c202cf7ba4702bd34a11be84",
+      "bytes": 6753
+    },
+    {
+      "name": "RELEASE-NOTES.md",
+      "sha256": "22484b0ac6f28d8b79dd9e8c8b1de2026b6497aed83f0ff734f991c0e99777f1",
+      "bytes": 6632
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "sha256": "397e4bbcecb2e64ddfdd76569ed8e2f365c9bbd9ec6a9dd077796e4e11866b2d",
+      "bytes": 253
+    }
+  ],
+  "passed": true
+}

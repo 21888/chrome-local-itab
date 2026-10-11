@@ -7,6 +7,7 @@
     <title data-i18n="optionsTitle">Local iTab Settings</title>
     <link rel="stylesheet" href="options.css">
     <link rel="stylesheet" href="appearance.css">
+    <link rel="stylesheet" href="workspaces.css">
     <link rel="stylesheet" href="update-checker.css">
     <link rel="stylesheet" href="dashboard-template-gallery.css">
     <link rel="stylesheet" href="local-tasks.css">
@@ -29,6 +30,7 @@
                 </button>
             </div>
             <h1 class="options-title" data-i18n="optionsTitle">Local iTab Settings</h1>
+            <section id="workspace-switcher" class="workspace-bar" aria-label="Workspace"></section>
             <p class="options-subtitle" data-i18n="optionsSubtitle">Tune a private, local-first new tab page</p>
         </header>
         
@@ -49,6 +51,7 @@
                         <span class="tab-icon">🎨</span>
                         <span data-i18n="tabAppearance">Appearance</span>
                     </button>
+                    <button class="tab-button" data-tab="workspaces" role="tab" aria-selected="false" aria-controls="tab-workspaces"><span class="tab-icon" aria-hidden="true">▦</span><span data-i18n="spacesTitle">Workspaces</span></button>
                     <button class="tab-button" data-tab="layout" role="tab" aria-selected="false" aria-controls="tab-layout">
                         <span class="tab-icon">🧱</span>
                         <span data-i18n="tabLayout">Shortcuts</span>
@@ -72,11 +75,12 @@
                 </aside>
 
                 <div class="options-content">
+                    <div class="tab-panel" id="tab-workspaces" data-tab="workspaces" role="tabpanel"><section class="settings-section" id="workspace-settings"><div id="workspace-manager"></div></section></div>
                     <div class="tab-panel active" id="tab-appearance" data-tab="appearance" role="tabpanel">
                         <section class="settings-section" id="theme-settings">
                             <div class="section-header">
                                 <h2 class="section-title" data-i18n="templateAppearance">Template &amp; appearance</h2>
-                                <p class="section-description" data-i18n="templateAppearanceDesc">Choose a workspace and light or dark colors. Saves immediately; your sites and layout stay unchanged.</p>
+                                <p class="section-description" data-i18n="templateAppearanceDesc">Choose a visual template and light or dark colors for this workspace. Saves immediately; your sites and layout stay unchanged.</p>
                             </div>
                             <div class="appearance-controls" id="options-appearance"></div>
                             <section class="workspace-presets" id="workspace-presets"></section>
@@ -571,6 +575,7 @@
                     </div>
 
                     <div class="tab-panel" id="tab-sync" data-tab="sync" role="tabpanel">
+                        <div class="spaces-provider-boundary"><p class="spaces-help" data-i18n="spacesProviderScope">Chrome Sync and Google Drive manage Default only. Other workspaces are protected and use complete local backups.</p><button id="workspace-open-default" type="button" class="spaces-button" data-i18n="spacesOpenDefault">Open Default workspace</button></div>
                         <section class="settings-section drive-backup-section" id="drive-backup-settings">
                             <div class="section-header">
                                 <h2 class="section-title">☁️ <span data-i18n="driveBackupsTitle">Google 云盘电脑备份</span></h2>
@@ -728,12 +733,13 @@
         </main>
         
         <footer class="options-footer">
+            <p id="workspace-reset-scope" class="spaces-help" data-i18n="spacesResetScope">Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept.</p>
             <div class="footer-actions">
                 <button id="save-settings" class="btn btn-primary btn-lg">
                     <span class="btn-icon">💾</span>
                     <span data-i18n="saveSettings">Save Settings</span>
                 </button>
-                <button id="reset-settings" class="btn btn-danger btn-lg">
+                <button id="reset-settings" class="btn btn-danger btn-lg spaces-button spaces-danger" aria-describedby="workspace-reset-scope">
                     <span class="btn-icon">🔄</span>
                     <span data-i18n="resetSettings">Reset to Defaults</span>
                 </button>
@@ -749,6 +755,11 @@
     <script src="shared/bookmark-import.js"></script>
     <script src="shared/bookmark-export.js"></script>
     <script src="shared/world-clocks.js"></script>
+    <script src="shared/local-tasks-store.js"></script>
+    <script src="shared/local-focus-store.js"></script>
+    <script src="shared/local-scratchpad-store.js"></script>
+    <script src="shared/local-countdown-store.js"></script>
+    <script src="shared/workspaces.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="shared/update-checker.js"></script>
@@ -758,21 +769,18 @@
     <script src="shared/search-template.js"></script>
     <script src="drive-backup.js"></script>
     <script src="shared/dialog-focus.js"></script>
-    <script src="shared/local-tasks-store.js"></script>
     <script src="shared/local-tasks-controller.js"></script>
     <script src="shared/local-tasks-view.js"></script>
-    <script src="shared/local-focus-store.js"></script>
     <script src="shared/local-focus-controller.js"></script>
     <script src="shared/local-focus-view.js"></script>
-    <script src="shared/local-scratchpad-store.js"></script>
     <script src="shared/local-scratchpad-controller.js"></script>
     <script src="shared/local-scratchpad-view.js"></script>
-    <script src="shared/local-countdown-store.js"></script>
     <script src="shared/local-countdown-controller.js"></script>
     <script src="shared/local-countdown-view.js"></script>
     <script src="shared/workspace-presets.js"></script>
     <script src="shared/workspace-presets-view.js"></script>
     <script src="shared/local-content-lifecycle.js"></script>
+    <script src="shared/workspaces-view.js"></script>
     <script src="shared/bookmark-import-view.js"></script>
     <script src="shared/complete-backup.js"></script>
     <script src="shared/complete-backup-view.js"></script>

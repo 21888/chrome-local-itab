@@ -90,7 +90,8 @@
         check(new TextEncoder().encode(text).length <= LIMITS.exportBytes, 'SIZE_LIMIT');
         return text;
     }
-    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks) {
+    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks, workspace = globalThis.LocalItabWorkspaces?.session) {
+        if (workspace) return workspace.createBackend(KEY);
         check(chromeApi?.storage?.local && locks?.request, 'UNAVAILABLE');
         return {
             lock: action => locks.request(LOCK, { mode: 'exclusive' }, action),
@@ -111,7 +112,7 @@
         constructor(backend = createChromeBackend()) { this.backend = backend; }
         async raw() {
             let value;
-            try { value = await this.backend.read(); } catch (_) { throw fault('READ'); }
+            try { value = await this.backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
             if (value === undefined) return initial();
             try { return { ...validate(value) }; } catch (_) { throw fault('CORRUPT'); }
         }

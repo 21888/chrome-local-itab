@@ -26,7 +26,7 @@ RUNTIME_FILES = (
     "newtab.html", "options.html",
     "context-menu.js", "drive-backup.js", "error-handler.js", "favicon-cache.js",
     "i18n.js", "newtab.js", "options.js", "storage.js",
-    "appearance.css", "bookmark-import.css", "complete-backup.css", "context-menu.css", "update-checker.css",
+    "workspaces.css", "appearance.css", "bookmark-import.css", "complete-backup.css", "context-menu.css", "update-checker.css",
     "dashboard-template-gallery.css", "dashboard-templates.css", "local-focus.css",
     "local-countdown.css", "local-month-calendar.css", "local-scratchpad.css", "local-tasks.css", "newtab.css", "options.css", "shortcut-finder.css",
     "shared/month-calendar.js", "shared/world-clocks.js", "shared/appearance.js", "shared/bookmark-import.js", "shared/bookmark-import-view.js", "shared/bookmark-export.js",
@@ -40,7 +40,7 @@ RUNTIME_FILES = (
     "shared/update-checker.js", "shared/update-view.js",
     "shared/complete-backup.js", "shared/complete-backup-view.js",
     "shared/settings-search.js", "shared/search-template.js", "shared/shortcut-finder.js", "shared/shortcut-finder-host.js",
-    "shared/shortcut-finder-view.js", "shared/workspace-presets.js", "shared/workspace-presets-view.js",
+    "shared/shortcut-finder-view.js", "shared/workspace-presets.js", "shared/workspace-presets-view.js", "shared/workspaces.js", "shared/workspaces-view.js",
     "_locales/en/messages.json", "_locales/zh_CN/messages.json",
     "assets/icon16.png", "assets/icon48.png", "assets/icon128.png",
 )

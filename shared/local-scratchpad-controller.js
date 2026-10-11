@@ -1,7 +1,7 @@
 (function (root, factory) {
-    if (typeof module === 'object' && module.exports) module.exports = factory(require('./local-scratchpad-store.js'));
-    else Object.assign(root.LocalItabScratchpad, factory(root.LocalItabScratchpad));
-})(typeof window === 'undefined' ? globalThis : window, function (api) {
+    if (typeof module === 'object' && module.exports) module.exports = factory(require('./local-scratchpad-store.js'), root);
+    else Object.assign(root.LocalItabScratchpad, factory(root.LocalItabScratchpad, root));
+})(typeof window === 'undefined' ? globalThis : window, function (api, root) {
     'use strict';
     class Controller {
         constructor(store = new api.Store(), { onChange = () => {}, delay = 500 } = {}) {
@@ -26,7 +26,7 @@
         cancelTimer() { clearTimeout(this.timer); this.timer = null; }
         schedule() {
             this.cancelTimer();
-            if (this.loaded && this.dirty() && !this.pending && !this.composing && !this.conflict && !this.error && !this.closed)
+            if (!root.LocalItabContentLifecycle?.autosavePaused && this.loaded && this.dirty() && !this.pending && !this.composing && !this.conflict && !this.error && !this.closed)
                 this.timer = setTimeout(() => { this.timer = null; this.save().catch(() => {}); }, this.delay);
         }
         setDraft(value) {

@@ -5,13 +5,13 @@
         const doc = host.ownerDocument;
         let preview = null, generation = 0, pending = null, phase = '', closed = false, focusIntent = null;
         const make = (tag, text, parent = host) => { const node = doc.createElement(tag); node.textContent = text; parent.append(node); return node; };
-        make('h3', t('workspacePresetTitle', 'Recommended workspace'));
+        make('h3', t('workspacePresetTitle', 'Recommended modules'));
         make('p', t('workspacePresetHelp', 'Preview Tasks and Focus timer visibility for the selected template. Applying a visual template alone never changes these modules.'));
-        const review = make('button', t('workspacePresetReview', 'Preview recommended workspace')); review.type = 'button';
+        const review = make('button', t('workspacePresetReview', 'Preview recommended modules')); review.type = 'button';
         const panel = make('div', ''); panel.hidden = true;
         const summary = make('p', '', panel), list = make('ul', '', panel); summary.tabIndex = -1;
         make('p', t('workspacePresetBoundary', 'Only visibility changes on this device. Tasks, previous copies, timer duration and session, sites, positions and appearance stay unchanged. A hidden running timer keeps counting. Settings backups and Sync do not carry these modules.'), panel);
-        const apply = make('button', t('workspacePresetApply', 'Apply recommended workspace'), panel); apply.type = 'button';
+        const apply = make('button', t('workspacePresetApply', 'Apply recommended modules'), panel); apply.type = 'button';
         const cancel = make('button', t('workspacePresetCancel', 'Cancel'), panel); cancel.type = 'button';
         const status = make('p', ''); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.tabIndex = -1;
         for (const button of [review, apply, cancel]) {
@@ -71,7 +71,7 @@
             if (closed || token !== generation) return;
             if (isAppearancePending() || getTemplate() !== template) { fail({ code: 'CANCELLED' }); return; }
             preview = result;
-            summary.textContent = t('workspacePresetFor', 'Workspace for') + ': ' + t(root.LocalItabTemplates.get(template).labelKey, root.LocalItabTemplates.localize(template).name);
+            summary.textContent = t('workspacePresetFor', 'Modules for') + ': ' + t(root.LocalItabTemplates.get(template).labelKey, root.LocalItabTemplates.localize(template).name);
             list.replaceChildren();
             const target = root.LocalItabTemplates.get(template).recommendedWorkspace;
             const visibility = enabled => enabled ? t('workspacePresetShown', 'Shown') : t('workspacePresetHidden', 'Hidden');
@@ -88,7 +88,7 @@
             run(async () => {
                 await store.apply(selected, () => !closed && token === generation && !isAppearancePending() && getTemplate() === selected.template);
                 if (closed) return;
-                dismiss(); status.textContent = t('workspacePresetSaved', 'Workspace visibility saved on this device.'); moveFocus(status);
+                dismiss(); status.textContent = t('workspacePresetSaved', 'Module visibility saved in this workspace.'); moveFocus(status);
             }, 'applying');
         });
         function cancelReview() {
@@ -106,14 +106,14 @@
                 if (ownedFocus && !doc.hidden && host.getClientRects().length) status.focus();
             }
         };
-        root.chrome?.storage?.onChanged?.addListener(changed);
+        const unsubscribe = root.storageManager?.onLocalChanged?.(changed);
         // Cancel immediately for unsaved local template selection, too.
         const appearance = doc.getElementById('options-appearance');
         const selecting = () => { dismiss(); status.textContent = ''; };
         appearance?.addEventListener('change', selecting);
         controls();
         return { get pending() { return pending; }, hasUncommittedWork: () => Boolean(pending || preview),
-            destroy() { closed = true; dismiss(); root.chrome?.storage?.onChanged?.removeListener(changed); appearance?.removeEventListener('change', selecting); } };
+            destroy() { closed = true; dismiss(); unsubscribe?.(); appearance?.removeEventListener('change', selecting); } };
     }
     root.LocalItabWorkspace.mount = mount;
 })(window);

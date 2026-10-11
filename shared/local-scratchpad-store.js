@@ -25,7 +25,8 @@
         content(value.content); return value;
     }
     const same = (a, b) => ['schemaVersion', 'revision', 'enabled', 'content'].every(k => a[k] === b[k]);
-    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks) {
+    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks, workspace = globalThis.LocalItabWorkspaces?.session) {
+        if (workspace) return workspace.createBackend(KEY);
         check(chromeApi?.storage?.local && locks?.request, 'UNAVAILABLE');
         return {
             lock: fn => locks.request(LOCK, { mode: 'exclusive' }, fn),
@@ -37,7 +38,7 @@
     }
     class Store {
         constructor(backend = createChromeBackend()) { this.backend = backend; }
-        async raw() { let value; try { value = await this.backend.read(); } catch (_) { throw fault('READ'); }
+        async raw() { let value; try { value = await this.backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
             if (value === undefined) return initial();
             try { return { ...validate(value) }; } catch (_) { throw fault('CORRUPT'); } }
         read() { return this.backend.lock(() => this.raw()); }

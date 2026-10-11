@@ -5,7 +5,8 @@
 
 class DriveBackupManager {
     constructor(storage = null) {
-        this.storageManager = storage || (typeof storageManager !== 'undefined' ? storageManager : null);
+        const source = storage || (typeof storageManager !== 'undefined' ? storageManager : null);
+        this.storageManager = source?.forDefaultWorkspace ? source.forDefaultWorkspace() : source;
         this.stateKey = '__localItabDriveBackup';
         this.scope = 'https://www.googleapis.com/auth/drive.appdata';
         this.driveApiBase = 'https://www.googleapis.com/drive/v3';

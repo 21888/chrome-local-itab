@@ -471,7 +471,7 @@ function setupCloudSyncChangeListener() {
         try {
             if (await storageManager.shouldIgnoreRemoteSyncChange?.(changes)) return;
             const result = await storageManager.pullFromSync();
-            if (result?.applied) {
+            if (result?.applied && (!storageManager.workspace || storageManager.workspace.id === 'default')) {
                 showMessage(t('syncRemoteUpdated', '云端设置已更新，正在重新加载...'), 'info');
                 setTimeout(() => window.LocalItabContentLifecycle.reload(), 800);
             } else {
@@ -601,6 +601,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     try {
         // Initialize options page with stored data
+        await window.LocalItabWorkspacesView?.mountPage();
         await initializeOptionsPage();
         
         // Set up event listeners
@@ -848,6 +849,8 @@ async function populateFormFields(config) {
     settingsFormBaseline = collectFormData(false);
     backgroundFormBaseline = backgroundFormSnapshot();
     window.settingsFormView = {hasUncommittedWork: settingsHasUncommittedWork,
+        saveDrafts: () => saveAllSettings(true), flush: () => settingsSaveQueue,
+        pauseAutosave() { clearTimeout(categorySaveTimeout); },
         get pending() { return settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending; }};
 }
 
@@ -913,7 +916,7 @@ function setupCategoryManagement(categories = []) {
     list.dataset.categoryBound = 'true';
     const scheduleSave = () => {
         clearTimeout(categorySaveTimeout);
-        categorySaveTimeout = setTimeout(() => saveAllSettings(), 800);
+        categorySaveTimeout = setTimeout(() => { if (!window.LocalItabContentLifecycle?.autosavePaused) saveAllSettings(); }, 800);
     };
 
     addBtn.addEventListener('click', () => {
@@ -960,11 +963,11 @@ function setupEventListeners() {
             // Close the options page and return to the new tab page
             if (chrome.tabs) {
                 chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                    chrome.tabs.update(tabs[0].id, {url: chrome.runtime.getURL('newtab.html')});
+                    chrome.tabs.update(tabs[0].id, {url: chrome.runtime.getURL('newtab.html') + (storageManager.workspace?.id ? '?workspace=' + encodeURIComponent(storageManager.workspace.id) : '')});
                 });
             } else {
                 // Fallback for when chrome.tabs is not available
-                window.location.href = 'newtab.html';
+                window.location.href = 'newtab.html' + (storageManager.workspace?.id ? '?workspace=' + encodeURIComponent(storageManager.workspace.id) : '');
             }
         });
     }
@@ -981,7 +984,7 @@ function setupEventListeners() {
     const resetButton = document.getElementById('reset-settings');
     if (resetButton) {
         resetButton.addEventListener('click', async function() {
-            if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
+            if (confirm(t('spacesResetConfirm', "Reset this workspace\u2019s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy."))) {
                 await resetAllSettings();
             }
         });
@@ -1392,6 +1395,10 @@ async function renderDriveBackupPanel(snapshots = null) {
         return;
     }
 
+    if (storageManager.workspace && !(await storageManager.isDefaultWorkspace())) {
+        if (statusElement) statusElement.replaceChildren(createStatusRow(t('syncStatus', 'Status'), t('spacesProviderDefault', 'Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups.')));
+        historyElement?.replaceChildren(); setDriveActionsDisabled(true); return;
+    }
     const availability = getDriveAvailability(manager);
     const apiReady = availability.apiAvailable === true;
     const oauthReady = apiReady && availability.oauthConfigured !== false;
@@ -1711,6 +1718,7 @@ function setupDriveBackupEventListeners() {
 }
 
 async function runDriveAction(workingMessage, action, options = {}) {
+    if (storageManager.workspace && !(await storageManager.isDefaultWorkspace())) { showMessage(t('spacesProviderDefault', 'Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups.'), 'info'); return; }
     const manager = getDriveBackupManager();
     if (!manager) return;
     if (driveActionInProgress) {
@@ -1755,6 +1763,7 @@ async function createBeforeRestoreSafetyBackup() {
 
 async function restoreDriveSnapshot(snapshot) {
     const manager = getDriveBackupManager();
+    const providerStorage = storageManager.forDefaultWorkspace?.() || storageManager;
     if (!manager) return;
 
     const confirmed = confirm(t(
@@ -1780,9 +1789,9 @@ async function restoreDriveSnapshot(snapshot) {
 
         showMessage(t('driveDownloadingSelected', '正在下载所选备份...'), 'info');
         const payload = await manager.downloadSnapshotPayload(snapshot.id, { interactive: true });
-        const providerState = await storageManager.getLocalProviderState();
-        const validatedSettings = storageManager.prepareRestoredConfig(payload, providerState);
-        const success = await replaceSettings(() => storageManager.setAll(validatedSettings, {
+        const providerState = await providerStorage.getLocalProviderState();
+        const validatedSettings = providerStorage.prepareRestoredConfig(payload, providerState);
+        const success = await replaceSettings(() => providerStorage.setAll(validatedSettings, {
             skipSyncSideEffects: true,
             skipSyncInitialization: true,
             confirmedRestore: true
@@ -1926,7 +1935,7 @@ async function resetAllSettings() {
     try {
         showMessage('Resetting settings...', 'info');
         
-        // Clear all storage
+        // Reset only this workspace; preserve personal modules and shared preferences.
         const cleared = await replaceSettings(() => storageManager.clear());
         if (!cleared) throw new Error('Settings could not be reset. Please try again.');
         // The confirmed reset discards this configuration draft, even when a
@@ -2523,6 +2532,9 @@ async function renderSyncStatus(status = null) {
     if (replace) { replace.hidden = !syncStatus.compatibilityBlocked; replace.disabled = !syncStatus.available || cloudReplacementInProgress; }
     const toggle = document.getElementById('cloud-sync-enabled');
     if (toggle) toggle.checked = syncStatus.enabled;
+    if (storageManager.workspace && !(await storageManager.isDefaultWorkspace())) {
+        document.getElementById('cloud-sync-settings')?.querySelectorAll('button, input').forEach(control => { control.disabled = true; });
+    }
     await renderRecoveryControls();
 }
 

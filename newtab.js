@@ -124,6 +124,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     try {
         // Initialize dashboard components with stored data
+        await window.LocalItabWorkspacesView?.mountPage();
         const config = await initializeDashboard();
         const themePreset = applyThemePreset(config?.themePreset);
 
@@ -136,7 +137,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const settingsButton = document.getElementById('open-options');
         if (settingsButton) {
             settingsButton.addEventListener('click', function () {
-                chrome.runtime.openOptionsPage();
+                window.LocalItabWorkspacesView.openSettings();
             });
         }
 
@@ -145,9 +146,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (manageBtn) {
             manageBtn.addEventListener('click', () => {
                 if (chrome.runtime?.openOptionsPage) {
-                    chrome.runtime.openOptionsPage();
+                    window.LocalItabWorkspacesView.openSettings();
                 } else {
-                    window.open('options.html#category-settings', '_blank');
+                    window.LocalItabWorkspacesView.openSettings('category-settings');
                 }
             });
         }
@@ -447,8 +448,8 @@ function setupDashboardAppearance(config) {
 }
 
 function setupThemeChangeListener() {
-    if (!chrome?.storage?.onChanged) return;
-    chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (!storageManager.onLocalChanged) return;
+    storageManager.onLocalChanged((changes, areaName) => {
         if (areaName !== 'local') return;
         if (!changes.themePreset) return;
         const nextTheme = applyThemePreset(changes.themePreset.newValue);
@@ -468,7 +469,7 @@ async function renderSyncCompatibilityNotice() {
         notice.id = 'sync-compatibility-notice';
         notice.className = 'layout-status';
         notice.setAttribute('role', 'status');
-        notice.href = 'options.html#cloud-sync-settings';
+        notice.href = window.LocalItabWorkspacesView?.settingsUrl('default', 'cloud-sync-settings') || 'options.html#cloud-sync-settings';
         document.querySelector('.dashboard-main')?.prepend(notice);
     }
     const key = 'syncCompatibilityNotice';
@@ -488,7 +489,7 @@ function setupCloudSyncChangeListener() {
         try {
             if (await storageManager.shouldIgnoreRemoteSyncChange?.(changes)) return;
             const result = await storageManager.pullFromSync();
-            if (result?.applied) {
+            if (result?.applied && (!storageManager.workspace || storageManager.workspace.id === 'default')) {
                 window.LocalItabContentLifecycle.reload();
             }
         } catch (error) {
@@ -1228,11 +1229,11 @@ function setupClockPreferenceListener(config) {
         clockComponentInstance?.setEnabled(enabled);
     };
     const refresh = async () => {
-        if (!chrome?.storage?.local?.get) return;
+        if (!storageManager.local?.get) return;
         const request = ++readRevision;
         const clockAtRead = clockRevision, showAtRead = showRevision;
         try {
-            const raw = await chrome.storage.local.get(['clock', 'show']);
+            const raw = await storageManager.local.get(['clock', 'show']);
             if (request !== readRevision) return;
             // A synchronous event for either key owns that key over an older
             // read; unrelated-key events do not discard this fresh observation.
@@ -1244,7 +1245,7 @@ function setupClockPreferenceListener(config) {
         }
     };
     clockPreferenceRefresh = refresh;
-    chrome?.storage?.onChanged?.addListener((changes, area) => {
+    storageManager.onLocalChanged?.((changes, area) => {
         if (area !== 'local') return;
         let changed = false;
         if (Object.prototype.hasOwnProperty.call(changes, 'clock')) {
@@ -2646,7 +2647,7 @@ class ShortcutsComponent {
         try {
             // Keep the route local and reuse Settings' existing hash navigation.
             const runtime = typeof chrome !== 'undefined' ? chrome.runtime : null;
-            const path = 'options.html#import-settings-btn';
+            const path = 'options.html' + (window.LocalItabWorkspaces?.session?.id ? '?workspace=' + encodeURIComponent(window.LocalItabWorkspaces.session.id) : '') + '#import-settings-btn';
             const url = runtime?.getURL ? runtime.getURL(path) : path;
             if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
                 outcome = await new Promise(resolve => {

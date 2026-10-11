@@ -7,7 +7,7 @@
         focusNextBreak: 'Choose break', focusNextWork: 'Choose focus', focusRemaining: 'Remaining time', focusReady: 'Ready to start',
         focusRunning: 'Running', focusPaused: 'Paused', focusCompleted: 'Interval complete. Choose your next interval when ready.',
         focusUncertain: 'The clocks disagree. Exact remaining time is uncertain. Stop / reset, then start deliberately.',
-        focusHelp: 'This device shares one timer across its new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it.',
+        focusHelp: 'Each workspace shares one timer across its own new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it.',
         focusBrief: 'One timer shared on this device. No sound or background alert.', focusDetails: 'How timing works',
         focusEnable: 'Show Focus timer on the new tab page', focusEnableHelp: 'Optional and device-local. Hiding it keeps the current session and deadline.',
         focusLoading: 'Loading local timer…', focusSaving: 'Saving timer…', focusError: 'Could not confirm the timer change. Read the latest state before trying again.',

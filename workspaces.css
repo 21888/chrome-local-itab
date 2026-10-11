@@ -1,0 +1,50 @@
+/* Workspace controls use template tokens; destructive actions have opaque,
+   independently contrast-tested light/dark pairs instead of legacy danger styles. */
+.workspace-bar, #workspace-manager, .spaces-overlay { color: var(--template-text, #26362f); }
+.workspace-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 24px; min-width: 0; padding: 14px 16px; background: var(--template-surface, #fff); border: 1px solid var(--template-border, #dce3df); border-radius: 16px; position: relative; z-index: 4; }
+.options-header .workspace-bar { margin: 24px 0 0; text-align: start; }
+.workspace-bar [hidden], #workspace-manager [hidden], .spaces-overlay [hidden] { display: none !important; }
+.spaces-button { appearance: none; font: inherit; font-size: .875rem; font-weight: 600; line-height: 1.4; min-height: 42px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--template-border, #dce3df); background: var(--template-surface, #fff); color: var(--template-text, #26362f); cursor: pointer; text-align: start; white-space: normal; overflow-wrap: anywhere; transition: background .15s ease; }
+.spaces-button:hover:not(:disabled) { background: var(--template-surface-raised, #eef2f0); }
+.spaces-button:disabled { color: #4b5563; background: #e5e7eb; border-color: #d1d5db; opacity: 1; cursor: not-allowed; }
+:root[data-color-mode="dark"] .spaces-button:disabled { color: #cbd5e1; background: #374151; border-color: #4b5563; }
+.spaces-switch { font-size: .95rem; background: var(--template-accent-soft, #e4eee8); flex: 0 1 auto; max-width: 100%; }
+.spaces-pinned, .spaces-help { color: var(--template-muted, #58675e); font-size: .875rem; line-height: 1.6; overflow-wrap: anywhere; }
+.spaces-pinned { flex: 1 1 260px; }
+.spaces-manage { color: var(--template-accent, #426e59); font-weight: 600; font-size: .875rem; text-decoration: underline; text-underline-offset: 3px; }
+.spaces-status { flex-basis: 100%; min-height: 1.4em; font-size: .875rem; line-height: 1.6; margin: 10px 0; overflow-wrap: anywhere; }
+.spaces-status:empty { display: none; }
+.spaces-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; align-items: center; }
+.spaces-list { list-style: none; margin: 20px 0; padding: 0; display: grid; gap: 12px; min-width: 0; }
+.spaces-row { padding: 18px; background: var(--template-surface, #fff); border: 1px solid var(--template-border, #dce3df); border-radius: 14px; min-width: 0; }
+.spaces-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.spaces-name { overflow-wrap: anywhere; line-height: 1.5; font-size: 1rem; }
+.spaces-row-title small { flex-basis: 100%; }
+.spaces-row .spaces-actions { margin-bottom: 0; }
+.spaces-badge { padding: 3px 8px; border-radius: 6px; font-size: .75rem; font-weight: 600; color: var(--template-text, #26362f); background: var(--template-accent-soft, #e4eee8); }
+.spaces-trash { border-top: 1px solid var(--template-border, #dce3df); margin-top: 28px; padding-top: 20px; }
+.spaces-trash summary { font-weight: 600; cursor: pointer; padding: 8px 0; }
+.spaces-empty { color: var(--template-muted, #58675e); padding: 12px 0; }
+.spaces-invalid { flex-basis: 100%; border-inline-start: 3px solid var(--template-error, #b04a30); padding: 8px 16px; background: var(--template-surface-raised, #eef2f0); border-radius: 6px; }
+.spaces-invalid p { margin: 6px 0 12px; line-height: 1.6; }
+.spaces-overlay { display: none; position: fixed; inset: 0; z-index: 20000; background: rgba(9, 16, 13, .62); padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom)); overflow: auto; align-items: center; justify-content: center; }
+.spaces-overlay.active { display: flex; }
+.spaces-dialog { width: min(100%, 580px); max-height: calc(100dvh - 48px); overflow: auto; padding: clamp(22px, 4vw, 34px); background: var(--template-surface, #fff); border: 1px solid var(--template-border, #dce3df); border-radius: 20px; box-shadow: 0 24px 80px rgba(0,0,0,.28); }
+.spaces-dialog h2 { font: inherit; font-size: 1.35rem; font-weight: 650; line-height: 1.3; margin: 0 0 18px; }
+.spaces-field { display: grid; gap: 8px; margin-top: 20px; font-weight: 600; }
+.spaces-name-input { width: 100%; box-sizing: border-box; padding: 12px; min-height: 46px; border: 1px solid var(--template-border, #dce3df); border-radius: 10px; background: var(--template-surface-raised, #eef2f0); color: var(--template-text, #26362f); font: inherit; }
+.spaces-picker { display: grid; gap: 10px; margin: 20px 0; }
+.spaces-picker .spaces-button { min-height: 52px; }
+.spaces-primary { background: var(--template-accent, #426e59); color: var(--template-accent-ink, #fff); border-color: var(--template-accent, #426e59); }
+.spaces-primary:hover:not(:disabled) { background: var(--template-accent, #426e59); filter: brightness(.94); }
+.spaces-danger:not(:disabled) { color: #fff; background: #a52823; border-color: #a52823; }
+.spaces-danger:hover:not(:disabled) { color: #fff; background: #871f1b; border-color: #871f1b; }
+:root[data-color-mode="dark"] .spaces-danger:not(:disabled) { color: #ffd8d2; background: #67231d; border-color: #9e5147; }
+:root[data-color-mode="dark"] .spaces-danger:hover:not(:disabled) { color: #ffd8d2; background: #823129; border-color: #b4695f; }
+.spaces-button:focus-visible, .workspace-bar :focus-visible, #workspace-manager :focus-visible, .spaces-overlay :focus-visible { outline: 3px solid var(--template-focus, #246bd1); outline-offset: 3px; }
+@media (max-width: 620px) { .workspace-bar { padding: 12px; gap: 10px; margin-bottom: 16px; } .spaces-pinned { flex-basis: 100%; } .spaces-switch { flex: 1 1 100%; } .spaces-row { padding: 14px; } .spaces-row .spaces-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .spaces-dialog .spaces-actions { display: grid; grid-template-columns: minmax(0, 1fr); } .spaces-dialog .spaces-actions .spaces-button { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .spaces-button { transition: none; } }
+
+/* The switcher remains reachable in every template and quote-only mode. */
+#dashboard #workspace-switcher { margin: 0; }
+:root[data-dashboard-template] body.dashboard-hidden #workspace-switcher { position: fixed; inset-block-start: 16px; inset-inline: 16px; width: auto; z-index: 50; }

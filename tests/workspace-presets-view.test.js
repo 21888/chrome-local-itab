@@ -6,7 +6,7 @@ function model() {
  const document=createDocument(),events=new Set();const appearance=document.createElement('div');appearance.id='options-appearance';document.body.append(appearance);
  const host=document.createElement('section');document.body.append(host);
  const fake={calls:0,writes:0,async prepare(template){this.calls++;return {template,before:{tasks:{enabled:false},focus:{enabled:false}}};},async apply(preview,isCurrent){if(!isCurrent())throw Object.assign(Error(),{code:'CANCELLED'});this.writes++;}};
- const window={LocalItabTemplates:templates,LocalItabWorkspace:{},appearanceController:{confirmed:{template:'studio'},pending:0},chrome:{storage:{onChanged:{addListener:fn=>events.add(fn),removeListener:fn=>events.delete(fn)}}},location:{reload(){window.reloads=(window.reloads||0)+1;}}};
+ const window={storageManager:{onLocalChanged(fn){events.add(fn);return()=>events.delete(fn);}},LocalItabTemplates:templates,LocalItabWorkspace:{},appearanceController:{confirmed:{template:'studio'},pending:0},chrome:{storage:{onChanged:{addListener:fn=>events.add(fn),removeListener:fn=>events.delete(fn)}}},location:{reload(){window.reloads=(window.reloads||0)+1;}}};
  vm.runInNewContext(fs.readFileSync('shared/workspace-presets-view.js','utf8'),{window});
  const view=window.LocalItabWorkspace.mount(host,{store:fake});window.workspacePresetsView=view;
  const [review,apply,cancel]=host.querySelectorAll('button');

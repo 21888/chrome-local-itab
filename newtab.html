@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="newtab.css">
     <link rel="stylesheet" href="context-menu.css">
     <link rel="stylesheet" href="appearance.css">
+    <link rel="stylesheet" href="workspaces.css">
     <link rel="stylesheet" href="update-checker.css">
     <link rel="stylesheet" href="dashboard-templates.css">
     <link rel="stylesheet" href="dashboard-template-gallery.css">
@@ -49,6 +50,7 @@
 
         <!-- 主内容区域 -->
         <div class="main-content-wrapper">
+            <section id="workspace-switcher" class="workspace-bar" aria-label="Workspace"></section>
             <header class="dashboard-header">
                 <div class="template-intro"><h1 id="template-heading"></h1><p id="template-description"></p></div>
                 <section id="clock-container" class="clock-section" aria-label="Current time and date">
@@ -110,6 +112,11 @@
     <script src="shared/dashboard-template-registry.js"></script>
     <script src="shared/world-clocks.js"></script>
     <script src="shared/month-calendar.js"></script>
+    <script src="shared/local-tasks-store.js"></script>
+    <script src="shared/local-focus-store.js"></script>
+    <script src="shared/local-scratchpad-store.js"></script>
+    <script src="shared/local-countdown-store.js"></script>
+    <script src="shared/workspaces.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="shared/update-checker.js"></script>
@@ -122,19 +129,16 @@
     <script src="shared/search-template.js"></script>
     <script src="shared/local-calculator.js"></script>
     <script src="shared/dialog-focus.js"></script>
-    <script src="shared/local-tasks-store.js"></script>
     <script src="shared/local-tasks-controller.js"></script>
     <script src="shared/local-tasks-view.js"></script>
-    <script src="shared/local-focus-store.js"></script>
     <script src="shared/local-focus-controller.js"></script>
     <script src="shared/local-focus-view.js"></script>
-    <script src="shared/local-scratchpad-store.js"></script>
     <script src="shared/local-scratchpad-controller.js"></script>
     <script src="shared/local-scratchpad-view.js"></script>
-    <script src="shared/local-countdown-store.js"></script>
     <script src="shared/local-countdown-controller.js"></script>
     <script src="shared/local-countdown-view.js"></script>
     <script src="shared/local-content-lifecycle.js"></script>
+    <script src="shared/workspaces-view.js"></script>
     <script src="shared/shortcut-finder.js"></script>
     <script src="shared/shortcut-finder-view.js"></script>
     <script src="shared/shortcut-finder-host.js"></script>

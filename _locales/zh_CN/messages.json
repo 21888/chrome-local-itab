@@ -600,7 +600,7 @@
     "appearanceSaved": {"message": "已保存"},
     "appearanceSaveFailed": {"message": "保存失败，请重试。"},
     "templateAppearance": {"message": "模版与明暗"},
-    "templateAppearanceDesc": {"message": "选择工作台模版与浅色或深色外观。即时保存，保留你的网站和布局。"},
+    "templateAppearanceDesc": {"message": "为此工作区选择视觉模板和明暗配色。更改会立即保存，不影响网站和布局。"},
     "templateBrandDescription": {"message": "让每次打开，都更从容"},
     "templateClarityDescription": {"message": "清晰侧栏与舒展的网站卡片。"},
     "templateGraphiteDescription": {"message": "紧凑导航与分组网站收藏。"},
@@ -707,21 +707,21 @@
     "focusInvalidMinutes": {
         "message": "请输入 1 到 180 之间的整数分钟。"
     },
-    "workspacePresetTitle": {"message": "推荐工作空间"},
+    "workspacePresetTitle": {"message": "推荐模块"},
     "workspacePresetHelp": {"message": "预览所选模板推荐的待办与专注计时器显示状态。仅切换视觉模板不会改变这些模块。"},
-    "workspacePresetReview": {"message": "预览推荐工作空间"},
+    "workspacePresetReview": {"message": "预览推荐模块"},
     "workspacePresetBoundary": {"message": "仅改变本设备上的显示状态。待办、历史副本、计时器时长与会话、网站、位置及外观均保持不变。隐藏正在运行的计时器仍会继续计时。设置备份与同步不包含这些模块。"},
-    "workspacePresetApply": {"message": "应用推荐工作空间"},
+    "workspacePresetApply": {"message": "应用推荐模块"},
     "workspacePresetCancel": {"message": "取消"},
     "workspacePresetConflict": {"message": "待办或计时器已发生变化，请重新预览后再应用。"},
     "workspacePresetCancelled": {"message": "预览已取消，请选择模板并重新预览。"},
     "workspacePresetError": {"message": "无法确认结果，部分显示设置可能已保存。请重新预览以查看当前状态；不会自动重试。"},
     "workspacePresetWait": {"message": "请等待模板保存完成，然后重新预览。"},
-    "workspacePresetFor": {"message": "工作空间推荐"},
+    "workspacePresetFor": {"message": "模板推荐模块"},
     "workspacePresetShown": {"message": "显示"},
     "workspacePresetHidden": {"message": "隐藏"},
     "workspacePresetReady": {"message": "请查看下方的显示状态变化，再选择应用或取消。"},
-    "workspacePresetSaved": {"message": "工作空间显示设置已保存到本设备。"},
+    "workspacePresetSaved": {"message": "已保存此工作区的模块显示设置。"},
   "shortcutMoveEarlier": {
     "message": "向前移动"
   },
@@ -821,7 +821,7 @@
     "message": "只替换所选模块，不进行合并；未选模块保持不变。请核对下方导入与当前数量。"
   },
   "completeBackupFocusWarning": {
-    "message": "仅迁移已保存的专注偏好。本机专注会话正在运行、暂停或中断时无法恢复。请取消勾选专注，或使用现有控件停止／重置计时器后重新预览。"
+    "message": "仅迁移已保存的专注偏好。受影响工作区中若有正在运行、暂停或中断的专注计时，会阻止恢复。请取消选择专注，或先停止／重置该计时器，然后重新预览。"
   },
   "completeBackupIncoming": {
     "message": "导入数据"
@@ -951,5 +951,176 @@
   },
   "completeBackupContinue": {
     "message": "继续检查大文件"
+  }
+,
+    "spacesTitle": {"message":"工作区"},
+    "spacesCurrent": {"message":"当前工作区"},
+    "spacesSwitch": {"message":"切换工作区"},
+    "spacesManage": {"message":"管理工作区"},
+    "spacesHelp": {"message":"在本设备上分别保存网站、布局、视觉模板、任务、笔记、倒计时和专注计时器。"},
+    "spacesPinned": {"message":"此标签页始终属于当前工作区。新标签页会打开你上次选择的工作区。"},
+    "spacesShared": {"message":"语言、隐私权限和云端账号共用。Chrome 同步与云盘备份仅作用于默认工作区。完整备份包含所有工作区及回收站。"},
+    "spacesCreate": {"message":"新建工作区"},
+    "spacesCreateTitle": {"message":"创建工作区"},
+    "spacesName": {"message":"工作区名称"},
+    "spacesNameHint": {"message":"1–80 个字符。名称可以相同；每个工作区都有独立标识。"},
+    "spacesCreateHelp": {"message":"从默认设置和空白个人模块开始。现有工作区保持不变。"},
+    "spacesRename": {"message":"重命名"},
+    "spacesRenameTitle": {"message":"重命名工作区"},
+    "spacesDuplicate": {"message":"复制"},
+    "spacesDuplicateTitle": {"message":"复制工作区"},
+    "spacesDuplicateHelp": {"message":"复制已保存的网站、布局、模板及个人内容，不包含未保存的草稿。复制后的专注计时器处于待开始状态，不会延续当前计时。"},
+    "spacesDelete": {"message":"移至回收站"},
+    "spacesDeleteTitle": {"message":"将工作区移至回收站？"},
+    "spacesDeleteHelp": {
+    "message": "已保存的内容会保留在回收站中，可随时还原。已打开的标签页将无法再保存到已删除的工作区。离开这些标签页前，请复制或导出未保存的草稿。运行中的专注计时器会在删除时暂停；还原时不会自动开始。"
+  },
+    "spacesDefault": {"message":"默认"},
+    "spacesDefaultHelp": {"message":"默认工作区保留现有设置并兼容云端功能，无法删除。"},
+    "spacesActive": {"message":"在此标签页打开"},
+    "spacesLoaded": {"message":"此标签页"},
+    "spacesLastUsed": {"message":"新标签页"},
+    "spacesTrash": {"message":"回收站"},
+    "spacesTrashHelp": {
+    "message": "在此还原已保存的内容。专注计时器会保留已保存的暂停、待开始、完成或中断状态。还原后，旧标签页仍无法保存；请重新打开工作区以开始新的会话。"
+  },
+    "spacesEmptyTrash": {"message":"回收站中没有工作区。"},
+    "spacesRestore": {"message":"还原"},
+    "spacesCancel": {"message":"取消"},
+    "spacesClose": {"message":"关闭"},
+    "spacesStay": {"message":"留在这里"},
+    "spacesSaving": {"message":"正在保存…"},
+    "spacesLoading": {"message":"正在加载工作区…"},
+    "spacesWaiting": {"message":"正在等待当前操作完成…"},
+    "spacesSwitching": {"message":"正在打开工作区…"},
+    "spacesCreated": {"message":"工作区已创建。准备好后即可打开。"},
+    "spacesRenamed": {"message":"工作区已重命名。"},
+    "spacesDuplicated": {"message":"已复制保存的内容，可以打开副本了。"},
+    "spacesDeleted": {"message":"工作区已移至回收站。可在下方还原已保存的内容。"},
+    "spacesRestored": {"message":"工作区已还原。重新打开后即可开始使用。"},
+    "spacesError": {"message":"无法确认操作结果。重试前请查看当前列表。你的草稿仍保留在这里。"},
+    "spacesLoadError": {"message":"无法加载工作区。当前页面保持不变。"},
+    "spacesRetry": {"message":"刷新列表"},
+    "spacesNameError": {"message":"请输入 1–80 个字符的工作区名称。"},
+    "spacesDraftTitle": {"message":"切换工作区之前"},
+    "spacesDraftHelp": {"message":"此页面有未保存的草稿或待确认的预览。可以保存支持直接保存的编辑、回到原编辑器完成操作，或明确放弃草稿。离开页面时不会尝试自动保存。"},
+    "spacesSaveSwitch": {"message":"保存并切换"},
+    "spacesDiscardSwitch": {"message":"放弃草稿并切换"},
+    "spacesSaveIncomplete": {"message":"部分编辑需要在原编辑器中处理。请留在这里完成或导出，或选择“放弃草稿并切换”。"},
+    "spacesSaveFailed": {"message":"未能保存全部草稿。页面和草稿仍保留在这里。请留在这里查看错误。"},
+    "spacesInvalid": {"message":"此工作区已在其他页面删除或替换，此标签页无法继续保存。重新打开工作区前，请复制或导出草稿。还原工作区不会使旧标签页重新获得保存权限。"},
+    "spacesExportDrafts": {"message":"导出页面文字"},
+    "spacesExportHelp": {"message":"下载本页面的可编辑文字，包括未保存的表单内容。请妥善保管；这是文字副本，不是可还原的备份。"},
+    "spacesExportRequested": {"message":"已请求下载文字副本。离开此页面前，请检查下载是否完成。"},
+    "spacesExportFailed": {"message":"无法导出页面文字。离开前请手动复制需要的内容。"},
+    "spacesWaitFailed": {"message":"仍有操作正在进行。请留在这里，待操作完成后再次切换。"},
+    "spacesOpen": {"message":"打开"},
+    "spacesAvailable": {"message":"可用工作区"},
+    "spacesSavedOnly": {"message":"这里的操作仅处理已保存的内容。打开的草稿保留在原标签页。"},
+    "spacesProviderDefault": {"message":"云端备份仅用于默认工作区。请打开默认工作区的设置以管理或还原云端备份。"}
+,
+    "spacesResetConfirm": {"message": "将此工作区的网站、布局和设置恢复默认？任务、笔记、倒计时、专注计时器以及共用的隐私和云端偏好会保留。此操作无法撤销；如需保留副本，请先导出备份。"},
+    "spacesResetScope": {"message": "恢复默认仅影响此工作区的设置。个人模块及共用的设备偏好会保留。"},
+  "completeBackupWorkspaceHelp": {
+    "message": "导出包含所有现有工作区及回收站中可恢复的工作区。不包含设备隐私、同步服务设置、凭据和更新偏好。"
+  },
+  "completeBackupTarget": {
+    "message": "此旧版单工作区备份的目标工作区"
+  },
+  "completeBackupChooseTarget": {
+    "message": "请选择目标工作区"
+  },
+  "completeBackupTargetRequired": {
+    "message": "请选择要替换的工作区并重新核对。其他工作区会保留。"
+  },
+  "completeBackupSingleScope": {
+    "message": "仅替换此目标工作区中已选择的模块："
+  },
+  "completeBackupAllScope": {
+    "message": "这将以备份替换现有工作区列表及回收站。文件中没有的工作区将从当前列表中移除。操作前会保存完整恢复副本。"
+  },
+  "completeBackupMatchingScope": {
+    "message": "已选择的模块会在所有匹配的工作区（包括回收站）中替换。工作区名称、顺序和现有／回收站状态保持不变。"
+  },
+  "completeBackupWorkspaceNames": {
+    "message": "备份中的工作区"
+  },
+  "completeBackupCurrentWorkspaces": {
+    "message": "当前保存的工作区"
+  },
+  "completeBackupTrashCount": {
+    "message": "回收站中可恢复的工作区"
+  },
+  "completeBackupTopology": {
+    "message": "工作区列表不匹配。请导出所有模块后进行完整工作区恢复；此部分备份不能新增、移除或恢复工作区。"
+  },
+  "completeBackupSyncSafety": {
+    "message": "如果已启用 Chrome 同步，恢复默认工作区的配置会将其暂停，直到你另行核对。即使工作区替换尚未完成，中断的操作也可能使同步保持暂停。"
+  },
+  "spacesClockChanged": {
+    "message": "设备时钟已向后调整。此工作区尚未移至回收站，请先检查其专注计时器再重试。"
+  },
+  "spacesLegacyReview": {
+    "message": "查看恢复方案"
+  },
+  "spacesLegacyReviewTitle": {
+    "message": "查看两份已保存的副本"
+  },
+  "spacesLegacyKeep": {
+    "message": "保留当前工作区并另存旧标签页副本"
+  },
+  "spacesLegacyReviewHelp": {
+    "message": "继续前请关闭所有较旧的 Local iTab 标签页。此操作会继续使用当前工作区，并单独保留旧标签页的副本，不会合并或删除任何一份数据。"
+  },
+  "spacesLegacyCurrent": {
+    "message": "当前工作区"
+  },
+  "spacesLegacyOlder": {
+    "message": "旧标签页副本"
+  },
+  "spacesLegacyDetected": {
+    "message": "发现冲突的时间"
+  },
+  "spacesLegacySites": {
+    "message": "网站"
+  },
+  "spacesLegacyTasks": {
+    "message": "任务"
+  },
+  "spacesLegacyNotes": {
+    "message": "便签字符数"
+  },
+  "spacesLegacySpaces": {
+    "message": "工作区"
+  },
+  "spacesLegacyTrash": {
+    "message": "回收站内"
+  },
+  "spacesLegacyChanged": {
+    "message": "查看期间已保存的数据发生变化。选择恢复操作前，请重新查看。"
+  },
+  "spacesLegacyReviewAgain": {
+    "message": "重新查看"
+  },
+  "spacesLegacyResolved": {
+    "message": "已保留当前工作区，并另存旧标签页副本。此旧页面仍无法保存。请复制或导出草稿，再明确重新打开工作区。"
+  },
+  "spacesLegacyConflict": {
+    "message": "较旧的 Local iTab 标签页向旧存储格式写入了数据。请关闭旧标签页。两份已保存的数据均已保留，在检查冲突前将暂停保存。选择恢复方案前，请先下载两份副本。"
+  },
+  "spacesLegacyDownload": {
+    "message": "下载两份已保存的副本"
+  },
+  "spacesLegacyRequested": {
+    "message": "已请求下载恢复文件，其中包含两份已保存的工作区数据，不含账号凭据或云端服务设置。进行恢复操作前，请确认文件已下载。"
+  },
+  "spacesLegacyExportFailed": {
+    "message": "无法导出两份已保存的副本。它们仍保留在本设备上。请保留此页面，关闭旧标签页后重试。"
+  },
+  "spacesProviderScope": {
+    "message": "Chrome 同步与 Google 云盘仅管理默认工作区。其他工作区使用完整本地备份，不受这些云端操作影响。"
+  },
+  "spacesOpenDefault": {
+    "message": "打开默认工作区"
   }
 }

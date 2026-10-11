@@ -67,7 +67,7 @@ function harness(locale = 'en', compact = false, hash = '') {
 }
 for (const locale of ['en', 'zh_CN']) for (const compact of [false, true]) {
     const h = harness(locale, compact);
-    assert.equal(h.entries.length, 18); assert.equal(new Set(h.entries.map(entry => entry.tab)).size, 6);
+    assert.equal(h.entries.length, 19); assert.equal(new Set(h.entries.map(entry => entry.tab)).size, 7);
     assert(h.results.hidden); assert(h.clear.disabled); assert.equal(h.status.textContent, '');
     const snapshots = new Map(h.entries.map(entry => [entry.target, h.nodes[entry.target]]));
     for (const entry of h.entries) {
@@ -143,12 +143,12 @@ for (const token of ['--glass-bg', '--glass-border', '--text-primary', '--text-m
 assert(css.includes('.settings-search-results[hidden]')); assert(css.includes('.settings-search-controls { align-items: stretch; flex-direction: column; }'));
 assert(!/localStorage|sessionStorage|fetch\(|chrome\.storage|console\.|\.innerHTML|\.value\s*=.*entry/.test(searchSource));
 assert(fs.readFileSync('tools/package_extension.py', 'utf8').includes('"shared/settings-search.js"'));
-console.log('PASS Settings search: static translated labels, all six tabs/18 destinations in en/zh, normalization, hidden panels, IME/modifier/repeat guards, no Enter-in-input, safe focus, conditional/stale targets, draft identity, private sentinels, zero writes/remounts, theme/narrow integration. Native layout and key synthesis not modeled.');
+console.log('PASS Settings search: static translated labels, all seven tabs/19 destinations in en/zh, normalization, hidden panels, IME/modifier/repeat guards, no Enter-in-input, safe focus, conditional/stale targets, draft identity, private sentinels, zero writes/remounts, theme/narrow integration. Native layout and key synthesis not modeled.');
 
 // The new export action is a static label in the existing Data destination.
 for (const locale of ['en', 'zh_CN']) {
     const h = harness(locale);
-    assert.equal(h.entries.length, 18);
+    assert.equal(h.entries.length, 19);
     const label = locales[locale].bookmarkExportButton.message;
     assert(h.api.find(label).some(entry => entry.target === 'data-settings'));
 }

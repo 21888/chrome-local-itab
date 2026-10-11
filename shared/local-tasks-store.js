@@ -123,7 +123,8 @@
         next.receipts = [...next.receipts, operationId].slice(-128);
         return validate(next);
     }
-    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks) {
+    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks, workspace = globalThis.LocalItabWorkspaces?.session) {
+        if (workspace) return workspace.createBackend(KEY);
         check(chromeApi?.storage?.local && locks?.request, 'UNAVAILABLE');
         return {
             lock: action => locks.request(LOCK, { mode: 'exclusive' }, action),
@@ -147,7 +148,7 @@
         }
         async readRaw() {
             let raw;
-            try { raw = await this.backend.read(); } catch (_) { throw fault('READ'); }
+            try { raw = await this.backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
             return raw === undefined ? initial() : clone(validate(raw));
         }
         read() { return this.backend.lock(() => this.readRaw()); }

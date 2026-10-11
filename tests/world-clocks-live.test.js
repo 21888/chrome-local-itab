@@ -89,6 +89,7 @@ function liveHarness(showClock = true) {
         if (delayed) return new Promise(resolve => reads.push({resolve, snapshot}));
         return Promise.resolve(snapshot);
     }}};
+    h.context.storageManager = {local:h.context.chrome.storage.local,onLocalChanged(fn){listeners.push(fn);return()=>{};}};
     if (showClock) { h.context.existingClock = h.clock; vm.runInContext('clockComponentInstance = existingClock;', h.context); h.clock.start(); }
     h.refresh = h.context.setupClockPreferenceListener(clone(raw));
     return Object.assign(h, {listeners, reads,

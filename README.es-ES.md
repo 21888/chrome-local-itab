@@ -14,6 +14,22 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
+### Capturas actuales · validación previa a 1.1.22
+
+Capturadas en Chrome nativo de Linux el 2026-10-10 con datos de prueba. La versión fotografiada es 1.1.21 más la función de espacios independientes; la publicación 1.1.22 solo cambia el número de versión. Son imágenes originales, no capturas realizadas tras la publicación.
+
+![Folio claro con selector de espacio](docs/qa/workspaces-native/screenshots/05-folio-workspace-bar.jpg)
+![Gestión de espacios y papelera](docs/qa/workspaces-native/screenshots/15-workspace-manager-light.jpg)
+![Panel oscuro](docs/qa/workspaces-native/screenshots/16-workspace-dashboard-dark.jpg)
+
+<details><summary>Ventana estrecha y foco de teclado</summary>
+
+![Selector oscuro en ventana nativa de 510 píxeles](docs/qa/workspaces-native/screenshots/18-workspace-picker-dark-narrow.jpg)
+
+</details>
+
+[Verificación y límites](docs/workspaces-native-validation.md) · [Origen de las capturas](docs/qa/workspaces-native/captures.json)
+
 ### Capturas de la versión publicada · 1.1.14
 
 Capturadas el 2026-10-10 con el paquete publicado 1.1.14 en un perfil aislado de Chrome. Estas dos capturas originales a pantalla completa usan la interfaz en inglés, sin recortar, redimensionar ni redibujar. Los cinco sitios de ejemplo se añadieron con Create Starter Set. Las comprobaciones automáticas, los iconos en línea y la sincronización permanecieron desactivados; no se inició sesión.
@@ -303,6 +319,12 @@ Tarjeta real de cuenta atrás en modo claro y oscuro, con controles en inglés:
 </details>
 
 ## Apariencia y espacios de trabajo
+
+### Espacios independientes
+
+Separa sitios, categorías, diseño, apariencia, tareas, notas, cuenta atrás y estado del temporizador. Puedes crear, renombrar, duplicar y recuperar espacios desde la papelera. Las pestañas abiertas mantienen su espacio y los borradores requieren una decisión antes de cambiar. La migración conserva los datos originales en Default; las copias completas incluyen espacios activos y eliminados. Chrome Sync y Drive mantienen su alcance original de configuración de Default. No son cuentas ni barreras de seguridad. [Guía de uso y recuperación en inglés](docs/workspaces.en.md).
+
+Las recomendaciones siguientes solo ajustan la visibilidad de módulos y son distintas de los espacios con datos independientes.
 
 ### Espacios de trabajo recomendados
 

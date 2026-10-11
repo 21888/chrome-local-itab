@@ -1,0 +1,14 @@
+lab
+Downloads editable text from this page, including unsaved form values. Keep this private; it is a text copy, not a restorable backup.
+
+Add a task
+lab draft retained after trash
+
+INPUT
+23
+
+Scratchpad text
+lab saved note
+
+Latest saved text
+lab saved note

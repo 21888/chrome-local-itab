@@ -25,7 +25,7 @@ test('saved module export requests download without asserting completion; no aut
     const m=model();m.get('export').dispatch('click');await flush();assert.equal(m.calls.exports.length,1);assert.equal(m.calls.downloads.length,1);assert.match(m.get('status').textContent,/Download requested.*completion cannot be verified/);assert.equal(m.calls.restores.length,0);assert(!m.calls.reloads);
 });
 test('preview shows selected module counts and destructive Focus consequence before one explicit apply',async()=>{
-    const m=model();m.select();await flush();assert.equal(m.calls.restores.length,0);assert.equal(m.get('preview').hidden,false);assert.match(m.get('warning').textContent,/blocked while this device has a running, paused or interrupted/);assert(m.host.querySelectorAll('li').some(li=>li.children.some(n=>n.textContent?.includes('Saved history copies: 4'))));
+    const m=model();m.select();await flush();assert.equal(m.calls.restores.length,0);assert.equal(m.get('preview').hidden,false);assert.match(m.get('warning').textContent,/blocked while an affected workspace has a running, paused or interrupted/);assert(m.host.querySelectorAll('li').some(li=>li.children.some(n=>n.textContent?.includes('Saved history copies: 4'))));
     m.get('apply').dispatch('click');m.get('apply').dispatch('click');await flush();assert.equal(m.calls.restores.length,1);assert.match(m.get('status').textContent,/restored and verified/);assert(!m.calls.reloads);m.get('reload').dispatch('click');assert.equal(m.calls.reloads,1);
 });
 test('module changes invalidate prior preview and remove Focus warning when deselected',async()=>{
@@ -67,4 +67,21 @@ test('Escape cancels the large-file prompt before read',async()=>{
 });
 test('recovery download retains an existing review and reports unavailable recovery honestly',async()=>{
     const m=model();m.select();await flush();m.get('recovery').dispatch('click');await flush();assert(!m.get('preview').hidden);assert(!m.get('apply').disabled);assert.equal(m.calls.downloads[0][0],'RECOVERY');m.store.recovery=async()=>{throw {code:'INVALID'};};m.get('recovery').dispatch('click');await flush();assert.match(m.get('status').textContent,/No valid pre-restore recovery copy/);assert(!m.get('preview').hidden);
+});
+
+test('older single-workspace files require a deliberate destination selection before apply',async()=>{
+    const m=model();m.store.review=async(text,selected=modules,options={})=>{m.calls.reviews.push([text,selected,options]);return {schemaVersion:1,modules,selected,incoming:{},current:{},requiresTarget:!options.targetWorkspaceId,destinations:[{id:'default',name:'Default'},{id:'work',name:'Work'}],targetWorkspace:options.targetWorkspaceId?{id:options.targetWorkspaceId,name:'Work'}:null};};
+    m.select('legacy');await flush();assert(!m.get('destination').hidden);assert.equal(m.get('target').value,'');assert(m.get('apply').disabled);assert.match(m.get('status').textContent,/Choose the workspace/);assert.equal(m.calls.restores.length,0);
+    m.get('target').value='work';m.get('target').dispatch('change');assert(m.get('apply').disabled);await flush();assert.equal(m.calls.reviews[1][2].targetWorkspaceId,'work');assert(!m.get('apply').disabled);assert.match(m.get('preview').children.find(el=>el.tagName==='P').textContent,/Work/);m.get('apply').dispatch('click');await flush();assert.equal(m.calls.restores.length,1);assert.equal(m.calls.restores[0].targetWorkspace.id,'work');
+});
+test('changing a legacy destination invalidates the previous ticket and cancel forgets destination',async()=>{
+    const m=model();m.store.review=async(text,selected=modules,options={})=>{m.calls.reviews.push([text,selected,options]);return {schemaVersion:1,modules,selected,incoming:{},current:{},requiresTarget:!options.targetWorkspaceId,destinations:[{id:'default',name:'Default'},{id:'work',name:'Work'}],targetWorkspace:options.targetWorkspaceId?{id:options.targetWorkspaceId,name:options.targetWorkspaceId}:null};};
+    m.select('legacy');await flush();m.get('target').value='work';m.get('target').dispatch('change');await flush();m.get('target').value='default';m.get('target').dispatch('change');assert(m.get('apply').disabled);await flush();assert.equal(m.calls.reviews.at(-1)[2].targetWorkspaceId,'default');m.get('cancel').dispatch('click');m.select('next');await flush();assert.equal(m.get('target').value,'');assert(m.get('apply').disabled);assert.equal(m.calls.reviews.at(-1)[2].targetWorkspaceId,undefined);
+});
+test('v2 full registry scope explicitly lists live names, Trash counts and destructive replacement',async()=>{
+    const m=model(),real=m.store.review;m.store.review=async(...args)=>({...await real(...args),schemaVersion:2,workspaces:{incoming:[{id:'default',name:'Default'},{id:'work',name:'Work'}],current:[{id:'default',name:'Default'}],incomingTrashCount:3,currentTrashCount:1,scope:'all'}});
+    m.select('v2');await flush();assert(m.get('destination').hidden);assert(!m.get('workspaces').hidden);assert.match(m.get('workspaces').textContent,/Default, Work/);assert.match(m.get('workspaces').textContent,/Trash: 3/);assert.match(m.get('preview').children.find(el=>el.tagName==='P').textContent,/replaces the live workspace list and Trash/);
+});
+test('partial topology mismatch explains how to obtain a compatible full archive without enabling apply',async()=>{
+    const m=model();m.store.review=async()=>{throw {code:'TOPOLOGY'};};m.select('partial');await flush();assert(m.get('apply').disabled);assert.match(m.get('status').textContent,/Export all modules/);assert.equal(m.calls.restores.length,0);
 });

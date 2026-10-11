@@ -127,14 +127,19 @@ test('source Import action suppresses held and composing keys before native clic
     }
     await flush(); assert.equal(h.calls.length, 0);
 });
-test('normal Settings button still uses the original options-page entrypoint', async () => {
+test('normal Settings button opens a Settings URL pinned to the loaded workspace', async () => {
     const document = createDocument(), listeners = [];
     document.addEventListener = (type, fn) => { if (type === 'DOMContentLoaded') listeners.push(fn); };
     const settings = document.createElement('button'); settings.id = 'open-options'; document.body.append(settings);
     let options = 0;
     const context = {document, window: {addEventListener() {}}, chrome: {runtime: {openOptionsPage() { options++; }}},
         console: {log() {}, error() {}}, URL, setTimeout() {}};
-    vm.createContext(context); vm.runInContext(fs.readFileSync('newtab.js', 'utf8'), context);
+    context.window.document = document; context.window.chrome = context.chrome;
+    context.chrome.runtime.getURL = path => 'chrome-extension://unit/' + path;
+    context.window.LocalItabWorkspaces = {session:{id:'work'}};
+    context.window.open = (url, target, features) => { assert.equal(url, 'chrome-extension://unit/options.html?workspace=work'); assert.equal(target,'_blank'); assert.equal(features,'noopener'); options++; };
+    vm.createContext(context); vm.runInContext(fs.readFileSync('shared/workspaces-view.js', 'utf8'), context);
+    vm.runInContext(fs.readFileSync('newtab.js', 'utf8'), context);
     context.initializeDashboard = async () => ({});
     for (const name of ['setupDashboardVisibilityToggle', 'setupThemeChangeListener', 'setupClockPreferenceListener', 'setupDashboardAppearance', 'setupCloudSyncChangeListener', 'setupPerformanceGuards', 'setupExtremeCompactMode']) context[name] = () => {};
     context.showErrorMessage = message => assert.fail(message);
@@ -152,7 +157,7 @@ function settings(hash = '#import-settings-btn', compact = false) {
         assert(html.includes(`id="tab-${name}" data-tab="${name}" role="tabpanel"`));
         const panel = document.createElement('div'); panel.className = 'tab-panel'; panel.id = `tab-${name}`; panel.dataset.tab = name; content.append(panel); panels[name] = panel;
     }
-    assert.equal(tabs.length, 6);
+    assert.equal(tabs.length, 7);
     assert.match(html, /id="tab-data"[\s\S]*id="data-settings"[\s\S]*id="import-settings"[\s\S]*<button id="import-settings-btn"/);
     const section = document.createElement('section'); section.id = 'data-settings'; panels.data.append(section);
     const button = document.createElement('button'); button.id = 'import-settings-btn'; section.append(button);

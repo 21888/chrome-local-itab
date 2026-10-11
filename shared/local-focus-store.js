@@ -37,7 +37,8 @@
         }
         return result;
     }
-    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks) {
+    function createChromeBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks, workspace = globalThis.LocalItabWorkspaces?.session) {
+        if (workspace) return workspace.createBackend(KEY);
         check(chromeApi?.storage?.local && locks?.request, 'UNAVAILABLE');
         return {
             lock: fn => locks.request(LOCK, { mode: 'exclusive' }, fn),
@@ -49,7 +50,7 @@
     }
     class Store {
         constructor(backend = createChromeBackend(), { now = () => Date.now(), id = () => crypto.randomUUID() } = {}) { this.backend = backend; this.now = now; this.id = id; }
-        async raw() { let value; try { value = await this.backend.read(); } catch (_) { throw fault('READ'); }
+        async raw() { let value; try { value = await this.backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
             return value === undefined ? initial() : clone(validate(value)); }
         read() { return this.backend.lock(() => this.raw()); }
         subscribe(fn) { return this.backend.subscribe(fn); }

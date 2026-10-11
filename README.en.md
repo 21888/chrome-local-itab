@@ -14,6 +14,22 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
+### Current workspace screenshots · pre-release 1.1.22 acceptance
+
+Captured in native cloud Linux Chrome on 2026-10-10 with disposable synthetic data. The frozen runtime is 1.1.21 plus the complete workspace feature; the 1.1.22 release changes only its version number. These original screenshots are not represented as post-release captures.
+
+![Light Folio dashboard with workspace navigation](docs/qa/workspaces-native/screenshots/05-folio-workspace-bar.jpg)
+![Light workspace manager and Trash](docs/qa/workspaces-native/screenshots/15-workspace-manager-light.jpg)
+![Dark workspace dashboard](docs/qa/workspaces-native/screenshots/16-workspace-dashboard-dark.jpg)
+
+<details><summary>Narrow window and keyboard focus</summary>
+
+![Dark workspace picker in a 510-pixel native window](docs/qa/workspaces-native/screenshots/18-workspace-picker-dark-narrow.jpg)
+
+</details>
+
+[Verified scope and limitations](docs/workspaces-native-validation.md) · [Capture provenance](docs/qa/workspaces-native/captures.json)
+
 ### Release captures · 1.1.14
 
 Captured on 2026-10-10 from the published 1.1.14 runtime in an isolated Chrome profile. These two original fullscreen captures use the English interface, with no cropping, resizing or redrawing. The five sample sites came from Create Starter Set. Automatic update checks, online icons and sync stayed off by default; no account was signed in.
@@ -301,6 +317,12 @@ Actual Countdown card in light and dark appearance, with English controls:
 </details>
 
 ## Appearance and workspaces
+
+### Independent workspaces
+
+Keep sites, categories, layouts, appearance, Tasks, Scratchpad, Countdown and Focus state separate for work, study or personal use. Create, rename, duplicate and recover spaces from Trash. Existing tabs stay pinned; switching handles drafts explicitly. Migration preserves original data in Default, and complete archives include live and trashed spaces. Chrome Sync / Drive retain their original Default-only configuration scope. These are not account or security boundaries. [Usage and recovery guide](docs/workspaces.en.md).
+
+The recommendations below only choose module visibility; they are separate from independent data workspaces.
 
 ### Recommended workspaces
 

@@ -600,7 +600,7 @@
     "appearanceSaved": {"message": "Saved"},
     "appearanceSaveFailed": {"message": "Could not save. Please try again."},
     "templateAppearance": {"message": "Template & appearance"},
-    "templateAppearanceDesc": {"message": "Choose a workspace and light or dark colors. Saves immediately; your sites and layout stay unchanged."},
+    "templateAppearanceDesc": {"message": "Choose a visual template and light or dark colors for this workspace. Saves immediately; your sites and layout stay unchanged."},
     "templateBrandDescription": {"message": "Your local start page"},
     "templateClarityDescription": {"message": "A clear sidebar and spacious shortcut tiles."},
     "templateGraphiteDescription": {"message": "A compact rail and grouped collections."},
@@ -675,7 +675,7 @@
         "message": "How timing works"
     },
     "focusHelp": {
-        "message": "This device shares one timer across its new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it."
+        "message": "Each workspace shares one timer across its own new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it."
     },
     "focusEnable": {
         "message": "Show Focus timer on the new tab page"
@@ -707,21 +707,21 @@
     "focusInvalidMinutes": {
         "message": "Enter whole minutes from 1 to 180."
     },
-    "workspacePresetTitle": {"message": "Recommended workspace"},
+    "workspacePresetTitle": {"message": "Recommended modules"},
     "workspacePresetHelp": {"message": "Preview Tasks and Focus timer visibility for the selected template. Applying a visual template alone never changes these modules."},
-    "workspacePresetReview": {"message": "Preview recommended workspace"},
+    "workspacePresetReview": {"message": "Preview recommended modules"},
     "workspacePresetBoundary": {"message": "Only visibility changes on this device. Tasks, previous copies, timer duration and session, sites, positions and appearance stay unchanged. A hidden running timer keeps counting. Settings backups and Sync do not carry these modules."},
-    "workspacePresetApply": {"message": "Apply recommended workspace"},
+    "workspacePresetApply": {"message": "Apply recommended modules"},
     "workspacePresetCancel": {"message": "Cancel"},
     "workspacePresetConflict": {"message": "Tasks or timer changed. Preview again before applying."},
     "workspacePresetCancelled": {"message": "Preview cancelled. Choose the template and preview again."},
     "workspacePresetError": {"message": "Could not confirm the result. Some visibility changes may have saved. Preview again to check the current state; nothing will be retried automatically."},
     "workspacePresetWait": {"message": "Wait for the template to finish saving, then preview again."},
-    "workspacePresetFor": {"message": "Workspace for"},
+    "workspacePresetFor": {"message": "Modules for"},
     "workspacePresetShown": {"message": "Shown"},
     "workspacePresetHidden": {"message": "Hidden"},
     "workspacePresetReady": {"message": "Review the visibility changes below, then apply or cancel."},
-    "workspacePresetSaved": {"message": "Workspace visibility saved on this device."},
+    "workspacePresetSaved": {"message": "Module visibility saved in this workspace."},
   "shortcutMoveEarlier": {
     "message": "Move earlier"
   },
@@ -821,7 +821,7 @@
     "message": "Only selected modules will be replaced, not merged. Unselected modules stay unchanged. Review the incoming and current counts below."
   },
   "completeBackupFocusWarning": {
-    "message": "Only saved Focus preferences migrate. Restoration is blocked while this device has a running, paused or interrupted Focus session. Deselect Focus, or stop/reset the timer using its existing controls and preview again."
+    "message": "Only saved Focus preferences migrate. Restoration is blocked while an affected workspace has a running, paused or interrupted Focus session. Deselect Focus, or stop/reset that timer and preview again."
   },
   "completeBackupIncoming": {
     "message": "Incoming"
@@ -951,5 +951,176 @@
   },
   "completeBackupContinue": {
     "message": "Continue checking large file"
+  }
+,
+    "spacesTitle": {"message":"Workspaces"},
+    "spacesCurrent": {"message":"Current workspace"},
+    "spacesSwitch": {"message":"Switch workspace"},
+    "spacesManage": {"message":"Manage workspaces"},
+    "spacesHelp": {"message":"Keep separate sites, layout, visual template, tasks, notes, countdown and Focus timer on this device."},
+    "spacesPinned": {"message":"This tab stays in its workspace. New tabs open the last workspace you choose."},
+    "spacesShared": {"message":"Language, privacy permissions and cloud accounts are shared. Chrome Sync and Drive apply to Default only. Complete backups include every workspace and Trash."},
+    "spacesCreate": {"message":"New workspace"},
+    "spacesCreateTitle": {"message":"Create a workspace"},
+    "spacesName": {"message":"Workspace name"},
+    "spacesNameHint": {"message":"1–80 characters. Names can repeat; each workspace has its own identity."},
+    "spacesCreateHelp": {"message":"Starts with default settings and empty personal modules. Your existing workspaces stay unchanged."},
+    "spacesRename": {"message":"Rename"},
+    "spacesRenameTitle": {"message":"Rename workspace"},
+    "spacesDuplicate": {"message":"Duplicate"},
+    "spacesDuplicateTitle": {"message":"Duplicate workspace"},
+    "spacesDuplicateHelp": {"message":"Copies saved sites, layout, template and personal content. Unsaved drafts are not copied. A copied Focus timer starts ready, with no active session."},
+    "spacesDelete": {"message":"Move to Trash"},
+    "spacesDeleteTitle": {"message":"Move workspace to Trash?"},
+    "spacesDeleteHelp": {
+    "message": "Saved content is kept in Trash until you restore it. Open tabs cannot save to a deleted workspace. Copy or export unsaved drafts before leaving those tabs. A running Focus timer is paused at deletion; restoring never starts it automatically."
+  },
+    "spacesDefault": {"message":"Default"},
+    "spacesDefaultHelp": {"message":"Default keeps existing settings and cloud compatibility and cannot be deleted."},
+    "spacesActive": {"message":"Open in this tab"},
+    "spacesLoaded": {"message":"This tab"},
+    "spacesLastUsed": {"message":"New tabs"},
+    "spacesTrash": {"message":"Trash"},
+    "spacesTrashHelp": {
+    "message": "Restore saved content here. Focus keeps its saved paused, ready, completed or interrupted state. Old open tabs stay unable to save after restoration; reopen the workspace to start a fresh session."
+  },
+    "spacesEmptyTrash": {"message":"No workspaces in Trash."},
+    "spacesRestore": {"message":"Restore"},
+    "spacesCancel": {"message":"Cancel"},
+    "spacesClose": {"message":"Close"},
+    "spacesStay": {"message":"Stay here"},
+    "spacesSaving": {"message":"Saving…"},
+    "spacesLoading": {"message":"Loading workspaces…"},
+    "spacesWaiting": {"message":"Waiting for current actions to finish…"},
+    "spacesSwitching": {"message":"Opening workspace…"},
+    "spacesCreated": {"message":"Workspace created. Open it when you are ready."},
+    "spacesRenamed": {"message":"Workspace renamed."},
+    "spacesDuplicated": {"message":"Saved content duplicated. The copy is ready to open."},
+    "spacesDeleted": {"message":"Workspace moved to Trash. Saved content can be restored below."},
+    "spacesRestored": {"message":"Workspace restored. Open it to use a fresh session."},
+    "spacesError": {"message":"Could not confirm the action. Check the current list before trying again. Your draft is still here."},
+    "spacesLoadError": {"message":"Could not load workspaces. Your current page is unchanged."},
+    "spacesRetry": {"message":"Refresh list"},
+    "spacesNameError": {"message":"Enter a workspace name with 1–80 characters."},
+    "spacesDraftTitle": {"message":"Before changing workspaces"},
+    "spacesDraftHelp": {"message":"This page has unsaved drafts or open reviews. Save supported edits, finish the open editor, or explicitly discard them. Nothing is saved during unload."},
+    "spacesSaveSwitch": {"message":"Save and switch"},
+    "spacesDiscardSwitch": {"message":"Discard drafts and switch"},
+    "spacesSaveIncomplete": {"message":"Some edits need attention in their original editor. Stay here to finish or export them, or choose Discard drafts and switch."},
+    "spacesSaveFailed": {"message":"Could not save every draft. This page and its drafts are still here. Stay here to review the error."},
+    "spacesInvalid": {"message":"This workspace was deleted or replaced elsewhere. This page can no longer save. Copy or export your drafts before reopening a workspace. Restoring a workspace does not reconnect this old tab."},
+    "spacesExportDrafts": {"message":"Export page text"},
+    "spacesExportHelp": {"message":"Downloads editable text from this page, including unsaved form values. Keep this private; it is a text copy, not a restorable backup."},
+    "spacesExportRequested": {"message":"Text download requested. Check your downloads before leaving this page."},
+    "spacesExportFailed": {"message":"Could not export page text. Copy the fields you need before leaving."},
+    "spacesWaitFailed": {"message":"An action is still running. Stay here and try switching again when it finishes."},
+    "spacesOpen": {"message":"Open"},
+    "spacesAvailable": {"message":"Available workspaces"},
+    "spacesSavedOnly": {"message":"Operations here use saved content. Open drafts stay in their original tabs."},
+    "spacesProviderDefault": {"message":"Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups."}
+,
+    "spacesResetConfirm": {"message": "Reset this workspace’s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy."},
+    "spacesResetScope": {"message": "Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept."},
+  "completeBackupWorkspaceHelp": {
+    "message": "Exports include every live workspace and recoverable workspace in Trash. Device privacy, provider settings, credentials and update preferences are excluded."
+  },
+  "completeBackupTarget": {
+    "message": "Destination for this older single-workspace backup"
+  },
+  "completeBackupChooseTarget": {
+    "message": "Choose a destination workspace"
+  },
+  "completeBackupTargetRequired": {
+    "message": "Choose the workspace to replace, then review again. Other workspaces will be preserved."
+  },
+  "completeBackupSingleScope": {
+    "message": "Only selected modules in this destination will be replaced:"
+  },
+  "completeBackupAllScope": {
+    "message": "This replaces the live workspace list and Trash with the backup. Workspaces absent from the file will leave the current list. A complete recovery copy is saved first."
+  },
+  "completeBackupMatchingScope": {
+    "message": "Selected modules are replaced across every matching workspace, including Trash. Workspace names, order and live/Trash status stay unchanged."
+  },
+  "completeBackupWorkspaceNames": {
+    "message": "Incoming workspaces"
+  },
+  "completeBackupCurrentWorkspaces": {
+    "message": "Currently saved workspaces"
+  },
+  "completeBackupTrashCount": {
+    "message": "Recoverable workspaces in Trash"
+  },
+  "completeBackupTopology": {
+    "message": "Workspace lists do not match. Export all modules for a full-workspace restore; this partial file cannot add, remove or recover workspaces."
+  },
+  "completeBackupSyncSafety": {
+    "message": "If Chrome Sync is enabled, restoring Default configuration pauses it until you review it separately. An interrupted attempt can leave Sync paused even when no workspace replacement finished."
+  },
+  "spacesClockChanged": {
+    "message": "The device clock moved backwards. This workspace was not moved to Trash. Review its Focus timer before trying again."
+  },
+  "spacesLegacyReview": {
+    "message": "Review recovery choice"
+  },
+  "spacesLegacyReviewTitle": {
+    "message": "Review both saved copies"
+  },
+  "spacesLegacyKeep": {
+    "message": "Keep current workspaces and retain older-tab copy"
+  },
+  "spacesLegacyReviewHelp": {
+    "message": "Close every older Local iTab tab before continuing. This keeps the current workspaces active and preserves the older-tab copy separately. It does not merge or delete either copy."
+  },
+  "spacesLegacyCurrent": {
+    "message": "Current workspaces"
+  },
+  "spacesLegacyOlder": {
+    "message": "Older-tab copy"
+  },
+  "spacesLegacyDetected": {
+    "message": "Conflict detected"
+  },
+  "spacesLegacySites": {
+    "message": "Sites"
+  },
+  "spacesLegacyTasks": {
+    "message": "Tasks"
+  },
+  "spacesLegacyNotes": {
+    "message": "Scratchpad characters"
+  },
+  "spacesLegacySpaces": {
+    "message": "Workspaces"
+  },
+  "spacesLegacyTrash": {
+    "message": "In Trash"
+  },
+  "spacesLegacyChanged": {
+    "message": "Saved copies changed during review. Review again before choosing a recovery action."
+  },
+  "spacesLegacyReviewAgain": {
+    "message": "Review again"
+  },
+  "spacesLegacyResolved": {
+    "message": "Current workspaces are kept and the older-tab copy is retained. This old page still cannot save. Copy or export its drafts, then explicitly reopen a workspace."
+  },
+  "spacesLegacyConflict": {
+    "message": "An older Local iTab tab wrote to the previous storage format. Close older tabs. Both saved copies are retained; saving is paused until this conflict is reviewed. Download both copies before choosing how to recover."
+  },
+  "spacesLegacyDownload": {
+    "message": "Download both saved copies"
+  },
+  "spacesLegacyRequested": {
+    "message": "Recovery download requested. It contains both saved workspace copies, without account credentials or cloud-provider settings. Check your downloads before making recovery changes."
+  },
+  "spacesLegacyExportFailed": {
+    "message": "Could not export both saved copies. They remain on this device. Keep this page open and retry after closing older tabs."
+  },
+  "spacesProviderScope": {
+    "message": "Chrome Sync and Google Drive manage Default only. Other workspaces are protected and use complete local backups."
+  },
+  "spacesOpenDefault": {
+    "message": "Open Default workspace"
   }
 }

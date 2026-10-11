@@ -44,6 +44,7 @@ function dashboardHarness(initial = baseline) {
     const writes = [], events = [];
     Object.assign(h.storageManager, {
         defaultConfig: manager.defaultConfig,
+        onLocalChanged(fn) { events.push(fn); return () => {}; },
         validateLayoutConfig: manager.validateLayoutConfig.bind(manager),
         getLayoutForUpdate: async () => clone(data.layout),
         set: async (key, value) => { writes.push(clone(value)); data[key] = clone(value); events.forEach(fn => fn({ layout: { newValue: clone(value) } }, 'local')); return true; }

@@ -48,7 +48,7 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), other.read_bytes())
         pack.verify(other, files)
         with zipfile.ZipFile(other) as archive:
-            self.assertEqual(66, len(archive.namelist()))
+            self.assertEqual(69, len(archive.namelist()))
             self.assertIn("shared/month-calendar.js", archive.namelist())
             self.assertIn("local-month-calendar.css", archive.namelist())
             self.assertIn("shared/search-template.js", archive.namelist())

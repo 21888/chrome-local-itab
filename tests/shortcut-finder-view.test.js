@@ -1,3 +1,4 @@
+function scopeFinderStorage(context) { context.storageManager = {local:context.chrome.storage.local,onLocalChanged(fn){context.chrome.storage.onChanged.addListener(fn);return()=>context.chrome.storage.onChanged.removeListener(fn);}}; }
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -47,6 +48,7 @@ test('host adapter observes only local links/categories and never mutates active
     let handler; let removed; let options;
     const context = { window: null, chrome: { storage: { onChanged: { addListener(fn) { handler = fn; }, removeListener(fn) { removed = fn; } } } }, LocalItabFinder: { mount(host, value) { options = value; return value; } } };
     context.window = context; vm.createContext(context);
+    scopeFinderStorage(context);
     vm.runInContext(fs.readFileSync(path.join(base, 'shared/shortcut-finder-host.js'), 'utf8'), context);
     const component = { links: [{ title: 'Old', url: 'https://old.test' }], categories: [], currentEditIndex: 0, draft: 'unsaved', openShortcutRecord(link) { this.opened = link; } };
     const before = JSON.stringify(component); let refreshes = 0;
@@ -72,7 +74,7 @@ test('host reserves only its own blank tab, severs opener and relinquishes owner
     const context = { window: null, open(url, name) { calls.push([url, name]); target = { opener: 'parent', closed: false, location: { href: 'about:blank' }, close() { this.closed = true; calls.push('close'); } }; return target; },
         chrome: { storage: { local: { async get(keys) { calls.push(keys); return { links: [{ title: 'fresh', url: 'https://fresh.test' }] }; } }, onChanged: { addListener() {}, removeListener() {} } } },
         LocalItabFinder: { mount(host, value) { options = value; return value; } } };
-    context.window = context; vm.createContext(context); vm.runInContext(fs.readFileSync(path.join(base, 'shared/shortcut-finder-host.js'), 'utf8'), context);
+    context.window = context; scopeFinderStorage(context); vm.createContext(context); vm.runInContext(fs.readFileSync(path.join(base, 'shared/shortcut-finder-host.js'), 'utf8'), context);
     context.LocalItabFinder.mountForShortcuts({}, { links: [], categories: [], openShortcutRecord(link, tab) { assert.equal(tab.opener, null); calls.push(link.url); return true; } });
     const lease = options.reserve(); assert.equal(target.opener, null); assert.equal(calls[0][0], 'about:blank');
     const fresh = await options.readSnapshot(); assert.equal(fresh.links[0].title, 'fresh');
@@ -317,6 +319,7 @@ test('host consumes the loaded preference; recreated Finder re-enables Slash wit
     const f = setup({opened: false, shortcutEnabled: false});
     f.view.destroy();
     f.context.chrome = {storage: {onChanged: {addListener() {}, removeListener() {}}}};
+    scopeFinderStorage(f.context);
     vm.runInContext(fs.readFileSync(path.join(base, 'shared/shortcut-finder-host.js'), 'utf8'), f.context);
     const component = {links: f.links, categories: [], finderShortcutEnabled: false};
     let view = f.context.LocalItabFinder.mountForShortcuts(f.host, component);

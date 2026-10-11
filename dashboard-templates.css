@@ -811,12 +811,13 @@
   --template-card-radius: 4px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "header" "search" "categories" "main" "footer";
+  grid-template-areas: "header" "workspaces" "search" "categories" "main" "footer";
   row-gap: 24px;
   align-content: start;
   max-width: 1560px;
 }
 :root[data-dashboard-template="folio"] #dashboard > .main-content-wrapper { display: contents; }
+:root[data-dashboard-template="folio"] #dashboard #workspace-switcher { grid-area: workspaces; }
 :root[data-dashboard-template="folio"] #dashboard .dashboard-header { grid-area: header; row-gap: 27px; }
 :root[data-dashboard-template="folio"] #dashboard .settings-nav {
   min-height: 37px;

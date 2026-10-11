@@ -2,6 +2,19 @@
     'use strict';
     const fallback = {
     "Title": "Complete local backup",
+    "SyncSafety": "If Chrome Sync is enabled, restoring Default configuration pauses it until you review it separately. An interrupted attempt can leave Sync paused even when no workspace replacement finished.",
+    "WorkspaceHelp": "Exports include every live workspace and recoverable workspace in Trash. Device privacy, provider settings, credentials and update preferences are excluded.",
+    "Target": "Destination for this older single-workspace backup",
+    "ChooseTarget": "Choose a destination workspace",
+    "TargetRequired": "Choose the workspace to replace, then review again. Other workspaces will be preserved.",
+    "SingleScope": "Only selected modules in this destination will be replaced:",
+    "AllScope": "This replaces the live workspace list and Trash with the backup. Workspaces absent from the file will leave the current list. A complete recovery copy is saved first.",
+    "MatchingScope": "Selected modules are replaced across every matching workspace, including Trash. Workspace names, order and live/Trash status stay unchanged.",
+    "WorkspaceNames": "Incoming workspaces",
+    "CurrentWorkspaces": "Currently saved workspaces",
+    "TrashCount": "Recoverable workspaces in Trash",
+    "Topology": "Workspace lists do not match. Export all modules for a full-workspace restore; this partial file cannot add, remove or recover workspaces.",
+
     "Help": "Choose saved modules to export or restore. Configuration includes sites, categories, layout and local images. Tasks includes saved history. Separate exports below remain available.",
     "SavedOnly": "Only saved data is included. Save drafts first. Unsaved edits, open reviews, calculator input and running or paused Focus sessions are not migrated.",
     "Privacy": "The JSON file can contain private notes, task history, URLs and images. Keep it private. This backup stays local; it does not add these modules to Chrome Sync or Google Drive.",
@@ -17,7 +30,7 @@
     "RecoveryHelp": "A verified local recovery copy is saved before replacement. Download it, then choose that JSON file here to review and restore. Starting a later confirmed restore may replace this snapshot, even if the target replacement does not finish.",
     "Review": "Review local replacement",
     "Scope": "Only selected modules will be replaced, not merged. Unselected modules stay unchanged. Review the incoming and current counts below.",
-    "FocusWarning": "Only saved Focus preferences migrate. Restoration is blocked while this device has a running, paused or interrupted Focus session. Deselect Focus, or stop/reset the timer using its existing controls and preview again.",
+    "FocusWarning": "Only saved Focus preferences migrate. Restoration is blocked while an affected workspace has a running, paused or interrupted Focus session. Deselect Focus, or stop/reset that timer and preview again.",
     "Incoming": "Incoming",
     "Current": "Currently saved",
     "Ready": "Review the selected modules, then explicitly confirm replacement.",
@@ -68,11 +81,11 @@
         if (!host?.ownerDocument || !store) throw new TypeError('Complete backup needs a host and store.');
         const doc = host.ownerDocument;
         const t = key => { const id = 'completeBackup' + key; const value = root.i18n?.t(id); return value && value !== id ? value : fallback[key]; };
-        let generation = 0, source = null, preview = null, phase = '', destroyed = false, pendingLargeFile = null;
+        let generation = 0, source = null, preview = null, targetWorkspaceId, phase = '', destroyed = false, pendingLargeFile = null;
         const make = (tag, cls, text, parent) => { const el = doc.createElement(tag); if (cls) el.className = cls; if (text !== undefined) el.textContent = text; parent?.append(el); return el; };
         const shell = make('section', 'complete-backup', undefined, host);
         make('h3', 'section-title', t('Title'), shell);
-        for (const key of ['Help', 'SavedOnly', 'Privacy', 'LargeFile']) make('p', 'form-hint', t(key), shell);
+        for (const key of ['Help', 'WorkspaceHelp', 'SyncSafety', 'SavedOnly', 'Privacy', 'LargeFile']) make('p', 'form-hint', t(key), shell);
         const choices = make('fieldset', 'complete-backup-modules', undefined, shell);
         make('legend', '', t('Modules'), choices);
         const inputs = {};
@@ -89,6 +102,10 @@
         make('h4', '', t('Review'), panel);
         const summary = make('p', '', t('Scope'), panel); summary.tabIndex = -1;
         make('p', 'form-hint', t('RecoveryScope'), panel);
+        const destination = make('label', 'form-group complete-backup-destination', undefined, panel); destination.hidden = true;
+        make('span', 'form-label', t('Target'), destination);
+        const target = make('select', 'form-select complete-backup-target', undefined, destination);
+        const workspaceSummary = make('p', 'complete-backup-workspaces', '', panel); workspaceSummary.hidden = true;
         const counts = make('ul', 'complete-backup-counts', undefined, panel);
         const warning = make('p', 'complete-backup-warning', t('FocusWarning'), panel);
         const confirmActions = make('div', 'complete-backup-actions', undefined, panel);
@@ -103,7 +120,8 @@
             const busy = ['applying', 'exporting'].includes(phase);
             for (const id of MODULES) inputs[id].disabled = busy || Boolean(preview && !preview.modules.includes(id));
             exportButton.disabled = choose.disabled = file.disabled = recovery.disabled = busy;
-            apply.disabled = phase !== 'ready' || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
+            target.disabled = busy || phase === 'reading';
+            apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
             cancel.disabled = phase === 'applying';
             shell.setAttribute('aria-busy', String(['reading', 'applying', 'exporting'].includes(phase)));
         }
@@ -118,10 +136,10 @@
         }
         const errorText = (error, applying = false) => {
             if (error?.mayHaveCommitted || error?.code === 'UNCONFIRMED') return t('Unconfirmed');
-            return t(({INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
+            return t(({INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
         };
-        function clear() { preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); for (const input of Object.values(inputs)) input.disabled = false; }
-        function abandon() { if (phase === 'applying') return; ++generation; source = null; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
+        function clear() { preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = true; summary.textContent = t('Scope'); for (const input of Object.values(inputs)) input.disabled = false; }
+        function abandon() { if (phase === 'applying') return; ++generation; source = null; targetWorkspaceId = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
         const countText = value => {
             if (!value || typeof value !== 'object') return '';
             const parts = [];
@@ -142,9 +160,20 @@
                 // Yield so reading feedback can paint before bounded core validation.
                 await new Promise(resolve => setTimeout(resolve, 0));
                 if (!current(token)) return;
-                const result = await store.review(source, initial ? undefined : selection);
+                const result = await store.review(source, initial ? undefined : selection, targetWorkspaceId === undefined ? {} : {targetWorkspaceId});
                 if (!current(token)) return;
-                preview = result; phase = 'ready';
+                preview = result; phase = result.requiresTarget ? 'target' : 'ready';
+                if (result.schemaVersion === 1 && Array.isArray(result.destinations)) {
+                    destination.hidden = false; target.replaceChildren();
+                    const placeholder = make('option', '', t('ChooseTarget'), target); placeholder.value = '';
+                    for (const item of result.destinations) { const option = make('option', '', item.name, target); option.value = item.id; }
+                    target.value = targetWorkspaceId || '';
+                    summary.textContent = result.targetWorkspace ? `${t('SingleScope')} ${result.targetWorkspace.name}` : t('TargetRequired');
+                } else if (result.workspaces) {
+                    const spaces = result.workspaces; workspaceSummary.hidden = false;
+                    summary.textContent = t(spaces.scope === 'all' ? 'AllScope' : 'MatchingScope');
+                    workspaceSummary.textContent = `${t('WorkspaceNames')}: ${spaces.incoming.map(item => item.name).join(', ')}. ${t('TrashCount')}: ${spaces.incomingTrashCount}${spaces.incomingTrash?.length ? ` (${spaces.incomingTrash.map(item => item.name).join(', ')})` : ''}. ${t('CurrentWorkspaces')}: ${spaces.current.map(item => item.name).join(', ')}. ${t('TrashCount')}: ${spaces.currentTrashCount}${spaces.currentTrash?.length ? ` (${spaces.currentTrash.map(item => item.name).join(', ')})` : ''}.`;
+                }
                 for (const id of MODULES) {
                     inputs[id].checked = result.selected.includes(id);
                     if (!result.modules.includes(id)) continue;
@@ -153,13 +182,13 @@
                     make('span', '', `${t('Incoming')}: ${countText(result.incoming[id])}`, row);
                     make('span', '', `${t('Current')}: ${countText(result.current[id])}`, row);
                 }
-                warning.hidden = !result.selected.includes('focus'); status.textContent = result.selected.includes('focus') && result.current.focus?.activeSession ? t('FocusWarning') : result.selected.length ? t('Ready') : t('None'); controls(); move(summary);
+                warning.hidden = !result.selected.includes('focus'); status.textContent = result.requiresTarget ? t('TargetRequired') : result.selected.includes('focus') && result.current.focus?.activeSession ? t('FocusWarning') : result.selected.length ? t('Ready') : t('None'); controls(); move(summary);
             } catch (error) { if (current(token)) { phase = ''; clear(); status.textContent = errorText(error); controls(); move(status); } }
             finally { move(current(token) ? status : null); }
         }
         choose.addEventListener('click', () => { if (!current(generation) || choose.disabled) return; file.value = ''; file.click(); });
         async function readFile(chosen, token) {
-            const move = focusOwner(choose); pendingLargeFile = null; source = null; clear(); phase = 'reading'; panel.hidden = false; warning.hidden = true; status.textContent = t('Reading'); controls();
+            const move = focusOwner(choose); pendingLargeFile = null; source = null; targetWorkspaceId = undefined; clear(); phase = 'reading'; panel.hidden = false; warning.hidden = true; status.textContent = t('Reading'); controls();
             try {
                 let text;
                 try { text = await chosen.text(); } catch (_) { throw {code:'FILE'}; }
@@ -172,7 +201,7 @@
         file.addEventListener('change', () => {
             if (!current(generation) || file.disabled) return;
             const chosen = file.files?.[0]; file.value = ''; if (!chosen) return;
-            const token = ++generation; source = null; pendingLargeFile = null; clear();
+            const token = ++generation; source = null; targetWorkspaceId = undefined; pendingLargeFile = null; clear();
             if (!Number.isSafeInteger(chosen.size) || chosen.size < 0 || chosen.size > (root.LocalItabCompleteBackup?.LIMITS.bytes || 32 * 1024 * 1024)) {
                 phase = ''; controls(); status.textContent = t('Size'); status.focus(); return;
             }
@@ -187,6 +216,7 @@
             const chosen = pendingLargeFile; readFile(chosen, ++generation);
         });
         for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (!current(generation) || input.disabled || !source) return; review(++generation, input); });
+        target.addEventListener('change', () => { if (!current(generation) || target.disabled || !source) return; targetWorkspaceId = target.value || undefined; review(++generation, target); });
         cancel.addEventListener('click', abandon);
         shell.addEventListener('keydown', event => {
             if (event.key === 'Escape' && phase !== 'applying' && (source !== null || ['reading', 'large'].includes(phase))) { event.preventDefault(); abandon(); }
@@ -201,7 +231,7 @@
                 if (!current(token)) return;
                 await restore(ticket, () => current(token));
                 if (!current(token)) return;
-                source = null; phase = ''; clear(); controls(); status.textContent = t('Success'); reloadButton.hidden = false;
+                source = null; targetWorkspaceId = undefined; phase = ''; clear(); controls(); status.textContent = t('Success'); reloadButton.hidden = false;
             } catch (error) { if (current(token)) { phase = ''; source = null; clear(); controls(); status.textContent = errorText(error, true); } }
             finally { move(current(token) ? status : null); }
         });
@@ -210,7 +240,7 @@
             const ids = selected(); if (!isRecovery && !ids.length) { status.textContent = t('None'); return; }
             const token = ++generation, origin = isRecovery ? recovery : exportButton, move = focusOwner(origin);
             const keepPreview = isRecovery && phase === 'ready';
-            if (!keepPreview) { source = null; pendingLargeFile = null; clear(); }
+            if (!keepPreview) { source = null; targetWorkspaceId = undefined; pendingLargeFile = null; clear(); }
             phase = 'exporting'; controls(); status.textContent = t('Exporting');
             try {
                 await new Promise(resolve => setTimeout(resolve, 0));
