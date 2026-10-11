@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="appearance.css">
     <link rel="stylesheet" href="workspaces.css">
     <link rel="stylesheet" href="prompt-library-entry.css">
+    <link rel="stylesheet" href="ai-context.css">
     <link rel="stylesheet" href="update-checker.css">
     <link rel="stylesheet" href="dashboard-templates.css">
     <link rel="stylesheet" href="dashboard-template-gallery.css">
@@ -64,6 +65,7 @@
                 <nav class="settings-nav">
                     <a class="prompt-library-entry" href="prompts.html" target="_blank" rel="noopener"><span aria-hidden="true">{ }</span><span data-i18n="promptsEntry">Prompt library</span></a>
                     <a class="prompt-library-entry" href="collections.html" target="_blank" rel="noopener"><span aria-hidden="true">▤</span><span data-i18n="collectionsEntry">AI collection</span></a>
+                    <button id="ai-context-entry" class="prompt-library-entry" type="button" aria-haspopup="dialog" data-i18n="aiContextEntry">AI context Q&amp;A</button>
                     <div class="appearance-controls" id="dashboard-appearance"></div>
                     <button id="open-options" class="settings-button" data-i18n-title="openSettings" data-i18n-aria-label="openSettings" title="Open Settings" aria-label="Open Settings">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -154,6 +156,10 @@
     <script src="shared/local-ai-search.js"></script>
     <script src="shared/local-ai-search-view.js"></script>
     <script src="local-ai-search.js"></script>
+    <script src="shared/ai-model-client.js"></script>
+    <script src="shared/ai-context.js"></script>
+    <script src="shared/ai-context-view.js"></script>
+    <script src="ai-context.js"></script>
     <script src="newtab.js"></script>
 </body>
 </html>

@@ -162,7 +162,7 @@
             const identities = Object.freeze(texts.map(() => Object.freeze({ id: this.id(), version: this.id() })));
             return Object.freeze({ ...values, texts, identities, createdAt: this.now(), kind, operationId });
         }
-        async mutate(command) {
+        async mutate(command, guard = null) {
             check(command && token(command.operationId), 'INVALID');
             return this.backend.lock(async () => {
                 const current = await this.readRaw();
@@ -171,6 +171,13 @@
                     // After any later mutation, keep the editor/draft and require review.
                     check(current.receipts.at(-1) === command.operationId, 'CONFLICT');
                     return current;
+                }
+                // Optional reviewed-command precondition, synchronous and inside the existing write fence.
+                // Receipt retries above acknowledge the original write without replaying it.
+                if (guard !== null) {
+                    check(typeof guard === 'function', 'INVALID');
+                    const result = guard(clone(current));
+                    check(result === undefined || result === true, 'CONFLICT');
                 }
                 const next = clone(current);
                 const now = this.now();

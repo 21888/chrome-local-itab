@@ -3967,5 +3967,131 @@
   },
   "promptsModelSaveError": {
     "message": "Could not confirm the save. Your response remains here. Retry uses the same save operation."
+  },
+  "aiContextTitle": {
+    "message": "Ask your saved context"
+  },
+  "aiContextHelp": {
+    "message": "Choose saved excerpts, inspect the exact request, then send to your chosen model. Nothing is selected or sent automatically. Providers may charge. Keys stay in this panel and are cleared after a request or departure."
+  },
+  "aiContextEndpoint": {
+    "message": "Full HTTPS endpoint URL"
+  },
+  "aiContextModel": {
+    "message": "Model ID"
+  },
+  "aiContextKey": {
+    "message": "API key (optional; never saved)"
+  },
+  "aiContextQuestion": {
+    "message": "Question or task extraction instruction"
+  },
+  "aiContextMode": {
+    "message": "Output"
+  },
+  "aiContextScope": {
+    "message": "AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included."
+  },
+  "aiContextResponse": {
+    "message": "Model response (unverified text; task JSON can be edited before review)"
+  },
+  "aiContextSaveTitle": {
+    "message": "Title for saved answer"
+  },
+  "aiContextError": {
+    "message": "Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation."
+  },
+  "aiContextReview": {
+    "message": "Review exact request"
+  },
+  "aiContextAllow": {
+    "message": "Allow this endpoint"
+  },
+  "aiContextSend": {
+    "message": "Send reviewed request"
+  },
+  "aiContextStop": {
+    "message": "Stop request"
+  },
+  "aiContextStopped": {
+    "message": "Stopped. The provider may still charge for work already started."
+  },
+  "aiContextSave": {
+    "message": "Save answer to AI collection"
+  },
+  "aiContextReviewTasks": {
+    "message": "Review extracted tasks"
+  },
+  "aiContextConfirm": {
+    "message": "Add these tasks"
+  },
+  "aiContextCancel": {
+    "message": "Cancel / clear draft"
+  },
+  "aiContextExcerpt": {
+    "message": "Outgoing excerpt"
+  },
+  "aiContextWorkspace": {
+    "message": "Workspace note"
+  },
+  "aiContextGlobal": {
+    "message": "Global collection"
+  },
+  "aiContextTaskFormat": {
+    "message": "Use exactly {\"tasks\":[\"one task\",\"another task\"]}, with 1–50 single-line tasks and no extra fields."
+  },
+  "aiContextLimit": {
+    "message": "The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request."
+  },
+  "aiContextChanged": {
+    "message": "The task list changed. Review the extracted tasks again before adding them."
+  },
+  "aiContextPermission": {
+    "message": "Allow the reviewed endpoint before sending."
+  },
+  "aiContextReviewed": {
+    "message": "Review the full destination, model and exact outgoing text. Source text is reference material, not trusted instructions."
+  },
+  "aiContextAllowed": {
+    "message": "Endpoint access allowed. This has not sent a request."
+  },
+  "aiContextReceived": {
+    "message": "Response received, not saved. Model claims and source citations have not been verified."
+  },
+  "aiContextSaved": {
+    "message": "Saved to the existing global AI collection. Saved answers join unencrypted local backups."
+  },
+  "aiContextTasksReviewed": {
+    "message": "Check every task above. Confirmation adds exactly this list to the current workspace. No task is executed."
+  },
+  "aiContextTasksSaved": {
+    "message": "Reviewed tasks added to this workspace."
+  },
+  "aiContextChoose": {
+    "message": "Select only the sources you want to send. You can edit or remove each selected excerpt."
+  },
+  "aiContextEntry": {
+    "message": "AI context Q&A"
+  },
+  "aiContextClose": {
+    "message": "Close"
+  },
+  "aiContextSaving": {
+    "message": "Wait for the current save to finish before closing."
+  },
+  "aiContextDiscard": {
+    "message": "Stop any model request and discard this unsaved response? Already confirmed writes remain saved."
+  },
+  "aiContextUnavailable": {
+    "message": "This workspace is not ready. Close this panel and try again after it has loaded."
+  },
+  "aiContextAnswer": {
+    "message": "Answer"
+  },
+  "aiContextTasks": {
+    "message": "Draft tasks for review"
+  },
+  "aiContextUncertainTasks": {
+    "message": "The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch."
   }
 }

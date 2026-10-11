@@ -490,3 +490,5 @@ La documentación existente identifica la licencia como MIT. El repositorio toda
 ### Copia local completa
 
 Ajustes → Datos permite exportar y restaurar módulos guardados seleccionados en un JSON local: configuración e imágenes, Tasks con historial, Scratchpad, Countdown, preferencias de Focus y la biblioteca global de prompts (esquema 3 cuando se incluyen prompts). No incluye borradores ni sesiones activas. [Guía de copia completa y recuperación](docs/complete-backup.es-ES.md).
+
+**Preguntas sobre contexto guardado:** el panel del nuevo inicio permite seleccionar extractos globales de IA y la nota guardada del espacio actual, revisar el contenido y enviarlo al modelo elegido. Guardar la respuesta o añadir tareas revisadas requiere una acción explícita. Ninguna fuente se selecciona automáticamente. [Flujo y privacidad (inglés)](docs/ai-context-workflow.md)

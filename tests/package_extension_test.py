@@ -48,8 +48,8 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), other.read_bytes())
         pack.verify(other, files)
         with zipfile.ZipFile(other) as archive:
-            self.assertEqual(97, len(archive.namelist()))
-            for runtime in ("shared/ai-model-client.js", "shared/ai-model-view.js", "ai-model.css", "shared/dashboard-template-gallery.js", "dashboard-template-gallery.css", "shared/dashboard-template-registry.js"):
+            self.assertEqual(101, len(archive.namelist()))
+            for runtime in ("ai-context.js", "ai-context.css", "shared/ai-context.js", "shared/ai-context-view.js", "shared/ai-model-client.js", "shared/ai-model-view.js", "ai-model.css", "shared/dashboard-template-gallery.js", "dashboard-template-gallery.css", "shared/dashboard-template-registry.js"):
                 self.assertIn(runtime, archive.namelist())
                 self.assertEqual(files[runtime], archive.read(runtime))
             for runtime in ("shared/shortcut-organizer.js", "shared/shortcut-organizer-view.js", "shortcut-organizer.css"):

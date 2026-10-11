@@ -3967,5 +3967,131 @@
   },
   "promptsModelSaveError": {
     "message": "无法确认保存成功。回复仍保留在此处；重试会使用同一个保存操作。"
+  },
+  "aiContextTitle": {
+    "message": "用已保存资料提问"
+  },
+  "aiContextHelp": {
+    "message": "选择资料摘录，核对完整请求后，再发送给你选择的模型。默认不选中任何资料，也不会自动发送。服务商可能收费。密钥只保留在此面板，请求结束或离开时清除。"
+  },
+  "aiContextEndpoint": {
+    "message": "完整 HTTPS 接口地址"
+  },
+  "aiContextModel": {
+    "message": "模型 ID"
+  },
+  "aiContextKey": {
+    "message": "API 密钥（可选，不保存）"
+  },
+  "aiContextQuestion": {
+    "message": "问题或待办提取要求"
+  },
+  "aiContextMode": {
+    "message": "输出方式"
+  },
+  "aiContextScope": {
+    "message": "AI 收藏是跨工作空间的资料库；已保存便笺仅属于当前工作空间。不包含未保存便笺、浏览历史或其他工作空间内容。"
+  },
+  "aiContextResponse": {
+    "message": "模型回复（未经核验；待办 JSON 可在确认前编辑）"
+  },
+  "aiContextSaveTitle": {
+    "message": "收藏回答的标题"
+  },
+  "aiContextError": {
+    "message": "此步骤未能完成。请检查输入、接口授权与当前工作空间。未经确认不会保存；保存结果不确定时，可用同一操作安全重试。"
+  },
+  "aiContextReview": {
+    "message": "预览完整请求"
+  },
+  "aiContextAllow": {
+    "message": "授权此接口"
+  },
+  "aiContextSend": {
+    "message": "发送已核对请求"
+  },
+  "aiContextStop": {
+    "message": "停止请求"
+  },
+  "aiContextStopped": {
+    "message": "已停止。服务商仍可能对已开始的工作收费。"
+  },
+  "aiContextSave": {
+    "message": "保存回答到 AI 收藏"
+  },
+  "aiContextReviewTasks": {
+    "message": "预览提取的待办"
+  },
+  "aiContextConfirm": {
+    "message": "添加这些待办"
+  },
+  "aiContextCancel": {
+    "message": "取消 / 清空草稿"
+  },
+  "aiContextExcerpt": {
+    "message": "将发送的摘录"
+  },
+  "aiContextWorkspace": {
+    "message": "当前工作空间便笺"
+  },
+  "aiContextGlobal": {
+    "message": "全局 AI 收藏"
+  },
+  "aiContextTaskFormat": {
+    "message": "请仅使用 {\"tasks\":[\"待办一\",\"待办二\"]} 格式，包含 1–50 条单行待办，不加其他字段。"
+  },
+  "aiContextLimit": {
+    "message": "内容为空、格式无效或超过上限。最多选择 12 条摘录，每条不超过 16,000 字符，完整请求不超过 32,000 字符。"
+  },
+  "aiContextChanged": {
+    "message": "待办列表已改变。请重新预览提取结果后再添加。"
+  },
+  "aiContextPermission": {
+    "message": "请先授权已核对的接口，再发送请求。"
+  },
+  "aiContextReviewed": {
+    "message": "请核对完整接口地址、模型与将发送的文字。资料文字仅供参考，不作为可信指令。"
+  },
+  "aiContextAllowed": {
+    "message": "已授权接口访问，但尚未发送请求。"
+  },
+  "aiContextReceived": {
+    "message": "已收到回复，尚未保存。模型陈述及来源引用均未经核验。"
+  },
+  "aiContextSaved": {
+    "message": "已保存到现有全局 AI 收藏。回答将纳入未加密的本地备份。"
+  },
+  "aiContextTasksReviewed": {
+    "message": "请逐条核对上方待办。确认后按该列表加入当前工作空间，不会执行任何任务。"
+  },
+  "aiContextTasksSaved": {
+    "message": "已将核对后的待办添加到当前工作空间。"
+  },
+  "aiContextChoose": {
+    "message": "仅勾选你愿意发送的资料。每条摘录都可编辑或移除。"
+  },
+  "aiContextEntry": {
+    "message": "AI 资料问答"
+  },
+  "aiContextClose": {
+    "message": "关闭"
+  },
+  "aiContextSaving": {
+    "message": "请等待当前保存完成后再关闭。"
+  },
+  "aiContextDiscard": {
+    "message": "停止模型请求并丢弃未保存的回复？已经确认的写入仍会保留。"
+  },
+  "aiContextUnavailable": {
+    "message": "工作空间尚未就绪。请关闭面板，加载完成后重试。"
+  },
+  "aiContextAnswer": {
+    "message": "回答"
+  },
+  "aiContextTasks": {
+    "message": "提取待办草稿"
+  },
+  "aiContextUncertainTasks": {
+    "message": "先前的待办可能已经保存。请先检查待办列表，再决定是否添加其他内容。此面板保留原操作，不会创建新批次。"
   }
 }

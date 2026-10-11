@@ -1,0 +1,16 @@
+.ai-context { max-width: 56rem; margin: 1rem auto; padding: 1rem; border: 1px solid var(--border-color, #aaa); border-radius: 1rem; background: var(--card-background, transparent); color: inherit; }
+.ai-context-field,.ai-context-source { display: flex; flex-direction: column; gap: .4rem; margin-block: .8rem; }
+.ai-context input:not([type=checkbox]),.ai-context textarea,.ai-context select { box-sizing: border-box; width: 100%; font: inherit; color: inherit; background: var(--input-background, transparent); border: 1px solid var(--border-color, #aaa); border-radius: .4rem; padding: .6rem; }
+.ai-context-source { border-block-start: 1px solid var(--border-color, #aaa); padding-block-start: .6rem; }
+.ai-context-source input[type=checkbox] { width: 1.2rem; height: 1.2rem; }
+.ai-context-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.ai-context button { font: inherit; padding: .6rem .8rem; cursor: pointer; }
+.ai-context button:disabled { cursor: default; opacity: .55; }
+.ai-context-review { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26rem; overflow: auto; border: 1px solid var(--border-color, #aaa); padding: .75rem; }
+.ai-context-tasks li { white-space: pre-wrap; overflow-wrap: anywhere; margin-block: .5rem; }
+.ai-context [hidden] { display: none !important; }
+.ai-context-overlay { position: fixed; inset: 0; z-index: 20000; display: flex; align-items: center; justify-content: center; padding: 1rem; background: #0009; }
+.ai-context-dialog { width: min(60rem, 100%); max-height: calc(100dvh - 2rem); overflow: auto; border-radius: 1rem; padding: 1rem; background: var(--template-surface, #fff); color: var(--template-text, #202124); box-sizing: border-box; }
+.ai-context-close { display: block; margin-inline-start: auto; padding: .6rem 1rem; font: inherit; }
+.ai-context-dialog :focus-visible { outline: 3px solid var(--template-focus, #456fe8); outline-offset: 2px; }
+@media (max-width: 560px) { .ai-context-overlay { padding: .4rem; } .ai-context-dialog { padding: .5rem; max-height: calc(100dvh - .8rem); } .ai-context { padding: .7rem; } }
