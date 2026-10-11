@@ -330,3 +330,54 @@ test('host consumes the loaded preference; recreated Finder re-enables Slash wit
     assert.equal(emitPage(f.document.body).defaultPrevented, true);
     assert.ok(f.document.querySelector('.finder-overlay')); view.destroy();
 });
+
+test('category filter browses exact groups, combines text, preserves native keys, resets on clear and reopen', () => {
+    const f = setup(); const select = f.document.querySelector('.finder-category');
+    assert.equal(select.tagName, 'SELECT');
+    assert.equal(f.document.querySelectorAll('.finder-result').length, 0);
+    assert.deepEqual(select.children.map(option => option.textContent), ['All categories (2)', 'work (1)', 'learn (1)']);
+    select.focus(); select.value = 'learn'; select.dispatch('change');
+    assert.equal(f.document.activeElement, select);
+    assert.equal(f.document.querySelectorAll('.finder-result').length, 1);
+    assert.equal(select.dispatch('keydown', { key: 'ArrowDown' }).prevented, false);
+    assert.equal(f.document.activeElement, select);
+    f.input.value = 'missing'; f.input.dispatch('input'); assert.equal(f.document.querySelectorAll('.finder-result').length, 0);
+    f.input.value = 'cafe'; f.input.dispatch('input'); assert.equal(f.document.querySelectorAll('.finder-result').length, 1);
+    f.document.querySelectorAll('.finder-actions button').find(button => button.textContent === 'Clear').dispatch('click');
+    assert.equal(select.value, ''); assert.equal(f.input.value, ''); assert.equal(f.document.activeElement, f.input);
+    assert.equal(f.document.querySelectorAll('.finder-result').length, 0);
+    select.value = 'learn'; select.dispatch('change'); f.view.close(); f.opener.dispatch('click');
+    assert.equal(f.document.querySelector('.finder-category').value, '');
+    assert.equal(f.document.querySelectorAll('.finder-result').length, 0); assert.equal(f.calls.length, 0);
+    f.view.destroy();
+});
+test('live category removal keeps chosen scope and zero count without silently opening other groups', () => {
+    const f = setup(); const select = f.document.querySelector('.finder-category');
+    select.value = 'learn'; select.dispatch('change');
+    f.links.pop(); f.notify();
+    assert.equal(select.value, 'learn'); assert.equal(f.document.querySelectorAll('.finder-result').length, 0);
+    assert.equal(select.children.find(option => option.value === 'learn').textContent, 'learn (0)');
+    assert.equal(f.calls.length, 0); f.view.destroy();
+});
+test('category controls are localized and label-associated in both shipped locales', () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const f = setup({ locale }); const select = f.document.querySelector('.finder-category');
+        const label = f.document.querySelectorAll('label').find(label => label.htmlFor === select.id);
+        assert.equal(label.textContent, locale === 'en' ? 'Filter by category' : '按分类筛选');
+        assert.ok(select.children[0].textContent.startsWith(locale === 'en' ? 'All categories' : '全部分类'));
+        f.view.destroy();
+    }
+});
+test('changing category resets paging and moves removed result focus back to the query', () => {
+    const f = setup();
+    for (let i = 0; i < 53; i++) f.links.push({ title: `More ${i}`, url: `https://s${i}.test`, category: 'work', layoutId: `l_${(i + 3).toString(16).padStart(32, '0')}` });
+    const select = f.document.querySelector('.finder-category'); select.value = 'work'; select.dispatch('change');
+    const next = f.document.querySelectorAll('button').find(button => button.textContent === 'Next results');
+    next.dispatch('click'); assert.equal(f.document.querySelectorAll('.finder-result').length, 4);
+    f.document.querySelector('.finder-result').focus();
+    select.value = 'learn'; select.dispatch('change');
+    assert.equal(f.document.querySelectorAll('.finder-result').length, 1);
+    assert.equal(f.document.activeElement, f.input); assert.equal(next.hidden, true);
+    assert.equal(f.document.querySelector('.finder-list').getAttribute('aria-busy'), 'false');
+    assert.equal(f.calls.length, 0); f.view.destroy();
+});

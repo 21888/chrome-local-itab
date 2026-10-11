@@ -93,3 +93,54 @@ test('pending activation ownership: one reservation, cancellation, failures and 
     const blocked = new Controller({ getSnapshot: () => ({ links }), readSnapshot: () => { throw new Error('must not read'); }, reserve: () => null });
     assert.equal(await blocked.activate(blocked.search('one').rows[0].token), 'blocked');
 });
+
+test('exact category selection browses without a query and combines with text without cross-category matches', () => {
+    const f = fixture([
+        { title: 'Reading', url: 'https://one.test', category: 'work', layoutId: id(1) },
+        { title: 'Café', url: 'https://two.test', category: 'reading', layoutId: id(2) },
+        { title: 'Legacy work', url: 'https://three.test', layoutId: id(3) },
+        { title: 'Other', url: 'https://four.test', category: 'orphan', layoutId: id(4) }
+    ], [{ id: 'work', name: 'Work' }, { id: 'reading', name: 'Reading' }, { id: 'empty', name: 'Empty' }]);
+    const before = JSON.stringify(f.snapshot());
+    assert.deepEqual(f.controller.search('', 0, 'reading').rows.map(row => row.token.id), [id(2)]);
+    assert.equal(f.controller.search('cafe').total, 1);
+    assert.equal(f.controller.search('one.test').total, 0);
+    assert.equal(f.controller.search('', 0, 'work').total, 2);
+    assert.equal(f.controller.search('', 0, 'empty').total, 0);
+    const orphan = f.controller.search('', 0, 'orphan');
+    assert.equal(orphan.total, 1);
+    assert.deepEqual(orphan.categoryOptions.map(option => [option.id, option.count]), [['work', 2], ['reading', 1], ['empty', 0], ['orphan', 1]]);
+    f.controller.clear(); assert.equal(f.controller.category, ''); assert.equal(f.controller.search('').total, 0);
+    assert.equal(JSON.stringify(f.snapshot()), before); assert.equal(f.opened.length, 0);
+});
+test('category paging preserves exact source identities; removal stays empty rather than widening search', () => {
+    const f = fixture(Array.from({ length: 113 }, (_, i) => ({ title: 'Site', url: `https://s${i}.test`, category: i % 2 ? 'a' : 'b', layoutId: id(i + 1) })));
+    assert.equal(f.controller.search('', 0, 'a').total, 56);
+    const page = f.controller.search('', 1);
+    assert.equal(page.rows.length, 6); assert.equal(page.rows[0].token.id, id(102));
+    f.replace({ links: [{ title: 'Still here', url: 'https://b.test', category: 'b' }], categories: [] });
+    const removed = f.controller.search();
+    assert.equal(removed.category, 'a'); assert.equal(removed.page, 0); assert.equal(removed.total, 0);
+    assert.deepEqual(removed.categoryOptions.find(option => option.id === 'a'), { id: 'a', name: 'a', count: 0 });
+});
+test('changing category cancels a pending target check before it can open', async () => {
+    const links = [{ title: 'Site', url: 'https://a.test', category: 'a', layoutId: id(1) }];
+    let finish, opened = 0, closed = 0;
+    const controller = new Controller({ getSnapshot: () => ({ links }), readSnapshot: () => new Promise(resolve => { finish = resolve; }), reserve: () => ({ open() { opened++; }, close() { closed++; } }) });
+    const request = controller.activate(controller.search('', 0, 'a').rows[0].token);
+    controller.search('', 0, 'b'); finish({ links });
+    assert.equal(await request, 'cancelled'); assert.equal(opened, 0); assert.equal(closed, 1);
+});
+test('same-name categories and duplicate URLs remain separated by category and stable record identity', async () => {
+    const f = fixture([
+        { title: 'Same', url: 'https://same.test', category: 'one', layoutId: id(1) },
+        { title: 'Same', url: 'https://same.test', category: 'two', layoutId: id(2) }
+    ], [{ id: 'one', name: 'Shared name' }, { id: 'two', name: 'Shared name' }]);
+    const result = f.controller.search('', 0, 'two');
+    assert.equal(result.rows.length, 1); assert.equal(result.rows[0].token.id, id(2));
+    assert.equal(await f.controller.activate(result.rows[0].token), 'opened');
+    assert.equal(f.opened[0].layoutId, id(2));
+    const token = result.rows[0].token;
+    f.snapshot().links[1] = { ...f.snapshot().links[1], category: 'one' };
+    assert.equal(await f.controller.activate(token), 'stale'); assert.equal(f.opened.length, 1);
+});

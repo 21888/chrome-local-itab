@@ -23,19 +23,33 @@
             this.reserve = reserve || (() => ({ open: activate, close() {} }));
             this.pending = null;
             this.query = '';
+            this.category = '';
             this.page = 0;
         }
-        search(query = this.query, page = 0) {
+        search(query = this.query, page = 0, category = this.category) {
             this.cancelPending();
             this.query = String(query);
+            this.category = String(category || '');
             const snapshot = this.getSnapshot() || {};
             const links = Array.isArray(snapshot.links) ? snapshot.links : [];
             const categories = new Map((snapshot.categories || []).map(item => [item.id, item.name]));
+            const counts = new Map();
+            for (const link of links) {
+                const id = link.category || 'work';
+                counts.set(id, (counts.get(id) || 0) + 1);
+            }
+            const choices = new Map(categories);
+            for (const id of counts.keys()) if (!choices.has(id)) choices.set(id, id);
+            // A deleted filter stays explicit and empty, never silently widens the search.
+            if (this.category && !choices.has(this.category)) choices.set(this.category, this.category);
+            const categoryOptions = Array.from(choices, ([id, name]) => ({ id, name, count: counts.get(id) || 0 }));
             const needle = fold(this.query.trim());
             const matches = [];
             links.forEach((link, index) => {
                 const category = categories.get(link.category || 'work') || link.category || 'work';
-                if (!needle || ![link.title, link.url, category].some(value => fold(value).includes(needle))) return;
+                if (this.category && (link.category || 'work') !== this.category) return;
+                if (!needle && !this.category) return;
+                if (needle && ![link.title, link.url, category].some(value => fold(value).includes(needle))) return;
                 matches.push({ link, category, index });
             });
             this.page = Math.min(Math.max(0, Math.floor(page) || 0), Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1));
@@ -48,7 +62,7 @@
                 return { title: link.title || link.url || '', url: link.url || '', domain: url?.hostname || '', category,
                     safe: Boolean(url), token: { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } };
             });
-            return { query: this.query, total: matches.length, saved: links.length, page: this.page,
+            return { query: this.query, category: this.category, categoryOptions, total: matches.length, saved: links.length, page: this.page,
                 start: this.page * PAGE_SIZE, rows,
                 hasPrevious: this.page > 0, hasNext: (this.page + 1) * PAGE_SIZE < matches.length };
         }
@@ -93,7 +107,7 @@
             if (!this.pending) return;
             const request = this.pending; this.pending = null; request.lease.close();
         }
-        clear() { this.cancelPending(); this.query = ''; this.page = 0; }
+        clear() { this.cancelPending(); this.query = ''; this.category = ''; this.page = 0; }
 
     }
     return { Controller, fold, safeUrl, PAGE_SIZE };

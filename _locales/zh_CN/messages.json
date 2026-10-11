@@ -664,13 +664,13 @@
     "message": "在非编辑区域按 /，查找已保存的网站。"
   },
   "finderScope": {
-    "message": "仅搜索已保存的网站 · 所有分类"
+    "message": "仅查找已保存的网站 · 本地搜索"
   },
   "finderLabel": {
     "message": "标题、网址或分类"
   },
   "finderHint": {
-    "message": "输入文字查找已保存的网站。这里不会进行网页搜索。"
+    "message": "输入文字或选择分类以查找已保存的网站，不会搜索网页。"
   },
   "finderEmpty": {
     "message": "尚未保存任何网站。"
@@ -3742,5 +3742,14 @@
   },
   "collectionsCompareLinkUnavailable": {
     "message": "精确关联的提示词版本不可用、不存在或仍在读取中。匹配仅依据已保存的关联 ID。"
+  },
+  "finderCategory": {
+    "message": "按分类筛选"
+  },
+  "finderAllCategories": {
+    "message": "全部分类"
+  },
+  "finderCategoryHint": {
+    "message": "数量为文字筛选前已保存的网站数。选择分类后，无需输入即可浏览。"
   }
 }

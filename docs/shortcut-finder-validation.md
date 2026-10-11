@@ -34,3 +34,22 @@ This was not a complete six-palette native matrix, native IME/assistive-technolo
 - Native Chrome for Testing on cloud Linux verified English Graphite dark and Chinese light. Page space, the Finder opener and an existing website button opened one panel with `/`; Escape returned to the real prior control. Typing in search/Finder/editor fields, `?`, Ctrl combinations, address-bar focus, existing editor dialogs and context menus did not open another panel.
 - At a measured 510 × 848 native window, Chinese controls, the `/` marker and its localized tooltip were readable. The web-search module was explicitly disabled and saved; a new tab had no web-search input, while `/` still opened the local Finder.
 - These dimensions describe the native window, not a measured CSS viewport. Real non-US keyboard layouts, actual IME composition and assistive-technology announcements were not tested natively. Their event/source coverage is separate from the executed browser checks.
+
+## Exact category scope — 2026-10-11, version 1.1.42
+
+- Full integrated serial Node run: 1,765 passed, zero failures/skips. Python packaging checks: 53 passed.
+- Independent focused review passed 36 existing cases and eight additional adversarial cases. These cover exact category identity, duplicate URLs, query intersection, pagination reset, retained exact-ID selection after category metadata removal, including orphaned saved sites and an empty result when none remain, explicit reset, stale identities, read-only behavior and literal text rendering.
+- The runtime contains 90 files with SHA-256 d89ec0689c5f620fdd341688707cfc2c781b5937711a529e47e732f27dd3970b. The final parent-document rebase changed no runtime file.
+
+### Bounded native acceptance
+
+Cloud Chrome for Testing 155.0.8059.39 loaded the same version 1.1.42 runtime; Finder core/view/CSS and manifest hashes remained unchanged before and after testing. Native mouse/keyboard and the ordinary Settings JSON importer were used with 55 synthetic example.com sites, two same-name categories containing 52/3 sites and an empty category. No storage injection was used.
+
+- Blank-query category browsing paginated 52 results as 50+2; switching from page two to the three-site category reset pagination.
+- The `amber` query produced 6 total, 4 in the first category and 2 in the second, while saved-category totals stayed 52/3.
+- Duplicate-URL records remained distinct: both appeared across all categories, with only the correct record in the second exact-ID scope.
+- Clear reset both filters and focused the input; Escape returned launcher focus; reopening reset filters. Empty category selection returned zero matches.
+- Deleting category metadata in another Settings tab preserved its three orphaned sites under the exact ID fallback label, without widening to all sites or the other same-name category.
+- Light/dark desktop display passed. The blank dark modal remained readable at a DevTools-emulated 320 CSS-pixel width; this was not physical window resizing or narrow result-pagination coverage.
+
+Chinese localization, native removal of every site from a selected category, narrow result paging, destination activation, storage-error races and complete read-only export equality were not retested natively in this gate. Their deterministic coverage must not be relabeled native. No new screenshots or raw fixtures are included in this publication.
