@@ -16,6 +16,14 @@
         const tags = input.tagsText.split(/[,，\n]/u).map(tag => tag.trim()).filter(Boolean);
         return { ...Object.fromEntries(editable.map(key => [key, input[key]])), tags, promptRef: input.promptId || input.bodyVersionId ? { promptId: input.promptId, bodyVersionId: input.bodyVersionId } : null };
     }
+    // Active saved records only. Never search drafts, history or recovery snapshots.
+    function comparisonCandidates(state, sourceId) {
+        const source = state?.records.find(record => record.id === sourceId && !record.deletedAt);
+        const ref = source?.promptRef;
+        if (!ref?.promptId || !ref.bodyVersionId) return [];
+        return state.records.filter(record => record.id !== sourceId && !record.deletedAt &&
+            record.promptRef?.promptId === ref.promptId && record.promptRef?.bodyVersionId === ref.bodyVersionId);
+    }
     class Controller {
         constructor({ store, promptStore = null, onChange = () => {} } = {}) {
             if (!store) throw new Error('A fenced collection backend is required'); this.store = store; this.onChange = onChange;
@@ -31,7 +39,7 @@
             this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); });
             await Promise.all([this.refresh(), this.refreshPrompts()]);
         }
-        dispose() { this.disposed = true; this.readGeneration++; this.unsubscribe?.(); this.promptGeneration++; this.unsubscribePrompts?.(); }
+        dispose() { this.disposed = true; this.readGeneration++; this.unsubscribe?.(); this.promptGeneration++; this.unsubscribePrompts?.(); this.onChange('dispose'); }
         async refreshPrompts() {
             if (!this.promptStore || this.disposed) return null;
             const generation = ++this.promptGeneration;
@@ -91,6 +99,7 @@
             if (this.busy) { this.refreshQueued = true; return; }
             const generation = ++this.readGeneration;
             this.pendingReadGeneration = generation;
+            this.notify('comparison');
             try {
                 const next = await this.store.read();
                 if (this.disposed || generation !== this.readGeneration) return;
@@ -118,6 +127,11 @@
             }
             if (this.selected === null) this.selected = this.results()[0]?.record.id || null;
         }
+        comparisonReady() {
+            return !this.disposed && Boolean(this.state) && !this.busy && !this.pendingCommand && !this.error &&
+                this.pendingReadGeneration !== this.readGeneration;
+        }
+        comparisonCandidates(id = this.selected) { return this.comparisonReady() ? comparisonCandidates(this.state, id) : []; }
         record(id = this.selected) { return this.state?.records.find(record => record.id === id) || null; }
         results() {
             if (!this.state) return [];
@@ -238,5 +252,5 @@
             }
         }
     }
-    return { Controller, fields, values };
+    return { Controller, fields, values, comparisonCandidates };
 });

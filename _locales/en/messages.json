@@ -3700,5 +3700,47 @@
   },
   "promptsPreviewUnavailable": {
     "message": "This exact preview source cannot currently be verified. Your body and values are kept; copying and saved-excerpt insertion are paused. Read again or explicitly return to the current version."
+  },
+  "collectionsCompare": {
+    "message": "Compare saved results"
+  },
+  "collectionsCompareReference": {
+    "message": "Exact linked prompt / version"
+  },
+  "collectionsCompareChoose": {
+    "message": "Choose another saved result"
+  },
+  "collectionsCompareNoTool": {
+    "message": "No tool label"
+  },
+  "collectionsCompareEmpty": {
+    "message": "No other active saved result has this exact prompt and version link."
+  },
+  "collectionsCompareEqual": {
+    "message": "These saved bodies are exactly identical."
+  },
+  "collectionsCompareLiteral": {
+    "message": "Saved text is shown literally. Different text does not imply better quality."
+  },
+  "collectionsCompareStale": {
+    "message": "Saved data changed or could not be verified. This comparison has been cleared. Close it, refresh saved data if needed, then reopen to choose again."
+  },
+  "collectionsCompareScope": {
+    "message": "Only current saved excerpts linked to the same exact prompt and version are compared. Drafts, archived items and recovery snapshots are excluded. No model calls or quality ranking."
+  },
+  "collectionsCompareLinkResolved": {
+    "message": "The exact linked prompt version is readable locally."
+  },
+  "collectionsCompareLinkUnavailable": {
+    "message": "The exact linked prompt version is unavailable, missing or still loading. Matching uses saved link IDs only."
+  },
+  "collectionsCompareFirst": {
+    "message": "Starting saved result"
+  },
+  "collectionsCompareSecond": {
+    "message": "Selected saved result"
+  },
+  "collectionsCompareClose": {
+    "message": "Close comparison"
   }
 }

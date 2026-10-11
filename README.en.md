@@ -475,3 +475,9 @@ Before updating, use the shortcuts in that section to reach the existing setting
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.
+
+### Compare saved AI results
+
+In an active result with an exact prompt/version link, choose **Compare saved results**, then explicitly choose another saved result for the same two IDs. The view shows current saved bodies, titles and tool labels side by side (stacked on narrow screens), as literal text. Equal bodies are identified without ranking answer quality. References are exact stored IDs, not proof that a linked prompt remains available. Drafts, archived results, other versions and recovery snapshots are excluded.
+
+Comparison is read-only and makes no model or network requests. Opening, changing and closing it leave drafts and navigation untouched. A saved-data refresh, write or read failure clears the comparison immediately; close and reopen after refreshing to choose again. Removed or relinked candidates are never silently replaced. Escape closes the dialog; long bodies wrap and scroll independently. No extra storage schema, permission or provider is introduced.

@@ -3700,5 +3700,47 @@
   },
   "promptsPreviewUnavailable": {
     "message": "目前无法核验此预览的确切来源。正文和变量值已保留；复制和插入收藏摘录已暂停。请重新读取或明确返回当前版本。"
+  },
+  "collectionsCompare": {
+    "message": "对比已保存结果"
+  },
+  "collectionsCompareScope": {
+    "message": "仅对比关联同一精确提示词及版本的当前已保存摘录。不包含草稿、已归档项目或恢复快照。不调用模型，也不评判质量。"
+  },
+  "collectionsCompareReference": {
+    "message": "精确关联的提示词 / 版本"
+  },
+  "collectionsCompareChoose": {
+    "message": "选择另一个已保存结果"
+  },
+  "collectionsCompareNoTool": {
+    "message": "未标注工具"
+  },
+  "collectionsCompareClose": {
+    "message": "关闭对比"
+  },
+  "collectionsCompareFirst": {
+    "message": "起始已保存结果"
+  },
+  "collectionsCompareSecond": {
+    "message": "所选已保存结果"
+  },
+  "collectionsCompareEmpty": {
+    "message": "没有其他有效的已保存结果关联此精确提示词及版本。"
+  },
+  "collectionsCompareEqual": {
+    "message": "两个已保存正文完全相同。"
+  },
+  "collectionsCompareLiteral": {
+    "message": "按原样显示已保存文本。文本不同并不代表质量更好。"
+  },
+  "collectionsCompareStale": {
+    "message": "已保存数据发生变化或无法核验，本次对比已清空。请关闭对比，按需刷新已保存数据，然后重新打开并选择。"
+  },
+  "collectionsCompareLinkResolved": {
+    "message": "可以在本地读取精确关联的提示词版本。"
+  },
+  "collectionsCompareLinkUnavailable": {
+    "message": "精确关联的提示词版本不可用、不存在或仍在读取中。匹配仅依据已保存的关联 ID。"
   }
 }

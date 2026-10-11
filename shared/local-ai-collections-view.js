@@ -7,10 +7,11 @@
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0;
-            controller.onChange = kind => kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render();
+            controller.onChange = kind => { if (kind === 'dispose') { this.closeComparison?.(); return; } this.updateComparison?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
             root.addEventListener?.('pagehide', () => {
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
                 this.cancelMarkdownDialog?.();
+                this.closeComparison?.();
             });
             this.build();
         }
@@ -238,6 +239,10 @@
             const actions = this.el('div', 'prompt-actions');
             if (!record.deletedAt) actions.append(this.button('Edit', 'Edit details', () => c.edit()), this.button('Revise', 'Revise excerpt', () => this.revise(record)), this.button('Archive', 'Archive', () => c.action('remove')));
             else actions.append(this.button('Restore', 'Restore from archive', () => c.action('restore')));
+            if (!record.deletedAt && record.promptRef) {
+                const compare = this.button('Compare', 'Compare saved results', () => this.compareSaved(record.id));
+                compare.disabled = !c.comparisonReady(); actions.append(compare);
+            }
             const markdown = this.button('MarkdownExport', 'Export current saved item as Markdown', () => this.exportMarkdown());
             markdown.disabled = Boolean(c.error); actions.append(markdown);
             for (const button of actions.children) button.disabled = button.disabled || c.busy || Boolean(c.pendingCommand); top.append(actions); this.main.append(top);
@@ -250,6 +255,61 @@
             if (record.promptRef) this.buildPromptPanel(this.main, false);
             const history = this.el('details', 'prompt-history'); history.append(this.el('summary', '', this.t('History', 'Excerpt version history')));
             record.history.slice().reverse().forEach((version, index) => { const item = this.el('section', 'prompt-section'); item.append(this.el('h3', '', `${new Date(version.createdAt).toLocaleString()}${index === 0 ? ` · ${this.t('Current', 'Current')}` : ''}`), this.el('pre', 'prompt-readonly', version.body)); if (index !== 0 && !record.deletedAt) { const restore = this.button('ReviewRestore', 'Review restoring this text', () => this.revise(record, version)); restore.disabled = c.busy || Boolean(c.pendingCommand); item.append(restore); } history.append(item); }); this.main.append(history);
+        }
+        compareSaved(sourceId) {
+            const c = this.controller, source = c.record(sourceId);
+            if (this.openDialog || !c.comparisonReady() || c.selected !== sourceId || c.draft() || !source?.promptRef || source.deletedAt) return;
+            const state = c.state, generation = c.readGeneration, reference = { ...source.promptRef };
+            const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', 'prompt-dialog collection-comparison-dialog');
+            overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+            box.setAttribute('aria-labelledby', 'collection-comparison-title'); box.setAttribute('aria-describedby', 'collection-comparison-scope');
+            const heading = this.el('h2', '', this.t('Compare', 'Compare saved results')); heading.id = 'collection-comparison-title';
+            const scope = this.paragraph('CompareScope', 'Only current saved excerpts linked to the same exact prompt and version are compared. Drafts, archived items and recovery snapshots are excluded. No model calls or quality ranking.'); scope.id = 'collection-comparison-scope';
+            const context = this.el('p', 'prompt-help collection-url', `${this.t('CompareReference', 'Exact linked prompt / version')} · ${reference.promptId} / ${reference.bodyVersionId}`);
+            const referenceStatus = this.el('p', 'prompt-help');
+            const label = this.el('label', 'prompt-field'), chooser = this.el('select');
+            label.append(this.el('span', '', this.t('CompareChoose', 'Choose another saved result')), chooser);
+            const placeholder = this.el('option', '', this.t('CompareChoose', 'Choose another saved result')); placeholder.value = ''; chooser.append(placeholder);
+            const candidates = c.comparisonCandidates(sourceId);
+            for (const item of candidates) { const option = this.el('option', '', `${item.title} · ${item.tool || this.t('CompareNoTool', 'No tool label')} · ${item.id}`); option.value = item.id; chooser.append(option); }
+            const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+            const bodies = this.el('div', 'collection-comparison-grid');
+            let stale = false, selectedId = '', cleanup;
+            const current = () => c.comparisonReady() && c.state === state && c.readGeneration === generation && c.selected === sourceId && !c.draft();
+            const finish = () => {
+                if (this.closeComparison !== finish) return;
+                this.updateComparison = null; this.closeComparison = null; this.openDialog = false;
+                cleanup?.(); overlay.remove();
+                if (!this.doc.activeElement || this.doc.activeElement === this.doc.body) this.main.focus();
+            };
+            const close = this.button('CompareClose', 'Close comparison', finish);
+            const renderBodies = () => {
+                bodies.replaceChildren();
+                const other = c.comparisonCandidates(sourceId).find(item => item.id === selectedId);
+                for (const [key, fallback, item] of [['CompareFirst', 'Starting saved result', source], ['CompareSecond', 'Selected saved result', other]]) {
+                    if (!item) continue;
+                    const section = this.el('section'); section.append(this.el('h3', '', this.t(key, fallback)), this.el('p', 'collection-url', `${item.title} · ${item.tool || this.t('CompareNoTool', 'No tool label')}`), this.el('p', 'prompt-help collection-url', `${item.id} · ${this.t('MarkdownBodyVersion', 'Body version')} · ${item.currentVersionId}`));
+                    const body = this.el('pre', 'prompt-readonly', item.body); body.tabIndex = 0; section.append(body); bodies.append(section);
+                }
+                status.textContent = !candidates.length ? this.t('CompareEmpty', 'No other active saved result has this exact prompt and version link.') : other && source.body === other.body ? this.t('CompareEqual', 'These saved bodies are exactly identical.') : this.t('CompareLiteral', 'Saved text is shown literally. Different text does not imply better quality.');
+            };
+            const updateReference = () => {
+                const resolution = c.promptResolution(reference);
+                referenceStatus.textContent = resolution.status === 'resolved' ?
+                    this.t('CompareLinkResolved', 'The exact linked prompt version is readable locally.') + (resolution.provenance?.archived ? ` ${this.t('Archived', 'Archived')}` : '') + (resolution.provenance?.recoveryId ? ` ${this.t('PromptRecovery', 'Recovery snapshot')}` : '') :
+                    this.t('CompareLinkUnavailable', 'The exact linked prompt version is unavailable, missing or still loading. Matching uses saved link IDs only.');
+            };
+            this.updateComparison = () => {
+                updateReference();
+                if (stale || current()) return;
+                stale = true; bodies.replaceChildren(); chooser.disabled = true;
+                status.textContent = this.t('CompareStale', 'Saved data changed or could not be verified. This comparison has been cleared. Close it, refresh saved data if needed, then reopen to choose again.');
+                if (overlay.contains(this.doc.activeElement) || this.doc.activeElement === this.doc.body) close.focus();
+            };
+            chooser.addEventListener('change', () => { this.updateComparison?.(); if (stale) return; selectedId = chooser.value; renderBodies(); });
+            chooser.disabled = !candidates.length; renderBodies(); updateReference();
+            box.append(heading, scope, context, referenceStatus, label, status, bodies, close); overlay.append(box); this.doc.body.append(overlay);
+            this.openDialog = true; this.closeComparison = finish; cleanup = root.LocalItabDialog.open(overlay, chooser.disabled ? close : chooser, finish);
         }
         proposalAsNew(record) {
             const c = this.controller; if (c.busy || c.pendingCommand) return;
