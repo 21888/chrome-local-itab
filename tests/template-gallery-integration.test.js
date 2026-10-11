@@ -33,7 +33,7 @@ const original=manager.cloneDefaultConfig();original.links=[{id:'saved-link',tit
  const ctrl=new context.window.LocalItabAppearance.Controller({storage,initial:data.appearance});
  for(const id of registry.ids){assert(await ctrl.select('template',id));assert.equal(data.appearance.template,id);}
  for(const key of ['links','layout','__localItabPersonalTasksV1'])assert.deepEqual(data[key],original[key]);
- assert.equal(writes.length,15);
+ assert.equal(writes.length,21);
  const {createHarness}=require(path.join(snapshot,'tests/helpers/dashboard-harness'));
  const h=createHarness([{title:'A',url:'https://example.com/a',icon:'A',category:'work'},{title:'B',url:'https://example.com/b',icon:'B',category:'social'}]);
  vm.runInContext(fs.readFileSync('shared/dashboard-template-registry.js','utf8'),h.context);
@@ -41,5 +41,5 @@ const original=manager.cloneDefaultConfig();original.links=[{id:'saved-link',tit
  let mutations=0;h.storageManager.set=async()=>{mutations++;return true};const links=clone(h.component.links);
  for(const id of registry.ids){h.document.documentElement.dataset.dashboardTemplate=id;h.component.refreshTemplate();assert.equal(h.component.usesCollections(),registry.usesCollections(id));assert.deepEqual(clone(h.component.links),links);}
  assert.equal(mutations,0);
- console.log('PASS: ABC translation path and CN/EN copy parity, 30 storage/import roundtrips, 15 style-only selections preserve links/tasks/free coordinates, 15 DOM grouping transitions never write data');
+ console.log('PASS: ABC translation path and CN/EN copy parity, 42 storage/import roundtrips, 21 style-only selections preserve links/tasks/free coordinates, 21 DOM grouping transitions never write data');
 })().catch(error=>{console.error(error);process.exitCode=1});

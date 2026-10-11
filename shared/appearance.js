@@ -140,7 +140,9 @@
         status.setAttribute('role', 'status');
         status.setAttribute('aria-live', 'polite');
         host.appendChild(status);
+        const gallery = global.LocalItabTemplateGallery?.mount(host, id => controller.select('template', id));
         const controller = new Controller({ ...options, render(value, state, error) {
+            gallery?.render(value);
             controls.template.value = value.template;
             controls.colorMode.value = value.colorMode;
             host.setAttribute('aria-busy', String(state === 'saving'));

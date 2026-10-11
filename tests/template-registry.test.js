@@ -1,8 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const registry = require('../shared/dashboard-template-registry.js');
-assert.equal(registry.all.length,15);
-assert.equal(new Set(registry.ids).size,15);
+assert.equal(registry.all.length,21);
+assert.equal(new Set(registry.ids).size,21);
 assert.deepEqual(registry.ids.slice(0,3),['clarity','graphite','folio']);
 assert(Object.isFrozen(registry.all));
 assert.equal(registry.get('invalid').id,'clarity');
@@ -28,7 +28,7 @@ for(const entry of registry.all.slice(3)){
  checked++;
  }
 }
-console.log(`PASS: 15 immutable templates, 12 bilingual additions, ${checked} palettes with 13 AA role checks each, no network/host/free-plane CSS`);
+console.log(`PASS: 21 immutable templates, 18 bilingual additions, ${checked} palettes with 13 AA role checks each, no network/host/free-plane CSS`);
 
 const toolbarRules = css.split('}').filter(rule => rule.includes('.shortcuts-header'));
 assert.equal(toolbarRules.length, 2);

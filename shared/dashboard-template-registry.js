@@ -353,6 +353,144 @@ const all = [
       "shortcuts",
       "quote"
     ]
+  },
+  {
+    "id": "dispatch",
+    "labelKey": "templateDispatch",
+    "name": {
+      "en": "Dispatch",
+      "zh": "速览"
+    },
+    "description": {
+      "en": "Three aligned directory columns, with a compact masthead and short rows.",
+      "zh": "三列对齐的网站目录，搭配紧凑页眉与短行入口。"
+    },
+    "heading": {
+      "en": "Everything within reach.",
+      "zh": "常用内容，一眼可达。"
+    },
+    "composition": "top",
+    "collections": true,
+    "recommendedModules": [
+      "clock",
+      "search",
+      "shortcuts"
+    ]
+  },
+  {
+    "id": "today",
+    "labelKey": "templateToday",
+    "name": {
+      "en": "Today",
+      "zh": "今日"
+    },
+    "description": {
+      "en": "A broad launch area beside a separate column for your enabled cards.",
+      "zh": "宽幅网站区与独立的常用卡片侧栏。"
+    },
+    "heading": {
+      "en": "Settle into today.",
+      "zh": "安顿好今天。"
+    },
+    "composition": "top",
+    "collections": false,
+    "recommendedModules": [
+      "clock",
+      "search",
+      "shortcuts"
+    ]
+  },
+  {
+    "id": "bookmark",
+    "labelKey": "templateBookmark",
+    "name": {
+      "en": "Bookmark",
+      "zh": "书签"
+    },
+    "description": {
+      "en": "A full-width reading index with navigation on the right.",
+      "zh": "展开式阅读索引，分类导航置于右侧。"
+    },
+    "heading": {
+      "en": "Pick up where you left off.",
+      "zh": "从上次停下的地方继续。"
+    },
+    "composition": "right",
+    "collections": true,
+    "recommendedModules": [
+      "clock",
+      "search",
+      "shortcuts"
+    ]
+  },
+  {
+    "id": "dock",
+    "labelKey": "templateDock",
+    "name": {
+      "en": "Dock",
+      "zh": "停靠"
+    },
+    "description": {
+      "en": "A compact launchpad with a flowing category dock below the content.",
+      "zh": "紧凑的网站启动台，分类停靠栏随内容排列在底部。"
+    },
+    "heading": {
+      "en": "Your next stop.",
+      "zh": "下一站，由你选择。"
+    },
+    "composition": "bottom",
+    "collections": false,
+    "recommendedModules": [
+      "clock",
+      "search",
+      "shortcuts"
+    ]
+  },
+  {
+    "id": "mosaic",
+    "labelKey": "templateMosaic",
+    "name": {
+      "en": "Mosaic",
+      "zh": "拼贴"
+    },
+    "description": {
+      "en": "A two-column board with a wider leading collection and tiled links.",
+      "zh": "双列分组看板，首组更宽，网站以小网格排列。"
+    },
+    "heading": {
+      "en": "Keep your projects in view.",
+      "zh": "把手边项目放在眼前。"
+    },
+    "composition": "sidebar",
+    "collections": true,
+    "recommendedModules": [
+      "clock",
+      "search",
+      "shortcuts"
+    ]
+  },
+  {
+    "id": "paper",
+    "labelKey": "templatePaper",
+    "name": {
+      "en": "Paper",
+      "zh": "便笺"
+    },
+    "description": {
+      "en": "A narrow single-column directory, with category labels beside each list.",
+      "zh": "窄幅单列目录，每组分类名与网站列表并排。"
+    },
+    "heading": {
+      "en": "One clear page.",
+      "zh": "一页，就很清楚。"
+    },
+    "composition": "top",
+    "collections": true,
+    "recommendedModules": [
+      "clock",
+      "search",
+      "shortcuts"
+    ]
   }
 ];
 // Recommendations affect visibility only, and require a separate reviewed action.
@@ -361,7 +499,9 @@ const workspaces = {
  atelier: [false, true], quiet: [false, true], studio: [true, true],
  console: [true, true], prism: [false, false], library: [false, true],
  horizon: [false, false], ledger: [true, false], meadow: [false, true],
- blueprint: [true, true], terrace: [true, false], column: [true, false]
+ blueprint: [true, true], terrace: [true, false], column: [true, false],
+ dispatch: [false, false], today: [true, true], bookmark: [false, false],
+ dock: [false, false], mosaic: [true, false], paper: [false, true]
 };
 for (const entry of all) {
  const [tasks, focus] = workspaces[entry.id];
