@@ -10,33 +10,29 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 [Vista previa](#preview) · [Instalación](#install) · [Funciones](#features) · [Privacidad y copias](#privacy) · [Desarrollo](#development)
 
-**Candidata local 1.1.32: resultados por versión del prompt.** Consulta las colecciones activas vinculadas al prompt y a su versión exacta desde la vista previa o el historial seleccionado. Las variables retenidas conservan el alcance de la versión anterior. Los errores de lectura se distinguen de una lista vacía; cada resultado se abre en otra pestaña. Solo lectura y procesamiento local. La validación de esta función en Chrome sigue pendiente. [Alcance y pruebas](docs/prompt-linked-results.md) · [Notas de versión](docs/releases/1.1.32.md#english)
+**Un flujo de IA local:** organiza prompts y versiones del texto, revisa las variables y guarda resultados vinculados a la versión exacta. El contenido permanece en este dispositivo; ejecutas los prompts en la herramienta que elijas. [Uso](#local-ai)
 
 <a id="preview"></a>
 
 ## Vista previa
 
-### Capturas de colecciones de IA · candidata local 1.1.24
+### Comparación de prompts y borradores de resultados
 
-Capturadas el 2026-10-10 en Chrome nativo de Linux en la nube con datos de prueba aislados. Estas dos imágenes originales proceden del paquete corregido y congelado de 82 archivos (manifest 1.1.21); la candidata local 1.1.24 solo cambia el número de versión respecto a ese paquete. La vista clara incluye las correcciones del tema predeterminado y del encabezado. La ventana oscura tiene 553 píxeles de ancho exterior, no es un teléfono físico ni una anchura CSS medida. La candidata no se ha enviado al repositorio remoto ni publicado; al redactar este registro, la versión pública sigue siendo 1.1.21 y 1.1.22 / 1.1.23 también son solo locales.
+Estas capturas originales de la interfaz en inglés se tomaron el 2026-10-11 en Chrome for Testing para Linux en la nube, solo con datos sintéticos aislados. La comparación corresponde a 1.1.35 y el borrador sin guardar de una versión exacta, a 1.1.36. Documentan esas pruebas, no la validación completa de 1.1.38 ni de todos los dispositivos.
 
-![Colección de IA clara: detalles de escritorio corregidos y fragmento literal](docs/qa/collections-native/evidence/04-corrected-desktop-light.png)
-![Colección de IA oscura en ventana estrecha: detalles apilados, notas y fuente](docs/qa/collections-native/evidence/15-narrow-dark-detail.png)
+![Comparación de versiones: líneas literales eliminadas, añadidas y sin cambios](docs/qa/prompt-version-comparison/diff-light.jpg)
+![Borrador de resultado: vínculo a la versión exacta en otra pestaña, con texto vacío y sin guardar](docs/qa/exact-version-result-draft/unsaved-exact-v1-review.jpg)
 
-[Validación nativa y límites (inglés)](docs/ai-collections-native-validation.md) · [Descargas reales y comparación de restauración](docs/qa/collections-native/acceptance-notes.md) · [Cambios de 1.1.24 (inglés)](docs/releases/1.1.24.md#english)
+[Validación y límites de la comparación (inglés)](docs/qa/prompt-version-comparison/native-acceptance.md) · [Validación y límites del borrador (inglés)](docs/qa/exact-version-result-draft/native-acceptance.md)
 
-### Capturas de la biblioteca de prompts · candidata local 1.1.23
+<details>
+<summary>Capturas anteriores de espacios, funciones y plantillas</summary>
 
-Capturadas el 2026-10-10 en Chrome nativo de Linux en la nube con datos de prueba aislados. Estas imágenes originales muestran el paquete integrado congelado de 76 archivos (manifest 1.1.21); el código actual 1.1.23 solo cambia el número de versión de ejecución. No son capturas posteriores a la publicación. La imagen estrecha usa una ventana exterior de 553 píxeles, no un teléfono físico ni una anchura CSS medida.
+Se conservan las versiones, la procedencia y el alcance de las pruebas de cada captura.
 
-![Biblioteca clara: búsqueda por etiqueta](docs/qa/prompts-native/evidence/04-light-tag-search.jpg)
-![Biblioteca oscura en ventana estrecha: detalle y variables](docs/qa/prompts-native/evidence/09-narrow-dark-detail.jpg)
+### Capturas anteriores de espacios · validación previa a 1.1.22
 
-[Validación nativa y límites](docs/prompt-library-native-validation.md) · [Flujos y comparación de copias](docs/qa/prompts-native/acceptance-notes.md)
-
-### Capturas actuales · validación previa a 1.1.22
-
-Capturadas en Chrome nativo de Linux el 2026-10-10 con datos de prueba. La versión fotografiada es 1.1.21 más la función de espacios independientes; la candidata local 1.1.22 solo cambia el número de versión y aún no se ha enviado al repositorio remoto. Son imágenes originales, no capturas realizadas tras la publicación.
+Capturadas en Chrome nativo de Linux el 2026-10-10 con datos de prueba. La versión fotografiada es 1.1.21 más la función de espacios independientes; la candidata local 1.1.22 de entonces solo cambiaba el número de versión y aún no se había enviado al repositorio remoto. Son imágenes originales, no capturas realizadas tras la publicación.
 
 ![Folio claro con selector de espacio](docs/qa/workspaces-native/screenshots/05-folio-workspace-bar.jpg)
 ![Gestión de espacios y papelera](docs/qa/workspaces-native/screenshots/15-workspace-manager-light.jpg)
@@ -92,7 +88,9 @@ Puedes deshacer una finalización accidental sin volver a fijar la tarea automá
 
 ### Funciones
 
-- **Revisión de texto seleccionado (candidata local 1.1.27)**: El menú contextual de una selección HTTP(S) abre un borrador sin guardar. Revisa el texto entregado por Chrome, añade un título y guarda explícitamente. El origen es opcional, sin consulta ni fragmento. Solo añade `contextMenus`. Chrome puede aplanar los saltos de línea. [Privacidad y límites](docs/selection-capture.md) · [Validación nativa](docs/selection-capture-native-validation.md) · [Cambios de 1.1.27, sin publicar](docs/releases/1.1.27.md#english). anteriores · 1.1.7 Tareas y concentración
+- **Revisión de texto seleccionado (candidata local 1.1.27)**: En el detalle de una colección no archivada con un vínculo exacto, elige **Compare saved results** y selecciona explícitamente otro resultado guardado con los mismos ID de prompt y versión. Los textos actuales se muestran literalmente uno junto al otro (apilados en pantallas estrechas), con títulos, etiquetas de herramientas y un aviso si son iguales, sin puntuaciones ni clasificación. Se excluyen borradores, elementos archivados, otras versiones e instantáneas de recuperación. Si falta el prompt, se permite comparar por los ID guardados y se indica la disponibilidad del origen. La comparación es de solo lectura y no usa la red. Una actualización de los datos, escritura o error de lectura la borra; cierra y vuelve a abrir para elegir de nuevo. Nunca se sustituye un candidato automáticamente.
+
+El menú contextual de una selección HTTP(S) abre un borrador sin guardar. Revisa el texto entregado por Chrome, añade un título y guarda explícitamente. El origen es opcional, sin consulta ni fragmento. Solo añade `contextMenus`. Chrome puede aplanar los saltos de línea. [Privacidad y límites](docs/selection-capture.md) · [Validación nativa](docs/selection-capture-native-validation.md) · [Cambios de 1.1.27, sin publicar](docs/releases/1.1.27.md#english). anteriores · 1.1.7 Tareas y concentración
 
 Completa directamente la tarea fijada sin ampliar la lista. Iniciar permanece desactivado mientras los minutos no estén guardados; guardar la duración no inicia el temporizador. Capturas reales de la versión de desarrollo 1.1.7 con tareas de ejemplo en inglés: la interfaz clara en chino muestra 30 minutos guardados; el recorte oscuro en inglés muestra un borrador de 30 minutos mientras el temporizador conserva 25.
 
@@ -186,6 +184,8 @@ Capturas reales con datos de ejemplo y controles en inglés. Las imágenes está
 
 </details>
 
+</details>
+
 <a id="install"></a>
 
 ## Instalación y primeros pasos
@@ -211,15 +211,23 @@ Consulta la [guía de comprobación de versiones, copias separadas y actualizaci
 
 ## Funciones
 
-- **Contexto de búsqueda de IA (candidata local 1.1.30)**: Al reabrir la búsqueda en la misma página, se conservan la consulta y el tipo, y se vuelven a leer los datos guardados. Limpiar borra solo la consulta y conserva el filtro; recargar o abrir otra página restablece ambos. El estado permanece en memoria, sin guardarse. Este flujo nuevo aún no tiene validación nativa en navegador. [Cambios y alcance de 1.1.30 (inglés)](docs/releases/1.1.30.md#english).
+<a id="local-ai"></a>
 
-- **Elemento guardado actual como Markdown (candidata local 1.1.29)**: Revisa y descarga explícitamente un solo prompt o elemento de colección desde su vista de detalle. Los prompts conservan las `{{variables}}` literales, sin los valores temporales introducidos; las colecciones incluyen solo el fragmento actual, las notas y los metadatos, sin textos de prompts vinculados, historial, borradores ni otros registros. Las URL de origen se omiten por defecto; incluirlas requiere marcar una opción y revisar su texto literal. El archivo es una copia legible sin cifrar: comprueba si contiene información privada antes de compartirlo. Las copias JSON de recuperación no cambian. Sin permisos ni solicitudes de red nuevos. [Uso y privacidad (inglés)](docs/local-ai-markdown-export.md) · [Validación nativa y límites (inglés)](docs/markdown-export-native-validation.md) · [Cambios de 1.1.29 (inglés)](docs/releases/1.1.29.md#english).
+### Bibliotecas de IA locales: del prompt al resultado guardado
 
-- **Búsqueda unificada de la biblioteca de IA (candidata local 1.1.26)**: Busca prompts y fragmentos de IA guardados desde la nueva pestaña, filtra por tipo y encuentra coincidencias en títulos, textos, etiquetas y notas de los fragmentos de IA con fragmentos literales que respetan Unicode. Los resultados tienen un orden determinista y admiten flechas y Enter. Cada registro exacto se abre en otra pestaña, conservando los borradores de la actual; los destinos inválidos, ausentes o archivados muestran un aviso sin sustituirse por otro registro. Solo lee datos locales, sin nuevos permisos, solicitudes de red ni formato de almacenamiento. La candidata no se ha enviado al repositorio remoto ni publicado. [Uso y alcance (inglés)](docs/ai-library-search.md#english) · [Validación nativa (inglés)](docs/ai-search-native-validation.md) · [Cambios de 1.1.26, sin publicar (inglés)](docs/releases/1.1.26.md#english).
+La biblioteca de prompts y las colecciones de IA se guardan en este dispositivo y se comparten entre espacios de trabajo. No llaman a modelos, generan resultados ni suben contenido automáticamente.
 
-- **Colecciones de resultados de IA (candidata local 1.1.25)**: Guarda manualmente fragmentos literales con notas separadas, tipos, etiquetas de herramientas y etiquetas en una biblioteca local compartida entre espacios; busca, archiva y recupera registros. Los cambios del texto requieren revisión; recuperar una versión añade otra al historial y las pestañas desactualizadas no sobrescriben los datos nuevos. La exportación JSON independiente puede omitir las URL de origen solo en la copia. La copia completa con esquema 4 admite reemplazo global de colecciones, copia previa de recuperación y verificación por relectura. Elige un prompt existente y una versión exacta e inmutable de su texto sin escribir ID; revisa la vista previa literal, aplica explícitamente el enlace al borrador y después guarda. El enlace nunca sigue la última versión. Se indica el origen archivado o en una copia de recuperación; las versiones ausentes y los errores de lectura se distinguen y se conserva la referencia original. Sin captura automática, llamadas a modelos ni nuevas solicitudes de red; la revisión de selección añade contextMenus; no es una copia de conversaciones completas. [Uso, privacidad y límites (chino)](docs/ai-collections.zh-CN.md) · [Validación nativa del enlace exacto (inglés)](docs/exact-prompt-links-native-validation.md) · [Cambios de 1.1.25, sin publicar (inglés)](docs/releases/1.1.25.md#english).
+1. **Guarda una plantilla y revisa la vista previa.** Crea un título y un texto, añade categorías, etiquetas y `{{variables}}` si lo deseas, y pulsa Guardar explícitamente. Completa las variables, revisa el texto y cópialo a la herramienta que elijas. Guardar cambios del texto conserva el historial de versiones. [Guía de prompts (inglés)](docs/prompt-library.md#english)
+2. **Elige la versión que vas a usar.** Seleccionar una fila del historial solo muestra su texto; **Use this version** cambia la vista previa utilizable y **Return to current version** vuelve explícitamente a la actual. Cada versión exacta conserva valores temporales independientes en esta pestaña. Se pierden al recargar o cerrar y no entran en el texto guardado, el historial ni las copias. **Clear values** borra los valores de la versión en uso y de la actual, y vuelve a la actual. Compara dos versiones guardadas desde el historial para ver líneas añadidas, eliminadas y sin cambios, junto con un resumen de saltos de línea, sin restaurar ni editar textos. [Vistas previas históricas](docs/prompt-history-preview.md) · [Comparación (inglés)](docs/prompt-version-comparison.md)
+3. **Revisa un fragmento antes de insertarlo.** Elige una colección guardada y no archivada, revisa su texto completo y el valor que sustituirá, y confirma el reemplazo de esa variable. Solo se inserta el texto revisado; se excluyen notas, origen y etiquetas de herramientas. La plantilla y las demás variables no cambian. [Guía de fragmentos y variables (inglés)](docs/prompt-excerpt-variables.md)
+4. **Guarda manualmente un resultado con su versión exacta.** **Save a result for this version** abre otra pestaña con un borrador de colección vacío y sin guardar, vinculado a la versión que utiliza la vista previa. Introduce el resultado, revisa el vínculo y guarda explícitamente; no se lee el portapapeles ni se rellena el resultado. También puedes elegir un prompt y una versión exacta en el editor de colecciones, revisar y aplicar el vínculo, y guardar. Las listas de resultados de la vista previa y del historial solo muestran colecciones no archivadas vinculadas a ese prompt y esa versión. No siguen la última versión ni valoran la calidad; cada tarjeta se abre en otra pestaña. [Guía de colecciones (chino)](docs/ai-collections.zh-CN.md) · [Resultados vinculados (inglés)](docs/prompt-linked-results.md) · [Nuevos borradores (inglés)](docs/releases/1.1.36.md#english)
+5. **Encuentra el contenido guardado.** La búsqueda unificada de la nueva pestaña busca en títulos, textos y etiquetas de prompts y colecciones, incluidas las notas de las colecciones. Puedes filtrar por tipo. Al reabrirla, conserva la consulta y el tipo de esta página y vuelve a leer los datos; Limpiar solo borra la consulta, mientras que recargar la página restablece ambos. [Alcance de búsqueda (inglés)](docs/ai-library-search.md#english)
 
-- **Biblioteca personal de prompts (candidata local 1.1.23)**: Una biblioteca local de texto plano compartida por todos los espacios, con categorías, etiquetas, favoritos, búsqueda, vista previa y copia de `{{variables}}`, historial del texto y papelera recuperable. La copia local completa con esquema 3 puede incluir prompts; la exportación normal de ajustes, Chrome Sync y Drive no los incluyen. Sin ejecución de modelos, campos de claves API, permisos nuevos ni cargas automáticas. [Uso y límites (chino)](docs/prompt-library.zh-CN.md) · [Alcance de validación nativa (inglés)](docs/prompt-library-native-validation.md) · [Cambios y límites de 1.1.23 (inglés)](docs/releases/1.1.23.md#english). El número de la candidata no significa que esté publicada.
+El menú contextual de una página web permite enviar texto seleccionado a un borrador de colección nuevo y sin guardar para revisarlo y guardarlo explícitamente. La URL de origen se excluye por defecto; si la incluyes, se eliminan la consulta y el fragmento. El navegador puede cambiar los saltos de línea. [Revisión de texto seleccionado (inglés)](docs/selection-capture.md)
+
+**Exportación y copias:** revisa y descarga un elemento guardado como Markdown. Los prompts conservan los marcadores de variables; las colecciones incluyen el texto actual, notas y metadatos, con inclusión opcional de la URL de origen. Markdown es una copia legible, no un formato para restaurar el historial. Usa las exportaciones JSON de las bibliotecas o selecciónalas en una copia local completa; el JSON de ajustes, Chrome Sync y las instantáneas de Drive no las incluyen. Los borradores sin guardar y las variables temporales no entran en las copias. Los datos locales y archivos exportados no están cifrados. [Exportación Markdown (inglés)](docs/local-ai-markdown-export.md) · [Copia completa](docs/complete-backup.es-ES.md)
+
+### Nueva pestaña y herramientas cotidianas
 
 - **Exportar marcadores del navegador**: En Ajustes → Datos, exporta títulos, URL completas y carpetas de categorías guardadas a un archivo HTML local. Revisa la confirmación de privacidad; se excluyen cambios sin guardar, iconos, ajustes y herramientas locales. [Alcance y límites](docs/bookmark-export.md).
 

@@ -10,33 +10,29 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 [Preview](#preview) · [Install](#install) · [Features](#features) · [Privacy & backups](#privacy) · [Development](#development)
 
-**Local 1.1.32 candidate: saved results by prompt version.** Inspect active AI collection results explicitly linked to the exact prompt and body version in the usable preview or selected history. Retained variable sessions keep their actual older-version scope. Read failures stay distinct from empty results; cards open in a new tab. Read-only and local. Native browser acceptance of this feature is pending separately. [Scope and checks](docs/prompt-linked-results.md) · [Release notes](docs/releases/1.1.32.md#english)
+**A local AI workflow:** organize prompts and body versions, review variable previews, and save results linked to the exact version. Content stays on this device; you run prompts in your chosen tool. [Usage](#local-ai)
 
 <a id="preview"></a>
 
 ## Preview
 
-### AI collection screenshots · local 1.1.24 candidate
+### Prompt comparison and result drafts
 
-Captured on 2026-10-10 in native cloud Linux Chrome with isolated synthetic data. These two original screenshots come from the corrected, frozen 82-file runtime (manifest 1.1.21); the local 1.1.24 candidate changes only the version number relative to that runtime. The light view includes the default-theme and heading fixes. The dark view uses a 553-pixel outer browser window, not a physical phone or measured CSS viewport. This candidate has not been pushed or released; at the time of this record, the public version remains 1.1.21 and 1.1.22 / 1.1.23 are also local only.
+These original English-interface captures were taken on 2026-10-11 in cloud Linux Chrome for Testing, using isolated synthetic data only. Prompt comparison shows 1.1.35; the unsaved exact-version result draft shows 1.1.36. They document those acceptance runs, not full 1.1.38 or all-device validation.
 
-![Light AI collection: corrected desktop details and literal excerpt](docs/qa/collections-native/evidence/04-corrected-desktop-light.png)
-![Dark AI collection in a narrow window: stacked details, notes and source](docs/qa/collections-native/evidence/15-narrow-dark-detail.png)
+![Prompt version comparison: removed, added and unchanged literal lines](docs/qa/prompt-version-comparison/diff-light.jpg)
+![Exact-version result draft: reviewed version link in a new tab, with an empty unsaved body](docs/qa/exact-version-result-draft/unsaved-exact-v1-review.jpg)
 
-[Native acceptance and untested scope](docs/ai-collections-native-validation.md) · [Actual downloads and restore comparisons](docs/qa/collections-native/acceptance-notes.md) · [1.1.24 changes](docs/releases/1.1.24.md#english)
+[Comparison acceptance and limits](docs/qa/prompt-version-comparison/native-acceptance.md) · [Result-draft acceptance and limits](docs/qa/exact-version-result-draft/native-acceptance.md)
 
-### Prompt library screenshots · local 1.1.23 candidate
+<details>
+<summary>Earlier workspace, feature and template captures</summary>
 
-Captured on 2026-10-10 in native cloud Linux Chrome with isolated synthetic data. These original screenshots show the frozen 76-file integrated runtime (manifest 1.1.21); the current 1.1.23 source changes only the runtime version number. They are not post-publication screenshots. The narrow image uses a 553-pixel outer browser window, not a physical phone or a measured CSS viewport.
+The following retain their original capture versions, provenance and verification scope.
 
-![Light prompt library: tag search](docs/qa/prompts-native/evidence/04-light-tag-search.jpg)
-![Dark prompt library in a narrow window: detail and variables](docs/qa/prompts-native/evidence/09-narrow-dark-detail.jpg)
+### Earlier workspace screenshots · pre-release 1.1.22 acceptance
 
-[Native acceptance and untested scope](docs/prompt-library-native-validation.md) · [Detailed flows and backup comparisons](docs/qa/prompts-native/acceptance-notes.md)
-
-### Current workspace screenshots · pre-release 1.1.22 acceptance
-
-Captured in native cloud Linux Chrome on 2026-10-10 with disposable synthetic data. The frozen runtime is 1.1.21 plus the complete workspace feature; the local 1.1.22 candidate changes only its version number and has not been pushed. These original screenshots are not represented as post-release captures.
+Captured in native cloud Linux Chrome on 2026-10-10 with disposable synthetic data. The frozen runtime is 1.1.21 plus the complete workspace feature; the then-local 1.1.22 candidate changed only its version number and had not yet been pushed. These original screenshots are not represented as post-release captures.
 
 ![Light Folio dashboard with workspace navigation](docs/qa/workspaces-native/screenshots/05-folio-workspace-bar.jpg)
 ![Light workspace manager and Trash](docs/qa/workspaces-native/screenshots/15-workspace-manager-light.jpg)
@@ -184,6 +180,8 @@ Actual interface captures with sample data and English controls. The images are 
 
 </details>
 
+</details>
+
 <a id="install"></a>
 
 ## Install and get started
@@ -209,17 +207,25 @@ See [version checks, separate backup shortcuts and update steps](docs/version-up
 
 ## Features
 
-- **AI library search context (local 1.1.30 candidate)**: Reopening search retains the query and record type in the same page, with fresh reads of saved data. Clear removes only the query and keeps the type filter; reloading or opening a new page resets both. State stays in page memory and is never persisted. This new flow has not had native browser acceptance testing. [1.1.30 changes and verification scope](docs/releases/1.1.30.md#english).
+<a id="local-ai"></a>
 
-- **Current saved item as Markdown (local 1.1.29 candidate)**: Review and explicitly download one saved prompt or collection item from its detail view. Prompts retain literal `{{variables}}`, excluding temporary filled-in values; collections contain only the current excerpt, notes and metadata, excluding linked prompt bodies, history, drafts and other records. Source URLs are omitted by default and require a separate opt-in and literal review. The file is a readable, unencrypted copy: check for private content before sharing. Existing JSON recovery backups remain unchanged. No new permissions or network requests. [Usage and privacy](docs/local-ai-markdown-export.md) · [Native validation and limits](docs/markdown-export-native-validation.md) · [1.1.29 changes](docs/releases/1.1.29.md#english).
+### Local AI libraries: from prompts to saved results
 
-- **Selected-text review (local 1.1.27 candidate)**: Right-click an HTTP(S) selection to open a fresh unsaved collection draft. Review the browser-provided text, enter a title and explicitly Save locally. Source inclusion starts unchecked; query and fragment are removed. Only `contextMenus` is added. Chrome may flatten original newlines; this does not preserve original page formatting. [Privacy and limits](docs/selection-capture.md) · [Native acceptance](docs/selection-capture-native-validation.md) · [1.1.27 changes (unpublished)](docs/releases/1.1.27.md#english).
+Prompt library and AI collections are device-local libraries shared across workspaces. They do not call models, generate results or upload content automatically.
 
-- **Unified AI library search (local 1.1.26 candidate)**: Search saved prompts and AI excerpts together from the new tab, filter by type, and match titles, bodies, tags and AI excerpt notes with Unicode-safe literal snippets. Results have deterministic ordering and arrow-key/Enter access. Exact records open in a new tab, preserving drafts in the current tab; invalid, missing or archived targets show an explicit state instead of another record. Local reads only, with no new permissions, network requests or storage format. This candidate is not pushed or released. [Usage and search scope](docs/ai-library-search.md#english) · [Native acceptance scope](docs/ai-search-native-validation.md) · [1.1.26 changes (unpublished)](docs/releases/1.1.26.md#english).
+1. **Save a template and review its preview.** Create a title and body, optionally add categories, tags and `{{variables}}`, then explicitly Save. Fill variables, review the completed text and choose Copy to use it in your chosen tool. Saving body changes retains version history. [Prompt library guide](docs/prompt-library.md#english)
+2. **Choose the version to use.** Selecting a history row only inspects its body; **Use this version** switches the usable preview, and **Return to current version** explicitly switches back. Each exact version keeps separate temporary variable values in this tab. Reloading or closing loses them; they never enter saved bodies, history or backups. **Clear values** clears the active and current versions' values and returns to current. Compare two saved versions from history to inspect added, removed and unchanged lines and newline summaries, without restoring or editing either body. [Historical previews](docs/prompt-history-preview.md) · [Version comparison](docs/prompt-version-comparison.md)
+3. **Review an excerpt before inserting it.** Choose an active saved collection item, inspect its full body and the value to be replaced, then explicitly replace that one variable. Only the reviewed body is inserted; notes, source and tool labels are excluded. The template and other variables stay unchanged. [Excerpt-to-variable guide](docs/prompt-excerpt-variables.md)
+4. **Save a result manually with its exact version.** **Save a result for this version** opens a new tab with an empty, unsaved collection draft linked to the version actually used by the preview. Enter the result body, review its link and explicitly Save; nothing reads the clipboard or fills in a result. You can also choose a prompt and exact version in the collection editor, review and apply the link, then Save. Result lists in the preview and history show only active collections linked to that exact prompt/version. They do not follow the latest version or rank quality; cards open in a new tab. [Collection guide (Chinese)](docs/ai-collections.zh-CN.md) · [Exact linked results](docs/prompt-linked-results.md) · [New result drafts](docs/releases/1.1.36.md#english)
+5. **Find saved material again.** Unified search on the new tab matches saved prompt and collection titles, bodies and tags, including collection notes. Filter by record type. Reopening retains this page's query and type while rereading saved data; Clear removes only the query, and a page reload resets both. [Search scope](docs/ai-library-search.md#english)
 
-- **AI result collections (local 1.1.25 candidate)**: Manually save literal excerpts with separate notes, types, tool labels and tags in one local library shared across workspaces; search, archive and restore records. Body changes require review, restoring history appends a version, and stale tabs cannot overwrite newer saves. Standalone JSON export can omit source URLs from the exported copy only. Complete backup schema 4 supports global collection replacement, pre-restore recovery and read-back verification. Choose an existing prompt and an exact immutable body version without typing IDs; review the literal preview, explicitly Apply to the draft, then Save. Links never follow the latest version. Archived/recovery-snapshot provenance is labeled; missing versions and read errors remain distinct, with the original reference retained. No automatic capture, model calls or new network requests; selected-text review separately adds contextMenus; this is not a full conversation backup. [Usage, privacy and limits (Chinese)](docs/ai-collections.zh-CN.md) · [Exact-link native acceptance](docs/exact-prompt-links-native-validation.md) · [1.1.25 changes (unpublished)](docs/releases/1.1.25.md#english).
+In an active collection detail with an exact version link, choose **Compare saved results**, then explicitly choose another saved result with the same prompt ID and version ID. The two current bodies appear as literal text side by side (stacked on narrow screens), with titles, tool labels and an equal-body indication, without scoring or ranking. Drafts, archived items, other versions and recovery snapshots are excluded. A missing prompt still allows comparison by saved IDs, with source availability disclosed. Comparison is read-only and makes no network requests. A collection refresh, write or read failure clears it; close and reopen to choose again. Candidates are never silently replaced.
 
-- **Personal prompt library (local 1.1.23 candidate)**: One local plain-text library shared by all workspaces, with categories, tags, favorites, search, `{{variable}}` preview and copying, body-version history and recoverable Trash. Complete local backup schema 3 can include prompts; ordinary settings exports, Chrome Sync and Drive do not. No model execution, API-key fields, new permissions or automatic uploads. [Usage and limits (Chinese)](docs/prompt-library.zh-CN.md) · [Native acceptance scope](docs/prompt-library-native-validation.md) · [1.1.23 changes and limits](docs/releases/1.1.23.md#english). The candidate version number does not indicate publication.
+The web-page context menu can send selected text to a new unsaved collection draft for review and explicit Save. Source URLs are excluded by default; opting in strips query and fragment. The browser may change original line breaks. [Selected-text review](docs/selection-capture.md)
+
+**Export and back up:** review and download one saved item as Markdown. Prompts keep variable placeholders; collections include their current body, notes and metadata, with source URLs separately opt-in. Markdown is a readable copy, not a history-restoration format. Use library JSON exports or select the libraries in a complete local backup; ordinary settings JSON, Chrome Sync and Drive snapshots exclude them. Unsaved drafts and temporary variables are not backed up. Local data and exported files are unencrypted. [Markdown export](docs/local-ai-markdown-export.md) · [Complete backup](docs/complete-backup.en.md)
+
+### New tab and everyday tools
 
 - **Browser bookmark export**: In Settings → Data, export saved site titles, full URLs and category folders to a local HTML file. Review the privacy confirmation first; unsaved edits, icons, settings and local tools are excluded. [Scope and limits](docs/bookmark-export.md).
 
@@ -475,9 +481,3 @@ Before updating, use the shortcuts in that section to reach the existing setting
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.
-
-### Compare saved AI results
-
-In an active result with an exact prompt/version link, choose **Compare saved results**, then explicitly choose another saved result for the same two IDs. The view shows current saved bodies, titles and tool labels side by side (stacked on narrow screens), as literal text. Equal bodies are identified without ranking answer quality. References are exact stored IDs, not proof that a linked prompt remains available. Drafts, archived results, other versions and recovery snapshots are excluded.
-
-Comparison is read-only and makes no model or network requests. Opening, changing and closing it leave drafts and navigation untouched. A saved-data refresh, write or read failure clears the comparison immediately; close and reopen after refreshing to choose again. Removed or relinked candidates are never silently replaced. Escape closes the dialog; long bodies wrap and scroll independently. No extra storage schema, permission or provider is introduced.
