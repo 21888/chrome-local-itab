@@ -3,3 +3,5 @@
 .settings-nav .prompt-library-entry:hover { background: var(--template-surface-raised); }
 .settings-nav .prompt-library-entry:focus-visible { outline: 3px solid var(--template-focus); outline-offset: 3px; }
 @media (max-width: 560px) { .settings-nav .prompt-library-entry { padding: 7px 9px; } }
+
+.settings-nav button.prompt-library-entry { cursor: pointer; }

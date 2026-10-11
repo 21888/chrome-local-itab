@@ -84,7 +84,7 @@
             if (!c.state) this.renderUnavailable();
             else if (c.draft()) this.renderEditor();
             else if (c.record()) this.renderRecord(c.record());
-            else this.renderEmpty();
+            else if (!root.LocalItabAISearchView?.showTargetError(c, this)) this.renderEmpty();
             if (c.busy || c.pendingCommand) for (const control of this.main.querySelectorAll('button, input, textarea, select')) control.disabled = true;
             if (desiredFocus) {
                 const target = Array.from(this.main.querySelectorAll('[data-prompt-focus]')).find(node => node.dataset.promptFocus === desiredFocus);

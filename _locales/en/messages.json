@@ -3339,5 +3339,77 @@
 "collectionsPromptChoose": {"message": "Choose a prompt"},
 "collectionsPromptChooseVersion": {"message": "Choose a version"},
 "collectionsPromptPreview": {"message": "Selected prompt version preview"},
-"collectionsPromptEmpty": {"message": "No local prompt versions are available."}
+"collectionsPromptEmpty": {"message": "No local prompt versions are available."},
+  "aiSearchOpen": {
+    "message": "Search AI library"
+  },
+  "aiSearchScope": {
+    "message": "Current saved prompts and AI excerpts · on this device · opens in a new tab"
+  },
+  "aiSearchQuery": {
+    "message": "Search title, body or tags"
+  },
+  "aiSearchFilter": {
+    "message": "Record type"
+  },
+  "aiSearchAll": {
+    "message": "All types"
+  },
+  "aiSearchPrompt": {
+    "message": "Prompt"
+  },
+  "aiSearchCollection": {
+    "message": "AI excerpt"
+  },
+  "aiSearchLoading": {
+    "message": "Reading current saved libraries…"
+  },
+  "aiSearchEmpty": {
+    "message": "No saved items in this scope."
+  },
+  "aiSearchNone": {
+    "message": "No matching saved items."
+  },
+  "aiSearchPromptError": {
+    "message": "Prompt library unavailable. Try reading again."
+  },
+  "aiSearchCollectionError": {
+    "message": "AI collection unavailable. Try reading again."
+  },
+  "aiSearchPartial": {
+    "message": "Only available libraries are shown."
+  },
+  "aiSearchRetry": {
+    "message": "Read again"
+  },
+  "aiSearchClear": {
+    "message": "Clear"
+  },
+  "aiSearchClose": {
+    "message": "Close"
+  },
+  "aiSearchResults": {
+    "message": "Results"
+  },
+  "aiSearchBody": {
+    "message": "Body"
+  },
+  "aiSearchTitle": {
+    "message": "Title"
+  },
+  "aiSearchTags": {
+    "message": "Tags"
+  },
+  "aiSearchInvalid": {
+    "message": "This record link is invalid. Choose a saved item from the list."
+  },
+  "aiSearchMissing": {
+    "message": "This saved record is no longer available. Nothing else was selected."
+  },
+  "aiSearchArchived": {
+    "message": "This record is archived. Open Archived / Trash to review it."
+  },
+  "aiSearchUnavailable": {
+    "message": "Both libraries are unavailable. Try reading again."
+  }
 }

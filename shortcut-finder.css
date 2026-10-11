@@ -19,3 +19,6 @@
 .finder-alert { color: var(--template-error); font-size: 12px; }
 .finder-overlay [hidden] { display: none !important; }
 @media (max-width: 600px) { .finder-overlay { padding: 8px; } .finder-panel { padding: 16px; } }
+
+.ai-search-result { box-sizing: border-box; text-decoration: none; }
+.ai-search-snippet { white-space: pre-wrap; }

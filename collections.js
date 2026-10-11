@@ -31,6 +31,7 @@
             promptStore = { read: () => prompts.read(), subscribe: listener => prompts.subscribe(listener) };
         } catch (error) { promptStore = { subscribe: () => () => {}, read: async () => { throw error; } }; }
         const controller = new root.LocalItabCollectionsController.Controller({ store, promptStore });
+        root.LocalItabAISearch.prepareTarget(controller, root.location.search);
         const view = new root.LocalItabCollectionsView.View({ host, controller });
         root.localCollectionsView = view; view.attachDepartureGuard(); view.render();
         void applyAppearance(); await controller.start();

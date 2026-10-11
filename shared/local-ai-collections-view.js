@@ -77,7 +77,7 @@
             this.main.replaceChildren(); this.editor = null; this.promptPanel = null;
             if (!c.state) { this.main.append(this.el('h2', '', this.t(c.error ? 'Unavailable' : 'Loading', c.error ? 'The library could not be read' : 'Loading your collection…'))); return; }
             const draft = c.draft(), record = c.record();
-            if (draft) this.renderEditor(draft); else if (record) this.renderDetail(record); else {
+            if (draft) this.renderEditor(draft); else if (record) this.renderDetail(record); else if (!root.LocalItabAISearchView?.showTargetError(c, this)) {
                 const empty = this.el('div', 'prompt-empty'); empty.append(this.el('div', 'prompt-empty-mark', '▤'), this.el('h2', '', this.t('Empty', 'Keep the useful part')), this.paragraph('EmptyBody', 'A clear explanation. A code snippet. A plan you want to revisit. Save the exact text and keep your annotations separate.'), this.button('New', 'Save an excerpt', () => c.create(), 'prompt-primary')); this.main.append(empty);
             }
             if (focused) this.main.querySelector(`[data-collection-field="${focused}"]`)?.focus();

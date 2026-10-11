@@ -27,6 +27,7 @@
             store = { subscribe: () => () => {}, read: async () => { throw error; } };
         }
         const controller = new root.LocalItabPromptsController.Controller({ store });
+        root.LocalItabAISearch.prepareTarget(controller, root.location.search);
         const view = new root.LocalItabPromptsView.View({ host, controller });
         root.localPromptsView = view; view.attachDepartureGuard(); view.render();
         void applyAppearance(); await controller.start();

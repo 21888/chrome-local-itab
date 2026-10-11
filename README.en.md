@@ -6,7 +6,7 @@ A local-first Chrome new tab page that keeps search, saved websites, and a small
 
 **Offline-first · Categorized shortcuts · Custom layouts · Optional sync and backups**
 
-No build step or Local iTab account is required. The clock, shortcut management, local images, and manually maintained cards work offline; searches, website visits, and optional cloud features need a network connection.
+No build step or Local iTab account is required. The clock, shortcut management, local images, and manually maintained cards work offline; web searches, website visits, and optional cloud features need a network connection.
 
 [Preview](#preview) · [Install](#install) · [Features](#features) · [Privacy & backups](#privacy) · [Development](#development)
 
@@ -206,6 +206,8 @@ See [version checks, separate backup shortcuts and update steps](docs/version-up
 <a id="features"></a>
 
 ## Features
+
+- **Unified AI library search (local 1.1.26 candidate)**: Search saved prompts and AI excerpts together from the new tab, filter by type, and match titles, bodies and tags with Unicode-safe literal snippets. Results have deterministic ordering and arrow-key/Enter access. Exact records open in a new tab, preserving drafts in the current tab; invalid, missing or archived targets show an explicit state instead of another record. Local reads only, with no new permissions, network requests or storage format. This candidate is not pushed or released. [Usage and search scope](docs/ai-library-search.md#english) · [Native acceptance scope](docs/ai-search-native-validation.md) · [1.1.26 changes (unpublished)](docs/releases/1.1.26.md#english).
 
 - **AI result collections (local 1.1.25 candidate)**: Manually save literal excerpts with separate notes, types, tool labels and tags in one local library shared across workspaces; search, archive and restore records. Body changes require review, restoring history appends a version, and stale tabs cannot overwrite newer saves. Standalone JSON export can omit source URLs from the exported copy only. Complete backup schema 4 supports global collection replacement, pre-restore recovery and read-back verification. Choose an existing prompt and an exact immutable body version without typing IDs; review the literal preview, explicitly Apply to the draft, then Save. Links never follow the latest version. Archived/recovery-snapshot provenance is labeled; missing versions and read errors remain distinct, with the original reference retained. No automatic capture, model calls, new network requests or new permissions; this is not a full conversation backup. [Usage, privacy and limits (Chinese)](docs/ai-collections.zh-CN.md) · [Exact-link native acceptance](docs/exact-prompt-links-native-validation.md) · [1.1.25 changes (unpublished)](docs/releases/1.1.25.md#english).
 

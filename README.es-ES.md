@@ -6,7 +6,7 @@ Una página de nueva pestaña para Chrome centrada en tus datos locales. Reúne 
 
 **Uso sin conexión · Accesos directos por categorías · Diseño personalizable · Sincronización y copias opcionales**
 
-No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de accesos directos, las imágenes locales y las tarjetas que completas manualmente funcionan sin conexión. Las búsquedas, las visitas a sitios web y las funciones opcionales en la nube necesitan acceso a Internet.
+No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de accesos directos, las imágenes locales y las tarjetas que completas manualmente funcionan sin conexión. Las búsquedas web, las visitas a sitios web y las funciones opcionales en la nube necesitan acceso a Internet.
 
 [Vista previa](#preview) · [Instalación](#install) · [Funciones](#features) · [Privacidad y copias](#privacy) · [Desarrollo](#development)
 
@@ -206,6 +206,8 @@ Consulta la [guía de comprobación de versiones, copias separadas y actualizaci
 <a id="features"></a>
 
 ## Funciones
+
+- **Búsqueda unificada de la biblioteca de IA (candidata local 1.1.26)**: Busca prompts y fragmentos de IA guardados desde la nueva pestaña, filtra por tipo y encuentra coincidencias en títulos, textos y etiquetas con fragmentos literales que respetan Unicode. Los resultados tienen un orden determinista y admiten flechas y Enter. Cada registro exacto se abre en otra pestaña, conservando los borradores de la actual; los destinos inválidos, ausentes o archivados muestran un aviso sin sustituirse por otro registro. Solo lee datos locales, sin nuevos permisos, solicitudes de red ni formato de almacenamiento. La candidata no se ha enviado al repositorio remoto ni publicado. [Uso y alcance (inglés)](docs/ai-library-search.md#english) · [Validación nativa (inglés)](docs/ai-search-native-validation.md) · [Cambios de 1.1.26, sin publicar (inglés)](docs/releases/1.1.26.md#english).
 
 - **Colecciones de resultados de IA (candidata local 1.1.25)**: Guarda manualmente fragmentos literales con notas separadas, tipos, etiquetas de herramientas y etiquetas en una biblioteca local compartida entre espacios; busca, archiva y recupera registros. Los cambios del texto requieren revisión; recuperar una versión añade otra al historial y las pestañas desactualizadas no sobrescriben los datos nuevos. La exportación JSON independiente puede omitir las URL de origen solo en la copia. La copia completa con esquema 4 admite reemplazo global de colecciones, copia previa de recuperación y verificación por relectura. Elige un prompt existente y una versión exacta e inmutable de su texto sin escribir ID; revisa la vista previa literal, aplica explícitamente el enlace al borrador y después guarda. El enlace nunca sigue la última versión. Se indica el origen archivado o en una copia de recuperación; las versiones ausentes y los errores de lectura se distinguen y se conserva la referencia original. Sin captura automática, llamadas a modelos, nuevas solicitudes de red ni permisos nuevos; no es una copia de conversaciones completas. [Uso, privacidad y límites (chino)](docs/ai-collections.zh-CN.md) · [Validación nativa del enlace exacto (inglés)](docs/exact-prompt-links-native-validation.md) · [Cambios de 1.1.25, sin publicar (inglés)](docs/releases/1.1.25.md#english).
 

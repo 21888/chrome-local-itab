@@ -1,0 +1,46 @@
+{
+  "acceptance-notes.md": {
+    "bytes": 3594,
+    "sha256": "0fa0e5c087ea93d215e0848d74b9440126431453729083bc182f101ac0c493a9"
+  },
+  "source-hashes.json": {
+    "bytes": 8464,
+    "sha256": "2fe28a6c80fb0d6901a03820570c8c69534d91a9aa3ad668ebb5da71642e3857"
+  },
+  "source-integrity.json": {
+    "bytes": 58,
+    "sha256": "68f77cedd4565baa983e937d1b4f74395db3756efd3e66b0b4a6fe785e8b4abd"
+  },
+  "evidence/01-both-literal-keyboard.jpg": {
+    "bytes": 133683,
+    "sha256": "2b6f097a4328646426a79d3f4cd61bf1cdaf698f37578d1cdb8ffc5bcb701d68"
+  },
+  "evidence/02-source-draft-retained.jpg": {
+    "bytes": 132915,
+    "sha256": "04d61149ce0bcf0360c9ad40eaf99344a533660dd6bd679ac7b1ad57bd5bd797"
+  },
+  "evidence/03-archived-guard.jpg": {
+    "bytes": 117209,
+    "sha256": "f0102bf2e06cf5522759d1d87237991183049f5601010100383e3162057d1c9d"
+  },
+  "evidence/04-invalid-guard.jpg": {
+    "bytes": 115089,
+    "sha256": "26ab35b4762f5feac748adf1e685864160e7efe3e8b4d9169909906897b9a439"
+  },
+  "evidence/05-missing-guard.jpg": {
+    "bytes": 117110,
+    "sha256": "9b0a0d067d0c779241cf117bf625f142acff00ccb9b76e5d2d6bf2542d472461"
+  },
+  "evidence/06-escape-opener.jpg": {
+    "bytes": 118859,
+    "sha256": "abfbc314ea4110051c3f549bdeedb1f61646b7a724a58a3cf1772c9f110f6459"
+  },
+  "evidence/07-narrow-light.jpg": {
+    "bytes": 120230,
+    "sha256": "085748ee471778c31db0a7cab883ca118787b56c9f57db68d78fbaff3ae9444c"
+  },
+  "evidence/08-narrow-dark.jpg": {
+    "bytes": 121395,
+    "sha256": "ac0f395ecfc547f9d696da42fcca09749d337b750bc79ea4ae6e5177426e6401"
+  }
+}

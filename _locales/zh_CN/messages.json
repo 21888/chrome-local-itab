@@ -3339,5 +3339,77 @@
 "collectionsPromptChoose": {"message": "选择提示词"},
 "collectionsPromptChooseVersion": {"message": "选择版本"},
 "collectionsPromptPreview": {"message": "所选提示词版本预览"},
-"collectionsPromptEmpty": {"message": "暂无可用的本地提示词版本。"}
+"collectionsPromptEmpty": {"message": "暂无可用的本地提示词版本。"},
+  "aiSearchOpen": {
+    "message": "搜索 AI 资料库"
+  },
+  "aiSearchScope": {
+    "message": "当前保存的提示词与 AI 摘录 · 仅此设备 · 在新标签页打开"
+  },
+  "aiSearchQuery": {
+    "message": "搜索标题、正文或标签"
+  },
+  "aiSearchFilter": {
+    "message": "内容类型"
+  },
+  "aiSearchAll": {
+    "message": "全部类型"
+  },
+  "aiSearchPrompt": {
+    "message": "提示词"
+  },
+  "aiSearchCollection": {
+    "message": "AI 摘录"
+  },
+  "aiSearchLoading": {
+    "message": "正在读取当前保存的资料库…"
+  },
+  "aiSearchEmpty": {
+    "message": "此范围内还没有保存的内容。"
+  },
+  "aiSearchNone": {
+    "message": "没有匹配的已保存内容。"
+  },
+  "aiSearchPromptError": {
+    "message": "提示词库暂时无法读取，请重试。"
+  },
+  "aiSearchCollectionError": {
+    "message": "AI 收藏暂时无法读取，请重试。"
+  },
+  "aiSearchPartial": {
+    "message": "仅显示成功读取的资料库。"
+  },
+  "aiSearchRetry": {
+    "message": "重新读取"
+  },
+  "aiSearchClear": {
+    "message": "清空"
+  },
+  "aiSearchClose": {
+    "message": "关闭"
+  },
+  "aiSearchResults": {
+    "message": "搜索结果"
+  },
+  "aiSearchBody": {
+    "message": "正文"
+  },
+  "aiSearchTitle": {
+    "message": "标题"
+  },
+  "aiSearchTags": {
+    "message": "标签"
+  },
+  "aiSearchInvalid": {
+    "message": "此记录链接无效，请从列表选择已保存的内容。"
+  },
+  "aiSearchMissing": {
+    "message": "此记录已不存在，没有自动选择其他内容。"
+  },
+  "aiSearchArchived": {
+    "message": "此记录已归档，请在“已归档”或“回收站”中查看。"
+  },
+  "aiSearchUnavailable": {
+    "message": "两个资料库均暂时无法读取，请重试。"
+  }
 }
