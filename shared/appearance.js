@@ -1,13 +1,14 @@
 (function initAppearance(global) {
     'use strict';
 
-    const same = (a, b) => a?.template === b?.template && a?.colorMode === b?.colorMode;
+    const same = (a, b) => a?.template === b?.template && a?.colorMode === b?.colorMode && JSON.stringify(a?.customization) === JSON.stringify(b?.customization);
     const translate = (key, fallback) => (() => { const value = global.i18n?.t(key); return value && value !== key ? value : fallback; })();
 
     function apply(value) {
         const root = global.document.documentElement;
         root.dataset.dashboardTemplate = value.template;
         root.dataset.colorMode = value.colorMode;
+        global.LocalItabCustomization?.apply(value.customization);
     }
 
     // Pages serialize local intents; StorageManager merges the owned axes under
@@ -159,6 +160,7 @@
                 if (area === 'local' && (changes.appearance || changes.themePreset)) controller.refresh();
             });
         }
+        global.LocalItabCustomization?.mount(host, { storage: controller.storage, baseline: controller.baseline, refresh: () => controller.refresh() });
         return controller;
     }
 

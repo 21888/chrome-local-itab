@@ -4093,5 +4093,86 @@
   },
   "aiContextUncertainTasks": {
     "message": "The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch."
+  },
+  "customizeInvalid": {
+    "message": "Use a valid color or a number within the shown range."
+  },
+  "customizeConflict": {
+    "message": "Saved settings changed or could not be safely read. Your preview is kept. Cancel and reopen to use the latest settings."
+  },
+  "customizeSaveFailed": {
+    "message": "Could not save. Your preview is kept. Try again or cancel."
+  },
+  "customizeDashboard": {
+    "message": "Customize"
+  },
+  "customizeReadFailed": {
+    "message": "Could not read settings. Try again."
+  },
+  "customizeHeading": {
+    "message": "Make this workspace yours"
+  },
+  "customizePreviewNote": {
+    "message": "Live preview only. Save to keep your changes, or Cancel to return to your saved look."
+  },
+  "customizeSample": {
+    "message": "Style preview with sample cards"
+  },
+  "customizeAuto": {
+    "message": "Template default"
+  },
+  "customizeLayoutHint": {
+    "message": "Card controls apply to information cards below your shortcuts. Blank values follow the template. Choosing columns places cards below shortcuts. Rows grow automatically; columns reduce on narrow screens. Over custom backgrounds, card opacity blends with a contrast-safe panel behind the cards. Free-placement shortcuts keep their positions."
+  },
+  "customizeShortcutSettings": {
+    "message": "Shortcut size, shortcuts per row and visibility →"
+  },
+  "customizeReset": {
+    "message": "Reset preview"
+  },
+  "customizeBackground": {
+    "message": "Background"
+  },
+  "customizeUseSaved": {
+    "message": "Use saved background"
+  },
+  "customizeSolid": {
+    "message": "Solid color"
+  },
+  "customizeGradient": {
+    "message": "Two-color gradient"
+  },
+  "customizeColorStart": {
+    "message": "First color"
+  },
+  "customizeColorEnd": {
+    "message": "Second color"
+  },
+  "customizeAngle": {
+    "message": "Gradient angle (0–360°)"
+  },
+  "customizePadding": {
+    "message": "Card padding (8–32 px)"
+  },
+  "customizeGap": {
+    "message": "Card spacing (0–40 px)"
+  },
+  "customizeRadius": {
+    "message": "Card corners (0–32 px)"
+  },
+  "customizeOpacity": {
+    "message": "Card background opacity (40–100%)"
+  },
+  "customizeColumns": {
+    "message": "Card columns (1–4)"
+  },
+  "customizeSampleOne": {
+    "message": "Today"
+  },
+  "customizeSampleTwo": {
+    "message": "My notes"
+  },
+  "customizeSampleThree": {
+    "message": "Focus"
   }
 }

@@ -42,6 +42,12 @@ function getDefaultCategoryName(key, fallback) {
     return fallback;
 }
 
+// Optional workspace appearance overrides. Absent fields keep template defaults.
+const DASHBOARD_CUSTOMIZATION_DEFAULTS = Object.freeze({
+    backgroundMode: 'template', backgroundStart: '#edf2ef', backgroundEnd: '#d5e4dc', backgroundAngle: 135,
+    cardPadding: null, cardGap: null, cardRadius: null, cardOpacity: null, cardColumns: null
+});
+
 class StorageManager {
     constructor(options = {}) {
         // A page owns one immutable workspace session. Never resolve the current
@@ -1556,6 +1562,10 @@ class StorageManager {
         checkChoice(settings.themePreset, ['aurora-glass', 'ink-paper', 'warm-studio', 'signal-pop'], 'theme');
         checkChoice(settings.appearance?.template, DashboardTemplates.ids, 'dashboard template');
         checkChoice(settings.appearance?.colorMode, ['light', 'dark'], 'color mode');
+        if (settings.appearance && has(settings.appearance, 'customization')) {
+            try { this.validateDashboardCustomization(settings.appearance.customization); }
+            catch (_) { invalid('invalid dashboard customization'); }
+        }
         checkChoice(settings.bg?.type, ['gradient', 'color', 'image', 'api'], 'background type');
         checkChoice(settings.search?.engine, ['google', 'bing', 'duck', 'custom'], 'search engine');
         checkChoice(settings.hot?.tab, ['baidu', 'weibo', 'zhihu'], 'topic source');
@@ -1718,8 +1728,65 @@ class StorageManager {
         const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
         return {
             template: DashboardTemplates.ids.includes(source.template) ? source.template : 'clarity',
-            colorMode: ['light', 'dark'].includes(source.colorMode) ? source.colorMode : 'light'
+            colorMode: ['light', 'dark'].includes(source.colorMode) ? source.colorMode : 'light',
+            ...(source.customization !== undefined ? { customization: this.validateDashboardCustomization(source.customization) } : {})
         };
+    }
+
+    validateDashboardCustomization(value = {}) {
+        if (!value || typeof value !== 'object' || Array.isArray(value) ||
+            Object.keys(value).some(key => !Object.hasOwn(DASHBOARD_CUSTOMIZATION_DEFAULTS, key))) throw this.appearanceError();
+        const result = { ...DASHBOARD_CUSTOMIZATION_DEFAULTS, ...value };
+        if (!['template', 'solid', 'gradient'].includes(result.backgroundMode) ||
+            ![result.backgroundStart, result.backgroundEnd].every(color => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color))) throw this.appearanceError();
+        for (const [key, min, max, nullable] of [
+            ['backgroundAngle', 0, 360, false], ['cardPadding', 8, 32, true], ['cardGap', 0, 40, true],
+            ['cardRadius', 0, 32, true], ['cardOpacity', 40, 100, true], ['cardColumns', 1, 4, true]
+        ]) {
+            if (nullable && result[key] === null) continue;
+            if (!Number.isInteger(result[key]) || result[key] < min || result[key] > max) throw this.appearanceError();
+        }
+        result.backgroundStart = result.backgroundStart.toLowerCase();
+        result.backgroundEnd = result.backgroundEnd.toLowerCase();
+        return result;
+    }
+
+    // A dialog owns only changed fields, checked against the version it opened.
+    // Unrelated tabs can edit other appearance fields without losing either edit.
+    async patchDashboardCustomization(patch, baseline) {
+        if (!baseline || !Object.hasOwn(baseline, 'generation') ||
+            (baseline.generation !== null && (typeof baseline.generation !== 'string' || !baseline.generation))) throw this.appearanceError();
+        if (!patch || typeof patch !== 'object' || Array.isArray(patch) ||
+            Object.keys(patch).some(key => !Object.hasOwn(DASHBOARD_CUSTOMIZATION_DEFAULTS, key))) throw this.appearanceError();
+        const requested = this.validateDashboardCustomization(patch);
+        const before = this.validateDashboardCustomization(baseline.customization);
+        const keys = Object.keys(patch), generation = baseline.generation;
+        await this.ensureSyncInitialized();
+        let committed;
+        try {
+            committed = await this.withLocalWriteLock(async () => {
+                const raw = await this._local.get(['appearance', 'themePreset', this.settingsGenerationKey]);
+                if (this.settingsSnapshot(raw).generation !== generation) throw this.appearanceError();
+                if (raw.appearance !== undefined && (!raw.appearance || typeof raw.appearance !== 'object' || Array.isArray(raw.appearance))) throw this.appearanceError();
+                const appearance = { ...this.resolveAppearance(raw), ...raw.appearance };
+                const latest = this.validateDashboardCustomization(appearance.customization);
+                if (keys.some(key => latest[key] !== before[key] && latest[key] !== requested[key])) throw this.appearanceError();
+                if (keys.length) {
+                    appearance.customization = { ...latest, ...Object.fromEntries(keys.map(key => [key, requested[key]])) };
+                    await this._local.set({ appearance });
+                }
+                return this.validateAppearanceConfig(appearance);
+            }, true);
+        } catch (error) {
+            if (error.code === 'LINKS_LOCK_UNAVAILABLE') throw this.appearanceError('APPEARANCE_LOCK_UNAVAILABLE');
+            if (error.code?.startsWith('SETTINGS_')) throw this.appearanceError();
+            throw error;
+        }
+        if (keys.length) {
+            try { if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush(); }
+            catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Customization saved locally; Sync scheduling failed:', error); }
+        }
+        return committed;
     }
 
     resolveAppearance(raw = {}) {

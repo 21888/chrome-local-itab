@@ -1,0 +1,57 @@
+/* Opt-in overrides are separate from the template geometry and saved wallpaper.
+ * Text stays opaque; only card surfaces take the chosen opacity. */
+:root[data-custom-background="true"] body { background: var(--custom-background) !important; background-attachment: fixed !important; }
+:root[data-custom-background="true"] body::before,
+:root[data-custom-background="true"] body::after,
+:root[data-custom-background="true"] :is(.geometric-bg, .background-overlay) { display: none; }
+:root[data-dashboard-template] #dashboard[data-custom-card-padding="true"] #info-cards-container > :not([hidden]) { padding: var(--custom-card-padding); }
+:root[data-dashboard-template] #dashboard[data-custom-card-radius="true"] #info-cards-container > :not([hidden]) { border-radius: var(--custom-card-radius); }
+:root[data-dashboard-template] #dashboard[data-custom-card-opacity="true"] #info-cards-container > :not([hidden]) { background: color-mix(in srgb, var(--template-surface) var(--custom-card-opacity), transparent); }
+:root[data-dashboard-template] #dashboard[data-custom-card-gap="true"] #info-cards-container { gap: var(--custom-card-gap); }
+:root[data-dashboard-template] #dashboard[data-custom-card-columns="true"] .dashboard-main { display: flex; flex-direction: column; gap: 24px; }
+:root[data-dashboard-template] #dashboard[data-custom-card-columns="true"] #info-cards-container { padding: 20px 0 0; border-inline-start: 0; border-top: 1px solid var(--template-border); display: grid; grid-template-columns: repeat(var(--custom-card-columns), minmax(0, 1fr)); }
+:root[data-dashboard-template] #dashboard[data-custom-card-columns="true"] #info-cards-container > :not([hidden]) { min-width: 0; grid-column: auto; grid-row: auto; }
+@media (max-width: 1000px) { :root[data-dashboard-template] #dashboard[data-custom-card-columns="true"] #info-cards-container { grid-template-columns: repeat(min(2, var(--custom-card-columns)), minmax(0, 1fr)); } }
+@media (max-width: 620px) { :root[data-dashboard-template] #dashboard[data-custom-card-columns="true"] #info-cards-container { grid-template-columns: minmax(0, 1fr); } }
+.customize-launch { min-height: 36px; border: 1px solid var(--template-border); border-radius: 6px; padding: 7px 12px; font: inherit; font-size: 12px; color: var(--template-text); background: var(--template-surface); cursor: pointer; }
+.customize-overlay { position: fixed; inset: 0; z-index: 10050; display: flex; justify-content: flex-end; align-items: stretch; padding: 16px; background: rgb(0 0 0 / 12%); }
+.customize-panel { width: min(440px, 100%); max-height: 100%; overflow-y: auto; overscroll-behavior: contain; padding: 22px; border: 1px solid var(--template-border); border-radius: 12px; background: var(--template-surface); color: var(--template-text); box-shadow: 0 12px 48px rgb(0 0 0 / 16%); }
+.customize-panel h2 { font-size: 20px; margin: 0 0 8px; }
+.customize-panel p { font-size: 13px; line-height: 1.6; margin: 8px 0 16px; }
+.customize-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
+.customize-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 1.5; min-width: 0; }
+.customize-field:first-child { grid-column: 1 / -1; }
+.customize-field :is(input,select) { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 7px 9px; border: 1px solid var(--template-border); border-radius: 6px; background: var(--template-surface-raised); color: var(--template-text); font: inherit; }
+.customize-field input[type="color"] { padding: 4px; }
+.customize-panel a { color: var(--template-accent); font-size: 13px; text-decoration: underline; }
+.customize-panel :disabled { opacity: .55; }
+.customize-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; padding-top: 8px; }
+.customize-actions button { min-height: 40px; padding: 8px 12px; border: 1px solid var(--template-border); border-radius: 6px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; font-size: 13px; cursor: pointer; }
+.customize-actions .customize-save { background: var(--template-accent); color: var(--template-accent-ink); }
+.customize-panel .customize-status { min-height: 1.6em; color: var(--template-error); margin-bottom: 0; }
+@media (max-width: 420px) { .customize-overlay { padding: 6px; } .customize-panel { padding: 16px; } }
+
+.customize-sample { display: grid; padding: 14px; margin-block: 16px; border: 1px solid var(--template-border); border-radius: 8px; overflow: hidden; }
+.customize-sample > div { min-width: 0; overflow-wrap: anywhere; border: 1px solid var(--template-border); text-align: center; font-size: 12px; color: var(--template-text); }
+
+/* Arbitrary colors and mixed light/dark gradients cannot share one reliable
+ * foreground color. Give exposed reading regions an opaque palette-matched
+ * surface instead. This also contains legacy inline --text-* overrides from a
+ * saved wallpaper, without recoloring cards/dialogs or changing the preference.
+ * A paint-only surround keeps template geometry and Free positions unchanged. */
+:root[data-dashboard-template][data-custom-background="true"] #dashboard :is(.category-nav, .dashboard-header, #search-container, #shortcuts-container, #info-cards-container, .dashboard-footer),
+:root[data-dashboard-template][data-custom-background="true"] .options-container :is(.options-header, .options-footer) {
+  --text-primary: var(--template-text);
+  --text-secondary: var(--template-muted);
+  --text-muted: var(--template-muted);
+  color: var(--template-text);
+  background: var(--template-surface);
+  box-shadow: 0 0 0 8px var(--template-surface);
+}
+/* A distinct, contrast-tested palette page is the safe backing for translucent
+ * cards. Their chosen alpha still visibly blends surface into page, never text
+ * into an arbitrary wallpaper. Do not overwrite the child card-opacity rule. */
+:root[data-dashboard-template][data-custom-background="true"] #dashboard #info-cards-container {
+  background: var(--template-page);
+  box-shadow: 0 0 0 8px var(--template-page);
+}

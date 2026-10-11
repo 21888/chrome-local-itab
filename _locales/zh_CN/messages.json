@@ -4093,5 +4093,86 @@
   },
   "aiContextUncertainTasks": {
     "message": "先前的待办可能已经保存。请先检查待办列表，再决定是否添加其他内容。此面板保留原操作，不会创建新批次。"
+  },
+  "customizeInvalid": {
+    "message": "请输入有效颜色或标注范围内的整数。"
+  },
+  "customizeConflict": {
+    "message": "已保存的设置发生了变化，或无法安全读取。预览仍保留。请取消并重新打开，使用最新设置。"
+  },
+  "customizeSaveFailed": {
+    "message": "保存失败，预览仍保留。请重试或取消。"
+  },
+  "customizeDashboard": {
+    "message": "自定义外观"
+  },
+  "customizeReadFailed": {
+    "message": "无法读取设置，请重试。"
+  },
+  "customizeHeading": {
+    "message": "搭配你自己的工作区"
+  },
+  "customizePreviewNote": {
+    "message": "当前仅为实时预览。点击保存保留修改，取消则恢复已保存的外观。"
+  },
+  "customizeSample": {
+    "message": "示例卡片外观预览"
+  },
+  "customizeAuto": {
+    "message": "跟随模板"
+  },
+  "customizeLayoutHint": {
+    "message": "卡片设置作用于快捷方式下方的信息卡片。留空即跟随模板。设置列数后，卡片会排在快捷方式下方。行数随内容自动增长，小屏幕会减少列数。自定义背景下，卡片透明度与下方的易读衬底面板混合。自由摆放的快捷方式位置保持不变。"
+  },
+  "customizeShortcutSettings": {
+    "message": "快捷方式大小、每行数量与模块显示 →"
+  },
+  "customizeReset": {
+    "message": "重置预览"
+  },
+  "customizeBackground": {
+    "message": "背景"
+  },
+  "customizeUseSaved": {
+    "message": "使用原有背景"
+  },
+  "customizeSolid": {
+    "message": "纯色"
+  },
+  "customizeGradient": {
+    "message": "双色渐变"
+  },
+  "customizeColorStart": {
+    "message": "第一种颜色"
+  },
+  "customizeColorEnd": {
+    "message": "第二种颜色"
+  },
+  "customizeAngle": {
+    "message": "渐变角度（0–360°）"
+  },
+  "customizePadding": {
+    "message": "卡片内边距（8–32 像素）"
+  },
+  "customizeGap": {
+    "message": "卡片间距（0–40 像素）"
+  },
+  "customizeRadius": {
+    "message": "卡片圆角（0–32 像素）"
+  },
+  "customizeOpacity": {
+    "message": "卡片背景不透明度（40–100%）"
+  },
+  "customizeColumns": {
+    "message": "卡片列数（1–4）"
+  },
+  "customizeSampleOne": {
+    "message": "今天"
+  },
+  "customizeSampleTwo": {
+    "message": "我的笔记"
+  },
+  "customizeSampleThree": {
+    "message": "专注"
   }
 }
