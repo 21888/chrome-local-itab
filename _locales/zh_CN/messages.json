@@ -4207,5 +4207,56 @@
   },
   "promptsModelPresetUnavailable": {
     "message": "已保存的连接暂不可用，仍可手动输入连接信息。"
+  },
+  "cardLayoutTasks": {
+    "message": "待办"
+  },
+  "cardLayoutFocus": {
+    "message": "专注计时"
+  },
+  "cardLayoutNotes": {
+    "message": "便笺"
+  },
+  "cardLayoutCountdown": {
+    "message": "倒计时"
+  },
+  "cardLayoutClocks": {
+    "message": "世界时钟"
+  },
+  "cardLayoutWeather": {
+    "message": "天气"
+  },
+  "cardLayoutTopics": {
+    "message": "热点"
+  },
+  "cardLayoutMovie": {
+    "message": "电影"
+  },
+  "cardLayoutHeading": {
+    "message": "卡片顺序与宽度"
+  },
+  "cardLayoutHint": {
+    "message": "上下调整卡片顺序，并选择宽度占几列。调整后，卡片会排在快捷方式下方；未指定列数时使用 3 列。宽度不会超过可用列数：中等屏幕最多 2 列，手机为 1 列。行数按内容自动增加。隐藏卡片保留顺序，不会改变显示开关。"
+  },
+  "cardLayoutEarlier": {
+    "message": "向前移动"
+  },
+  "cardLayoutLater": {
+    "message": "向后移动"
+  },
+  "cardLayoutWidth": {
+    "message": "宽度"
+  },
+  "cardLayoutColumnsUnit": {
+    "message": "列"
+  },
+  "cardLayoutDefault": {
+    "message": "默认"
+  },
+  "cardLayoutReset": {
+    "message": "恢复卡片顺序与宽度"
+  },
+  "cardLayoutPreview": {
+    "message": "卡片网格预览（包含隐藏卡片）"
   }
 }

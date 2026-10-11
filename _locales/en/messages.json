@@ -4207,5 +4207,56 @@
   },
   "promptsModelPresetUnavailable": {
     "message": "Saved connections are unavailable. You can still enter a connection manually."
+  },
+  "cardLayoutTasks": {
+    "message": "Tasks"
+  },
+  "cardLayoutFocus": {
+    "message": "Focus timer"
+  },
+  "cardLayoutNotes": {
+    "message": "Scratchpad"
+  },
+  "cardLayoutCountdown": {
+    "message": "Countdown"
+  },
+  "cardLayoutClocks": {
+    "message": "World clocks"
+  },
+  "cardLayoutWeather": {
+    "message": "Weather"
+  },
+  "cardLayoutTopics": {
+    "message": "Hot topics"
+  },
+  "cardLayoutMovie": {
+    "message": "Movie"
+  },
+  "cardLayoutHeading": {
+    "message": "Card order and width"
+  },
+  "cardLayoutHint": {
+    "message": "Move cards earlier or later and choose their width in grid columns. These changes put cards below shortcuts. With no column setting, the grid uses 3 columns. Widths shrink to the available columns: at most 2 on medium screens and 1 on phones. Rows grow automatically. Hidden cards keep their place; visibility is unchanged."
+  },
+  "cardLayoutEarlier": {
+    "message": "Move earlier"
+  },
+  "cardLayoutLater": {
+    "message": "Move later"
+  },
+  "cardLayoutWidth": {
+    "message": "Width"
+  },
+  "cardLayoutColumnsUnit": {
+    "message": "column(s)"
+  },
+  "cardLayoutDefault": {
+    "message": "Default"
+  },
+  "cardLayoutReset": {
+    "message": "Restore card order and widths"
+  },
+  "cardLayoutPreview": {
+    "message": "Grid preview including hidden cards"
   }
 }

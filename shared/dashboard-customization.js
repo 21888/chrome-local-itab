@@ -4,6 +4,7 @@
     let saved = {}, previewing = false;
 
     function paint(value = {}) {
+        global.LocalItabCardLayout?.paint(value);
         const root = global.document.documentElement;
         const dashboard = global.document.getElementById('dashboard');
         const customBackground = ['solid', 'gradient'].includes(value.backgroundMode);
@@ -52,7 +53,7 @@
         }
         async save() {
             if (this.pending || this.closed) return false;
-            const patch = Object.fromEntries(Object.entries(this.draft).filter(([key, value]) => value !== this.original[key]));
+            const patch = Object.fromEntries(Object.entries(this.draft).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(this.original[key])));
             this.pending = true; this.update(tr('appearanceSaving', 'Saving…'));
             try {
                 const result = await this.storage.patchDashboardCustomization(patch, this.baseline);
@@ -115,6 +116,9 @@
                 } else { input.type = type; if (type === 'number') { input.min = String(min); input.max = String(max); input.step = '1'; input.placeholder = tr('customizeAuto', 'Template default'); } }
                 label.append(title, input); fields.append(label); controls[key] = input;
             }
+            let editor, focusBeforePending = null;
+            panel.tabIndex = -1;
+            const cardLayout = global.LocalItabCardLayout?.mount(panel, (key, value) => editor?.change(key, value));
             const hint = doc.createElement('p'); hint.className = 'customize-hint';
             hint.textContent = tr('customizeLayoutHint', 'Card controls apply to information cards below your shortcuts. Blank values follow the template. Choosing columns places cards below shortcuts. Rows grow automatically; columns reduce on narrow screens. Over custom backgrounds, card opacity blends with a contrast-safe panel behind the cards. Free-placement shortcuts keep their positions.');
             const more = doc.createElement('a'); more.textContent = tr('customizeShortcutSettings', 'Shortcut size, shortcuts per row and visibility →');
@@ -126,7 +130,9 @@
             const cancel = doc.createElement('button'); cancel.type = 'button'; cancel.textContent = tr('cancel', 'Cancel');
             const save = doc.createElement('button'); save.type = 'button'; save.className = 'customize-save'; save.textContent = tr('save', 'Save');
             actions.append(reset, cancel, save); panel.append(hint, more, status, actions); overlay.append(panel); doc.body.append(overlay);
-            const editor = new Controller({ storage, baseline, initial: initial.customization, onSaved: () => refresh(), render(value, pending, message) {
+            editor = new Controller({ storage, baseline, initial: initial.customization, onSaved: () => refresh(), render(value, pending, message) {
+                if (pending && !focusBeforePending) focusBeforePending = doc.activeElement;
+                cardLayout?.render(value, pending);
                 for (const [key, control] of Object.entries(controls)) { if (!invalid.has(key)) control.value = value[key] == null ? '' : String(value[key]); control.disabled = pending; }
                 controls.backgroundStart.disabled = pending || value.backgroundMode === 'template';
                 controls.backgroundEnd.disabled = controls.backgroundAngle.disabled = pending || value.backgroundMode !== 'gradient';
@@ -140,6 +146,10 @@
                 }
                 reset.disabled = cancel.disabled = pending; save.disabled = pending || invalid.size > 0;
                 status.textContent = message; panel.setAttribute('aria-busy', String(pending));
+                // Disabled Save/card controls can send native focus to body.
+                // Keep pending/error keyboard events inside this dialog.
+                if (pending) panel.focus({ preventScroll: true });
+                else if (focusBeforePending) { focusBeforePending.focus({ preventScroll: true }); focusBeforePending = null; }
             } });
             const finish = () => { cleanup(); overlay.remove(); open = false; launch.textContent = tr('customizeDashboard', 'Customize'); };
             const close = () => { if (editor.cancel()) finish(); };

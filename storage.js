@@ -43,9 +43,10 @@ function getDefaultCategoryName(key, fallback) {
 }
 
 // Optional workspace appearance overrides. Absent fields keep template defaults.
+const DASHBOARD_CARD_IDS = Object.freeze(['local-tasks-card', 'local-focus-card', 'local-scratchpad-card', 'local-countdown-card', 'world-clocks-card', 'weather-container', 'hot-container', 'movie-container']);
 const DASHBOARD_CUSTOMIZATION_DEFAULTS = Object.freeze({
     backgroundMode: 'template', backgroundStart: '#edf2ef', backgroundEnd: '#d5e4dc', backgroundAngle: 135,
-    cardPadding: null, cardGap: null, cardRadius: null, cardOpacity: null, cardColumns: null
+    cardPadding: null, cardGap: null, cardRadius: null, cardOpacity: null, cardColumns: null, cardOrder: null, cardSpans: null
 });
 
 class StorageManager {
@@ -1633,6 +1634,15 @@ class StorageManager {
         }
         const checked = this.validateImportPayload(value);
         delete checked.sync;
+        // Card layout fields were added after customization shipped. Older
+        // complete archives legitimately omit them. Compare that exact legacy
+        // projection, without repairing supplied values or ignoring unknown keys.
+        const customization = value.data.appearance?.customization;
+        if (customization && checked.appearance?.customization) {
+            for (const key of ['cardOrder', 'cardSpans']) {
+                if (!Object.hasOwn(customization, key)) delete checked.appearance.customization[key];
+            }
+        }
         if (!this.sameShortcutUndoValue(checked, value.data)) throw new Error('Complete backup configuration is malformed or noncanonical.');
         return LayoutIdentity.copy(value);
     }
@@ -1746,6 +1756,13 @@ class StorageManager {
             if (nullable && result[key] === null) continue;
             if (!Number.isInteger(result[key]) || result[key] < min || result[key] > max) throw this.appearanceError();
         }
+        if (result.cardOrder !== null && (!Array.isArray(result.cardOrder) || result.cardOrder.length !== DASHBOARD_CARD_IDS.length ||
+            new Set(result.cardOrder).size !== DASHBOARD_CARD_IDS.length || [...result.cardOrder].some(id => !DASHBOARD_CARD_IDS.includes(id)))) throw this.appearanceError();
+        if (result.cardSpans !== null && (typeof result.cardSpans !== 'object' || Array.isArray(result.cardSpans) ||
+            Object.keys(result.cardSpans).some(id => !DASHBOARD_CARD_IDS.includes(id) || !Number.isInteger(result.cardSpans[id]) || result.cardSpans[id] < 1 || result.cardSpans[id] > 4))) throw this.appearanceError();
+        // Fresh canonical structures prevent caller mutation and make field-level CAS deterministic.
+        result.cardOrder = result.cardOrder === null ? null : [...result.cardOrder];
+        result.cardSpans = result.cardSpans === null ? null : Object.fromEntries(DASHBOARD_CARD_IDS.filter(id => Object.hasOwn(result.cardSpans, id)).map(id => [id, result.cardSpans[id]]));
         result.backgroundStart = result.backgroundStart.toLowerCase();
         result.backgroundEnd = result.backgroundEnd.toLowerCase();
         return result;
@@ -1770,7 +1787,7 @@ class StorageManager {
                 if (raw.appearance !== undefined && (!raw.appearance || typeof raw.appearance !== 'object' || Array.isArray(raw.appearance))) throw this.appearanceError();
                 const appearance = { ...this.resolveAppearance(raw), ...raw.appearance };
                 const latest = this.validateDashboardCustomization(appearance.customization);
-                if (keys.some(key => latest[key] !== before[key] && latest[key] !== requested[key])) throw this.appearanceError();
+                if (keys.some(key => JSON.stringify(latest[key]) !== JSON.stringify(before[key]) && JSON.stringify(latest[key]) !== JSON.stringify(requested[key]))) throw this.appearanceError();
                 if (keys.length) {
                     appearance.customization = { ...latest, ...Object.fromEntries(keys.map(key => [key, requested[key]])) };
                     await this._local.set({ appearance });

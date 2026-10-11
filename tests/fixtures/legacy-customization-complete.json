@@ -1,0 +1,271 @@
+{
+  "format": "local-itab-complete-backup",
+  "schemaVersion": 1,
+  "exportedAt": "2026-10-11T20:00:00.000Z",
+  "modules": {
+    "config": {
+      "schemaVersion": 2,
+      "data": {
+        "clock": {
+          "hour12": false,
+          "showSeconds": true,
+          "worldClocks": []
+        },
+        "search": {
+          "engine": "google",
+          "custom": ""
+        },
+        "bg": {
+          "type": "color",
+          "value": "#e6edf5"
+        },
+        "themePreset": "aurora-glass",
+        "appearance": {
+          "template": "today",
+          "colorMode": "light",
+          "customization": {
+            "backgroundMode": "solid",
+            "backgroundStart": "#111111",
+            "backgroundEnd": "#d5e4dc",
+            "backgroundAngle": 135,
+            "cardPadding": null,
+            "cardGap": null,
+            "cardRadius": null,
+            "cardOpacity": null,
+            "cardColumns": 4
+          }
+        },
+        "show": {
+          "clock": true,
+          "search": true,
+          "shortcuts": true,
+          "weather": false,
+          "hot": false,
+          "movie": false
+        },
+        "privacy": {
+          "onlineFavicons": false
+        },
+        "categories": [
+          {
+            "icon": "W",
+            "id": "work",
+            "name": "Work fixture"
+          },
+          {
+            "icon": "D",
+            "id": "personal",
+            "name": "Destination fixture"
+          }
+        ],
+        "links": [
+          {
+            "icon": "T",
+            "category": "work",
+            "layoutId": "l_00000000000000000000000000000001",
+            "title": "Twin fixture",
+            "url": "https://example.com/twin"
+          },
+          {
+            "icon": "T",
+            "category": "work",
+            "layoutId": "l_00000000000000000000000000000002",
+            "title": "Twin fixture",
+            "url": "https://example.com/twin"
+          },
+          {
+            "icon": "O",
+            "category": "orphan-synthetic",
+            "layoutId": "l_00000000000000000000000000000003",
+            "title": "Orphan fixture",
+            "url": "https://example.org/orphan"
+          },
+          {
+            "icon": "S",
+            "category": "personal",
+            "layoutId": "l_00000000000000000000000000000004",
+            "title": "Unrelated destination fixture",
+            "url": "https://example.net/stay"
+          },
+          {
+            "icon": "A",
+            "category": "work",
+            "layoutId": "l_00000000000000000000000000000005",
+            "title": "Another work fixture",
+            "url": "https://example.com/another"
+          }
+        ],
+        "weather": {
+          "city": "Local",
+          "temp": 22,
+          "cond": "Sunny",
+          "aqiLabel": "Good",
+          "aqi": 50,
+          "low": 18,
+          "high": 26
+        },
+        "hot": {
+          "tab": "baidu",
+          "baidu": [],
+          "weibo": [],
+          "zhihu": []
+        },
+        "movie": {
+          "title": "Sample Movie",
+          "note": "A great movie to watch",
+          "poster": ""
+        },
+        "quote": "Synthetic organizer acceptance fixture",
+        "layout": {
+          "autoArrange": false,
+          "alignToGrid": false,
+          "gridSize": 96,
+          "columns": 6,
+          "positions": {},
+          "identityVersion": 1,
+          "positionsById": {
+            "l_00000000000000000000000000000001": {
+              "all": {
+                "x": 24,
+                "y": 32
+              },
+              "work": {
+                "x": 24,
+                "y": 144
+              },
+              "personal": {
+                "x": 24,
+                "y": 256
+              },
+              "orphan-synthetic": {
+                "x": 24,
+                "y": 368
+              }
+            },
+            "l_00000000000000000000000000000002": {
+              "all": {
+                "x": 136,
+                "y": 32
+              },
+              "work": {
+                "x": 136,
+                "y": 144
+              },
+              "personal": {
+                "x": 136,
+                "y": 256
+              },
+              "orphan-synthetic": {
+                "x": 136,
+                "y": 368
+              }
+            },
+            "l_00000000000000000000000000000003": {
+              "all": {
+                "x": 248,
+                "y": 32
+              },
+              "work": {
+                "x": 248,
+                "y": 144
+              },
+              "personal": {
+                "x": 248,
+                "y": 256
+              },
+              "orphan-synthetic": {
+                "x": 248,
+                "y": 368
+              }
+            },
+            "l_00000000000000000000000000000004": {
+              "all": {
+                "x": 360,
+                "y": 32
+              },
+              "work": {
+                "x": 360,
+                "y": 144
+              },
+              "personal": {
+                "x": 360,
+                "y": 256
+              },
+              "orphan-synthetic": {
+                "x": 360,
+                "y": 368
+              }
+            },
+            "l_00000000000000000000000000000005": {
+              "all": {
+                "x": 472,
+                "y": 32
+              },
+              "work": {
+                "x": 472,
+                "y": 144
+              },
+              "personal": {
+                "x": 472,
+                "y": 256
+              },
+              "orphan-synthetic": {
+                "x": 472,
+                "y": 368
+              }
+            }
+          }
+        },
+        "ui": {
+          "dashboardHidden": false,
+          "dashboardPadding": null,
+          "showShortcutTitles": true,
+          "finderShortcutEnabled": true,
+          "shortcutsStyle": {
+            "gapX": null,
+            "gapY": null,
+            "iconSize": null,
+            "titleSize": null,
+            "titleColor": ""
+          }
+        }
+      }
+    },
+    "tasks": {
+      "schemaVersion": 1,
+      "enabled": true,
+      "records": [
+        {
+          "id": "synthetic_task_one",
+          "version": "synthetic_task_version",
+          "text": "Synthetic task: review card layout",
+          "state": "active",
+          "removedFrom": null,
+          "createdAt": "2026-10-11T20:00:00.000Z",
+          "updatedAt": "2026-10-11T20:00:00.000Z"
+        }
+      ],
+      "pinnedId": "synthetic_task_one",
+      "recovery": []
+    },
+    "scratchpad": {
+      "schemaVersion": 1,
+      "enabled": true,
+      "content": "Synthetic card preview\nCompare spacing, columns and readable text."
+    },
+    "countdown": {
+      "schemaVersion": 1,
+      "enabled": true,
+      "title": "Synthetic review date",
+      "targetDate": "2026-12-01"
+    },
+    "focus": {
+      "schemaVersion": 1,
+      "enabled": true,
+      "durations": {
+        "focus": 25,
+        "break": 5
+      }
+    }
+  }
+}
