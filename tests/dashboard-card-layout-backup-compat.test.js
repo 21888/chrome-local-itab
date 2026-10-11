@@ -28,7 +28,7 @@ test('the exact pre-card-layout complete archive parses without mutation and ret
     assert.deepEqual(imported.layout, expected.modules.config.data.layout);
 });
 
-for (const fields of [{}, { cardOrder: [...IDS].reverse() }, { cardSpans: { 'local-tasks-card': 2 } }, { cardOrder: null, cardSpans: null }, { cardOrder: IDS, cardSpans: { 'movie-container': 4 } }]) {
+for (const fields of [{}, { cardOrder: [...IDS].reverse() }, { cardSpans: { 'local-tasks-card': 2 } }, { cardOrder: null, cardSpans: null }, { cardOrder: IDS, cardSpans: { 'movie-container': 4 } }, { cardLayoutMode: 'template', cardOrder: [...IDS].reverse() }, { cardLayoutMode: 'grid' }, { cardLayoutMode: null }]) {
     test(`legacy complete/settings compatibility with optional fields ${Object.keys(fields).join(',') || 'absent'}`, () => {
         const manager = new StorageManager(), file = input(); Object.assign(file.modules.config.data.appearance.customization, fields);
         const serialized = JSON.stringify(file), digest = checksum(serialized);
@@ -36,6 +36,7 @@ for (const fields of [{}, { cardOrder: [...IDS].reverse() }, { cardSpans: { 'loc
         const imported = manager.validateImportPayload(file.modules.config);
         assert.deepEqual(imported.appearance.customization.cardOrder, fields.cardOrder ?? null);
         assert.deepEqual(imported.appearance.customization.cardSpans, fields.cardSpans ?? null);
+        assert.equal(imported.appearance.customization.cardLayoutMode, fields.cardLayoutMode ?? null);
         assert.equal(checksum(serialized), digest);
     });
 }
@@ -54,7 +55,7 @@ test('legacy compatibility never repairs supplied malformed or unknown card fiel
     const manager = new StorageManager();
     for (const bad of [{ cardOrder: [] }, { cardOrder: IDS.slice(1) }, { cardOrder: [...IDS.slice(1), IDS[1]] }, { cardOrder: 'default' },
         { cardSpans: [] }, { cardSpans: { 'local-tasks-card': 5 } }, { cardSpans: { 'local-tasks-card': '2' } }, { cardSpans: { unknown: 1 } },
-        { cardRows: 2 }, { cardColumns: 5 }]) {
+        { cardRows: 2 }, { cardColumns: 5 }, { cardLayoutMode: 'auto' }, { cardLayoutMode: false }, { cardLayoutMode: {} }]) {
         const file = input(); Object.assign(file.modules.config.data.appearance.customization, bad);
         assert.throws(() => CompleteBackup.parse(JSON.stringify(file), manager));
         assert.throws(() => manager.validateImportPayload(file.modules.config));

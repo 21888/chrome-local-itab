@@ -4122,7 +4122,7 @@
     "message": "跟随模板"
   },
   "customizeLayoutHint": {
-    "message": "卡片设置作用于快捷方式下方的信息卡片。留空即跟随模板。设置列数后，卡片会排在快捷方式下方。行数随内容自动增长，小屏幕会减少列数。自定义背景下，卡片透明度与下方的易读衬底面板混合。自由摆放的快捷方式位置保持不变。"
+    "message": "样式值留空时跟随模板。设置宽度或列数会将信息卡片放在快捷方式下方的网格中。仅调整顺序可保留模板结构。使用自定义背景时，卡片透明度会与卡片背后的对比度安全底板混合。自由布局中的快捷方式位置保持不变。"
   },
   "customizeShortcutSettings": {
     "message": "快捷方式大小、每行数量与模块显示 →"
@@ -4164,7 +4164,7 @@
     "message": "卡片背景不透明度（40–100%）"
   },
   "customizeColumns": {
-    "message": "卡片列数（1–4）"
+    "message": "网格列数（1–4；切换至网格）"
   },
   "customizeSampleOne": {
     "message": "今天"
@@ -4236,7 +4236,7 @@
     "message": "卡片顺序与宽度"
   },
   "cardLayoutHint": {
-    "message": "上下调整卡片顺序，并选择宽度占几列。调整后，卡片会排在快捷方式下方；未指定列数时使用 3 列。宽度不会超过可用列数：中等屏幕最多 2 列，手机为 1 列。行数按内容自动增加。隐藏卡片保留顺序，不会改变显示开关。"
+    "message": "调整卡片顺序，不改变显示状态。模板模式保留当前模板结构；自定义宽度或列数会切换为快捷方式下方的网格。保存前可在页面实时预览。"
   },
   "cardLayoutEarlier": {
     "message": "向前移动"
@@ -4257,7 +4257,7 @@
     "message": "恢复卡片顺序与宽度"
   },
   "cardLayoutPreview": {
-    "message": "卡片网格预览（包含隐藏卡片）"
+    "message": "卡片顺序预览（含隐藏卡片）"
   },
   "customizeHexLabel": {
     "message": "（十六进制）"
@@ -4468,5 +4468,23 @@
   },
   "collectionsContextSnapshotExportWarning": {
     "message": "已保存的问题／资料快照会完整包含在备份中，可能带有私人文本与接口网址，即使选择移除归属来源网址。"
+  },
+  "cardLayoutMode": {
+    "message": "卡片布局"
+  },
+  "cardLayoutTemplate": {
+    "message": "保留模板结构"
+  },
+  "cardLayoutGrid": {
+    "message": "快捷方式下方的自定义网格"
+  },
+  "cardLayoutTemplateNote": {
+    "message": "调整顺序会保留所选模板结构。设置宽度或列数会切换至网格。切回模板模式会清除自定义宽度与列数，但保留顺序。预览包含隐藏卡片，不改变显示状态。"
+  },
+  "cardLayoutGridNote": {
+    "message": "自定义网格：卡片排列在快捷方式下方。选择保留模板结构会清除自定义宽度与列数，但保留顺序。宽度不会超过可用列数（中等屏幕最多 2 列，手机 1 列）。预览包含隐藏卡片，不改变显示状态。"
+  },
+  "cardLayoutShortcuts": {
+    "message": "快捷方式"
   }
 }

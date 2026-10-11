@@ -134,8 +134,9 @@ test('workspace activation changes do not retarget card saves; deleted sessions 
     const appearance = await storage.getAppearanceForUpdate();
     const baseline = { ...storage.settingsSnapshot(await session.local.get([storage.settingsGenerationKey])), customization: appearance.customization };
     await manager.select(b.id);
-    await storage.patchDashboardCustomization({ cardOrder: [...IDS].reverse() }, { generation: baseline.generation, customization: baseline.customization });
+    await storage.patchDashboardCustomization({ cardOrder: [...IDS].reverse(), cardLayoutMode: 'template' }, { generation: baseline.generation, customization: baseline.customization });
     assert.deepEqual((await session.local.get(['appearance'])).appearance.customization.cardOrder, [...IDS].reverse());
+    assert.equal((await session.local.get(['appearance'])).appearance.customization.cardLayoutMode, 'template');
     assert.equal((await manager.capture(b.id).local.get(['appearance'])).appearance?.customization?.cardOrder, undefined);
     await manager.trash(a.id);
     await assert.rejects(storage.patchDashboardCustomization({ cardSpans: { [IDS[0]]: 2 } }, { generation: baseline.generation, customization: baseline.customization }), error => error.code.startsWith('WORKSPACE_'));
@@ -164,4 +165,74 @@ test('pending and failed Save keep native-like keyboard focus inside the modal',
     p.document.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(Boolean(p.document.querySelector('.customize-overlay')), true);
     gate.resolve(); await tick(); await tick(); assert.equal(p.document.activeElement === save, true);
     p.document.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(Boolean(p.document.querySelector('.customize-overlay')), false); assert.equal(f.writes.length, 0);
+});
+
+for (const template of ['today', 'folio', 'column']) test(`${template}: new order keeps structure, existing nodes, focus and drafts through save/reload`, async () => {
+    const f = fixture(); f.raw.appearance.template = template;
+    const p = page(f), nodes = [...p.container.children]; await p.open();
+    const arrow = p.row(IDS[1]).children[1]; arrow.focus(); arrow.dispatch('click');
+    assert.equal(p.dashboard.dataset.customCardLayout, 'false');
+    assert.equal(p.document.activeElement === arrow, true);
+    assert.equal(p.container.children[0] === nodes[1], true);
+    assert.equal(p.input.value, 'unsaved synthetic note');
+    assert.equal(p.container.children.every(node => node.hidden), true);
+    const diagram = p.document.querySelector('.card-layout-diagram');
+    assert.equal(diagram.dataset.template, template); assert.equal(diagram.dataset.layoutMode, 'template');
+    assert.match(p.document.querySelector('.card-layout-mode-note').textContent, /structure/);
+    p.button('Save').dispatch('click'); await tick(); await tick();
+    assert.equal(f.raw.appearance.customization.cardLayoutMode, 'template');
+    const reloaded = page(f);
+    assert.equal(reloaded.dashboard.dataset.customCardLayout, 'false');
+    assert.deepEqual(reloaded.order(), [IDS[1], IDS[0], ...IDS.slice(2)]);
+    await reloaded.open(); reloaded.span(IDS[0], '4');
+    assert.equal(reloaded.dashboard.dataset.customCardLayout, 'true');
+    assert.equal(reloaded.document.querySelector('.card-layout-diagram').dataset.layoutMode, 'grid');
+    reloaded.button('Cancel').dispatch('click');
+    assert.equal(reloaded.dashboard.dataset.customCardLayout, 'false');
+    assert.deepEqual(reloaded.order(), [IDS[1], IDS[0], ...IDS.slice(2)]);
+});
+
+for (const legacy of [{ cardOrder: [...IDS].reverse() }, { cardSpans: { [IDS[0]]: 3 } }, { cardColumns: 4 }]) test(`legacy ${Object.keys(legacy)} stays grid until explicitly changed, Cancel restores exact preferences`, async () => {
+    const f = fixture(); f.raw.appearance.customization = { ...f.raw.appearance.customization, ...legacy };
+    delete f.raw.appearance.customization.cardLayoutMode;
+    const before = copy(f.raw), p = page(f); assert.equal(p.dashboard.dataset.customCardLayout, 'true');
+    await p.open(); p.earlier(IDS[2]); assert.equal(p.dashboard.dataset.customCardLayout, 'true');
+    const mode = p.document.querySelector('[data-card-layout-mode]'); mode.value = 'template'; mode.dispatch('change');
+    assert.equal(p.dashboard.dataset.customCardLayout, 'false'); assert.equal(p.dashboard.dataset.customCardColumns, 'false');
+    assert.match(p.document.querySelector('.card-layout-mode-note').textContent, /clears custom widths and columns/);
+    p.button('Cancel').dispatch('click'); assert.deepEqual(f.raw, before); assert.equal(f.writes.length, 0);
+    assert.equal(p.dashboard.dataset.customCardLayout, 'true'); assert.deepEqual(p.order(), legacy.cardOrder ?? IDS);
+});
+
+test('geometry CAS rejects concurrent mode/size switches in both directions while allowing unrelated appearance', async () => {
+    for (const first of ['mode', 'size']) {
+        const f = fixture(), baseline = { generation: null, customization: {} };
+        const mode = { cardLayoutMode: 'template' }, size = { cardSpans: { [IDS[0]]: 2 }, cardLayoutMode: 'grid' };
+        await f.storage.patchDashboardCustomization(first === 'mode' ? mode : size, baseline);
+        await assert.rejects(f.storage.patchDashboardCustomization(first === 'mode' ? size : mode, baseline), { code: 'APPEARANCE_CONFLICT' });
+        await f.storage.patchDashboardCustomization({ cardGap: 19 }, baseline);
+        assert.equal(f.raw.appearance.customization.cardGap, 19);
+    }
+});
+
+test('conflicting template preview stays open and Cancel restores the latest external grid', async () => {
+    const f = fixture(), p = page(f); await p.open(); p.earlier(IDS[1]);
+    await f.storage.patchDashboardCustomization({ cardColumns: 4 }, { generation: null, customization: {} }); await tick();
+    p.button('Save').dispatch('click'); await tick(); await tick();
+    assert.match(p.document.querySelector('.customize-status').textContent, /changed/);
+    assert.equal(p.dashboard.dataset.customCardLayout, 'false');
+    p.button('Cancel').dispatch('click'); assert.equal(p.dashboard.dataset.customCardLayout, 'true');
+    assert.deepEqual(p.order(), IDS); assert.equal(f.raw.appearance.customization.cardColumns, 4);
+});
+
+test('columns opt into grid, template choice clears invalid column input and full Reset restores template', async () => {
+    const f = fixture(), p = page(f); await p.open();
+    const columns = p.document.querySelector('[data-customize-field="cardColumns"]');
+    columns.value = '4'; columns.dispatch('input'); assert.equal(p.dashboard.dataset.customCardLayout, 'true');
+    columns.value = '5'; columns.dispatch('input'); assert.equal(p.button('Save').disabled, true);
+    const mode = p.document.querySelector('[data-card-layout-mode]'); mode.value = 'template'; mode.dispatch('change');
+    assert.equal(p.button('Save').disabled, false); assert.equal(columns.value, '');
+    p.span(IDS[0], '2'); p.button('Reset preview').dispatch('click');
+    assert.equal(p.dashboard.dataset.customCardLayout, 'false'); assert.deepEqual(p.order(), IDS);
+    p.button('Save').dispatch('click'); await tick(); await tick(); assert.equal(f.storage.validateDashboardCustomization(f.raw.appearance.customization).cardLayoutMode, null);
 });

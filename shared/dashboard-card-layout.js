@@ -10,10 +10,13 @@
     const tr = (key, fallback) => { const text = global.i18n?.t(key); return text && text !== key ? text : fallback; };
     const effectiveColumns = (columns, width) => width <= 620 ? 1 : width <= 1000 ? Math.min(2, columns ?? 3) : columns ?? 3;
     const effectiveSpan = (span, columns, width) => Math.min(span ?? 1, effectiveColumns(columns, width));
+    // A missing mode preserves old backups and saved order-only grid layouts.
+    const layoutMode = (value = {}) => value.cardColumns != null || value.cardSpans != null || value.cardLayoutMode === 'grid' ||
+        (value.cardLayoutMode == null && value.cardOrder != null) ? 'grid' : 'template';
     function paint(value = {}) {
         const doc = global.document, dashboard = doc.getElementById('dashboard'), container = doc.getElementById('info-cards-container');
         if (!dashboard) return;
-        const custom = value.cardOrder != null || value.cardSpans != null;
+        const custom = layoutMode(value) === 'grid';
         dashboard.dataset.customCardLayout = String(custom);
         dashboard.style.setProperty('--card-layout-columns', String(value.cardColumns ?? 3));
         if (!container) return;
@@ -39,10 +42,21 @@
         const doc = host.ownerDocument;
         const section = doc.createElement('section'); section.className = 'card-layout-editor';
         const heading = doc.createElement('h3'); heading.textContent = tr('cardLayoutHeading', 'Card order and width');
-        const hint = doc.createElement('p'); hint.textContent = tr('cardLayoutHint', 'Move cards earlier or later and choose their width in grid columns. These changes put cards below shortcuts. With no column setting, the grid uses 3 columns. Widths shrink to the available columns: at most 2 on medium screens and 1 on phones. Rows grow automatically. Hidden cards keep their place; visibility is unchanged.');
+        const hint = doc.createElement('p'); hint.textContent = tr('cardLayoutHint', "Move cards earlier or later without changing visibility. Template mode keeps the selected structure; custom widths or columns use a grid below shortcuts. The live dashboard previews your changes before Save.");
+        const modeLabel = doc.createElement('label'); modeLabel.className = 'customize-field';
+        const modeTitle = doc.createElement('span'); modeTitle.textContent = tr('cardLayoutMode', 'Card layout');
+        const modeSelect = doc.createElement('select'); modeSelect.dataset.cardLayoutMode = '';
+        for (const [value, key, fallback] of [['template', 'cardLayoutTemplate', 'Keep template structure'], ['grid', 'cardLayoutGrid', 'Custom grid below shortcuts']]) {
+            const option = doc.createElement('option'); option.value = value; option.textContent = tr(key, fallback); modeSelect.append(option);
+        }
+        modeSelect.addEventListener('change', () => { if (!pending) change('cardLayoutMode', modeSelect.value); });
+        modeLabel.append(modeTitle, modeSelect);
+        const modeNote = doc.createElement('p'); modeNote.className = 'card-layout-mode-note'; modeNote.setAttribute('aria-live', 'polite');
+        const diagram = doc.createElement('div'); diagram.className = 'card-layout-diagram';
+        const shortcuts = doc.createElement('div'); shortcuts.className = 'card-layout-shortcuts'; shortcuts.textContent = tr('cardLayoutShortcuts', 'Shortcuts');
         const list = doc.createElement('div'); list.className = 'card-layout-list';
         const preview = doc.createElement('div'); preview.className = 'card-layout-preview';
-        preview.setAttribute('aria-label', tr('cardLayoutPreview', 'Grid preview including hidden cards'));
+        preview.setAttribute('aria-label', tr('cardLayoutPreview', 'Card order preview including hidden cards'));
         const rows = new Map(); let draft = {}, pending = false;
         for (const [id, key, fallback] of cards) {
             const name = tr(key, fallback), row = doc.createElement('div'); row.className = 'card-layout-row'; row.dataset.cardLayoutId = id;
@@ -73,11 +87,18 @@
             label.append(width, select); row.append(title, up, down, label); list.append(row); rows.set(id, { row, title, up, down, select, name });
         }
         const reset = doc.createElement('button'); reset.type = 'button'; reset.className = 'card-layout-reset'; reset.textContent = tr('cardLayoutReset', 'Restore card order and widths');
-        reset.addEventListener('click', () => { if (!pending) { change('cardOrder', null); change('cardSpans', null); } });
-        section.append(heading, hint, preview, list, reset); host.append(section);
+        reset.addEventListener('click', () => { if (!pending) { change('cardOrder', null); change('cardSpans', null); change('cardLayoutMode', null); } });
+        diagram.append(shortcuts, preview); section.append(heading, hint, modeLabel, modeNote, diagram, list, reset); host.append(section);
         return { render(value, saving) {
             draft = value; pending = saving;
             const order = value.cardOrder ?? ids;
+            const mode = layoutMode(value);
+            modeSelect.value = mode; modeSelect.disabled = saving;
+            diagram.dataset.layoutMode = mode;
+            diagram.dataset.template = doc.documentElement.dataset.dashboardTemplate || 'clarity';
+            modeNote.textContent = mode === 'template'
+                ? tr('cardLayoutTemplateNote', 'Order changes keep the selected template’s structure. Choosing widths or columns switches to grid. Returning here clears custom widths and columns; order is kept. Preview includes hidden cards; visibility is unchanged.')
+                : tr('cardLayoutGridNote', 'Custom grid: cards sit below shortcuts. Choosing template structure clears custom widths and columns but keeps order. Widths clamp to available columns (at most 2 on medium screens, 1 on phones). Preview includes hidden cards; visibility is unchanged.');
             preview.style.setProperty('--card-layout-columns', String(value.cardColumns ?? 3));
             preview.replaceChildren(...order.map(id => {
                 const tile = doc.createElement('div'); tile.textContent = rows.get(id).name;
@@ -99,5 +120,5 @@
             reset.disabled = saving;
         } };
     }
-    global.LocalItabCardLayout = { ids, paint, mount, effectiveColumns, effectiveSpan };
+    global.LocalItabCardLayout = { ids, paint, mount, effectiveColumns, effectiveSpan, layoutMode };
 })(window);

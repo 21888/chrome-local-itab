@@ -4122,7 +4122,7 @@
     "message": "Template default"
   },
   "customizeLayoutHint": {
-    "message": "Card controls apply to information cards below your shortcuts. Blank values follow the template. Choosing columns places cards below shortcuts. Rows grow automatically; columns reduce on narrow screens. Over custom backgrounds, card opacity blends with a contrast-safe panel behind the cards. Free-placement shortcuts keep their positions."
+    "message": "Blank style values follow the template. Choosing widths or columns places information cards below shortcuts in grid mode. Order-only customization can keep the template structure. Over custom backgrounds, card opacity blends with a contrast-safe panel behind the cards. Free-placement shortcuts keep their positions."
   },
   "customizeShortcutSettings": {
     "message": "Shortcut size, shortcuts per row and visibility →"
@@ -4164,7 +4164,7 @@
     "message": "Card background opacity (40–100%)"
   },
   "customizeColumns": {
-    "message": "Card columns (1–4)"
+    "message": "Grid columns (1–4; switches to grid)"
   },
   "customizeSampleOne": {
     "message": "Today"
@@ -4236,7 +4236,7 @@
     "message": "Card order and width"
   },
   "cardLayoutHint": {
-    "message": "Move cards earlier or later and choose their width in grid columns. These changes put cards below shortcuts. With no column setting, the grid uses 3 columns. Widths shrink to the available columns: at most 2 on medium screens and 1 on phones. Rows grow automatically. Hidden cards keep their place; visibility is unchanged."
+    "message": "Move cards earlier or later without changing visibility. Template mode keeps the selected structure; custom widths or columns use a grid below shortcuts. The live dashboard previews your changes before Save."
   },
   "cardLayoutEarlier": {
     "message": "Move earlier"
@@ -4257,7 +4257,7 @@
     "message": "Restore card order and widths"
   },
   "cardLayoutPreview": {
-    "message": "Grid preview including hidden cards"
+    "message": "Card order preview including hidden cards"
   },
   "customizeHexLabel": {
     "message": "(hex)"
@@ -4468,5 +4468,23 @@
   },
   "collectionsContextSnapshotExportWarning": {
     "message": "Saved question/source snapshots, when present, are included in full and may contain private text and endpoint URLs even if attribution source URLs are omitted."
+  },
+  "cardLayoutMode": {
+    "message": "Card layout"
+  },
+  "cardLayoutTemplate": {
+    "message": "Keep template structure"
+  },
+  "cardLayoutGrid": {
+    "message": "Custom grid below shortcuts"
+  },
+  "cardLayoutTemplateNote": {
+    "message": "Order changes keep the selected template’s structure. Choosing widths or columns switches to grid. Returning here clears custom widths and columns; order is kept. Preview includes hidden cards; visibility is unchanged."
+  },
+  "cardLayoutGridNote": {
+    "message": "Custom grid: cards sit below shortcuts. Choosing template structure clears custom widths and columns but keeps order. Widths clamp to available columns (at most 2 on medium screens, 1 on phones). Preview includes hidden cards; visibility is unchanged."
+  },
+  "cardLayoutShortcuts": {
+    "message": "Shortcuts"
   }
 }

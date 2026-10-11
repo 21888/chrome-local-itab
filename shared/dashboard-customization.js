@@ -39,7 +39,16 @@
         update(message = '') { paint(this.draft); this.render(this.draft, this.pending, message); }
         change(key, value) {
             if (this.pending || this.closed) return;
-            try { this.draft = this.storage.validateDashboardCustomization({ ...this.draft, [key]: value }); this.update(); }
+            try {
+                const patch = { [key]: value };
+                if (key === 'cardLayoutMode' && value === 'template') Object.assign(patch, { cardSpans: null, cardColumns: null });
+                if (['cardColumns', 'cardSpans'].includes(key) && value !== null) patch.cardLayoutMode = 'grid';
+                // Only a new, previously uncustomized order opts into template geometry.
+                // Missing/null mode on saved overrides retains the legacy grid.
+                if (key === 'cardOrder' && value !== null && this.draft.cardLayoutMode == null &&
+                    this.draft.cardOrder == null && this.draft.cardSpans == null && this.draft.cardColumns == null) patch.cardLayoutMode = 'template';
+                this.draft = this.storage.validateDashboardCustomization({ ...this.draft, ...patch }); this.update();
+            }
             catch (_) { this.render(this.draft, false, tr('customizeInvalid', 'Use a valid color or a number within the shown range.')); }
         }
         reset() {
@@ -105,7 +114,7 @@
                 ['cardGap', 'customizeGap', 'Card spacing (0–40 px)', 'number', 0, 40],
                 ['cardRadius', 'customizeRadius', 'Card corners (0–32 px)', 'number', 0, 32],
                 ['cardOpacity', 'customizeOpacity', 'Card background opacity (40–100%)', 'number', 40, 100],
-                ['cardColumns', 'customizeColumns', 'Card columns (1–4)', 'number', 1, 4]
+                ['cardColumns', 'customizeColumns', 'Grid columns (1–4; switches to grid)', 'number', 1, 4]
             ];
             for (const [key, labelKey, fallback, type, min, max] of labels) {
                 const label = doc.createElement('label'); label.className = 'customize-field';
@@ -130,9 +139,14 @@
             }
             let editor, focusBeforePending = null;
             panel.tabIndex = -1;
-            const cardLayout = global.LocalItabCardLayout?.mount(panel, (key, value) => editor?.change(key, value));
+            const cardLayout = global.LocalItabCardLayout?.mount(panel, (key, value) => {
+                if (key === 'cardLayoutMode' && value === 'template') {
+                    invalid.delete('cardColumns'); controls.cardColumns.setAttribute('aria-invalid', 'false');
+                }
+                editor?.change(key, value);
+            });
             const hint = doc.createElement('p'); hint.className = 'customize-hint';
-            hint.textContent = tr('customizeLayoutHint', 'Card controls apply to information cards below your shortcuts. Blank values follow the template. Choosing columns places cards below shortcuts. Rows grow automatically; columns reduce on narrow screens. Over custom backgrounds, card opacity blends with a contrast-safe panel behind the cards. Free-placement shortcuts keep their positions.');
+            hint.textContent = tr('customizeLayoutHint', "Blank style values follow the template. Choosing widths or columns places information cards below shortcuts in grid mode. Order-only customization can keep the template structure. Over custom backgrounds, card opacity blends with a contrast-safe panel behind the cards. Free-placement shortcuts keep their positions.");
             const more = doc.createElement('a'); more.textContent = tr('customizeShortcutSettings', 'Shortcut size, shortcuts per row and visibility →');
             more.href = global.LocalItabWorkspacesView?.settingsUrl(global.LocalItabWorkspaces?.session?.id, 'layout-settings') || 'options.html#layout-settings';
             more.target = '_blank'; more.rel = 'noopener';

@@ -46,7 +46,7 @@ function getDefaultCategoryName(key, fallback) {
 const DASHBOARD_CARD_IDS = Object.freeze(['local-tasks-card', 'local-focus-card', 'local-scratchpad-card', 'local-countdown-card', 'world-clocks-card', 'weather-container', 'hot-container', 'movie-container']);
 const DASHBOARD_CUSTOMIZATION_DEFAULTS = Object.freeze({
     backgroundMode: 'template', backgroundStart: '#edf2ef', backgroundEnd: '#d5e4dc', backgroundAngle: 135,
-    cardPadding: null, cardGap: null, cardRadius: null, cardOpacity: null, cardColumns: null, cardOrder: null, cardSpans: null
+    cardPadding: null, cardGap: null, cardRadius: null, cardOpacity: null, cardColumns: null, cardOrder: null, cardSpans: null, cardLayoutMode: null
 });
 
 class StorageManager {
@@ -1639,7 +1639,7 @@ class StorageManager {
         // projection, without repairing supplied values or ignoring unknown keys.
         const customization = value.data.appearance?.customization;
         if (customization && checked.appearance?.customization) {
-            for (const key of ['cardOrder', 'cardSpans']) {
+            for (const key of ['cardOrder', 'cardSpans', 'cardLayoutMode']) {
                 if (!Object.hasOwn(customization, key)) delete checked.appearance.customization[key];
             }
         }
@@ -1756,6 +1756,7 @@ class StorageManager {
             if (nullable && result[key] === null) continue;
             if (!Number.isInteger(result[key]) || result[key] < min || result[key] > max) throw this.appearanceError();
         }
+        if (![null, 'template', 'grid'].includes(result.cardLayoutMode)) throw this.appearanceError();
         if (result.cardOrder !== null && (!Array.isArray(result.cardOrder) || result.cardOrder.length !== DASHBOARD_CARD_IDS.length ||
             new Set(result.cardOrder).size !== DASHBOARD_CARD_IDS.length || [...result.cardOrder].some(id => !DASHBOARD_CARD_IDS.includes(id)))) throw this.appearanceError();
         if (result.cardSpans !== null && (typeof result.cardSpans !== 'object' || Array.isArray(result.cardSpans) ||
@@ -1788,6 +1789,12 @@ class StorageManager {
                 const appearance = { ...this.resolveAppearance(raw), ...raw.appearance };
                 const latest = this.validateDashboardCustomization(appearance.customization);
                 if (keys.some(key => JSON.stringify(latest[key]) !== JSON.stringify(before[key]) && JSON.stringify(latest[key]) !== JSON.stringify(requested[key]))) throw this.appearanceError();
+                // Mode and dimensions jointly choose geometry. A stale dialog must
+                // not silently undo another tab's switch between template and grid.
+                const geometry = ['cardLayoutMode', 'cardSpans', 'cardColumns'];
+                if (keys.some(key => geometry.includes(key)) && geometry.some(key =>
+                    JSON.stringify(latest[key]) !== JSON.stringify(before[key]) &&
+                    (!keys.includes(key) || JSON.stringify(latest[key]) !== JSON.stringify(requested[key])))) throw this.appearanceError();
                 if (keys.length) {
                     appearance.customization = { ...latest, ...Object.fromEntries(keys.map(key => [key, requested[key]])) };
                     await this._local.set({ appearance });
