@@ -8,6 +8,10 @@
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0;
             controller.onChange = kind => kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render();
+            root.addEventListener?.('pagehide', () => {
+                this.markdownGeneration = (this.markdownGeneration || 0) + 1;
+                this.cancelMarkdownDialog?.();
+            });
             this.build();
         }
         el(tag, className = '', text) { const node = this.doc.createElement(tag); node.className = className; if (text !== undefined) node.textContent = text; return node; }
@@ -70,6 +74,7 @@
         }
         render() {
             this.detailGeneration++;
+            this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             this.renderCaptureStatus();
             const c = this.controller;
             this.renderList(); this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand); this.exportButton.disabled = !c.state || c.busy;
@@ -227,7 +232,9 @@
             const actions = this.el('div', 'prompt-actions');
             if (!record.deletedAt) actions.append(this.button('Edit', 'Edit details', () => c.edit()), this.button('Revise', 'Revise excerpt', () => this.revise(record)), this.button('Archive', 'Archive', () => c.action('remove')));
             else actions.append(this.button('Restore', 'Restore from archive', () => c.action('restore')));
-            for (const button of actions.children) button.disabled = c.busy || Boolean(c.pendingCommand); top.append(actions); this.main.append(top);
+            const markdown = this.button('MarkdownExport', 'Export current saved item as Markdown', () => this.exportMarkdown());
+            markdown.disabled = Boolean(c.error); actions.append(markdown);
+            for (const button of actions.children) button.disabled = button.disabled || c.busy || Boolean(c.pendingCommand); top.append(actions); this.main.append(top);
             this.main.append(this.el('h3', '', this.t('body', 'Exact excerpt'))); const body = this.el('pre', 'prompt-readonly', record.body); body.tabIndex = 0; this.main.append(body);
             this.main.append(this.button('Copy', 'Copy excerpt', () => this.copy(record.body)), this.paragraph('PlainText', 'Plain text only. Saved code and markup are never executed.'));
             if (record.notes) { const section = this.el('section', 'prompt-section'); section.append(this.el('h3', '', this.t('notes', 'Your annotations')), this.el('pre', 'prompt-readonly', record.notes)); this.main.append(section); }
@@ -283,7 +290,46 @@
                 const data = await this.controller.store.export({ omitSourceUrls: omit }); const blob = new root.Blob([data], { type: 'application/json' }); const url = root.URL.createObjectURL(blob); const a = this.el('a'); a.href = url; a.download = 'local-itab-ai-collection.json'; this.doc.body.append(a); a.click(); a.remove(); root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
             } catch (_) { this.status.textContent = this.t('ExportFailed', 'Export could not be created. Saved content is unchanged.'); }
         }
-        dialog({ title, body, accept, editor, onInput, comparison, checkbox }) {
+        async exportMarkdown() {
+            const c = this.controller;
+            const ready = () => !c.disposed && !c.busy && !c.pendingCommand && !c.error && c.pendingReadGeneration !== c.readGeneration && !c.draft() && Boolean(c.record());
+            if (this.exportingMarkdown || this.openDialog || !ready()) return;
+            const record = c.record(), generation = this.markdownGeneration, readGeneration = c.readGeneration, savedId = record.id, savedVersion = record.version;
+            const current = () => ready() && this.markdownGeneration === generation && c.readGeneration === readGeneration && c.record()?.id === savedId && c.record()?.version === savedVersion;
+            this.exportingMarkdown = true;
+            let url, anchor, includeSourceUrl = false;
+            try {
+                // Only the saved record is serialized. No sessions, proposals, history or linked bodies.
+                const snapshot = {};
+                for (const key of ['id', 'version', 'currentVersionId', 'title', 'body', 'notes', 'type', 'tool', 'tags', 'category', 'promptRef', 'sourceUrl']) {
+                    if (record[key] !== undefined) snapshot[key] = JSON.parse(JSON.stringify(record[key]));
+                }
+                const preview = root.LocalItabAIMarkdown.serialize('collection', snapshot);
+                const accepted = await this.dialog({
+                    title: this.t('MarkdownReview', 'Review saved-item Markdown export'),
+                    body: `${this.t('MarkdownWarning', 'This is an unencrypted, readable copy of one current saved item, not a recovery backup. Unsaved work and history are excluded. Text and notes may still contain private information.')}\n\n${snapshot.title}\n${snapshot.id}\n${this.t('MarkdownVersion', 'Saved version')} · ${snapshot.version}\n${this.t('MarkdownBodyVersion', 'Body version')} · ${snapshot.currentVersionId}`,
+                    accept: this.t('MarkdownDownload', 'Download Markdown'), markdownPreview: preview, markdownCurrent: current,
+                    sourceValue: snapshot.sourceUrl,
+                    sourceCheckbox: snapshot.sourceUrl ? value => { includeSourceUrl = value; } : undefined
+                });
+                if (!accepted || !current()) return;
+                const data = root.LocalItabAIMarkdown.serialize('collection', snapshot, { includeSourceUrl });
+                const blob = new root.Blob([data], { type: 'text/markdown;charset=utf-8' });
+                url = root.URL.createObjectURL(blob); anchor = this.el('a');
+                anchor.href = url; anchor.download = 'local-itab-collection.md'; this.doc.body.append(anchor);
+                // No deferred download: acceptance must still refer to this saved selection/version.
+                if (!current()) return;
+                anchor.click();
+                if (current()) this.status.textContent = this.t('MarkdownRequested', 'Download requested.');
+            } catch (_) {
+                if (current()) this.status.textContent = this.t('MarkdownFailed', 'Markdown export could not be requested. Saved content is unchanged.');
+            } finally {
+                try { anchor?.remove(); } catch (_) { /* Best-effort DOM cleanup. */ }
+                try { if (url) root.URL.revokeObjectURL(url); } catch (_) { /* No delayed retry or download. */ }
+                this.exportingMarkdown = false;
+            }
+        }
+        dialog({ title, body, accept, editor, onInput, comparison, checkbox, markdownPreview, sourceCheckbox, sourceValue, markdownCurrent }) {
             if (this.openDialog) return Promise.resolve(false);
             return new Promise(resolve => {
                 const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', `prompt-dialog${comparison || editor !== undefined ? ' collection-review-dialog' : ''}`); overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'collection-dialog-title'); box.setAttribute('aria-describedby', 'collection-dialog-body');
@@ -291,9 +337,25 @@
                 if (editor !== undefined) this.field(box, 'Proposed', 'Proposed exact excerpt', editor, onInput, true);
                 if (comparison) for (const [key, label, text] of [['Before', 'Current saved excerpt', comparison.before], ['After', 'Proposed excerpt', comparison.after]]) box.append(this.el('h3', '', this.t(key, label)), this.el('pre', 'prompt-readonly', text));
                 if (checkbox) { const label = this.el('label', 'prompt-check'), input = this.el('input'); input.type = 'checkbox'; input.addEventListener('change', () => checkbox(input.checked)); label.append(input, this.el('span', '', this.t('OmitUrls', 'Remove source URLs from this copy only (text may still contain private information)'))); box.append(label); }
+                if (markdownPreview !== undefined) { const preview = this.el('pre', 'prompt-readonly', markdownPreview); preview.setAttribute('tabindex', '0'); box.append(preview); }
+                if (sourceCheckbox) {
+                    const label = this.el('label', 'prompt-check'), input = this.el('input'); input.type = 'checkbox'; input.checked = false;
+                    const source = this.el('pre', 'prompt-readonly', sourceValue || ''); source.hidden = true;
+                    input.addEventListener('change', () => { sourceCheckbox(input.checked); source.hidden = !input.checked; });
+                    label.append(input, this.el('span', '', this.t('MarkdownSource', 'Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information.'))); box.append(label, source);
+                }
                 const actions = this.el('div', 'prompt-actions'); let close;
-                const finish = answer => { if (!this.openDialog) return; this.openDialog = false; close?.(); overlay.remove(); resolve(answer); };
-                const cancel = this.button('Cancel', 'Cancel', () => finish(false)), proceed = this.el('button', 'prompt-primary', accept); proceed.type = 'button'; proceed.addEventListener('click', () => finish(true)); actions.append(cancel, proceed); box.append(actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true; close = root.LocalItabDialog.open(overlay, cancel, () => finish(false));
+                const finish = answer => { if (!this.openDialog) return; this.openDialog = false; if (markdownPreview !== undefined) this.cancelMarkdownDialog = null; close?.(markdownPreview === undefined || !markdownCurrent || markdownCurrent()); overlay.remove(); resolve(answer); };
+                if (markdownPreview !== undefined) this.cancelMarkdownDialog = () => finish(false);
+                const cancel = this.button('Cancel', 'Cancel', () => finish(false)), proceed = this.el('button', 'prompt-primary', accept); proceed.type = 'button'; proceed.addEventListener('click', () => finish(true)); actions.append(cancel, proceed); box.append(actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true; // A long export review must open at its scope/privacy introduction.
+                // Keep the static heading out of the normal sequential Tab order.
+                if (markdownPreview !== undefined) {
+                    heading.setAttribute('tabindex', '-1');
+                    heading.addEventListener('keydown', event => {
+                        if (event.key === 'Tab' && event.shiftKey) { event.preventDefault(); proceed.focus(); }
+                    });
+                }
+                close = root.LocalItabDialog.open(overlay, markdownPreview !== undefined ? heading : cancel, () => finish(false));
             });
         }
     }

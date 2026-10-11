@@ -7,6 +7,10 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller; this.clipboard = clipboard;
             this.t = (name, fallback) => { const value = translate(name, fallback); return value && value !== key(name) ? value : fallback; };
             this.confirm = confirm || (options => this.dialog(options)); this.historyId = null; this.copyGeneration = 0; this.copying = false; this.pendingFocus = null;
+            root.addEventListener?.('pagehide', () => {
+                this.markdownGeneration = (this.markdownGeneration || 0) + 1;
+                this.cancelMarkdownDialog?.();
+            });
             this.build(); controller.onChange = kind => this.render(kind);
         }
         el(tag, className, text) { const element = this.doc.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; }
@@ -79,6 +83,7 @@
             if (kind === 'draft') { this.renderStatus(); this.renderDrafts(); this.updateDraftState(); return; }
             this.renderStatus(); this.renderList();
             if (kind === 'list') return;
+            this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             const active = this.doc.activeElement, restore = this.main.contains(active) ? active?.dataset.promptFocus : null;
             if (restore && c.busy) this.pendingFocus = restore;
             const desiredFocus = restore || (!c.busy ? this.pendingFocus : null);
@@ -223,7 +228,9 @@
                     this.focusKey(this.button(record.favorite ? 'Unfavorite' : 'Favorite', record.favorite ? 'Remove favorite' : 'Favorite', () => void c.action('favorite')), 'favorite-action'),
                     this.button('MoveTrash', 'Move to Trash', () => void this.remove(record), 'prompt-danger'));
             }
-            for (const button of actions.children) button.disabled = c.busy || Boolean(c.pendingCommand); top.append(actions); this.main.append(top);
+            const markdown = this.button('MarkdownExport', 'Export current saved item as Markdown', () => this.exportMarkdown());
+            markdown.disabled = Boolean(c.error); actions.append(markdown);
+            for (const button of actions.children) button.disabled = button.disabled || c.busy || Boolean(c.pendingCommand); top.append(actions); this.main.append(top);
             if (record.deletedAt) this.main.append(this.el('pre', 'prompt-readonly', record.body)); else this.renderUse(record);
             this.renderHistory(record);
         }
@@ -335,17 +342,72 @@
             if (['RESTORE_PENDING', 'UNAVAILABLE', 'WORKSPACE_BUSY', 'WORKSPACE_RECOVERY_REQUIRED', 'WORKSPACE_CORRUPT'].includes(code) || code?.startsWith('WORKSPACE_')) return this.t('StorageBlocked', 'Safe storage is temporarily unavailable or needs recovery. Your draft is kept. Finish any backup restore and try again.');
             return this.t('Invalid', 'This content could not be saved safely. Your draft is kept. Review the fields and try again.');
         }
-        dialog({ title, body, accept }) {
+        async exportMarkdown() {
+            const c = this.controller;
+            const ready = () => !c.disposed && !c.busy && !c.pendingCommand && !c.error && c.pendingReadGeneration !== c.readGeneration && !c.draft() && Boolean(c.record());
+            if (this.exportingMarkdown || this.openDialog || !ready()) return;
+            const record = c.record(), generation = this.markdownGeneration, readGeneration = c.readGeneration, savedId = record.id, savedVersion = record.version;
+            const current = () => ready() && this.markdownGeneration === generation && c.readGeneration === readGeneration && c.record()?.id === savedId && c.record()?.version === savedVersion;
+            this.exportingMarkdown = true;
+            let url, anchor, includeSourceUrl = false;
+            try {
+                // Only the saved record is serialized. No sessions, proposals, history or linked bodies.
+                const snapshot = {};
+                for (const key of ['id', 'version', 'currentVersionId', 'title', 'body', 'notes', 'type', 'tool', 'tags', 'category', 'promptRef', 'sourceUrl']) {
+                    if (record[key] !== undefined) snapshot[key] = JSON.parse(JSON.stringify(record[key]));
+                }
+                const preview = root.LocalItabAIMarkdown.serialize('prompt', snapshot);
+                const accepted = await this.dialog({
+                    title: this.t('MarkdownReview', 'Review saved-item Markdown export'),
+                    body: `${this.t('MarkdownWarning', 'This is an unencrypted, readable copy of one current saved item, not a recovery backup. Unsaved work and history are excluded. Text and notes may still contain private information.')}\n\n${snapshot.title}\n${snapshot.id}\n${this.t('MarkdownVersion', 'Saved version')} · ${snapshot.version}\n${this.t('MarkdownBodyVersion', 'Body version')} · ${snapshot.currentVersionId}`,
+                    accept: this.t('MarkdownDownload', 'Download Markdown'), markdownPreview: preview, markdownCurrent: current,
+                    sourceCheckbox: undefined
+                });
+                if (!accepted || !current()) return;
+                const data = root.LocalItabAIMarkdown.serialize('prompt', snapshot, { includeSourceUrl });
+                const blob = new root.Blob([data], { type: 'text/markdown;charset=utf-8' });
+                url = root.URL.createObjectURL(blob); anchor = this.el('a');
+                anchor.href = url; anchor.download = 'local-itab-prompt.md'; this.doc.body.append(anchor);
+                // No deferred download: acceptance must still refer to this saved selection/version.
+                if (!current()) return;
+                anchor.click();
+                if (current()) this.status.textContent = this.t('MarkdownRequested', 'Download requested.');
+            } catch (_) {
+                if (current()) this.status.textContent = this.t('MarkdownFailed', 'Markdown export could not be requested. Saved content is unchanged.');
+            } finally {
+                try { anchor?.remove(); } catch (_) { /* Best-effort DOM cleanup. */ }
+                try { if (url) root.URL.revokeObjectURL(url); } catch (_) { /* No delayed retry or download. */ }
+                this.exportingMarkdown = false;
+            }
+        }
+        dialog({ title, body, accept, markdownPreview, sourceCheckbox, sourceValue, markdownCurrent }) {
             if (this.openDialog) return Promise.resolve(false);
             return new Promise(resolve => {
                 const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', 'prompt-dialog'); overlay.setAttribute('aria-hidden', 'true');
                 box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'prompt-dialog-title'); box.setAttribute('aria-describedby', 'prompt-dialog-body');
                 const heading = this.el('h2', '', title); heading.id = 'prompt-dialog-title'; const content = this.el('p', '', body); content.id = 'prompt-dialog-body';
+                box.append(heading, content);
+                if (markdownPreview !== undefined) { const preview = this.el('pre', 'prompt-readonly', markdownPreview); preview.setAttribute('tabindex', '0'); box.append(preview); }
+                if (sourceCheckbox) {
+                    const label = this.el('label', 'prompt-check'), input = this.el('input'); input.type = 'checkbox'; input.checked = false;
+                    const source = this.el('pre', 'prompt-readonly', sourceValue || ''); source.hidden = true;
+                    input.addEventListener('change', () => { sourceCheckbox(input.checked); source.hidden = !input.checked; });
+                    label.append(input, this.el('span', '', this.t('MarkdownSource', 'Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information.'))); box.append(label, source);
+                }
                 const actions = this.el('div', 'prompt-actions'); let close;
-                const finish = answer => { if (!this.openDialog) return; this.openDialog = false; close?.(); overlay.remove(); resolve(answer); };
+                const finish = answer => { if (!this.openDialog) return; this.openDialog = false; if (markdownPreview !== undefined) this.cancelMarkdownDialog = null; close?.(markdownPreview === undefined || !markdownCurrent || markdownCurrent()); overlay.remove(); resolve(answer); };
+                if (markdownPreview !== undefined) this.cancelMarkdownDialog = () => finish(false);
                 const cancel = this.button('Cancel', 'Cancel', () => finish(false)), proceed = this.el('button', 'prompt-primary', accept); proceed.type = 'button'; proceed.addEventListener('click', () => finish(true));
-                actions.append(cancel, proceed); box.append(heading, content, actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true;
-                close = root.LocalItabDialog.open(overlay, cancel, () => finish(false));
+                actions.append(cancel, proceed); box.append(actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true;
+                // A long export review must open at its scope/privacy introduction.
+                // Keep the static heading out of the normal sequential Tab order.
+                if (markdownPreview !== undefined) {
+                    heading.setAttribute('tabindex', '-1');
+                    heading.addEventListener('keydown', event => {
+                        if (event.key === 'Tab' && event.shiftKey) { event.preventDefault(); proceed.focus(); }
+                    });
+                }
+                close = root.LocalItabDialog.open(overlay, markdownPreview !== undefined ? heading : cancel, () => finish(false));
             });
         }
     }

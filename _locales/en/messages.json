@@ -3490,5 +3490,59 @@
   },
   "captureMenu": {
     "message": "Save selected text to AI collection…"
+  },
+  "promptsMarkdownExport": {
+    "message": "Export current saved item as Markdown"
+  },
+  "promptsMarkdownReview": {
+    "message": "Review saved-item Markdown export"
+  },
+  "promptsMarkdownWarning": {
+    "message": "This is an unencrypted, readable copy of one current saved item, not a recovery backup. Unsaved work and history are excluded. Text and notes may still contain private information."
+  },
+  "promptsMarkdownVersion": {
+    "message": "Saved version"
+  },
+  "promptsMarkdownBodyVersion": {
+    "message": "Body version"
+  },
+  "promptsMarkdownDownload": {
+    "message": "Download Markdown"
+  },
+  "promptsMarkdownRequested": {
+    "message": "Download requested."
+  },
+  "promptsMarkdownFailed": {
+    "message": "Markdown export could not be requested. Saved content is unchanged."
+  },
+  "promptsMarkdownSource": {
+    "message": "Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information."
+  },
+  "collectionsMarkdownExport": {
+    "message": "Export current saved item as Markdown"
+  },
+  "collectionsMarkdownReview": {
+    "message": "Review saved-item Markdown export"
+  },
+  "collectionsMarkdownWarning": {
+    "message": "This is an unencrypted, readable copy of one current saved item, not a recovery backup. Unsaved work and history are excluded. Text and notes may still contain private information."
+  },
+  "collectionsMarkdownVersion": {
+    "message": "Saved version"
+  },
+  "collectionsMarkdownBodyVersion": {
+    "message": "Body version"
+  },
+  "collectionsMarkdownDownload": {
+    "message": "Download Markdown"
+  },
+  "collectionsMarkdownRequested": {
+    "message": "Download requested."
+  },
+  "collectionsMarkdownFailed": {
+    "message": "Markdown export could not be requested. Saved content is unchanged."
+  },
+  "collectionsMarkdownSource": {
+    "message": "Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information."
   }
 }

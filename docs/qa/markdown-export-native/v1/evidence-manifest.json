@@ -1,0 +1,54 @@
+{
+  "evidence/01-completed-ephemeral-prompt.png": {
+    "bytes": 153553,
+    "sha256": "f1c1fa951e9e98cd8a8b82ec17e013b14f646c91eb79f3e4b68f11b49b740af1"
+  },
+  "evidence/02-review-template-keyboard.png": {
+    "bytes": 149635,
+    "sha256": "10b721363acec959ed5d5457885440705c92f54575f0a3244cc6907aa631a4da"
+  },
+  "evidence/03-cancel-return-focus.png": {
+    "bytes": 153774,
+    "sha256": "19b7e83c7ba69596c1449689533241f6ad18bdfb10d6528c74abf10cdbf77ff7"
+  },
+  "evidence/04-cancel-no-download.png": {
+    "bytes": 102309,
+    "sha256": "5532268acb98b588a020dbd520cdfa00d2edd6ccb8a7ba7a95d70d656fcb020d"
+  },
+  "evidence/05-prompt-review-warning.png": {
+    "bytes": 151766,
+    "sha256": "6397f614a64eacc92d5fde88c45e7c4fc9b9746b6d7d129093f0eee3afff5769"
+  },
+  "evidence/06-collection-source-default-off.png": {
+    "bytes": 148732,
+    "sha256": "70eed1f667439850c27955578938c20f9db831f65f42b4c9befddbced54eaa25"
+  },
+  "evidence/07-collection-exact-source-optin.png": {
+    "bytes": 148617,
+    "sha256": "c6b62966f020d72b8e245056772f4d3c1945646d293c5ea587861cda7f628203"
+  },
+  "evidence/08-original-json-export-review.png": {
+    "bytes": 139601,
+    "sha256": "1804790e118066202ba61e54d5c2bf75fb3d5dfddd7503ff088e82c6e359d3a8"
+  },
+  "evidence/09-real-markdown-and-json-downloads.png": {
+    "bytes": 131081,
+    "sha256": "3a5c3496cd7abc7541ff3879399616043888dd7a9b41ad108ce5b0270103b3bc"
+  },
+  "exports/local-itab-ai-collection (6).json": {
+    "bytes": 867,
+    "sha256": "ab04d466535fe1d431417aac45ae594451367ad121104eab4b47be284b4df2d0"
+  },
+  "exports/local-itab-collection (1).md": {
+    "bytes": 434,
+    "sha256": "7bdeb6c6d1276b8b5cc8eb712c78c2643b635edfb87ca0f73d8c26b2da9e2026"
+  },
+  "exports/local-itab-collection.md": {
+    "bytes": 308,
+    "sha256": "4022708b51953c22bef6755ad7e45adef86ff8e1d301bd166b0a2e85aff90e24"
+  },
+  "exports/local-itab-prompt.md": {
+    "bytes": 231,
+    "sha256": "3f2e9fe34f0f0c0794e37a6d3345f1692759af7ffecfd457726737813f0fdcbd"
+  }
+}

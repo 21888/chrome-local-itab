@@ -48,9 +48,10 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), other.read_bytes())
         pack.verify(other, files)
         with zipfile.ZipFile(other) as archive:
-            self.assertEqual(88, len(archive.namelist()))
+            self.assertEqual(89, len(archive.namelist()))
             for runtime in ("collection-capture-background.js", "shared/collection-capture.js", "shared/collection-capture-page.js"):
                 self.assertIn(runtime, archive.namelist())
+            self.assertIn("shared/local-ai-markdown.js", archive.namelist())
             self.assertIn("shared/local-ai-search.js", archive.namelist())
             self.assertIn("shared/local-ai-search-view.js", archive.namelist())
             self.assertIn("local-ai-search.js", archive.namelist())

@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "evidenceFilesChecked": 13,
+  "originalDownloads": 4,
+  "checks": [
+    "Original file byte counts and SHA-256",
+    "Exact saved prompt template with literal variables, markup, indentation and fence",
+    "No ephemeral values, unrelated prompt or older history in Markdown",
+    "Exact collection excerpt and annotation against original JSON",
+    "Default source omitted; opt-in exact URL with query and fragment",
+    "JSON parses once with collection history and recovery envelope retained"
+  ],
+  "runtime": {
+    "status": "skipped",
+    "filesChecked": 0
+  }
+}

@@ -3490,5 +3490,59 @@
   },
   "captureMenu": {
     "message": "将所选文本保存到 AI 收藏…"
+  },
+  "promptsMarkdownExport": {
+    "message": "将当前已保存条目导出为 Markdown"
+  },
+  "promptsMarkdownReview": {
+    "message": "检查已保存条目的 Markdown 导出"
+  },
+  "promptsMarkdownWarning": {
+    "message": "这是当前单个已保存条目的未加密、可读副本，不是恢复备份。不包含未保存的内容和历史版本。正文和注释仍可能含有私人信息。"
+  },
+  "promptsMarkdownVersion": {
+    "message": "已保存版本"
+  },
+  "promptsMarkdownBodyVersion": {
+    "message": "正文版本"
+  },
+  "promptsMarkdownDownload": {
+    "message": "下载 Markdown"
+  },
+  "promptsMarkdownRequested": {
+    "message": "已请求下载。"
+  },
+  "promptsMarkdownFailed": {
+    "message": "无法请求 Markdown 导出。已保存的内容未变更。"
+  },
+  "promptsMarkdownSource": {
+    "message": "包含已保存的来源网址（可能泄露私人对话链接）。正文和注释仍可能含有私人信息。"
+  },
+  "collectionsMarkdownExport": {
+    "message": "将当前已保存条目导出为 Markdown"
+  },
+  "collectionsMarkdownReview": {
+    "message": "检查已保存条目的 Markdown 导出"
+  },
+  "collectionsMarkdownWarning": {
+    "message": "这是当前单个已保存条目的未加密、可读副本，不是恢复备份。不包含未保存的内容和历史版本。正文和注释仍可能含有私人信息。"
+  },
+  "collectionsMarkdownVersion": {
+    "message": "已保存版本"
+  },
+  "collectionsMarkdownBodyVersion": {
+    "message": "正文版本"
+  },
+  "collectionsMarkdownDownload": {
+    "message": "下载 Markdown"
+  },
+  "collectionsMarkdownRequested": {
+    "message": "已请求下载。"
+  },
+  "collectionsMarkdownFailed": {
+    "message": "无法请求 Markdown 导出。已保存的内容未变更。"
+  },
+  "collectionsMarkdownSource": {
+    "message": "包含已保存的来源网址（可能泄露私人对话链接）。正文和注释仍可能含有私人信息。"
   }
 }

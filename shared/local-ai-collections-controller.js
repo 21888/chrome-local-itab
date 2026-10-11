@@ -22,7 +22,7 @@
             this.promptStore = promptStore; this.promptState = null; this.promptError = null; this.promptLoading = false; this.promptGeneration = 0;
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
-            this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0;
+            this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
             this.interactionGeneration = 0; this.pendingCommand = null; this.disposed = false; this.refreshQueued = false;
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
@@ -90,6 +90,7 @@
         async refresh() {
             if (this.busy) { this.refreshQueued = true; return; }
             const generation = ++this.readGeneration;
+            this.pendingReadGeneration = generation;
             try {
                 const next = await this.store.read();
                 if (this.disposed || generation !== this.readGeneration) return;
@@ -98,6 +99,8 @@
             } catch (error) {
                 if (this.disposed || generation !== this.readGeneration) return;
                 this.error = { code: error.code || 'READ', scope: 'read' };
+            } finally {
+                if (this.pendingReadGeneration === generation) this.pendingReadGeneration = null;
             }
             this.notify();
         }

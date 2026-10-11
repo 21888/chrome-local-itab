@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "evidenceFilesChecked": 11,
+  "v2OriginalDownloads": 1,
+  "referenceOriginalDownloads": 1,
+  "contentComparison": "Exact title/body/fences/omissions; expected new body-version ID only. No claim of byte identity to V1.",
+  "runtime": {
+    "status": "passed",
+    "filesChecked": 89
+  }
+}

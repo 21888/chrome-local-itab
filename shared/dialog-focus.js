@@ -68,7 +68,7 @@
         overlay.addEventListener('keydown', handleKeydown);
         initialFocus?.focus();
 
-        return () => {
+        return (restoreFocus = true) => {
             if (closed) return;
             closed = true;
             compositionTarget = null;
@@ -79,7 +79,7 @@
             overlay.classList.remove('active');
             overlay.setAttribute('aria-hidden', 'true');
             siblings.forEach(({ element, inert }) => { element.inert = inert; });
-            if (returnFocus?.isConnected && !returnFocus.closest('[inert]')) {
+            if (restoreFocus && returnFocus?.isConnected && !returnFocus.closest('[inert]')) {
                 returnFocus.focus();
             }
         };
