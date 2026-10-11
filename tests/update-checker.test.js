@@ -144,9 +144,9 @@ test('installation detection does not require or infer broad management permissi
     assert.equal(await api.installation(chrome('normal', 'https://evil.example/update')), 'unknown');
     assert.equal(await api.installation({}), 'unknown');
 });
-test('manifest gains only exact GitHub CSP connection, no new permission or execution endpoint', () => {
+test('update provider keeps exact GitHub CSP connection and unchanged host permissions alongside explicit capture permission', () => {
     const manifest = JSON.parse(fs.readFileSync('manifest.json'));
-    assert.deepEqual(manifest.permissions, ['storage', 'unlimitedStorage', 'identity']);
+    assert.deepEqual(manifest.permissions, ['storage', 'unlimitedStorage', 'identity', 'contextMenus']);
     assert.deepEqual(manifest.host_permissions, ['https://www.googleapis.com/*']);
     assert.deepEqual(manifest.optional_host_permissions, ['https://www.google.com/*']);
     assert.equal(manifest.content_security_policy.extension_pages.split(';').find(item => item.includes('script-src')).trim(), "script-src 'self'");

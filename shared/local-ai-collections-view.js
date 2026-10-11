@@ -7,7 +7,7 @@
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false;
-            controller.onChange = kind => kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render();
+            controller.onChange = kind => kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render();
             this.build();
         }
         el(tag, className = '', text) { const node = this.doc.createElement(tag); node.className = className; if (text !== undefined) node.textContent = text; return node; }
@@ -31,6 +31,7 @@
             }
             this.exportButton = this.button('Export', 'Export', () => this.exportFile());
             this.newButton = this.button('New', 'Save an excerpt', () => { c.create(); this.main.querySelector('input')?.focus(); }, 'prompt-primary'); actions.append(this.exportButton, this.newButton); header.append(heading, actions);
+            this.captureStatus = this.el('div', 'prompt-status'); this.captureStatus.setAttribute('role', 'status'); this.captureStatus.setAttribute('aria-live', 'polite');
             this.status = this.el('div', 'prompt-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             const layout = this.el('div', 'prompt-layout'), sidebar = this.el('aside', 'prompt-sidebar'); sidebar.setAttribute('aria-label', this.t('Browse', 'Browse saved excerpts'));
             this.search = this.field(sidebar, 'Search', 'Search title, excerpt and tags', '', query => c.filter({ query })); this.search.type = 'search'; this.search.maxLength = 500;
@@ -43,7 +44,7 @@
             this.draftList = this.el('div', 'prompt-draft-list'); this.listCount = this.el('p', 'prompt-list-heading'); this.list = this.el('div', 'prompt-list'); sidebar.append(this.draftList, this.listCount, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'collection-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.paragraph('Scope', 'Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model.'), this.paragraph('Limits', 'Limits: 200 items including archived · 32,000 characters per excerpt · 20 body versions per item · 2 MiB total. Capacity errors keep your draft; no text or history is silently removed.'), this.paragraph('Privacy', 'Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text.'));
-            this.shell.append(brand, header, this.status, layout, footer); this.host.append(this.shell);
+            this.shell.append(brand, header, this.captureStatus, this.status, layout, footer); this.host.append(this.shell);
             this.main.addEventListener('keydown', event => { if (!event.isComposing && event.keyCode !== 229 && !event.repeat && (event.ctrlKey || event.metaKey) && event.key?.toLowerCase() === 's' && c.draft()) { event.preventDefault(); void this.save(); } });
         }
         attachDepartureGuard() { root.addEventListener?.('beforeunload', event => { if (this.controller.hasUncommittedWork() || this.revisionDraft !== null || this.proposals.size) { event.preventDefault(); event.returnValue = ''; } }); }
@@ -68,6 +69,7 @@
             if (!results.length && c.state) this.list.append(this.paragraph('NoResults', 'No matching excerpts. Try another search or filter.', 'prompt-no-results'));
         }
         render() {
+            this.renderCaptureStatus();
             const c = this.controller;
             this.renderList(); this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand); this.exportButton.disabled = !c.state || c.busy;
             this.status.replaceChildren(); this.status.classList.toggle('error', Boolean(c.error));
@@ -82,6 +84,29 @@
             }
             if (focused) this.main.querySelector(`[data-collection-field="${focused}"]`)?.focus();
         }
+        renderCaptureStatus() {
+            if (!this.captureStatus) return;
+            this.captureStatus.replaceChildren(); const capture = this.controller.capture;
+            if (!capture || capture.state === 'done') return;
+            const messages = {
+                ready: ['CaptureLoading', 'Preparing the selected text for review…'], loading: ['CaptureLoading', 'Preparing the selected text for review…'],
+                ack: ['CaptureAck', 'Your draft is ready. Temporary handoff cleanup could not be confirmed. Retry cleanup before reloading.'],
+                editable: ['CaptureEditable', 'Selections from editable fields are excluded. Copy and paste the text manually if you want to keep it.'],
+                incognito: ['CaptureIncognito', 'Private-window selections are excluded. No selected text was retained.'],
+                invalid: ['CaptureInvalid', 'This selection cannot be captured. Select non-empty plain text on an HTTP(S) page and try again.'],
+                oversize: ['CaptureOversize', 'This selection exceeds 32,000 characters. Nothing was captured. Select a shorter excerpt.'],
+                unsupported: ['CaptureUnsupported', 'Temporary session storage is unavailable in this browser. Copy and paste your excerpt manually.'],
+                unavailable: ['CaptureUnavailable', 'The temporary selection could not be read. Retry, or select the text again.'],
+                full: ['CaptureFull', 'Too many selections are waiting for review. Finish those drafts or wait ten minutes, then select the text again.'],
+                expired: ['CaptureExpired', 'This temporary selection expired or was already consumed. Select the text again.'],
+                missing: ['CaptureExpired', 'This temporary selection expired or was already consumed. Select the text again.'],
+                forbidden: ['CaptureExpired', 'This temporary selection expired or was already consumed. Select the text again.'],
+                guarded: ['CaptureGuarded', 'Your current work was left untouched. Finish or discard all drafts and reviews, then retry the selected-text handoff.']
+            };
+            const [key, fallback] = messages[capture.state === 'error' ? capture.error : capture.state] || messages.unavailable;
+            this.captureStatus.append(this.paragraph(key, fallback));
+            if (capture.state === 'ack' || (capture.state === 'error' && ['guarded', 'unavailable'].includes(capture.error))) this.captureStatus.append(this.button('CaptureRetry', 'Retry handoff', capture.retry));
+        }
         errorText(code) {
             const errors = { CONFLICT: ['ConflictError', 'Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item.'], HISTORY_LIMIT: ['HistoryLimit', 'This item already has 20 body versions. No history was removed. Keep the proposed text or save it as a new item.'], LIMIT: ['LimitError', 'A content or storage limit was reached. Your draft is kept. Shorten it or export your collection before making changes.'], WRITE: ['Uncertain', 'The save could not be confirmed. Your draft is kept. Check / retry the same save before starting another.'], VERIFY: ['Uncertain', 'The save could not be confirmed. Your draft is kept. Check / retry the same save before starting another.'], READ: ['ReadError', 'Saved data could not be read. Nothing has been replaced. Try refreshing.'], INVALID: ['Invalid', 'Check the fields: title and excerpt are required, source must be an HTTP(S) URL without credentials, and a prompt reference needs both exact IDs. Limits reject the whole save.'] };
             if (['CAPACITY', 'SIZE_LIMIT', 'TEXT_LIMIT', 'INPUT_LIMIT', 'RECOVERY_LIMIT'].includes(code)) code = 'LIMIT';
@@ -93,6 +118,16 @@
             this.main.append(this.paragraph('DraftScope', 'Drafts stay in this tab until you save. Switching items keeps them; closing this page does not.'));
             if (draft.conflict) { const box = this.el('div', 'prompt-conflict'); box.append(this.paragraph('ConflictError', 'Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item.'), this.button('SaveCopy', 'Save draft as new item', () => this.save(true))); const latest = c.record(); if (latest) box.append(this.el('pre', 'prompt-readonly', `${latest.title}\n\n${latest.body}\n\n${latest.notes}`)); this.main.append(box); }
             this.editor = { fields: {} };
+            if (draft.captured) {
+                form.append(this.paragraph('CaptureReview', 'Review this exact browser-provided selection, add a title, and choose Save locally to keep it. It has not been saved.'));
+                if (draft.captureSource) {
+                    const label = this.el('label', 'prompt-check'), check = this.el('input'); check.type = 'checkbox';
+                    check.checked = draft.input.sourceUrl === draft.captureSource;
+                    check.addEventListener('change', () => { c.update('sourceUrl', check.checked ? draft.captureSource : ''); this.editor.fields.sourceUrl.value = c.draft().input.sourceUrl; });
+                    label.append(check, this.el('span', '', this.t('CaptureSource', 'Include source address (query and fragment removed)')));
+                    form.append(label, this.el('p', 'prompt-help collection-url', draft.captureSource)); this.editor.captureCheck = check;
+                }
+            }
             for (const [name, label, multiline] of [['title', 'Title'], ['body', 'Exact excerpt', true], ['notes', 'Your annotations', true], ['tagsText', 'Tags (comma-separated)'], ['tool', 'Tool / model label'], ['sourceUrl', 'Source URL (optional)']]) {
                 const input = this.field(form, name, label, draft.input[name], value => c.update(name, value), multiline); this.editor.fields[name] = input;
                 if (name === 'body') { input.className = 'prompt-body-editor'; input.readOnly = Boolean(draft.id); if (draft.id) form.append(this.paragraph('BodySeparate', 'Saved excerpts are read-only here. Use “Revise excerpt” to review an explicit new body version.')); }
@@ -107,6 +142,7 @@
             const c = this.controller, draft = c.draft(); if (!this.editor || !draft) return;
             this.editor.save.disabled = c.busy || Boolean(c.pendingCommand) || draft.conflict || !draft.input.title.trim() || !draft.input.body.length;
             for (const input of Object.values(this.editor.fields)) input.disabled = c.busy || Boolean(c.pendingCommand);
+            if (this.editor.captureCheck) { this.editor.captureCheck.disabled = c.busy || Boolean(c.pendingCommand); this.editor.captureCheck.checked = draft.input.sourceUrl === draft.captureSource; }
             this.updatePromptPanel();
         }
         buildPromptPanel(parent, editable) {

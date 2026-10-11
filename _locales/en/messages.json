@@ -3323,23 +3323,57 @@
   "completeBackupCollectionConflicts": {
     "message": "Matching collection IDs whose saved content differs"
   },
-"collectionsPromptLinkHeading": {"message": "Exact prompt link"},
-"collectionsPromptLinkHelp": {"message": "Choose a local prompt and an immutable body version. Apply changes only the draft; Save locally keeps the link. Links never follow the latest version."},
-"collectionsPromptPickerLabel": {"message": "Local prompt"},
-"collectionsPromptVersionLabel": {"message": "Exact body version"},
-"collectionsPromptApplyLink": {"message": "Apply link to draft"},
-"collectionsPromptUnlink": {"message": "Unlink in draft"},
-"collectionsPromptRefresh": {"message": "Refresh local prompts"},
-"collectionsPromptUnlinked": {"message": "No prompt linked."},
-"collectionsPromptLoading": {"message": "Reading local prompts…"},
-"collectionsPromptReadError": {"message": "Local prompts could not be read. Any existing exact link is kept. Refresh to retry."},
-"collectionsPromptMissing": {"message": "This exact prompt version is missing locally. Its IDs are kept; no substitute is used."},
-"collectionsPromptResolved": {"message": "Exact linked prompt version"},
-"collectionsPromptRecovery": {"message": "Recovery snapshot"},
-"collectionsPromptChoose": {"message": "Choose a prompt"},
-"collectionsPromptChooseVersion": {"message": "Choose a version"},
-"collectionsPromptPreview": {"message": "Selected prompt version preview"},
-"collectionsPromptEmpty": {"message": "No local prompt versions are available."},
+  "collectionsPromptLinkHeading": {
+    "message": "Exact prompt link"
+  },
+  "collectionsPromptLinkHelp": {
+    "message": "Choose a local prompt and an immutable body version. Apply changes only the draft; Save locally keeps the link. Links never follow the latest version."
+  },
+  "collectionsPromptPickerLabel": {
+    "message": "Local prompt"
+  },
+  "collectionsPromptVersionLabel": {
+    "message": "Exact body version"
+  },
+  "collectionsPromptApplyLink": {
+    "message": "Apply link to draft"
+  },
+  "collectionsPromptUnlink": {
+    "message": "Unlink in draft"
+  },
+  "collectionsPromptRefresh": {
+    "message": "Refresh local prompts"
+  },
+  "collectionsPromptUnlinked": {
+    "message": "No prompt linked."
+  },
+  "collectionsPromptLoading": {
+    "message": "Reading local prompts…"
+  },
+  "collectionsPromptReadError": {
+    "message": "Local prompts could not be read. Any existing exact link is kept. Refresh to retry."
+  },
+  "collectionsPromptMissing": {
+    "message": "This exact prompt version is missing locally. Its IDs are kept; no substitute is used."
+  },
+  "collectionsPromptResolved": {
+    "message": "Exact linked prompt version"
+  },
+  "collectionsPromptRecovery": {
+    "message": "Recovery snapshot"
+  },
+  "collectionsPromptChoose": {
+    "message": "Choose a prompt"
+  },
+  "collectionsPromptChooseVersion": {
+    "message": "Choose a version"
+  },
+  "collectionsPromptPreview": {
+    "message": "Selected prompt version preview"
+  },
+  "collectionsPromptEmpty": {
+    "message": "No local prompt versions are available."
+  },
   "aiSearchOpen": {
     "message": "Search AI library"
   },
@@ -3411,5 +3445,50 @@
   },
   "aiSearchUnavailable": {
     "message": "Both libraries are unavailable. Try reading again."
+  },
+  "collectionsCaptureLoading": {
+    "message": "Preparing the selected text for review…"
+  },
+  "collectionsCaptureAck": {
+    "message": "Your draft is ready. Temporary handoff cleanup could not be confirmed. Retry cleanup before reloading."
+  },
+  "collectionsCaptureEditable": {
+    "message": "Selections from editable fields are excluded. Copy and paste the text manually if you want to keep it."
+  },
+  "collectionsCaptureIncognito": {
+    "message": "Private-window selections are excluded. No selected text was retained."
+  },
+  "collectionsCaptureInvalid": {
+    "message": "This selection cannot be captured. Select non-empty plain text on an HTTP(S) page and try again."
+  },
+  "collectionsCaptureOversize": {
+    "message": "This selection exceeds 32,000 characters. Nothing was captured. Select a shorter excerpt."
+  },
+  "collectionsCaptureUnsupported": {
+    "message": "Temporary session storage is unavailable in this browser. Copy and paste your excerpt manually."
+  },
+  "collectionsCaptureUnavailable": {
+    "message": "The temporary selection could not be read. Retry, or select the text again."
+  },
+  "collectionsCaptureFull": {
+    "message": "Too many selections are waiting for review. Finish those drafts or wait ten minutes, then select the text again."
+  },
+  "collectionsCaptureExpired": {
+    "message": "This temporary selection expired or was already consumed. Select the text again."
+  },
+  "collectionsCaptureGuarded": {
+    "message": "Your current work was left untouched. Finish or discard all drafts and reviews, then retry the selected-text handoff."
+  },
+  "collectionsCaptureRetry": {
+    "message": "Retry handoff"
+  },
+  "collectionsCaptureReview": {
+    "message": "Review this exact browser-provided selection, add a title, and choose Save locally to keep it. It has not been saved."
+  },
+  "collectionsCaptureSource": {
+    "message": "Include source address (query and fragment removed)"
+  },
+  "captureMenu": {
+    "message": "Save selected text to AI collection…"
   }
 }

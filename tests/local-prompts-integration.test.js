@@ -3,10 +3,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const read = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
-test('dedicated library is discoverable in newtab without settings or additional permissions', () => {
+test('dedicated library is discoverable in newtab with only the explicit capture permission added', () => {
     const html = read('newtab.html'); assert.match(html, /class="prompt-library-entry" href="prompts.html" target="_blank" rel="noopener"/);
     assert.match(html, /prompt-library-entry.css/); assert.match(html, /data-i18n="promptsEntry"/);
-    const manifest = JSON.parse(read('manifest.json')); assert.deepEqual(manifest.permissions, ['storage', 'unlimitedStorage', 'identity']);
+    const manifest = JSON.parse(read('manifest.json')); assert.deepEqual(manifest.permissions, ['storage', 'unlimitedStorage', 'identity', 'contextMenus']);
     const bootstrap = read('prompts.js'); assert.match(bootstrap, /createPromptBackend\(root.LocalItabPrompts\)/); assert.doesNotMatch(bootstrap, /manager\.ready\(|storageManager|createChromeBackend\(/);
 });
 test('script dependencies and runtime files cover self-contained page', () => {

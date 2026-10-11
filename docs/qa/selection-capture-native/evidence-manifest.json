@@ -1,0 +1,64 @@
+{
+  "files": {
+    "evidence/01-empty-baseline.jpg": {
+      "bytes": 127245,
+      "sha256": "ff1e64e46000b27f8127384cff9c8fa06c6f4533c3f3d7550c9ec44558cef85c"
+    },
+    "evidence/02-explicit-context-menu.jpg": {
+      "bytes": 145712,
+      "sha256": "c2dbd3bbf147422db011a05a564369050326565b7f15fb9bd20e97cacfc83946"
+    },
+    "evidence/03-unsaved-source-excluded.jpg": {
+      "bytes": 142153,
+      "sha256": "f84fdeceed10936ad76e4f00908d6d6df52defd849d0f9d8612f84cf2041dab9"
+    },
+    "evidence/04-explicit-save.jpg": {
+      "bytes": 137779,
+      "sha256": "136b9bb4f0fb8aa1728303865909e10c7e4fea32196c7fe69458cf925b2cf10f"
+    },
+    "evidence/05-reloaded-sanitized-source.jpg": {
+      "bytes": 147373,
+      "sha256": "3ff146f3d25b59ac6be113fa04ef788f54d073a594bd7843e346e68d919da109"
+    },
+    "evidence/06-editable-blocked.jpg": {
+      "bytes": 142392,
+      "sha256": "ca7e3f2375194c6d5736fa14ab862354360432bb20e911ad64c976eb901c1b6b"
+    },
+    "evidence/07-original-downloads.jpg": {
+      "bytes": 125689,
+      "sha256": "685bec6dd9deac3b37450c05fa367b3ba7eab6b3b9269820a189485d2fa2d487"
+    },
+    "evidence/08-second-unsaved-literal.jpg": {
+      "bytes": 140877,
+      "sha256": "34e74f8c9021923ec1bd8bf2b42d756ac79299bff3c663443a34e844bbd870f7"
+    },
+    "evidence/09-duplicate-no-replay.jpg": {
+      "bytes": 139541,
+      "sha256": "ebf401a20a162402b3536c5ef3f16e43c18d5d70100ea69e30becc84ba9c1c75"
+    },
+    "evidence/10-unsaved-reload-no-replay.jpg": {
+      "bytes": 139161,
+      "sha256": "72c5434ca1f2727dbd211aec5995ce8883e63548a143e27f995af8ae3d0cf189"
+    },
+    "exports/local-itab-ai-collection (2).json": {
+      "bytes": 135,
+      "sha256": "5aa37e33b2c6a453c7612ae5dc14533052e721b768db33360c0c16874a272797"
+    },
+    "exports/local-itab-ai-collection (3).json": {
+      "bytes": 135,
+      "sha256": "5ae9d3707eaa9a45a48536677f6b3e1ff6d4ddd656fe17fc1724d2e96e47e978"
+    },
+    "exports/local-itab-ai-collection (4).json": {
+      "bytes": 791,
+      "sha256": "9dd33cdb9145b10fcd4a02a35a3f112bd15b1f31e09e72f7192ce6a16891e1e3"
+    },
+    "exports/local-itab-ai-collection (5).json": {
+      "bytes": 791,
+      "sha256": "cd122f210a40c85d6be0443c4339abc21ac1547d2532b9e39864f1246b6e5924"
+    },
+    "fixture/index.html": {
+      "bytes": 588,
+      "sha256": "9df954a86a4ece32c47062b2838eac0195c823a5cde8bb06ae551d6826dd8b12"
+    }
+  }
+}

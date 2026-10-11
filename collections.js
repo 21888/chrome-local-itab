@@ -34,11 +34,17 @@
         root.LocalItabAISearch.prepareTarget(controller, root.location.search);
         const view = new root.LocalItabCollectionsView.View({ host, controller });
         root.localCollectionsView = view; view.attachDepartureGuard(); view.render();
-        void applyAppearance(); await controller.start();
+        root.addEventListener?.('pagehide', event => { if (!event.persisted) controller.dispose(); });
+        const capture = new root.LocalItabCapturePage.Handoff({
+            controller, search: root.location.search,
+            send: message => root.chrome.runtime.sendMessage(message),
+            clearURL: () => root.history.replaceState(null, '', root.location.pathname),
+            blocked: () => view.openDialog || view.revisionDraft !== null || view.proposals.size > 0
+        });
+        void applyAppearance(); await controller.start(); await capture.run();
         root.chrome?.storage?.onChanged?.addListener((changes, area) => {
             if (area === 'local' && Object.keys(changes).some(key => key === 'appearance' || key.startsWith('__localItabWorkspace'))) void applyAppearance();
         });
-        root.addEventListener?.('pagehide', event => { if (!event.persisted) controller.dispose(); });
     }
     void boot();
 })(window);

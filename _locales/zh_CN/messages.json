@@ -3323,23 +3323,57 @@
   "completeBackupCollectionConflicts": {
     "message": "标识相同但保存内容不同的收藏"
   },
-"collectionsPromptLinkHeading": {"message": "精确提示词链接"},
-"collectionsPromptLinkHelp": {"message": "选择本地提示词及不可变的正文版本。应用只会更改草稿，点击“保存到本地”后才会保留链接。链接不会自动跟随最新版本。"},
-"collectionsPromptPickerLabel": {"message": "本地提示词"},
-"collectionsPromptVersionLabel": {"message": "精确正文版本"},
-"collectionsPromptApplyLink": {"message": "将链接应用到草稿"},
-"collectionsPromptUnlink": {"message": "在草稿中移除链接"},
-"collectionsPromptRefresh": {"message": "刷新本地提示词"},
-"collectionsPromptUnlinked": {"message": "尚未链接提示词。"},
-"collectionsPromptLoading": {"message": "正在读取本地提示词…"},
-"collectionsPromptReadError": {"message": "无法读取本地提示词。已有的精确链接已保留，请刷新重试。"},
-"collectionsPromptMissing": {"message": "本地缺少此精确提示词版本。其 ID 已保留，不会替换为其他版本。"},
-"collectionsPromptResolved": {"message": "已链接的精确提示词版本"},
-"collectionsPromptRecovery": {"message": "恢复快照"},
-"collectionsPromptChoose": {"message": "选择提示词"},
-"collectionsPromptChooseVersion": {"message": "选择版本"},
-"collectionsPromptPreview": {"message": "所选提示词版本预览"},
-"collectionsPromptEmpty": {"message": "暂无可用的本地提示词版本。"},
+  "collectionsPromptLinkHeading": {
+    "message": "精确提示词链接"
+  },
+  "collectionsPromptLinkHelp": {
+    "message": "选择本地提示词及不可变的正文版本。应用只会更改草稿，点击“保存到本地”后才会保留链接。链接不会自动跟随最新版本。"
+  },
+  "collectionsPromptPickerLabel": {
+    "message": "本地提示词"
+  },
+  "collectionsPromptVersionLabel": {
+    "message": "精确正文版本"
+  },
+  "collectionsPromptApplyLink": {
+    "message": "将链接应用到草稿"
+  },
+  "collectionsPromptUnlink": {
+    "message": "在草稿中移除链接"
+  },
+  "collectionsPromptRefresh": {
+    "message": "刷新本地提示词"
+  },
+  "collectionsPromptUnlinked": {
+    "message": "尚未链接提示词。"
+  },
+  "collectionsPromptLoading": {
+    "message": "正在读取本地提示词…"
+  },
+  "collectionsPromptReadError": {
+    "message": "无法读取本地提示词。已有的精确链接已保留，请刷新重试。"
+  },
+  "collectionsPromptMissing": {
+    "message": "本地缺少此精确提示词版本。其 ID 已保留，不会替换为其他版本。"
+  },
+  "collectionsPromptResolved": {
+    "message": "已链接的精确提示词版本"
+  },
+  "collectionsPromptRecovery": {
+    "message": "恢复快照"
+  },
+  "collectionsPromptChoose": {
+    "message": "选择提示词"
+  },
+  "collectionsPromptChooseVersion": {
+    "message": "选择版本"
+  },
+  "collectionsPromptPreview": {
+    "message": "所选提示词版本预览"
+  },
+  "collectionsPromptEmpty": {
+    "message": "暂无可用的本地提示词版本。"
+  },
   "aiSearchOpen": {
     "message": "搜索 AI 资料库"
   },
@@ -3411,5 +3445,50 @@
   },
   "aiSearchUnavailable": {
     "message": "两个资料库均暂时无法读取，请重试。"
+  },
+  "collectionsCaptureLoading": {
+    "message": "正在准备所选文本以供审阅…"
+  },
+  "collectionsCaptureAck": {
+    "message": "草稿已就绪，但无法确认临时传递数据已清理。重新加载前请重试清理。"
+  },
+  "collectionsCaptureEditable": {
+    "message": "不采集可编辑字段中的选区。如需保留，请手动复制并粘贴。"
+  },
+  "collectionsCaptureIncognito": {
+    "message": "不采集无痕窗口中的选区。未保留所选文本。"
+  },
+  "collectionsCaptureInvalid": {
+    "message": "无法采集此选区。请在 HTTP(S) 页面选择非空的纯文本后重试。"
+  },
+  "collectionsCaptureOversize": {
+    "message": "选区超过 32,000 个字符，未采集任何内容。请选择更短的片段。"
+  },
+  "collectionsCaptureUnsupported": {
+    "message": "此浏览器不支持临时会话存储。请手动复制并粘贴片段。"
+  },
+  "collectionsCaptureUnavailable": {
+    "message": "无法读取临时选区。请重试，或重新选择文本。"
+  },
+  "collectionsCaptureFull": {
+    "message": "待审阅的选区过多。请完成已有草稿，或等待十分钟后重新选择文本。"
+  },
+  "collectionsCaptureExpired": {
+    "message": "此临时选区已过期或已使用。请重新选择文本。"
+  },
+  "collectionsCaptureGuarded": {
+    "message": "保留了您当前的工作。请完成或丢弃所有草稿和审阅，再重试传递所选文本。"
+  },
+  "collectionsCaptureRetry": {
+    "message": "重试传递"
+  },
+  "collectionsCaptureReview": {
+    "message": "请审阅浏览器提供的原样选区、填写标题，然后选择“保存到本地”。当前内容尚未保存。"
+  },
+  "collectionsCaptureSource": {
+    "message": "包含来源地址（已移除查询参数和片段标识）"
+  },
+  "captureMenu": {
+    "message": "将所选文本保存到 AI 收藏…"
   }
 }

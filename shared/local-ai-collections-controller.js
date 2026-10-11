@@ -1,9 +1,9 @@
 /* Collection drafts remain in this page. No implicit body revisions or fallback writer. */
 (function (root, factory) {
-    const api = factory(typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections, typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts);
+    const api = factory(typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections, typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts, typeof module === 'object' && module.exports ? require('./collection-capture.js') : root.LocalItabCollectionCapture);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabCollectionsController = api;
-})(typeof window === 'undefined' ? globalThis : window, function (Core, Prompts) {
+})(typeof window === 'undefined' ? globalThis : window, function (Core, Prompts, Capture) {
     'use strict';
     const copy = value => JSON.parse(JSON.stringify(value));
     const editable = ['title', 'body', 'type', 'tool', 'sourceUrl', 'notes'];
@@ -23,7 +23,7 @@
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0;
-            this.pendingCommand = null; this.disposed = false; this.refreshQueued = false;
+            this.interactionGeneration = 0; this.pendingCommand = null; this.disposed = false; this.refreshQueued = false;
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
@@ -68,7 +68,7 @@
             const resolved = record ? Core.resolvePromptReference(record, () => version) : { status: version ? 'resolved' : 'unresolved', reference, version };
             return { ...resolved, provenance: this.promptOptions().find(item => item.promptId === reference.promptId && item.bodyVersionId === reference.bodyVersionId) };
         }
-        choosePrompt(promptId, bodyVersionId = '') {
+        choosePrompt(promptId, bodyVersionId = '') { this.interactionGeneration++;
             const draft = this.draft(); if (this.disposed || !draft || this.busy || this.pendingCommand || this.promptLoading || this.promptError) return false;
             draft.promptCandidate = { promptId, bodyVersionId }; this.notify('prompts'); return true;
         }
@@ -83,7 +83,7 @@
             draft.input = { ...draft.input, promptId: exact.promptId, bodyVersionId: exact.bodyVersionId };
             this.notify('prompts'); this.notify('draft'); return true;
         }
-        unlinkPrompt() {
+        unlinkPrompt() { this.interactionGeneration++;
             const draft = this.draft(); if (this.disposed || !draft || this.busy || this.pendingCommand) return false;
             draft.input = { ...draft.input, promptId: '', bodyVersionId: '' }; this.notify('prompts'); this.notify('draft'); return true;
         }
@@ -122,35 +122,45 @@
             if (this.filters.type) options.type = this.filters.type;
             return Core.search(this.state, this.filters.query, options).filter(({ record }) => (!this.filters.tool || record.tool === this.filters.tool) && (!this.filters.tag || record.tags.includes(this.filters.tag)));
         }
-        filter(patch) { Object.assign(this.filters, patch); this.notify('list'); }
-        select(id) { if (this.busy) return false; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
+        filter(patch) { this.interactionGeneration++; Object.assign(this.filters, patch); this.notify('list'); }
+        select(id) { this.interactionGeneration++; if (this.busy) return false; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
         makeDraft(record) {
             const input = fields(record);
             return { input, baseline: copy(input), id: record?.id, version: record?.version, conflict: false };
         }
-        edit(id = this.selected) {
+        edit(id = this.selected) { this.interactionGeneration++;
             if (this.busy || this.pendingCommand) return false;
             const record = this.record(id);
             if (!record || record.deletedAt) return false;
             if (!this.drafts.has(id)) this.drafts.set(id, this.makeDraft(record));
             this.selected = id; this.notify(); return true;
         }
-        create() {
+        create() { this.interactionGeneration++;
             if (this.busy || this.pendingCommand) return false;
             if (!this.drafts.has('new')) this.drafts.set('new', this.makeDraft());
             this.selected = 'new'; this.error = null; this.notice = ''; this.notify(); return true;
+        }
+        captureTicket() { return this.interactionGeneration; }
+        hydrateCapture(payload, ticket) {
+            if (this.disposed || !this.state || this.busy || this.pendingCommand || this.drafts.size || ticket !== this.interactionGeneration) return false;
+            let checked; try { checked = Capture.validatePayload(payload); } catch (_) { return false; }
+            const draft = this.makeDraft();
+            draft.input.body = checked.body; draft.input.type = 'other';
+            draft.captureSource = checked.sourceCandidate; draft.captured = true;
+            this.drafts.set('new', draft); this.selected = 'new'; this.error = null; this.notice = '';
+            this.interactionGeneration++; this.notify(); return true;
         }
         draft() { return this.drafts.get(this.selected); }
         dirty(id = this.selected) {
             const draft = this.drafts.get(id);
             return Boolean(draft && JSON.stringify(draft.input) !== JSON.stringify(draft.baseline));
         }
-        update(field, value) {
+        update(field, value) { this.interactionGeneration++;
             const draft = this.draft();
             if (!draft || this.busy || this.pendingCommand || ![...editable, 'tagsText', 'promptId', 'bodyVersionId'].includes(field)) return;
             draft.input[field] = value; this.error = null; this.notice = ''; this.notify('draft');
         }
-        discard() {
+        discard() { this.interactionGeneration++;
             if (this.busy || this.pendingCommand) return false;
             const key = this.selected; this.drafts.delete(key);
             if (key === 'new') this.selected = this.results()[0]?.record.id || null;
@@ -186,7 +196,7 @@
             return this.execute({ command: this.store.request(kind, { id: record.id, version: record.version }), recordId: record.id, action: kind });
         }
         async retry() { if (this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand); }
-        async execute(operation) {
+        async execute(operation) { this.interactionGeneration++;
             if (this.busy) return false;
             this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
             try {

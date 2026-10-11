@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "evidenceFilesChecked": 15,
+  "sourceIntegrity": {
+    "status": "skipped",
+    "reason": "No --runtime-dir supplied; standalone evidence verified."
+  },
+  "checks": {
+    "emptyBaseline": true,
+    "unsavedCaptureDoesNotPersist": true,
+    "explicitSavePersistsOneRecord": true,
+    "literalMarkupUnicodeRetained": true,
+    "sourceOptInSanitized": true,
+    "editableDuplicateAndReloadDoNotChangeDurableRecord": true
+  },
+  "limitation": "Chrome-provided selectionText flattened original preformatted newlines; this verifies its actual captured text, not original source formatting."
+}

@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "runtimeFiles": 88,
+  "identicalFileHashes": 87,
+  "onlyException": {
+    "file": "manifest.json",
+    "change": "version only: 1.1.25 -> 1.1.27"
+  },
+  "integratedManifestSha256": "0641797e45abc6356cf5863d848582eb44c358e3fca39762004f4d6290e91e4a"
+}

@@ -62,10 +62,15 @@ The developer does not collect, sell, transfer, or use user data for advertising
 
 The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
+## Explicit selected-text capture
+
+An explicit selection context-menu action may temporarily hold the browser-provided text and an optional sanitized source address in `chrome.storage.session` for review. It opens an unsaved draft; only explicit Save writes the existing local collection. Temporary entries expire after ten minutes and are removed on subsequent handoff activity, or when the browser session ends. Source addresses exclude query and fragment and remain unchecked by default. Editable and incognito selections are excluded. No automatic page capture, new network request, analytics or model execution occurs. See [scope and limits](../docs/selection-capture.md).
+
 ## Permissions
 
 - `storage` saves settings and shortcut data locally and supports optional Chrome Sync.
 - `unlimitedStorage` supports user-controlled local image data and cached icons.
+- `contextMenus` provides the explicit selected-text review action.
 - `identity` supports Google authorization for the optional Drive backup feature.
 - The declared host permission `https://www.googleapis.com/*` allows Google Drive API requests. The declared OAuth scope `https://www.googleapis.com/auth/drive.appdata` is used for the app's backup data in Drive. These permissions are declared in the extension manifest; using Drive remains optional and requires Google authorization.
 - The optional host permission `https://www.google.com/*` supports online favicon lookup and is requested when you enable that feature on the current device.

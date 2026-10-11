@@ -376,7 +376,7 @@ bounded('field-only writes leave private content/token boundaries and provider p
     }
     assert.equal(f.forbiddenCalls, 0);
     const manifest = JSON.parse(source('manifest.json'));
-    same(manifest.permissions, ['storage', 'unlimitedStorage', 'identity']);
+    same(manifest.permissions, ['storage', 'unlimitedStorage', 'identity', 'contextMenus']);
     same(manifest.host_permissions, ['https://www.googleapis.com/*']);
     same(manifest.optional_host_permissions, ['https://www.google.com/*']);
 });
