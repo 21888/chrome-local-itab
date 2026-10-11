@@ -42,7 +42,7 @@
         const contextPreview = el('pre', 'ai-context-review'); contextPreview.hidden = true;
         contextSave.append(contextLabel, el('p', '', label('SaveContextPrivacy', 'Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot.')), contextPreview);
         const taskList = el('ol', 'ai-context-tasks'); taskList.hidden = true;
-        let disposed = false, pending = false;
+        let disposed = false, pending = false, titleEdited = false;
         const error = code => {
             if (controller.saveCommand && controller.saveUncertain) {
                 status.textContent = label('UncertainAnswer', 'The earlier answer save may already be in the global collection. Check it before starting another save. This panel keeps the original operation and snapshot choice for retry; it will not add a duplicate.'); return;
@@ -53,6 +53,9 @@
         function update() {
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
+            // The title is local save metadata, not part of the reviewed request.
+            // Allow edits during transport, but freeze it for persistence/retry.
+            answerTitle.disabled = retry || controller.saved || (busy && !controller.aborter);
             for (const row of sourceRows) { row.check.disabled = row.input.disabled = busy || retry; }
             review.disabled = busy || retry; allow.disabled = send.disabled = busy || !controller.reviewed || Boolean(controller.result);
             stop.disabled = !controller.busy; save.disabled = busy || !controller.result || controller.saved || controller.result.mode !== 'answer';
@@ -68,7 +71,7 @@
             if (focused?.disabled && box.contains(focused)) status.focus();
         }
         function invalidate() {
-            try { controller.edit(); includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
+            try { controller.edit(); if (!titleEdited) answerTitle.value = ''; includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
             update();
         }
         function renderPresets() {
@@ -117,7 +120,15 @@
             void action(async () => { if (!await permission) throw Error('Permission denied'); }, ['Allowed', 'Endpoint access allowed. This has not sent a request.']);
         });
         const send = button('Send', 'Send reviewed request', () => action(async () => {
-            try { const result = await controller.send(key.value); if (!disposed) { output.value = result.text; outputLabel.hidden = false; answerTitle.value = question.value.slice(0, 200).replace(/[\uD800-\uDBFF]$/u, ''); } }
+            const reviewed = controller.reviewed;
+            try {
+                const result = await controller.send(key.value);
+                if (!disposed && !controller.closed && controller.reviewed === reviewed &&
+                    controller.generation === reviewed.generation && controller.result === result) {
+                    output.value = result.text; outputLabel.hidden = false;
+                    if (!titleEdited) answerTitle.value = reviewed.packed.question.slice(0, 200).replace(/[\uD800-\uDBFF]$/u, '');
+                }
+            }
             finally { key.value = ''; }
         }, ['Received', 'Response received, not saved. Model claims and source citations have not been verified.']));
         const stop = button('Stop', 'Stop request', () => { controller.stop(); key.value = ''; status.textContent = label('Stopped', 'Stopped. The provider may still charge for work already started.'); });
@@ -129,10 +140,11 @@
         const confirm = button('Confirm', 'Add these tasks', () => action(async () => {
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksSaved', 'Reviewed tasks added to this workspace.']));
-        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = '';
+        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
+        answerTitle.addEventListener('input', () => { titleEdited = true; });
         includeContext.addEventListener('change', update);
         box.append(actions, reviewText, status, outputLabel, contextSave, taskList, results); host.append(box);
         for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });

@@ -9,9 +9,9 @@ function backend() { let raw; return { writes: 0, lock: fn => fn(), read: async 
 async function model(presetStore) {
     const document = createDocument(), host = document.createElement('main'); document.body.append(host);
     const events = new Map(), window = { document, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
-    const b = backend(), c = backend(), calls = []; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
+    const b = backend(), c = backend(), calls = []; let active = true; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
     const transport = { review: input => ({ ...input, origin: 'https://mock.example', permission: 'https://mock.example:443/*' }), run: async (input, options) => { calls.push({ input, options }); return { text: await reply }; } };
-    const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => {},
+    const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => { if (!active) throw api.fault('WORKSPACE_INVALIDATED'); },
         readSources: async () => [{ id: 'collection:synthetic', label: '<img src=x>', text: 'synthetic saved text', scope: 'library' }], taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
     // The DOM model executes UI in a VM; real UI/controller share one realm.
     const review = controller.review.bind(controller);
@@ -24,7 +24,7 @@ async function model(presetStore) {
     const input = (node, value) => { node.value = value; node.dispatch('input'); };
     input(field('url'), 'https://mock.example/v1/chat/completions'); input(field('text'), 'mock');
     const question = host.querySelectorAll('textarea')[0]; input(question, 'Create tasks');
-    return { host, document, controller, b, c, calls, view, events, click, field, input, byText, setReply: value => { reply = value; } };
+    return { host, document, controller, b, c, calls, view, events, click, field, input, byText, deactivate: () => { active = false; }, setReply: value => { reply = value; } };
 }
 async function send(h, mode = 'tasks') {
     const select = h.host.querySelector('select'); select.value = mode; select.dispatch('change'); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
@@ -133,5 +133,75 @@ test('changing or cancelling the reviewed request clears snapshot consent and pr
     option.checked = true; option.dispatch('change');
     h.input(h.field('url'), 'https://other.example/v1/chat/completions');
     assert.equal(option.checked, false); assert.equal(section.hidden, true); assert.equal(section.querySelector('pre').textContent, '');
+    assert.equal(h.c.writes, 0);
+});
+
+
+const answerTitle = h => h.host.querySelectorAll('input').find(node => node.maxLength === 200);
+const questionField = h => h.host.querySelectorAll('textarea')[0];
+test('answer title defaults to the exact reviewed question, truncates safely, and refreshes for a new request', async () => {
+    const h = await model(); h.setReply('Synthetic answer');
+    h.input(questionField(h), 'a'.repeat(199) + '😀 end');
+    await send(h, 'answer'); assert.equal(answerTitle(h).value, 'a'.repeat(199));
+    h.input(questionField(h), 'Second question'); assert.equal(answerTitle(h).value, '');
+    h.click('Review exact'); await settle();
+    // The completion must use the reviewed question even if the DOM value differs.
+    questionField(h).value = 'Unreviewed DOM value';
+    h.click('Send reviewed'); await settle();
+    assert.equal(answerTitle(h).value, 'Second question'); assert.equal(h.c.writes, 0);
+});
+test('explicit pre-send and post-response answer titles survive review and save exactly', async () => {
+    const h = await model(); h.setReply('Synthetic answer');
+    h.input(answerTitle(h), 'My chosen title'); await send(h, 'answer');
+    assert.equal(answerTitle(h).value, 'My chosen title');
+    h.input(answerTitle(h), 'Final chosen title'); h.click('Save answer');
+    for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
+    assert.equal((await h.controller.collectionStore.read()).records[0].title, 'Final chosen title');
+    assert.equal(h.c.writes, 1);
+});
+test('answer title remains editable during the request and explicit blank is not replaced', async () => {
+    for (const title of ['Edited while waiting', '']) {
+        const h = await model(), pending = deferred(); h.setReply(pending.promise);
+        h.input(answerTitle(h), 'Before sending'); await send(h, 'answer');
+        assert.equal(answerTitle(h).disabled, false); assert.equal(questionField(h).disabled, true);
+        h.input(answerTitle(h), title); pending.resolve('Synthetic answer'); await settle();
+        assert.equal(answerTitle(h).value, title); assert.equal(h.c.writes, 0);
+        if (!title) { h.click('Save answer'); await settle(); assert.equal(h.c.writes, 0); }
+    }
+});
+test('clear resets explicit title intent; fresh requests retain only deliberate titles', async () => {
+    const h = await model(); h.setReply('Synthetic answer'); h.input(answerTitle(h), 'Custom');
+    await send(h, 'answer');
+    h.input(questionField(h), 'Revised question'); await send(h, 'answer');
+    assert.equal(answerTitle(h).value, 'Custom');
+    h.click('Cancel / clear'); assert.equal(answerTitle(h).value, '');
+    h.input(questionField(h), 'Fresh question'); await send(h, 'answer');
+    assert.equal(answerTitle(h).value, 'Fresh question'); assert.equal(h.c.writes, 0);
+});
+test('late responses after stop, departure or workspace invalidation never overwrite answer titles', async () => {
+    for (const kind of ['stop', 'pagehide', 'workspace']) {
+        const h = await model(), pending = deferred(); h.setReply(pending.promise);
+        h.input(answerTitle(h), 'Keep this title'); await send(h, 'answer');
+        const title = answerTitle(h), output = h.host.querySelectorAll('textarea').find(node => node.rows === 8);
+        if (kind === 'stop') h.click('Stop request');
+        else if (kind === 'pagehide') h.events.get('pagehide')();
+        else h.deactivate();
+        pending.resolve('Late response'); await settle();
+        assert.equal(title.value, 'Keep this title'); assert.equal(output.value || '', '');
+        assert.equal(h.controller.result, null); assert.equal(h.c.writes, 0);
+        if (kind === 'stop') {
+            h.click('Cancel / clear'); h.input(questionField(h), 'After stopped request');
+            h.setReply('Current response'); await send(h, 'answer');
+            assert.equal(answerTitle(h).value, 'After stopped request');
+        }
+    }
+});
+test('completion already superseded at the view boundary cannot set the output or default title', async () => {
+    const h = await model(); h.setReply('Superseded response');
+    const original = h.controller.send.bind(h.controller);
+    h.controller.send = async key => { const result = await original(key); h.controller.edit(); return result; };
+    await send(h, 'answer');
+    assert.equal(answerTitle(h).value || '', '');
+    assert.equal(h.host.querySelectorAll('textarea').find(node => node.rows === 8).value || '', '');
     assert.equal(h.c.writes, 0);
 });
