@@ -230,3 +230,46 @@ for (const gridSize of [48, 96, 192, 240]) {
     assert.deepEqual(JSON.parse(JSON.stringify(h.component.positions[h.component.getPositionKey(h.component.links[0])])), { x: 41.625, y: 63.375 });
     assert.equal(h.saves(), 1);
 }
+
+// Narrow fitting is presentation-only until the adjusted tile is deliberately
+// dragged. Cancellation restores the painted start and leaves raw maps intact.
+for (const alignToGrid of [false, true]) for (const cancel of [false, true]) {
+    const h = createHarness({ height: 600 });
+    h.component.layout.alignToGrid = alignToGrid;
+    h.component.links.forEach((link, i) => { link.layoutId = `fitted-${i}`; link.url = 'https://example.com/duplicate'; });
+    h.component.identityPositions = { 'fitted-0': { all: { x: 600, y: 0 } }, 'fitted-1': { all: { x: 800, y: 0 } } };
+    h.items.forEach(item => { item.getBoundingClientRect = () => ({ left: parseFloat(item.style.left), top: parseFloat(item.style.top), width: 80, height: 80 }); });
+    h.component.applyVisibleTransformsFromPositions();
+    const before = JSON.stringify(h.component.identityPositions);
+    const painted = { ...h.items[1].style };
+    assert.equal(painted.top, '96px');
+    h.component.onPointerDown(h.event({ target: h.items[1], clientX: 218, clientY: 106 }));
+    h.document.emit('pointermove', h.event({ target: h.items[1], clientX: 110, clientY: 210 }));
+    h.document.emit(cancel ? 'pointercancel' : 'pointerup', h.event({ target: h.items[1] }));
+    assert.equal(h.saves(), cancel ? 0 : 1);
+    if (cancel) {
+        assert.deepEqual(h.items[1].style, painted);
+        assert.equal(JSON.stringify(h.component.identityPositions), before);
+    } else {
+        assert.equal(h.component.identityPositions['fitted-0'].all.x, 600);
+        assert.equal(h.component.identityPositions['fitted-1'].all.x, alignToGrid ? 96 : 100);
+        assert.equal(h.component.identityPositions['fitted-1'].all.y, alignToGrid ? 192 : 200);
+    }
+    assert.equal(h.pointerListeners(), 0);
+}
+
+// The right-hand member of an oversized intentional composition remains
+// draggable after horizontal scrolling; a tiny move must not jump to x=208.
+for (const alignToGrid of [false, true]) {
+    const h = createHarness({ height: 600 });
+    h.component.layout.alignToGrid = alignToGrid;
+    h.grid.scrollLeft = 150; h.grid.scrollWidth = 500;
+    h.items[0].style.left = '350px'; h.items[0].style.top = '192px';
+    h.items.forEach(item => { item.getBoundingClientRect = () => ({ left: parseFloat(item.style.left) - h.grid.scrollLeft, top: parseFloat(item.style.top), width: 80, height: 80 }); });
+    h.component.onPointerDown(h.event({ clientX: 210, clientY: 202 }));
+    h.document.emit('pointermove', h.event({ clientX: 220, clientY: 202 }));
+    assert.equal(h.items[0].style.left, '360px');
+    h.document.emit('pointerup', h.event());
+    assert.equal(h.component.getSavedPosition(h.component.links[0]).x, alignToGrid ? 384 : 360);
+    assert.equal(h.saves(), 1);
+}

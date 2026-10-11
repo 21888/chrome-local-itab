@@ -3633,6 +3633,8 @@ class ShortcutsComponent {
         if (this.layout?.autoArrange) {
             grid.classList.remove('free-layout');
             grid.style.minHeight = '';
+            grid.style.overflowX = '';
+            grid.style.overflowY = '';
             // reset inline positions if any
             grid.querySelectorAll('.shortcut-item').forEach(el => {
                 el.style.position = '';
@@ -3754,7 +3756,7 @@ class ShortcutsComponent {
         const gs = Math.max(48, Math.min(240, this.layout.gridSize || 96));
         const gridRect = this.gridEl.getBoundingClientRect();
         const itemRect = item.getBoundingClientRect();
-        const origLeft = itemRect.left - gridRect.left;
+        const origLeft = itemRect.left - gridRect.left + (this.gridEl.scrollLeft || 0);
         const origTop = itemRect.top - gridRect.top;
         const originalStyle = { left: item.style.left, top: item.style.top, transform: item.style.transform };
         const priorClickSuppression = this._suppressClickUntil;
@@ -3775,9 +3777,9 @@ class ShortcutsComponent {
             this._dragMoved = true;
             item.classList.add('drag-free');
             current = this.clampToBounds(
-                event.clientX - gridRect.left - offsetX,
+                event.clientX - gridRect.left - offsetX + (this.gridEl.scrollLeft || 0),
                 event.clientY - gridRect.top - offsetY,
-                itemRect.width, itemRect.height, gridRect.width, gridRect.height
+                itemRect.width, itemRect.height, Math.max(gridRect.width, this.gridEl.scrollWidth || 0), gridRect.height
             );
             item.style.left = `${current.x}px`;
             item.style.top = `${current.y}px`;
@@ -3797,11 +3799,11 @@ class ShortcutsComponent {
                 event?.stopPropagation();
                 const finalGrid = this.gridEl.getBoundingClientRect();
                 const finalItem = item.getBoundingClientRect();
-                let target = this.clampToBounds(current.x, current.y, finalItem.width, finalItem.height, finalGrid.width, finalGrid.height);
+                let target = this.clampToBounds(current.x, current.y, finalItem.width, finalItem.height, Math.max(finalGrid.width, this.gridEl.scrollWidth || 0), finalGrid.height);
                 if (this.layout.alignToGrid) {
                     target = this.snapToGrid(target.x, target.y, gs);
                     target = this.avoidOverlap(target.x, target.y, gs, {
-                        width: finalGrid.width, height: finalGrid.height,
+                        width: Math.max(finalGrid.width, this.gridEl.scrollWidth || 0), height: finalGrid.height,
                         tileWidth: finalItem.width, tileHeight: finalItem.height
                     }, key);
                 }
@@ -3878,7 +3880,7 @@ class ShortcutsComponent {
             const rectangle = element.getBoundingClientRect();
             // A template/resize may fit a saved coordinate for display only.
             // Collide with the visible obstacle, without rewriting its raw position.
-            const left = rectangle.left - gridRect.left;
+            const left = rectangle.left - gridRect.left + (grid.scrollLeft || 0);
             const top = rectangle.top - gridRect.top;
             obstacles.push({ left, top, right: left + rectangle.width, bottom: top + rectangle.height });
         }
@@ -4022,28 +4024,127 @@ class ShortcutsComponent {
         if (persist && (Object.keys(added).length || Object.keys(identified).length)) this.saveLayoutDebounced(added, identified);
     }
 
+    // Fit connected, intentionally overlapping compositions as a unit. Coordinates
+    // are measured once; neither this helper nor its caller edits saved positions.
+    fitFreeLayoutRectangles(rectangles, width) {
+        if (!rectangles.length) return [];
+        const intersects = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x &&
+            a.y < b.y + b.height && a.y + a.height > b.y;
+        if (rectangles.every(r => r.x >= 0 && r.y >= 0 && r.x + r.width <= width)) {
+            return rectangles.map(r => ({ x: r.x, y: r.y }));
+        }
+        const parents = rectangles.map((_, i) => i);
+        const root = i => {
+            while (parents[i] !== i) { parents[i] = parents[parents[i]]; i = parents[i]; }
+            return i;
+        };
+        const cellWidth = Math.max(1, ...rectangles.map(r => r.width));
+        const cellHeight = Math.max(1, ...rectangles.map(r => r.height));
+        const cells = new Map();
+        rectangles.forEach((r, i) => {
+            // At most four cells per tile, including enormous/negative saved coords.
+            const keys = new Set();
+            for (const x of [r.x, r.x + r.width]) for (const y of [r.y, r.y + r.height]) {
+                keys.add(`${Math.floor(x / cellWidth)}:${Math.floor(y / cellHeight)}`);
+            }
+            for (const key of keys) {
+                let groups = cells.get(key);
+                if (!groups) { groups = new Map(); cells.set(key, groups); }
+                // Compact component aliases lazily. Dense intentional stacks become
+                // one bucket entry instead of repeatedly comparing every tile pair.
+                for (const [id, members] of groups) {
+                    const canonical = root(id);
+                    if (canonical === id) continue;
+                    groups.delete(id);
+                    const existing = groups.get(canonical);
+                    if (!existing) groups.set(canonical, members);
+                    else {
+                        const larger = existing.length >= members.length ? existing : members;
+                        const smaller = larger === existing ? members : existing;
+                        for (const member of smaller) larger.push(member);
+                        groups.set(canonical, larger);
+                    }
+                }
+                for (const [id, members] of groups) {
+                    if (root(i) === root(id)) continue;
+                    if (members.some(j => intersects(r, rectangles[j]))) parents[root(i)] = root(id);
+                }
+                const id = root(i);
+                if (!groups.has(id)) groups.set(id, []);
+                groups.get(id).push(i);
+            }
+        });
+        const compositions = new Map();
+        rectangles.forEach((r, i) => {
+            const id = root(i);
+            if (!compositions.has(id)) compositions.set(id, { members: [], x: r.x, y: r.y, right: r.x + r.width, bottom: r.y + r.height });
+            const group = compositions.get(id);
+            group.members.push(i);
+            group.x = Math.min(group.x, r.x); group.y = Math.min(group.y, r.y);
+            group.right = Math.max(group.right, r.x + r.width); group.bottom = Math.max(group.bottom, r.y + r.height);
+        });
+        const groups = Array.from(compositions.values()).map(group => ({ ...group,
+            width: group.right - group.x, height: group.bottom - group.y }));
+        // Reserve compositions already inside the viewport before fitting displaced
+        // ones. Stable source order breaks ties and makes repeated reflows identical.
+        const fits = g => g.x >= 0 && g.y >= 0 && g.right <= width;
+        groups.sort((a, b) => Number(fits(b)) - Number(fits(a)) || a.members[0] - b.members[0]);
+        const placed = [], result = [];
+        let bottom = 0, checks = 0;
+        for (const group of groups) {
+            const x = Math.max(0, Math.min(group.x, width - group.width));
+            let y = Math.max(0, group.y);
+            if (!fits(group)) {
+                // Collision work is bounded independently of canvas height. Once
+                // exhausted, append remaining displaced groups below all content.
+                let blocked;
+                do {
+                    blocked = false;
+                    for (const obstacle of placed) {
+                        if (++checks > 100000) { y = Math.max(y, bottom + 16); break; }
+                        if (intersects({ x, y, width: group.width, height: group.height }, obstacle)) {
+                            y = obstacle.y + obstacle.height + 16; blocked = true; break;
+                        }
+                    }
+                } while (blocked);
+            }
+            placed.push({ x, y, width: group.width, height: group.height });
+            bottom = Math.max(bottom, y + group.height);
+            for (const i of group.members) result[i] = {
+                x: x + rectangles[i].x - group.x, y: y + rectangles[i].y - group.y
+            };
+        }
+        return result;
+    }
+
     // Display-only fitting keeps saved coordinates intact across templates and widths.
     applyVisibleTransformsFromPositions() {
         const grid = this.gridEl;
         if (!grid) return;
         const currentCategory = this.getCurrentCategory();
         const width = grid.getBoundingClientRect().width;
-        let bottom = 0;
-        Array.from(grid.querySelectorAll('.shortcut-item')).forEach(el => {
-            if (el.classList.contains('add-shortcut') || el.style.display === 'none') return;
+        const items = [];
+        for (const el of grid.querySelectorAll('.shortcut-item')) {
+            if (el.classList.contains('add-shortcut') || el.style.display === 'none') continue;
             const link = this.links[Number(el.dataset.index)];
-            if (!link) return;
+            if (!link) continue;
             const pos = this.getSavedPosition(link, currentCategory);
-            if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) return;
+            if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y)) continue;
             const rect = el.getBoundingClientRect();
-            const x = Math.max(0, Math.min(pos.x, Math.max(0, width - rect.width)));
-            const y = Math.max(0, pos.y);
-            el.style.position = 'absolute';
-            el.style.left = `${x}px`;
-            el.style.top = `${y}px`;
-            el.style.transform = 'none';
-            bottom = Math.max(bottom, y + rect.height);
+            items.push({ el, x: pos.x, y: pos.y, width: rect.width, height: rect.height });
+        }
+        const fitted = this.fitFreeLayoutRectangles(items, width);
+        let bottom = 0, right = 0;
+        items.forEach((item, i) => {
+            const { x, y } = fitted[i];
+            Object.assign(item.el.style, { position: 'absolute', left: `${x}px`, top: `${y}px`, transform: 'none' });
+            bottom = Math.max(bottom, y + item.height);
+            right = Math.max(right, x + item.width);
         });
+        // A composition wider than the canvas keeps its geometry and is reachable
+        // by horizontal scrolling, rather than being clipped by the dashboard.
+        grid.style.overflowX = right > width ? 'auto' : '';
+        grid.style.overflowY = right > width ? 'hidden' : '';
         grid.style.minHeight = `${Math.max(320, bottom)}px`;
     }
 
@@ -4064,7 +4165,7 @@ class ShortcutsComponent {
         addEl.style.left = '0px';
         addEl.style.top = `${y}px`;
         addEl.style.transform = 'none';
-        grid.style.minHeight = `${Math.max(320, y + addEl.getBoundingClientRect().height)}px`;
+        grid.style.minHeight = `${Math.max(320, y + addEl.getBoundingClientRect().height + (grid.style.overflowX === 'auto' ? 24 : 0))}px`;
     }
 
     /**
