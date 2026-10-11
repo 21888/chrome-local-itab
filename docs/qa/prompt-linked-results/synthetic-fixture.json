@@ -1,0 +1,226 @@
+{
+  "description": "Synthetic-only local QA fixture. No personal data, credentials, real URLs or network destinations.",
+  "promptId": "test_00000001",
+  "oldVersionId": "test_00000002",
+  "currentVersionId": "test_00000005",
+  "prompts": {
+    "schemaVersion": 1,
+    "revision": 3,
+    "enabled": false,
+    "records": [
+      {
+        "id": "test_00000001",
+        "type": "prompt",
+        "version": "test_00000006",
+        "revision": 2,
+        "title": "Synthetic launch brief",
+        "body": "Write a concise {{topic}} brief with next steps.",
+        "tags": [],
+        "category": "",
+        "tool": "",
+        "favorite": false,
+        "createdAt": "2026-10-10T00:00:00.000Z",
+        "updatedAt": "2026-10-10T00:00:00.000Z",
+        "deletedAt": null,
+        "currentVersionId": "test_00000005",
+        "history": [
+          {
+            "id": "test_00000002",
+            "body": "Write a concise {{topic}} brief.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          },
+          {
+            "id": "test_00000005",
+            "body": "Write a concise {{topic}} brief with next steps.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "id": "test_00000007",
+        "type": "prompt",
+        "version": "test_00000009",
+        "revision": 1,
+        "title": "Synthetic unrelated prompt",
+        "body": "Summarize {{topic}}.",
+        "tags": [],
+        "category": "",
+        "tool": "",
+        "favorite": false,
+        "createdAt": "2026-10-10T00:00:00.000Z",
+        "updatedAt": "2026-10-10T00:00:00.000Z",
+        "deletedAt": null,
+        "currentVersionId": "test_00000008",
+        "history": [
+          {
+            "id": "test_00000008",
+            "body": "Summarize {{topic}}.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "recovery": [],
+    "receipts": [
+      {
+        "id": "test_00000001",
+        "digest": "801c23b4395d2bc04eeb5f62eab20a59caa6f636c29f164486a030c5c32a22fa"
+      },
+      {
+        "id": "test_00000004",
+        "digest": "cc013d93732e56d3b2f7d16e296c4f9141d62879dbe6e41c308c9b53dc92383d"
+      },
+      {
+        "id": "test_00000007",
+        "digest": "eb037956ca5ea5c6886f1f7ef2b527bbd2faff71c1533547526335b042930c31"
+      }
+    ]
+  },
+  "collections": {
+    "schemaVersion": 1,
+    "revision": 6,
+    "enabled": false,
+    "records": [
+      {
+        "id": "test_00000001",
+        "version": "test_00000003",
+        "revision": 1,
+        "title": "Launch result · version 1",
+        "body": "Synthetic result body for native QA only.",
+        "type": "answer",
+        "tags": [],
+        "tool": "Synthetic local test",
+        "sourceUrl": "",
+        "notes": "",
+        "promptRef": {
+          "promptId": "test_00000001",
+          "bodyVersionId": "test_00000002"
+        },
+        "createdAt": "2026-10-10T00:00:00.000Z",
+        "updatedAt": "2026-10-10T00:00:00.000Z",
+        "deletedAt": null,
+        "currentVersionId": "test_00000002",
+        "history": [
+          {
+            "id": "test_00000002",
+            "body": "Synthetic result body for native QA only.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "id": "test_00000004",
+        "version": "test_00000006",
+        "revision": 1,
+        "title": "Launch result · version 2",
+        "body": "Synthetic result body for native QA only.",
+        "type": "answer",
+        "tags": [],
+        "tool": "Synthetic local test",
+        "sourceUrl": "",
+        "notes": "",
+        "promptRef": {
+          "promptId": "test_00000001",
+          "bodyVersionId": "test_00000005"
+        },
+        "createdAt": "2026-10-10T00:00:00.000Z",
+        "updatedAt": "2026-10-10T00:00:00.000Z",
+        "deletedAt": null,
+        "currentVersionId": "test_00000005",
+        "history": [
+          {
+            "id": "test_00000005",
+            "body": "Synthetic result body for native QA only.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "id": "test_00000007",
+        "version": "test_00000009",
+        "revision": 1,
+        "title": "Unrelated result",
+        "body": "Synthetic result body for native QA only.",
+        "type": "answer",
+        "tags": [],
+        "tool": "Synthetic local test",
+        "sourceUrl": "",
+        "notes": "",
+        "promptRef": {
+          "promptId": "test_00000007",
+          "bodyVersionId": "test_00000008"
+        },
+        "createdAt": "2026-10-10T00:00:00.000Z",
+        "updatedAt": "2026-10-10T00:00:00.000Z",
+        "deletedAt": null,
+        "currentVersionId": "test_00000008",
+        "history": [
+          {
+            "id": "test_00000008",
+            "body": "Synthetic result body for native QA only.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "id": "test_00000010",
+        "version": "test_00000012",
+        "revision": 1,
+        "title": "Unlinked result",
+        "body": "Synthetic result body for native QA only.",
+        "type": "answer",
+        "tags": [],
+        "tool": "Synthetic local test",
+        "sourceUrl": "",
+        "notes": "",
+        "promptRef": null,
+        "createdAt": "2026-10-10T00:00:00.000Z",
+        "updatedAt": "2026-10-10T00:00:00.000Z",
+        "deletedAt": null,
+        "currentVersionId": "test_00000011",
+        "history": [
+          {
+            "id": "test_00000011",
+            "body": "Synthetic result body for native QA only.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      },
+      {
+        "id": "test_00000013",
+        "version": "test_00000017",
+        "revision": 2,
+        "title": "Archived result · version 2",
+        "body": "Synthetic result body for native QA only.",
+        "type": "answer",
+        "tags": [],
+        "tool": "Synthetic local test",
+        "sourceUrl": "",
+        "notes": "",
+        "promptRef": {
+          "promptId": "test_00000001",
+          "bodyVersionId": "test_00000005"
+        },
+        "createdAt": "2026-10-10T00:00:00.000Z",
+        "updatedAt": "2026-10-10T00:00:00.000Z",
+        "deletedAt": "2026-10-10T00:00:00.000Z",
+        "currentVersionId": "test_00000014",
+        "history": [
+          {
+            "id": "test_00000014",
+            "body": "Synthetic result body for native QA only.",
+            "createdAt": "2026-10-10T00:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "recovery": [],
+    "receipts": [
+      {
+        "id": "test_00000016",
+        "digest": "f1bc250ba6c8a1c960bfb571e782013aaccda3428cb2ef15ce0594110534cc60",
+        "stateDigest": "c6633a3c15f28154a78ff3288253c9ca94a7b326c5a59bde8495cbc48ea1c6fb"
+      }
+    ]
+  }
+}

@@ -1,9 +1,9 @@
 /* Page-owned drafts and variable values stay in memory, never in settings. */
 (function (root, factory) {
-    const api = factory(typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts);
+    const api = factory(typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts, typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabPromptsController = api;
-})(typeof window === 'undefined' ? globalThis : window, function (Core) {
+})(typeof window === 'undefined' ? globalThis : window, function (Core, Collections) {
     'use strict';
     const copy = value => JSON.parse(JSON.stringify(value));
     const editable = ['title', 'body', 'category', 'tool', 'favorite'];
@@ -16,9 +16,18 @@
         const tags = input.tagsText.split(/[,，\n]/u).map(tag => tag.trim()).filter(Boolean);
         return { ...Object.fromEntries(editable.map(key => [key, input[key]])), tags };
     }
+    // Exact immutable IDs only: no title matching, latest-version fallback or recovery copies.
+    function linkedResults(state, promptId, bodyVersionId) {
+        if (!promptId || !bodyVersionId) return [];
+        return (state?.records || []).filter(record => record.deletedAt === null &&
+            record.promptRef?.promptId === promptId && record.promptRef.bodyVersionId === bodyVersionId)
+            .map(record => ({ id: record.id, version: record.version, title: record.title, tool: record.tool }));
+    }
     class Controller {
-        constructor({ store = new Core.Store(), onChange = () => {} } = {}) {
+        constructor({ store = new Core.Store(), collectionStore = null, onChange = () => {} } = {}) {
             this.store = store; this.onChange = onChange;
+            this.collectionStore = collectionStore; this.collectionState = null; this.collectionLoading = false;
+            this.collectionError = null; this.linkedPromptUnavailable = false; this.collectionGeneration = 0; this.collectionSubscriptionError = false;
             this.state = null; this.selected = null; this.drafts = new Map(); this.sessions = new Map(); this.activeSessions = new Map();
             this.filters = { query: '', mode: 'all', category: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
@@ -27,21 +36,50 @@
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
             this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); });
-            await this.refresh();
+            try { this.unsubscribeCollections = this.collectionStore?.subscribe(() => { void this.refreshCollections(); }); }
+            catch (_) { this.collectionSubscriptionError = true; }
+            await Promise.all([this.refresh(), this.refreshCollections()]);
         }
-        dispose() { this.disposed = true; this.readGeneration++; this.unsubscribe?.(); }
+        dispose() {
+            this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null;
+            // Teardown must invalidate cards even if one backend's cleanup fails.
+            for (const unsubscribe of [this.unsubscribe, this.unsubscribeCollections]) { try { unsubscribe?.(); } catch (_) { /* Continue independent cleanup. */ } }
+        }
+        async refreshCollections() {
+            if (this.disposed) return;
+            const generation = ++this.collectionGeneration;
+            this.collectionState = null; this.collectionLoading = true; this.collectionError = null; this.notify('linkedResults');
+            try {
+                if (!this.collectionStore || this.collectionSubscriptionError) throw new Error('Unavailable');
+                const state = Collections.validate(await this.collectionStore.read());
+                if (this.disposed || generation !== this.collectionGeneration) return;
+                this.collectionState = state;
+            } catch (_) {
+                if (this.disposed || generation !== this.collectionGeneration) return;
+                this.collectionError = 'READ';
+            }
+            this.collectionLoading = false; this.notify('linkedResults');
+        }
+        linkedResults(promptId, bodyVersionId) {
+            if (this.disposed || this.collectionLoading || this.collectionError || !this.collectionState || this.linkedPromptUnavailable || this.pendingReadGeneration !== null) return [];
+            return linkedResults(this.collectionState, promptId, bodyVersionId).map(row => ({ ...row, generation: this.collectionGeneration }));
+        }
+        linkedResultCurrent(row, promptId, bodyVersionId) {
+            return this.selected === promptId && !this.draft() && !this.busy && !this.pendingCommand &&
+                row.generation === this.collectionGeneration && this.linkedResults(promptId, bodyVersionId).some(item => item.id === row.id && item.version === row.version);
+        }
         async refresh() {
             if (this.busy) { this.refreshQueued = true; return; }
             const generation = ++this.readGeneration;
-            this.pendingReadGeneration = generation;
+            this.pendingReadGeneration = generation; this.notify('linkedResults');
             try {
                 const next = await this.store.read();
                 if (this.disposed || generation !== this.readGeneration) return;
-                this.accept(next);
+                this.accept(next); this.linkedPromptUnavailable = false;
                 if (!this.pendingCommand && this.error?.scope === 'read') this.error = null;
             } catch (error) {
                 if (this.disposed || generation !== this.readGeneration) return;
-                this.error = { code: error.code || 'READ', scope: 'read' };
+                this.linkedPromptUnavailable = true; this.error = { code: error.code || 'READ', scope: 'read' };
             } finally {
                 if (this.pendingReadGeneration === generation) this.pendingReadGeneration = null;
             }
@@ -188,5 +226,5 @@
             }
         }
     }
-    return { Controller, fields, values };
+    return { Controller, fields, values, linkedResults };
 });

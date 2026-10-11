@@ -10,6 +10,8 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 [Vista previa](#preview) · [Instalación](#install) · [Funciones](#features) · [Privacidad y copias](#privacy) · [Desarrollo](#development)
 
+**Candidata local 1.1.32: resultados por versión del prompt.** Consulta las colecciones activas vinculadas al prompt y a su versión exacta desde la vista previa o el historial seleccionado. Las variables retenidas conservan el alcance de la versión anterior. Los errores de lectura se distinguen de una lista vacía; cada resultado se abre en otra pestaña. Solo lectura y procesamiento local. La validación de esta función en Chrome sigue pendiente. [Alcance y pruebas](docs/prompt-linked-results.md) · [Notas de versión](docs/releases/1.1.32.md#english)
+
 <a id="preview"></a>
 
 ## Vista previa

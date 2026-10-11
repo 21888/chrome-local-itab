@@ -3544,5 +3544,35 @@
   },
   "collectionsMarkdownSource": {
     "message": "包含已保存的来源网址（可能泄露私人对话链接）。正文和注释仍可能含有私人信息。"
+  },
+  "promptsLinkedTitle": {
+    "message": "此版本已保存的结果"
+  },
+  "promptsLinkedPreviewScope": {
+    "message": "当前预览使用的确切版本："
+  },
+  "promptsLinkedHistoryScope": {
+    "message": "历史记录中选定的确切正文版本："
+  },
+  "promptsLinkedHelp": {
+    "message": "仅显示明确关联此提示词及正文版本、且未归档的已保存结果。在新标签页打开，当前草稿和变量值保留在此页。"
+  },
+  "promptsLinkedLoading": {
+    "message": "正在读取已保存的结果…"
+  },
+  "promptsLinkedUnavailable": {
+    "message": "无法安全读取已保存的结果；这并不代表没有关联结果。"
+  },
+  "promptsLinkedRetry": {
+    "message": "重新读取结果"
+  },
+  "promptsLinkedEmpty": {
+    "message": "此确切版本暂无未归档的关联结果。"
+  },
+  "promptsLinkedNoTool": {
+    "message": "未注明工具"
+  },
+  "promptsLinkedNewTab": {
+    "message": "在新标签页打开已保存结果"
   }
 }

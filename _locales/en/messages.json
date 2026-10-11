@@ -3544,5 +3544,35 @@
   },
   "collectionsMarkdownSource": {
     "message": "Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information."
+  },
+  "promptsLinkedTitle": {
+    "message": "Saved results for this version"
+  },
+  "promptsLinkedPreviewScope": {
+    "message": "Exact version used by this preview:"
+  },
+  "promptsLinkedHistoryScope": {
+    "message": "Exact body version selected in history:"
+  },
+  "promptsLinkedHelp": {
+    "message": "Only active saved results explicitly linked to this prompt and body version. Opens in a new tab; your draft and variable values stay here."
+  },
+  "promptsLinkedLoading": {
+    "message": "Reading saved results…"
+  },
+  "promptsLinkedUnavailable": {
+    "message": "Saved results could not be read safely. This is not an empty result list."
+  },
+  "promptsLinkedRetry": {
+    "message": "Read results again"
+  },
+  "promptsLinkedEmpty": {
+    "message": "No active saved results are linked to this exact version."
+  },
+  "promptsLinkedNoTool": {
+    "message": "No tool specified"
+  },
+  "promptsLinkedNewTab": {
+    "message": "Open saved result in a new tab"
   }
 }

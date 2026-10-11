@@ -10,6 +10,8 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 [Preview](#preview) · [Install](#install) · [Features](#features) · [Privacy & backups](#privacy) · [Development](#development)
 
+**Local 1.1.32 candidate: saved results by prompt version.** Inspect active AI collection results explicitly linked to the exact prompt and body version in the usable preview or selected history. Retained variable sessions keep their actual older-version scope. Read failures stay distinct from empty results; cards open in a new tab. Read-only and local. Native browser acceptance of this feature is pending separately. [Scope and checks](docs/prompt-linked-results.md) · [Release notes](docs/releases/1.1.32.md#english)
+
 <a id="preview"></a>
 
 ## Preview

@@ -76,6 +76,7 @@
         announce(message, error = false) { this.status.classList.toggle('error', error); this.status.replaceChildren(this.el('span', '', message)); }
         render(kind = 'render') {
             const c = this.controller;
+            if (kind === 'linkedResults') { this.updateLinkedResults(); return; }
             if (kind === 'preview') {
                 // Even an edit back to the original text supersedes pending feedback.
                 this.copyGeneration++; this.updatePreview(); return;
@@ -88,7 +89,7 @@
             if (restore && c.busy) this.pendingFocus = restore;
             const desiredFocus = restore || (!c.busy ? this.pendingFocus : null);
             const range = restore && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
-            this.main.replaceChildren(); this.main.setAttribute('aria-busy', String(c.busy)); this.previewElements = null; this.editorElements = null;
+            this.linkedSections = []; this.main.replaceChildren(); this.main.setAttribute('aria-busy', String(c.busy)); this.previewElements = null; this.editorElements = null;
             if (!c.state) this.renderUnavailable();
             else if (c.draft()) this.renderEditor();
             else if (c.record()) this.renderRecord(c.record());
@@ -264,6 +265,47 @@
             const select = this.button('SelectPreview', 'Select text', () => { preview.focus(); preview.select?.(); }); actions.append(copy, select);
             previewSection.append(heading, preview, status, actions); section.append(previewSection); this.main.append(section);
             this.previewElements = { literal, variables, preview, status, copy }; this.updatePreview();
+            this.main.append(this.linkedSection(record.id, c.session(record).versionId, true));
+        }
+        linkedSection(promptId, versionId, session = false) {
+            const section = this.el('section', 'prompt-linked-results');
+            const entry = { section, promptId, versionId, session };
+            (this.linkedSections ||= []).push(entry); this.paintLinkedResults(entry); return section;
+        }
+        updateLinkedResults() { for (const entry of this.linkedSections || []) this.paintLinkedResults(entry); }
+        paintLinkedResults(entry) {
+            const c = this.controller, { section, promptId, versionId, session } = entry, record = c.record();
+            section.replaceChildren();
+            if (!record || record.id !== promptId || c.draft()) return;
+            section.append(this.el('h3', '', this.t('LinkedTitle', 'Saved results for this version')));
+            const index = record.history.findIndex(version => version.id === versionId);
+            const scope = index < 0 ? versionId : `v${index + 1}`;
+            section.append(this.el('p', 'prompt-help', `${this.t(session ? 'LinkedPreviewScope' : 'LinkedHistoryScope', session ? 'Exact version used by this preview:' : 'Exact body version selected in history:')} ${scope}`));
+            section.append(this.el('p', 'prompt-help', this.t('LinkedHelp', 'Only active saved results explicitly linked to this prompt and body version. Opens in a new tab; your draft and variable values stay here.')));
+            const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status');
+            if (c.collectionLoading || c.pendingReadGeneration !== null) status.textContent = this.t('LinkedLoading', 'Reading saved results…');
+            else if (c.collectionError || !c.collectionState || c.linkedPromptUnavailable || c.disposed) {
+                status.textContent = this.t('LinkedUnavailable', 'Saved results could not be read safely. This is not an empty result list.');
+                section.append(status, this.button('LinkedRetry', 'Read results again', () => { void c.refreshCollections(); if (c.linkedPromptUnavailable) void c.refresh(); })); return;
+            } else {
+                const rows = c.linkedResults(promptId, versionId);
+                if (!rows.length) status.textContent = this.t('LinkedEmpty', 'No active saved results are linked to this exact version.');
+                else {
+                    const list = this.el('ul', 'prompt-linked-list');
+                    for (const row of rows) {
+                        const href = root.LocalItabAISearch?.href('collection', row.id); if (!href) continue;
+                        const item = this.el('li'), link = this.el('a', 'prompt-linked-card'); link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+                        link.append(this.el('span', 'prompt-card-title', row.title), this.el('span', 'prompt-card-meta', row.tool || this.t('LinkedNoTool', 'No tool specified')),
+                            this.el('span', 'prompt-card-meta', this.t('LinkedNewTab', 'Open saved result in a new tab')));
+                        const guard = event => {
+                            if (!this.main.contains(section) || !section.contains(link) || !c.linkedResultCurrent(row, promptId, versionId) || (session && c.session()?.versionId !== versionId)) event.preventDefault();
+                        };
+                        link.addEventListener('click', guard); link.addEventListener('auxclick', guard); item.append(link); list.append(item);
+                    }
+                    section.append(list); return;
+                }
+            }
+            section.append(status);
         }
         updatePreview() {
             const c = this.controller, ui = this.previewElements; if (!ui) return;
@@ -316,12 +358,14 @@
                 if (!await this.confirm({ title: this.t('RestoreVersionTitle', 'Restore this body version?'), body: this.t('RestoreVersionBody', 'The selected body will become a new version. Title, tags and category stay unchanged. All later versions remain available.'), accept: this.t('RestoreVersion', 'Restore as new version') })) return;
                 if (c.selected !== record.id) return; await c.action('restoreVersion', versionId, record.version); this.focusDetail();
             });
-            const paint = version => { this.historyId = version.id; body.textContent = version.body; caption.textContent = `${this.t('VersionSaved', 'Body saved')} ${this.date(version.createdAt)}`; restore.disabled = c.busy || Boolean(c.pendingCommand) || Boolean(record.deletedAt) || version.id === record.currentVersionId;
+            const linked = this.linkedSection(record.id, record.currentVersionId);
+            const linkedEntry = this.linkedSections[this.linkedSections.length - 1];
+            const paint = version => { linkedEntry.versionId = version.id; this.paintLinkedResults(linkedEntry); this.historyId = version.id; body.textContent = version.body; caption.textContent = `${this.t('VersionSaved', 'Body saved')} ${this.date(version.createdAt)}`; restore.disabled = c.busy || Boolean(c.pendingCommand) || Boolean(record.deletedAt) || version.id === record.currentVersionId;
                 for (const button of list.children) button.setAttribute('aria-pressed', String(button.dataset.versionId === version.id)); };
             for (const [index, version] of [...record.history].entries()) {
                 const button = this.el('button', '', `v${index + 1}${version.id === record.currentVersionId ? ` · ${this.t('Current', 'current')}` : ''}`); button.type = 'button'; button.dataset.versionId = version.id; button.addEventListener('click', () => paint(version)); list.append(button);
             }
-            details.append(list, caption, body, this.el('div', 'prompt-section')); details.lastElementChild?.append(restore);
+            details.append(list, caption, body, linked, this.el('div', 'prompt-section')); details.lastElementChild?.append(restore);
             // append directly when running the small synthetic DOM model as well.
             if (!restore.parentElement) details.append(restore);
             paint(record.history.find(version => version.id === this.historyId) || record.history[record.history.length - 1]); this.main.append(details);
