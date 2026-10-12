@@ -20,4 +20,4 @@ Tests are synthetic Node model-DOM/store checks, not native browser validation. 
 
 ## Combined development validation
 
-The exact-tag prompt feature and this collection annotation search were tested together: strict Node 2527/2527 and Python 81/81 passed. Native browser validation remains pending; Unicode excerpt mapping, archive isolation, and no-write/editor-preservation assertions are deterministic synthetic coverage until separately observed. Manifest stays 1.1.97, and this ordinary feature commit does not publish a release.
+The exact-tag prompt feature and this collection annotation search were tested together: strict Node 2527/2527 and Python 81/81 passed. Limited Chinese desktop-light native smoke passed: updated search label, clearing search while retaining Archived, unsaved gamma title preserved across filtering and then explicitly discarded, with three saved records unchanged. No note sample was added or saved; actual notes-only matching and Unicode excerpt mapping remain synthetic-only. Dark/responsive and exhaustive focus matrices were not tested. Manifest stays 1.1.97, and this ordinary feature commit does not publish a release.
