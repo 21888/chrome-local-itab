@@ -4551,5 +4551,491 @@
   },
   "promptsModelStreamLimit": {
     "message": "流式回复超出安全限制。已显示的部分回复不完整，不能保存。"
+  },
+  "navigationLibraryOpen": {
+    "message": "发现网站"
+  },
+  "navigationLibraryEyebrow": {
+    "message": "让好用的网站，成为日常"
+  },
+  "navigationLibraryTitle": {
+    "message": "发现好网站，留给下一次灵感。"
+  },
+  "navigationLibraryIntro": {
+    "message": "浏览内置导航库，只把想用的网站添加到自己的导航。"
+  },
+  "navigationLibrarySearch": {
+    "message": "搜索名称、用途或公司"
+  },
+  "navigationLibraryAll": {
+    "message": "全部分类"
+  },
+  "navigationLibraryFilters": {
+    "message": "更多筛选"
+  },
+  "navigationLibraryClear": {
+    "message": "清除筛选"
+  },
+  "navigationLibraryTag": {
+    "message": "用途"
+  },
+  "navigationLibraryCountry": {
+    "message": "运营方所在地"
+  },
+  "navigationLibraryCompany": {
+    "message": "公司 / 运营组织"
+  },
+  "navigationLibraryPricing": {
+    "message": "定价"
+  },
+  "navigationLibraryAny": {
+    "message": "不限"
+  },
+  "navigationLibraryDestination": {
+    "message": "添加到我的分类"
+  },
+  "navigationLibraryResult": {
+    "message": "个网站"
+  },
+  "navigationLibraryResults": {
+    "message": "个网站"
+  },
+  "navigationLibraryAdd": {
+    "message": "添加"
+  },
+  "navigationLibraryAdded": {
+    "message": "已添加"
+  },
+  "navigationLibraryVisit": {
+    "message": "打开官方网站"
+  },
+  "navigationLibraryLoading": {
+    "message": "正在读取已保存的网站…"
+  },
+  "navigationLibrarySaving": {
+    "message": "正在保存…"
+  },
+  "navigationLibrarySaved": {
+    "message": "已添加到"
+  },
+  "navigationLibraryDuplicate": {
+    "message": "已在你的导航中"
+  },
+  "navigationLibraryEmpty": {
+    "message": "没有符合筛选条件的网站"
+  },
+  "navigationLibraryEmptyHelp": {
+    "message": "换个关键词、分类或筛选条件试试。"
+  },
+  "navigationLibraryClose": {
+    "message": "关闭"
+  },
+  "navigationLibraryPrivacy": {
+    "message": "浏览导航库时无需联网。添加网站沿用你现有的同步与在线图标设置。"
+  },
+  "navigationLibraryDisclosure": {
+    "message": "所在地指公司或服务运营方，不代表网站在哪些地区可用。费用、服务范围和账号要求可能变化。"
+  },
+  "navigationLibrarySource": {
+    "message": "来源与详情"
+  },
+  "navigationLibraryChecked": {
+    "message": "资料核验"
+  },
+  "navigationLibraryUnknown": {
+    "message": "未知"
+  },
+  "navigationLibraryFree": {
+    "message": "免费入口"
+  },
+  "navigationLibraryFreemium": {
+    "message": "免费 + 付费方案"
+  },
+  "navigationLibraryPaid": {
+    "message": "付费"
+  },
+  "navigationLibraryNot_applicable": {
+    "message": "不适用"
+  },
+  "navigationLibraryReadError": {
+    "message": "无法读取已保存的网站，请关闭后重新打开。"
+  },
+  "navigationLibraryConflict": {
+    "message": "导航、工作空间或设置已变化，请关闭后重新打开，核对最新状态。"
+  },
+  "navigationLibraryFailed": {
+    "message": "没有添加网站，可重新点击添加。"
+  },
+  "navigationLibraryUncertain": {
+    "message": "无法确认保存结果，请关闭后重新打开，先检查是否已添加。"
+  },
+  "navigationLibraryLayout": {
+    "message": "请先完成或重试尚未保存的布局修改，再打开导航库。"
+  },
+  "navigationLibraryNoCategory": {
+    "message": "请先在设置中创建个人导航分类，再添加网站。"
+  },
+  "navigationLibrarySync": {
+    "message": "Chrome 同步"
+  },
+  "navigationLibraryIcons": {
+    "message": "在线图标"
+  },
+  "navigationLibraryOn": {
+    "message": "已开启"
+  },
+  "navigationLibraryOff": {
+    "message": "已关闭"
+  },
+  "navigationLibraryOfficial": {
+    "message": "官网"
+  },
+  "navigationTagAcademicSubjects": {
+    "message": "专业学科"
+  },
+  "navigationTagAudio": {
+    "message": "音频"
+  },
+  "navigationTagBooks": {
+    "message": "书籍"
+  },
+  "navigationTagCalendars": {
+    "message": "日历"
+  },
+  "navigationTagCampaignManagement": {
+    "message": "营销活动"
+  },
+  "navigationTagCareerOpportunities": {
+    "message": "职业机会"
+  },
+  "navigationTagCertificates": {
+    "message": "课程证书"
+  },
+  "navigationTagChineseSearch": {
+    "message": "中文搜索"
+  },
+  "navigationTagCiCd": {
+    "message": "持续集成与交付"
+  },
+  "navigationTagCodeHosting": {
+    "message": "代码托管"
+  },
+  "navigationTagCollaboration": {
+    "message": "协作"
+  },
+  "navigationTagCommunities": {
+    "message": "兴趣社区"
+  },
+  "navigationTagCommunityMapping": {
+    "message": "社区地图"
+  },
+  "navigationTagCooking": {
+    "message": "烹饪"
+  },
+  "navigationTagCreatorContent": {
+    "message": "创作者内容"
+  },
+  "navigationTagCrm": {
+    "message": "客户关系"
+  },
+  "navigationTagDegrees": {
+    "message": "学位项目"
+  },
+  "navigationTagDesignInspiration": {
+    "message": "设计灵感"
+  },
+  "navigationTagDesignShowcase": {
+    "message": "设计作品"
+  },
+  "navigationTagDevelopmentData": {
+    "message": "发展数据"
+  },
+  "navigationTagDiscussions": {
+    "message": "话题讨论"
+  },
+  "navigationTagDocumentTranslation": {
+    "message": "文档翻译"
+  },
+  "navigationTagDocumentation": {
+    "message": "开发文档"
+  },
+  "navigationTagDocuments": {
+    "message": "文档"
+  },
+  "navigationTagDrmFreeGames": {
+    "message": "无 DRM 游戏"
+  },
+  "navigationTagEconomicData": {
+    "message": "经济数据"
+  },
+  "navigationTagEmailMarketing": {
+    "message": "邮件营销"
+  },
+  "navigationTagFileConversion": {
+    "message": "文件转换"
+  },
+  "navigationTagFileSharing": {
+    "message": "文件共享"
+  },
+  "navigationTagFilms": {
+    "message": "电影"
+  },
+  "navigationTagFinancialStatistics": {
+    "message": "金融统计"
+  },
+  "navigationTagFlights": {
+    "message": "机票"
+  },
+  "navigationTagGameCommunity": {
+    "message": "游戏社区"
+  },
+  "navigationTagGameStore": {
+    "message": "游戏商店"
+  },
+  "navigationTagGames": {
+    "message": "游戏"
+  },
+  "navigationTagGovernmentInformation": {
+    "message": "政府信息"
+  },
+  "navigationTagHotels": {
+    "message": "酒店"
+  },
+  "navigationTagImageCompression": {
+    "message": "图片压缩"
+  },
+  "navigationTagImageFormats": {
+    "message": "图片格式"
+  },
+  "navigationTagImageSearch": {
+    "message": "图片搜索"
+  },
+  "navigationTagInDepthReporting": {
+    "message": "深度报道"
+  },
+  "navigationTagInterfaceDesign": {
+    "message": "界面设计"
+  },
+  "navigationTagInternationalNews": {
+    "message": "国际新闻"
+  },
+  "navigationTagJobSearch": {
+    "message": "职位搜索"
+  },
+  "navigationTagKeywordInterest": {
+    "message": "关键词热度"
+  },
+  "navigationTagLearningResources": {
+    "message": "学习资源"
+  },
+  "navigationTagLocationSearch": {
+    "message": "按地点查找"
+  },
+  "navigationTagMaps": {
+    "message": "地图"
+  },
+  "navigationTagMarketResearch": {
+    "message": "市场研究"
+  },
+  "navigationTagMarketingWorkflows": {
+    "message": "营销工作流"
+  },
+  "navigationTagMathematics": {
+    "message": "数学"
+  },
+  "navigationTagMeetings": {
+    "message": "会议"
+  },
+  "navigationTagMessaging": {
+    "message": "消息沟通"
+  },
+  "navigationTagMusic": {
+    "message": "音乐"
+  },
+  "navigationTagNewsReporting": {
+    "message": "新闻报道"
+  },
+  "navigationTagNewsSearch": {
+    "message": "新闻搜索"
+  },
+  "navigationTagNotes": {
+    "message": "笔记"
+  },
+  "navigationTagOnlineCourses": {
+    "message": "在线课程"
+  },
+  "navigationTagOnlineShopping": {
+    "message": "在线购物"
+  },
+  "navigationTagPassengerServices": {
+    "message": "旅客服务"
+  },
+  "navigationTagPcGames": {
+    "message": "电脑游戏"
+  },
+  "navigationTagPdf": {
+    "message": "PDF 工具"
+  },
+  "navigationTagPdfCompression": {
+    "message": "PDF 压缩"
+  },
+  "navigationTagPdfMerge": {
+    "message": "PDF 合并"
+  },
+  "navigationTagPlaces": {
+    "message": "地点查询"
+  },
+  "navigationTagPodcasts": {
+    "message": "播客"
+  },
+  "navigationTagPresentations": {
+    "message": "演示文稿"
+  },
+  "navigationTagPrivacyFocused": {
+    "message": "隐私搜索"
+  },
+  "navigationTagProductInformation": {
+    "message": "产品资讯"
+  },
+  "navigationTagProducts": {
+    "message": "商品"
+  },
+  "navigationTagProgramming": {
+    "message": "编程"
+  },
+  "navigationTagProjectManagement": {
+    "message": "项目管理"
+  },
+  "navigationTagPrototyping": {
+    "message": "交互原型"
+  },
+  "navigationTagPublicServiceGuides": {
+    "message": "办事指南"
+  },
+  "navigationTagPublicServices": {
+    "message": "公共服务"
+  },
+  "navigationTagRailTravel": {
+    "message": "铁路出行"
+  },
+  "navigationTagRecipes": {
+    "message": "菜谱"
+  },
+  "navigationTagReviews": {
+    "message": "书影音评价"
+  },
+  "navigationTagRoutes": {
+    "message": "路线规划"
+  },
+  "navigationTagScience": {
+    "message": "科学"
+  },
+  "navigationTagSearchTrends": {
+    "message": "搜索趋势"
+  },
+  "navigationTagSeries": {
+    "message": "剧集"
+  },
+  "navigationTagServicePortals": {
+    "message": "办事入口"
+  },
+  "navigationTagSocialContent": {
+    "message": "社交素材"
+  },
+  "navigationTagSocialStatistics": {
+    "message": "社会统计"
+  },
+  "navigationTagSpreadsheets": {
+    "message": "电子表格"
+  },
+  "navigationTagTechnicalQa": {
+    "message": "技术问答"
+  },
+  "navigationTagTextTranslation": {
+    "message": "文本翻译"
+  },
+  "navigationTagTicketing": {
+    "message": "票务"
+  },
+  "navigationTagTimeSeries": {
+    "message": "时间序列"
+  },
+  "navigationTagTimeZones": {
+    "message": "时区"
+  },
+  "navigationTagTopicInterest": {
+    "message": "话题热度"
+  },
+  "navigationTagTravelServices": {
+    "message": "旅游服务"
+  },
+  "navigationTagTutorials": {
+    "message": "教程"
+  },
+  "navigationTagTvProgrammes": {
+    "message": "电视节目"
+  },
+  "navigationTagVarietyShows": {
+    "message": "综艺"
+  },
+  "navigationTagVideo": {
+    "message": "视频"
+  },
+  "navigationTagVisualDesign": {
+    "message": "视觉设计"
+  },
+  "navigationTagWeatherAlerts": {
+    "message": "天气预警"
+  },
+  "navigationTagWeatherForecast": {
+    "message": "天气预报"
+  },
+  "navigationTagWebSearch": {
+    "message": "网页搜索"
+  },
+  "navigationTagWebStandards": {
+    "message": "Web 标准"
+  },
+  "navigationTagWebsiteTraffic": {
+    "message": "网站流量"
+  },
+  "navigationTagWorldClocks": {
+    "message": "世界时间"
+  },
+  "navigationTagChat": {
+    "message": "对话助手"
+  },
+  "navigationTagSearch": {
+    "message": "AI 搜索"
+  },
+  "navigationTagWriting": {
+    "message": "写作"
+  },
+  "navigationTagCoding": {
+    "message": "AI 编程"
+  },
+  "navigationTagImage": {
+    "message": "图像生成"
+  },
+  "navigationTagResearch": {
+    "message": "研究"
+  },
+  "navigationTagReasoning": {
+    "message": "推理"
+  },
+  "navigationTagAppBuilding": {
+    "message": "应用搭建"
+  },
+  "navigationTagDesign": {
+    "message": "设计"
+  },
+  "navigationTagVoice": {
+    "message": "语音"
+  },
+  "navigationTagTranscription": {
+    "message": "转写"
+  },
+  "navigationTagTranslation": {
+    "message": "翻译"
   }
 }

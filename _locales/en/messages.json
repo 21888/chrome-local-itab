@@ -4551,5 +4551,491 @@
   },
   "promptsModelStreamLimit": {
     "message": "The stream exceeded a safety limit. Any partial response is incomplete and cannot be saved."
+  },
+  "navigationLibraryOpen": {
+    "message": "Discover sites"
+  },
+  "navigationLibraryEyebrow": {
+    "message": "YOUR NEXT USEFUL PLACE"
+  },
+  "navigationLibraryTitle": {
+    "message": "A little discovery. A better start."
+  },
+  "navigationLibraryIntro": {
+    "message": "Browse the built-in library. Add only the sites you want to your own shortcuts."
+  },
+  "navigationLibrarySearch": {
+    "message": "Search names, uses or companies"
+  },
+  "navigationLibraryAll": {
+    "message": "All categories"
+  },
+  "navigationLibraryFilters": {
+    "message": "More filters"
+  },
+  "navigationLibraryClear": {
+    "message": "Clear filters"
+  },
+  "navigationLibraryTag": {
+    "message": "Use"
+  },
+  "navigationLibraryCountry": {
+    "message": "Operator location"
+  },
+  "navigationLibraryCompany": {
+    "message": "Company / organization"
+  },
+  "navigationLibraryPricing": {
+    "message": "Pricing"
+  },
+  "navigationLibraryAny": {
+    "message": "Any"
+  },
+  "navigationLibraryDestination": {
+    "message": "Add to your category"
+  },
+  "navigationLibraryResult": {
+    "message": "site"
+  },
+  "navigationLibraryResults": {
+    "message": "sites"
+  },
+  "navigationLibraryAdd": {
+    "message": "Add"
+  },
+  "navigationLibraryAdded": {
+    "message": "Added"
+  },
+  "navigationLibraryVisit": {
+    "message": "Open official site"
+  },
+  "navigationLibraryLoading": {
+    "message": "Reading your saved sites…"
+  },
+  "navigationLibrarySaving": {
+    "message": "Saving…"
+  },
+  "navigationLibrarySaved": {
+    "message": "Added to"
+  },
+  "navigationLibraryDuplicate": {
+    "message": "Already in your shortcuts"
+  },
+  "navigationLibraryEmpty": {
+    "message": "No sites match these filters."
+  },
+  "navigationLibraryEmptyHelp": {
+    "message": "Try a different word, category or filter."
+  },
+  "navigationLibraryClose": {
+    "message": "Close"
+  },
+  "navigationLibraryPrivacy": {
+    "message": "Browsing this library stays offline. Adding uses your existing Sync and online-icon settings."
+  },
+  "navigationLibraryDisclosure": {
+    "message": "Location describes the company or service operator, not where a site is accessible. Plans, availability and account requirements can change."
+  },
+  "navigationLibrarySource": {
+    "message": "Sources & details"
+  },
+  "navigationLibraryChecked": {
+    "message": "Checked"
+  },
+  "navigationLibraryUnknown": {
+    "message": "Unknown"
+  },
+  "navigationLibraryFree": {
+    "message": "Free entry"
+  },
+  "navigationLibraryFreemium": {
+    "message": "Free + paid plans"
+  },
+  "navigationLibraryPaid": {
+    "message": "Paid"
+  },
+  "navigationLibraryNot_applicable": {
+    "message": "Not applicable"
+  },
+  "navigationLibraryReadError": {
+    "message": "Could not read your saved sites. Close and reopen to try again."
+  },
+  "navigationLibraryConflict": {
+    "message": "Your shortcuts, workspace or settings changed. Close and reopen to review the latest state."
+  },
+  "navigationLibraryFailed": {
+    "message": "Nothing was added. You can try adding the site again."
+  },
+  "navigationLibraryUncertain": {
+    "message": "Could not confirm the save. Close and reopen to check your shortcuts before trying again."
+  },
+  "navigationLibraryLayout": {
+    "message": "Finish or retry the pending layout change, then reopen the library."
+  },
+  "navigationLibraryNoCategory": {
+    "message": "Create a personal shortcut category in Settings before adding sites."
+  },
+  "navigationLibrarySync": {
+    "message": "Chrome Sync"
+  },
+  "navigationLibraryIcons": {
+    "message": "Online icons"
+  },
+  "navigationLibraryOn": {
+    "message": "On"
+  },
+  "navigationLibraryOff": {
+    "message": "Off"
+  },
+  "navigationLibraryOfficial": {
+    "message": "Official site"
+  },
+  "navigationTagAcademicSubjects": {
+    "message": "Academic subjects"
+  },
+  "navigationTagAudio": {
+    "message": "Audio"
+  },
+  "navigationTagBooks": {
+    "message": "Books"
+  },
+  "navigationTagCalendars": {
+    "message": "Calendars"
+  },
+  "navigationTagCampaignManagement": {
+    "message": "Campaign management"
+  },
+  "navigationTagCareerOpportunities": {
+    "message": "Career opportunities"
+  },
+  "navigationTagCertificates": {
+    "message": "Certificates"
+  },
+  "navigationTagChineseSearch": {
+    "message": "Chinese search"
+  },
+  "navigationTagCiCd": {
+    "message": "CI/CD"
+  },
+  "navigationTagCodeHosting": {
+    "message": "Code hosting"
+  },
+  "navigationTagCollaboration": {
+    "message": "Collaboration"
+  },
+  "navigationTagCommunities": {
+    "message": "Communities"
+  },
+  "navigationTagCommunityMapping": {
+    "message": "Community mapping"
+  },
+  "navigationTagCooking": {
+    "message": "Cooking"
+  },
+  "navigationTagCreatorContent": {
+    "message": "Creator content"
+  },
+  "navigationTagCrm": {
+    "message": "CRM"
+  },
+  "navigationTagDegrees": {
+    "message": "Degrees"
+  },
+  "navigationTagDesignInspiration": {
+    "message": "Design inspiration"
+  },
+  "navigationTagDesignShowcase": {
+    "message": "Design showcase"
+  },
+  "navigationTagDevelopmentData": {
+    "message": "Development data"
+  },
+  "navigationTagDiscussions": {
+    "message": "Discussions"
+  },
+  "navigationTagDocumentTranslation": {
+    "message": "Document translation"
+  },
+  "navigationTagDocumentation": {
+    "message": "Documentation"
+  },
+  "navigationTagDocuments": {
+    "message": "Documents"
+  },
+  "navigationTagDrmFreeGames": {
+    "message": "DRM-free games"
+  },
+  "navigationTagEconomicData": {
+    "message": "Economic data"
+  },
+  "navigationTagEmailMarketing": {
+    "message": "Email marketing"
+  },
+  "navigationTagFileConversion": {
+    "message": "File conversion"
+  },
+  "navigationTagFileSharing": {
+    "message": "File sharing"
+  },
+  "navigationTagFilms": {
+    "message": "Films"
+  },
+  "navigationTagFinancialStatistics": {
+    "message": "Financial statistics"
+  },
+  "navigationTagFlights": {
+    "message": "Flights"
+  },
+  "navigationTagGameCommunity": {
+    "message": "Game community"
+  },
+  "navigationTagGameStore": {
+    "message": "Game store"
+  },
+  "navigationTagGames": {
+    "message": "Games"
+  },
+  "navigationTagGovernmentInformation": {
+    "message": "Government information"
+  },
+  "navigationTagHotels": {
+    "message": "Hotels"
+  },
+  "navigationTagImageCompression": {
+    "message": "Image compression"
+  },
+  "navigationTagImageFormats": {
+    "message": "Image formats"
+  },
+  "navigationTagImageSearch": {
+    "message": "Image search"
+  },
+  "navigationTagInDepthReporting": {
+    "message": "In-depth reporting"
+  },
+  "navigationTagInterfaceDesign": {
+    "message": "Interface design"
+  },
+  "navigationTagInternationalNews": {
+    "message": "International news"
+  },
+  "navigationTagJobSearch": {
+    "message": "Job search"
+  },
+  "navigationTagKeywordInterest": {
+    "message": "Keyword interest"
+  },
+  "navigationTagLearningResources": {
+    "message": "Learning resources"
+  },
+  "navigationTagLocationSearch": {
+    "message": "Location search"
+  },
+  "navigationTagMaps": {
+    "message": "Maps"
+  },
+  "navigationTagMarketResearch": {
+    "message": "Market research"
+  },
+  "navigationTagMarketingWorkflows": {
+    "message": "Marketing workflows"
+  },
+  "navigationTagMathematics": {
+    "message": "Mathematics"
+  },
+  "navigationTagMeetings": {
+    "message": "Meetings"
+  },
+  "navigationTagMessaging": {
+    "message": "Messaging"
+  },
+  "navigationTagMusic": {
+    "message": "Music"
+  },
+  "navigationTagNewsReporting": {
+    "message": "News reporting"
+  },
+  "navigationTagNewsSearch": {
+    "message": "News search"
+  },
+  "navigationTagNotes": {
+    "message": "Notes"
+  },
+  "navigationTagOnlineCourses": {
+    "message": "Online courses"
+  },
+  "navigationTagOnlineShopping": {
+    "message": "Online shopping"
+  },
+  "navigationTagPassengerServices": {
+    "message": "Passenger services"
+  },
+  "navigationTagPcGames": {
+    "message": "PC games"
+  },
+  "navigationTagPdf": {
+    "message": "PDF"
+  },
+  "navigationTagPdfCompression": {
+    "message": "PDF compression"
+  },
+  "navigationTagPdfMerge": {
+    "message": "PDF merge"
+  },
+  "navigationTagPlaces": {
+    "message": "Places"
+  },
+  "navigationTagPodcasts": {
+    "message": "Podcasts"
+  },
+  "navigationTagPresentations": {
+    "message": "Presentations"
+  },
+  "navigationTagPrivacyFocused": {
+    "message": "Privacy-focused search"
+  },
+  "navigationTagProductInformation": {
+    "message": "Product information"
+  },
+  "navigationTagProducts": {
+    "message": "Products"
+  },
+  "navigationTagProgramming": {
+    "message": "Programming"
+  },
+  "navigationTagProjectManagement": {
+    "message": "Project management"
+  },
+  "navigationTagPrototyping": {
+    "message": "Prototyping"
+  },
+  "navigationTagPublicServiceGuides": {
+    "message": "Public-service guides"
+  },
+  "navigationTagPublicServices": {
+    "message": "Public services"
+  },
+  "navigationTagRailTravel": {
+    "message": "Rail travel"
+  },
+  "navigationTagRecipes": {
+    "message": "Recipes"
+  },
+  "navigationTagReviews": {
+    "message": "Reviews"
+  },
+  "navigationTagRoutes": {
+    "message": "Routes"
+  },
+  "navigationTagScience": {
+    "message": "Science"
+  },
+  "navigationTagSearchTrends": {
+    "message": "Search trends"
+  },
+  "navigationTagSeries": {
+    "message": "Series"
+  },
+  "navigationTagServicePortals": {
+    "message": "Service portals"
+  },
+  "navigationTagSocialContent": {
+    "message": "Social content"
+  },
+  "navigationTagSocialStatistics": {
+    "message": "Social statistics"
+  },
+  "navigationTagSpreadsheets": {
+    "message": "Spreadsheets"
+  },
+  "navigationTagTechnicalQa": {
+    "message": "Technical Q&A"
+  },
+  "navigationTagTextTranslation": {
+    "message": "Text translation"
+  },
+  "navigationTagTicketing": {
+    "message": "Ticketing"
+  },
+  "navigationTagTimeSeries": {
+    "message": "Time series"
+  },
+  "navigationTagTimeZones": {
+    "message": "Time zones"
+  },
+  "navigationTagTopicInterest": {
+    "message": "Topic interest"
+  },
+  "navigationTagTravelServices": {
+    "message": "Travel services"
+  },
+  "navigationTagTutorials": {
+    "message": "Tutorials"
+  },
+  "navigationTagTvProgrammes": {
+    "message": "TV programmes"
+  },
+  "navigationTagVarietyShows": {
+    "message": "Variety shows"
+  },
+  "navigationTagVideo": {
+    "message": "Video"
+  },
+  "navigationTagVisualDesign": {
+    "message": "Visual design"
+  },
+  "navigationTagWeatherAlerts": {
+    "message": "Weather alerts"
+  },
+  "navigationTagWeatherForecast": {
+    "message": "Weather forecast"
+  },
+  "navigationTagWebSearch": {
+    "message": "Web search"
+  },
+  "navigationTagWebStandards": {
+    "message": "Web standards"
+  },
+  "navigationTagWebsiteTraffic": {
+    "message": "Website traffic"
+  },
+  "navigationTagWorldClocks": {
+    "message": "World clocks"
+  },
+  "navigationTagChat": {
+    "message": "Chat assistants"
+  },
+  "navigationTagSearch": {
+    "message": "AI search"
+  },
+  "navigationTagWriting": {
+    "message": "Writing"
+  },
+  "navigationTagCoding": {
+    "message": "AI coding"
+  },
+  "navigationTagImage": {
+    "message": "Image generation"
+  },
+  "navigationTagResearch": {
+    "message": "Research"
+  },
+  "navigationTagReasoning": {
+    "message": "Reasoning"
+  },
+  "navigationTagAppBuilding": {
+    "message": "App building"
+  },
+  "navigationTagDesign": {
+    "message": "Design"
+  },
+  "navigationTagVoice": {
+    "message": "Voice"
+  },
+  "navigationTagTranscription": {
+    "message": "Transcription"
+  },
+  "navigationTagTranslation": {
+    "message": "Translation"
   }
 }

@@ -3,6 +3,17 @@
 
     // Keep keyboard and assistive-technology navigation inside an open overlay.
     // Each open owns its cleanup so closing an old dialog cannot affect a new one.
+    function hiddenByClosedDetails(element) {
+        // Closed details descendants can retain layout boxes. Only the first
+        // direct summary and its descendants participate in keyboard navigation.
+        for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+            if (ancestor.tagName?.toUpperCase() !== 'DETAILS' || ancestor.open) continue;
+            const summary = Array.from(ancestor.children).find(child => child.tagName?.toUpperCase() === 'SUMMARY');
+            if (!summary?.contains(element)) return true;
+        }
+        return false;
+    }
+
     function open(overlay, initialFocus, onClose) {
         const doc = overlay.ownerDocument;
         const returnFocus = doc.activeElement;
@@ -48,7 +59,7 @@
             const controls = Array.from(overlay.querySelectorAll(
                 'button, input, select, textarea, a[href], [tabindex]'
             )).filter(element => !element.disabled && element.tabIndex >= 0 &&
-                !element.closest('[hidden], [inert]') && element.getClientRects().length);
+                !element.closest('[hidden], [inert]') && !hiddenByClosedDetails(element) && element.getClientRects().length);
             const first = controls[0];
             const last = controls[controls.length - 1];
             if (!first) {

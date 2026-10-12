@@ -2222,6 +2222,7 @@ class ShortcutsComponent {
         if (!this.container) return;
         this.finderView?.destroy();
         this.organizerView?.destroy();
+        this.navigationLibraryView?.destroy();
 
         const grid = document.createElement('div');
         grid.className = 'shortcuts-grid';
@@ -2259,6 +2260,7 @@ class ShortcutsComponent {
         this.refreshShortcutUndo();
         this.finderView = window.LocalItabFinder?.mountForShortcuts(header, this);
         this.organizerView = window.LocalItabOrganizer?.mount(header, this);
+        this.navigationLibraryView = window.LocalItabNavigationLibrary?.mount(header, this);
         this.updateCollectionVisibility();
 
         this.attachEventListeners();
@@ -2889,6 +2891,29 @@ class ShortcutsComponent {
         }
     }
 
+    async addCatalogShortcut(request) {
+        if (this._shortcutWritesPending || this._pendingSave || this._pendingDelete || this._shortcutOrderPending || this._shortcutUndoPending ||
+            this.modal?.classList.contains('active')) throw new Error('Shortcut action pending');
+        this._shortcutWritesPending = (this._shortcutWritesPending || 0) + 1;
+        const controller = this.layoutController;
+        controller?.holdShortcutMutation();
+        this.refreshShortcutUndo();
+        try {
+            if (controller?.failedChange || controller?.invalidated) throw Object.assign(new Error('Pending layout change'), { code: 'CATALOG_LAYOUT_PENDING' });
+            const flushed = await controller?.flush();
+            if (flushed === false || controller?.failedChange || controller?.invalidated) throw Object.assign(new Error('Pending layout change'), { code: 'CATALOG_LAYOUT_PENDING' });
+            const saved = await storageManager.addCatalogShortcut(request);
+            this.adoptShortcutSnapshot(saved);
+            this._shortcutUndoReceipt = null;
+            this.updateGrid();
+            return saved;
+        } finally {
+            this._shortcutWritesPending--;
+            controller?.releaseShortcutMutation();
+            this.refreshShortcutUndo();
+        }
+    }
+
     async saveShortcutLinks(next, previous, operation) {
         this._shortcutWritesPending = (this._shortcutWritesPending || 0) + 1;
         this.refreshShortcutUndo();
@@ -3025,7 +3050,7 @@ class ShortcutsComponent {
     hasUncommittedShortcutWork() {
         // A dismissed editor can still own an unresolved write. Delete/Undo and
         // conflict flags are not draft ownership and must not create warnings.
-        if (this._pendingSave || this.organizerView?.hasUncommittedWork()) return true;
+        if (this._pendingSave || this.organizerView?.hasUncommittedWork() || this.navigationLibraryView?.hasUncommittedWork()) return true;
         const baseline = this._shortcutDraftBaseline;
         if (!baseline || baseline.session !== this._modalSession || baseline.modal !== this.modal ||
             !this.modal?.classList.contains('active')) return false;

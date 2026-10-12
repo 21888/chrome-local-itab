@@ -598,6 +598,135 @@ class StorageManager {
         }, true);
     }
 
+    catalogCanonicalURL(value) {
+        if (typeof value !== 'string' || !/^https?:\/\//i.test(value) ||
+            /[\s\u0000-\u001f\u007f-\u009f\\\ufffd]/u.test(value) || /%(?![a-f0-9]{2})/i.test(value)) return null;
+        try {
+            const authority = value.slice(value.indexOf('://') + 3).split(/[/?#]/, 1)[0];
+            const url = new URL(value);
+            if (!authority || authority.includes('@') || !url.hostname || url.username || url.password) return null;
+            return url.href;
+        } catch (_) { return null; }
+    }
+
+    navigationLibrarySnapshot(raw) {
+        const fail = () => { throw this.shortcutUndoError('CATALOG_INVALID', 'Saved sites or privacy settings require review before adding a site.'); };
+        try {
+            const snapshot = this.shortcutUndoSnapshot(raw);
+            const categories = this.copyBookmarkImportValue(raw.categories === undefined ? this.defaultConfig.categories : raw.categories);
+            if (!Array.isArray(categories) || categories.length > BOOKMARK_IMPORT_STORAGE_LIMITS.categories ||
+                snapshot.links.length > BOOKMARK_IMPORT_STORAGE_LIMITS.links) fail();
+            const ids = new Set();
+            for (const category of categories) {
+                if (!category || typeof category.id !== 'string' || !category.id || ids.has(category.id) ||
+                    typeof category.name !== 'string' || !category.name.trim()) fail();
+                ids.add(category.id);
+            }
+            const sync = raw.sync === undefined ? this.defaultConfig.sync : raw.sync;
+            const settings = raw.privacy === undefined ? this.defaultConfig.privacy : raw.privacy;
+            if (!sync || typeof sync.enabled !== 'boolean' || !settings || typeof settings.onlineFavicons !== 'boolean') fail();
+            const privacy = { syncEnabled: sync.enabled, onlineFavicons: settings.onlineFavicons };
+            // Sync is device-global but only the default workspace participates.
+            // Keep the global flag in the guard so a preference change still
+            // invalidates the review even when this workspace cannot sync.
+            const effectivePrivacy = { ...privacy,
+                syncEnabled: privacy.syncEnabled && (!this.workspace || this.workspace.id === 'default') };
+            return { ...snapshot, categories, privacy: effectivePrivacy,
+                state: { ...this.shortcutUndoState(raw), catalogPrivacy: privacy } };
+        } catch (cause) {
+            if (cause.code?.startsWith('WORKSPACE_') || cause.code === 'CATALOG_INVALID') throw cause;
+            const error = this.shortcutUndoError('CATALOG_INVALID', 'Saved sites require review before adding a site.');
+            error.cause = cause; throw error;
+        }
+    }
+
+    async readNavigationLibrarySnapshot() {
+        return this.withLocalWriteLock(async () => this.navigationLibrarySnapshot(await this._local.get(null)), true);
+    }
+
+    async addCatalogShortcut(request) {
+        // A review object is an immutable retry ticket. A retry first observes
+        // saved state, including privacy, and never blindly repeats a write.
+        const invalid = () => this.shortcutUndoError('CATALOG_INVALID', 'A valid site and a fresh library preview are required.');
+        if (!request || typeof request !== 'object' || Array.isArray(request)) throw invalid();
+        this._catalogRequests ||= new WeakMap();
+        let ticket = this._catalogRequests.get(request);
+        if (!ticket) {
+            let plan;
+            try { plan = this.copyBookmarkImportValue(request); } catch (_) { throw invalid(); }
+            const site = plan.site;
+            const url = this.catalogCanonicalURL(site?.url);
+            if (!plan.baseline || typeof plan.baseline !== 'object' || !plan.baseline.catalogPrivacy ||
+                typeof plan.destination !== 'string' || !plan.destination || !site ||
+                typeof site.name !== 'string' || !site.name.trim() || site.name !== site.name.trim() || site.name.length > 160 ||
+                /[\u0000-\u001f\u007f]/.test(site.name) || !url || !url.startsWith('https://') ||
+                typeof site.icon !== 'string' || !site.icon.trim() || site.icon.length > 64 ||
+                /[<>\u0000-\u001f\u007f]|(?:https?:|data:|javascript:|\/\/)/i.test(site.icon)) throw invalid();
+            ticket = { plan, url, attempted: false };
+            this._catalogRequests.set(request, ticket);
+        }
+        if (ticket.pending) return ticket.pending;
+        ticket.pending = this.withLocalWriteLock(async () => {
+            let raw;
+            try { raw = await this._local.get(null); } catch (cause) {
+                if (cause.code?.startsWith('WORKSPACE_')) throw cause;
+                const error = this.shortcutUndoError(ticket.attempted ? 'CATALOG_UNVERIFIED' : 'CATALOG_FAILED',
+                    ticket.attempted ? 'Could not read the saved result. Reopen the library before trying again.' : 'Could not read saved sites. Nothing was added.');
+                if (ticket.attempted) error.mayHaveCommitted = true;
+                error.cause = cause; throw error;
+            }
+            const snapshot = this.navigationLibrarySnapshot(raw);
+            const same = (left, right) => this.sameShortcutUndoValue(left, right);
+            if (ticket.attempted && same(snapshot.state, ticket.after)) {
+                this._shortcutUndoTicket = null; ticket.completed = true;
+                return { ...snapshot, duplicate: false };
+            }
+            const conflict = () => this.shortcutUndoError('CATALOG_CONFLICT', 'Saved sites, categories, layout or privacy changed. Refresh the library before adding.');
+            if (ticket.completed || !same(snapshot.state, ticket.plan.baseline)) throw conflict();
+            if (!snapshot.categories.some(category => category.id === ticket.plan.destination)) throw conflict();
+            if (snapshot.links.some(link => this.catalogCanonicalURL(link.url) === ticket.url)) return { ...snapshot, duplicate: true };
+            if (snapshot.links.length >= BOOKMARK_IMPORT_STORAGE_LIMITS.links) throw invalid();
+            const link = { title: ticket.plan.site.name, url: ticket.url, icon: ticket.plan.site.icon, category: ticket.plan.destination };
+            const written = { links: [...snapshot.links, link], [this.layoutGenerationKey]: this.createLayoutGeneration() };
+            // Legacy workspaces stay legacy. Identity mode adds only one fresh
+            // map entry; all existing positions and unknown fields survive.
+            if (LayoutIdentity.active(raw.layout)) {
+                const layout = this.copyBookmarkImportValue(raw.layout);
+                const reserved = new Set([...snapshot.links.map(item => item.layoutId), ...Object.keys(layout.positionsById)]);
+                let id;
+                for (let attempt = 0; attempt < 32; attempt++) {
+                    id = this.createLayoutIdentity();
+                    if (LayoutIdentity.idPattern.test(id) && !reserved.has(id)) break;
+                    id = null;
+                }
+                if (!id) throw invalid();
+                link.layoutId = id; layout.positionsById[id] = {}; written.layout = layout;
+            }
+            ticket.after = this.navigationLibrarySnapshot({ ...raw, ...written }).state;
+            ticket.attempted = true;
+            let failure;
+            try { await this._local.set(written); } catch (error) { failure = error; }
+            try {
+                const saved = this.navigationLibrarySnapshot(await this._local.get(null));
+                if (same(saved.state, ticket.after)) {
+                    this._shortcutUndoTicket = null; ticket.completed = true;
+                    return { ...saved, duplicate: false };
+                }
+                if (same(saved.state, ticket.plan.baseline)) {
+                    const error = this.shortcutUndoError('CATALOG_FAILED', 'Nothing was added. Retry this site.');
+                    error.cause = failure; throw error;
+                }
+            } catch (error) { if (error.code === 'CATALOG_FAILED' || error.code?.startsWith('WORKSPACE_')) throw error; }
+            const error = this.shortcutUndoError('CATALOG_UNVERIFIED', 'Could not verify the addition. Retry checks the saved result before writing.');
+            error.mayHaveCommitted = true; throw error;
+        }, true);
+        try {
+            const saved = await ticket.pending;
+            if (!saved.duplicate) { try { await this.scheduleShortcutUndoSync(); } catch (_) {} }
+            return saved;
+        } finally { ticket.pending = null; }
+    }
+
     async moveShortcutsToCategory(request) {
         // The same review object is the retry identity. Never infer completion
         // from matching titles/URLs, which may represent distinct legacy twins.
