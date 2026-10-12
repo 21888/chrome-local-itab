@@ -13,8 +13,12 @@
         const draft = Core.createDraft(record);
         return { ...Object.fromEntries(editable.map(key => [key, draft[key]])), tagsText: draft.tags.join(', ') };
     }
-    function values(input) {
-        const tags = input.tagsText.split(/[,，\n]/u).map(tag => tag.trim()).filter(Boolean);
+    function values(input, originalTags = null) {
+        // Display separators are ambiguous for imported tags. Preserve the exact
+        // original array until the text actually changes (including edit/revert).
+        const tags = originalTags && input.tagsText === originalTags.join(', ')
+            ? [...originalTags]
+            : input.tagsText.split(/[,，\n]/u).map(tag => tag.trim()).filter(Boolean);
         return { ...Object.fromEntries(editable.map(key => [key, input[key]])), tags };
     }
     // Exact immutable IDs only: no title matching, latest-version fallback or recovery copies.
@@ -112,7 +116,7 @@
         select(id) { if (this.busy) return false; this.excerptEpoch++; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
         makeDraft(record) {
             const input = fields(record);
-            return { input, baseline: copy(input), id: record?.id, version: record?.version, conflict: false };
+            return { input, baseline: copy(input), originalTags: Core.createDraft(record).tags, id: record?.id, version: record?.version, conflict: false };
         }
         edit(id = this.selected) {
             if (this.busy || this.pendingCommand) return false;
@@ -271,7 +275,7 @@
             if (!draft || (draft.conflict && !asCopy)) return false;
             try {
                 const command = this.store.request(draft.id && !asCopy ? 'edit' : 'add', {
-                    ...values(draft.input), ...(draft.id && !asCopy ? { id: draft.id, version: draft.version } : {})
+                    ...values(draft.input, draft.originalTags), ...(draft.id && !asCopy ? { id: draft.id, version: draft.version } : {})
                 });
                 return await this.execute({ command, draftKey, action: 'save' });
             } catch (error) { this.error = { code: error.code || 'INVALID', scope: 'save' }; this.notify(); return false; }
