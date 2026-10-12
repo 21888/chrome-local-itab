@@ -77,3 +77,19 @@
 .navigation-library-saved-filters { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 13px; }
 .navigation-library-saved-filter { border: 1px solid var(--nl-line); border-radius: 999px; padding: 7px 12px; background: var(--nl-card); font-size: 12px !important; }
 .navigation-library-saved-filter[aria-pressed="true"] { color: var(--nl-accent); background: var(--nl-selected); font-weight: 650; }
+
+.navigation-library-batch { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0 16px; font-size: 12px; }
+.navigation-library-batch > .navigation-library-batch-review { margin-left: auto; }
+.navigation-library-selection-help { flex-basis: 100%; color: var(--nl-muted); font-size: 11px; margin: 0; }
+.navigation-library-pick { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; color: var(--nl-muted); font-size: 11px; cursor: pointer; }
+.navigation-library-pick input { accent-color: var(--nl-accent); width: 16px; height: 16px; margin: 0; }
+.navigation-library-card:has(.navigation-library-pick input:checked) { border-color: var(--nl-accent); background: var(--nl-selected); }
+.navigation-library-review { padding: 16px; margin-bottom: 16px; background: var(--nl-selected); border: 1px solid var(--nl-line); border-radius: 12px; font-size: 12px; overflow-wrap: anywhere; }
+.navigation-library-review[hidden] { display: none; }
+.navigation-library-review h3 { margin: 0; font-size: 15px; }
+.navigation-library-review ul { padding-left: 20px; columns: 2; }
+.navigation-library-review li { break-inside: avoid; margin-bottom: 5px; }
+.navigation-library-review-cancel { background: var(--nl-card); border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; margin: 0 8px 8px 0; font-size: 11px !important; }
+@media (max-width: 520px) { .navigation-library-review ul { columns: 1; } }
+
+.navigation-library-batch-review, .navigation-library-batch-confirm { background: var(--nl-selected); color: var(--nl-accent) !important; border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; font-size: 11px !important; }

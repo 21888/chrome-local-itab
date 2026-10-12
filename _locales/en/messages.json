@@ -4529,8 +4529,12 @@
   "promptsModelRefineSaveUncertain": {
     "message": "Could not confirm acceptance. The submitted draft is locked; retry accepts the exact same text using the same operation. Inspect history before leaving."
   },
-  "promptsCompareCheckSave": {"message": "Check whether this result was saved"},
-  "promptsCompareSaveUnconfirmed": {"message": "Save is unconfirmed. Check performs a read-only lookup of this exact operation; it never writes again. Missing, expired or restored-away evidence cannot confirm success. Keep this result until you have checked your collection."},
+  "promptsCompareCheckSave": {
+    "message": "Check whether this result was saved"
+  },
+  "promptsCompareSaveUnconfirmed": {
+    "message": "Save is unconfirmed. Check performs a read-only lookup of this exact operation; it never writes again. Missing, expired or restored-away evidence cannot confirm success. Keep this result until you have checked your collection."
+  },
   "completeBackupDuplicateKey": {
     "message": "This backup contains duplicate JSON fields. Restore has not started. Choose a valid backup file."
   },
@@ -5163,5 +5167,35 @@
   },
   "navigationTagWhiteboarding": {
     "message": "Whiteboarding"
+  },
+  "navigationLibrarySelect": {
+    "message": "Select"
+  },
+  "navigationLibrarySelected": {
+    "message": "selected"
+  },
+  "navigationLibrarySelectionHelp": {
+    "message": "Choose up to 20 sites. Selections stay when you change filters."
+  },
+  "navigationLibraryClearSelection": {
+    "message": "Clear selection"
+  },
+  "navigationLibraryReviewSelection": {
+    "message": "Review selected"
+  },
+  "navigationLibraryReviewTitle": {
+    "message": "Review your selection"
+  },
+  "navigationLibraryConfirmSelection": {
+    "message": "Confirm and add"
+  },
+  "navigationLibraryCancelSelection": {
+    "message": "Back to browsing"
+  },
+  "navigationLibrarySkipped": {
+    "message": "already added, skipped"
+  },
+  "navigationLibraryBatchFailed": {
+    "message": "Nothing was added. Review your selection before trying again."
   }
 }

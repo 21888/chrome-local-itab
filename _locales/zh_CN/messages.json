@@ -4529,8 +4529,12 @@
   "promptsModelRefineSaveUncertain": {
     "message": "无法确认采纳是否成功。已提交的草稿已锁定；重试将使用同一操作和完全相同的文本。离开前请检查历史记录。"
   },
-  "promptsCompareCheckSave": {"message": "核对此结果是否已保存"},
-  "promptsCompareSaveUnconfirmed": {"message": "保存尚未确认。核对只会读取并验证同一次操作，不会再次写入。若凭据缺失、过期或已被恢复操作清除，就无法确认成功。检查集合前请保留此结果。"},
+  "promptsCompareCheckSave": {
+    "message": "核对此结果是否已保存"
+  },
+  "promptsCompareSaveUnconfirmed": {
+    "message": "保存尚未确认。核对只会读取并验证同一次操作，不会再次写入。若凭据缺失、过期或已被恢复操作清除，就无法确认成功。检查集合前请保留此结果。"
+  },
   "completeBackupDuplicateKey": {
     "message": "此备份包含重复的 JSON 字段，尚未开始还原。请选择有效的备份文件。"
   },
@@ -5163,5 +5167,35 @@
   },
   "navigationTagWhiteboarding": {
     "message": "白板协作"
+  },
+  "navigationLibrarySelect": {
+    "message": "选择"
+  },
+  "navigationLibrarySelected": {
+    "message": "已选"
+  },
+  "navigationLibrarySelectionHelp": {
+    "message": "每次最多选择 20 个网站，切换筛选时会保留选择。"
+  },
+  "navigationLibraryClearSelection": {
+    "message": "清空选择"
+  },
+  "navigationLibraryReviewSelection": {
+    "message": "检查所选"
+  },
+  "navigationLibraryReviewTitle": {
+    "message": "确认所选网站"
+  },
+  "navigationLibraryConfirmSelection": {
+    "message": "确认并添加"
+  },
+  "navigationLibraryCancelSelection": {
+    "message": "返回浏览"
+  },
+  "navigationLibrarySkipped": {
+    "message": "个已添加，已跳过"
+  },
+  "navigationLibraryBatchFailed": {
+    "message": "未添加任何网站，请检查所选后重试。"
   }
 }

@@ -204,3 +204,43 @@ test('adding a new catalog entry updates saved-state counts and cannot add again
  const h=model();await h.view.open();h.search('JSON Crack');assertSavedCounts(h,1,0);assert.equal(cards(h)[0].dataset.site,'json-crack');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');await tick();
  assertSavedCounts(h,1,1);assert.equal(cards(h).length,0);savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,true);assert.equal(h.snapshot.links[0].url,'https://jsoncrack.com/');assert.equal(h.calls,1);
 });
+
+const textTree=node=>[node.textContent||'',...node.children.map(textTree)].join(' ');
+const pickSite=(h,id,value=true)=>{const pick=cards(h).find(card=>card.dataset.site===id).querySelector('input');pick.checked=value;pick.dispatch('change');};
+const selectionCount=h=>h.document.querySelector('.navigation-library-batch span').textContent;
+function batchWriter(h){let calls=0,request;h.component.addCatalogShortcut=async r=>{calls++;request=r;for(const site of r.sites)h.snapshot.links.push({title:site.name,url:site.url,category:r.destination});return {...structuredClone(h.snapshot),addedCount:r.sites.length,skippedCount:0};};return{get calls(){return calls;},get request(){return request;}};}
+test('explicit batch picks survive filters; review lists every selection and chosen destination with zero writes until confirmation',async()=>{
+ const h=model(),writer=batchWriter(h);await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');h.search('chatgpt');assert.equal(cards(h).length,1);assert.equal(selectionCount(h),'2 / 20 selected');
+ const destination=h.document.querySelector('.navigation-library-destination select');destination.value='personal';destination.dispatch('change');h.click('Review selected');const review=h.document.querySelector('.navigation-library-review');
+ assert.equal(review.hidden,false);assert.match(textTree(review),/ChatGPT/);assert.match(textTree(review),/GitHub/);assert.match(textTree(review),/Personal/);assert.equal(writer.calls,0);
+ h.click('Back to browsing');assert.equal(review.hidden,true);assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(writer.calls,0);
+ h.click('Review selected');h.click('Confirm and add');await tick();assert.equal(writer.calls,1);assert.equal(writer.request.destination,'personal');assert.equal(writer.request.sites.length,2);assert.equal(selectionCount(h),'0 / 20 selected');assert.match(h.document.querySelector('.navigation-library-status').textContent,/2.*Added to Personal/);
+ assertSavedCounts(h,1,1);assert.equal(h.firstAdd().disabled,true);assert.equal(h.document.activeElement.dataset.site,'chatgpt');
+});
+test('selection cap disables only additional picks; deselect and clear remain zero-write; close discards selections',async()=>{
+ const h=model();await h.view.open();const ids=cards(h).slice(0,21).map(card=>card.dataset.site);for(const id of ids.slice(0,20))pickSite(h,id);
+ assert.equal(selectionCount(h),'20 / 20 selected');assert.equal(cards(h)[20].querySelector('input').disabled,true);assert.equal(cards(h)[0].querySelector('input').disabled,false);
+ pickSite(h,ids[0],false);assert.equal(cards(h)[20].querySelector('input').disabled,false);assert.equal(selectionCount(h),'19 / 20 selected');h.click('Clear selection');assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.document.activeElement,h.document.querySelector('input'));
+ pickSite(h,ids[1]);h.click('Review selected');h.view.close();await h.view.open();assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);assert.equal(h.calls,0);
+});
+test('changing destination or filters invalidates visible review and cannot submit stale confirmation',async()=>{
+ const h=model(),writer=batchWriter(h);await h.view.open();pickSite(h,'chatgpt');h.click('Review selected');const old=h.button('Confirm and add');
+ const destination=h.document.querySelector('.navigation-library-destination select');destination.value='personal';destination.dispatch('change');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);old.dispatch('click');assert.equal(writer.calls,0);
+ h.click('Review selected');assert.match(textTree(h.document.querySelector('.navigation-library-review')),/Personal/);h.search('github');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);assert.equal(selectionCount(h),'1 / 20 selected');
+});
+test('pending batch locks picks, target, filters and confirmation; no double submit or close until readback',async()=>{
+ const h=model(),pending=deferred();let calls=0;h.component.addCatalogShortcut=async()=>{calls++;return pending.promise;};await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');h.click('Review selected');const confirm=h.button('Confirm and add');confirm.dispatch('click');confirm.dispatch('click');
+ assert.equal(calls,1);assert.equal(h.view.close(),false);assert.equal(h.document.activeElement.className,'navigation-library-panel');assert.ok(h.document.querySelectorAll('input, select, button').filter(node=>node.className!=='navigation-library-opener').every(node=>node.disabled));
+ pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/'},{url:'https://github.com/'}],addedCount:1,skippedCount:1});await tick();assert.equal(selectionCount(h),'0 / 20 selected');assert.match(h.document.querySelector('.navigation-library-status').textContent,/1.*Added to Work.*1 already added, skipped/);assert.equal(h.view.close(),true);
+});
+for(const code of ['CATALOG_FAILED','CATALOG_CONFLICT','CATALOG_UNVERIFIED'])test(`batch ${code} retains selections without false success or automatic retry`,async()=>{
+ const h=model();let calls=0;h.component.addCatalogShortcut=async()=>{calls++;throw Object.assign(new Error(),{code});};await h.view.open();pickSite(h,'chatgpt');h.click('Review selected');h.click('Confirm and add');await tick();assert.equal(calls,1);assert.equal(selectionCount(h),'1 / 20 selected');assertSavedCounts(h,108,0);assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
+ assert.equal(h.button('Review selected').disabled,code!=='CATALOG_FAILED');assert.match(h.document.querySelector('.navigation-library-status').textContent,code==='CATALOG_FAILED'?/Nothing was added/:/Close and reopen/);
+ if(code==='CATALOG_FAILED'){h.click('Review selected');assert.equal(calls,1);h.click('Confirm and add');await tick();assert.equal(calls,2);}
+});
+test('batch selection and review are bilingual and saved sites cannot be selected',async()=>{
+ const h=model({locale:'zh-CN'});h.snapshot.links=[{url:'https://github.com/'}];await h.view.open();assert.equal(cards(h).find(card=>card.dataset.site==='github').querySelector('input').disabled,true);pickSite(h,'chatgpt');assert.equal(selectionCount(h),'1 / 20 已选');h.click('检查所选');assert.match(textTree(h.document.querySelector('.navigation-library-review')),/确认所选网站/);assert.equal(h.button('确认并添加'),h.document.activeElement);h.click('返回浏览');assert.equal(h.document.activeElement,h.button('检查所选'));assert.equal(h.calls,0);
+});
+test('batch in Not added updates counts and focuses remaining or empty results',async()=>{
+ for(const size of [2,3]){const h=model(),writer=batchWriter(h);h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,size);await h.view.open();savedControl(h,'new').dispatch('click');const ids=cards(h).slice(0,2).map(card=>card.dataset.site);for(const id of ids)pickSite(h,id);h.click('Review selected');h.click('Confirm and add');await tick();assert.equal(writer.calls,1);assertSavedCounts(h,size,2);assert.equal(cards(h).length,size-2);assert.equal(h.document.activeElement,size===2?h.document.querySelector('.navigation-library-empty'):cards(h)[0]);}
+});

@@ -654,18 +654,29 @@ class StorageManager {
         if (!ticket) {
             let plan;
             try { plan = this.copyBookmarkImportValue(request); } catch (_) { throw invalid(); }
-            const site = plan.site;
-            const url = this.catalogCanonicalURL(site?.url);
+            const batch = Object.prototype.hasOwnProperty.call(plan, 'sites');
+            if (batch && Object.prototype.hasOwnProperty.call(plan, 'site')) throw invalid();
+            const sites = batch ? plan.sites : [plan.site];
             if (!plan.baseline || typeof plan.baseline !== 'object' || !plan.baseline.catalogPrivacy ||
-                typeof plan.destination !== 'string' || !plan.destination || !site ||
-                typeof site.name !== 'string' || !site.name.trim() || site.name !== site.name.trim() || site.name.length > 160 ||
-                /[\u0000-\u001f\u007f]/.test(site.name) || !url || !url.startsWith('https://') ||
-                typeof site.icon !== 'string' || !site.icon.trim() || site.icon.length > 64 ||
-                /[<>\u0000-\u001f\u007f]|(?:https?:|data:|javascript:|\/\/)/i.test(site.icon)) throw invalid();
-            ticket = { plan, url, attempted: false };
+                typeof plan.destination !== 'string' || !plan.destination ||
+                !Array.isArray(sites) || !sites.length || sites.length > 20) throw invalid();
+            // Validate the whole selection before looking for duplicates or
+            // allocating identities. An invalid later entry aborts everything.
+            const candidates = sites.map(site => {
+                const url = this.catalogCanonicalURL(site?.url);
+                if (!site || typeof site.name !== 'string' || !site.name.trim() || site.name !== site.name.trim() || site.name.length > 160 ||
+                    /[\u0000-\u001f\u007f]/.test(site.name) || !url || !url.startsWith('https://') ||
+                    typeof site.icon !== 'string' || !site.icon.trim() || site.icon.length > 64 ||
+                    /[<>\u0000-\u001f\u007f]|(?:https?:|data:|javascript:|\/\/)/i.test(site.icon)) throw invalid();
+                return { title: site.name, url, icon: site.icon, category: plan.destination };
+            });
+            ticket = { plan, batch, candidates, attempted: false };
             this._catalogRequests.set(request, ticket);
         }
         if (ticket.pending) return ticket.pending;
+        const result = snapshot => ticket.batch
+            ? { ...snapshot, addedCount: ticket.addedCount, skippedCount: ticket.skippedCount }
+            : { ...snapshot, duplicate: ticket.addedCount === 0 };
         ticket.pending = this.withLocalWriteLock(async () => {
             let raw;
             try { raw = await this._local.get(null); } catch (cause) {
@@ -679,28 +690,38 @@ class StorageManager {
             const same = (left, right) => this.sameShortcutUndoValue(left, right);
             if (ticket.attempted && same(snapshot.state, ticket.after)) {
                 this._shortcutUndoTicket = null; ticket.completed = true;
-                return { ...snapshot, duplicate: false };
+                return result(snapshot);
             }
             const conflict = () => this.shortcutUndoError('CATALOG_CONFLICT', 'Saved sites, categories, layout or privacy changed. Refresh the library before adding.');
             if (ticket.completed || !same(snapshot.state, ticket.plan.baseline)) throw conflict();
             if (!snapshot.categories.some(category => category.id === ticket.plan.destination)) throw conflict();
-            if (snapshot.links.some(link => this.catalogCanonicalURL(link.url) === ticket.url)) return { ...snapshot, duplicate: true };
-            if (snapshot.links.length >= BOOKMARK_IMPORT_STORAGE_LIMITS.links) throw invalid();
-            const link = { title: ticket.plan.site.name, url: ticket.url, icon: ticket.plan.site.icon, category: ticket.plan.destination };
-            const written = { links: [...snapshot.links, link], [this.layoutGenerationKey]: this.createLayoutGeneration() };
-            // Legacy workspaces stay legacy. Identity mode adds only one fresh
-            // map entry; all existing positions and unknown fields survive.
+            const urls = new Set(snapshot.links.map(link => this.catalogCanonicalURL(link.url)));
+            const additions = [];
+            for (const candidate of ticket.candidates) {
+                if (urls.has(candidate.url)) continue;
+                urls.add(candidate.url); additions.push({ ...candidate });
+            }
+            ticket.addedCount = additions.length;
+            ticket.skippedCount = ticket.candidates.length - additions.length;
+            if (!additions.length) return result(snapshot);
+            if (snapshot.links.length + additions.length > BOOKMARK_IMPORT_STORAGE_LIMITS.links) throw invalid();
+            const written = { links: [...snapshot.links, ...additions], [this.layoutGenerationKey]: this.createLayoutGeneration() };
+            // Legacy workspaces stay legacy. Identity mode adds fresh entries
+            // only; all existing positions and unknown fields survive.
             if (LayoutIdentity.active(raw.layout)) {
                 const layout = this.copyBookmarkImportValue(raw.layout);
                 const reserved = new Set([...snapshot.links.map(item => item.layoutId), ...Object.keys(layout.positionsById)]);
-                let id;
-                for (let attempt = 0; attempt < 32; attempt++) {
-                    id = this.createLayoutIdentity();
-                    if (LayoutIdentity.idPattern.test(id) && !reserved.has(id)) break;
-                    id = null;
+                for (const link of additions) {
+                    let id;
+                    for (let attempt = 0; attempt < 32; attempt++) {
+                        id = this.createLayoutIdentity();
+                        if (LayoutIdentity.idPattern.test(id) && !reserved.has(id)) break;
+                        id = null;
+                    }
+                    if (!id) throw invalid();
+                    reserved.add(id); link.layoutId = id; layout.positionsById[id] = {};
                 }
-                if (!id) throw invalid();
-                link.layoutId = id; layout.positionsById[id] = {}; written.layout = layout;
+                written.layout = layout;
             }
             ticket.after = this.navigationLibrarySnapshot({ ...raw, ...written }).state;
             ticket.attempted = true;
@@ -710,10 +731,10 @@ class StorageManager {
                 const saved = this.navigationLibrarySnapshot(await this._local.get(null));
                 if (same(saved.state, ticket.after)) {
                     this._shortcutUndoTicket = null; ticket.completed = true;
-                    return { ...saved, duplicate: false };
+                    return result(saved);
                 }
                 if (same(saved.state, ticket.plan.baseline)) {
-                    const error = this.shortcutUndoError('CATALOG_FAILED', 'Nothing was added. Retry this site.');
+                    const error = this.shortcutUndoError('CATALOG_FAILED', 'Nothing was added. Retry the reviewed selection.');
                     error.cause = failure; throw error;
                 }
             } catch (error) { if (error.code === 'CATALOG_FAILED' || error.code?.startsWith('WORKSPACE_')) throw error; }
@@ -722,7 +743,7 @@ class StorageManager {
         }, true);
         try {
             const saved = await ticket.pending;
-            if (!saved.duplicate) { try { await this.scheduleShortcutUndoSync(); } catch (_) {} }
+            if (ticket.addedCount > 0) { try { await this.scheduleShortcutUndoSync(); } catch (_) {} }
             return saved;
         } finally { ticket.pending = null; }
     }

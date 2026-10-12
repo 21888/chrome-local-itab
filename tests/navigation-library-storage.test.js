@@ -211,3 +211,153 @@ test('real workspace facade rejects a reviewed add after its session is trashed'
     await assert.rejects(h.storage.addCatalogShortcut(request), { code: 'WORKSPACE_INVALIDATED' });
     assert.equal(h.writes.length, offset); assert.deepEqual(h.raw, before);
 });
+
+const catalogSite = n => ({ name: `Site ${n}`, url: `https://site-${n}.example.com/`, icon: 'S' });
+async function batchPlan(h, sites = [catalogSite(1), catalogSite(2)]) {
+    const { site, ...request } = await h.plan();
+    return { ...request, sites };
+}
+
+test('batch adds 1 through 20 sites in one atomic write and preserves legacy metadata', async () => {
+    for (const count of [1, 20]) {
+        const h = model(), before = clone(h.state), request = await batchPlan(h, Array.from({ length: count }, (_, i) => catalogSite(i)));
+        const result = await h.m.addCatalogShortcut(request);
+        assert.equal(result.addedCount, count); assert.equal(result.skippedCount, 0); assert.equal(Object.hasOwn(result, 'duplicate'), false);
+        assert.equal(h.writes, 1); assert.equal(h.syncs, 1);
+        assert.deepEqual(h.state, { ...before, links: [...before.links, ...request.sites.map(s => ({ title: s.name, url: s.url, icon: s.icon, category: 'personal' }))],
+            __localItabLayoutGeneration: h.state.__localItabLayoutGeneration });
+    }
+});
+
+test('batch rejects empty, oversized, non-array and ambiguous requests before any write', async () => {
+    const h = model(), request = await batchPlan(h), before = clone(h.state);
+    for (const sites of [[], Array.from({ length: 21 }, (_, i) => catalogSite(i)), null, {}, 'sites']) {
+        await assert.rejects(h.m.addCatalogShortcut({ ...request, sites }), { code: 'CATALOG_INVALID' });
+    }
+    await assert.rejects(h.m.addCatalogShortcut({ ...request, site: catalogSite(3) }), { code: 'CATALOG_INVALID' });
+    assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+});
+
+test('invalid later batch entry aborts the entire write even when an earlier entry is new or duplicate', async () => {
+    for (const first of [catalogSite(1), { ...catalogSite(1), url: 'https://example.com/' }]) {
+        for (const invalid of [null, { ...catalogSite(2), url: 'http://site-2.example.com' }, { ...catalogSite(2), icon: '<img>' }, { ...catalogSite(2), name: '' }]) {
+            const h = model(), before = clone(h.state), request = await batchPlan(h, [first, invalid]);
+            await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_INVALID' });
+            assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+        }
+    }
+});
+
+test('batch deduplicates canonical URLs against all categories and itself in selection order', async () => {
+    const h = model(), before = clone(h.state);
+    const request = await batchPlan(h, [{ ...catalogSite(0), url: 'https://EXAMPLE.com:443' }, catalogSite(1),
+        { ...catalogSite(2), url: 'https://SITE-1.example.com:443' }, catalogSite(3)]);
+    const result = await h.m.addCatalogShortcut(request);
+    assert.equal(result.addedCount, 2); assert.equal(result.skippedCount, 2); assert.equal(h.writes, 1);
+    assert.deepEqual(h.state.links.slice(0, 2), before.links);
+    assert.deepEqual(h.state.links.slice(2).map(x => x.title), ['Site 1', 'Site 3']);
+    const duplicateRequest = await batchPlan(h, request.sites), saved = clone(h.state), syncs = h.syncs;
+    const duplicate = await h.m.addCatalogShortcut(duplicateRequest);
+    assert.equal(duplicate.addedCount, 0); assert.equal(duplicate.skippedCount, 4);
+    assert.equal(h.writes, 1); assert.equal(h.syncs, syncs); assert.deepEqual(h.state, saved);
+});
+
+test('batch identities avoid both orphan map keys and earlier newly allocated identities', async () => {
+    const id = n => 'l_' + String(n).padStart(32, '0');
+    const h = model({ schemaVersion: 2, links: [{ title: 'Old', url: 'https://example.com/', icon: 'E', category: 'work', layoutId: id(1), extra: 7 }],
+        layout: { identityVersion: 1, extra: { safe: true }, positions: { old: { x: 2, y: 3 } },
+            positionsById: { [id(1)]: { work: { x: 3, y: 4 } }, [id(2)]: { all: { x: 5, y: 6 } } } } });
+    const before = clone(h.state), ids = [1, 2, 3, 3, 2, 4]; h.m.createLayoutIdentity = () => id(ids.shift());
+    const result = await h.m.addCatalogShortcut(await batchPlan(h));
+    assert.equal(result.addedCount, 2); assert.equal(h.writes, 1);
+    assert.deepEqual(h.state.links.map(x => x.layoutId), [id(1), id(3), id(4)]);
+    assert.deepEqual(h.state.layout, { ...before.layout, positionsById: { ...before.layout.positionsById, [id(3)]: {}, [id(4)]: {} } });
+    assert.deepEqual(h.state.links[0], before.links[0]); assert.equal(h.state.schemaVersion, 2);
+});
+
+test('batch later identity exhaustion never persists earlier allocated links', async () => {
+    const id = n => 'l_' + String(n).padStart(32, '0');
+    const h = model({ schemaVersion: 2, links: [], layout: { identityVersion: 1, positions: {}, positionsById: {} } });
+    const before = clone(h.state); h.m.createLayoutIdentity = () => id(1);
+    await assert.rejects(h.m.addCatalogShortcut(await batchPlan(h)), { code: 'CATALOG_INVALID' });
+    assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+});
+
+test('batch failed write retries the whole selection and rejected committed write verifies counts', async () => {
+    const h = model(), request = await batchPlan(h), before = clone(h.state); h.failure = 'before';
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_FAILED' }); assert.deepEqual(h.state, before);
+    h.failure = 'after'; const saved = await h.m.addCatalogShortcut(request);
+    assert.equal(saved.addedCount, 2); assert.equal(saved.skippedCount, 0); assert.equal(h.writes, 2);
+    const retried = await h.m.addCatalogShortcut(request);
+    assert.equal(retried.addedCount, 2); assert.equal(retried.skippedCount, 0); assert.equal(h.writes, 2);
+});
+
+test('batch uncertain readback retries read-only with original added and skipped counts', async () => {
+    const h = model(), request = await batchPlan(h, [catalogSite(1), catalogSite(1), catalogSite(2)]);
+    h.afterWrite = () => { h.readFailure = true; };
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_UNVERIFIED', mayHaveCommitted: true });
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_UNVERIFIED', mayHaveCommitted: true });
+    h.readFailure = false; const saved = await h.m.addCatalogShortcut(request);
+    assert.equal(saved.addedCount, 2); assert.equal(saved.skippedCount, 1); assert.equal(h.writes, 1); assert.equal(h.state.links.length, 4);
+});
+
+for (const [name, mutate] of Object.entries({ links: s => s.links.reverse(), destination: s => s.categories.pop(),
+    layout: s => s.layout.positions.new = { x: 3, y: 4 }, privacy: s => s.privacy.onlineFavicons = true, sync: s => s.sync.enabled = true })) {
+    test(`batch rejects stale ${name} before writing and after uncertain save`, async () => {
+        const h = model(), request = await batchPlan(h); mutate(h.state); const before = clone(h.state);
+        await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_CONFLICT' }); assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+        const other = model(), otherRequest = await batchPlan(other); other.afterWrite = () => mutate(other.state);
+        await assert.rejects(other.m.addCatalogShortcut(otherRequest), { code: 'CATALOG_UNVERIFIED' }); const saved = clone(other.state);
+        await assert.rejects(other.m.addCatalogShortcut(otherRequest), { code: 'CATALOG_CONFLICT' }); assert.equal(other.writes, 1); assert.deepEqual(other.state, saved);
+    });
+}
+
+test('batch double-submit shares one immutable retry ticket and distinct previews conflict', async () => {
+    const h = model(), request = await batchPlan(h), competing = await batchPlan(h); let release;
+    const original = h.m._local.set;
+    h.m._local.set = async values => { await new Promise(resolve => { release = resolve; }); await original(values); };
+    const a = h.m.addCatalogShortcut(request), b = h.m.addCatalogShortcut(request);
+    await new Promise(setImmediate); request.sites[0].name = 'Mutated'; request.sites.pop(); request.destination = 'work'; release();
+    const results = await Promise.all([a, b]); assert.deepEqual(results[0], results[1]);
+    assert.equal(h.writes, 1); assert.equal(results[0].addedCount, 2); assert.equal(h.state.links[2].title, 'Site 1'); assert.equal(h.state.links[2].category, 'personal');
+    await assert.rejects(h.m.addCatalogShortcut(competing), { code: 'CATALOG_CONFLICT' }); assert.equal(h.writes, 1);
+});
+
+test('batch real workspace writes one pinned bundle and respects later session invalidation', async () => {
+    const h = await workspaceFixture(), snapshot = await h.storage.readNavigationLibrarySnapshot();
+    const before = structuredClone(h.raw), offset = h.writes.length;
+    const request = { baseline: snapshot.state, destination: 'work', sites: [catalogSite(1), catalogSite(2)] };
+    const saved = await h.storage.addCatalogShortcut(request), bundleKey = h.Workspaces.bundleKey(h.session);
+    assert.equal(saved.addedCount, 2); assert.equal(saved.privacy.syncEnabled, false);
+    assert.equal(h.writes.length - offset, 1); assert.deepEqual(Object.keys(h.writes[offset]), [bundleKey]);
+    for (const key of Object.keys(before)) if (key !== bundleKey) assert.deepEqual(h.raw[key], before[key]);
+    await h.manager.trash(h.session.id); const trashed = structuredClone(h.raw), writes = h.writes.length;
+    await assert.rejects(h.storage.addCatalogShortcut(request), { code: 'WORKSPACE_INVALIDATED' });
+    assert.equal(h.writes.length, writes); assert.deepEqual(h.raw, trashed);
+});
+
+test('batch total shortcut capacity counts only new URLs and rejects overflow atomically', async () => {
+    const links = Array.from({ length: 19999 }, () => ({ title: 'Old', url: 'https://example.com/', icon: 'E', category: 'work' }));
+    const h = model({ links }), before = clone(h.state);
+    await assert.rejects(h.m.addCatalogShortcut(await batchPlan(h)), { code: 'CATALOG_INVALID' });
+    assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+    const result = await h.m.addCatalogShortcut(await batchPlan(h, [catalogSite(1), catalogSite(1), { ...catalogSite(2), url: 'https://example.com/' }]));
+    assert.equal(result.addedCount, 1); assert.equal(result.skippedCount, 2); assert.equal(h.state.links.length, 20000); assert.equal(h.writes, 1);
+    const duplicate = await h.m.addCatalogShortcut(await batchPlan(h, [catalogSite(1)]));
+    assert.equal(duplicate.addedCount, 0); assert.equal(duplicate.skippedCount, 1); assert.equal(h.writes, 1);
+});
+
+test('completed batch ticket cannot replay after external restoration', async () => {
+    const h = model(), request = await batchPlan(h), before = clone(h.state);
+    await h.m.addCatalogShortcut(request);
+    for (const key of Object.keys(h.state)) delete h.state[key]; Object.assign(h.state, before);
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_CONFLICT' }); assert.equal(h.writes, 1);
+});
+
+test('batch requires its write lock and preserves workspace errors', async () => {
+    const h = model(), request = await batchPlan(h); let required;
+    h.m.withLocalWriteLock = async (work, lockRequired) => {
+        required = lockRequired; const error = new Error('workspace closed'); error.code = 'WORKSPACE_STALE'; throw error;
+    };
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'WORKSPACE_STALE' }); assert.equal(required, true); assert.equal(h.writes, 0);
+});
