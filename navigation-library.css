@@ -95,3 +95,16 @@
 .navigation-library-select-results, .navigation-library-batch-review, .navigation-library-batch-confirm { background: var(--nl-selected); color: var(--nl-accent) !important; border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; font-size: 11px !important; }
 
 .navigation-library-select-results { max-width: 100%; overflow-wrap: anywhere; }
+
+.navigation-library-new-category, .navigation-library-use-existing { background: var(--nl-selected); color: var(--nl-accent) !important; border: 1px solid var(--nl-line); border-radius: 8px; padding: 7px 12px; font-size: 11px !important; }
+.navigation-library-new-category-panel { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; padding: 14px; margin-bottom: 4px; border: 1px solid var(--nl-line); border-radius: 12px; background: var(--nl-card); }
+.navigation-library-new-category-panel label { min-width: 0; flex: 1 1 240px; display: flex; flex-direction: column; gap: 7px; color: var(--nl-muted); font-size: 12px; }
+.navigation-library-new-category-panel input { min-width: 0; width: 100%; box-sizing: border-box; background: var(--nl-bg); color: var(--nl-ink); border: 1px solid var(--nl-line); border-radius: 8px; padding: 10px 12px; font: inherit; }
+.navigation-library-new-category-panel input[aria-invalid="true"] { border-color: #bd5661; }
+.navigation-library-new-category-panel p { flex-basis: 100%; margin: 0; color: var(--nl-muted); font-size: 11px; line-height: 1.5; }
+.navigation-library-new-category-panel .navigation-library-category-error { color: var(--nl-ink); }
+.navigation-library-new-category-panel .navigation-library-category-error:empty { display: none; }
+.navigation-library-new-category-panel[hidden], .navigation-library-destination[hidden], .navigation-library-new-category[hidden] { display: none; }
+@media (max-width: 520px) { .navigation-library-new-category { width: 100%; }.navigation-library-use-existing { max-width: 100%; } }
+
+.navigation-library-new-category, .navigation-library-use-existing, .navigation-library-new-category-panel p { overflow-wrap: anywhere; }

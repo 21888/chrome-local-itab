@@ -31,3 +31,12 @@ for(const failure of ['existing','flush-false','flush-failed-change','invalidate
     await assert.rejects(h.component.addCatalogShortcut({}),{code:'CATALOG_LAYOUT_PENDING'});
     assert(!h.events.includes('write'));assert(!h.events.includes('adopt'));if(failure!=='invalidated')assert.equal(h.component.layoutController.failedChange,intent);assert.equal(h.component._shortcutWritesPending,0);
 });
+test('catalog category adoption refreshes navigation without selection persistence or an extra layout reflow',async()=>{
+ const h=model(),categories=[{id:'work',name:'Work'},{id:'reading',name:'Reading'}];
+ h.context.window.categoryNavigation={categories:[],currentCategory:'work',render(options){h.events.push('nav');assert.equal(options.reflow,false);assert.equal(h.component._shortcutWritesPending,1);assert.equal(this.currentCategory,'work');assert.equal(this.categories,categories);}};
+ h.context.storageManager.addCatalogShortcut=async()=>{h.events.push('write');return {links:[],categories,createdCategory:categories[1],destination:'reading'};};
+ await h.component.addCatalogShortcut({newCategory:{name:'Reading'}});assert.equal(h.component.categories,categories);assert.deepEqual(h.events,['hold','refresh','flush','write','adopt','nav','grid','release','refresh']);
+});
+test('CategoryNavigation render passes explicit reflow false and retains default true behavior',()=>{
+ const h=model();vm.runInContext('this.CategoryNavigation=CategoryNavigation;',h.context);const nav=Object.create(h.context.CategoryNavigation.prototype),list=h.context.document.createElement('div');list.id='category-list';h.context.document.body.append(list);nav.categories=[];nav.createNavItem=()=>h.context.document.createElement('button');nav.updateCategoryUI=()=>{};const reflows=[];nav.filterShortcuts=options=>reflows.push(options.reflow);nav.render({reflow:false});nav.render();assert.deepEqual(reflows,[false,true]);
+});

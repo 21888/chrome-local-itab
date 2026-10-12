@@ -1,0 +1,88 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const StorageManager = require('../storage.js');
+const { createDocument } = require('./helpers/task-dom-model');
+const tick = () => new Promise(setImmediate);
+
+// Exercise the real view-to-storage request contract. The DOM model never opens
+// a browser or loads a remote resource; all user content here is synthetic.
+function flow(categories = []) {
+    const document = createDocument({ blurUnavailableFocus: true });
+    document.documentElement.lang = 'en';
+    const host = document.createElement('header'); document.body.append(host);
+    const raw = { links: [], categories, layout: { positions: {}, autoArrange: false },
+        privacy: { onlineFavicons: false }, sync: { enabled: false }, unknown: { keep: true } };
+    const writes = [], requests = [];
+    const storage = new StorageManager(); storage._syncInitialized = true;
+    let queue = Promise.resolve();
+    storage.withLocalWriteLock = action => { const result = queue.then(action); queue = result.catch(() => {}); return result; };
+    Object.defineProperty(storage, '_local', { value: {
+        async get() { return structuredClone(raw); },
+        async set(values) { writes.push(structuredClone(values)); Object.assign(raw, structuredClone(values)); }
+    } });
+    storage.scheduleShortcutUndoSync = async () => {};
+    storage.createCatalogCategoryIdentity = () => 'cat_library_' + 'a'.repeat(32);
+    const component = { layoutController: { async flush() {} }, async addCatalogShortcut(request) {
+        requests.push(request); return storage.addCatalogShortcut(request);
+    } };
+    const context = { document, URL, Intl, console, setTimeout, window: null, addEventListener() {}, storageManager: storage,
+        shortcutsComponentInstance: component };
+    context.window = context; vm.createContext(context);
+    for (const file of ['shared/dialog-focus.js', 'shared/navigation-catalog.js', 'shared/navigation-sites.js', 'shared/navigation-library-view.js']) {
+        vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+    }
+    const view = component.navigationLibraryView = context.LocalItabNavigationLibrary.mount(host, component);
+    return { document, raw, writes, requests, storage, view, context,
+        button(text) { return document.querySelectorAll('button').find(node => node.textContent === text); } };
+}
+function begin(h, name) {
+    h.document.querySelector('.navigation-library-new-category').dispatch('click');
+    const input = h.document.querySelector('.navigation-library-new-category-panel input');
+    input.value = name; input.dispatch('input'); return input;
+}
+function choose(h, id) {
+    const card = h.document.querySelectorAll('article').find(node => node.dataset.site === id);
+    const input = card.querySelector('input'); input.checked = true; input.dispatch('change');
+}
+
+test('real empty-category single confirmation writes category and only the reviewed website together', async () => {
+    const h = flow(); await h.view.open(); choose(h, 'github'); begin(h, '  Cafe\u0301  ');
+    const card = h.document.querySelectorAll('article').find(node => node.dataset.site === 'chatgpt');
+    card.querySelector('.navigation-library-add').dispatch('click');
+    assert.equal(h.writes.length, 0);
+    h.document.querySelector('.navigation-library-batch-confirm').dispatch('click'); await tick();
+    assert.equal(h.writes.length, 1); assert.equal(h.requests.length, 1);
+    assert.equal(h.raw.categories[0].name, 'Café'); assert.equal(h.raw.links.length, 1);
+    assert.equal(h.raw.links[0].category, h.raw.categories[0].id); assert.equal(h.raw.links[0].title, 'ChatGPT');
+    assert.equal(h.requests[0].confirmedNewCategory, true); assert(!Object.hasOwn(h.requests[0], 'destination'));
+    assert.deepEqual(h.raw.unknown, { keep: true }); assert.deepEqual(h.raw.layout, { positions: {}, autoArrange: false });
+    assert.equal(h.document.querySelector('.navigation-library-destination select').value, h.raw.categories[0].id);
+    assert(h.document.querySelectorAll('article').find(node => node.dataset.site === 'github').querySelector('input').checked);
+});
+
+test('real new-category batch draft cancel and stale confirmation remain zero-write; current confirmation commits', async () => {
+    const h = flow([{ id: 'work', name: 'Work', extra: 1 }]); await h.view.open();
+    const input = begin(h, 'Research'); choose(h, 'chatgpt'); choose(h, 'github');
+    h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+    const old = h.document.querySelector('.navigation-library-batch-confirm');
+    input.value = 'Design'; input.dispatch('input'); old.dispatch('click'); await tick();
+    assert.equal(h.writes.length, 0);
+    h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+    h.document.querySelector('.navigation-library-review-cancel').dispatch('click');
+    assert.equal(h.writes.length, 0); assert.equal(input.value, 'Design');
+    h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+    h.document.querySelector('.navigation-library-batch-confirm').dispatch('click'); await tick();
+    assert.equal(h.writes.length, 1); assert.equal(h.raw.links.length, 2); assert.equal(h.raw.categories[1].name, 'Design');
+    assert.deepEqual(h.raw.categories[0], { id: 'work', name: 'Work', extra: 1 });
+});
+
+test('real concurrent privacy change refuses the new-category confirmation without any write', async () => {
+    const h = flow(); await h.view.open(); begin(h, 'AI');
+    h.document.querySelector('.navigation-library-add').dispatch('click');
+    h.raw.privacy.onlineFavicons = true;
+    h.document.querySelector('.navigation-library-batch-confirm').dispatch('click'); await tick();
+    assert.equal(h.writes.length, 0); assert.equal(h.raw.categories.length, 0); assert.equal(h.raw.links.length, 0);
+    assert.match(h.document.querySelector('.navigation-library-status').textContent, /Close and reopen/);
+});

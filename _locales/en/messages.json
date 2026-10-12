@@ -4689,7 +4689,7 @@
     "message": "Finish or retry the pending layout change, then reopen the library."
   },
   "navigationLibraryNoCategory": {
-    "message": "Create a personal shortcut category in Settings before adding sites."
+    "message": "Create a personal category here before adding sites."
   },
   "navigationLibrarySync": {
     "message": "Chrome Sync"
@@ -5203,5 +5203,32 @@
   },
   "navigationLibraryBatchFailed": {
     "message": "Nothing was added. Review your selection before trying again."
+  },
+  "navigationLibraryNewCategory": {
+    "message": "New personal category"
+  },
+  "navigationLibraryExistingCategory": {
+    "message": "Use existing category"
+  },
+  "navigationLibraryCategoryName": {
+    "message": "New category name"
+  },
+  "navigationLibraryCategoryHint": {
+    "message": "1–80 characters. Created only after you review and confirm."
+  },
+  "navigationLibraryCategoryInvalid": {
+    "message": "Enter a category name of 1–80 characters without control characters."
+  },
+  "navigationLibraryCategoryExists": {
+    "message": "A category with this name already exists. Choose a different name or use the existing category."
+  },
+  "navigationLibraryNoNewSites": {
+    "message": "All these sites are already in your shortcuts. No category was created."
+  },
+  "navigationLibraryCreateAndAdd": {
+    "message": "Create category and add"
+  },
+  "navigationLibraryWillCreate": {
+    "message": "Will create personal category"
   }
 }

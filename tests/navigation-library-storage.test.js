@@ -361,3 +361,224 @@ test('batch requires its write lock and preserves workspace errors', async () =>
     };
     await assert.rejects(h.m.addCatalogShortcut(request), { code: 'WORKSPACE_STALE' }); assert.equal(required, true); assert.equal(h.writes, 0);
 });
+
+async function newCategoryPlan(h, name = 'Reading', sites = [catalogSite(1), catalogSite(2)]) {
+    const { destination, ...request } = await batchPlan(h, sites);
+    return { ...request, newCategory: { name }, confirmedNewCategory: true };
+}
+const categoryId = n => 'cat_library_' + String(n).padStart(32, '0');
+
+test('new category and batch are one atomic write preserving unknown records and normalized names', async () => {
+    const h = model(), before = clone(h.state), request = await newCategoryPlan(h, '  Cafe\u0301 📚  ');
+    let payload; const original = h.m._local.set; h.m._local.set = async values => { payload = clone(values); await original(values); };
+    const saved = await h.m.addCatalogShortcut(request);
+    assert.deepEqual(saved.createdCategory, { id: saved.destination, name: 'Café 📚', icon: '📁' });
+    assert.match(saved.destination, /^cat_library_[a-f0-9]{32}$/);
+    assert.deepEqual(Object.keys(payload).sort(), ['__localItabLayoutGeneration', 'categories', 'links']);
+    assert.deepEqual(h.state, { ...before, categories: [...before.categories, saved.createdCategory],
+        links: [...before.links, ...request.sites.map(site => ({ title: site.name, url: site.url, icon: site.icon, category: saved.destination }))],
+        __localItabLayoutGeneration: h.state.__localItabLayoutGeneration });
+    assert.equal(saved.addedCount, 2); assert.equal(h.writes, 1);
+    saved.createdCategory.name = 'caller mutation';
+    const retry = await h.m.addCatalogShortcut(request); assert.equal(retry.createdCategory.name, 'Café 📚'); assert.equal(h.writes, 1);
+});
+
+test('new-category input rejects missing confirmation, ambiguous targets and caller-selected IDs/icons', async () => {
+    const h = model(), good = await newCategoryPlan(h), before = clone(h.state);
+    for (const request of [ { ...good, confirmedNewCategory: false }, { ...good, confirmedNewCategory: undefined },
+        { ...good, destination: 'work' }, { ...good, destination: undefined },
+        { ...good, newCategory: null }, { ...good, newCategory: [] },
+        { ...good, newCategory: { name: 'Reading', id: categoryId(1) } },
+        { ...good, newCategory: { name: 'Reading', icon: 'https://external.example/icon' } } ]) {
+        await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_INVALID' });
+    }
+    assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+});
+
+test('new category names count Unicode codepoints after trim and NFC, reject C0/C1 even at edges', async () => {
+    for (const name of ['', '   ', '😀'.repeat(81), 'a\n', '\tname', 'name\u0000', 'name\u007f', 'name\u0085', 'name\u009f', 42]) {
+        const h = model(); await assert.rejects(h.m.addCatalogShortcut(await newCategoryPlan(h, name)), { code: 'CATALOG_CATEGORY_NAME' }); assert.equal(h.writes, 0);
+    }
+    for (const name of ['😀'.repeat(80), 'e\u0301'.repeat(80)]) {
+        const h = model(), saved = await h.m.addCatalogShortcut(await newCategoryPlan(h, ` ${name} `));
+        assert.equal(Array.from(saved.createdCategory.name).length, 80); assert.equal(h.writes, 1);
+    }
+});
+
+test('existing category names reject case-insensitive trim/NFC duplicates without merging', async () => {
+    for (const name of [' work ', 'WORK', '  CAFE\u0301  ']) {
+        const h = model(); h.state.categories.push({ id: 'accent', name: ' Café ' });
+        const before = clone(h.state);
+        await assert.rejects(h.m.addCatalogShortcut(await newCategoryPlan(h, name)), { code: 'CATALOG_CATEGORY_EXISTS' });
+        assert.deepEqual(h.state, before); assert.equal(h.writes, 0);
+    }
+});
+
+test('all-duplicate new-category selection creates no empty category, allocates no ID and does not sync', async () => {
+    const h = model(), before = clone(h.state);
+    h.m.createCatalogCategoryIdentity = () => { throw new Error('must not allocate'); };
+    const saved = await h.m.addCatalogShortcut(await newCategoryPlan(h, 'Reading', [{ ...catalogSite(1), url: 'https://EXAMPLE.com:443' }]));
+    assert.equal(saved.addedCount, 0); assert.equal(saved.skippedCount, 1); assert.equal(saved.createdCategory, null); assert.equal(saved.destination, null);
+    assert.equal(h.writes, 0); assert.equal(h.syncs, 0); assert.deepEqual(h.state, before);
+});
+
+test('new category allocation skips existing, orphan, legacy, historical JSON and identity view IDs', async () => {
+    const layoutId = 'l_' + '1'.repeat(32);
+    const h = model({ schemaVersion: 2, links: [{ title: 'Old', url: 'https://example.com/', icon: 'E', category: categoryId(2), layoutId }],
+        categories: [{ id: categoryId(1), name: 'Existing', extra: 8 }],
+        layout: { identityVersion: 1, extra: { untouched: true }, positions: {
+            [`${categoryId(3)}|https://orphan.example/`]: { x: 1, y: 2 },
+            [JSON.stringify([categoryId(4), layoutId])]: { x: 3, y: 4 } },
+        positionsById: { [layoutId]: { [categoryId(5)]: { x: 5, y: 6 } } } } });
+    const before = clone(h.state); let n = 0;
+    const ids = ['all', '__proto__', 'constructor', 'prototype', ...[1, 2, 3, 4, 5, 6].map(categoryId)];
+    h.m.createCatalogCategoryIdentity = () => ids[n++];
+    const saved = await h.m.addCatalogShortcut(await newCategoryPlan(h));
+    assert.equal(saved.destination, categoryId(6)); assert.equal(n, 10); assert.equal(h.writes, 1);
+    assert.deepEqual(h.state.layout.positions, before.layout.positions); assert.deepEqual(h.state.layout.positionsById[layoutId], before.layout.positionsById[layoutId]);
+    assert.deepEqual(h.state.layout.extra, before.layout.extra); assert.deepEqual(h.state.links[0], before.links[0]);
+    for (const link of h.state.links.slice(1)) { assert.equal(link.category, categoryId(6)); assert.deepEqual(h.state.layout.positionsById[link.layoutId], {}); }
+});
+
+test('new category ID exhaustion and later link-identity exhaustion both leave storage untouched', async () => {
+    const h = model(); let allocations = 0;
+    h.m.createCatalogCategoryIdentity = () => { allocations++; return 'all'; };
+    const before = clone(h.state);
+    await assert.rejects(h.m.addCatalogShortcut(await newCategoryPlan(h)), { code: 'CATALOG_INVALID' });
+    assert.equal(allocations, 32); assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+    const other = model({ schemaVersion: 2, links: [], layout: { identityVersion: 1, positions: {}, positionsById: {} } });
+    other.m.createLayoutIdentity = () => 'l_' + '1'.repeat(32); const prior = clone(other.state);
+    await assert.rejects(other.m.addCatalogShortcut(await newCategoryPlan(other)), { code: 'CATALOG_INVALID' });
+    assert.equal(other.writes, 0); assert.deepEqual(other.state, prior);
+});
+
+test('new category capacity allows the 2000th category, rejects overflow, keeps duplicate selection read-only', async () => {
+    const h = model({ categories: Array.from({ length: 1999 }, (_, n) => ({ id: `c${n}`, name: `Category ${n}` })) });
+    await h.m.addCatalogShortcut(await newCategoryPlan(h)); assert.equal(h.state.categories.length, 2000);
+    const before = clone(h.state);
+    await assert.rejects(h.m.addCatalogShortcut(await newCategoryPlan(h, 'Overflow', [catalogSite(3)])), { code: 'CATALOG_INVALID' });
+    assert.deepEqual(h.state, before); assert.equal(h.writes, 1);
+    const saved = await h.m.addCatalogShortcut(await newCategoryPlan(h, 'Empty')); assert.equal(saved.addedCount, 0); assert.equal(saved.createdCategory, null); assert.equal(h.writes, 1);
+});
+
+test('new-category same-object double submit shares immutable request, concurrent previews conflict', async () => {
+    const h = model(), request = await newCategoryPlan(h), competing = await newCategoryPlan(h, 'Other'); let release;
+    const original = h.m._local.set;
+    h.m._local.set = async values => { await new Promise(resolve => { release = resolve; }); await original(values); };
+    const a = h.m.addCatalogShortcut(request), b = h.m.addCatalogShortcut(request);
+    await new Promise(setImmediate); request.newCategory.name = 'Changed'; request.confirmedNewCategory = false; request.destination = 'work'; release();
+    const [saved, duplicate] = await Promise.all([a, b]); assert.deepEqual(saved, duplicate); assert.equal(saved.createdCategory.name, 'Reading'); assert.equal(h.writes, 1);
+    await assert.rejects(h.m.addCatalogShortcut(competing), { code: 'CATALOG_CONFLICT' }); assert.equal(h.writes, 1);
+});
+
+test('new category definitely failed write retries, rejected committed set verifies, unreadable readback retries read-only', async () => {
+    const h = model(), request = await newCategoryPlan(h), before = clone(h.state); h.failure = 'before';
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_FAILED' }); assert.deepEqual(h.state, before);
+    h.failure = 'after'; const saved = await h.m.addCatalogShortcut(request);
+    assert.equal(h.writes, 2); assert.equal(h.state.categories.length, 3); assert.equal(saved.createdCategory.id, saved.destination);
+    const retried = await h.m.addCatalogShortcut(request); assert.equal(retried.destination, saved.destination); assert.equal(h.writes, 2);
+    const other = model(), otherRequest = await newCategoryPlan(other); other.afterWrite = () => { other.readFailure = true; };
+    await assert.rejects(other.m.addCatalogShortcut(otherRequest), { code: 'CATALOG_UNVERIFIED', mayHaveCommitted: true });
+    const committed = clone(other.state);
+    await assert.rejects(other.m.addCatalogShortcut(otherRequest), { code: 'CATALOG_UNVERIFIED', mayHaveCommitted: true });
+    other.readFailure = false; const verified = await other.m.addCatalogShortcut(otherRequest);
+    assert.equal(verified.destination, committed.categories.at(-1).id); assert.equal(other.writes, 1); assert.deepEqual(other.state, committed);
+});
+
+for (const [name, mutate] of Object.entries({ category: s => s.categories[0].extra = 'changed',
+    links: s => s.links[0].extra.i = 99, layout: s => s.layout.extra.untouched = 7,
+    privacy: s => s.privacy.onlineFavicons = true, sync: s => s.sync.enabled = true })) {
+    test(`new-category rejects stale ${name} and uncertain-save changes without extra writes`, async () => {
+        const h = model(), request = await newCategoryPlan(h); mutate(h.state); const before = clone(h.state);
+        await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_CONFLICT' }); assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+        const other = model(), otherRequest = await newCategoryPlan(other); other.afterWrite = () => mutate(other.state);
+        await assert.rejects(other.m.addCatalogShortcut(otherRequest), { code: 'CATALOG_UNVERIFIED' });
+        const saved = clone(other.state); await assert.rejects(other.m.addCatalogShortcut(otherRequest), { code: 'CATALOG_CONFLICT' });
+        assert.equal(other.writes, 1); assert.deepEqual(other.state, saved);
+    });
+}
+
+test('new-category real workspace atomically writes one bundle, leaves default untouched and preserves invalidation', async () => {
+    const h = await workspaceFixture(), snapshot = await h.storage.readNavigationLibrarySnapshot(), before = structuredClone(h.raw), offset = h.writes.length;
+    const request = { baseline: snapshot.state, newCategory: { name: 'Reading' }, confirmedNewCategory: true, sites: [catalogSite(1), catalogSite(2)] };
+    const saved = await h.storage.addCatalogShortcut(request), key = h.Workspaces.bundleKey(h.session);
+    assert.equal(saved.addedCount, 2); assert.equal(saved.privacy.syncEnabled, false); assert.equal(h.writes.length - offset, 1);
+    assert.deepEqual(Object.keys(h.writes[offset]), [key]);
+    for (const field of Object.keys(before)) if (field !== key) assert.deepEqual(h.raw[field], before[field]);
+    const actual = await h.storage.readNavigationLibrarySnapshot();
+    assert.deepEqual(actual.categories.at(-1), saved.createdCategory); assert.ok(actual.links.every(link => link.category === saved.destination));
+    assert.equal((await h.defaultStorage.readNavigationLibrarySnapshot()).categories.length, 1);
+    await h.manager.trash(h.session.id); const trashed = structuredClone(h.raw), writes = h.writes.length;
+    await assert.rejects(h.storage.addCatalogShortcut(request), { code: 'WORKSPACE_INVALIDATED' });
+    assert.equal(h.writes.length, writes); assert.deepEqual(h.raw, trashed);
+});
+
+test('new category validates the final site before allocating a category or writing anything', async () => {
+    for (const invalid of [null, { ...catalogSite(2), url: 'http://insecure.example.com/' },
+        { ...catalogSite(2), icon: '<img>' }, { ...catalogSite(2), name: '' }]) {
+        const h = model(), before = clone(h.state); let allocations = 0;
+        h.m.createCatalogCategoryIdentity = () => { allocations++; return categoryId(1); };
+        await assert.rejects(h.m.addCatalogShortcut(await newCategoryPlan(h, 'Reading', [catalogSite(1), invalid])), { code: 'CATALOG_INVALID' });
+        assert.equal(allocations, 0); assert.equal(h.writes, 0); assert.equal(h.syncs, 0); assert.deepEqual(h.state, before);
+    }
+});
+
+test('completed new-category ticket cannot recreate its category after external restoration to baseline', async () => {
+    const h = model(), request = await newCategoryPlan(h), before = clone(h.state);
+    await h.m.addCatalogShortcut(request);
+    for (const key of Object.keys(h.state)) delete h.state[key]; Object.assign(h.state, before);
+    h.m.createCatalogCategoryIdentity = () => { throw new Error('must not reallocate'); };
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_CONFLICT' });
+    assert.equal(h.writes, 1); assert.equal(h.syncs, 1); assert.deepEqual(h.state, before);
+});
+
+test('new category in real default workspace reports enabled sync and schedules the complete committed snapshot', async () => {
+    const h = await workspaceFixture(); let syncs = 0, scheduledSnapshot;
+    h.defaultStorage.scheduleSyncPush = () => { syncs++; scheduledSnapshot = h.defaultStorage._local.get(null); };
+    const snapshot = await h.defaultStorage.readNavigationLibrarySnapshot();
+    assert.deepEqual(snapshot.privacy, { syncEnabled: true, onlineFavicons: false });
+    const before = structuredClone(h.raw), offset = h.writes.length;
+    const saved = await h.defaultStorage.addCatalogShortcut({ baseline: snapshot.state,
+        newCategory: { name: 'Synced reading' }, confirmedNewCategory: true, sites: [catalogSite(1), catalogSite(2)] });
+    assert.deepEqual(saved.privacy, { syncEnabled: true, onlineFavicons: false });
+    assert.equal(syncs, 1); assert.equal(h.writes.length - offset, 1);
+    scheduledSnapshot = await scheduledSnapshot;
+    assert.deepEqual(scheduledSnapshot.categories, [...snapshot.categories, saved.createdCategory]);
+    assert.deepEqual(scheduledSnapshot.links, saved.links);
+    assert.ok(scheduledSnapshot.links.every(link => link.category === saved.destination));
+    const secondaryKey = h.Workspaces.bundleKey(h.session);
+    assert.deepEqual(h.raw[secondaryKey], before[secondaryKey]);
+});
+
+test('new-category retry after identity exhaustion reports only the category actually committed', async () => {
+    const h = model({ schemaVersion: 2, links: [], layout: { identityVersion: 1, positions: {}, positionsById: {} } });
+    const request = await newCategoryPlan(h), before = clone(h.state);
+    h.m.createCatalogCategoryIdentity = () => categoryId(1);
+    h.m.createLayoutIdentity = () => 'l_' + '1'.repeat(32);
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_INVALID' });
+    assert.equal(h.writes, 0); assert.deepEqual(h.state, before);
+    h.m.createCatalogCategoryIdentity = () => categoryId(2);
+    let next = 1; h.m.createLayoutIdentity = () => 'l_' + String(next++).padStart(32, '0');
+    const saved = await h.m.addCatalogShortcut(request);
+    assert.equal(h.writes, 1); assert.equal(saved.destination, categoryId(2));
+    assert.deepEqual(saved.createdCategory, { id: categoryId(2), name: 'Reading', icon: '📁' });
+    assert.deepEqual(h.state.categories, [...before.categories, saved.createdCategory]);
+    assert.equal(h.state.categories.some(category => category.id === categoryId(1)), false);
+    assert.equal(h.state.links.length, 2); assert.ok(h.state.links.every(link => link.category === saved.destination));
+    const retry = await h.m.addCatalogShortcut(request);
+    assert.deepEqual(retry.createdCategory, saved.createdCategory); assert.equal(retry.destination, saved.destination); assert.equal(h.writes, 1);
+});
+
+test('new-category definite write failure followed by external duplicate conflicts without returning or creating a phantom category', async () => {
+    const h = model(), request = await newCategoryPlan(h, 'Reading', [catalogSite(1)]), before = clone(h.state);
+    h.m.createCatalogCategoryIdentity = () => categoryId(1); h.failure = 'before';
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_FAILED' });
+    assert.deepEqual(h.state, before);
+    h.failure = undefined;
+    h.state.links.push({ title: 'Externally added', url: catalogSite(1).url, icon: 'E', category: 'work' });
+    const external = clone(h.state);
+    h.m.createCatalogCategoryIdentity = () => { throw new Error('must not allocate another category'); };
+    await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_CONFLICT' });
+    assert.equal(h.writes, 1); assert.equal(h.syncs, 0); assert.deepEqual(h.state, external);
+    assert.deepEqual(h.state.categories, before.categories);
+});

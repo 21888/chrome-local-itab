@@ -644,6 +644,13 @@ class StorageManager {
         return this.withLocalWriteLock(async () => this.navigationLibrarySnapshot(await this._local.get(null)), true);
     }
 
+    createCatalogCategoryIdentity() {
+        const bytes = new Uint8Array(16);
+        if (!globalThis.crypto?.getRandomValues) throw this.shortcutUndoError('CATALOG_INVALID', 'Secure category identity allocation is unavailable.');
+        globalThis.crypto.getRandomValues(bytes);
+        return `cat_library_${Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')}`;
+    }
+
     async addCatalogShortcut(request) {
         // A review object is an immutable retry ticket. A retry first observes
         // saved state, including privacy, and never blindly repeats a write.
@@ -657,8 +664,23 @@ class StorageManager {
             const batch = Object.prototype.hasOwnProperty.call(plan, 'sites');
             if (batch && Object.prototype.hasOwnProperty.call(plan, 'site')) throw invalid();
             const sites = batch ? plan.sites : [plan.site];
+            const newCategory = Object.prototype.hasOwnProperty.call(plan, 'newCategory');
+            const hasDestination = Object.prototype.hasOwnProperty.call(plan, 'destination');
+            if (newCategory === hasDestination) throw invalid();
+            if (newCategory) {
+                const category = plan.newCategory;
+                if (!category || typeof category !== 'object' || Array.isArray(category) ||
+                    Object.keys(category).some(key => key !== 'name') || plan.confirmedNewCategory !== true) throw invalid();
+                if (typeof category.name !== 'string' || /[\u0000-\u001f\u007f-\u009f]/u.test(category.name)) {
+                    throw this.shortcutUndoError('CATALOG_CATEGORY_NAME', 'Choose a category name of 1 to 80 characters without control characters.');
+                }
+                category.name = category.name.trim().normalize('NFC');
+                if (!category.name || Array.from(category.name).length > 80) {
+                    throw this.shortcutUndoError('CATALOG_CATEGORY_NAME', 'Choose a category name of 1 to 80 characters.');
+                }
+            }
             if (!plan.baseline || typeof plan.baseline !== 'object' || !plan.baseline.catalogPrivacy ||
-                typeof plan.destination !== 'string' || !plan.destination ||
+                (!newCategory && (typeof plan.destination !== 'string' || !plan.destination)) ||
                 !Array.isArray(sites) || !sites.length || sites.length > 20) throw invalid();
             // Validate the whole selection before looking for duplicates or
             // allocating identities. An invalid later entry aborts everything.
@@ -670,13 +692,16 @@ class StorageManager {
                     /[<>\u0000-\u001f\u007f]|(?:https?:|data:|javascript:|\/\/)/i.test(site.icon)) throw invalid();
                 return { title: site.name, url, icon: site.icon, category: plan.destination };
             });
-            ticket = { plan, batch, candidates, attempted: false };
+            ticket = { plan, batch, candidates, newCategory, createdCategory: null, destination: newCategory ? null : plan.destination, attempted: false };
             this._catalogRequests.set(request, ticket);
         }
         if (ticket.pending) return ticket.pending;
-        const result = snapshot => ticket.batch
-            ? { ...snapshot, addedCount: ticket.addedCount, skippedCount: ticket.skippedCount }
-            : { ...snapshot, duplicate: ticket.addedCount === 0 };
+        const result = snapshot => ({ ...snapshot,
+            ...(ticket.newCategory ? {
+                createdCategory: ticket.createdCategory ? this.copyBookmarkImportValue(ticket.createdCategory) : null,
+                destination: ticket.destination } : {}),
+            ...(ticket.batch ? { addedCount: ticket.addedCount, skippedCount: ticket.skippedCount }
+                : { duplicate: ticket.addedCount === 0 }) });
         ticket.pending = this.withLocalWriteLock(async () => {
             let raw;
             try { raw = await this._local.get(null); } catch (cause) {
@@ -694,7 +719,12 @@ class StorageManager {
             }
             const conflict = () => this.shortcutUndoError('CATALOG_CONFLICT', 'Saved sites, categories, layout or privacy changed. Refresh the library before adding.');
             if (ticket.completed || !same(snapshot.state, ticket.plan.baseline)) throw conflict();
-            if (!snapshot.categories.some(category => category.id === ticket.plan.destination)) throw conflict();
+            if (ticket.newCategory) {
+                const key = ticket.plan.newCategory.name.toLowerCase();
+                if (snapshot.categories.some(category => category.name.trim().normalize('NFC').toLowerCase() === key)) {
+                    throw this.shortcutUndoError('CATALOG_CATEGORY_EXISTS', 'A category with that name already exists. Choose it or enter a different name.');
+                }
+            } else if (!snapshot.categories.some(category => category.id === ticket.plan.destination)) throw conflict();
             const urls = new Set(snapshot.links.map(link => this.catalogCanonicalURL(link.url)));
             const additions = [];
             for (const candidate of ticket.candidates) {
@@ -705,7 +735,34 @@ class StorageManager {
             ticket.skippedCount = ticket.candidates.length - additions.length;
             if (!additions.length) return result(snapshot);
             if (snapshot.links.length + additions.length > BOOKMARK_IMPORT_STORAGE_LIMITS.links) throw invalid();
+            if (ticket.newCategory) {
+                if (snapshot.categories.length >= BOOKMARK_IMPORT_STORAGE_LIMITS.categories) throw invalid();
+                const reserved = new Set(['all', '__proto__', 'constructor', 'prototype',
+                    ...snapshot.categories.map(category => category.id), ...snapshot.links.map(link => link.category)]);
+                // Legacy position keys are category|URL, including orphan views.
+                for (const key of Object.keys(raw.layout?.positions || {})) {
+                    reserved.add(key.split('|', 1)[0]);
+                    try {
+                        const parsed = JSON.parse(key);
+                        if (Array.isArray(parsed) && typeof parsed[0] === 'string') reserved.add(parsed[0]);
+                    } catch (_) { /* Legacy category|URL keys are not JSON. */ }
+                }
+                for (const views of Object.values(raw.layout?.positionsById || {})) {
+                    for (const view of Object.keys(views)) reserved.add(view);
+                }
+                let id;
+                for (let attempt = 0; attempt < 32; attempt++) {
+                    id = this.createCatalogCategoryIdentity();
+                    if (/^cat_library_[a-f0-9]{32}$/.test(id) && !reserved.has(id)) break;
+                    id = null;
+                }
+                if (!id) throw invalid();
+                ticket.createdCategory = { id, name: ticket.plan.newCategory.name, icon: '📁' };
+                ticket.destination = id;
+                for (const link of additions) link.category = id;
+            }
             const written = { links: [...snapshot.links, ...additions], [this.layoutGenerationKey]: this.createLayoutGeneration() };
+            if (ticket.newCategory) written.categories = [...snapshot.categories, ticket.createdCategory];
             // Legacy workspaces stay legacy. Identity mode adds fresh entries
             // only; all existing positions and unknown fields survive.
             if (LayoutIdentity.active(raw.layout)) {

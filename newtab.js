@@ -2904,6 +2904,13 @@ class ShortcutsComponent {
             if (flushed === false || controller?.failedChange || controller?.invalidated) throw Object.assign(new Error('Pending layout change'), { code: 'CATALOG_LAYOUT_PENDING' });
             const saved = await storageManager.addCatalogShortcut(request);
             this.adoptShortcutSnapshot(saved);
+            if (Array.isArray(saved.categories)) {
+                this.categories = saved.categories;
+                if (window.categoryNavigation) {
+                    window.categoryNavigation.categories = saved.categories;
+                    window.categoryNavigation.render({ reflow: false });
+                }
+            }
             this._shortcutUndoReceipt = null;
             this.updateGrid();
             return saved;
@@ -4682,7 +4689,7 @@ class CategoryNavigation {
         this.render();
     }
 
-    render() {
+    render({ reflow = true } = {}) {
         const list = document.getElementById('category-list');
         if (!list) return;
 
@@ -4699,7 +4706,7 @@ class CategoryNavigation {
         });
 
         this.updateCategoryUI();
-        this.filterShortcuts();
+        this.filterShortcuts({ reflow });
     }
 
     createNavItem(cat) {

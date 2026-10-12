@@ -4689,7 +4689,7 @@
     "message": "请先完成或重试尚未保存的布局修改，再打开导航库。"
   },
   "navigationLibraryNoCategory": {
-    "message": "请先在设置中创建个人导航分类，再添加网站。"
+    "message": "添加网站前，可在这里新建个人分类。"
   },
   "navigationLibrarySync": {
     "message": "Chrome 同步"
@@ -5203,5 +5203,32 @@
   },
   "navigationLibraryBatchFailed": {
     "message": "未添加任何网站，请检查所选后重试。"
+  },
+  "navigationLibraryNewCategory": {
+    "message": "新建个人分类"
+  },
+  "navigationLibraryExistingCategory": {
+    "message": "使用已有分类"
+  },
+  "navigationLibraryCategoryName": {
+    "message": "新分类名称"
+  },
+  "navigationLibraryCategoryHint": {
+    "message": "1–80 个字符。检查并确认后才会创建。"
+  },
+  "navigationLibraryCategoryInvalid": {
+    "message": "请输入 1–80 个字符的分类名称，不含控制字符。"
+  },
+  "navigationLibraryCategoryExists": {
+    "message": "已有同名分类，请更换名称或使用已有分类。"
+  },
+  "navigationLibraryNoNewSites": {
+    "message": "这些网站都已在你的快捷方式中，未创建分类。"
+  },
+  "navigationLibraryCreateAndAdd": {
+    "message": "创建分类并添加"
+  },
+  "navigationLibraryWillCreate": {
+    "message": "将新建个人分类"
   }
 }

@@ -17,19 +17,20 @@
         conflict: 'Your shortcuts, workspace or settings changed. Close and reopen to review the latest state.',
         failed: 'Nothing was added. You can try adding the site again.',
         uncertain: 'Could not confirm the save. Close and reopen to check your shortcuts before trying again.',
-        layout: 'Finish or retry the pending layout change, then reopen the library.', noCategory: 'Create a personal shortcut category in Settings before adding sites.',
+        layout: 'Finish or retry the pending layout change, then reopen the library.', noCategory: 'Create a personal category here before adding sites.',
         select: 'Select', selected: 'selected', selectionHelp: 'Choose up to 20 sites. Selections stay when you change filters.',
         selectResults: 'Select current results', selectionLimit: 'These results would exceed 20 selected sites. Narrow the filters first.',
         clearSelection: 'Clear selection', reviewSelection: 'Review selected', reviewTitle: 'Review your selection',
         confirmSelection: 'Confirm and add', cancelSelection: 'Back to browsing', skipped: 'already added, skipped',
         batchFailed: 'Nothing was added. Review your selection before trying again.',
-        sync: 'Chrome Sync', icons: 'Online icons', on: 'On', off: 'Off'
+        noNewSites: 'All these sites are already in your shortcuts. No category was created.', createAndAdd: 'Create category and add', willCreate: 'Will create personal category', newCategory: 'New personal category', existingCategory: 'Use existing category', categoryName: 'New category name', categoryHint: '1–80 characters. Created only after you review and confirm.', categoryInvalid: 'Enter a category name of 1–80 characters without control characters.', categoryExists: 'A category with this name already exists. Choose a different name or use the existing category.', sync: 'Chrome Sync', icons: 'Online icons', on: 'On', off: 'Off'
     };
     const t = key => { const id = `navigationLibrary${key[0].toUpperCase()}${key.slice(1)}`; const result = root.i18n?.t(id); return result && result !== id ? result : fallback[key] || key; };
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
         let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
         let selectableResults = [];
+        let newCategoryMode = false, draftName = '', composing = false, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
         let reviewed = null;
         let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, currentDestination = '';
@@ -40,20 +41,22 @@
         };
         const button = (text, action, className) => {
             const node = el('button', text, className); node.type = 'button';
-            node.addEventListener('click', event => { if (!event.isComposing && event.keyCode !== 229 && !event.repeat && !(event.detail > 1)) action(); }); return node;
+            node.addEventListener('click', event => { if (!writing && !composing && !event.isComposing && event.keyCode !== 229 && !event.repeat && !(event.detail > 1)) action(); }); return node;
         };
         const opener = button(t('open'), open, 'navigation-library-opener'); opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
         function close() {
             if (writing) return false;
-            revision++; busy = false; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; return true;
+            revision++; busy = false; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false; return true;
         }
         function setControls() {
             for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || node.dataset.unavailable === 'true';
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
-            const owner = ++revision; busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); reviewed = null;
+            const owner = ++revision; busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false;
             overlay = el('div', undefined, 'navigation-library-overlay'); panel = el('section', undefined, 'navigation-library-panel'); panel.tabIndex = -1;
+            panel.addEventListener('compositionstart', () => { composing = true; invalidateReview(); });
+            panel.addEventListener('compositionend', () => { composing = false; });
             panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-labelledby', 'navigation-library-title');
             const head = el('header', undefined, 'navigation-library-heading'), copy = el('div');
             copy.append(el('p', t('eyebrow'), 'navigation-library-eyebrow')); const title = el('h2', t('title')); title.id = 'navigation-library-title'; copy.append(title, el('p', t('intro'), 'navigation-library-intro'));
@@ -122,10 +125,21 @@
             count = el('span', '', 'navigation-library-count'); count.setAttribute('role', 'status'); toolbar.append(count);
             const reset = button(t('clear'), () => { criteria = {}; search.value = ''; for (const select of filtersPanel.querySelectorAll('select')) select.value = ''; refreshTagOptions(); refreshCategories(); renderResults(); search.focus(); }, 'navigation-library-clear'); toolbar.append(reset);
             const destinationLabel = el('label', t('destination'), 'navigation-library-destination'); destination = el('select'); destination.setAttribute('aria-label', t('destination'));
-            snapshot.categories.forEach(category => { const option = el('option', category.name); option.value = category.id; destination.append(option); });
             const active = root.categoryNavigation?.getCurrentCategory?.();
             currentDestination = snapshot.categories.some(category => category.id === active) ? active : snapshot.categories[0]?.id || '';
-            destination.value = currentDestination; destination.addEventListener('change', () => { currentDestination = destination.value; renderResults(); }); destinationLabel.append(destination); toolbar.append(destinationLabel); panel.append(toolbar);
+            rebuildDestinations();
+            destination.addEventListener('change', () => { if (writing) return; currentDestination = destination.value; renderResults(); });
+            destinationLabel.append(destination); existingDestination = destinationLabel; toolbar.append(destinationLabel);
+            newCategoryButton = button(t('newCategory'), () => changeTargetMode(true), 'navigation-library-new-category'); toolbar.append(newCategoryButton); panel.append(toolbar);
+            newCategoryPanel = el('div', undefined, 'navigation-library-new-category-panel'); newCategoryPanel.hidden = true;
+            const nameLabel = el('label', t('categoryName')); nameInput = el('input'); nameInput.type = 'text'; nameInput.autocomplete = 'off';
+            nameInput.setAttribute('aria-label', t('categoryName')); nameInput.setAttribute('aria-describedby', 'navigation-library-category-hint navigation-library-category-error');
+            nameInput.addEventListener('input', () => { if (writing) return; draftName = nameInput.value; categoryError.textContent = ''; nameInput.setAttribute('aria-invalid', 'false'); renderResults(); });
+            nameLabel.append(nameInput); const hint = el('p', t('categoryHint')); hint.id = 'navigation-library-category-hint';
+            categoryError = el('p', '', 'navigation-library-category-error'); categoryError.id = 'navigation-library-category-error'; categoryError.setAttribute('role', 'status');
+            useExisting = button(t('existingCategory'), () => changeTargetMode(false), 'navigation-library-use-existing');
+            useExisting.dataset.unavailable = String(!snapshot.categories.length); useExisting.disabled = !snapshot.categories.length;
+            newCategoryPanel.append(nameLabel, useExisting, hint, categoryError); panel.append(newCategoryPanel);
             const batchBar = el('div', undefined, 'navigation-library-batch');
             batchCount = el('span'); batchCount.setAttribute('role', 'status');
             batchClear = button(t('clearSelection'), () => { selected.clear(); renderResults(); search.focus(); }, 'navigation-library-clear');
@@ -142,6 +156,32 @@
             if (snapshot.privacy) foot.append(el('p', `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}`));
             foot.append(el('p', t('disclosure'))); panel.append(foot);
             status.textContent = currentDestination ? '' : t('noCategory'); renderResults(); search.focus();
+        }
+        function rebuildDestinations() {
+            destination.replaceChildren();
+            snapshot.categories.forEach(category => { const option = el('option', category.name); option.value = category.id; destination.append(option); });
+            destination.value = currentDestination;
+        }
+        function invalidateReview() { reviewed = null; if (reviewPanel) reviewPanel.hidden = true; }
+        function changeTargetMode(value) {
+            if (writing || blocked) return;
+            newCategoryMode = value; newCategoryPanel.hidden = !value; existingDestination.hidden = value; newCategoryButton.hidden = value;
+            renderResults(); (value ? nameInput : destination).focus();
+        }
+        function validatedName() {
+            const name = draftName.trim().normalize('NFC');
+            const invalid = !name || [...name].length > 80 || /[\u0000-\u001f\u007f-\u009f]/u.test(draftName);
+            const duplicate = snapshot.categories.some(category => category.name.trim().normalize('NFC').toLowerCase() === name.toLowerCase());
+            if (invalid || duplicate) {
+                categoryError.textContent = t(invalid ? 'categoryInvalid' : 'categoryExists'); nameInput.setAttribute('aria-invalid', 'true'); nameInput.focus(); return null;
+            }
+            return name;
+        }
+        const serialize = value => ({ name: value.name, url: value.url, icon: value.icon || value.name.slice(0, 2) });
+        function frozenCopy(value) {
+            const copy = JSON.parse(JSON.stringify(value));
+            const freeze = item => { if (item && typeof item === 'object') { Object.values(item).forEach(freeze); Object.freeze(item); } return item; };
+            return freeze(copy);
         }
         function refreshCategories() {
             for (const node of categoryNav.children) node.setAttribute('aria-pressed', String(node.dataset.category === (criteria.category || '')));
@@ -168,21 +208,29 @@
         function refreshBatch() {
             reviewed = null; reviewPanel.hidden = true;
             batchCount.textContent = `${selected.size} / 20 ${t('selected')}`;
-            batchReview.dataset.unavailable = String(!selected.size || !currentDestination || blocked);
+            batchReview.dataset.unavailable = String(!selected.size || (!newCategoryMode && !currentDestination) || blocked);
             batchClear.dataset.unavailable = String(!selected.size);
-            batchReview.disabled = writing || !selected.size || !currentDestination || blocked;
+            batchReview.disabled = writing || !selected.size || (!newCategoryMode && !currentDestination) || blocked;
             batchClear.disabled = writing || !selected.size;
             refreshResultSelection();
         }
         function reviewSelection() {
-            if (writing || blocked || !selected.size || !currentDestination) return;
-            const sites = root.LocalItabNavigationSites.filter(site => selected.has(site.id));
-            reviewed = { sites, destination: currentDestination };
+            reviewSites(root.LocalItabNavigationSites.filter(site => selected.has(site.id)), true);
+        }
+        function reviewSites(sites, batch) {
+            if (writing || composing || blocked || !sites.length || (!newCategoryMode && !currentDestination)) return;
+            const name = newCategoryMode ? validatedName() : null;
+            if (newCategoryMode && !name) return;
+            const confirmation = frozenCopy({ sites: sites.map(serialize), batch, baseline: snapshot.state,
+                ...(newCategoryMode ? { newCategory: { name } } : { destination: currentDestination }) });
+            reviewed = confirmation;
             reviewPanel.replaceChildren();
-            reviewPanel.append(el('h3', t('reviewTitle')), el('p', `${sites.length} ${t('selected')} · ${t('destination')}: ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`));
-            const list = el('ul'); sites.forEach(site => list.append(el('li', site.name))); reviewPanel.append(list);
-            const cancel = button(t('cancelSelection'), () => { reviewed = null; reviewPanel.hidden = true; refreshResultSelection(); batchReview.focus(); }, 'navigation-library-review-cancel');
-            reviewConfirm = button(t('confirmSelection'), () => { if (reviewed) save(reviewed.sites, true); }, 'navigation-library-batch-confirm');
+            const target = newCategoryMode ? `${t('willCreate')}: ${name}` : `${t('destination')}: ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
+            reviewPanel.append(el('h3', t('reviewTitle')), el('p', `${sites.length} ${t('selected')} · ${target}`));
+            const list = el('ul'); sites.forEach(site => list.append(el('li', `${site.name} · ${site.url}`))); reviewPanel.append(list);
+            if (snapshot.privacy) reviewPanel.append(el('p', `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}`));
+            const cancel = button(t('cancelSelection'), () => { invalidateReview(); refreshResultSelection(); (batch ? batchReview : nameInput).focus(); }, 'navigation-library-review-cancel');
+            reviewConfirm = button(newCategoryMode ? `${t('createAndAdd')} (${sites.length})` : t('confirmSelection'), () => { if (reviewed === confirmation) save(batch ? sites : sites[0], batch, confirmation); }, 'navigation-library-batch-confirm');
             reviewPanel.append(cancel, reviewConfirm); reviewPanel.hidden = false; refreshResultSelection(); reviewConfirm.focus();
         }
         function renderResults(focusId) {
@@ -227,9 +275,9 @@
                 site.tags.slice(0, 2).forEach(tag => tags.append(el('span', tagLabel(tag)))); tags.append(el('span', t(site.pricing), 'navigation-library-price')); card.append(tags);
                 const actions = el('div', undefined, 'navigation-library-card-actions'), added = saved.has(api.canonicalURL(site.url));
                 const visit = el('a', t('official'), 'navigation-library-visit'); visit.href = site.url; visit.target = '_blank'; visit.rel = 'noopener noreferrer'; visit.setAttribute('aria-label', `${t('visit')}: ${site.name}`); visit.title = t('visit');
-                const add = button(added ? `✓ ${t('added')}` : `+ ${t('add')}`, () => save(site), 'navigation-library-add');
+                const add = button(added ? `✓ ${t('added')}` : `+ ${t('add')}`, () => newCategoryMode ? reviewSites([site], false) : save(site), 'navigation-library-add');
                 add.setAttribute('aria-label', `${added ? t('added') : t('add')}: ${site.name}`);
-                add.dataset.unavailable = String(added || !currentDestination || blocked); add.disabled = writing || added || !currentDestination || blocked;
+                add.dataset.unavailable = String(added || (!newCategoryMode && !currentDestination) || blocked); add.disabled = writing || added || (!newCategoryMode && !currentDestination) || blocked;
                 if (added) add.classList.add('is-added'); actions.append(visit, add); card.append(actions);
                 const details = el('details', undefined, 'navigation-library-details');
                 const summary = el('summary', t('source')); summary.setAttribute('tabindex', '0'); details.append(summary);
@@ -241,17 +289,22 @@
                 if (focusSite?.id === site.id) { card.tabIndex = -1; card.focus(); }
             }
         }
-        async function save(site, batch = false) {
-            if (writing || blocked || !snapshot || !currentDestination || root.LocalItabContentLifecycle?.departing) return;
+        async function save(site, batch = false, confirmation = null) {
+            if (writing || composing || blocked || !snapshot || (!newCategoryMode && !currentDestination) || root.LocalItabContentLifecycle?.departing || (confirmation && reviewed !== confirmation) || (newCategoryMode && !confirmation?.newCategory)) return;
             writing = busy = true; setControls(); panel.focus(); status.textContent = batch ? `${t('saving')} ${site.length}` : `${t('saving')} ${site.name}`;
-            const serialize = value => ({ name: value.name, url: value.url, icon: value.icon || value.name.slice(0, 2) });
-            const request = { baseline: snapshot.state, ...(batch ? { sites: site.map(serialize) } : { site: serialize(site) }), destination: currentDestination };
+            const request = confirmation ? { baseline: confirmation.baseline,
+                ...(batch ? { sites: confirmation.sites } : { site: confirmation.sites[0] }),
+                ...(confirmation.newCategory ? { newCategory: confirmation.newCategory, confirmedNewCategory: true } : { destination: confirmation.destination }) } :
+                { baseline: snapshot.state, ...(batch ? { sites: site.map(serialize) } : { site: serialize(site) }), destination: currentDestination };
             try {
                 const saved = await component.addCatalogShortcut(request); snapshot = saved;
-                status.textContent = batch ? `${saved.addedCount} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}${saved.skippedCount ? ` · ${saved.skippedCount} ${t('skipped')}` : ''}` : saved.duplicate ? `${site.name}: ${t('duplicate')}` : `${site.name} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
+                if (saved.createdCategory) { currentDestination = saved.destination || saved.createdCategory.id; draftName = ''; nameInput.value = ''; newCategoryMode = false; newCategoryPanel.hidden = true; existingDestination.hidden = false; newCategoryButton.hidden = false; }
+                rebuildDestinations();
+                useExisting.dataset.unavailable = String(!snapshot.categories.length);
+                status.textContent = request.newCategory && !saved.createdCategory ? t('noNewSites') : batch ? `${saved.addedCount} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}${saved.skippedCount ? ` · ${saved.skippedCount} ${t('skipped')}` : ''}` : saved.duplicate ? `${site.name}: ${t('duplicate')}` : `${site.name} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
             } catch (error) {
-                blocked = error.code !== 'CATALOG_FAILED';
-                status.textContent = t(error.code === 'CATALOG_FAILED' ? (batch ? 'batchFailed' : 'failed') : error.code === 'CATALOG_UNVERIFIED' || error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_LAYOUT_PENDING' ? 'layout' : 'conflict');
+                blocked = error.mayHaveCommitted || !['CATALOG_FAILED', 'CATALOG_CATEGORY_NAME', 'CATALOG_CATEGORY_EXISTS'].includes(error.code);
+                status.textContent = t(error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_CATEGORY_NAME' ? 'categoryInvalid' : error.code === 'CATALOG_CATEGORY_EXISTS' ? 'categoryExists' : error.code === 'CATALOG_FAILED' ? (batch ? 'batchFailed' : 'failed') : error.code === 'CATALOG_UNVERIFIED' || error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_LAYOUT_PENDING' ? 'layout' : 'conflict');
             } finally {
                 writing = busy = false; renderResults(batch ? site[0]?.id : site.id); setControls();
             }
