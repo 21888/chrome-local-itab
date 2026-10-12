@@ -742,3 +742,81 @@ test('pending review, preset persistence and disposal disable restoration and pr
     presetGate.resolve({ records: [] }); await settle(); const restore = restoreButton(pr); p.view.destroy(); const dg = p.controller.generation;
     assert.equal(restore.disabled, true); restore.dispatch('click'); assert.equal(pe.value, 'Preset pending edit'); assert.equal(p.controller.generation, dg);
 });
+
+const scopeFilter = h => h.host.querySelector('.ai-context-source-scope');
+function setScope(h, value) { const select = scopeFilter(h); select.value = value; select.dispatch('change'); }
+function mixedSources(count) { const sources = syntheticSources(count); sources[count - 1] = { id: 'scratchpad:current', label: 'Synthetic current workspace note', text: 'Synthetic saved workspace note', scope: 'workspace' }; return sources; }
+test('scope filter uses actual library/workspace scopes across 25/201 sources and ANDs title and selected-only filters', async () => {
+    for (const count of [25, 201]) {
+        const h = await model(undefined, { populate: false, sources: mixedSources(count) }), rows = sourceRows(h), scope = scopeFilter(h);
+        assert.equal(scope.tagName, 'SELECT'); assert.equal(scope.parentElement.tagName, 'LABEL');
+        assert.deepEqual(scope.querySelectorAll('option').map(option => option.value), ['all', 'workspace', 'library']);
+        assert.equal(scope.getAttribute('aria-describedby'), 'ai-context-source-scope-help');
+        scope.focus(); setScope(h, 'workspace'); assert.equal(h.document.activeElement, scope);
+        assert.deepEqual(visibleRows(h), [rows[count - 1]]);
+        assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+        h.input(h.field('search'), 'TITLE'); assert.equal(visibleRows(h).length, 0);
+        h.click('Clear title search'); assert.equal(scope.value, 'workspace'); assert.deepEqual(visibleRows(h), [rows[count - 1]]);
+        h.click('Show selected only'); assert.equal(visibleRows(h).length, 0);
+        choose(rows[count - 1]); choose(rows[0]); assert.deepEqual(visibleRows(h), [rows[count - 1]]);
+        setScope(h, 'library'); assert.deepEqual(visibleRows(h), [rows[0]]);
+        assert.match(sourceCount(h), /Selected: 2.*Selected but hidden: 1/);
+        h.click('Show selected only'); assert.deepEqual(visibleRows(h), rows.slice(0, -1));
+        setScope(h, 'all'); assert.deepEqual(visibleRows(h), rows); assert.deepEqual(sourceRows(h), rows);
+        assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+    }
+});
+test('scope with zero workspace notes has a truthful empty state and never loads more sources', async () => {
+    const h = await model(undefined, { populate: false, sources: syntheticSources(25) });
+    h.controller.loadSources = h.controller.readSources = () => { throw Error('Must not reload'); };
+    setScope(h, 'workspace'); assert.equal(visibleRows(h).length, 0);
+    const empty = h.host.querySelector('.ai-context-source-empty'); assert.equal(empty.hidden, false); assert.match(empty.textContent, /Change the scope/);
+    assert.match(sourceCount(h), /Showing: 0 \/ 25/); assert.equal(h.view.hasUncommittedWork(), false);
+    setScope(h, 'library'); assert.equal(visibleRows(h).length, 25); assert.equal(empty.hidden, true);
+});
+test('scope-only changes preserve hidden edited excerpts, review, budget and result with zero controller or storage operations', async () => {
+    const h = await model(undefined, { sources: mixedSources(25) }), rows = sourceRows(h);
+    choose(rows[0]); h.input(rows[0].querySelector('textarea'), 'Synthetic edited outgoing excerpt');
+    setScope(h, 'workspace'); h.setReply('Synthetic result'); await send(h, 'answer');
+    assert.equal(h.controller.reviewed.packed.sources[0].text, 'Synthetic edited outgoing excerpt');
+    const include = h.host.querySelector('.ai-context-save-context').querySelector('input'); include.checked = true; include.dispatch('change');
+    const reviewed = h.controller.reviewed, result = h.controller.result;
+    const prior = { generation: h.controller.generation, budget: h.host.querySelector('.ai-context-budget').textContent, review: h.host.querySelector('.ai-context-review').textContent, snapshot: h.host.querySelector('.ai-context-save-context').querySelector('pre').textContent, reads: h.b.reads + h.c.reads, writes: h.b.writes + h.c.writes, calls: h.calls.length };
+    for (const method of ['loadSources', 'readSources', 'inspectInput', 'edit', 'review', 'send', 'allow']) h.controller[method] = () => { throw Error(`Scope called ${method}`); };
+    h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('Scope checked permission'); };
+    for (const scope of ['all', 'library', 'workspace']) setScope(h, scope);
+    assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.result, result); assert.equal(h.controller.generation, prior.generation);
+    assert.equal(h.host.querySelector('.ai-context-budget').textContent, prior.budget); assert.equal(h.host.querySelector('.ai-context-review').textContent, prior.review);
+    assert.equal(include.checked, true); assert.equal(h.host.querySelector('.ai-context-save-context').querySelector('pre').textContent, prior.snapshot);
+    assert.equal(rows[0].hidden, true); assert.equal(rows[0].querySelector('textarea').value, 'Synthetic edited outgoing excerpt');
+    assert.match(sourceCount(h), /Selected: 1.*Selected but hidden: 1/);
+    assert.equal(h.b.reads + h.c.reads, prior.reads); assert.equal(h.b.writes + h.c.writes, prior.writes); assert.equal(h.calls.length, prior.calls);
+});
+test('scope batch selection honors all hidden selections and 12 total, clear draft resets scope while clear search does not', async () => {
+    const h = await model(undefined, { sources: mixedSources(201) }), rows = sourceRows(h);
+    rows.slice(0, 12).forEach(row => choose(row)); setScope(h, 'workspace');
+    assert.match(h.byText('Select visible').textContent, /\(1\)/); assert.equal(h.byText('Select visible').disabled, true);
+    h.byText('Select visible').dispatch('click'); assert.equal(rows[200].querySelector('input').checked, false);
+    choose(rows[11], false); h.click('Select visible'); assert.equal(rows[200].querySelector('input').checked, true);
+    assert.match(sourceCount(h), /Selected: 12.*Selected but hidden: 11/);
+    assert.match(h.byText('Clear all selections').textContent, /including hidden: 11/);
+    h.input(rows[0].querySelector('textarea'), 'Synthetic hidden edit');
+    h.click('Clear all selections'); assert.equal(scopeFilter(h).value, 'workspace'); assert.equal(h.view.hasUncommittedWork(), true);
+    h.click('Show selected only'); h.input(h.field('search'), 'note'); h.click('Clear title search'); assert.equal(scopeFilter(h).value, 'workspace');
+    h.click('Cancel / clear'); assert.equal(scopeFilter(h).value, 'all'); assert.equal(visibleRows(h).length, 201);
+    assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'false'); assert.equal(h.view.hasUncommittedWork(), false);
+    assert.equal(rows[0].querySelector('textarea').value, 'Body-only needle 0');
+});
+test('scope remains keyboard-reachable during pending transport without reads, writes, selections or review changes', async () => {
+    const h = await model(undefined, { sources: mixedSources(25), blurUnavailableFocus: true });
+    choose(sourceRows(h)[0]); h.click('Review exact'); await settle();
+    const pending = deferred(); h.setReply(pending.promise); h.click('Send reviewed'); await settle();
+    const reviewed = h.controller.reviewed, scope = scopeFilter(h), reads = h.b.reads + h.c.reads;
+    assert.equal(h.controller.busy, true); assert.equal(Boolean(scope.disabled), false);
+    scope.focus(); setScope(h, 'workspace'); assert.equal(h.document.activeElement, scope);
+    assert.equal(h.controller.reviewed, reviewed); assert.equal(h.byText('Select visible').disabled, true);
+    h.byText('Select visible').dispatch('click'); assert.equal(sourceRows(h)[24].querySelector('input').checked, false);
+    assert.equal(h.b.reads + h.c.reads, reads); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.calls.length, 1);
+    pending.resolve('Synthetic answer'); await settle(); assert.equal(h.controller.result.text, 'Synthetic answer');
+    assert.equal(scope.value, 'workspace'); assert.equal(h.controller.reviewed, reviewed);
+});

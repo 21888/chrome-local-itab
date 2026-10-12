@@ -5410,5 +5410,23 @@
   },
   "aiContextSourceRestored": {
     "message": "已恢复原始摘录。发送前请重新审阅完整请求。"
+  },
+  "aiContextSourceScope": {
+    "message": "筛选已加载来源范围"
+  },
+  "aiContextSourceScopeAll": {
+    "message": "全部来源"
+  },
+  "aiContextSourceScopeWorkspace": {
+    "message": "当前工作区便笺"
+  },
+  "aiContextSourceScopeLibrary": {
+    "message": "全局收藏"
+  },
+  "aiContextSourceScopeHelp": {
+    "message": "仅筛选本面板已加载的来源，并与标题搜索、仅显示已选条件同时生效。不会加载其他工作区，也不会改变已选发送内容。"
+  },
+  "aiContextSourceScopeEmpty": {
+    "message": "没有已加载来源符合这些筛选条件。请调整范围、标题搜索或仅显示已选条件。隐藏的已选来源仍会纳入检查和发送。"
   }
 }

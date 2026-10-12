@@ -5410,5 +5410,23 @@
   },
   "aiContextSourceRestored": {
     "message": "Original excerpt restored. Review the exact request again before sending."
+  },
+  "aiContextSourceScope": {
+    "message": "Filter loaded source scope"
+  },
+  "aiContextSourceScopeAll": {
+    "message": "All sources"
+  },
+  "aiContextSourceScopeWorkspace": {
+    "message": "Current workspace note"
+  },
+  "aiContextSourceScopeLibrary": {
+    "message": "Global collection"
+  },
+  "aiContextSourceScopeHelp": {
+    "message": "Filters only sources already loaded in this panel, together with title search and selected-only view. This does not load other workspaces or change what is selected for sending."
+  },
+  "aiContextSourceScopeEmpty": {
+    "message": "No loaded sources match these filters. Change the scope, title search or selected-only view. Hidden selections remain included in review and sending."
   }
 }

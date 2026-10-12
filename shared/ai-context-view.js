@@ -33,6 +33,14 @@
         const searchLabel = el('label', 'ai-context-field', label('SourceSearch', 'Search loaded source titles'));
         const sourceSearch = el('input', 'ai-context-source-search'); sourceSearch.type = 'search';
         sourceSearch.autocomplete = 'off'; sourceSearch.spellcheck = false; searchLabel.append(sourceSearch);
+        const scopeLabel = el('label', 'ai-context-field', label('SourceScope', 'Filter loaded source scope'));
+        const sourceScope = el('select', 'ai-context-source-scope');
+        for (const [value, name, fallback] of [['all', 'SourceScopeAll', 'All sources'], ['workspace', 'SourceScopeWorkspace', 'Current workspace note'], ['library', 'SourceScopeLibrary', 'Global collection']]) {
+            const option = el('option', '', label(name, fallback)); option.value = value; sourceScope.append(option);
+        }
+        sourceScope.value = 'all'; scopeLabel.append(sourceScope);
+        const scopeHelp = el('p', 'ai-context-source-scope-help', label('SourceScopeHelp', 'Filters only sources already loaded in this panel, together with title search and selected-only view. This does not load other workspaces or change what is selected for sending.'));
+        scopeHelp.id = 'ai-context-source-scope-help'; sourceScope.setAttribute('aria-describedby', scopeHelp.id);
         const searchActions = el('div', 'ai-context-actions');
         const clearSearch = button('SourceSearchClear', 'Clear title search', () => { sourceSearch.value = ''; sourceSearch.focus(); filterSources(); });
         let selectedOnly = false;
@@ -48,7 +56,7 @@
         const searchCount = el('p', 'ai-context-source-count'); searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
-        box.append(searchLabel, searchActions, searchCount, el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.')), searchEmpty, batchActions, batchHelp);
+        box.append(searchLabel, scopeLabel, scopeHelp, searchActions, searchCount, el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.')), searchEmpty, batchActions, batchHelp);
         const sourceList = el('div', 'ai-context-sources'); box.append(sourceList);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         box.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
@@ -74,6 +82,11 @@
             status.textContent = label('Error', 'Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation.'); };
         const selectedSources = () => sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: row.input.value }));
         // Session-only visibility: never rebuild rows or change the outgoing selection.
+        function matchesSourceView(row) {
+            return row.searchTitle.includes(sourceSearch.value.trim().toLowerCase()) &&
+                (sourceScope.value === 'all' || row.source.scope === sourceScope.value) &&
+                (!selectedOnly || row.check.checked);
+        }
         function filterSources() {
             const query = sourceSearch.value.trim().toLowerCase();
             // Capture focus before hiding a row: browsers may move it to body immediately.
@@ -81,7 +94,7 @@
             const focusedIndex = sourceRows.findIndex(row => row.node.contains(doc.activeElement));
             let visible = 0, selected = 0, hiddenSelected = 0;
             for (const row of sourceRows) {
-                row.node.hidden = !row.searchTitle.includes(query) || (selectedOnly && !row.check.checked);
+                row.node.hidden = !matchesSourceView(row);
                 row.restore.hidden = !row.check.checked;
                 row.restore.disabled = selectionBlocked() || !row.check.checked || row.input.value === row.initialText;
                 if (!row.node.hidden) visible++;
@@ -89,10 +102,12 @@
             }
             searchCount.textContent = `${label('SourceSearchShowing', 'Showing')}: ${visible} / ${sourceRows.length} · ${label('SourceSearchSelected', 'Selected')}: ${selected} · ${label('SourceSearchHidden', 'Selected but hidden')}: ${hiddenSelected}`;
             showSelected.setAttribute('aria-pressed', String(selectedOnly));
-            searchEmpty.textContent = selectedOnly
+            searchEmpty.textContent = sourceScope.value !== 'all'
+                ? label('SourceScopeEmpty', 'No loaded sources match these filters. Change the scope, title search or selected-only view. Hidden selections remain included in review and sending.')
+                : selectedOnly
                 ? label('SourceSelectedEmpty', 'No selected sources match this view. Clear the title search or turn off Show selected only to see more loaded sources.')
                 : label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.');
-            searchEmpty.hidden = (!query && !selectedOnly) || visible > 0;
+            searchEmpty.hidden = (!query && !selectedOnly && sourceScope.value === 'all') || visible > 0;
             if (focusedIndex >= 0 && sourceRows[focusedIndex].node.hidden) {
                 const available = row => !row.node.hidden && !row.check.disabled;
                 const next = sourceRows.slice(focusedIndex + 1).find(available) || sourceRows.slice(0, focusedIndex).reverse().find(available);
@@ -110,6 +125,7 @@
             if ((batchFocused === selectVisible || batchFocused === clearSelection) && batchFocused.disabled) showSelected.focus();
         }
         sourceSearch.addEventListener('input', filterSources);
+        sourceScope.addEventListener('change', filterSources);
         function updateBudget() {
             const info = controller.inspectInput(question.value, selectedSources(), mode.value);
             const over = label('BudgetOver', 'Over limit');
@@ -152,9 +168,8 @@
         function changeSelection(clear) {
             if (selectionBlocked()) return;
             // Compute the entire intended set from the current view, never truncate it.
-            const query = sourceSearch.value.trim().toLowerCase();
             const selected = sourceRows.filter(row => row.check.checked);
-            const changed = clear ? selected : sourceRows.filter(row => !row.check.checked && !selectedOnly && row.searchTitle.includes(query));
+            const changed = clear ? selected : sourceRows.filter(row => !row.check.checked && matchesSourceView(row));
             if (!changed.length || (!clear && selected.length + changed.length > 12)) return;
             // Authorize the edit before touching any checkbox or its editor.
             try { controller.edit(); } catch (_) { error(); update(); return; }
@@ -241,7 +256,7 @@
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksSaved', 'Reviewed tasks added to this workspace.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; selectedOnly = false; update(); });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
