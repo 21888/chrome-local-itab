@@ -249,9 +249,12 @@
             const field = matchedFields.includes('body') ? 'body' : matchedFields[0] || 'body';
             const original = searchable[field], lower = normalized[field];
             const first = terms.map(term => lower.indexOf(term)).filter(index => index >= 0);
-            // Snippet slicing uses code points so it never cuts a surrogate pair.
-            const position = first.length ? Array.from(original.slice(0, Math.min(...first))).length : 0;
-            const points = Array.from(original), start = Math.max(0, position - 40), end = Math.min(points.length, start + 180);
+            // Lowercasing can expand a code point (for example İ). Search offsets
+            // belong to folded UTF-16 text, not to the original string.
+            const points = Array.from(original), offset = first.length ? Math.min(...first) : 0;
+            let position = 0, foldedOffset = 0;
+            while (position < points.length && foldedOffset + points[position].toLowerCase().length <= offset) foldedOffset += points[position++].toLowerCase().length;
+            const start = Math.max(0, position - 40), end = Math.min(points.length, start + 180);
             results.push({ record: clone(record), matchedFields,
                 snippet: `${start ? '…' : ''}${points.slice(start, end).join('')}${end < points.length ? '…' : ''}` });
         }
