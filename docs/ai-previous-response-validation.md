@@ -16,7 +16,21 @@ cover old response provenance, request edits, tasks, replacement cancellation,
 failed/stopped replacement, saved responses and uncertain-write protection.
 No real provider was called in automated tests.
 
-Native verification is pending. Synthetic transport/controller tests do not
-prove native received-response flows or real-provider behavior. No automatic
-persistence, history, permissions or extra network action is introduced. Formal
-release requires bounded native checks and final runtime identity verification.
+## Safe no-response native smoke — 2026-10-12
+
+Existing independent CfT155 Chinese desktop-light synthetic profile loaded
+112-file dev93 ZIP `5c1d4b6e748be45495f89ed73f532ff9966d15e09545825765f3eaabba6b4dbd`.
+No provider response was present or created. With transient synthetic endpoint/
+model, question11 and alpha original49 selected, local preview showed the exact
+request and budget431. Appending one question character changed budget432,
+removed the review and disabled authorization/send. Cancel/Clear returned0
+selected/question and budget279 without an old-answer prompt. Connection fields
+were then explicitly emptied; closing succeeded. Default14/Clarity light/Grid
+remained. No Allow/Send, credentials, saved data, provider/network, injection or
+original-source edit. Screenshots remain transcript evidence.
+
+Core old-response preservation, immutable original response snapshot, replacement
+cancellation, failed-save retention and save outcomes remain synthetic-only.
+This safe no-response smoke is not native old-answer end-to-end or real-provider
+verification. Dark/320 and exhaustive focus matrices were not run. Final release
+identity is checked independently; no new persistent history is introduced.
