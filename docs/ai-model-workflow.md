@@ -15,6 +15,8 @@ The prompt library can run a completed saved prompt with a user-selected OpenAI-
 - HTTPS Chat Completions format: `{model, messages: [{role: "user", content}], stream: false}`. Non-streaming remains the default. The single-prompt runner also offers the explicitly reviewed optional streaming mode described below.
 - Input and result are each limited to 32,000 UTF-16 code units; response wire body to 512,000 bytes; request deadline 60 seconds.
 - Non-JSON, empty, oversized, incomplete and filtered responses are rejected without saving. Provider error bodies and raw network errors are never displayed or logged.
+- A non-streaming answer must explicitly report `finish_reason: "stop"`. Missing, null, empty or false-like completion markers are rejected, as are length, filtering and tool/function finishes. Nonempty `message.tool_calls`, `message.function_call` or `message.refusal` also reject a mixed text response even if it says `stop`. Missing/null optional metadata and empty arrays, objects or strings remain accepted; unrelated response metadata is not subject to new schema restrictions. This closes a result-completeness/save-gate gap, not a credential leak or tool-execution vulnerability. The application never executes returned tools.
+- Nonstandard compatible-provider proxies that omit the final `stop` marker now fail closed. They must supply that completion evidence before results can enter the run, comparison, refinement or context save workflows. A complete HTTP/JSON body by itself does not establish answer completion.
 - No model list discovery, persistent key vault, HTTP localhost endpoints, parallel provider comparison or automated prompt optimization in this first increment.
 - All UI, transport and persistence tests use synthetic fixtures. No real provider, paid model, credentials or browser permission grants were used. Native Chrome permission parsing and a real provider request remain user-controlled verification steps.
 
@@ -27,6 +29,8 @@ Tests cover exact endpoint scope, wildcard rejection, denied permissions, reques
 Official API references checked on 2026-10-11:
 - https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
 - https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns
+
+The [official Chat Completions response schema](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create) was rechecked on 2026-10-12: the non-streaming choice has a non-optional completion-reason enum; null completion markers are used by intermediate streaming chunks, not by a completed non-streaming choice. Synthetic client and context-controller tests cover rejection before local persistence/JSON/Markdown export, plus successful explicit saving with normal null optional metadata. No real provider requests or credentials were used.
 
 ## Device-local connection presets
 

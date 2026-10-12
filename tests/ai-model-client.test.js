@@ -46,3 +46,33 @@ test('cancel before start sends nothing, cancel during read discards late output
     const during = new AbortController();
     await assert.rejects(api.run(input(), { signal: during.signal, fetcher: async () => { during.abort(); return result('late output'); } }), { code: 'CANCELLED' });
 });
+test('non-stream answers require explicit stop, never missing or false-like completion markers', async () => {
+    for (const finish of [undefined, null, '', false, 0, 'length', 'content_filter', 'tool_calls', 'function_call']) {
+        const choice = { message: { content: 'synthetic incomplete answer' } };
+        if (finish !== undefined) choice.finish_reason = finish;
+        await assert.rejects(api.run(input(), { fetcher: async () => json({ choices: [choice] }) }), { code: 'INCOMPLETE' });
+    }
+});
+test('non-stream stop cannot hide nonempty tool, function or refusal metadata', async () => {
+    for (const extra of [
+        { tool_calls: [{ id: 'synthetic', type: 'function', function: { name: 'synthetic', arguments: '{}' } }] },
+        { function_call: { name: 'synthetic', arguments: '{}' } },
+        { refusal: 'Synthetic refusal' }
+    ]) {
+        await assert.rejects(api.run(input(), { fetcher: async () => json({ choices: [{
+            finish_reason: 'stop', message: { content: 'synthetic mixed answer', ...extra }
+        }] }) }), { code: 'INCOMPLETE' });
+    }
+});
+test('non-stream stop keeps ordinary optional null and empty metadata compatible', async () => {
+    for (const extra of [
+        { tool_calls: null, function_call: null, refusal: null },
+        { tool_calls: [], function_call: {}, refusal: '' },
+        {}
+    ]) {
+        const answer = await api.run(input(), { fetcher: async () => json({ choices: [{
+            finish_reason: 'stop', message: { content: 'synthetic complete answer', ...extra }
+        }] }) });
+        assert.equal(answer.text, 'synthetic complete answer');
+    }
+});

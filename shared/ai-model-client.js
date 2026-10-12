@@ -124,10 +124,15 @@
             const joined = new Uint8Array(bytes); let offset = 0;
             for (const part of chunks) { joined.set(part, offset); offset += part.byteLength; }
             let data; try { data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(joined)); } catch (_) { throw fail('FORMAT'); }
-            const text = data?.choices?.[0]?.message?.content;
+            const choice = data?.choices?.[0], message = choice?.message, text = message?.content;
             if (typeof text !== 'string' || !text.trim()) throw fail('EMPTY');
             if (text.length > LIMITS.response) throw fail('LIMIT');
-            if (data.choices[0].finish_reason && data.choices[0].finish_reason !== 'stop') throw fail('INCOMPLETE');
+            // A complete JSON body alone does not establish a completed answer.
+            // Optional empty metadata is harmless; never save a mixed tool/refusal result.
+            const hasPayload = value => value != null && value !== '' &&
+                (typeof value !== 'object' || Object.keys(value).length > 0);
+            if (choice.finish_reason !== 'stop' ||
+                [message.tool_calls, message.function_call, message.refusal].some(hasPayload)) throw fail('INCOMPLETE');
             return Object.freeze({ text, model: input.model, origin: input.origin });
         } catch (error) {
             // Never display provider bodies, URLs, echoed prompts or raw network errors.
