@@ -11,6 +11,19 @@ function response(parts, headers = {}) {
     return new Response(new ReadableStream({ start(controller) { for (const part of parts) controller.enqueue(typeof part === 'string' ? encode(part) : part); controller.close(); } }), { headers: { 'content-type': 'text/event-stream; charset=utf-8', ...headers } });
 }
 const run = (body, options = {}) => api.run(input, { stream: true, fetcher: async () => response([body]), ...options });
+const tick = () => new Promise(resolve => setImmediate(resolve));
+function controlledReader() {
+    const reads = []; let cancelled = 0;
+    // Unlike ReadableStream, this transport deliberately ignores cancellation.
+    const reader = {
+        read: () => new Promise(resolve => reads.push(resolve)),
+        cancel() { cancelled++; return new Promise(() => {}); }
+    };
+    return {
+        response: { ok: true, headers: { get: name => name === 'content-type' ? 'text/event-stream' : null }, body: { getReader: () => reader } },
+        reads, get cancelled() { return cancelled; }
+    };
+}
 test('fragmented UTF-8, CRLF and multiple SSE events produce one protected reviewed request', async () => {
     let calls = 0; const updates = [];
     const bytes = encode((': heartbeat\r\n\r\n' + complete('你好 👋 <script>literal</script>')).replace(/(?<!\r)\n/g, '\r\n'));
@@ -31,7 +44,10 @@ test('malformed, provider errors, truncated and non-stop finishes never return a
         [chunk('partial'), 'INCOMPLETE'], [chunk('partial') + chunk(null, 'stop'), 'INCOMPLETE'], [chunk('partial') + 'data: [DONE]\n\n', 'INCOMPLETE'],
         [complete(''), 'EMPTY'], [chunk('partial', 'length') + 'data: [DONE]\n\n', 'INCOMPLETE'], [chunk('partial', 'content_filter'), 'INCOMPLETE'],
         ['data: {"choices":[{"index":1,"delta":{"content":"wrong"}}]}\n\n', 'FORMAT'], ['data: {"choices":[{"index":0,"delta":{"tool_calls":[]}}]}\n\n', 'INCOMPLETE'],
-        [chunk('one', 'stop') + chunk('extra') + 'data: [DONE]\n\n', 'FORMAT'], ['data: {"choices":[{"index":0,"delta":{"content":12}}]}\n\n', 'FORMAT'],
+        [chunk('one', 'stop') + chunk('extra') + 'data: [DONE]\n\n', 'FORMAT'],
+        [chunk('one', 'stop') + 'data: {broken}\n\ndata: [DONE]\n\n', 'FORMAT'],
+        [chunk('one', 'stop') + 'data: {"error":{"message":"secret"}}\n\ndata: [DONE]\n\n', 'PROVIDER'],
+        [chunk('one', 'stop') + 'event: error\n\ndata: [DONE]\n\n', 'PROVIDER'], ['data: {"choices":[{"index":0,"delta":{"content":12}}]}\n\n', 'FORMAT'],
         [encode('data: '), 'INCOMPLETE'], [new Uint8Array([0xff]), 'FORMAT'], [new Uint8Array([0xe4]), 'FORMAT']
     ];
     for (const [body, code] of cases) await assert.rejects(run(body), { code, message: code });
@@ -42,6 +58,93 @@ test('wire, event, output and declared-byte budgets apply without exposing parti
     await assert.rejects(run('', { fetcher: async () => response([complete('ok')], { 'content-type': 'application/json' }) }), { code: 'FORMAT' });
     // Many individually small events still count toward the total wire budget.
     await assert.rejects(run(': heartbeat\n\n'.repeat(40000)), { code: 'LIMIT' });
+});
+test('wire budget accepts exactly 512000 UTF-8 bytes and rejects one extra byte across reads', async () => {
+    assert.equal(api.LIMITS.wireBytes, 512000);
+    const answer = complete('ok 👋');
+    // Small independent comment events keep the event and output limits irrelevant.
+    const heartbeat = ':' + 'é'.repeat(510) + 'x\n\n';
+    assert.equal(encode(heartbeat).byteLength, 1024);
+    for (const excess of [0, 1]) {
+        const padding = 512000 + excess - encode(answer).byteLength;
+        const remainder = padding % 1024;
+        assert.ok(remainder >= 3);
+        const body = heartbeat.repeat(Math.floor(padding / 1024)) + ':' + 'x'.repeat(remainder - 3) + '\n\n' + answer;
+        const bytes = encode(body);
+        assert.equal(bytes.byteLength, 512000 + excess);
+        assert.ok(body.length < 512000); // A character counter would miss the extra wire byte.
+        const parts = [];
+        for (let offset = 0; offset < bytes.length; offset += 4093) parts.push(bytes.slice(offset, offset + 4093));
+        const pending = run('', { fetcher: async () => response(parts) });
+        if (excess) await assert.rejects(pending, { code: 'LIMIT', message: 'LIMIT' });
+        else assert.equal((await pending).text, 'ok 👋');
+    }
+});
+test('declared wire budget accepts Content-Length 512000 and rejects 512001 before reading', async () => {
+    for (const length of [512000, 512001]) {
+        let readerCalls = 0;
+        const body = response([complete('ok')]);
+        const pending = run('', { fetcher: async () => ({
+            ok: true,
+            headers: new Headers({ 'content-type': 'text/event-stream', 'content-length': String(length) }),
+            body: { getReader() { readerCalls++; return body.body.getReader(); } }
+        }) });
+        if (length > 512000) {
+            await assert.rejects(pending, { code: 'LIMIT', message: 'LIMIT' });
+            assert.equal(readerCalls, 0);
+        } else {
+            assert.equal((await pending).text, 'ok');
+            assert.equal(readerCalls, 1);
+        }
+    }
+});
+test('output budget accepts 32000 UTF-16 units of emoji text and rejects the next unit', async () => {
+    assert.equal(api.LIMITS.response, 32000);
+    const first = '👋'.repeat(8000), second = '👋'.repeat(7999) + 'ab';
+    const expected = first + second;
+    assert.equal(expected.length, 32000);
+    assert.equal(Array.from(expected).length, 16001);
+    for (const extra of ['', 'c']) {
+        const updates = [];
+        const body = chunk(first) + chunk(second) + (extra ? chunk(extra) : '') + chunk(null, 'stop') + 'data: [DONE]\n\n';
+        assert.ok(encode(body).byteLength < api.LIMITS.wireBytes);
+        const pending = run(body, { onText: text => updates.push(text.length) });
+        if (extra) await assert.rejects(pending, { code: 'LIMIT', message: 'LIMIT' });
+        else assert.equal((await pending).text, expected);
+        assert.deepEqual(updates, [16000, 32000]); // Never publish the rejected unit as partial text.
+    }
+});
+for (const newline of ['\n', '\r\n']) test(`event budget implementation counts 65536 decoded code points including the terminal blank line (${newline === '\n' ? 'LF' : 'normalized CRLF'})`, async () => {
+    assert.equal(api.LIMITS.eventChars, 65536);
+    // Characterization of the current defensive counter, not an SSE protocol requirement:
+    // include comment/field syntax and both terminal newlines; CRLF counts as one newline.
+    // Decoded code points (including emoji) count once, unlike the UTF-16 output budget.
+    const prefix = ': ' + '👋'.repeat(1000);
+    const suffix = '\nid: synthetic\nretry: 123\nevent: message\n' + chunk('ok');
+    for (const excess of [0, 1]) {
+        const event = prefix + 'x'.repeat(65536 + excess - Array.from(prefix + suffix).length) + suffix;
+        assert.equal(Array.from(event).length, 65536 + excess);
+        assert.ok(event.length > 65536);
+        const body = (event + chunk(null, 'stop') + 'data: [DONE]\n\n').replace(/\n/g, newline);
+        assert.ok(encode(body).byteLength < api.LIMITS.wireBytes);
+        const parts = [];
+        // Separate every line ending's LF from its preceding bytes, including CR in CRLF.
+        // Long lines also cross reads and may split an emoji's UTF-8 sequence.
+        for (const line of body.split('\n').slice(0, -1)) {
+            const bytes = encode(line);
+            for (let offset = 0; offset < bytes.length; offset += 4093) parts.push(bytes.slice(offset, offset + 4093));
+            parts.push(encode('\n'));
+        }
+        let updates = 0;
+        const pending = run('', { fetcher: async () => response(parts), onText: () => updates++ });
+        if (excess) {
+            await assert.rejects(pending, { code: 'LIMIT', message: 'LIMIT' });
+            assert.equal(updates, 0); // The over-budget event is never dispatched.
+        } else {
+            assert.equal((await pending).text, 'ok');
+            assert.equal(updates, 1);
+        }
+    }
 });
 test('abort releases stalled reads, cancels the reader and ignores late content without retry', async () => {
     const aborter = new AbortController(); let calls = 0, cancelled = 0, updates = 0, controller;
@@ -80,4 +183,30 @@ test('partial text received before provider error remains only a callback, never
     let partial = '';
     await assert.rejects(run(chunk('partial') + 'data: {"error":{"message":"secret"}}\n\n', { onText: text => { partial = text; } }), { code: 'PROVIDER', message: 'PROVIDER' });
     assert.equal(partial, 'partial');
+});
+
+test('stop keeps an open body pending until a later DONE event', async t => {
+    const transport = controlledReader(), aborter = new AbortController(); let settled = false;
+    t.after(() => aborter.abort());
+    const pending = api.run(input, { stream: true, signal: aborter.signal, fetcher: async () => transport.response }).finally(() => { settled = true; });
+    await tick(); assert.equal(transport.reads.length, 1);
+    transport.reads[0]({ value: encode(chunk('answer', 'stop')), done: false });
+    await tick(); assert.equal(settled, false); assert.equal(transport.cancelled, 0); assert.equal(transport.reads.length, 2);
+    transport.reads[1]({ value: encode('data: [DONE]\n\n'), done: false });
+    assert.equal((await pending).text, 'answer'); assert.equal(transport.cancelled, 1);
+});
+for (const stop of ['abort', 'timeout']) test(`${stop} after stop ignores late DONE when the reader never acknowledges cancellation`, async () => {
+    let timeout;
+    const sandbox = { module: { exports: {} }, URL, AbortController, TextDecoder, Uint8Array, setTimeout: (callback, ms) => { assert.equal(ms, 60000); timeout = callback; return 1; }, clearTimeout() {} };
+    vm.runInNewContext(fs.readFileSync(require.resolve('../shared/ai-model-client'), 'utf8'), sandbox);
+    const transport = controlledReader(), aborter = new AbortController(), updates = []; let calls = 0;
+    const pending = sandbox.module.exports.run(input, { stream: true, signal: aborter.signal, onText: text => updates.push(text), fetcher: async () => { calls++; return transport.response; } });
+    await tick(); assert.equal(transport.reads.length, 1);
+    transport.reads[0]({ value: encode(chunk('partial', 'stop')), done: false });
+    await tick(); assert.deepEqual(updates, ['partial']); assert.equal(transport.reads.length, 2);
+    if (stop === 'abort') aborter.abort(); else timeout();
+    await assert.rejects(pending, { code: stop === 'abort' ? 'CANCELLED' : 'TIMEOUT' });
+    assert.equal(transport.cancelled, 1);
+    transport.reads[1]({ value: encode('data: [DONE]\n\n' + complete('late')), done: false });
+    await tick(); assert.deepEqual(updates, ['partial']); assert.equal(transport.reads.length, 2); assert.equal(calls, 1); assert.equal(transport.cancelled, 1);
 });

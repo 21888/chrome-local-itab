@@ -30,9 +30,10 @@ The setting-name search also finds this section.
 
 From **1.1.21**, Settings → Data → **Complete local backup** can export selected
 saved settings/sites/images, Tasks/history, Scratchpad, Countdown and Focus
-preferences together. It excludes unsaved drafts and timer sessions. See the
-[complete backup guide](complete-backup.en.md). When upgrading from an older
-version, use its existing separate exports described below before replacing files.
+preferences together. Current versions also offer the global prompt and AI collection
+libraries, for seven selectable modules. It excludes unsaved drafts and timer sessions. See the
+[complete backup guide](complete-backup.en.md). When upgrading from a version without complete backup,
+use its existing separate exports described below before replacing files.
 The separate Settings JSON and Drive formats retain their original scope.
 
 **Back up before updating** provides two in-page buttons: **Go to settings export**
@@ -51,7 +52,8 @@ the text you want to keep, especially an unsaved or conflicted draft.
 
 Settings exports still exclude all four private local modules. Tasks use their
 existing JSON export; Scratchpad and Countdown use their existing text exports.
-Record Focus preferences manually; an active Focus session cannot be migrated.
+When using only separate exports, record Focus preferences manually; complete local
+backup can migrate saved preferences. Timer sessions cannot be migrated.
 These shortcuts neither verify backup completeness nor change formats or restore behavior.
 
 ### Privacy and safety
@@ -121,15 +123,16 @@ reloads a page/extension automatically.
 更新偏好及缓存仅在本设备保存，不进入设置导出、Chrome Sync、Drive 或恢复快照。
 恢复默认设置会关闭自动检查并清除缓存；检查或切换偏好不会提交或重置其他未保存的设置。
 
-解压加载的用户应先保存并分别备份设置和本地模块，从 GitHub 下载运行文件 ZIP，
+解压加载的用户应先保存编辑并备份所需已保存模块，从 GitHub 下载运行文件 ZIP，
 替换原固定文件夹中的文件，再到 chrome://extensions 手动重新加载。不要移除扩展或
 更换文件夹。商店安装由 Chrome 更新，组织管理的安装由管理员处理。
 
 ### 更新前备份入口
 
 从 **1.1.21** 开始，可在「设置 → 数据 → 完整本地备份」一次导出所选已保存设置、
-网站、本地图片、待办及历史、便笺、倒计时和专注偏好；不包含未保存草稿或计时会话。
-详见[完整备份指南](complete-backup.zh-CN.md)。从旧版升级时，先按下述原有入口分别
+网站、本地图片、待办及历史、便笺、倒计时和专注偏好；当前版本还可选择全局提示词
+及 AI 收藏库，共七个模块。不包含未保存草稿或计时会话。
+详见[完整备份指南](complete-backup.zh-CN.md)。从尚无完整备份的旧版升级时，先按下述原有入口分别
 导出，再替换扩展文件。单独设置 JSON 与 Drive 的范围没有改变。
 
 「更新前先备份」提供两个设置页内入口：「前往设置导出」定位「数据」标题，
@@ -144,16 +147,18 @@ reloads a page/extension automatically.
 这两个模块仅显示准确操作路径，不提供假冒的直接导出入口。
 
 设置备份仍不包含这四种本地模块。待办继续单独导出 JSON，便笺和倒计时继续导出
-文本；专注偏好需手动记录，会话无法迁移。新入口不验证备份是否完整，
+文本；仅使用独立导出时需手动记录专注偏好，也可用完整本地备份迁移已保存偏好。
+计时会话无法迁移。新入口不验证备份是否完整，
 不改变格式、导入或恢复行为。
 
 ## Español
 
 Desde **1.1.21**, **Settings → Data → Complete local backup** permite exportar los
 módulos guardados seleccionados, incluidas las preferencias de concentración.
+La versión actual ofrece también prompts y colecciones de IA globales: siete módulos.
 No incluye borradores sin guardar ni sesiones del temporizador. Consulta la
 [guía de copia completa](complete-backup.es-ES.md). Al actualizar desde una versión
-anterior, utiliza primero las exportaciones individuales indicadas a continuación.
+sin copia completa, utiliza primero las exportaciones individuales indicadas a continuación.
 
 En Ajustes → Privacidad → Versión y actualizaciones, los accesos de copia de
 seguridad llevan al encabezado de Datos o al de Cuenta atrás en Búsqueda y tarjetas.
@@ -168,6 +173,6 @@ son los de la interfaz inglesa; la interfaz también tiene traducción al chino.
 
 La copia de ajustes no incluye tareas, concentración, bloc de notas ni cuenta atrás.
 Las tareas mantienen su exportación JSON; el bloc de notas y la cuenta atrás,
-exportaciones de texto. Anota las preferencias de concentración manualmente; sus
-sesiones no se pueden migrar. No se cambia el formato ni la restauración y no se
+exportaciones de texto. Si usas solo exportaciones individuales, anota las preferencias
+de concentración manualmente; la copia completa permite migrarlas. Las sesiones no se pueden migrar. No se cambia el formato ni la restauración y no se
 verifica que la copia esté completa.

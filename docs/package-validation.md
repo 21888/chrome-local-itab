@@ -199,3 +199,21 @@ the final native smoke snapshot; broader interaction and layout checks used a
 snapshot differing only in two CSS line endings, as explicitly recorded in the
 [More actions acceptance](shortcut-order.md#more-actions-acceptance--2026-10-09).
 No store submission or version increase is implied; manifest remains1.1.5.
+
+
+## Bounded installed dashboard matrix — 2026-10-12
+
+The installed 1.1.68 runtime (canonical ZIP SHA-256
+`20b5c6273e63130a2583457c4250adbffc8e194e565ff89073f0497d5ae77334`)
+completed a native English/dark matrix for **Dispatch, Bookmark, Today, Column
+and Horizon** at measured **1280, 768 and 320 CSS pixels**. Synthetic content
+used Grid layout, six categories, fifteen shortcuts and four populated cards.
+The checks covered the recorded composition, responsive rendering and bounded
+controls in those cases; they do not establish all interactions or all 21 templates.
+
+Comparison from the final 1.1.68 source to this 1.1.72 candidate found no changes
+to the dashboard/new-tab, layout, card-layout, customization or template runtime
+sources. This is retained evidence from the installed 1.1.68 build, **not a claim
+that the full matrix was rerun on installed 1.1.72**. The 1.1.72 Settings wording
+gate is separate. No screenshots, personal data or live-provider acceptance are
+included in this summary.

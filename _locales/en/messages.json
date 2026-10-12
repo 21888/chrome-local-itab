@@ -75,7 +75,7 @@
     "message": "Back up before updating"
   },
   "updateBackupScope": {
-    "message": "Save open edits first. Settings backups exclude Tasks, Focus, Scratchpad and Countdown. Back up Tasks, Scratchpad and Countdown separately; record Focus preferences manually. Focus sessions cannot be migrated."
+    "message": "Save edits first. Settings JSON and Drive exclude personal modules. Settings → Data → Complete local backup offers seven saved modules, including Focus preferences and both global AI libraries. Unsaved drafts and timer sessions do not migrate. Separate exports remain available."
   },
   "updateBackupSettings": {
     "message": "Go to settings export"
@@ -129,7 +129,7 @@
     "message": "Update your unpacked extension"
   },
   "updateUnpackedBackup": {
-    "message": "Save open edits first. Export a settings backup and export Tasks, Scratchpad and Countdown separately if you use them; Focus preferences and sessions are not included."
+    "message": "Save edits and download a complete local backup from Settings → Data before replacing files. Unsaved drafts and timer sessions are excluded. Older versions without complete backup require the available separate exports and manually noted Focus preferences."
   },
   "updateUnpackedReplace": {
     "message": "From the GitHub release, download the runtime ZIP. Extract it and replace extension files in the same permanent folder you originally loaded. Do not remove the installed extension or switch folders."
@@ -931,7 +931,7 @@
     "message": "Last task saved. Your current draft is not saved yet."
   },
   "tasksSettingsBoundary": {
-    "message": "Settings backups, Chrome Sync and Drive exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately as JSON; export Scratchpad and Countdown as text and restore them manually. Note Focus preferences manually; its session cannot be migrated. Resetting or restoring settings preserves these local modules."
+    "message": "Settings JSON, Chrome Sync and Drive exclude Tasks, Focus, Scratchpad, Countdown and global AI libraries. Use Complete local backup below for seven saved modules, or the separate exports. Unsaved drafts and timer sessions do not migrate. Ordinary settings reset/restore preserves these modules."
   },
   "tasksReloadDeferred": {
     "message": "Settings changed. Your task work is still here. Finish or export it before reloading."

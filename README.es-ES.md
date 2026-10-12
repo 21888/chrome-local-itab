@@ -197,11 +197,11 @@ Capturas reales con datos de ejemplo y controles en inglés. Las imágenes está
 
 Usa Chrome con soporte para Manifest V3. La protección frente a escrituras simultáneas de accesos directos y de su colocación también utiliza `navigator.locks`; si la API necesaria no está disponible, estas escrituras fallan y se muestra un error.
 
-**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en español](docs/migration.es-ES.md).
+**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Usa la [copia local completa](docs/complete-backup.es-ES.md) para los módulos guardados, o las exportaciones independientes. Los borradores sin guardar y las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en español](docs/migration.es-ES.md).
 
 ### Actualizar una instalación descomprimida existente
 
-1. Guarda los cambios en todas las páginas abiertas y crea copias separadas de los ajustes y de los módulos locales que utilices. El JSON de ajustes y las instantáneas de Drive excluyen Tareas, Concentración, Bloc de notas y Cuenta atrás: exporta las tareas como JSON y el bloc y la cuenta atrás como archivos de texto separados; anota las preferencias de concentración manualmente, porque las sesiones no se pueden migrar. Exporta el bloc desde la pestaña que contiene el texto que quieras conservar, especialmente un borrador sin guardar o en conflicto.
+1. Guarda los cambios y descarga una [copia local completa](docs/complete-backup.es-ES.md), seleccionando los módulos guardados que necesites. El JSON de ajustes y Drive excluyen los módulos personales. Las versiones antiguas sin copia completa requieren las exportaciones independientes disponibles y anotar las preferencias de concentración. Los borradores sin guardar y las sesiones no se migran. Exporta el bloc desde la pestaña que contiene el texto que quieras conservar, especialmente un borrador sin guardar o en conflicto.
 2. Descarga el ZIP de ejecución de la publicación de GitHub, descomprímelo y sustituye los archivos **dentro de la misma carpeta permanente cargada originalmente**, con `manifest.json` en la raíz de esa carpeta. No elimines la extensión ni cargues la nueva carpeta extraída como otra extensión; cambiar de carpeta puede cambiar su identidad y dejar los datos anteriores inaccesibles.
 3. Busca Local iTab en `chrome://extensions/`, pulsa **Recargar**, actualiza las páginas abiertas de nueva pestaña y Configuración y verifica la versión instalada y los datos existentes.
 
@@ -243,6 +243,10 @@ El menú contextual de una página web permite enviar texto seleccionado a un bo
 
 Configuración guarda solo los campos modificados y conserva los borradores en conflicto para revisarlos. El selector de buscador y los controles para mostrar u ocultar el panel conservan la URL personalizada, los estilos de accesos directos y las demás preferencias guardadas más recientes. Abre páginas nuevas de Configuración y del panel después de una restauración completa, un restablecimiento o la aplicación de una instantánea de Chrome Sync. [Protección del guardado y alcance (en inglés)](docs/settings-save-safety.md#english).
 
+### Copia local completa
+
+En Configuración → Datos puedes elegir siete módulos guardados: configuración (sitios e imágenes), tareas e historial, bloc de notas, cuenta atrás, preferencias de concentración y las bibliotecas globales de prompts y colecciones de IA. Con colecciones se usa schema 4; con prompts sin colecciones, schema 3; solo con módulos de espacios, schema 2. Revisa los módulos y confirma cada destino global antes de sustituir datos. Los borradores y las sesiones no se migran; una sesión de concentración en curso, pausada o interrumpida impide restaurar sus preferencias. El alcance de Chrome Sync y Drive no cambia. [Guía y recuperación](docs/complete-backup.es-ES.md).
+
 ## Búsqueda y gestión de sitios
 
 Los editores de accesos directos y tareas conservan el diálogo y el borrador al pulsar Escape durante la composición con un IME. Escape vuelve a cerrar el diálogo cuando termina la composición. [Comportamiento y alcance de las pruebas](docs/dialog-ime-validation.md#español).
@@ -280,7 +284,7 @@ Límites: 256 caracteres después de `=` y 32 niveles combinados de paréntesis 
 
 Activa la tarjeta opcional de Tareas en los ajustes de visibilidad de módulos. Está desactivada de forma predeterminada y comienza vacía. Permite añadir, editar y completar tareas, filtrar por texto en todos los estados, fijar una como siguiente acción y recuperar elementos eliminados. El filtro es local y no busca en la web.
 
-Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exportaciones de ajustes, Chrome Sync y las copias de Google Drive no las incluyen. Restablecer, importar o restaurar los ajustes conserva las tareas. Usa la exportación e importación independiente de tareas para hacer copias y cambiar de dispositivo. Desinstalar la extensión o borrar sus datos puede eliminar las tareas locales. [Guía de tareas (en inglés)](docs/local-tasks.en.md).
+Las tareas y sus copias de recuperación permanecen en este dispositivo. Las exportaciones de ajustes, Chrome Sync y las copias de Google Drive no las incluyen. Restablecer, importar o restaurar los ajustes conserva las tareas. Usa la exportación e importación independiente de tareas, o selecciona Tareas en una copia local completa para cambiar de dispositivo. Desinstalar la extensión o borrar sus datos puede eliminar las tareas locales. [Guía de tareas (en inglés)](docs/local-tasks.en.md).
 
 Usa **Añadir varias tareas** para pegar una tarea por línea no vacía, revisar una vista numerada y confirmar el lote completo. Se conservan espacios, viñetas y líneas duplicadas; la entrada habitual mantiene Shift+Enter dentro de una sola tarea. Vista previa y Cancelar no escriben datos. Siguen los límites de 500 registros (incluidos completados/eliminados), 1.000 caracteres Unicode por tarea y 2 MiB para la colección/archivo. Una validación fallida no añade tareas; los guardados inciertos reintentan el mismo lote de forma segura.
 
@@ -301,7 +305,7 @@ Con una página activa, el tiempo transcurrido se comprueba con un reloj monotó
 
 Activa Scratchpad en Ajustes → Visibilidad de módulos para guardar texto, enlaces o fragmentos. Está desactivado de forma predeterminada y guarda automáticamente en este dispositivo al dejar de escribir. Si hay cambios en otra pestaña, conserva el borrador y permite elegir entre el texto guardado y tu versión. Puedes exportar el borrador actual como TXT o seleccionar un archivo TXT UTF-8 para previsualizarlo y reemplazar explícitamente la nota guardada. La importación requiere una nota sin cambios pendientes y admite hasta 32.000 caracteres Unicode / 128 KiB; cancelar no modifica nada. [Importación, límites y recuperación (en inglés)](docs/local-scratchpad.en.md).
 
-El bloc no se incluye en la exportación de configuración, Chrome Sync ni las copias de Google Drive. Expórtalo por separado antes de desinstalar o borrar los datos del navegador. [Alcance y validación](docs/local-scratchpad-validation.md).
+El bloc no se incluye en la exportación de configuración, Chrome Sync ni las copias de Google Drive. Antes de desinstalar o borrar datos, incluye el texto guardado en una copia local completa o expórtalo por separado; los borradores sin guardar o en conflicto deben exportarse desde su pestaña original. [Alcance y validación](docs/local-scratchpad-validation.md).
 
 <details>
 <summary>Capturas de importación TXT del bloc</summary>
@@ -374,11 +378,11 @@ Revisa y aplica la visibilidad local de Tareas y del temporizador por separado d
 
 ## Datos, privacidad y conexiones de red
 
-**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Exporta/importa Tareas por separado; exporta el bloc y la cuenta atrás como archivos de texto separados. Las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en español](docs/migration.es-ES.md).
+**Recordatorio de copias:** El JSON de configuración y las instantáneas de Drive no incluyen Tareas, el temporizador, el bloc ni la cuenta atrás. Usa la [copia local completa](docs/complete-backup.es-ES.md) para los módulos guardados, o las exportaciones independientes. Los borradores sin guardar y las sesiones del temporizador no se pueden migrar. Las preferencias de relojes mundiales forman parte de los ajustes. Antes de desinstalar o borrar datos, guarda las copias necesarias siguiendo la [lista de migración en español](docs/migration.es-ES.md).
 
 ### Cambiar de navegador o dispositivo
 
-Las copias de configuración no incluyen Tasks, Focus timer, Scratchpad ni Countdown. Antes de desinstalar o borrar datos, guarda copias separadas siguiendo la [lista de migración en español](docs/migration.es-ES.md).
+Las copias de configuración no incluyen Tasks, Focus timer, Scratchpad ni Countdown. Antes de desinstalar o borrar datos, guarda una copia local completa o exportaciones independientes siguiendo la [lista de migración en español](docs/migration.es-ES.md).
 
 La configuración, los accesos directos y las imágenes cargadas se guardan principalmente en `chrome.storage.local`. Los iconos de sitios usan una caché local en IndexedDB, y parte del estado de la interfaz se guarda en el almacenamiento local del navegador. La extensión no incluye scripts de analítica ni publicidad.
 
@@ -481,7 +485,7 @@ El comando muestra la revisión Git y el estado de los cambios locales (o indica
 
 Ajustes → Privacidad → Versión y actualizaciones muestra la versión instalada y permite consultar manualmente la última versión publicada en GitHub. La consulta automática es opcional, como máximo una vez cada 24 horas al usar la nueva pestaña, con avisos discretos y la posibilidad de ignorar una versión. Está desactivada por defecto; las consultas explícitas conectan con GitHub, que recibe la dirección IP y datos normales de conexión, sin marcadores, tareas ni ajustes. No instala archivos ni recarga la extensión. [Guía y límites de verificación](docs/version-updates.md).
 
-Antes de actualizar, los accesos de esta sección llevan a los apartados existentes de exportación de ajustes y de cuenta atrás sin salir de Ajustes, guardar borradores ni descargar archivos. Las tareas y el bloc de notas se exportan desde sus tarjetas de nueva pestaña; se indican las rutas exactas. Anota las preferencias de concentración manualmente; las sesiones no se pueden migrar.
+Antes de actualizar, los accesos de esta sección llevan a los apartados existentes de exportación de ajustes y de cuenta atrás sin salir de Ajustes, guardar borradores ni descargar archivos. Las tareas y el bloc de notas se exportan desde sus tarjetas de nueva pestaña; se indican las rutas exactas. Las preferencias guardadas de concentración se migran con la copia local completa; las sesiones no se pueden migrar.
 
 
 ## Licencia

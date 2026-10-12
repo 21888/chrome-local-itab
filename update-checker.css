@@ -16,3 +16,15 @@
 .update-notice :focus-visible, .update-actions a:focus-visible { outline: 2px solid var(--template-focus, var(--text-accent)); outline-offset: 3px; }
 .update-notice[hidden], #version-update-settings [hidden] { display: none !important; }
 @media (max-width: 480px) { .update-facts { grid-template-columns: 1fr; gap: 4px; } .update-facts dd { margin-bottom: 8px; } }
+
+/* The narrow Settings layout is a column with non-stretching flex children.
+   Both Privacy cards contribute to its intrinsic width: let their grid tracks
+   and checkbox text shrink, and wrap long addresses instead of clipping them. */
+@media (max-width: 960px) {
+    #tab-privacy { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+    #tab-privacy .settings-grid { grid-template-columns: minmax(0, 1fr); }
+    #tab-privacy .setting-group,
+    #tab-privacy .setting-info { min-width: 0; }
+    #version-update-settings .update-actions > * { min-width: 0; max-width: 100%; }
+    #version-update-settings .update-actions .btn { white-space: normal; overflow-wrap: anywhere; }
+}

@@ -193,11 +193,11 @@ Actual interface captures with sample data and English controls. The images are 
 
 Use Chrome with Manifest V3 support. Shortcut and layout write-conflict protection also relies on `navigator.locks`; if the required browser API is unavailable, those writes fail with an error.
 
-**Backup reminder:** Settings JSON and Drive snapshots exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately; export Scratchpad and Countdown as separate text files. Focus sessions cannot be migrated. World-clock preferences belong to settings. Before uninstalling or clearing data, save the copies you need using the [migration checklist](docs/migration.en.md).
+**Backup reminder:** Settings JSON and Drive snapshots exclude Tasks, Focus timer, Scratchpad and Countdown. Use [Complete local backup](docs/complete-backup.en.md) for saved personal modules, or keep using separate exports. Unsaved drafts and Focus sessions cannot be migrated. World-clock preferences belong to settings. Before uninstalling or clearing data, save the copies you need using the [migration checklist](docs/migration.en.md).
 
 ### Upgrade an existing unpacked installation
 
-1. Save edits in all open pages and back up settings and the local modules you use separately. Settings JSON and Drive snapshots exclude Tasks, Focus, Scratchpad and Countdown: export Tasks as JSON and Scratchpad/Countdown as separate text files; record Focus preferences manually, as sessions cannot be migrated. Export Scratchpad from the existing tab containing the text you want to keep, especially an unsaved or conflicted draft.
+1. Save edits in all open pages and download a [complete local backup](docs/complete-backup.en.md), selecting the saved modules you need. Ordinary settings JSON and Drive snapshots exclude personal modules. Older versions without complete backup require the available separate exports and manually noted Focus preferences. Unsaved drafts and timer sessions cannot be migrated. Export Scratchpad from the existing tab containing the text you want to keep, especially an unsaved or conflicted draft.
 2. Download the runtime ZIP from the GitHub release, extract it, and replace files **inside the same permanent folder originally loaded**, keeping `manifest.json` at that folder's root. Do not remove the extension or load the newly extracted folder as another extension; changing folders may change its identity and make existing data inaccessible.
 3. Find Local iTab at `chrome://extensions/` and click **Reload**, then refresh open new-tab and Settings pages and verify the installed version and existing data.
 
@@ -244,7 +244,7 @@ Settings saves only changed fields and keeps conflicting drafts for review. The 
 
 ### Complete local backup
 
-Settings → Data can export selected saved configuration, sites, local images, Tasks and history, Scratchpad, Countdown, Focus preferences and the global prompt library together (schema 3 when prompts are included). Review and select modules before replacement; unselected modules remain unchanged. A complete local recovery snapshot is retained before restore, with no automatic page reload. Unsaved drafts and live timer sessions are excluded; unfinished Focus sessions block restoring Focus preferences. Chrome Sync and Drive scope is unchanged. [Guide, limits and recovery](docs/complete-backup.en.md).
+Settings → Data can export seven selected saved modules: configuration (including sites and local images), Tasks and history, Scratchpad, Countdown, Focus preferences and both global prompt and AI collection libraries (schema 4 with collections; schema 3 with prompts but no collections; schema 2 with workspace modules only). Review modules and confirm each selected global destination before replacement; unselected modules remain unchanged. A recovery snapshot containing all workspace modules and only the selected global libraries is retained before restore, with no automatic page reload. Unsaved drafts and live timer sessions are excluded; unfinished Focus sessions block restoring Focus preferences. Chrome Sync and Drive scope is unchanged. [Guide, limits and recovery](docs/complete-backup.en.md).
 
 ## Search and website management
 
@@ -281,7 +281,7 @@ Limit: 256 characters after `=` and 32 combined levels of nested parentheses/una
 
 ### Local Tasks
 
-Enable the optional, empty-by-default Tasks card in module visibility settings. Add/edit/complete tasks, filter all task states locally by text, pin one next action and recover removed items. Tasks stay on this device; settings exports, Chrome Sync and Drive backups exclude all task content and recovery copies. Settings reset/import/restore preserve Tasks. Use the separate task export/import for backup and migration. [Task guide](docs/local-tasks.en.md).
+Enable the optional, empty-by-default Tasks card in module visibility settings. Add/edit/complete tasks, filter all task states locally by text, pin one next action and recover removed items. Tasks stay on this device; settings exports, Chrome Sync and Drive backups exclude all task content and recovery copies. Settings reset/import/restore preserve Tasks. Use the separate task export/import or select Tasks in a complete local backup for migration. [Task guide](docs/local-tasks.en.md).
 
 Use **Add multiple tasks** to paste one task per nonblank line, inspect a numbered preview and confirm the entire batch together. Spaces, bullet prefixes and duplicate lines stay intact; ordinary Add still supports Shift+Enter inside one task. Preview/cancel writes nothing. Limits stay at 500 total records (including completed/removed), 1,000 Unicode characters per task and a 2 MiB collection/file budget. A failed validation adds no tasks; uncertain saves retry the same batch safely. [Batch validation and screenshots](docs/tasks-batch-capture-validation.md).
 
@@ -302,7 +302,7 @@ While a page is active, elapsed time is checked against a monotonic clock. After
 
 Enable Scratchpad under Settings → Module Visibility for plain-text notes, links or snippets. It is off by default and autosaves on this device after typing pauses. Conflicting tabs keep your draft and offer an explicit choice between the saved text and your version. Export the current draft as TXT, or select one UTF-8 TXT file to preview and explicitly replace the saved note. Import requires a settled note and accepts up to 32,000 Unicode characters / 128 KiB; Cancel writes nothing. [Text import, limits and recovery](docs/local-scratchpad.en.md).
 
-Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Export it separately before uninstalling or clearing browser data. [Scope and validation](docs/local-scratchpad-validation.md).
+Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Before uninstalling or clearing browser data, include saved Scratchpad text in a complete local backup or export text separately; unsaved/conflicted drafts still need export from their original tabs. [Scope and validation](docs/local-scratchpad-validation.md).
 
 <details>
 <summary>Scratchpad TXT import captures</summary>
@@ -371,11 +371,11 @@ Preview and explicitly apply local Tasks/Focus visibility recommendations separa
 
 ## Data, privacy, and network behavior
 
-**Backup reminder:** Settings JSON and Drive snapshots exclude Tasks, Focus timer, Scratchpad and Countdown. Export/import Tasks separately; export Scratchpad and Countdown as separate text files. Focus sessions cannot be migrated. World-clock preferences belong to settings. Before uninstalling or clearing data, save the copies you need using the [migration checklist](docs/migration.en.md).
+**Backup reminder:** Settings JSON and Drive snapshots exclude Tasks, Focus timer, Scratchpad and Countdown. Use [Complete local backup](docs/complete-backup.en.md) for saved personal modules, or keep using separate exports. Unsaved drafts and Focus sessions cannot be migrated. World-clock preferences belong to settings. Before uninstalling or clearing data, save the copies you need using the [migration checklist](docs/migration.en.md).
 
 ### Moving to another browser or device
 
-Configuration backups do not include Tasks, Focus timer, Scratchpad or Countdown. Follow the [migration checklist](docs/migration.en.md) to keep separate copies before uninstalling or clearing data.
+Configuration backups do not include Tasks, Focus timer, Scratchpad or Countdown. Follow the [migration checklist](docs/migration.en.md) to keep a complete local backup or separate exports before uninstalling or clearing data.
 
 Settings, shortcuts, and uploaded images are primarily stored in `chrome.storage.local`. Website icons use a local IndexedDB cache, and some interface state is stored in browser local storage. The extension includes no analytics or advertising scripts.
 
@@ -478,7 +478,7 @@ The command reports the source Git revision (and working-tree status, or unavail
 
 Settings → Privacy → Version & updates shows the installed version and offers manual GitHub release checks. Optional checks run at most daily while using the new-tab page, with quiet notices and per-version ignore. No automatic installation or reload. See [version checks, privacy and installation guidance](docs/version-updates.md).
 
-Before updating, use the shortcuts in that section to reach the existing settings and Countdown export sections without leaving Settings, saving drafts or downloading files. Tasks and Scratchpad still export from their new-tab cards; the exact paths are listed alongside the shortcuts. Record Focus preferences manually; sessions cannot be migrated.
+Before updating, use the shortcuts in that section to reach the existing settings and Countdown export sections without leaving Settings, saving drafts or downloading files. Tasks and Scratchpad still export from their new-tab cards; the exact paths are listed alongside the shortcuts. Saved Focus preferences can migrate through complete local backup; timer sessions cannot.
 
 ## License
 
