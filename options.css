@@ -1537,7 +1537,14 @@ textarea:focus-visible,
 .btn-danger {
     background: rgba(145, 66, 66, 0.18);
     border: 1px solid rgba(255, 165, 150, 0.25);
-    color: #ffd1c8;
+    color: var(--danger-button-text, #ffd1c8);
+}
+
+/* Legacy danger ink assumes a dark surface. Keep specialized buttons' own
+   color rules intact while adapting generic actions to the resolved palette. */
+:root[data-color-mode="light"],
+:root:not([data-color-mode])[data-theme="ink-paper"] {
+    --danger-button-text: #87372b;
 }
 
 .message {
