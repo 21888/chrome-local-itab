@@ -882,11 +882,13 @@ button {
 
 .topic-editor-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    min-width: 0;
     gap: var(--spacing-md);
 }
 
 .topic-list {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -910,6 +912,8 @@ button {
 
 .topic-item {
     display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-sm);
@@ -918,10 +922,28 @@ button {
     background: rgba(255, 255, 255, 0.06);
 }
 
+/* Keep full local titles readable and let actions move to their own row. */
+.topic-content {
+    flex: 1 1 100px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .topic-actions {
     display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
     gap: 6px;
 }
+
+.topic-actions .btn {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 
 .btn:disabled {
     opacity: 0.52;
