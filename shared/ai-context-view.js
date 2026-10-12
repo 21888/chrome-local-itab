@@ -1,7 +1,7 @@
 /* Plain-text, opt-in context UI. No source is selected by default. */
 (function (root) {
     'use strict';
-    function mount(host, { controller, t = (_, fallback) => fallback, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }) } = {}) {
+    function mount(host, { controller, t = (_, fallback) => fallback, clipboard = root.navigator?.clipboard, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }) } = {}) {
         const doc = host.ownerDocument || root.document;
         const el = (tag, cls = '', value = '') => { const node = doc.createElement(tag); node.className = cls; node.textContent = value; return node; };
         const label = (key, fallback) => t(`aiContext${key}`, fallback);
@@ -73,7 +73,8 @@
         contextSave.append(contextLabel, el('p', '', label('SaveContextPrivacy', 'Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot.')), contextPreview);
         const taskList = el('ol', 'ai-context-tasks'); taskList.hidden = true;
         const initialAnswerTitle = answerTitle.value;
-        let disposed = false, pending = false, titleEdited = false;
+        let disposed = false, pending = false, titleEdited = false, copying = false, copyGeneration = 0;
+        const copyStatus = el('p', 'ai-context-copy-status'); copyStatus.tabIndex = -1; copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
         const error = code => {
             if (controller.saveCommand && controller.saveUncertain) {
                 status.textContent = label('UncertainAnswer', 'The earlier answer save may already be in the global collection. Check it before starting another save. This panel keeps the original operation and snapshot choice for retry; it will not add a duplicate.'); return;
@@ -138,6 +139,7 @@
             }
         }
         function update() {
+            copyGeneration++; copyStatus.textContent = '';
             filterSources();
             updateBudget();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
@@ -152,6 +154,7 @@
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry;
             outputLabel.hidden = !controller.result;
+            updateCopy();
             previousResult.hidden = !controller.result || controller.resultReview === controller.reviewed;
             contextSave.hidden = !controller.result || controller.result.mode !== 'answer';
             includeContext.disabled = busy || retry || controller.saved;
@@ -253,6 +256,26 @@
             finally { key.value = ''; }
         }, ['Received', 'Response received, not saved. Model claims and source citations have not been verified.']); });
         const stop = button('Stop', 'Stop request', () => { controller.stop(); key.value = ''; status.textContent = label('Stopped', 'Stopped. The provider may still charge for work already started.'); });
+        function updateCopy() {
+            copy.disabled = disposed || controller.closed || copying || !controller.result || outputLabel.hidden || !output.value.trim();
+            copy.textContent = controller.result?.mode === 'tasks' ? label('CopyTasks', 'Copy task JSON') : label('CopyAnswer', 'Copy answer');
+        }
+        const copy = button('CopyAnswer', 'Copy answer', async () => {
+            if (disposed || controller.closed || copying || !controller.result || outputLabel.hidden || !output.value.trim()) return;
+            // Snapshot only the displayed response. No request or connection metadata is copied.
+            const text = output.value, result = controller.result, reviewed = controller.resultReview, generation = copyGeneration;
+            const current = () => !disposed && !controller.closed && generation === copyGeneration &&
+                controller.result === result && controller.resultReview === reviewed && !outputLabel.hidden && output.value === text;
+            copying = true; copyStatus.textContent = ''; updateCopy();
+            if (doc.activeElement === copy || doc.activeElement === doc.body) copyStatus.focus();
+            try {
+                if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
+                await clipboard.writeText(text);
+                if (current()) copyStatus.textContent = label('Copied', 'Response copied.');
+            } catch (_) {
+                if (current()) copyStatus.textContent = label('CopyBlocked', 'Copy was blocked. Select the response text to copy it manually.');
+            } finally { copying = false; if (!disposed) updateCopy(); }
+        });
         const save = button('Save', 'Save answer to AI collection', () => action(() => controller.saveAnswer(answerTitle.value, { includeContext: includeContext.checked }), ['Saved', 'Saved to the existing global AI collection. Saved answers join unencrypted local backups.']));
         const reviewTasks = button('ReviewTasks', 'Review extracted tasks', () => action(async () => {
             const result = await controller.reviewTasks(); taskList.replaceChildren(...result.texts.map(value => el('li', '', value))); taskList.hidden = false;
@@ -264,10 +287,10 @@
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; invalidate(true); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
-        const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
+        const results = el('div', 'ai-context-actions'); results.append(copy, save, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
         includeContext.addEventListener('change', update);
-        box.append(actions, reviewText, status, previousResult, outputLabel, contextSave, taskList, results); host.append(box);
+        box.append(actions, reviewText, status, previousResult, outputLabel, contextSave, taskList, results, copyStatus); host.append(box);
         for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         const ready = action(async () => {
@@ -296,7 +319,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; selectVisible.disabled = clearSelection.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; copy.disabled = true; selectVisible.disabled = clearSelection.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();

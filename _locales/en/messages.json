@@ -5455,5 +5455,17 @@
   },
   "navigationTagSocialPublishing": {
     "message": "Social-media publishing"
+  },
+  "aiContextCopyAnswer": {
+    "message": "Copy answer"
+  },
+  "aiContextCopyTasks": {
+    "message": "Copy task JSON"
+  },
+  "aiContextCopied": {
+    "message": "Response copied."
+  },
+  "aiContextCopyBlocked": {
+    "message": "Copy was blocked. Select the response text to copy it manually."
   }
 }

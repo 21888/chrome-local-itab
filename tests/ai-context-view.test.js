@@ -6,7 +6,7 @@ const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 function backend() { let raw; return { reads: 0, writes: 0, lock: fn => fn(), async read() { this.reads++; return structuredClone(raw); }, async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
-async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false } = {}) {
+async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false, clipboard, t } = {}) {
     const document = createDocument({ blurUnavailableFocus }), host = document.createElement('main'); document.body.append(host);
     const confirmations = []; let confirmResult = true;
     const events = new Map(), window = { document, confirm: message => { confirmations.push(message); return confirmResult; }, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
@@ -18,7 +18,7 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
     const review = controller.review.bind(controller);
     controller.review = input => review(JSON.parse(JSON.stringify(input)));
     vm.runInNewContext(fs.readFileSync('shared/ai-context-view.js', 'utf8'), { window });
-    const view = window.LocalItabAIContextView.mount(host, { controller, presetStore }); await view.ready;
+    const view = window.LocalItabAIContextView.mount(host, { controller, presetStore, clipboard, t }); await view.ready;
     const field = type => host.querySelectorAll('input').find(node => node.type === type);
     const byText = text => host.querySelectorAll('button').find(node => node.textContent.startsWith(text));
     const click = text => { const node = byText(text); assert(node); assert.equal(Boolean(node.disabled), false, `${text} enabled`); node.dispatch('click'); return node; };
@@ -901,4 +901,64 @@ test('connection preset save/delete preserve old answer identity and saving an o
     h.c.write = write; h.click('Save answer'); for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
     assert.equal(h.controller.saved, true); assert.equal(h.controller.saveCommand, null);
     const saved = (await h.controller.collectionStore.read()).records; assert.equal(saved.length, 1); assert.equal(saved[0].title, command.title); assert.deepEqual(saved[0].contextSnapshot, snapshot);
+});
+
+test('response copy is explicit, exact and excludes request metadata without altering save/review state', async () => {
+    const writes = [], h = await model(undefined, { clipboard: { writeText: async text => writes.push(text) } });
+    const copy = h.byText('Copy answer'); assert.equal(copy.disabled, true); copy.dispatch('click'); await settle(); assert.deepEqual(writes, []);
+    h.setReply('  Exact <script>literal</script>\nbody  '); await send(h, 'answer');
+    const state = { result: h.controller.result, review: h.controller.reviewed, resultReview: h.controller.resultReview, saved: h.controller.saved, dirty: h.view.hasUncommittedWork(), calls: h.calls.length };
+    assert.deepEqual(writes, []); h.click('Copy answer'); await settle();
+    assert.deepEqual(writes, ['  Exact <script>literal</script>\nbody  ']);
+    assert.equal(h.controller.result, state.result); assert.equal(h.controller.reviewed, state.review); assert.equal(h.controller.resultReview, state.resultReview);
+    assert.equal(h.controller.saved, state.saved); assert.equal(h.view.hasUncommittedWork(), state.dirty); assert.equal(h.calls.length, state.calls); assert.equal(h.b.writes + h.c.writes, 0);
+    assert.match(h.host.querySelector('.ai-context-copy-status').textContent, /Response copied/);
+    h.input(h.host.querySelectorAll('textarea')[0], 'different draft');
+    assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false);
+    h.click('Copy answer'); await settle(); assert.equal(writes.length, 2); assert.equal(h.controller.resultReview, state.resultReview);
+    assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false);
+    h.click('Save answer'); for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle(); assert.equal(h.controller.saved, true); h.click('Copy answer'); await settle(); assert.equal(h.controller.saved, true); assert.equal(h.c.writes, 1);
+});
+test('task copy uses edited displayed JSON, preserves task review, and disables empty text', async () => {
+    const writes = [], h = await model(undefined, { clipboard: { writeText: async text => writes.push(text) } }); await send(h);
+    const output = h.host.querySelectorAll('textarea').find(node => node.rows === 8);
+    h.input(output, '{"tasks":["edited"]}'); h.click('Review extracted'); await settle(); const reviewed = h.controller.taskReview;
+    h.click('Copy task JSON'); await settle(); assert.deepEqual(writes, ['{"tasks":["edited"]}']); assert.equal(h.controller.taskReview, reviewed); assert.equal(h.byText('Add these').disabled, false);
+    h.input(output, '   '); assert.equal(h.byText('Copy task JSON').disabled, true); h.byText('Copy task JSON').dispatch('click'); await settle(); assert.equal(writes.length, 1);
+    h.click('Cancel / clear'); assert.equal(h.byText('Copy answer').disabled, true);
+});
+test('clipboard absence and rejection leave selectable output and independent manual-copy feedback', async () => {
+    for (const clipboard of [undefined, { async writeText() { throw Error('blocked'); } }]) {
+        const h = await model(undefined, { clipboard }); h.setReply('keep me'); await send(h, 'answer');
+        const status = h.host.querySelector('.ai-context-status').textContent;
+        h.click('Copy answer'); await settle(); assert.match(h.host.querySelector('.ai-context-copy-status').textContent, /Select the response text/);
+        assert.equal(h.host.querySelectorAll('textarea').find(node => node.rows === 8).value, 'keep me');
+        assert.equal(h.host.querySelector('.ai-context-status').textContent, status); assert.equal(h.byText('Copy answer').disabled, false);
+    }
+});
+test('pending copy ignores repeat clicks and suppresses late feedback after edits, clear or destroy', async () => {
+    for (const transition of ['edit', 'clear', 'destroy']) for (const reject of [false, true]) {
+        let resolve, rejectCopy; const wait = { promise: new Promise((yes, no) => { resolve = yes; rejectCopy = no; }) }, writes = [], h = await model(undefined, { clipboard: { writeText(text) { writes.push(text); return wait.promise; } } });
+        h.setReply('original'); await send(h, 'answer'); const copy = h.click('Copy answer'), feedback = h.host.querySelector('.ai-context-copy-status');
+        copy.dispatch('click'); assert.equal(writes.length, 1); assert.equal(copy.disabled, true);
+        if (transition === 'edit') h.input(h.host.querySelectorAll('textarea')[0], 'new question');
+        if (transition === 'clear') h.click('Cancel / clear');
+        if (transition === 'destroy') h.view.destroy();
+        if (reject) rejectCopy(Error('blocked')); else resolve(); await settle();
+        assert.equal(feedback.textContent, ''); assert.equal(h.b.writes + h.c.writes, 0);
+        if (transition === 'edit') { assert.equal(copy.disabled, false); assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false); }
+        else assert.equal(copy.disabled, true);
+    }
+});
+test('copy labels and feedback use runtime locale keys without new clipboard permission', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`));
+        const h = await model(undefined, { clipboard: { writeText: async () => {} }, t: (key, fallback) => key.startsWith('aiContextCopy') || key === 'aiContextCopied' ? messages[key].message : fallback });
+        h.setReply('synthetic answer'); await send(h, 'answer'); h.byText(messages.aiContextCopyAnswer.message).dispatch('click'); await settle();
+        assert.equal(h.host.querySelector('.ai-context-copy-status').textContent, messages.aiContextCopied.message);
+        h.view.destroy();
+    }
+    const manifest = JSON.parse(fs.readFileSync('manifest.json')); assert.equal(manifest.version, '1.1.96');
+    assert(!manifest.permissions.some(value => /clipboard/i.test(value)));
+    assert.doesNotMatch(fs.readFileSync('shared/ai-context-view.js', 'utf8'), /clipboard\.read/);
 });

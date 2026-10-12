@@ -5455,5 +5455,17 @@
   },
   "navigationTagSocialPublishing": {
     "message": "社媒发布"
+  },
+  "aiContextCopyAnswer": {
+    "message": "复制回答"
+  },
+  "aiContextCopyTasks": {
+    "message": "复制任务 JSON"
+  },
+  "aiContextCopied": {
+    "message": "已复制回答。"
+  },
+  "aiContextCopyBlocked": {
+    "message": "复制受阻。请选中回答文字手动复制。"
   }
 }

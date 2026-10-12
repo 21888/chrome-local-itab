@@ -486,6 +486,8 @@ The existing project documentation identifies the license as MIT. A separate `LI
 
 **Ask selected saved context:** the new-tab **AI context Q&A** panel lets you choose global saved AI excerpts and this workspace’s saved note, edit and review the exact outbound content, then ask your selected model. Save an answer explicitly, or review strict task JSON before adding the exact list to Tasks. No source is selected automatically. [Workflow and privacy](docs/ai-context-workflow.md)
 
+In the AI context panel, explicitly choose **Copy answer** or **Copy task JSON** to copy only the currently displayed response. No question, source snapshot, endpoint or key fields are appended. An earlier answer stays copyable after request edits, with its previous-request label intact. Copying does not save anything or change task review; if blocked, select the response text and copy manually. Responses may repeat private input, so inspect the text before copying.
+
 **Reviewed prompt refinement:** choose a saved prompt, review the exact template and refinement instruction sent to your model, compare the proposal, and explicitly accept a new version. Filled values are excluded; original history and variable placeholders are protected. [Workflow](docs/ai-prompt-refinement.md)
 
 The optional original-versus-proposal trial uses one fresh temporary variable mapping and the same model for both reviewed requests. Answers remain temporary; accepting the proposal is still a separate decision.
