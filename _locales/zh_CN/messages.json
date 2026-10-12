@@ -4530,5 +4530,8 @@
     "message": "无法确认采纳是否成功。已提交的草稿已锁定；重试将使用同一操作和完全相同的文本。离开前请检查历史记录。"
   },
   "promptsCompareCheckSave": {"message": "核对此结果是否已保存"},
-  "promptsCompareSaveUnconfirmed": {"message": "保存尚未确认。核对只会读取并验证同一次操作，不会再次写入。若凭据缺失、过期或已被恢复操作清除，就无法确认成功。检查集合前请保留此结果。"}
+  "promptsCompareSaveUnconfirmed": {"message": "保存尚未确认。核对只会读取并验证同一次操作，不会再次写入。若凭据缺失、过期或已被恢复操作清除，就无法确认成功。检查集合前请保留此结果。"},
+  "completeBackupDuplicateKey": {
+    "message": "此备份包含重复的 JSON 字段，尚未开始还原。请选择有效的备份文件。"
+  }
 }

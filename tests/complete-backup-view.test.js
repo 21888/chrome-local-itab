@@ -10,7 +10,7 @@ const waitFor = async (predicate) => {
     assert(predicate(), 'expected backup UI state settled');
 };
 const modules = ['config','tasks','scratchpad','countdown','focus'];
-function model() {
+function model(locale) {
     const document = createDocument({blurUnavailableFocus:true}); const host = document.createElement('div'); document.body.append(host);
     const calls = {reviews:[],restores:[],exports:[],downloads:[]};
     const store = {
@@ -19,6 +19,7 @@ function model() {
         async export(selected) { calls.exports.push(selected); return 'JSON'; }, async recovery() { return 'RECOVERY'; }
     };
     const window = {LocalItabCompleteBackup:{LIMITS:{bytes:32*1024*1024}}};
+    if (locale) { const catalog = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`)); window.i18n = {t:key=>catalog[key]?.message || key}; }
     vm.runInNewContext(source,{window,setTimeout,URL,Blob});
     const view = window.LocalItabCompleteBackupView.mount(host,{store,restore:p=>store.restore(p),download:async (...args)=>calls.downloads.push(args),reload:()=>{calls.reloads=(calls.reloads||0)+1;}});
     const get = cls => host.querySelector('.complete-backup-'+cls);
@@ -98,4 +99,16 @@ test('v2 full registry scope explicitly lists live names, Trash counts and destr
 });
 test('partial topology mismatch explains how to obtain a compatible full archive without enabling apply',async()=>{
     const m=model();m.store.review=async()=>{throw {code:'TOPOLOGY'};};m.select('partial');await waitFor(()=>/Export all modules/.test(m.get('status').textContent));assert(m.get('apply').disabled);assert.match(m.get('status').textContent,/Export all modules/);assert.equal(m.calls.restores.length,0);
+});
+
+for (const locale of ['en', 'zh_CN']) test(`duplicate JSON keys show a specific pre-restore error in ${locale}`, async () => {
+    const m = model(locale);
+    m.store.review = async () => { throw {code:'DUPLICATE_KEY'}; };
+    m.select('malformed');
+    const expected = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`)).completeBackupDuplicateKey.message;
+    await waitFor(() => m.get('status').textContent === expected);
+    assert.equal(m.get('preview').hidden, true);
+    assert.equal(m.get('apply').disabled, true);
+    assert.equal(m.calls.restores.length, 0);
+    assert.equal(m.document.activeElement === m.get('status'), true);
 });

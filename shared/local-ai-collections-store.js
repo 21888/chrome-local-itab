@@ -199,36 +199,56 @@
     const validateRecord = value => recordSchema(snapshot(value));
     const validateContent = value => contentSchema(snapshot(value));
     const content = value => storedContent(validate(value));
-    function rejectDuplicateKeys(source) {
+    // Validate the raw JSON before parsing can discard duplicate object keys.
+    // Each character is visited a bounded number of times; sets are object-local.
+    // Callers enforce their byte limit before scanning and may supply envelope budgets.
+    function rejectDuplicateKeys(source, limits = { nodes: 60000, depth: 12 }) {
         let cursor = 0, nodes = 0;
-        const space = () => { while (/\s/u.test(source[cursor] || '') && cursor < source.length) cursor++; };
+        const number = /-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
+        const space = () => { while (cursor < source.length && ' \t\r\n'.includes(source[cursor])) cursor++; };
+        const take = character => { check(source[cursor] === character); cursor++; };
         const stringEnd = () => {
-            const start = cursor++;
+            const start = cursor; take('"');
             while (cursor < source.length) {
                 const character = source[cursor++];
                 if (character === '"') return source.slice(start, cursor);
-                if (character === '\\') cursor++;
+                check(character.charCodeAt(0) >= 32);
+                if (character === '\\') {
+                    const escape = source[cursor++];
+                    check(escape !== undefined && '"\\/bfnrtu'.includes(escape));
+                    if (escape === 'u') {
+                        check(/^[0-9a-fA-F]{4}$/.test(source.slice(cursor, cursor + 4))); cursor += 4;
+                    }
+                }
             }
             throw fault('INVALID');
         };
         const value = depth => {
-            check(++nodes <= 60000 && depth <= 12, 'INPUT_LIMIT'); space();
+            check(++nodes <= limits.nodes && depth <= limits.depth, 'INPUT_LIMIT'); space();
             if (source[cursor] === '"') { stringEnd(); return; }
             if (source[cursor] === '{') {
                 cursor++; space(); const keys = new Set(); if (source[cursor] === '}') { cursor++; return; }
                 while (cursor < source.length) {
                     const key = JSON.parse(stringEnd()); check(!keys.has(key), 'DUPLICATE_KEY'); keys.add(key);
-                    space(); cursor++; value(depth + 1); space(); if (source[cursor++] === '}') return; space();
+                    space(); take(':'); value(depth + 1); space();
+                    if (source[cursor] === '}') { cursor++; return; }
+                    take(','); space();
                 }
             } else if (source[cursor] === '[') {
                 cursor++; space(); if (source[cursor] === ']') { cursor++; return; }
-                while (cursor < source.length) { value(depth + 1); space(); if (source[cursor++] === ']') return; }
+                while (cursor < source.length) {
+                    value(depth + 1); space(); if (source[cursor] === ']') { cursor++; return; }
+                    take(','); space();
+                }
             } else {
-                while (cursor < source.length && !/[\s,}\]]/u.test(source[cursor])) cursor++;
-                return;
+                for (const literal of ['true', 'false', 'null']) {
+                    if (source.startsWith(literal, cursor)) { cursor += literal.length; return; }
+                }
+                number.lastIndex = cursor; check(number.test(source)); cursor = number.lastIndex; return;
             }
+            throw fault('INVALID');
         };
-        value(0);
+        value(0); space(); check(cursor === source.length);
     }
     function parseBackup(source) {
         check(typeof source === 'string' && source.length <= LIMITS.bytes && bytes(source) <= LIMITS.bytes, 'SIZE_LIMIT');
@@ -517,5 +537,5 @@
         }
     }
     return { KEY, LOCK, FORMAT, TYPES, LIMITS, Store, createChromeBackend, initial, validate, validateRecord, validateContent,
-        parseBackup, counts, content, createDraft, search, sourceMetadata, validateContextSnapshot: value => freeze(contextSnapshot(snapshot(value))), findDuplicates, getVersion, resolvePromptReference, fault };
+        parseBackup, rejectDuplicateKeys, counts, content, createDraft, search, sourceMetadata, validateContextSnapshot: value => freeze(contextSnapshot(snapshot(value))), findDuplicates, getVersion, resolvePromptReference, fault };
 });

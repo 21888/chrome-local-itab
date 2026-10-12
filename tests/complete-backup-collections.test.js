@@ -118,3 +118,26 @@ test('complete collection restore accepts receipt history but never restores his
  assert.equal((await store.inspectOperation(command)).committed,false);
  assert.equal(restored.records.some(record=>record.id===command.operationId),true);
 });
+
+test('complete archive duplicate keys fail before review or restore writes, even in deselected globals', async () => {
+    const incoming = fixture(), target = fixture();
+    await save(incoming, 'First'); await add(incoming);
+    const source = await incoming.store.export();
+    const before = copy(target.raw), writes = target.writes.length;
+    for (const malformed of [
+        source.replace('"title":"First"', '"title":"Ignored","title":"First"'),
+        source.replace('"title":"First"', '"t\\u0069tle":"Ignored","title":"First"'),
+        source.replace('"title":"Explain"', '"title":"Ignored","title":"Explain"'),
+        source.replace('"schemaVersion":4', '"schemaVersion":1,"schemaVersion":4'),
+        source.replace('"globals":{', '"globals":{},"globals":{')
+    ]) {
+        assert.notEqual(malformed, source);
+        assert.throws(() => target.store.review(malformed, ['tasks'], accepted), code('DUPLICATE_KEY'));
+        assert.throws(() => target.store.restore(target.store.review(malformed, null, accepted), {confirmed:true}), code('DUPLICATE_KEY'));
+        assert.equal(target.writes.length, writes); assert.deepEqual(target.raw, before);
+    }
+    // Rejected input cannot poison the parse cache or prevent a valid round trip.
+    await target.store.restore(await target.store.review(source, null, accepted), {confirmed:true});
+    assert.equal(target.raw[Collections.KEY].records[0].title, 'First');
+    assert.deepEqual(Backup.parse(source, target.manager), JSON.parse(source));
+});

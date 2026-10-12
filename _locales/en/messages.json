@@ -4530,5 +4530,8 @@
     "message": "Could not confirm acceptance. The submitted draft is locked; retry accepts the exact same text using the same operation. Inspect history before leaving."
   },
   "promptsCompareCheckSave": {"message": "Check whether this result was saved"},
-  "promptsCompareSaveUnconfirmed": {"message": "Save is unconfirmed. Check performs a read-only lookup of this exact operation; it never writes again. Missing, expired or restored-away evidence cannot confirm success. Keep this result until you have checked your collection."}
+  "promptsCompareSaveUnconfirmed": {"message": "Save is unconfirmed. Check performs a read-only lookup of this exact operation; it never writes again. Missing, expired or restored-away evidence cannot confirm success. Keep this result until you have checked your collection."},
+  "completeBackupDuplicateKey": {
+    "message": "This backup contains duplicate JSON fields. Restore has not started. Choose a valid backup file."
+  }
 }

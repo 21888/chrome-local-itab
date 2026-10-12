@@ -79,6 +79,9 @@
     }
     function parse(source, manager) {
         check(typeof source === 'string', 'INVALID'); check(source.length <= LIMITS.bytes && bytes(source) <= LIMITS.bytes, 'SIZE_LIMIT');
+        // Scan the original envelope: reserializing globals erases duplicate-key evidence.
+        try { collections.rejectDuplicateKeys(source, LIMITS); }
+        catch (error) { throw fault(error.code === 'INPUT_LIMIT' ? 'SIZE_LIMIT' : error.code === 'DUPLICATE_KEY' ? 'DUPLICATE_KEY' : 'INVALID'); }
         let file; try { file = JSON.parse(source); } catch (_) { throw fault('INVALID'); }
         try { file = boundedCopy(file); } catch (_) { throw fault('SIZE_LIMIT'); }
         check(file?.format === FORMAT && [1, 2, 3, 4].includes(file.schemaVersion), 'VERSION');
