@@ -5437,5 +5437,23 @@
   },
   "aiContextDiscardResult": {
     "message": "清空草稿并丢弃尚未保存的回复？"
+  },
+  "navigationTagRepairGuides": {
+    "message": "维修指南"
+  },
+  "navigationTagDeviceRepair": {
+    "message": "设备修理"
+  },
+  "navigationTagOnlineChess": {
+    "message": "在线国际象棋"
+  },
+  "navigationTagChessPractice": {
+    "message": "国际象棋练习"
+  },
+  "navigationTagSocialScheduling": {
+    "message": "社媒排期"
+  },
+  "navigationTagSocialPublishing": {
+    "message": "社媒发布"
   }
 }

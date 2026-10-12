@@ -1,14 +1,14 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), crypto = require('node:crypto');
 const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites');
 const { beforeChineseAliasReview } = require('./helpers/navigation-chinese-alias-review');
-const added = sites.slice(114);
+const added = sites.slice(114, 120);
 const ids = ['phet','wave','onet-online','we-work-remotely','google-dataset-search','google-ads-transparency'];
 const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase()+part.slice(1)).join('');
 test('specialized services preserve every original record and append six sites with twelve new uses', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0,114).map(beforeChineseAliasReview))).digest('hex'), '0da3d5a424fc0293c8f736b6330e59d9e0c2c243ae46e952e430bbd0e45cf7df');
     assert.deepEqual(added.map(site=>site.id), ids);
-    assert.equal(sites.length,120); assert.equal(Catalog.categories.length,18);
-    assert.equal(new Set(sites.flatMap(site=>site.tags)).size,180);
+    assert.equal(sites.length,124); assert.equal(Catalog.categories.length,18);
+    assert.equal(new Set(sites.flatMap(site=>site.tags)).size,186);
     const oldTags=new Set(sites.slice(0,114).flatMap(site=>site.tags));
     assert.equal(new Set(added.flatMap(site=>site.tags).filter(tag=>!oldTags.has(tag))).size,12);
     assert.equal(Catalog.validate(sites),true);

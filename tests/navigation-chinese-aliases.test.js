@@ -13,10 +13,10 @@ const cases = [
 ];
 
 test('five exact reviewed alias/evidence additions preserve every field of all 120 original records', () => {
-    assert.equal(sites.length, 120);
+    assert.equal(sites.length, 124);
     assert.equal(review.verifiedOn, '2026-10-12');
     assert.deepEqual(review.changes.map(change => [change.id, change.searchAliases]), cases.map(([id, alias]) => [id, [alias]]));
-    const preserved = sites.map(beforeChineseAliasReview);
+    const preserved = sites.slice(0, 120).map(beforeChineseAliasReview);
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(preserved)).digest('hex'), review.preservedSha256,
         'Only the five exact searchAliases and explicitly appended official sources may change');
     assert.equal(Catalog.validate(sites), true);

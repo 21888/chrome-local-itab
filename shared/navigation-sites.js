@@ -3771,6 +3771,138 @@
             "https://blog.google/innovation-and-ai/technology/ads/announcing-the-launch-of-the-new-ads-transparency-center/",
             "https://policies.google.com/terms?hl=en-US"
         ]
+    },
+    {
+        "id": "usa-gov",
+        "name": "USA.gov",
+        "url": "https://www.usa.gov/",
+        "company": "U.S. General Services Administration",
+        "country": "US",
+        "categories": [
+            "public-services"
+        ],
+        "tags": [
+            "government-information",
+            "public-service-guides"
+        ],
+        "searchAliases": [
+            "USA gov",
+            "USAGov"
+        ],
+        "description": {
+            "en": "Find U.S. government agencies, benefits and public-service information, with links to the responsible services.",
+            "zh": "查询美国政府机构、福利与公共服务信息，并找到对应办理入口。"
+        },
+        "pricing": "not_applicable",
+        "pricingNote": {
+            "en": "A government information guide with free government-question assistance; application requirements, eligibility and fees depend on the responsible agency.",
+            "zh": "提供美国政府信息指南与免费政务问题咨询；具体事项的申请要求、资格及费用以办理机构说明为准。"
+        },
+        "icon": "US",
+        "sources": [
+            "https://www.usa.gov/about",
+            "https://www.usa.gov/privacy-security"
+        ],
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "ifixit",
+        "name": "iFixit Repair Guides",
+        "url": "https://www.ifixit.com/Guide",
+        "company": "iFixit",
+        "country": "US",
+        "categories": [
+            "lifestyle"
+        ],
+        "tags": [
+            "repair-guides",
+            "device-repair"
+        ],
+        "description": {
+            "en": "Find step-by-step repair guides for phones, computers, appliances and everyday items.",
+            "zh": "查找手机、电脑、家电及日用品的分步维修指南。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Repair guides are free to read; tools and parts in the store are paid products. Other services have their own terms; repair results are not guaranteed.",
+            "zh": "维修指南免费阅读；商店中的工具与零件另行收费。其他服务以各自条款为准，不保证维修结果。"
+        },
+        "icon": "IF",
+        "sources": [
+            "https://www.ifixit.com/",
+            "https://www.ifixit.com/Guide",
+            "https://www.ifixit.com/Info/Privacy",
+            "https://www.ifixit.com/Info/Terms_of_Use"
+        ],
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "lichess",
+        "name": "Lichess",
+        "url": "https://lichess.org/",
+        "company": "Lichess.org",
+        "country": "FR",
+        "categories": [
+            "games"
+        ],
+        "tags": [
+            "online-chess",
+            "chess-practice"
+        ],
+        "description": {
+            "en": "Play, practice and learn chess in your browser.",
+            "zh": "在浏览器中进行国际象棋对弈、练习与学习。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Free with no ads; donations are voluntary. The privacy policy still describes data processing, including IP addresses, session cookies and account data.",
+            "zh": "免费且无广告，捐赠自愿；隐私政策仍说明 IP 地址、会话 Cookie 与账户数据等信息处理。"
+        },
+        "icon": "LC",
+        "sources": [
+            "https://lichess.org/about",
+            "https://lichess.org/privacy",
+            "https://lichess.org/terms-of-service"
+        ],
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "buffer",
+        "name": "Buffer",
+        "url": "https://buffer.com/",
+        "company": "Buffer, Inc.",
+        "country": "US",
+        "categories": [
+            "marketing"
+        ],
+        "tags": [
+            "social-scheduling",
+            "social-publishing"
+        ],
+        "description": {
+            "en": "Plan social-media content and manage publishing schedules with post scheduling across accounts.",
+            "zh": "规划多个社交媒体账号的内容，管理帖子排期与定时发布。"
+        },
+        "pricing": "freemium",
+        "pricingNote": {
+            "en": "Free supports up to 3 channels, 10 simultaneously queued posts per channel and 1 user; this is not a monthly post allowance. Paid plans expand limits and are billed by channel. Connecting social accounts grants access and involves data processing.",
+            "zh": "免费版最多支持 3 个频道、每频道同时排期 10 条帖子和 1 个用户，并非每月仅 10 条。付费版提高额度并按频道计费；连接社媒账号会授予访问权限并涉及数据处理。"
+        },
+        "icon": "BF",
+        "sources": [
+            "https://buffer.com/pricing",
+            "https://buffer.com/legal#terms",
+            "https://buffer.com/legal#privacy-policy"
+        ],
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

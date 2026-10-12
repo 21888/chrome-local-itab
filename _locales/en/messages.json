@@ -5437,5 +5437,23 @@
   },
   "aiContextDiscardResult": {
     "message": "Clear this draft and discard its unsaved response?"
+  },
+  "navigationTagRepairGuides": {
+    "message": "Repair guides"
+  },
+  "navigationTagDeviceRepair": {
+    "message": "Device repair"
+  },
+  "navigationTagOnlineChess": {
+    "message": "Online chess"
+  },
+  "navigationTagChessPractice": {
+    "message": "Chess practice"
+  },
+  "navigationTagSocialScheduling": {
+    "message": "Social-media scheduling"
+  },
+  "navigationTagSocialPublishing": {
+    "message": "Social-media publishing"
   }
 }
