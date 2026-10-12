@@ -958,7 +958,8 @@ test('copy labels and feedback use runtime locale keys without new clipboard per
         assert.equal(h.host.querySelector('.ai-context-copy-status').textContent, messages.aiContextCopied.message);
         h.view.destroy();
     }
-    const manifest = JSON.parse(fs.readFileSync('manifest.json')); assert.equal(manifest.version, '1.1.96');
+    const manifest = JSON.parse(fs.readFileSync('manifest.json'));
+    assert.deepEqual(manifest.permissions, ["storage", "unlimitedStorage", "identity", "contextMenus"]);
     assert(!manifest.permissions.some(value => /clipboard/i.test(value)));
     assert.doesNotMatch(fs.readFileSync('shared/ai-context-view.js', 'utf8'), /clipboard\.read/);
 });
