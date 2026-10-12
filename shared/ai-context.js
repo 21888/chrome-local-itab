@@ -13,10 +13,16 @@
             !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(value), 'LIMIT');
         return value;
     }
+    // Collection titles use Unicode code points; request budgets stay UTF-16.
+    function titleText(value) {
+        text(value, 400);
+        check(Array.from(value).length <= 200, 'LIMIT');
+        return value;
+    }
     function sources({ collections, scratchpad, workspaceId }) {
         text(workspaceId, 200);
         const result = (collections?.records || []).filter(r => !r.deletedAt).map(r => Object.freeze({
-            id: `collection:${r.id}`, label: text(r.title, 200), text: r.body, revision: r.version, scope: 'library'
+            id: `collection:${r.id}`, label: titleText(r.title), text: r.body, revision: r.version, scope: 'library'
         }));
         if (scratchpad?.content) result.push(Object.freeze({ id: `scratchpad:${workspaceId}`, label: 'Saved workspace note', text: scratchpad.content, revision: String(scratchpad.revision), scope: 'workspace' }));
         return Object.freeze(result);
@@ -62,7 +68,7 @@
         const seen = new Set();
         const context = selected.map(source => {
             check(source && !seen.has(source.id)); seen.add(source.id);
-            return Object.freeze({ id: text(source.id, 300), label: text(source.label, 200), text: text(source.text, LIMITS.source) });
+            return Object.freeze({ id: text(source.id, 300), label: titleText(source.label), text: text(source.text, LIMITS.source) });
         });
         return context;
     }
@@ -196,7 +202,7 @@
                 endpoint: request.url, model: request.model, prompt: request.prompt });
         }
         async saveAnswer(title, { includeContext = false } = {}) {
-            check(this.result?.mode === 'answer' && !this.busy && !this.saved && !this.closed, 'STALE'); text(title, 200);
+            check(this.result?.mode === 'answer' && !this.busy && !this.saved && !this.closed, 'STALE'); titleText(title);
             check(typeof includeContext === 'boolean');
             const generation = this.generation; this.busy = true;
             try {

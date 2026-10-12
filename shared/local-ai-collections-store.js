@@ -101,8 +101,9 @@
     function contextSnapshot(value) {
         object(value, ['schemaVersion', 'question', 'sources', 'endpoint', 'model', 'prompt']);
         check(value.schemaVersion === 1, 'VERSION');
-        const bounded = (value, limit) => {
-            check(typeof value === 'string' && unicode(value) && value.trim().length > 0 && value.length <= limit, 'CONTEXT_LIMIT');
+        const bounded = (value, limit, codePoints = false) => {
+            check(typeof value === 'string' && unicode(value) && value.trim().length > 0 &&
+                (codePoints ? value.length <= limit * 2 && Array.from(value).length <= limit : value.length <= limit), 'CONTEXT_LIMIT');
         };
         bounded(value.question, 4000); bounded(value.prompt, 32000); bounded(value.model, 120);
         check(value.model === value.model.trim() && !/[\p{Cc}]/u.test(value.model), 'CONTEXT_INVALID');
@@ -113,7 +114,7 @@
         check(Array.isArray(value.sources) && value.sources.length <= 12, 'CONTEXT_LIMIT');
         const ids = new Set();
         for (const source of value.sources) {
-            object(source, ['id', 'label', 'text']); bounded(source.id, 300); bounded(source.label, 200); bounded(source.text, 16000);
+            object(source, ['id', 'label', 'text']); bounded(source.id, 300); bounded(source.label, LIMITS.title, true); bounded(source.text, 16000);
             check(!ids.has(source.id), 'CONTEXT_INVALID'); ids.add(source.id);
         }
         // Both structured excerpts and the exact prompt must describe the same request.

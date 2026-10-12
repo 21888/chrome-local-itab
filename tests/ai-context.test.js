@@ -446,3 +446,73 @@ test('successful replacement starts clean task state; old tasks remain reviewabl
     assert.equal(h.controller.saved, false); assert.equal(h.controller.saveCommand, null); assert.equal(h.controller.taskReview, null);
     assert.equal(h.controller.result.mode, 'tasks');
 });
+
+test('Unicode collection titles load the entire batch and preserve 200-code-point labels through save and backup', async () => {
+    const titles = ['🧪'.repeat(101), '🧪'.repeat(200), '中🧪'.repeat(100), 'e\u0301'.repeat(100), 'Ordinary synthetic title'];
+    const sourceStore = new Collections.Store(backend());
+    for (const title of titles) await sourceStore.mutate(sourceStore.request('add', { title, body: 'Synthetic saved excerpt' }));
+    const h = setup();
+    h.controller.readSources = async () => api.sources({ workspaceId: 'synthetic-workspace', collections: await sourceStore.read(),
+        scratchpad: { content: 'Synthetic saved workspace note', revision: 1 } });
+    const loaded = await h.controller.loadSources();
+    assert.equal(loaded.length, titles.length + 1);
+    assert.deepEqual(loaded.slice(0, -1).map(source => source.label), titles);
+    assert.equal(loaded.at(-1).scope, 'workspace');
+    assert.equal(h.calls.sends + h.calls.permissions + h.collectionBackend.writes, 0);
+    const packed = api.pack('Synthetic question', loaded);
+    assert.equal(api.inspectInput(packed.question, loaded).valid, true);
+    assert.deepEqual(JSON.parse(packed.prompt.split('\n').at(-1)).sources, packed.sources);
+    assert.equal(packed.sources[1].label.length, 400);
+    await h.controller.review({ url: 'https://model.example/v1/chat/completions', model: 'mock', question: packed.question, selected: loaded, mode: 'answer' });
+    await h.controller.send();
+    await h.controller.saveAnswer('🧪'.repeat(200), { includeContext: true });
+    const expected = h.controller.answerSnapshot();
+    assert.deepEqual(Collections.validateContextSnapshot(expected), expected);
+    const saved = (await h.controller.collectionStore.read()).records[0];
+    assert.equal(saved.title, '🧪'.repeat(200));
+    assert.deepEqual(saved.contextSnapshot.sources, packed.sources);
+    const file = Collections.parseBackup(await h.controller.collectionStore.export());
+    const restoredStore = new Collections.Store(backend());
+    const importReview = await restoredStore.review(JSON.stringify(file));
+    const restored = await restoredStore.mutate(restoredStore.request('replace', importReview));
+    assert.deepEqual(restored.records[0].contextSnapshot, expected);
+    assert.deepEqual(api.pack(expected.question, expected.sources), packed);
+});
+
+test('source labels reject over-200-code-point and malformed values without partial loading or saving', async () => {
+    const invalidTitles = ['x'.repeat(201), '🧪'.repeat(201), '中🧪'.repeat(100) + 'x', 'e\u0301'.repeat(100) + 'x', '\ud800', '\udc00', '  '];
+    for (const title of invalidTitles) {
+        const source = { id: 'synthetic', label: title, text: 'Synthetic excerpt' };
+        const store = new Collections.Store(backend());
+        await assert.rejects(store.mutate(store.request('add', { title, body: 'Synthetic body' })));
+        assert.throws(() => api.sources({ workspaceId: 'synthetic', collections: { records: [
+            { id: 'normal', title: 'Normal title', body: 'Synthetic body' }, { id: 'invalid', title, body: 'Synthetic body' }
+        ] }, scratchpad: { content: 'Synthetic note', revision: 1 } }), { code: 'LIMIT' });
+        assert.throws(() => api.pack('Question', [source]), { code: 'LIMIT' });
+        assert.equal(api.inspectInput('Question', [source]).valid, false);
+        const snapshot = { schemaVersion: 1, question: 'Question', sources: [source], endpoint: 'https://model.example/v1/chat/completions', model: 'mock',
+            prompt: 'Synthetic instruction\n' + JSON.stringify({ question: 'Question', sources: [source] }) };
+        assert.throws(() => Collections.validateContextSnapshot(snapshot), { code: 'CONTEXT_LIMIT' });
+        const h = setup(); await review(h, 'answer'); await h.controller.send();
+        await assert.rejects(h.controller.saveAnswer(title, { includeContext: true }), { code: 'LIMIT' });
+        assert.equal(h.collectionBackend.writes, 0);
+    }
+});
+
+test('Unicode source labels do not change UTF-16 question, excerpt or serialized prompt budgets', () => {
+    const source = { id: 'synthetic', label: '🧪'.repeat(200), text: '🧪'.repeat(8000) };
+    const question = '🧪'.repeat(2000);
+    const packed = api.pack(question, [source]);
+    const measured = api.inspectInput(question, [source]);
+    assert.equal(measured.questionLength, 4000); assert.equal(measured.promptLength, packed.prompt.length); assert.equal(measured.valid, true);
+    for (const [q, sources] of [[question + '🧪', [source]], ['Question', [{ ...source, text: source.text + '🧪' }]]]) {
+        assert.throws(() => api.pack(q, sources), { code: 'LIMIT' }); assert.equal(api.inspectInput(q, sources).valid, false);
+    }
+    const pair = [{ ...source, text: 'x'.repeat(15000) }, { ...source, id: 'second', text: 'x' }];
+    const overhead = api.pack('Question', pair).prompt.length;
+    pair[1].text += 'x'.repeat(32000 - overhead);
+    assert.equal(api.pack('Question', pair).prompt.length, 32000);
+    pair[1].text += 'x';
+    assert.throws(() => api.pack('Question', pair), { code: 'LIMIT' });
+    assert.equal(api.inspectInput('Question', pair).promptLength, 32001);
+});
