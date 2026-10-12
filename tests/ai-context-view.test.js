@@ -205,3 +205,34 @@ test('completion already superseded at the view boundary cannot set the output o
     assert.equal(h.host.querySelectorAll('textarea').find(node => node.rows === 8).value || '', '');
     assert.equal(h.c.writes, 0);
 });
+
+test('UI Stop unlocks a hung send, preserves stopped status, and late callbacks cannot alter a fresh answer', { timeout: 5000 }, async () => {
+    for (const stage of ['permission', 'workspace', 'transport']) {
+        const h = await model(), gate = deferred();
+        h.host.querySelector('select').value = 'answer'; h.host.querySelector('select').dispatch('change');
+        h.click('Review exact'); await settle();
+        const ensureActive = h.controller.ensureActive;
+        if (stage === 'permission') h.controller.permissions.contains = () => gate.promise;
+        if (stage === 'workspace') h.controller.ensureActive = () => gate.promise;
+        if (stage === 'transport') h.setReply(gate.promise);
+        h.input(h.field('password'), 'synthetic-old-key'); h.click('Send reviewed'); await settle(); h.click('Stop request'); await settle();
+        assert.equal(h.controller.busy, false); assert.equal(h.byText('Review exact').disabled, false); assert.equal(h.byText('Cancel / clear').disabled, false);
+        assert.equal(h.field('password').value, ''); assert.match(h.host.querySelector('.ai-context-status').textContent, /^Stopped\./);
+        assert.equal(h.controller.result, null); assert.equal(h.b.writes + h.c.writes, 0);
+        h.controller.ensureActive = ensureActive; h.controller.permissions.contains = async () => true;
+        h.click('Cancel / clear'); h.input(questionField(h), 'Fresh question'); h.setReply('Fresh answer'); await send(h, 'answer');
+        const status = h.host.querySelector('.ai-context-status').textContent, calls = h.calls.length;
+        gate.resolve(stage === 'transport' ? 'Late old answer' : true); await settle();
+        assert.equal(h.calls.length, calls); assert.equal(h.controller.result.text, 'Fresh answer'); assert.equal(answerTitle(h).value, 'Fresh question');
+        assert.equal(h.host.querySelector('.ai-context-status').textContent, status); assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+    }
+});
+
+test('pagehide settles an unresolved permission check without a late request or UI resurrection', async () => {
+    const h = await model(), gate = deferred(); h.click('Review exact'); await settle();
+    h.controller.permissions.contains = () => gate.promise; h.input(h.field('password'), 'synthetic-key');
+    h.click('Send reviewed'); await settle(); h.events.get('pagehide')(); await settle();
+    assert.equal(h.controller.busy, false); assert.equal(h.field('password'), undefined); assert.equal(h.host.children.length, 0);
+    gate.resolve(true); await settle(); assert.equal(h.calls.length, 0); assert.equal(h.controller.result, null);
+    assert.equal(h.host.children.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+});

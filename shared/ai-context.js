@@ -49,6 +49,14 @@
         return { ...backend, read: () => backend.read(), write: value => backend.write(value), subscribe: listener => backend.subscribe(listener),
             lock: action => backend.lock(async () => { await guard(); return action(); }) };
     }
+    function cancellable(promise, signal) {
+        return new Promise((resolve, reject) => {
+            const cancel = () => { signal.removeEventListener('abort', cancel); reject(fault('CANCELLED')); };
+            signal.addEventListener('abort', cancel, { once: true });
+            Promise.resolve(promise).then(resolve, reject).finally(() => signal.removeEventListener('abort', cancel));
+            if (signal.aborted) cancel();
+        });
+    }
     class Controller {
         constructor({ transport, permissions, ensureActive, readSources, taskStore, collectionStore }) {
             Object.assign(this, { transport, permissions, ensureActive, readSources, taskStore, collectionStore });
@@ -79,19 +87,32 @@
         async send(key = '') {
             check(this.reviewed && !this.busy && !this.result && !this.closed, 'STALE');
             const review = this.reviewed; this.busy = true; const aborter = new AbortController(); this.aborter = aborter;
+            const current = () => {
+                check(!aborter.signal.aborted, 'CANCELLED');
+                this.current(review.generation); check(this.aborter === aborter, 'STALE');
+            };
+            const wait = action => { current(); return cancellable(action(), aborter.signal); };
             try {
-                await this.ensureActive(); this.current(review.generation);
-                check(await this.permissions.contains({ origins: [review.request.permission] }), 'PERMISSION');
-                await this.ensureActive();
-                this.current(review.generation); check(!aborter.signal.aborted, 'CANCELLED');
-                const response = await this.transport.run(review.request, { key, signal: aborter.signal });
-                await this.ensureActive(); this.current(review.generation); check(!aborter.signal.aborted, 'CANCELLED');
+                await wait(() => this.ensureActive());
+                check(await wait(() => this.permissions.contains({ origins: [review.request.permission] })), 'PERMISSION');
+                await wait(() => this.ensureActive());
+                const response = await wait(() => this.transport.run(review.request, { key, signal: aborter.signal }));
+                await wait(() => this.ensureActive()); current();
                 text(response.text, LIMITS.prompt);
                 this.result = Object.freeze({ text: response.text, model: review.request.model, origin: review.request.origin, mode: review.packed.mode });
                 return this.result;
-            } finally { this.busy = false; if (this.aborter === aborter) this.aborter = null; }
+            } finally {
+                key = '';
+                // A stopped request must never unlock or clear a newer request.
+                if (this.aborter === aborter) { this.busy = false; this.aborter = null; }
+            }
         }
-        stop() { this.aborter?.abort(); }
+        stop() {
+            const aborter = this.aborter;
+            if (!aborter) return; // Local writes retain their existing transaction fence.
+            aborter.abort();
+            if (this.aborter === aborter) { this.aborter = null; this.busy = false; }
+        }
         editResult(value) {
             check(this.result && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
             text(value, LIMITS.prompt, true); this.generation++; this.taskReview = null;

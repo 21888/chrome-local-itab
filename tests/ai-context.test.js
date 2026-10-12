@@ -252,3 +252,65 @@ test('resolved save uncertainty does not contaminate capacity refusal in a later
     await assert.rejects(h.controller.saveAnswer('Second', { includeContext: true }), { code: 'CONTEXT_LIMIT' });
     assert.equal(h.controller.saveCommand, null); assert.equal(h.controller.saveUncertain, false); assert.equal(h.collectionBackend.writes, 1);
 });
+
+test('Stop settles every suspended send stage without its callback and fences a newer run', { timeout: 5000 }, async () => {
+    for (const stage of ['workspace-before-permission', 'permission', 'workspace-before-transport', 'transport', 'workspace-after-transport']) {
+        const h = setup(), gate = deferred(), entered = deferred(); await review(h, 'answer');
+        const ensureActive = h.controller.ensureActive; let checks = 0, sent = 0;
+        h.controller.ensureActive = () => {
+            checks++;
+            if (stage === ['workspace-before-permission', 'workspace-before-transport', 'workspace-after-transport'][checks - 1]) { entered.resolve(); return gate.promise; }
+            return ensureActive();
+        };
+        h.permissions.contains = () => { if (stage === 'permission') { entered.resolve(); return gate.promise; } return Promise.resolve(true); };
+        h.controller.transport.run = () => { sent++; if (stage === 'transport') { entered.resolve(); return gate.promise; } return Promise.resolve({ text: 'Old answer' }); };
+        let settled = false;
+        const old = h.controller.send('synthetic-old-key').catch(error => { settled = true; return error.code; });
+        await entered.promise; h.controller.stop(); assert.equal(h.controller.busy, false); assert.equal(h.controller.aborter, null);
+        // Editing is immediately available. No old stage may resume work for this review.
+        h.controller.edit(); h.controller.ensureActive = ensureActive; h.permissions.contains = async () => true;
+        await review(h, 'answer');
+        const newer = deferred(); h.controller.transport.run = () => { sent++; return newer.promise; };
+        const fresh = h.controller.send('synthetic-new-key');
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(settled, true, `${stage}: Stop must settle before the old callback`); assert.equal(await old, 'CANCELLED');
+        assert.equal(h.controller.busy, true); assert.throws(() => h.controller.edit(), { code: 'BUSY' });
+        const callsBeforeLate = sent, owner = h.controller.aborter;
+        gate.resolve(stage === 'transport' ? { text: 'Late old answer' } : true);
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(sent, callsBeforeLate); assert.equal(h.controller.aborter, owner); assert.equal(h.controller.busy, true); assert.equal(h.controller.result, null);
+        newer.resolve({ text: 'Fresh answer' }); await fresh;
+        assert.equal(h.controller.result.text, 'Fresh answer'); assert.equal(h.controller.busy, false);
+        assert.equal(h.taskBackend.writes + h.collectionBackend.writes, 0);
+    }
+});
+
+test('Stop before the first await completes never checks permission or sends, and repeated Stop is harmless', async () => {
+    const h = setup(); await review(h); let checks = 0;
+    h.permissions.contains = async () => { checks++; return true; };
+    const pending = h.controller.send(); h.controller.stop(); h.controller.stop();
+    await assert.rejects(pending, { code: 'CANCELLED' });
+    assert.equal(checks, 0); assert.equal(h.calls.sends, 0); assert.equal(h.controller.busy, false);
+    h.controller.edit();
+});
+
+test('Close settles a hung permission check without sending after its late result', async () => {
+    const h = setup(), gate = deferred(), entered = deferred(); await review(h);
+    h.permissions.contains = () => { entered.resolve(); return gate.promise; };
+    const pending = h.controller.send(); const rejected = assert.rejects(pending, { code: 'CANCELLED' });
+    await entered.promise; h.controller.close(); await rejected;
+    assert.equal(h.controller.busy, false); gate.resolve(true); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(h.calls.sends, 0); assert.equal(h.controller.result, null);
+});
+
+test('Stop does not unlock or cancel a pending local answer write', async () => {
+    const h = setup(); await review(h, 'answer'); await h.controller.send();
+    const gate = deferred(), entered = deferred();
+    const waiting = h.collectionBackend.lock(() => { entered.resolve(); return gate.promise; }); await entered.promise;
+    const saving = h.controller.saveAnswer('Synthetic answer');
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(h.controller.busy, true); assert.equal(h.controller.aborter, null);
+    h.controller.stop(); assert.equal(h.controller.busy, true); assert.throws(() => h.controller.edit(), { code: 'BUSY' });
+    gate.resolve(); await waiting; await saving;
+    assert.equal(h.controller.saved, true); assert.equal(h.collectionBackend.writes, 1);
+});
