@@ -86,3 +86,19 @@ test('real concurrent privacy change refuses the new-category confirmation witho
     assert.equal(h.writes.length, 0); assert.equal(h.raw.categories.length, 0); assert.equal(h.raw.links.length, 0);
     assert.match(h.document.querySelector('.navigation-library-status').textContent, /Close and reopen/);
 });
+
+test('real new-category review removal remains zero-write until a fresh reduced confirmation commits', async () => {
+    const h = flow([{ id: 'work', name: 'Work' }]); await h.view.open();
+    begin(h, 'Selected research'); choose(h, 'chatgpt'); choose(h, 'github');
+    const search = h.document.querySelector('.navigation-library-search input'); search.value = 'figma'; search.dispatch('input');
+    h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+    const stale = h.document.querySelector('.navigation-library-batch-confirm');
+    h.document.querySelectorAll('.navigation-library-review-remove')[0].dispatch('click');
+    stale.dispatch('click'); await tick(); assert.equal(h.requests.length, 0); assert.equal(h.writes.length, 0);
+    h.document.querySelector('.navigation-library-batch-confirm').dispatch('click'); await tick();
+    assert.equal(h.requests.length, 1); assert.equal(h.writes.length, 1);
+    assert.equal(h.raw.links.length, 1); assert.equal(h.raw.links[0].title, 'GitHub');
+    assert.equal(h.raw.categories.length, 2); assert.equal(h.raw.categories[1].name, 'Selected research');
+    assert.equal(h.raw.links[0].category, h.raw.categories[1].id); assert.equal(search.value, 'figma');
+    assert(Object.isFrozen(h.requests[0].sites)); assert(Object.isFrozen(h.requests[0].baseline));
+});

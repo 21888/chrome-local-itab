@@ -341,3 +341,46 @@ test('new-category all-duplicate result creates no destination and reports no ca
 test('new-category Chinese labels and review render category text safely',async()=>{
  const h=model({locale:'zh-CN'});await h.view.open();assert.ok(h.button('新建个人分类'));enterNewName(h,'<img src=x onerror=alert(1)>');h.firstAdd().dispatch('click');assert.match(textTree(h.document.querySelector('.navigation-library-review')),/将新建个人分类: <img/);assert.equal(h.document.querySelectorAll('img').length,0);assert.ok(h.button('使用已有分类'));assert.equal(h.calls,0);
 });
+
+const removeControls=h=>h.document.querySelectorAll('.navigation-library-review-remove');
+test('review removes hidden selection while preserving filters, destination and fresh confirmation ownership',async()=>{
+ const h=model(),writer=batchWriter(h);await h.view.open();for(const id of ['chatgpt','github','figma'])pickSite(h,id);
+ const dest=h.document.querySelector('.navigation-library-destination select');dest.value='personal';dest.dispatch('change');
+ h.search('figma');savedControl(h,'new').dispatch('click');h.click('Review selected');
+ const staleConfirm=h.button('Confirm and add'),staleCancel=h.button('Back to browsing'),staleRemove=removeControls(h)[0];
+ const removedName=staleRemove.getAttribute('aria-label').split(': ')[1];
+ staleRemove.dispatch('click',{detail:1});assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(cards(h).length,1);assert.equal(h.document.querySelector('input').value,'figma');assert.equal(dest.value,'personal');assert.equal(savedControl(h,'new').getAttribute('aria-pressed'),'true');
+ assert.equal(h.document.activeElement,removeControls(h)[0]);assert.notEqual(h.button('Confirm and add'),staleConfirm);
+ staleConfirm.dispatch('click');staleCancel.dispatch('click');staleRemove.dispatch('click');staleRemove.dispatch('click',{detail:2});
+ assert.equal(writer.calls,0);assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);
+ h.button('Confirm and add').dispatch('click');await tick();assert.equal(writer.calls,1);assert.equal(writer.request.sites.length,2);assert(!writer.request.sites.some(site=>site.name===removedName));assert.equal(writer.request.destination,'personal');assert(Object.isFrozen(writer.request.sites));assert(Object.isFrozen(writer.request.sites[0]));assert(Object.isFrozen(writer.request.baseline));
+});
+test('removal keeps normalized new category draft and creates only remaining sites',async()=>{
+ const h=model(),writer=newCategoryWriter(h);await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');enterNewName(h,'  Cafe\u0301  ');h.search('no-visible-site');h.click('Review selected');
+ const old=h.document.querySelector('.navigation-library-batch-confirm');removeControls(h)[1].dispatch('click');
+ assert.equal(newName(h).value,'  Cafe\u0301  ');assert.equal(h.document.querySelector('.navigation-library-new-category-panel').hidden,false);assert.equal(h.document.querySelector('input').value,'no-visible-site');assert.equal(h.document.activeElement,removeControls(h)[0]);
+ assert.match(h.document.querySelector('.navigation-library-batch-confirm').textContent,/\(1\)/);old.dispatch('click');assert.equal(writer.calls,0);
+ h.document.querySelector('.navigation-library-batch-confirm').dispatch('click');await tick();assert.equal(writer.request.sites.length,1);assert.equal(writer.request.sites[0].name,'ChatGPT');assert.equal(writer.request.newCategory.name,'Café');
+});
+test('last removal exits review, focuses search, keeps draft, and old controls cannot act after reselection',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');enterNewName(h,'Reading');h.search('github');h.click('Review selected');
+ const oldConfirm=h.document.querySelector('.navigation-library-batch-confirm'),oldRemove=removeControls(h)[0];oldRemove.dispatch('click');
+ assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);assert.equal(h.document.activeElement,h.document.querySelector('input'));assert.equal(newName(h).value,'Reading');assert.equal(h.button('Review selected').disabled,true);
+ pickSite(h,'github');h.click('Review selected');oldConfirm.dispatch('click');oldRemove.dispatch('click');assert.equal(h.calls,0);assert.equal(selectionCount(h),'1 / 20 selected');
+});
+test('review removal releases full selection capacity and repeated or composing activation is harmless',async()=>{
+ const h=model();await h.view.open();for(const site of h.context.LocalItabNavigationSites.slice(0,20))pickSite(h,site.id);h.click('Review selected');const remove=removeControls(h)[0];
+ for(const key of ['Enter',' '])assert.equal(remove.dispatch('keydown',{key,repeat:true}).prevented,true);assert.equal(remove.dispatch('keydown',{key:'Tab',repeat:true}).prevented,false);
+ for(const fields of [{detail:2},{repeat:true},{isComposing:true},{keyCode:229}])remove.dispatch('click',fields);assert.equal(selectionCount(h),'20 / 20 selected');
+ remove.dispatch('click');remove.dispatch('click');assert.equal(selectionCount(h),'19 / 20 selected');h.click('Back to browsing');
+ const site=h.context.LocalItabNavigationSites[20];assert.equal(cards(h).find(card=>card.dataset.site===site.id).querySelector('input').disabled,false);pickSite(h,site.id);assert.equal(selectionCount(h),'20 / 20 selected');assert.equal(h.calls,0);
+});
+test('pending confirmation disables removal and does not change reviewed sites',async()=>{
+ const h=model(),pending=deferred();let request,calls=0;h.component.addCatalogShortcut=async r=>{request=r;calls++;return pending.promise;};await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');h.click('Review selected');const removes=removeControls(h);h.click('Confirm and add');
+ assert(removes.every(node=>node.disabled));removes[0].dispatch('click');assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(request.sites.length,2);assert.equal(calls,1);assert.equal(h.document.activeElement.className,'navigation-library-panel');
+ pending.resolve({...h.snapshot,links:request.sites.map(site=>({url:site.url})),addedCount:2,skippedCount:0});await tick();assert.equal(selectionCount(h),'0 / 20 selected');
+});
+test('single new category review stays read-only and removal text is translated and safely rendered',async()=>{
+ const single=model();await single.view.open();pickSite(single,'github');enterNewName(single,'Single');single.firstAdd().dispatch('click');assert.equal(removeControls(single).length,0);assert.equal(selectionCount(single),'1 / 20 selected');
+ const h=model({locale:'zh-CN'});h.context.LocalItabNavigationSites[0]={...h.context.LocalItabNavigationSites[0],name:'<img src=x onerror=alert(1)>'};await h.view.open();pickSite(h,'chatgpt');h.click('检查所选');assert.equal(removeControls(h)[0].textContent,'移出所选');assert.equal(removeControls(h)[0].getAttribute('aria-label'),'移出所选: <img src=x onerror=alert(1)>');assert.equal(h.document.querySelectorAll('img').length,0);removeControls(h)[0].dispatch('click');assert.equal(selectionCount(h),'0 / 20 已选');
+});

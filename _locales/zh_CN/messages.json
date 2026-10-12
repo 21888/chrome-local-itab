@@ -5183,6 +5183,9 @@
   "navigationLibrarySelectionLimit": {
     "message": "合并已有选择后将超过 20 个网站，请先收窄筛选。"
   },
+  "navigationLibraryRemoveSelection": {
+    "message": "移出所选"
+  },
   "navigationLibraryClearSelection": {
     "message": "清空选择"
   },

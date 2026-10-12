@@ -20,7 +20,7 @@
         layout: 'Finish or retry the pending layout change, then reopen the library.', noCategory: 'Create a personal category here before adding sites.',
         select: 'Select', selected: 'selected', selectionHelp: 'Choose up to 20 sites. Selections stay when you change filters.',
         selectResults: 'Select current results', selectionLimit: 'These results would exceed 20 selected sites. Narrow the filters first.',
-        clearSelection: 'Clear selection', reviewSelection: 'Review selected', reviewTitle: 'Review your selection',
+        removeSelection: 'Remove from selection', clearSelection: 'Clear selection', reviewSelection: 'Review selected', reviewTitle: 'Review your selection',
         confirmSelection: 'Confirm and add', cancelSelection: 'Back to browsing', skipped: 'already added, skipped',
         batchFailed: 'Nothing was added. Review your selection before trying again.',
         noNewSites: 'All these sites are already in your shortcuts. No category was created.', createAndAdd: 'Create category and add', willCreate: 'Will create personal category', newCategory: 'New personal category', existingCategory: 'Use existing category', categoryName: 'New category name', categoryHint: '1–80 characters. Created only after you review and confirm.', categoryInvalid: 'Enter a category name of 1–80 characters without control characters.', categoryExists: 'A category with this name already exists. Choose a different name or use the existing category.', sync: 'Chrome Sync', icons: 'Online icons', on: 'On', off: 'Off'
@@ -227,9 +227,34 @@
             reviewPanel.replaceChildren();
             const target = newCategoryMode ? `${t('willCreate')}: ${name}` : `${t('destination')}: ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
             reviewPanel.append(el('h3', t('reviewTitle')), el('p', `${sites.length} ${t('selected')} · ${target}`));
-            const list = el('ul'); sites.forEach(site => list.append(el('li', `${site.name} · ${site.url}`))); reviewPanel.append(list);
+            const list = el('ul');
+            if (batch) list.className = 'navigation-library-review-list';
+            sites.forEach((site, index) => {
+                const row = el('li', batch ? undefined : `${site.name} · ${site.url}`);
+                if (batch) {
+                    row.append(el('span', `${site.name} · ${site.url}`));
+                    const remove = button(t('removeSelection'), () => {
+                        if (writing || blocked || reviewed !== confirmation || !selected.has(site.id) || root.LocalItabContentLifecycle?.departing) return;
+                        selected.delete(site.id);
+                        // Refresh cards/counts and retire every closure from the old review.
+                        // Rebuilding the review creates a new immutable confirmation.
+                        renderResults();
+                        if (!selected.size) { search.focus(); return; }
+                        reviewSelection();
+                        const controls = reviewPanel.querySelectorAll('.navigation-library-review-remove');
+                        controls[Math.min(index, controls.length - 1)]?.focus();
+                    }, 'navigation-library-review-remove');
+                    remove.setAttribute('aria-label', `${t('removeSelection')}: ${site.name}`);
+                    remove.addEventListener('keydown', event => {
+                        if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+                    });
+                    row.append(remove);
+                }
+                list.append(row);
+            });
+            reviewPanel.append(list);
             if (snapshot.privacy) reviewPanel.append(el('p', `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}`));
-            const cancel = button(t('cancelSelection'), () => { invalidateReview(); refreshResultSelection(); (batch ? batchReview : nameInput).focus(); }, 'navigation-library-review-cancel');
+            const cancel = button(t('cancelSelection'), () => { if (reviewed !== confirmation) return; invalidateReview(); refreshResultSelection(); (batch ? batchReview : nameInput).focus(); }, 'navigation-library-review-cancel');
             reviewConfirm = button(newCategoryMode ? `${t('createAndAdd')} (${sites.length})` : t('confirmSelection'), () => { if (reviewed === confirmation) save(batch ? sites : sites[0], batch, confirmation); }, 'navigation-library-batch-confirm');
             reviewPanel.append(cancel, reviewConfirm); reviewPanel.hidden = false; refreshResultSelection(); reviewConfirm.focus();
         }

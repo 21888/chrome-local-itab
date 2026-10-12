@@ -5183,6 +5183,9 @@
   "navigationLibrarySelectionLimit": {
     "message": "These results would exceed 20 selected sites. Narrow the filters first."
   },
+  "navigationLibraryRemoveSelection": {
+    "message": "Remove from selection"
+  },
   "navigationLibraryClearSelection": {
     "message": "Clear selection"
   },
