@@ -648,3 +648,97 @@ test('batch selection does not waive excerpt or serialized prompt limits', async
         assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
     }
 });
+
+const restoreButton = row => row.querySelector('.ai-context-source-restore');
+test('individual restore uses the opening baseline, preserves all other draft fields and invalidates exactly once without I/O', async () => {
+    const sources = batchSources(), h = await model(undefined, { sources, blurUnavailableFocus: true }), rows = sourceRows(h);
+    choose(rows[0]); choose(rows[24]);
+    const excerpt = rows[0].querySelector('textarea'), other = rows[24].querySelector('textarea');
+    h.input(excerpt, 'Changed first'); h.input(other, 'Keep other edited excerpt');
+    h.input(answerTitle(h), 'Keep answer title'); h.input(h.field('password'), 'synthetic-key');
+    h.input(h.field('search'), 'Match'); h.click('Show selected only');
+    h.setReply('Synthetic answer'); await send(h, 'answer'); h.input(h.field('password'), 'synthetic-key');
+    const include = h.host.querySelector('.ai-context-save-context').querySelector('input'); include.checked = true; include.dispatch('change');
+    const before = { generation: h.controller.generation, reads: h.b.reads + h.c.reads, question: h.host.querySelector('textarea').value, url: h.field('url').value, model: h.field('text').value };
+    for (const method of ['readSources', 'loadSources', 'review', 'send', 'allow']) h.controller[method] = () => { throw Error(`restore called ${method}`); };
+    h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('restore requested permission'); };
+    sources[0].text = 'Later underlying source change';
+    restoreButton(rows[0]).focus(); restoreButton(rows[0]).dispatch('click');
+    assert.equal(excerpt.value, 'Synthetic excerpt 0'); assert.equal(sources[0].text, 'Later underlying source change');
+    assert.equal(other.value, 'Keep other edited excerpt'); assert.deepEqual(selectedRows(h), [rows[0], rows[24]]);
+    assert.equal(h.field('search').value, 'Match'); assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true'); assert.equal(rows[24].hidden, true);
+    assert.equal(h.host.querySelector('textarea').value, before.question); assert.equal(answerTitle(h).value, 'Keep answer title');
+    assert.equal(h.field('url').value, before.url); assert.equal(h.field('text').value, before.model); assert.equal(h.field('password').value, 'synthetic-key');
+    assert.equal(h.controller.generation, before.generation + 1); assert.equal(h.controller.reviewed, null); assert.equal(h.controller.result, null);
+    assert.equal(include.checked, false); assert.equal(h.host.querySelector('.ai-context-review').hidden, true); assert.equal(h.byText('Send reviewed').disabled, true);
+    assert.equal(h.document.activeElement, excerpt); assert.equal(restoreButton(rows[0]).disabled, true);
+    restoreButton(rows[0]).dispatch('click'); assert.equal(h.controller.generation, before.generation + 1);
+    assert.equal(h.b.reads + h.c.reads, before.reads); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.calls.length, 1);
+});
+test('restore is selected-only, title filtering preserves its state and hidden handlers are no-ops', async () => {
+    const h = await model(undefined, { sources: batchSources() }), row = sourceRows(h)[0], restore = restoreButton(row), excerpt = row.querySelector('textarea');
+    assert.equal(restore.hidden, true); assert.equal(restore.disabled, true);
+    choose(row); assert.equal(restore.hidden, false); assert.equal(restore.disabled, true);
+    h.input(excerpt, 'Edited'); assert.equal(restore.disabled, false);
+    h.click('Review exact'); await settle(); const reviewed = h.controller.reviewed, generation = h.controller.generation;
+    h.input(h.field('search'), 'no match'); restore.dispatch('click');
+    assert.equal(row.hidden, true); assert.equal(excerpt.value, 'Edited'); assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, generation);
+    h.click('Clear title search'); assert.equal(restoreButton(row), restore); assert.equal(restore.disabled, false);
+    restore.dispatch('click'); assert.equal(excerpt.value, 'Synthetic excerpt 0');
+    h.input(h.field('search'), 'no match'); h.click('Clear title search'); assert.equal(restore.disabled, true);
+    h.input(excerpt, 'Changed again'); choose(row, false); assert.equal(restore.hidden, true); assert.equal(restore.disabled, true);
+    const g = h.controller.generation; restore.dispatch('click'); assert.equal(excerpt.value, 'Changed again'); assert.equal(h.controller.generation, g);
+});
+test('restore returns excerpt dirtiness to baseline, retaining dirty selection or other edits until explicitly cleared', async () => {
+    const h = await model(undefined, { populate: false, sources: batchSources() }), rows = sourceRows(h), excerpt = rows[0].querySelector('textarea');
+    choose(rows[0]); h.input(excerpt, 'Edit'); restoreButton(rows[0]).dispatch('click');
+    assert.equal(h.view.hasUncommittedWork(), true); choose(rows[0], false); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+    choose(rows[0]); choose(rows[1]); h.input(excerpt, 'Edit'); h.input(rows[1].querySelector('textarea'), 'Other edit');
+    restoreButton(rows[0]).dispatch('click'); choose(rows[0], false); choose(rows[1], false);
+    assert.equal(h.view.hasUncommittedWork(), true); assert.equal(unloadEvent(h).prevented, true);
+    choose(rows[1]); restoreButton(rows[1]).dispatch('click'); choose(rows[1], false); assert.equal(h.view.hasUncommittedWork(), false);
+});
+test('untouched or repeatedly restored excerpts do not invalidate the review or perform reads and writes', async () => {
+    const h = await model(), row = sourceRows(h)[0]; choose(row); h.click('Review exact'); await settle();
+    const review = h.controller.reviewed, generation = h.controller.generation, reads = h.b.reads + h.c.reads;
+    h.controller.edit = () => { throw Error('No-op must not edit'); };
+    restoreButton(row).dispatch('click'); restoreButton(row).dispatch('click');
+    assert.equal(h.controller.reviewed, review); assert.equal(h.controller.generation, generation);
+    assert.equal(h.b.reads + h.c.reads, reads); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.calls.length, 0);
+});
+test('restoring a 32000-character opening excerpt never truncates it or bypasses the review limit', async () => {
+    const original = 'x'.repeat(32000), h = await model(undefined, { sources: [{ id: 'collection:large', label: 'Large excerpt', text: original, scope: 'library' }] });
+    const row = sourceRows(h)[0], excerpt = row.querySelector('textarea'); choose(row); h.input(excerpt, 'Shortened valid excerpt');
+    h.click('Review exact'); await settle(); assert(h.controller.reviewed);
+    restoreButton(row).dispatch('click'); assert.equal(excerpt.value, original); assert.equal(excerpt.maxLength, 16000);
+    assert.match(row.querySelector('.ai-context-source-budget').textContent, /32000 \/ 16000 \(Over limit\)/);
+    h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed, null); assert.equal(h.byText('Send reviewed').disabled, true);
+    assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.calls.length, 0);
+});
+test('restore authorizes controller edit before changing the editor, selection or review display', async () => {
+    const h = await model(), row = sourceRows(h)[0], excerpt = row.querySelector('textarea'); choose(row); h.input(excerpt, 'Edited');
+    h.click('Review exact'); await settle(); const reviewed = h.controller.reviewed;
+    h.controller.edit = () => { throw api.fault('BUSY'); }; restoreButton(row).dispatch('click');
+    assert.equal(excerpt.value, 'Edited'); assert.equal(row.querySelector('input').checked, true); assert.equal(h.controller.reviewed, reviewed);
+    assert.equal(h.host.querySelector('.ai-context-review').hidden, false);
+});
+test('restore UI and handler reject busy, task retry and save retry, including stale enabled buttons', async () => {
+    for (const property of ['busy', 'taskCommand', 'saveCommand']) {
+        const h = await model(), row = sourceRows(h)[0], excerpt = row.querySelector('textarea'); choose(row); h.input(excerpt, 'Edited');
+        const generation = h.controller.generation; h.controller[property] = true;
+        restoreButton(row).dispatch('click'); assert.equal(excerpt.value, 'Edited'); assert.equal(h.controller.generation, generation);
+        h.input(h.field('search'), ''); assert.equal(restoreButton(row).disabled, true);
+        h.controller[property] = false; h.input(h.field('search'), ''); assert.equal(restoreButton(row).disabled, false);
+    }
+});
+test('pending review, preset persistence and disposal disable restoration and prevent direct event mutations', async () => {
+    const h = await model(), row = sourceRows(h)[0], excerpt = row.querySelector('textarea'); choose(row); h.input(excerpt, 'Edited');
+    const gate = deferred(); h.controller.ensureActive = () => gate.promise; h.click('Review exact'); const generation = h.controller.generation;
+    assert.equal(h.controller.busy, false); assert.equal(restoreButton(row).disabled, true); restoreButton(row).dispatch('click');
+    assert.equal(excerpt.value, 'Edited'); assert.equal(h.controller.generation, generation); gate.resolve(); await settle();
+    const presetGate = deferred(), p = await model({ read: async () => ({ records: [] }), save: () => presetGate.promise });
+    const pr = sourceRows(p)[0], pe = pr.querySelector('textarea'); choose(pr); p.input(pe, 'Preset pending edit'); p.click('Save connection preset'); const pg = p.controller.generation;
+    assert.equal(restoreButton(pr).disabled, true); restoreButton(pr).dispatch('click'); assert.equal(pe.value, 'Preset pending edit'); assert.equal(p.controller.generation, pg);
+    presetGate.resolve({ records: [] }); await settle(); const restore = restoreButton(pr); p.view.destroy(); const dg = p.controller.generation;
+    assert.equal(restore.disabled, true); restore.dispatch('click'); assert.equal(pe.value, 'Preset pending edit'); assert.equal(p.controller.generation, dg);
+});

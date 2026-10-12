@@ -5401,5 +5401,14 @@
   },
   "aiContextSourceBatchChanged": {
     "message": "选择已修改，发送前请重新审阅完整请求。"
+  },
+  "aiContextSourceRestore": {
+    "message": "恢复原始摘录"
+  },
+  "aiContextSourceRestoreHelp": {
+    "message": "将这一条恢复为打开本面板时加载的原文，不修改已保存的来源。"
+  },
+  "aiContextSourceRestored": {
+    "message": "已恢复原始摘录。发送前请重新审阅完整请求。"
   }
 }

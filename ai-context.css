@@ -24,3 +24,7 @@
 .ai-context-field,.ai-context-source { min-width: 0; overflow-wrap: anywhere; }
 
 .ai-context-selected-only[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: -3px; font-weight: 600; }
+
+.ai-context-source > label { display: flex; align-items: flex-start; gap: .4rem; }
+.ai-context-source > label input { flex: none; }
+.ai-context-source-restore { align-self: flex-start; max-width: 100%; overflow-wrap: anywhere; }

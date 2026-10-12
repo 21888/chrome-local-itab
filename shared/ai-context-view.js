@@ -82,6 +82,8 @@
             let visible = 0, selected = 0, hiddenSelected = 0;
             for (const row of sourceRows) {
                 row.node.hidden = !row.searchTitle.includes(query) || (selectedOnly && !row.check.checked);
+                row.restore.hidden = !row.check.checked;
+                row.restore.disabled = selectionBlocked() || !row.check.checked || row.input.value === row.initialText;
                 if (!row.node.hidden) visible++;
                 if (row.check.checked) { selected++; if (row.node.hidden) hiddenSelected++; }
             }
@@ -159,6 +161,17 @@
             for (const row of changed) { row.check.checked = !clear; row.input.hidden = clear; }
             includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true;
             status.textContent = label('SourceBatchChanged', 'Selection changed. Review the exact request again before sending.');
+            update();
+        }
+        function restoreExcerpt(row) {
+            if (selectionBlocked() || row.node.hidden || !row.check.checked || row.input.value === row.initialText) return;
+            // Only the already-loaded, DOM-normalized baseline is used; never reread storage.
+            try { controller.edit(); } catch (_) { error(); update(); return; }
+            row.input.value = row.initialText;
+            includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true;
+            status.textContent = label('SourceRestored', 'Original excerpt restored. Review the exact request again before sending.');
+            // Move focus before disabling the now-clean restore button (native browsers may blur it).
+            row.input.focus();
             update();
         }
         function renderPresets() {
@@ -239,12 +252,19 @@
         const ready = action(async () => {
             const values = await controller.loadSources(); if (disposed) return;
             for (const source of values) {
-                const row = el('label', 'ai-context-source'), check = el('input'); check.type = 'checkbox'; check.checked = false;
+                const row = el('div', 'ai-context-source'), sourceLabel = el('label'), check = el('input'); check.type = 'checkbox'; check.checked = false;
                 const input = el('textarea'); input.value = source.text; input.maxLength = 16000; input.rows = 3; input.hidden = true;
                 input.setAttribute('aria-label', `${label('Excerpt', 'Outgoing excerpt')}: ${source.label}`);
                 const sourceBudget = el('span', 'ai-context-source-budget'); sourceBudget.hidden = true;
-                row.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`), input, sourceBudget);
-                sourceRows.push({ source, node: row, searchTitle: source.label.toLowerCase(), check, input, budget: sourceBudget, initialText: input.value }); sourceList.append(row);
+                const state = { source, node: row, searchTitle: source.label.toLowerCase(), check, input, budget: sourceBudget, initialText: input.value };
+                const restore = button('SourceRestore', 'Restore original excerpt', () => restoreExcerpt(state));
+                restore.className = 'ai-context-source-restore';
+                restore.title = label('SourceRestoreHelp', 'Restore this excerpt to the text loaded when this panel opened. The saved source is unchanged.');
+                restore.setAttribute('aria-label', `${label('SourceRestore', 'Restore original excerpt')}: ${source.label}`);
+                state.restore = restore;
+                sourceLabel.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`));
+                row.append(sourceLabel, input, sourceBudget, restore);
+                sourceRows.push(state); sourceList.append(row);
                 check.addEventListener('change', () => { input.hidden = !check.checked; invalidate(); }); input.addEventListener('input', invalidate);
             }
         }, ['Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.']);
@@ -255,7 +275,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; selectVisible.disabled = clearSelection.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; selectVisible.disabled = clearSelection.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();

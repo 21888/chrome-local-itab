@@ -5401,5 +5401,14 @@
   },
   "aiContextSourceBatchChanged": {
     "message": "Selection changed. Review the exact request again before sending."
+  },
+  "aiContextSourceRestore": {
+    "message": "Restore original excerpt"
+  },
+  "aiContextSourceRestoreHelp": {
+    "message": "Restore this excerpt to the text loaded when this panel opened. The saved source is unchanged."
+  },
+  "aiContextSourceRestored": {
+    "message": "Original excerpt restored. Review the exact request again before sending."
   }
 }
