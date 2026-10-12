@@ -39,13 +39,14 @@
             this.captureStatus = this.el('div', 'prompt-status'); this.captureStatus.setAttribute('role', 'status'); this.captureStatus.setAttribute('aria-live', 'polite');
             this.status = this.el('div', 'prompt-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             const layout = this.el('div', 'prompt-layout'), sidebar = this.el('aside', 'prompt-sidebar'); sidebar.setAttribute('aria-label', this.t('Browse', 'Browse saved excerpts'));
-            this.search = this.field(sidebar, 'Search', 'Search title, excerpt and tags', '', query => c.filter({ query })); this.search.type = 'search'; this.search.maxLength = 500;
+            this.search = this.field(sidebar, 'Search', 'Search title, excerpt, tags and annotations', '', query => c.filter({ query })); this.search.type = 'search'; this.search.maxLength = 500;
             const nav = this.el('nav', 'prompt-nav'); this.nav = {};
             for (const [mode, key, label] of [['all', 'Active', 'Saved'], ['trash', 'Archived', 'Archived']]) { const button = this.button(key, label, () => c.filter({ mode })); this.nav[mode] = button; nav.append(button); } sidebar.append(nav);
             this.filters = {};
             for (const [name, label] of [['type', 'Type'], ['tool', 'Tool'], ['tag', 'Tag']]) {
                 const wrap = this.el('label', 'prompt-field'); const select = this.el('select'); select.addEventListener('change', () => c.filter({ [name]: select.value })); wrap.append(this.el('span', '', this.t(name, label)), select); sidebar.append(wrap); this.filters[name] = select;
             }
+            this.clearFilters = this.button('ClearFilters', 'Clear filters', () => c.clearFilters()); sidebar.append(this.clearFilters);
             this.draftList = this.el('div', 'prompt-draft-list'); this.listCount = this.el('p', 'prompt-list-heading'); this.list = this.el('div', 'prompt-list'); sidebar.append(this.draftList, this.listCount, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'collection-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.paragraph('Scope', 'Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model.'), this.paragraph('Limits', 'Limits: 200 items including archived · 32,000 characters per excerpt · 20 body versions per item · 2 MiB total. Capacity errors keep your draft; no text or history is silently removed.'), this.paragraph('Privacy', 'Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text.'));
@@ -63,13 +64,16 @@
                 select.replaceChildren(); const all = this.el('option', '', this.t('All', 'All')); all.value = ''; select.append(all);
                 for (const value of values) { const option = this.el('option', '', name === 'type' ? this.t(value, value) : value); option.value = value; select.append(option); } select.value = c.filters[name];
             }
+            this.clearFilters.disabled = !['query', 'type', 'tool', 'tag'].some(key => Boolean(c.filters[key]));
             this.draftList.replaceChildren();
             for (const [id, draft] of c.drafts) { const button = this.button('Draft', 'Draft', () => c.select(id), 'prompt-draft-card'); button.textContent = `${this.t('Draft', 'Draft')} · ${draft.input.title || this.t('Untitled', 'Untitled')}`; button.disabled = c.busy; this.draftList.append(button); }
             this.list.replaceChildren(); let results = []; try { results = c.results(); } catch (_) { this.list.append(this.paragraph('QueryLong', 'Search is too long. Use up to 500 characters.')); }
             this.listCount.textContent = `${results.length} ${this.t('Items', 'items')}`;
-            for (const { record, snippet } of results) {
+            for (const { record, snippet, snippetField } of results) {
                 const card = this.el('button', 'prompt-card'); card.type = 'button'; card.disabled = c.busy; card.setAttribute('aria-current', String(c.selected === record.id));
-                card.append(this.el('span', 'prompt-card-title', record.title), this.el('span', 'prompt-card-snippet', snippet), this.el('span', 'prompt-card-meta', [this.t(record.type, record.type), record.tool, ...record.tags].filter(Boolean).join(' · '))); card.addEventListener('click', () => c.select(record.id)); this.list.append(card);
+                card.append(this.el('span', 'prompt-card-title', record.title));
+                if (snippetField === 'notes') card.append(this.el('span', 'prompt-card-meta', this.t('AnnotationMatch', 'Matched saved annotations')));
+                card.append(this.el('span', 'prompt-card-snippet', snippet), this.el('span', 'prompt-card-meta', [this.t(record.type, record.type), record.tool, ...record.tags].filter(Boolean).join(' · '))); card.addEventListener('click', () => c.select(record.id)); this.list.append(card);
             }
             if (!results.length && c.state) this.list.append(this.paragraph('NoResults', 'No matching excerpts. Try another search or filter.', 'prompt-no-results'));
         }

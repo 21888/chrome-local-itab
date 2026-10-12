@@ -204,3 +204,37 @@ test('saved context detail shows literal historical input and original answer ve
     assert.match(text(panel), new RegExp(first.currentVersionId)); assert.match(text(panel), /Imported snapshots are user-provided/);
     assert.equal(h.host.querySelectorAll('script').length, 0); assert.equal(h.host.querySelectorAll('img').length, 0);
 });
+
+test('saved annotation search and clear filters preserve selected editor, unsaved drafts and archive scope with zero writes', async () => {
+    const h = await mount(), c = h.controller;
+    const saved = await add(c, 'Alpha', 'Current body'); c.edit(); c.update('notes', 'SavedNeedle <img src=x> 中文');
+    c.update('type', 'code'); c.update('tool', 'Example'); c.update('tagsText', 'research'); await c.save();
+    c.edit(); c.update('notes', 'DraftOnly');
+    const editor = h.view.editor, mainChild = h.view.main.children[0], draft = c.draft(), writes = h.h.writes, before = h.h.raw;
+    c.filter({ query: 'savedneedle alpha', type: 'code', tool: 'Example', tag: 'research' });
+    assert.equal(c.results().length, 1); assert.match(text(h.view.list), /Matched saved annotations/);
+    assert.match(text(h.view.list), /SavedNeedle <img src=x> 中文/); assert.equal(h.view.list.querySelectorAll('img').length, 0);
+    c.filter({ query: 'DraftOnly' }); assert.equal(c.results().length, 0);
+    c.filter({ query: 'savedneedle', tool: 'Other' }); assert.equal(c.results().length, 0);
+    c.filter({ tool: 'Example', tag: 'Other' }); assert.equal(c.results().length, 0);
+    c.filter({ tag: 'research', type: 'plan' }); assert.equal(c.results().length, 0);
+    c.filter({ type: 'code', mode: 'trash' }); assert.equal(c.results().length, 0);
+    h.view.clearFilters.dispatch('click');
+    assert.deepEqual(c.filters, { query: '', type: '', tool: '', tag: '', mode: 'trash' });
+    assert.equal(c.results().length, 0); assert.equal(h.view.clearFilters.disabled, true);
+    assert.equal(c.selected, saved.id); assert.equal(c.draft(), draft); assert.equal(draft.input.notes, 'DraftOnly');
+    assert.equal(h.view.editor, editor); assert.equal(h.view.main.children[0], mainChild);
+    c.filter({ mode: 'all' }); assert.equal(c.results().length, 1);
+    assert.equal(h.h.writes, writes); assert.deepEqual(h.h.raw, before);
+    c.dispose();
+});
+
+test('annotation query keeps archived records isolated and localized source labels', async () => {
+    const locale = JSON.parse(fs.readFileSync('_locales/zh_CN/messages.json', 'utf8'));
+    const h = await mount(undefined, { t: key => locale[key]?.message || key }), c = h.controller;
+    await add(c); c.edit(); c.update('notes', '归档批注'); await c.save(); await c.action('remove');
+    const writes = h.h.writes; c.filter({ query: '归档批注' }); assert.equal(c.results().length, 0);
+    c.filter({ mode: 'trash' }); assert.equal(c.results().length, 1); assert.match(text(h.view.list), /匹配已保存批注/);
+    assert.equal(h.view.clearFilters.textContent, '清除筛选'); h.view.clearFilters.dispatch('click');
+    assert.equal(c.filters.mode, 'trash'); assert.equal(c.results().length, 1); assert.equal(h.h.writes, writes); c.dispose();
+});

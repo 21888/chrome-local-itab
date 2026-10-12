@@ -165,11 +165,11 @@ test('duplicates are suggestions, canonical same-source/body only; add never sil
     state = await add(a, 'No source'); assert.equal(api.findDuplicates(state, { body: 'No source', sourceUrl: '' })[0].reason, 'same-body-no-source');
 });
 
-test('local AND search covers Chinese/case-insensitive title/body/tags and filters without notes or URLs', async () => {
+test('local AND search covers Chinese/case-insensitive title/body/tags/notes and filters without URLs', async () => {
     const { a } = fixture(); await add(a, '纯本地 SEARCH code', { title: '结果', tags: ['Coding'], type: 'code', notes: 'private notes keyword', sourceUrl: 'https://example.com/urlkeyword' });
     let state = await add(a, 'Other', { type: 'plan' }); const one = state.records[0];
     let results = api.search(state, '本地 search coding'); assert.equal(results.length, 1); assert.deepEqual(results[0].matchedFields, ['body', 'tags']);
-    assert.equal(api.search(state, 'keyword').length, 0); assert.equal(api.search(state, 'urlkeyword').length, 0);
+    assert.equal(api.search(state, 'keyword').length, 1); assert.equal(api.search(state, 'urlkeyword').length, 0);
     assert.equal(api.search(state, '', { type: 'plan' }).length, 1); assert.equal(api.search(state, '', { ids: [] }).length, 0);
     assert.equal(api.search(state, '', { ids: [one.id] }).length, 1); assert.equal(api.search(state, 'missing').length, 0);
     state = await revise(a, one, 'New replacement'); assert.equal(api.search(state, 'search').length, 0); assert.equal(api.search(state, 'replacement').length, 1);
@@ -429,4 +429,46 @@ test('replacement and recovery invalidate historical acknowledgements even for u
     const second = a.request('add', { title: 'Synthetic B', body: 'New content' }); await a.mutate(second);
     let state = await a.read(); await a.mutate(a.request('recover', { id: state.recovery[0].id, revision: state.revision }));
     assert.equal((await a.inspectOperation(second)).committed, false); assert.equal(b.raw().receipts.length, 1);
+});
+
+test('search uses current saved annotations, intersects words across fields and reports their source without writes', async () => {
+    const { a, b } = fixture();
+    const state = await add(a, 'current excerpt', { title: 'Alpha', tags: ['Research'], notes: '  独有批注 🧪 <img src=x>\r\nReview later  ' });
+    const before = b.raw(), writes = b.writes;
+    for (const query of ['独有批注', 'ALPHA research REVIEW', '🧪 <img']) {
+        const results = api.search(state, query);
+        assert.equal(results.length, 1); assert.equal(results[0].snippetField, 'notes');
+        assert.ok(results[0].matchedFields.includes('notes'));
+        assert.match(results[0].snippet, /独有批注 🧪 <img src=x>/);
+    }
+    assert.equal(api.search(state, 'Alpha missing Review').length, 0);
+    assert.equal(api.search(state, '')[0].snippetField, 'body');
+    assert.equal(b.writes, writes); assert.deepEqual(b.raw(), before);
+});
+
+test('annotation search snippets map expanded lowercase offsets and preserve Unicode code points', async () => {
+    const { a } = fixture(), notes = 'İ'.repeat(120) + '😀'.repeat(60) + '针尖 İSTANBUL' + '尾'.repeat(220);
+    const state = await add(a, 'body', { notes });
+    for (const query of ['针尖', 'i\u0307stanbul']) {
+        const result = api.search(state, query)[0];
+        assert.equal(result.snippetField, 'notes'); assert.match(result.snippet, /针尖 İSTANBUL/);
+        assert.ok(Array.from(result.snippet).length <= 182);
+        assert.equal(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])/u.test(result.snippet), false);
+    }
+});
+
+test('annotation search excludes old body versions, context snapshots and recovery snapshots', async () => {
+    const { a, b } = fixture();
+    const packed = require('../shared/ai-context').pack('snapshot-only', [{ id: 'source', label: 'source', text: 'snapshot-source-only' }]);
+    const contextSnapshot = { schemaVersion: 1, question: packed.question, sources: packed.sources, prompt: packed.prompt, endpoint: 'https://model.example/v1/chat/completions', model: 'mock' };
+    let record = (await add(a, 'history-only', { notes: 'old-annotation', contextSnapshot })).records[0];
+    const prior = await a.export();
+    record = (await revise(a, record, 'current body')).records[0];
+    await a.mutate(command(a, 'edit', record, { notes: 'current-annotation' }));
+    const current = await a.export();
+    await replace(a, prior); await replace(a, current);
+    const state = await a.read(), writes = b.writes;
+    assert.ok(state.recovery.length);
+    for (const query of ['history-only', 'snapshot-only', 'snapshot-source-only', 'old-annotation']) assert.deepEqual(api.search(state, query), []);
+    assert.equal(api.search(state, 'current-annotation').length, 1); assert.equal(b.writes, writes);
 });

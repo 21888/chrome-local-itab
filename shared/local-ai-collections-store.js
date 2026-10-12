@@ -277,15 +277,19 @@
         const ids = options.ids === undefined ? null : new Set(options.ids), terms = query.toLowerCase().trim().split(/\s+/u).filter(Boolean), results = [];
         for (const record of state.records) {
             if ((record.deletedAt !== null) !== (options.removed === true) || (ids && !ids.has(record.id)) || (options.type !== undefined && options.type !== record.type)) continue;
-            const searchable = { title: record.title, body: record.body, tags: record.tags.join('\n') };
+            const searchable = { title: record.title, body: record.body, tags: record.tags.join('\n'), notes: record.notes };
             const normalized = Object.fromEntries(Object.entries(searchable).map(([key, value]) => [key, value.toLowerCase()]));
             if (!terms.every(term => Object.values(normalized).some(value => value.includes(term)))) continue;
             const matchedFields = Object.keys(normalized).filter(key => terms.some(term => normalized[key].includes(term)));
-            const field = matchedFields.includes('body') ? 'body' : matchedFields[0] || 'body', original = searchable[field];
+            const field = matchedFields.includes('notes') ? 'notes' : matchedFields.includes('body') ? 'body' : matchedFields[0] || 'body', original = searchable[field];
             const first = terms.map(term => normalized[field].indexOf(term)).filter(index => index >= 0);
-            const position = first.length ? Array.from(original.slice(0, Math.min(...first))).length : 0;
-            const points = Array.from(original), start = Math.max(0, position - 40), end = Math.min(points.length, start + 180);
-            results.push({ record: clone(record), matchedFields, snippet: `${start ? '…' : ''}${points.slice(start, end).join('')}${end < points.length ? '…' : ''}` });
+            // Lowercasing can expand a code point (for example İ). Map the
+            // folded UTF-16 offset back to original code points for the excerpt.
+            const points = Array.from(original), offset = first.length ? Math.min(...first) : 0;
+            let position = 0, foldedOffset = 0;
+            while (position < points.length && foldedOffset + points[position].toLowerCase().length <= offset) foldedOffset += points[position++].toLowerCase().length;
+            const start = Math.max(0, position - 40), end = Math.min(points.length, start + 180);
+            results.push({ record: clone(record), matchedFields, snippetField: field, snippet: `${start ? '…' : ''}${points.slice(start, end).join('')}${end < points.length ? '…' : ''}` });
         }
         return results.sort((a, b) => b.record.updatedAt.localeCompare(a.record.updatedAt) || a.record.id.localeCompare(b.record.id));
     }

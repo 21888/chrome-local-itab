@@ -3219,7 +3219,7 @@
     "message": "Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model."
   },
   "collectionsSearch": {
-    "message": "Search title, excerpt and tags"
+    "message": "Search title, excerpt, tags and annotations"
   },
   "collectionsSkip": {
     "message": "Skip to excerpt"
@@ -5476,5 +5476,11 @@
   },
   "promptsFilterByTag": {
     "message": "Filter by tag"
+  },
+  "collectionsClearFilters": {
+    "message": "Clear filters"
+  },
+  "collectionsAnnotationMatch": {
+    "message": "Matched saved annotations"
   }
 }

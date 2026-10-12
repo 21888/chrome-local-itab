@@ -3219,7 +3219,7 @@
     "message": "内容保存在此设备上。摘录由你手动提供，并非完整对话。本页不会抓取网页、执行内容或向模型发送信息。"
   },
   "collectionsSearch": {
-    "message": "搜索标题、摘录和标签"
+    "message": "搜索标题、摘录、标签和批注"
   },
   "collectionsSkip": {
     "message": "跳转到摘录"
@@ -5476,5 +5476,11 @@
   },
   "promptsFilterByTag": {
     "message": "按标签筛选"
+  },
+  "collectionsClearFilters": {
+    "message": "清除筛选"
+  },
+  "collectionsAnnotationMatch": {
+    "message": "匹配已保存批注"
   }
 }

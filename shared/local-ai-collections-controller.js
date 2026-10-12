@@ -143,6 +143,7 @@
             if (this.filters.type) options.type = this.filters.type;
             return Core.search(this.state, this.filters.query, options).filter(({ record }) => (!this.filters.tool || record.tool === this.filters.tool) && (!this.filters.tag || record.tags.includes(this.filters.tag)));
         }
+        clearFilters() { this.filter({ query: '', type: '', tool: '', tag: '' }); }
         filter(patch) { this.interactionGeneration++; Object.assign(this.filters, patch); this.notify('list'); }
         select(id) { this.interactionGeneration++; if (this.busy) return false; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
         makeDraft(record) {
