@@ -34,7 +34,7 @@
             this.collectionStore = collectionStore; this.collectionState = null; this.collectionLoading = false;
             this.collectionError = null; this.linkedPromptUnavailable = false; this.collectionGeneration = 0; this.collectionSubscriptionError = false;
             this.state = null; this.selected = null; this.drafts = new Map(); this.sessions = new Map(); this.activeSessions = new Map();
-            this.filters = { query: '', mode: 'all', category: '' };
+            this.filters = { query: '', mode: 'all', category: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
             this.excerptEpoch = 0; this.pendingCommand = null; this.pendingInspection = false; this.disposed = false; this.refreshQueued = false;
         }
@@ -110,7 +110,8 @@
             const options = { removed: this.filters.mode === 'trash' };
             if (this.filters.mode === 'favorites') options.favorite = true;
             if (this.filters.category) options.category = this.filters.category;
-            return Core.search(this.state, this.filters.query, options);
+            const results = Core.search(this.state, this.filters.query, options);
+            return this.filters.tag ? results.filter(({ record }) => record.tags.includes(this.filters.tag)) : results;
         }
         filter(patch) { Object.assign(this.filters, patch); this.notify('list'); }
         select(id) { if (this.busy) return false; this.excerptEpoch++; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }

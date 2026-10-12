@@ -90,11 +90,13 @@
             }
             const filter = this.el('div', 'prompt-filter'), categoryLabel = this.el('label', '', this.t('Category', 'Category')); categoryLabel.htmlFor = 'prompt-category-filter';
             this.category = this.el('select'); this.category.id = 'prompt-category-filter'; this.category.addEventListener('change', () => c.filter({ category: this.category.value })); filter.append(categoryLabel, this.category);
+            const tagFilter = this.el('div', 'prompt-filter'), tagLabel = this.el('label', '', this.t('TagFilter', 'Tag')); tagLabel.htmlFor = 'prompt-tag-filter';
+            this.tag = this.el('select'); this.tag.id = 'prompt-tag-filter'; this.tag.addEventListener('change', () => c.filter({ tag: this.tag.value })); tagFilter.append(tagLabel, this.tag);
             this.draftList = this.el('div', 'prompt-draft-list');
             const listHeading = this.el('div', 'prompt-list-heading'); this.count = this.el('span');
-            this.clearButton = this.button('ClearFilters', 'Clear filters', () => c.filter({ query: '', mode: 'all', category: '' }), 'prompt-clear'); listHeading.append(this.count, this.clearButton);
+            this.clearButton = this.button('ClearFilters', 'Clear filters', () => c.filter({ query: '', mode: 'all', category: '', tag: '' }), 'prompt-clear'); listHeading.append(this.count, this.clearButton);
             this.list = this.el('div', 'prompt-list'); this.list.setAttribute('aria-label', this.t('Results', 'Saved prompts'));
-            sidebar.append(search, nav, filter, this.draftList, listHeading, this.list);
+            sidebar.append(search, nav, filter, tagFilter, this.draftList, listHeading, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'prompt-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.el('p', '', this.t('Scope', 'One library across all workspaces. Saved on this device; copying is always your choice.')),
                 this.el('p', '', this.t('Privacy', 'This is not an encrypted vault. Device access and unencrypted backups can expose saved text. Do not store passwords or API keys.')));
@@ -184,9 +186,19 @@
             this.category.replaceChildren(); const all = this.el('option', '', this.t('AllCategories', 'All categories')); all.value = ''; this.category.append(all);
             for (const category of categories) { const option = this.el('option', '', category); option.value = category; this.category.append(option); }
             this.category.value = c.filters.category;
+            // Populate from the current view, independently of search/category, so
+            // empty intersections remain reversible without discarding the tag.
+            const tags = [...new Set((c.state?.records || []).filter(record =>
+                (record.deletedAt !== null) === (c.filters.mode === 'trash') &&
+                (c.filters.mode !== 'favorites' || record.favorite)).flatMap(record => record.tags))].sort();
+            if (c.filters.tag && !tags.includes(c.filters.tag)) tags.push(c.filters.tag);
+            this.tag.replaceChildren(); const allTags = this.el('option', '', this.t('AllTags', 'All tags')); allTags.value = ''; this.tag.append(allTags);
+            for (const tag of tags) { const option = this.el('option', '', tag); option.value = tag; this.tag.append(option); }
+            this.tag.value = c.filters.tag;
+            for (const button of this.main.querySelectorAll('[data-prompt-tag]')) button.setAttribute('aria-pressed', String(button.dataset.promptTag === c.filters.tag));
             this.renderDrafts(); this.list.replaceChildren();
             const results = c.results(); this.count.textContent = `${results.length} ${this.t('PromptCount', 'prompts')}`;
-            this.clearButton.hidden = !c.filters.query && c.filters.mode === 'all' && !c.filters.category;
+            this.clearButton.hidden = !c.filters.query && c.filters.mode === 'all' && !c.filters.category && !c.filters.tag;
             for (const { record, snippet } of results) {
                 const button = this.el('button', 'prompt-card'); button.type = 'button'; button.disabled = c.busy;
                 button.setAttribute('aria-current', String(record.id === c.selected));
@@ -194,7 +206,7 @@
                 button.append(title, this.el('span', 'prompt-card-snippet', snippet), this.el('span', 'prompt-card-meta', [record.category, ...record.tags.slice(0, 2)].filter(Boolean).join(' · ') || this.date(record.updatedAt)));
                 button.addEventListener('click', () => { this.historyId = null; if (c.select(record.id)) this.focusDetail(); }); this.list.append(button);
             }
-            if (!results.length) this.list.append(this.el('p', 'prompt-no-results', c.filters.mode === 'trash' ? this.t('TrashEmpty', 'Trash is empty. Deleted prompts remain recoverable here.') : this.t('NoResults', 'No matching prompts. Clear filters or create a new one.')));
+            if (!results.length) this.list.append(this.el('p', 'prompt-no-results', c.filters.mode === 'trash' && !c.filters.query && !c.filters.category && !c.filters.tag ? this.t('TrashEmpty', 'Trash is empty. Deleted prompts remain recoverable here.') : this.t('NoResults', 'No matching prompts. Clear filters or create a new one.')));
         }
         renderUnavailable() {
             const section = this.el('section', 'prompt-empty'); section.append(this.heading(this.t('Loading', 'Opening your library…')));
@@ -279,7 +291,17 @@
         renderRecord(record) {
             const c = this.controller, top = this.el('section', 'prompt-detail-top');
             top.append(this.el('p', 'prompt-eyebrow', record.deletedAt ? this.t('InTrash', 'In Trash') : this.t('SavedPrompt', 'Saved prompt')), this.heading(record.title));
-            const meta = this.el('div', 'prompt-meta'); for (const value of [record.category, ...record.tags, record.tool].filter(Boolean)) meta.append(this.el('span', 'prompt-tag', value)); top.append(meta);
+            const meta = this.el('div', 'prompt-meta');
+            if (record.category) meta.append(this.el('span', 'prompt-tag', record.category));
+            for (const tag of record.tags) {
+                const button = this.el('button', 'prompt-tag prompt-tag-filter', tag); button.type = 'button'; button.dataset.promptTag = tag;
+                button.setAttribute('aria-label', `${this.t('FilterByTag', 'Filter by tag')}: ${tag}`);
+                button.setAttribute('aria-pressed', String(c.filters.tag === tag));
+                button.addEventListener('click', () => c.filter({ tag }));
+                meta.append(button);
+            }
+            if (record.tool) meta.append(this.el('span', 'prompt-tag', record.tool));
+            top.append(meta);
             top.append(this.el('p', 'prompt-dates', `${this.t('Created', 'Created')} ${this.date(record.createdAt)} · ${this.t('Updated', 'Updated')} ${this.date(record.updatedAt)}`));
             const actions = this.el('div', 'prompt-actions');
             if (record.deletedAt) {

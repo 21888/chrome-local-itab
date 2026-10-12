@@ -122,3 +122,6 @@ h3 { font-size: 15px; }
 .prompt-compare-changes .prompt-compare-added { border-inline-start-color: var(--template-accent); }
 .prompt-compare-originals { margin: 16px 0; }
 @media (max-width: 560px) { .prompt-compare-grid { grid-template-columns: 1fr; } }
+
+.prompt-tag-filter { cursor: pointer; font: inherit; font-size: 12px; background: transparent; }
+.prompt-tag-filter:hover, .prompt-tag-filter[aria-pressed="true"] { color: var(--template-text); border-color: currentColor; }

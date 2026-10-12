@@ -5467,5 +5467,14 @@
   },
   "aiContextCopyBlocked": {
     "message": "Copy was blocked. Select the response text to copy it manually."
+  },
+  "promptsTagFilter": {
+    "message": "Tag"
+  },
+  "promptsAllTags": {
+    "message": "All tags"
+  },
+  "promptsFilterByTag": {
+    "message": "Filter by tag"
   }
 }

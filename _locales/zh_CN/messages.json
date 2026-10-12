@@ -5467,5 +5467,14 @@
   },
   "aiContextCopyBlocked": {
     "message": "复制受阻。请选中回答文字手动复制。"
+  },
+  "promptsTagFilter": {
+    "message": "标签"
+  },
+  "promptsAllTags": {
+    "message": "全部标签"
+  },
+  "promptsFilterByTag": {
+    "message": "按标签筛选"
   }
 }
