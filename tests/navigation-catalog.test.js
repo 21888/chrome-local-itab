@@ -53,3 +53,31 @@ test('every fine-grained use label and pricing note is bilingual; duplicate site
  assert.ok(new Set(sites.flatMap(site=>site.tags)).size>=100);assert.ok(sites.find(site=>site.id==='deepl').categories.length>1);
  assert.equal(sites.find(site=>site.id==='pika').pricing,'unknown');assert.equal(sites.find(site=>site.id==='qwen').pricing,'unknown');
 });
+
+test('expanded catalog has 108 unique sites, 154 bilingual uses and the same 18 categories',()=>{
+ assert.equal(sites.length,108);assert.equal(new Set(sites.map(site=>site.id)).size,108);
+ assert.equal(new Set(sites.map(site=>Catalog.canonicalURL(site.url))).size,108);
+ assert.equal(new Set(sites.flatMap(site=>site.tags)).size,154);
+ for(const id of ['squoosh','photopea','regex101','cyberchef','caniuse','hoppscotch','google-fonts','lucide','adobe-color','excalidraw','drawio','freecodecamp','the-odin-project','exercism','mit-ocw','javascript-info','geogebra','overleaf','zotero','china-laws','china-standards','w3c-validator','crontab-guru','json-crack']){
+  const site=sites.find(site=>site.id===id);assert.ok(site,id);assert.equal(site.verifiedOn,'2026-10-12');assert.equal(site.language,'unknown');assert.equal(site.signup,'unknown');
+ }
+});
+test('task searches find expanded entries through bilingual descriptions and localized use labels',()=>{
+ const cases=[['regex-testing','regex101'],['psd-editing','photopea'],['api-testing','hoppscotch'],['json-tools','json-crack'],['reference-management','zotero'],['standards-search','china-standards'],['html-validation','w3c-validator'],['cron-schedules','crontab-guru']];
+ for(const [locale,lang] of [['en','en'],['zh_CN','zh']]){
+  const dictionary=JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`));
+  const label=tag=>dictionary['navigationTag'+tag.split(/[-_]/).map(s=>s[0].toUpperCase()+s.slice(1)).join('')].message;
+  for(const [tag,id] of cases){const site=sites.find(s=>s.id===id);assert.deepEqual(Catalog.filter(sites,{query:label(tag),tag,company:site.company},lang,label),[site]);}
+ }
+ for(const [query,id] of [['PSD 图层','photopea'],['JSON YAML','json-crack'],['国家 行业 标准','china-standards'],['LaTeX papers','overleaf'],['cron 定时','crontab-guru']])assert.ok(Catalog.filter(sites,{query},'zh').some(s=>s.id===id),query);
+});
+test('expanded metadata preserves scoped pricing, unknown countries and migrated standards destination',()=>{
+ const byId=id=>sites.find(s=>s.id===id);
+ for(const id of ['regex101','photopea','excalidraw','overleaf','zotero','hoppscotch'])assert.equal(byId(id).pricing,'freemium');
+ for(const id of ['squoosh','cyberchef','caniuse','adobe-color','javascript-info','crontab-guru'])assert.equal(byId(id).pricing,'unknown');
+ assert.equal(byId('json-crack').pricing,'free');assert.match(byId('json-crack').pricingNote.en,/separately on ToDiagram/);
+ assert.match(byId('geogebra').pricingNote.en,/non-commercial/);
+ assert.equal(byId('china-standards').url,'https://std.samr.gov.cn/');assert.match(byId('china-standards').pricingNote.en,/not available for every standard/);
+ for(const id of ['photopea','regex101','json-crack','google-fonts','mit-ocw','drawio'])assert.equal(byId(id).country,'unknown');
+ const original=byId('photopea');assert.throws(()=>Catalog.validate([original,{...original,id:'photopea-copy',url:'https://WWW.PHOTOPEA.com:443'}]));
+});

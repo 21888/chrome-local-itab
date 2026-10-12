@@ -2564,6 +2564,771 @@
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Op"
+    },
+    {
+        "id": "squoosh",
+        "name": "Squoosh",
+        "url": "https://squoosh.app/",
+        "company": "Google Chrome Labs",
+        "country": "unknown",
+        "categories": [
+            "utilities",
+            "design"
+        ],
+        "description": {
+            "zh": "对比图片压缩效果并调整编码设置。",
+            "en": "Compare image compression results and adjust encoding settings."
+        },
+        "tags": [
+            "image-compression",
+            "image-formats"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "官网提供图片压缩工具；本次未确认独立定价说明，具体条件以官网为准。",
+            "en": "The official site provides image compression tools; a separate pricing statement was not verified. Check the site for current terms."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://squoosh.app/",
+            "https://github.com/GoogleChromeLabs/squoosh"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Sq"
+    },
+    {
+        "id": "photopea",
+        "name": "Photopea",
+        "url": "https://www.photopea.com/",
+        "company": "Photopea",
+        "country": "unknown",
+        "categories": [
+            "design",
+            "utilities"
+        ],
+        "description": {
+            "zh": "编辑 PSD、图层与多种图片格式。",
+            "en": "Edit PSD files, layers and many image formats."
+        },
+        "tags": [
+            "photo-editing",
+            "psd-editing",
+            "image-formats"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "提供带广告免费版；Premium 去除广告并可能提供其他权益，价格见账户窗口。",
+            "en": "An ad-supported free account is available. Premium removes ads and may add benefits; prices are shown in the account window."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.photopea.com/",
+            "https://www.photopea.com/api/accounts"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Ph"
+    },
+    {
+        "id": "regex101",
+        "name": "regex101",
+        "url": "https://regex101.com/",
+        "company": "regex101",
+        "country": "unknown",
+        "categories": [
+            "development",
+            "utilities"
+        ],
+        "description": {
+            "zh": "测试正则表达式、查看匹配结果并调试。",
+            "en": "Test regular expressions, inspect matches and debug patterns."
+        },
+        "tags": [
+            "regex-testing",
+            "text-processing"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "基础匹配与部分调试功能免费；Pro 提供更多测试字符串和高级功能。",
+            "en": "Core matching and some debugging features are free. Pro expands test strings and advanced tools."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://regex101.com/",
+            "https://support.regex101.com/application/regex101-pro/",
+            "https://regex101.com/account"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Rx"
+    },
+    {
+        "id": "cyberchef",
+        "name": "CyberChef",
+        "url": "https://gchq.github.io/CyberChef/",
+        "company": "GCHQ",
+        "country": "unknown",
+        "categories": [
+            "utilities",
+            "development"
+        ],
+        "description": {
+            "zh": "组合编码解码、哈希与数据格式转换。",
+            "en": "Combine encoding, decoding, hashing and data transformations."
+        },
+        "tags": [
+            "encoding-decoding",
+            "data-conversion",
+            "hash-tools"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "官网提供开源网页工具与独立下载；本次未核验单独的定价说明。",
+            "en": "The official site provides an open-source web tool and standalone download; a separate pricing statement was not verified."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://gchq.github.io/CyberChef/",
+            "https://github.com/gchq/CyberChef"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "CC"
+    },
+    {
+        "id": "caniuse",
+        "name": "Can I use",
+        "url": "https://caniuse.com/",
+        "company": "Can I use / community",
+        "country": "unknown",
+        "categories": [
+            "development"
+        ],
+        "description": {
+            "zh": "查询 CSS、HTML 和 Web API 的浏览器兼容性。",
+            "en": "Check browser compatibility for CSS, HTML and web APIs."
+        },
+        "tags": [
+            "browser-compatibility",
+            "web-standards"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "兼容性表可直接查看；赞助去广告和第三方测试服务有各自条件。",
+            "en": "Compatibility tables can be viewed directly. Ad-removal sponsorship and third-party testing have separate terms."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://caniuse.com/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Ci"
+    },
+    {
+        "id": "hoppscotch",
+        "name": "Hoppscotch",
+        "url": "https://hoppscotch.io/",
+        "company": "Hoppscotch",
+        "country": "unknown",
+        "categories": [
+            "development"
+        ],
+        "description": {
+            "zh": "发送 API 请求并组织接口测试。",
+            "en": "Send API requests and organize API testing."
+        },
+        "tags": [
+            "api-testing",
+            "http-requests"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "提供免费方案；付费方案增加团队协作、管理及支持功能。",
+            "en": "A free plan is available. Paid plans add team collaboration, administration and support."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://hoppscotch.io/",
+            "https://hoppscotch.com/pricing"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Ho"
+    },
+    {
+        "id": "google-fonts",
+        "name": "Google Fonts",
+        "url": "https://fonts.google.com/",
+        "company": "Google",
+        "country": "unknown",
+        "categories": [
+            "design",
+            "development"
+        ],
+        "description": {
+            "zh": "查找字体家族并获取网页与桌面字体文件。",
+            "en": "Explore typefaces and obtain font files for web and desktop use."
+        },
+        "tags": [
+            "fonts",
+            "typography"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "字体文件可免费获取；使用、修改和再分发须遵循每个字体家族的许可证。",
+            "en": "Font files are freely available; use, modification and redistribution remain subject to each font family’s license."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://fonts.google.com/",
+            "https://github.com/google/fonts"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "GF"
+    },
+    {
+        "id": "lucide",
+        "name": "Lucide",
+        "url": "https://lucide.dev/",
+        "company": "Lucide contributors",
+        "country": "unknown",
+        "categories": [
+            "design",
+            "development"
+        ],
+        "description": {
+            "zh": "搜索和自定义统一风格的 SVG 图标。",
+            "en": "Find and customize a consistent set of SVG icons."
+        },
+        "tags": [
+            "icons",
+            "svg-assets"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "图标按开源许可证提供；使用和分发须保留适用的版权与许可声明。",
+            "en": "Icons are provided under open-source licenses; retain applicable copyright and license notices when using or distributing them."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://lucide.dev/",
+            "https://lucide.dev/license"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Lu"
+    },
+    {
+        "id": "adobe-color",
+        "name": "Adobe Color",
+        "url": "https://color.adobe.com/",
+        "company": "Adobe",
+        "country": "US",
+        "categories": [
+            "design"
+        ],
+        "description": {
+            "zh": "探索配色、提取色板并检查颜色对比度。",
+            "en": "Explore palettes, extract colors and check color contrast."
+        },
+        "tags": [
+            "color-palettes",
+            "contrast-checking"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "配色入口的独立定价未核实；Adobe Express 中自动应用色板需要付费方案。",
+            "en": "Separate pricing for this color entry was not verified. Automatically applying palettes in Adobe Express requires a paid plan."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://color.adobe.com/",
+            "https://www.adobe.com/about-adobe/contact.html"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "AC"
+    },
+    {
+        "id": "excalidraw",
+        "name": "Excalidraw",
+        "url": "https://excalidraw.com/",
+        "company": "Excalidraw",
+        "country": "unknown",
+        "categories": [
+            "design",
+            "office"
+        ],
+        "description": {
+            "zh": "绘制手绘风格草图、示意图和协作白板。",
+            "en": "Create sketch-style diagrams and collaborative whiteboards."
+        },
+        "tags": [
+            "whiteboarding",
+            "diagramming"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "提供免费白板；Plus 增加云端场景管理等功能，AI 等功能有额度限制。",
+            "en": "A free whiteboard is available. Plus adds cloud scene management and other features; AI and other features have usage limits."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://excalidraw.com/",
+            "https://plus.excalidraw.com/pricing"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Ex"
+    },
+    {
+        "id": "drawio",
+        "name": "draw.io",
+        "url": "https://app.diagrams.net/",
+        "company": "draw.io Ltd / draw.io AG",
+        "country": "unknown",
+        "categories": [
+            "office",
+            "design"
+        ],
+        "description": {
+            "zh": "制作流程图、架构图和其他结构化图表。",
+            "en": "Create flowcharts, architecture diagrams and other structured diagrams."
+        },
+        "tags": [
+            "flowcharts",
+            "diagramming"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "免费分类仅指独立网页绘图入口；集成产品及存储服务可能采用其他条件。",
+            "en": "Free applies to the standalone web diagram editor. Integration products and storage services may have different terms."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://app.diagrams.net/",
+            "https://www.drawio.com/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Di"
+    },
+    {
+        "id": "freecodecamp",
+        "name": "freeCodeCamp",
+        "url": "https://www.freecodecamp.org/",
+        "company": "freeCodeCamp",
+        "country": "unknown",
+        "categories": [
+            "learning",
+            "development"
+        ],
+        "description": {
+            "zh": "通过编程课程和项目练习学习开发。",
+            "en": "Learn development through coding courses and hands-on projects."
+        },
+        "tags": [
+            "coding-practice",
+            "online-courses",
+            "project-learning"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "官网说明课程、项目与认证免费；不代表学历或就业保证。",
+            "en": "The official site states that courses, projects and certifications are free; this is not a degree or employment guarantee."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.freecodecamp.org/",
+            "https://www.freecodecamp.org/news/about/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "fC"
+    },
+    {
+        "id": "the-odin-project",
+        "name": "The Odin Project",
+        "url": "https://www.theodinproject.com/",
+        "company": "The Odin Project",
+        "country": "unknown",
+        "categories": [
+            "learning",
+            "development"
+        ],
+        "description": {
+            "zh": "按开源课程路线学习全栈开发并完成项目。",
+            "en": "Follow an open-source full-stack curriculum and build projects."
+        },
+        "tags": [
+            "project-learning",
+            "web-development"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "全栈课程由开源社区支持并免费提供；社区捐助为自愿。",
+            "en": "The full-stack curriculum is free and supported by an open-source community; donations are optional."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.theodinproject.com/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Od"
+    },
+    {
+        "id": "exercism",
+        "name": "Exercism",
+        "url": "https://exercism.org/",
+        "company": "Exercism",
+        "country": "GB",
+        "categories": [
+            "learning",
+            "development"
+        ],
+        "description": {
+            "zh": "通过多语言编程练习和指导提升代码能力。",
+            "en": "Improve programming through language-specific exercises and mentoring."
+        },
+        "tags": [
+            "coding-practice",
+            "mentoring"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "此分类指 Exercism 编程练习与指导；独立产品和团队服务不在此范围。",
+            "en": "Free applies to Exercism coding practice and mentoring; separate products and team offerings are outside this classification."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://exercism.org/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Er"
+    },
+    {
+        "id": "mit-ocw",
+        "name": "MIT OpenCourseWare",
+        "url": "https://ocw.mit.edu/",
+        "company": "Massachusetts Institute of Technology",
+        "country": "unknown",
+        "categories": [
+            "learning"
+        ],
+        "description": {
+            "zh": "查阅 MIT 课程讲义、视频与作业资料。",
+            "en": "Explore MIT course notes, lectures and assignments."
+        },
+        "tags": [
+            "open-courseware",
+            "academic-subjects"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "OpenCourseWare 课程资料免费开放；此入口不代表学位课程或付费证书项目。",
+            "en": "OpenCourseWare course materials are freely available; this entry is not a degree course or paid certificate program."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://ocw.mit.edu/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "OC"
+    },
+    {
+        "id": "javascript-info",
+        "name": "现代 JavaScript 教程 / JavaScript.info",
+        "url": "https://javascript.info/",
+        "company": "Ilya Kantor / JavaScript.info contributors",
+        "country": "unknown",
+        "categories": [
+            "learning",
+            "development"
+        ],
+        "description": {
+            "zh": "系统学习 JavaScript、DOM 与浏览器编程。",
+            "en": "Study JavaScript, the DOM and browser programming."
+        },
+        "tags": [
+            "javascript",
+            "tutorials",
+            "web-development"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "在线教程可直接阅读，并提供付费 EPUB/PDF 入口；本次未核验完整收费范围。",
+            "en": "The online tutorial is directly readable and links to paid EPUB/PDF editions; the complete pricing scope was not verified."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://javascript.info/",
+            "https://zh.javascript.info/",
+            "https://javascript.info/about"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "JS"
+    },
+    {
+        "id": "geogebra",
+        "name": "GeoGebra",
+        "url": "https://www.geogebra.org/",
+        "company": "GeoGebra GmbH",
+        "country": "AT",
+        "categories": [
+            "learning",
+            "utilities"
+        ],
+        "description": {
+            "zh": "绘制函数、探索几何和三维数学模型。",
+            "en": "Graph functions and explore geometry and 3D mathematics."
+        },
+        "tags": [
+            "mathematics",
+            "graphing",
+            "geometry"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "非商业学习与教学用途免费；商业用途需要单独许可，须查看具体条款。",
+            "en": "Free for non-commercial learning and teaching uses. Commercial uses require a separate license; review the applicable terms."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.geogebra.org/",
+            "https://www.geogebra.org/license"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Ge"
+    },
+    {
+        "id": "overleaf",
+        "name": "Overleaf",
+        "url": "https://www.overleaf.com/",
+        "company": "Digital Science UK Limited",
+        "country": "GB",
+        "categories": [
+            "office",
+            "learning"
+        ],
+        "description": {
+            "zh": "在线协作编写 LaTeX 论文和技术文档。",
+            "en": "Collaborate on LaTeX papers and technical documents online."
+        },
+        "tags": [
+            "latex",
+            "academic-writing",
+            "collaboration"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "免费版有协作者和编译时间等限制；付费方案提高额度并增加功能。",
+            "en": "The free plan limits collaborators, compilation time and other features. Paid plans expand limits and capabilities."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.overleaf.com/",
+            "https://www.overleaf.com/user/subscription/plans",
+            "https://www.overleaf.com/legal"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Ov"
+    },
+    {
+        "id": "zotero",
+        "name": "Zotero",
+        "url": "https://www.zotero.org/",
+        "company": "Corporation for Digital Scholarship",
+        "country": "unknown",
+        "categories": [
+            "office",
+            "learning"
+        ],
+        "description": {
+            "zh": "收集研究资料、管理文献并生成引用。",
+            "en": "Collect research, organize references and generate citations."
+        },
+        "tags": [
+            "reference-management",
+            "citations"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "文献管理工具免费；附件同步包含有限免费空间，可购买更多存储。",
+            "en": "The reference manager is free. Attachment syncing includes limited free storage, with paid storage upgrades."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.zotero.org/",
+            "https://www.zotero.org/storage"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Zo"
+    },
+    {
+        "id": "china-laws",
+        "name": "国家法律法规数据库",
+        "url": "https://flk.npc.gov.cn/",
+        "company": "全国人大常委会办公厅",
+        "country": "CN",
+        "categories": [
+            "public-services"
+        ],
+        "description": {
+            "zh": "按标题、效力和日期检索法律法规及司法解释。",
+            "en": "Search laws, regulations and judicial interpretations by title, status and date."
+        },
+        "tags": [
+            "laws-regulations",
+            "official-documents"
+        ],
+        "pricing": "not_applicable",
+        "pricingNote": {
+            "zh": "这是官方法规查询入口，不构成法律意见；适用文本与效力请以官方最新记录为准。",
+            "en": "An official legal-information entry, not legal advice. Consult the latest official records for applicable text and status."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://flk.npc.gov.cn/search",
+            "https://flk.npc.gov.cn/detail?id=4028abcc612777930161287780af3575"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "法规"
+    },
+    {
+        "id": "china-standards",
+        "name": "全国标准信息公共服务平台",
+        "url": "https://std.samr.gov.cn/",
+        "company": "国家市场监督管理总局国家标准技术审评中心",
+        "country": "CN",
+        "categories": [
+            "public-services"
+        ],
+        "description": {
+            "zh": "查询国家、行业、地方标准与标准状态。",
+            "en": "Search national, industry and local standards and their status."
+        },
+        "tags": [
+            "standards-search",
+            "official-documents"
+        ],
+        "pricing": "not_applicable",
+        "pricingNote": {
+            "zh": "官方标准查询入口；并非所有标准都提供全文或下载，使用须遵守对应版权条件。",
+            "en": "An official standards-search entry. Full text and downloads are not available for every standard and are subject to applicable copyright terms."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://std.samr.gov.cn/",
+            "https://openstd.samr.gov.cn/bzgk/std/nd?no=83",
+            "https://openstd.samr.gov.cn/bzgk/gb/index"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "标准"
+    },
+    {
+        "id": "w3c-validator",
+        "name": "W3C Markup Validator",
+        "url": "https://validator.w3.org/",
+        "company": "World Wide Web Consortium",
+        "country": "unknown",
+        "categories": [
+            "development"
+        ],
+        "description": {
+            "zh": "检查 HTML、XHTML 等网页标记的有效性。",
+            "en": "Check the validity of HTML, XHTML and other web markup."
+        },
+        "tags": [
+            "html-validation",
+            "web-standards"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "W3C 提供免费标记校验服务；校验通过不代表完整质量或无障碍合规。",
+            "en": "W3C provides a free markup-validation service. Passing validation is not a full quality or accessibility assessment."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://validator.w3.org/",
+            "https://validator.w3.org/about.html"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "W3"
+    },
+    {
+        "id": "crontab-guru",
+        "name": "Crontab.guru",
+        "url": "https://crontab.guru/",
+        "company": "Cronitor",
+        "country": "unknown",
+        "categories": [
+            "development",
+            "utilities"
+        ],
+        "description": {
+            "zh": "编辑和理解 cron 定时任务表达式。",
+            "en": "Edit and understand cron scheduling expressions."
+        },
+        "tags": [
+            "cron-schedules"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "仅指 cron 表达式编辑入口；另行链接的监控服务有独立方案，本次未核验入口定价说明。",
+            "en": "This entry covers the cron-expression editor. Linked monitoring services have separate plans; a pricing statement for the editor was not verified."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://crontab.guru/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Cr"
+    },
+    {
+        "id": "json-crack",
+        "name": "JSON Crack",
+        "url": "https://jsoncrack.com/",
+        "company": "JSON Crack",
+        "country": "unknown",
+        "categories": [
+            "development",
+            "utilities"
+        ],
+        "description": {
+            "zh": "可视化 JSON 并转换 JSON、YAML、CSV 与 XML。",
+            "en": "Visualize JSON and convert JSON, YAML, CSV and XML."
+        },
+        "tags": [
+            "json-tools",
+            "data-conversion",
+            "data-visualization"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "原 JSON Crack 网页工具免费，数据规模受复杂度和设备限制；高级付费功能位于独立 ToDiagram。",
+            "en": "The JSON Crack web tool is free, with data-size limits depending on complexity and hardware. Advanced paid features are offered separately on ToDiagram."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://jsoncrack.com/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "JC"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

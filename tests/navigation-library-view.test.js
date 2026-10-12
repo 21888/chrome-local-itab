@@ -118,10 +118,10 @@ const assertSavedCounts=(h,total,added)=>{
 };
 test('saved filters count canonical URL matches once across categories and ignore unrelated URLs',async()=>{
  const h=model();h.snapshot.links=[{url:'https://CHATGPT.com:443',category:'personal'},{url:'https://chatgpt.com/',category:'work'},{url:'https://chatgpt.com/?other=1'},{url:'javascript:alert(1)'}];
- await h.view.open();assertSavedCounts(h,84,1);
+ await h.view.open();assertSavedCounts(h,108,1);
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,true);assert.equal(cards(h)[0].dataset.site,'chatgpt');
- savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,83);assert.ok(cards(h).every(card=>card.dataset.site!=='chatgpt'));
- savedControl(h,'').dispatch('click');assert.equal(cards(h).length,84);assert.equal(h.calls,0);
+ savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,107);assert.ok(cards(h).every(card=>card.dataset.site!=='chatgpt'));
+ savedControl(h,'').dispatch('click');assert.equal(cards(h).length,108);assert.equal(h.calls,0);
 });
 test('saved filters combine with all discovery criteria and show contextual counts',async()=>{
  const h=model();const site=h.context.LocalItabNavigationSites[0];h.snapshot.links=[{url:site.url}];await h.view.open();
@@ -130,12 +130,12 @@ test('saved filters combine with all discovery criteria and show contextual coun
  for(const [select,value] of selects.map((select,i)=>[select,[site.tags[0],site.country,site.company,site.pricing][i]])){select.value=value;select.dispatch('change');}
  h.search(site.name);assertSavedCounts(h,1,1);savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,0);assert.ok(h.document.querySelector('.navigation-library-empty'));assert.equal(h.document.querySelector('.navigation-library-count').textContent,'0 sites');
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');
- h.click('Clear filters');assertSavedCounts(h,84,1);assert.equal(cards(h).length,84);assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,h.document.querySelector('input'));assert.equal(h.calls,0);
+ h.click('Clear filters');assertSavedCounts(h,108,1);assert.equal(cards(h).length,108);assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,h.document.querySelector('input'));assert.equal(h.calls,0);
 });
 test('adding in Not added removes only saved card, updates counts and focuses next card',async()=>{
  const h=model();await h.view.open();savedControl(h,'new').dispatch('click');const before=cards(h).map(card=>card.dataset.site);
  cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();
- assertSavedCounts(h,84,1);assert.equal(cards(h).length,83);assert.ok(!cards(h).some(card=>card.dataset.site===before[2]));assert.equal(h.document.activeElement.dataset.site,before[3]);
+ assertSavedCounts(h,108,1);assert.equal(cards(h).length,107);assert.ok(!cards(h).some(card=>card.dataset.site===before[2]));assert.equal(h.document.activeElement.dataset.site,before[3]);
  assert.match(h.document.querySelector('.navigation-library-status').textContent,/Added to Work/);assert.equal(savedControl(h,'new').getAttribute('aria-pressed'),'true');
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,before[2]);assert.equal(h.firstAdd().disabled,true);
 });
@@ -151,15 +151,15 @@ test('Not added failure retains card and counts, then successful retry removes i
  h.firstAdd().dispatch('click');await tick();assertSavedCounts(h,1,1);assert.equal(cards(h).length,0);
 });
 test('saved filter state remains local to dialog; fresh workspace snapshot owns all counts',async()=>{
- const h=model();h.snapshot.links=[{url:'https://chatgpt.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');assertSavedCounts(h,84,1);
+ const h=model();h.snapshot.links=[{url:'https://chatgpt.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');assertSavedCounts(h,108,1);
  assert.equal(h.view.close(),true);h.snapshot.links=[{url:'https://github.com/'}];await h.view.open();assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');
- savedControl(h,'added').dispatch('click');assertSavedCounts(h,84,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(h.calls,0);
+ savedControl(h,'added').dispatch('click');assertSavedCounts(h,108,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(h.calls,0);
 });
 test('cancelled old workspace read cannot overwrite the newly opened saved filter',async()=>{
  const h=model(),pending=deferred();h.read=pending;const oldOpen=h.view.open();await tick();h.view.close();
  h.read=null;h.snapshot.links=[{url:'https://github.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');
  pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/'}]});await oldOpen;
- assertSavedCounts(h,84,1);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');assert.equal(h.calls,0);
+ assertSavedCounts(h,108,1);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');assert.equal(h.calls,0);
 });
 test('pending filtered save locks controls and cancellation until verified late callback',async()=>{
  const h=model(),pending=deferred();h.write=pending;await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');
@@ -169,8 +169,8 @@ test('pending filtered save locks controls and cancellation until verified late 
 test('saved filter labels and group description are bilingual, including empty Added view',async()=>{
  for(const [locale,group,all,fresh,added] of [['en','Saved in this workspace','All','Not added','Added'],['zh-CN','当前工作空间添加状态','全部','未添加','已添加']]){
   const h=model({locale});await h.view.open();assert.equal(h.document.querySelector('.navigation-library-saved-filters').getAttribute('aria-label'),group);
-  assert.equal(savedControl(h,'').textContent,`${all} (84)`);assert.equal(savedControl(h,'new').textContent,`${fresh} (84)`);assert.equal(savedControl(h,'added').textContent,`${added} (0)`);
-  savedControl(h,'added').dispatch('click');assert.ok(h.document.querySelector('.navigation-library-empty'));assertSavedCounts(h,84,0);assert.equal(h.calls,0);
+  assert.equal(savedControl(h,'').textContent,`${all} (108)`);assert.equal(savedControl(h,'new').textContent,`${fresh} (108)`);assert.equal(savedControl(h,'added').textContent,`${added} (0)`);
+  savedControl(h,'added').dispatch('click');assert.ok(h.document.querySelector('.navigation-library-empty'));assertSavedCounts(h,108,0);assert.equal(h.calls,0);
  }
 });
 test('adding the final card focuses its previous neighbor and duplicate callback is reflected honestly',async()=>{
@@ -181,10 +181,26 @@ test('adding the final card focuses its previous neighbor and duplicate callback
 test('failure after an earlier successful addition focuses the attempted card, not the old success',async()=>{
  const h=model();await h.view.open();h.firstAdd().dispatch('click');await tick();
  h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_FAILED'});};const attempted=cards(h)[2].dataset.site;
- cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();assert.equal(h.document.activeElement.dataset.site,attempted);assertSavedCounts(h,84,1);
+ cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();assert.equal(h.document.activeElement.dataset.site,attempted);assertSavedCounts(h,108,1);
 });
 test('conflict does not falsely move a Not added card into Added',async()=>{
  const h=model();h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_CONFLICT'});};await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');await tick();
  assertSavedCounts(h,1,0);assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,true);assert.match(h.document.querySelector('.navigation-library-status').textContent,/Close and reopen/);
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,0);assertSavedCounts(h,1,0);
+});
+
+test('new bilingual use filters show canonical existing sites only once across catalog categories',async()=>{
+ for(const [locale,more,useLabel] of [['en','More filters','PSD editing'],['zh-CN','更多筛选','PSD 编辑']]){
+  const h=model({locale});h.snapshot.links=[{title:'Renamed editor',url:'https://WWW.PHOTOPEA.com:443',category:'personal'},{title:'Other category',url:'https://www.photopea.com/',category:'work'}];
+  await h.view.open();h.click(more);
+  const use=h.document.querySelector('.navigation-library-filters select');
+  const option=use.querySelectorAll('option').find(option=>option.value==='psd-editing');assert.equal(option.textContent,useLabel);
+  use.value='psd-editing';use.dispatch('change');assertSavedCounts(h,1,1);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'photopea');assert.equal(h.firstAdd().disabled,true);
+  for(const category of ['design','utilities']){h.document.querySelectorAll('.navigation-library-category').find(button=>button.dataset.category===category).dispatch('click');h.search('PSD');assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'photopea');assert.equal(h.firstAdd().disabled,true);}
+  assert.equal(h.calls,0);
+ }
+});
+test('adding a new catalog entry updates saved-state counts and cannot add again',async()=>{
+ const h=model();await h.view.open();h.search('JSON Crack');assertSavedCounts(h,1,0);assert.equal(cards(h)[0].dataset.site,'json-crack');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');await tick();
+ assertSavedCounts(h,1,1);assert.equal(cards(h).length,0);savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,true);assert.equal(h.snapshot.links[0].url,'https://jsoncrack.com/');assert.equal(h.calls,1);
 });

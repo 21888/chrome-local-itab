@@ -5049,5 +5049,119 @@
   },
   "navigationTagTranslation": {
     "message": "Translation"
+  },
+  "navigationTagAcademicWriting": {
+    "message": "Academic writing"
+  },
+  "navigationTagApiTesting": {
+    "message": "API testing"
+  },
+  "navigationTagBrowserCompatibility": {
+    "message": "Browser compatibility"
+  },
+  "navigationTagCitations": {
+    "message": "Citations"
+  },
+  "navigationTagCodingPractice": {
+    "message": "Coding practice"
+  },
+  "navigationTagColorPalettes": {
+    "message": "Color palettes"
+  },
+  "navigationTagContrastChecking": {
+    "message": "Contrast checking"
+  },
+  "navigationTagCronSchedules": {
+    "message": "Cron schedules"
+  },
+  "navigationTagDataConversion": {
+    "message": "Data format conversion"
+  },
+  "navigationTagDataVisualization": {
+    "message": "Data visualization"
+  },
+  "navigationTagDiagramming": {
+    "message": "Diagramming"
+  },
+  "navigationTagEncodingDecoding": {
+    "message": "Encoding & decoding"
+  },
+  "navigationTagFlowcharts": {
+    "message": "Flowcharts"
+  },
+  "navigationTagFonts": {
+    "message": "Fonts"
+  },
+  "navigationTagGeometry": {
+    "message": "Geometry"
+  },
+  "navigationTagGraphing": {
+    "message": "Function graphing"
+  },
+  "navigationTagHashTools": {
+    "message": "Hash tools"
+  },
+  "navigationTagHtmlValidation": {
+    "message": "HTML validation"
+  },
+  "navigationTagHttpRequests": {
+    "message": "HTTP requests"
+  },
+  "navigationTagIcons": {
+    "message": "Icons"
+  },
+  "navigationTagJavascript": {
+    "message": "JavaScript"
+  },
+  "navigationTagJsonTools": {
+    "message": "JSON tools"
+  },
+  "navigationTagLatex": {
+    "message": "LaTeX"
+  },
+  "navigationTagLawsRegulations": {
+    "message": "Laws & regulations"
+  },
+  "navigationTagMentoring": {
+    "message": "Mentoring"
+  },
+  "navigationTagOfficialDocuments": {
+    "message": "Official documents"
+  },
+  "navigationTagOpenCourseware": {
+    "message": "Open courseware"
+  },
+  "navigationTagPhotoEditing": {
+    "message": "Photo editing"
+  },
+  "navigationTagProjectLearning": {
+    "message": "Project-based learning"
+  },
+  "navigationTagPsdEditing": {
+    "message": "PSD editing"
+  },
+  "navigationTagReferenceManagement": {
+    "message": "Reference management"
+  },
+  "navigationTagRegexTesting": {
+    "message": "Regex testing"
+  },
+  "navigationTagStandardsSearch": {
+    "message": "Standards search"
+  },
+  "navigationTagSvgAssets": {
+    "message": "SVG assets"
+  },
+  "navigationTagTextProcessing": {
+    "message": "Text processing"
+  },
+  "navigationTagTypography": {
+    "message": "Typography"
+  },
+  "navigationTagWebDevelopment": {
+    "message": "Web development"
+  },
+  "navigationTagWhiteboarding": {
+    "message": "Whiteboarding"
   }
 }

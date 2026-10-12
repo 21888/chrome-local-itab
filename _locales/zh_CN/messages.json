@@ -5049,5 +5049,119 @@
   },
   "navigationTagTranslation": {
     "message": "翻译"
+  },
+  "navigationTagAcademicWriting": {
+    "message": "学术写作"
+  },
+  "navigationTagApiTesting": {
+    "message": "API 测试"
+  },
+  "navigationTagBrowserCompatibility": {
+    "message": "浏览器兼容性"
+  },
+  "navigationTagCitations": {
+    "message": "参考文献引用"
+  },
+  "navigationTagCodingPractice": {
+    "message": "编程练习"
+  },
+  "navigationTagColorPalettes": {
+    "message": "配色方案"
+  },
+  "navigationTagContrastChecking": {
+    "message": "对比度检查"
+  },
+  "navigationTagCronSchedules": {
+    "message": "Cron 定时表达式"
+  },
+  "navigationTagDataConversion": {
+    "message": "数据格式转换"
+  },
+  "navigationTagDataVisualization": {
+    "message": "数据可视化"
+  },
+  "navigationTagDiagramming": {
+    "message": "绘制示意图"
+  },
+  "navigationTagEncodingDecoding": {
+    "message": "编码解码"
+  },
+  "navigationTagFlowcharts": {
+    "message": "流程图"
+  },
+  "navigationTagFonts": {
+    "message": "字体"
+  },
+  "navigationTagGeometry": {
+    "message": "几何"
+  },
+  "navigationTagGraphing": {
+    "message": "函数绘图"
+  },
+  "navigationTagHashTools": {
+    "message": "哈希工具"
+  },
+  "navigationTagHtmlValidation": {
+    "message": "HTML 校验"
+  },
+  "navigationTagHttpRequests": {
+    "message": "HTTP 请求"
+  },
+  "navigationTagIcons": {
+    "message": "图标"
+  },
+  "navigationTagJavascript": {
+    "message": "JavaScript"
+  },
+  "navigationTagJsonTools": {
+    "message": "JSON 工具"
+  },
+  "navigationTagLatex": {
+    "message": "LaTeX"
+  },
+  "navigationTagLawsRegulations": {
+    "message": "法律法规"
+  },
+  "navigationTagMentoring": {
+    "message": "学习指导"
+  },
+  "navigationTagOfficialDocuments": {
+    "message": "官方文件"
+  },
+  "navigationTagOpenCourseware": {
+    "message": "开放课程资料"
+  },
+  "navigationTagPhotoEditing": {
+    "message": "图片编辑"
+  },
+  "navigationTagProjectLearning": {
+    "message": "项目式学习"
+  },
+  "navigationTagPsdEditing": {
+    "message": "PSD 编辑"
+  },
+  "navigationTagReferenceManagement": {
+    "message": "文献管理"
+  },
+  "navigationTagRegexTesting": {
+    "message": "正则表达式测试"
+  },
+  "navigationTagStandardsSearch": {
+    "message": "标准查询"
+  },
+  "navigationTagSvgAssets": {
+    "message": "SVG 素材"
+  },
+  "navigationTagTextProcessing": {
+    "message": "文本处理"
+  },
+  "navigationTagTypography": {
+    "message": "字体排印"
+  },
+  "navigationTagWebDevelopment": {
+    "message": "Web 开发"
+  },
+  "navigationTagWhiteboarding": {
+    "message": "白板协作"
   }
 }
