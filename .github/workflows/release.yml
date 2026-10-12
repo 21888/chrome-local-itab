@@ -4,7 +4,8 @@ on:
     branches: [master]
 permissions: {}
 # No shared concurrency group: GitHub replaces pending runs in a group.
-# One coherent, patch-versioned commit per push; no Actions artifact/cache storage.
+# Each feature is pushed independently; explicit version bumps release batches.
+# No Actions artifact/cache storage.
 jobs:
   validate:
     if: github.repository == '21888/chrome-local-itab' && github.event.repository.private == false
@@ -13,6 +14,7 @@ jobs:
     permissions:
       contents: read
     outputs:
+      release: ${{ steps.bundle.outputs.release }}
       runtime_sha256: ${{ steps.bundle.outputs.runtime_sha256 }}
       version: ${{ steps.bundle.outputs.version }}
       source_commit: ${{ steps.bundle.outputs.source_commit }}
@@ -20,7 +22,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
       - name: Test exact source
         run: |
@@ -33,7 +35,7 @@ jobs:
         run: python3 tools/github_release.py build --sha "$SOURCE_SHA" --output "$RUNNER_TEMP/release-assets"
   publish:
     needs: validate
-    if: github.repository == '21888/chrome-local-itab' && github.event.repository.private == false
+    if: needs.validate.outputs.release == 'true' && github.repository == '21888/chrome-local-itab' && github.event.repository.private == false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -42,7 +44,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, node24
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
       - name: Rebuild and match validated runtime
         env:

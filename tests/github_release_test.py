@@ -21,7 +21,7 @@ def bundle(out):
     out.mkdir()
     archive = b'trusted canonical test archive'
     (out / f'local-itab-{VERSION}.zip').write_bytes(archive)
-    (out / 'PROVENANCE.json').write_text(json.dumps({'version': VERSION, 'source_commit': SHA, 'repository': release.REPOSITORY, 'runtime_sha256': release.sha256(archive)}))
+    (out / 'PROVENANCE.json').write_text(json.dumps({'version': VERSION, 'source_commit': SHA, 'repository': release.REPOSITORY, 'runtime_sha256': release.sha256(archive), 'release_plan': {'release': True, 'version': VERSION, 'source_commit': SHA, 'base_tag': 'v1.1.7', 'base_commit': 'b' * 40}}))
     (out / 'RELEASE-NOTES.md').write_text(release.notes(SHA, VERSION))
     (out / 'SHA256SUMS.txt').write_text(''.join(f'{release.sha256(p.read_bytes())}  {p.name}\n' for p in sorted(out.iterdir())))
 
@@ -40,6 +40,12 @@ class FakeGitHub:
             self.mutations.append((method, path, copy.deepcopy(payload)))
         if path == '':
             return {'full_name': release.REPOSITORY, 'private': self.private, 'default_branch': 'master'}
+        if path == 'git/ref/tags/v1.1.7':
+            return {'object': {'type': 'commit', 'sha': 'b' * 40}}
+        if path == 'releases/tags/v1.1.7':
+            return {'id': 41, 'tag_name': 'v1.1.7', 'draft': False, 'prerelease': False}
+        if path.startswith('releases/41/assets?'):
+            return [{'name': name, 'state': 'uploaded', 'size': 100} for name in ('local-itab-1.1.7.zip', 'PROVENANCE.json', 'RELEASE-NOTES.md', 'SHA256SUMS.txt')]
         if path.startswith('git/ref/tags/'):
             return None if self.target is None else {'object': {'type': 'commit', 'sha': self.target}}
         if path == 'git/refs' and method == 'POST':
@@ -204,6 +210,8 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('actions/upload-artifact', workflow)
         self.assertNotIn('actions/download-artifact', workflow)
         self.assertNotIn('actions/cache', workflow)
+        self.assertEqual(workflow.count('fetch-depth: 0'), 2)
+        self.assertIn("if: needs.validate.outputs.release == 'true' &&", workflow)
         self.assertIn('--expected-sha256', workflow)
         self.assertIn('needs.validate.outputs.source_commit', workflow)
 
@@ -218,6 +226,7 @@ class ReleaseTests(unittest.TestCase):
         record.write_text((ROOT / 'docs/releases/1.1.8.md').read_text())
         git('init', '-q');git('add', '.')
         git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'base')
+        git('tag', 'v1.1.7')
         (root / 'manifest.json').write_text('{"version":"1.1.8"}')
         git('add', '.');git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'next')
         import package_extension
@@ -226,6 +235,146 @@ class ReleaseTests(unittest.TestCase):
             metadata = release.build(root, Path(self.temp.name) / 'built', git('rev-parse', 'HEAD'))
         self.assertEqual(metadata['runtime_count'], 1)
         release.inspect_bundle(Path(self.temp.name) / 'built', git('rev-parse', 'HEAD'))
+
+
+class BatchPlanTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name) / 'repo'
+        self.root.mkdir()
+        self.git('init', '-q')
+        self.commit('1.1.7', 'base')
+        self.git('tag', 'v1.1.7')
+
+    def git(self, *args):
+        return subprocess.check_output(['git', '-C', str(self.root), *args], stderr=subprocess.DEVNULL, text=True).strip()
+
+    def commit(self, version, name):
+        (self.root / 'manifest.json').write_text(json.dumps({'version': version}))
+        (self.root / 'change.txt').write_text(name)
+        self.git('add', '.')
+        self.git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', name)
+        return self.git('rev-parse', 'HEAD')
+
+    def test_two_and_three_features_then_explicit_release(self):
+        for count in (2, 3):
+            with self.subTest(count=count):
+                self.git('reset', '--hard', 'v1.1.7')
+                for i in range(count):
+                    sha = self.commit('1.1.7', f'feature {i}')
+                    self.assertFalse(release.release_plan(self.root, sha)['release'])
+                sha = self.commit('1.1.8', 'release batch')
+                plan = release.release_plan(self.root, sha)
+                self.assertTrue(plan['release'])
+                self.assertEqual(plan['base_tag'], 'v1.1.7')
+                self.git('tag', '-f', 'v1.1.8')
+                self.assertEqual(release.release_plan(self.root, sha), plan)
+
+    def test_development_bundle_without_release_record(self):
+        sha = self.commit('1.1.7', 'feature')
+        import package_extension
+        with patch.object(package_extension, 'collect', return_value={'manifest.json': (self.root / 'manifest.json').read_bytes()}):
+            out = Path(self.temp.name) / 'assets'
+            result = release.build(self.root, out, sha)
+        self.assertFalse(result['release_plan']['release'])
+        release.inspect_bundle(out, sha)
+        api = FakeGitHub()
+        with self.assertRaisesRegex(ValueError, 'not an explicit release'):
+            release.publish(out, sha, api)
+        self.assertFalse(api.mutations)
+
+    def test_invalid_version_transitions(self):
+        for version in ('1.1.6', '1.1.9', '1.2.0'):
+            with self.subTest(version=version):
+                self.git('reset', '--hard', 'v1.1.7')
+                sha = self.commit(version, 'bad transition')
+                with self.assertRaisesRegex(ValueError, 'patch exactly once'):
+                    release.release_plan(self.root, sha)
+
+    def test_missing_baseline(self):
+        sha = self.commit('1.1.8', 'release')
+        self.git('tag', '-d', 'v1.1.7')
+        with self.assertRaisesRegex(ValueError, 'Missing ancestor'):
+            release.release_plan(self.root, sha)
+
+    def test_baseline_manifest_mismatch(self):
+        self.git('tag', 'v1.1.8')
+        sha = self.commit('1.1.9', 'release')
+        with self.assertRaisesRegex(ValueError, 'manifest version mismatch'):
+            release.release_plan(self.root, sha)
+
+    def test_unreleased_transition(self):
+        self.commit('1.1.6', 'bad intermediate version')
+        sha = self.commit('1.1.8', 'release')
+        with self.assertRaisesRegex(ValueError, 'Unreleased version transition'):
+            release.release_plan(self.root, sha)
+
+    def test_nonancestor_tag_does_not_change_baseline(self):
+        original = self.git('rev-parse', 'HEAD')
+        self.commit('1.1.99', 'unrelated branch')
+        self.git('tag', 'v1.1.99')
+        self.git('reset', '--hard', original)
+        sha = self.commit('1.1.8', 'release')
+        self.assertEqual(release.release_plan(self.root, sha)['base_tag'], 'v1.1.7')
+
+    def test_baseline_asset_metadata_must_be_complete(self):
+        out = Path(self.temp.name) / 'assets'
+        bundle(out)
+        complete = FakeGitHub().api('releases/41/assets?per_page=100&page=1')
+        cases = [complete[:-1], complete + [complete[0]],
+                 [dict(a, state='new') if i == 0 else a for i, a in enumerate(complete)],
+                 [dict(a, size=0) if i == 0 else a for i, a in enumerate(complete)],
+                 [dict(a, name='unexpected.zip') if i == 0 else a for i, a in enumerate(complete)]]
+        for assets in cases:
+            with self.subTest(assets=assets):
+                api = FakeGitHub()
+                original = api.api
+                def read(path, *args, **kwargs):
+                    return assets if path.startswith('releases/41/assets?') else original(path, *args, **kwargs)
+                with patch.object(api, 'api', side_effect=read), self.assertRaisesRegex(ValueError, 'Previous release assets are incomplete'):
+                    release.publish(out, SHA, api)
+                self.assertFalse(api.mutations)
+
+
+    def test_baseline_auth_or_transport_failure_never_mutates(self):
+        out = Path(self.temp.name) / 'assets'
+        bundle(out)
+        api = FakeGitHub()
+        original = api.api
+        def failure(path, *args, **kwargs):
+            if path == 'releases/tags/v1.1.7':
+                raise RuntimeError('HTTP 403 or transient transport error')
+            return original(path, *args, **kwargs)
+        with patch.object(api, 'api', side_effect=failure), self.assertRaises(RuntimeError):
+            release.publish(out, SHA, api)
+        self.assertFalse(api.mutations)
+
+    def test_release_still_requires_notes(self):
+        sha = self.commit('1.1.8', 'release without notes')
+        with self.assertRaisesRegex(ValueError, 'Missing source-controlled change record'):
+            release.build(self.root, Path(self.temp.name) / 'assets', sha)
+
+
+    def test_baseline_must_be_public_and_unchanged(self):
+        out = Path(self.temp.name) / 'assets'
+        bundle(out)
+        for response in (None, {'tag_name': 'v1.1.7', 'draft': True, 'prerelease': False},
+                         {'tag_name': 'v1.1.7', 'draft': False, 'prerelease': True}):
+            api = FakeGitHub()
+            original = api.api
+            def read(path, *args, **kwargs):
+                return response if path == 'releases/tags/v1.1.7' else original(path, *args, **kwargs)
+            with patch.object(api, 'api', side_effect=read), self.assertRaisesRegex(ValueError, 'not publicly complete'):
+                release.publish(out, SHA, api)
+            self.assertFalse(api.mutations)
+        api = FakeGitHub()
+        original = api.api
+        def changed(path, *args, **kwargs):
+            return {'object': {'type': 'commit', 'sha': 'c' * 40}} if path == 'git/ref/tags/v1.1.7' else original(path, *args, **kwargs)
+        with patch.object(api, 'api', side_effect=changed), self.assertRaisesRegex(ValueError, 'Baseline release tag changed'):
+            release.publish(out, SHA, api)
+        self.assertFalse(api.mutations)
 
 
 if __name__ == '__main__':

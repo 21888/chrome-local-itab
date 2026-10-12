@@ -81,18 +81,44 @@ Download local-itab-{version}.zip, extract it to a folder you retain, open chrom
 {upgrade_guidance}'''
 
 
+def release_plan(root, sha):
+    """Classify an exact push; tags are local evidence, not publication proof."""
+    def git(*args):
+        return subprocess.check_output(['git', '-C', str(root), *args], text=True).strip()
+    version = json.loads((root / 'manifest.json').read_text())['version']
+    validate_identity(sha, version)
+    check(git('rev-parse', 'HEAD') == sha, 'Checkout differs from event SHA')
+    previous = json.loads(git('show', 'HEAD^:manifest.json'))['version']
+    version_tuple(previous)
+    if version == previous:
+        return {'release': False, 'version': version, 'source_commit': sha}
+    # HEAD^ excludes this release's own tag on retries and later non-ancestor
+    # releases. Full history/tags are required; never silently guess a baseline.
+    candidates = []
+    for tag in git('tag', '--merged', 'HEAD^', '--list', 'v*').splitlines():
+        if re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', tag):
+            candidates.append((version_tuple(tag[1:]), tag))
+    check(candidates, 'Missing ancestor release tag; fetch full history and tags')
+    old, tag = max(candidates)
+    check(version_tuple(version) == (old[0], old[1], old[2] + 1), 'Release must increment the latest ancestor release patch exactly once')
+    base_sha = git('rev-parse', tag + '^{commit}')
+    check(json.loads(git('show', tag + ':manifest.json'))['version'] == tag[1:], 'Baseline tag manifest version mismatch')
+    check(previous == tag[1:], 'Unreleased version transition before release commit')
+    return {'release': True, 'version': version, 'source_commit': sha,
+            'base_tag': tag, 'base_commit': base_sha}
+
+
 def build(root, out, sha):
     # Packaging runs before the publication step receives GH_TOKEN.
     import package_extension as package
     version = json.loads((root / 'manifest.json').read_text())['version']
     validate_identity(sha, version)
-    body = notes(sha, version, root)
+    plan = release_plan(root, sha)
+    body = (notes(sha, version, root) if plan['release'] else
+            f'Development validation only; not a published release.\nVersion: {version}\nSource: {sha}\n')
     head = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
     check(head == sha, 'Checkout differs from event SHA')
     check(not subprocess.check_output(['git', '-C', str(root), 'status', '--porcelain', '--untracked-files=normal'], text=True).strip(), 'Build requires a clean checkout')
-    previous = json.loads(subprocess.check_output(['git', '-C', str(root), 'show', 'HEAD^:manifest.json'], text=True))['version']
-    old = version_tuple(previous)
-    check(version_tuple(version) == (old[0], old[1], old[2] + 1), 'Every release commit must increment the manifest patch version exactly once')
     check(not out.exists(), 'Output directory already exists')
     out.mkdir(parents=True)
     files = package.collect(root)
@@ -101,7 +127,8 @@ def build(root, out, sha):
     package.verify(archive, files)
     provenance = {'repository': REPOSITORY, 'source_commit': sha, 'version': version,
                   'runtime_count': len(files), 'runtime_sha256': sha256(archive.read_bytes()),
-                  'files': {name: sha256(data) for name, data in files.items()}}
+                  'files': {name: sha256(data) for name, data in files.items()},
+                  'release_plan': plan}
     (out / 'PROVENANCE.json').write_text(json.dumps(provenance, sort_keys=True, indent=2) + '\n')
     (out / 'RELEASE-NOTES.md').write_text(body)
     (out / 'SHA256SUMS.txt').write_text(''.join(f'{sha256(p.read_bytes())}  {p.name}\n' for p in sorted(out.iterdir())))
@@ -123,7 +150,10 @@ def inspect_bundle(out, sha):
     actual_sums = ''.join(f'{sha256(data)}  {name}\n' for name, data in sorted(assets.items()) if name != 'SHA256SUMS.txt')
     check(assets['SHA256SUMS.txt'].decode() == actual_sums, 'Checksum mismatch')
     check(sha256(assets[f'local-itab-{version}.zip']) == metadata['runtime_sha256'], 'Runtime hash mismatch')
-    check(assets['RELEASE-NOTES.md'].decode() == notes(sha, version), 'Release notes identity mismatch')
+    plan = metadata.get('release_plan')
+    body = (f'Development validation only; not a published release.\nVersion: {version}\nSource: {sha}\n'
+            if plan and plan.get('release') is False else notes(sha, version))
+    check(assets['RELEASE-NOTES.md'].decode() == body, 'Release notes identity mismatch')
     return version, assets
 
 
@@ -211,6 +241,19 @@ def publish(out, sha, api=None):
     api = api or GitHub()
     repo = api.api('')
     check(repo['full_name'] == REPOSITORY and repo['private'] is False and repo['default_branch'] == 'master', 'Repository identity/visibility changed')
+    plan = json.loads((out / 'PROVENANCE.json').read_text()).get('release_plan')
+    check(plan and plan.get('release') is True and plan.get('version') == version and plan.get('source_commit') == sha, 'Bundle is not an explicit release commit')
+    base_tag = plan['base_tag']
+    old = version_tuple(base_tag.removeprefix('v'))
+    check(base_tag == 'v' + '.'.join(map(str, old)) and version_tuple(version) == (old[0], old[1], old[2] + 1), 'Invalid release baseline version')
+    baseline = api.api('releases/tags/' + base_tag, missing_ok=True)
+    check(baseline and baseline['tag_name'] == base_tag and not baseline['draft'] and not baseline['prerelease'], 'Previous release is not publicly complete; restore it then retry')
+    check(tag_commit(api, base_tag) == plan['base_commit'], 'Baseline release tag changed')
+    base_assets = assets_for(api, baseline['id'])
+    base_names = {f'local-itab-{base_tag[1:]}.zip', 'PROVENANCE.json', 'RELEASE-NOTES.md', 'SHA256SUMS.txt'}
+    check(len(base_assets) == 4 and {a['name'] for a in base_assets} == base_names
+          and all(a['state'] == 'uploaded' and isinstance(a['size'], int) and a['size'] > 0 for a in base_assets),
+          'Previous release assets are incomplete; restore it then retry')
     tag = 'v' + version
     target = tag_commit(api, tag)
     check(target is None or target == sha, 'Tag already points to a different commit')
@@ -321,7 +364,7 @@ def main():
             check(result['runtime_sha256'] == args.expected_sha256, 'Validated ZIP hash mismatch')
         if os.environ.get('GITHUB_OUTPUT'):
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-                output.write(f"runtime_sha256={result['runtime_sha256']}\nversion={result['version']}\nsource_commit={result['source_commit']}\n")
+                output.write(f"runtime_sha256={result['runtime_sha256']}\nversion={result['version']}\nsource_commit={result['source_commit']}\nrelease={str(result['release_plan']['release']).lower()}\n")
         print(json.dumps(result))
     else:
         check(os.environ.get('GITHUB_REPOSITORY') == REPOSITORY, 'Unexpected repository context')
