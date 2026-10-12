@@ -30,7 +30,7 @@
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
         let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
-        let selectableResults = [], refreshActiveFilters = () => {};
+        let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
         let newCategoryMode = false, draftName = '', composing = false, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
         const expandedDetails = new Set(), renderedDetails = new Map();
@@ -112,8 +112,15 @@
                 const wrapper = el('label', t(key)), select = el('select'); select.setAttribute('aria-label', t(key));
                 const any = el('option', t('any')); any.value = ''; select.append(any);
                 choices.forEach(value => { const option = el('option', label(value)); option.value = value; select.append(option); });
-                select.addEventListener('change', () => { criteria[key] = select.value; renderResults(); }); wrapper.append(select); filtersPanel.append(wrapper); filterControls.push({ key, select, label }); return select;
+                select.addEventListener('change', () => applyFilter(key, select.value)); wrapper.append(select); filtersPanel.append(wrapper); filterControls.push({ key, select, label }); return select;
             }
+            function applyFilter(key, value) {
+                criteria[key] = value;
+                const control = filterControls.find(item => item.key === key);
+                if (control) control.select.value = value;
+                renderResults();
+            }
+            applyTagFilter = tag => applyFilter('tag', tag);
             const distinct = key => [...new Set(entries.flatMap(site => site[key]))].sort();
             const tagSelect = selectFilter('tag', [], tagLabel);
             function refreshTagOptions() {
@@ -301,7 +308,7 @@
                 if (!details.isConnected) continue;
                 if (details.open) expandedDetails.add(id); else expandedDetails.delete(id);
                 if (details.contains(document.activeElement)) {
-                    detailFocus = { id, index: Array.from(details.querySelectorAll('summary, a')).indexOf(document.activeElement) };
+                    detailFocus = { id, index: Array.from(details.querySelectorAll('summary, button, a')).indexOf(document.activeElement) };
                 }
             }
             renderedDetails.clear();
@@ -344,8 +351,27 @@
                 });
                 pickLabel.append(pick, el('span', t('select'))); card.append(pickLabel);
                 card.append(el('p', api.localized(site.description, language()), 'navigation-library-description'));
+                function tagControl(tag, location) {
+                    const control = button(tagLabel(tag), () => {
+                        if (owner !== revision || !control.isConnected || control.disabled || busy || !snapshot || root.LocalItabContentLifecycle?.departing) return;
+                        applyTagFilter(tag);
+                        // The old card was replaced. Restore the same purpose control,
+                        // including its disclosure location, rather than a detached node.
+                        const replacement = Array.from(results.children).find(node => node.dataset.site === site.id);
+                        const next = Array.from(replacement?.querySelectorAll('.navigation-library-tag') || []).find(node => node.dataset.tag === tag && node.dataset.location === location);
+                        (next || overlay.querySelector('.navigation-library-active-filter[data-filter="tag"]') || search).focus();
+                    }, 'navigation-library-tag');
+                    control.dataset.tag = tag; control.dataset.location = location;
+                    control.setAttribute('aria-pressed', String(criteria.tag === tag));
+                    control.setAttribute('aria-label', `${t('tag')}: ${tagLabel(tag)}`);
+                    control.disabled = writing;
+                    control.addEventListener('keydown', event => {
+                        if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+                    });
+                    return control;
+                }
                 const tags = el('div', undefined, 'navigation-library-tags');
-                site.tags.slice(0, 2).forEach(tag => tags.append(el('span', tagLabel(tag))));
+                site.tags.slice(0, 2).forEach(tag => tags.append(tagControl(tag, 'card')));
                 if (site.tags.length > 2) tags.append(el('span', `+${site.tags.length - 2} ${t(site.tags.length === 3 ? 'moreUse' : 'moreUses')}`, 'navigation-library-more-uses'));
                 tags.append(el('span', t(site.pricing), 'navigation-library-price')); card.append(tags);
                 const actions = el('div', undefined, 'navigation-library-card-actions'), added = saved.has(api.canonicalURL(site.url));
@@ -365,7 +391,9 @@
                 const summary = el('summary', t('source')); summary.setAttribute('tabindex', '0'); details.append(summary);
                 const metadata = el('dl', undefined, 'navigation-library-metadata');
                 const detailRow = (label, value) => metadata.append(el('dt', t(label)), el('dd', value));
-                detailRow('allUses', site.tags.map(tagLabel).join(' · '));
+                const allUses = el('dd', undefined, 'navigation-library-all-uses');
+                site.tags.forEach(tag => allUses.append(tagControl(tag, 'details')));
+                metadata.append(el('dt', t('allUses')), allUses);
                 detailRow('categories', site.categories.map(id => api.categories.find(category => category.id === id)?.[language()] || id).join(' · '));
                 details.append(metadata);
                 details.append(el('p', `${t('company')}: ${site.company === 'unknown' ? t('unknown') : site.company}`));
@@ -379,7 +407,7 @@
             }
             if (!focusId && detailFocus) {
                 const details = renderedDetails.get(detailFocus.id);
-                const controls = details?.querySelectorAll('summary, a');
+                const controls = details?.querySelectorAll('summary, button, a');
                 (controls?.[details?.open ? Math.max(0, detailFocus.index) : 0] || search).focus();
             }
         }

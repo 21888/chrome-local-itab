@@ -54,3 +54,11 @@ Five additional search-only aliases were reviewed against official sources on 20
 These evidence URLs are recorded in each entry's source panel. All 120 existing entries retain their display names, destinations, categories, descriptions, operator/country and pricing metadata. Chinese queries do not redirect to regional editions. Canva 可画 and Qwen 千问 are not inferred aliases for the different destinations already in this catalog.
 
 本次新增亚马逊、领英、可汗学院、Google 学术搜索、国际货币基金组织五项经官方来源核验的搜索别名（2026-10-12）。领英与国际货币基金组织是现有条目的组织名称别名。来源列入各条目的资料面板；不改变显示名称、网址、运营地区或价格，也不会切换中国版。未将可画、千问或「谷歌学术」推断加入别名。
+
+## Click a purpose to discover related sites
+
+The first two purpose labels on each card, and every purpose under **Sources & details**, are quiet filter buttons. Click one to apply the same exact **Use** filter as the advanced dropdown. The dropdown and removable active-filter chip stay in sync. Search, category, other filters, destination (including a draft new-category name), and selected sites stay in place. All criteria still combine with AND; remove the active Use chip to clear just that purpose.
+
+Filtering does not open a site or save anything. The clicked purpose keeps keyboard focus after results refresh; open details stay open for that site within the dialog. Purpose buttons are disabled during a pending save. **Official site** and source links remain the separate external-link actions.
+
+卡片前两个用途及「来源与详情」中的完整用途现在都可点击，用来筛选相同用途的网站。它与高级筛选中的「用途」下拉框、可移除的当前筛选标签同步。搜索词、分类、其他筛选、添加目标（包括新分类名称草稿）及已勾选网站保持不变；所有条件仍须同时满足，点击当前用途筛选标签即可单独清除用途。操作仅在本地筛选，不打开网站或写入数据。刷新结果后保留对应用途按钮的键盘焦点和网站详情展开状态，保存处理中禁用用途按钮。

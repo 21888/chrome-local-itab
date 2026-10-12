@@ -495,7 +495,7 @@ test('every catalog card discloses all localized purposes and category membershi
    const labels=details.querySelectorAll('dt').map(node=>node.textContent),values=details.querySelectorAll('dd').map(node=>node.textContent);
    assert.deepEqual(labels,locale==='en'?['All uses','Categories']:['完整用途','所属分类']);
    const purposes=site.tags.map(tag=>dictionary[`navigationTag${tag.split(/[-_]/).map(part=>part[0]?.toUpperCase()+part.slice(1)).join('')}`]?.message||tag.replace(/[-_]/g,' '));
-   assert.equal(values[0],purposes.join(' · '));
+   assert.deepEqual(details.querySelectorAll('.navigation-library-tag').map(node=>node.textContent),Array.from(purposes));
    assert.equal(values[1],site.categories.map(id=>h.context.LocalItabNavigationCatalog.categories.find(category=>category.id===id)[language]).join(' · '));
    const badge=card.querySelector('.navigation-library-more-uses');
    assert.equal(Boolean(badge),site.tags.length>2);
@@ -510,7 +510,7 @@ test('one or two purposes never render an empty more-uses hint',async()=>{
  for(const tags of [['chat'],['chat','writing']]){
   const h=model();h.context.LocalItabNavigationSites=[{...h.context.LocalItabNavigationSites[0],tags}];await h.view.open();
   assert.equal(h.document.querySelector('.navigation-library-more-uses'),null);
-  assert.equal(h.document.querySelector('details dd').textContent,tags.map(tag=>tag==='chat'?'Chat assistants':'Writing').join(' · '));
+  assert.equal(h.document.querySelectorAll('details .navigation-library-tag').map(node=>node.textContent).join(' · '),tags.map(tag=>tag==='chat'?'Chat assistants':'Writing').join(' · '));
  }
 });
 test('searching and filtering a third purpose leaves that purpose available in card details',async()=>{
@@ -518,21 +518,21 @@ test('searching and filtering a third purpose leaves that purpose available in c
   const h=model({locale});h.context.LocalItabNavigationSites=[{...h.context.LocalItabNavigationSites[0],tags:['chat','search','writing'],categories:['ai','office']}];await h.view.open();
   h.search(locale==='en'?'writing':'写作');
   assert.equal(h.document.querySelectorAll('article').length,1);
-  assert.match(h.document.querySelector('details dd').textContent,locale==='en'?/Writing/:/写作/);
+  assert.match(h.document.querySelectorAll('details .navigation-library-tag').map(node=>node.textContent).join(' · '),locale==='en'?/Writing/:/写作/);
   h.search('');const select=h.document.querySelector('.navigation-library-filters select');select.value='writing';select.dispatch('change');
   const card=h.document.querySelector('article');assert.ok(card);
-  assert.match(card.querySelector('details dd').textContent,locale==='en'?/Writing/:/写作/);
+  assert.match(card.querySelectorAll('details .navigation-library-tag').map(node=>node.textContent).join(' · '),locale==='en'?/Writing/:/写作/);
   assert.equal(card.querySelectorAll('details dd')[1].textContent,locale==='en'?'AI · Productivity':'AI 工具 · 办公');
   assert.equal(h.calls,0);
  }
 });
-test('complete purpose and category metadata remains literal, wrapping text without interactive additions',async()=>{
+test('complete purpose and category metadata remains literal, wrapping local purpose buttons without extra links',async()=>{
  const h=model(),hostile='<img src=x onerror=alert(1)>'+ 'x'.repeat(400);
  h.context.LocalItabNavigationSites=[{...h.context.LocalItabNavigationSites[0],tags:['chat','search',hostile],categories:['ai','office']}];await h.view.open();
  const details=h.document.querySelector('details');assert.equal(h.document.querySelectorAll('img').length,0);
- assert.ok(details.querySelector('dd').textContent.includes(hostile));
+ assert.ok(details.querySelectorAll('.navigation-library-tag').some(node=>node.textContent===hostile));
  assert.equal(details.querySelectorAll('dd')[1].textContent,'AI · Productivity');
- assert.equal(details.querySelectorAll('button, input, select').length,0);
+ assert.equal(details.querySelectorAll('button, input, select').length,3);
  assert.equal(details.querySelectorAll('a').length,h.context.LocalItabNavigationSites[0].sources.length);
  const css=fs.readFileSync('navigation-library.css','utf8');
  assert.match(css,/\.navigation-library-tags span\s*\{[^}]*max-width: 100%[^}]*overflow-wrap: anywhere/);
@@ -678,4 +678,44 @@ test('four daily utilities support local bilingual discovery, review cancellatio
   h.click(locale==='en'?'Clear filters':'清除筛选');assertSavedCounts(h,124,4);
   savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,4);assert.ok(cards(h).every(card=>card.querySelector('.navigation-library-add').disabled));
  }
+});
+
+const purpose = (h, tag, location='card') => h.document.querySelectorAll('.navigation-library-tag').find(node=>node.dataset.tag===tag && node.dataset.location===location);
+const activePurpose = h => h.document.querySelector('.navigation-library-active-filter[data-filter="tag"]');
+test('purpose buttons share dropdown filters, preserve AND criteria, destination and cross-filter selections',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');
+ const category=h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='ai');category.dispatch('click');
+ h.search('chatgpt');const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');
+ const selects=h.document.querySelectorAll('.navigation-library-filters select'),site=h.context.LocalItabNavigationSites.find(site=>site.id==='chatgpt');
+ for(const [index,value] of [[1,site.country],[2,site.company],[3,site.pricing]]){selects[index].value=value;selects[index].dispatch('change');}
+ const old=purpose(h,site.tags[0]);old.focus();old.dispatch('click',{detail:1});
+ assert.equal(selects[0].value,site.tags[0]);assert.equal(activePurpose(h).dataset.filter,'tag');assert.equal(purpose(h,site.tags[0]).getAttribute('aria-pressed'),'true');
+ assert.ok(h.document.activeElement===purpose(h,site.tags[0]));assert.equal(target.value,'personal');assert.equal(h.document.querySelector('input').value,'chatgpt');assert.equal(category.getAttribute('aria-pressed'),'true');assert.equal(cards(h).length,1);assert.equal(cards(h)[0].querySelector('input').checked,true);
+ const price=selects[3];price.value=site.pricing==='paid'?'free':'paid';price.dispatch('change');assert.ok(h.document.querySelector('.navigation-library-empty'));assert.ok(activePurpose(h));
+ activePurpose(h).dispatch('click');assert.equal(selects[0].value,'');assert.equal(activePurpose(h),null);assert.equal(price.value,site.pricing==='paid'?'free':'paid');
+ old.dispatch('click');assert.equal(selects[0].value,'');
+ h.click('Clear filters');assert.equal(cards(h).find(card=>card.dataset.site==='chatgpt').querySelector('input').checked,true);assert.equal(target.value,'personal');assert.equal(h.calls,0);
+});
+test('detail purpose click keeps expansion, exact button focus, draft target and local-only semantics in English, Chinese and Spanish locale fallback',async()=>{
+ for(const locale of ['en','zh-CN','es-ES']){
+  const h=model({locale});const long='long-use-'+ 'verylong'.repeat(40);h.context.LocalItabNavigationSites=[{...h.context.LocalItabNavigationSites[0],tags:['chat','search',long]}];await h.view.open();
+  h.document.querySelector('.navigation-library-new-category').dispatch('click');const name=h.document.querySelector('.navigation-library-new-category-panel input');name.value='Research';name.dispatch('input');
+  const details=h.document.querySelector('details');details.open=true;const control=purpose(h,long,'details');control.focus();control.dispatch('click');
+  assert.equal(h.document.querySelector('details').open,true);assert.ok(h.document.activeElement===purpose(h,long,'details'));assert.equal(name.value,'Research');assert.equal(h.document.querySelector('.navigation-library-new-category-panel').hidden,false);
+  assert.equal(h.document.querySelector('.navigation-library-filters select').value,long);assert.equal(purpose(h,long,'details').type,'button');assert.equal(purpose(h,long,'details').href,undefined);
+  assert.equal(purpose(h,long,'details').textContent,long.replace(/-/g,' '));assert.equal(h.calls,0);
+  activePurpose(h).dispatch('click');assert.equal(h.document.querySelector('details').open,true);assert.equal(purpose(h,long,'details').getAttribute('aria-pressed'),'false');
+ }
+ const css=fs.readFileSync('navigation-library.css','utf8');assert.match(css,/\.navigation-library-panel \.navigation-library-tag \{[^}]*max-width: 100%[^}]*overflow-wrap: anywhere[^}]*white-space: normal/);assert.match(css,/navigation-library-tag:hover:not\(:disabled\)/);assert.match(css,/navigation-library-tag\[aria-pressed="true"\]/);assert.match(css,/navigation-library-panel :focus-visible/);
+});
+test('purpose events reject retired nodes, departed sessions, IME, repeats and pending writes',async()=>{
+ const h=model();await h.view.open();const old=purpose(h,'chat');h.search('chatgpt');old.dispatch('click');assert.equal(activePurpose(h),null);
+ const current=purpose(h,'chat');current.dispatch('click',{repeat:true});current.dispatch('click',{detail:2});current.dispatch('click',{isComposing:true});assert.equal(activePurpose(h),null);
+ assert.equal(current.dispatch('keydown',{key:'Enter',repeat:true}).prevented,true);
+ const lifecycle=h.context.LocalItabContentLifecycle;h.context.LocalItabContentLifecycle={departing:true};current.dispatch('click');assert.equal(activePurpose(h),null);h.context.LocalItabContentLifecycle=lifecycle;
+ h.view.close();await h.view.open();current.dispatch('click');assert.equal(activePurpose(h),null);
+ const pending=deferred();h.write=pending;const before=purpose(h,'chat');h.firstAdd().dispatch('click');assert.equal(before.disabled,true);before.dispatch('click');assert.equal(activePurpose(h),null);assert.equal(h.calls,1);
+ pending.resolve({...h.snapshot,duplicate:true});await tick();assert.equal(purpose(h,'chat').disabled,false);
+ purpose(h,'chat').dispatch('click');assert.ok(activePurpose(h));assert.equal(h.calls,1);
+ h.view.destroy();before.dispatch('click');assert.equal(h.document.querySelector('.navigation-library-overlay'),null);
 });

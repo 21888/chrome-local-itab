@@ -122,9 +122,14 @@
 .navigation-library-active-filter > span:first-child { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
 .navigation-library-active-filter > span:last-child { flex: 0 0 auto; font-size: 16px; line-height: 1; }
 
-/* Full purposes and memberships stay in the native disclosure, with no extra controls. */
+/* Full purposes and memberships stay in the native disclosure, with locally filterable purposes. */
 .navigation-library-metadata { margin: 10px 0; padding-bottom: 9px; border-bottom: 1px solid var(--nl-line); }
 .navigation-library-metadata dt, .navigation-library-detail-label { color: var(--nl-ink); font-weight: 650; }
 .navigation-library-metadata dt:not(:first-child) { margin-top: 8px; }
 .navigation-library-metadata dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .navigation-library-tags .navigation-library-more-uses { color: var(--nl-accent); }
+
+/* Purpose chips keep the quiet metadata treatment, including in details. */
+.navigation-library-panel .navigation-library-tag { min-width: 0; max-width: 100%; overflow-wrap: anywhere; white-space: normal; text-align: start; background: var(--nl-bg); border: 1px solid var(--nl-line); border-radius: 5px; color: var(--nl-muted); font-size: 9px; padding: 3px 6px; line-height: 1.3; }
+.navigation-library-panel .navigation-library-tag:hover:not(:disabled), .navigation-library-panel .navigation-library-tag[aria-pressed="true"] { border-color: var(--nl-muted); color: var(--nl-ink); background: var(--nl-selected); }
+.navigation-library-all-uses { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
