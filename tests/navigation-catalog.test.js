@@ -81,3 +81,28 @@ test('expanded metadata preserves scoped pricing, unknown countries and migrated
  for(const id of ['photopea','regex101','json-crack','google-fonts','mit-ocw'])assert.equal(byId(id).country,'unknown');
  const original=byId('photopea');assert.throws(()=>Catalog.validate([original,{...original,id:'photopea-copy',url:'https://WWW.PHOTOPEA.com:443'}]));
 });
+
+test('search normalizes full-width text and brand spacing without changing displayed metadata', () => {
+ const before=JSON.stringify(sites);
+ const cases=[['Chat GPT','chatgpt'],['chat-gpt','chatgpt'],['ＣｈａｔＧＰＴ','chatgpt'],['Git Hub','github'],['ＧＩＴ－ＨＵＢ','github'],['JSONCrack','json-crack'],['JSON Crack','json-crack'],['json-crack','json-crack'],['googlefonts','google-fonts'],['  gItHuB\t\n','github'],['谷歌','google'],['必应','bing'],['ＰＳＤ 图层','photopea']];
+ for(const language of ['en','zh'])for(const [query,id] of cases)assert.ok(Catalog.filter(sites,{query},language).some(site=>site.id===id),`${language}: ${query}`);
+ assert.equal(JSON.stringify(sites),before);
+ assert.deepEqual(sites.filter(site=>site.searchAliases).map(site=>[site.id,site.searchAliases]),[['bing',['必应']],['google',['谷歌']]]);
+});
+test('name compaction keeps AND semantics, exact selectors and meaningful punctuation', () => {
+ const site=sites.find(site=>site.id==='chatgpt');
+ assert.deepEqual(Catalog.filter(sites,{query:'ＣＨＡＴ－ＧＰＴ OpenAI',category:'ai',tag:'chat',country:'US',company:'OpenAI',pricing:'freemium'}),[site]);
+ for(const [key,value] of [['category','AI'],['tag','CHAT'],['country','us'],['company','openai'],['pricing','FREEMIUM']])assert.equal(Catalog.filter(sites,{query:'chat-gpt',[key]:value}).length,0,key);
+ for(const query of ['chat-gpt not-present-84920912','chatgpt github','chatgpt freepaid','chat.gpt','chagpt','油管'])assert.equal(Catalog.filter(sites,{query}).length,0,query);
+ const isolated={...site,name:'Alpha Beta',url:'https://example.com/',company:'Example',description:{en:'red blue',zh:'红 蓝'},tags:[],categories:[]};
+ assert.deepEqual(Catalog.filter([isolated],{query:'alpha-beta'}),[isolated]);
+ for(const query of ['redblue','betaexample','-','---'])assert.deepEqual(Catalog.filter([isolated],{query}),[],query);
+});
+test('search aliases are optional bounded strings; long queries retain every term', () => {
+ const site=sites[0];
+ for(const searchAliases of [null,'word',[null],[1],[''],['  '],['x'.repeat(81)],Array(9).fill('word'),['a\u0000b']])assert.throws(()=>Catalog.validate([{...site,searchAliases}]));
+ assert.equal(Catalog.validate([{...site,searchAliases:[]}]),true);
+ assert.equal(Catalog.validate([{...site,searchAliases:['x'.repeat(80)]}]),true);
+ for(const query of ['x'.repeat(10000),`${'chatgpt '.repeat(1000)}no-matching-suffix`,'＜img src=x onerror=alert(1)＞'])assert.equal(Catalog.filter(sites,{query}).length,0);
+ for(const query of [null,undefined,42,{},[]])assert.doesNotThrow(()=>Catalog.filter(sites,{query}));
+});

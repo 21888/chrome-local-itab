@@ -1360,6 +1360,7 @@
     {
         "id": "bing",
         "name": "Bing",
+        "searchAliases": ["必应"],
         "url": "https://www.bing.com/",
         "company": "Microsoft",
         "country": "unknown",
@@ -1608,6 +1609,7 @@
     {
         "id": "google",
         "name": "Google",
+        "searchAliases": ["谷歌"],
         "url": "https://www.google.com/",
         "company": "Google",
         "country": "unknown",

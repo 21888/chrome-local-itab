@@ -31,3 +31,13 @@ The save transaction preserves existing link objects and categories. It deduplic
 Edit `shared/navigation-sites.js`; do not populate personal shortcuts or change defaults. Each record has a stable id, official HTTPS URL, name, local text icon, bilingual description, category IDs, use tags, company/operator and country (or `unknown`), pricing and explanatory note, evidence URLs, and `verifiedOn`. Use official evidence for volatile metadata; absence of a price on a landing page is not proof that a service is free.
 
 Run the full Node and Python tests and build/verify the offline runtime package after changes. Browser checks should cover light/dark, narrow screens, keyboard focus, searching, combined filters and reset, empty results, existing links, selecting a personal category, repeated clicks, saving failures, workspace changes, closing during reads and pending-save dismissal protection.
+
+## Search spelling / 搜索写法
+
+Search is local and case-insensitive, accepts full-width Latin text, and requires every space-separated query term. Brand names also match when spaces or ASCII hyphens are omitted or inserted: `googlefonts`, `chat-gpt`, `Git Hub`, and `JSON Crack` work. Descriptions and separate fields are not joined into compact words; this is not fuzzy or typo-correcting search. Category, use, country, organization and pricing selections remain exact. Display names, links and saved data do not change.
+
+搜索始终在本地进行，兼容大小写及全角英文字母；多个词仍须全部命中。品牌名可忽略空格及英文连字符，例如 `googlefonts`、`chat-gpt`、`Git Hub`、`JSON Crack`。不会将描述或不同字段拼接为词，也不会进行错字猜测。分类、用途、地区、组织及价格筛选仍精确匹配；显示名称、网址及已保存数据保持不变。
+
+The two explicit Chinese search aliases are Google → 谷歌 and Bing → 必应. They apply only to those two catalog entries, not inferred operators, subsidiaries or other products. Official naming evidence reviewed 2026-10-12: [About Google in Chinese](https://about.google/?hl=zh-cn) and [Microsoft Bing help in Chinese](https://support.microsoft.com/zh-cn/bing/microsoft-bing-help). Optional `searchAliases` values contain at most eight nonblank strings of at most 80 characters each, without control characters. Aliases are search-only and do not replace visible brand names.
+
+两项明确中文搜索别名为 Google → 谷歌、Bing → 必应，仅对应这两项网站，不延伸推断运营主体或其他产品。别名仅用于搜索，不替换显示品牌。

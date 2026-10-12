@@ -244,3 +244,18 @@ test('batch selection and review are bilingual and saved sites cannot be selecte
 test('batch in Not added updates counts and focuses remaining or empty results',async()=>{
  for(const size of [2,3]){const h=model(),writer=batchWriter(h);h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,size);await h.view.open();savedControl(h,'new').dispatch('click');const ids=cards(h).slice(0,2).map(card=>card.dataset.site);for(const id of ids)pickSite(h,id);h.click('Review selected');h.click('Confirm and add');await tick();assert.equal(writer.calls,1);assertSavedCounts(h,size,2);assert.equal(cards(h).length,size-2);assert.equal(h.document.activeElement,size===2?h.document.querySelector('.navigation-library-empty'):cards(h)[0]);}
 });
+
+test('bilingual normalized search and aliases remain offline, read-only and safe through clear and reopen',async()=>{
+ for(const locale of ['en','zh-CN']){
+  const h=model({locale});await h.view.open();
+  for(const [query,id] of [['ＣＨＡＴ－ＧＰＴ','chatgpt'],['googlefonts','google-fonts'],['谷歌','google'],['必应','bing'],['JSON Crack','json-crack']]){
+   h.search(query);assert.ok(cards(h).some(card=>card.dataset.site===id),`${locale}: ${query}`);
+  }
+  h.search('＜img src=x onerror=alert(1)＞');assert.equal(cards(h).length,0);assert.equal(h.document.querySelectorAll('img').length,0);
+  h.search(`${'chatgpt '.repeat(1000)}no-matching-suffix`);assert.equal(cards(h).length,0);
+  h.click(locale==='en'?'Clear filters':'清除筛选');assert.equal(cards(h).length,108);assert.equal(h.document.querySelector('input').value,'');
+  h.search('谷歌');assert.equal(cards(h)[0].querySelector('h3').textContent,'Google');
+  assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);
+  h.view.close();assert.equal(h.view.hasUncommittedWork(),false);await h.view.open();assert.equal(cards(h).length,108);assert.equal(h.calls,0);
+ }
+});

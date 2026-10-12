@@ -46,6 +46,8 @@
             if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(site.id) || ids.has(site.id) || !site.name || !url || !url.startsWith('https:') || urls.has(url) ||
                 !Array.isArray(site.categories) || !site.categories.length || site.categories.some(id => !allowed.has(id)) ||
                 !Array.isArray(site.tags) || site.tags.some(tag => typeof tag !== 'string' || !tag) ||
+                (site.searchAliases !== undefined && (!Array.isArray(site.searchAliases) || site.searchAliases.length > 8 ||
+                    site.searchAliases.some(alias => typeof alias !== 'string' || !alias.trim() || alias.length > 80 || /[\u0000-\u001f\u007f-\u009f]/u.test(alias)))) ||
                 !pricing.includes(site.pricing) || !/^(?:[A-Z]{2}|unknown)$/.test(site.country) || !site.company ||
                 !site.description?.en || !site.description?.zh || !site.pricingNote?.en || !site.pricingNote?.zh ||
                 !Array.isArray(site.sources) || !site.sources.length || site.sources.some(source => !canonicalURL(source)?.startsWith('https:')) ||
@@ -54,17 +56,25 @@
         }
         return true;
     }
+    const searchText = value => value.normalize('NFKC').toLowerCase();
+    const compactName = value => value.replace(/[\s-]+/gu, '');
     function filter(entries, criteria = {}, language = 'en', label = value => value) {
-        const terms = (criteria.query || '').trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+        const terms = searchText(typeof criteria.query === 'string' ? criteria.query : '').trim().split(/\s+/).filter(Boolean);
+        const compactTerms = terms.map(compactName);
         return entries.filter(site => {
             if (criteria.category && !site.categories.includes(criteria.category)) return false;
             if (criteria.tag && !site.tags.includes(criteria.tag)) return false;
             if (criteria.country && site.country !== criteria.country) return false;
             if (criteria.company && site.company !== criteria.company) return false;
             if (criteria.pricing && site.pricing !== criteria.pricing) return false;
-            const haystack = [site.name, site.url, site.company, site.country, localized(site.description, language), ...Object.values(site.description || {}),
-                ...site.tags, ...site.tags.map(label), ...site.categories.flatMap(id => { const c = categories.find(c => c.id === id); return [c.en, c.zh]; })].join(' ').toLocaleLowerCase();
-            return terms.every(term => haystack.includes(term));
+            const names = [site.name, ...(site.searchAliases || [])];
+            const compactNames = names.map(name => compactName(searchText(name)));
+            const haystack = searchText([...names, site.url, site.company, site.country, localized(site.description, language), ...Object.values(site.description || {}),
+                ...site.tags, ...site.tags.map(label), ...site.categories.flatMap(id => { const c = categories.find(c => c.id === id); return [c.en, c.zh]; })].join(' '));
+            // Compact only individual brand names, never descriptions or joined fields.
+            // Keep every query term required, and never let a separator become an empty match.
+            return terms.every((term, index) => haystack.includes(term) ||
+                (compactTerms[index] && compactNames.some(name => name.includes(compactTerms[index]))));
         });
     }
     const savedURLs = links => new Set((links || []).map(link => canonicalURL(link.url)).filter(Boolean));

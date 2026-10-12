@@ -15,6 +15,12 @@ test('review changes only the 17 existing entries and explicitly reviewed metada
     assert.equal(review.changes.filter(change => 'pricing' in change.fields).length, 3);
     const preserved = sites.map(site => {
         const copy = structuredClone(site), change = review.changes.find(change => change.id === site.id);
+        // Later search-only aliases are separately pinned; preserve the original metadata hash.
+        const aliases = { google: ['谷歌'], bing: ['必应'] };
+        if (Object.hasOwn(aliases, site.id)) {
+            assert.deepEqual(site.searchAliases, aliases[site.id]);
+            delete copy.searchAliases;
+        }
         if (change) {
             for (const [key, value] of Object.entries(change.fields)) {
                 assert.deepEqual(site[key], value, `${site.id}.${key}`);
