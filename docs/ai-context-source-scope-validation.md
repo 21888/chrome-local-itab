@@ -19,5 +19,27 @@ Scope changes do not call the controller, storage, permission APIs or transport,
 
 The merged Chinese-aliases plus source-scope tree passed all2446 Node tests
 with strict unhandled rejections and64 Python tests. Version remains1.1.91;
-this is an ordinary development commit, not a release. Exact native scope-filter
-verification is still pending and will be documented for the batched release.
+this is an ordinary development commit, not a release. Bounded native verification is documented below for the batched release.
+
+
+## Limited native check — 2026-10-12
+
+CfT155.0.8059.39 Chinese desktop-light synthetic profile loaded112-file dev91
+ZIP `c584e87769cdb3616486c97b33c98b6ebaf268538ccd2ee534413bc23cce97a7`.
+Default had three global sources: workspace scope showed0/3; scope-only Escape
+closed without dirty confirmation. After selecting three, workspace scope hid
+all three while preserving budget638. Library scope plus title/selected-only
+intersected correctly; clearing title retained scope and selected-only.
+
+The existing qa workspace loaded three global sources plus its36-character
+saved note. Workspace scope offered one candidate; selecting it then switching
+to library kept the note hidden and offered three globals. Batch-select merged
+all four. A local exact preview included all four original texts, question11 and
+budget783. Switching workspace→library preserved the same preview and budget,
+without Allow/Send. Full Clear reset All/query/selected-only/selection and279.
+Returned to Default14/Clarity light/Grid; originals and note were not edited.
+
+Desktop light only;320 light/dark and full permutation/boundary matrices were
+not run. No DevTools/responsive action, provider call, permission, save, external
+link or uploaded screenshot. Collection versions were not re-audited here.
+This development evidence is not final92 identity or live publication.
