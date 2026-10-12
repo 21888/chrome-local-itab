@@ -30,3 +30,30 @@ No edits/saves, provider activity, credentials, permissions, DevTools, injection
 external links or uploaded screenshots. AI/prompt/note fixtures were untouched
 and not re-audited here. Candidate identity does not certify live publication;
 exact-source released CI and asset verification remain separate steps.
+
+## Unpublished-release recovery
+
+The first version97 commit7adf5d434f5fb678581081290bc32c26f6861105 failed
+exact-source CI: one copy UI test incorrectly pinned manifest.version to96.
+It passed2516/2517 Node tests; Python/publication did not run. No97 tag or
+release was created by that failed run.
+
+A separate test-only correction replaced the version pin with the complete
+explicit permission baseline while retaining clipboard permission/read guards.
+The manifest97 tree then passed2517 Node/64 Python. A separate tooling change
+added narrowly explicit recovery opt-in; its exact-source CI passed2517 Node/81
+Python tests with publication skipped, leaving workflow,
+permissions, protections, production files and version unchanged. Ordinary
+same-version commits still build as non-releases.
+
+Recovery requires one exact final commit trailer, the unchanged parent version,
+the latest ancestor release patch+1, matching checkout/CI/remote master, and the
+latest completed baseline release with all four uploaded nonempty assets. Any
+existing target tag or release (including drafts), uncertain API state, drift or
+partial previous publication fails closed rather than overwriting. Guards run
+before creation and before making the draft public. The explicit recovery commit
+still runs full exact-source CI and immutable asset checks.
+
+The runtime ZIP remains the exact previously smoke-tested version97 hash above.
+No additional native feature coverage or real clipboard/provider result is claimed.
+This recovery retains the original two-feature batch without a version98 bump.
