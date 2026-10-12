@@ -164,8 +164,8 @@
         "id": "perplexity",
         "name": "Perplexity",
         "url": "https://www.perplexity.ai/",
-        "company": "Perplexity AI",
-        "country": "unknown",
+        "company": "Perplexity AI, Inc.",
+        "country": "US",
         "tags": [
             "search",
             "research",
@@ -177,7 +177,8 @@
             "zh": "Standard 免费；Pro、Max 等订阅提供更高额度和高级功能。"
         },
         "sources": [
-            "https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you"
+            "https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you",
+            "https://www.perplexity.ai/fr/hub/legal/terms-of-service"
         ],
         "verifiedOn": "2026-10-12",
         "categories": [
@@ -343,8 +344,8 @@
         "id": "midjourney",
         "name": "Midjourney",
         "url": "https://www.midjourney.com/",
-        "company": "Midjourney",
-        "country": "unknown",
+        "company": "Midjourney, Inc.",
+        "country": "US",
         "tags": [
             "image",
             "video"
@@ -356,7 +357,8 @@
         },
         "sources": [
             "https://docs.midjourney.com/hc/en-us/articles/27870484040333-Comparing-Midjourney-Plans",
-            "https://docs.midjourney.com/hc/en-us/articles/27870399340173-Free-Trials"
+            "https://docs.midjourney.com/hc/en-us/articles/27870399340173-Free-Trials",
+            "https://docs.midjourney.com/hc/en-us/articles/32083055291277-Terms-of-Service"
         ],
         "verifiedOn": "2026-10-12",
         "categories": [
@@ -677,8 +679,8 @@
         "id": "kimi",
         "name": "Kimi",
         "url": "https://www.kimi.com/",
-        "company": "Moonshot AI（月之暗面）",
-        "country": "unknown",
+        "company": "北京月之暗面科技股份有限公司",
+        "country": "CN",
         "tags": [
             "chat",
             "research",
@@ -692,7 +694,8 @@
         },
         "sources": [
             "https://www.kimi.com/en/help/features/project",
-            "https://www.kimi.com/en/help/membership/membership-overview"
+            "https://www.kimi.com/en/help/membership/membership-overview",
+            "https://www.kimi.com/user/agreement/modeluse?version=v2"
         ],
         "verifiedOn": "2026-10-12",
         "categories": [
@@ -769,8 +772,8 @@
         "id": "github",
         "name": "GitHub",
         "url": "https://github.com/",
-        "company": "GitHub",
-        "country": "unknown",
+        "company": "GitHub, Inc.",
+        "country": "US",
         "categories": [
             "development"
         ],
@@ -791,7 +794,9 @@
         "signup": "unknown",
         "sources": [
             "https://github.com/",
-            "https://github.com/pricing"
+            "https://github.com/pricing",
+            "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service",
+            "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Gi"
@@ -845,15 +850,17 @@
             "presentations",
             "social-content"
         ],
-        "pricing": "unknown",
+        "pricing": "freemium",
         "pricingNote": {
-            "en": "This is a website link; fees for services, content or products are determined by the official site.",
-            "zh": "仅提供网站入口；具体服务、内容或商品的费用以官网为准。"
+            "zh": "提供免费设计方案；Pro、Business 和 Enterprise 为付费升级，AI 额度随方案而异。",
+            "en": "A free design plan is available; Pro, Business and Enterprise are paid upgrades with plan-specific AI limits."
         },
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://www.canva.com/"
+            "https://www.canva.com/",
+            "https://www.canva.com/pricing/",
+            "https://www.canva.com/policies/terms-of-use/"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Ca"
@@ -862,8 +869,8 @@
         "id": "figma",
         "name": "Figma",
         "url": "https://www.figma.com/",
-        "company": "Figma",
-        "country": "unknown",
+        "company": "Figma, Inc.",
+        "country": "US",
         "categories": [
             "design"
         ],
@@ -885,7 +892,8 @@
         "signup": "unknown",
         "sources": [
             "https://www.figma.com/",
-            "https://www.figma.com/pricing/"
+            "https://www.figma.com/pricing/",
+            "https://www.figma.com/legal/privacy/"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Fi"
@@ -894,8 +902,8 @@
         "id": "notion",
         "name": "Notion",
         "url": "https://www.notion.com/",
-        "company": "Notion",
-        "country": "unknown",
+        "company": "Notion Labs, Inc.",
+        "country": "US",
         "categories": [
             "office"
         ],
@@ -917,7 +925,8 @@
         "signup": "unknown",
         "sources": [
             "https://www.notion.com/",
-            "https://www.notion.com/pricing"
+            "https://www.notion.com/pricing",
+            "https://www.notion.com/trust/privacy-policy"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "No"
@@ -926,8 +935,8 @@
         "id": "coursera",
         "name": "Coursera",
         "url": "https://www.coursera.org/",
-        "company": "Coursera",
-        "country": "unknown",
+        "company": "Coursera, Inc.",
+        "country": "US",
         "categories": [
             "learning"
         ],
@@ -948,7 +957,8 @@
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://www.coursera.org/"
+            "https://www.coursera.org/",
+            "https://www.coursera.org/about/privacy"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Co"
@@ -1258,8 +1268,8 @@
         "id": "ilovepdf",
         "name": "iLovePDF",
         "url": "https://www.ilovepdf.com/",
-        "company": "iLovePDF",
-        "country": "unknown",
+        "company": "ILOVEPDF, S.L.",
+        "country": "ES",
         "categories": [
             "utilities"
         ],
@@ -1281,7 +1291,8 @@
         "signup": "unknown",
         "sources": [
             "https://www.ilovepdf.com/",
-            "https://www.ilovepdf.com/pricing"
+            "https://www.ilovepdf.com/pricing",
+            "https://www.ilovepdf.com/help/terms"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "iL"
@@ -1381,8 +1392,8 @@
         "id": "gitlab",
         "name": "GitLab",
         "url": "https://gitlab.com/",
-        "company": "GitLab",
-        "country": "unknown",
+        "company": "GitLab Inc.",
+        "country": "US",
         "categories": [
             "development"
         ],
@@ -1394,15 +1405,18 @@
             "code-hosting",
             "ci-cd"
         ],
-        "pricing": "unknown",
+        "pricing": "freemium",
         "pricingNote": {
-            "en": "This is a website link; fees for services, content or products are determined by the official site.",
-            "zh": "仅提供网站入口；具体服务、内容或商品的费用以官网为准。"
+            "zh": "GitLab.com 提供有用户数、存储和计算额度限制的 Free；Premium、Ultimate 及额外资源收费。",
+            "en": "GitLab.com offers a Free tier with user, storage and compute limits; Premium, Ultimate and extra resources are paid."
         },
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://about.gitlab.com/"
+            "https://about.gitlab.com/",
+            "https://about.gitlab.com/terms/",
+            "https://handbook.gitlab.com/handbook/legal/subscription-agreement/",
+            "https://about.gitlab.com/pricing/"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Gi"
@@ -1411,8 +1425,8 @@
         "id": "stackoverflow",
         "name": "Stack Overflow",
         "url": "https://stackoverflow.com/",
-        "company": "Stack Overflow",
-        "country": "unknown",
+        "company": "Stack Exchange, Inc.",
+        "country": "US",
         "categories": [
             "development"
         ],
@@ -1432,7 +1446,8 @@
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://stackoverflow.com/"
+            "https://stackoverflow.com/",
+            "https://stackoverflow.com/legal/terms-of-service/public"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "St"
@@ -1963,8 +1978,8 @@
         "id": "timeanddate",
         "name": "Time and Date",
         "url": "https://www.timeanddate.com/",
-        "company": "Time and Date",
-        "country": "unknown",
+        "company": "Time and Date AS",
+        "country": "NO",
         "categories": [
             "lifestyle"
         ],
@@ -1985,7 +2000,9 @@
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://www.timeanddate.com/"
+            "https://www.timeanddate.com/",
+            "https://www.timeanddate.com/information/contact.html",
+            "https://www.timeanddate.com/information/terms-conditions.html"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Ti"
@@ -2294,8 +2311,8 @@
         "id": "tinypng",
         "name": "TinyPNG",
         "url": "https://tinypng.com/",
-        "company": "Tinify",
-        "country": "unknown",
+        "company": "Tinify B.V.",
+        "country": "NL",
         "categories": [
             "utilities"
         ],
@@ -2307,15 +2324,17 @@
             "image-compression",
             "image-formats"
         ],
-        "pricing": "unknown",
+        "pricing": "freemium",
         "pricingNote": {
-            "en": "This is a website link; fees for services, content or products are determined by the official site.",
-            "zh": "仅提供网站入口；具体服务、内容或商品的费用以官网为准。"
+            "zh": "网页压缩工具提供有批次与文件大小限制的免费版；Web Pro 和 Web Ultra 为付费订阅，API 另计。",
+            "en": "The web tool has a free tier with batch and file-size limits; Web Pro and Web Ultra are paid subscriptions. API pricing is separate."
         },
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://tinypng.com/"
+            "https://tinypng.com/",
+            "https://tinify.com/terms",
+            "https://tinify.com/pricing/web"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Ti"
@@ -2476,8 +2495,8 @@
         "id": "khan-academy",
         "name": "Khan Academy",
         "url": "https://www.khanacademy.org/",
-        "company": "Khan Academy",
-        "country": "unknown",
+        "company": "Khan Academy, Inc.",
+        "country": "US",
         "categories": [
             "learning"
         ],
@@ -2499,7 +2518,8 @@
         "signup": "unknown",
         "sources": [
             "https://www.khanacademy.org/",
-            "https://www.khanacademy.org/about"
+            "https://www.khanacademy.org/about",
+            "https://en.khanacademy.org/about/privacy-policy"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Kh"
@@ -2856,8 +2876,8 @@
         "id": "excalidraw",
         "name": "Excalidraw",
         "url": "https://excalidraw.com/",
-        "company": "Excalidraw",
-        "country": "unknown",
+        "company": "Excalidraw s.r.o.",
+        "country": "CZ",
         "categories": [
             "design",
             "office"
@@ -2879,7 +2899,8 @@
         "signup": "unknown",
         "sources": [
             "https://excalidraw.com/",
-            "https://plus.excalidraw.com/pricing"
+            "https://plus.excalidraw.com/pricing",
+            "https://plus.excalidraw.com/terms-of-service"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Ex"
@@ -2888,8 +2909,8 @@
         "id": "drawio",
         "name": "draw.io",
         "url": "https://app.diagrams.net/",
-        "company": "draw.io Ltd / draw.io AG",
-        "country": "unknown",
+        "company": "draw.io Ltd",
+        "country": "GB",
         "categories": [
             "office",
             "design"
@@ -2911,7 +2932,8 @@
         "signup": "unknown",
         "sources": [
             "https://app.diagrams.net/",
-            "https://www.drawio.com/"
+            "https://www.drawio.com/",
+            "https://www.drawio.com/trust/terms-of-use/"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Di"
@@ -3147,7 +3169,7 @@
         "name": "Zotero",
         "url": "https://www.zotero.org/",
         "company": "Corporation for Digital Scholarship",
-        "country": "unknown",
+        "country": "US",
         "categories": [
             "office",
             "learning"
@@ -3169,7 +3191,8 @@
         "signup": "unknown",
         "sources": [
             "https://www.zotero.org/",
-            "https://www.zotero.org/storage"
+            "https://www.zotero.org/storage",
+            "https://www.zotero.org/support/terms/terms_of_service/"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Zo"

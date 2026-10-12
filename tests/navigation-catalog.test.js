@@ -78,6 +78,6 @@ test('expanded metadata preserves scoped pricing, unknown countries and migrated
  assert.equal(byId('json-crack').pricing,'free');assert.match(byId('json-crack').pricingNote.en,/separately on ToDiagram/);
  assert.match(byId('geogebra').pricingNote.en,/non-commercial/);
  assert.equal(byId('china-standards').url,'https://std.samr.gov.cn/');assert.match(byId('china-standards').pricingNote.en,/not available for every standard/);
- for(const id of ['photopea','regex101','json-crack','google-fonts','mit-ocw','drawio'])assert.equal(byId(id).country,'unknown');
+ for(const id of ['photopea','regex101','json-crack','google-fonts','mit-ocw'])assert.equal(byId(id).country,'unknown');
  const original=byId('photopea');assert.throws(()=>Catalog.validate([original,{...original,id:'photopea-copy',url:'https://WWW.PHOTOPEA.com:443'}]));
 });

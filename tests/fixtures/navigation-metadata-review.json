@@ -1,0 +1,263 @@
+{
+  "reviewedOn": "2026-10-12",
+  "preservedSha256": "368f2ab57c266a4adefb389fbbb35630525d6e089561f25eddf943fdb17ee856",
+  "changes": [
+    {
+      "id": "github",
+      "fields": {
+        "company": "GitHub, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service",
+        "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+      ],
+      "previousSources": [
+        "https://github.com/",
+        "https://github.com/pricing"
+      ]
+    },
+    {
+      "id": "perplexity",
+      "fields": {
+        "company": "Perplexity AI, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://www.perplexity.ai/fr/hub/legal/terms-of-service"
+      ],
+      "previousSources": [
+        "https://www.perplexity.ai/help-center/en/articles/11187416-which-perplexity-subscription-plan-is-right-for-you"
+      ]
+    },
+    {
+      "id": "kimi",
+      "fields": {
+        "company": "北京月之暗面科技股份有限公司",
+        "country": "CN"
+      },
+      "sources": [
+        "https://www.kimi.com/user/agreement/modeluse?version=v2"
+      ],
+      "previousSources": [
+        "https://www.kimi.com/en/help/features/project",
+        "https://www.kimi.com/en/help/membership/membership-overview"
+      ]
+    },
+    {
+      "id": "midjourney",
+      "fields": {
+        "company": "Midjourney, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://docs.midjourney.com/hc/en-us/articles/32083055291277-Terms-of-Service"
+      ],
+      "previousSources": [
+        "https://docs.midjourney.com/hc/en-us/articles/27870484040333-Comparing-Midjourney-Plans",
+        "https://docs.midjourney.com/hc/en-us/articles/27870399340173-Free-Trials"
+      ]
+    },
+    {
+      "id": "figma",
+      "fields": {
+        "company": "Figma, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://www.figma.com/legal/privacy/"
+      ],
+      "previousSources": [
+        "https://www.figma.com/",
+        "https://www.figma.com/pricing/"
+      ]
+    },
+    {
+      "id": "notion",
+      "fields": {
+        "company": "Notion Labs, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://www.notion.com/trust/privacy-policy"
+      ],
+      "previousSources": [
+        "https://www.notion.com/",
+        "https://www.notion.com/pricing"
+      ]
+    },
+    {
+      "id": "ilovepdf",
+      "fields": {
+        "company": "ILOVEPDF, S.L.",
+        "country": "ES"
+      },
+      "sources": [
+        "https://www.ilovepdf.com/help/terms"
+      ],
+      "previousSources": [
+        "https://www.ilovepdf.com/",
+        "https://www.ilovepdf.com/pricing"
+      ]
+    },
+    {
+      "id": "tinypng",
+      "fields": {
+        "company": "Tinify B.V.",
+        "country": "NL",
+        "pricing": "freemium",
+        "pricingNote": {
+          "zh": "网页压缩工具提供有批次与文件大小限制的免费版；Web Pro 和 Web Ultra 为付费订阅，API 另计。",
+          "en": "The web tool has a free tier with batch and file-size limits; Web Pro and Web Ultra are paid subscriptions. API pricing is separate."
+        }
+      },
+      "sources": [
+        "https://tinify.com/terms",
+        "https://tinify.com/pricing/web"
+      ],
+      "previousSources": [
+        "https://tinypng.com/"
+      ]
+    },
+    {
+      "id": "drawio",
+      "fields": {
+        "company": "draw.io Ltd",
+        "country": "GB"
+      },
+      "sources": [
+        "https://www.drawio.com/trust/terms-of-use/"
+      ],
+      "previousSources": [
+        "https://app.diagrams.net/",
+        "https://www.drawio.com/"
+      ]
+    },
+    {
+      "id": "stackoverflow",
+      "fields": {
+        "company": "Stack Exchange, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://stackoverflow.com/legal/terms-of-service/public"
+      ],
+      "previousSources": [
+        "https://stackoverflow.com/"
+      ]
+    },
+    {
+      "id": "gitlab",
+      "fields": {
+        "company": "GitLab Inc.",
+        "country": "US",
+        "pricing": "freemium",
+        "pricingNote": {
+          "zh": "GitLab.com 提供有用户数、存储和计算额度限制的 Free；Premium、Ultimate 及额外资源收费。",
+          "en": "GitLab.com offers a Free tier with user, storage and compute limits; Premium, Ultimate and extra resources are paid."
+        }
+      },
+      "sources": [
+        "https://about.gitlab.com/terms/",
+        "https://handbook.gitlab.com/handbook/legal/subscription-agreement/",
+        "https://about.gitlab.com/pricing/"
+      ],
+      "previousSources": [
+        "https://about.gitlab.com/"
+      ]
+    },
+    {
+      "id": "excalidraw",
+      "fields": {
+        "company": "Excalidraw s.r.o.",
+        "country": "CZ"
+      },
+      "sources": [
+        "https://plus.excalidraw.com/terms-of-service"
+      ],
+      "previousSources": [
+        "https://excalidraw.com/",
+        "https://plus.excalidraw.com/pricing"
+      ]
+    },
+    {
+      "id": "zotero",
+      "fields": {
+        "company": "Corporation for Digital Scholarship",
+        "country": "US"
+      },
+      "sources": [
+        "https://www.zotero.org/support/terms/terms_of_service/"
+      ],
+      "previousSources": [
+        "https://www.zotero.org/",
+        "https://www.zotero.org/storage"
+      ]
+    },
+    {
+      "id": "khan-academy",
+      "fields": {
+        "company": "Khan Academy, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://en.khanacademy.org/about/privacy-policy"
+      ],
+      "previousSources": [
+        "https://www.khanacademy.org/",
+        "https://www.khanacademy.org/about"
+      ]
+    },
+    {
+      "id": "coursera",
+      "fields": {
+        "company": "Coursera, Inc.",
+        "country": "US"
+      },
+      "sources": [
+        "https://www.coursera.org/about/privacy"
+      ],
+      "previousSources": [
+        "https://www.coursera.org/"
+      ]
+    },
+    {
+      "id": "timeanddate",
+      "fields": {
+        "company": "Time and Date AS",
+        "country": "NO"
+      },
+      "sources": [
+        "https://www.timeanddate.com/information/contact.html",
+        "https://www.timeanddate.com/information/terms-conditions.html"
+      ],
+      "previousSources": [
+        "https://www.timeanddate.com/"
+      ]
+    },
+    {
+      "id": "canva",
+      "fields": {
+        "pricing": "freemium",
+        "pricingNote": {
+          "zh": "提供免费设计方案；Pro、Business 和 Enterprise 为付费升级，AI 额度随方案而异。",
+          "en": "A free design plan is available; Pro, Business and Enterprise are paid upgrades with plan-specific AI limits."
+        }
+      },
+      "sources": [
+        "https://www.canva.com/pricing/",
+        "https://www.canva.com/policies/terms-of-use/"
+      ],
+      "previousSources": [
+        "https://www.canva.com/"
+      ]
+    }
+  ],
+  "heldUnknown": [
+    "canva",
+    "photopea",
+    "hoppscotch",
+    "mdn",
+    "freecodecamp"
+  ]
+}
