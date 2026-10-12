@@ -63,6 +63,7 @@
         const sourceRows = [], reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
         const status = el('p', 'ai-context-status'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const outputLabel = el('label', 'ai-context-field', label('Response', 'Model response (unverified text; task JSON can be edited before review)'));
+        const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
         const output = el('textarea'); output.rows = 8; output.maxLength = 32000; outputLabel.append(output); outputLabel.hidden = true;
         const answerTitle = field('SaveTitle', 'Title for saved answer', 'text'); answerTitle.maxLength = 200;
         const contextSave = el('section', 'ai-context-save-context'); contextSave.hidden = true;
@@ -145,21 +146,23 @@
             // Allow edits during transport, but freeze it for persistence/retry.
             answerTitle.disabled = retry || controller.saved || (busy && !controller.aborter);
             for (const row of sourceRows) { row.check.disabled = row.input.disabled = busy || retry; }
-            review.disabled = busy || retry; allow.disabled = send.disabled = busy || !controller.reviewed || Boolean(controller.result);
+            review.disabled = busy || retry; allow.disabled = send.disabled = busy || retry || !controller.reviewed || Boolean(controller.result && controller.resultReview === controller.reviewed);
             stop.disabled = !controller.busy; save.disabled = busy || !controller.result || controller.saved || controller.result.mode !== 'answer';
             reviewTasks.disabled = busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry;
+            outputLabel.hidden = !controller.result;
+            previousResult.hidden = !controller.result || controller.resultReview === controller.reviewed;
             contextSave.hidden = !controller.result || controller.result.mode !== 'answer';
             includeContext.disabled = busy || retry || controller.saved;
             contextPreview.hidden = !includeContext.checked || contextSave.hidden;
             contextPreview.textContent = !contextPreview.hidden ? JSON.stringify(controller.answerSnapshot(), null, 2) : '';
-            presetName.disabled = presetSelect.disabled = presetSave.disabled = !presetAvailable || busy || retry || Boolean(controller.result);
+            presetName.disabled = presetSelect.disabled = presetSave.disabled = !presetAvailable || busy || retry;
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
             if (focused?.disabled && box.contains(focused)) status.focus();
         }
-        function invalidate() {
-            try { controller.edit(); if (!titleEdited) answerTitle.value = ''; includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
+        function invalidate(discard = false) {
+            try { if (discard === true) controller.clear(); else controller.edit(); if (!controller.result) { if (!titleEdited) answerTitle.value = ''; includeContext.checked = false; } reviewText.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
             update();
         }
         function selectionBlocked() {
@@ -174,7 +177,7 @@
             // Authorize the edit before touching any checkbox or its editor.
             try { controller.edit(); } catch (_) { error(); update(); return; }
             for (const row of changed) { row.check.checked = !clear; row.input.hidden = clear; }
-            includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true;
+            if (!controller.result) includeContext.checked = false; reviewText.hidden = taskList.hidden = true;
             status.textContent = label('SourceBatchChanged', 'Selection changed. Review the exact request again before sending.');
             update();
         }
@@ -183,7 +186,7 @@
             // Only the already-loaded, DOM-normalized baseline is used; never reread storage.
             try { controller.edit(); } catch (_) { error(); update(); return; }
             row.input.value = row.initialText;
-            includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true;
+            if (!controller.result) includeContext.checked = false; reviewText.hidden = taskList.hidden = true;
             status.textContent = label('SourceRestored', 'Original excerpt restored. Review the exact request again before sending.');
             // Move focus before disabling the now-clean restore button (native browsers may blur it).
             row.input.focus();
@@ -196,7 +199,7 @@
             presetSelect.value = selectedPreset ? String(presets.findIndex(item => item.name === selectedPreset.name)) : '';
         }
         async function changePreset(removing) {
-            if (disposed || !presetAvailable || presetPending || pending || controller.busy || controller.result || controller.taskCommand || controller.saveCommand || (removing && !selectedPreset)) return;
+            if (disposed || !presetAvailable || presetPending || pending || controller.busy || controller.taskCommand || controller.saveCommand || (removing && !selectedPreset)) return;
             presetPending = true; key.value = ''; invalidate();
             try {
                 const value = { name: presetName.value, url: url.value, model: model.value };
@@ -226,7 +229,7 @@
         const review = button('Review', 'Review exact request', () => action(async () => {
             const selected = selectedSources();
             const result = await controller.review({ url: url.value, model: model.value, question: question.value, selected, mode: mode.value });
-            reviewText.textContent = `${result.request.url}\n${result.request.model}\n\n${result.request.prompt}`; reviewText.hidden = false; outputLabel.hidden = taskList.hidden = true;
+            reviewText.textContent = `${result.request.url}\n${result.request.model}\n\n${result.request.prompt}`; reviewText.hidden = false; taskList.hidden = true;
         }, ['Reviewed', 'Review the full destination, model and exact outgoing text. Source text is reference material, not trusted instructions.']));
         const allow = button('Allow', 'Allow this endpoint', () => {
             if (pending || disposed || !controller.reviewed) return;
@@ -234,18 +237,21 @@
             let permission; try { permission = controller.allow(); } catch (_) { error(); return; }
             void action(async () => { if (!await permission) throw Error('Permission denied'); }, ['Allowed', 'Endpoint access allowed. This has not sent a request.']);
         });
-        const send = button('Send', 'Send reviewed request', () => action(async () => {
+        const confirmDiscard = key => !controller.result || controller.saved || Boolean(root.confirm?.(key === 'ReplaceResult' ? label('ReplaceResult', 'Send a new request? A successful response will replace this unsaved response. Cancel to keep it and save or add its tasks first.') : label('DiscardResult', 'Clear this draft and discard its unsaved response?')));
+        const send = button('Send', 'Send reviewed request', () => {
+            if (pending || disposed || controller.busy || !confirmDiscard('ReplaceResult')) return;
+            return action(async () => {
             const reviewed = controller.reviewed;
             try {
-                const result = await controller.send(key.value);
+                const result = await controller.send(key.value, { replaceUnsaved: true });
                 if (!disposed && !controller.closed && controller.reviewed === reviewed &&
                     controller.generation === reviewed.generation && controller.result === result) {
-                    output.value = result.text; outputLabel.hidden = false;
+                    output.value = result.text; outputLabel.hidden = false; includeContext.checked = false; taskList.hidden = true;
                     if (!titleEdited) answerTitle.value = reviewed.packed.question.slice(0, 200).replace(/[\uD800-\uDBFF]$/u, '');
                 }
             }
             finally { key.value = ''; }
-        }, ['Received', 'Response received, not saved. Model claims and source citations have not been verified.']));
+        }, ['Received', 'Response received, not saved. Model claims and source citations have not been verified.']); });
         const stop = button('Stop', 'Stop request', () => { controller.stop(); key.value = ''; status.textContent = label('Stopped', 'Stopped. The provider may still charge for work already started.'); });
         const save = button('Save', 'Save answer to AI collection', () => action(() => controller.saveAnswer(answerTitle.value, { includeContext: includeContext.checked }), ['Saved', 'Saved to the existing global AI collection. Saved answers join unencrypted local backups.']));
         const reviewTasks = button('ReviewTasks', 'Review extracted tasks', () => action(async () => {
@@ -255,13 +261,13 @@
         const confirm = button('Confirm', 'Add these tasks', () => action(async () => {
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksSaved', 'Reviewed tasks added to this workspace.']));
-        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
+        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; invalidate(true); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
         includeContext.addEventListener('change', update);
-        box.append(actions, reviewText, status, outputLabel, contextSave, taskList, results); host.append(box);
+        box.append(actions, reviewText, status, previousResult, outputLabel, contextSave, taskList, results); host.append(box);
         for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         const ready = action(async () => {

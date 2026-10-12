@@ -392,3 +392,57 @@ test('local input inspection contains throwing/revoked proxies and snapshots cha
     const tooLarge = { id: 'x', label: 'x', get text() { return 'z'.repeat(200000); } };
     assert.equal(api.inspectInput('q', [tooLarge]).promptLength, null);
 });
+
+test('retained answer saves its immutable original snapshot after a new request review', async () => {
+    const h = setup(), source = { id: 'old', label: 'Old source', text: 'Old excerpt' };
+    await h.controller.review({ url: 'https://model.example/v1/chat/completions', model: 'old-model', question: 'Old question', selected: [source], mode: 'answer' });
+    await h.controller.send('SYNTHETIC_KEY_NOT_FOR_STORAGE');
+    const original = h.controller.result, snapshot = h.controller.answerSnapshot();
+    source.text = 'Changed externally'; h.controller.edit();
+    await h.controller.review({ url: 'https://next.example/v1/chat/completions', model: 'new-model', question: 'New question', selected: [], mode: 'tasks' });
+    assert.equal(h.controller.result, original); assert.deepEqual(h.controller.answerSnapshot(), snapshot);
+    assert(Object.isFrozen(h.controller.resultReview.request)); assert(Object.isFrozen(snapshot.sources[0]));
+    await assert.rejects(h.controller.send(), { code: 'UNSAVED_RESULT' }); assert.equal(h.calls.sends, 1);
+    h.collectionBackend.failAfter = true;
+    await assert.rejects(h.controller.saveAnswer('Original answer', { includeContext: true }), { code: 'WRITE' });
+    const operation = h.controller.saveCommand;
+    assert.throws(() => h.controller.edit(), { code: 'BUSY' }); assert.throws(() => h.controller.clear(), { code: 'BUSY' });
+    await assert.rejects(h.controller.send('', { replaceUnsaved: true }), { code: 'STALE' });
+    await h.controller.saveAnswer('Changed retry title', { includeContext: false });
+    const records = (await h.controller.collectionStore.read()).records;
+    assert.equal(records.length, 1); assert.deepEqual(records[0].contextSnapshot, snapshot);
+    assert.equal(records[0].tool, 'old-model'); assert.equal(records[0].title, operation.title);
+    assert(!JSON.stringify(records).includes('SYNTHETIC_KEY_NOT_FOR_STORAGE'));
+});
+
+test('failed, stopped and permission-denied replacement retain old result provenance and saved status', async () => {
+    for (const saved of [false, true]) for (const outcome of ['failure', 'stop', 'permission']) {
+        const h = setup(); await review(h, 'answer'); await h.controller.send();
+        if (saved) await h.controller.saveAnswer('Already saved');
+        const result = h.controller.result, originalReview = h.controller.resultReview;
+        await h.controller.review({ url: 'https://next.example/v1/chat/completions', model: 'new-model', question: 'New', selected: [], mode: 'tasks' });
+        const gate = h.pause();
+        if (outcome === 'permission') h.permissions.contains = async () => false;
+        const pending = h.controller.send('', { replaceUnsaved: true });
+        const rejected = assert.rejects(pending);
+        await new Promise(resolve => setImmediate(resolve));
+        if (outcome === 'stop') { h.controller.stop(); gate.resolve({ text: 'Late new response' }); }
+        if (outcome === 'failure') gate.reject(api.fault('NETWORK'));
+        await rejected;
+        assert.equal(h.controller.result, result); assert.equal(h.controller.resultReview, originalReview); assert.equal(h.controller.saved, saved);
+        assert.equal(h.controller.taskReview, null);
+        if (!saved) await h.controller.saveAnswer('Still saveable', { includeContext: true });
+    }
+});
+
+test('successful replacement starts clean task state; old tasks remain reviewable after request edits', async () => {
+    const h = setup(); await prepared(h);
+    const old = h.controller.result;
+    await review(h, 'answer'); assert.equal(h.controller.result, old); assert.equal(h.controller.taskReview, null);
+    await h.controller.reviewTasks(); await h.controller.confirmTasks();
+    assert.equal((await h.taskStore.read()).records.length, 2); assert.equal(h.controller.resultReview, null);
+    await h.controller.send(); await h.controller.saveAnswer('Saved');
+    await review(h, 'tasks'); await h.controller.send();
+    assert.equal(h.controller.saved, false); assert.equal(h.controller.saveCommand, null); assert.equal(h.controller.taskReview, null);
+    assert.equal(h.controller.result.mode, 'tasks');
+});

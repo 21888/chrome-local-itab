@@ -5428,5 +5428,14 @@
   },
   "aiContextSourceScopeEmpty": {
     "message": "No loaded sources match these filters. Change the scope, title search or selected-only view. Hidden selections remain included in review and sending."
+  },
+  "aiContextPreviousResult": {
+    "message": "This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft."
+  },
+  "aiContextReplaceResult": {
+    "message": "Send a new request? A successful response will replace this unsaved response. Cancel to keep it and save or add its tasks first."
+  },
+  "aiContextDiscardResult": {
+    "message": "Clear this draft and discard its unsaved response?"
   }
 }

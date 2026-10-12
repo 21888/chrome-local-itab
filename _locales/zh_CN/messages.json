@@ -5428,5 +5428,14 @@
   },
   "aiContextSourceScopeEmpty": {
     "message": "没有已加载来源符合这些筛选条件。请调整范围、标题搜索或仅显示已选条件。隐藏的已选来源仍会纳入检查和发送。"
+  },
+  "aiContextPreviousResult": {
+    "message": "此回复来自上一次已核对的请求。保存回复或添加任务时使用的是该回复及其原始请求，不是正在编辑的草稿。"
+  },
+  "aiContextReplaceResult": {
+    "message": "发送新请求？成功收到新回复后，将替换当前尚未保存的回复。取消可保留当前回复，先保存回复或添加其中的任务。"
+  },
+  "aiContextDiscardResult": {
+    "message": "清空草稿并丢弃尚未保存的回复？"
   }
 }

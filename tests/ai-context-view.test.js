@@ -8,7 +8,8 @@ const settle = async () => { await new Promise(resolve => setImmediate(resolve))
 function backend() { let raw; return { reads: 0, writes: 0, lock: fn => fn(), async read() { this.reads++; return structuredClone(raw); }, async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
 async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false } = {}) {
     const document = createDocument({ blurUnavailableFocus }), host = document.createElement('main'); document.body.append(host);
-    const events = new Map(), window = { document, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
+    const confirmations = []; let confirmResult = true;
+    const events = new Map(), window = { document, confirm: message => { confirmations.push(message); return confirmResult; }, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
     const b = backend(), c = backend(), calls = []; let active = true; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
     const transport = { review: input => ({ ...input, origin: 'https://mock.example', permission: 'https://mock.example:443/*' }), run: async (input, options) => { calls.push({ input, options }); return { text: await reply }; } };
     const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => { if (!active) throw api.fault('WORKSPACE_INVALIDATED'); },
@@ -26,7 +27,7 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
         input(field('url'), 'https://mock.example/v1/chat/completions'); input(field('text'), 'mock');
         const question = host.querySelectorAll('textarea')[0]; input(question, 'Create tasks');
     }
-    return { host, document, controller, b, c, calls, view, events, click, field, input, byText, deactivate: () => { active = false; }, setReply: value => { reply = value; } };
+    return { confirmations, setConfirm: value => { confirmResult = value; }, host, document, controller, b, c, calls, view, events, click, field, input, byText, deactivate: () => { active = false; }, setReply: value => { reply = value; } };
 }
 async function send(h, mode = 'tasks') {
     const select = h.host.querySelector('select'); select.value = mode; select.dispatch('change'); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
@@ -129,12 +130,12 @@ test('snapshot save UI defaults off, previews exact reviewed data, and persists 
     assert.equal(option.disabled, true);
 });
 
-test('changing or cancelling the reviewed request clears snapshot consent and preview', async () => {
+test('editing a reviewed request preserves the old answer snapshot and consent', async () => {
     const h = await model(); h.setReply('Synthetic answer'); await send(h, 'answer');
     const section = h.host.querySelector('.ai-context-save-context'), option = section.querySelector('input');
     option.checked = true; option.dispatch('change');
     h.input(h.field('url'), 'https://other.example/v1/chat/completions');
-    assert.equal(option.checked, false); assert.equal(section.hidden, true); assert.equal(section.querySelector('pre').textContent, '');
+    assert.equal(option.checked, true); assert.equal(section.hidden, false); assert.equal(JSON.parse(section.querySelector('pre').textContent).endpoint, 'https://mock.example/v1/chat/completions');
     assert.equal(h.c.writes, 0);
 });
 
@@ -145,7 +146,7 @@ test('answer title defaults to the exact reviewed question, truncates safely, an
     const h = await model(); h.setReply('Synthetic answer');
     h.input(questionField(h), 'a'.repeat(199) + '😀 end');
     await send(h, 'answer'); assert.equal(answerTitle(h).value, 'a'.repeat(199));
-    h.input(questionField(h), 'Second question'); assert.equal(answerTitle(h).value, '');
+    h.input(questionField(h), 'Second question'); assert.equal(answerTitle(h).value, 'a'.repeat(199));
     h.click('Review exact'); await settle();
     // The completion must use the reviewed question even if the DOM value differs.
     questionField(h).value = 'Unreviewed DOM value';
@@ -669,8 +670,8 @@ test('individual restore uses the opening baseline, preserves all other draft fi
     assert.equal(h.field('search').value, 'Match'); assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true'); assert.equal(rows[24].hidden, true);
     assert.equal(h.host.querySelector('textarea').value, before.question); assert.equal(answerTitle(h).value, 'Keep answer title');
     assert.equal(h.field('url').value, before.url); assert.equal(h.field('text').value, before.model); assert.equal(h.field('password').value, 'synthetic-key');
-    assert.equal(h.controller.generation, before.generation + 1); assert.equal(h.controller.reviewed, null); assert.equal(h.controller.result, null);
-    assert.equal(include.checked, false); assert.equal(h.host.querySelector('.ai-context-review').hidden, true); assert.equal(h.byText('Send reviewed').disabled, true);
+    assert.equal(h.controller.generation, before.generation + 1); assert.equal(h.controller.reviewed, null); assert.equal(h.controller.result.text, 'Synthetic answer');
+    assert.equal(include.checked, true); assert.equal(h.host.querySelector('.ai-context-review').hidden, true); assert.equal(h.byText('Send reviewed').disabled, true);
     assert.equal(h.document.activeElement, excerpt); assert.equal(restoreButton(rows[0]).disabled, true);
     restoreButton(rows[0]).dispatch('click'); assert.equal(h.controller.generation, before.generation + 1);
     assert.equal(h.b.reads + h.c.reads, before.reads); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.calls.length, 1);
@@ -819,4 +820,85 @@ test('scope remains keyboard-reachable during pending transport without reads, w
     assert.equal(h.b.reads + h.c.reads, reads); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.calls.length, 1);
     pending.resolve('Synthetic answer'); await settle(); assert.equal(h.controller.result.text, 'Synthetic answer');
     assert.equal(scope.value, 'workspace'); assert.equal(h.controller.reviewed, reviewed);
+});
+
+test('all request editing entries retain visible saveable answer and original context without confirmation or I/O', async () => {
+    const edits = {
+        question: h => h.input(questionField(h), 'Next question'),
+        endpoint: h => h.input(h.field('url'), 'https://next.example/v1/chat/completions'),
+        model: h => h.input(h.field('text'), 'next-model'),
+        mode: h => { h.host.querySelector('select').value = 'tasks'; h.host.querySelector('select').dispatch('change'); },
+        select: h => choose(sourceRows(h)[0], false),
+        excerpt: h => h.input(sourceRows(h)[0].querySelector('textarea'), 'Next excerpt'),
+        restore: h => restoreButton(sourceRows(h)[0]).dispatch('click'),
+        batchAdd: h => h.click('Select visible unselected'),
+        batchClear: h => h.click('Clear all selections'),
+        presetSelect: h => { h.view.presetSelect.value = '0'; h.view.presetSelect.dispatch('change'); }
+    };
+    for (const [name, edit] of Object.entries(edits)) {
+        const h = await model({ read: async () => ({ records: [{ name: 'Other', url: 'https://next.example/v1/chat/completions', model: 'next' }] }) }, { sources: syntheticSources(2) });
+        choose(sourceRows(h)[0]); h.input(sourceRows(h)[0].querySelector('textarea'), 'Original edited excerpt');
+        h.setReply('Original answer'); await send(h, 'answer');
+        const original = h.controller.result, snapshot = h.controller.answerSnapshot(), title = answerTitle(h).value;
+        const section = h.host.querySelector('.ai-context-save-context'), include = section.querySelector('input'); include.checked = true; include.dispatch('change');
+        edit(h); await settle();
+        assert.equal(h.controller.result, original, name); assert.deepEqual(h.controller.answerSnapshot(), snapshot, name);
+        assert.equal(h.controller.reviewed, null, name); assert.equal(h.byText('Save answer').disabled, false, name);
+        assert.equal(h.host.querySelectorAll('textarea').find(node => node.rows === 8).parentElement.hidden, false, name);
+        assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false, name);
+        assert.equal(answerTitle(h).value, title, name); assert.equal(include.checked, true, name);
+        assert.deepEqual(JSON.parse(section.querySelector('pre').textContent), snapshot, name);
+        assert.equal(h.confirmations.length, 0, name); assert.equal(h.calls.length, 1, name); assert.equal(h.b.writes + h.c.writes, 0, name);
+        assert.equal(unloadEvent(h).prevented, true, name); h.view.destroy();
+    }
+});
+
+test('declining clear or replacement preserves every result, review, title, snapshot consent and key; accepted stop keeps original', async () => {
+    const h = await model(); h.setReply('Old answer'); await send(h, 'answer');
+    const section = h.host.querySelector('.ai-context-save-context'), include = section.querySelector('input'); include.checked = true; include.dispatch('change');
+    h.input(questionField(h), 'New question'); h.click('Review exact'); await settle(); h.input(h.field('password'), 'SYNTHETIC_KEY');
+    const original = h.controller.result, reviewed = h.controller.reviewed, generation = h.controller.generation, snapshot = h.controller.answerSnapshot(), title = answerTitle(h).value;
+    h.setConfirm(false);
+    for (const action of ['Cancel / clear', 'Send reviewed']) {
+        h.click(action); await settle();
+        assert.equal(h.controller.result, original); assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, generation);
+        assert.equal(include.checked, true); assert.equal(answerTitle(h).value, title); assert.equal(h.field('password').value, 'SYNTHETIC_KEY');
+        assert.equal(questionField(h).value, 'New question'); assert.deepEqual(h.controller.answerSnapshot(), snapshot); assert.equal(h.calls.length, 1);
+    }
+    const gate = deferred(); h.setReply(gate.promise); h.setConfirm(true); h.click('Send reviewed'); await settle(); h.click('Stop request'); await settle();
+    gate.resolve('Late replacement'); await settle(); assert.equal(h.controller.result, original); assert.equal(h.byText('Save answer').disabled, false);
+    assert.equal(include.checked, true); assert.equal(answerTitle(h).value, title); assert.deepEqual(h.controller.answerSnapshot(), snapshot);
+    h.click('Save answer'); for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
+    assert.deepEqual((await h.controller.collectionStore.read()).records[0].contextSnapshot, snapshot);
+    const count = h.confirmations.length; h.setReply('New answer'); h.click('Send reviewed'); await settle();
+    assert.equal(h.confirmations.length, count); assert.equal(h.controller.saved, false); assert.equal(h.controller.result.text, 'New answer');
+    assert.equal(include.checked, false); assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, true); assert.equal(answerTitle(h).value, 'New question');
+});
+
+test('old task JSON retains task controls across mode changes and cancelled clear keeps its reviewed batch', async () => {
+    const h = await model(); await send(h, 'tasks');
+    const select = h.host.querySelector('select'); select.value = 'answer'; select.dispatch('change');
+    assert.equal(h.controller.result.mode, 'tasks'); assert.equal(h.byText('Review extracted').disabled, false); assert.equal(h.byText('Save answer').disabled, true);
+    h.click('Review extracted'); await settle(); const review = h.controller.taskReview;
+    h.setConfirm(false); h.click('Cancel / clear'); assert.equal(h.controller.taskReview, review); assert.equal(h.byText('Add these').disabled, false);
+    h.click('Add these'); await settle(); assert.equal(h.b.writes, 1); assert.equal(h.controller.result, null);
+});
+
+test('connection preset save/delete preserve old answer identity and saving an old answer freezes uncertain retry', async () => {
+    let records = [{ name: 'Other', url: 'https://next.example/v1/chat/completions', model: 'next' }];
+    const store = { read: async () => ({ records }), save: async value => ({ records: (records = [value]) }), remove: async () => ({ records: (records = []) }) };
+    const h = await model(store); h.setReply('Original'); await send(h, 'answer');
+    const old = h.controller.result, snapshot = h.controller.answerSnapshot();
+    h.view.presetSelect.value = '0'; h.view.presetSelect.dispatch('change');
+    h.click('Save connection preset'); await settle(); assert.equal(h.controller.result, old);
+    h.click('Delete connection preset'); await settle(); assert.equal(h.controller.result, old); assert.deepEqual(h.controller.answerSnapshot(), snapshot);
+    const section = h.host.querySelector('.ai-context-save-context'), include = section.querySelector('input'); include.checked = true; include.dispatch('change');
+    const write = h.c.write.bind(h.c); h.c.write = async value => { await write(value); throw Error('Uncertain synthetic write'); };
+    h.click('Save answer'); for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
+    assert.equal(h.controller.saveUncertain, true); const command = h.controller.saveCommand;
+    assert.equal(h.byText('Cancel / clear').disabled, true); assert.equal(h.byText('Review exact').disabled, true); assert.equal(h.view.presetSelect.disabled, true);
+    assert.equal(h.byText('Save answer').disabled, false); assert.equal(include.disabled, true);
+    h.c.write = write; h.click('Save answer'); for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
+    assert.equal(h.controller.saved, true); assert.equal(h.controller.saveCommand, null);
+    const saved = (await h.controller.collectionStore.read()).records; assert.equal(saved.length, 1); assert.equal(saved[0].title, command.title); assert.deepEqual(saved[0].contextSnapshot, snapshot);
 });

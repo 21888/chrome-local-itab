@@ -96,7 +96,7 @@
     class Controller {
         constructor({ transport, permissions, ensureActive, readSources, taskStore, collectionStore }) {
             Object.assign(this, { transport, permissions, ensureActive, readSources, taskStore, collectionStore });
-            this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.result = null;
+            this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.result = null; this.resultReview = null;
             this.taskReview = null; this.saveCommand = null; this.saved = false; this.saveUncertain = false; this.taskCommand = null; this.taskUncertain = false;
             // This controller owns a dedicated collection Store. Fence immediately at its
             // backend write, after all receipt/hash awaits, without changing its schema/API.
@@ -105,14 +105,21 @@
                 write: value => { this.current(this.saveGeneration); return backend.write(value); } };
         }
         current(generation) { check(!this.closed && this.generation === generation, 'STALE'); }
-        edit() { check(!this.busy && !this.taskCommand && !this.saveCommand, 'BUSY'); this.generation++; this.reviewed = this.result = this.taskReview = null; this.saved = false; this.saveUncertain = false; }
+        edit() {
+            check(!this.closed && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
+            // Editing the next request must not discard the previous response or its provenance.
+            this.generation++; this.reviewed = this.taskReview = null;
+        }
+        clear() {
+            this.edit(); this.result = this.resultReview = null; this.saved = false; this.saveUncertain = false;
+        }
         inspectInput(question, selected, mode) { return inspectInput(question, selected, mode); }
         async loadSources() { const generation = this.generation; await this.ensureActive(); const result = await this.readSources(); await this.ensureActive(); this.current(generation); return result; }
         async review({ url, model, question, selected, mode }) {
             this.edit(); const generation = this.generation;
             await this.ensureActive(); this.current(generation);
             const packed = pack(question, selected, mode);
-            const request = this.transport.review({ url, model, prompt: packed.prompt });
+            const request = Object.freeze({ ...this.transport.review({ url, model, prompt: packed.prompt }) });
             this.reviewed = Object.freeze({ request, packed, generation }); return this.reviewed;
         }
         async allow() {
@@ -121,8 +128,10 @@
             const result = await this.permissions.request({ origins: [reviewed.request.permission] });
             this.current(reviewed.generation); check(this.reviewed === reviewed, 'STALE'); return result;
         }
-        async send(key = '') {
-            check(this.reviewed && !this.busy && !this.result && !this.closed, 'STALE');
+        async send(key = '', { replaceUnsaved = false } = {}) {
+            check(this.reviewed && !this.busy && !this.taskCommand && !this.saveCommand && !this.closed &&
+                (!this.result || this.resultReview !== this.reviewed), 'STALE');
+            check(!this.result || this.saved || replaceUnsaved === true, 'UNSAVED_RESULT');
             const review = this.reviewed; this.busy = true; const aborter = new AbortController(); this.aborter = aborter;
             const current = () => {
                 check(!aborter.signal.aborted, 'CANCELLED');
@@ -136,6 +145,7 @@
                 const response = await wait(() => this.transport.run(review.request, { key, signal: aborter.signal }));
                 await wait(() => this.ensureActive()); current();
                 text(response.text, LIMITS.prompt);
+                this.resultReview = review; this.saved = false; this.saveUncertain = false; this.taskReview = null;
                 this.result = Object.freeze({ text: response.text, model: review.request.model, origin: review.request.origin, mode: review.packed.mode });
                 return this.result;
             } finally {
@@ -152,7 +162,7 @@
         }
         editResult(value) {
             check(this.result && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
-            text(value, LIMITS.prompt, true); this.generation++; this.taskReview = null;
+            text(value, LIMITS.prompt, true); this.generation++; this.reviewed = this.taskReview = null;
             this.result = Object.freeze({ ...this.result, text: value });
         }
         async reviewTasks() {
@@ -171,7 +181,7 @@
                 const saved = await this.taskStore.mutate(this.taskCommand, current => {
                     this.current(review.generation); check(current.revision === review.revision, 'CONFLICT');
                 });
-                this.current(review.generation); this.taskReview = null; this.taskCommand = null; this.taskUncertain = false; this.result = null; return saved;
+                this.current(review.generation); this.taskReview = null; this.taskCommand = null; this.taskUncertain = false; this.result = this.resultReview = null; return saved;
             } catch (error) {
                 if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) this.taskUncertain = true;
                 if (error.code === 'CONFLICT' && !this.taskUncertain) { this.taskReview = null; this.taskCommand = null; }
@@ -180,8 +190,8 @@
             } finally { this.busy = false; }
         }
         answerSnapshot() {
-            check(this.result?.mode === 'answer' && this.reviewed && !this.closed, 'STALE');
-            const { packed, request } = this.reviewed;
+            check(this.result?.mode === 'answer' && this.resultReview && !this.closed, 'STALE');
+            const { packed, request } = this.resultReview;
             return Object.freeze({ schemaVersion: 1, question: packed.question, sources: packed.sources,
                 endpoint: request.url, model: request.model, prompt: request.prompt });
         }
@@ -205,7 +215,7 @@
                 throw error;
             } finally { this.busy = false; }
         }
-        close() { this.closed = true; this.generation++; this.stop(); this.reviewed = this.result = this.taskReview = null; }
+        close() { this.closed = true; this.generation++; this.stop(); this.reviewed = this.result = this.resultReview = this.taskReview = null; }
     }
     function createController({ workspaces, tasks: Tasks, collections: Collections, scratchpad: Scratchpad, transport, permissions }) {
         const session = workspaces.session;
