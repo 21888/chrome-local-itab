@@ -5233,5 +5233,47 @@
   },
   "navigationLibraryWillCreate": {
     "message": "将新建个人分类"
+  },
+  "navigationTagAcademicSearch": {
+    "message": "学术检索"
+  },
+  "navigationTagInternetRadio": {
+    "message": "网络广播"
+  },
+  "navigationTagLiveAudio": {
+    "message": "实时音频"
+  },
+  "navigationTagQuestionAnswer": {
+    "message": "专题问答"
+  },
+  "navigationTagExpertCommunities": {
+    "message": "专业社区"
+  },
+  "navigationTagSecondhand": {
+    "message": "二手商品"
+  },
+  "navigationTagRefurbished": {
+    "message": "翻新商品"
+  },
+  "navigationTagCollectibles": {
+    "message": "收藏商品"
+  },
+  "navigationTagAuctions": {
+    "message": "竞拍"
+  },
+  "navigationTagRoutePlanning": {
+    "message": "路线规划"
+  },
+  "navigationTagPublicTransport": {
+    "message": "公共交通"
+  },
+  "navigationTagMultimodalTravel": {
+    "message": "多式联程出行"
+  },
+  "navigationTagPackageTracking": {
+    "message": "包裹查询"
+  },
+  "navigationTagShippingStatus": {
+    "message": "物流状态"
   }
 }

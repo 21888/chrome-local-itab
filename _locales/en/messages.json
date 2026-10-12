@@ -5233,5 +5233,47 @@
   },
   "navigationLibraryWillCreate": {
     "message": "Will create personal category"
+  },
+  "navigationTagAcademicSearch": {
+    "message": "Academic search"
+  },
+  "navigationTagInternetRadio": {
+    "message": "Internet radio"
+  },
+  "navigationTagLiveAudio": {
+    "message": "Live audio"
+  },
+  "navigationTagQuestionAnswer": {
+    "message": "Questions & answers"
+  },
+  "navigationTagExpertCommunities": {
+    "message": "Expert communities"
+  },
+  "navigationTagSecondhand": {
+    "message": "Secondhand goods"
+  },
+  "navigationTagRefurbished": {
+    "message": "Refurbished goods"
+  },
+  "navigationTagCollectibles": {
+    "message": "Collectibles"
+  },
+  "navigationTagAuctions": {
+    "message": "Auctions"
+  },
+  "navigationTagRoutePlanning": {
+    "message": "Route planning"
+  },
+  "navigationTagPublicTransport": {
+    "message": "Public transport"
+  },
+  "navigationTagMultimodalTravel": {
+    "message": "Multimodal travel"
+  },
+  "navigationTagPackageTracking": {
+    "message": "Package tracking"
+  },
+  "navigationTagShippingStatus": {
+    "message": "Shipping status"
   }
 }

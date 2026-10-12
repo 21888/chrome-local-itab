@@ -3354,6 +3354,202 @@
         ],
         "verifiedOn": "2026-10-12",
         "icon": "JC"
+    },
+    {
+        "id": "google-scholar",
+        "name": "Google Scholar",
+        "url": "https://scholar.google.com/",
+        "company": "Google LLC",
+        "country": "US",
+        "categories": [
+            "search",
+            "learning"
+        ],
+        "description": {
+            "zh": "检索学术论文、学位论文、书籍和引用关系。",
+            "en": "Search scholarly papers, theses, books and citation links."
+        },
+        "tags": [
+            "academic-search",
+            "research",
+            "citations"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "此入口的独立定价未核验；搜索结果包含开放和订阅来源，论文全文不一定免费。",
+            "en": "Separate pricing for this search entry was not verified. Results include open and subscription sources; full text is not always free."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://scholar.google.com/intl/en/scholar/about.html",
+            "https://scholar.google.com/intl/en/scholar/help.html",
+            "https://policies.google.com/terms?hl=en-US"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "GS"
+    },
+    {
+        "id": "tunein",
+        "name": "TuneIn",
+        "url": "https://tunein.com/",
+        "company": "TuneIn, Inc.",
+        "country": "US",
+        "categories": [
+            "media"
+        ],
+        "description": {
+            "zh": "收听网络广播、播客、新闻和体育音频。",
+            "en": "Listen to internet radio, podcasts, news and sports audio."
+        },
+        "tags": [
+            "internet-radio",
+            "podcasts",
+            "live-audio"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "提供免费收听和 Premium 订阅；内容、广告和权益依地区及方案而异。",
+            "en": "Free listening and a Premium subscription are available. Content, advertising and benefits vary by region and plan."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://tunein.com/about/",
+            "https://tunein.com/premium/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "Tu"
+    },
+    {
+        "id": "stack-exchange",
+        "name": "Stack Exchange",
+        "url": "https://stackexchange.com/",
+        "company": "Stack Exchange, Inc.",
+        "country": "US",
+        "categories": [
+            "social"
+        ],
+        "description": {
+            "zh": "探索数学、摄影、烹饪等领域的专题问答社区。",
+            "en": "Explore focused Q&A communities for mathematics, photography, cooking and more."
+        },
+        "tags": [
+            "question-answer",
+            "expert-communities"
+        ],
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "公开问答社区免费；此分类不包含企业内部知识库或广告服务。",
+            "en": "Public Q&A communities are free. This classification excludes enterprise knowledge products and advertising."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://stackexchange.com/",
+            "https://meta.stackexchange.com/legal/terms-of-service/public"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "SE"
+    },
+    {
+        "id": "ebay",
+        "name": "eBay",
+        "url": "https://www.ebay.com/",
+        "company": "eBay Inc.",
+        "country": "US",
+        "categories": [
+            "shopping"
+        ],
+        "description": {
+            "zh": "浏览二手、翻新和收藏商品，比较竞拍与直接购买选项。",
+            "en": "Browse pre-owned, refurbished and collectible goods through auctions and fixed-price listings."
+        },
+        "tags": [
+            "secondhand",
+            "refurbished",
+            "collectibles",
+            "auctions"
+        ],
+        "pricing": "not_applicable",
+        "pricingNote": {
+            "zh": "商品、运费及交易费用依刊登和站点规则而定；竞拍出价可能形成购买承诺。",
+            "en": "Product prices, shipping and transaction fees depend on listings and site rules. Auction bids may create a purchase commitment."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.ebay.com/help/buying/buy-now/buying-works-ebay?id=4002",
+            "https://www.ebayinc.com/impact/sustainable-commerce/",
+            "https://www.ebayinc.com/company/contact-us/",
+            "https://www.ebay.com/help/buying/buy-now/buy-now?id=4003"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "eB"
+    },
+    {
+        "id": "rome2rio",
+        "name": "Rome2Rio",
+        "url": "https://www.rome2rio.com/",
+        "company": "Rome2Rio Pty Ltd",
+        "country": "AU",
+        "categories": [
+            "travel"
+        ],
+        "description": {
+            "zh": "比较火车、巴士、飞机和轮渡等组合出行路线。",
+            "en": "Compare journeys combining trains, buses, flights, ferries and other transport."
+        },
+        "tags": [
+            "route-planning",
+            "public-transport",
+            "multimodal-travel"
+        ],
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "路线搜索入口的独立定价未核验；交通票价、时刻及预订条件须向实际承运商确认。",
+            "en": "Separate pricing for route search was not verified. Confirm fares, schedules and booking conditions with the transport provider."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.rome2rio.com/about/",
+            "https://www.rome2rio.com/company-disclosure/"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "R2"
+    },
+    {
+        "id": "17track",
+        "name": "17TRACK",
+        "url": "https://www.17track.net/",
+        "company": "17TRACK",
+        "country": "unknown",
+        "categories": [
+            "lifestyle"
+        ],
+        "description": {
+            "zh": "集中查询多个承运商的包裹物流状态。",
+            "en": "Check package tracking updates across multiple carriers."
+        },
+        "tags": [
+            "package-tracking",
+            "shipping-status"
+        ],
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "日常小中量包裹查询免费；批量查询、商家集成及 API 有独立方案与限制，不代表承运或退款服务。",
+            "en": "Small-to-medium consumer tracking is free. Bulk tracking, merchant integrations and API access have separate plans and limits; this is not a shipping or refund service."
+        },
+        "language": "unknown",
+        "signup": "unknown",
+        "sources": [
+            "https://www.17track.net/en/about",
+            "https://help.17track.net/hc/en-us/articles/4687259231897-Who-are-we-and-why-is-it-important-to-you-A-letter-from-17TRACK",
+            "https://www.17track.net/privacy-zh-cn.html"
+        ],
+        "verifiedOn": "2026-10-12",
+        "icon": "17"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;
