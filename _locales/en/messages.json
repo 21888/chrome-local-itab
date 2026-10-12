@@ -5177,6 +5177,12 @@
   "navigationLibrarySelectionHelp": {
     "message": "Choose up to 20 sites. Selections stay when you change filters."
   },
+  "navigationLibrarySelectResults": {
+    "message": "Select current results"
+  },
+  "navigationLibrarySelectionLimit": {
+    "message": "These results would exceed 20 selected sites. Narrow the filters first."
+  },
   "navigationLibraryClearSelection": {
     "message": "Clear selection"
   },

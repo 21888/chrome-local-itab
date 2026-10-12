@@ -19,6 +19,7 @@
         uncertain: 'Could not confirm the save. Close and reopen to check your shortcuts before trying again.',
         layout: 'Finish or retry the pending layout change, then reopen the library.', noCategory: 'Create a personal shortcut category in Settings before adding sites.',
         select: 'Select', selected: 'selected', selectionHelp: 'Choose up to 20 sites. Selections stay when you change filters.',
+        selectResults: 'Select current results', selectionLimit: 'These results would exceed 20 selected sites. Narrow the filters first.',
         clearSelection: 'Clear selection', reviewSelection: 'Review selected', reviewTitle: 'Review your selection',
         confirmSelection: 'Confirm and add', cancelSelection: 'Back to browsing', skipped: 'already added, skipped',
         batchFailed: 'Nothing was added. Review your selection before trying again.',
@@ -27,7 +28,8 @@
     const t = key => { const id = `navigationLibrary${key[0].toUpperCase()}${key.slice(1)}`; const result = root.i18n?.t(id); return result && result !== id ? result : fallback[key] || key; };
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
-        let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, reviewPanel, reviewConfirm;
+        let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
+        let selectableResults = [];
         const selected = new Set();
         let reviewed = null;
         let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, currentDestination = '';
@@ -128,7 +130,11 @@
             batchCount = el('span'); batchCount.setAttribute('role', 'status');
             batchClear = button(t('clearSelection'), () => { selected.clear(); renderResults(); search.focus(); }, 'navigation-library-clear');
             batchReview = button(t('reviewSelection'), reviewSelection, 'navigation-library-batch-review');
-            batchBar.append(batchCount, batchClear, batchReview, el('p', t('selectionHelp'), 'navigation-library-selection-help')); panel.append(batchBar);
+            batchSelect = button('', selectCurrentResults, 'navigation-library-select-results');
+            batchHelp = el('p', t('selectionHelp'), 'navigation-library-selection-help'); batchHelp.id = 'navigation-library-selection-help';
+            batchHelp.setAttribute('aria-live', 'polite');
+            batchSelect.setAttribute('aria-describedby', batchHelp.id);
+            batchBar.append(batchCount, batchClear, batchSelect, batchReview, batchHelp); panel.append(batchBar);
             reviewPanel = el('section', undefined, 'navigation-library-review'); reviewPanel.hidden = true; reviewPanel.tabIndex = -1;
             reviewPanel.setAttribute('aria-label', t('reviewTitle')); panel.append(reviewPanel);
             results = el('div', undefined, 'navigation-library-results'); panel.append(results);
@@ -140,6 +146,25 @@
         function refreshCategories() {
             for (const node of categoryNav.children) node.setAttribute('aria-pressed', String(node.dataset.category === (criteria.category || '')));
         }
+        function currentResultSelection() {
+            return [...new Set(selectableResults.map(site => site.id))].filter(id => !selected.has(id));
+        }
+        function refreshResultSelection() {
+            const additions = currentResultSelection(), overLimit = selected.size + additions.length > 20;
+            batchSelect.textContent = `${t('selectResults')} (${additions.length})`;
+            batchSelect.dataset.unavailable = String(!additions.length || overLimit || blocked || Boolean(reviewed));
+            batchSelect.disabled = writing || batchSelect.dataset.unavailable === 'true';
+            batchHelp.textContent = t(overLimit ? 'selectionLimit' : 'selectionHelp');
+        }
+        function selectCurrentResults() {
+            if (writing || blocked || reviewed || !snapshot || root.LocalItabContentLifecycle?.departing) return;
+            const additions = currentResultSelection();
+            if (!additions.length || selected.size + additions.length > 20) return;
+            additions.forEach(id => selected.add(id));
+            renderResults();
+            // The action is now exhausted and disabled; keep keyboard focus in the batch bar.
+            (batchReview.disabled ? batchClear : batchReview).focus();
+        }
         function refreshBatch() {
             reviewed = null; reviewPanel.hidden = true;
             batchCount.textContent = `${selected.size} / 20 ${t('selected')}`;
@@ -147,6 +172,7 @@
             batchClear.dataset.unavailable = String(!selected.size);
             batchReview.disabled = writing || !selected.size || !currentDestination || blocked;
             batchClear.disabled = writing || !selected.size;
+            refreshResultSelection();
         }
         function reviewSelection() {
             if (writing || blocked || !selected.size || !currentDestination) return;
@@ -155,15 +181,14 @@
             reviewPanel.replaceChildren();
             reviewPanel.append(el('h3', t('reviewTitle')), el('p', `${sites.length} ${t('selected')} · ${t('destination')}: ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`));
             const list = el('ul'); sites.forEach(site => list.append(el('li', site.name))); reviewPanel.append(list);
-            const cancel = button(t('cancelSelection'), () => { reviewed = null; reviewPanel.hidden = true; batchReview.focus(); }, 'navigation-library-review-cancel');
+            const cancel = button(t('cancelSelection'), () => { reviewed = null; reviewPanel.hidden = true; refreshResultSelection(); batchReview.focus(); }, 'navigation-library-review-cancel');
             reviewConfirm = button(t('confirmSelection'), () => { if (reviewed) save(reviewed.sites, true); }, 'navigation-library-batch-confirm');
-            reviewPanel.append(cancel, reviewConfirm); reviewPanel.hidden = false; reviewConfirm.focus();
+            reviewPanel.append(cancel, reviewConfirm); reviewPanel.hidden = false; refreshResultSelection(); reviewConfirm.focus();
         }
         function renderResults(focusId) {
             const matching = api.filter(root.LocalItabNavigationSites, criteria, language(), tagLabel), saved = api.savedURLs(snapshot.links);
             const isSaved = site => saved.has(api.canonicalURL(site.url));
             for (const site of root.LocalItabNavigationSites) if (isSaved(site)) selected.delete(site.id);
-            refreshBatch();
             const savedCount = matching.filter(isSaved).length;
             const totals = { '': matching.length, new: matching.length - savedCount, added: savedCount };
             for (const control of savedNav.children) {
@@ -171,6 +196,8 @@
                 control.setAttribute('aria-pressed', String(control.dataset.savedState === (criteria.savedState || '')));
             }
             const entries = matching.filter(site => !criteria.savedState || (criteria.savedState === 'added' ? isSaved(site) : !isSaved(site)));
+            selectableResults = entries.filter(site => !isSaved(site));
+            refreshBatch();
             // Keep keyboard users near their place when an added card leaves the Not added view.
             const oldIndex = focusId ? Array.from(results.children).findIndex(card => card.dataset.site === focusId) : -1;
             const focusSite = focusId && (entries.find(site => site.id === focusId) || entries[Math.max(0, Math.min(oldIndex, entries.length - 1))]);

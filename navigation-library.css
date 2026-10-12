@@ -92,4 +92,6 @@
 .navigation-library-review-cancel { background: var(--nl-card); border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; margin: 0 8px 8px 0; font-size: 11px !important; }
 @media (max-width: 520px) { .navigation-library-review ul { columns: 1; } }
 
-.navigation-library-batch-review, .navigation-library-batch-confirm { background: var(--nl-selected); color: var(--nl-accent) !important; border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; font-size: 11px !important; }
+.navigation-library-select-results, .navigation-library-batch-review, .navigation-library-batch-confirm { background: var(--nl-selected); color: var(--nl-accent) !important; border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; font-size: 11px !important; }
+
+.navigation-library-select-results { max-width: 100%; overflow-wrap: anywhere; }

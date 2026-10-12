@@ -259,3 +259,47 @@ test('bilingual normalized search and aliases remain offline, read-only and safe
   h.view.close();assert.equal(h.view.hasUncommittedWork(),false);await h.view.open();assert.equal(cards(h).length,108);assert.equal(h.calls,0);
  }
 });
+
+const selectResults=h=>h.document.querySelector('.navigation-library-select-results');
+const selectionHelp=h=>h.document.querySelector('.navigation-library-selection-help');
+test('current-results selection counts only new picks, handles zero and Added-only results without writes',async()=>{
+ const h=model();h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,3);h.snapshot.links=[{url:h.context.LocalItabNavigationSites[0].url}];await h.view.open();
+ assert.equal(selectResults(h).textContent,'Select current results (2)');assert.equal(selectResults(h).getAttribute('aria-describedby'),selectionHelp(h).id);
+ savedControl(h,'added').dispatch('click');assert.equal(selectResults(h).textContent,'Select current results (0)');assert.equal(selectResults(h).disabled,true);selectResults(h).dispatch('click');assert.equal(selectionCount(h),'0 / 20 selected');
+ h.search('no-result-987');assert.equal(cards(h).length,0);assert.equal(selectResults(h).disabled,true);selectResults(h).dispatch('click');assert.equal(selectionCount(h),'0 / 20 selected');
+ h.click('Clear filters');selectResults(h).focus();selectResults(h).dispatch('click');assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(selectResults(h).textContent,'Select current results (0)');assert.equal(selectResults(h).disabled,true);assert.equal(h.document.activeElement,h.button('Review selected'));assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
+ selectResults(h).dispatch('click');assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(cards(h)[0].querySelector('input').checked,false);assert.equal(h.calls,0);
+ h.click('Clear selection');assert.equal(selectResults(h).textContent,'Select current results (2)');assert.equal(h.document.activeElement,h.document.querySelector('input'));
+});
+test('current results merge hidden picks and overlapping selections exactly once; full review retains destination',async()=>{
+ const h=model(),writer=batchWriter(h);h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.filter(site=>['github','chatgpt'].includes(site.id));await h.view.open();h.search('github');selectResults(h).dispatch('click');h.search('chatgpt');selectResults(h).dispatch('click');assert.equal(selectionCount(h),'2 / 20 selected');
+ h.search('github');assert.equal(selectResults(h).textContent,'Select current results (0)');selectResults(h).dispatch('click');assert.equal(selectionCount(h),'2 / 20 selected');
+ const destination=h.document.querySelector('.navigation-library-destination select');destination.value='personal';destination.dispatch('change');h.click('Review selected');assert.match(textTree(h.document.querySelector('.navigation-library-review')),/GitHub/);assert.match(textTree(h.document.querySelector('.navigation-library-review')),/ChatGPT/);assert.match(textTree(h.document.querySelector('.navigation-library-review')),/Personal/);assert.equal(writer.calls,0);
+ h.click('Back to browsing');assert.equal(h.document.activeElement,h.button('Review selected'));assert.equal(selectionCount(h),'2 / 20 selected');h.click('Review selected');h.click('Confirm and add');await tick();assert.equal(writer.calls,1);assert.equal(writer.request.sites.length,2);assert.equal(writer.request.destination,'personal');
+});
+test('current results never truncate 21 picks and accept exact 20 including hidden selections',async()=>{
+ for(const size of [20,21]){
+  const h=model();h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,size).map((site,i)=>({...site,description:{en:i?'visible group':'hidden group',zh:i?'visible group':'hidden group'},tags:['group'],aliases:[]}));await h.view.open();
+  assert.equal(selectResults(h).disabled,size===21);assert.equal(selectResults(h).textContent,`Select current results (${size})`);
+  if(size===21){assert.match(selectionHelp(h).textContent,/Narrow the filters first/);selectResults(h).dispatch('click');assert.equal(selectionCount(h),'0 / 20 selected');}
+  pickSite(h,h.context.LocalItabNavigationSites[0].id);h.search('visible group');assert.equal(cards(h).length,size-1);assert.equal(selectResults(h).disabled,size===21);selectResults(h).dispatch('click');assert.equal(selectionCount(h),`${size===20?20:1} / 20 selected`);assert.equal(h.calls,0);
+  if(size===21){h.search(h.context.LocalItabNavigationSites[1].name);assert.equal(selectResults(h).disabled,false);selectResults(h).dispatch('click');assert.equal(selectionCount(h),'2 / 20 selected');}
+ }
+});
+test('current results respect category, search, tag, company, country, pricing and saved filters together',async()=>{
+ const h=model();const site=h.context.LocalItabNavigationSites[0];await h.view.open();
+ h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category===site.categories[0]).dispatch('click');h.click('More filters');
+ const selects=h.document.querySelectorAll('.navigation-library-filters select');for(const [select,value] of selects.map((select,i)=>[select,[site.tags[0],site.country,site.company,site.pricing][i]])){select.value=value;select.dispatch('change');}
+ h.search(site.name);savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,1);assert.equal(selectResults(h).textContent,'Select current results (1)');selectResults(h).dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');h.click('Clear filters');assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.calls,0);
+});
+test('current-results action cannot change review or pending save and restores availability after cancel',async()=>{
+ const h=model(),pending=deferred();let calls=0;h.component.addCatalogShortcut=async()=>{calls++;return pending.promise;};h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,3);await h.view.open();pickSite(h,h.context.LocalItabNavigationSites[0].id);h.click('Review selected');
+ assert.equal(selectResults(h).disabled,true);selectResults(h).dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);
+ h.click('Back to browsing');assert.equal(selectResults(h).disabled,false);assert.equal(h.document.activeElement,h.button('Review selected'));selectResults(h).dispatch('click');assert.equal(selectionCount(h),'3 / 20 selected');
+ h.click('Review selected');h.click('Confirm and add');assert.equal(selectResults(h).disabled,true);selectResults(h).dispatch('click');assert.equal(calls,1);assert.equal(selectionCount(h),'3 / 20 selected');assert.equal(h.document.activeElement.className,'navigation-library-panel');
+ pending.resolve({...h.snapshot,links:h.context.LocalItabNavigationSites.map(site=>({url:site.url})),addedCount:3,skippedCount:0});await tick();assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(selectResults(h).disabled,true);
+});
+test('current-results action is blocked after uncertain saves and translated without relying on English fallback',async()=>{
+ const h=model({locale:'zh-CN'});await h.view.open();assert.equal(selectResults(h).textContent,'选择当前结果 (108)');assert.match(selectionHelp(h).textContent,/先收窄筛选/);h.search('chatgpt');assert.equal(selectResults(h).textContent,'选择当前结果 (1)');selectResults(h).dispatch('click');assert.equal(h.document.activeElement,h.button('检查所选'));h.click('清空选择');assert.equal(selectionCount(h),'0 / 20 已选');
+ h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_UNVERIFIED'});};h.firstAdd().dispatch('click');await tick();assert.equal(selectResults(h).disabled,true);selectResults(h).dispatch('click');assert.equal(selectionCount(h),'0 / 20 已选');
+});
