@@ -4652,6 +4652,21 @@
   "navigationLibraryDisclosure": {
     "message": "所在地指公司或服务运营方，不代表网站在哪些地区可用。费用、服务范围和账号要求可能变化。"
   },
+  "navigationLibraryAllUses": {
+    "message": "完整用途"
+  },
+  "navigationLibraryCategories": {
+    "message": "所属分类"
+  },
+  "navigationLibraryMoreUse": {
+    "message": "项用途见详情"
+  },
+  "navigationLibraryMoreUses": {
+    "message": "项用途见详情"
+  },
+  "navigationLibrarySources": {
+    "message": "参考来源"
+  },
   "navigationLibrarySource": {
     "message": "来源与详情"
   },

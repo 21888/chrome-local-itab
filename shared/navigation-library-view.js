@@ -13,7 +13,7 @@
         empty: 'No sites match these filters.', emptyHelp: 'Try a different word, category or filter.',
         close: 'Close', privacy: 'Browsing this library stays offline. Adding uses your existing Sync and online-icon settings.',
         disclosure: 'Location describes the company or service operator, not where a site is accessible. Plans, availability and account requirements can change.',
-        source: 'Sources & details', checked: 'Checked', unknown: 'Unknown', free: 'Free entry', freemium: 'Free + paid plans', paid: 'Paid', not_applicable: 'Not applicable',
+        source: 'Sources & details', allUses: 'All uses', categories: 'Categories', moreUse: 'more use in details', moreUses: 'more uses in details', sources: 'Sources', checked: 'Checked', unknown: 'Unknown', free: 'Free entry', freemium: 'Free + paid plans', paid: 'Paid', not_applicable: 'Not applicable',
         readError: 'Could not read your saved sites. Close and reopen to try again.',
         conflict: 'Your shortcuts, workspace or settings changed. Close and reopen to review the latest state.',
         failed: 'Nothing was added. You can try adding the site again.',
@@ -328,7 +328,9 @@
                 pickLabel.append(pick, el('span', t('select'))); card.append(pickLabel);
                 card.append(el('p', api.localized(site.description, language()), 'navigation-library-description'));
                 const tags = el('div', undefined, 'navigation-library-tags');
-                site.tags.slice(0, 2).forEach(tag => tags.append(el('span', tagLabel(tag)))); tags.append(el('span', t(site.pricing), 'navigation-library-price')); card.append(tags);
+                site.tags.slice(0, 2).forEach(tag => tags.append(el('span', tagLabel(tag))));
+                if (site.tags.length > 2) tags.append(el('span', `+${site.tags.length - 2} ${t(site.tags.length === 3 ? 'moreUse' : 'moreUses')}`, 'navigation-library-more-uses'));
+                tags.append(el('span', t(site.pricing), 'navigation-library-price')); card.append(tags);
                 const actions = el('div', undefined, 'navigation-library-card-actions'), added = saved.has(api.canonicalURL(site.url));
                 const visit = el('a', t('official'), 'navigation-library-visit'); visit.href = site.url; visit.target = '_blank'; visit.rel = 'noopener noreferrer'; visit.setAttribute('aria-label', `${t('visit')}: ${site.name}`); visit.title = t('visit');
                 const add = button(added ? `✓ ${t('added')}` : `+ ${t('add')}`, () => newCategoryMode ? reviewSites([site], false) : save(site), 'navigation-library-add');
@@ -337,9 +339,16 @@
                 if (added) add.classList.add('is-added'); actions.append(visit, add); card.append(actions);
                 const details = el('details', undefined, 'navigation-library-details');
                 const summary = el('summary', t('source')); summary.setAttribute('tabindex', '0'); details.append(summary);
-                details.append(el('p', `${t('company')}: ${site.company === 'unknown' ? t('unknown') : site.company} · ${site.country === 'unknown' ? t('unknown') : site.country}`));
-                if (site.pricingNote) details.append(el('p', api.localized(site.pricingNote, language())));
+                const metadata = el('dl', undefined, 'navigation-library-metadata');
+                const detailRow = (label, value) => metadata.append(el('dt', t(label)), el('dd', value));
+                detailRow('allUses', site.tags.map(tagLabel).join(' · '));
+                detailRow('categories', site.categories.map(id => api.categories.find(category => category.id === id)?.[language()] || id).join(' · '));
+                details.append(metadata);
+                details.append(el('p', `${t('company')}: ${site.company === 'unknown' ? t('unknown') : site.company}`));
+                details.append(el('p', `${t('country')}: ${site.country === 'unknown' ? t('unknown') : site.country}`));
+                details.append(el('p', `${t('pricing')}: ${t(site.pricing)}${site.pricingNote ? ` · ${api.localized(site.pricingNote, language())}` : ''}`));
                 details.append(el('p', `${t('checked')}: ${site.verifiedOn}`));
+                details.append(el('p', t('sources'), 'navigation-library-detail-label'));
                 site.sources.forEach((source, index) => { const link = el('a', `${index + 1}. ${new URL(source).hostname}`); link.href = source; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link); }); card.append(details);
                 results.append(card);
                 if (focusSite?.id === site.id) { card.tabIndex = -1; card.focus(); }

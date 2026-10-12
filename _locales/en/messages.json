@@ -4652,6 +4652,21 @@
   "navigationLibraryDisclosure": {
     "message": "Location describes the company or service operator, not where a site is accessible. Plans, availability and account requirements can change."
   },
+  "navigationLibraryAllUses": {
+    "message": "All uses"
+  },
+  "navigationLibraryCategories": {
+    "message": "Categories"
+  },
+  "navigationLibraryMoreUse": {
+    "message": "more use in details"
+  },
+  "navigationLibraryMoreUses": {
+    "message": "more uses in details"
+  },
+  "navigationLibrarySources": {
+    "message": "Sources"
+  },
   "navigationLibrarySource": {
     "message": "Sources & details"
   },

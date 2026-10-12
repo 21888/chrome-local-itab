@@ -484,3 +484,59 @@ test('six specialized services support local bilingual discovery, review cancell
   savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,6);assert.ok(cards(h).every(card=>card.querySelector('.navigation-library-add').disabled));
  }
 });
+
+test('every catalog card discloses all localized purposes and category memberships',async()=>{
+ for(const locale of ['en','zh-CN']) {
+  const h=model({locale}),language=locale==='en'?'en':'zh';await h.view.open();
+  const dictionary=JSON.parse(fs.readFileSync(`_locales/${language==='zh'?'zh_CN':'en'}/messages.json`));
+  for(const card of h.document.querySelectorAll('article')) {
+   const site=h.context.LocalItabNavigationSites.find(site=>site.id===card.dataset.site),details=card.querySelector('details');
+   assert.equal(Boolean(details.open),false);
+   const labels=details.querySelectorAll('dt').map(node=>node.textContent),values=details.querySelectorAll('dd').map(node=>node.textContent);
+   assert.deepEqual(labels,locale==='en'?['All uses','Categories']:['完整用途','所属分类']);
+   const purposes=site.tags.map(tag=>dictionary[`navigationTag${tag.split(/[-_]/).map(part=>part[0]?.toUpperCase()+part.slice(1)).join('')}`]?.message||tag.replace(/[-_]/g,' '));
+   assert.equal(values[0],purposes.join(' · '));
+   assert.equal(values[1],site.categories.map(id=>h.context.LocalItabNavigationCatalog.categories.find(category=>category.id===id)[language]).join(' · '));
+   const badge=card.querySelector('.navigation-library-more-uses');
+   assert.equal(Boolean(badge),site.tags.length>2);
+   if(badge)assert.equal(badge.textContent,`+${site.tags.length-2} ${locale==='en'?(site.tags.length===3?'more use in details':'more uses in details'):'项用途见详情'}`);
+   assert.equal(card.querySelector('.navigation-library-tags').children.length,Math.min(2,site.tags.length)+1+(site.tags.length>2?1:0));
+   assert.ok(details.querySelectorAll('p').some(node=>node.textContent.startsWith(locale==='en'?'Pricing:':'定价:')));
+  }
+  assert.equal(h.calls,0);
+ }
+});
+test('one or two purposes never render an empty more-uses hint',async()=>{
+ for(const tags of [['chat'],['chat','writing']]){
+  const h=model();h.context.LocalItabNavigationSites=[{...h.context.LocalItabNavigationSites[0],tags}];await h.view.open();
+  assert.equal(h.document.querySelector('.navigation-library-more-uses'),null);
+  assert.equal(h.document.querySelector('details dd').textContent,tags.map(tag=>tag==='chat'?'Chat assistants':'Writing').join(' · '));
+ }
+});
+test('searching and filtering a third purpose leaves that purpose available in card details',async()=>{
+ for(const locale of ['en','zh-CN']){
+  const h=model({locale});h.context.LocalItabNavigationSites=[{...h.context.LocalItabNavigationSites[0],tags:['chat','search','writing'],categories:['ai','office']}];await h.view.open();
+  h.search(locale==='en'?'writing':'写作');
+  assert.equal(h.document.querySelectorAll('article').length,1);
+  assert.match(h.document.querySelector('details dd').textContent,locale==='en'?/Writing/:/写作/);
+  h.search('');const select=h.document.querySelector('.navigation-library-filters select');select.value='writing';select.dispatch('change');
+  const card=h.document.querySelector('article');assert.ok(card);
+  assert.match(card.querySelector('details dd').textContent,locale==='en'?/Writing/:/写作/);
+  assert.equal(card.querySelectorAll('details dd')[1].textContent,locale==='en'?'AI · Productivity':'AI 工具 · 办公');
+  assert.equal(h.calls,0);
+ }
+});
+test('complete purpose and category metadata remains literal, wrapping text without interactive additions',async()=>{
+ const h=model(),hostile='<img src=x onerror=alert(1)>'+ 'x'.repeat(400);
+ h.context.LocalItabNavigationSites=[{...h.context.LocalItabNavigationSites[0],tags:['chat','search',hostile],categories:['ai','office']}];await h.view.open();
+ const details=h.document.querySelector('details');assert.equal(h.document.querySelectorAll('img').length,0);
+ assert.ok(details.querySelector('dd').textContent.includes(hostile));
+ assert.equal(details.querySelectorAll('dd')[1].textContent,'AI · Productivity');
+ assert.equal(details.querySelectorAll('button, input, select').length,0);
+ assert.equal(details.querySelectorAll('a').length,h.context.LocalItabNavigationSites[0].sources.length);
+ const css=fs.readFileSync('navigation-library.css','utf8');
+ assert.match(css,/\.navigation-library-tags span\s*\{[^}]*max-width: 100%[^}]*overflow-wrap: anywhere/);
+ assert.match(css,/\.navigation-library-metadata dd\s*\{[^}]*margin: 2px 0 0[^}]*overflow-wrap: anywhere/);
+ assert.doesNotMatch(fs.readFileSync('shared/navigation-library-view.js','utf8'),/innerHTML|insertAdjacentHTML/);
+ assert.equal(h.calls,0);
+});
