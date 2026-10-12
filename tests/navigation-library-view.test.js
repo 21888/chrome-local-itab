@@ -602,3 +602,65 @@ test('region display names remain literal text in every country label', async ()
  assert.equal(h.document.querySelectorAll('img').length, 0);
  assert.doesNotMatch(fs.readFileSync('shared/navigation-library-view.js', 'utf8'), /innerHTML|insertAdjacentHTML/);
 });
+
+function sourceDetails(h, id) {
+ return h.document.querySelectorAll('article').find(card=>card.dataset.site===id)?.querySelector('details');
+}
+function toggleDetails(node, open, deliver=true) {
+ node.open=open;
+ if(deliver)node.dispatch('toggle');
+}
+test('multiple source disclosures survive selection and target edits without stealing input focus',async()=>{
+ const h=model();h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,3);await h.view.open();
+ const [first,second,third]=h.context.LocalItabNavigationSites.map(site=>site.id);
+ toggleDetails(sourceDetails(h,first),true);toggleDetails(sourceDetails(h,second),true);
+ const pick=h.document.querySelector('article input');pick.checked=true;pick.dispatch('change');
+ assert.equal(sourceDetails(h,first).open,true);assert.equal(sourceDetails(h,second).open,true);assert.equal(sourceDetails(h,third).open,false);
+ assert.ok(h.document.activeElement===h.document.querySelector('article input'));
+ const target=h.document.querySelector('.navigation-library-destination select');target.focus();target.value='personal';target.dispatch('change');
+ assert.ok(h.document.activeElement===target);assert.equal(sourceDetails(h,first).open,true);assert.equal(sourceDetails(h,second).open,true);
+ h.click('New personal category');const name=h.document.querySelector('.navigation-library-new-category-panel input');
+ for(const value of ['R','Research']){name.value=value;name.dispatch('input');assert.ok(h.document.activeElement===name);assert.equal(sourceDetails(h,first).open,true);assert.equal(sourceDetails(h,second).open,true);}
+ h.click('Use existing category');assert.ok(h.document.activeElement===target);assert.equal(sourceDetails(h,first).open,true);
+ h.click('Clear selection');assert.equal(sourceDetails(h,second).open,true);assert.equal(h.calls,0);
+});
+test('source disclosures follow stable site IDs through hidden and zero results, not result positions',async()=>{
+ const h=model();h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,3);await h.view.open();
+ const [first,second,third]=h.context.LocalItabNavigationSites.map(site=>site.id);
+ toggleDetails(sourceDetails(h,first),true);toggleDetails(sourceDetails(h,second),true);
+ const input=h.document.querySelector('input');input.focus();h.search('no-match-837284');assert.ok(h.document.activeElement===input);
+ assert.equal(h.document.querySelectorAll('details').length,0);
+ h.context.LocalItabNavigationSites.reverse();h.search('');
+ assert.equal(sourceDetails(h,first).open,true);assert.equal(sourceDetails(h,second).open,true);assert.equal(sourceDetails(h,third).open,false);
+ toggleDetails(sourceDetails(h,second),false);h.search('no-match-837284');h.search('');
+ assert.equal(sourceDetails(h,first).open,true);assert.equal(sourceDetails(h,second).open,false);assert.equal(h.calls,0);
+});
+test('queued native toggles preserve the latest live open property before a synchronous rerender',async()=>{
+ const h=model();await h.view.open();const id=h.context.LocalItabNavigationSites[0].id;
+ const original=sourceDetails(h,id);toggleDetails(original,true,false);h.search('chatgpt');
+ assert.equal(sourceDetails(h,id).open,true);
+ original.open=false;original.dispatch('toggle');h.search('');assert.equal(sourceDetails(h,id).open,true);
+ const current=sourceDetails(h,id);toggleDetails(current,false,false);h.search('chatgpt');
+ assert.equal(sourceDetails(h,id).open,false);
+ current.open=true;current.dispatch('toggle');h.search('');assert.equal(sourceDetails(h,id).open,false);
+});
+test('closing and reopening clears disclosure state and ignores late old-session toggles and selection',async()=>{
+ const h=model();await h.view.open();const id=h.context.LocalItabNavigationSites[0].id;
+ const old=sourceDetails(h,id),oldPick=h.document.querySelector('article input');toggleDetails(old,true);
+ h.view.close();old.dispatch('toggle');await h.view.open();assert.equal(sourceDetails(h,id).open,false);
+ old.dispatch('toggle');oldPick.checked=true;oldPick.dispatch('change');h.search('chatgpt');
+ assert.equal(sourceDetails(h,id).open,false);assert.equal(h.document.querySelector('article input').checked,false);
+ toggleDetails(sourceDetails(h,id),true);old.open=false;old.dispatch('toggle');h.search('');
+ assert.equal(sourceDetails(h,id).open,true);assert.equal(h.calls,0);
+});
+test('rerender preserves source summary and source-link focus, with safe fallback for removed results',async()=>{
+ const h=model();await h.view.open();const id=h.context.LocalItabNavigationSites[0].id;
+ let details=sourceDetails(h,id);details.querySelector('summary').focus();h.search('chatgpt');
+ assert.ok(h.document.activeElement===sourceDetails(h,id).querySelector('summary'));
+ details=sourceDetails(h,id);toggleDetails(details,true);details.querySelectorAll('a')[1].focus();h.search('');
+ assert.ok(h.document.activeElement===sourceDetails(h,id).querySelectorAll('a')[1]);
+ h.search('no-match-98792');assert.ok(h.document.activeElement===h.document.querySelector('.navigation-library-empty'));
+ h.search('');details=sourceDetails(h,id);details.querySelector('summary').focus();h.search('claude');
+ assert.ok(h.document.activeElement===h.document.querySelector('input'));
+ assert.equal(h.calls,0);
+});

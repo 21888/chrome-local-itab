@@ -33,6 +33,7 @@
         let selectableResults = [], refreshActiveFilters = () => {};
         let newCategoryMode = false, draftName = '', composing = false, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
+        const expandedDetails = new Set(), renderedDetails = new Map();
         let reviewed = null;
         let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, currentDestination = '';
         const language = () => /^zh/i.test(document.documentElement.lang || '') ? 'zh' : 'en';
@@ -54,14 +55,14 @@
         const opener = button(t('open'), open, 'navigation-library-opener'); opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
         function close() {
             if (writing) return false;
-            revision++; busy = false; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false; return true;
+            revision++; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false; return true;
         }
         function setControls() {
             for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || node.dataset.unavailable === 'true';
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
-            const owner = ++revision; busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false;
+            const owner = ++revision; expandedDetails.clear(); renderedDetails.clear(); busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false;
             overlay = el('div', undefined, 'navigation-library-overlay'); panel = el('section', undefined, 'navigation-library-panel'); panel.tabIndex = -1;
             panel.addEventListener('compositionstart', () => { composing = true; invalidateReview(); });
             panel.addEventListener('compositionend', () => { composing = false; });
@@ -293,6 +294,18 @@
             reviewPanel.append(cancel, reviewConfirm); reviewPanel.hidden = false; refreshResultSelection(); reviewConfirm.focus();
         }
         function renderResults(focusId) {
+            // Native toggle events are queued/coalesced. Read the live property before
+            // replacing nodes so a same-task filter change cannot lose the latest state.
+            let detailFocus;
+            for (const [id, details] of renderedDetails) {
+                if (!details.isConnected) continue;
+                if (details.open) expandedDetails.add(id); else expandedDetails.delete(id);
+                if (details.contains(document.activeElement)) {
+                    detailFocus = { id, index: Array.from(details.querySelectorAll('summary, a')).indexOf(document.activeElement) };
+                }
+            }
+            renderedDetails.clear();
+            const owner = revision;
             refreshActiveFilters();
             const matching = api.filter(root.LocalItabNavigationSites, criteria, language(), tagLabel), saved = api.savedURLs(snapshot.links);
             const isSaved = site => saved.has(api.canonicalURL(site.url));
@@ -311,7 +324,7 @@
             const focusSite = focusId && (entries.find(site => site.id === focusId) || entries[Math.max(0, Math.min(oldIndex, entries.length - 1))]);
             count.textContent = `${entries.length} ${t(entries.length === 1 ? 'result' : 'results')}`; results.replaceChildren();
             if (!entries.length) {
-                const empty = el('div', undefined, 'navigation-library-empty'); empty.append(el('span', '', 'navigation-library-search-icon'), el('h3', t('empty')), el('p', t('emptyHelp'))); results.append(empty); if (focusId) { empty.tabIndex = -1; empty.focus(); } return;
+                const empty = el('div', undefined, 'navigation-library-empty'); empty.append(el('span', '', 'navigation-library-search-icon'), el('h3', t('empty')), el('p', t('emptyHelp'))); results.append(empty); if (focusId || detailFocus) { empty.tabIndex = -1; empty.focus(); } return;
             }
             for (const site of entries) {
                 const card = el('article', undefined, 'navigation-library-card'); card.dataset.site = site.id;
@@ -324,7 +337,7 @@
                 pick.dataset.unavailable = String(isSaved(site) || blocked || (!pick.checked && selected.size >= 20));
                 pick.disabled = writing || pick.dataset.unavailable === 'true';
                 pick.addEventListener('change', () => {
-                    if (pick.disabled || writing || blocked || isSaved(site)) return;
+                    if (owner !== revision || !pick.isConnected || pick.disabled || writing || blocked || isSaved(site)) return;
                     if (pick.checked && selected.size < 20) selected.add(site.id); else selected.delete(site.id);
                     renderResults();
                     const replacement = Array.from(results.children).find(node => node.dataset.site === site.id)?.querySelector('input'); replacement?.focus();
@@ -342,6 +355,13 @@
                 add.dataset.unavailable = String(added || (!newCategoryMode && !currentDestination) || blocked); add.disabled = writing || added || (!newCategoryMode && !currentDestination) || blocked;
                 if (added) add.classList.add('is-added'); actions.append(visit, add); card.append(actions);
                 const details = el('details', undefined, 'navigation-library-details');
+                details.open = expandedDetails.has(site.id);
+                renderedDetails.set(site.id, details);
+                details.addEventListener('toggle', () => {
+                    // Retired nodes and previous dialog sessions cannot change this session.
+                    if (owner !== revision || !details.isConnected || renderedDetails.get(site.id) !== details) return;
+                    if (details.open) expandedDetails.add(site.id); else expandedDetails.delete(site.id);
+                });
                 const summary = el('summary', t('source')); summary.setAttribute('tabindex', '0'); details.append(summary);
                 const metadata = el('dl', undefined, 'navigation-library-metadata');
                 const detailRow = (label, value) => metadata.append(el('dt', t(label)), el('dd', value));
@@ -356,6 +376,11 @@
                 site.sources.forEach((source, index) => { const link = el('a', `${index + 1}. ${new URL(source).hostname}`); link.href = source; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link); }); card.append(details);
                 results.append(card);
                 if (focusSite?.id === site.id) { card.tabIndex = -1; card.focus(); }
+            }
+            if (!focusId && detailFocus) {
+                const details = renderedDetails.get(detailFocus.id);
+                const controls = details?.querySelectorAll('summary, a');
+                (controls?.[details?.open ? Math.max(0, detailFocus.index) : 0] || search).focus();
             }
         }
         async function save(site, batch = false, confirmation = null) {
