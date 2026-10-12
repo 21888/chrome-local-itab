@@ -3550,6 +3550,206 @@
         ],
         "verifiedOn": "2026-10-12",
         "icon": "17"
+    },
+    {
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown",
+        "id": "phet",
+        "name": "PhET Interactive Simulations",
+        "url": "https://phet.colorado.edu/",
+        "company": "University of Colorado Boulder",
+        "country": "US",
+        "categories": [
+            "learning"
+        ],
+        "tags": [
+            "science-simulations",
+            "physics",
+            "chemistry"
+        ],
+        "description": {
+            "zh": "通过交互模拟探索物理、化学、生物等科学概念。",
+            "en": "Explore scientific concepts through interactive physics, chemistry and biology simulations."
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "网站科学与数学模拟免费；此分类仅指网站模拟，不代表其他产品或授权用途。",
+            "en": "Science and math simulations on the website are free. This classification covers website simulations only."
+        },
+        "icon": "Ph",
+        "sources": [
+            "https://phet.colorado.edu/?locales=en",
+            "https://www.colorado.edu/csl/programs/phet-interactive-simulations",
+            "https://phet.colorado.edu/en/about",
+            "https://phet.colorado.edu/en/about/contact"
+        ]
+    },
+    {
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown",
+        "id": "wave",
+        "name": "WAVE",
+        "url": "https://wave.webaim.org/",
+        "company": "WebAIM / Utah State University",
+        "country": "US",
+        "categories": [
+            "development",
+            "design"
+        ],
+        "tags": [
+            "accessibility-testing",
+            "web-accessibility"
+        ],
+        "description": {
+            "zh": "检查网页中的无障碍问题，并提供可视化反馈。",
+            "en": "Evaluate web accessibility issues with visual feedback on the page."
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "在线评估免费；提交的网址与内容由 WAVE 服务器处理。API 等服务另有方案；自动检查不能替代完整人工评估。",
+            "en": "The online evaluator is free; submitted URLs and content are processed by WAVE servers. APIs have separate offerings; automated checks do not replace a complete human evaluation."
+        },
+        "icon": "WA",
+        "sources": [
+            "https://wave.webaim.org/",
+            "https://wave.webaim.org/about",
+            "https://wave.webaim.org/terms"
+        ]
+    },
+    {
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown",
+        "id": "onet-online",
+        "name": "O*NET OnLine",
+        "url": "https://www.onetonline.org/",
+        "company": "National Center for O*NET Development",
+        "country": "US",
+        "categories": [
+            "careers"
+        ],
+        "tags": [
+            "career-exploration",
+            "occupation-skills"
+        ],
+        "description": {
+            "zh": "查询美国职业的技能、任务与教育要求，辅助职业探索。",
+            "en": "Explore U.S. occupations through their skills, tasks and education requirements."
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "zh": "官方职业信息数据库与职业探索工具免费开放；内容以美国职业体系为主。",
+            "en": "The occupational database and career exploration tool are free; information focuses on the U.S. occupational system."
+        },
+        "icon": "ON",
+        "sources": [
+            "https://www.onetonline.org/",
+            "https://www.onetonline.org/help/onet/",
+            "https://www.onetcenter.org/overview.html",
+            "https://www.onetcenter.org/dl_files/desk_aid.pdf",
+            "https://www.onetcenter.org/contact.html"
+        ]
+    },
+    {
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown",
+        "id": "we-work-remotely",
+        "name": "We Work Remotely",
+        "url": "https://weworkremotely.com/",
+        "company": "We Work Remotely Ltd.",
+        "country": "unknown",
+        "categories": [
+            "careers"
+        ],
+        "tags": [
+            "remote-jobs",
+            "job-search"
+        ],
+        "description": {
+            "zh": "按职业类别查找远程职位，并查看岗位地区要求。",
+            "en": "Find remote roles by job category and review each position's location requirements."
+        },
+        "pricing": "freemium",
+        "pricingNote": {
+            "zh": "Basic 免费；Pro 和 TopAccess 按年度承诺收费，取消后仍须付清当期费用。岗位资格与地区限制以招聘说明为准。",
+            "en": "Basic is free; Pro and TopAccess carry annual commitments, with remaining term payments due after cancellation. Eligibility and location restrictions depend on each listing."
+        },
+        "icon": "WR",
+        "sources": [
+            "https://weworkremotely.com/",
+            "https://weworkremotely.com/frequently-asked-questions",
+            "https://weworkremotely.com/terms-and-conditions"
+        ]
+    },
+    {
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown",
+        "id": "google-dataset-search",
+        "name": "Google Dataset Search",
+        "url": "https://datasetsearch.research.google.com/",
+        "company": "Google",
+        "country": "unknown",
+        "categories": [
+            "search",
+            "learning"
+        ],
+        "tags": [
+            "dataset-search",
+            "research-data"
+        ],
+        "description": {
+            "zh": "跨多个数据仓库查找研究数据集及其来源说明。",
+            "en": "Discover research datasets and their source descriptions across data repositories."
+        },
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "官方帮助页说明数据集检索用途，但未提供独立定价说明；结果站点的数据访问条件与许可需分别确认。",
+            "en": "Official help describes dataset discovery but gives no standalone pricing statement. Access conditions and licenses of linked datasets must be checked separately."
+        },
+        "icon": "GD",
+        "sources": [
+            "https://datasetsearch.research.google.com/",
+            "https://datasetsearch.research.google.com/help",
+            "https://research.google/blog/building-google-dataset-search-and-fostering-an-open-data-ecosystem/",
+            "https://policies.google.com/terms?hl=en-US"
+        ]
+    },
+    {
+        "verifiedOn": "2026-10-12",
+        "language": "unknown",
+        "signup": "unknown",
+        "id": "google-ads-transparency",
+        "name": "Google Ads Transparency Center",
+        "url": "https://adstransparency.google.com/",
+        "company": "Google",
+        "country": "unknown",
+        "categories": [
+            "marketing"
+        ],
+        "tags": [
+            "ad-transparency",
+            "advertiser-search"
+        ],
+        "description": {
+            "zh": "按广告主或网站查询 Google 平台广告，并按日期等条件筛选。",
+            "en": "Look up Google-platform ads by advertiser or website and filter by details such as date."
+        },
+        "pricing": "unknown",
+        "pricingNote": {
+            "zh": "官方说明提供可检索广告库，但未提供独立定价说明；查询展示不代表广告投放或效果数据服务。",
+            "en": "Official documentation describes a searchable ad repository but gives no standalone pricing statement. Viewing disclosures is separate from ad buying or performance analytics."
+        },
+        "icon": "AT",
+        "sources": [
+            "https://adstransparency.google.com/",
+            "https://support.google.com/adspolicy/answer/13733850?co=GENIE.CountryCode%3DGB&hl=en",
+            "https://blog.google/innovation-and-ai/technology/ads/announcing-the-launch-of-the-new-ads-transparency-center/",
+            "https://policies.google.com/terms?hl=en-US"
+        ]
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

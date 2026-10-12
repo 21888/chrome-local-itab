@@ -5329,5 +5329,41 @@
   },
   "aiContextSourceSelectedEmpty": {
     "message": "No selected sources match this view. Clear the title search or turn off Show selected only to see more loaded sources."
+  },
+  "navigationTagScienceSimulations": {
+    "message": "Science simulations"
+  },
+  "navigationTagPhysics": {
+    "message": "Physics"
+  },
+  "navigationTagChemistry": {
+    "message": "Chemistry"
+  },
+  "navigationTagAccessibilityTesting": {
+    "message": "Accessibility testing"
+  },
+  "navigationTagWebAccessibility": {
+    "message": "Web accessibility"
+  },
+  "navigationTagCareerExploration": {
+    "message": "Career exploration"
+  },
+  "navigationTagOccupationSkills": {
+    "message": "Occupational skills"
+  },
+  "navigationTagRemoteJobs": {
+    "message": "Remote jobs"
+  },
+  "navigationTagDatasetSearch": {
+    "message": "Dataset search"
+  },
+  "navigationTagResearchData": {
+    "message": "Research data"
+  },
+  "navigationTagAdTransparency": {
+    "message": "Ad transparency"
+  },
+  "navigationTagAdvertiserSearch": {
+    "message": "Advertiser search"
   }
 }
