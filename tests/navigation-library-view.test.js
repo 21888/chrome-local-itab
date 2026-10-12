@@ -540,3 +540,65 @@ test('complete purpose and category metadata remains literal, wrapping text with
  assert.doesNotMatch(fs.readFileSync('shared/navigation-library-view.js','utf8'),/innerHTML|insertAdjacentHTML/);
  assert.equal(h.calls,0);
 });
+
+
+const countrySelect = h => h.document.querySelectorAll('.navigation-library-filters select')[1];
+const countryDetail = (card, label) => card.querySelectorAll('details p').find(node => node.textContent.startsWith(`${label}: `));
+test('operator country names agree in options, active chips and details while ISO filtering stays unchanged', async () => {
+ for (const [locale, expected] of [['en', 'United States (US)'], ['zh-CN', '美国 (US)']]) {
+  const h = model({locale});
+  const dictionary = JSON.parse(fs.readFileSync(`_locales/${locale === 'zh-CN' ? 'zh_CN' : 'en'}/messages.json`));
+  const countryTitle = dictionary.navigationLibraryCountry.message;
+  const original = JSON.stringify(h.context.LocalItabNavigationSites);
+  await h.view.open();
+  const select = countrySelect(h), option = select.querySelectorAll('option').find(node => node.value === 'US');
+  assert.equal(option.textContent, expected);
+  select.value = 'US'; select.dispatch('change');
+  assert.equal(select.value, 'US');
+  const expectedSites = h.context.LocalItabNavigationSites.filter(site => site.country === 'US');
+  assert.deepEqual(cards(h).map(card => card.dataset.site), Array.from(expectedSites, site => site.id));
+  for (const card of cards(h)) assert.equal(countryDetail(card, countryTitle).textContent, `${countryTitle}: ${expected}`);
+  const chip = h.document.querySelectorAll('.navigation-library-active-filter').find(node => node.dataset.filter === 'country');
+  assert.equal(chip.querySelector('span').textContent, `${countryTitle}: ${expected}`);
+  h.search('chatgpt'); assert.equal(cards(h).length, 1); assert.equal(cards(h)[0].dataset.site, 'chatgpt');
+  h.document.querySelectorAll('.navigation-library-active-filter').find(node => node.dataset.filter === 'country').dispatch('click'); assert.equal(select.value, '');
+  assert.equal(JSON.stringify(h.context.LocalItabNavigationSites), original); assert.equal(h.calls, 0);
+ }
+});
+test('unknown operator country uses translated unknown everywhere without querying Intl', async () => {
+ for (const locale of ['en', 'zh-CN']) {
+  const h = model({locale}); h.context.LocalItabNavigationSites = [{...h.context.LocalItabNavigationSites[0], country: 'unknown'}];
+  let calls = 0; h.context.Intl = {DisplayNames: class { constructor() { calls++; throw new Error('unexpected'); } }};
+  await h.view.open(); const select = countrySelect(h), expected = h.context.i18n.t('navigationLibraryUnknown'), title = h.context.i18n.t('navigationLibraryCountry');
+  assert.equal(select.querySelectorAll('option')[1].textContent, expected);
+  assert.equal(countryDetail(cards(h)[0], title).textContent, `${title}: ${expected}`);
+  select.value = 'unknown'; select.dispatch('change');
+  assert.equal(h.document.querySelector('.navigation-library-active-filter span').textContent, `${title}: ${expected}`);
+  assert.equal(cards(h).length, 1); assert.equal(select.value, 'unknown'); assert.equal(calls, 0);
+ }
+});
+test('missing, throwing and malformed Intl region names fall back safely to the ISO value', async () => {
+ const broken = [undefined, {}, {DisplayNames: null}, {DisplayNames: class {constructor(){throw new Error('unsupported');}}},
+  {DisplayNames: class {of(){throw new Error('invalid region');}}},
+  ...[undefined, null, '', '  ', 12, {}, {toString(){throw new Error('must not coerce');}}, 'US'].map(name => ({DisplayNames: class {of(){return name;}}}))];
+ for (const intl of broken) {
+  const h = model(); h.context.Intl = intl; h.context.LocalItabNavigationSites = [{...h.context.LocalItabNavigationSites[0], country: 'US'}];
+  assert.equal(await h.view.open(), true);
+  const select = countrySelect(h); assert.equal(select.querySelectorAll('option')[1].textContent, 'US');
+  assert.equal(countryDetail(cards(h)[0], 'Operator location').textContent, 'Operator location: US');
+  select.value = 'US'; select.dispatch('change');
+  assert.equal(h.document.querySelector('.navigation-library-active-filter span').textContent, 'Operator location: US');
+  assert.equal(cards(h).length, 1); assert.equal(select.value, 'US'); assert.equal(h.calls, 0);
+ }
+});
+test('region display names remain literal text in every country label', async () => {
+ const h = model(), name = '<img src=x onerror=alert(1)>';
+ h.context.Intl = {DisplayNames: class {of(){return name;}}};
+ h.context.LocalItabNavigationSites = [{...h.context.LocalItabNavigationSites[0], country: 'US'}];
+ await h.view.open(); const select = countrySelect(h); assert.equal(select.querySelectorAll('option')[1].textContent, `${name} (US)`);
+ assert.equal(countryDetail(cards(h)[0], 'Operator location').textContent, `Operator location: ${name} (US)`);
+ select.value = 'US'; select.dispatch('change');
+ assert.equal(h.document.querySelector('.navigation-library-active-filter span').textContent, `Operator location: ${name} (US)`);
+ assert.equal(h.document.querySelectorAll('img').length, 0);
+ assert.doesNotMatch(fs.readFileSync('shared/navigation-library-view.js', 'utf8'), /innerHTML|insertAdjacentHTML/);
+});

@@ -36,6 +36,13 @@
         let reviewed = null;
         let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, currentDestination = '';
         const language = () => /^zh/i.test(document.documentElement.lang || '') ? 'zh' : 'en';
+        const countryLabel = country => {
+            if (country === 'unknown') return t('unknown');
+            try {
+                const name = new Intl.DisplayNames([language()], { type: 'region' }).of(country);
+                return typeof name === 'string' && name.trim() && name !== country ? `${name} (${country})` : country;
+            } catch (_) { return country; }
+        };
         const tagLabel = tag => {
             const id = `navigationTag${tag.split(/[-_]/).map(part => part[0]?.toUpperCase() + part.slice(1)).join('')}`;
             const result = root.i18n?.t(id); return result && result !== id ? result : tag.replace(/[-_]/g, ' ');
@@ -117,10 +124,7 @@
                 tagSelect.value = criteria.tag || '';
             }
             refreshTagOptions();
-            selectFilter('country', distinct('country'), country => {
-                if (country === 'unknown') return t('unknown');
-                try { return `${new Intl.DisplayNames([language()], { type: 'region' }).of(country)} (${country})`; } catch (_) { return country; }
-            });
+            selectFilter('country', distinct('country'), countryLabel);
             selectFilter('company', distinct('company'), value => value === 'unknown' ? t('unknown') : value);
             selectFilter('pricing', api.pricing, t); panel.append(filtersPanel);
             const activeFilters = el('div', undefined, 'navigation-library-active-filters');
@@ -345,7 +349,7 @@
                 detailRow('categories', site.categories.map(id => api.categories.find(category => category.id === id)?.[language()] || id).join(' · '));
                 details.append(metadata);
                 details.append(el('p', `${t('company')}: ${site.company === 'unknown' ? t('unknown') : site.company}`));
-                details.append(el('p', `${t('country')}: ${site.country === 'unknown' ? t('unknown') : site.country}`));
+                details.append(el('p', `${t('country')}: ${countryLabel(site.country)}`));
                 details.append(el('p', `${t('pricing')}: ${t(site.pricing)}${site.pricingNote ? ` · ${api.localized(site.pricingNote, language())}` : ''}`));
                 details.append(el('p', `${t('checked')}: ${site.verifiedOn}`));
                 details.append(el('p', t('sources'), 'navigation-library-detail-label'));
