@@ -94,3 +94,20 @@ Completed checks:
 - Offline runtime ZIP build and exact source verification passed: 112 files,
   2,560,175 uncompressed source bytes. SHA256:
   `7fce5f768b7ff0f87253b02e1ad83b5f1ecf78bbab0502295715c22006374ea5`.
+
+
+## Prepared development snapshot: limited native check
+
+2026-10-12, independent CfT155 Chinese desktop-light synthetic profile loaded
+112-file dev95 ZIP `7fce5f768b7ff0f87253b02e1ad83b5f1ecf78bbab0502295715c22006374ea5`.
+Catalog showed124/110 not added/14 added. ASCII searches for all four brands each
+found one card. Expanded details showed operator/location/pricing/source caveats:
+Buffer simultaneously scheduled posts rather than monthly quota; iFixit free
+reading of guides with parts/tools separate; Lichess free/donation/privacy scope;
+USA.gov informational role and agency-specific fees/eligibility.
+Four selections survived searches; full review listed all names/URLs and target.
+Escape canceled, reopening showed0 selected and unchanged124/110/14. Default14/
+Clarity light/Grid restored. No external links, authorizations, purchases or saves.
+186 uses and original120 preservation remain source/test counts, not native
+manual enumeration. No dark/320 or exhaustive filter/focus matrix; screenshots
+remain transcript evidence. This does not verify live external availability.
