@@ -4533,5 +4533,23 @@
   "promptsCompareSaveUnconfirmed": {"message": "保存尚未确认。核对只会读取并验证同一次操作，不会再次写入。若凭据缺失、过期或已被恢复操作清除，就无法确认成功。检查集合前请保留此结果。"},
   "completeBackupDuplicateKey": {
     "message": "此备份包含重复的 JSON 字段，尚未开始还原。请选择有效的备份文件。"
+  },
+  "promptsModelStream": {
+    "message": "逐步显示模型回复（可选）"
+  },
+  "promptsModelStreamPartial": {
+    "message": "当前仅为部分回复。只有本次请求完整成功后才能保存。"
+  },
+  "promptsModelStreamStale": {
+    "message": "提示词来源已改变或对话框已中断。发送前请重新审阅。"
+  },
+  "promptsModelStreamOn": {
+    "message": "回复模式：流式显示"
+  },
+  "promptsModelStreamOff": {
+    "message": "回复模式：完整回复"
+  },
+  "promptsModelStreamLimit": {
+    "message": "流式回复超出安全限制。已显示的部分回复不完整，不能保存。"
   }
 }

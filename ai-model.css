@@ -7,3 +7,5 @@
 .ai-model-dialog .prompt-actions { flex-wrap: wrap; }
 .ai-model-dialog details > textarea { box-sizing: border-box; width: 100%; margin-block: 8px; }
 .ai-model-dialog details > summary { cursor: pointer; }
+
+.ai-model-field input.ai-model-stream-toggle { width: auto; justify-self: start; }

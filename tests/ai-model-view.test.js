@@ -12,7 +12,7 @@ async function mount({ locale, run, contains = async () => true, request = async
     const root = { document: doc, LocalItabPrompts: Core, LocalItabAIPromptRefinement: require('../shared/ai-prompt-refinement'), LocalItabAIModel: { ...Client, run: async (...args) => { runs++; return run ? run(...args) : { text: '<script>synthetic output</script>', model: 'fixture-model', origin: 'https://synthetic.test' }; } },
         chrome: { permissions: { contains, request: async (...args) => { grants++; return request(...args); } } }, confirm: () => true,
         addEventListener: (name, fn) => events.set(name, fn), removeEventListener: name => events.delete(name) };
-    const context = vm.createContext({ window: root, AbortController });
+    const context = vm.createContext({ window: root, AbortController, setTimeout, clearTimeout });
     for (const file of ['shared/dialog-focus.js', 'shared/ai-model-comparison.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
     const catalog = locale ? JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8')) : {};
     const view = { doc, controller: h.controller, t: (key, fallback) => catalog[`prompts${key}`]?.message || fallback,
@@ -562,3 +562,73 @@ for (const locale of ['en', 'zh_CN']) {
         assert.equal(h.h.controller.record().body, 'Original'); await click(h.ui.close); h.h.controller.dispose();
     });
 }
+
+const pausePaint = () => new Promise(resolve => setTimeout(resolve, 120));
+async function enableStream(h) { h.ui.streaming.checked = true; h.ui.streaming.dispatch('change'); await click(h.ui.review); }
+test('stream: default off, explicit mode review invalidation and send uses the captured mode', async () => {
+    let options;
+    const h = await mount({ run: async (_, value) => { options = value; return { text: 'complete', model: 'fixture-model', origin: 'https://synthetic.test' }; } });
+    assert.equal(h.ui.streaming.checked, false); await click(h.ui.review); assert.match(h.ui.reviewText.textContent, /complete response/);
+    h.ui.key.value = 'synthetic'; h.ui.streaming.checked = true; h.ui.streaming.dispatch('change');
+    assert.equal(h.ui.send.disabled, true); assert.equal(h.ui.key.value, ''); assert.equal(h.runs, 0);
+    await click(h.ui.review); assert.match(h.ui.reviewText.textContent, /mode: streaming/);
+    h.ui.streaming.checked = false; // Even a programmatic silent property change cannot alter the reviewed request.
+    await click(h.ui.send); assert.equal(options.stream, true); assert.equal(h.runs, 1); assert.equal(h.ui.partialLabel.hidden, true); assert.equal(h.ui.save.disabled, false);
+    await click(h.ui.save); assert.equal(h.writes, 1); assert.equal(h.command.body, 'complete'); await click(h.ui.close); h.h.controller.dispose();
+    const refinement = await mount({ mode: 'refine' }); assert.equal(refinement.ui.streaming, null); await click(refinement.ui.close); refinement.h.controller.dispose();
+});
+test('stream: partial safe text is throttled, never saved, and stopped late chunks cannot touch a replacement', async () => {
+    const requests = [], options = [];
+    const h = await mount({ run: (_, value) => { const pending = deferred(); requests.push(pending); options.push(value); return pending.promise; } });
+    await enableStream(h); h.ui.key.value = 'synthetic-key'; await click(h.ui.send);
+    let value = '', paints = 0; Object.defineProperty(h.ui.output, 'value', { configurable: true, get: () => value, set: next => { value = next; paints++; } });
+    for (let i = 0; i < 500; i++) options[0].onText(`<script>partial ${i}</script>`);
+    assert.equal(paints, 0); await pausePaint(); assert.equal(paints, 1); assert.equal(h.ui.output.value, '<script>partial 499</script>');
+    assert.equal(h.doc.querySelectorAll('script, img, iframe').length, 0); assert.equal(h.ui.partialLabel.hidden, false); assert.equal(h.ui.save.disabled, true);
+    await click(h.ui.save); assert.equal(h.writes, 0); await click(h.ui.cancel); assert.equal(options[0].signal.aborted, true); assert.equal(h.ui.key.value, ''); assert.equal(h.ui.save.disabled, true);
+    assert.match(h.ui.status.textContent, /stopped/); assert.equal(h.ui.partialLabel.hidden, false);
+    await click(h.ui.send); assert.equal(h.runs, 2); options[1].onText('replacement'); options[0].onText('old late chunk'); requests[0].resolve({ text: 'old complete' });
+    await pausePaint(); assert.equal(h.ui.output.value, 'replacement'); assert.equal(h.ui.cancel.disabled, false); assert.equal(h.ui.save.disabled, true);
+    requests[1].resolve({ text: 'replacement complete', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+    assert.equal(h.ui.output.value, 'replacement complete'); assert.equal(h.ui.partialLabel.hidden, true); assert.equal(h.ui.save.disabled, false); await click(h.ui.close); h.h.controller.dispose();
+});
+test('stream: truncated, filtered and oversized runs retain an explicit partial label but never become saveable', async () => {
+    for (const code of ['INCOMPLETE', 'LIMIT', 'FORMAT', 'NETWORK', 'TIMEOUT', 'PROVIDER']) {
+        const h = await mount({ run: async (_, options) => { options.onText('synthetic partial'); throw { code }; } });
+        await enableStream(h); h.ui.key.value = 'synthetic-key'; await click(h.ui.send);
+        assert.equal(h.ui.output.value, 'synthetic partial'); assert.equal(h.ui.partialLabel.hidden, false); assert.equal(h.ui.save.disabled, true); assert.equal(h.ui.key.value, '');
+        await click(h.ui.save); assert.equal(h.writes, 0); assert.equal(h.runs, 1); await click(h.ui.close); h.h.controller.dispose();
+    }
+});
+for (const interruption of ['close', 'pagehide', 'source', 'dispose']) test(`stream: ${interruption} fences scheduled paints and all late chunks`, async () => {
+    const pending = deferred(); let options;
+    const h = await mount({ run: (_, value) => { options = value; return pending.promise; } }); await enableStream(h); await click(h.ui.send);
+    options.onText('queued partial');
+    if (interruption === 'close') await click(h.ui.close);
+    if (interruption === 'pagehide') h.events.get('pagehide')();
+    if (interruption === 'source') { h.h.controller.selected = null; h.view.checkModelRun(); }
+    if (interruption === 'dispose') { h.h.controller.dispose(); h.view.checkModelRun(); }
+    assert.equal(options.signal.aborted, true); options.onText('late partial'); pending.resolve({ text: 'late complete' }); await pausePaint();
+    assert.equal(h.ui.output.value.includes('late'), false); assert.equal(h.ui.save.disabled, true); assert.equal(h.ui.key.value, ''); assert.equal(h.writes, 0);
+    if (interruption !== 'close') { assert.equal(h.ui.output.hidden, true); assert.equal(h.ui.send.disabled, true); await click(h.ui.close); }
+    h.h.controller.dispose();
+});
+test('stream: a source change just before final result cannot produce a saveable answer even without a render', async () => {
+    const pending = deferred(); let options;
+    const h = await mount({ run: (_, value) => { options = value; return pending.promise; } }); await enableStream(h); await click(h.ui.send);
+    options.onText('partial'); h.h.controller.selected = null; pending.resolve({ text: 'complete', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+    assert.equal(h.ui.save.disabled, true); assert.equal(h.ui.output.hidden, true); assert.equal(h.ui.send.disabled, true); assert.equal(h.writes, 0); await click(h.ui.close); h.h.controller.dispose();
+});
+test('stream: real client synthetic ReadableStream completes before explicit collection save', async () => {
+    const h = await mount({ run: (reviewed, options) => Client.run(reviewed, { ...options, fetcher: async () => new Response(new ReadableStream({ start(c) {
+        for (const content of ['safe ', '<b>literal</b>']) c.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content }, finish_reason: null }] })}\n\n`));
+        c.enqueue(new TextEncoder().encode('data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n')); c.close();
+    } }), { headers: { 'content-type': 'text/event-stream' } }) }) });
+    await enableStream(h); await click(h.ui.send); assert.equal(h.ui.output.value, 'safe <b>literal</b>'); assert.equal(h.writes, 0); assert.equal(h.ui.partialLabel.hidden, true);
+    await click(h.ui.save); assert.equal(h.writes, 1); assert.equal(h.command.body, 'safe <b>literal</b>'); assert.equal(h.doc.querySelectorAll('b').length, 0); await click(h.ui.close); h.h.controller.dispose();
+});
+test('stream: reopening resets the toggle and a fresh reviewed send after pagehide has its own save', async () => {
+    const h = await mount(); await enableStream(h); await click(h.ui.send); await click(h.ui.save); assert.equal(h.writes, 1);
+    h.events.get('pagehide')(); await click(h.ui.review); await click(h.ui.send); assert.equal(h.ui.save.disabled, false); await click(h.ui.save); assert.equal(h.writes, 2);
+    await click(h.ui.close); const reopened = h.root.LocalItabAIModelView.open({ view: h.view }); assert.equal(reopened.streaming.checked, false); await click(reopened.close); h.h.controller.dispose();
+});

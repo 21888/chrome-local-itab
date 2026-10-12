@@ -4533,5 +4533,23 @@
   "promptsCompareSaveUnconfirmed": {"message": "Save is unconfirmed. Check performs a read-only lookup of this exact operation; it never writes again. Missing, expired or restored-away evidence cannot confirm success. Keep this result until you have checked your collection."},
   "completeBackupDuplicateKey": {
     "message": "This backup contains duplicate JSON fields. Restore has not started. Choose a valid backup file."
+  },
+  "promptsModelStream": {
+    "message": "Show response as it arrives (optional)"
+  },
+  "promptsModelStreamPartial": {
+    "message": "Partial response only. It cannot be saved unless this request completes successfully."
+  },
+  "promptsModelStreamStale": {
+    "message": "The prompt source changed or this dialog was interrupted. Review again before sending."
+  },
+  "promptsModelStreamOn": {
+    "message": "Response mode: streaming"
+  },
+  "promptsModelStreamOff": {
+    "message": "Response mode: complete response"
+  },
+  "promptsModelStreamLimit": {
+    "message": "The stream exceeded a safety limit. Any partial response is incomplete and cannot be saved."
   }
 }

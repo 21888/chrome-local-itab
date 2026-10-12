@@ -121,6 +121,7 @@
             const dialogFocus = this.dialogFocus;
             if (dialogFocus && (c.selected !== dialogFocus.selected || c.draft() !== dialogFocus.draft)) dialogFocus.stale = true;
             this.checkModelComparison?.();
+            this.checkModelRun?.();
             this.checkExcerptDialog?.();
             if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
             if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); return; }

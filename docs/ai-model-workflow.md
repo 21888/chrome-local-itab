@@ -12,7 +12,7 @@ The prompt library can run a completed saved prompt with a user-selected OpenAI-
 ## Limits and compatibility
 
 - One foreground request per dialog; no background calls, auto-retry, agent tools or automatic save.
-- HTTPS Chat Completions format: `{model, messages: [{role: "user", content}], stream: false}`. This deliberately uses a bounded non-streaming response in this first delivery; token streaming is not implemented.
+- HTTPS Chat Completions format: `{model, messages: [{role: "user", content}], stream: false}`. Non-streaming remains the default. The single-prompt runner also offers the explicitly reviewed optional streaming mode described below.
 - Input and result are each limited to 32,000 UTF-16 code units; response wire body to 512,000 bytes; request deadline 60 seconds.
 - Non-JSON, empty, oversized, incomplete and filtered responses are rejected without saving. Provider error bodies and raw network errors are never displayed or logged.
 - No model list discovery, persistent key vault, HTTP localhost endpoints, parallel provider comparison or automated prompt optimization in this first increment.
@@ -43,3 +43,24 @@ Focused preset validation: `timeout 60 node --max-old-space-size=256 --test test
 ## Refine a saved template
 
 Use **Refine saved prompt** to review an instruction and the current stored template, receive a plain-text proposal, then explicitly accept a new history version. Filled variables are excluded and placeholder changes block acceptance. [Refinement workflow and safeguards](ai-prompt-refinement.md).
+
+## Optional streamed single-prompt response
+
+In **Run with your model**, **Show response as it arrives (optional)** starts unchecked every time the dialog opens. It is temporary UI state, never a preset or backup field. Change it before **Review request**: review shows either streaming or complete-response mode, and changing the checkbox clears the key and invalidates that review. **Send reviewed prompt** captures the reviewed mode, exact endpoint, model and prompt in one POST. There is no fallback, retry, second request or new permission. Refinement, comparisons, refinement trials and saved-context Q&A keep their existing non-streaming behavior.
+
+Streaming sends the same Chat Completions body with `stream: true`, accepting only `text/event-stream`. The reader incrementally decodes UTF-8 and SSE (including fragmented code points, CRLF, multi-line data and comments), taking only choice zero's plain-text `delta.content`. An explicit `finish_reason: "stop"` followed by `data: [DONE]` is required before it becomes a complete result. EOF, malformed/error events, tool/refusal results, non-stop finishes and exceeded limits never create a saveable response. Usage-only events do not affect the answer. Provider error text is never displayed.
+
+The whole request, including stalled response headers or body reads, keeps the 60-second deadline. Limits remain 512,000 wire bytes and 32,000 output UTF-16 code units, with an additional 65,536-character SSE event budget (including comments and fields). These defensive limits can reject unusually verbose compatible-provider streams. The stream reader is cancelled after completion, failure or Stop.
+
+Partial text is shown in a read-only textarea, not interpreted as HTML, and marked explicitly as incomplete. It cannot be saved. Updates are coalesced to at most one scheduled textarea paint per 100 ms, with a final immediate flush on success, failure or Stop. Successful completion alone enables the existing explicit collection save; no schema or storage fields change. Stop clears the key and leaves any received partial text labelled as incomplete. Closing, page departure, source changes or workspace interruption clear/invalidate stream state; scheduled paints and late old callbacks cannot overwrite a newer request. Saving rechecks the source.
+
+Focused synthetic validation (run serially, no provider calls or credentials):
+
+- `timeout 60 node --max-old-space-size=256 --test --test-concurrency=1 tests/ai-model-client.test.js tests/ai-model-stream.test.js`
+- `timeout 60 node --max-old-space-size=256 --test --test-name-pattern='stream:' tests/ai-model-view.test.js`
+- Existing model-view, context and comparison suites retain their non-streaming coverage. This does not certify native browser/provider compatibility.
+
+Protocol references checked on 2026-10-12:
+- https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
+- https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events
+- https://developers.openai.com/api/docs/guides/streaming-responses
