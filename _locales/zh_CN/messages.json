@@ -5275,5 +5275,11 @@
   },
   "navigationTagShippingStatus": {
     "message": "物流状态"
+  },
+  "navigationLibraryActiveFilters": {
+    "message": "生效筛选"
+  },
+  "navigationLibraryRemoveFilter": {
+    "message": "移除筛选"
   }
 }

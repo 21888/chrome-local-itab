@@ -5275,5 +5275,11 @@
   },
   "navigationTagShippingStatus": {
     "message": "Shipping status"
+  },
+  "navigationLibraryActiveFilters": {
+    "message": "Active filters"
+  },
+  "navigationLibraryRemoveFilter": {
+    "message": "Remove filter"
   }
 }

@@ -102,3 +102,27 @@ test('real new-category review removal remains zero-write until a fresh reduced 
     assert.equal(h.raw.links[0].category, h.raw.categories[1].id); assert.equal(search.value, 'figma');
     assert(Object.isFrozen(h.requests[0].sites)); assert(Object.isFrozen(h.requests[0].baseline));
 });
+
+test('real active-filter removal preserves unrelated browse and target drafts and retires review without writes',async()=>{
+ const h=flow([{id:'work',name:'Work'},{id:'personal',name:'Personal'}]);await h.view.open();
+ const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');
+ choose(h,'chatgpt');const name=begin(h,'Synthetic draft');
+ const search=h.document.querySelector('.navigation-library-search input');search.value='chatgpt';search.dispatch('input');
+ const category=h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='ai');category.dispatch('click');
+ const selects=h.document.querySelectorAll('.navigation-library-filters select');
+ for(const [index,value] of [[0,'chat'],[1,'US'],[2,'OpenAI'],[3,'freemium']]) {selects[index].value=value;selects[index].dispatch('change');}
+ const saved=h.document.querySelectorAll('.navigation-library-saved-filter').find(node=>node.dataset.savedState==='new');saved.dispatch('click');
+ h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+ const old=h.document.querySelector('.navigation-library-batch-confirm');assert.ok(old);
+ const before=structuredClone(h.raw);
+ h.document.querySelectorAll('.navigation-library-active-filter').find(node=>node.dataset.filter==='company').dispatch('click');
+ old.dispatch('click');await tick();
+ assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
+ assert.equal(search.value,'chatgpt');assert.equal(category.getAttribute('aria-pressed'),'true');assert.equal(saved.getAttribute('aria-pressed'),'true');
+ assert.equal(selects[0].value,'chat');assert.equal(selects[1].value,'US');assert.equal(selects[2].value,'');assert.equal(selects[3].value,'freemium');
+ assert.equal(target.value,'personal');assert.equal(name.value,'Synthetic draft');
+ assert.equal(h.document.querySelector('.navigation-library-new-category-panel').hidden,false);
+ assert.match(h.document.querySelector('.navigation-library-batch').children[0].textContent,/1 \/ 20 selected/);
+ assert.equal(h.requests.length,0);assert.equal(h.writes.length,0);assert.deepEqual(h.raw,before);
+ h.document.querySelector('.navigation-library-use-existing').dispatch('click');assert.equal(target.value,'personal');
+});

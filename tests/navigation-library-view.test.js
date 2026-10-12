@@ -399,3 +399,73 @@ test('six service additions support local bilingual discovery, review cancellati
   savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,6);assert.ok(cards(h).every(card=>card.querySelector('.navigation-library-add').disabled));
  }
 });
+
+test('folded active filters expose localized values, individual removal and predictable focus', async () => {
+ for (const locale of ['en','zh-CN']) {
+  const h=model({locale});await h.view.open();
+  const selects=h.document.querySelectorAll('.navigation-library-filters select');
+  for(const [index,value] of [[0,'chat'],[1,'US'],[2,'OpenAI'],[3,'freemium']]) {
+   selects[index].value=value;selects[index].dispatch('change');
+  }
+  const toggle=h.document.querySelector('.navigation-library-filter-toggle');
+  assert.match(toggle.textContent,/\(4\)$/);
+  const group=h.document.querySelector('.navigation-library-active-filters');
+  assert.equal(group.hidden,false);assert.equal(h.document.querySelector('.navigation-library-filters').hidden,true);
+  const chips=()=>group.querySelectorAll('button');
+  assert.match(chips()[1].children[0].textContent,/\(US\)/);
+  assert.match(chips()[2].children[0].textContent,/OpenAI/);
+  assert.match(chips()[3].children[0].textContent,locale==='en'?/Free \+ paid plans/:/免费/);
+  assert.match(chips()[0].getAttribute('aria-label'),locale==='en'?/^Remove filter: Use:/:/^移除筛选: 用途:/);
+  chips()[1].focus();const retired=chips()[1];retired.dispatch('click');
+  assert.equal(selects[1].value,'');assert.equal(h.document.activeElement.dataset.filter,'company');
+  assert.equal(chips().length,3);retired.dispatch('click');assert.equal(chips().length,3);
+  chips()[2].dispatch('click');assert.equal(h.document.activeElement.dataset.filter,'company');
+  chips()[0].dispatch('click');assert.equal(h.document.activeElement.dataset.filter,'company');
+  chips()[0].dispatch('click');assert.equal(h.document.activeElement,toggle);
+  assert.equal(group.hidden,true);assert.doesNotMatch(toggle.textContent,/\(\d+\)/);assert.equal(h.calls,0);
+ }
+});
+
+test('switching category retires only the purpose chip and exposes restrictive folded filters',async()=>{
+ const h=model();await h.view.open();
+ const selects=h.document.querySelectorAll('.navigation-library-filters select');
+ for(const [index,value] of [[0,'chat'],[1,'US'],[2,'OpenAI']]) {selects[index].value=value;selects[index].dispatch('change');}
+ h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='shopping').dispatch('click');
+ assert.equal(h.document.querySelector('.navigation-library-empty')!==null,true);
+ const chips=()=>h.document.querySelectorAll('.navigation-library-active-filter');
+ assert.deepEqual(chips().map(node=>node.dataset.filter),['country','company']);
+ assert.match(h.document.querySelector('.navigation-library-filter-toggle').textContent,/\(2\)$/);
+ chips()[1].dispatch('click');
+ assert.ok(h.document.querySelectorAll('article').length);
+ assert.equal(selects[1].value,'US');
+ assert.equal(h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='shopping').getAttribute('aria-pressed'),'true');
+ h.click('Clear filters');assert.equal(chips().length,0);assert.equal(h.calls,0);
+});
+
+test('active filter labels render hostile long company text literally and wrap in either theme',async()=>{
+ const h=model(),company='<img src=x onerror=alert(1)>'+ 'SyntheticCompany'.repeat(30);
+ h.context.LocalItabNavigationSites[0]={...h.context.LocalItabNavigationSites[0],company};
+ await h.view.open();const select=h.document.querySelectorAll('.navigation-library-filters select')[2];
+ select.value=company;select.dispatch('change');
+ const chip=h.document.querySelector('.navigation-library-active-filter');
+ assert.ok(chip.children[0].textContent.includes(company));assert.equal(h.document.querySelectorAll('img').length,0);
+ const css=fs.readFileSync('navigation-library.css','utf8');
+ assert.match(css,/navigation-library-active-filters \{[^}]*flex-wrap: wrap/);
+ assert.match(css,/navigation-library-active-filter \{[^}]*max-width: 100%[^}]*background: var\(--nl-selected\)[^}]*color: var\(--nl-accent\)/);
+ assert.match(css,/navigation-library-active-filter > span:first-child \{[^}]*overflow-wrap: anywhere; white-space: normal/);
+});
+
+test('active filter removal ignores IME, repeats, pending writes and detached controls',async()=>{
+ const h=model();await h.view.open();
+ const select=h.document.querySelectorAll('.navigation-library-filters select')[1];select.value='US';select.dispatch('change');
+ const chip=h.document.querySelector('.navigation-library-active-filter');
+ for(const event of [{isComposing:true},{repeat:true},{detail:2}]) chip.dispatch('click',event);
+ assert.equal(select.value,'US');
+ let prevented=false;chip.dispatch('keydown',{key:'Enter',repeat:true,preventDefault(){prevented=true;}});assert.equal(prevented,true);
+ h.document.querySelector('.navigation-library-panel').dispatch('compositionstart');chip.dispatch('click');assert.equal(select.value,'US');
+ h.document.querySelector('.navigation-library-panel').dispatch('compositionend');
+ const pending=deferred();h.write=pending;h.firstAdd().dispatch('click');assert.equal(chip.disabled,true);chip.dispatch('click');assert.equal(select.value,'US');
+ pending.resolve({...h.snapshot,duplicate:true});await tick();
+ h.view.close();await h.view.open();chip.dispatch('click');
+ assert.equal(h.document.querySelector('.navigation-library-active-filters').hidden,true);assert.equal(h.calls,1);
+});

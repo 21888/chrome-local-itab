@@ -5,6 +5,7 @@
         open: 'Discover sites', eyebrow: 'YOUR NEXT USEFUL PLACE', title: 'A little discovery. A better start.',
         intro: 'Browse the built-in library. Add only the sites you want to your own shortcuts.',
         search: 'Search names, uses or companies', all: 'All categories', filters: 'More filters', clear: 'Clear filters',
+        activeFilters: 'Active filters', removeFilter: 'Remove filter',
         savedState: 'Saved in this workspace', savedAll: 'All', savedNew: 'Not added', savedAdded: 'Added',
         tag: 'Use', country: 'Operator location', company: 'Company / organization', pricing: 'Pricing',
         any: 'Any', destination: 'Add to your category', results: 'sites', result: 'site', add: 'Add', added: 'Added', visit: 'Open official site', official: 'Official site',
@@ -29,7 +30,7 @@
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
         let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
-        let selectableResults = [];
+        let selectableResults = [], refreshActiveFilters = () => {};
         let newCategoryMode = false, draftName = '', composing = false, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
         let reviewed = null;
@@ -98,11 +99,12 @@
             }
             panel.append(savedNav);
             filtersPanel = el('div', undefined, 'navigation-library-filters'); filtersPanel.id = 'navigation-library-filters'; filtersPanel.hidden = true;
+            const filterControls = [];
             function selectFilter(key, choices, label) {
                 const wrapper = el('label', t(key)), select = el('select'); select.setAttribute('aria-label', t(key));
                 const any = el('option', t('any')); any.value = ''; select.append(any);
                 choices.forEach(value => { const option = el('option', label(value)); option.value = value; select.append(option); });
-                select.addEventListener('change', () => { criteria[key] = select.value; renderResults(); }); wrapper.append(select); filtersPanel.append(wrapper); return select;
+                select.addEventListener('change', () => { criteria[key] = select.value; renderResults(); }); wrapper.append(select); filtersPanel.append(wrapper); filterControls.push({ key, select, label }); return select;
             }
             const distinct = key => [...new Set(entries.flatMap(site => site[key]))].sort();
             const tagSelect = selectFilter('tag', [], tagLabel);
@@ -121,6 +123,34 @@
             });
             selectFilter('company', distinct('company'), value => value === 'unknown' ? t('unknown') : value);
             selectFilter('pricing', api.pricing, t); panel.append(filtersPanel);
+            const activeFilters = el('div', undefined, 'navigation-library-active-filters');
+            activeFilters.setAttribute('role', 'group'); activeFilters.setAttribute('aria-label', t('activeFilters'));
+            panel.append(activeFilters);
+            refreshActiveFilters = () => {
+                const active = filterControls.filter(({ key }) => criteria[key]);
+                filterButton.textContent = active.length ? `${t('filters')} (${active.length})` : t('filters');
+                activeFilters.hidden = !active.length;
+                activeFilters.replaceChildren();
+                active.forEach(({ key, select, label }, index) => {
+                    const value = criteria[key], description = `${t(key)}: ${label(value)}`;
+                    const remove = button(undefined, () => {
+                        if (!remove.isConnected || criteria[key] !== value) return;
+                        criteria[key] = ''; select.value = '';
+                        renderResults();
+                        const remaining = activeFilters.querySelectorAll('button');
+                        (remaining[Math.min(index, remaining.length - 1)] || filterButton).focus();
+                    }, 'navigation-library-active-filter');
+                    remove.addEventListener('keydown', event => {
+                        if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+                    });
+                    remove.dataset.filter = key;
+                    remove.setAttribute('aria-label', `${t('removeFilter')}: ${description}`);
+                    const icon = el('span', '×'); icon.setAttribute('aria-hidden', 'true');
+                    remove.append(el('span', description), icon);
+                    activeFilters.append(remove);
+                });
+            };
+
             const toolbar = el('div', undefined, 'navigation-library-toolbar');
             count = el('span', '', 'navigation-library-count'); count.setAttribute('role', 'status'); toolbar.append(count);
             const reset = button(t('clear'), () => { criteria = {}; search.value = ''; for (const select of filtersPanel.querySelectorAll('select')) select.value = ''; refreshTagOptions(); refreshCategories(); renderResults(); search.focus(); }, 'navigation-library-clear'); toolbar.append(reset);
@@ -259,6 +289,7 @@
             reviewPanel.append(cancel, reviewConfirm); reviewPanel.hidden = false; refreshResultSelection(); reviewConfirm.focus();
         }
         function renderResults(focusId) {
+            refreshActiveFilters();
             const matching = api.filter(root.LocalItabNavigationSites, criteria, language(), tagLabel), saved = api.savedURLs(snapshot.links);
             const isSaved = site => saved.has(api.canonicalURL(site.url));
             for (const site of root.LocalItabNavigationSites) if (isSaved(site)) selected.delete(site.id);

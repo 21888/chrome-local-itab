@@ -114,3 +114,10 @@
 .navigation-library-review-list li > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .navigation-library-review-remove { flex: 0 0 auto; max-width: 100%; border: 1px solid var(--nl-line); border-radius: 8px; padding: 8px 10px; background: var(--nl-card); color: var(--nl-accent) !important; font-size: 11px !important; overflow-wrap: anywhere; }
 @media (max-width: 520px) { .navigation-library-review-list li { flex-wrap: wrap; gap: 6px; }.navigation-library-review-list li > span { flex-basis: 100%; } }
+
+/* Active advanced criteria remain visible even when their controls are folded. */
+.navigation-library-active-filters { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; min-width: 0; }
+.navigation-library-active-filters[hidden] { display: none; }
+.navigation-library-active-filter { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 7px 10px; border: 1px solid var(--nl-line); border-radius: 8px; background: var(--nl-selected); color: var(--nl-accent) !important; font-size: 11px !important; text-align: start; }
+.navigation-library-active-filter > span:first-child { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.navigation-library-active-filter > span:last-child { flex: 0 0 auto; font-size: 16px; line-height: 1; }
