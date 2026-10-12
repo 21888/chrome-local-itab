@@ -632,3 +632,76 @@ test('stream: reopening resets the toggle and a fresh reviewed send after pagehi
     h.events.get('pagehide')(); await click(h.ui.review); await click(h.ui.send); assert.equal(h.ui.save.disabled, false); await click(h.ui.save); assert.equal(h.writes, 2);
     await click(h.ui.close); const reopened = h.root.LocalItabAIModelView.open({ view: h.view }); assert.equal(reopened.streaming.checked, false); await click(reopened.close); h.h.controller.dispose();
 });
+
+for (const mode of ['run', 'refine']) for (const ending of ['success', 'stop', 'failure']) test(`${mode} ${ending} keeps keyboard focus inside the dialog`, async () => {
+    const pending = deferred(); const h = await mount({ mode, run: () => pending.promise });
+    if (mode === 'refine') h.ui.instruction.value = 'Clarify';
+    await click(h.ui.review); h.ui.send.focus(); await click(h.ui.send);
+    assert.ok(h.doc.activeElement === h.ui.cancel);
+    if (ending === 'stop') await click(h.ui.cancel);
+    else { pending.resolve(ending === 'failure' ? Promise.reject({ code: 'NETWORK' }) : { text: 'Revised synthetic template', model: 'fixture', origin: 'https://synthetic.test' }); await tick(); }
+    assert.ok(h.doc.activeElement === h.ui.status);
+    assert.equal(h.ui.status.tabIndex, -1);
+    assert.equal(h.ui.status.getAttribute('role'), 'status');
+    assert.equal(h.ui.status.getAttribute('aria-live'), 'polite');
+    h.doc.activeElement.dispatch('keydown', { key: 'Escape', isComposing: true }); assert.equal(h.view.openDialog, true);
+    const escape = h.doc.activeElement.dispatch('keydown', { key: 'Escape' });
+    assert.equal(escape.prevented, true); assert.equal(h.view.openDialog, false);
+    pending.resolve({ text: 'Late synthetic result', model: 'fixture', origin: 'https://synthetic.test' }); await tick(); h.h.controller.dispose();
+});
+for (const granted of [true, false]) test(`permission ${granted} and save transitions preserve focus scope`, async () => {
+    const permission = deferred(), saving = deferred();
+    const h = await mount({ request: () => permission.promise, mutate: () => saving.promise });
+    await click(h.ui.review); h.ui.allow.focus(); h.ui.allow.dispatch('click');
+    assert.ok(h.doc.activeElement === h.ui.status);
+    h.ui.close.focus(); permission.resolve(granted); await tick();
+    assert.ok(h.doc.activeElement === h.ui.close, 'permission result does not steal a valid focus');
+    await click(h.ui.send); h.ui.save.focus(); h.ui.save.dispatch('click'); await tick();
+    assert.ok(h.doc.activeElement === h.ui.status);
+    saving.resolve(); await tick(); assert.ok(h.doc.activeElement === h.ui.status);
+    h.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(h.view.openDialog, false); h.h.controller.dispose();
+});
+test('preset loading, review invalidation and hidden refinement draft retain focus only when necessary', async () => {
+    const presets = deferred(); const h = await mount({ presetStore: { read: () => presets.promise } });
+    assert.ok(h.doc.activeElement === h.ui.status, 'initial URL becomes disabled while presets load');
+    h.ui.close.focus(); presets.resolve({ records: [] }); await tick(); assert.ok(h.doc.activeElement === h.ui.close);
+    await click(h.ui.review); h.ui.url.focus(); h.ui.url.dispatch('input'); assert.ok(h.doc.activeElement === h.ui.url);
+    await click(h.ui.close); h.h.controller.dispose();
+    const r = await mount({ mode: 'refine', run: async () => ({ text: 'Revised template', model: 'fixture', origin: 'https://synthetic.test' }) });
+    r.ui.instruction.value = 'Clarify'; await click(r.ui.review); await click(r.ui.send); r.ui.output.focus(); r.events.get('pagehide')();
+    assert.equal(r.ui.output.hidden, true); assert.ok(r.doc.activeElement === r.ui.status);
+    r.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(r.view.openDialog, false); r.h.controller.dispose();
+});
+test('late results preserve valid targets and cannot steal focus after close or trial opening', async () => {
+    const pending = deferred(); const h = await mount({ run: () => pending.promise });
+    await click(h.ui.review); await click(h.ui.send); h.ui.close.focus();
+    pending.resolve({ text: 'Synthetic response', model: 'fixture', origin: 'https://synthetic.test' }); await tick();
+    assert.ok(h.doc.activeElement === h.ui.close); await click(h.ui.close);
+    const outside = h.doc.createElement('button'); h.doc.body.append(outside); outside.focus(); await tick(); assert.ok(h.doc.activeElement === outside); h.h.controller.dispose();
+    const late = deferred(); const closed = await mount({ request: () => late.promise });
+    await click(closed.ui.review); closed.ui.allow.focus(); closed.ui.allow.dispatch('click'); await click(closed.ui.close);
+    const newer = closed.doc.createElement('button'); closed.doc.body.append(newer); newer.focus(); late.resolve(false); await tick(); assert.ok(closed.doc.activeElement === newer); closed.h.controller.dispose();
+    const r = await mount({ mode: 'refine', run: async () => ({ text: 'Revised template', model: 'fixture', origin: 'https://synthetic.test' }) });
+    r.ui.instruction.value = 'Clarify'; await click(r.ui.review); await click(r.ui.send); r.ui.trialButton.focus(); await click(r.ui.trialButton);
+    assert.ok(r.doc.activeElement === r.ui.trial.close); assert.equal(r.ui.overlay.hidden, true);
+    await click(r.ui.trial.close); await click(r.ui.close); r.h.controller.dispose();
+});
+for (const mode of ['run', 'refine']) test(`${mode} uncertain save keeps Escape reachable without changing draft selection`, async () => {
+    const h = await mount({ mode, mutate: async () => { throw Error('Synthetic save failure'); }, run: async () => ({ text: 'Revised synthetic template', model: 'fixture', origin: 'https://synthetic.test' }) });
+    if (mode === 'refine') h.ui.instruction.value = 'Clarify';
+    await click(h.ui.review); await click(h.ui.send); h.ui.output.focus(); h.ui.output.selectionStart = 2; h.ui.output.selectionEnd = 5;
+    if (mode === 'refine') h.h.failOnce();
+    // A programmatic save while the still-valid output is focused must not move it.
+    await click(h.ui.save); await settle(h.h.controller);
+    assert.ok(h.doc.activeElement === h.ui.output); assert.equal(h.ui.output.selectionStart, 2); assert.equal(h.ui.output.selectionEnd, 5);
+    h.ui.save.focus(); await click(h.ui.save); await settle(h.h.controller); assert.ok(h.doc.activeElement === h.ui.status);
+    h.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(h.view.openDialog, false); h.h.controller.dispose();
+});
+test('trial interruption transfers hidden output focus inside the active trial only', async () => {
+    const h = await mount({ mode: 'refine', run: async () => ({ text: 'Revised synthetic template', model: 'fixture', origin: 'https://synthetic.test' }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); await click(h.ui.trialButton);
+    const trial = h.ui.trial; await click(trial.review); await click(trial.send); trial.targets[0].output.focus(); trial.hide();
+    assert.ok(h.doc.activeElement === trial.status); assert.equal(h.ui.overlay.hidden, true);
+    h.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(h.ui.trial, null); assert.equal(h.ui.overlay.hidden, false);
+    await click(h.ui.close); h.h.controller.dispose();
+});

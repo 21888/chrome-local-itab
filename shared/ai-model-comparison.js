@@ -15,7 +15,7 @@
         const help = el('p', 'prompt-help', t('Help', 'Select up to two saved connections. Review the same completed prompt for each target, then explicitly Send. This makes up to two provider requests; each provider may charge you. Keys are temporary and separate for each target. No automatic retries.'));
         if (trial) help.textContent = t('TrialHelp', 'Enter temporary test values once for both templates. Review both completed requests to the same model, then explicitly Send. Up to two additional provider requests may each cost money. Answers are temporary, unscored and never saved. Accepting the proposal is a separate action after closing this trial.');
         const prompt = el('textarea', 'prompt-readonly'); prompt.value = trial ? trial.source.body : preview.text; prompt.readOnly = true; prompt.rows = 6; prompt.setAttribute('aria-label', trial ? t('TrialTemplate', 'Original saved template before test values') : t('Prompt', 'Same completed prompt for all targets'));
-        const status = el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+        const status = el('p', 'prompt-help'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const grid = el('div', 'ai-compare-grid'), actions = el('div', 'prompt-actions');
         let closed = false, stale = false, loading = true, sending = false, batch = null, presets = [], generation = 0, cleanup, reviewedValues = null;
         const targets = [], variables = [];
@@ -27,7 +27,7 @@
         }
         const sourceCurrent = () => trial ? Boolean(!c.disposed && !c.busy && !c.pendingCommand && trial.current()) : !c.disposed && !c.busy && !c.pendingCommand && c.excerptEpoch === source.epoch && c.record()?.id === source.promptId && c.record()?.version === source.version && !c.record()?.deletedAt && c.session() === session && session.versionId === source.bodyVersionId && c.preview()?.complete && c.preview().text === preview.text;
         const saving = () => targets.some(target => target.saving);
-        function update() {
+        function update(focused = view.doc.activeElement) {
             const locked = closed || stale || loading || sending || saving() || targets.some(target => target.permissionPending);
             variables.forEach(({ input }) => { input.disabled = locked; });
             review.disabled = locked || targets.some(target => target.attempted);
@@ -43,12 +43,18 @@
                 target.stop.disabled = !target.running;
                 target.save.disabled = Boolean(trial) || closed || stale || sending || saving() || !target.response || target.saved;
             }
+            // Disabling or hiding the focused control blurs it to body in Chrome.
+            // Keep this dialog's keyboard scope without stealing another live focus.
+            if (!closed && !overlay.hidden && overlay.isConnected && overlay.contains(focused) &&
+                (focused.disabled || focused.closest('[hidden], [inert]')) &&
+                (view.doc.activeElement === focused || view.doc.activeElement === view.doc.body)) status.focus();
         }
         function invalidate(message, permanent = false) {
+            const focused = view.doc.activeElement;
             generation++; batch = null; reviewedValues = null; stale ||= permanent;
             for (const target of targets) { target.retryReady = false; if (!trial && !permanent) target.heading.textContent = `${t('Target', 'Target')} ${targets.indexOf(target) + 1}`; if (trial) { target.response = null; target.output.value = ''; target.output.hidden = true; target.attempted = false; target.message.textContent = ''; target.reviewText.textContent = ''; } target.aborter?.abort(); target.key.value = ''; target.reviewed = null; target.reviewText.hidden = true; }
             if (message) status.textContent = message;
-            update();
+            update(focused);
         }
         function checkSource() {
             if (closed) return false;

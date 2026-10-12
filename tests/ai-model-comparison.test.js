@@ -254,3 +254,50 @@ test('missing confirmation evidence stays unconfirmed without repeated writes; s
     h.h.controller.excerptEpoch++; h.ui.checkSource(); await click(a.save);
     assert.equal(checks, 2); assert.equal(a.save.disabled, true); await h.done();
 });
+
+test('initial preset loading leaves a keyboard-operable dialog', async () => {
+    const h = await mount();
+    assert.ok(h.view.doc.activeElement === h.ui.status);
+    assert.equal(h.ui.status.tabIndex, -1); assert.equal(h.ui.status.getAttribute('role'), 'status'); assert.equal(h.ui.status.getAttribute('aria-live'), 'polite');
+    const escape = h.view.doc.activeElement.dispatch('keydown', { key: 'Escape' });
+    assert.equal(escape.prevented, true); assert.equal(h.view.openDialog, false); h.h.controller.dispose();
+});
+for (const ending of ['success', 'stop', 'failure']) test(`comparison ${ending} keeps focus and Escape within the dialog`, async () => {
+    const pending = deferred(); const h = await mount({ run: () => pending.promise }); h.choose(0, '0'); await click(h.ui.review);
+    h.ui.send.focus(); h.ui.send.dispatch('click'); assert.ok(h.view.doc.activeElement === h.ui.status); await tick();
+    const target = h.ui.targets[0]; target.stop.focus();
+    if (ending === 'stop') await click(target.stop);
+    else { pending.resolve(ending === 'failure' ? Promise.reject({ code: 'NETWORK' }) : { text: 'Synthetic result', model: 'model-a', origin: 'https://a.synthetic.test' }); await tick(); }
+    assert.ok(h.view.doc.activeElement === h.ui.status);
+    h.view.doc.activeElement.dispatch('keydown', { key: 'Escape', isComposing: true }); assert.equal(h.view.openDialog, true);
+    const escape = h.view.doc.activeElement.dispatch('keydown', { key: 'Escape' });
+    assert.equal(escape.prevented, true); assert.equal(h.view.openDialog, false);
+    pending.resolve({ text: 'Late ignored result', model: 'model-a', origin: 'https://a.synthetic.test' }); await tick(); h.h.controller.dispose();
+});
+for (const granted of [true, false]) test(`comparison permission ${granted} never loses or steals focus`, async () => {
+    const permission = deferred(); const h = await mount({ request: () => permission.promise }); h.selectBoth(); await click(h.ui.review);
+    h.ui.targets[0].allow.focus(); h.ui.targets[0].allow.dispatch('click'); assert.ok(h.view.doc.activeElement === h.ui.status);
+    h.ui.close.focus(); permission.resolve(granted); await tick(); assert.ok(h.view.doc.activeElement === h.ui.close); await h.done();
+});
+test('comparison stale review, retry and save transitions stay keyboard-accessible', async () => {
+    const stale = await mount(); stale.selectBoth(); await click(stale.ui.review); stale.ui.targets[0].key.focus();
+    stale.change({ __localItabAIModelPresetsV1: {} }); assert.ok(stale.view.doc.activeElement === stale.ui.status);
+    stale.view.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(stale.view.openDialog, false); stale.h.controller.dispose();
+    const permission = deferred(); let attempts = 0;
+    const h = await mount({ contains: () => ++attempts === 1 ? Promise.resolve(false) : permission.promise }); h.choose(0, '0'); await click(h.ui.review); await click(h.ui.send);
+    const target = h.ui.targets[0]; target.retryReview.focus(); await click(target.retryReview); assert.ok(h.view.doc.activeElement === target.retryReview);
+    target.retrySend.focus(); target.retrySend.dispatch('click'); assert.ok(h.view.doc.activeElement === h.ui.status); await tick();
+    h.ui.close.focus(); permission.resolve(true); await tick(); assert.ok(h.view.doc.activeElement === h.ui.close); await h.done();
+    const saved = deferred(); const s = await mount({ mutate: () => saved.promise }); s.choose(0, '0'); await click(s.ui.review); await click(s.ui.send);
+    s.ui.targets[0].save.focus(); s.ui.targets[0].save.dispatch('click'); assert.ok(s.view.doc.activeElement === s.ui.status);
+    s.ui.targets[0].output.focus(); saved.resolve(); await tick(); assert.ok(s.view.doc.activeElement === s.ui.targets[0].output);
+    s.view.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(s.view.openDialog, false); s.h.controller.dispose();
+});
+test('comparison late async completion cannot focus a closed dialog or replace a live target', async () => {
+    const pending = deferred(); const h = await mount({ run: () => pending.promise }); h.choose(0, '0'); await click(h.ui.review); await click(h.ui.send);
+    h.ui.close.focus(); pending.resolve({ text: 'Synthetic response', model: 'model-a', origin: 'https://a.synthetic.test' }); await tick(); assert.ok(h.view.doc.activeElement === h.ui.close); await h.done();
+    const permission = deferred(); const closed = await mount({ request: () => permission.promise }); closed.choose(0, '0'); await click(closed.ui.review);
+    closed.ui.targets[0].allow.focus(); closed.ui.targets[0].allow.dispatch('click'); await click(closed.ui.close);
+    const newer = closed.view.doc.createElement('button'); closed.view.doc.body.append(newer); newer.focus(); permission.resolve(false); await tick();
+    assert.ok(closed.view.doc.activeElement === newer); closed.h.controller.dispose();
+});

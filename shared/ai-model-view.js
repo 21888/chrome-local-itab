@@ -30,7 +30,7 @@
         const before = refining ? field('RefineBefore', 'Before: current saved template (no filled values)', 'textarea', template.body) : null;
         if (before) { before.readOnly = true; before.rows = 6; }
         const prompt = field('Prompt', 'Exact prompt to send', 'textarea', refining ? '' : preview.text); prompt.readOnly = true; prompt.rows = 6;
-        const status = el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+        const status = el('p', 'prompt-help'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
         const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', refining ? t('RefineAfter', 'Proposed template draft (editable; not saved)') : t('Response', 'Model response'));
         const partialLabel = el('p', 'prompt-help', t('StreamPartial', 'Partial response only. It cannot be saved unless this request completes successfully.')); partialLabel.hidden = true;
@@ -76,7 +76,7 @@
                 SAVE: ['SaveError', 'Could not confirm the save. Your response remains here. Retry uses the same save operation.']
             }; const message = messages[code] || messages.SAVE; return t(...message);
         };
-        function update() {
+        function update(focused = view.doc.activeElement) {
             let valid = !refining;
             if (refining) {
                 try { valid = Boolean(response && refinement.current(c, template) && refinement.validateProposal(template, response.text)); } catch (_) {}
@@ -97,6 +97,11 @@
             url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
             presetSelect.disabled = presetName.disabled = presetSave.disabled = !presetAvailable || busy || saving || permissionPending || presetPending || Boolean(response);
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
+            // Disabling or hiding the focused control blurs it to body in Chrome.
+            // Keep this dialog's keyboard scope without stealing another live focus.
+            if (!closed && !trialUI && !overlay.hidden && overlay.isConnected && overlay.contains(focused) &&
+                (focused.disabled || focused.closest('[hidden], [inert]')) &&
+                (view.doc.activeElement === focused || view.doc.activeElement === view.doc.body)) status.focus();
         }
         function sourceCurrent() {
             return c.sessionReady() && c.record()?.id === source.promptId && c.session() === session &&
@@ -170,10 +175,11 @@
         function guard(event) { if (busy || saving || (response && !saved)) { event.preventDefault(); event.returnValue = ''; } }
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
+            const focused = view.doc.activeElement;
             suspended = true; stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
             if (reviewedStream) { response = null; partialText = ''; output.value = ''; output.hidden = true; partialLabel.hidden = true; status.textContent = t('StreamStale', 'The prompt source changed or this dialog was interrupted. Review again before sending.'); }
             if (refining) { response = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
-            update();
+            update(focused);
         }
         const review = button('Review', 'Review request', () => {
             if (c.disposed || busy || saving || permissionPending || presetPending) return;
