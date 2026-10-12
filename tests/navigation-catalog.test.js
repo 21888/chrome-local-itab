@@ -41,9 +41,9 @@ test('library text palettes meet AA contrast in both color modes and narrow layo
  const css=fs.readFileSync('navigation-library.css','utf8');
  const luminance=hex=>{const rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return rgb.reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);};
  const ratio=(a,b)=>{const [lo,hi]=[luminance(a),luminance(b)].sort((a,b)=>a-b);return(hi+.05)/(lo+.05);};
- for(const [muted,card,bg,accent,selected] of [['#667286','#ffffff','#f7f9fc','#3c54cb','#edf0ff'],['#a9b4c7','#222c40','#172034','#b0bfff','#303e64']]){
+ for(const [muted,card,bg,accent,selected] of [['#626e82','#ffffff','#f7f9fc','#3c54cb','#edf0ff'],['#a9b4c7','#222c40','#172034','#b0bfff','#303e64']]){
   for(const color of [muted,bg,accent,selected])assert.ok(css.includes(color));
-  assert.ok(ratio(muted,card)>=4.5);assert.ok(ratio(muted,bg)>=4.5);assert.ok(ratio(accent,selected)>=4.5);
+  assert.ok(ratio(muted,card)>=4.5);assert.ok(ratio(muted,bg)>=4.5);assert.ok(ratio(muted,selected)>=4.5);assert.ok(ratio(accent,selected)>=4.5);
  }
  assert.match(css,/@media \(max-width: 520px\)[\s\S]*grid-template-columns: 1fr/);assert.match(css,/:focus-visible/);assert.match(css,/prefers-reduced-motion/);
 });
