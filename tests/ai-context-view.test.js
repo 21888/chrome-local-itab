@@ -545,3 +545,106 @@ test('selected-only remains view-only through pending request, answer, and snaps
     assert.equal(h.host.querySelectorAll('textarea').find(node => node.rows === 8).value, 'Synthetic answer');
     assert.equal(h.calls.length, 1); assert.equal(h.b.writes + h.c.writes, 0);
 });
+
+const batchSources = () => Array.from({ length: 25 }, (_, i) => ({ id: `collection:batch-${i}`, label: `${i < 10 ? 'Match' : 'Other'} ${i}`, text: `Synthetic excerpt ${i}`, scope: 'library' }));
+const selectedRows = h => sourceRows(h).filter(row => row.querySelector('input').checked);
+const batchSelect = h => h.byText('Select visible unselected');
+const batchClear = h => h.byText('Clear all selections');
+test('batch selection adds all ten visible to two hidden selections, invalidates exactly once, and never performs I/O', async () => {
+    const h = await model(undefined, { sources: batchSources(), blurUnavailableFocus: true }), rows = sourceRows(h);
+    choose(rows[20]); choose(rows[24]); h.input(h.field('search'), '  mAtCh  '); h.click('Review exact'); await settle();
+    const generation = h.controller.generation, reads = h.b.reads + h.c.reads;
+    for (const method of ['readSources', 'loadSources', 'review', 'send', 'allow']) h.controller[method] = () => { throw Error(`batch called ${method}`); };
+    h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('batch requested permission'); };
+    assert.match(batchSelect(h).textContent, /\(10\)/); batchSelect(h).focus(); h.click('Select visible unselected');
+    assert.equal(selectedRows(h).length, 12); assert.deepEqual(selectedRows(h), [...rows.slice(0, 10), rows[20], rows[24]]);
+    assert.equal(h.controller.generation, generation + 1); assert.equal(h.controller.reviewed, null);
+    assert.equal(h.host.querySelector('.ai-context-review').hidden, true); assert.equal(h.byText('Send reviewed').disabled, true);
+    assert.equal(h.document.activeElement, h.byText('Show selected only'));
+    assert.match(batchClear(h).textContent, /12; including hidden: 2/);
+    batchSelect(h).dispatch('click'); assert.equal(h.controller.generation, generation + 1);
+    assert.equal(h.b.reads + h.c.reads, reads); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.calls.length, 0);
+});
+test('over-limit batches are atomic: three hidden plus ten and thirteen visible select nothing, preserve review', async () => {
+    for (const hidden of [0, 3]) {
+        const sources = hidden ? batchSources() : batchSources().slice(0, 13).map(s => ({ ...s, label: 'Match' }));
+        const h = await model(undefined, { sources }), rows = sourceRows(h);
+        if (hidden) rows.slice(20, 23).forEach(row => choose(row));
+        h.input(h.field('search'), 'Match'); h.click('Review exact'); await settle();
+        const reviewed = h.controller.reviewed, generation = h.controller.generation;
+        assert.equal(batchSelect(h).disabled, true); assert.match(h.host.querySelector('.ai-context-source-batch-help').textContent, /13 \/ 12.*Nothing will be partially selected/);
+        batchSelect(h).dispatch('click'); assert.equal(selectedRows(h).length, hidden);
+        assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, generation);
+    }
+});
+test('empty/repeated and selected-only batch selection are no-ops preserving exact review', async () => {
+    const h = await model(undefined, { sources: batchSources() });
+    h.input(h.field('search'), 'no match'); h.click('Review exact'); await settle();
+    const reviewed = h.controller.reviewed, generation = h.controller.generation;
+    for (let i = 0; i < 2; i++) { batchSelect(h).dispatch('click'); batchClear(h).dispatch('click'); }
+    assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, generation);
+    h.click('Show selected only'); h.click('Clear title search');
+    assert.match(batchSelect(h).textContent, /\(0\)/); batchSelect(h).dispatch('click');
+    assert.equal(selectedRows(h).length, 0); assert.equal(h.controller.reviewed, reviewed);
+});
+test('clear all includes hidden selections and preserves draft fields, exact nodes, edits, dirty guard and focus', async () => {
+    const h = await model(undefined, { populate: false, sources: batchSources(), blurUnavailableFocus: true }), rows = sourceRows(h);
+    choose(rows[0]); choose(rows[24]); const excerpt = rows[24].querySelector('textarea'); h.input(excerpt, 'Edited and kept');
+    h.input(h.field('url'), 'https://mock.example/v1/chat/completions'); h.input(h.field('text'), 'mock');
+    h.input(h.host.querySelectorAll('textarea')[0], 'Keep my question');
+    h.input(answerTitle(h), 'Local title'); h.input(h.field('password'), 'synthetic-only');
+    h.input(h.field('search'), 'Match'); h.click('Show selected only'); const generation = h.controller.generation;
+    batchClear(h).focus(); h.click('Clear all selections');
+    assert.equal(selectedRows(h).length, 0); assert.equal(h.controller.generation, generation + 1);
+    assert.equal(h.field('search').value, 'Match'); assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true');
+    assert.equal(visibleRows(h).length, 0); assert.equal(h.document.activeElement, h.byText('Show selected only'));
+    assert.deepEqual(sourceRows(h), rows); assert.equal(rows[24].querySelector('textarea'), excerpt); assert.equal(excerpt.value, 'Edited and kept');
+    for (const row of rows) assert.equal(row.querySelector('textarea').hidden, true);
+    assert.equal(answerTitle(h).value, 'Local title'); assert.equal(h.field('password').value, 'synthetic-only'); assert.equal(h.field('url').value, 'https://mock.example/v1/chat/completions');
+    assert.equal(h.view.hasUncommittedWork(), true); assert.equal(unloadEvent(h).prevented, true);
+    assert.equal(h.host.querySelectorAll('textarea')[0].value, 'Keep my question');
+    h.input(h.host.querySelectorAll('textarea')[0], ''); h.input(answerTitle(h), ''); assert.equal(h.view.hasUncommittedWork(), true);
+    const beforeNoop = h.controller.generation; batchClear(h).dispatch('click'); assert.equal(h.controller.generation, beforeNoop);
+});
+test('controller rejection occurs before batch checkbox mutation and preserves reviewed UI', async () => {
+    const h = await model(undefined, { sources: batchSources() }); choose(sourceRows(h)[24]); h.input(h.field('search'), 'Match');
+    h.click('Review exact'); await settle(); const reviewed = h.controller.reviewed, preview = h.host.querySelector('.ai-context-review');
+    h.controller.edit = () => { throw api.fault('BUSY'); };
+    batchSelect(h).dispatch('click'); batchClear(h).dispatch('click');
+    assert.equal(selectedRows(h).length, 1); assert.equal(sourceRows(h)[0].querySelector('textarea').hidden, true);
+    assert.equal(h.controller.reviewed, reviewed); assert.equal(preview.hidden, false);
+});
+test('busy, task retry and save retry disable both batch actions and handler rechecks without an intervening render', async () => {
+    for (const property of ['busy', 'taskCommand', 'saveCommand']) {
+        const h = await model(undefined, { sources: batchSources() }); choose(sourceRows(h)[24]); h.input(h.field('search'), 'Match');
+        const generation = h.controller.generation; h.controller[property] = true;
+        batchSelect(h).dispatch('click'); batchClear(h).dispatch('click'); assert.equal(selectedRows(h).length, 1);
+        h.input(h.field('search'), 'Match'); assert.equal(batchSelect(h).disabled, true); assert.equal(batchClear(h).disabled, true);
+        assert.equal(h.controller.generation, generation); h.controller[property] = false;
+        h.input(h.field('search'), 'Match'); assert.equal(batchSelect(h).disabled, false); assert.equal(batchClear(h).disabled, false);
+    }
+});
+test('pending review, preset write and disposed panel reject direct batch events', async () => {
+    const h = await model(undefined, { sources: batchSources() }); choose(sourceRows(h)[24]); h.input(h.field('search'), 'Match');
+    const gate = deferred(); h.controller.ensureActive = () => gate.promise;
+    h.click('Review exact'); const generation = h.controller.generation;
+    assert.equal(h.controller.busy, false); assert.equal(batchSelect(h).disabled, true); assert.equal(batchClear(h).disabled, true);
+    batchSelect(h).dispatch('click'); batchClear(h).dispatch('click'); assert.equal(selectedRows(h).length, 1); assert.equal(h.controller.generation, generation);
+    gate.resolve(); await settle();
+    const presetGate = deferred(), p = await model({ read: async () => ({ records: [] }), save: () => presetGate.promise }, { sources: batchSources() });
+    choose(sourceRows(p)[24]); p.input(p.field('search'), 'Match'); p.click('Save connection preset'); const pg = p.controller.generation;
+    assert.equal(batchSelect(p).disabled, true); assert.equal(batchClear(p).disabled, true);
+    batchSelect(p).dispatch('click'); batchClear(p).dispatch('click'); assert.equal(selectedRows(p).length, 1); assert.equal(p.controller.generation, pg);
+    presetGate.resolve({ records: [] }); await settle();
+    const select = batchSelect(p), clear = batchClear(p), rows = sourceRows(p); p.view.destroy(); const dg = p.controller.generation;
+    assert.equal(select.disabled, true); assert.equal(clear.disabled, true);
+    select.dispatch('click'); clear.dispatch('click'); assert.equal(rows.filter(row => row.querySelector('input').checked).length, 1); assert.equal(p.controller.generation, dg);
+});
+test('batch selection does not waive excerpt or serialized prompt limits', async () => {
+    for (const lengths of [[16001], [16000, 16000]]) {
+        const h = await model(undefined, { sources: lengths.map((length, i) => ({ id: `collection:limit-${i}`, label: `Limit ${i}`, text: 'x'.repeat(length), scope: 'library' })) });
+        h.click('Select visible unselected'); assert.equal(selectedRows(h).length, lengths.length);
+        h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed, null); assert.equal(h.byText('Send reviewed').disabled, true);
+        assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+    }
+});

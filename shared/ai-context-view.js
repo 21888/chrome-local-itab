@@ -39,10 +39,16 @@
         const showSelected = button('SourceSelectedOnly', 'Show selected only', () => { selectedOnly = !selectedOnly; filterSources(); });
         showSelected.className = 'ai-context-selected-only'; showSelected.setAttribute('aria-pressed', 'false');
         searchActions.append(clearSearch, showSelected);
+        const batchActions = el('div', 'ai-context-actions');
+        const selectVisible = button('SourceSelectVisible', 'Select visible unselected sources', () => changeSelection(false));
+        const clearSelection = button('SourceClearSelection', 'Clear all selections', () => changeSelection(true));
+        batchActions.append(selectVisible, clearSelection);
+        const batchHelp = el('p', 'ai-context-source-batch-help'); batchHelp.id = 'ai-context-source-batch-help';
+        selectVisible.setAttribute('aria-describedby', batchHelp.id); clearSelection.setAttribute('aria-describedby', batchHelp.id);
         const searchCount = el('p', 'ai-context-source-count'); searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
-        box.append(searchLabel, searchActions, searchCount, el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.')), searchEmpty);
+        box.append(searchLabel, searchActions, searchCount, el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.')), searchEmpty, batchActions, batchHelp);
         const sourceList = el('div', 'ai-context-sources'); box.append(sourceList);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         box.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
@@ -71,6 +77,7 @@
         function filterSources() {
             const query = sourceSearch.value.trim().toLowerCase();
             // Capture focus before hiding a row: browsers may move it to body immediately.
+            const batchFocused = doc.activeElement;
             const focusedIndex = sourceRows.findIndex(row => row.node.contains(doc.activeElement));
             let visible = 0, selected = 0, hiddenSelected = 0;
             for (const row of sourceRows) {
@@ -90,6 +97,15 @@
                 (next?.check || showSelected).focus();
             }
             clearSearch.disabled = !sourceSearch.value;
+            const count = sourceRows.filter(row => !row.node.hidden && !row.check.checked).length;
+            const blocked = selectionBlocked();
+            selectVisible.textContent = `${label('SourceSelectVisible', 'Select visible unselected sources')} (${count})`;
+            clearSelection.textContent = `${label('SourceClearSelection', 'Clear all selections')} (${selected}; ${label('SourceIncludingHidden', 'including hidden')}: ${hiddenSelected})`;
+            selectVisible.disabled = blocked || !count || selected + count > 12;
+            clearSelection.disabled = blocked || !selected;
+            batchHelp.textContent = `${label('SourceBatchTotal', 'Selection after adding visible sources')}: ${selected + count} / 12. ${selected + count > 12 ? label('SourceBatchOver', 'Too many sources: narrow the title search or deselect sources first. Nothing will be partially selected.') + ' ' : ''}${label('SourceBatchHelp', 'Changing selections requires a new review. Clear all includes hidden selections and keeps your question, filters and edited excerpts. Character limits still apply; nothing is sent or saved.')}`;
+            // Capture the button before disabling it: native browsers may blur immediately.
+            if ((batchFocused === selectVisible || batchFocused === clearSelection) && batchFocused.disabled) showSelected.focus();
         }
         sourceSearch.addEventListener('input', filterSources);
         function updateBudget() {
@@ -126,6 +142,23 @@
         }
         function invalidate() {
             try { controller.edit(); if (!titleEdited) answerTitle.value = ''; includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
+            update();
+        }
+        function selectionBlocked() {
+            return disposed || pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand);
+        }
+        function changeSelection(clear) {
+            if (selectionBlocked()) return;
+            // Compute the entire intended set from the current view, never truncate it.
+            const query = sourceSearch.value.trim().toLowerCase();
+            const selected = sourceRows.filter(row => row.check.checked);
+            const changed = clear ? selected : sourceRows.filter(row => !row.check.checked && !selectedOnly && row.searchTitle.includes(query));
+            if (!changed.length || (!clear && selected.length + changed.length > 12)) return;
+            // Authorize the edit before touching any checkbox or its editor.
+            try { controller.edit(); } catch (_) { error(); update(); return; }
+            for (const row of changed) { row.check.checked = !clear; row.input.hidden = clear; }
+            includeContext.checked = false; reviewText.hidden = outputLabel.hidden = taskList.hidden = true;
+            status.textContent = label('SourceBatchChanged', 'Selection changed. Review the exact request again before sending.');
             update();
         }
         function renderPresets() {
@@ -195,7 +228,7 @@
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksSaved', 'Reviewed tasks added to this workspace.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; selectedOnly = false; filterSources(); updateBudget(); });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
@@ -222,7 +255,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; selectVisible.disabled = clearSelection.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();

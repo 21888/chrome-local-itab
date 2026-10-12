@@ -5365,5 +5365,26 @@
   },
   "navigationTagAdvertiserSearch": {
     "message": "Advertiser search"
+  },
+  "aiContextSourceSelectVisible": {
+    "message": "Select visible unselected sources"
+  },
+  "aiContextSourceClearSelection": {
+    "message": "Clear all selections"
+  },
+  "aiContextSourceIncludingHidden": {
+    "message": "including hidden"
+  },
+  "aiContextSourceBatchTotal": {
+    "message": "Selection after adding visible sources"
+  },
+  "aiContextSourceBatchOver": {
+    "message": "Too many sources: narrow the title search or deselect sources first. Nothing will be partially selected."
+  },
+  "aiContextSourceBatchHelp": {
+    "message": "Changing selections requires a new review. Clear all includes hidden selections and keeps your question, filters and edited excerpts. Character limits still apply; nothing is sent or saved."
+  },
+  "aiContextSourceBatchChanged": {
+    "message": "Selection changed. Review the exact request again before sending."
   }
 }

@@ -5365,5 +5365,26 @@
   },
   "navigationTagAdvertiserSearch": {
     "message": "广告主查询"
+  },
+  "aiContextSourceSelectVisible": {
+    "message": "选择当前可见未选项"
+  },
+  "aiContextSourceClearSelection": {
+    "message": "清空全部选择"
+  },
+  "aiContextSourceIncludingHidden": {
+    "message": "含隐藏"
+  },
+  "aiContextSourceBatchTotal": {
+    "message": "加入可见未选项后的选择总数"
+  },
+  "aiContextSourceBatchOver": {
+    "message": "数量超限：请缩小标题搜索范围或先取消部分选择，不会只选前 12 项。"
+  },
+  "aiContextSourceBatchHelp": {
+    "message": "修改选择后需要重新审阅。清空包括隐藏的已选项，保留问题、筛选和已编辑摘录。字符长度限制仍然适用；不会发送或保存。"
+  },
+  "aiContextSourceBatchChanged": {
+    "message": "选择已修改，发送前请重新审阅完整请求。"
   }
 }

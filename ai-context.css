@@ -20,7 +20,7 @@
 .ai-context-save-context p { overflow-wrap: anywhere; }
 .ai-context-budget,.ai-context-budget-help,.ai-context-source-budget { overflow-wrap: anywhere; }
 .ai-context-budget { padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .5rem; }
-.ai-context-source-count,.ai-context-source-empty,.ai-context-source-search-help { overflow-wrap: anywhere; }
+.ai-context-source-count,.ai-context-source-empty,.ai-context-source-search-help,.ai-context-source-batch-help { overflow-wrap: anywhere; }
 .ai-context-field,.ai-context-source { min-width: 0; overflow-wrap: anywhere; }
 
 .ai-context-selected-only[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: -3px; font-weight: 600; }
