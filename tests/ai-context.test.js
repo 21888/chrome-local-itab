@@ -314,3 +314,81 @@ test('Stop does not unlock or cancel a pending local answer write', async () => 
     gate.resolve(); await waiting; await saving;
     assert.equal(h.controller.saved, true); assert.equal(h.collectionBackend.writes, 1);
 });
+
+test('local input usage shares exact serialized prompt for both modes and counts UTF-16/escaping', () => {
+    const selected = [{ id: 'collection:"id', label: '<script>😀</script>', text: '😀\n\t"\\text' }];
+    for (const mode of ['answer', 'tasks']) {
+        const before = JSON.stringify(selected), info = api.inspectInput('Why 😀?', selected, mode);
+        assert.equal(info.valid, true); assert.equal(info.count, 1); assert.equal(info.questionLength, 7);
+        assert.equal(info.promptLength, api.pack('Why 😀?', selected, mode).prompt.length);
+        assert.equal(JSON.stringify(selected), before);
+    }
+    assert.notEqual(api.inspectInput('q', selected, 'answer').promptLength, api.inspectInput('q', selected, 'tasks').promptLength);
+});
+test('local input usage exactly exposes source and serialized prompt boundaries without truncation', () => {
+    const source = text => ({ id: 'x', label: 'x', text });
+    assert.equal(api.inspectInput('q', [source('x'.repeat(16000))]).valid, true);
+    let info = api.inspectInput('q', [source('x'.repeat(16001))]);
+    assert.equal(info.valid, false); assert(info.promptLength > 16001); assert(info.promptLength < 32000);
+    assert.throws(() => api.pack('q', [source('x'.repeat(16001))]), { code: 'LIMIT' });
+    const pair = [source('x'.repeat(16000)), { ...source('y'.repeat(16000)), id: 'y' }];
+    assert(api.inspectInput('q', pair).promptLength > 32000);
+    assert.equal(api.inspectInput('q', pair).valid, false);
+    const quoted = [source('"'.repeat(16000))];
+    assert(api.inspectInput('q', quoted).promptLength > 32000); assert.equal(api.inspectInput('q', quoted).valid, false);
+    const base = [source('x'.repeat(16000)), { ...source('y'), id: 'y' }];
+    base[1].text += 'y'.repeat(32000 - api.inspectInput('q', base).promptLength);
+    assert.equal(api.inspectInput('q', base).promptLength, 32000); assert.equal(api.inspectInput('q', base).valid, true);
+    base[1].text += 'y'; assert.equal(api.inspectInput('q', base).promptLength, 32001); assert.equal(api.inspectInput('q', base).valid, false);
+});
+test('local input usage handles count/question bounds and invalid or extreme inputs without throwing', () => {
+    const list = Array.from({ length: 13 }, (_, i) => ({ id: String(i), label: 'x', text: 'x' }));
+    assert.equal(api.inspectInput('q', list.slice(0, 12)).valid, true);
+    assert.equal(api.inspectInput('q', list).count, 13); assert.equal(api.inspectInput('q', list).valid, false);
+    assert.equal(api.inspectInput('q'.repeat(4000), []).valid, true);
+    assert.equal(api.inspectInput('q'.repeat(4001), []).valid, false);
+    for (const [question, selected, mode] of [['', [], 'answer'], ['\ud800', [], 'answer'], [null, [], 'answer'], ['q', [null], 'answer'], ['q', [{ id: 1n }], 'answer'], ['q', [], 'invalid'], ['q', null, 'answer'], ['q', new Array(1), 'answer']]) {
+        assert.equal(api.inspectInput(question, selected, mode).valid, false);
+    }
+    const huge = [{ id: 'x', label: 'x', text: 'x'.repeat(128001) }];
+    assert.equal(api.inspectInput('q', huge).promptLength, null);
+    assert.equal(api.inspectInput('q', Array(101).fill(list[0])).promptLength, null);
+    const broken = { get id() { throw Error('broken input'); }, label: 'x', text: 'x' };
+    assert.equal(api.inspectInput('q', [broken]).valid, false);
+    assert.equal(api.inspectInput('q', [list[0], list[0]]).valid, false);
+});
+
+test('local input inspection contains throwing/revoked proxies and snapshots changing getters only once', () => {
+    const throwingLength = new Proxy([], { get(target, key, receiver) { if (key === 'length') throw Error('length'); return Reflect.get(target, key, receiver); } });
+    const revoked = Proxy.revocable([], {}); revoked.revoke();
+    const throwingItem = new Proxy([{}], { get(target, key, receiver) { if (key === '0') throw Error('item'); return Reflect.get(target, key, receiver); } });
+    for (const selected of [throwingLength, revoked.proxy, throwingItem]) {
+        const info = api.inspectInput('q', selected); assert.equal(info.valid, false); assert.equal(info.promptLength, null);
+    }
+    for (const field of ['id', 'label', 'text']) {
+        const source = { id: 'x', label: 'x', text: 'x' }, calls = { id: 0, label: 0, text: 0 };
+        const changing = Object.fromEntries(Object.keys(source).map(key => [key, source[key]]));
+        for (const key of Object.keys(source)) Object.defineProperty(changing, key, { get() { calls[key]++; return key === field && calls[key] > 1 ? 'z'.repeat(200000) : source[key]; } });
+        const info = api.inspectInput('q', [changing]);
+        assert.deepEqual(calls, { id: 1, label: 1, text: 1 });
+        assert.equal(info.valid, true); assert.equal(info.promptLength, api.pack('q', [source]).prompt.length);
+    }
+    let lengthReads = 0, itemReads = 0;
+    const changingArray = new Proxy([{ id: 'x', label: 'x', text: 'x' }], { get(target, key, receiver) {
+        if (key === 'length') { lengthReads++; if (lengthReads > 1) throw Error('repeated length'); }
+        if (key === '0') itemReads++;
+        return Reflect.get(target, key, receiver);
+    } });
+    assert.equal(api.inspectInput('q', changingArray).valid, true); assert.equal(lengthReads, 1); assert.equal(itemReads, 1);
+    const customArray = [{ id: 'x', label: 'x', text: 'x' }];
+    customArray[Symbol.iterator] = () => { throw Error('untrusted iterator'); };
+    customArray.map = () => { throw Error('untrusted map'); };
+    assert.equal(api.inspectInput('q', customArray).valid, true);
+    for (const field of ['id', 'label', 'text']) {
+        const source = { id: 'x', label: 'x', text: 'x' };
+        Object.defineProperty(source, field, { get() { throw Error('unreadable field'); } });
+        assert.equal(api.inspectInput('q', [source]).promptLength, null);
+    }
+    const tooLarge = { id: 'x', label: 'x', get text() { return 'z'.repeat(200000); } };
+    assert.equal(api.inspectInput('q', [tooLarge]).promptLength, null);
+});

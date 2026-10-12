@@ -6,13 +6,13 @@ const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 function backend() { let raw; return { writes: 0, lock: fn => fn(), read: async () => structuredClone(raw), async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
-async function model(presetStore, { populate = true } = {}) {
+async function model(presetStore, { populate = true, sources } = {}) {
     const document = createDocument(), host = document.createElement('main'); document.body.append(host);
     const events = new Map(), window = { document, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
     const b = backend(), c = backend(), calls = []; let active = true; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
     const transport = { review: input => ({ ...input, origin: 'https://mock.example', permission: 'https://mock.example:443/*' }), run: async (input, options) => { calls.push({ input, options }); return { text: await reply }; } };
     const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => { if (!active) throw api.fault('WORKSPACE_INVALIDATED'); },
-        readSources: async () => [{ id: 'collection:synthetic', label: '<img src=x>', text: 'synthetic saved text', scope: 'library' }], taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
+        readSources: async () => sources || [{ id: 'collection:synthetic', label: '<img src=x>', text: 'synthetic saved text', scope: 'library' }], taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
     // The DOM model executes UI in a VM; real UI/controller share one realm.
     const review = controller.review.bind(controller);
     controller.review = input => review(JSON.parse(JSON.stringify(input)));
@@ -334,5 +334,38 @@ test('a deliberate unsent answer title is guarded, but restoring or clearing it 
     h.input(title, 'Another synthetic title'); h.click('Cancel / clear');
     assert.equal(title.value, ''); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
     title.value = 'Another programmatic title'; assert.equal(h.view.hasUncommittedWork(), false);
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+});
+
+test('actual view: live local input feedback excludes unselected long sources and updates edits/mode/clear', async () => {
+    const sources = [{ id: 'long', label: '<img src=x> synthetic long', text: 'x'.repeat(16001), scope: 'library' }];
+    const h = await model(undefined, { sources });
+    const budget = h.host.querySelector('.ai-context-budget'), row = h.host.querySelector('.ai-context-source');
+    const usage = row.querySelector('.ai-context-source-budget'), excerpt = row.querySelector('textarea'), check = row.querySelector('input');
+    assert.match(budget.textContent, /Selected excerpts: 0 \/ 12/); assert.equal(usage.hidden, true);
+    h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed.packed.sources.length, 0);
+    check.checked = true; check.dispatch('change'); assert.equal(h.controller.reviewed, null); assert.equal(h.byText('Send reviewed').disabled, true);
+    assert.match(usage.textContent, /16001 \/ 16000 \(Over limit\)/); assert.equal(usage.hidden, false);
+    assert.equal(excerpt.value.length, 16001); h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed, null);
+    h.input(excerpt, '"'.repeat(16000)); assert.match(usage.textContent, /16000 \/ 16000$/); assert.match(budget.textContent, /32000 \(Over limit\)/);
+    h.input(excerpt, '😀'); assert.match(usage.textContent, /2 \/ 16000$/);
+    h.click('Review exact'); await settle(); assert.match(budget.textContent, new RegExp(`Complete prompt: ${h.controller.reviewed.packed.prompt.length} / 32000`));
+    const prior = budget.textContent, mode = h.host.querySelector('select'); mode.value = 'tasks'; mode.dispatch('change');
+    assert.notEqual(prior, budget.textContent); assert.equal(h.controller.reviewed, null);
+    h.input(h.host.querySelectorAll('textarea')[0], 'New question');
+    const expected = api.inspectInput('New question', [{ ...sources[0], text: '😀' }], 'tasks'); assert.match(budget.textContent, new RegExp(`Complete prompt: ${expected.promptLength} / 32000`));
+    check.checked = false; check.dispatch('change'); assert.equal(usage.hidden, true); assert.equal(excerpt.value, '😀');
+    h.click('Cancel / clear'); assert.match(budget.textContent, /Selected excerpts: 0 \/ 12/); assert.match(budget.textContent, /Question: 0 \/ 4000/); assert.equal(excerpt.value.length, 16001);
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.host.querySelectorAll('img').length, 0);
+});
+test('actual view: selected count and exact two-excerpt total identify oversized and unavailable drafts', async () => {
+    const sources = Array.from({ length: 13 }, (_, i) => ({ id: String(i), label: `Synthetic ${i}`, text: 'x'.repeat(16000), scope: 'library' }));
+    const h = await model(undefined, { sources }), budget = h.host.querySelector('.ai-context-budget'), rows = h.host.querySelectorAll('.ai-context-source');
+    for (const row of rows.slice(0, 2)) { const check = row.querySelector('input'); check.checked = true; check.dispatch('change'); }
+    const expected = api.inspectInput('Create tasks', sources.slice(0, 2));
+    assert.match(budget.textContent, new RegExp(`Complete prompt: ${expected.promptLength} / 32000 \\(Over limit\\)`));
+    for (const row of rows.slice(2)) { const check = row.querySelector('input'); check.checked = true; check.dispatch('change'); }
+    assert.match(budget.textContent, /13 \/ 12 \(Over limit\)/); assert.match(budget.textContent, /Not calculated/);
+    h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed, null); assert.equal(h.byText('Send reviewed').disabled, true);
     assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
 });

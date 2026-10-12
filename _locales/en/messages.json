@@ -5281,5 +5281,26 @@
   },
   "navigationLibraryRemoveFilter": {
     "message": "Remove filter"
+  },
+  "aiContextBudgetHelp": {
+    "message": "Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection."
+  },
+  "aiContextBudgetOver": {
+    "message": "Over limit"
+  },
+  "aiContextBudgetUnknown": {
+    "message": "Not calculated: invalid or unusually large input"
+  },
+  "aiContextBudgetSelected": {
+    "message": "Selected excerpts"
+  },
+  "aiContextBudgetQuestion": {
+    "message": "Question"
+  },
+  "aiContextBudgetPrompt": {
+    "message": "Complete prompt"
+  },
+  "aiContextBudgetInvalid": {
+    "message": "Correct empty, invalid or over-limit input before review."
   }
 }

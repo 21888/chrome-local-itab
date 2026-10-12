@@ -5281,5 +5281,26 @@
   },
   "navigationLibraryRemoveFilter": {
     "message": "移除筛选"
+  },
+  "aiContextBudgetHelp": {
+    "message": "本地字符限制按 UTF-16 计数，部分 emoji 计为 2。不是 token、费用或服务商额度；总数包含指令、标签和 JSON 转义。不会自动截断或取消选择。"
+  },
+  "aiContextBudgetOver": {
+    "message": "超出限制"
+  },
+  "aiContextBudgetUnknown": {
+    "message": "未计算：输入无效或异常大"
+  },
+  "aiContextBudgetSelected": {
+    "message": "已选摘录"
+  },
+  "aiContextBudgetQuestion": {
+    "message": "问题"
+  },
+  "aiContextBudgetPrompt": {
+    "message": "完整提示词"
+  },
+  "aiContextBudgetInvalid": {
+    "message": "请先修正空白、无效或超限的输入，再审阅。"
   }
 }

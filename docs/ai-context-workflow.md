@@ -17,6 +17,10 @@ Enter the endpoint, model, optional key and question; choose **Answer** or **Dra
 
 Limits: 12 excerpts, 16,000 UTF-16 units per excerpt, 4,000 for the question, 32,000 for the complete outgoing prompt or response. Requests exceeding any bound fail rather than silently truncate. The common client's bounded response parser, redirects/cookie restrictions, 60-second deadline and exact endpoint validation remain unchanged.
 
+The panel shows live selected-count, selected-excerpt, question and complete serialized-prompt usage. Counts use the same UTF-16 lengths as strict validation (some emoji count as two), not token estimates, cost estimates or provider quotas. Instructions, source IDs/labels and JSON escaping count toward the prompt. Unselected excerpts do not count, even when their saved originals exceed the outgoing excerpt limit. Over-limit excerpts are identified next to their editable text; edit or deselect them yourself. Editing question, mode, selection or excerpts refreshes usage and invalidates the previous review. Cancel resets usage. There is no automatic truncation, deselection, permission request, send or save.
+
+Invalid content can still have a measurable length; a count within bounds does not override validation. For malformed fields, more than 100 selected items, or more than 128,000 raw input units (question plus selected IDs, labels and text), the complete length is explicitly “not calculated” to bound local serialization work. Such input cannot be sent. Ordinary valid input, 16,001-character excerpts, two 16,000-character excerpts and JSON-escape expansion are measured exactly with the same prompt constructor used for packing.
+
 ## Saving answers and tasks
 
 **Save answer to AI collection** explicitly adds the full reply to the existing global collection store. By default it saves no question or source snapshot and does not assert that model citations are verified. The answer may repeat private input and joins existing unencrypted local backups. No prompt-version reference is fabricated for a context question. Failed or uncertain save acknowledgement retains the immutable command for an explicit idempotent retry.

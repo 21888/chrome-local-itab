@@ -18,3 +18,5 @@
 .ai-context-save-context > label { display: flex; align-items: flex-start; gap: .5rem; }
 .ai-context-save-context input[type=checkbox] { flex: none; width: 1.2rem; height: 1.2rem; }
 .ai-context-save-context p { overflow-wrap: anywhere; }
+.ai-context-budget,.ai-context-budget-help,.ai-context-source-budget { overflow-wrap: anywhere; }
+.ai-context-budget { padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .5rem; }

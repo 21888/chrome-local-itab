@@ -31,6 +31,8 @@
         let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false;
         box.append(el('p', '', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included.')));
         const sourceList = el('div', 'ai-context-sources'); box.append(sourceList);
+        const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
+        box.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
         const sourceRows = [], reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
         const status = el('p', 'ai-context-status'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const outputLabel = el('label', 'ai-context-field', label('Response', 'Model response (unverified text; task JSON can be edited before review)'));
@@ -51,7 +53,19 @@
             const errors = { CANCELLED: ['Stopped', 'Stopped. The provider may still charge for work already started.'], CONTEXT_LIMIT: ['SnapshotLimit', 'The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer.'], SIZE_LIMIT: ['SnapshotCapacity', 'The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer.'], TASK_UNCERTAIN: ['UncertainTasks', 'The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch.'], TASK_FORMAT: ['TaskFormat', 'Use exactly {"tasks":["one task","another task"]}, with 1–50 single-line tasks and no extra fields.'], LIMIT: ['Limit', 'The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request.'], CONFLICT: ['Changed', 'The task list changed. Review the extracted tasks again before adding them.'], PERMISSION: ['Permission', 'Allow the reviewed endpoint before sending.'] };
             if (errors[code]) { status.textContent = label(...errors[code]); return; }
             status.textContent = label('Error', 'Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation.'); };
+        const selectedSources = () => sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: row.input.value }));
+        function updateBudget() {
+            const info = controller.inspectInput(question.value, selectedSources(), mode.value);
+            const over = label('BudgetOver', 'Over limit');
+            const unknown = label('BudgetUnknown', 'Not calculated: invalid or unusually large input');
+            budget.textContent = `${label('BudgetSelected', 'Selected excerpts')}: ${info.count} / 12${info.count > 12 ? ` (${over})` : ''} · ${label('BudgetQuestion', 'Question')}: ${info.questionLength} / 4000 · ${label('BudgetPrompt', 'Complete prompt')}: ${info.promptLength === null ? unknown : `${info.promptLength} / 32000${info.promptLength > 32000 ? ` (${over})` : ''}`}${info.valid ? '' : ` · ${label('BudgetInvalid', 'Correct empty, invalid or over-limit input before review.')}`}`;
+            for (const row of sourceRows) {
+                row.budget.hidden = !row.check.checked;
+                row.budget.textContent = row.check.checked ? `${label('Excerpt', 'Outgoing excerpt')}: ${row.input.value.length} / 16000${row.input.value.length > 16000 ? ` (${over})` : ''}` : '';
+            }
+        }
         function update() {
+            updateBudget();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
             // The title is local save metadata, not part of the reviewed request.
@@ -110,7 +124,7 @@
             finally { pending = false; if (!disposed) update(); }
         }
         const review = button('Review', 'Review exact request', () => action(async () => {
-            const selected = sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: row.input.value }));
+            const selected = selectedSources();
             const result = await controller.review({ url: url.value, model: model.value, question: question.value, selected, mode: mode.value });
             reviewText.textContent = `${result.request.url}\n${result.request.model}\n\n${result.request.prompt}`; reviewText.hidden = false; outputLabel.hidden = taskList.hidden = true;
         }, ['Reviewed', 'Review the full destination, model and exact outgoing text. Source text is reference material, not trusted instructions.']));
@@ -142,7 +156,7 @@
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksSaved', 'Reviewed tasks added to this workspace.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } updateBudget(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
@@ -156,8 +170,9 @@
                 const row = el('label', 'ai-context-source'), check = el('input'); check.type = 'checkbox'; check.checked = false;
                 const input = el('textarea'); input.value = source.text; input.maxLength = 16000; input.rows = 3; input.hidden = true;
                 input.setAttribute('aria-label', `${label('Excerpt', 'Outgoing excerpt')}: ${source.label}`);
-                row.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`), input);
-                sourceRows.push({ source, check, input, initialText: input.value }); sourceList.append(row);
+                const sourceBudget = el('span', 'ai-context-source-budget'); sourceBudget.hidden = true;
+                row.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`), input, sourceBudget);
+                sourceRows.push({ source, check, input, budget: sourceBudget, initialText: input.value }); sourceList.append(row);
                 check.addEventListener('change', () => { input.hidden = !check.checked; invalidate(); }); input.addEventListener('input', invalidate);
             }
         }, ['Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.']);
