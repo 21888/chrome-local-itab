@@ -5323,5 +5323,11 @@
   },
   "aiContextSourceSearchHidden": {
     "message": "Selected but hidden"
+  },
+  "aiContextSourceSelectedOnly": {
+    "message": "Show selected only"
+  },
+  "aiContextSourceSelectedEmpty": {
+    "message": "No selected sources match this view. Clear the title search or turn off Show selected only to see more loaded sources."
   }
 }

@@ -5323,5 +5323,11 @@
   },
   "aiContextSourceSearchHidden": {
     "message": "已选但隐藏"
+  },
+  "aiContextSourceSelectedOnly": {
+    "message": "只看已选"
+  },
+  "aiContextSourceSelectedEmpty": {
+    "message": "当前视图中没有匹配的已选资料。清除标题搜索或关闭“只看已选”，可查看其他已加载资料。"
   }
 }

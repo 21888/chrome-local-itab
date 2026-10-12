@@ -35,7 +35,10 @@
         sourceSearch.autocomplete = 'off'; sourceSearch.spellcheck = false; searchLabel.append(sourceSearch);
         const searchActions = el('div', 'ai-context-actions');
         const clearSearch = button('SourceSearchClear', 'Clear title search', () => { sourceSearch.value = ''; sourceSearch.focus(); filterSources(); });
-        searchActions.append(clearSearch);
+        let selectedOnly = false;
+        const showSelected = button('SourceSelectedOnly', 'Show selected only', () => { selectedOnly = !selectedOnly; filterSources(); });
+        showSelected.className = 'ai-context-selected-only'; showSelected.setAttribute('aria-pressed', 'false');
+        searchActions.append(clearSearch, showSelected);
         const searchCount = el('p', 'ai-context-source-count'); searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
@@ -67,14 +70,25 @@
         // Session-only visibility: never rebuild rows or change the outgoing selection.
         function filterSources() {
             const query = sourceSearch.value.trim().toLowerCase();
+            // Capture focus before hiding a row: browsers may move it to body immediately.
+            const focusedIndex = sourceRows.findIndex(row => row.node.contains(doc.activeElement));
             let visible = 0, selected = 0, hiddenSelected = 0;
             for (const row of sourceRows) {
-                row.node.hidden = !row.searchTitle.includes(query);
+                row.node.hidden = !row.searchTitle.includes(query) || (selectedOnly && !row.check.checked);
                 if (!row.node.hidden) visible++;
                 if (row.check.checked) { selected++; if (row.node.hidden) hiddenSelected++; }
             }
             searchCount.textContent = `${label('SourceSearchShowing', 'Showing')}: ${visible} / ${sourceRows.length} · ${label('SourceSearchSelected', 'Selected')}: ${selected} · ${label('SourceSearchHidden', 'Selected but hidden')}: ${hiddenSelected}`;
-            searchEmpty.hidden = !query || visible > 0;
+            showSelected.setAttribute('aria-pressed', String(selectedOnly));
+            searchEmpty.textContent = selectedOnly
+                ? label('SourceSelectedEmpty', 'No selected sources match this view. Clear the title search or turn off Show selected only to see more loaded sources.')
+                : label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.');
+            searchEmpty.hidden = (!query && !selectedOnly) || visible > 0;
+            if (focusedIndex >= 0 && sourceRows[focusedIndex].node.hidden) {
+                const available = row => !row.node.hidden && !row.check.disabled;
+                const next = sourceRows.slice(focusedIndex + 1).find(available) || sourceRows.slice(0, focusedIndex).reverse().find(available);
+                (next?.check || showSelected).focus();
+            }
             clearSearch.disabled = !sourceSearch.value;
         }
         sourceSearch.addEventListener('input', filterSources);
@@ -181,7 +195,7 @@
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksSaved', 'Reviewed tasks added to this workspace.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; filterSources(); updateBudget(); });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; selectedOnly = false; filterSources(); updateBudget(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
