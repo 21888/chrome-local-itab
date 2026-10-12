@@ -5302,5 +5302,26 @@
   },
   "aiContextBudgetInvalid": {
     "message": "Correct empty, invalid or over-limit input before review."
+  },
+  "aiContextSourceSearch": {
+    "message": "Search loaded source titles"
+  },
+  "aiContextSourceSearchClear": {
+    "message": "Clear title search"
+  },
+  "aiContextSourceSearchEmpty": {
+    "message": "No loaded source titles match. Clear the search to show all loaded sources."
+  },
+  "aiContextSourceSearchHelp": {
+    "message": "Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending."
+  },
+  "aiContextSourceSearchShowing": {
+    "message": "Showing"
+  },
+  "aiContextSourceSearchSelected": {
+    "message": "Selected"
+  },
+  "aiContextSourceSearchHidden": {
+    "message": "Selected but hidden"
   }
 }

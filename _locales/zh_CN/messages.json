@@ -5302,5 +5302,26 @@
   },
   "aiContextBudgetInvalid": {
     "message": "请先修正空白、无效或超限的输入，再审阅。"
+  },
+  "aiContextSourceSearch": {
+    "message": "搜索已加载的资料标题"
+  },
+  "aiContextSourceSearchClear": {
+    "message": "清除标题搜索"
+  },
+  "aiContextSourceSearchEmpty": {
+    "message": "没有匹配的已加载资料标题。清除搜索可显示全部已加载资料。"
+  },
+  "aiContextSourceSearchHelp": {
+    "message": "仅搜索当前面板已加载的标题。隐藏的已选资料仍保持选中，仍会纳入审阅和发送。"
+  },
+  "aiContextSourceSearchShowing": {
+    "message": "显示"
+  },
+  "aiContextSourceSearchSelected": {
+    "message": "已选"
+  },
+  "aiContextSourceSearchHidden": {
+    "message": "已选但隐藏"
   }
 }

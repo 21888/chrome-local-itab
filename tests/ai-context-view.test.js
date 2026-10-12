@@ -5,7 +5,7 @@ const { webcrypto } = require('node:crypto'); global.crypto ||= webcrypto;
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
-function backend() { let raw; return { writes: 0, lock: fn => fn(), read: async () => structuredClone(raw), async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
+function backend() { let raw; return { reads: 0, writes: 0, lock: fn => fn(), async read() { this.reads++; return structuredClone(raw); }, async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
 async function model(presetStore, { populate = true, sources } = {}) {
     const document = createDocument(), host = document.createElement('main'); document.body.append(host);
     const events = new Map(), window = { document, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
@@ -368,4 +368,99 @@ test('actual view: selected count and exact two-excerpt total identify oversized
     assert.match(budget.textContent, /13 \/ 12 \(Over limit\)/); assert.match(budget.textContent, /Not calculated/);
     h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed, null); assert.equal(h.byText('Send reviewed').disabled, true);
     assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+});
+
+const sourceRows = h => h.host.querySelectorAll('.ai-context-source');
+const visibleRows = h => sourceRows(h).filter(row => !row.hidden);
+const sourceCount = h => h.host.querySelector('.ai-context-source-count').textContent;
+const choose = (row, value = true) => { const check = row.querySelector('input'); check.checked = value; check.dispatch('change'); };
+const syntheticSources = count => Array.from({ length: count }, (_, i) => ({
+    id: `collection:synthetic-${i}`, label: `Synthetic title ${i}`, text: `Body-only needle ${i}`, scope: 'library'
+}));
+test('title search covers all 25/201 loaded sources in original order, with literal Chinese/case/HTML matching', async () => {
+    for (const count of [25, 201]) {
+        const sources = syntheticSources(count);
+        sources[0].label = '<img src=x> Alpha 中文';
+        sources[count - 1].label = 'ALPHA 中文 final';
+        const h = await model(undefined, { populate: false, sources });
+        const search = h.field('search'), rows = sourceRows(h);
+        assert.equal(visibleRows(h).length, count);
+        h.input(search, '  aLpHa 中文  ');
+        assert.deepEqual(visibleRows(h), [rows[0], rows[count - 1]]);
+        assert.match(sourceCount(h), new RegExp(`Showing: 2 / ${count}.*Selected: 0.*Selected but hidden: 0`));
+        h.input(search, '<IMG SRC=X>');
+        assert.deepEqual(visibleRows(h), [rows[0]]); assert.equal(h.host.querySelectorAll('img').length, 0);
+        for (const value of ['Body-only needle', 'collection:synthetic-', 'Global collection', '.*']) {
+            h.input(search, value); assert.equal(visibleRows(h).length, 0);
+            assert.equal(h.host.querySelector('.ai-context-source-empty').hidden, false);
+        }
+        h.input(search, '   '); assert.equal(visibleRows(h).length, count);
+        assert.equal(h.host.querySelector('.ai-context-source-empty').hidden, true);
+        assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+        h.click('Clear title search'); assert.equal(search.value, '');
+        assert.equal(h.document.activeElement, search); assert.equal(h.byText('Clear title search').disabled, true);
+        assert.deepEqual(sourceRows(h), rows); assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+    }
+});
+test('search is visibility-only: zero controller/storage/permission/network operations, budget and review preserved', async () => {
+    const h = await model(undefined, { sources: syntheticSources(25) });
+    choose(sourceRows(h)[0]); h.click('Review exact'); await settle();
+    const reviewed = h.controller.reviewed, reviewText = h.host.querySelector('.ai-context-review');
+    const prior = { budget: h.host.querySelector('.ai-context-budget').textContent, text: reviewText.textContent, generation: h.controller.generation,
+        reads: h.b.reads + h.c.reads, writes: h.b.writes + h.c.writes };
+    for (const method of ['loadSources', 'inspectInput', 'edit', 'review', 'send', 'allow']) h.controller[method] = () => { throw Error(`Search called ${method}`); };
+    h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('Search checked permission'); };
+    h.field('search').focus();
+    for (const query of ['not found', 'title 0', '中文', '']) h.input(h.field('search'), query);
+    assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, prior.generation);
+    assert.equal(reviewText.textContent, prior.text); assert.equal(reviewText.hidden, false);
+    assert.equal(h.host.querySelector('.ai-context-budget').textContent, prior.budget);
+    assert.equal(h.document.activeElement, h.field('search'));
+    assert.equal(h.b.reads + h.c.reads, prior.reads); assert.equal(h.b.writes + h.c.writes, prior.writes); assert.equal(h.calls.length, 0);
+});
+test('hidden selected edits stay in request, budget and saved snapshot; searching leaves result/save choice intact', async () => {
+    const h = await model(undefined, { sources: syntheticSources(25) }), row = sourceRows(h)[0], excerpt = row.querySelector('textarea');
+    choose(row); h.input(excerpt, 'Edited synthetic source');
+    h.input(h.field('search'), 'title 24'); assert.equal(row.hidden, true); assert.equal(excerpt.hidden, false);
+    assert.match(sourceCount(h), /Showing: 1 \/ 25.*Selected: 1.*Selected but hidden: 1/);
+    assert.match(h.host.querySelector('.ai-context-budget').textContent, /Selected excerpts: 1 \/ 12/);
+    assert.equal(h.view.hasUncommittedWork(), true);
+    h.setReply('Synthetic answer'); await send(h, 'answer');
+    assert.equal(h.controller.reviewed.packed.sources[0].text, 'Edited synthetic source');
+    const result = h.controller.result, reviewed = h.controller.reviewed;
+    const include = h.host.querySelector('.ai-context-save-context').querySelector('input');
+    include.checked = true; include.dispatch('change');
+    const snapshot = h.host.querySelector('.ai-context-save-context').querySelector('pre').textContent;
+    for (const q of ['', 'no matches']) h.input(h.field('search'), q);
+    assert.equal(h.controller.result, result); assert.equal(h.controller.reviewed, reviewed); assert.equal(include.checked, true);
+    assert.equal(h.host.querySelector('.ai-context-save-context').querySelector('pre').textContent, snapshot);
+    h.click('Save answer');
+    for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
+    const saved = (await h.controller.collectionStore.read()).records[0];
+    assert.match(JSON.stringify(saved), /Edited synthetic source/); assert.equal(h.c.writes, 1);
+});
+test('hidden selections cannot bypass 13-source limit; real edits invalidate; clear draft resets search and row states', async () => {
+    const h = await model(undefined, { sources: syntheticSources(25) }), rows = sourceRows(h);
+    for (const row of rows.slice(0, 13)) choose(row);
+    h.input(h.field('search'), 'title 24');
+    assert.match(sourceCount(h), /Selected: 13.*Selected but hidden: 13/);
+    assert.match(h.host.querySelector('.ai-context-budget').textContent, /13 \/ 12 \(Over limit\)/);
+    h.click('Review exact'); await settle(); assert.equal(h.controller.reviewed, null); assert.equal(h.byText('Send reviewed').disabled, true);
+    choose(rows[12], false); h.click('Review exact'); await settle(); assert(h.controller.reviewed);
+    const excerpt = rows[0].querySelector('textarea'); h.input(excerpt, 'Changed while hidden');
+    assert.equal(h.controller.reviewed, null); assert.equal(h.view.hasUncommittedWork(), true);
+    h.click('Cancel / clear');
+    assert.equal(h.field('search').value, ''); assert.equal(visibleRows(h).length, 25);
+    assert.equal(excerpt.value, 'Body-only needle 0');
+    for (const row of rows) { assert.equal(row.querySelector('input').checked, false); assert.equal(row.querySelector('textarea').hidden, true); }
+    assert.equal(h.view.hasUncommittedWork(), false); assert.match(sourceCount(h), /Showing: 25 \/ 25.*Selected: 0.*Selected but hidden: 0/);
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+});
+test('unselected edited rows stay dirty across search, and restored visibility preserves exact nodes and selection', async () => {
+    const h = await model(undefined, { populate: false, sources: syntheticSources(25) }), row = sourceRows(h)[0];
+    choose(row); const excerpt = row.querySelector('textarea'); h.input(excerpt, 'Unsent edit'); choose(row, false);
+    h.input(h.field('search'), 'title 24'); assert.equal(row.hidden, true); assert.equal(h.view.hasUncommittedWork(), true);
+    h.click('Clear title search'); assert.equal(sourceRows(h)[0], row); assert.equal(row.querySelector('textarea'), excerpt);
+    assert.equal(excerpt.value, 'Unsent edit'); assert.equal(excerpt.hidden, true); assert.equal(row.querySelector('input').checked, false);
+    h.click('Cancel / clear'); assert.equal(h.view.hasUncommittedWork(), false);
 });

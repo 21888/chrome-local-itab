@@ -30,6 +30,16 @@
         const presetActions = el('div', 'ai-context-actions'); box.append(presetActions);
         let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false;
         box.append(el('p', '', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included.')));
+        const searchLabel = el('label', 'ai-context-field', label('SourceSearch', 'Search loaded source titles'));
+        const sourceSearch = el('input', 'ai-context-source-search'); sourceSearch.type = 'search';
+        sourceSearch.autocomplete = 'off'; sourceSearch.spellcheck = false; searchLabel.append(sourceSearch);
+        const searchActions = el('div', 'ai-context-actions');
+        const clearSearch = button('SourceSearchClear', 'Clear title search', () => { sourceSearch.value = ''; sourceSearch.focus(); filterSources(); });
+        searchActions.append(clearSearch);
+        const searchCount = el('p', 'ai-context-source-count'); searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
+        const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
+        searchEmpty.hidden = true;
+        box.append(searchLabel, searchActions, searchCount, el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.')), searchEmpty);
         const sourceList = el('div', 'ai-context-sources'); box.append(sourceList);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         box.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
@@ -54,6 +64,20 @@
             if (errors[code]) { status.textContent = label(...errors[code]); return; }
             status.textContent = label('Error', 'Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation.'); };
         const selectedSources = () => sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: row.input.value }));
+        // Session-only visibility: never rebuild rows or change the outgoing selection.
+        function filterSources() {
+            const query = sourceSearch.value.trim().toLowerCase();
+            let visible = 0, selected = 0, hiddenSelected = 0;
+            for (const row of sourceRows) {
+                row.node.hidden = !row.searchTitle.includes(query);
+                if (!row.node.hidden) visible++;
+                if (row.check.checked) { selected++; if (row.node.hidden) hiddenSelected++; }
+            }
+            searchCount.textContent = `${label('SourceSearchShowing', 'Showing')}: ${visible} / ${sourceRows.length} · ${label('SourceSearchSelected', 'Selected')}: ${selected} · ${label('SourceSearchHidden', 'Selected but hidden')}: ${hiddenSelected}`;
+            searchEmpty.hidden = !query || visible > 0;
+            clearSearch.disabled = !sourceSearch.value;
+        }
+        sourceSearch.addEventListener('input', filterSources);
         function updateBudget() {
             const info = controller.inspectInput(question.value, selectedSources(), mode.value);
             const over = label('BudgetOver', 'Over limit');
@@ -65,6 +89,7 @@
             }
         }
         function update() {
+            filterSources();
             updateBudget();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
@@ -156,7 +181,7 @@
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksSaved', 'Reviewed tasks added to this workspace.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy) return; invalidate(); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } updateBudget(); });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; filterSources(); updateBudget(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(save, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
@@ -172,7 +197,7 @@
                 input.setAttribute('aria-label', `${label('Excerpt', 'Outgoing excerpt')}: ${source.label}`);
                 const sourceBudget = el('span', 'ai-context-source-budget'); sourceBudget.hidden = true;
                 row.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`), input, sourceBudget);
-                sourceRows.push({ source, check, input, budget: sourceBudget, initialText: input.value }); sourceList.append(row);
+                sourceRows.push({ source, node: row, searchTitle: source.label.toLowerCase(), check, input, budget: sourceBudget, initialText: input.value }); sourceList.append(row);
                 check.addEventListener('change', () => { input.hidden = !check.checked; invalidate(); }); input.addEventListener('input', invalidate);
             }
         }, ['Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.']);
