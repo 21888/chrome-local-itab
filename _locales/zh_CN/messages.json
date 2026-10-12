@@ -4567,6 +4567,18 @@
   "navigationLibrarySearch": {
     "message": "搜索名称、用途或公司"
   },
+  "navigationLibrarySavedState": {
+    "message": "当前工作空间添加状态"
+  },
+  "navigationLibrarySavedAll": {
+    "message": "全部"
+  },
+  "navigationLibrarySavedNew": {
+    "message": "未添加"
+  },
+  "navigationLibrarySavedAdded": {
+    "message": "已添加"
+  },
   "navigationLibraryAll": {
     "message": "全部分类"
   },

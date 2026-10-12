@@ -108,3 +108,83 @@ test('expanded source links own the Tab boundary and collapse restores it to sum
  close.dispatch('keydown',{key:'Tab',shiftKey:true});assert.ok(h.document.activeElement === last);
  details.open=false;close.focus();close.dispatch('keydown',{key:'Tab',shiftKey:true});assert.ok(h.document.activeElement === summary);
 });
+
+const savedControl=(h,value)=>h.document.querySelectorAll('.navigation-library-saved-filter').find(node=>node.dataset.savedState===value);
+const cards=h=>h.document.querySelectorAll('article');
+const assertSavedCounts=(h,total,added)=>{
+ assert.match(savedControl(h,'').textContent,new RegExp(`\\(${total}\\)$`));
+ assert.match(savedControl(h,'new').textContent,new RegExp(`\\(${total-added}\\)$`));
+ assert.match(savedControl(h,'added').textContent,new RegExp(`\\(${added}\\)$`));
+};
+test('saved filters count canonical URL matches once across categories and ignore unrelated URLs',async()=>{
+ const h=model();h.snapshot.links=[{url:'https://CHATGPT.com:443',category:'personal'},{url:'https://chatgpt.com/',category:'work'},{url:'https://chatgpt.com/?other=1'},{url:'javascript:alert(1)'}];
+ await h.view.open();assertSavedCounts(h,84,1);
+ savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,true);assert.equal(cards(h)[0].dataset.site,'chatgpt');
+ savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,83);assert.ok(cards(h).every(card=>card.dataset.site!=='chatgpt'));
+ savedControl(h,'').dispatch('click');assert.equal(cards(h).length,84);assert.equal(h.calls,0);
+});
+test('saved filters combine with all discovery criteria and show contextual counts',async()=>{
+ const h=model();const site=h.context.LocalItabNavigationSites[0];h.snapshot.links=[{url:site.url}];await h.view.open();
+ h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category===site.categories[0]).dispatch('click');
+ h.click('More filters');const selects=h.document.querySelectorAll('.navigation-library-filters select');
+ for(const [select,value] of selects.map((select,i)=>[select,[site.tags[0],site.country,site.company,site.pricing][i]])){select.value=value;select.dispatch('change');}
+ h.search(site.name);assertSavedCounts(h,1,1);savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,0);assert.ok(h.document.querySelector('.navigation-library-empty'));assert.equal(h.document.querySelector('.navigation-library-count').textContent,'0 sites');
+ savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');
+ h.click('Clear filters');assertSavedCounts(h,84,1);assert.equal(cards(h).length,84);assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,h.document.querySelector('input'));assert.equal(h.calls,0);
+});
+test('adding in Not added removes only saved card, updates counts and focuses next card',async()=>{
+ const h=model();await h.view.open();savedControl(h,'new').dispatch('click');const before=cards(h).map(card=>card.dataset.site);
+ cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();
+ assertSavedCounts(h,84,1);assert.equal(cards(h).length,83);assert.ok(!cards(h).some(card=>card.dataset.site===before[2]));assert.equal(h.document.activeElement.dataset.site,before[3]);
+ assert.match(h.document.querySelector('.navigation-library-status').textContent,/Added to Work/);assert.equal(savedControl(h,'new').getAttribute('aria-pressed'),'true');
+ savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,before[2]);assert.equal(h.firstAdd().disabled,true);
+});
+test('adding the last Not added result preserves confirmation and focuses the empty result',async()=>{
+ const h=model();await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');await tick();
+ assertSavedCounts(h,1,1);assert.equal(cards(h).length,0);assert.equal(h.document.activeElement,h.document.querySelector('.navigation-library-empty'));assert.match(h.document.querySelector('.navigation-library-status').textContent,/ChatGPT.*Added to Work/);
+ savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(h.calls,1);
+});
+test('Not added failure retains card and counts, then successful retry removes it',async()=>{
+ const h=model();const original=h.component.addCatalogShortcut;let fail=true;h.component.addCatalogShortcut=async request=>{if(fail){fail=false;throw Object.assign(new Error(),{code:'CATALOG_FAILED'});}return original(request);};
+ await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');await tick();
+ assertSavedCounts(h,1,0);assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,false);assert.equal(h.document.activeElement,cards(h)[0]);assert.match(h.document.querySelector('.navigation-library-status').textContent,/Nothing was added/);
+ h.firstAdd().dispatch('click');await tick();assertSavedCounts(h,1,1);assert.equal(cards(h).length,0);
+});
+test('saved filter state remains local to dialog; fresh workspace snapshot owns all counts',async()=>{
+ const h=model();h.snapshot.links=[{url:'https://chatgpt.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');assertSavedCounts(h,84,1);
+ assert.equal(h.view.close(),true);h.snapshot.links=[{url:'https://github.com/'}];await h.view.open();assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');
+ savedControl(h,'added').dispatch('click');assertSavedCounts(h,84,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(h.calls,0);
+});
+test('cancelled old workspace read cannot overwrite the newly opened saved filter',async()=>{
+ const h=model(),pending=deferred();h.read=pending;const oldOpen=h.view.open();await tick();h.view.close();
+ h.read=null;h.snapshot.links=[{url:'https://github.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');
+ pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/'}]});await oldOpen;
+ assertSavedCounts(h,84,1);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');assert.equal(h.calls,0);
+});
+test('pending filtered save locks controls and cancellation until verified late callback',async()=>{
+ const h=model(),pending=deferred();h.write=pending;await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');
+ assert.ok(h.document.querySelectorAll('.navigation-library-saved-filter').every(control=>control.disabled));assert.equal(h.view.close(),false);h.view.destroy();assert.ok(h.document.querySelector('.navigation-library-overlay'));assert.equal(h.calls,1);
+ pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/'}]});await tick();assertSavedCounts(h,1,1);assert.equal(cards(h).length,0);assert.equal(h.document.activeElement,h.document.querySelector('.navigation-library-empty'));assert.ok(h.document.querySelectorAll('.navigation-library-saved-filter').every(control=>!control.disabled));assert.equal(h.view.close(),true);
+});
+test('saved filter labels and group description are bilingual, including empty Added view',async()=>{
+ for(const [locale,group,all,fresh,added] of [['en','Saved in this workspace','All','Not added','Added'],['zh-CN','当前工作空间添加状态','全部','未添加','已添加']]){
+  const h=model({locale});await h.view.open();assert.equal(h.document.querySelector('.navigation-library-saved-filters').getAttribute('aria-label'),group);
+  assert.equal(savedControl(h,'').textContent,`${all} (84)`);assert.equal(savedControl(h,'new').textContent,`${fresh} (84)`);assert.equal(savedControl(h,'added').textContent,`${added} (0)`);
+  savedControl(h,'added').dispatch('click');assert.ok(h.document.querySelector('.navigation-library-empty'));assertSavedCounts(h,84,0);assert.equal(h.calls,0);
+ }
+});
+test('adding the final card focuses its previous neighbor and duplicate callback is reflected honestly',async()=>{
+ const h=model();h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,2);await h.view.open();savedControl(h,'new').dispatch('click');const first=cards(h)[0].dataset.site;
+ const finalSite=h.context.LocalItabNavigationSites[1];h.component.addCatalogShortcut=async()=>({...h.snapshot,links:[{url:finalSite.url}],duplicate:true});
+ cards(h)[1].querySelector('.navigation-library-add').dispatch('click');await tick();assertSavedCounts(h,2,1);assert.equal(h.document.activeElement.dataset.site,first);assert.match(h.document.querySelector('.navigation-library-status').textContent,/Already in your shortcuts/);
+});
+test('failure after an earlier successful addition focuses the attempted card, not the old success',async()=>{
+ const h=model();await h.view.open();h.firstAdd().dispatch('click');await tick();
+ h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_FAILED'});};const attempted=cards(h)[2].dataset.site;
+ cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();assert.equal(h.document.activeElement.dataset.site,attempted);assertSavedCounts(h,84,1);
+});
+test('conflict does not falsely move a Not added card into Added',async()=>{
+ const h=model();h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_CONFLICT'});};await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');await tick();
+ assertSavedCounts(h,1,0);assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,true);assert.match(h.document.querySelector('.navigation-library-status').textContent,/Close and reopen/);
+ savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,0);assertSavedCounts(h,1,0);
+});

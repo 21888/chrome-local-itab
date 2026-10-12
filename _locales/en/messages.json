@@ -4567,6 +4567,18 @@
   "navigationLibrarySearch": {
     "message": "Search names, uses or companies"
   },
+  "navigationLibrarySavedState": {
+    "message": "Saved in this workspace"
+  },
+  "navigationLibrarySavedAll": {
+    "message": "All"
+  },
+  "navigationLibrarySavedNew": {
+    "message": "Not added"
+  },
+  "navigationLibrarySavedAdded": {
+    "message": "Added"
+  },
   "navigationLibraryAll": {
     "message": "All categories"
   },

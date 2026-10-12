@@ -73,3 +73,7 @@
 @media (max-width: 800px) { .navigation-library-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }.navigation-library-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .navigation-library-overlay { padding: 8px; }.navigation-library-panel { padding: 20px 15px; border-radius: 18px; max-height: calc(100dvh - 16px); }.navigation-library-results { grid-template-columns: 1fr; }.navigation-library-toolbar { flex-wrap: wrap; gap: 10px; }.navigation-library-destination { flex-basis: 100%; margin-left: 0; }.navigation-library-destination select { flex: 1; max-width: none; }.navigation-library-category { padding: 6px 9px; }.navigation-library-categories { max-height: 145px; overflow: auto; }.navigation-library-search-row { gap: 7px; }.navigation-library-filter-toggle { padding: 0 10px; }.navigation-library-card { padding: 16px; }.navigation-library-description { min-height: 0; } }
 @media (prefers-reduced-motion: reduce) { .navigation-library-card { transition: none; } }
+
+.navigation-library-saved-filters { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 13px; }
+.navigation-library-saved-filter { border: 1px solid var(--nl-line); border-radius: 999px; padding: 7px 12px; background: var(--nl-card); font-size: 12px !important; }
+.navigation-library-saved-filter[aria-pressed="true"] { color: var(--nl-accent); background: var(--nl-selected); font-weight: 650; }

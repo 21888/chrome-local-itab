@@ -5,6 +5,7 @@
         open: 'Discover sites', eyebrow: 'YOUR NEXT USEFUL PLACE', title: 'A little discovery. A better start.',
         intro: 'Browse the built-in library. Add only the sites you want to your own shortcuts.',
         search: 'Search names, uses or companies', all: 'All categories', filters: 'More filters', clear: 'Clear filters',
+        savedState: 'Saved in this workspace', savedAll: 'All', savedNew: 'Not added', savedAdded: 'Added',
         tag: 'Use', country: 'Operator location', company: 'Company / organization', pricing: 'Pricing',
         any: 'Any', destination: 'Add to your category', results: 'sites', result: 'site', add: 'Add', added: 'Added', visit: 'Open official site', official: 'Official site',
         loading: 'Reading your saved sites…', saving: 'Saving…', saved: 'Added to', duplicate: 'Already in your shortcuts',
@@ -22,8 +23,8 @@
     const t = key => { const id = `navigationLibrary${key[0].toUpperCase()}${key.slice(1)}`; const result = root.i18n?.t(id); return result && result !== id ? result : fallback[key] || key; };
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
-        let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel;
-        let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, lastAdded = '', currentDestination = '';
+        let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav;
+        let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, currentDestination = '';
         const language = () => /^zh/i.test(document.documentElement.lang || '') ? 'zh' : 'en';
         const tagLabel = tag => {
             const id = `navigationTag${tag.split(/[-_]/).map(part => part[0]?.toUpperCase() + part.slice(1)).join('')}`;
@@ -43,7 +44,7 @@
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
-            const owner = ++revision; busy = true; writing = false; blocked = false; criteria = {}; lastAdded = '';
+            const owner = ++revision; busy = true; writing = false; blocked = false; criteria = {};
             overlay = el('div', undefined, 'navigation-library-overlay'); panel = el('section', undefined, 'navigation-library-panel'); panel.tabIndex = -1;
             panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-labelledby', 'navigation-library-title');
             const head = el('header', undefined, 'navigation-library-heading'), copy = el('div');
@@ -78,6 +79,13 @@
                 control.dataset.category = category.id; categoryNav.append(control);
             }
             panel.append(categoryNav); refreshCategories();
+            savedNav = el('div', undefined, 'navigation-library-saved-filters');
+            savedNav.setAttribute('role', 'group'); savedNav.setAttribute('aria-label', t('savedState'));
+            for (const [value, key] of [['', 'savedAll'], ['new', 'savedNew'], ['added', 'savedAdded']]) {
+                const control = button('', () => { criteria.savedState = value; renderResults(); }, 'navigation-library-saved-filter');
+                control.dataset.savedState = value; control.dataset.label = key; savedNav.append(control);
+            }
+            panel.append(savedNav);
             filtersPanel = el('div', undefined, 'navigation-library-filters'); filtersPanel.id = 'navigation-library-filters'; filtersPanel.hidden = true;
             function selectFilter(key, choices, label) {
                 const wrapper = el('label', t(key)), select = el('select'); select.setAttribute('aria-label', t(key));
@@ -120,10 +128,21 @@
             for (const node of categoryNav.children) node.setAttribute('aria-pressed', String(node.dataset.category === (criteria.category || '')));
         }
         function renderResults(focusId) {
-            const entries = api.filter(root.LocalItabNavigationSites, criteria, language(), tagLabel), saved = api.savedURLs(snapshot.links);
+            const matching = api.filter(root.LocalItabNavigationSites, criteria, language(), tagLabel), saved = api.savedURLs(snapshot.links);
+            const isSaved = site => saved.has(api.canonicalURL(site.url));
+            const savedCount = matching.filter(isSaved).length;
+            const totals = { '': matching.length, new: matching.length - savedCount, added: savedCount };
+            for (const control of savedNav.children) {
+                control.textContent = `${t(control.dataset.label)} (${totals[control.dataset.savedState]})`;
+                control.setAttribute('aria-pressed', String(control.dataset.savedState === (criteria.savedState || '')));
+            }
+            const entries = matching.filter(site => !criteria.savedState || (criteria.savedState === 'added' ? isSaved(site) : !isSaved(site)));
+            // Keep keyboard users near their place when an added card leaves the Not added view.
+            const oldIndex = focusId ? Array.from(results.children).findIndex(card => card.dataset.site === focusId) : -1;
+            const focusSite = focusId && (entries.find(site => site.id === focusId) || entries[Math.max(0, Math.min(oldIndex, entries.length - 1))]);
             count.textContent = `${entries.length} ${t(entries.length === 1 ? 'result' : 'results')}`; results.replaceChildren();
             if (!entries.length) {
-                const empty = el('div', undefined, 'navigation-library-empty'); empty.append(el('span', '', 'navigation-library-search-icon'), el('h3', t('empty')), el('p', t('emptyHelp'))); results.append(empty); return;
+                const empty = el('div', undefined, 'navigation-library-empty'); empty.append(el('span', '', 'navigation-library-search-icon'), el('h3', t('empty')), el('p', t('emptyHelp'))); results.append(empty); if (focusId) { empty.tabIndex = -1; empty.focus(); } return;
             }
             for (const site of entries) {
                 const card = el('article', undefined, 'navigation-library-card'); card.dataset.site = site.id;
@@ -147,7 +166,7 @@
                 details.append(el('p', `${t('checked')}: ${site.verifiedOn}`));
                 site.sources.forEach((source, index) => { const link = el('a', `${index + 1}. ${new URL(source).hostname}`); link.href = source; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link); }); card.append(details);
                 results.append(card);
-                if (focusId === site.id) { card.tabIndex = -1; card.focus(); }
+                if (focusSite?.id === site.id) { card.tabIndex = -1; card.focus(); }
             }
         }
         async function save(site) {
@@ -156,12 +175,12 @@
             const request = { baseline: snapshot.state, site: { name: site.name, url: site.url, icon: site.icon || site.name.slice(0, 2) }, destination: currentDestination };
             try {
                 const saved = await component.addCatalogShortcut(request); snapshot = saved;
-                lastAdded = site.id; status.textContent = saved.duplicate ? `${site.name}: ${t('duplicate')}` : `${site.name} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
+                status.textContent = saved.duplicate ? `${site.name}: ${t('duplicate')}` : `${site.name} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
             } catch (error) {
                 blocked = error.code !== 'CATALOG_FAILED';
                 status.textContent = t(error.code === 'CATALOG_FAILED' ? 'failed' : error.code === 'CATALOG_UNVERIFIED' || error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_LAYOUT_PENDING' ? 'layout' : 'conflict');
             } finally {
-                writing = busy = false; renderResults(lastAdded || site.id); setControls();
+                writing = busy = false; renderResults(site.id); setControls();
             }
         }
         return { open, close, get pending() { return busy; }, hasUncommittedWork: () => Boolean(overlay || busy), destroy() { if (!writing) { close(); opener.remove(); } } };

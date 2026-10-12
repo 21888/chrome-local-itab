@@ -10,6 +10,16 @@ Cards use local text marks, descriptions and a few tags. They do not fetch favic
 
 Pricing describes the linked consumer/service entry, not API prices or unlimited use. `free` means a free entry is documented; `freemium` means free and paid plans; `paid` means payment is needed for the described service; `not_applicable` covers shopping or public portals where a subscription label does not describe the entry. Check the official source for current terms. Operator location is not the product's nationality, access-country list, or hosting location.
 
+## Saved-state filters / 添加状态筛选
+
+Use **All / Not added / Added** (**全部 / 未添加 / 已添加**) to find new sites or review the library sites already in your current workspace. Each count reflects the current search, category and advanced filters before the saved-state choice. Saved status uses the same canonical URL match as adding a site, across all personal categories in this workspace; renaming a shortcut or selecting another destination does not change that status. Other workspaces are not included. Clear filters resets this choice too.
+
+After a successful addition in **Not added**, that card disappears and the counts update while the success message stays visible. Keyboard focus moves to the next card (or the previous card at the end); if no results remain, focus moves to the empty-result message. Closing and reopening reads the current workspace again and resets filters. Concurrent saved-data changes still require reopening under the existing conflict protections.
+
+使用「全部 / 未添加 / 已添加」查找新网站或查看当前工作空间中已经添加的网站。数量会结合搜索、分类、用途等筛选；添加状态依据当前工作空间全部个人分类中的网址判断，与快捷方式名称、所选添加分类无关，也不包含其他工作空间。点击「清除筛选」会一并重置添加状态。
+
+在「未添加」中成功添加后，卡片移出列表、数量同步更新，顶部保留成功提示；键盘焦点移到邻近卡片，没有结果时移到空结果提示。关闭后重新打开会读取最新数据并重置筛选；遇到并发修改仍需重新打开确认。
+
 ## Privacy and saving
 
 Browsing, searching and filtering are offline. There are no analytics, new permissions, remote catalog downloads or remotely executed code. Adding a link uses existing Sync and online-icon settings, displayed in the library, and rechecks both before saving.
