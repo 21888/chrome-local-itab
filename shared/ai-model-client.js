@@ -7,6 +7,10 @@
     'use strict';
     const LIMITS = Object.freeze({ prompt: 32000, response: 32000, wireBytes: 512000, eventChars: 65536, timeoutMs: 60000, model: 120, key: 4096 });
     const fail = code => Object.assign(new Error(code), { code });
+    // Optional empty metadata is harmless in both JSON and SSE responses.
+    // Reject actual payloads and malformed scalar values, including false/0.
+    const hasPayload = value => value != null && value !== '' &&
+        (typeof value !== 'object' || Object.keys(value).length > 0);
     function endpoint(value) {
         if (typeof value !== 'string' || value.length > 2048 || /[\s\\\p{Bidi_Control}]/u.test(value)) throw fail('ENDPOINT');
         let url; try { url = new URL(value); } catch (_) { throw fail('ENDPOINT'); }
@@ -41,7 +45,7 @@
             if (chunk.choices.length !== 1 || chunk.choices[0]?.index !== 0 || stopped) throw fail('FORMAT');
             const choice = chunk.choices[0], delta = choice.delta;
             if (!delta || typeof delta !== 'object' || Array.isArray(delta)) throw fail('FORMAT');
-            if (delta.tool_calls || delta.function_call || delta.refusal) throw fail('INCOMPLETE');
+            if ([delta.tool_calls, delta.function_call, delta.refusal].some(hasPayload)) throw fail('INCOMPLETE');
             if (delta.content != null && typeof delta.content !== 'string') throw fail('FORMAT');
             if (choice.finish_reason != null && choice.finish_reason !== 'stop') throw fail('INCOMPLETE');
             if (delta.content) {
@@ -129,8 +133,6 @@
             if (text.length > LIMITS.response) throw fail('LIMIT');
             // A complete JSON body alone does not establish a completed answer.
             // Optional empty metadata is harmless; never save a mixed tool/refusal result.
-            const hasPayload = value => value != null && value !== '' &&
-                (typeof value !== 'object' || Object.keys(value).length > 0);
             if (choice.finish_reason !== 'stop' ||
                 [message.tool_calls, message.function_call, message.refusal].some(hasPayload)) throw fail('INCOMPLETE');
             return Object.freeze({ text, model: input.model, origin: input.origin });

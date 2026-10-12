@@ -38,6 +38,39 @@ test('multiline data, comments, role-only and usage-only events are supported', 
     const prefix = ': comment\n\ndata: {"choices":\ndata: [{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}\n\n';
     assert.equal((await run(prefix + chunk('one') + chunk(' two') + chunk(null, 'stop') + 'data: {"choices":[],"usage":{"total_tokens":3}}\n\ndata: [DONE]\n\n')).text, 'one two');
 });
+test('stream accepts empty optional tool and refusal metadata without treating it as a tool response', async () => {
+    for (const metadata of [
+        { tool_calls: null, function_call: null, refusal: null },
+        { tool_calls: [], function_call: {}, refusal: '' }
+    ]) {
+        const event = delta => `data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: null }] })}\n\n`;
+        const updates = [];
+        const result = await run(event({ role: 'assistant', ...metadata }) +
+            event({ content: 'Synthetic ordinary answer', ...metadata }) + chunk(null, 'stop') + 'data: [DONE]\n\n',
+        { onText: value => updates.push(value) });
+        assert.equal(result.text, 'Synthetic ordinary answer');
+        assert.deepEqual(updates, ['Synthetic ordinary answer']);
+    }
+});
+test('empty optional metadata never bypasses streaming completion requirements', async () => {
+    const event = finish => `data: ${JSON.stringify({ choices: [{ index: 0,
+        delta: { content: 'Synthetic partial', tool_calls: [], function_call: {}, refusal: '' },
+        ...(finish === undefined ? {} : { finish_reason: finish }) }] })}\n\n`;
+    for (const finish of [undefined, null, '', false, 0, 'length', 'content_filter', 'tool_calls', 'function_call']) {
+        await assert.rejects(run(event(finish) + 'data: [DONE]\n\n'), { code: 'INCOMPLETE' });
+    }
+    await assert.rejects(run(event('stop')), { code: 'INCOMPLETE' });
+});
+test('stream still rejects nonempty and malformed tool or refusal payloads before publishing mixed text', async () => {
+    for (const field of ['tool_calls', 'function_call', 'refusal']) {
+        for (const value of [[{ name: 'synthetic' }], { name: 'synthetic' }, 'synthetic', false, 0]) {
+            const updates = [];
+            const body = `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: 'Must not publish', [field]: value }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`;
+            await assert.rejects(run(body, { onText: text => updates.push(text) }), { code: 'INCOMPLETE' });
+            assert.deepEqual(updates, []);
+        }
+    }
+});
 test('malformed, provider errors, truncated and non-stop finishes never return a complete result', async () => {
     const cases = [
         ['data: {broken}\n\n', 'FORMAT'], ['event: error\ndata: secret\n\n', 'PROVIDER'], ['data: {"error":{"message":"secret"}}\n\n', 'PROVIDER'],
