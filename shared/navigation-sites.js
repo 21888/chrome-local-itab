@@ -1085,6 +1085,9 @@
     },
     {
         "id": "amazon",
+        "searchAliases": [
+            "亚马逊"
+        ],
         "name": "Amazon",
         "url": "https://www.amazon.com/",
         "company": "Amazon",
@@ -1108,7 +1111,8 @@
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://www.amazon.com/"
+            "https://www.amazon.com/",
+            "https://gs.amazon.cn/zhishi/article-251103-5"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Am"
@@ -1206,6 +1210,9 @@
     },
     {
         "id": "linkedin-jobs",
+        "searchAliases": [
+            "领英"
+        ],
         "name": "LinkedIn Jobs",
         "url": "https://www.linkedin.com/jobs/",
         "company": "LinkedIn",
@@ -1229,7 +1236,8 @@
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://www.linkedin.com/jobs/"
+            "https://www.linkedin.com/jobs/",
+            "https://www.linkedin.com/?_l=zh"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Li"
@@ -2041,6 +2049,9 @@
     },
     {
         "id": "imf-data",
+        "searchAliases": [
+            "国际货币基金组织"
+        ],
         "name": "IMF Data",
         "url": "https://data.imf.org/",
         "company": "International Monetary Fund",
@@ -2064,7 +2075,9 @@
         "language": "unknown",
         "signup": "unknown",
         "sources": [
-            "https://www.imf.org/en/Data"
+            "https://www.imf.org/en/Data",
+            "https://www.imf.org/zh/about/factsheets/imf-at-a-glance",
+            "https://www.imf.org/zh/home"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "IM"
@@ -2495,6 +2508,9 @@
     },
     {
         "id": "khan-academy",
+        "searchAliases": [
+            "可汗学院"
+        ],
         "name": "Khan Academy",
         "url": "https://www.khanacademy.org/",
         "company": "Khan Academy, Inc.",
@@ -2521,7 +2537,8 @@
         "sources": [
             "https://www.khanacademy.org/",
             "https://www.khanacademy.org/about",
-            "https://en.khanacademy.org/about/privacy-policy"
+            "https://en.khanacademy.org/about/privacy-policy",
+            "https://www.khanacademy.org/?lang=zh"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "Kh"
@@ -3357,6 +3374,9 @@
     },
     {
         "id": "google-scholar",
+        "searchAliases": [
+            "Google 学术搜索"
+        ],
         "name": "Google Scholar",
         "url": "https://scholar.google.com/",
         "company": "Google LLC",
@@ -3384,7 +3404,8 @@
         "sources": [
             "https://scholar.google.com/intl/en/scholar/about.html",
             "https://scholar.google.com/intl/en/scholar/help.html",
-            "https://policies.google.com/terms?hl=en-US"
+            "https://policies.google.com/terms?hl=en-US",
+            "https://scholar.google.com/?hl=zh-CN"
         ],
         "verifiedOn": "2026-10-12",
         "icon": "GS"

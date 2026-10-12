@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const sites = require('../shared/navigation-sites');
 const Catalog = require('../shared/navigation-catalog');
 const review = require('./fixtures/navigation-metadata-review.json');
+const { beforeChineseAliasReview } = require('./helpers/navigation-chinese-alias-review');
 const byId = id => sites.find(site => site.id === id);
 
 test('review changes only the 17 existing entries and explicitly reviewed metadata fields', () => {
@@ -14,7 +15,7 @@ test('review changes only the 17 existing entries and explicitly reviewed metada
     assert.equal(review.changes.filter(change => 'country' in change.fields).length, 16);
     assert.equal(review.changes.filter(change => 'pricing' in change.fields).length, 3);
     // The six appended services are pinned in navigation-service-expansion.test.js.
-    const preserved = sites.slice(0, 108).map(site => {
+    const preserved = sites.slice(0, 108).map(beforeChineseAliasReview).map(site => {
         const copy = structuredClone(site), change = review.changes.find(change => change.id === site.id);
         // Later search-only aliases are separately pinned; preserve the original metadata hash.
         const aliases = { google: ['谷歌'], bing: ['必应'] };

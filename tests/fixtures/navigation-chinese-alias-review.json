@@ -1,0 +1,71 @@
+{
+  "verifiedOn": "2026-10-12",
+  "preservedSha256": "508fc71646aacb222d0bafb5dae5aa32abd7c8c9a40c795db7c23a0f781a5a98",
+  "changes": [
+    {
+      "id": "amazon",
+      "searchAliases": [
+        "亚马逊"
+      ],
+      "previousSources": [
+        "https://www.amazon.com/"
+      ],
+      "sources": [
+        "https://gs.amazon.cn/zhishi/article-251103-5"
+      ]
+    },
+    {
+      "id": "linkedin-jobs",
+      "searchAliases": [
+        "领英"
+      ],
+      "previousSources": [
+        "https://www.linkedin.com/jobs/"
+      ],
+      "sources": [
+        "https://www.linkedin.com/?_l=zh"
+      ]
+    },
+    {
+      "id": "khan-academy",
+      "searchAliases": [
+        "可汗学院"
+      ],
+      "previousSources": [
+        "https://www.khanacademy.org/",
+        "https://www.khanacademy.org/about",
+        "https://en.khanacademy.org/about/privacy-policy"
+      ],
+      "sources": [
+        "https://www.khanacademy.org/?lang=zh"
+      ]
+    },
+    {
+      "id": "google-scholar",
+      "searchAliases": [
+        "Google 学术搜索"
+      ],
+      "previousSources": [
+        "https://scholar.google.com/intl/en/scholar/about.html",
+        "https://scholar.google.com/intl/en/scholar/help.html",
+        "https://policies.google.com/terms?hl=en-US"
+      ],
+      "sources": [
+        "https://scholar.google.com/?hl=zh-CN"
+      ]
+    },
+    {
+      "id": "imf-data",
+      "searchAliases": [
+        "国际货币基金组织"
+      ],
+      "previousSources": [
+        "https://www.imf.org/en/Data"
+      ],
+      "sources": [
+        "https://www.imf.org/zh/about/factsheets/imf-at-a-glance",
+        "https://www.imf.org/zh/home"
+      ]
+    }
+  ]
+}

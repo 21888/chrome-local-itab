@@ -38,6 +38,19 @@ Search is local and case-insensitive, accepts full-width Latin text, and require
 
 搜索始终在本地进行，兼容大小写及全角英文字母；多个词仍须全部命中。品牌名可忽略空格及英文连字符，例如 `googlefonts`、`chat-gpt`、`Git Hub`、`JSON Crack`。不会将描述或不同字段拼接为词，也不会进行错字猜测。分类、用途、地区、组织及价格筛选仍精确匹配；显示名称、网址及已保存数据保持不变。
 
-The two explicit Chinese search aliases are Google → 谷歌 and Bing → 必应. They apply only to those two catalog entries, not inferred operators, subsidiaries or other products. Official naming evidence reviewed 2026-10-12: [About Google in Chinese](https://about.google/?hl=zh-cn) and [Microsoft Bing help in Chinese](https://support.microsoft.com/zh-cn/bing/microsoft-bing-help). Optional `searchAliases` values contain at most eight nonblank strings of at most 80 characters each, without control characters. Aliases are search-only and do not replace visible brand names.
+The original two explicit Chinese search aliases are Google → 谷歌 and Bing → 必应. They apply only to those two catalog entries, not inferred operators, subsidiaries or other products. Official naming evidence reviewed 2026-10-12: [About Google in Chinese](https://about.google/?hl=zh-cn) and [Microsoft Bing help in Chinese](https://support.microsoft.com/zh-cn/bing/microsoft-bing-help). Optional `searchAliases` values contain at most eight nonblank strings of at most 80 characters each, without control characters. Aliases are search-only and do not replace visible brand names.
 
 两项明确中文搜索别名为 Google → 谷歌、Bing → 必应，仅对应这两项网站，不延伸推断运营主体或其他产品。别名仅用于搜索，不替换显示品牌。
+
+
+Five additional search-only aliases were reviewed against official sources on 2026-10-12:
+
+- Amazon → 亚马逊: [Amazon Global Selling article naming amazon.com](https://gs.amazon.cn/zhishi/article-251103-5).
+- LinkedIn Jobs → 领英: [LinkedIn Chinese homepage](https://www.linkedin.com/?_l=zh), an organization-name alias for this existing jobs entry.
+- Khan Academy → 可汗学院: [Khan Academy Chinese homepage](https://www.khanacademy.org/?lang=zh).
+- Google Scholar → Google 学术搜索: [Google Scholar Chinese homepage](https://scholar.google.com/?hl=zh-CN). This does not add 谷歌学术.
+- IMF Data → 国际货币基金组织: [IMF Chinese factsheet](https://www.imf.org/zh/about/factsheets/imf-at-a-glance) and [Chinese homepage](https://www.imf.org/zh/home), an organization-name alias, not a newly named data product.
+
+These evidence URLs are recorded in each entry's source panel. All 120 existing entries retain their display names, destinations, categories, descriptions, operator/country and pricing metadata. Chinese queries do not redirect to regional editions. Canva 可画 and Qwen 千问 are not inferred aliases for the different destinations already in this catalog.
+
+本次新增亚马逊、领英、可汗学院、Google 学术搜索、国际货币基金组织五项经官方来源核验的搜索别名（2026-10-12）。领英与国际货币基金组织是现有条目的组织名称别名。来源列入各条目的资料面板；不改变显示名称、网址、运营地区或价格，也不会切换中国版。未将可画、千问或「谷歌学术」推断加入别名。

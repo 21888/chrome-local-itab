@@ -87,7 +87,7 @@ test('search normalizes full-width text and brand spacing without changing displ
  const cases=[['Chat GPT','chatgpt'],['chat-gpt','chatgpt'],['ＣｈａｔＧＰＴ','chatgpt'],['Git Hub','github'],['ＧＩＴ－ＨＵＢ','github'],['JSONCrack','json-crack'],['JSON Crack','json-crack'],['json-crack','json-crack'],['googlefonts','google-fonts'],['  gItHuB\t\n','github'],['谷歌','google'],['必应','bing'],['ＰＳＤ 图层','photopea']];
  for(const language of ['en','zh'])for(const [query,id] of cases)assert.ok(Catalog.filter(sites,{query},language).some(site=>site.id===id),`${language}: ${query}`);
  assert.equal(JSON.stringify(sites),before);
- assert.deepEqual(sites.filter(site=>site.searchAliases).map(site=>[site.id,site.searchAliases]),[['bing',['必应']],['google',['谷歌']]]);
+ assert.deepEqual(sites.filter(site=>site.searchAliases).map(site=>[site.id,site.searchAliases]),[['amazon',['亚马逊']],['linkedin-jobs',['领英']],['bing',['必应']],['google',['谷歌']],['imf-data',['国际货币基金组织']],['khan-academy',['可汗学院']],['google-scholar',['Google 学术搜索']]]);
 });
 test('name compaction keeps AND semantics, exact selectors and meaningful punctuation', () => {
  const site=sites.find(site=>site.id==='chatgpt');
