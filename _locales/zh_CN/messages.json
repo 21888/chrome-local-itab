@@ -4080,7 +4080,7 @@
     "message": "请等待当前保存完成后再关闭。"
   },
   "aiContextDiscard": {
-    "message": "停止模型请求并丢弃未保存的回复？已经确认的写入仍会保留。"
+    "message": "停止模型请求并丢弃未保存的草稿或回复？已经确认的写入仍会保留。"
   },
   "aiContextUnavailable": {
     "message": "工作空间尚未就绪。请关闭面板，加载完成后重试。"

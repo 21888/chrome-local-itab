@@ -6,7 +6,7 @@ const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 function backend() { let raw; return { writes: 0, lock: fn => fn(), read: async () => structuredClone(raw), async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
-async function model(presetStore) {
+async function model(presetStore, { populate = true } = {}) {
     const document = createDocument(), host = document.createElement('main'); document.body.append(host);
     const events = new Map(), window = { document, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
     const b = backend(), c = backend(), calls = []; let active = true; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
@@ -22,8 +22,10 @@ async function model(presetStore) {
     const byText = text => host.querySelectorAll('button').find(node => node.textContent.startsWith(text));
     const click = text => { const node = byText(text); assert(node); assert.equal(Boolean(node.disabled), false, `${text} enabled`); node.dispatch('click'); return node; };
     const input = (node, value) => { node.value = value; node.dispatch('input'); };
-    input(field('url'), 'https://mock.example/v1/chat/completions'); input(field('text'), 'mock');
-    const question = host.querySelectorAll('textarea')[0]; input(question, 'Create tasks');
+    if (populate) {
+        input(field('url'), 'https://mock.example/v1/chat/completions'); input(field('text'), 'mock');
+        const question = host.querySelectorAll('textarea')[0]; input(question, 'Create tasks');
+    }
     return { host, document, controller, b, c, calls, view, events, click, field, input, byText, deactivate: () => { active = false; }, setReply: value => { reply = value; } };
 }
 async function send(h, mode = 'tasks') {
@@ -235,4 +237,102 @@ test('pagehide settles an unresolved permission check without a late request or 
     assert.equal(h.controller.busy, false); assert.equal(h.field('password'), undefined); assert.equal(h.host.children.length, 0);
     gate.resolve(true); await settle(); assert.equal(h.calls.length, 0); assert.equal(h.controller.result, null);
     assert.equal(h.host.children.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+});
+
+function unloadEvent(h) {
+    const event = { prevented: false, preventDefault() { this.prevented = true; } };
+    h.events.get('beforeunload')(event); return event;
+}
+test('unsent draft guard starts clean, ignores connection setup, and protects question without review', async () => {
+    const h = await model(undefined, { populate: false });
+    assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+    h.input(h.field('url'), 'https://mock.example/v1/chat/completions'); h.input(h.field('text'), 'mock');
+    h.input(h.field('password'), 'synthetic-key');
+    assert.equal(h.view.hasUncommittedWork(), false);
+    h.input(questionField(h), 'Unsent synthetic question');
+    assert.equal(h.controller.reviewed, null); assert.equal(h.view.hasUncommittedWork(), true);
+    const event = unloadEvent(h); assert.equal(event.prevented, true); assert.equal(event.returnValue, '');
+    assert.equal(questionField(h).value, 'Unsent synthetic question'); assert.equal(h.field('password').value, 'synthetic-key');
+    h.input(questionField(h), ''); assert.equal(h.view.hasUncommittedWork(), false);
+    h.input(questionField(h), 'Review only'); h.click('Review exact'); await settle();
+    assert(h.controller.reviewed); assert.equal(h.view.hasUncommittedWork(), true); assert.equal(unloadEvent(h).prevented, true);
+    h.click('Cancel / clear'); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+    assert.equal(h.controller.reviewed, null); assert.equal(h.field('password').value, '');
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+});
+test('unsent source selections and edited hidden excerpts are guarded and clear restores their baseline', async () => {
+    const h = await model(undefined, { populate: false }), row = h.host.querySelector('.ai-context-source');
+    const check = row.querySelector('input'), excerpt = row.querySelector('textarea'), original = excerpt.value;
+    check.checked = true; check.dispatch('change');
+    assert.equal(h.view.hasUncommittedWork(), true); assert.equal(unloadEvent(h).prevented, true);
+    check.checked = false; check.dispatch('change'); assert.equal(h.view.hasUncommittedWork(), false);
+    check.checked = true; check.dispatch('change'); h.input(excerpt, 'Edited synthetic excerpt');
+    check.checked = false; check.dispatch('change');
+    assert.equal(excerpt.hidden, true); assert.equal(h.view.hasUncommittedWork(), true); assert.equal(unloadEvent(h).prevented, true);
+    h.input(excerpt, original); assert.equal(h.view.hasUncommittedWork(), false);
+    h.input(excerpt, 'Another edit'); h.click('Cancel / clear');
+    assert.equal(excerpt.value, original); assert.equal(check.checked, false); assert.equal(excerpt.hidden, true);
+    assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+    h.view.destroy(); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.events.has('beforeunload'), false);
+});
+test('actual view and wrapper protect unsent drafts on Close and Escape; cancel retains and discard reopens blank', async () => {
+    for (const method of ['close', 'escape']) for (const reviewed of [false, true]) {
+        const document = createDocument(), trigger = document.createElement('button'); trigger.id = 'ai-context-entry'; document.body.append(trigger);
+        let controller, mounted, confirmations = 0, discard = false, requests = 0;
+        const events = new Map(), b = backend(), c = backend();
+        const window = { document, chrome: { permissions: {} }, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type),
+            confirm: text => { confirmations++; assert.match(text, /unsaved draft or response/); return discard; },
+            LocalItabAIContext: { createController: () => {
+                controller = new api.Controller({ transport: { review: input => ({ ...input, origin: 'https://mock.example', permission: 'https://mock.example:443/*' }), run: async () => { requests++; return { text: 'unused' }; } },
+                    permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => {},
+                    readSources: async () => [{ id: 'collection:synthetic', label: 'Synthetic', text: 'Original synthetic excerpt', scope: 'library' }],
+                    taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
+                const review = controller.review.bind(controller); controller.review = input => review(JSON.parse(JSON.stringify(input))); return controller;
+            } } };
+        const context = vm.createContext({ window });
+        for (const file of ['shared/dialog-focus.js', 'shared/ai-context-view.js', 'ai-context.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+        const mount = window.LocalItabAIContextView.mount;
+        window.LocalItabAIContextView.mount = (...args) => (mounted = mount(...args));
+        trigger.focus(); trigger.dispatch('click'); await mounted.ready;
+        const overlay = document.querySelector('.ai-context-overlay'), question = overlay.querySelectorAll('textarea')[0];
+        const edit = (node, value) => { node.value = value; node.dispatch('input'); };
+        edit(question, 'Unsent synthetic question');
+        const source = overlay.querySelector('.ai-context-source'), check = source.querySelector('input'), excerpt = source.querySelector('textarea');
+        check.checked = true; check.dispatch('change'); edit(excerpt, 'Edited synthetic excerpt');
+        const key = overlay.querySelectorAll('input').find(node => node.type === 'password'); edit(key, 'synthetic-key');
+        if (reviewed) {
+            edit(overlay.querySelectorAll('input').find(node => node.type === 'url'), 'https://mock.example/v1/chat/completions');
+            edit(overlay.querySelectorAll('input').find(node => node.type === 'text'), 'mock'); edit(key, 'synthetic-key');
+            overlay.querySelectorAll('button').find(node => node.textContent === 'Review exact request').dispatch('click'); await settle(); assert(controller.reviewed);
+        }
+        const dismiss = () => method === 'close' ? overlay.querySelector('.ai-context-close').dispatch('click') : overlay.dispatch('keydown', { key: 'Escape' });
+        const oldReviewed = controller.reviewed;
+        dismiss(); assert.equal(confirmations, 1); assert.equal(overlay.isConnected, true); assert.equal(controller.closed, false);
+        assert.equal(question.value, 'Unsent synthetic question'); assert.equal(check.checked, true); assert.equal(excerpt.value, 'Edited synthetic excerpt');
+        assert.equal(key.value, 'synthetic-key'); assert.equal(controller.reviewed, oldReviewed);
+        discard = true; dismiss(); assert.equal(confirmations, 2); assert.equal(overlay.isConnected, false); assert.equal(controller.closed, true);
+        assert.equal(key.value, ''); assert.equal(controller.reviewed, null); assert.equal(events.has('beforeunload'), false); assert.equal(document.activeElement, trigger);
+        trigger.focus(); trigger.dispatch('click'); await mounted.ready;
+        const fresh = document.querySelector('.ai-context-overlay'); assert.equal(fresh.querySelectorAll('textarea')[0].value, '');
+        assert.equal(fresh.querySelector('.ai-context-source').querySelector('input').checked, false);
+        assert.equal(fresh.querySelector('.ai-context-source').querySelector('textarea').value, 'Original synthetic excerpt');
+        assert.equal(mounted.hasUncommittedWork(), false);
+        fresh.querySelector('.ai-context-close').dispatch('click'); assert.equal(confirmations, 2); assert.equal(fresh.isConnected, false);
+        assert.equal(requests, 0); assert.equal(b.writes + c.writes, 0);
+    }
+});
+
+
+test('a deliberate unsent answer title is guarded, but restoring or clearing it returns to clean', async () => {
+    const h = await model(undefined, { populate: false }), title = answerTitle(h);
+    title.value = 'Programmatic title';
+    assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+    h.input(title, 'My unsent synthetic title');
+    assert.equal(h.view.hasUncommittedWork(), true); assert.equal(unloadEvent(h).prevented, true);
+    h.input(title, ''); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+    h.input(title, 'Another synthetic title'); h.click('Cancel / clear');
+    assert.equal(title.value, ''); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+    title.value = 'Another programmatic title'; assert.equal(h.view.hasUncommittedWork(), false);
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
 });

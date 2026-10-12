@@ -4080,7 +4080,7 @@
     "message": "Wait for the current save to finish before closing."
   },
   "aiContextDiscard": {
-    "message": "Stop any model request and discard this unsaved response? Already confirmed writes remain saved."
+    "message": "Stop any model request and discard this unsaved draft or response? Already confirmed writes remain saved."
   },
   "aiContextUnavailable": {
     "message": "This workspace is not ready. Close this panel and try again after it has loaded."

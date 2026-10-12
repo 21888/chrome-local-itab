@@ -19,7 +19,7 @@
         };
         const finish = () => {
             if (controller?.busy && !controller.aborter) { notice.textContent = t('aiContextSaving', 'Wait for the current save to finish before closing.'); return; }
-            if (view?.hasUncommittedWork() && !root.confirm(t('aiContextDiscard', 'Stop any model request and discard this unsaved response? Already confirmed writes remain saved.'))) return;
+            if (view?.hasUncommittedWork() && !root.confirm(t('aiContextDiscard', 'Stop any model request and discard this unsaved draft or response? Already confirmed writes remain saved.'))) return;
             dispose();
         };
         const onHide = () => dispose(false);

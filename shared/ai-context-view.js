@@ -42,6 +42,7 @@
         const contextPreview = el('pre', 'ai-context-review'); contextPreview.hidden = true;
         contextSave.append(contextLabel, el('p', '', label('SaveContextPrivacy', 'Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot.')), contextPreview);
         const taskList = el('ol', 'ai-context-tasks'); taskList.hidden = true;
+        const initialAnswerTitle = answerTitle.value;
         let disposed = false, pending = false, titleEdited = false;
         const error = code => {
             if (controller.saveCommand && controller.saveUncertain) {
@@ -156,18 +157,24 @@
                 const input = el('textarea'); input.value = source.text; input.maxLength = 16000; input.rows = 3; input.hidden = true;
                 input.setAttribute('aria-label', `${label('Excerpt', 'Outgoing excerpt')}: ${source.label}`);
                 row.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`), input);
-                sourceRows.push({ source, check, input }); sourceList.append(row);
+                sourceRows.push({ source, check, input, initialText: input.value }); sourceList.append(row);
                 check.addEventListener('change', () => { input.hidden = !check.checked; invalidate(); }); input.addEventListener('input', invalidate);
             }
         }, ['Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.']);
-        function guard(event) { if (controller.busy || controller.result || controller.taskCommand || controller.saveCommand) { event.preventDefault(); event.returnValue = ''; } }
+        // Compare live, session-only draft values with the blank/unselected state.
+        // Keep the DOM-normalized source baseline so untouched CRLF excerpts are clean.
+        function hasUncommittedWork() {
+            return !disposed && Boolean(controller.busy || controller.result || controller.taskCommand || controller.saveCommand ||
+                question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
+        }
+        function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
         function destroy() { if (disposed) return; disposed = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!disposed) status.textContent = presetText('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!disposed) update(); }) : Promise.resolve();
         presetPending = Boolean(presetStore);
-        update(); return { controller, ready: Promise.all([ready, presetsReady]), destroy, presetSelect, presetName, presetSave, presetDelete, hasUncommittedWork: () => Boolean(controller.busy || controller.result || controller.taskCommand || controller.saveCommand) };
+        update(); return { controller, ready: Promise.all([ready, presetsReady]), destroy, presetSelect, presetName, presetSave, presetDelete, hasUncommittedWork };
     }
     root.LocalItabAIContextView = { mount };
 })(typeof window === 'undefined' ? globalThis : window);
