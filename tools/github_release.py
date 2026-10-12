@@ -81,6 +81,22 @@ Download local-itab-{version}.zip, extract it to a folder you retain, open chrom
 {upgrade_guidance}'''
 
 
+def recovery_trailer(message, version):
+    """Only a unique, exact trailer in the final trailer paragraph opts in."""
+    paragraphs = re.split(r'\n[ \t]*\n', message.rstrip('\n'))
+    if len(paragraphs) < 2:
+        return False
+    lines = paragraphs[-1].splitlines()
+    if not lines or not all(re.fullmatch(r'[A-Za-z0-9-]+:.*', line) for line in lines):
+        return False
+    markers = [line for line in lines if line.startswith('Release-Recovery:')]
+    if not markers:
+        return False
+    all_markers = [line for line in message.splitlines() if line.startswith('Release-Recovery:')]
+    check(markers == all_markers == ['Release-Recovery: v' + version], 'Invalid or duplicate Release-Recovery trailer')
+    return True
+
+
 def release_plan(root, sha):
     """Classify an exact push; tags are local evidence, not publication proof."""
     def git(*args):
@@ -90,7 +106,10 @@ def release_plan(root, sha):
     check(git('rev-parse', 'HEAD') == sha, 'Checkout differs from event SHA')
     previous = json.loads(git('show', 'HEAD^:manifest.json'))['version']
     version_tuple(previous)
-    if version == previous:
+    message = subprocess.check_output(['git', '-C', str(root), 'log', '-1', '--format=%B'], text=True)
+    recovery = recovery_trailer(message, version)
+    check(not recovery or version == previous, 'Recovery requires an unchanged parent version')
+    if version == previous and not recovery:
         return {'release': False, 'version': version, 'source_commit': sha}
     # HEAD^ excludes this release's own tag on retries and later non-ancestor
     # releases. Full history/tags are required; never silently guess a baseline.
@@ -103,9 +122,12 @@ def release_plan(root, sha):
     check(version_tuple(version) == (old[0], old[1], old[2] + 1), 'Release must increment the latest ancestor release patch exactly once')
     base_sha = git('rev-parse', tag + '^{commit}')
     check(json.loads(git('show', tag + ':manifest.json'))['version'] == tag[1:], 'Baseline tag manifest version mismatch')
-    check(previous == tag[1:], 'Unreleased version transition before release commit')
-    return {'release': True, 'version': version, 'source_commit': sha,
+    check(previous == (version if recovery else tag[1:]), 'Unreleased version transition before release commit')
+    plan = {'release': True, 'version': version, 'source_commit': sha,
             'base_tag': tag, 'base_commit': base_sha}
+    if recovery:
+        plan['recovery'] = True
+    return plan
 
 
 def build(root, out, sha):
@@ -225,39 +247,62 @@ def find_release(api, tag):
     # List also includes drafts visible to this job; tag lookup alone is not
     # relied upon for recovering an interrupted draft publication.
     page = 1
+    matches = []
     while True:
         items = api.api(f'releases?per_page=100&page={page}')
-        matches = [r for r in items if r['tag_name'] == tag]
+        matches.extend(r for r in items if r['tag_name'] == tag)
         check(len(matches) <= 1, 'Duplicate releases for a tag')
-        if matches:
-            return matches[0]
         if len(items) < 100:
-            return None
+            return matches[0] if matches else None
         page += 1
 
 
-def publish(out, sha, api=None):
+def publish(out, sha, api=None, *, root=None):
     version, expected = inspect_bundle(out, sha)
     api = api or GitHub()
     repo = api.api('')
     check(repo['full_name'] == REPOSITORY and repo['private'] is False and repo['default_branch'] == 'master', 'Repository identity/visibility changed')
     plan = json.loads((out / 'PROVENANCE.json').read_text()).get('release_plan')
     check(plan and plan.get('release') is True and plan.get('version') == version and plan.get('source_commit') == sha, 'Bundle is not an explicit release commit')
+    recovery = plan.get('recovery') is True
+    if recovery:
+        root = root or Path(__file__).resolve().parents[1]
+        check(os.environ.get('GITHUB_REPOSITORY') == REPOSITORY
+              and os.environ.get('GITHUB_REF') == 'refs/heads/master'
+              and os.environ.get('GITHUB_EVENT_NAME') == 'push'
+              and os.environ.get('GITHUB_SHA') == sha, 'Recovery requires the exact CI master push')
+        check(release_plan(root, sha) == plan, 'Recovery plan differs from checkout')
     base_tag = plan['base_tag']
     old = version_tuple(base_tag.removeprefix('v'))
     check(base_tag == 'v' + '.'.join(map(str, old)) and version_tuple(version) == (old[0], old[1], old[2] + 1), 'Invalid release baseline version')
     baseline = api.api('releases/tags/' + base_tag, missing_ok=True)
     check(baseline and baseline['tag_name'] == base_tag and not baseline['draft'] and not baseline['prerelease'], 'Previous release is not publicly complete; restore it then retry')
-    check(tag_commit(api, base_tag) == plan['base_commit'], 'Baseline release tag changed')
-    base_assets = assets_for(api, baseline['id'])
-    base_names = {f'local-itab-{base_tag[1:]}.zip', 'PROVENANCE.json', 'RELEASE-NOTES.md', 'SHA256SUMS.txt'}
-    check(len(base_assets) == 4 and {a['name'] for a in base_assets} == base_names
-          and all(a['state'] == 'uploaded' and isinstance(a['size'], int) and a['size'] > 0 for a in base_assets),
-          'Previous release assets are incomplete; restore it then retry')
+    def baseline_guard():
+        check(tag_commit(api, base_tag) == plan['base_commit'], 'Baseline release tag changed')
+        base_assets = assets_for(api, baseline['id'])
+        base_names = {f'local-itab-{base_tag[1:]}.zip', 'PROVENANCE.json', 'RELEASE-NOTES.md', 'SHA256SUMS.txt'}
+        check(len(base_assets) == 4 and {a['name'] for a in base_assets} == base_names
+              and all(a['state'] == 'uploaded' and type(a['size']) is int and a['size'] > 0 for a in base_assets),
+              'Previous release assets are incomplete; restore it then retry')
+    baseline_guard()
+
+    def recovery_guard():
+        # Recheck immediately before writes and again before making the draft public.
+        check(release_plan(root, sha) == plan, 'Recovery checkout changed')
+        baseline_guard()
+        master = api.api('git/ref/heads/master')['object']
+        check(master['type'] == 'commit' and master['sha'] == sha, 'Remote master differs from recovery source')
+        latest = api.api('releases/latest')
+        check(isinstance(latest, dict) and latest['id'] == baseline['id'] and latest['tag_name'] == base_tag
+              and latest['draft'] is False and latest['prerelease'] is False,
+              'Latest public release differs from recovery baseline')
     tag = 'v' + version
     target = tag_commit(api, tag)
     check(target is None or target == sha, 'Tag already points to a different commit')
     release = find_release(api, tag)
+    if recovery:
+        check(target is None and release is None, 'Recovery target tag or release already exists; refusing reuse')
+        recovery_guard()
     if release is not None:
         check(target == sha, 'Existing release is not pinned to expected SHA')
         check(release['tag_name'] == tag and release['body'] == notes(sha, version) and not release['prerelease'], 'Existing release metadata differs')
@@ -275,6 +320,8 @@ def publish(out, sha, api=None):
         api.upload(tag, out / name)  # No --clobber or delete, ever.
     verify_assets(api, release['id'], expected, complete=True)
     check(tag_commit(api, tag) == sha, 'Tag changed before publication')
+    if recovery:
+        recovery_guard()
     api.api(f"releases/{release['id']}", {'draft': False, 'make_latest': 'legacy'}, method='PATCH')
     final = api.api('releases/tags/' + tag)
     check(not final['draft'] and final['tag_name'] == tag and tag_commit(api, tag) == sha, 'Final publication not verified')
