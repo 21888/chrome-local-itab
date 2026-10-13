@@ -4516,6 +4516,191 @@
         "verifiedOn": "2026-10-13",
         "language": "unknown",
         "signup": "unknown"
+    },
+    {
+        "id": "datawrapper",
+        "name": "Datawrapper",
+        "url": "https://www.datawrapper.de/",
+        "company": "Datawrapper GmbH",
+        "country": "DE",
+        "categories": [
+            "design",
+            "office"
+        ],
+        "tags": [
+            "data-visualization",
+            "charts",
+            "map-visualization"
+        ],
+        "pricing": "freemium",
+        "description": {
+            "en": "Create interactive charts, maps and tables for reports, articles and websites.",
+            "zh": "为报告、文章和网站制作交互式图表、地图与表格。"
+        },
+        "pricingNote": {
+            "en": "The free plan supports publishing, embedding and PNG downloads with attribution. Paid plans add PDF/SVG export, attribution removal and team features; API usage beyond included free allowances is billed separately.",
+            "zh": "免费版支持发布、嵌入和 PNG 下载，需保留署名；付费版增加 PDF/SVG 导出、移除署名与团队功能，API 超出免费额度后另计。"
+        },
+        "sources": [
+            "https://www.datawrapper.de/",
+            "https://www.datawrapper.de/pricing",
+            "https://www.datawrapper.de/imprint"
+        ],
+        "verifiedOn": "2026-10-13",
+        "searchAliases": [
+            "数据包装器"
+        ],
+        "icon": "DW",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "wikimedia-commons",
+        "name": "Wikimedia Commons",
+        "url": "https://commons.wikimedia.org/",
+        "company": "Wikimedia Foundation",
+        "country": "US",
+        "categories": [
+            "design",
+            "search",
+            "learning"
+        ],
+        "tags": [
+            "media-assets",
+            "open-licensed-media"
+        ],
+        "pricing": "free",
+        "description": {
+            "en": "Find educational images, audio and video with public-domain or open-license information.",
+            "zh": "查找教育用途的图片、音频与视频，并查看公有领域或开放许可说明。"
+        },
+        "pricingNote": {
+            "en": "Browsing and downloading are free. Reuse must follow each file’s license and applicable rights; attribution or share-alike conditions may apply.",
+            "zh": "浏览与下载免费；再利用需遵守每个文件的许可及相关权利要求，可能需要署名或以相同方式共享。"
+        },
+        "sources": [
+            "https://commons.wikimedia.org/wiki/Commons:Welcome",
+            "https://wikimediafoundation.org/contact/"
+        ],
+        "verifiedOn": "2026-10-13",
+        "searchAliases": [
+            "维基共享资源"
+        ],
+        "icon": "WC",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "worldcat",
+        "name": "WorldCat.org",
+        "url": "https://search.worldcat.org/",
+        "company": "OCLC",
+        "country": "US",
+        "categories": [
+            "search",
+            "learning"
+        ],
+        "tags": [
+            "library-search",
+            "books",
+            "citations"
+        ],
+        "pricing": "free",
+        "description": {
+            "en": "Find books and other library materials, compare editions and locate libraries that hold them.",
+            "zh": "检索图书等馆藏资料、比较版本，并查找收藏它们的图书馆。"
+        },
+        "pricingNote": {
+            "en": "Public catalog search is free; some features require sign-in. Borrowing, full-text access and purchases depend on the holding library or content provider.",
+            "zh": "公开目录检索免费；部分功能需登录，借阅、全文访问或购买条件由馆藏图书馆或内容提供方决定。"
+        },
+        "sources": [
+            "https://search.worldcat.org/",
+            "https://www.oclc.org/en/worldcat-org.html",
+            "https://www.oclc.org/en/annual-report/2025/home.html",
+            "https://policies.oclc.org/en/terms/worldcatorg.html",
+            "https://help.oclc.org/Discovery_and_Reference/WorldCat-org/Search/Search_WorldCat_org/20Work_with_search_results"
+        ],
+        "verifiedOn": "2026-10-13",
+        "searchAliases": [
+            "全球图书馆目录",
+            "世界图书馆目录"
+        ],
+        "icon": "WL",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "typst",
+        "name": "Typst",
+        "url": "https://typst.app/",
+        "company": "Typst GmbH",
+        "country": "DE",
+        "categories": [
+            "office",
+            "learning"
+        ],
+        "tags": [
+            "typesetting",
+            "academic-writing",
+            "collaboration"
+        ],
+        "pricing": "freemium",
+        "description": {
+            "en": "Write and collaboratively typeset technical documents, papers and reports with markup.",
+            "zh": "通过标记语言编写并协作排版技术文档、论文与报告。"
+        },
+        "pricingNote": {
+            "en": "A free web plan includes editing and collaboration with storage and file limits. Paid plans add comments, integrations and more capacity; the open-source compiler is free.",
+            "zh": "网页免费版包含编辑与协作，有存储和文件数量限制；付费版增加评论、集成与容量，开源编译器免费。"
+        },
+        "sources": [
+            "https://typst.app/",
+            "https://typst.app/pricing/",
+            "https://typst.app/legal/"
+        ],
+        "verifiedOn": "2026-10-13",
+        "searchAliases": [],
+        "icon": "TY",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "pdf24-tools",
+        "name": "PDF24 Tools",
+        "url": "https://tools.pdf24.org/en/",
+        "company": "geek software GmbH",
+        "country": "DE",
+        "categories": [
+            "utilities",
+            "office"
+        ],
+        "tags": [
+            "pdf",
+            "pdf-ocr",
+            "pdf-comparison"
+        ],
+        "pricing": "free",
+        "description": {
+            "en": "Recognize text in scanned PDFs, compare PDF files and use other document-processing tools.",
+            "zh": "识别扫描 PDF 中的文字、比较 PDF 文件，并使用其他文档处理工具。"
+        },
+        "pricingNote": {
+            "en": "PDF tools are free for personal and business use, funded by advertising. Some online tools upload files; the comparison tool runs in the browser, and Windows Creator can work offline.",
+            "zh": "PDF 工具对个人与企业免费，由广告支持；部分在线工具会上传文件，对比工具在浏览器中运行，Windows Creator 可离线使用。"
+        },
+        "sources": [
+            "https://tools.pdf24.org/en/",
+            "https://tools.pdf24.org/en/ocr-pdf",
+            "https://tools.pdf24.org/en/compare-pdf",
+            "https://tools.pdf24.org/en/faq",
+            "https://www.pdf24.org/de/impressum"
+        ],
+        "verifiedOn": "2026-10-13",
+        "searchAliases": [],
+        "icon": "PF",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

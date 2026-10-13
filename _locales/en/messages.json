@@ -5813,5 +5813,29 @@
   },
   "collectionsHistoricalPromptClose": {
     "message": "Close prompt review"
+  },
+  "navigationTagCharts": {
+    "message": "Charts"
+  },
+  "navigationTagMapVisualization": {
+    "message": "Map visualization"
+  },
+  "navigationTagMediaAssets": {
+    "message": "Media assets"
+  },
+  "navigationTagOpenLicensedMedia": {
+    "message": "Open-licensed media"
+  },
+  "navigationTagLibrarySearch": {
+    "message": "Library search"
+  },
+  "navigationTagTypesetting": {
+    "message": "Typesetting"
+  },
+  "navigationTagPdfOcr": {
+    "message": "PDF OCR"
+  },
+  "navigationTagPdfComparison": {
+    "message": "PDF comparison"
   }
 }

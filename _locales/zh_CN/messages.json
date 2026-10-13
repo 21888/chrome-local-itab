@@ -5813,5 +5813,29 @@
   },
   "collectionsHistoricalPromptClose": {
     "message": "关闭提示词审阅"
+  },
+  "navigationTagCharts": {
+    "message": "图表制作"
+  },
+  "navigationTagMapVisualization": {
+    "message": "地图可视化"
+  },
+  "navigationTagMediaAssets": {
+    "message": "媒体素材"
+  },
+  "navigationTagOpenLicensedMedia": {
+    "message": "开放许可素材"
+  },
+  "navigationTagLibrarySearch": {
+    "message": "馆藏检索"
+  },
+  "navigationTagTypesetting": {
+    "message": "文档排版"
+  },
+  "navigationTagPdfOcr": {
+    "message": "PDF文字识别"
+  },
+  "navigationTagPdfComparison": {
+    "message": "PDF对比"
   }
 }

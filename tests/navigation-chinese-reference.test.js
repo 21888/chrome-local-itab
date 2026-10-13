@@ -1,12 +1,12 @@
 const test = require('node:test'), assert = require('node:assert/strict'), crypto = require('node:crypto'), fs = require('node:fs');
 const sites = require('../shared/navigation-sites'), Catalog = require('../shared/navigation-catalog');
-const added = sites.slice(139), ids = ['moe-concised-dictionary','china-consular-services'];
+const added = sites.slice(139,141), ids = ['moe-concised-dictionary','china-consular-services'];
 const key = tag => 'navigationTag'+tag.split('-').map(part=>part[0].toUpperCase()+part.slice(1)).join('');
-test('Chinese reference additions preserve all 139 records and pin 141 safe unique entries / 210 uses',()=>{
+test('Chinese reference additions preserve all 139 records and pin 146 safe unique entries / 218 uses',()=>{
  assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0,139))).digest('hex'),'9473712ed854a4195ae19e694316f8bf36b999cd9b70a424675b578702670e24');
- assert.deepEqual(added.map(s=>s.id),ids);assert.equal(sites.length,141);assert.equal(Catalog.validate(sites),true);
- assert.equal(new Set(sites.map(s=>s.id)).size,141);assert.equal(new Set(sites.map(s=>Catalog.canonicalURL(s.url))).size,141);
- assert.equal(Catalog.categories.length,18);assert.equal(new Set(sites.flatMap(s=>s.tags)).size,210);
+ assert.deepEqual(added.map(s=>s.id),ids);assert.equal(sites.length,146);assert.equal(Catalog.validate(sites),true);
+ assert.equal(new Set(sites.map(s=>s.id)).size,146);assert.equal(new Set(sites.map(s=>Catalog.canonicalURL(s.url))).size,146);
+ assert.equal(Catalog.categories.length,18);assert.equal(new Set(sites.flatMap(s=>s.tags)).size,218);
  const oldTags=new Set(sites.slice(0,139).flatMap(s=>s.tags));assert.deepEqual(added.flatMap(s=>s.tags).filter(t=>!oldTags.has(t)),['chinese-dictionary','pronunciation','language-learning','travel-advisories','destination-guides','consular-guidance']);
  for(const site of added){assert.equal(site.verifiedOn,'2026-10-13');assert.equal(site.language,'unknown');assert.equal(site.signup,'unknown');assert.equal(site.pricing,'not_applicable');assert.equal(new Set(site.sources).size,site.sources.length);}
 });

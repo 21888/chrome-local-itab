@@ -5,10 +5,10 @@ const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperC
 test('news and social appends three records without changing the original 136', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 136))).digest('hex'), '48423fd8a0846b0fdde25e46ed636e94658e719dd9c2159b4bdc522108d96698');
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 141); assert.equal(Catalog.validate(sites), true);
-    assert.equal(new Set(sites.map(site => site.id)).size, 141);
-    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 141);
-    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 210); assert.equal(Catalog.categories.length, 18);
+    assert.equal(sites.length, 146); assert.equal(Catalog.validate(sites), true);
+    assert.equal(new Set(sites.map(site => site.id)).size, 146);
+    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 146);
+    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 218); assert.equal(Catalog.categories.length, 18);
     const oldTags = new Set(sites.slice(0, 136).flatMap(site => site.tags));
     assert.deepEqual([...new Set(added.flatMap(site => site.tags).filter(tag => !oldTags.has(tag)))], ['rss-reader', 'read-later', 'technology-news', 'federated-social']);
     for (const site of added) {
