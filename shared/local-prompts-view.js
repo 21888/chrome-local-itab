@@ -174,6 +174,7 @@
             this.checkModelComparison?.();
             this.checkModelRun?.();
             this.checkExcerptDialog?.();
+            this.checkStarterDialog?.();
             if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
             if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); return; }
             if (kind === 'preview') {
@@ -266,7 +267,48 @@
             const section = this.el('section', 'prompt-empty'), mark = this.el('div', 'prompt-empty-mark', '{ }'); mark.setAttribute('aria-hidden', 'true');
             section.append(mark, this.heading(this.t('EmptyTitle', 'Keep the prompts worth reusing')), this.el('p', '', this.t('EmptyBody', 'Start with a prompt you already use. Add {{topic}} or {{audience}} where the details change, then fill them in each time.')),
                 this.button('CreateFirst', 'Create a prompt', () => { if (this.controller.create()) this.focusDetail('title'); }, 'prompt-primary'));
+            if (!(this.controller.state?.records || []).some(record => !record.deletedAt)) section.append(this.starterGallery());
             this.main.append(section);
+        }
+        starterGallery() {
+            const c = this.controller, section = this.el('section', 'prompt-starters');
+            const selected = c.selected, draft = c.draft(), epoch = c.excerptEpoch;
+            const current = () => !this.destroyed && section.isConnected && this.main.contains(section) &&
+                c.selected === selected && c.draft() === draft && c.excerptEpoch === epoch && c.starterReady();
+            section.append(this.el('h3', '', this.t('StartersTitle', 'Built-in starter templates')),
+                this.el('p', 'prompt-help', this.t('StartersHelp', 'Review the full text, then load an unsaved draft. Save it before filling variables and copying. No model is run.')));
+            if (c.dirty('new')) {
+                section.append(this.el('p', 'prompt-help', this.t('StarterExisting', 'Your existing new draft is kept. Continue it or explicitly discard it before loading another template.')),
+                    this.button('StarterContinue', 'Continue unsaved draft', () => { if (current() && c.create()) this.focusDetail('title'); }));
+            }
+            const cards = this.el('div', 'prompt-starter-grid');
+            for (const starter of root.LocalItabPromptStarters?.list(this.doc.documentElement.lang) || []) {
+                const card = this.el('button', 'prompt-starter-card'); card.type = 'button'; card.disabled = !c.starterReady();
+                this.focusKey(card, `starter-${starter.id}`);
+                card.append(this.el('strong', '', starter.title), this.el('span', '', starter.description));
+                card.addEventListener('click', () => { if (current() && card.isConnected && section.contains(card)) void this.previewStarter(starter.id); }); cards.append(card);
+            }
+            section.append(cards); return section;
+        }
+        async previewStarter(id) {
+            const c = this.controller, language = this.doc.documentElement.lang;
+            const starter = root.LocalItabPromptStarters?.get(id, language);
+            if (!starter || !c.starterReady() || this.destroyed || this.openDialog) return false;
+            const selected = c.selected, draft = c.draft(), epoch = c.excerptEpoch;
+            const current = () => !this.destroyed && c.starterReady() && c.selected === selected && c.draft() === draft && c.excerptEpoch === epoch;
+            const check = () => { if (!current()) this.cancelMarkdownDialog?.(); };
+            this.checkStarterDialog = check;
+            const existing = c.dirty('new');
+            const help = this.t('StartersHelp', 'Review the full text, then load an unsaved draft. Save it before filling variables and copying. No model is run.');
+            const accepted = await this.dialog({ title: starter.title,
+                body: existing ? `${this.t('StarterExisting', 'Your existing new draft is kept. Continue it or explicitly discard it before loading another template.')} ${help}` : help,
+                markdownPreview: starter.body, markdownCurrent: current,
+                accept: existing ? this.t('StarterContinue', 'Continue unsaved draft') : this.t('StarterLoad', 'Load unsaved draft') });
+            if (this.checkStarterDialog === check) this.checkStarterDialog = null;
+            if (!accepted || !current()) return false;
+            const loaded = existing ? c.create() : c.createFromStarter(id, language);
+            if (loaded) this.focusDetail('title');
+            return loaded;
         }
         field(label, name, value, { multiline = false, help = '', className = '', change } = {}) {
             const wrap = this.el('label', 'prompt-field'), text = this.el('span', '', label), input = this.el(multiline ? 'textarea' : 'input', className);
@@ -280,6 +322,11 @@
             form.addEventListener('submit', event => { event.preventDefault(); void c.save(); });
             form.append(this.heading(draft.id ? this.t('EditTitle', 'Edit prompt') : this.t('NewTitle', 'New prompt')),
                 this.el('p', 'prompt-help', this.t('EditorHelp', 'Title and body are required. Only explicit body saves create a version.')));
+            if (!draft.id) {
+                const starters = this.el('details', 'prompt-starter-disclosure');
+                starters.append(this.el('summary', '', this.t('StartersTitle', 'Built-in starter templates')), this.starterGallery());
+                form.append(starters);
+            }
             if (draft.conflict) {
                 const conflict = this.el('div', 'prompt-conflict'); conflict.append(this.el('p', '', this.t('Conflict', 'This prompt changed in another tab or was restored from backup. Your draft is intact. Review the saved prompt before choosing what to keep.')));
                 const actions = this.el('div', 'prompt-actions');

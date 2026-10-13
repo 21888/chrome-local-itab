@@ -1,9 +1,9 @@
 /* Page-owned drafts and variable values stay in memory, never in settings. */
 (function (root, factory) {
-    const api = factory(typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts, typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections);
+    const api = factory(typeof module === 'object' && module.exports ? require('./local-prompts-store.js') : root.LocalItabPrompts, typeof module === 'object' && module.exports ? require('./local-ai-collections-store.js') : root.LocalItabAICollections, typeof module === 'object' && module.exports ? require('./local-prompt-starters.js') : root.LocalItabPromptStarters);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabPromptsController = api;
-})(typeof window === 'undefined' ? globalThis : window, function (Core, Collections) {
+})(typeof window === 'undefined' ? globalThis : window, function (Core, Collections, Starters) {
     'use strict';
     const copy = value => JSON.parse(JSON.stringify(value));
     const SESSION_LIMIT = 100, SESSION_VALUE_LIMIT = 2 * 1024 * 1024;
@@ -132,6 +132,21 @@
             if (this.busy || this.pendingCommand) return false;
             this.excerptEpoch++; if (!this.drafts.has('new')) this.drafts.set('new', this.makeDraft());
             this.selected = 'new'; this.error = null; this.notice = ''; this.notify(); return true;
+        }
+        starterReady() {
+            return !this.disposed && !this.busy && !this.pendingCommand && Boolean(this.state) &&
+                this.pendingReadGeneration === null && !this.linkedPromptUnavailable && this.error?.scope !== 'read';
+        }
+        createFromStarter(id, language = 'en') {
+            if (!this.starterReady()) return false;
+            const starter = Starters.get(id, language);
+            if (!starter) return false;
+            // A second selection never replaces any existing nonempty new draft.
+            if (this.dirty('new')) return false;
+            const draft = this.makeDraft();
+            draft.input.title = starter.title; draft.input.body = starter.body;
+            this.drafts.set('new', draft); this.selected = 'new'; this.excerptEpoch++;
+            this.error = null; this.notice = ''; this.notify(); return true;
         }
         draft() { return this.drafts.get(this.selected); }
         dirty(id = this.selected) {

@@ -5665,5 +5665,20 @@
   },
   "navigationTagConsularGuidance": {
     "message": "Consular guidance"
+  },
+  "promptsStartersTitle": {
+    "message": "Built-in starter templates"
+  },
+  "promptsStartersHelp": {
+    "message": "Review the full text, then load an unsaved draft. Save it before filling variables and copying. No model is run."
+  },
+  "promptsStarterExisting": {
+    "message": "Your existing new draft is kept. Continue it or explicitly discard it before loading another template."
+  },
+  "promptsStarterContinue": {
+    "message": "Continue unsaved draft"
+  },
+  "promptsStarterLoad": {
+    "message": "Load unsaved draft"
   }
 }

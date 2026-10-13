@@ -5665,5 +5665,20 @@
   },
   "navigationTagConsularGuidance": {
     "message": "领事服务指南"
+  },
+  "promptsStartersTitle": {
+    "message": "内置起步模板"
+  },
+  "promptsStartersHelp": {
+    "message": "先查看完整原文，再载入未保存草稿。明确保存后才能填写变量并复制使用。不会运行模型。"
+  },
+  "promptsStarterExisting": {
+    "message": "已保留现有新建草稿。请继续编辑，或明确丢弃后再载入其他模板。"
+  },
+  "promptsStarterContinue": {
+    "message": "继续未保存草稿"
+  },
+  "promptsStarterLoad": {
+    "message": "载入未保存草稿"
   }
 }

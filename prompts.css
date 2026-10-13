@@ -125,3 +125,12 @@ h3 { font-size: 15px; }
 
 .prompt-tag-filter { cursor: pointer; font: inherit; font-size: 12px; background: transparent; }
 .prompt-tag-filter:hover, .prompt-tag-filter[aria-pressed="true"] { color: var(--template-text); border-color: currentColor; }
+
+/* Local starter templates share the library's theme and focus treatment. */
+.prompt-starters { margin-block: 1.5rem; text-align: start; }
+.prompt-starter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.prompt-starter-card { display: flex; flex-direction: column; gap: .4rem; text-align: start; padding: 1rem; white-space: normal; overflow-wrap: anywhere; }
+.prompt-starter-card span { font-size: .85rem; opacity: .8; }
+.prompt-starter-disclosure { margin-block: 1rem; }
+.prompt-starter-disclosure summary { cursor: pointer; }
+@media (max-width: 540px) { .prompt-starter-grid { grid-template-columns: 1fr; } }
