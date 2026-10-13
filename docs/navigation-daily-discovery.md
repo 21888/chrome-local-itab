@@ -72,3 +72,7 @@ Prepared snapshot results (manifest 1.1.105 unchanged):
 - Runtime ZIP build and verification: 112 allowlisted files; SHA-256
   `8d747b5d9a5e52a5f97448e1339f07717de54264ffb1ebff54873d720d6fdd2f`.
 - No browser test, commit, push or release was performed by this implementation step.
+
+## Limited native development checks
+
+Chinese desktop-light local catalog checks passed:136/122/14 counts, CFPB and AllTrails queries returned one card; ftc also matched Microsoft Copilot and board also matched Excalidraw, with only intended new sites selected. Rendered operator/pricing/account/advice/safety caveats and one hovered official-source URL per site checked. Cross-query four-site review remained complete; AllTrails purpose/category filtering and visible deselection preserved hidden3 and destination. Cancel/reopen restored selection0 without additions. No external service/account/purchase/download or individual advice eligibility was tested.200 purposes/18 categories remain source/test counts; dark/320/full filtering and accessibility matrices were not run.
