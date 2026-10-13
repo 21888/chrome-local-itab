@@ -719,3 +719,101 @@ test('purpose events reject retired nodes, departed sessions, IME, repeats and p
  purpose(h,'chat').dispatch('click');assert.ok(activePurpose(h));assert.equal(h.calls,1);
  h.view.destroy();before.dispatch('click');assert.equal(h.document.querySelector('.navigation-library-overlay'),null);
 });
+
+function searchShortcut(h) {
+ const panel=h.document.querySelector('.navigation-library-panel'),input=panel.querySelector('input'),source=panel.querySelector('.navigation-library-filter-toggle');
+ let selections=0;input.select=()=>{selections++;};
+ const press=(target=source,fields={})=>target.dispatch('keydown',{key:'/',...fields});
+ source.focus();return {panel,input,source,press,get selections(){return selections;}};
+}
+test('navigation slash focuses/selects exact query with bilingual hint and preserves all browsing state without reads or writes',async()=>{
+ for(const locale of ['en','zh-CN']) {
+  const h=model({locale});await h.view.open();const k=searchShortcut(h);
+  h.search('  chatgpt  ');
+  const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');
+  const tag=h.document.querySelector('.navigation-library-filters select');tag.value='chat';tag.dispatch('change');
+  const company=h.document.querySelectorAll('.navigation-library-filters select')[2];company.value='OpenAI';company.dispatch('change');
+  const saved=h.document.querySelectorAll('.navigation-library-saved-filter').find(node=>node.dataset.savedState==='new');saved.dispatch('click');
+  h.document.querySelector('.navigation-library-pick input').checked=true;h.document.querySelector('.navigation-library-pick input').dispatch('change');
+  h.document.querySelector('.navigation-library-new-category').dispatch('click');
+  const draft=h.document.querySelector('.navigation-library-new-category-panel input');draft.value=' Draft 🧪 ';draft.dispatch('input');
+  const details=h.document.querySelector('details');details.open=true;
+  const nodes=[...h.document.querySelectorAll('article')],count=h.document.querySelector('.navigation-library-count').textContent,batch=h.document.querySelector('.navigation-library-batch').textContent;
+  const reads=h.reads;k.source.focus();assert.equal(k.press().prevented,true);assert.equal(h.document.activeElement,k.input);assert.equal(k.selections,1);
+  assert.equal(target.value,'personal');assert.equal(tag.value,'chat');assert.equal(company.value,'OpenAI');assert.equal(saved.getAttribute('aria-pressed'),'true');
+  assert.equal(k.input.value,'  chatgpt  ');assert.equal(draft.value,' Draft 🧪 ');assert.equal(details.open,true);assert.equal(h.document.querySelector('details'),details);
+  assert.deepEqual(h.document.querySelectorAll('article'),nodes);assert.equal(h.document.querySelector('.navigation-library-pick input').checked,true);
+  assert.equal(h.document.querySelector('.navigation-library-count').textContent,count);assert.equal(h.document.querySelector('.navigation-library-batch').textContent,batch);
+  assert.equal(h.reads,reads);assert.equal(h.calls,0);assert.equal(k.input.getAttribute('aria-keyshortcuts'),'/');
+  assert.equal(h.document.getElementById(k.input.getAttribute('aria-describedby')).textContent,locale==='en'?'Press / to search while browsing, outside editing fields.':'浏览时在编辑框外按 / 搜索。');
+ }
+});
+test('navigation slash ignores editable fields, editable ancestors, custom widgets and shadow edit paths',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h);
+ for(const tag of ['input','textarea','select','audio','video','iframe','object','embed']){
+  const node=h.document.createElement(tag);k.panel.append(node);node.focus();assert.equal(k.press(node).prevented,false);k.source.focus();assert.equal(k.press(node).prevented,false);node.focus();assert.equal(k.press().prevented,false);node.remove();
+ }
+ for(const attrs of [{contenteditable:'plaintext-only'},{contenteditable:'false'},{role:'textbox'},{role:'combobox'},{role:'listbox'},{role:'slider'},{role:'spinbutton'}]){
+  const editor=h.document.createElement('div'),child=h.document.createElement('span');Object.entries(attrs).forEach(([key,value])=>editor.setAttribute(key,value));editor.append(child);k.panel.append(editor);child.focus();assert.equal(k.press(child).prevented,false);editor.remove();
+ }
+ k.input.focus();assert.equal(k.press(k.input).prevented,false);k.source.focus();const inner=h.document.createElement('input');assert.equal(k.press(k.source,{composedPath:()=>[inner,k.source,k.panel]}).prevented,false);
+ h.document.designMode='on';assert.equal(k.press().prevented,false);h.document.designMode='off';assert.equal(k.selections,0);assert.equal(h.calls,0);assert.equal(h.reads,1);
+});
+test('navigation slash respects IME, repeat, modifiers and consumed events, and matches typed slash on non-US keyboards',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h);
+ for(const fields of [{isComposing:true},{keyCode:229},{repeat:true},{ctrlKey:true},{metaKey:true},{altKey:true},{getModifierState:key=>key==='AltGraph'},{defaultPrevented:true},{key:'?',code:'Slash',shiftKey:true},{key:'f',ctrlKey:true},{key:'s',metaKey:true},{key:'Dead'}])assert.equal(k.press(k.source,fields).prevented,false);
+ k.source.dispatch('compositionstart');assert.equal(k.press().prevented,false);k.source.dispatch('compositionend');assert.equal(k.selections,0);
+ for(const fields of [{key:'/',code:'Digit7',shiftKey:true},{key:'/',code:'NumpadDivide'}]){k.source.focus();assert.equal(k.press(k.source,fields).prevented,true);}
+ assert.equal(k.selections,2);assert.equal(h.calls,0);assert.equal(h.reads,1);
+});
+test('navigation slash declines review without changing confirmation or selections',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h);const pick=h.document.querySelector('.navigation-library-pick input');pick.checked=true;pick.dispatch('change');
+ h.document.querySelector('.navigation-library-batch-review').dispatch('click');const review=h.document.querySelector('.navigation-library-review'),confirm=h.document.querySelector('.navigation-library-batch-confirm'),children=[...review.children];
+ assert.equal(k.press(confirm).prevented,false);assert.equal(h.document.activeElement,confirm);assert.equal(review.hidden,false);assert.deepEqual(review.children,children);assert.equal(h.document.querySelector('.navigation-library-pick input').checked,true);
+ assert.equal(k.selections,0);assert.equal(h.calls,0);assert.equal(h.reads,1);
+});
+test('navigation slash declines hidden/inert nodes, document, disabled search and other dialogs while allowing its own dialog',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h);
+ for(const node of [k.panel,k.input,k.source,k.panel.parentElement]) {
+  for(const prop of ['hidden','inert']){node[prop]=true;assert.equal(k.press().prevented,false);node[prop]=false;k.source.focus();}
+  node.setAttribute('aria-hidden','true');assert.equal(k.press().prevented,false);node.setAttribute('aria-hidden','false');
+  for(const [prop,value] of [['display','none'],['visibility','hidden'],['visibility','collapse']]){node.style[prop]=value;assert.equal(k.press().prevented,false);delete node.style[prop];}
+ }
+ k.input.disabled=true;assert.equal(k.press().prevented,false);k.input.disabled=false;
+ h.document.hidden=true;assert.equal(k.press().prevented,false);h.document.hidden=false;h.document.visibilityState='hidden';assert.equal(k.press().prevented,false);h.document.visibilityState='visible';
+ for(const role of ['dialog','alertdialog','menu']){const modal=h.document.createElement('section');modal.setAttribute('role',role);h.document.body.append(modal);assert.equal(k.press().prevented,false);modal.hidden=true;assert.equal(k.press().prevented,true);k.source.focus();modal.remove();}
+ const native=h.document.createElement('dialog');native.open=true;h.document.body.append(native);assert.equal(k.press().prevented,false);native.remove();
+ const overlay=h.document.createElement('div');overlay.className='modal-overlay active';h.document.body.append(overlay);assert.equal(k.press().prevented,false);overlay.remove();
+ k.source.focus();assert.equal(k.press().prevented,true);assert.equal(h.reads,1);assert.equal(h.calls,0);
+});
+test('navigation slash declines pending component/layout changes, departure, loading, writing and blocked saves',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h);
+ for(const prop of ['_shortcutWritesPending','_pendingSave','_pendingDelete','_shortcutOrderPending']){h.component[prop]=true;assert.equal(k.press().prevented,false);h.component[prop]=false;}
+ for(const prop of ['failedChange','invalidated','pending','timer','modePending']){h.component.layoutController[prop]=true;assert.equal(k.press().prevented,false);h.component.layoutController[prop]=false;}
+ h.context.LocalItabContentLifecycle={departing:true};assert.equal(k.press().prevented,false);h.context.LocalItabContentLifecycle.departing=false;
+ h.component.modal=h.document.createElement('div');h.component.modal.className='active';assert.equal(k.press().prevented,false);h.component.modal.className='';
+ const pending=deferred();h.write=pending;h.firstAdd().dispatch('click');const reads=h.reads,calls=h.calls;assert.equal(k.press(k.panel).prevented,false);assert.equal(k.selections,0);assert.equal(h.reads,reads);assert.equal(h.calls,calls);pending.resolve({...h.snapshot,duplicate:true});await tick();
+ h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_CONFLICT'});};h.firstAdd().dispatch('click');await tick();k.source.focus();assert.equal(k.press().prevented,false);
+ const loading=model(),read=deferred();loading.read=read;const opening=loading.view.open();await tick();const panel=loading.document.querySelector('.navigation-library-panel');assert.equal(panel.dispatch('keydown',{key:'/'}).prevented,false);assert.equal(loading.calls,0);read.resolve(loading.snapshot);await opening;
+});
+test('navigation slash listener is panel-local and retired panels/search/result nodes cannot act after close or reopening',async()=>{
+ const h=model();await h.view.open();const old=searchShortcut(h),oldHandler=old.panel.listeners.get('keydown')[0],card=h.document.querySelector('article');
+ h.search('chatgpt');old.source.focus();assert.equal(old.press(card).prevented,false);assert.equal(h.document.body.dispatch('keydown',{key:'/'}).prevented,false);
+ old.input.remove();assert.equal(old.press().prevented,false);old.panel.append(old.input);h.view.close();assert.equal(old.panel.listeners.get('keydown').length,0);assert.equal(old.press().prevented,false);
+ await h.view.open();const current=searchShortcut(h);h.document.body.append(old.panel);old.source.focus();assert.equal(old.press().prevented,false);
+ const event={key:'/',target:old.source,preventDefault(){throw new Error('stale handler consumed input');}};oldHandler(event);assert.equal(current.selections,0);assert.equal(old.selections,0);
+ old.panel.remove();current.source.focus();assert.equal(current.press().prevented,true);assert.equal(current.selections,1);assert.equal(h.reads,2);assert.equal(h.calls,0);
+});
+test('navigation slash cannot originate in a closed disclosure even if it retains a layout rectangle',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h),details=h.document.querySelector('details'),link=details.querySelector('a');
+ link.getClientRects=()=>[{}];h.document.activeElement=link;assert.equal(k.press(link).prevented,false);assert.equal(k.selections,0);
+ const summary=details.querySelector('summary');summary.focus();assert.equal(k.press(summary).prevented,true);assert.equal(k.selections,1);assert.equal(details.open,false);assert.equal(h.calls,0);assert.equal(h.reads,1);
+});
+test('navigation slash releases its independent IME target on blur, removal or changed focus and only consumes a successful focus',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h);
+ k.source.dispatch('compositionstart');k.source.dispatch('focusout');assert.equal(k.press().prevented,true);
+ const temporary=h.document.createElement('button');k.panel.append(temporary);temporary.focus();temporary.dispatch('compositionstart');temporary.remove();k.source.focus();assert.equal(k.press().prevented,true);
+ temporary.parentElement=null;k.panel.append(temporary);temporary.focus();temporary.dispatch('compositionstart');k.source.focus();assert.equal(k.press().prevented,true);
+ k.source.focus();const original=k.input.focus;k.input.focus=()=>{};const before=k.selections;assert.equal(k.press().prevented,false);assert.equal(k.selections,before);k.input.focus=original;
+ assert.equal(h.calls,0);assert.equal(h.reads,1);
+});

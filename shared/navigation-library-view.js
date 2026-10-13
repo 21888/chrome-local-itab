@@ -4,7 +4,7 @@
     const fallback = {
         open: 'Discover sites', eyebrow: 'YOUR NEXT USEFUL PLACE', title: 'A little discovery. A better start.',
         intro: 'Browse the built-in library. Add only the sites you want to your own shortcuts.',
-        search: 'Search names, uses or companies', all: 'All categories', filters: 'More filters', clear: 'Clear filters',
+        search: 'Search names, uses or companies', searchShortcutHint: 'Press / to search while browsing, outside editing fields.', all: 'All categories', filters: 'More filters', clear: 'Clear filters',
         activeFilters: 'Active filters', removeFilter: 'Remove filter',
         savedState: 'Saved in this workspace', savedAll: 'All', savedNew: 'Not added', savedAdded: 'Added',
         tag: 'Use', country: 'Operator location', company: 'Company / organization', pricing: 'Pricing',
@@ -29,7 +29,7 @@
     const t = key => { const id = `navigationLibrary${key[0].toUpperCase()}${key.slice(1)}`; const result = root.i18n?.t(id); return result && result !== id ? result : fallback[key] || key; };
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
-        let overlay, panel, cleanup, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
+        let overlay, panel, cleanup, cleanupSearchShortcut, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
         let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
         let newCategoryMode = false, draftName = '', composing = false, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
@@ -55,7 +55,7 @@
         const opener = button(t('open'), open, 'navigation-library-opener'); opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
         function close() {
             if (writing) return false;
-            revision++; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false; return true;
+            revision++; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanupSearchShortcut?.(); cleanupSearchShortcut = null; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false; return true;
         }
         function setControls() {
             for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || node.dataset.unavailable === 'true';
@@ -89,9 +89,10 @@
             const entries = root.LocalItabNavigationSites;
             const searchRow = el('div', undefined, 'navigation-library-search-row');
             const searchLabel = el('label', undefined, 'navigation-library-search'); searchLabel.append(el('span', '', 'navigation-library-search-icon'));
-            search = el('input'); search.type = 'search'; search.placeholder = t('search'); search.setAttribute('aria-label', t('search')); searchLabel.append(search);
+            search = el('input'); search.type = 'search'; search.placeholder = t('search'); search.setAttribute('aria-label', t('search')); search.setAttribute('aria-keyshortcuts', '/'); search.setAttribute('aria-describedby', 'navigation-library-search-hint'); searchLabel.append(search);
             const filterButton = button(t('filters'), () => { filtersPanel.hidden = !filtersPanel.hidden; filterButton.setAttribute('aria-expanded', String(!filtersPanel.hidden)); }, 'navigation-library-filter-toggle');
             filterButton.setAttribute('aria-expanded', 'false'); filterButton.setAttribute('aria-controls', 'navigation-library-filters'); searchRow.append(searchLabel, filterButton); panel.append(searchRow);
+            const searchHint = el('p', t('searchShortcutHint'), 'navigation-library-search-hint'); searchHint.id = 'navigation-library-search-hint'; panel.append(searchHint);
             search.addEventListener('input', () => { criteria.query = search.value; renderResults(); });
             categoryNav = el('nav', undefined, 'navigation-library-categories'); categoryNav.setAttribute('aria-label', t('all'));
             for (const category of [{id: '', en: t('all'), zh: t('all'), icon: '▦'}, ...api.categories]) {
@@ -197,7 +198,65 @@
             const foot = el('footer', undefined, 'navigation-library-footer'); foot.append(el('p', t('privacy')));
             if (snapshot.privacy) foot.append(el('p', `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}`));
             foot.append(el('p', t('disclosure'))); panel.append(foot);
-            status.textContent = currentDestination ? '' : t('noCategory'); renderResults(); search.focus();
+            status.textContent = currentDestination ? '' : t('noCategory'); renderResults(); search.focus(); bindSearchShortcut();
+        }
+        function bindSearchShortcut() {
+            const owner = revision, ownedPanel = panel, ownedSearch = search;
+            let compositionTarget = null;
+            const unavailable = node => {
+                if (!node?.isConnected || node.closest('[hidden], [inert], [aria-hidden="true"]') || !node.getClientRects().length) return true;
+                for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+                    if (ancestor !== node && ancestor.tagName === 'DETAILS' && !ancestor.open) {
+                        const summary = Array.from(ancestor.children).find(child => child.tagName === 'SUMMARY');
+                        if (!summary?.contains(node)) return true;
+                    }
+                    const style = root.getComputedStyle?.(ancestor) || ancestor.style;
+                    if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return true;
+                }
+                return false;
+            };
+            const handleSearchShortcut = event => {
+                // Own only this opening and these live nodes. Never re-render or
+                // invalidate a review merely to move keyboard focus.
+                if (compositionTarget && (!compositionTarget.isConnected || !compositionTarget.contains(document.activeElement))) compositionTarget = null;
+                if (owner !== revision || panel !== ownedPanel || search !== ownedSearch || !overlay ||
+                    busy || writing || blocked || reviewed || !reviewPanel.hidden || !snapshot || compositionTarget ||
+                    root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave ||
+                    component._pendingDelete || component._shortcutOrderPending || component.layoutController?.failedChange ||
+                    component.layoutController?.invalidated || component.layoutController?.pending || component.layoutController?.timer ||
+                    component.layoutController?.modePending || component.modal?.classList.contains('active') ||
+                    document.hidden || document.visibilityState === 'hidden' || event.key !== '/' || event.defaultPrevented ||
+                    event.repeat || event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey ||
+                    event.altKey || event.getModifierState?.('AltGraph') || ownedSearch.disabled ||
+                    !ownedPanel.contains(ownedSearch) || !ownedPanel.contains(event.target) ||
+                    !ownedPanel.contains(document.activeElement) || unavailable(ownedPanel) || unavailable(ownedSearch) ||
+                    unavailable(event.target) || unavailable(document.activeElement)) return;
+                const controls = 'input, textarea, select, audio, video, iframe, object, embed, [contenteditable], [role="textbox"], [role="combobox"], [role="listbox"], [role="slider"], [role="spinbutton"]';
+                const path = event.composedPath?.() || [event.target];
+                if (document.designMode?.toLowerCase() === 'on' || path.some(node => node.isContentEditable || node.closest?.(controls)) ||
+                    document.activeElement?.isContentEditable || document.activeElement?.closest(controls)) return;
+                // The library is itself a dialog. Only another visible modal/menu
+                // should suppress this local shortcut; never suppress our own panel.
+                if (Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="menu"], dialog[open], .modal-overlay.active'))
+                    .some(node => node !== ownedPanel && !unavailable(node))) return;
+                ownedSearch.focus();
+                if (document.activeElement !== ownedSearch) return;
+                event.preventDefault();
+                ownedSearch.select();
+            };
+            const compositionStart = event => { compositionTarget = event.target; };
+            const compositionEnd = event => { if (compositionTarget === event.target) compositionTarget = null; };
+            ownedPanel.addEventListener('keydown', handleSearchShortcut);
+            ownedPanel.addEventListener('compositionstart', compositionStart);
+            ownedPanel.addEventListener('compositionend', compositionEnd);
+            ownedPanel.addEventListener('focusout', compositionEnd);
+            cleanupSearchShortcut = () => {
+                compositionTarget = null;
+                ownedPanel.removeEventListener('keydown', handleSearchShortcut);
+                ownedPanel.removeEventListener('compositionstart', compositionStart);
+                ownedPanel.removeEventListener('compositionend', compositionEnd);
+                ownedPanel.removeEventListener('focusout', compositionEnd);
+            };
         }
         function rebuildDestinations() {
             destination.replaceChildren();

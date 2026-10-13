@@ -62,3 +62,13 @@ The first two purpose labels on each card, and every purpose under **Sources & d
 Filtering does not open a site or save anything. The clicked purpose keeps keyboard focus after results refresh; open details stay open for that site within the dialog. Purpose buttons are disabled during a pending save. **Official site** and source links remain the separate external-link actions.
 
 卡片前两个用途及「来源与详情」中的完整用途现在都可点击，用来筛选相同用途的网站。它与高级筛选中的「用途」下拉框、可移除的当前筛选标签同步。搜索词、分类、其他筛选、添加目标（包括新分类名称草稿）及已勾选网站保持不变；所有条件仍须同时满足，点击当前用途筛选标签即可单独清除用途。操作仅在本地筛选，不打开网站或写入数据。刷新结果后保留对应用途按钮的键盘焦点和网站详情展开状态，保存处理中禁用用途按钮。
+
+## Focus search with / / 按 / 聚焦搜索
+
+While browsing inside the library, press `/` from a non-editing control or card to focus the search field and select its existing query. This moves focus only: it does not rerun the search, reset filters, selections or an unfinished category name, or read/write saved data. The visible hint is linked to the search input for assistive technology. `/` continues to type normally in inputs, selects and editable content; Ctrl/Command/Alt shortcuts, held keys and IME composition are left alone. A keyboard layout that uses Shift to produce `/` is supported.
+
+The shortcut stays inside the currently open library. It pauses during review, loading, saving, blocked/conflicting state, pending shortcut/layout changes, departure, or another visible dialog/menu. Closing removes its listener; reopening starts with fresh ownership. It does not change the page-level saved-site Finder shortcut.
+
+在导航库内浏览时，从非编辑控件或卡片按 `/`，会聚焦搜索框并选中现有搜索词。仅移动焦点，不重新搜索、不清除筛选、所选网站或未完成的分类名称，也不读写已保存数据。搜索框关联中英文可见提示。输入框、下拉选择和可编辑内容中仍可正常输入 `/`；组合键、长按及输入法组词时不触发。支持用 Shift 输入 `/` 的键盘布局。
+
+快捷键只在当前打开的导航库中生效；复核、读取、保存、冲突阻止、待完成的快捷方式或布局修改、离开页面、其他可见对话框或菜单出现时暂停。关闭会移除监听，重新打开使用新的会话。页面级「查找已保存网站」的快捷键保持原样。

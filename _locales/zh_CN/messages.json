@@ -4571,6 +4571,9 @@
   "navigationLibrarySearch": {
     "message": "搜索名称、用途或公司"
   },
+  "navigationLibrarySearchShortcutHint": {
+    "message": "浏览时在编辑框外按 / 搜索。"
+  },
   "navigationLibrarySavedState": {
     "message": "当前工作空间添加状态"
   },
