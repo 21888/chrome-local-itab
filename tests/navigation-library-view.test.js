@@ -934,3 +934,59 @@ test('four learning resources remain local, preserve hidden selections and cance
   h.view.close();
  }
 });
+
+const emptyRecover=h=>h.document.querySelector('.navigation-library-empty-recover');
+test('empty selected-only explains no selection in both languages and recovers without clearing other filters',async()=>{
+ for(const [locale,title,label] of [['en','No sites selected yet.','Turn off selected-only view'],['zh-CN','还没有选择网站。','关闭只看已选']]){
+  const h=model({locale});await h.view.open();h.search('github');selectedToggle(h).dispatch('click');
+  assert.equal(h.document.querySelector('.navigation-library-empty h3').textContent,title);assert.equal(emptyRecover(h).textContent,label);
+  assert.equal(h.document.querySelectorAll('.navigation-library-empty button').length,1);
+  emptyRecover(h).dispatch('click');assert.equal(cards(h).length,3);assert.ok(cards(h).some(card=>card.dataset.site==='github'));
+  assert.equal(h.document.querySelector('.navigation-library-search input').value,'github');assert.equal(h.document.activeElement,selectedToggle(h));assert.equal(h.calls,0);
+ }
+});
+test('empty hidden-selection recovery counts all hidden sites, preserves targets and retires review in both languages',async()=>{
+ for(const locale of ['en','zh-CN'])for(const newTarget of [false,true]){
+  const h=model({locale});await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');
+  const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');
+  if(newTarget){h.document.querySelector('.navigation-library-new-category').dispatch('click');const name=h.document.querySelector('.navigation-library-new-category-panel input');name.value='Synthetic draft';name.dispatch('input');}
+  selectedToggle(h).dispatch('click');h.search('absent-93827');
+  const empty=h.document.querySelector('.navigation-library-empty');assert.match(empty.querySelectorAll('p').map(node=>node.textContent).join(' '),/Hidden by filters: 2|被筛选隐藏: 2/);assert.match(empty.querySelector('h3').textContent,/hidden by filters|当前筛选隐藏/);
+  h.document.querySelector('.navigation-library-batch-review').dispatch('click');const old=h.document.querySelector('.navigation-library-batch-confirm');
+  emptyRecover(h).dispatch('click');assert.equal(selectionCount(h),locale==='en'?'2 / 20 selected':'2 / 20 已选');
+  assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);old.dispatch('click');assert.equal(h.calls,0);
+  assert.equal(target.value,'personal');if(newTarget){assert.equal(h.document.querySelector('.navigation-library-new-category-panel').hidden,false);assert.equal(h.document.querySelector('.navigation-library-new-category-panel input').value,'Synthetic draft');}
+  assert.equal(h.document.activeElement,h.document.querySelector('.navigation-library-search input'));assert.ok(cards(h).length>2);
+ }
+});
+test('ordinary zero-match uses one clear-filter recovery and does not imply missing selections',async()=>{
+ const h=model();await h.view.open();h.search('absent-93827');assert.equal(h.document.querySelector('.navigation-library-empty h3').textContent,'No sites match these filters.');
+ assert.equal(emptyRecover(h).textContent,'Clear filters');emptyRecover(h).dispatch('click');assert.equal(cards(h).length,132);assert.equal(h.calls,0);
+});
+test('empty catalog and unavailable catalog are distinct from unmatched filters and saved-site read failure',async()=>{
+ for(const locale of ['en','zh-CN']){
+  const h=model({locale});h.context.LocalItabNavigationSites=[];await h.view.open();assert.match(h.document.querySelector('.navigation-library-empty h3').textContent,/library has no sites|网站库暂无/);assert.equal(emptyRecover(h),null);selectedToggle(h).dispatch('click');assert.match(h.document.querySelector('.navigation-library-empty h3').textContent,/library has no sites|网站库暂无/);assert.equal(h.calls,0);
+  const missing=model({locale});missing.context.LocalItabNavigationSites=null;assert.equal(await missing.view.open(),false);assert.match(missing.document.querySelector('.navigation-library-status').textContent,/load the built-in library|加载内置网站库/);assert.equal(emptyRecover(missing),null);
+  const failed=model({locale}),pending={};pending.promise=new Promise((resolve,reject)=>{pending.resolve=resolve;pending.reject=reject;});failed.read=pending;const opening=failed.view.open();pending.reject(new Error('synthetic read failure'));assert.equal(await opening,false);assert.match(failed.document.querySelector('.navigation-library-status').textContent,/read your saved sites|读取/);assert.equal(emptyRecover(failed),null);
+ }
+});
+test('retired empty recovery nodes cannot clear newer filters or reopened session state',async()=>{
+ const h=model();await h.view.open();h.search('absent-93827');const old=emptyRecover(h);h.search('github');old.dispatch('click');assert.equal(cards(h).length,3);assert.equal(h.document.querySelector('.navigation-library-search input').value,'github');
+ h.search('absent-93827');const retired=emptyRecover(h);h.view.close();await h.view.open();h.search('github');retired.dispatch('click');assert.equal(cards(h).length,3);assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.calls,0);
+});
+test('empty recovery is inert during external pending work, composition and repeat events',async()=>{
+ const h=model();await h.view.open();selectedToggle(h).dispatch('click');const recover=emptyRecover(h);
+ for(const event of [{repeat:true},{detail:2},{isComposing:true},{keyCode:229}])recover.dispatch('click',event);
+ assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');assert.equal(recover.dispatch('keydown',{key:'Enter',repeat:true}).prevented,true);
+ const input=h.document.querySelector('.navigation-library-search input');input.focus();input.dispatch('compositionstart');recover.dispatch('click');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');input.dispatch('compositionend');
+ for(const key of ['_pendingSave','_pendingDelete','_shortcutWritesPending','_shortcutOrderPending']){
+  h.component[key]=true;h.search('');assert.equal(emptyRecover(h).disabled,true);emptyRecover(h).dispatch('click');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');h.component[key]=false;
+ }
+ h.search('');assert.equal(emptyRecover(h).disabled,false);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,132);assert.equal(h.calls,0);
+});
+test('empty recovery stays disabled throughout a write and after uncertain failure',async()=>{
+ const h=model(),pending={};pending.promise=new Promise((resolve,reject)=>{pending.resolve=resolve;pending.reject=reject;});h.write=pending;await h.view.open();pickSite(h,'chatgpt');h.search('absent-93827');h.click('Review selected');h.click('Confirm and add');
+ assert.equal(h.calls,1);assert.equal(emptyRecover(h).disabled,true);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,0);
+ pending.reject(Object.assign(new Error('synthetic uncertainty'),{code:'CATALOG_UNVERIFIED'}));await tick();assert.equal(emptyRecover(h).disabled,true);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,0);assert.equal(h.calls,1);
+ h.view.close();await h.view.open();h.search('absent-93827');assert.equal(emptyRecover(h).disabled,false);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,132);
+});

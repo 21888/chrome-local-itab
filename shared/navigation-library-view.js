@@ -10,7 +10,11 @@
         tag: 'Use', country: 'Operator location', company: 'Company / organization', pricing: 'Pricing',
         any: 'Any', destination: 'Add to your category', results: 'sites', result: 'site', add: 'Add', added: 'Added', visit: 'Open official site', official: 'Official site',
         loading: 'Reading your saved sites…', saving: 'Saving…', saved: 'Added to', duplicate: 'Already in your shortcuts',
-        empty: 'No sites match these filters.', emptyHelp: 'Try a different word, category or filter.',
+        empty: 'No sites match these filters.', emptyHelp: 'Clear filters to browse all sites. Your selection and destination stay unchanged.',
+        emptySelected: 'No sites selected yet.', emptySelectedHelp: 'Turn off selected-only view to choose sites. Other filters stay in place.',
+        emptyHidden: 'Your selected sites are hidden by filters.', emptyHiddenHelp: 'Clear filters to see them again. Your selection and destination stay unchanged.',
+        browseAll: 'Turn off selected-only view', catalogEmpty: 'The built-in library has no sites.',
+        catalogEmptyHelp: 'There are no built-in sites to browse right now.', catalogError: 'Could not load the built-in library. Close and reopen to try again.',
         close: 'Close', privacy: 'Browsing this library stays offline. Adding uses your existing Sync and online-icon settings.',
         disclosure: 'Location describes the company or service operator, not where a site is accessible. Plans, availability and account requirements can change.',
         source: 'Sources & details', allUses: 'All uses', categories: 'Categories', moreUse: 'more use in details', moreUses: 'more uses in details', sources: 'Sources', checked: 'Checked', unknown: 'Unknown', free: 'Free entry', freemium: 'Free + paid plans', paid: 'Paid', not_applicable: 'Not applicable',
@@ -30,6 +34,7 @@
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
         let overlay, panel, cleanup, cleanupSearchShortcut, cleanupComposition, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, batchSelectedOnly, batchHiddenCount, reviewPanel, reviewConfirm;
+        let clearFilters = () => {}, leaveSelectedOnly = () => {};
         let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
         let newCategoryMode = false, draftName = '', compositionTarget = null, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
@@ -111,9 +116,10 @@
                 if (flushed === false || controller?.failedChange || controller?.invalidated) throw Object.assign(new Error(), { code: 'CATALOG_LAYOUT_PENDING' });
                 const fresh = await root.storageManager.readNavigationLibrarySnapshot();
                 if (owner !== revision) return false;
+                if (!Array.isArray(root.LocalItabNavigationSites)) throw Object.assign(new Error(), { code: 'CATALOG_UNAVAILABLE' });
                 snapshot = fresh; busy = false; build(); return true;
             } catch (error) {
-                if (owner === revision) { busy = false; status.textContent = t(error.code === 'CATALOG_LAYOUT_PENDING' ? 'layout' : 'readError'); }
+                if (owner === revision) { busy = false; status.textContent = t(error.code === 'CATALOG_LAYOUT_PENDING' ? 'layout' : error.code === 'CATALOG_UNAVAILABLE' ? 'catalogError' : 'readError'); }
                 return false;
             }
         }
@@ -198,7 +204,8 @@
 
             const toolbar = el('div', undefined, 'navigation-library-toolbar');
             count = el('span', '', 'navigation-library-count'); count.setAttribute('role', 'status'); toolbar.append(count);
-            const reset = button(t('clear'), () => { selectedOnly = false; criteria = {}; search.value = ''; for (const select of filtersPanel.querySelectorAll('select')) select.value = ''; refreshTagOptions(); refreshCategories(); renderResults(); search.focus(); }, 'navigation-library-clear'); toolbar.append(reset);
+            clearFilters = () => { if (owner !== revision || selectionUnavailable()) return; selectedOnly = false; criteria = {}; search.value = ''; for (const select of filtersPanel.querySelectorAll('select')) select.value = ''; refreshTagOptions(); refreshCategories(); renderResults(); search.focus(); };
+            const reset = button(t('clear'), clearFilters, 'navigation-library-clear'); toolbar.append(reset);
             const destinationLabel = el('label', t('destination'), 'navigation-library-destination'); destination = el('select'); destination.setAttribute('aria-label', t('destination'));
             const active = root.categoryNavigation?.getCurrentCategory?.();
             currentDestination = snapshot.categories.some(category => category.id === active) ? active : snapshot.categories[0]?.id || '';
@@ -222,6 +229,7 @@
                 if (owner !== revision || !batchClear.isConnected || selectionUnavailable()) return;
                 selected.clear(); renderResults(); (selectedOnly ? batchSelectedOnly : search).focus();
             }, 'navigation-library-clear');
+            leaveSelectedOnly = () => { if (owner !== revision || selectionUnavailable()) return; selectedOnly = false; renderResults(); batchSelectedOnly.focus(); };
             const selectedToggle = batchSelectedOnly = button(t('selectedOnly'), () => {
                 if (owner !== revision || !selectedToggle.isConnected || selectionUnavailable()) return;
                 selectedOnly = !selectedOnly; renderResults(); selectedToggle.focus();
@@ -436,7 +444,27 @@
             const focusSite = focusId && (entries.find(site => site.id === focusId) || entries[Math.max(0, Math.min(oldIndex, entries.length - 1))]);
             count.textContent = `${entries.length} ${t(entries.length === 1 ? 'result' : 'results')}`; results.replaceChildren();
             if (!entries.length) {
-                const empty = el('div', undefined, 'navigation-library-empty'); empty.append(el('span', '', 'navigation-library-search-icon'), el('h3', t('empty')), el('p', t('emptyHelp'))); results.append(empty); if (focusId || detailFocus) { empty.tabIndex = -1; empty.focus(); } return;
+                const catalogEmpty = !root.LocalItabNavigationSites.length;
+                const noSelection = selectedOnly && !selected.size;
+                const hiddenSelection = selected.size > 0;
+                const title = catalogEmpty ? 'catalogEmpty' : noSelection ? 'emptySelected' : hiddenSelection ? 'emptyHidden' : 'empty';
+                const help = catalogEmpty ? 'catalogEmptyHelp' : noSelection ? 'emptySelectedHelp' : hiddenSelection ? 'emptyHiddenHelp' : 'emptyHelp';
+                const empty = el('div', undefined, 'navigation-library-empty');
+                empty.append(el('span', '', 'navigation-library-search-icon'), el('h3', t(title)), el('p', t(help)));
+                if (!catalogEmpty && hiddenSelection) empty.append(el('p', `${t('hiddenSelected')}: ${selected.size}`));
+                if (!catalogEmpty) {
+                    const recover = button(t(noSelection ? 'browseAll' : 'clear'), () => {
+                        if (owner !== revision || !recover.isConnected || recover.disabled || selectionUnavailable()) return;
+                        (noSelection ? leaveSelectedOnly : clearFilters)();
+                    }, 'navigation-library-clear navigation-library-empty-recover');
+                    recover.dataset.unavailable = String(Boolean(selectionUnavailable()));
+                    recover.disabled = recover.dataset.unavailable === 'true';
+                    recover.addEventListener('keydown', event => {
+                        if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+                    });
+                    empty.append(recover);
+                }
+                results.append(empty); if (focusId || detailFocus) { empty.tabIndex = -1; empty.focus(); } return;
             }
             for (const site of entries) {
                 const card = el('article', undefined, 'navigation-library-card'); card.dataset.site = site.id;

@@ -4644,7 +4644,7 @@
     "message": "No sites match these filters."
   },
   "navigationLibraryEmptyHelp": {
-    "message": "Try a different word, category or filter."
+    "message": "Clear filters to browse all sites. Your selection and destination stay unchanged."
   },
   "navigationLibraryClose": {
     "message": "Close"
@@ -5504,9 +5504,43 @@
   "navigationTagAudioEffects": {
     "message": "Audio effects"
   },
-  "navigationLibrarySelectedOnly": { "message": "Show selected only" },
-  "navigationLibraryHiddenSelected": { "message": "Hidden by filters" },
-  "navigationTagEbooks": { "message": "E-books" },
-  "navigationTagCulturalCollections": { "message": "Cultural collections" },
-  "navigationTagEnglishLearning": { "message": "English learning" }
+  "navigationLibrarySelectedOnly": {
+    "message": "Show selected only"
+  },
+  "navigationLibraryHiddenSelected": {
+    "message": "Hidden by filters"
+  },
+  "navigationTagEbooks": {
+    "message": "E-books"
+  },
+  "navigationTagCulturalCollections": {
+    "message": "Cultural collections"
+  },
+  "navigationTagEnglishLearning": {
+    "message": "English learning"
+  },
+  "navigationLibraryEmptySelected": {
+    "message": "No sites selected yet."
+  },
+  "navigationLibraryEmptySelectedHelp": {
+    "message": "Turn off selected-only view to choose sites. Other filters stay in place."
+  },
+  "navigationLibraryEmptyHidden": {
+    "message": "Your selected sites are hidden by filters."
+  },
+  "navigationLibraryEmptyHiddenHelp": {
+    "message": "Clear filters to see them again. Your selection and destination stay unchanged."
+  },
+  "navigationLibraryBrowseAll": {
+    "message": "Turn off selected-only view"
+  },
+  "navigationLibraryCatalogEmpty": {
+    "message": "The built-in library has no sites."
+  },
+  "navigationLibraryCatalogEmptyHelp": {
+    "message": "There are no built-in sites to browse right now."
+  },
+  "navigationLibraryCatalogError": {
+    "message": "Could not load the built-in library. Close and reopen to try again."
+  }
 }

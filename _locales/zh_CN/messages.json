@@ -4644,7 +4644,7 @@
     "message": "没有符合筛选条件的网站"
   },
   "navigationLibraryEmptyHelp": {
-    "message": "换个关键词、分类或筛选条件试试。"
+    "message": "清除筛选即可浏览所有网站，已选网站和添加目标保持不变。"
   },
   "navigationLibraryClose": {
     "message": "关闭"
@@ -5504,9 +5504,43 @@
   "navigationTagAudioEffects": {
     "message": "音频效果"
   },
-  "navigationLibrarySelectedOnly": { "message": "只看已选" },
-  "navigationLibraryHiddenSelected": { "message": "被筛选隐藏" },
-  "navigationTagEbooks": { "message": "电子书" },
-  "navigationTagCulturalCollections": { "message": "文化馆藏" },
-  "navigationTagEnglishLearning": { "message": "英语学习" }
+  "navigationLibrarySelectedOnly": {
+    "message": "只看已选"
+  },
+  "navigationLibraryHiddenSelected": {
+    "message": "被筛选隐藏"
+  },
+  "navigationTagEbooks": {
+    "message": "电子书"
+  },
+  "navigationTagCulturalCollections": {
+    "message": "文化馆藏"
+  },
+  "navigationTagEnglishLearning": {
+    "message": "英语学习"
+  },
+  "navigationLibraryEmptySelected": {
+    "message": "还没有选择网站。"
+  },
+  "navigationLibraryEmptySelectedHelp": {
+    "message": "关闭“只看已选”后即可选择网站，其他筛选保持不变。"
+  },
+  "navigationLibraryEmptyHidden": {
+    "message": "已选网站被当前筛选隐藏了。"
+  },
+  "navigationLibraryEmptyHiddenHelp": {
+    "message": "清除筛选即可重新看到它们，已选网站和添加目标保持不变。"
+  },
+  "navigationLibraryBrowseAll": {
+    "message": "关闭只看已选"
+  },
+  "navigationLibraryCatalogEmpty": {
+    "message": "内置网站库暂无网站。"
+  },
+  "navigationLibraryCatalogEmptyHelp": {
+    "message": "目前没有可供浏览的内置网站。"
+  },
+  "navigationLibraryCatalogError": {
+    "message": "无法加载内置网站库，请关闭后重新打开。"
+  }
 }
