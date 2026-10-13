@@ -13,5 +13,11 @@ passed2703/2703 strict serial Node tests with1 GiB heap and81/81 Python; no
 failures, skips or cancellations. Independent131-test review and same-mount
 en→zh→en reopen checks passed; other filter order and country value/label sets
 were compared unchanged. Offline packaging verifies112 runtime files.
-Native browser verification is pending. Intl failures and locale matrix claims
-remain synthetic unless separately reported; no screen-reader claim is made.
+Limited Chinese/English desktop-light native checks passed for the actual full
+current menus: Any first, Unknown last, localized ordering; English France before
+Germany and United Kingdom before United States. Chinese BG dropdown/chip/details
+labels matched and returned Inoreader; English France returned3, and removing
+the chip restored141/127/14. No additions or external visits. Chinese baseline
+restored. Japan was absent and not tested. Intl failures, locale races and ties
+remain synthetic; other locales, dark/zoom, every filtering outcome and native
+screen-reader behavior are not claimed.

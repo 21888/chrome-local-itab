@@ -12,5 +12,10 @@ The frozen implementation passed2689/2689 strict Node tests with1 GiB heap and
 serial execution,81/81 Python tests, full JS syntax/JSON/diff checks and112-file
 runtime packaging. Tests cover category membership, unchanged counts across local
 filters and saved/selected states, accessible labels and muted-token styling.
-Native visual/keyboard validation is pending for this ordinary development commit.
-No narrow-screen, zoom or screen-reader coverage is claimed before actual checks.
+Limited native Chinese and English desktop checks passed in light/dark at100%
+and ordinary browser200% zoom. At100% all19 controls fit two rows; at200%
+Chinese used four rows and English five, with labels/counts and final focus
+complete. Filtering retained static counts, Tab/Enter and vertical scrolling
+worked, and100% Chinese baseline was restored with zero data writes. This is
+not a measured320/375px viewport, numerical contrast certification or native
+accessible-name/screen-reader test.
