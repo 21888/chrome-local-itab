@@ -3987,7 +3987,7 @@
     "message": "用已保存资料提问"
   },
   "aiContextHelp": {
-    "message": "选择资料摘录，核对完整请求后，再发送给你选择的模型。默认不选中任何资料，也不会自动发送。服务商可能收费。密钥只保留在此面板，请求结束或离开时清除。"
+    "message": "选择已保存的摘录，无需连接即可在本地审阅完整提示词。也可展开模型设置，分别审阅请求、授权接口和发送。不会自动选择或发送；服务商可能收费，密钥在请求结束或离开时清除。"
   },
   "aiContextEndpoint": {
     "message": "完整 HTTPS 接口地址"
@@ -5761,5 +5761,20 @@
   },
   "navigationLibraryRefreshReload": {
     "message": "页面数据已改变。请重新加载此页面后再添加网站或调整布局。"
+  },
+  "aiContextSourcesHeading": {
+    "message": "已保存的资料"
+  },
+  "aiContextQuestionHeading": {
+    "message": "问题与审阅"
+  },
+  "aiContextConnectionHeading": {
+    "message": "可选：在扩展内调用模型"
+  },
+  "aiContextResultHeading": {
+    "message": "回答与后续操作"
+  },
+  "aiContextSourceHelpHeading": {
+    "message": "资料范围、限制与重新加载"
   }
 }

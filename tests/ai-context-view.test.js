@@ -25,12 +25,12 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
     const input = (node, value) => { node.value = value; node.dispatch('input'); };
     if (populate) {
         input(field('url'), 'https://mock.example/v1/chat/completions'); input(field('text'), 'mock');
-        const question = host.querySelectorAll('textarea')[0]; input(question, 'Create tasks');
+        const question = host.querySelector('.ai-context-question'); input(question, 'Create tasks');
     }
     return { confirmations, setConfirm: value => { confirmResult = value; }, host, document, controller, b, c, calls, view, events, click, field, input, byText, deactivate: () => { active = false; }, setReply: value => { reply = value; } };
 }
 async function send(h, mode = 'tasks') {
-    const select = h.host.querySelector('select'); select.value = mode; select.dispatch('change'); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
+    const select = h.host.querySelector('.ai-context-mode'); select.value = mode; select.dispatch('change'); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
 }
 test('actual UI: no default selected source and text-safe exact edited context preview', async () => {
     const h = await model(), checkbox = h.field('checkbox'); assert.equal(checkbox.checked, false);
@@ -141,7 +141,7 @@ test('editing a reviewed request preserves the old answer snapshot and consent',
 
 
 const answerTitle = h => h.host.querySelectorAll('input').find(node => node.maxLength === 200);
-const questionField = h => h.host.querySelectorAll('textarea')[0];
+const questionField = h => h.host.querySelector('.ai-context-question');
 test('answer title defaults to the exact reviewed question, truncates safely, and refreshes for a new request', async () => {
     const h = await model(); h.setReply('Synthetic answer');
     h.input(questionField(h), 'a'.repeat(199) + '😀 end');
@@ -212,7 +212,7 @@ test('completion already superseded at the view boundary cannot set the output o
 test('UI Stop unlocks a hung send, preserves stopped status, and late callbacks cannot alter a fresh answer', { timeout: 5000 }, async () => {
     for (const stage of ['permission', 'workspace', 'transport']) {
         const h = await model(), gate = deferred();
-        h.host.querySelector('select').value = 'answer'; h.host.querySelector('select').dispatch('change');
+        h.host.querySelector('.ai-context-mode').value = 'answer'; h.host.querySelector('.ai-context-mode').dispatch('change');
         h.click('Review exact'); await settle();
         const ensureActive = h.controller.ensureActive;
         if (stage === 'permission') h.controller.permissions.contains = () => gate.promise;
@@ -296,7 +296,7 @@ test('actual view and wrapper protect unsent drafts on Close and Escape; cancel 
         const mount = window.LocalItabAIContextView.mount;
         window.LocalItabAIContextView.mount = (...args) => (mounted = mount(...args));
         trigger.focus(); trigger.dispatch('click'); await mounted.ready;
-        const overlay = document.querySelector('.ai-context-overlay'), question = overlay.querySelectorAll('textarea')[0];
+        const overlay = document.querySelector('.ai-context-overlay'), question = overlay.querySelector('.ai-context-question');
         const edit = (node, value) => { node.value = value; node.dispatch('input'); };
         edit(question, 'Unsent synthetic question');
         const source = overlay.querySelector('.ai-context-source'), check = source.querySelector('input'), excerpt = source.querySelector('textarea');
@@ -315,7 +315,7 @@ test('actual view and wrapper protect unsent drafts on Close and Escape; cancel 
         discard = true; dismiss(); assert.equal(confirmations, 2); assert.equal(overlay.isConnected, false); assert.equal(controller.closed, true);
         assert.equal(key.value, ''); assert.equal(controller.reviewed, null); assert.equal(events.has('beforeunload'), false); assert.equal(document.activeElement, trigger);
         trigger.focus(); trigger.dispatch('click'); await mounted.ready;
-        const fresh = document.querySelector('.ai-context-overlay'); assert.equal(fresh.querySelectorAll('textarea')[0].value, '');
+        const fresh = document.querySelector('.ai-context-overlay'); assert.equal(fresh.querySelector('.ai-context-question').value, '');
         assert.equal(fresh.querySelector('.ai-context-source').querySelector('input').checked, false);
         assert.equal(fresh.querySelector('.ai-context-source').querySelector('textarea').value, 'Original synthetic excerpt');
         assert.equal(mounted.hasUncommittedWork(), false);
@@ -351,9 +351,9 @@ test('actual view: live local input feedback excludes unselected long sources an
     h.input(excerpt, '"'.repeat(16000)); assert.match(usage.textContent, /16000 \/ 16000$/); assert.match(budget.textContent, /32000 \(Over limit\)/);
     h.input(excerpt, '😀'); assert.match(usage.textContent, /2 \/ 16000$/);
     h.click('Review exact'); await settle(); assert.match(budget.textContent, new RegExp(`Complete prompt: ${h.controller.reviewed.packed.prompt.length} / 32000`));
-    const prior = budget.textContent, mode = h.host.querySelector('select'); mode.value = 'tasks'; mode.dispatch('change');
+    const prior = budget.textContent, mode = h.host.querySelector('.ai-context-mode'); mode.value = 'tasks'; mode.dispatch('change');
     assert.notEqual(prior, budget.textContent); assert.equal(h.controller.reviewed, null);
-    h.input(h.host.querySelectorAll('textarea')[0], 'New question');
+    h.input(h.host.querySelector('.ai-context-question'), 'New question');
     const expected = api.inspectInput('New question', [{ ...sources[0], text: '😀' }], 'tasks'); assert.match(budget.textContent, new RegExp(`Complete prompt: ${expected.promptLength} / 32000`));
     check.checked = false; check.dispatch('change'); assert.equal(usage.hidden, true); assert.equal(excerpt.value, '😀');
     h.click('Cancel / clear'); assert.match(budget.textContent, /Selected excerpts: 0 \/ 12/); assert.match(budget.textContent, /Question: 0 \/ 4000/); assert.equal(excerpt.value.length, 16001);
@@ -592,7 +592,7 @@ test('clear all includes hidden selections and preserves draft fields, exact nod
     const h = await model(undefined, { populate: false, sources: batchSources(), blurUnavailableFocus: true }), rows = sourceRows(h);
     choose(rows[0]); choose(rows[24]); const excerpt = rows[24].querySelector('textarea'); h.input(excerpt, 'Edited and kept');
     h.input(h.field('url'), 'https://mock.example/v1/chat/completions'); h.input(h.field('text'), 'mock');
-    h.input(h.host.querySelectorAll('textarea')[0], 'Keep my question');
+    h.input(h.host.querySelector('.ai-context-question'), 'Keep my question');
     h.input(answerTitle(h), 'Local title'); h.input(h.field('password'), 'synthetic-only');
     h.input(h.field('search'), 'Match'); h.click('Show selected only'); const generation = h.controller.generation;
     batchClear(h).focus(); h.click('Clear all selections');
@@ -603,8 +603,8 @@ test('clear all includes hidden selections and preserves draft fields, exact nod
     for (const row of rows) assert.equal(row.querySelector('textarea').hidden, true);
     assert.equal(answerTitle(h).value, 'Local title'); assert.equal(h.field('password').value, 'synthetic-only'); assert.equal(h.field('url').value, 'https://mock.example/v1/chat/completions');
     assert.equal(h.view.hasUncommittedWork(), true); assert.equal(unloadEvent(h).prevented, true);
-    assert.equal(h.host.querySelectorAll('textarea')[0].value, 'Keep my question');
-    h.input(h.host.querySelectorAll('textarea')[0], ''); h.input(answerTitle(h), ''); assert.equal(h.view.hasUncommittedWork(), true);
+    assert.equal(h.host.querySelector('.ai-context-question').value, 'Keep my question');
+    h.input(h.host.querySelector('.ai-context-question'), ''); h.input(answerTitle(h), ''); assert.equal(h.view.hasUncommittedWork(), true);
     const beforeNoop = h.controller.generation; batchClear(h).dispatch('click'); assert.equal(h.controller.generation, beforeNoop);
 });
 test('controller rejection occurs before batch checkbox mutation and preserves reviewed UI', async () => {
@@ -660,7 +660,7 @@ test('individual restore uses the opening baseline, preserves all other draft fi
     h.input(h.field('search'), 'Match'); h.click('Show selected only');
     h.setReply('Synthetic answer'); await send(h, 'answer'); h.input(h.field('password'), 'synthetic-key');
     const include = h.host.querySelector('.ai-context-save-context').querySelector('input'); include.checked = true; include.dispatch('change');
-    const before = { generation: h.controller.generation, reads: h.b.reads + h.c.reads, question: h.host.querySelector('textarea').value, url: h.field('url').value, model: h.field('text').value };
+    const before = { generation: h.controller.generation, reads: h.b.reads + h.c.reads, question: h.host.querySelector('.ai-context-question').value, url: h.field('url').value, model: h.field('text').value };
     for (const method of ['readSources', 'loadSources', 'review', 'send', 'allow']) h.controller[method] = () => { throw Error(`restore called ${method}`); };
     h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('restore requested permission'); };
     sources[0].text = 'Later underlying source change';
@@ -668,7 +668,7 @@ test('individual restore uses the opening baseline, preserves all other draft fi
     assert.equal(excerpt.value, 'Synthetic excerpt 0'); assert.equal(sources[0].text, 'Later underlying source change');
     assert.equal(other.value, 'Keep other edited excerpt'); assert.deepEqual(selectedRows(h), [rows[0], rows[24]]);
     assert.equal(h.field('search').value, 'Match'); assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true'); assert.equal(rows[24].hidden, true);
-    assert.equal(h.host.querySelector('textarea').value, before.question); assert.equal(answerTitle(h).value, 'Keep answer title');
+    assert.equal(h.host.querySelector('.ai-context-question').value, before.question); assert.equal(answerTitle(h).value, 'Keep answer title');
     assert.equal(h.field('url').value, before.url); assert.equal(h.field('text').value, before.model); assert.equal(h.field('password').value, 'synthetic-key');
     assert.equal(h.controller.generation, before.generation + 1); assert.equal(h.controller.reviewed, null); assert.equal(h.controller.result.text, 'Synthetic answer');
     assert.equal(include.checked, true); assert.equal(h.host.querySelector('.ai-context-review').hidden, true); assert.equal(h.byText('Send reviewed').disabled, true);
@@ -827,7 +827,7 @@ test('all request editing entries retain visible saveable answer and original co
         question: h => h.input(questionField(h), 'Next question'),
         endpoint: h => h.input(h.field('url'), 'https://next.example/v1/chat/completions'),
         model: h => h.input(h.field('text'), 'next-model'),
-        mode: h => { h.host.querySelector('select').value = 'tasks'; h.host.querySelector('select').dispatch('change'); },
+        mode: h => { h.host.querySelector('.ai-context-mode').value = 'tasks'; h.host.querySelector('.ai-context-mode').dispatch('change'); },
         select: h => choose(sourceRows(h)[0], false),
         excerpt: h => h.input(sourceRows(h)[0].querySelector('textarea'), 'Next excerpt'),
         restore: h => restoreButton(sourceRows(h)[0]).dispatch('click'),
@@ -877,7 +877,7 @@ test('declining clear or replacement preserves every result, review, title, snap
 
 test('old task JSON retains task controls across mode changes and cancelled clear keeps its reviewed batch', async () => {
     const h = await model(); await send(h, 'tasks');
-    const select = h.host.querySelector('select'); select.value = 'answer'; select.dispatch('change');
+    const select = h.host.querySelector('.ai-context-mode'); select.value = 'answer'; select.dispatch('change');
     assert.equal(h.controller.result.mode, 'tasks'); assert.equal(h.byText('Review extracted').disabled, false); assert.equal(h.byText('Save answer').disabled, true);
     h.click('Review extracted'); await settle(); const review = h.controller.taskReview;
     h.setConfirm(false); h.click('Cancel / clear'); assert.equal(h.controller.taskReview, review); assert.equal(h.byText('Add these').disabled, false);
@@ -913,7 +913,7 @@ test('response copy is explicit, exact and excludes request metadata without alt
     assert.equal(h.controller.result, state.result); assert.equal(h.controller.reviewed, state.review); assert.equal(h.controller.resultReview, state.resultReview);
     assert.equal(h.controller.saved, state.saved); assert.equal(h.view.hasUncommittedWork(), state.dirty); assert.equal(h.calls.length, state.calls); assert.equal(h.b.writes + h.c.writes, 0);
     assert.match(h.host.querySelector('.ai-context-copy-status').textContent, /Response copied/);
-    h.input(h.host.querySelectorAll('textarea')[0], 'different draft');
+    h.input(h.host.querySelector('.ai-context-question'), 'different draft');
     assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false);
     h.click('Copy answer'); await settle(); assert.equal(writes.length, 2); assert.equal(h.controller.resultReview, state.resultReview);
     assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false);
@@ -941,7 +941,7 @@ test('pending copy ignores repeat clicks and suppresses late feedback after edit
         let resolve, rejectCopy; const wait = { promise: new Promise((yes, no) => { resolve = yes; rejectCopy = no; }) }, writes = [], h = await model(undefined, { clipboard: { writeText(text) { writes.push(text); return wait.promise; } } });
         h.setReply('original'); await send(h, 'answer'); const copy = h.click('Copy answer'), feedback = h.host.querySelector('.ai-context-copy-status');
         copy.dispatch('click'); assert.equal(writes.length, 1); assert.equal(copy.disabled, true);
-        if (transition === 'edit') h.input(h.host.querySelectorAll('textarea')[0], 'new question');
+        if (transition === 'edit') h.input(h.host.querySelector('.ai-context-question'), 'new question');
         if (transition === 'clear') h.click('Cancel / clear');
         if (transition === 'destroy') h.view.destroy();
         if (reject) rejectCopy(Error('blocked')); else resolve(); await settle();
@@ -1027,14 +1027,14 @@ test('actual UI: explicit task check confirms only current complete unchanged ba
     const h = await model(); assert.equal(h.byText('Check existing task batch').hidden, true);
     const command = await uncertainTaskView(h), store = h.controller.taskStore;
     await store.mutate(store.request('add', { text: 'unrelated synthetic task' }));
-    const writes = h.b.writes, calls = h.calls.length, before = await store.read(), question = h.host.querySelectorAll('textarea')[0].value;
+    const writes = h.b.writes, calls = h.calls.length, before = await store.read(), question = h.host.querySelector('.ai-context-question').value;
     assert.equal(h.byText('Cancel / clear').disabled, true); assert.equal(h.byText('Check existing task batch').hidden, false);
     h.click('Check existing task batch'); assert.equal(h.byText('Check existing task batch').disabled, true); await idle(h);
     assert.equal(h.controller.taskCommand, null); assert.equal(h.controller.result, null); assert.equal(h.byText('Cancel / clear').disabled, false);
     assert.equal(h.byText('Check existing task batch').hidden, true); assert.equal(h.host.querySelector('.ai-context-tasks').hidden, true);
     assert.match(h.host.querySelector('.ai-context-status').textContent, /complete original task batch is currently present and unchanged/);
     assert.equal(h.b.writes, writes); assert.equal(h.calls.length, calls); assert.deepEqual(await store.read(), before);
-    assert.equal(h.host.querySelectorAll('textarea')[0].value, question); assert.equal(command.texts.length, 3);
+    assert.equal(h.host.querySelector('.ai-context-question').value, question); assert.equal(command.texts.length, 3);
 });
 test('actual UI: changed or unreadable task batch stays frozen; close and workspace invalidation suppress late success', async () => {
     for (const outcome of ['changed', 'read', 'close', 'workspace']) {
@@ -1067,7 +1067,7 @@ test('explicit source reload replaces saved sources atomically, keeps filters an
     h.input(answerTitle(h), 'Keep this answer title'); h.input(h.field('password'), 'synthetic-key');
     h.input(h.field('search'), 'latest'); h.host.querySelector('.ai-context-source-scope').value = 'library';
     h.host.querySelector('.ai-context-source-scope').dispatch('change'); h.click('Show selected only');
-    const before = { generation: h.controller.generation, question: h.host.querySelector('textarea').value, endpoint: h.field('url').value, model: h.field('text').value };
+    const before = { generation: h.controller.generation, question: h.host.querySelector('.ai-context-question').value, endpoint: h.field('url').value, model: h.field('text').value };
     let reads = 0; const gate = deferred();
     h.controller.readSources = () => { reads++; return gate.promise; };
     h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('Reload requested permission'); };
@@ -1082,7 +1082,7 @@ test('explicit source reload replaces saved sources atomically, keeps filters an
     assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true'); assert.equal(h.controller.generation, before.generation + 1);
     assert.equal(h.controller.reviewed, null); assert.equal(h.controller.result, result); assert.equal(h.controller.resultReview, resultReview);
     assert.deepEqual(h.controller.answerSnapshot(), snapshot); assert.equal(include.checked, true); assert.equal(answerTitle(h).value, 'Keep this answer title');
-    assert.equal(h.host.querySelector('textarea').value, before.question); assert.equal(h.field('url').value, before.endpoint); assert.equal(h.field('text').value, before.model);
+    assert.equal(h.host.querySelector('.ai-context-question').value, before.question); assert.equal(h.field('url').value, before.endpoint); assert.equal(h.field('text').value, before.model);
     assert.equal(h.field('password').value, 'synthetic-key'); assert.equal(h.calls.length, 1); assert.equal(h.b.writes + h.c.writes, 0);
     assert.equal(h.host.querySelectorAll('img, script').length, 0); assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false);
     h.click('Show selected only'); choose(row); h.input(row.querySelector('textarea'), 'edited latest'); restoreButton(row).dispatch('click');
@@ -1178,7 +1178,7 @@ test('local prompt UI: empty connection, hidden selected excerpts included, unch
         { id: 'collection:selected', label: 'Alpha synthetic', text: 'selected content', scope: 'library' },
         { id: 'collection:excluded', label: 'Beta synthetic', text: 'excluded content', scope: 'library' }
     ] });
-    h.input(h.host.querySelectorAll('textarea')[0], 'Local question');
+    h.input(h.host.querySelector('.ai-context-question'), 'Local question');
     const row = h.host.querySelectorAll('.ai-context-source')[0]; row.querySelector('input').checked = true; row.querySelector('input').dispatch('change');
     h.input(row.querySelector('textarea'), 'edited selected excerpt');
     h.input(h.field('search'), 'Beta'); assert.equal(row.hidden, true);
@@ -1200,8 +1200,8 @@ test('local prompt UI: connection and key never enter copied prompt; local revie
     assert.equal(h.byText('Allow this').disabled, true); assert.equal(h.byText('Send reviewed').disabled, true);
 });
 test('local prompt UI: all draft edits, mode, restoration, selection, reload and reset clear shown ticket', async () => {
-    const operations = [h => h.input(h.host.querySelectorAll('textarea')[0], 'changed'), h => h.input(h.field('url'), 'https://other.example/v1/chat/completions'),
-        h => { const mode = h.host.querySelector('select'); mode.value = 'tasks'; mode.dispatch('change'); },
+    const operations = [h => h.input(h.host.querySelector('.ai-context-question'), 'changed'), h => h.input(h.field('url'), 'https://other.example/v1/chat/completions'),
+        h => { const mode = h.host.querySelector('.ai-context-mode'); mode.value = 'tasks'; mode.dispatch('change'); },
         h => { const checkbox = h.field('checkbox'); checkbox.checked = true; checkbox.dispatch('change'); },
         h => h.click('Select visible unselected'), h => h.click('Reload saved sources'), h => h.click('Cancel / clear')];
     for (const operation of operations) {
@@ -1225,7 +1225,7 @@ test('local prompt UI: late copy success or failure cannot overwrite newer revie
         const first = {}; first.promise = new Promise((resolve, reject) => { first.resolve = resolve; first.reject = reject; }); const second = deferred(); let calls = 0;
         const h = await model(undefined, { clipboard: { writeText: () => (++calls === 1 ? first.promise : second.promise) } });
         h.click('Review prompt locally'); await settle(); h.click('Copy reviewed prompt'); await settle();
-        h.input(h.host.querySelectorAll('textarea')[0], 'newer question'); h.click('Review prompt locally'); await settle();
+        h.input(h.host.querySelector('.ai-context-question'), 'newer question'); h.click('Review prompt locally'); await settle();
         h.click('Copy reviewed prompt'); await settle(); second.resolve(); await settle();
         const status = h.host.querySelector('.ai-context-local-status').textContent, prompt = h.host.querySelector('.ai-context-local-prompt').value;
         if (reject) first.reject(Error('late')); else first.resolve(); await settle();
@@ -1360,4 +1360,96 @@ test('visible deselection also invalidates the extracted-task review', async () 
     h.click('Deselect visible selected'); assert.equal(h.controller.taskReview, null);
     assert.equal(h.controller.generation, generation + 1); assert.equal(h.controller.result, result);
     assert.equal(h.byText('Add these').disabled, true);
+});
+
+test('workbench uses one labeled source pane, one question pane and optional connection disclosure', async () => {
+    const h = await model(undefined, { populate: false });
+    const sources = h.host.querySelector('.ai-context-sources-pane'), question = h.host.querySelector('.ai-context-question-pane');
+    const connection = h.host.querySelector('.ai-context-connection');
+    assert.equal(connection.tagName, 'DETAILS'); assert.equal(connection.open, false);
+    assert.equal(connection.querySelector('summary').textContent, 'Optional: call a model in this extension');
+    assert.equal(sources.getAttribute('aria-label'), 'Saved sources'); assert.equal(question.getAttribute('aria-label'), 'Question and review');
+    for (const selector of ['.ai-context-source-search', '.ai-context-source-scope', '.ai-context-source-count', '.ai-context-source-reload', '.ai-context-sources']) assert(sources.querySelector(selector));
+    for (const selector of ['.ai-context-question', '.ai-context-mode', '.ai-context-local-review', '.ai-context-result-pane']) assert(question.querySelector(selector));
+    assert.equal(h.host.querySelectorAll('.ai-context-question').length, 1);
+    assert.equal(h.host.querySelectorAll('.ai-context-endpoint').length, 1);
+    assert.equal(connection.contains(h.byText('Review prompt locally')), false);
+    assert.equal(h.byText('Review prompt locally').getClientRects().length, 1);
+    assert.equal(h.field('url').getClientRects().length, 0);
+    assert.equal(h.host.querySelector('.ai-context-result-pane').hidden, true);
+});
+
+test('workbench disclosure preserves local draft, edited sources, ticket and copied prompt with zero permissions, transport or writes', async () => {
+    const copied = [], h = await model(undefined, { populate: false, clipboard: { writeText: async value => copied.push(value) } });
+    let permissions = 0; h.controller.permissions = { request: async () => { permissions++; return true; }, contains: async () => { permissions++; return true; } };
+    const connection = h.host.querySelector('.ai-context-connection'), question = questionField(h), row = sourceRows(h)[0];
+    h.input(question, 'Synthetic offline question'); choose(row); h.input(row.querySelector('textarea'), 'Synthetic offline excerpt');
+    h.click('Review prompt locally'); await settle();
+    const ticket = h.controller.localReview, generation = h.controller.generation;
+    for (const open of [true, false, true, false]) { connection.open = open; connection.dispatch('toggle'); }
+    assert.equal(h.controller.localReview, ticket); assert.equal(h.controller.generation, generation);
+    assert.equal(questionField(h), question); assert.equal(question.value, 'Synthetic offline question');
+    assert.equal(sourceRows(h)[0], row); assert.equal(row.querySelector('textarea').value, 'Synthetic offline excerpt');
+    h.click('Copy reviewed prompt'); await settle(); assert.deepEqual(copied, [ticket.packed.prompt]);
+    assert.equal(permissions, 0); assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+    h.input(question, 'Changed question'); assert.equal(h.controller.localReview, null); assert.equal(h.byText('Copy reviewed prompt').disabled, true);
+});
+
+test('workbench connection collapse preserves connection and result identity without restarting transport', async () => {
+    const h = await model(); const connection = h.host.querySelector('.ai-context-connection'); connection.open = true;
+    h.input(h.field('password'), 'SYNTHETIC_KEY'); h.click('Review exact'); await settle();
+    const ticket = h.controller.reviewed;
+    connection.open = false; connection.dispatch('toggle');
+    assert.equal(h.field('password').value, 'SYNTHETIC_KEY'); assert.equal(h.controller.reviewed, ticket);
+    connection.open = true; h.setReply('Synthetic response'); h.click('Send reviewed'); await settle();
+    const result = h.controller.result, output = h.host.querySelectorAll('textarea').find(node => node.rows === 8);
+    connection.open = false; connection.dispatch('toggle');
+    assert.equal(h.controller.result, result); assert.equal(output.value, 'Synthetic response');
+    assert.equal(output.getClientRects().length, 1); assert.equal(h.byText('Save answer').getClientRects().length, 1);
+    assert.equal(h.field('url').value, 'https://mock.example/v1/chat/completions'); assert.equal(h.field('text').value, 'mock');
+    assert.equal(h.calls.length, 1); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.field('password').value, '');
+});
+
+test('workbench responsive rules and translated headings are present without claiming native viewport coverage', () => {
+    const css = fs.readFileSync('ai-context.css', 'utf8');
+    assert.match(css, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.25fr\)/);
+    assert.match(css, /@media \(max-width: 900px\)/); assert.match(css, /grid-template-columns: minmax\(0, 1fr\);/);
+    assert.match(css, /max-height: none; overflow: visible/);
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        for (const key of ['SourcesHeading', 'QuestionHeading', 'ConnectionHeading', 'ResultHeading', 'SourceHelpHeading']) assert(messages[`aiContext${key}`]?.message);
+    }
+});
+
+test('actual workbench wrapper trap includes disclosure summaries at both Tab boundaries', async () => {
+    const document = createDocument(), trigger = document.createElement('button'); trigger.id = 'ai-context-entry'; document.body.append(trigger);
+    let mounted;
+    const window = { document, chrome: { permissions: {} }, addEventListener() {}, removeEventListener() {}, confirm: () => true,
+        LocalItabAIContext: { createController: () => new api.Controller({
+            transport: { review: input => input, run: async () => { throw Error('Unexpected transport'); } },
+            permissions: { request: async () => { throw Error('Unexpected permission'); }, contains: async () => false },
+            ensureActive: async () => {}, readSources: async () => [], taskStore: new Tasks.Store(backend()), collectionStore: new Collections.Store(backend())
+        }) } };
+    const context = vm.createContext({ window });
+    for (const file of ['shared/dialog-focus.js', 'shared/ai-context-view.js', 'ai-context.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+    const mount = window.LocalItabAIContextView.mount;
+    window.LocalItabAIContextView.mount = (...args) => (mounted = mount(...args));
+    trigger.focus(); trigger.dispatch('click'); await mounted.ready;
+    const overlay = document.querySelector('.ai-context-overlay'), close = overlay.querySelector('.ai-context-close');
+    const connection = overlay.querySelector('.ai-context-connection'), summary = connection.querySelector('summary');
+    const reset = overlay.querySelectorAll('button').find(node => node.textContent === 'Cancel / clear draft');
+    const review = overlay.querySelectorAll('button').find(node => node.textContent === 'Review exact request');
+    for (const node of overlay.querySelectorAll('summary')) assert.equal(node.getAttribute('tabindex'), '0');
+    assert.equal(connection.open, false);
+    reset.focus(); assert.equal(overlay.dispatch('keydown', { key: 'Tab' }).prevented, false, 'native Tab must continue from reset to summary');
+    summary.focus(); assert.equal(overlay.dispatch('keydown', { key: 'Tab' }).prevented, true); assert.equal(document.activeElement, close);
+    assert.equal(overlay.dispatch('keydown', { key: 'Tab', shiftKey: true }).prevented, true); assert.equal(document.activeElement, summary);
+    // The model has no native disclosure activation or Tab traversal. Explicitly
+    // change open state, then check the real shared trap's resulting boundaries.
+    connection.open = true; connection.dispatch('toggle'); summary.focus();
+    assert.equal(overlay.dispatch('keydown', { key: 'Tab' }).prevented, false);
+    review.focus(); assert.equal(overlay.dispatch('keydown', { key: 'Tab' }).prevented, true); assert.equal(document.activeElement, close);
+    connection.open = false; connection.dispatch('toggle'); close.focus();
+    overlay.dispatch('keydown', { key: 'Tab', shiftKey: true }); assert.equal(document.activeElement, summary);
+    overlay.dispatch('keydown', { key: 'Escape' }); assert.equal(overlay.isConnected, false); assert.equal(document.activeElement, trigger);
 });

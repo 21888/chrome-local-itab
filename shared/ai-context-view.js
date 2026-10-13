@@ -7,29 +7,43 @@
         const label = (key, fallback) => t(`aiContext${key}`, fallback);
         const button = (key, fallback, action) => { const node = el('button', '', label(key, fallback)); node.type = 'button'; node.addEventListener('click', action); return node; };
         const box = el('section', 'ai-context'), heading = el('h2', '', label('Title', 'Ask your saved context'));
-        box.append(heading, el('p', '', label('Help', 'Choose saved excerpts, inspect the exact request, then send to your chosen model. Nothing is selected or sent automatically. Providers may charge. Keys stay in this panel and are cleared after a request or departure.')));
+        box.append(heading, el('p', '', label('Help', 'Choose saved excerpts and review a complete prompt locally, without a connection. Optionally open model settings to review, allow and send a request. Nothing is selected or sent automatically. Providers may charge; keys are cleared after a request or departure.')));
+        const workbench = el('div', 'ai-context-workbench');
+        const sourcesPane = el('section', 'ai-context-sources-pane');
+        sourcesPane.setAttribute('aria-label', label('SourcesHeading', 'Saved sources'));
+        sourcesPane.append(el('h3', '', label('SourcesHeading', 'Saved sources')));
+        const questionPane = el('section', 'ai-context-question-pane');
+        questionPane.setAttribute('aria-label', label('QuestionHeading', 'Question and review'));
+        questionPane.append(el('h3', '', label('QuestionHeading', 'Question and review')));
+        // The shared dialog trap discovers explicit tabindex controls. Preserve
+        // native disclosure keyboard access without expanding that shared policy.
+        const summary = (key, fallback) => { const node = el('summary', '', label(key, fallback)); node.setAttribute('tabindex', '0'); return node; };
+        const connection = el('details', 'ai-context-connection');
+        connection.append(summary('ConnectionHeading', 'Optional: call a model in this extension'));
+        const resultPane = el('section', 'ai-context-result-pane');
+        resultPane.append(el('h3', '', label('ResultHeading', 'Response and next steps')));
         const controls = [];
-        function field(key, fallback, type = 'textarea') {
+        function field(key, fallback, type = 'textarea', parent = connection) {
             const wrapper = el('label', 'ai-context-field', label(key, fallback)), input = el(type === 'textarea' ? 'textarea' : 'input');
             if (type !== 'textarea') input.type = type;
-            input.autocomplete = 'off'; input.spellcheck = false; wrapper.append(input); box.append(wrapper); controls.push(input); return input;
+            input.className = `ai-context-${key.toLowerCase()}`; input.autocomplete = 'off'; input.spellcheck = false; wrapper.append(input); parent.append(wrapper); controls.push(input); return input;
         }
         const url = field('Endpoint', 'Full HTTPS endpoint URL', 'url'); url.maxLength = 2048;
         const model = field('Model', 'Model ID', 'text'); model.maxLength = 120;
         const presetName = field('PresetName', 'Connection preset name', 'text'); presetName.maxLength = 80;
         const key = field('Key', 'API key (optional; never saved)', 'password'); key.maxLength = 4096;
-        const question = field('Question', 'Question or task extraction instruction'); question.maxLength = 4000; question.rows = 3;
+        const question = field('Question', 'Question or task extraction instruction', 'textarea', questionPane); question.maxLength = 4000; question.rows = 3;
         const modeLabel = el('label', 'ai-context-field', label('Mode', 'Output'));
-        const mode = el('select');
+        const mode = el('select', 'ai-context-mode');
         for (const [value, name, fallback] of [['answer', 'Answer', 'Answer'], ['tasks', 'Tasks', 'Draft tasks for review']]) { const option = el('option', '', label(name, fallback)); option.value = value; mode.append(option); }
-        mode.value = 'answer'; modeLabel.append(mode); box.append(modeLabel); controls.push(mode);
+        mode.value = 'answer'; modeLabel.append(mode); questionPane.append(modeLabel); controls.push(mode);
         const presetText = (name, fallback) => t(`promptsModel${name}`, fallback);
         const presetLabel = el('label', 'ai-context-field', presetText('PresetLabel', 'Saved connections (this device only)'));
-        const presetSelect = el('select'); presetLabel.append(presetSelect); box.append(presetLabel);
-        box.append(el('p', '', presetText('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.')));
-        const presetActions = el('div', 'ai-context-actions'); box.append(presetActions);
+        const presetSelect = el('select'); presetLabel.append(presetSelect); connection.append(presetLabel);
+        connection.append(el('p', '', presetText('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.')));
+        const presetActions = el('div', 'ai-context-actions'); connection.append(presetActions);
         let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false;
-        box.append(el('p', '', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included.')));
+        const scopeNote = el('p', 'ai-context-scope', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included.'));
         const searchLabel = el('label', 'ai-context-field', label('SourceSearch', 'Search loaded source titles'));
         const sourceSearch = el('input', 'ai-context-source-search'); sourceSearch.type = 'search';
         sourceSearch.autocomplete = 'off'; sourceSearch.spellcheck = false; searchLabel.append(sourceSearch);
@@ -57,16 +71,19 @@
         const searchCount = el('p', 'ai-context-source-count'); searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
-        box.append(searchLabel, scopeLabel, scopeHelp, searchActions, searchCount, el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.')), searchEmpty, batchActions, batchHelp);
+        const searchHelp = el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.'));
         const reloadActions = el('div', 'ai-context-actions');
         const reloadSources = button('SourceReload', 'Reload saved sources', () => loadSourceRows(true));
         reloadSources.className = 'ai-context-source-reload';
         const reloadHelp = el('p', 'ai-context-source-reload-help', label('SourceReloadHelp', 'Read the latest saved sources for this workspace and the global collection. A successful reload clears all source selections and excerpt edits, including hidden ones. Your question, connection, filters and previous response stay unchanged. Nothing is sent or saved.'));
         reloadHelp.id = 'ai-context-source-reload-help'; reloadSources.setAttribute('aria-describedby', reloadHelp.id);
-        reloadActions.append(reloadSources); box.append(reloadActions, reloadHelp);
-        const sourceList = el('div', 'ai-context-sources'); box.append(sourceList);
+        reloadActions.append(reloadSources);
+        const sourceList = el('div', 'ai-context-sources');
+        const sourceHelp = el('details', 'ai-context-source-help');
+        sourceHelp.append(summary('SourceHelpHeading', 'Source scope, limits and reload'), scopeNote, scopeHelp, searchHelp, batchHelp, reloadActions, reloadHelp);
+        sourcesPane.append(searchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
-        box.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
+        questionPane.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
         let sourceRows = [];
         const reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
         const localPanel = el('section', 'ai-context-local-review'); localPanel.hidden = true;
@@ -80,7 +97,8 @@
         const outputLabel = el('label', 'ai-context-field', label('Response', 'Model response (unverified text; task JSON can be edited before review)'));
         const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
         const output = el('textarea'); output.rows = 8; output.maxLength = 32000; outputLabel.append(output); outputLabel.hidden = true;
-        const answerTitle = field('SaveTitle', 'Title for saved answer', 'text'); answerTitle.maxLength = 200;
+        resultPane.append(previousResult, outputLabel);
+        const answerTitle = field('SaveTitle', 'Title for saved answer', 'text', resultPane); answerTitle.maxLength = 200;
         const contextSave = el('section', 'ai-context-save-context'); contextSave.hidden = true;
         const contextLabel = el('label'), includeContext = el('input'); includeContext.type = 'checkbox'; includeContext.checked = false;
         contextLabel.append(includeContext, el('span', '', label('SaveContext', 'Also save this exact question and reviewed source excerpts')));
@@ -179,6 +197,7 @@
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry; reloadSources.disabled = selectionBlocked();
             outputLabel.hidden = !controller.result;
+            resultPane.hidden = !controller.result;
             updateCopy();
             previousResult.hidden = !controller.result || controller.resultReview === controller.reviewed;
             contextSave.hidden = !controller.result || controller.result.mode !== 'answer';
@@ -366,11 +385,17 @@
         }, ['TasksVerified', 'The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; invalidate(true); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
-        const actions = el('div', 'ai-context-actions'); actions.append(reviewLocal, review, allow, send, stop, reset);
+        const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
         includeContext.addEventListener('change', update);
-        box.append(actions, localPanel, reviewText, status, previousResult, outputLabel, contextSave, taskList, results, copyStatus); host.append(box);
+        const localActions = el('div', 'ai-context-actions ai-context-local-actions'); localActions.append(reviewLocal, reset);
+        connection.append(actions, reviewText);
+        // Keep each control in one DOM location. Disclosure changes presentation only,
+        // never the draft, authorization ticket, key lifetime or response ownership.
+        resultPane.append(contextSave, taskList, results, copyStatus);
+        questionPane.append(localActions, localPanel, connection, status, resultPane);
+        workbench.append(sourcesPane, questionPane); box.append(workbench); host.append(box);
         for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         function buildSourceRows(values) {

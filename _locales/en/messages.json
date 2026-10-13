@@ -3987,7 +3987,7 @@
     "message": "Ask your saved context"
   },
   "aiContextHelp": {
-    "message": "Choose saved excerpts, inspect the exact request, then send to your chosen model. Nothing is selected or sent automatically. Providers may charge. Keys stay in this panel and are cleared after a request or departure."
+    "message": "Choose saved excerpts and review a complete prompt locally, without a connection. Optionally open model settings to review, allow and send a request. Nothing is selected or sent automatically. Providers may charge; keys are cleared after a request or departure."
   },
   "aiContextEndpoint": {
     "message": "Full HTTPS endpoint URL"
@@ -5761,5 +5761,20 @@
   },
   "navigationLibraryRefreshReload": {
     "message": "Page data changed. Reload this page before adding sites or adjusting the layout."
+  },
+  "aiContextSourcesHeading": {
+    "message": "Saved sources"
+  },
+  "aiContextQuestionHeading": {
+    "message": "Question and review"
+  },
+  "aiContextConnectionHeading": {
+    "message": "Optional: call a model in this extension"
+  },
+  "aiContextResultHeading": {
+    "message": "Response and next steps"
+  },
+  "aiContextSourceHelpHeading": {
+    "message": "Source scope, limits and reload"
   }
 }

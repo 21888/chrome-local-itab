@@ -2,6 +2,12 @@
 
 Open **AI context Q&A** from the new-tab navigation. This workflow reuses the direct-model client's user-chosen HTTPS Chat Completions endpoint. It adds no provider, permission, storage key or backup module; the optional answer snapshot described below extends collection records with reviewed historical input.
 
+## Workbench layout
+
+On a wide screen, saved sources stay beside the question and local review. Source explanations and **Reload saved sources** are under **Source scope, limits and reload**. The question and **Review prompt locally** are available without opening connection settings. **Optional: call a model in this extension** contains endpoint, model, optional key, presets and the separate review/allow/send steps. Collapsing it preserves the draft and response; it does not send or save. Response actions are grouped with the response. Narrow screens stack the same controls in one column.
+
+[Design reference and validation scope](ai-context-workbench-validation.md)
+
 ## What can be selected
 
 - Active saved AI collection bodies, explicitly labeled **global collection**: these are existing cross-workspace library records, not workspace-local copies.

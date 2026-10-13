@@ -28,3 +28,23 @@
 .ai-context-source > label { display: flex; align-items: flex-start; gap: .4rem; }
 .ai-context-source > label input { flex: none; }
 .ai-context-source-restore { align-self: flex-start; max-width: 100%; overflow-wrap: anywhere; }
+
+/* One source list and one question draft; stack the same DOM at narrow widths. */
+.ai-context { max-width: 84rem; margin: .5rem auto; }
+.ai-context-dialog { width: min(88rem, 100%); }
+.ai-context-workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 1.25rem; align-items: start; }
+.ai-context-sources-pane,.ai-context-question-pane { min-width: 0; max-height: 65dvh; overflow: auto; overscroll-behavior: contain; padding: .25rem .5rem .75rem; scrollbar-gutter: stable; }
+.ai-context h3 { margin: .25rem 0 .75rem; }
+.ai-context p { overflow-wrap: anywhere; }
+.ai-context button,.ai-context summary { max-width: 100%; overflow-wrap: anywhere; }
+.ai-context-connection,.ai-context-result-pane { margin-block: 1rem; padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .6rem; }
+.ai-context summary { cursor: pointer; font-weight: 600; padding: .35rem; }
+.ai-context-local-actions { margin-block: .75rem; }
+.ai-context-local-actions > button:first-child { font-weight: 700; }
+.ai-context-source-count { font-weight: 600; }
+.ai-context :focus-visible { outline: 3px solid var(--template-focus, #456fe8); outline-offset: 2px; }
+@media (max-width: 900px) {
+    .ai-context-workbench { grid-template-columns: minmax(0, 1fr); }
+    .ai-context-sources-pane,.ai-context-question-pane { max-height: none; overflow: visible; padding: .25rem; scrollbar-gutter: auto; }
+    .ai-context-sources { max-height: 22rem; overflow: auto; }
+}
