@@ -5641,5 +5641,23 @@
   },
   "navigationTagFederatedSocial": {
     "message": "联邦式社交"
+  },
+  "navigationTagChineseDictionary": {
+    "message": "中文字词查询"
+  },
+  "navigationTagPronunciation": {
+    "message": "字词读音"
+  },
+  "navigationTagLanguageLearning": {
+    "message": "语言学习"
+  },
+  "navigationTagTravelAdvisories": {
+    "message": "出行安全提醒"
+  },
+  "navigationTagDestinationGuides": {
+    "message": "目的地指南"
+  },
+  "navigationTagConsularGuidance": {
+    "message": "领事服务指南"
   }
 }

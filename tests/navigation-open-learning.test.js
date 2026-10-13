@@ -7,10 +7,10 @@ const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperC
 test('open learning appends four reviewed records and preserves every previous record', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 128))).digest('hex'), '0b81996ae82fa11f01275695fc41dd88dc26e25ddedda1d1cbd67fd76b2aca99');
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 139);
-    assert.equal(new Set(sites.map(site => site.id)).size, 139);
-    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 139);
-    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 204);
+    assert.equal(sites.length, 141);
+    assert.equal(new Set(sites.map(site => site.id)).size, 141);
+    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 141);
+    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 210);
     assert.equal(Catalog.categories.length, 18);
     assert.equal(Catalog.validate(sites), true);
     const oldTags = new Set(sites.slice(0, 128).flatMap(site => site.tags));

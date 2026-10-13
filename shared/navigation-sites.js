@@ -4431,6 +4431,91 @@
         "verifiedOn": "2026-10-13",
         "language": "unknown",
         "signup": "unknown"
+    },
+    {
+        "id": "moe-concised-dictionary",
+        "name": "教育部《國語辭典簡編本》",
+        "url": "https://dict.concised.moe.edu.tw/",
+        "company": "國家教育研究院（教育部國語辭典）",
+        "country": "TW",
+        "categories": [
+            "learning",
+            "utilities"
+        ],
+        "tags": [
+            "chinese-dictionary",
+            "pronunciation",
+            "language-learning"
+        ],
+        "searchAliases": [
+            "国语辞典简编本",
+            "國語辭典",
+            "国语辞典",
+            "中文词典",
+            "Concised Mandarin Chinese Dictionary"
+        ],
+        "description": {
+            "en": "Look up modern Mandarin meanings, pronunciations and examples using phonetic and radical indexes.",
+            "zh": "查阅现代汉语字词释义、读音与例句，支持注音、拼音和部首检索。"
+        },
+        "pricing": "not_applicable",
+        "pricingNote": {
+            "en": "An official public dictionary. Learning notes require an account. It primarily uses Traditional Chinese and Taiwan Mandarin; reuse is subject to licensing terms.",
+            "zh": "官方公开辞典查询入口；学习笔记需账号。以繁体中文及台湾国语用法为主；内容再利用须遵守授权条件。"
+        },
+        "icon": "辞典",
+        "sources": [
+            "https://dict.concised.moe.edu.tw/",
+            "https://dict.concised.moe.edu.tw/search.jsp?md=1",
+            "https://dict.concised.moe.edu.tw/note.jsp",
+            "https://www.naer.edu.tw/PageMenu?fid=60",
+            "https://www.naer.edu.tw/PageDoc/Detail?fid=126&id=3727",
+            "https://www.naer.edu.tw/PageFaq"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "china-consular-services",
+        "name": "中国领事服务网",
+        "url": "https://cs.mfa.gov.cn/",
+        "company": "中华人民共和国外交部领事司",
+        "country": "CN",
+        "categories": [
+            "travel",
+            "public-services"
+        ],
+        "tags": [
+            "travel-advisories",
+            "destination-guides",
+            "consular-guidance"
+        ],
+        "searchAliases": [
+            "中国领事",
+            "领事服务",
+            "领事保护",
+            "China Consular Services"
+        ],
+        "description": {
+            "en": "Read overseas travel advisories, destination risks and passport, visa and consular-assistance guidance.",
+            "zh": "查阅海外出行安全提醒、目的地风险与护照、签证和领事保护指南。"
+        },
+        "pricing": "not_applicable",
+        "pricingNote": {
+            "en": "Public guidance is openly readable. Applications may require a verified account, documents and fees; eligibility varies by nationality, destination and consulate.",
+            "zh": "公开信息可直接查阅；实际办证可能需实名账号、材料与费用，适用条件因国籍、目的地和使领馆而异。"
+        },
+        "icon": "领事",
+        "sources": [
+            "https://cs.mfa.gov.cn/",
+            "https://cs.mfa.gov.cn/gylsx/",
+            "https://cs.mfa.gov.cn/zggmcgx/hzlxz_149470/",
+            "https://www.mfa.gov.cn/web/xglj/zylj/"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

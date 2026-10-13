@@ -264,7 +264,7 @@ Reloading or closing a tab requests Chrome’s native warning while an Add/Edit 
 
 ### Discover and add sites
 
-Choose **Discover sites** in the new-tab shortcut area to browse 139 built-in sites, 18 categories and 204 use tags. Search by name or use, then combine category, use, operator location, organization, pricing and **All / Not added / Added** filters. Operator location does not indicate where a site is accessible. Pricing and account requirements can change; check the card’s sources and the official website.
+Choose **Discover sites** in the new-tab shortcut area to browse 141 built-in sites, 18 categories and 210 use tags. Search by name or use, then combine category, use, operator location, organization, pricing and **All / Not added / Added** filters. Operator location does not indicate where a site is accessible. Pricing and account requirements can change; check the card’s sources and the official website.
 
 Select sites individually or use **Select current results**, keeping up to 20 selected sites. Choose an existing destination category or enter a new category name, then choose **Review selected**. Check the complete list and destination, then choose **Confirm and add** for an existing category or **Create category and add (N)** for a new one. Sites hidden by filters stay selected, and review includes the whole selection. **Deselect current results (N)** only deselects currently visible results, keeping hidden selections, filters, the destination and any new-category draft; it does not save shortcuts.
 

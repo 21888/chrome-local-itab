@@ -263,7 +263,7 @@ Al recargar o cerrar una pestaña, se solicita el aviso nativo de Chrome si un a
 
 ### Descubrir y añadir sitios
 
-Pulsa **Discover sites** en el área de accesos directos de la nueva pestaña para explorar 139 sitios integrados, 18 categorías y 204 etiquetas de uso. Busca por nombre o uso y combina filtros de categoría, uso, ubicación del operador, organización, precio y **All / Not added / Added**. La ubicación del operador no indica desde dónde es accesible un sitio. Los precios y requisitos de cuenta pueden cambiar; consulta las fuentes de la tarjeta y la web oficial. La interfaz sigue disponible en inglés y chino.
+Pulsa **Discover sites** en el área de accesos directos de la nueva pestaña para explorar 141 sitios integrados, 18 categorías y 210 etiquetas de uso. Busca por nombre o uso y combina filtros de categoría, uso, ubicación del operador, organización, precio y **All / Not added / Added**. La ubicación del operador no indica desde dónde es accesible un sitio. Los precios y requisitos de cuenta pueden cambiar; consulta las fuentes de la tarjeta y la web oficial. La interfaz sigue disponible en inglés y chino.
 
 Selecciona sitios individualmente o con **Select current results**, hasta un máximo de 20. Elige una categoría de destino existente o escribe el nombre de una nueva; después pulsa **Review selected**. Comprueba la lista completa y el destino; pulsa **Confirm and add** para una categoría existente o **Create category and add (N)** para una nueva. Los sitios ocultos por los filtros siguen seleccionados y se incluyen en la revisión. **Deselect current results (N)** solo deselecciona los resultados visibles, conservando las selecciones ocultas, los filtros, el destino y el borrador de nueva categoría; no guarda accesos directos.
 

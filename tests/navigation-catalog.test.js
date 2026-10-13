@@ -54,10 +54,10 @@ test('every fine-grained use label and pricing note is bilingual; duplicate site
  assert.equal(sites.find(site=>site.id==='pika').pricing,'unknown');assert.equal(sites.find(site=>site.id==='qwen').pricing,'unknown');
 });
 
-test('expanded catalog has 139 unique sites, 204 bilingual uses and the same 18 categories',()=>{
- assert.equal(sites.length,139);assert.equal(new Set(sites.map(site=>site.id)).size,139);
- assert.equal(new Set(sites.map(site=>Catalog.canonicalURL(site.url))).size,139);
- assert.equal(new Set(sites.flatMap(site=>site.tags)).size,204);
+test('expanded catalog has 141 unique sites, 210 bilingual uses and the same 18 categories',()=>{
+ assert.equal(sites.length,141);assert.equal(new Set(sites.map(site=>site.id)).size,141);
+ assert.equal(new Set(sites.map(site=>Catalog.canonicalURL(site.url))).size,141);
+ assert.equal(new Set(sites.flatMap(site=>site.tags)).size,210);
  for(const id of ['squoosh','photopea','regex101','cyberchef','caniuse','hoppscotch','google-fonts','lucide','adobe-color','excalidraw','drawio','freecodecamp','the-odin-project','exercism','mit-ocw','javascript-info','geogebra','overleaf','zotero','china-laws','china-standards','w3c-validator','crontab-guru','json-crack']){
   const site=sites.find(site=>site.id===id);assert.ok(site,id);assert.equal(site.verifiedOn,'2026-10-12');assert.equal(site.language,'unknown');assert.equal(site.signup,'unknown');
  }
@@ -87,7 +87,7 @@ test('search normalizes full-width text and brand spacing without changing displ
  const cases=[['Chat GPT','chatgpt'],['chat-gpt','chatgpt'],['ＣｈａｔＧＰＴ','chatgpt'],['Git Hub','github'],['ＧＩＴ－ＨＵＢ','github'],['JSONCrack','json-crack'],['JSON Crack','json-crack'],['json-crack','json-crack'],['googlefonts','google-fonts'],['  gItHuB\t\n','github'],['谷歌','google'],['必应','bing'],['ＰＳＤ 图层','photopea']];
  for(const language of ['en','zh'])for(const [query,id] of cases)assert.ok(Catalog.filter(sites,{query},language).some(site=>site.id===id),`${language}: ${query}`);
  assert.equal(JSON.stringify(sites),before);
- assert.deepEqual(sites.filter(site=>site.searchAliases).map(site=>[site.id,site.searchAliases]),[['amazon',['亚马逊']],['linkedin-jobs',['领英']],['bing',['必应']],['google',['谷歌']],['imf-data',['国际货币基金组织']],['khan-academy',['可汗学院']],['google-scholar',['Google 学术搜索']],['usa-gov',['USA gov','USAGov']],['cfpb-consumer-resources',['CFPB','Consumer Financial Protection Bureau']],['ftc-shopping-guides',['FTC','Federal Trade Commission']],['board-game-arena',['BGA','BoardGameArena']],['inoreader',['RSS 阅读器']],['hacker-news',['HN','黑客新闻']],['mastodon',['长毛象']]]);
+ assert.deepEqual(sites.slice(0,139).filter(site=>site.searchAliases).map(site=>[site.id,site.searchAliases]),[['amazon',['亚马逊']],['linkedin-jobs',['领英']],['bing',['必应']],['google',['谷歌']],['imf-data',['国际货币基金组织']],['khan-academy',['可汗学院']],['google-scholar',['Google 学术搜索']],['usa-gov',['USA gov','USAGov']],['cfpb-consumer-resources',['CFPB','Consumer Financial Protection Bureau']],['ftc-shopping-guides',['FTC','Federal Trade Commission']],['board-game-arena',['BGA','BoardGameArena']],['inoreader',['RSS 阅读器']],['hacker-news',['HN','黑客新闻']],['mastodon',['长毛象']]]);
 });
 test('name compaction keeps AND semantics, exact selectors and meaningful punctuation', () => {
  const site=sites.find(site=>site.id==='chatgpt');

@@ -7,11 +7,11 @@ const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperC
 test('media utilities append four reviewed sites while preserving all 124 previous records', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 124))).digest('hex'), '7eeece45d2752240ede5e180955302baa4735728c05a222d99024e0932584e39');
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 139);
-    assert.equal(new Set(sites.map(site => site.id)).size, 139);
-    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 139);
+    assert.equal(sites.length, 141);
+    assert.equal(new Set(sites.map(site => site.id)).size, 141);
+    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 141);
     assert.equal(Catalog.categories.length, 18);
-    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 204);
+    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 210);
     assert.equal(Catalog.validate(sites), true);
     const oldTags = new Set(sites.slice(0, 124).flatMap(site => site.tags));
     assert.deepEqual([...new Set(added.flatMap(site => site.tags).filter(tag => !oldTags.has(tag)))], ['gif-editing', 'animated-images', 'audio-editing', 'audio-effects']);

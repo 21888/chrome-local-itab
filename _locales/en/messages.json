@@ -5641,5 +5641,23 @@
   },
   "navigationTagFederatedSocial": {
     "message": "Federated social"
+  },
+  "navigationTagChineseDictionary": {
+    "message": "Chinese dictionary"
+  },
+  "navigationTagPronunciation": {
+    "message": "Pronunciation"
+  },
+  "navigationTagLanguageLearning": {
+    "message": "Language learning"
+  },
+  "navigationTagTravelAdvisories": {
+    "message": "Travel advisories"
+  },
+  "navigationTagDestinationGuides": {
+    "message": "Destination guides"
+  },
+  "navigationTagConsularGuidance": {
+    "message": "Consular guidance"
   }
 }
