@@ -2121,7 +2121,7 @@ class StorageManager {
                 const config = this.validateConfigObject(raw); delete config.sync;
                 const localFingerprint = guard.blocked?.localFingerprint || error.localFingerprint || await this.fingerprint(config);
                 await this._local.set({ [this.syncIdentityStateKey]: { ...guard,
-                    blocked: guard.blocked?.kind === 'restore' ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
+                    blocked: ['restore', 'initialization'].includes(guard.blocked?.kind) ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
                 } });
             }, true);
         } catch (statusError) { this._syncCompatibilityError = blocked; console.warn('Could not persist Sync compatibility status:', statusError); }
@@ -2180,7 +2180,7 @@ class StorageManager {
 
     checkSyncIdentity(local, remote, guard, { pushing = false, confirmedReplacement = false } = {}) {
         if (confirmedReplacement) return;
-        if (guard.blocked?.kind === 'restore') throw this.compatibilityError(guard.blocked.reason, 'restore');
+        if (['restore', 'initialization'].includes(guard.blocked?.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
         if (pushing && (guard.blocked || this._syncCompatibilityError)) throw this.compatibilityError(guard.blocked?.reason || this._syncCompatibilityError.reason);
         if (!remote.payload) return;
         if (pushing && remote.schema === 2 && this.losesIdentityHistory(this.layoutSnapshot(remote.validated), local)) {
@@ -2207,13 +2207,25 @@ class StorageManager {
         }
     }
 
-    async acceptSyncSnapshot(remote, { confirmedReplacement = false, initializing = false } = {}) {
+    async syncInitializationFingerprint(raw) {
+        // Preserve absence, device-only/omitted assets, and persistent replacement
+        // generations. A normalized Sync payload is not a complete local baseline.
+        const keys = [...Object.keys(this.defaultConfig), this.layoutGenerationKey,
+            this.settingsGenerationKey, this.syncIdentityStateKey];
+        return this.fingerprint(Object.fromEntries(keys.filter(key =>
+            Object.prototype.hasOwnProperty.call(raw, key)).map(key => [key, raw[key]])));
+    }
+
+    async acceptSyncSnapshot(remote, { confirmedReplacement = false, initializing = false, expectedLocalFingerprint } = {}) {
         return this.withLocalWriteLock(async () => {
             const raw = await this._local.get(null);
             const local = this.layoutSnapshot(raw);
             const guard = raw[this.syncIdentityStateKey] || {};
+            if (!confirmedReplacement && this._syncCompatibilityError?.kind === 'initialization') {
+                throw this.compatibilityError(this._syncCompatibilityError.reason, 'initialization');
+            }
             if (guard.blocked && !confirmedReplacement) {
-                if (guard.blocked.kind === 'restore') throw this.compatibilityError(guard.blocked.reason, 'restore');
+                if (['restore', 'initialization'].includes(guard.blocked.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
                 const config = this.validateConfigObject(raw); delete config.sync;
                 if (!guard.blocked.localFingerprint || guard.blocked.localFingerprint !== await this.fingerprint(config)) throw this.compatibilityError('Local settings changed while Sync was blocked. Review the copies and choose a backed-up replacement explicitly.');
             }
@@ -2227,6 +2239,21 @@ class StorageManager {
                 await this._local.set(written);
                 this._syncCompatibilityError = null;
                 return { applied: false, acknowledged: true };
+            }
+            if (initializing && !confirmedReplacement && (typeof expectedLocalFingerprint !== 'string' ||
+                expectedLocalFingerprint !== await this.syncInitializationFingerprint(raw))) {
+                const error = this.compatibilityError('Local settings changed while Sync was loading. Your saved data is kept locally. Review the copies and choose a backed-up replacement explicitly.', 'initialization');
+                // Persist the sticky refusal before releasing the same lock used
+                // for comparison and acceptance. A later pull/ack must not erase it.
+                this._syncCompatibilityError = { kind: error.kind, reason: error.message };
+                try {
+                    await this._local.set({ [this.syncIdentityStateKey]: { ...guard,
+                        blocked: this._syncCompatibilityError
+                    } });
+                } catch (cause) { error.cause = cause; }
+                // Initialization's error handler retries persisting this refusal
+                // if the storage write failed; it never acknowledges the remote.
+                throw error;
             }
             await this.checkSyncIdentityAtRead(local, remote, guard, raw, { confirmedReplacement });
             // A pre-feature lastSync timestamp alone is not an identity-safe ack.
@@ -2262,8 +2289,10 @@ class StorageManager {
         this._syncInitPromise = (async () => {
             if (!this.isSyncAvailable()) { this._syncInitialized = true; return; }
             try {
+                const expectedLocalFingerprint = await this.withLocalWriteLock(async () =>
+                    this.syncInitializationFingerprint(await this._local.get(null)), true);
                 const remote = await this.readSyncSnapshot();
-                if (remote.meta?.enabled) await this.acceptSyncSnapshot(remote, { initializing: true });
+                if (remote.meta?.enabled) await this.acceptSyncSnapshot(remote, { initializing: true, expectedLocalFingerprint });
             } catch (error) {
             if (error.code?.startsWith('WORKSPACE_')) throw error;
                 if (error.code === 'SYNC_IDENTITY_COMPATIBILITY' || error.code === 'LAYOUT_IDENTITY_INVALID') {
