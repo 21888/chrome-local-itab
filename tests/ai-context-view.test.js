@@ -963,3 +963,55 @@ test('copy labels and feedback use runtime locale keys without new clipboard per
     assert(!manifest.permissions.some(value => /clipboard/i.test(value)));
     assert.doesNotMatch(fs.readFileSync('shared/ai-context-view.js', 'utf8'), /clipboard\.read/);
 });
+
+async function uncertainView(h) {
+    h.setReply('Synthetic complete answer'); await send(h, 'answer');
+    const read = h.c.read.bind(h.c); let fail = true;
+    h.c.read = async () => { if (fail && h.c.writes) { fail = false; throw Error('synthetic readback failure'); } return read(); };
+    h.click('Save answer');
+    for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle();
+    assert.equal(h.controller.saveUncertain, true);
+    return h.controller.saveCommand;
+}
+async function idle(h) { for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle(); }
+test('actual UI: explicit read-only receipt check unlocks earlier save after another write and reports only historical success', async () => {
+    const h = await model(); assert.equal(h.byText('Check earlier save').hidden, true);
+    const command = await uncertainView(h), store = h.controller.collectionStore;
+    await store.mutate(store.request('add', { title: 'Concurrent synthetic', body: 'Other answer' }));
+    const original = structuredClone(command), writes = h.c.writes, calls = h.calls.length;
+    assert.equal(h.byText('Check earlier save').hidden, false); assert.equal(h.byText('Cancel / clear').disabled, true);
+    const record = (await store.read()).records[0]; await store.mutate(store.request('remove', { id: record.id, version: record.version }));
+    const state = await store.read();
+    h.click('Check earlier save'); assert.equal(h.byText('Check earlier save').disabled, true); await idle(h);
+    assert.equal(h.controller.saved, true); assert.equal(h.controller.saveCommand, null); assert.equal(h.byText('Check earlier save').hidden, true);
+    assert.match(h.host.querySelector('.ai-context-status').textContent, /confirmed from its receipt.*does not guarantee.*still present/);
+    assert.equal(h.byText('Cancel / clear').disabled, false); assert.equal(h.byText('Save answer').disabled, true);
+    assert.equal(h.calls.length, calls); assert.equal(h.c.writes, writes + 1); assert.deepEqual(command, original); assert.deepEqual(await store.read(), state);
+    h.click('Cancel / clear'); assert.equal(h.controller.result, null); assert.equal(h.c.writes, writes + 1); assert.equal(h.confirmations.length, 0);
+});
+test('actual UI: unknown or failed receipt check retains locked original metadata and allows another explicit check', async () => {
+    for (const fail of [false, true]) {
+        const h = await model(), command = await uncertainView(h);
+        const title = h.host.querySelectorAll('input').find(node => node.maxLength === 200), checkbox = h.host.querySelector('.ai-context-save-context').querySelector('input');
+        const titleValue = title.value, included = checkbox.checked, writes = h.c.writes, calls = h.calls.length;
+        let inspections = 0; h.controller.collectionStore.inspectOperation = async original => { inspections++; assert.equal(original, command); if (fail) throw api.fault('READ'); return { committed: false }; };
+        h.click('Check earlier save'); await idle(h);
+        assert.equal(inspections, 1); assert.equal(h.controller.saveCommand, command); assert.equal(h.controller.saved, false);
+        assert.equal(h.byText('Cancel / clear').disabled, true); assert.equal(h.byText('Check earlier save').disabled, false);
+        assert.equal(title.disabled, true); assert.equal(checkbox.disabled, true); assert.equal(title.value, titleValue); assert.equal(checkbox.checked, included);
+        assert.match(h.host.querySelector('.ai-context-status').textContent, /Missing or unreadable evidence keeps this draft locked/);
+        assert.equal(h.c.writes, writes); assert.equal(h.calls.length, calls);
+    }
+});
+test('actual UI: closing or workspace invalidation during receipt check cannot show success or unlock old operation', async () => {
+    for (const close of [false, true]) {
+        const h = await model(), command = await uncertainView(h), gate = deferred(), entered = deferred();
+        const inspect = h.controller.collectionStore.inspectOperation.bind(h.controller.collectionStore);
+        h.controller.collectionStore.inspectOperation = async value => { const result = await inspect(value); entered.resolve(); await gate.promise; return result; };
+        const writes = h.c.writes; h.click('Check earlier save'); await entered.promise;
+        if (close) h.view.destroy(); else h.deactivate(); gate.resolve(); await idle(h);
+        assert.equal(h.controller.saveCommand, command); assert.equal(h.controller.saved, false); assert.equal(h.c.writes, writes);
+        if (close) assert.equal(h.host.children.length, 0);
+        else { assert.doesNotMatch(h.host.querySelector('.ai-context-status').textContent, /confirmed from its receipt/); assert.equal(h.byText('Cancel / clear').disabled, true); }
+    }
+});

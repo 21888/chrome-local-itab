@@ -4470,7 +4470,7 @@
     "message": "收藏剩余空间不足，未写入任何内容。可释放空间，或取消勾选快照选项，再明确选择仅保存答案。"
   },
   "aiContextUncertainAnswer": {
-    "message": "先前保存的答案可能已进入全局收藏，请先检查，再决定是否重新保存。本面板保留原操作及快照选择供重试，不会重复添加。"
+    "message": "此前的回答保存尚未确认。点击“核验此前保存”可只读核验回执，不会写入内容或联系模型服务。回执缺失或无法读取时，草稿将继续锁定；原操作、标题和上下文快照选项保持不变。"
   },
   "collectionsContextSnapshotTitle": {
     "message": "已保存的问题与审核资料"
@@ -5542,5 +5542,11 @@
   },
   "navigationLibraryCatalogError": {
     "message": "无法加载内置网站库，请关闭后重新打开。"
+  },
+  "aiContextVerifySave": {
+    "message": "核验此前保存"
+  },
+  "aiContextSaveVerified": {
+    "message": "已通过回执确认原保存操作曾成功。这不保证回答当前仍然存在：它可能已被修改或删除。此次核验没有写入或发送内容。现在可以清空草稿或开始新请求。"
   }
 }

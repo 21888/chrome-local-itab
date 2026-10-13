@@ -221,6 +221,22 @@
                 throw error;
             } finally { this.busy = false; }
         }
+        async verifyAnswerSave() {
+            check(!this.closed && !this.busy && this.saveCommand && this.saveUncertain && !this.saved, 'STALE');
+            const command = this.saveCommand, generation = this.generation;
+            this.busy = true;
+            try {
+                await this.ensureActive(); this.current(generation);
+                // Store verifies the exact original command digest and current state evidence.
+                // This acknowledges history only: the record may since have been removed.
+                const result = await this.collectionStore.inspectOperation(command);
+                await this.ensureActive(); this.current(generation);
+                check(this.saveCommand === command && this.saveUncertain, 'STALE');
+                check(result?.committed === true, 'SAVE_UNCONFIRMED');
+                this.saved = true; this.saveCommand = null; this.saveUncertain = false;
+                return result;
+            } finally { this.busy = false; }
+        }
         close() { this.closed = true; this.generation++; this.stop(); this.reviewed = this.result = this.resultReview = this.taskReview = null; }
     }
     function createController({ workspaces, tasks: Tasks, collections: Collections, scratchpad: Scratchpad, transport, permissions }) {

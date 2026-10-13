@@ -77,7 +77,7 @@
         const copyStatus = el('p', 'ai-context-copy-status'); copyStatus.tabIndex = -1; copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
         const error = code => {
             if (controller.saveCommand && controller.saveUncertain) {
-                status.textContent = label('UncertainAnswer', 'The earlier answer save may already be in the global collection. Check it before starting another save. This panel keeps the original operation and snapshot choice for retry; it will not add a duplicate.'); return;
+                status.textContent = label('UncertainAnswer', 'The earlier answer save is unconfirmed. Use “Check earlier save” to check its receipt without writing or contacting the provider. Missing or unreadable evidence keeps this draft locked; the original operation, title and snapshot choice stay unchanged.'); return;
             }
             const errors = { CANCELLED: ['Stopped', 'Stopped. The provider may still charge for work already started.'], CONTEXT_LIMIT: ['SnapshotLimit', 'The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer.'], SIZE_LIMIT: ['SnapshotCapacity', 'The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer.'], TASK_UNCERTAIN: ['UncertainTasks', 'The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch.'], TASK_FORMAT: ['TaskFormat', 'Use exactly {"tasks":["one task","another task"]}, with 1–50 single-line tasks and no extra fields.'], LIMIT: ['Limit', 'The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request.'], CONFLICT: ['Changed', 'The task list changed. Review the extracted tasks again before adding them.'], PERMISSION: ['Permission', 'Allow the reviewed endpoint before sending.'] };
             if (errors[code]) { status.textContent = label(...errors[code]); return; }
@@ -150,6 +150,8 @@
             for (const row of sourceRows) { row.check.disabled = row.input.disabled = busy || retry; }
             review.disabled = busy || retry; allow.disabled = send.disabled = busy || retry || !controller.reviewed || Boolean(controller.result && controller.resultReview === controller.reviewed);
             stop.disabled = !controller.busy; save.disabled = busy || !controller.result || controller.saved || controller.result.mode !== 'answer';
+            verifySave.hidden = !controller.saveCommand || !controller.saveUncertain;
+            verifySave.disabled = busy || verifySave.hidden;
             reviewTasks.disabled = busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry;
@@ -277,6 +279,7 @@
             } finally { copying = false; if (!disposed) updateCopy(); }
         });
         const save = button('Save', 'Save answer to AI collection', () => action(() => controller.saveAnswer(answerTitle.value, { includeContext: includeContext.checked }), ['Saved', 'Saved to the existing global AI collection. Saved answers join unencrypted local backups.']));
+        const verifySave = button('VerifySave', 'Check earlier save', () => action(() => controller.verifyAnswerSave(), ['SaveVerified', 'The original save was confirmed from its receipt. This does not guarantee the answer is still present: it may have been changed or deleted later. No content was written or sent. You can now clear this draft or start a new request.']));
         const reviewTasks = button('ReviewTasks', 'Review extracted tasks', () => action(async () => {
             const result = await controller.reviewTasks(); taskList.replaceChildren(...result.texts.map(value => el('li', '', value))); taskList.hidden = false;
             confirm.textContent = `${label('Confirm', 'Add these tasks')} (${result.count})`;
@@ -287,7 +290,7 @@
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; invalidate(true); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
-        const results = el('div', 'ai-context-actions'); results.append(copy, save, reviewTasks, confirm);
+        const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
         includeContext.addEventListener('change', update);
         box.append(actions, reviewText, status, previousResult, outputLabel, contextSave, taskList, results, copyStatus); host.append(box);

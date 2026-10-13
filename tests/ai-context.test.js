@@ -516,3 +516,81 @@ test('Unicode source labels do not change UTF-16 question, excerpt or serialized
     assert.throws(() => api.pack('Question', pair), { code: 'LIMIT' });
     assert.equal(api.inspectInput('Question', pair).promptLength, 32001);
 });
+
+async function uncertainAnswer(h) {
+    await review(h, 'answer'); await h.controller.send('SYNTHETIC_SECRET');
+    const read = h.collectionBackend.read;
+    let fail = true;
+    h.collectionBackend.read = async () => {
+        if (fail && h.collectionBackend.writes) { fail = false; throw Error('synthetic readback failure'); }
+        return read();
+    };
+    await assert.rejects(h.controller.saveAnswer('Original synthetic title', { includeContext: true }), { code: 'READ' });
+    return h.controller.saveCommand;
+}
+test('explicit receipt inspection resolves real uncertain save after other write without modifying original snapshot or contacting provider', async () => {
+    const h = setup(), command = await uncertainAnswer(h), store = h.controller.collectionStore;
+    const original = structuredClone(command), result = h.controller.result, reviewed = h.controller.resultReview;
+    await store.mutate(store.request('add', { title: 'Other synthetic answer', body: 'Other' }));
+    await assert.rejects(h.controller.saveAnswer('Ignored title', { includeContext: false }), { code: 'CONFLICT' });
+    assert.throws(() => h.controller.clear(), { code: 'BUSY' });
+    const before = await store.read(), writes = h.collectionBackend.writes, calls = { ...h.calls };
+    assert.equal((await h.controller.verifyAnswerSave()).committed, true);
+    assert.equal(h.controller.saved, true); assert.equal(h.controller.saveUncertain, false); assert.equal(h.controller.saveCommand, null);
+    assert.equal(h.controller.result, result); assert.equal(h.controller.resultReview, reviewed); assert.deepEqual(command, original);
+    assert.deepEqual(await store.read(), before); assert.equal(h.collectionBackend.writes, writes); assert.deepEqual(h.calls, calls);
+    assert.doesNotMatch(JSON.stringify(before), /SYNTHETIC_SECRET/);
+    h.controller.clear(); assert.equal(h.controller.result, null);
+});
+test('historical confirmation survives archive and restore but does not claim current record presence', async () => {
+    for (const restore of [false, true]) {
+        const h = setup(), command = await uncertainAnswer(h), store = h.controller.collectionStore;
+        let record = (await store.read()).records[0];
+        await store.mutate(store.request('remove', { id: record.id, version: record.version }));
+        if (restore) { record = (await store.read()).records[0]; await store.mutate(store.request('restore', { id: record.id, version: record.version })); }
+        const state = await store.read(), writes = h.collectionBackend.writes;
+        assert.equal((await h.controller.verifyAnswerSave()).committed, true);
+        assert.deepEqual(await store.read(), state); assert.equal(h.collectionBackend.writes, writes);
+        assert.equal(state.records[0].id, command.operationId); assert.equal(state.records[0].deletedAt === null, restore);
+    }
+});
+test('replacement or recovery removes evidence: matching saved content never unlocks uncertain save', async () => {
+    for (const recover of [false, true]) {
+        const h = setup(), command = await uncertainAnswer(h), store = h.controller.collectionStore;
+        const backup = await store.export(); await store.mutate(store.request('replace', await store.review(backup)));
+        if (recover) { const state = await store.read(); await store.mutate(store.request('recover', { id: state.recovery[0].id, revision: state.revision })); }
+        const writes = h.collectionBackend.writes;
+        await assert.rejects(h.controller.verifyAnswerSave(), { code: 'SAVE_UNCONFIRMED' });
+        assert.equal(h.controller.saveCommand, command); assert.equal(h.controller.saveUncertain, true); assert.equal(h.controller.saved, false);
+        assert.throws(() => h.controller.clear(), { code: 'BUSY' }); assert.equal(h.collectionBackend.writes, writes);
+    }
+});
+test('false, unknown, forged state and unreadable evidence preserve uncertain operation without any writes', async () => {
+    for (const kind of ['false', 'unknown', 'truthy', 'state', 'command', 'read']) {
+        const h = setup(), command = await uncertainAnswer(h), store = h.controller.collectionStore;
+        const original = structuredClone(command), writes = h.collectionBackend.writes, calls = { ...h.calls };
+        if (['false', 'unknown', 'truthy'].includes(kind)) store.inspectOperation = async () => kind === 'unknown' ? undefined : { committed: kind === 'truthy' ? 'true' : false };
+        if (kind === 'state') { const read = h.collectionBackend.read; h.collectionBackend.read = async () => { const state = await read(); state.enabled = !state.enabled; return state; }; }
+        if (kind === 'command') { const inspect = store.inspectOperation.bind(store); store.inspectOperation = value => inspect({ ...value, title: 'Different synthetic title' }); }
+        if (kind === 'read') h.collectionBackend.read = async () => { throw Error('private read failure'); };
+        await assert.rejects(h.controller.verifyAnswerSave(), { code: kind === 'read' ? 'READ' : 'SAVE_UNCONFIRMED' });
+        assert.equal(h.controller.saved, false); assert.equal(h.controller.saveUncertain, true); assert.equal(h.controller.saveCommand, command);
+        assert.deepEqual(command, original); assert.equal(h.controller.busy, false); assert.equal(h.collectionBackend.writes, writes); assert.deepEqual(h.calls, calls);
+    }
+});
+test('receipt inspection is explicit, single-flight, and isolates old workspace or closed panel at every await', async () => {
+    for (const stage of ['before', 'during', 'after']) for (const close of [false, true]) {
+        const h = setup(), command = await uncertainAnswer(h), gate = deferred(), entered = deferred();
+        const ensure = h.controller.ensureActive, inspect = h.controller.collectionStore.inspectOperation.bind(h.controller.collectionStore);
+        let checks = 0, inspections = 0;
+        h.controller.ensureActive = async () => { checks++; if ((stage === 'before' && checks === 1) || (stage === 'after' && checks === 2)) { entered.resolve(); await gate.promise; } return ensure(); };
+        h.controller.collectionStore.inspectOperation = async value => { inspections++; const result = await inspect(value); if (stage === 'during') { entered.resolve(); await gate.promise; } return result; };
+        const writes = h.collectionBackend.writes, pending = h.controller.verifyAnswerSave();
+        await entered.promise;
+        await assert.rejects(h.controller.verifyAnswerSave(), { code: 'STALE' });
+        if (close) h.controller.close(); else h.deactivate();
+        gate.resolve(); await assert.rejects(pending, { code: close ? 'STALE' : 'WORKSPACE_INVALIDATED' });
+        assert.equal(inspections, stage === 'before' ? 0 : 1); assert.equal(h.controller.saveCommand, command); assert.equal(h.controller.saved, false);
+        assert.equal(h.collectionBackend.writes, writes); assert.equal(h.calls.sends, 1); assert.equal(h.calls.permissions, 0);
+    }
+});

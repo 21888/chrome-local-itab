@@ -4470,7 +4470,7 @@
     "message": "The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer."
   },
   "aiContextUncertainAnswer": {
-    "message": "The earlier answer save may already be in the global collection. Check it before starting another save. This panel keeps the original operation and snapshot choice for retry; it will not add a duplicate."
+    "message": "The earlier answer save is unconfirmed. Use “Check earlier save” to check its receipt without writing or contacting the provider. Missing or unreadable evidence keeps this draft locked; the original operation, title and snapshot choice stay unchanged."
   },
   "collectionsContextSnapshotTitle": {
     "message": "Saved question and reviewed sources"
@@ -5542,5 +5542,11 @@
   },
   "navigationLibraryCatalogError": {
     "message": "Could not load the built-in library. Close and reopen to try again."
+  },
+  "aiContextVerifySave": {
+    "message": "Check earlier save"
+  },
+  "aiContextSaveVerified": {
+    "message": "The original save was confirmed from its receipt. This does not guarantee the answer is still present: it may have been changed or deleted later. No content was written or sent. You can now clear this draft or start a new request."
   }
 }

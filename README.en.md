@@ -495,3 +495,7 @@ The optional original-versus-proposal trial uses one fresh temporary variable ma
 ### Compare models on the same completed prompt
 
 The Prompt library's **Compare models** action can send the same reviewed prompt to one or two saved connections, with separate temporary keys, explicit origin access and a disclosed request count. Side-by-side results fail/cancel independently and are saved individually only on request. No automatic calls or retries. See [comparison workflow and verification boundaries](docs/ai-model-comparison.md).
+
+### Check an earlier AI answer save
+
+If persistence succeeded but its readback failed, the answer panel retains the original operation, title and snapshot choice. **Check earlier save** only reads the original receipt: it does not call the provider, write or re-save content, or request new permissions. Only an exact operation digest with valid current collection-state evidence unlocks the draft. Confirmation acknowledges historical success, not the answer's current presence: it may since have been changed, removed or restored. Backup replacement, recovery, expired receipts or unreadable storage can make verification unavailable; without valid evidence the original operation stays locked rather than guessing success.
