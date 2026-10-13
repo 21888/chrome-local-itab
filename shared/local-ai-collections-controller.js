@@ -35,6 +35,7 @@
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
+            this.collectionReviews = new WeakSet();
             this.interactionGeneration = 0; this.pendingCommand = null; this.pendingInspection = false; this.disposed = false; this.refreshQueued = false;
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
@@ -195,6 +196,43 @@
         }
         hasUncommittedWork() { return this.busy || Boolean(this.pendingCommand) || [...this.drafts.keys()].some(id => this.dirty(id)); }
         duplicates() { const draft = this.draft(); return draft && this.state ? Core.findDuplicates(this.state, { body: draft.input.body, sourceUrl: draft.input.sourceUrl }).filter(item => item.id !== draft.id) : []; }
+        replacementReady() {
+            return !this.disposed && Boolean(this.state) && !this.busy && !this.pendingCommand && !this.drafts.size && !this.promptLoading &&
+                this.pendingReadGeneration !== this.readGeneration && this.error?.scope !== 'read';
+        }
+        replacementCurrent(review) {
+            return this.replacementReady() && this.collectionReviews.has(review) &&
+                review.generation === this.readGeneration && review.promptGeneration === this.promptGeneration &&
+                review.revision === this.state.revision;
+        }
+        async reviewReplacement(source, recoveryId = null) {
+            if (!this.replacementReady()) return null;
+            const generation = this.readGeneration, promptGeneration = this.promptGeneration;
+            let plan, kind = recoveryId === null ? 'replace' : 'recover';
+            if (kind === 'replace') plan = await this.store.review(source);
+            else {
+                const state = Core.validate(await this.store.read());
+                const saved = state.recovery.find(item => item.id === recoveryId);
+                if (!saved || state.revision !== this.state.revision) throw Core.fault('CONFLICT');
+                const local = new Map(state.records.map(record => [record.id, record]));
+                plan = { id: saved.id, revision: state.revision, current: Core.counts(state),
+                    incoming: Core.counts({ ...Core.initial(), records: saved.content.records }),
+                    conflicts: saved.content.records.filter(record => local.has(record.id)).map(record => ({ id: record.id, changed: JSON.stringify(record) !== JSON.stringify(local.get(record.id)) })),
+                    promptReferences: saved.content.records.filter(record => record.promptRef).map(record => ({ recordId: record.id, location: 'live', ...record.promptRef })) };
+            }
+            if (!this.replacementReady() || generation !== this.readGeneration || promptGeneration !== this.promptGeneration || plan.revision !== this.state.revision) throw Core.fault('CONFLICT');
+            const review = Object.freeze({ kind, plan: Object.freeze(plan), revision: plan.revision, generation, promptGeneration,
+                references: Object.freeze(plan.promptReferences.map(reference => Object.freeze({ ...reference, status: this.promptResolution({ promptId: reference.promptId, bodyVersionId: reference.bodyVersionId }).status }))) });
+            this.collectionReviews.add(review); return review;
+        }
+        async applyReplacement(review) {
+            if (!this.replacementCurrent(review)) { this.error = { code: 'CONFLICT', scope: 'review' }; this.notify(); return false; }
+            this.collectionReviews.delete(review);
+            try {
+                const values = review.kind === 'replace' ? review.plan : { id: review.plan.id, revision: review.revision };
+                return await this.execute({ command: this.store.request(review.kind, values), action: review.kind });
+            } catch (error) { this.error = { code: error.code || 'INVALID', scope: 'review' }; this.notify(); return false; }
+        }
         async reviewBody(body, versionId) {
             if (this.busy || this.pendingCommand) return null;
             const record = this.record(); if (!record || record.deletedAt || this.draft()) return null;
@@ -250,6 +288,7 @@
                     this.drafts.delete(operation.draftKey);
                     if (saved) this.selected = saved.id;
                 }
+                if (['replace', 'recover'].includes(operation.action)) this.selected = null;
                 this.accept(state); this.notice = inspect ? 'reconciled' : operation.action === 'save' ? 'saved' : operation.action;
                 return true;
             } catch (error) {

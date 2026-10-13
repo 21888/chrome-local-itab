@@ -5855,5 +5855,77 @@
   },
   "aiContextStreamIncomplete": {
     "message": "Incomplete answer: stopped or failed. This text is not a completed response and cannot be saved or copied as an answer. Review or explicitly send again to retry, or clear the draft. Any previous response is kept separately and becomes visible after a new review or edit."
+  },
+  "collectionsImport": {
+    "message": "Import / recover JSON"
+  },
+  "collectionsImportUncertain": {
+    "message": "The replacement may already have completed. New changes are paused. Check the saved outcome read-only; keep this tab open if no matching receipt can be verified. Any retry uses the same operation."
+  },
+  "collectionsImportApplyFailed": {
+    "message": "Replacement was refused. Refresh saved data, then reopen Import / recover JSON and review again. No automatic retry."
+  },
+  "collectionsImportSaved": {
+    "message": "Global collection replacement was verified. Use Import / recover JSON to review and restore a retained snapshot."
+  },
+  "collectionsImportScope": {
+    "message": "Replace the global collection on this device, including archived items. This is not a merge and is not limited by the current search or workspace. Current saved items and body versions are retained in recovery; prompts and other libraries are unchanged. Only this product’s standalone collection JSON is accepted."
+  },
+  "collectionsImportFile": {
+    "message": "Choose a local collection JSON file (up to 2 MiB)"
+  },
+  "collectionsImportRecovery": {
+    "message": "Or choose a saved recovery snapshot"
+  },
+  "collectionsImportChooseRecovery": {
+    "message": "Choose a snapshot"
+  },
+  "collectionsImportApply": {
+    "message": "Replace global collection"
+  },
+  "collectionsImportStale": {
+    "message": "Saved collections or prompt links changed. Review again before replacing anything."
+  },
+  "collectionsImportVersions": {
+    "message": "Body versions"
+  },
+  "collectionsImportCurrent": {
+    "message": "Current global collection"
+  },
+  "collectionsImportIncoming": {
+    "message": "Incoming saved items"
+  },
+  "collectionsImportConflicts": {
+    "message": "Matching record IDs / changed records"
+  },
+  "collectionsImportRecoveryScope": {
+    "message": "This restores the selected snapshot’s saved and archived items. The current collection becomes a recovery snapshot. Other retained snapshots remain."
+  },
+  "collectionsImportReferences": {
+    "message": "Prompt references are exact IDs, not imported prompt text. Unavailable links are kept without guessing another version. Incoming references include retained snapshots."
+  },
+  "collectionsImportNoReferences": {
+    "message": "No incoming prompt references."
+  },
+  "collectionsImportResolved": {
+    "message": "Available"
+  },
+  "collectionsImportUnresolved": {
+    "message": "Unavailable or still loading"
+  },
+  "collectionsImportReading": {
+    "message": "Reading and validating locally…"
+  },
+  "collectionsImportReady": {
+    "message": "Review the scope and counts above. Nothing changes until you choose Replace global collection."
+  },
+  "collectionsImportFailed": {
+    "message": "This file or snapshot could not be reviewed. Nothing was replaced."
+  },
+  "collectionsImportReview": {
+    "message": "Review again"
+  },
+  "collectionsImportDrafts": {
+    "message": "Finish or discard all drafts and proposed revisions before importing. Files are read as text only, without following links or sending content anywhere."
   }
 }

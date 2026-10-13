@@ -5855,5 +5855,77 @@
   },
   "aiContextStreamIncomplete": {
     "message": "回答未完成：请求已停止或失败。此文本不是完整结果，不能保存或复制为回答。可重新审阅或再次明确发送以重试，也可清空草稿。之前的完整回答单独保留，重新审阅或编辑后恢复显示。"
+  },
+  "collectionsImport": {
+    "message": "导入 / 恢复 JSON"
+  },
+  "collectionsImportScope": {
+    "message": "替换本机全局收藏库，包括已归档内容。这不是合并，也不受当前搜索或工作区限制。当前已保存条目及正文版本会保留在恢复快照中；提示词及其他资料库不变。仅接受本产品独立导出的收藏 JSON。"
+  },
+  "collectionsImportFile": {
+    "message": "选择本地收藏 JSON 文件（最多 2 MiB）"
+  },
+  "collectionsImportRecovery": {
+    "message": "或选择已保存的恢复快照"
+  },
+  "collectionsImportChooseRecovery": {
+    "message": "选择快照"
+  },
+  "collectionsImportApply": {
+    "message": "替换全局收藏库"
+  },
+  "collectionsImportVersions": {
+    "message": "正文版本"
+  },
+  "collectionsImportCurrent": {
+    "message": "当前全局收藏库"
+  },
+  "collectionsImportIncoming": {
+    "message": "传入的已保存条目"
+  },
+  "collectionsImportConflicts": {
+    "message": "相同记录 ID / 内容不同的记录"
+  },
+  "collectionsImportRecoveryScope": {
+    "message": "恢复所选快照的已保存与已归档条目。当前收藏库会成为恢复快照；其他已有快照保留。"
+  },
+  "collectionsImportReferences": {
+    "message": "提示词关联是精确 ID，不会导入提示词正文。不可用的关联仍被保留，不会猜测其他版本。传入关联也包括快照中的记录。"
+  },
+  "collectionsImportNoReferences": {
+    "message": "没有传入的提示词关联。"
+  },
+  "collectionsImportResolved": {
+    "message": "可用"
+  },
+  "collectionsImportUnresolved": {
+    "message": "不可用或仍在读取"
+  },
+  "collectionsImportStale": {
+    "message": "已保存收藏或提示词关联发生变化。替换前请重新审阅。"
+  },
+  "collectionsImportReading": {
+    "message": "正在本地读取并严格验证…"
+  },
+  "collectionsImportReady": {
+    "message": "请审阅上方范围和数量。选择「替换全局收藏库」前不会更改任何内容。"
+  },
+  "collectionsImportFailed": {
+    "message": "无法审阅此文件或快照，未执行替换。"
+  },
+  "collectionsImportReview": {
+    "message": "重新审阅"
+  },
+  "collectionsImportDrafts": {
+    "message": "导入前请完成或丢弃所有草稿及待定修订。文件仅作为文本读取，不访问链接，也不向外发送内容。"
+  },
+  "collectionsImportSaved": {
+    "message": "全局收藏库替换已核验。可通过「导入 / 恢复 JSON」审阅并恢复已有快照。"
+  },
+  "collectionsImportUncertain": {
+    "message": "替换可能已完成。新的修改已暂停。请只读核验保存结果；若无法验证匹配回执，请保持此页打开。重试也只使用原操作。"
+  },
+  "collectionsImportApplyFailed": {
+    "message": "替换被拒绝。请刷新已保存数据，再重新打开「导入 / 恢复 JSON」并审阅。不会自动重试。"
   }
 }

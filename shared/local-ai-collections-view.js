@@ -7,10 +7,11 @@
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0;
-            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } this.updateComparison?.(); this.updateHistoricalPrompt?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
             this.pageHide = event => {
                 if (!event?.persisted) { this.destroy(); return; }
                 this.detailGeneration++;
+                this.closeImport?.();
                 this.closeHistoricalPrompt?.();
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
                 this.cancelMarkdownDialog?.();
@@ -24,6 +25,7 @@
         destroy() {
             if (this.destroyed) return;
             this.destroyed = true;
+            this.closeImport?.();
             this.detailGeneration++;
             this.closeHistoricalPrompt?.();
             this.detachSearchShortcut?.();
@@ -87,8 +89,9 @@
                 const link = this.el('a', 'prompt-link', this.t(key, label)); link.href = href;
                 link.addEventListener('click', event => { if (c.hasUncommittedWork() || this.revisionDraft !== null || this.proposals.size) { event.preventDefault(); void this.leave(href); } }); actions.append(link);
             }
+            this.importButton = this.button('Import', 'Import / recover JSON', () => this.importFile());
             this.exportButton = this.button('Export', 'Export', () => this.exportFile());
-            this.newButton = this.button('New', 'Save an excerpt', () => { c.create(); this.main.querySelector('input')?.focus(); }, 'prompt-primary'); actions.append(this.exportButton, this.newButton); header.append(heading, actions);
+            this.newButton = this.button('New', 'Save an excerpt', () => { c.create(); this.main.querySelector('input')?.focus(); }, 'prompt-primary'); actions.append(this.importButton, this.exportButton, this.newButton); header.append(heading, actions);
             this.captureStatus = this.el('div', 'prompt-status'); this.captureStatus.setAttribute('role', 'status'); this.captureStatus.setAttribute('aria-live', 'polite');
             this.status = this.el('div', 'prompt-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             const layout = this.el('div', 'prompt-layout'), sidebar = this.el('aside', 'prompt-sidebar'); sidebar.setAttribute('aria-label', this.t('Browse', 'Browse saved excerpts'));
@@ -139,6 +142,9 @@
             }
             if (!results.length && c.state) this.list.append(this.paragraph('NoResults', 'No matching excerpts. Try another search or filter.', 'prompt-no-results'));
         }
+        updateImportButton() {
+            if (this.importButton) this.importButton.disabled = !this.controller.replacementReady() || this.revisionDraft !== null || this.proposals.size > 0;
+        }
         render() {
             this.closeHistoricalPrompt?.();
             this.closeHistoricalPrompt = null;
@@ -147,9 +153,11 @@
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             this.renderCaptureStatus();
             const c = this.controller;
+            this.updateImportButton();
             this.renderList(); this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand); this.exportButton.disabled = !c.state || c.busy;
             this.status.replaceChildren(); this.status.classList.toggle('error', Boolean(c.error));
-            if (c.error) this.status.append(this.el('span', '', this.errorText(c.pendingCommand ? 'OUTCOME_UNCERTAIN' : c.error.code)), this.button('Refresh', 'Refresh saved data', () => c.refresh()));
+            if (c.error) this.status.append(this.el('span', '', ['replace', 'recover'].includes(c.error.scope) ? (c.pendingCommand ? this.t('ImportUncertain', 'The replacement may already have completed. New changes are paused. Check the saved outcome read-only; keep this tab open if no matching receipt can be verified. Any retry uses the same operation.') : this.t('ImportApplyFailed', 'Replacement was refused. Refresh saved data, then reopen Import / recover JSON and review again. No automatic retry.')) : this.errorText(c.pendingCommand ? 'OUTCOME_UNCERTAIN' : c.error.code)), this.button('Refresh', 'Refresh saved data', () => c.refresh()));
+            else if (['replace', 'recover'].includes(c.notice)) this.status.textContent = this.t('ImportSaved', 'Global collection replacement was verified. Use Import / recover JSON to review and restore a retained snapshot.');
             else if (c.busy) this.status.textContent = this.t('Saving', 'Saving locally…'); else if (c.notice) this.status.textContent = c.notice === 'reconciled' ? this.t('OutcomeVerified', 'The original save was committed. Showing the latest saved state, which may include later changes.') : this.t('Saved', 'Saved locally.');
             if (c.pendingCommand) {
                 if (!c.pendingInspection) { const retry = this.button('Retry', 'Check / retry the same save', () => c.retry()); retry.disabled = c.busy; this.status.append(retry); }
@@ -480,6 +488,93 @@
                 const plan = await this.controller.reviewBody(body, historic?.id); if (!plan) return;
                 if (await this.dialog({ title: this.t('ReviewRevision', 'Review excerpt revision'), body: this.t('RevisionConfirm', 'Accepting creates a new body version. All earlier versions remain. Annotations and source details are unchanged.'), accept: this.t('AcceptRevision', 'Accept new body version'), comparison: { before: record.body, after: plan.body } })) { if (await this.controller.acceptRevision(plan)) this.proposals.delete(record.id); }
             } finally { this.revisionDraft = null; this.render(); }
+        }
+        importFile() {
+            const c = this.controller;
+            if (this.openDialog || this.destroyed || !c.replacementReady() || this.revisionDraft !== null || this.proposals.size) return;
+            const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', 'prompt-dialog collection-review-dialog');
+            overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+            box.setAttribute('aria-labelledby', 'collection-import-title'); box.setAttribute('aria-describedby', 'collection-import-scope');
+            const heading = this.el('h2', '', this.t('Import', 'Import / recover JSON')); heading.id = 'collection-import-title';
+            const scope = this.paragraph('ImportScope', 'Replace the global collection on this device, including archived items. This is not a merge and is not limited by the current search or workspace. Current saved items and body versions are retained in recovery; prompts and other libraries are unchanged. Only this product’s standalone collection JSON is accepted.'); scope.id = 'collection-import-scope';
+            const label = this.el('label', 'prompt-field'), file = this.el('input'); file.type = 'file'; file.accept = '.json,application/json';
+            label.append(this.el('span', '', this.t('ImportFile', 'Choose a local collection JSON file (up to 2 MiB)')), file);
+            const recoveryLabel = this.el('label', 'prompt-field'), recovery = this.el('select');
+            recoveryLabel.append(this.el('span', '', this.t('ImportRecovery', 'Or choose a saved recovery snapshot')), recovery);
+            const placeholder = this.el('option', '', this.t('ImportChooseRecovery', 'Choose a snapshot')); placeholder.value = ''; recovery.append(placeholder);
+            for (const snapshot of c.state.recovery) {
+                const option = this.el('option', '', `${snapshot.createdAt} · ${snapshot.id} · ${snapshot.content.records.length} ${this.t('Items', 'items')}`); option.value = snapshot.id; recovery.append(option);
+            }
+            const summary = this.el('div'), status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+            let generation = 0, review = null, cleanup, closed = false, source = null, recoveryId = null;
+            const current = () => !closed && !this.destroyed && !c.disposed;
+            const clear = () => {
+                const moveFocus = this.doc.activeElement === apply || summary.contains(this.doc.activeElement);
+                generation++; review = null; summary.replaceChildren(); apply.disabled = true;
+                if (moveFocus && current()) cancel.focus();
+            };
+            const finish = () => {
+                if (closed) return;
+                closed = true; generation++; this.updateImport = null; this.closeImport = null; this.openDialog = false;
+                cleanup?.(); overlay.remove();
+            };
+            const cancel = this.button('Cancel', 'Cancel', finish);
+            const apply = this.button('ImportApply', 'Replace global collection', async () => {
+                if (!review || !current()) return;
+                const selected = review;
+                if (!c.replacementCurrent(selected)) { clear(); status.textContent = this.t('ImportStale', 'Saved collections or prompt links changed. Review again before replacing anything.'); return; }
+                // Close the review before executing. Existing controller receipts own every
+                // uncertain result; reopening must never create a replacement operation.
+                finish(); await c.applyReplacement(selected);
+            }, 'prompt-primary'); apply.disabled = true;
+            const counts = value => `${this.t('Active', 'Saved')}: ${value.active} · ${this.t('Archived', 'Archived')}: ${value.removed} · ${this.t('ImportVersions', 'Body versions')}: ${value.versions} · ${this.t('PromptRecovery', 'Recovery snapshot')}: ${value.recovery}`;
+            const show = value => {
+                summary.replaceChildren();
+                summary.append(this.el('h3', '', this.t('ImportCurrent', 'Current global collection')), this.el('p', '', counts(value.plan.current)), this.el('h3', '', this.t('ImportIncoming', 'Incoming saved items')), this.el('p', '', counts(value.plan.incoming)),
+                    this.el('p', '', `${this.t('ImportConflicts', 'Matching record IDs / changed records')}: ${value.plan.conflicts.length} / ${value.plan.conflicts.filter(item => item.changed).length}`));
+                if (value.kind === 'recover') summary.append(this.paragraph('ImportRecoveryScope', 'This restores the selected snapshot’s saved and archived items. The current collection becomes a recovery snapshot. Other retained snapshots remain.'));
+                summary.append(this.paragraph('ImportReferences', 'Prompt references are exact IDs, not imported prompt text. Unavailable links are kept without guessing another version. Incoming references include retained snapshots.'));
+                if (!value.references.length) summary.append(this.paragraph('ImportNoReferences', 'No incoming prompt references.'));
+                for (const reference of value.references) summary.append(this.el('p', 'prompt-help collection-url', `${reference.location === 'recovery' ? this.t('PromptRecovery', 'Recovery snapshot') + ' · ' + reference.recoveryId + ' · ' : ''}${reference.recordId} · ${reference.promptId} / ${reference.bodyVersionId} · ${reference.status === 'resolved' ? this.t('ImportResolved', 'Available') : this.t('ImportUnresolved', 'Unavailable or still loading')}`));
+            };
+            const runReview = async () => {
+                if (!current() || (source === null && recoveryId === null)) return;
+                clear(); const ticket = generation;
+                status.textContent = this.t('ImportReading', 'Reading and validating locally…');
+                try {
+                    const result = await c.reviewReplacement(source, recoveryId);
+                    if (!current() || ticket !== generation) return;
+                    if (!result) throw { code: 'CONFLICT' };
+                    review = result; show(review); apply.disabled = false;
+                    status.textContent = this.t('ImportReady', 'Review the scope and counts above. Nothing changes until you choose Replace global collection.');
+                } catch (error) {
+                    if (current() && ticket === generation) status.textContent = error.code === 'CONFLICT' ? this.t('ImportStale', 'Saved collections or prompt links changed. Review again before replacing anything.') : `${this.t('ImportFailed', 'This file or snapshot could not be reviewed. Nothing was replaced.')} ${this.errorText(error.code || 'INVALID')}`;
+                }
+            };
+            const recheck = this.button('ImportReview', 'Review again', runReview);
+            file.addEventListener('change', async () => {
+                clear(); source = null; recoveryId = null; recovery.value = '';
+                const selected = file.files?.[0], ticket = generation;
+                if (!selected) { status.textContent = ''; return; }
+                status.textContent = this.t('ImportReading', 'Reading and validating locally…');
+                try {
+                    if (!Number.isSafeInteger(selected.size) || selected.size > root.LocalItabAICollections.LIMITS.bytes) throw { code: 'SIZE_LIMIT' };
+                    const text = await selected.text();
+                    if (!current() || ticket !== generation) return;
+                    root.LocalItabAICollections.parseBackup(text);
+                    source = text; await runReview();
+                } catch (error) {
+                    if (current() && ticket === generation) status.textContent = `${this.t('ImportFailed', 'This file or snapshot could not be reviewed. Nothing was replaced.')} ${this.errorText(error.code || 'READ')}`;
+                }
+            });
+            recovery.addEventListener('change', () => { clear(); source = null; file.value = ''; recoveryId = recovery.value || null; status.textContent = ''; void runReview(); });
+            this.updateImport = () => {
+                if (review && !c.replacementCurrent(review)) { clear(); status.textContent = this.t('ImportStale', 'Saved collections or prompt links changed. Review again before replacing anything.'); }
+            };
+            const actions = this.el('div', 'prompt-actions'); actions.append(cancel, recheck, apply);
+            box.append(heading, scope, this.paragraph('ImportDrafts', 'Finish or discard all drafts and proposed revisions before importing. Files are read as text only, without following links or sending content anywhere.'), label, recoveryLabel, summary, status, actions);
+            overlay.append(box); this.doc.body.append(overlay); this.openDialog = true; this.closeImport = finish;
+            cleanup = root.LocalItabDialog.open(overlay, cancel, finish);
         }
         async exportFile() {
             if (this.openDialog || this.controller.busy) return;
