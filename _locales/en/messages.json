@@ -5670,7 +5670,7 @@
     "message": "Built-in starter templates"
   },
   "promptsStartersHelp": {
-    "message": "Review the full text, then load an unsaved draft. Save it before filling variables and copying. No model is run."
+    "message": "Review the full text, then load an unsaved draft. Preview and fill variables in the unsaved draft, then explicitly copy. Saving is optional. No model is run."
   },
   "promptsStarterExisting": {
     "message": "Your existing new draft is kept. Continue it or explicitly discard it before loading another template."
@@ -5680,5 +5680,32 @@
   },
   "promptsStarterLoad": {
     "message": "Load unsaved draft"
+  },
+  "promptsDraftPreviewTitle": {
+    "message": "Try this unsaved draft"
+  },
+  "promptsDraftPreviewHelp": {
+    "message": "Preview and copy without saving or running a model. Temporary values are cleared when you edit any draft field, switch prompts, close the editor, or start saving. Saving keeps the original template and its placeholders."
+  },
+  "promptsDraftPreviewStart": {
+    "message": "Preview unsaved draft"
+  },
+  "promptsDraftVariableHelp": {
+    "message": "Not filled yet? Type a value, or choose Use empty value."
+  },
+  "promptsDraftVariableEmpty": {
+    "message": "Use empty value"
+  },
+  "promptsDraftPreviewText": {
+    "message": "Unsaved draft preview"
+  },
+  "promptsDraftPreviewCopy": {
+    "message": "Copy unsaved preview"
+  },
+  "promptsDraftPreviewExpired": {
+    "message": "Temporary preview cleared. Preview the draft again."
+  },
+  "promptsDraftPreviewReady": {
+    "message": "Ready to copy. Nothing has been saved or sent."
   }
 }

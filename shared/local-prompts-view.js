@@ -51,6 +51,7 @@
             this.confirm = confirm || (options => this.dialog(options)); this.historyId = null; this.copyGeneration = 0; this.copying = false; this.pendingFocus = null;
             this.pageHide = event => {
                 if (!event?.persisted) { this.destroy(); return; }
+                this.controller.invalidateDraftPreview(); this.updateDraftPreview();
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
                 this.cancelMarkdownDialog?.(); this.cancelExcerptDialog?.();
             };
@@ -59,7 +60,7 @@
         }
         destroy() {
             if (this.destroyed) return;
-            this.destroyed = true;
+            this.destroyed = true; this.controller.invalidateDraftPreview();
             this.detachSearchShortcut?.();
             root.removeEventListener?.('pagehide', this.pageHide);
             root.removeEventListener?.('beforeunload', this.beforeUnload);
@@ -176,12 +177,14 @@
             this.checkExcerptDialog?.();
             this.checkStarterDialog?.();
             if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
+            if (kind === 'draftPreview') { this.renderDraftPreview(); return; }
+            if (kind === 'draftPreviewValues') { this.updateDraftPreview(); return; }
             if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); return; }
             if (kind === 'preview') {
                 // Even an edit back to the original text supersedes pending feedback.
                 this.copyGeneration++; this.updatePreview(); return;
             }
-            if (kind === 'draft') { this.renderStatus(); this.renderDrafts(); this.updateDraftState(); return; }
+            if (kind === 'draft') { this.renderStatus(); this.renderDrafts(); this.updateDraftState(); this.renderDraftPreview(); return; }
             this.renderStatus(); this.renderList();
             if (kind === 'list') return;
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
@@ -189,7 +192,7 @@
             if (restore && c.busy) this.pendingFocus = restore;
             const desiredFocus = restore || (!c.busy ? this.pendingFocus : null);
             const range = restore && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
-            this.linkedSections = []; this.main.replaceChildren(); this.main.setAttribute('aria-busy', String(c.busy)); this.previewElements = null; this.editorElements = null;
+            this.linkedSections = []; this.main.replaceChildren(); this.main.setAttribute('aria-busy', String(c.busy)); this.previewElements = null; this.editorElements = null; this.draftPreviewElements = null; this.draftPreviewHost = null;
             if (!c.state) this.renderUnavailable();
             else if (c.draft()) this.renderEditor();
             else if (c.record()) this.renderRecord(c.record());
@@ -276,7 +279,7 @@
             const current = () => !this.destroyed && section.isConnected && this.main.contains(section) &&
                 c.selected === selected && c.draft() === draft && c.excerptEpoch === epoch && c.starterReady();
             section.append(this.el('h3', '', this.t('StartersTitle', 'Built-in starter templates')),
-                this.el('p', 'prompt-help', this.t('StartersHelp', 'Review the full text, then load an unsaved draft. Save it before filling variables and copying. No model is run.')));
+                this.el('p', 'prompt-help', this.t('StartersHelp', 'Review the full text, then load an unsaved draft. Preview and fill variables in the unsaved draft, then explicitly copy. Saving is optional. No model is run.')));
             if (c.dirty('new')) {
                 section.append(this.el('p', 'prompt-help', this.t('StarterExisting', 'Your existing new draft is kept. Continue it or explicitly discard it before loading another template.')),
                     this.button('StarterContinue', 'Continue unsaved draft', () => { if (current() && c.create()) this.focusDetail('title'); }));
@@ -299,7 +302,7 @@
             const check = () => { if (!current()) this.cancelMarkdownDialog?.(); };
             this.checkStarterDialog = check;
             const existing = c.dirty('new');
-            const help = this.t('StartersHelp', 'Review the full text, then load an unsaved draft. Save it before filling variables and copying. No model is run.');
+            const help = this.t('StartersHelp', 'Review the full text, then load an unsaved draft. Preview and fill variables in the unsaved draft, then explicitly copy. Saving is optional. No model is run.');
             const accepted = await this.dialog({ title: starter.title,
                 body: existing ? `${this.t('StarterExisting', 'Your existing new draft is kept. Continue it or explicitly discard it before loading another template.')} ${help}` : help,
                 markdownPreview: starter.body, markdownCurrent: current,
@@ -368,7 +371,71 @@
                 help.id = 'prompt-save-copy-help'; saveCopy.setAttribute('aria-describedby', help.id); form.append(help);
             }
             this.main.append(form);
+            if (c.selected === 'new' && !draft.id) { this.draftPreviewHost = this.el('section', 'prompt-draft-preview'); this.main.append(this.draftPreviewHost); this.renderDraftPreview(); }
             this.editorElements = { controls, save, saveCopy, cancel, state }; this.updateDraftState();
+        }
+        renderDraftPreview() {
+            const c = this.controller, host = this.draftPreviewHost;
+            if (!host) return;
+            host.replaceChildren(); this.draftPreviewElements = null;
+            host.append(this.el('h3', '', this.t('DraftPreviewTitle', 'Try this unsaved draft')),
+                this.el('p', 'prompt-help', this.t('DraftPreviewHelp', 'Preview and copy without saving or running a model. Temporary values are cleared when you edit any draft field, switch prompts, close the editor, or start saving. Saving keeps the original template and its placeholders.')));
+            const start = this.button('DraftPreviewStart', 'Preview unsaved draft', () => {
+                if (!this.destroyed && host === this.draftPreviewHost && host.isConnected && c.newDraftReady()) {
+                    c.startDraftPreview();
+                    const ui = this.draftPreviewElements;
+                    (ui?.variables.querySelector('textarea') || ui?.preview)?.focus();
+                }
+            });
+            start.disabled = !c.newDraftReady(); this.focusKey(start, 'draft-preview-start'); host.append(start);
+            const session = c.draftPreview;
+            if (!c.draftPreviewCurrent(session)) return;
+            const variables = this.el('div', 'prompt-variables');
+            for (const name of session.result?.variables || []) {
+                const field = this.field(name, `draft-variable-${name}`, session.values[name] || '', { multiline: true,
+                    help: this.t('DraftVariableHelp', 'Not filled yet? Type a value, or choose Use empty value.'),
+                    change: value => { if (host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) c.setDraftVariable(name, value); } });
+                const empty = this.button('DraftVariableEmpty', 'Use empty value', () => {
+                    if (host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) { field.input.value = ''; c.setDraftVariable(name, ''); }
+                });
+                field.wrap.append(empty); variables.append(field.wrap);
+            }
+            const preview = this.el('textarea', 'prompt-preview'); preview.readOnly = true;
+            preview.setAttribute('aria-label', this.t('DraftPreviewText', 'Unsaved draft preview')); this.focusKey(preview, 'draft-preview-text');
+            const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+            const copy = this.button('DraftPreviewCopy', 'Copy unsaved preview', () => void this.copyDraftPreview()); this.focusKey(copy, 'draft-preview-copy');
+            host.append(variables, preview, status, copy);
+            this.draftPreviewElements = { host, session, variables, preview, status, copy }; this.updateDraftPreview();
+        }
+        updateDraftPreview() {
+            const c = this.controller, ui = this.draftPreviewElements;
+            if (!ui) return;
+            const result = c.draftPreviewResult();
+            ui.preview.value = result?.text || '';
+            ui.copy.disabled = !result?.complete || Boolean(this.copying) || Boolean(this.destroyed);
+            for (const control of ui.variables.querySelectorAll('textarea, button')) control.disabled = !c.draftPreviewCurrent(ui.session);
+            ui.status.textContent = result?.error ? this.errorText(result.error) : !result ? this.t('DraftPreviewExpired', 'Temporary preview cleared. Preview the draft again.') : result.missing.length ? `${this.t('MissingValues', 'Fill in these variables')}: ${result.missing.join(', ')}` : this.t('DraftPreviewReady', 'Ready to copy. Nothing has been saved or sent.');
+        }
+        async copyDraftPreview() {
+            const c = this.controller, ui = this.draftPreviewElements, ticket = c.draftCopyTicket();
+            const current = () => !this.destroyed && ui && ui === this.draftPreviewElements && ui.host.isConnected && c.draftCopyCurrent(ticket);
+            if (this.copying || !current()) return false;
+            this.copying = true; ui.copy.disabled = true;
+            try {
+                if (!this.clipboard?.writeText || !current()) throw new Error('Clipboard unavailable');
+                await this.clipboard.writeText(ticket.text);
+                if (!current()) return false;
+                ui.status.textContent = this.t('Copied', 'Copied. Paste it into the tool you choose.'); return true;
+            } catch (_) {
+                if (!current()) return false;
+                ui.status.textContent = this.t('CopyFailed', 'Copy was blocked. Your preview is still here. Select the text and use your browser’s Copy command.');
+                ui.preview.focus(); ui.preview.select?.(); return false;
+            } finally {
+                this.copying = false;
+                const active = this.draftPreviewElements;
+                if (!this.destroyed && active) active.copy.disabled = !c.draftPreviewResult()?.complete;
+                if (!this.destroyed) this.updateCopyEligibility();
+            }
         }
         updateDraftState() {
             const c = this.controller, draft = c.draft(), ui = this.editorElements; if (!draft || !ui) return;
@@ -621,6 +688,8 @@
                 // Navigation may have replaced the button while the old write was pending.
                 // Refresh only eligibility so a current success/fallback message stays visible.
                 this.updateCopyEligibility();
+                const activeDraft = this.draftPreviewElements;
+                if (!this.destroyed && activeDraft) activeDraft.copy.disabled = !c.draftPreviewResult()?.complete;
             }
         }
         renderHistory(record) {

@@ -34,6 +34,7 @@
             this.collectionStore = collectionStore; this.collectionState = null; this.collectionLoading = false;
             this.collectionError = null; this.linkedPromptUnavailable = false; this.collectionGeneration = 0; this.collectionSubscriptionError = false;
             this.state = null; this.selected = null; this.drafts = new Map(); this.sessions = new Map(); this.activeSessions = new Map();
+            this.draftPreview = null; this.draftPreviewEpoch = 0;
             this.filters = { query: '', mode: 'all', category: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
             this.excerptEpoch = 0; this.pendingCommand = null; this.pendingInspection = false; this.disposed = false; this.refreshQueued = false;
@@ -47,7 +48,7 @@
         }
         dispose() {
             if (this.disposed) return;
-            this.excerptEpoch++; this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null; this.sessions.clear(); this.activeSessions.clear();
+            this.invalidateDraftPreview(); this.excerptEpoch++; this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null; this.sessions.clear(); this.activeSessions.clear();
             // Teardown must invalidate cards even if one backend's cleanup fails.
             for (const unsubscribe of [this.unsubscribe, this.unsubscribeCollections]) { try { unsubscribe?.(); } catch (_) { /* Continue independent cleanup. */ } }
             this.onChange('dispose');
@@ -116,21 +117,41 @@
             return this.filters.tag ? results.filter(({ record }) => record.tags.includes(this.filters.tag)) : results;
         }
         filter(patch) { Object.assign(this.filters, patch); this.notify('list'); }
-        select(id) { if (this.busy) return false; this.excerptEpoch++; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
+        select(id) { if (this.busy) return false; this.invalidateDraftPreview(); this.excerptEpoch++; this.selected = id; this.error = this.pendingCommand ? this.error : null; this.notice = ''; this.notify(); return true; }
         makeDraft(record) {
-            const input = fields(record);
-            return { input, baseline: copy(input), originalTags: Core.createDraft(record).tags, id: record?.id, version: record?.version, conflict: false };
+            if (record?.id) {
+                const input = fields(record);
+                return { input, baseline: copy(input), originalTags: Core.createDraft(record).tags, id: record.id, version: record.version, conflict: false };
+            }
+            const initial = fields(record);
+            const draft = { baseline: copy(initial), originalTags: Core.createDraft(record).tags, id: record?.id, version: record?.version, conflict: false, revision: 0 };
+            // Also invalidate direct assignments and edit/revert between asynchronous writes.
+            const changed = () => {
+                draft.revision++;
+                if (this.draftPreview?.draft === draft) {
+                    this.invalidateDraftPreview();
+                    if (!this.updatingDraftInput) this.notify('draftPreview');
+                }
+            };
+            const wrap = input => new Proxy(input, {
+                set(target, name, value) { changed(); return Reflect.set(target, name, value); },
+                deleteProperty(target, name) { changed(); return Reflect.deleteProperty(target, name); },
+                defineProperty(target, name, descriptor) { changed(); return Reflect.defineProperty(target, name, descriptor); }
+            });
+            let input = wrap(initial);
+            Object.defineProperty(draft, 'input', { enumerable: true, get: () => input, set: value => { changed(); input = wrap(value); } });
+            return draft;
         }
         edit(id = this.selected) {
             if (this.busy || this.pendingCommand) return false;
             const record = this.record(id);
             if (!record || record.deletedAt) return false;
-            this.excerptEpoch++; if (!this.drafts.has(id)) this.drafts.set(id, this.makeDraft(record));
+            this.invalidateDraftPreview(); this.excerptEpoch++; if (!this.drafts.has(id)) this.drafts.set(id, this.makeDraft(record));
             this.selected = id; this.notify(); return true;
         }
         create() {
             if (this.busy || this.pendingCommand) return false;
-            this.excerptEpoch++; if (!this.drafts.has('new')) this.drafts.set('new', this.makeDraft());
+            this.invalidateDraftPreview(); this.excerptEpoch++; if (!this.drafts.has('new')) this.drafts.set('new', this.makeDraft());
             this.selected = 'new'; this.error = null; this.notice = ''; this.notify(); return true;
         }
         starterReady() {
@@ -143,6 +164,7 @@
             if (!starter) return false;
             // A second selection never replaces any existing nonempty new draft.
             if (this.dirty('new')) return false;
+            this.invalidateDraftPreview();
             const draft = this.makeDraft();
             draft.input.title = starter.title; draft.input.body = starter.body;
             this.drafts.set('new', draft); this.selected = 'new'; this.excerptEpoch++;
@@ -156,13 +178,78 @@
         update(field, value) {
             const draft = this.draft();
             if (!draft || this.busy || this.pendingCommand || ![...editable, 'tagsText'].includes(field)) return;
-            draft.input[field] = value; this.error = null; this.notice = ''; this.notify('draft');
+            this.updatingDraftInput = true;
+            try { draft.input[field] = value; } finally { this.updatingDraftInput = false; }
+            this.error = null; this.notice = ''; this.notify('draft');
         }
         discard() {
             if (this.busy || this.pendingCommand) return false;
-            const key = this.selected; this.drafts.delete(key);
+            this.invalidateDraftPreview(); const key = this.selected; this.drafts.delete(key);
             if (key === 'new') this.selected = this.results()[0]?.record.id || null;
             this.error = null; this.notice = ''; this.notify(); return true;
+        }
+        invalidateDraftPreview() { this.draftPreview = null; this.draftPreviewEpoch++; }
+        newDraftReady() {
+            return !this.disposed && !this.busy && !this.pendingCommand && this.selected === 'new' && Boolean(this.draft()) && !this.draft().id;
+        }
+        previewValueSize() {
+            return [...this.sessions.values(), ...(this.draftPreview ? [this.draftPreview] : [])]
+                .reduce((sum, item) => sum + Object.values(item.values).reduce((n, text) => n + (typeof text === 'string' ? text.length : SESSION_VALUE_LIMIT + 1), 0), 0);
+        }
+        draftPreviewCurrent(session = this.draftPreview) {
+            let current = false;
+            try { current = Boolean(session && session === this.draftPreview && this.newDraftReady() && session.draft === this.draft() &&
+                session.revision === this.draft().revision && session.snapshot === JSON.stringify(this.draft().input) && session.epoch === this.draftPreviewEpoch); } catch (_) { /* Fail closed. */ }
+            if (!current && session === this.draftPreview && session) this.invalidateDraftPreview();
+            return current;
+        }
+        startDraftPreview() {
+            this.invalidateDraftPreview();
+            if (!this.newDraftReady()) return false;
+            const draft = this.draft();
+            try {
+                if (typeof draft.input.body !== 'string' || !draft.input.body.trim()) throw Core.fault('INVALID');
+                const snapshot = JSON.stringify(draft.input), result = Core.previewTemplate(draft.input.body);
+                this.draftPreview = { draft, snapshot, revision: draft.revision, epoch: this.draftPreviewEpoch, values: Object.create(null), result, error: null, valueRevision: 0 };
+            } catch (error) {
+                this.draftPreview = { draft, snapshot: JSON.stringify(draft.input), revision: draft.revision, epoch: this.draftPreviewEpoch, values: Object.create(null), result: null, error: error.code || 'INVALID', valueRevision: 0 };
+            }
+            this.notify('draftPreview'); return true;
+        }
+        draftPreviewResult() {
+            const session = this.draftPreview;
+            if (!this.draftPreviewCurrent(session)) return null;
+            if (session.error) return { text: '', variables: session.result?.variables || [], missing: [], complete: false, error: session.error };
+            try {
+                if (this.previewValueSize() > SESSION_VALUE_LIMIT) throw Core.fault('SESSION_LIMIT');
+                return Core.previewTemplate(session.draft.input.body, session.values);
+            } catch (error) { return { text: '', variables: session.result?.variables || [], missing: [], complete: false, error: error.code || 'INVALID' }; }
+        }
+        setDraftVariable(name, value) {
+            const session = this.draftPreview;
+            if (!this.draftPreviewCurrent(session)) return false;
+            session.valueRevision++;
+            if (!session.result?.variables.includes(name)) { session.error = 'VARIABLE'; this.notify('draftPreviewValues'); return false; }
+            try {
+                if (typeof value !== 'string' || Array.from(value).length > Core.LIMITS.value ||
+                    this.previewValueSize() - (session.values[name]?.length || 0) + value.length > SESSION_VALUE_LIMIT) throw Core.fault('SESSION_LIMIT');
+                const next = Object.assign(Object.create(null), session.values); next[name] = value;
+                Core.previewTemplate(session.draft.input.body, next);
+                session.values = next; session.error = null;
+            } catch (error) {
+                // Never retain a previously valid hidden value after a rejected edit.
+                delete session.values[name]; session.error = error.code || 'INVALID';
+                this.notify('draftPreviewValues'); return false;
+            }
+            this.notify('draftPreviewValues'); return true;
+        }
+        draftCopyTicket() {
+            const result = this.draftPreviewResult(), session = this.draftPreview;
+            return result?.complete ? Object.freeze({ session, epoch: session.epoch, revision: session.valueRevision, values: JSON.stringify(session.values), text: result.text }) : null;
+        }
+        draftCopyCurrent(ticket) {
+            if (!ticket || !this.draftPreviewCurrent(ticket.session) || ticket.epoch !== this.draftPreviewEpoch || ticket.revision !== ticket.session.valueRevision || ticket.values !== JSON.stringify(ticket.session.values)) return false;
+            const result = this.draftPreviewResult(); return Boolean(result?.complete && result.text === ticket.text);
         }
         sessionSourceCurrent(record = this.record(), session = this.session(record)) {
             return Boolean(record && !record.deletedAt && session && !session.capacity &&
@@ -211,7 +298,7 @@
             const record = this.record();
             if (!this.sessionReady() || !this.variables(record).includes(name)) return false;
             const session = this.session(record);
-            const total = [...this.sessions.values()].reduce((sum, item) => sum + Object.values(item.values).reduce((n, text) => n + text.length, 0), 0);
+            const total = this.previewValueSize();
             if (typeof value !== 'string' || Array.from(value).length > Core.LIMITS.value || total - (session.values[name]?.length || 0) + value.length > SESSION_VALUE_LIMIT) {
                 this.error = { code: 'SESSION_LIMIT', scope: 'preview' }; this.notify(); return false;
             }
@@ -284,13 +371,14 @@
         }
         hasUncommittedWork() {
             return this.busy || Boolean(this.pendingCommand) || [...this.drafts.keys()].some(id => this.dirty(id)) ||
-                [...this.sessions.values()].some(session => session.literal || Object.keys(session.values).length > 0);
+                [...this.sessions.values()].some(session => session.literal || Object.keys(session.values).length > 0) || Boolean(this.draftPreview && Object.keys(this.draftPreview.values).length);
         }
         draftCount() { return [...this.drafts.keys()].filter(id => this.dirty(id)).length; }
         async save(asCopy = false) {
             if (this.busy || this.pendingCommand) return false;
             const draftKey = this.selected, draft = this.draft();
             if (!draft || (draft.conflict && !asCopy)) return false;
+            this.invalidateDraftPreview(); this.notify('draftPreview');
             try {
                 const command = this.store.request(draft.id && !asCopy ? 'edit' : 'add', {
                     ...values(draft.input, draft.originalTags), ...(draft.id && !asCopy ? { id: draft.id, version: draft.version } : {})

@@ -5670,7 +5670,7 @@
     "message": "内置起步模板"
   },
   "promptsStartersHelp": {
-    "message": "先查看完整原文，再载入未保存草稿。明确保存后才能填写变量并复制使用。不会运行模型。"
+    "message": "先查看完整原文，再载入未保存草稿。可直接预览、填写变量并主动复制，无需先保存；不会运行模型。"
   },
   "promptsStarterExisting": {
     "message": "已保留现有新建草稿。请继续编辑，或明确丢弃后再载入其他模板。"
@@ -5680,5 +5680,32 @@
   },
   "promptsStarterLoad": {
     "message": "载入未保存草稿"
+  },
+  "promptsDraftPreviewTitle": {
+    "message": "试用未保存草稿"
+  },
+  "promptsDraftPreviewHelp": {
+    "message": "无需保存或运行模型，即可预览并复制。修改任意草稿字段、切换提示词、关闭编辑器或开始保存时，临时变量值会清除。保存仍保留原模板和占位符。"
+  },
+  "promptsDraftPreviewStart": {
+    "message": "预览未保存草稿"
+  },
+  "promptsDraftVariableHelp": {
+    "message": "尚未填写时，请输入变量值，或选择“使用空值”。"
+  },
+  "promptsDraftVariableEmpty": {
+    "message": "使用空值"
+  },
+  "promptsDraftPreviewText": {
+    "message": "未保存草稿预览"
+  },
+  "promptsDraftPreviewCopy": {
+    "message": "复制未保存预览"
+  },
+  "promptsDraftPreviewExpired": {
+    "message": "临时预览已清除，请重新预览草稿。"
+  },
+  "promptsDraftPreviewReady": {
+    "message": "可主动复制；尚未保存或发送任何内容。"
   }
 }
