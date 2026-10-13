@@ -167,6 +167,8 @@
             if (trial) selectLabel.hidden = true;
             const keyLabel = el('label', 'ai-model-field', trial ? t('TrialKey', 'API key for both trial requests (optional; never saved)') : t('Key', 'API key for this target only (optional; never saved)')), key = el('input'); key.type = 'password'; key.autocomplete = 'off'; key.maxLength = root.LocalItabAIModel.LIMITS.key; keyLabel.append(key);
             if (trial) keyLabel.hidden = index === 1;
+            // DOM-inserted CR can visually join lines in pre. Normalize only the
+            // review display below; keep the immutable request and all source text exact.
             const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
             const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 10; output.hidden = true; output.setAttribute('aria-label', `${t('Response', 'Model response')} ${index + 1}`);
             const readerHost = el('div'); readerHost.hidden = true;
@@ -188,7 +190,7 @@
                     const { preset } = target.snapshot;
                     const request = root.LocalItabAIModel.review({ url: preset.url, model: preset.model, prompt: preview.text });
                     target.snapshot = { target, preset, request }; target.reviewed = request;
-                    target.reviewText.textContent = `${t('Endpoint', 'Full endpoint URL')}: ${request.url}\n${t('Model', 'Model ID')}: ${request.model}\n\n${request.prompt}`;
+                    target.reviewText.textContent = `${t('Endpoint', 'Full endpoint URL')}: ${request.url}\n${t('Model', 'Model ID')}: ${request.model}\n\n${request.prompt.replace(/\r\n?/g, '\n')}`;
                     target.reviewText.hidden = false; target.retryReady = true;
                     target.message.textContent = t('RetryCost', 'Review this exact endpoint, model and prompt. Enter a fresh temporary key if needed. Send retry makes one additional request that may cost money, even if the earlier attempt was stopped. The other target is not sent again. Allowing access sends nothing.');
                 } catch (_) { invalidate(t('ProfileChanged', 'A selected connection changed or was deleted. Close and reopen to load it, then review again.'), true); }
@@ -255,7 +257,7 @@
                 for (const { target, request, preset } of reviewed) {
                     target.reviewed = request; target.snapshot = { target, request, preset };
                     target.heading.textContent = trial ? (targets.indexOf(target) === 0 ? t('TrialOriginal', 'Original saved template answer') : t('TrialProposal', 'Unsaved proposal answer')) : `${t('Target', 'Target')} ${targets.indexOf(target) + 1}: ${preset.name}`;
-                    target.reviewText.textContent = `${t('Endpoint', 'Full endpoint URL')}: ${request.url}\n${t('Model', 'Model ID')}: ${request.model}\n\n${request.prompt}`;
+                    target.reviewText.textContent = `${t('Endpoint', 'Full endpoint URL')}: ${request.url}\n${t('Model', 'Model ID')}: ${request.model}\n\n${request.prompt.replace(/\r\n?/g, '\n')}`;
                     target.reviewText.hidden = false;
                 }
                 status.textContent = `${t('Count', 'Maximum provider requests')}: ${reviewed.length}. ${trial ? t('TrialCost', 'Both requests use the same model and test values. Each request may cost money. Review both exact completed prompts and their destination above. Nothing is accepted or saved.') : t('Cost', 'Each target may charge separately. Review every endpoint, model and identical prompt above. Allowing access sends nothing.')}`;

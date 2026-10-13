@@ -65,6 +65,12 @@ After a valid refinement arrives or its draft is repaired locally, **Test origin
 
 Review both exact completed outgoing prompts and the full endpoint/model before explicitly sending. This can add up to two provider requests beyond the refinement request; each may cost money. One optional temporary API key is used for both requests and cleared afterward. Endpoint access alone sends nothing. There are no automatic requests, retries, scores or winner selection.
 
+The preformatted request review displays CRLF and standalone CR as single line
+breaks, matching LF. This display-only conversion also applies to ordinary
+comparison and retry reviews. The reviewed request objects, outgoing JSON,
+model response, proposal and accepted history retain their exact original line
+endings; literal backslash escapes and intentional blank lines are unchanged.
+
 The two answers are independently labeled **Original saved template answer** and **Unsaved proposal answer**. They cannot be saved from this trial, so an unsaved proposal is never represented as a saved template version. The proposal editor is read-only while a trial is open, including during requests. Closing clears the trial values and answers and returns to the exact proposal tested. Editing afterward requires a fresh trial to see answers for the new draft; old answers are never retained. Acceptance saves exactly the current edited draft. **Accept as new prompt version** remains a separate action with the existing source, history and placeholder checks.
 
 Changing test values clears the prior review and answers. Source/proposal/connection changes invalidate the trial; pending or late responses cannot replace current results. Closing stops pending requests, although already-started work may still be billed.

@@ -7,8 +7,8 @@ const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick } = require('./helpers/prompts-harness');
 const click = async button => { button.dispatch('click'); await tick(); };
-async function mount({ safeReader = false, locale, clipboard, trial = null, run, contains = async () => true, request = async () => true, mutate = async () => {}, inspectOperation = async () => ({ committed: true }) } = {}) {
-    const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic comparison', 'Same synthetic input');
+async function mount({ safeReader = false, locale, clipboard, trial = null, body = 'Same synthetic input', run, contains = async () => true, request = async () => true, mutate = async () => {}, inspectOperation = async () => ({ committed: true }) } = {}) {
+    const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic comparison', body);
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map();
     const profiles = [{ name: 'Synthetic A', url: 'https://a.synthetic.test/v1/chat/completions', model: 'model-a' }, { name: 'Synthetic B', url: 'https://b.synthetic.test/v1/chat/completions', model: 'model-b' }];
     const runs = [], grants = [], writes = []; let listener;
@@ -52,6 +52,62 @@ test('same exact prompt, two labeled reviews, independent keys and explicit send
     assert.deepEqual(h.writes.map(item => item.tool), ['model-a', 'model-b']);
     for (const write of h.writes) { assert.equal(write.promptRef.promptId, h.h.controller.record().id); assert.equal(write.promptRef.bodyVersionId, h.h.controller.session().versionId); assert.doesNotMatch(JSON.stringify(write), /temporary-/); }
     await h.done();
+});
+for (const [name, raw, displayed] of [
+    ['CR', 'First\rSecond\r', 'First\nSecond\n'],
+    ['CRLF', 'First\r\nSecond\r\n', 'First\nSecond\n'],
+    ['LF', 'First\nSecond\n', 'First\nSecond\n'],
+    ['mixed and adjacent endings', 'First\r\nSecond\rThird\n\r\r\nLast', 'First\nSecond\nThird\n\n\nLast'],
+    ['empty lines', 'First\n\nSecond\r\rThird', 'First\n\nSecond\n\nThird'],
+    ['literal escapes and Unicode', String.raw`First\r\nSecond` + '\u2028中文 🧪\u2029', String.raw`First\r\nSecond` + '\u2028中文 🧪\u2029'],
+    ['literal HTML without final newline', '<img src=x>\r<script>fixture</script>', '<img src=x>\n<script>fixture</script>'],
+    ['no line ending', 'One synthetic line', 'One synthetic line']
+]) test(`trial review normalizes only displayed line endings: ${name}`, async () => {
+    const sourceText = `Original {{topic}}\n${raw}`, source = Object.freeze({ body: sourceText }), proposal = `Revised {{topic}}\n${raw}`;
+    const trial = { source, proposal, current: () => true, onClose() {} };
+    const wire = [], answer = Object.freeze({ text: 'Synthetic answer\r\nRaw CR\rRaw LF\n', model: 'model-a', origin: 'https://a.synthetic.test' });
+    const h = await mount({ trial, run: (request, options) => Client.run(request, { ...options, fetcher: async (url, init) => {
+        wire.push({ url, body: init.body });
+        return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: answer.text } }] }), { headers: { 'Content-Type': 'application/json' } });
+    } }) });
+    try {
+        h.ui.variables[0].input.value = 'Topic 🧪 <img src=x>';
+        const exact = [`Original Topic 🧪 <img src=x>\n${raw}`, `Revised Topic 🧪 <img src=x>\n${raw}`];
+        for (let pass = 0; pass < 2; pass++) {
+            await click(h.ui.review);
+            h.ui.targets.forEach((target, index) => {
+                assert.equal(target.reviewText.textContent, `Full endpoint URL: https://a.synthetic.test/v1/chat/completions\nModel ID: model-a\n\n${index === 0 ? 'Original' : 'Revised'} Topic 🧪 <img src=x>\n${displayed}`);
+                assert.equal(target.reviewed.prompt, exact[index]);
+                assert.equal(Object.isFrozen(target.reviewed), true);
+            });
+        }
+        assert.equal(h.runs.length, 0); assert.equal(h.grants.length, 0); assert.equal(h.writes.length, 0);
+        assert.equal(h.view.doc.querySelectorAll('img,script').length, 0);
+        await click(h.ui.send);
+        assert.equal(h.runs.length, 2); assert.equal(wire.length, 2);
+        wire.forEach((request, index) => assert.equal(request.body, JSON.stringify({ model: 'model-a', messages: [{ role: 'user', content: exact[index] }], stream: false })));
+        h.ui.targets.forEach(target => assert.equal(target.response.text, answer.text));
+        assert.equal(trial.source.body, sourceText); assert.equal(trial.proposal, proposal);
+        assert.equal(h.writes.length, 0); assert.equal(h.grants.length, 0);
+    } finally { await h.done(); }
+});
+test('comparison and retry review preserve raw requests and saved responses while showing CR as one newline', async () => {
+    const body = 'First\r\nSecond\rThird\n\nLast', displayed = 'First\nSecond\nThird\n\nLast', answer = 'Answer\r\nKeep CR\rKeep LF\n';
+    let attempts = 0;
+    const h = await mount({ body, run: async input => { if (++attempts === 1) throw { code: 'AUTH' }; return { text: answer, model: input.model, origin: input.origin }; } });
+    try {
+        h.choose(0, '0'); await click(h.ui.review); const target = h.ui.targets[0];
+        const expected = `Full endpoint URL: https://a.synthetic.test/v1/chat/completions\nModel ID: model-a\n\n${displayed}`;
+        assert.equal(target.reviewText.textContent, expected); assert.equal(target.reviewed.prompt, body);
+        await click(h.ui.send); await click(target.retryReview); await click(target.retryReview);
+        assert.equal(target.reviewText.textContent, expected); assert.equal(target.reviewed.prompt, body);
+        assert.equal(h.runs.length, 1); assert.equal(h.writes.length, 0); assert.equal(h.grants.length, 0);
+        await click(target.retrySend); assert.equal(h.runs.length, 2);
+        h.runs.forEach(({ input }) => assert.equal(input.prompt, body));
+        assert.equal(target.response.text, answer); await click(target.save);
+        assert.equal(h.writes.length, 1); assert.equal(h.writes[0].body, answer);
+        assert.equal(h.h.controller.record().body, body);
+    } finally { await h.done(); }
 });
 test('one denied permission does not prevent other target success or explicit save', async () => {
     const h = await mount({ contains: async arg => !arg.origins[0].includes('a.synthetic') }); h.selectBoth(); await click(h.ui.review); await click(h.ui.send);

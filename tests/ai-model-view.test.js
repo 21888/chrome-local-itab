@@ -937,6 +937,37 @@ test('refinement differences: CRLF/CR remain exact despite native textarea displ
     assert.equal(h.h.controller.record().body, proposal); assert.equal(h.h.controller.record().history[0].body, body);
     assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.compareText.disabled, true); await click(h.ui.close); h.h.controller.dispose();
 });
+test('trial review display never changes the exact model proposal, wire requests or accepted history', async () => {
+    const body = 'Original {{topic}}\r\nKeep CR\rKeep LF\n\n', proposal = 'Revised {{topic}}\r\nKeep CR\r<img src=x>\nLast';
+    const wire = [], answer = 'Synthetic trial answer\r\nKeep CR\rKeep LF\n';
+    const h = await refinedDifference({ normalizeTextareas: true, body, run: (request, options) => Client.run(request, { ...options, fetcher: async (url, init) => {
+        wire.push({ url, body: init.body });
+        return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: wire.length === 1 ? proposal : answer } }] }), { headers: { 'Content-Type': 'application/json' } });
+    } }) });
+    try {
+        const writes = h.h.writes;
+        await click(h.ui.trialButton); await tick(); const trial = h.ui.trial;
+        trial.variables[0].input.value = 'synthetic topic';
+        await click(trial.review); await click(trial.review);
+        assert.equal(h.runs, 1); assert.equal(h.h.writes, writes); assert.equal(h.grants, 0);
+        const prefix = 'Full endpoint URL: https://synthetic.test/v1/chat/completions\nModel ID: fixture-model\n\n';
+        assert.equal(trial.targets[0].reviewText.textContent, `${prefix}Original synthetic topic\nKeep CR\nKeep LF\n\n`);
+        assert.equal(trial.targets[1].reviewText.textContent, `${prefix}Revised synthetic topic\nKeep CR\n<img src=x>\nLast`);
+        const exact = [body.replace('{{topic}}', 'synthetic topic'), proposal.replace('{{topic}}', 'synthetic topic')];
+        trial.targets.forEach((target, index) => assert.equal(target.reviewed.prompt, exact[index]));
+        await click(trial.send); assert.equal(wire.length, 3);
+        wire.slice(1).forEach((request, index) => assert.equal(request.body, JSON.stringify({ model: 'fixture-model', messages: [{ role: 'user', content: exact[index] }], stream: false })));
+        trial.targets.forEach(target => assert.equal(target.response.text, answer));
+        await click(trial.close); await click(h.ui.compareText);
+        assert.deepEqual(differenceBodies(h.ui), { before: body, after: proposal });
+        assert.equal(h.ui.originalOutput.value, 'Revised {{topic}}\nKeep CR\n<img src=x>\nLast');
+        assert.equal(h.doc.querySelectorAll('img,script').length, 0);
+        await click(h.ui.save); await settle(h.h.controller);
+        assert.equal(h.h.controller.record().body, proposal); assert.equal(h.h.controller.record().history[0].body, body);
+        assert.equal(h.h.controller.record().history.length, 2); assert.equal(h.h.writes, writes + 1);
+        assert.equal(h.runs, 3); assert.equal(h.grants, 0);
+    } finally { if (h.ui.trial) await click(h.ui.trial.close); await click(h.ui.close); h.h.controller.dispose(); }
+});
 test('refinement differences: edits clear old snapshots and a fresh explicit click uses only the current draft', async () => {
     const h = await refinedDifference(); let calls = 0;
     const compare = h.root.LocalItabPromptsView.compareBodies;
