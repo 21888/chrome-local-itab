@@ -26,5 +26,10 @@ Frozen implementation:2741/2741 Node tests passed with strict unhandled rejectio
 and a1 GiB heap;81/81 Python tests and113-file runtime packaging passed. The25
 new draft-preview tests and independent36-case audit plus274 related tests cover
 real Store persistence boundaries, shared clipboard exclusion, focus ownership
-and stale/directly replaced drafts. Native browser validation is pending for
-this ordinary development commit. Manifest remains1.1.110 with no release.
+and stale/directly replaced drafts. Limited Chinese native validation passed Summary loading, keyboard focus in the
+first variable, actual OS clipboard copy/paste into the unsaved editor, title/body
+edits invalidating old values/output, discard cancellation preserving the draft
+and confirmed leave restoring an empty library. Light/dark100% and dark200%
+ordinary browser zoom representatives passed; baseline restored. No native save,
+provider, transaction fault, limit, concurrent copy, clipboard failure, ARIA or
+true320/375 viewport validation is claimed. Manifest remains1.1.110 with no release.

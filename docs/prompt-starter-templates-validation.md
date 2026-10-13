@@ -1,6 +1,6 @@
 # Local Prompt starter templates validation
 
-Four static starters (summary, rewrite, action items, option comparison) are available in English and Simplified Chinese. Unsupported locales fall back to English. The empty library and the new-prompt editor expose the same full-text review flow. Review precedes loading an unsaved draft; explicit saving is required before the existing variable/finished-preview workflow.
+Four static starters (summary, rewrite, action items, option comparison) are available in English and Simplified Chinese. Unsupported locales fall back to English. The empty library and the new-prompt editor expose the same full-text review flow. Review precedes loading an unsaved draft; new unsaved drafts can use the separate local variable preview/copy flow before saving. Existing saved-record preview tools retain their own workflow.
 
 ## Boundaries
 
@@ -24,4 +24,4 @@ Final implementation checked on 2026-10-13:
 
 This snapshot retains manifest version 1.1.110 for integration onto the verified 1.1.110 parent. Release preparation may update the version and corresponding package hash. No browser or screenshot validation was performed by this implementation task; the runtime snapshot is supplied separately for native browser acceptance. Only synthetic test data was used.
 
-Integrated on the exact released1.1.110 parent with its final verification documentation preserved. This ordinary feature commit retains1.1.110 and does not create a release. Native browser acceptance is pending.
+Integrated on the exact released1.1.110 parent with its final verification documentation preserved. This ordinary feature commit retains1.1.110 and does not create a release. Limited Chinese native starter acceptance passed four full-text previews, Summary unsaved loading, continuation preserving an existing draft, leave cancel/discard and representative light/dark100%/200% zoom. That initial snapshot required saving before variables; combined draft-preview native validation separately confirmed the updated explanation and Summary preview/copy before saving. No native save transaction or stale-control race is claimed.
