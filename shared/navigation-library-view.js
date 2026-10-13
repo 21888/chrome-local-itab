@@ -29,9 +29,9 @@
     const t = key => { const id = `navigationLibrary${key[0].toUpperCase()}${key.slice(1)}`; const result = root.i18n?.t(id); return result && result !== id ? result : fallback[key] || key; };
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
-        let overlay, panel, cleanup, cleanupSearchShortcut, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
+        let overlay, panel, cleanup, cleanupSearchShortcut, cleanupComposition, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, reviewPanel, reviewConfirm;
         let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
-        let newCategoryMode = false, draftName = '', composing = false, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
+        let newCategoryMode = false, draftName = '', compositionTarget = null, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
         const expandedDetails = new Set(), renderedDetails = new Map();
         let reviewed = null;
@@ -50,22 +50,54 @@
         };
         const button = (text, action, className) => {
             const node = el('button', text, className); node.type = 'button';
-            node.addEventListener('click', event => { if (!writing && !composing && !event.isComposing && event.keyCode !== 229 && !event.repeat && !(event.detail > 1)) action(); }); return node;
+            node.addEventListener('click', event => { if (!writing && !isComposing() && !event.isComposing && event.keyCode !== 229 && !event.repeat && !(event.detail > 1)) action(); }); return node;
         };
         const opener = button(t('open'), open, 'navigation-library-opener'); opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
         function close() {
             if (writing) return false;
-            revision++; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanupSearchShortcut?.(); cleanupSearchShortcut = null; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false; return true;
+            revision++; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanupSearchShortcut?.(); cleanupSearchShortcut = null; cleanupComposition?.(); cleanupComposition = null; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null; return true;
+        }
+        function isComposing() {
+            // A lost end/blur event must not strand every action after focus moves
+            // or the composing result node is removed.
+            if (compositionTarget && (!compositionTarget.isConnected || !panel?.contains(compositionTarget) ||
+                !compositionTarget.contains(document.activeElement))) compositionTarget = null;
+            return Boolean(compositionTarget);
+        }
+        function bindComposition(owner, ownedPanel) {
+            let retired = false;
+            const owns = event => !retired && owner === revision && panel === ownedPanel &&
+                ownedPanel.isConnected && ownedPanel.contains(event.target);
+            const handleCompositionStart = event => {
+                if (!owns(event)) return;
+                compositionTarget = event.target;
+                invalidateReview();
+            };
+            const handleCompositionEnd = event => {
+                if (owns(event) && compositionTarget === event.target) compositionTarget = null;
+            };
+            const handleFocusOut = event => {
+                if (owns(event) && compositionTarget === event.target) compositionTarget = null;
+            };
+            ownedPanel.addEventListener('compositionstart', handleCompositionStart);
+            ownedPanel.addEventListener('compositionend', handleCompositionEnd);
+            ownedPanel.addEventListener('focusout', handleFocusOut);
+            cleanupComposition = () => {
+                retired = true;
+                compositionTarget = null;
+                ownedPanel.removeEventListener('compositionstart', handleCompositionStart);
+                ownedPanel.removeEventListener('compositionend', handleCompositionEnd);
+                ownedPanel.removeEventListener('focusout', handleFocusOut);
+            };
         }
         function setControls() {
             for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || node.dataset.unavailable === 'true';
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
-            const owner = ++revision; expandedDetails.clear(); renderedDetails.clear(); busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; composing = false;
+            const owner = ++revision; expandedDetails.clear(); renderedDetails.clear(); busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null;
             overlay = el('div', undefined, 'navigation-library-overlay'); panel = el('section', undefined, 'navigation-library-panel'); panel.tabIndex = -1;
-            panel.addEventListener('compositionstart', () => { composing = true; invalidateReview(); });
-            panel.addEventListener('compositionend', () => { composing = false; });
+            bindComposition(owner, panel);
             panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-labelledby', 'navigation-library-title');
             const head = el('header', undefined, 'navigation-library-heading'), copy = el('div');
             copy.append(el('p', t('eyebrow'), 'navigation-library-eyebrow')); const title = el('h2', t('title')); title.id = 'navigation-library-title'; copy.append(title, el('p', t('intro'), 'navigation-library-intro'));
@@ -202,7 +234,6 @@
         }
         function bindSearchShortcut() {
             const owner = revision, ownedPanel = panel, ownedSearch = search;
-            let compositionTarget = null;
             const unavailable = node => {
                 if (!node?.isConnected || node.closest('[hidden], [inert], [aria-hidden="true"]') || !node.getClientRects().length) return true;
                 for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
@@ -218,9 +249,8 @@
             const handleSearchShortcut = event => {
                 // Own only this opening and these live nodes. Never re-render or
                 // invalidate a review merely to move keyboard focus.
-                if (compositionTarget && (!compositionTarget.isConnected || !compositionTarget.contains(document.activeElement))) compositionTarget = null;
                 if (owner !== revision || panel !== ownedPanel || search !== ownedSearch || !overlay ||
-                    busy || writing || blocked || reviewed || !reviewPanel.hidden || !snapshot || compositionTarget ||
+                    busy || writing || blocked || reviewed || !reviewPanel.hidden || !snapshot || isComposing() ||
                     root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave ||
                     component._pendingDelete || component._shortcutOrderPending || component.layoutController?.failedChange ||
                     component.layoutController?.invalidated || component.layoutController?.pending || component.layoutController?.timer ||
@@ -244,18 +274,9 @@
                 event.preventDefault();
                 ownedSearch.select();
             };
-            const compositionStart = event => { compositionTarget = event.target; };
-            const compositionEnd = event => { if (compositionTarget === event.target) compositionTarget = null; };
             ownedPanel.addEventListener('keydown', handleSearchShortcut);
-            ownedPanel.addEventListener('compositionstart', compositionStart);
-            ownedPanel.addEventListener('compositionend', compositionEnd);
-            ownedPanel.addEventListener('focusout', compositionEnd);
             cleanupSearchShortcut = () => {
-                compositionTarget = null;
                 ownedPanel.removeEventListener('keydown', handleSearchShortcut);
-                ownedPanel.removeEventListener('compositionstart', compositionStart);
-                ownedPanel.removeEventListener('compositionend', compositionEnd);
-                ownedPanel.removeEventListener('focusout', compositionEnd);
             };
         }
         function rebuildDestinations() {
@@ -319,7 +340,7 @@
             reviewSites(root.LocalItabNavigationSites.filter(site => selected.has(site.id)), true);
         }
         function reviewSites(sites, batch) {
-            if (writing || composing || blocked || !sites.length || (!newCategoryMode && !currentDestination)) return;
+            if (writing || isComposing() || blocked || !sites.length || (!newCategoryMode && !currentDestination)) return;
             const name = newCategoryMode ? validatedName() : null;
             if (newCategoryMode && !name) return;
             const confirmation = frozenCopy({ sites: sites.map(serialize), batch, baseline: snapshot.state,
@@ -471,7 +492,7 @@
             }
         }
         async function save(site, batch = false, confirmation = null) {
-            if (writing || composing || blocked || !snapshot || (!newCategoryMode && !currentDestination) || root.LocalItabContentLifecycle?.departing || (confirmation && reviewed !== confirmation) || (newCategoryMode && !confirmation?.newCategory)) return;
+            if (writing || isComposing() || blocked || !snapshot || (!newCategoryMode && !currentDestination) || root.LocalItabContentLifecycle?.departing || (confirmation && reviewed !== confirmation) || (newCategoryMode && !confirmation?.newCategory)) return;
             writing = busy = true; setControls(); panel.focus(); status.textContent = batch ? `${t('saving')} ${site.length}` : `${t('saving')} ${site.name}`;
             const request = confirmation ? { baseline: confirmation.baseline,
                 ...(batch ? { sites: confirmation.sites } : { site: confirmation.sites[0] }),

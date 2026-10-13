@@ -6,7 +6,7 @@ Adds `/` inside the open navigation-library panel to focus and select the existi
 
 ## Regression coverage
 
-Nine focused cases in `tests/navigation-library-view.test.js` verify:
+Thirteen focused cases in `tests/navigation-library-view.test.js` verify:
 
 - English/Chinese visible hint, `aria-keyshortcuts` and associated description.
 - Exact query, active tag/company/saved-state filters, destination, selection, category draft, result nodes and source disclosure state remain unchanged; no additional snapshot read or save call.
@@ -16,16 +16,21 @@ Nine focused cases in `tests/navigation-library-view.test.js` verify:
 - Hidden/inert/disabled/disconnected nodes, hidden document, other dialogs and menus are excluded without blocking the library's own dialog.
 - A closed disclosure remains excluded even when descendant layout rectangles persist; its summary works normally.
 - Detached result/search nodes and old panels cannot affect a reopened panel, including direct invocation of a stale callback.
-- IME target cleanup on blur, removal and changed focus; failed focus is not consumed.
+- A shared navigation IME target gates slash, buttons, review and save, with cleanup on blur, removal and changed focus; failed focus is not consumed.
+- Retired panel start/end/focusout listeners are removed. Direct stale callbacks and reattached old panels cannot hide a new review or release another opening’s composition.
+- Interleaved target end/blur events cannot release the current composition; genuine composition still blocks save/review and preserves IME Escape.
+- Closing during a pending read retires composition ownership before a newer opening builds; resolving the stale read cannot restore it. All four ownership regressions assert zero writes.
 
 Existing navigation and shared focus tests continue to cover Tab, Shift+Tab, Escape, IME Escape, closing/reopening and saved-state protections.
 
 ## Checks
 
-- Focused navigation view: 95/95 passed.
-- Strict full Node suite, serial execution, 1 GiB heap: 2557/2557 passed.
+- Focused navigation view: 99/99 passed.
+- Strict full Node suite, serial execution, 1 GiB heap: 2561/2561 passed.
 - Python unittest discovery: 81/81 passed.
 - Runtime package build and byte verification: passed, 112 files.
 - `git diff --check` and changed JavaScript syntax: passed.
 
 Limited Chinese desktop-light native validation passed on one representative PhET card: summary/card slash focused and selected the query; literal slash stayed in search/new-category inputs; selected site, purpose filter, target and category draft persisted. Review retained confirmation-button focus without activating it; closing/reopening reset transient state. No site/category save occurred. Dark/responsive, other languages, IME/modifier/repeat/alternate layouts, all focus targets and pending-save combinations were not native-tested. Synthetic guards are not a full accessibility or browser-matrix claim.
+
+The composition-ownership fix was validated synthetically only; the earlier limited native slash check above predates this fix. No native IME verification was performed for this fix.

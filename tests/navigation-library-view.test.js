@@ -809,11 +809,63 @@ test('navigation slash cannot originate in a closed disclosure even if it retain
  link.getClientRects=()=>[{}];h.document.activeElement=link;assert.equal(k.press(link).prevented,false);assert.equal(k.selections,0);
  const summary=details.querySelector('summary');summary.focus();assert.equal(k.press(summary).prevented,true);assert.equal(k.selections,1);assert.equal(details.open,false);assert.equal(h.calls,0);assert.equal(h.reads,1);
 });
-test('navigation slash releases its independent IME target on blur, removal or changed focus and only consumes a successful focus',async()=>{
+test('navigation slash releases the shared IME target on blur, removal or changed focus and only consumes a successful focus',async()=>{
  const h=model();await h.view.open();const k=searchShortcut(h);
  k.source.dispatch('compositionstart');k.source.dispatch('focusout');assert.equal(k.press().prevented,true);
  const temporary=h.document.createElement('button');k.panel.append(temporary);temporary.focus();temporary.dispatch('compositionstart');temporary.remove();k.source.focus();assert.equal(k.press().prevented,true);
  temporary.parentElement=null;k.panel.append(temporary);temporary.focus();temporary.dispatch('compositionstart');k.source.focus();assert.equal(k.press().prevented,true);
  k.source.focus();const original=k.input.focus;k.input.focus=()=>{};const before=k.selections;assert.equal(k.press().prevented,false);assert.equal(k.selections,before);k.input.focus=original;
  assert.equal(h.calls,0);assert.equal(h.reads,1);
+});
+
+test('navigation composition blur recovers buttons as well as slash without writing',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h),toggle=h.document.querySelector('.navigation-library-filter-toggle'),filters=h.document.querySelector('.navigation-library-filters');
+ k.input.focus();k.input.dispatch('compositionstart');k.input.dispatch('focusout');toggle.focus();
+ assert.equal(k.press(toggle).prevented,true);toggle.dispatch('click');assert.equal(filters.hidden,false);
+ k.input.dispatch('compositionend');toggle.dispatch('click');assert.equal(filters.hidden,true);
+ assert.equal(h.calls,0);assert.equal(h.reads,1);
+});
+
+test('retired navigation composition callbacks cannot invalidate a fresh review or clear a new composition',async()=>{
+ const h=model();await h.view.open();const old=searchShortcut(h);
+ const callbacks=Object.fromEntries(['compositionstart','compositionend','focusout'].map(type=>[type,[...old.panel.listeners.get(type)]]));
+ old.input.focus();old.input.dispatch('compositionstart');h.view.close();
+ for(const type of Object.keys(callbacks))assert.equal(old.panel.listeners.get(type).length,0);
+ await h.view.open();const current=searchShortcut(h),pick=h.document.querySelector('.navigation-library-pick input');pick.checked=true;pick.dispatch('change');
+ h.document.querySelector('.navigation-library-batch-review').dispatch('click');const review=h.document.querySelector('.navigation-library-review'),confirm=h.document.querySelector('.navigation-library-batch-confirm');
+ assert.equal(review.hidden,false);
+ // Even references invoked directly or a retired panel reattached to the DOM
+ // cannot acquire ownership of the next opening.
+ h.document.body.append(old.panel);
+ for(const type of Object.keys(callbacks)){old.input.dispatch(type);for(const callback of callbacks[type])callback({target:current.input});}
+ assert.equal(review.hidden,false);assert.equal(h.document.querySelector('.navigation-library-batch-confirm'),confirm);
+ current.input.focus();current.input.dispatch('compositionstart');assert.equal(review.hidden,true);
+ for(const type of ['compositionend','focusout']){old.input.dispatch(type);for(const callback of callbacks[type])callback({target:current.input});}
+ h.firstAdd().dispatch('click');h.document.querySelector('.navigation-library-batch-review').dispatch('click');confirm.dispatch('click');
+ assert.equal(h.calls,0);assert.equal(review.hidden,true);
+ current.input.dispatch('keydown',{key:'Escape'});assert.ok(h.document.querySelector('.navigation-library-overlay'));
+ old.panel.remove();current.input.dispatch('compositionend');h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+ assert.equal(review.hidden,false);h.view.close();assert.equal(h.calls,0);
+});
+
+test('navigation current composition target survives unrelated end and blur, recovers on removal or lost blur',async()=>{
+ const h=model();await h.view.open();const k=searchShortcut(h),toggle=h.document.querySelector('.navigation-library-filter-toggle'),filters=h.document.querySelector('.navigation-library-filters');
+ const other=h.document.createElement('input');k.panel.append(other);
+ k.input.focus();k.input.dispatch('compositionstart');other.focus();other.dispatch('compositionstart');
+ k.input.dispatch('compositionend');k.input.dispatch('focusout');
+ toggle.dispatch('click');h.firstAdd().dispatch('click');assert.equal(filters.hidden,true);assert.equal(h.calls,0);
+ other.dispatch('keydown',{key:'Escape'});assert.ok(h.document.querySelector('.navigation-library-overlay'));
+ other.remove();toggle.focus();toggle.dispatch('click');assert.equal(filters.hidden,false);
+ // No focusout or end was delivered, but the old target no longer owns focus.
+ k.input.focus();k.input.dispatch('compositionstart');toggle.focus();toggle.dispatch('click');assert.equal(filters.hidden,true);
+ assert.equal(h.calls,0);assert.equal(h.reads,1);h.view.close();
+});
+
+test('navigation close while reading retires composition before a later opening builds',async()=>{
+ const h=model(),pending=deferred();h.read=pending;const opening=h.view.open();await tick();
+ const old=h.document.querySelector('.navigation-library-panel'),start=old.listeners.get('compositionstart')[0];old.dispatch('compositionstart');h.view.close();
+ h.read=null;await h.view.open();const k=searchShortcut(h);k.input.focus();k.input.dispatch('compositionstart');
+ start({target:k.input});old.dispatch('compositionend');pending.resolve(h.snapshot);assert.equal(await opening,false);
+ h.firstAdd().dispatch('click');assert.equal(h.calls,0);k.input.dispatch('compositionend');
+ const toggle=h.document.querySelector('.navigation-library-filter-toggle');toggle.dispatch('click');assert.equal(h.document.querySelector('.navigation-library-filters').hidden,false);assert.equal(h.calls,0);h.view.close();
 });
