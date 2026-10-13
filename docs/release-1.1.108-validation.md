@@ -1,0 +1,9 @@
+# 1.1.108 validation
+
+Normal patch increment from officialv1.1.107. Parent8203e2aa7d09e1b2bb466dd6731a8b7c5db95dfc; only manifest/docs differ from combined features, no recovery marker.
+
+Development suites passed2672Node/81Python and2674Node/81Python. Both precise ordinary CI runs passed with publication skipped; second CI38360730126 passed2674/81. Actual1.1.108 strict serial full regression passed2674/2674 Node (1GiB heap, no failures/skips/cancellations) and81/81 Python.
+
+Dock native development ZIPc6e39ebe38ad5423615b0b8528f31a1a2a34a272b0e0b19fda61f7a065fb2aa1,112files: light/dark original1188×848 bound-window screenshot dimensions including chrome (not CSS viewport measured). All nine category entries and final qa remaining/count2/focus outline contained; Tab/Enter activated expected2 cards, total14 retained. Border drag failed to resize so no narrower-size coverage. Clarity light/Grid/Default14/qa remaining2 restored without data changes.
+
+Folio native ZIP86354daaf53f99ee6eb66f9b666fd92bef84dae4c93e17144826f04d052d7056,112files, passed at the same1188×848 window in light/dark: first14/last2 counts separated from complete focus outline, Tab/ShiftTab did not move category positions, Enter worked. Original107 failure remains historical evidence; no records modified, baseline restored. Three-digit counts, narrow layouts, exhaustive titles/platforms/screen readers and full accessibility are not claimed. Both changes are scoped CSS with no new permissions/network/storage. Final minimal identity passed against ZIPd4a5a35ba7a27cfed5d4b5a651a40f78c6fdb836c9e18576e6e04690b0f3d4a7,112files; integrator verified only manifest differs from combined development. Ordinary CfT reload showed1.1.108; fresh homepage retained Default14/qa remaining2/Clarity light/Grid with no temporary drafts/dialogs. No data/settings changed, original records untouched rather than reread. Identity adds no template/responsive coverage or proof of live publication.
