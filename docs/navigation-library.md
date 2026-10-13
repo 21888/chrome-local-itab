@@ -103,5 +103,7 @@ The final implementation passed2781/2781 strict Node tests with1 GiB heap,
 81/81 Python,136 focused tests and113-file packaging. Independent review checked
 84 real-catalog transitions across English/Chinese and the stale-dropdown guard.
 The view rejects retired category/select controls rather than allowing a
-prior opening to restore a cleared filter. Native browser acceptance is pending
-for this ordinary development commit; manifest remains1.1.112 without a release.
+prior opening to restore a cleared filter. Limited Chinese-light native Photopea/PSD editing checks passed compatible
+Design/Utilities/All/current-category retention and incompatible Learning reset,
+with query/target preserved and100%/200% keyboard representatives. No full
+filter matrix or native stale-control race claim; manifest remains1.1.112 without a release.

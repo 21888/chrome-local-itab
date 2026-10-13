@@ -131,5 +131,5 @@ The frozen implementation passed2776/2776 strict Node tests with1 GiB heap and
 81/81 Python tests. Independent6-case audit and49 related tests passed after
 ensuring invalidated review text moves focus to Cancel before removal. Runtime
 packaging verifies113 explicit files, with no controller, Store, permission or
-schema change. Native search validation is pending for this ordinary feature;
+schema change. Limited native Chinese-light and English-dark title search validation passed match/empty/clear, query invalidation and modal keyboard paths at100%/200% representatives. Chinese beta Apply changed only its target; English supplement canceled without applying. No native Unicode/limit/race/read-count claim;
 manifest remains1.1.112 and no release is created by this commit.
