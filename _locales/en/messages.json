@@ -5554,5 +5554,14 @@
   },
   "aiContextTasksVerified": {
     "message": "The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request."
+  },
+  "collectionsInspectSave": {
+    "message": "Check saved outcome (read-only)"
+  },
+  "collectionsOutcomeVerified": {
+    "message": "The original save was committed. Showing the latest saved state, which may include later changes."
+  },
+  "collectionsOutcomeUncertain": {
+    "message": "The earlier save may already have completed. Your draft is kept and new saves are paused. Check its saved receipt without writing; if no matching receipt remains, keep this tab open and inspect the library before taking further action."
   }
 }

@@ -1,0 +1,7 @@
+# Collection operation receipt reconciliation
+
+Development feature on 1.1.103. The collection controller preserves an uncertain original operation. A later definite conflict cannot disprove an earlier lost acknowledgement: the frozen command stays locked and subsequent checks inspect its receipt without replaying a mutation. An initial definite conflict retains the existing editable/save-as-new recovery behavior.
+
+Only inspectOperation committed === true plus validated current state acknowledges the original operation. This is historical receipt evidence, not a guarantee that the record still exists or remains unchanged. Reconciliation accepts current state and never rolls back later edits/archive operations. Missing/mismatched/evicted receipts, unreadable state and stale/disposed callbacks retain safe uncertainty or are ignored.
+
+Frozen implementation strict full Node 2616/2616 and Python 81/81 passed; 112-file runtime package verified. Independent read-only review found no blocker and checked additional real-Store adversarial paths. Native safe UI smoke is pending; uncertain storage failures and historical receipts remain synthetic-only unless separately exercised. No Store mutation/schema/permission/network behavior was added.

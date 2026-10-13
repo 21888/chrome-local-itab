@@ -35,7 +35,7 @@
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
-            this.interactionGeneration = 0; this.pendingCommand = null; this.disposed = false; this.refreshQueued = false;
+            this.interactionGeneration = 0; this.pendingCommand = null; this.pendingInspection = false; this.disposed = false; this.refreshQueued = false;
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
@@ -228,14 +228,21 @@
             const record = this.record(); if (!record || this.drafts.has(record.id)) return false;
             return this.execute({ command: this.store.request(kind, { id: record.id, version: record.version }), recordId: record.id, action: kind });
         }
-        async retry() { if (this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand); }
-        async execute(operation) { this.interactionGeneration++;
-            if (this.busy) return false;
-            this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
+        async retry() { if (this.disposed || this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand, this.pendingInspection); }
+        async verify() { if (this.disposed || this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand, true); }
+        async execute(operation, inspect = false) {
+            if (this.disposed || this.busy || (this.pendingCommand && this.pendingCommand !== operation) || (inspect && this.pendingCommand !== operation)) return false;
+            this.interactionGeneration++;
+            this.busy = true; this.error = null; this.notice = ''; const generation = ++this.readGeneration; this.notify();
             try {
-                const state = await this.store.mutate(operation.command, operation.validatePrompt);
-                if (this.disposed) return false;
-                this.pendingCommand = null;
+                let state;
+                if (inspect) {
+                    const result = await this.store.inspectOperation(operation.command);
+                    if (result?.committed !== true) throw Core.fault('OUTCOME_UNCERTAIN');
+                    state = Core.validate(result.state);
+                } else state = await this.store.mutate(operation.command, operation.validatePrompt);
+                if (this.disposed || generation !== this.readGeneration) return false;
+                this.pendingCommand = null; this.pendingInspection = false;
                 if (operation.action === 'save') {
                     // Add IDs are the owned operationId, including exact retries.
                     const savedId = operation.command.kind === 'edit' ? operation.command.id : operation.command.operationId;
@@ -243,12 +250,17 @@
                     this.drafts.delete(operation.draftKey);
                     if (saved) this.selected = saved.id;
                 }
-                this.accept(state); this.notice = operation.action === 'save' ? 'saved' : operation.action;
+                this.accept(state); this.notice = inspect ? 'reconciled' : operation.action === 'save' ? 'saved' : operation.action;
                 return true;
             } catch (error) {
-                if (this.disposed) return false;
+                if (this.disposed || generation !== this.readGeneration) return false;
                 this.error = { code: error.code || 'WRITE', scope: operation.action };
-                if (uncertain(error.code) || !error.code) this.pendingCommand = operation;
+                if (this.pendingCommand === operation) {
+                    // A later rejection cannot disprove an earlier lost acknowledgement.
+                    // Retain the frozen command; after rejection only inspect its receipt.
+                    if (inspect || !uncertain(error.code)) this.pendingInspection = true;
+                    this.error = { code: this.pendingInspection ? 'OUTCOME_UNCERTAIN' : error.code || 'WRITE', scope: operation.action };
+                } else if (uncertain(error.code) || !error.code) this.pendingCommand = operation;
                 else {
                     this.pendingCommand = null;
                     if (error.code === 'CONFLICT' && operation.draftKey) {

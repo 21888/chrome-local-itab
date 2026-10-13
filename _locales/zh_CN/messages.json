@@ -5554,5 +5554,14 @@
   },
   "aiContextTasksVerified": {
     "message": "原始任务批次目前完整存在且未被修改。没有写入或发送任何内容。现在可以清空草稿或开始新请求。"
+  },
+  "collectionsInspectSave": {
+    "message": "核验保存结果（只读）"
+  },
+  "collectionsOutcomeVerified": {
+    "message": "已确认原操作曾保存成功。当前显示最新保存状态，记录可能已被后续操作修改。"
+  },
+  "collectionsOutcomeUncertain": {
+    "message": "先前操作可能已保存成功。草稿仍保留，新的保存已暂停。可只读核验原操作的保存凭据；若无匹配凭据，请保持此页打开并检查收藏库后再决定下一步。"
   }
 }

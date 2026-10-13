@@ -238,3 +238,23 @@ test('annotation query keeps archived records isolated and localized source labe
     assert.equal(h.view.clearFilters.textContent, '清除筛选'); h.view.clearFilters.dispatch('click');
     assert.equal(c.filters.mode, 'trash'); assert.equal(c.results().length, 1); assert.equal(h.h.writes, writes); c.dispose();
 });
+
+for (const language of ['en', 'zh_CN']) test(`uncertain collection save exposes read-only verification and blocks new copies (${language})`, async () => {
+    const messages = JSON.parse(fs.readFileSync(`_locales/${language}/messages.json`, 'utf8'));
+    const h = await mount(undefined, { t: key => messages[key]?.message || key }), c = h.controller;
+    const original = await add(c, 'Original', 'Exact original'); c.edit(); c.update('notes', 'Submitted notes'); h.h.failOnce();
+    assert.equal(await c.save(true), false); await tick(); const operation = c.pendingCommand;
+    await h.store.mutate(h.store.request('edit', { id: original.id, version: original.version, title: 'Other tab' })); await tick();
+    assert.equal(await c.retry(), false); await tick(); const writes = h.h.writes, before = JSON.stringify(h.h.raw);
+    assert.equal(c.pendingInspection, true);
+    const inspect = h.view.status.querySelectorAll('button').find(button => button.textContent === messages.collectionsInspectSave.message);
+    assert.ok(inspect); assert.equal(inspect.disabled, false);
+    assert.equal(h.view.status.querySelectorAll('button').some(button => button.textContent === messages.collectionsRetry.message), false);
+    assert.equal(h.view.main.querySelectorAll('button, input, textarea, select').every(control => control.disabled), true);
+    assert.match(text(h.view.status), language === 'en' ? /earlier save may already have completed/ : /先前操作可能已保存成功/);
+    const event = { preventDefault() { this.prevented = true; } }; h.events.get('beforeunload')(event); assert.equal(event.prevented, true);
+    inspect.dispatch('click'); await settle(c);
+    assert.equal(c.pendingCommand, null); assert.equal(c.record().id, operation.command.operationId);
+    assert.equal(h.view.status.textContent, messages.collectionsOutcomeVerified.message);
+    assert.equal(h.h.writes, writes); assert.equal(JSON.stringify(h.h.raw), before); c.dispose();
+});

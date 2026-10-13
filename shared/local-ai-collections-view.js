@@ -136,8 +136,12 @@
             const c = this.controller;
             this.renderList(); this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand); this.exportButton.disabled = !c.state || c.busy;
             this.status.replaceChildren(); this.status.classList.toggle('error', Boolean(c.error));
-            if (c.error) { this.status.append(this.el('span', '', this.errorText(c.error.code)), this.button('Refresh', 'Refresh saved data', () => c.refresh())); if (c.pendingCommand) this.status.append(this.button('Retry', 'Check / retry the same save', () => c.retry())); }
-            else if (c.busy) this.status.textContent = this.t('Saving', 'Saving locally…'); else if (c.notice) this.status.textContent = this.t('Saved', 'Saved locally.');
+            if (c.error) this.status.append(this.el('span', '', this.errorText(c.pendingCommand ? 'OUTCOME_UNCERTAIN' : c.error.code)), this.button('Refresh', 'Refresh saved data', () => c.refresh()));
+            else if (c.busy) this.status.textContent = this.t('Saving', 'Saving locally…'); else if (c.notice) this.status.textContent = c.notice === 'reconciled' ? this.t('OutcomeVerified', 'The original save was committed. Showing the latest saved state, which may include later changes.') : this.t('Saved', 'Saved locally.');
+            if (c.pendingCommand) {
+                if (!c.pendingInspection) { const retry = this.button('Retry', 'Check / retry the same save', () => c.retry()); retry.disabled = c.busy; this.status.append(retry); }
+                const verify = this.button('InspectSave', 'Check saved outcome (read-only)', () => c.verify()); verify.disabled = c.busy; this.status.append(verify);
+            }
             const focused = this.doc.activeElement?.getAttribute?.('data-collection-field');
             this.main.replaceChildren(); this.editor = null; this.promptPanel = null;
             if (!c.state) { this.main.append(this.el('h2', '', this.t(c.error ? 'Unavailable' : 'Loading', c.error ? 'The library could not be read' : 'Loading your collection…'))); return; }
@@ -145,6 +149,7 @@
             if (draft) this.renderEditor(draft); else if (record) this.renderDetail(record); else if (!root.LocalItabAISearchView?.showTargetError(c, this)) {
                 const empty = this.el('div', 'prompt-empty'); empty.append(this.el('div', 'prompt-empty-mark', '▤'), this.el('h2', '', this.t('Empty', 'Keep the useful part')), this.paragraph('EmptyBody', 'A clear explanation. A code snippet. A plan you want to revisit. Save the exact text and keep your annotations separate.'), this.button('New', 'Save an excerpt', () => c.create(), 'prompt-primary')); this.main.append(empty);
             }
+            if (c.busy || c.pendingCommand) for (const control of this.main.querySelectorAll('button, input, textarea, select')) control.disabled = true;
             if (focused) this.main.querySelector(`[data-collection-field="${focused}"]`)?.focus();
         }
         renderCaptureStatus() {
@@ -175,6 +180,7 @@
             if (capture.state === 'ack' || (capture.state === 'error' && ['guarded', 'unavailable'].includes(capture.error))) this.captureStatus.append(this.button('CaptureRetry', 'Retry handoff', capture.retry));
         }
         errorText(code) {
+            if (code === 'OUTCOME_UNCERTAIN') return this.t('OutcomeUncertain', 'The earlier save may already have completed. Your draft is kept and new saves are paused. Check its saved receipt without writing; if no matching receipt remains, keep this tab open and inspect the library before taking further action.');
             if (code === 'PROMPT_UNAVAILABLE') return this.t('ResultDraftSaveUnavailable', 'The linked prompt or exact version is no longer active or available. Your draft is kept. Refresh local prompts, then review a new link or explicitly unlink before saving.');
             const errors = { CONFLICT: ['ConflictError', 'Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item.'], HISTORY_LIMIT: ['HistoryLimit', 'This item already has 20 body versions. No history was removed. Keep the proposed text or save it as a new item.'], LIMIT: ['LimitError', 'A content or storage limit was reached. Your draft is kept. Shorten it or export your collection before making changes.'], WRITE: ['Uncertain', 'The save could not be confirmed. Your draft is kept. Check / retry the same save before starting another.'], VERIFY: ['Uncertain', 'The save could not be confirmed. Your draft is kept. Check / retry the same save before starting another.'], READ: ['ReadError', 'Saved data could not be read. Nothing has been replaced. Try refreshing.'], INVALID: ['Invalid', 'Check the fields: title and excerpt are required, source must be an HTTP(S) URL without credentials, and a prompt reference needs both exact IDs. Limits reject the whole save.'] };
             if (['CAPACITY', 'SIZE_LIMIT', 'TEXT_LIMIT', 'INPUT_LIMIT', 'RECOVERY_LIMIT'].includes(code)) code = 'LIMIT';
