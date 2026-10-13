@@ -1,0 +1,9 @@
+# 1.1.102 validation
+
+Normal patch increment from official v1.1.101. Parent 3540b24bdeab595e52ca3f9665fccdc965bced33; only manifest and documentation differ from the combined second feature. No recovery marker.
+
+Precise ordinary CI passed 2570 Node/81 Python and 2574 Node/81 Python. Actual 1.1.102 full regression passed strict serial Node 2574/2574 (1GiB heap, no failures/skips/cancellations) and Python 81/81.
+
+Limited native development packages (112 files): selected-only 31a894314006b158a2f583e3ddaa3dabb018f9a3c857981b9168e4d47035f1c0; learning 3ddc6f627090ebc9be63a0cbe984e7af048b7ab63be2166b715b757915e1b0ae. Chinese desktop light. Two selected items intersected queries; hidden-two full review canceled; clear filters preserved selection and category draft; first/last checkbox focus and empty-view escape passed. Four new brand queries each returned one card with scoped operator/pricing/reuse details; four cross-query selections/three hidden appeared in review, then cancel/reopen restored 132/118/14 and zero selected. No additions, external links, downloads, account or legal-eligibility checks. Default14 / qa remaining2 / Clarity light / Grid restored.
+
+20/21 limits, middle-of-many focus, exhaustive filters, dark/responsive/IME and full accessibility were not native-tested; aria-pressed was not introspected. Prior 128 entries were not enumerated natively; 193 tags/18 categories are source/test counts. Final minimal native identity smoke passed against ZIP SHA256 521e2f2f9c012ca7fdd324147d46b111e262059d1d0783e2a5fcad9a5bdda937, 112 entries; only manifest differs from combined development. Ordinary CfT reload showed actual 1.1.102 and fresh homepage retained Default14 / qa remaining2 / Clarity light / Grid. No dialogs or temporary drafts were opened and no data changed; AI originals, empty prompt library and workspace note were untouched rather than reread. Identity evidence does not expand feature-native coverage or prove live publication.

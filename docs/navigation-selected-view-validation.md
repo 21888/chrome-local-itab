@@ -17,5 +17,4 @@ Verification on 2026-10-13:
   disclosures, empty state, adjacent-checkbox/last-toggle focus, 20-site cap,
   close/reopen and stale nodes, repeat/composition, pending/conflict guards,
   and English/Chinese text.
-- Native browser, visual layout, and assistive-technology verification have not
-  been performed for this patch.
+- Limited Chinese desktop-light native checks passed: two selections across queries, selected-only AND query, hidden-two complete review cancellation, clear filters preserving selection/category draft, first/last checkbox focus transfer, clear-selection empty-view exit and close/reopen reset. No additions occurred. Native did not cover 20/21 limits, middle-of-many focus, exhaustive filter intersections, dark/responsive/IME or full accessibility; aria-pressed was not introspected.

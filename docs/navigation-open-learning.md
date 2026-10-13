@@ -71,3 +71,7 @@ Prepared-snapshot results (manifest 1.1.101, unchanged):
 - Package SHA-256: `3ddc6f627090ebc9be63a0cbe984e7af048b7ab63be2166b715b757915e1b0ae`.
 - No native browser test, external navigation, commit, push or release performed
   in this preparation step.
+
+## Limited native development validation
+
+Chinese desktop-light checks passed: 132 total /118 unadded /14 added; each new ASCII brand query returned one matching card. Rendered details displayed US/UK operator locations and scoped copyright, CC0, account, credit and paid-course caveats. Four cross-query selections (three hidden) appeared in a complete local review; cancellation and reopening restored zero selection with no saved additions. No external service, download, account or legal-eligibility check was performed. Existing 128 entries were not individually enumerated natively; 193 use tags and 18 categories are source/test counts. Dark/responsive/exhaustive focus-filter matrices were not rerun.
