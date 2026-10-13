@@ -45,4 +45,4 @@ Controller and model-DOM checks cover English/Chinese checkbox state, exact CRLF
 The frozen literal-mode implementation passed2796/2796 strict serial Node tests
 with1 GiB heap,81/81 Python tests and66/66 focused draft tests. Runtime packaging
 verified113 explicit files. Manifest remains1.1.113 for this ordinary feature;
-literal-mode native acceptance is pending, separate from historical preview QA.
+limited Chinese-light literal native acceptance passed two-value restoration, exact placeholder output, actual OS copy/paste and100%/200% keyboard representatives. Discard restored baseline; no native save/provider/fault/limit or full matrix claim.
