@@ -5789,5 +5789,29 @@
   },
   "shortcutPreviewHidden": {
     "message": "Titles are hidden on your home page. Check the title in the field above."
+  },
+  "collectionsHistoricalPromptText": {
+    "message": "Exact historical prompt"
+  },
+  "collectionsHistoricalPromptReview": {
+    "message": "Review historical full prompt"
+  },
+  "collectionsHistoricalPromptCopy": {
+    "message": "Copy historical prompt"
+  },
+  "collectionsHistoricalPromptCopied": {
+    "message": "Historical prompt copied."
+  },
+  "collectionsHistoricalPromptBlocked": {
+    "message": "Copy could not be confirmed. Select the historical prompt text to copy it manually. No automatic retry."
+  },
+  "collectionsHistoricalPromptWarning": {
+    "message": "Historical input, possibly containing private information. Review before copying. Linked to the first answer version, not necessarily the current revised answer. Copying writes only the text shown below, without the outer endpoint/model metadata. Closing this review cannot undo a clipboard write already started."
+  },
+  "collectionsHistoricalPromptVersion": {
+    "message": "First answer version"
+  },
+  "collectionsHistoricalPromptClose": {
+    "message": "Close prompt review"
   }
 }

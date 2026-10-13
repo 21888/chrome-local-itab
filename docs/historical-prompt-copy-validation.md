@@ -1,0 +1,7 @@
+# Historical full-prompt review and copy
+
+The collection detail view can explicitly review and copy the complete prompt reconstructed from its already-saved context snapshot. It is historical input, not a fresh request or verified model-output evidence. The action does not reread current source records, invoke a provider, change permissions, save records or bind the snapshot to a newer answer revision.
+
+The preview requires the current saved record/session and renders text literally. Explicit copy is fenced against busy/uncertain writes, view changes, removed controls, close/dispose and page lifecycle changes. Failed clipboard access leaves a manual-selection fallback. BFCache pagehide closes obsolete review state and pageshow rebuilds current controls. No clipboard-read permission or automatic copy is added.
+
+Final implementation on the exact1.1.119 parent passed2917/2917 strict serial Node tests and84/84 Python tests. Independent audit passed five adversarial cases and61 collection-view tests. Integration repeated the61 view tests and Python suite, checked identical runtime source, and verified the118-file development package SHA25650d77bbb936786deec88fe6c1d15babc72a2cafc0b9f8fa6a785fc76a6447575. Native clipboard/keyboard acceptance is pending and is not claimed by the synthetic checks.

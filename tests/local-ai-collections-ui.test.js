@@ -259,3 +259,91 @@ for (const language of ['en', 'zh_CN']) test(`uncertain collection save exposes 
     assert.equal(h.view.status.textContent, messages.collectionsOutcomeVerified.message);
     assert.equal(h.h.writes, writes); assert.equal(JSON.stringify(h.h.raw), before); c.dispose();
 });
+
+async function historicalPromptFixture() {
+    const h = await mount(), c = h.controller;
+    const packed = require('../shared/ai-context').pack('  Synthetic "question" 中文 español 🧪 <script>x</script>\n\\path', [{ id: 'source', label: 'Synthetic', text: 'Exact\nreviewed\ttext' }]);
+    const contextSnapshot = { schemaVersion: 1, question: packed.question, sources: packed.sources, prompt: packed.prompt, endpoint: 'https://model.example/v1/chat/completions', model: 'outer-metadata-only' };
+    const saved = await h.store.mutate(h.store.request('add', { title: 'Snapshot', body: 'Original answer', contextSnapshot }));
+    await c.refresh(); c.select(saved.records[0].id);
+    const section = h.host.querySelector('.collection-context-snapshot');
+    const open = section.querySelectorAll('button').find(b => b.textContent === 'Review historical full prompt');
+    const panel = section.querySelector('.collection-historical-prompt'), prompt = panel.querySelector('pre');
+    const copy = panel.querySelectorAll('button').find(b => b.textContent === 'Copy historical prompt');
+    const close = panel.querySelectorAll('button').find(b => b.textContent === 'Close prompt review');
+    return { ...h, c, contextSnapshot, open, panel, prompt, copy, close, feedback: panel.querySelector('[role="status"]') };
+}
+test('historical prompt explicit review/copy is exact, literal, read-only and separate from answer copy', async () => {
+    const h = await historicalPromptFixture(), writes = [], before = h.h.writes;
+    h.root.fetch = () => { throw Error('No network'); };
+    h.root.chrome = { permissions: { request() { throw Error('No permissions'); } } };
+    h.view.clipboard = { async writeText(value) { writes.push(value); } };
+    assert.equal(h.panel.hidden, true); h.copy.dispatch('click'); await tick(); assert.deepEqual(writes, []);
+    h.open.dispatch('click'); assert.equal(h.panel.hidden, false); assert.equal(h.doc.activeElement, h.prompt);
+    assert.equal(h.open.getAttribute('aria-expanded'), 'true'); assert.equal(h.prompt.tabIndex, 0);
+    assert.equal(h.prompt.textContent, h.contextSnapshot.prompt); assert.equal(h.panel.querySelectorAll('script').length, 0);
+    assert.match(text(h.panel), new RegExp(h.c.record().history[0].id));
+    h.copy.dispatch('click'); await tick(); assert.deepEqual(writes, [h.contextSnapshot.prompt]);
+    assert.match(h.feedback.textContent, /Historical prompt copied/);
+    await h.view.copy(h.c.record().body); assert.deepEqual(writes, [h.contextSnapshot.prompt, 'Original answer']);
+    assert.equal(h.h.writes, before); h.close.dispatch('click'); assert.equal(h.doc.activeElement, h.open);
+    assert.equal(h.panel.hidden, true); assert.equal(h.open.getAttribute('aria-expanded'), 'false'); h.c.dispose();
+});
+for (const outcome of ['resolve', 'reject']) for (const change of ['unchanged', 'switch', 'edit', 'archive', 'reload', 'destroy', 'pagehide', 'bfcache', 'close-reopen', 'uncertain']) {
+    test(`historical prompt pending ${outcome} with ${change} never retries or gives stale feedback`, async () => {
+        const h = await historicalPromptFixture(), writes = []; let resolve, reject;
+        const pending = new Promise((yes, no) => { resolve = yes; reject = no; });
+        h.view.clipboard = { writeText(value) { writes.push(value); return pending; } };
+        h.open.dispatch('click'); h.copy.dispatch('click'); h.copy.dispatch('click');
+        assert.deepEqual(writes, [h.contextSnapshot.prompt]);
+        if (change === 'switch') await add(h.c, 'Other', 'other');
+        if (change === 'edit') h.c.edit();
+        if (change === 'archive') await h.c.action('remove');
+        if (change === 'reload') await h.c.refresh();
+        if (change === 'destroy') h.view.destroy();
+        if (change === 'pagehide') h.events.get('pagehide')({ persisted: false });
+        if (change === 'bfcache') h.events.get('pagehide')({ persisted: true });
+        if (change === 'close-reopen') { h.close.dispatch('click'); h.open.dispatch('click'); }
+        if (change === 'uncertain') { h.c.edit(); h.c.update('notes', 'Synthetic note'); h.h.failOnce(); await h.c.save(); assert.ok(h.c.pendingCommand); }
+        const status = h.feedback.textContent, pageStatus = h.view.status.textContent;
+        h.view.search.focus();
+        if (outcome === 'resolve') resolve(); else reject(Error('clipboard unknown'));
+        await tick();
+        assert.equal(h.view.copying, false); assert.equal(h.doc.activeElement, h.view.search);
+        assert.deepEqual(writes, [h.contextSnapshot.prompt]); assert.equal(h.view.status.textContent, pageStatus);
+        if (change === 'unchanged') assert.match(h.feedback.textContent, outcome === 'resolve' ? /Historical prompt copied/ : /Select the historical prompt text/);
+        else assert.equal(h.feedback.textContent, status);
+        h.c.dispose();
+    });
+}
+test('missing clipboard retains manually selectable prompt and does not auto retry', async () => {
+    const h = await historicalPromptFixture(); h.view.clipboard = undefined;
+    h.open.dispatch('click'); h.copy.dispatch('click'); await tick();
+    assert.match(h.feedback.textContent, /No automatic retry/); assert.equal(h.prompt.textContent, h.contextSnapshot.prompt);
+    assert.equal(h.doc.activeElement, h.prompt); h.c.dispose();
+});
+test('archived and revised answers retain first-version historical prompt; ordinary excerpts have no review', async () => {
+    const h = await historicalPromptFixture(), first = h.c.record().history[0].id;
+    const plan = await h.c.reviewBody('Revised answer'); await h.c.acceptRevision(plan);
+    await h.c.action('remove'); h.c.filter({ mode: 'trash' });
+    const panel = h.host.querySelector('.collection-historical-prompt');
+    assert.equal(panel.querySelector('pre').textContent, h.contextSnapshot.prompt); assert.match(text(panel), new RegExp(first));
+    await add(h.c, 'No snapshot', 'body'); assert.equal(h.host.querySelector('.collection-historical-prompt'), null); h.c.dispose();
+});
+
+test('BFCache restore requires fresh review, restores a usable entry, and suppresses old clipboard completion', async () => {
+    const h = await historicalPromptFixture(), writes = []; let finish;
+    h.view.clipboard = { writeText(value) { writes.push(value); return new Promise(resolve => { finish = resolve; }); } };
+    h.open.dispatch('click'); h.copy.dispatch('click');
+    h.events.get('pagehide')({ persisted: true }); h.events.get('pageshow')({ persisted: true });
+    const panel = h.host.querySelector('.collection-historical-prompt'); assert.equal(panel.hidden, true);
+    h.open.dispatch('click'); assert.equal(h.panel.hidden, true, 'old controls remain inert');
+    const open = h.host.querySelectorAll('button').find(b => b.textContent === 'Review historical full prompt');
+    open.dispatch('click'); assert.equal(panel.hidden, false);
+    const copy = panel.querySelectorAll('button').find(b => b.textContent === 'Copy historical prompt');
+    copy.dispatch('click'); assert.equal(writes.length, 1, 'in-flight clipboard remains serialized across restore');
+    finish(); await tick(); assert.equal(panel.querySelector('[role="status"]').textContent, '');
+    h.view.clipboard = { async writeText(value) { writes.push(value); } }; copy.dispatch('click'); await tick();
+    assert.deepEqual(writes, [h.contextSnapshot.prompt, h.contextSnapshot.prompt]);
+    assert.match(panel.querySelector('[role="status"]').textContent, /Historical prompt copied/); h.c.dispose();
+});

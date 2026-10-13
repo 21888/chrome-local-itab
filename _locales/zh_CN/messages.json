@@ -5789,5 +5789,29 @@
   },
   "shortcutPreviewHidden": {
     "message": "主页已隐藏标题，可在上方标题输入框检查。"
+  },
+  "collectionsHistoricalPromptText": {
+    "message": "历史完整提示词原文"
+  },
+  "collectionsHistoricalPromptReview": {
+    "message": "审阅历史完整提示词"
+  },
+  "collectionsHistoricalPromptCopy": {
+    "message": "复制历史提示词"
+  },
+  "collectionsHistoricalPromptCopied": {
+    "message": "已复制历史提示词。"
+  },
+  "collectionsHistoricalPromptBlocked": {
+    "message": "无法确认复制结果。可选择历史提示词原文手动复制；不会自动重试。"
+  },
+  "collectionsHistoricalPromptWarning": {
+    "message": "这是历史输入，可能含私人信息，复制前请审阅。它关联首版回答，不一定对应当前修订后的回答。仅复制下方所见原文，不附带外层端点或模型元数据。关闭审阅不能撤回已经开始的剪贴板写入。"
+  },
+  "collectionsHistoricalPromptVersion": {
+    "message": "关联的首版回答 ID"
+  },
+  "collectionsHistoricalPromptClose": {
+    "message": "关闭提示词审阅"
   }
 }
