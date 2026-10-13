@@ -1,0 +1,9 @@
+# 1.1.100 validation
+
+Normal patch increment from 1.1.99; parent 3880118909c8e18ebaba48022e47f7c915e71a53 and official baseline v1.1.99. Only manifest and documentation differ from the second feature, with no recovery marker.
+
+Precise ordinary CI passed 2548 Node/81 Python for listener cleanup and 2557 Node/81 Python for combined navigation shortcut. Actual 1.1.100 full regression passed strict serial Node 2557/2557 (1GiB heap, no failures/skips/cancellations) and Python 81/81.
+
+Limited native development ZIPs, each 112 files: listener 02dba75cf49a0c3a1f7866385ff95783fc84f0f77dab5054354f50a30e62fba8; combined 1f015459ed902bb4962678faecab634f1e38d6c3f2bd66d1f1e52bb30f9bf075. Chinese desktop light. Both libraries opened, temporary drafts were discarded, reopened data was unchanged and slash focus remained available. Navigation PhET summary/card slash selected query; input slash remained literal; selection, purpose, target and category draft remained; review did not surrender focus; close/reopen reset transient state. No confirmation save/add, fixture import, provider call or permission change. Default14 / qa remaining2 / Clarity light / Grid restored.
+
+Listener counts, memory and BFCache-specific paths remain synthetic-only. No dark/responsive/other-language, exhaustive IME/modifier/repeat/focus or accessibility matrix. Final minimal identity smoke passed: ZIP SHA256 4255b4b8710ea58f0123cc065ad04edf026693f5f1a8af8099e39ef4b841e646, 112 entries, with only manifest differing from combined development. Ordinary CfT reload visibly showed 1.1.100; fresh homepage retained Default14 / qa remaining2 / Clarity light / Grid. No data edits; AI originals, prompt library and saved workspace note were untouched rather than reread. Identity-only evidence does not expand feature coverage or prove live publication.

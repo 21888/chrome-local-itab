@@ -28,4 +28,4 @@ Existing navigation and shared focus tests continue to cover Tab, Shift+Tab, Esc
 - Runtime package build and byte verification: passed, 112 files.
 - `git diff --check` and changed JavaScript syntax: passed.
 
-Browser validation was not performed in this implementation task. Before publication, verify native focus/selection, absence of an inserted `/`, editable-field behavior, review/pending states, close/reopen, both languages, narrow layout, and light/dark appearance in Chrome.
+Limited Chinese desktop-light native validation passed on one representative PhET card: summary/card slash focused and selected the query; literal slash stayed in search/new-category inputs; selected site, purpose filter, target and category draft persisted. Review retained confirmation-button focus without activating it; closing/reopening reset transient state. No site/category save occurred. Dark/responsive, other languages, IME/modifier/repeat/alternate layouts, all focus targets and pending-save combinations were not native-tested. Synthetic guards are not a full accessibility or browser-matrix claim.
