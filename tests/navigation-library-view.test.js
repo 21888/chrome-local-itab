@@ -1461,3 +1461,15 @@ test('invalidated refresh cannot accept snapshots after a completed actual mutat
 test('layout mutation epoch is private, increases for every nested hold and exceeds safe integer without wrapping',()=>{
  const h=model(),{controller}=actualLayoutForRefresh(h);assert.equal(controller.shortcutMutationEpoch,0n);controller.holdShortcutMutation();controller.holdShortcutMutation();assert.equal(controller.shortcutMutationEpoch,2n);controller.releaseShortcutMutation();controller.releaseShortcutMutation();assert.equal(controller.shortcutMutationEpoch,2n);controller.shortcutMutationEpoch=BigInt(Number.MAX_SAFE_INTEGER);controller.holdShortcutMutation();controller.releaseShortcutMutation();assert.equal(controller.shortcutMutationEpoch,BigInt(Number.MAX_SAFE_INTEGER)+1n);assert.equal(h.calls,0);assert.equal(h.reads,0);
 });
+test('read-only invalidated refresh disables result checkboxes and rejected native toggles retain actual selection',async()=>{
+ const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');
+ let pick=h.document.querySelector('.navigation-library-pick input');pick.checked=true;pick.dispatch('change');assert.match(selectionCount(h),/1 \/ 20/);
+ await layout.invalidate();h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();
+ pick=h.document.querySelector('.navigation-library-pick input');assert.equal(pick.checked,true);assert.equal(pick.disabled,true);pick.checked=false;pick.dispatch('change');assert.equal(pick.checked,true);
+ h.search('chatgpt');pick=h.document.querySelector('.navigation-library-pick input');assert.equal(pick.checked,false);assert.equal(pick.disabled,true);pick.checked=true;pick.dispatch('change');assert.equal(pick.checked,false);assert.match(selectionCount(h),/1 \/ 20/);assert.equal(h.calls,0);
+});
+test('native checkbox change after external invalidation but before refresh restores unchecked state and normal selection still works',async()=>{
+ const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');const pick=h.document.querySelector('.navigation-library-pick input');assert.equal(pick.disabled,false);
+ await layout.invalidate();pick.checked=true;pick.dispatch('change');assert.equal(pick.checked,false);assert.equal(pick.disabled,true);assert.match(selectionCount(h),/0 \/ 20/);assert.equal(h.calls,0);
+ const normal=model();await normal.view.open();normal.search('phet');let current=normal.document.querySelector('.navigation-library-pick input');current.checked=true;current.dispatch('change');current=normal.document.querySelector('.navigation-library-pick input');assert.equal(current.checked,true);assert.equal(current.disabled,false);current.checked=false;current.dispatch('change');assert.match(selectionCount(normal),/0 \/ 20/);assert.equal(normal.calls,0);
+});

@@ -20,3 +20,11 @@ No permissions, provider calls, storage schema, automatic writes, or layout lock
 - Frozen-source strict Node regression: 2,820/2,820 passed with a 1 GiB heap and serial test execution; Python: 81/81. The six new regression groups passed. Independent review passed 156 view/layout tests and 22 additional actual-Controller cases.
 - The development package contains exactly 113 allowlisted runtime files and passed independent package verification. JavaScript syntax, locale JSON and diff checks passed.
 - Native verification of this fix is pending. The original cross-page problem was observed in the browser; automated success is not a claim that the repaired browser flow has passed.
+
+## Follow-up: checkbox consistency
+
+The repaired read-only refresh was tested with a reversible cross-page synthetic category rename. Its two refreshes updated saved locations and destination names while preserving the browsing draft and keeping Add/review locked. This exposed a separate visual inconsistency: a result checkbox could appear checked even though its guarded change callback rejected the selection and the count remained zero.
+
+Result checkbox availability now follows the same selection guard. A live checkbox change rejected after an intervening state change restores its actual selection value; stale controls cannot affect the current opening. Focused actual-Controller regressions cover selected and unselected rows in read-only mode, invalidation before refresh, and ordinary selection/deselection. Native confirmation of this follow-up is pending; the earlier browser report is not a claim that this residual issue was already fixed.
+
+The frozen follow-up passed 2,822/2,822 strict serial Node tests, 81/81 Python tests and 113-file package verification. Independent review passed 157 view tests and six additional actual-Controller cases. These are automated results; browser confirmation remains pending.

@@ -595,10 +595,17 @@
                 titleBlock.append(title, el('span', new URL(site.url).hostname.replace(/^www\./, ''), 'navigation-library-domain')); top.append(mark, titleBlock); card.append(top);
                 const pickLabel = el('label', undefined, 'navigation-library-pick'), pick = el('input'); pick.type = 'checkbox'; pick.checked = selected.has(site.id);
                 pick.setAttribute('aria-label', `${t('select')}: ${site.name}`);
-                pick.dataset.unavailable = String(isSaved(site) || blocked || (!pick.checked && selected.size >= 20));
+                pick.dataset.unavailable = String(isSaved(site) || selectionUnavailable() || (!pick.checked && selected.size >= 20));
                 pick.disabled = writing || pick.dataset.unavailable === 'true';
                 pick.addEventListener('change', () => {
-                    if (owner !== revision || !pick.isConnected || pick.disabled || selectionUnavailable() || isSaved(site)) return;
+                    if (owner !== revision || !pick.isConnected) return;
+                    if (pick.disabled || selectionUnavailable() || isSaved(site)) {
+                        // Native change toggles checked before this handler runs.
+                        // Keep the visual state faithful when a read-only fence rejects it.
+                        pick.checked = selected.has(site.id);
+                        if (selectionUnavailable()) { pick.dataset.unavailable = 'true'; pick.disabled = true; }
+                        return;
+                    }
                     const index = Array.from(results.children).findIndex(node => node.dataset.site === site.id);
                     if (pick.checked && selected.size < 20) selected.add(site.id); else selected.delete(site.id);
                     renderResults();
