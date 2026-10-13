@@ -5951,5 +5951,47 @@
   },
   "answerReaderCodeCopyBlocked": {
     "message": "Copy was blocked. Select this code and copy it manually."
+  },
+  "promptsCompareDiffTitle": {
+    "message": "Original text differences"
+  },
+  "promptsCompareDiffOpen": {
+    "message": "Compare original text differences"
+  },
+  "promptsCompareDiffHelp": {
+    "message": "Exact line-by-line text comparison, not a quality score. Original answers, copying and saving remain above."
+  },
+  "promptsCompareDiffEqual": {
+    "message": "Both original answers are exactly identical."
+  },
+  "promptsCompareDiffFallback": {
+    "message": "Large change: only common beginning and ending lines are matched. The middle is shown as separate blocks for each target."
+  },
+  "promptsCompareDiffLegend": {
+    "message": "= Same in both · 1 Only in target 1 · 2 Only in target 2. Line endings are compared exactly."
+  },
+  "promptsCompareDiffEndings": {
+    "message": "Line endings"
+  },
+  "promptsCompareDiffFinal": {
+    "message": "Ends with newline"
+  },
+  "promptsCompareDiffYes": {
+    "message": "Yes"
+  },
+  "promptsCompareDiffNo": {
+    "message": "No"
+  },
+  "promptsCompareDiffSame": {
+    "message": "= Same in both"
+  },
+  "promptsCompareDiffLeft": {
+    "message": "1 Only in target 1"
+  },
+  "promptsCompareDiffRight": {
+    "message": "2 Only in target 2"
+  },
+  "promptsCompareDiffClose": {
+    "message": "Close text differences"
   }
 }

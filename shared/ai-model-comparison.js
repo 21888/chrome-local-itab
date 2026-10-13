@@ -19,6 +19,47 @@
         const grid = el('div', 'ai-compare-grid'), actions = el('div', 'prompt-actions');
         let closed = false, stale = false, loading = true, sending = false, batch = null, presets = [], generation = 0, cleanup, reviewedValues = null;
         const targets = [], variables = [];
+        const difference = el('section', 'ai-compare-difference'); difference.hidden = true;
+        difference.setAttribute('aria-label', t('DiffTitle', 'Original text differences'));
+        difference.id = 'ai-compare-difference';
+        function comparable() {
+            return !trial && !closed && !stale && !loading && !sending && !view.destroyed && !view.doc.hidden &&
+                !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') && sourceCurrent() &&
+                typeof root.LocalItabPromptsView?.compareBodies === 'function' && targets.length === 2 &&
+                targets.every(target => target.response && typeof target.response.text === 'string' &&
+                    target.responseGeneration === generation && target.responseRequest === target.reviewed &&
+                    target.responseRequest.prompt === preview.text);
+        }
+        function clearDifference() {
+            const focusedInside = difference.contains(view.doc.activeElement);
+            difference.replaceChildren(); difference.hidden = true;
+            if (focusedInside && !closed && !view.doc.hidden) status.focus();
+            compareText?.setAttribute('aria-expanded', 'false');
+        }
+        const compareText = button('DiffOpen', 'Compare original text differences', () => {
+            if (!checkSource() || !comparable()) { clearDifference(); update(); return; }
+            if (!difference.hidden) { clearDifference(); return; }
+            const result = root.LocalItabPromptsView.compareBodies(targets[0].response.text, targets[1].response.text);
+            difference.append(el('h3', '', t('DiffTitle', 'Original text differences')),
+                el('p', 'prompt-help', t('DiffHelp', 'Exact line-by-line text comparison, not a quality score. Original answers, copying and saving remain above.')),
+                el('p', 'prompt-help', result.equal ? t('DiffEqual', 'Both original answers are exactly identical.') : result.fallback ?
+                    t('DiffFallback', 'Large change: only common beginning and ending lines are matched. The middle is shown as separate blocks for each target.') :
+                    t('DiffLegend', '= Same in both · 1 Only in target 1 · 2 Only in target 2. Line endings are compared exactly.')));
+            targets.forEach((target, index) => {
+                const counts = index === 0 ? result.beforeEndings : result.afterEndings;
+                difference.append(el('p', 'prompt-help', `${target.heading.textContent} · ${target.responseRequest.model} · ${target.responseRequest.origin}`),
+                    el('p', 'prompt-help', `${t('DiffEndings', 'Line endings')}: CRLF ${counts.crlf} · LF ${counts.lf} · CR ${counts.cr} · ${t('DiffFinal', 'Ends with newline')}: ${counts.final ? t('DiffYes', 'Yes') : t('DiffNo', 'No')}`));
+            });
+            for (const group of result.groups) {
+                const label = group.kind === 'unchanged' ? t('DiffSame', '= Same in both') : group.kind === 'removed' ? t('DiffLeft', '1 Only in target 1') : t('DiffRight', '2 Only in target 2');
+                const block = el('section', `prompt-compare-${group.kind}`), raw = el('pre', 'prompt-readonly', group.text); raw.tabIndex = 0;
+                block.append(el('h4', '', label), raw); difference.append(block);
+            }
+            difference.append(button('DiffClose', 'Close text differences', () => { clearDifference(); compareText.focus(); }));
+            difference.hidden = false; compareText.setAttribute('aria-expanded', 'true');
+        });
+        compareText.setAttribute('aria-expanded', 'false'); compareText.setAttribute('aria-controls', difference.id);
+        compareText.hidden = Boolean(trial);
         function refreshCopyState() { targets.forEach(target => target.answerReader?.refreshCopyState()); }
         const variableFields = el('div', 'ai-model-fields');
         if (trial) for (const name of root.LocalItabPrompts.previewTemplate(trial.source.body).variables) {
@@ -44,6 +85,8 @@
                 target.stop.disabled = !target.running;
                 target.save.disabled = Boolean(trial) || closed || stale || sending || saving() || !target.response || target.saved;
             }
+            compareText.disabled = !comparable();
+            if (compareText.disabled) clearDifference();
             refreshCopyState();
             // Disabling or hiding the focused control blurs it to body in Chrome.
             // Keep this dialog's keyboard scope without stealing another live focus.
@@ -94,10 +137,10 @@
             target.answerReader.node.setAttribute('aria-label', target.output.getAttribute('aria-label'));
             target.readerHost.append(target.answerReader.node); target.readerHost.hidden = false; target.output.hidden = true;
         }
-        function visibilityChanged() { if (view.doc.hidden) targets.forEach(releaseReader); }
+        function visibilityChanged() { if (view.doc.hidden) { targets.forEach(releaseReader); clearDifference(); } update(); }
         function invalidate(message, permanent = false) {
             const focused = view.doc.activeElement;
-            generation++; batch = null; reviewedValues = null; stale ||= permanent;
+            generation++; clearDifference(); batch = null; reviewedValues = null; stale ||= permanent;
             for (const target of targets) { releaseReader(target); target.retryReady = false; if (!trial && !permanent) target.heading.textContent = `${t('Target', 'Target')} ${targets.indexOf(target) + 1}`; if (trial) { target.response = null; target.output.value = ''; target.output.hidden = true; target.attempted = false; target.message.textContent = ''; target.reviewText.textContent = ''; } target.aborter?.abort(); target.key.value = ''; target.reviewed = null; target.reviewText.hidden = true; }
             if (message) status.textContent = message;
             update(focused);
@@ -255,7 +298,7 @@
                         target.message.textContent = t('Running', 'Waiting for this model…');
                         const result = await cancellable(root.LocalItabAIModel.run(request, { key: secret, signal }), signal);
                         if (!active(token) || signal.aborted) return;
-                        target.response = result; target.output.value = result.text; target.output.hidden = false; readResponse(target);
+                        target.response = result; target.responseRequest = request; target.responseGeneration = token; target.output.value = result.text; target.output.hidden = false; readResponse(target);
                         target.message.textContent = trial ? t('TrialReady', 'Temporary test answer. No score or automatic acceptance. Close the trial to decide whether to accept the proposal separately.') : t('Ready', 'Review this result. Save only if you want it in local collections and unencrypted backups.');
                     } catch (error) { if (active(token) && !signal.aborted) target.message.textContent = failure(error.code); }
                     finally { target.key.value = ''; target.running = false; if (!closed) update(); }
@@ -273,8 +316,8 @@
         function finish() {
             if (closed || saving()) return;
             if ((sending || targets.some(target => target.response && !target.saved)) && !root.confirm(t('Discard', 'Stop pending requests and discard unsaved comparison results?'))) return;
-            closed = true; generation++;
-            targets.forEach(target => { releaseReader(target); target.aborter?.abort(); target.key.value = ''; target.response = target.reviewed = target.command = target.snapshot = null; target.output.value = ''; if (trial) target.reviewText.textContent = ''; });
+            closed = true; generation++; clearDifference();
+            targets.forEach(target => { releaseReader(target); target.aborter?.abort(); target.key.value = ''; target.response = target.responseRequest = target.reviewed = target.command = target.snapshot = null; target.output.value = ''; if (trial) target.reviewText.textContent = ''; });
             batch = null; reviewedValues = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged); root.chrome?.storage?.onChanged?.removeListener(storageChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.checkModelComparison = null; view.cancelModelDialog = null;
@@ -283,7 +326,7 @@
             trial?.onClose();
         }
         const close = button('Close', 'Close', finish);
-        actions.append(review, send, close); box.append(title, help, prompt, variableFields, grid, actions, status); overlay.append(box); view.doc.body.append(overlay);
+        actions.append(review, send, compareText, close); box.append(title, help, prompt, variableFields, grid, actions, difference, status); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.checkModelComparison = checkSource; view.cancelModelDialog = hide;
         view.refreshModelCopy = refreshCopyState;
         root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged); root.chrome?.storage?.onChanged?.addListener(storageChanged);
@@ -296,7 +339,7 @@
         }
         renderPresets(); update();
         Promise.resolve().then(() => presetStore.read()).then(state => { if (!closed) { presets = state.records; renderPresets(); status.textContent = trial ? t('TrialStart', 'Fill temporary values and review both requests. No trial request has been sent.') : t('Select', 'Select one or two saved connections. Create connections with Run with your model first.'); } }).catch(() => { if (!closed) { stale = true; status.textContent = t('LoadError', 'Saved connections could not be verified. No requests were started. Close and reopen to try again.'); } }).finally(() => { loading = false; if (!closed) update(); });
-        return { targets, review, send, close, prompt, status, overlay, checkSource, variables, hide };
+        return { targets, review, send, close, prompt, status, overlay, checkSource, variables, hide, compareText, difference };
     }
     root.LocalItabAIModelComparison = { open };
 })(window);

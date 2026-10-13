@@ -23,3 +23,13 @@ Focused tests exercise the shipped dialog and shared transport boundary with syn
     timeout 60 node --max-old-space-size=256 --test tests/ai-model-comparison.test.js tests/ai-model-client.test.js tests/local-prompts-view.test.js
 
 Native extension/provider verification is separate; these synthetic checks do not claim real compatibility, billing behavior or Chrome permission UI validation.
+
+## Read-only original text differences
+
+After both normal comparison targets finish successfully for the same still-current completed prompt, **Compare original text differences** explicitly opens a local line-by-line comparison. It labels unchanged text and text present only in target 1 or target 2, retains connection/model/origin labels, and reports exact CRLF/LF/CR and final-newline details. This is text comparison, not a quality score or recommendation. Original answer readers, copying and explicit saving remain unchanged above it.
+
+The comparison reuses the existing bounded local LCS implementation. If the changed middle exceeds its 250,000-cell budget, the view discloses that only common beginning/end lines are matched and displays each original middle in full. No text is normalized or rendered as HTML. There are no new dependencies, requests, permissions or persisted records.
+
+A pending, stopped, failed, incomplete or single-target result cannot enable this view. An explicitly reviewed retry can enable it only when both valid results are complete. Refinement trials use different prompts and do not expose this view. Source/preset changes, workspace interruption, page hiding and closing clear the differences; returning from a hidden page requires another explicit click.
+
+Validation of the original-text difference view is synthetic only; native browser interaction and real provider/API behavior have not been verified for this feature. The development commit retains manifest version 1.1.124 and is not a separate release.

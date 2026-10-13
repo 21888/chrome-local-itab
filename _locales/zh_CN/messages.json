@@ -5951,5 +5951,47 @@
   },
   "answerReaderCodeCopyBlocked": {
     "message": "复制受阻，请选中此代码手动复制。"
+  },
+  "promptsCompareDiffTitle": {
+    "message": "原文差异"
+  },
+  "promptsCompareDiffOpen": {
+    "message": "比较原文差异"
+  },
+  "promptsCompareDiffHelp": {
+    "message": "按行精确比较文本，不评价答案质量。上方保留原始答案、复制和保存功能。"
+  },
+  "promptsCompareDiffEqual": {
+    "message": "两个答案的原文完全一致。"
+  },
+  "promptsCompareDiffFallback": {
+    "message": "差异较大：仅匹配相同的开头和结尾行，中间内容按两个目标分别完整显示。"
+  },
+  "promptsCompareDiffLegend": {
+    "message": "= 两者相同 · 1 仅目标 1 · 2 仅目标 2。换行符也按原样比较。"
+  },
+  "promptsCompareDiffEndings": {
+    "message": "换行符"
+  },
+  "promptsCompareDiffFinal": {
+    "message": "末尾有换行"
+  },
+  "promptsCompareDiffYes": {
+    "message": "是"
+  },
+  "promptsCompareDiffNo": {
+    "message": "否"
+  },
+  "promptsCompareDiffSame": {
+    "message": "= 两者相同"
+  },
+  "promptsCompareDiffLeft": {
+    "message": "1 仅目标 1"
+  },
+  "promptsCompareDiffRight": {
+    "message": "2 仅目标 2"
+  },
+  "promptsCompareDiffClose": {
+    "message": "关闭原文差异"
   }
 }

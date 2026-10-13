@@ -24,7 +24,7 @@ async function mount({ safeReader = false, locale, clipboard, trial = null, run,
     }
     const catalog = locale ? JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8')) : {};
     root.i18n = { t: key => catalog[key]?.message || key };
-    for (const path of ['shared/dialog-focus.js', 'shared/ai-model-comparison.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${path}`, 'utf8'), context);
+    for (const path of ['shared/dialog-focus.js', 'shared/local-prompts-view.js', 'shared/ai-model-comparison.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${path}`, 'utf8'), context);
     const view = { doc, clipboard, controller: h.controller, t: (_, fallback) => fallback,
         el(tag, className, text) { const element = doc.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; },
         button(_, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
@@ -421,4 +421,74 @@ test('code copy: comparison failure unlocks both columns with manual feedback on
     assert.equal(readers[0].querySelector('.answer-reader-copy-status').textContent, '');
     assert.equal(readers[1].querySelector('.answer-reader-copy-status').textContent, 'Copy was blocked. Select this code and copy it manually.');
     assert.equal(h.runs.length, 2); assert.equal(h.writes.length, 0); await h.done();
+});
+
+const allText = node => [node.textContent || '', ...node.children.map(allText)].join(' ');
+const diffBodies = (ui, side) => ui.difference.children.filter(node => node.tagName === 'SECTION' && !node.className.includes(side === 0 ? 'added' : 'removed')).map(node => node.querySelector('pre').textContent).join('');
+test('explicit original-text diff is literal, labeled, exact and repeatable without requests or writes', async () => {
+    const originals = ['# same\r\n<script>A</script> 🧪\nlast\n', '# same\r\n<script>B</script> 🧪\nlast'];
+    const h = await mount({ safeReader: true, run: async input => ({ text: originals[input.model === 'model-a' ? 0 : 1] }) });
+    assert.equal(h.ui.compareText.disabled, true); h.selectBoth(); await click(h.ui.review); await click(h.ui.send);
+    assert.equal(h.ui.compareText.disabled, false); assert.equal(h.ui.difference.hidden, true);
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, false);
+    for (let i = 0; i < 2; i++) assert.equal(diffBodies(h.ui, i), originals[i]);
+    assert.match(allText(h.ui.difference), /model-a.*a.synthetic.test.*model-b.*b.synthetic.test/);
+    assert.match(allText(h.ui.difference), /not a quality score/); assert.match(allText(h.ui.difference), /CRLF 1/);
+    assert.equal(h.ui.difference.querySelectorAll('script, img, a').length, 0);
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.difference.children.length, 0);
+    await click(h.ui.compareText); const close = h.ui.difference.querySelector('button'); await click(close);
+    assert.equal(h.view.doc.activeElement, h.ui.compareText); assert.equal(h.ui.compareText.getAttribute('aria-expanded'), 'false');
+    await click(h.ui.targets[0].save); assert.equal(h.writes[0].body, originals[0]); assert.equal(h.runs.length, 2);
+    assert.equal(h.ui.targets[1].answerReader !== null, true); await h.done();
+});
+test('equal original answers report equality; large middle uses bounded exact fallback', async () => {
+    for (const originals of [['same\r\n','same\r\n'], ['start\n'+'a\n'.repeat(16000)+'end', 'start\n'+'b\n'.repeat(16000)+'end']]) {
+        const h = await mount({ run: async input => ({ text: originals[input.model === 'model-a' ? 0 : 1] }) });
+        h.selectBoth(); await click(h.ui.review); await click(h.ui.send); await click(h.ui.compareText);
+        assert.match(allText(h.ui.difference), originals[0] === originals[1] ? /exactly identical/ : /Large change/);
+        for (let i = 0; i < 2; i++) assert.equal(diffBodies(h.ui, i), originals[i]);
+        assert.ok(h.ui.difference.querySelectorAll('pre').length <= 4); await h.done();
+    }
+});
+test('one target, failure and pending or cancelled results cannot enable diff; explicit retry can', async () => {
+    let attempt = 0; const pending = deferred();
+    const h = await mount({ run: async input => input.model === 'model-a' && ++attempt === 1 ? pending.promise : ({ text: input.model }) });
+    h.selectBoth(); await click(h.ui.review); await click(h.ui.send);
+    assert.equal(h.ui.compareText.disabled, true); await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    await click(h.ui.targets[0].stop); assert.equal(h.ui.compareText.disabled, true);
+    await click(h.ui.targets[0].retryReview); await click(h.ui.targets[0].retrySend); assert.equal(h.ui.compareText.disabled, false);
+    await click(h.ui.compareText); const before = allText(h.ui.difference); pending.resolve({ text: 'obsolete partial answer' }); await tick();
+    assert.equal(allText(h.ui.difference), before); assert.doesNotMatch(before, /obsolete/); assert.equal(h.runs.length, 3); await h.done();
+    const single = await mount(); single.choose(0, '0'); await click(single.ui.review); await click(single.ui.send); assert.equal(single.ui.compareText.disabled, true); await single.done();
+    const failed = await mount({ run: async input => { if (input.model === 'model-a') throw { code: 'INCOMPLETE' }; return { text: 'complete peer' }; } });
+    failed.selectBoth(); await click(failed.ui.review); await click(failed.ui.send); assert.equal(failed.ui.compareText.disabled, true); await failed.done();
+});
+for (const action of ['visibility', 'source', 'profile', 'pagehide', 'close']) test(`original diff clears on ${action} and cannot silently reappear`, async () => {
+    const h = await mount(); h.selectBoth(); await click(h.ui.review); await click(h.ui.send); await click(h.ui.compareText);
+    assert.equal(h.ui.difference.hidden, false);
+    if (action === 'visibility') { h.view.doc.hidden = true; h.view.doc.listeners.get('visibilitychange')(); }
+    if (action === 'source') { h.h.controller.excerptEpoch++; h.ui.checkSource(); }
+    if (action === 'profile') h.change({ __localItabAIModelPresetsV1: {} });
+    if (action === 'pagehide') h.events.get('pagehide')();
+    if (action === 'close') await click(h.ui.close);
+    assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.difference.children.length, 0);
+    if (action === 'visibility') {
+        assert.equal(h.ui.compareText.disabled, true); h.view.doc.hidden = false; h.view.doc.listeners.get('visibilitychange')();
+        assert.equal(h.ui.difference.hidden, true); await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, false);
+    } else { await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true); }
+    await h.done();
+});
+test('different request snapshots and refinement trials never pretend to share the same prompt', async () => {
+    const h = await mount(); h.selectBoth(); await click(h.ui.review); await click(h.ui.send);
+    h.ui.targets[1].responseRequest = { ...h.ui.targets[1].reviewed, prompt: 'different input' };
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true); await h.done();
+    const trial = await mount({ trial: { source: { body: 'Original synthetic prompt' }, proposal: 'Refined synthetic prompt', current: () => true, onClose() {} } });
+    await click(trial.ui.review); await click(trial.ui.send); assert.equal(trial.runs.length, 2);
+    assert.equal(trial.ui.compareText.hidden, true); assert.equal(trial.ui.compareText.disabled, true);
+    await click(trial.ui.compareText); assert.equal(trial.ui.difference.hidden, true); await trial.done();
+});
+test('source invalidation keeps keyboard focus inside the dialog after removing a focused diff block', async () => {
+    const h = await mount(); h.selectBoth(); await click(h.ui.review); await click(h.ui.send); await click(h.ui.compareText);
+    h.ui.difference.querySelector('pre').focus(); h.h.controller.excerptEpoch++; h.ui.checkSource();
+    assert.equal(h.view.doc.activeElement, h.ui.status); assert.equal(h.ui.difference.hidden, true); await h.done();
 });
