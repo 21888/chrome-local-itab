@@ -5755,5 +5755,11 @@
   },
   "navigationLibraryMissingDestination": {
     "message": "The selected personal category is no longer available. Choose another category before adding."
+  },
+  "navigationLibraryRefreshReadOnly": {
+    "message": "Saved state refreshed for viewing. Page data changed; reload this page before adding sites or adjusting the layout."
+  },
+  "navigationLibraryRefreshReload": {
+    "message": "Page data changed. Reload this page before adding sites or adjusting the layout."
   }
 }

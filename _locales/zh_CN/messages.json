@@ -5755,5 +5755,11 @@
   },
   "navigationLibraryMissingDestination": {
     "message": "所选个人分类已失效，请重新选择分类后再添加。"
+  },
+  "navigationLibraryRefreshReadOnly": {
+    "message": "已刷新供查看的保存状态。页面数据已改变；请重新加载此页面后再添加网站或调整布局。"
+  },
+  "navigationLibraryRefreshReload": {
+    "message": "页面数据已改变。请重新加载此页面后再添加网站或调整布局。"
   }
 }

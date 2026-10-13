@@ -1400,3 +1400,64 @@ test('refresh rejects reads if external writes begin while pending, including fa
  await tick();assert.match(h.document.querySelector('.navigation-library-status').textContent,/workspace or settings changed/);assert.equal(h.firstAdd().textContent,'+ Add');assert.equal(h.firstAdd().disabled,true);assert.equal(h.document.querySelector('.navigation-library-refresh-saved').disabled,true);assert.equal(h.calls,0);
  }
 });
+
+function actualLayoutForRefresh(h) {
+ h.context.clearTimeout=clearTimeout;
+ vm.runInContext(fs.readFileSync('shared/layout.js','utf8'),h.context);
+ let generation='initial';const layout={autoArrange:true};
+ const storage={defaultConfig:{layout},validateLayoutConfig:value=>value,async getLayoutSnapshotForUpdate(){return {layout,links:[],generation};}};
+ const controller=new h.context.LocalItabLayout.Controller({storage,initial:layout,baseline:{generation,links:[]},getLinks:()=>[]});
+ h.component.layoutController=controller;
+ return {controller,async invalidate(){generation='external-category-rename';await controller.refresh();assert.equal(controller.invalidated,true);}};
+}
+test('real layout invalidation permits explicit read-only refresh after external category rename, never Add or Review',async()=>{
+ for(const locale of ['en','zh-CN']) {
+  const h=model({locale}),layout=actualLayoutForRefresh(h);h.snapshot.links=[{url:'https://chatgpt.com/',category:'personal'}];
+  await h.view.open();h.search('chatgpt');const original=h.document.querySelector('.navigation-library-saved-locations li').textContent;
+  h.snapshot.categories[1].name='Renamed outside';await layout.invalidate();
+  h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();
+  assert.equal(h.reads,2);assert.notEqual(original,'Renamed outside');assert.deepEqual(locationList(h),['Renamed outside']);
+  assert.equal(layout.controller.invalidated,true);assert.match(h.document.querySelector('.navigation-library-status').textContent,locale==='en'?/reload this page before adding/:/重新加载此页面后再添加/);
+  h.search('phet');const add=h.firstAdd();assert.equal(add.disabled,true);add.dispatch('click');await tick();assert.equal(h.calls,0);
+  const pick=h.document.querySelector('.navigation-library-pick input');pick.checked=true;pick.dispatch('change');
+  const review=h.document.querySelector('.navigation-library-batch-review');assert.equal(review.disabled,true);review.dispatch('click');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);assert.equal(h.calls,0);
+ }
+});
+test('read-only invalidation exception rejects every actual layout mutation and unknown mode controller',async()=>{
+ for(const field of ['pending','timer','failedChange','externalHold','identityPending','patch','positions','identityPositions']) {
+  const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();await layout.invalidate();
+  layout.controller[field]=['patch','positions','identityPositions','failedChange'].includes(field)?{x:1}:1;
+  h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();assert.equal(h.reads,1,field);assert.equal(h.calls,0,field);
+ }
+ const h=model();await h.view.open();h.component.layoutController={invalidated:true,modePending:true,patch:{},positions:{},identityPositions:{}};
+ h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();assert.equal(h.reads,1);assert.equal(h.calls,0);
+});
+test('unknown save lock is not released by a later real layout invalidation',async()=>{
+ const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error('unknown'),{code:'CATALOG_UNVERIFIED',mayHaveCommitted:true});};
+ h.firstAdd().dispatch('click');await tick();await layout.invalidate();h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();assert.equal(h.reads,1);assert.equal(layout.controller.invalidated,true);
+});
+test('real invalidated read rejects resolve and reject when actual layout work starts while pending',async()=>{
+ for(const reject of [false,true]) for(const field of ['pending','timer','failedChange','externalHold','identityPending','patch','positions','identityPositions']) {
+  const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();await layout.invalidate();let resolve,rejectRead;const pending={promise:new Promise((yes,no)=>{resolve=yes;rejectRead=no;}),resolve:value=>resolve(value),reject:error=>rejectRead(error)};h.read=pending;
+  h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');assert.equal(h.reads,2);
+  layout.controller[field]=['patch','positions','identityPositions','failedChange'].includes(field)?{x:1}:1;
+  if(reject)pending.reject(new Error('read failed'));else pending.resolve({...h.snapshot,categories:[{id:'work',name:'Forbidden adoption'}]});await tick();
+  assert.equal(layout.controller.invalidated,true);assert.equal(h.calls,0);assert.doesNotMatch(h.document.querySelector('.navigation-library-status').textContent,/refreshed/);
+  assert.equal(h.document.querySelector('.navigation-library-refresh-saved').disabled,true);
+ }
+});
+test('invalidated refresh cannot accept snapshots after a completed actual mutation or controller replacement',async()=>{
+ for(const change of ['mutation','failed-hold','replacement','invalidation']) {
+  const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();await layout.invalidate();const pending=deferred();h.read=pending;
+  h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');
+  if(change==='mutation'){layout.controller.holdShortcutMutation();layout.controller.adoptOwnShortcutSnapshot({layout:{autoArrange:true},links:[],generation:'completed-mutation'});layout.controller.releaseShortcutMutation();}
+  else if(change==='failed-hold'){layout.controller.holdShortcutMutation();layout.controller.releaseShortcutMutation();}
+  else if(change==='replacement')actualLayoutForRefresh(h);else layout.controller.invalidateContext();
+  pending.resolve({...h.snapshot,categories:[{id:'work',name:'Stale returned category'}]});await tick();
+  assert.equal(h.calls,0);assert.doesNotMatch(h.document.querySelector('.navigation-library-status').textContent,/refreshed/);assert.equal(h.document.querySelector('.navigation-library-refresh-saved').disabled,true);
+ }
+});
+
+test('layout mutation epoch is private, increases for every nested hold and exceeds safe integer without wrapping',()=>{
+ const h=model(),{controller}=actualLayoutForRefresh(h);assert.equal(controller.shortcutMutationEpoch,0n);controller.holdShortcutMutation();controller.holdShortcutMutation();assert.equal(controller.shortcutMutationEpoch,2n);controller.releaseShortcutMutation();controller.releaseShortcutMutation();assert.equal(controller.shortcutMutationEpoch,2n);controller.shortcutMutationEpoch=BigInt(Number.MAX_SAFE_INTEGER);controller.holdShortcutMutation();controller.releaseShortcutMutation();assert.equal(controller.shortcutMutationEpoch,BigInt(Number.MAX_SAFE_INTEGER)+1n);assert.equal(h.calls,0);assert.equal(h.reads,0);
+});

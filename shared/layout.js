@@ -31,6 +31,8 @@
             this.version = 0;
             this.pending = 0;
             this.refreshVersion = 0;
+            // In-memory read fence only; BigInt never wraps or enters saved data.
+            this.shortcutMutationEpoch = 0n;
             this.queue = Promise.resolve();
             this.timer = null;
             this.render = render;
@@ -157,6 +159,7 @@
         }
 
         holdShortcutMutation() {
+            this.shortcutMutationEpoch += 1n;
             if (!this.externalHold) this.shortcutMutationSaved = false;
             this.externalHold = (this.externalHold || 0) + 1;
             this.render(this.confirmed, 'saving');

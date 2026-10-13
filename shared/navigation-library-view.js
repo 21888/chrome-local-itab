@@ -20,7 +20,7 @@
         close: 'Close', privacy: 'Browsing this library stays offline. Adding uses your existing Sync and online-icon settings.',
         disclosure: 'Location describes the company or service operator, not where a site is accessible. Plans, availability and account requirements can change.',
         source: 'Sources & details', allUses: 'All uses', categories: 'Categories', moreUse: 'more use in details', moreUses: 'more uses in details', sources: 'Sources', checked: 'Checked', unknown: 'Unknown', free: 'Free entry', freemium: 'Free + paid plans', paid: 'Paid', not_applicable: 'Not applicable',
-        refreshSaved: 'Refresh saved state', refreshingSaved: 'Refreshing saved state…', refreshedSaved: 'Saved state refreshed.', refreshRemoved: '{count} selected sites are now added and were removed from the selection.', refreshFailed: 'Could not refresh saved state. The previous saved state is still shown; your browsing and drafts are unchanged.', missingDestination: 'The selected personal category is no longer available. Choose another category before adding.',
+        refreshReadOnly: 'Saved state refreshed for viewing. Page data changed; reload this page before adding sites or adjusting the layout.', refreshReload: 'Page data changed. Reload this page before adding sites or adjusting the layout.', refreshSaved: 'Refresh saved state', refreshingSaved: 'Refreshing saved state…', refreshedSaved: 'Saved state refreshed.', refreshRemoved: '{count} selected sites are now added and were removed from the selection.', refreshFailed: 'Could not refresh saved state. The previous saved state is still shown; your browsing and drafts are unchanged.', missingDestination: 'The selected personal category is no longer available. Choose another category before adding.',
         readError: 'Could not read your saved sites. Close and reopen to try again.',
         conflict: 'Your shortcuts, workspace or settings changed. Close and reopen to review the latest state.',
         failed: 'Nothing was added. You can try adding the site again.',
@@ -104,6 +104,7 @@
             };
         }
         function setControls() {
+            for (const node of overlay.querySelectorAll('.navigation-library-add, .navigation-library-batch-review')) { if (externalWorkPending()) node.dataset.unavailable = 'true'; }
             for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || (refreshing && !node.classList.contains('navigation-library-close')) || node.dataset.unavailable === 'true';
             refreshReadControl();
         }
@@ -348,18 +349,20 @@
         }
         function refreshReadControl() {
             if (!refreshSavedButton?.isConnected) return;
-            refreshSavedButton.dataset.unavailable = String(Boolean(selectionUnavailable() || reviewed || refreshing));
+            refreshSavedButton.dataset.unavailable = String(Boolean(refreshUnavailable() || reviewed || refreshing));
             refreshSavedButton.disabled = refreshSavedButton.dataset.unavailable === 'true';
         }
         async function refreshSavedState() {
-            if (!refreshSavedButton?.isConnected || selectionUnavailable() || reviewed || isComposing() || refreshing) return;
+            if (!refreshSavedButton?.isConnected || refreshUnavailable() || reviewed || isComposing() || refreshing) return;
             const owner = revision, ticket = ++readTicket, ownedPanel = panel, store = root.storageManager;
             const workspace = store.workspace, workspaceId = workspace?.id, lifecycle = root.LocalItabContentLifecycle;
+            const layoutOwner = component.layoutController, layoutVersion = layoutOwner?.version, layoutGeneration = layoutOwner?.generation, mutationEpoch = layoutOwner?.shortcutMutationEpoch;
             const restoreFocus = document.activeElement === refreshSavedButton;
             refreshing = busy = true; setControls(); status.textContent = t('refreshingSaved');
             const owns = () => owner === revision && ticket === readTicket && panel === ownedPanel && ownedPanel.isConnected;
             const sameContext = () => store === root.storageManager && workspace === store.workspace && workspaceId === store.workspace?.id &&
-                lifecycle === root.LocalItabContentLifecycle && !lifecycle?.departing && !externalWorkPending();
+                lifecycle === root.LocalItabContentLifecycle && !lifecycle?.departing &&
+                layoutOwner === component.layoutController && layoutVersion === layoutOwner?.version && layoutGeneration === layoutOwner?.generation && mutationEpoch === layoutOwner?.shortcutMutationEpoch && !externalWorkPending(true);
             try {
                 const fresh = await store.readNavigationLibrarySnapshot();
                 if (!owns()) return;
@@ -373,7 +376,7 @@
                 // Render against one coherent snapshot without rebuilding editor/filter nodes.
                 refreshing = busy = false; renderResults();
                 const removed = before - selected.size;
-                status.textContent = [t('refreshedSaved'), removed ? t('refreshRemoved').replace('{count}', String(removed)) : '',
+                status.textContent = [t(component.layoutController?.invalidated ? 'refreshReadOnly' : 'refreshedSaved'), removed ? t('refreshRemoved').replace('{count}', String(removed)) : '',
                     !newCategoryMode && !validDestination() ? t('missingDestination') : ''].filter(Boolean).join(' ');
             } catch (_) {
                 if (owns()) {
@@ -452,22 +455,36 @@
         function selectionUnavailable() {
             return busy || writing || blocked || !snapshot || root.LocalItabContentLifecycle?.departing || externalWorkPending();
         }
-        function externalWorkPending() {
+        function refreshUnavailable() {
+            return busy || writing || blocked || !snapshot || root.LocalItabContentLifecycle?.departing || externalWorkPending(true);
+        }
+        function readOnlyInvalidatedLayout(controller) {
+            // Only the known controller's invalidation-derived modePending is
+            // safe to ignore for reads. Never adopt/clear its write fence.
+            const Controller = root.LocalItabLayout?.Controller;
+            return typeof Controller === 'function' && controller instanceof Controller && controller.invalidated === true &&
+                controller.modePending === true && !controller.failedChange && !controller.pending && !controller.timer &&
+                !controller.externalHold && !controller.identityPending &&
+                [controller.patch, controller.positions, controller.identityPositions].every(value =>
+                    value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0);
+        }
+        function externalWorkPending(allowReadOnlyInvalidation = false) {
+            const readOnly = allowReadOnlyInvalidation && readOnlyInvalidatedLayout(component.layoutController);
             return component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending ||
-                component.layoutController?.failedChange || component.layoutController?.invalidated || component.layoutController?.pending ||
-                component.layoutController?.timer || component.layoutController?.modePending || component.modal?.classList.contains('active');
+                component.layoutController?.failedChange || (!readOnly && component.layoutController?.invalidated) || component.layoutController?.pending ||
+                component.layoutController?.timer || (!readOnly && component.layoutController?.modePending) || component.modal?.classList.contains('active');
         }
         function refreshBatch() {
             reviewed = null; reviewPanel.hidden = true;
             batchCount.textContent = `${selected.size} / 20 ${t('selected')}`;
-            batchReview.dataset.unavailable = String(!selected.size || (!newCategoryMode && !validDestination()) || blocked);
+            batchReview.dataset.unavailable = String(!selected.size || (!newCategoryMode && !validDestination()) || blocked || externalWorkPending());
             batchClear.dataset.unavailable = String(!selected.size || selectionUnavailable());
             batchSelectedOnly.dataset.unavailable = String(Boolean(selectionUnavailable()));
             batchSelectedOnly.disabled = batchSelectedOnly.dataset.unavailable === 'true';
             batchSelectedOnly.setAttribute('aria-pressed', String(selectedOnly));
             const visibleSelected = selectableResults.filter(site => selected.has(site.id)).length;
             batchHiddenCount.textContent = `${t('hiddenSelected')}: ${selected.size - visibleSelected}`;
-            batchReview.disabled = writing || !selected.size || (!newCategoryMode && !validDestination()) || blocked;
+            batchReview.disabled = writing || !selected.size || (!newCategoryMode && !validDestination()) || blocked || externalWorkPending();
             batchClear.disabled = batchClear.dataset.unavailable === 'true';
             refreshResultSelection();
         }
@@ -475,6 +492,7 @@
             reviewSites(root.LocalItabNavigationSites.filter(site => selected.has(site.id)), true);
         }
         function reviewSites(sites, batch) {
+            if (externalWorkPending()) { status.textContent = t(component.layoutController?.invalidated ? 'refreshReload' : 'layout'); setControls(); return; }
             if (busy || writing || isComposing() || blocked || !sites.length || (!newCategoryMode && !validDestination())) return;
             const name = newCategoryMode ? validatedName() : null;
             if (newCategoryMode && !name) return;
@@ -617,7 +635,7 @@
                 const visit = el('a', t('official'), 'navigation-library-visit'); visit.href = site.url; visit.target = '_blank'; visit.rel = 'noopener noreferrer'; visit.setAttribute('aria-label', `${t('visit')}: ${site.name}`); visit.title = t('visit');
                 const add = button(added ? `✓ ${t('added')}` : `+ ${t('add')}`, () => newCategoryMode ? reviewSites([site], false) : save(site), 'navigation-library-add');
                 add.setAttribute('aria-label', `${added ? t('added') : t('add')}: ${site.name}`);
-                add.dataset.unavailable = String(added || (!newCategoryMode && !validDestination()) || blocked); add.disabled = writing || added || (!newCategoryMode && !validDestination()) || blocked;
+                add.dataset.unavailable = String(added || (!newCategoryMode && !validDestination()) || blocked || externalWorkPending()); add.disabled = writing || add.dataset.unavailable === 'true';
                 if (added) add.classList.add('is-added'); actions.append(visit, add); card.append(actions);
                 if (added) {
                     const locations = saved.get(api.canonicalURL(site.url));
@@ -667,6 +685,7 @@
             }
         }
         async function save(site, batch = false, confirmation = null) {
+            if (externalWorkPending()) { status.textContent = t(component.layoutController?.invalidated ? 'refreshReload' : 'layout'); setControls(); return; }
             if (busy || writing || isComposing() || blocked || !snapshot || (!newCategoryMode && !validDestination()) || root.LocalItabContentLifecycle?.departing || (confirmation && reviewed !== confirmation) || (newCategoryMode && !confirmation?.newCategory)) return;
             writing = busy = true; setControls(); panel.focus(); status.textContent = batch ? `${t('saving')} ${site.length}` : `${t('saving')} ${site.name}`;
             const request = confirmation ? { baseline: confirmation.baseline,
