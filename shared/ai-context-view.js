@@ -106,6 +106,20 @@
         const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
         const output = el('textarea'); output.rows = 8; output.maxLength = 32000; outputLabel.append(output); outputLabel.hidden = true;
         resultPane.append(previousResult, outputLabel);
+        let answerReader = null, readerResult = null;
+        const readerHost = el('div'); resultPane.append(readerHost);
+        function updateAnswerReader() {
+            const result = controller.result;
+            if (readerResult !== result) {
+                answerReader?.destroy(); answerReader = null; readerResult = result;
+                if (result?.mode === 'answer' && root.LocalItabSafeAnswerReader) {
+                    answerReader = root.LocalItabSafeAnswerReader.create(doc, result.text, (key, fallback) => t(`answerReader${key}`, fallback));
+                    readerHost.append(answerReader.node);
+                }
+            }
+            output.hidden = Boolean(answerReader);
+            readerHost.hidden = !answerReader || Boolean(controller.partial);
+        }
         const partialPanel = el('section', 'ai-context-partial'); partialPanel.hidden = true;
         const partialStatus = el('p', 'ai-context-partial-status'); partialStatus.setAttribute('role', 'status');
         const partialText = el('pre', 'ai-context-partial-text');
@@ -247,6 +261,7 @@
             reset.disabled = busy || retry; reloadSources.disabled = selectionBlocked();
             outputLabel.hidden = !controller.result || Boolean(controller.partial);
             resultPane.hidden = !controller.result || Boolean(controller.partial);
+            updateAnswerReader();
             updateCopy();
             previousResult.hidden = !controller.result || controller.resultReview === controller.reviewed;
             contextSave.hidden = !controller.result || controller.result.mode !== 'answer';
@@ -502,7 +517,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') return;
             key.value = ''; controller.stop(); if (!disposed) update();

@@ -6,15 +6,17 @@ const Core = require('../shared/local-ai-collections-store.js');
 const { setup, add, tick, settle } = require('./helpers/collections-harness.js');
 const { createDocument } = require('./helpers/task-dom-model.js');
 const text = node => [node.textContent || '', ...node.children.map(text)].join(' ');
-async function mount(confirm = async () => true, i18n) {
+async function mount(confirm = async () => true, i18n, safeReader = false) {
     const h = setup(), doc = createDocument({ blurUnavailableFocus: true }), events = new Map();
     const host = doc.createElement('div'); doc.body.append(host);
     const root = { i18n, document: doc, LocalItabAICollections: Core, addEventListener: (key, fn) => events.set(key, fn), location: { assign() {} } };
     const context = vm.createContext({ window: root, Intl, Date, Object, Array, Boolean, String, Promise, Map });
+    let readerParses = 0;
+    if (safeReader) { const Marked = require('../vendor/marked/marked.umd.js'); root.marked = { Lexer: class extends Marked.Lexer { lex(source) { readerParses++; return super.lex(source); } } }; vm.runInContext(fs.readFileSync('shared/safe-answer-reader.js', 'utf8'), context); }
     vm.runInContext(fs.readFileSync('shared/dialog-focus.js', 'utf8'), context);
     vm.runInContext(fs.readFileSync('shared/local-ai-collections-view.js', 'utf8'), context);
     const view = new root.LocalItabCollectionsView.View({ host, controller: h.controller, confirm }); view.attachDepartureGuard(); view.render(); await h.controller.start();
-    return { ...h, h, host, doc, view, events, root };
+    return { ...h, h, host, doc, view, events, root, get readerParses() { return readerParses; } };
 }
 for (const omitSourceUrls of [false, true]) test(`downloaded collection JSON parses once and preserves exact content (omit URLs: ${omitSourceUrls})`, async () => {
     const h = await mount(), c = h.controller;
@@ -346,4 +348,25 @@ test('BFCache restore requires fresh review, restores a usable entry, and suppre
     h.view.clipboard = { async writeText(value) { writes.push(value); } }; copy.dispatch('click'); await tick();
     assert.deepEqual(writes, [h.contextSnapshot.prompt, h.contextSnapshot.prompt]);
     assert.match(panel.querySelector('[role="status"]').textContent, /Historical prompt copied/); h.c.dispose();
+});
+
+test('saved current body reader caches unchanged text, keeps copy/export exact, resets on selection/edit/departure', async () => {
+    const h = await mount(undefined, undefined, true), c = h.controller;
+    const source = '# Synthetic\r\n\n**exact** 中文 🧪\t  ', a = await add(c, 'First', source);
+    assert.equal(h.readerParses, 1); const reader = h.host.querySelector('.answer-reader');
+    const [reading, original] = reader.querySelectorAll('button'); original.dispatch('click');
+    h.view.render(); assert.equal(h.readerParses, 1); assert.equal(h.host.querySelector('.answer-reader'), reader);
+    assert.equal(original.getAttribute('aria-pressed'), 'true');
+    c.busy = true; h.view.render(); assert.equal(reading.disabled, true); c.busy = false; h.view.render(); assert.equal(reading.disabled, false);
+    const copied = []; h.view.clipboard = { writeText: async value => copied.push(value) };
+    h.host.querySelectorAll('button').find(node => node.textContent === 'Copy excerpt').dispatch('click'); await tick(); assert.deepEqual(copied, [source]);
+    const exported = JSON.parse(await h.store.export()); assert.equal(exported.content.records[0].body, source);
+    assert.equal(c.record().history[0].body, source);
+    c.edit(); assert.equal(h.host.querySelector('.answer-reader'), null); assert.equal(reader.children.length, 0);
+    c.discard(); assert.equal(h.readerParses, 2);
+    const b = await add(c, 'Second', '# Second body'); assert.equal(h.readerParses, 3);
+    c.select(a.id); assert.equal(h.readerParses, 4); assert.equal(h.host.querySelector('.answer-reader-source').textContent, source);
+    const departed = h.host.querySelector('.answer-reader'); h.events.get('pagehide')({ persisted: true }); assert.equal(departed.children.length, 0);
+    h.events.get('pageshow')({ persisted: true }); assert.equal(h.readerParses, 5);
+    h.view.destroy(); assert.equal(h.host.querySelector('.answer-reader'), null); c.dispose();
 });

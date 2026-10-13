@@ -3144,7 +3144,7 @@
     "message": "AI 结果收藏 · Local iTab"
   },
   "collectionsPlainText": {
-    "message": "仅显示纯文本，不会执行保存的代码或标记。"
+    "message": "不会执行保存的代码或标记。"
   },
   "collectionsPrivacy": {
     "message": "这不是加密保险库，请勿存放密钥。导出包含私人文本、注释、历史和对话链接；移除来源网址并不等于文本匿名化。"
@@ -5927,5 +5927,17 @@
   },
   "collectionsImportApplyFailed": {
     "message": "替换被拒绝。请刷新已保存数据，再重新打开「导入 / 恢复 JSON」并审阅。不会自动重试。"
+  },
+  "answerReaderReading": {
+    "message": "阅读"
+  },
+  "answerReaderOriginal": {
+    "message": "原文"
+  },
+  "answerReaderSafety": {
+    "message": "仅调整只读排版。链接与图片仅显示文字；复制、保存和导出均保留原文。"
+  },
+  "answerReaderFallback": {
+    "message": "此内容无法排版，已显示完整原文。"
   }
 }

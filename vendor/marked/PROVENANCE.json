@@ -1,0 +1,15 @@
+{
+  "name": "marked",
+  "version": "18.1.1",
+  "source": "https://registry.npmjs.org/marked/-/marked-18.1.1.tgz",
+  "registryIntegrity": "sha512-zEGgrtUG8crk+TrMacJSVABU4DYDDkS8uqgU3ohrn/2fW9C2AEfUrO3m6IhpIpQpl7YcVpiXXC9cSMWDANT3dg==",
+  "tarballSha256": "c05b3cff890d35e1208805a01fd0501571d09a81e725de0559b10bdfae90adad",
+  "upstreamFile": "package/lib/marked.umd.js",
+  "upstreamSha256": "b82b9334406d8bdd16b6236c08de1cb65b2a859873ca9503d9cc0b292ca3c12a",
+  "vendoredSha256": "5ff979053ea15ead591265dc851bdba53e8ed44cb067fe804bca520c455bc5ed",
+  "vendoredBytes": 47917,
+  "modification": "Removed only trailing sourceMappingURL comment; no source map is shipped.",
+  "license": "MIT",
+  "licenseSha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
+  "usage": "Lexer tokens only. No Marked HTML parser/renderer, plugins, CDN or remote loading."
+}

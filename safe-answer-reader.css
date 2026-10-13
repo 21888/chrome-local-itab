@@ -1,0 +1,15 @@
+.answer-reader { min-width: 0; max-width: 100%; }
+.answer-reader [hidden] { display: none !important; }
+.answer-reader-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.answer-reader-controls button[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
+.answer-reader-help { font-size: .85em; opacity: .85; }
+.answer-reader-content, .answer-reader-source { max-height: 32rem; overflow: auto; padding: 12px; border: 1px solid currentColor; border-radius: 8px; line-height: 1.65; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.answer-reader-source { white-space: pre-wrap; }
+.answer-reader-content > :first-child { margin-top: 0; }
+.answer-reader-content > :last-child { margin-bottom: 0; }
+.answer-reader-content pre { max-width: 100%; overflow: auto; white-space: pre; overflow-wrap: normal; padding: 10px; border: 1px solid currentColor; border-radius: 6px; }
+.answer-reader-content code { font-family: monospace; }
+.answer-reader-content blockquote { margin-inline: 0; padding-inline-start: 1em; border-inline-start: 3px solid currentColor; }
+.answer-reader-table { max-width: 100%; overflow: auto; }
+.answer-reader-table table { border-collapse: collapse; width: max-content; min-width: 100%; }
+.answer-reader-table th, .answer-reader-table td { border: 1px solid currentColor; padding: 6px 10px; min-width: 6em; max-width: 28em; }

@@ -3144,7 +3144,7 @@
     "message": "AI result collection · Local iTab"
   },
   "collectionsPlainText": {
-    "message": "Plain text only. Saved code and markup are never executed."
+    "message": "Saved code and markup are never executed."
   },
   "collectionsPrivacy": {
     "message": "Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text."
@@ -5927,5 +5927,17 @@
   },
   "collectionsImportDrafts": {
     "message": "Finish or discard all drafts and proposed revisions before importing. Files are read as text only, without following links or sending content anywhere."
+  },
+  "answerReaderReading": {
+    "message": "Reading"
+  },
+  "answerReaderOriginal": {
+    "message": "Original text"
+  },
+  "answerReaderSafety": {
+    "message": "Read-only formatting. Links and images are text only. Copy, save and export keep the original text."
+  },
+  "answerReaderFallback": {
+    "message": "Formatting is unavailable for this text. The complete original is shown."
   }
 }

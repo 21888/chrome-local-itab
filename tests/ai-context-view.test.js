@@ -6,7 +6,7 @@ const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 function backend() { let raw; return { reads: 0, writes: 0, lock: fn => fn(), async read() { this.reads++; return structuredClone(raw); }, async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
-async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false, clipboard, t, frames } = {}) {
+async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false, clipboard, t, frames, safeReader = false } = {}) {
     const document = createDocument({ blurUnavailableFocus }), host = document.createElement('main'); document.body.append(host);
     const confirmations = []; let confirmResult = true;
     const events = new Map(), window = { document, confirm: message => { confirmations.push(message); return confirmResult; }, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
@@ -18,6 +18,8 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
     // The DOM model executes UI in a VM; real UI/controller share one realm.
     const review = controller.review.bind(controller);
     controller.review = input => review(JSON.parse(JSON.stringify(input)));
+    let readerParses = 0;
+    if (safeReader) { const Marked = require('../vendor/marked/marked.umd.js'); window.marked = { Lexer: class extends Marked.Lexer { lex(source) { readerParses++; return super.lex(source); } } }; vm.runInNewContext(fs.readFileSync('shared/safe-answer-reader.js', 'utf8'), { window }); }
     vm.runInNewContext(fs.readFileSync('shared/ai-context-view.js', 'utf8'), { window });
     const view = window.LocalItabAIContextView.mount(host, { controller, presetStore, clipboard, t }); await view.ready;
     const field = type => host.querySelectorAll('input').find(node => node.type === type);
@@ -28,7 +30,7 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
         input(field('url'), 'https://mock.example/v1/chat/completions'); input(field('text'), 'mock');
         const question = host.querySelector('.ai-context-question'); input(question, 'Create tasks');
     }
-    return { confirmations, setConfirm: value => { confirmResult = value; }, host, document, controller, b, c, calls, view, events, click, field, input, byText, deactivate: () => { active = false; }, setReply: value => { reply = value; } };
+    return { get readerParses() { return readerParses; }, confirmations, setConfirm: value => { confirmResult = value; }, host, document, controller, b, c, calls, view, events, click, field, input, byText, deactivate: () => { active = false; }, setReply: value => { reply = value; } };
 }
 async function send(h, mode = 'tasks') {
     const select = h.host.querySelector('.ai-context-mode'); select.value = mode; select.dispatch('change'); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
@@ -1580,4 +1582,31 @@ test('cancelled old frame cannot paint or cancel a newer request frame after exp
     frames.flush(); assert.equal(pane.textContent, 'new partial');
     first.reply.resolve('old late completion'); second.reply.resolve('new complete'); await settle();
     assert.equal(h.controller.result.text, 'new complete'); h.view.destroy();
+});
+
+test('safe reading view only formats complete Answer once and keeps exact copy/save ownership', async () => {
+    const copies = [], h = await model(undefined, { safeReader: true, clipboard: { writeText: async value => copies.push(value) } });
+    const source = '  # Synthetic answer\r\n\n**body** 中文 🧪\t  '; h.setReply(source); await send(h, 'answer');
+    assert.equal(h.readerParses, 1); assert(h.host.querySelector('.answer-reader-content').querySelector('h1'));
+    const original = h.host.querySelector('.answer-reader-source'); assert.equal(original.textContent, source);
+    h.byText('Original text').dispatch('click'); assert.equal(original.hidden, false);
+    h.click('Copy answer'); await settle(); assert.deepEqual(copies, [source]); assert.equal(h.readerParses, 1);
+    h.input(h.host.querySelector('.ai-context-question'), 'Changed question');
+    assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false); assert.equal(h.readerParses, 1);
+    h.click('Save answer'); for (let i = 0; i < 100 && h.controller.busy; i++) await new Promise(resolve => setTimeout(resolve, 5)); await settle(); const state = await h.controller.collectionStore.read();
+    assert.equal(state.records[0].body, source); assert.equal(state.records[0].history[0].body, source); assert.equal(h.readerParses, 1);
+    h.click('Cancel / clear'); assert.equal(h.host.querySelector('.answer-reader'), null);
+    h.view.destroy();
+});
+test('task JSON, progressive chunks, stopped partial and late completion never enter reader', async () => {
+    const h = await model(undefined, { safeReader: true }); await send(h, 'tasks'); assert.equal(h.readerParses, 0);
+    h.click('Cancel / clear'); h.input(h.host.querySelector('.ai-context-question'), 'New answer'); h.host.querySelector('.ai-context-mode').value = 'answer'; h.host.querySelector('.ai-context-mode').dispatch('change');
+    const run = await startProgressive(h);
+    for (let i = 0; i < 100; i++) run.options.onText(`# partial ${i}`);
+    assert.equal(h.readerParses, 0); h.click('Stop request'); assert.equal(h.readerParses, 0);
+    run.reply.resolve('# Late completion'); await settle(); assert.equal(h.readerParses, 0);
+    h.click('Cancel / clear'); h.input(h.host.querySelector('.ai-context-question'), 'Another answer');
+    const next = await startProgressive(h); next.options.onText('# partial'); next.reply.resolve('# Complete answer'); await settle();
+    assert.equal(h.readerParses, 1); assert(h.host.querySelector('.answer-reader-content').querySelector('h1'));
+    const old = h.byText('Original text'); h.view.destroy(); old.dispatch('click'); assert.equal(h.host.querySelector('.answer-reader'), null);
 });

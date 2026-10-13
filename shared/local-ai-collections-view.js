@@ -11,6 +11,7 @@
             this.pageHide = event => {
                 if (!event?.persisted) { this.destroy(); return; }
                 this.detailGeneration++;
+                this.answerReader?.destroy(); this.answerReader = null;
                 this.closeImport?.();
                 this.closeHistoricalPrompt?.();
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
@@ -25,6 +26,7 @@
         destroy() {
             if (this.destroyed) return;
             this.destroyed = true;
+            this.answerReader?.destroy(); this.answerReader = null;
             this.closeImport?.();
             this.detailGeneration++;
             this.closeHistoricalPrompt?.();
@@ -162,6 +164,10 @@
             if (c.pendingCommand) {
                 if (!c.pendingInspection) { const retry = this.button('Retry', 'Check / retry the same save', () => c.retry()); retry.disabled = c.busy; this.status.append(retry); }
                 const verify = this.button('InspectSave', 'Check saved outcome (read-only)', () => c.verify()); verify.disabled = c.busy; this.status.append(verify);
+            }
+            const readerRecord = c.record();
+            if (this.answerReader && (c.draft() || !readerRecord || readerRecord.id !== this.readerId || readerRecord.body !== this.readerBody)) {
+                this.answerReader.destroy(); this.answerReader = null;
             }
             const focused = this.doc.activeElement?.getAttribute?.('data-collection-field');
             this.main.replaceChildren(); this.editor = null; this.promptPanel = null;
@@ -344,8 +350,18 @@
             const markdown = this.button('MarkdownExport', 'Export current saved item as Markdown', () => this.exportMarkdown());
             markdown.disabled = Boolean(c.error); actions.append(markdown);
             for (const button of actions.children) button.disabled = button.disabled || c.busy || Boolean(c.pendingCommand); top.append(actions); this.main.append(top);
-            this.main.append(this.el('h3', '', this.t('body', 'Exact excerpt'))); const body = this.el('pre', 'prompt-readonly', record.body); body.tabIndex = 0; this.main.append(body);
-            this.main.append(this.button('Copy', 'Copy excerpt', () => this.copy(record.body)), this.paragraph('PlainText', 'Plain text only. Saved code and markup are never executed.'));
+            this.main.append(this.el('h3', '', this.t('body', 'Exact excerpt')));
+            if (root.LocalItabSafeAnswerReader) {
+                if (!this.answerReader) {
+                    this.readerId = record.id; this.readerBody = record.body;
+                    this.answerReader = root.LocalItabSafeAnswerReader.create(this.doc, record.body, (key, fallback) => {
+                        const value = root.i18n?.t(`answerReader${key}`); return value && value !== `answerReader${key}` ? value : fallback;
+                    });
+                }
+                for (const button of this.answerReader.node.querySelectorAll('button')) button.disabled = false;
+                this.main.append(this.answerReader.node);
+            } else { const body = this.el('pre', 'prompt-readonly', record.body); body.tabIndex = 0; this.main.append(body); }
+            this.main.append(this.button('Copy', 'Copy excerpt', () => this.copy(record.body)), this.paragraph('PlainText', 'Saved code and markup are never executed.'));
             if (record.notes) { const section = this.el('section', 'prompt-section'); section.append(this.el('h3', '', this.t('notes', 'Your annotations')), this.el('pre', 'prompt-readonly', record.notes)); this.main.append(section); }
             const source = root.LocalItabAICollections.sourceMetadata(record.sourceUrl), section = this.el('section', 'prompt-section'); section.append(this.el('h3', '', this.t('Source', 'Source')));
             if (source.provided) { const link = this.el('a', 'collection-source', `${this.t('OpenSource', 'Open user-provided source')} · ${source.host}`); link.href = source.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.referrerPolicy = 'no-referrer'; section.append(link, this.el('p', 'prompt-help collection-url', record.sourceUrl), this.paragraph('SourceHelp', 'User-provided attribution only. This page never fetches the link; the original account or permission may be needed.')); }
