@@ -5776,5 +5776,9 @@
   },
   "aiContextSourceHelpHeading": {
     "message": "资料范围、限制与重新加载"
-  }
+  },
+  "claudeUsageTitle": {"message": "实验性：Claude 用量快照"},
+  "claudeUsageDescription": {"message": "默认关闭。在实验页了解可选 scripting 与仅 claude.ai 站点权限后，自行授权并选择已登录的官方标签页和组织。不后台查询或保存用量。"},
+  "claudeUsageCaution": {"message": "仅本次组织用量快照，不代表账号绑定或计费证据。真实账号尚未验收。"},
+  "claudeUsageOpen": {"message": "打开 Claude 实验页"}
 }

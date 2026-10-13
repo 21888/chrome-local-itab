@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>实验性：Claude 用量快照</title><link rel="stylesheet" href="claude-usage-experiment.css"></head>
+<body><main><a id="back" href="options.html">← 返回设置并清除本页快照</a><h1>实验性：Claude 用量快照</h1><p class="notice">默认关闭 · 仅手动读取 · 真实账号尚未验收</p>
+<p>本次页面会话下所选组织的用量快照。请先自行打开并登录 claude.ai，再启用并每次选择标签页与组织。</p>
+<p>启用时由你在 Chrome 原生弹窗中自行授予可选 scripting（脚本执行）与仅 https://claude.ai/* 站点访问权限；已授予时 Chrome 可能不再弹框。不读取或导出 Cookie、token，不保存组织或用量，也不后台刷新。</p>
+<p>这不是账号绑定。相同组织可能有不同账号；切换账号后请关闭并重新选择。页面可干预数据，因此结果不作为计费证据。接口是未公开稳定承诺的内部接口。</p>
+<div class="actions"><button id="enable">启用并选择标签页</button><button id="close">关闭并清除</button></div>
+<section id="result" tabindex="-1" aria-live="polite" aria-atomic="true"></section><p>关闭会清除本页内存结果，不自动撤销浏览器已授予的权限。可在 Chrome 扩展详情中撤销；正常浏览器 fetch 行为下，已经发出的读取最多等待 10 秒，关闭后不会显示其结果或继续下一步请求。</p>
+</main><script src="shared/claude-usage-snapshot.js"></script><script src="claude-usage-experiment.js"></script></body></html>

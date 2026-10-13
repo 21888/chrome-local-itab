@@ -363,6 +363,18 @@
                     </div>
 
                     <div class="tab-panel" id="tab-privacy" data-tab="privacy" role="tabpanel">
+                        <section class="settings-section" id="claude-usage-settings" aria-labelledby="claude-usage-heading">
+                            <div class="section-header">
+                                <h2 id="claude-usage-heading" class="section-title" data-i18n="claudeUsageTitle">Experimental: Claude usage snapshot</h2>
+                                <p class="section-description" data-i18n="claudeUsageDescription">Off by default. Open the experiment to review optional scripting and claude.ai access before choosing a signed-in tab and organization. No background queries or saved usage.</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <p class="form-hint" data-i18n="claudeUsageCaution">One-time organization snapshot, not account binding or billing evidence. Real-account acceptance testing is still pending.</p>
+                                    <a class="btn btn-secondary" id="claude-usage-open" href="claude-usage-experiment.html" data-i18n="claudeUsageOpen">Open Claude experiment</a>
+                                </div>
+                            </div>
+                        </section>
                         <section class="settings-section" id="version-update-settings" aria-labelledby="update-title">
                             <div class="section-header">
                                 <h2 id="update-title" class="section-title" data-i18n="updateTitle">Version &amp; updates</h2>

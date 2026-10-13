@@ -5776,5 +5776,9 @@
   },
   "aiContextSourceHelpHeading": {
     "message": "Source scope, limits and reload"
-  }
+  },
+  "claudeUsageTitle": {"message": "Experimental: Claude usage snapshot"},
+  "claudeUsageDescription": {"message": "Off by default. Open the experiment to review optional scripting and claude.ai access before choosing a signed-in tab and organization. No background queries or saved usage."},
+  "claudeUsageCaution": {"message": "One-time organization snapshot, not account binding or billing evidence. Real-account acceptance testing is still pending."},
+  "claudeUsageOpen": {"message": "Open Claude experiment"}
 }

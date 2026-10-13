@@ -22,6 +22,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 STAMP = (1980, 1, 1, 0, 0, 0)
 RUNTIME_FILES = (
+    "claude-usage-experiment.html", "claude-usage-experiment.css", "claude-usage-experiment.js", "shared/claude-usage-snapshot.js",
     "shared/navigation-catalog.js", "shared/navigation-sites.js", "shared/navigation-library-view.js", "navigation-library.css",
     "dashboard-customization.css", "shared/dashboard-customization.js", "shared/dashboard-card-layout.js",
     "shared/ai-model-comparison.js", "ai-model-comparison.css",
