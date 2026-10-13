@@ -5195,6 +5195,9 @@
   "navigationLibrarySelectionHelp": {
     "message": "每次最多选择 20 个网站，切换筛选时会保留选择。"
   },
+  "navigationLibraryDeselectResults": {
+    "message": "取消当前结果的选择"
+  },
   "navigationLibrarySelectResults": {
     "message": "选择当前结果"
   },

@@ -5195,6 +5195,9 @@
   "navigationLibrarySelectionHelp": {
     "message": "Choose up to 20 sites. Selections stay when you change filters."
   },
+  "navigationLibraryDeselectResults": {
+    "message": "Deselect current results"
+  },
   "navigationLibrarySelectResults": {
     "message": "Select current results"
   },

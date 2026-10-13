@@ -24,7 +24,7 @@
         uncertain: 'Could not confirm the save. Close and reopen to check your shortcuts before trying again.',
         layout: 'Finish or retry the pending layout change, then reopen the library.', noCategory: 'Create a personal category here before adding sites.',
         select: 'Select', selected: 'selected', selectedOnly: 'Show selected only', hiddenSelected: 'Hidden by filters', selectionHelp: 'Choose up to 20 sites. Selections stay when you change filters.',
-        selectResults: 'Select current results', selectionLimit: 'These results would exceed 20 selected sites. Narrow the filters first.',
+        selectResults: 'Select current results', deselectResults: 'Deselect current results', selectionLimit: 'These results would exceed 20 selected sites. Narrow the filters first.',
         removeSelection: 'Remove from selection', clearSelection: 'Clear selection', reviewSelection: 'Review selected', reviewTitle: 'Review your selection',
         confirmSelection: 'Confirm and add', cancelSelection: 'Back to browsing', skipped: 'already added, skipped',
         batchFailed: 'Nothing was added. Review your selection before trying again.',
@@ -33,7 +33,7 @@
     const t = key => { const id = `navigationLibrary${key[0].toUpperCase()}${key.slice(1)}`; const result = root.i18n?.t(id); return result && result !== id ? result : fallback[key] || key; };
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
-        let overlay, panel, cleanup, cleanupSearchShortcut, cleanupComposition, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchHelp, batchSelectedOnly, batchHiddenCount, reviewPanel, reviewConfirm;
+        let overlay, panel, cleanup, cleanupSearchShortcut, cleanupComposition, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchDeselect, batchHelp, batchSelectedOnly, batchHiddenCount, reviewPanel, reviewConfirm;
         let clearFilters = () => {}, leaveSelectedOnly = () => {};
         let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
         let newCategoryMode = false, draftName = '', compositionTarget = null, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
@@ -76,13 +76,13 @@
             const handleCompositionStart = event => {
                 if (!owns(event)) return;
                 compositionTarget = event.target;
-                invalidateReview();
+                invalidateReview(); refreshCurrentDeselection();
             };
             const handleCompositionEnd = event => {
-                if (owns(event) && compositionTarget === event.target) compositionTarget = null;
+                if (owns(event) && compositionTarget === event.target) { compositionTarget = null; refreshCurrentDeselection(); }
             };
             const handleFocusOut = event => {
-                if (owns(event) && compositionTarget === event.target) compositionTarget = null;
+                if (owns(event) && compositionTarget === event.target) { compositionTarget = null; refreshCurrentDeselection(); }
             };
             ownedPanel.addEventListener('compositionstart', handleCompositionStart);
             ownedPanel.addEventListener('compositionend', handleCompositionEnd);
@@ -241,10 +241,22 @@
             });
             batchReview = button(t('reviewSelection'), reviewSelection, 'navigation-library-batch-review');
             batchSelect = button('', selectCurrentResults, 'navigation-library-select-results');
+            const deselect = batchDeselect = button('', () => {
+                if (owner !== revision || !deselect.isConnected || deselect.disabled || selectionUnavailable() || reviewed) return;
+                const removals = currentResultDeselection();
+                if (!removals.length) return;
+                removals.forEach(id => selected.delete(id));
+                renderResults();
+                // The exhausted action is disabled, and selected-only cards may disappear.
+                batchSelectedOnly.focus();
+            }, 'navigation-library-deselect-results');
+            deselect.addEventListener('keydown', event => {
+                if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+            });
             batchHelp = el('p', t('selectionHelp'), 'navigation-library-selection-help'); batchHelp.id = 'navigation-library-selection-help';
             batchHelp.setAttribute('aria-live', 'polite');
             batchSelect.setAttribute('aria-describedby', batchHelp.id);
-            batchBar.append(batchCount, batchHiddenCount, batchSelectedOnly, batchClear, batchSelect, batchReview, batchHelp); panel.append(batchBar);
+            batchBar.append(batchCount, batchHiddenCount, batchSelectedOnly, batchClear, batchSelect, batchDeselect, batchReview, batchHelp); panel.append(batchBar);
             reviewPanel = el('section', undefined, 'navigation-library-review'); reviewPanel.hidden = true; reviewPanel.tabIndex = -1;
             reviewPanel.setAttribute('aria-label', t('reviewTitle')); panel.append(reviewPanel);
             results = el('div', undefined, 'navigation-library-results'); panel.append(results);
@@ -332,7 +344,18 @@
         function currentResultSelection() {
             return [...new Set(selectableResults.map(site => site.id))].filter(id => !selected.has(id));
         }
+        function currentResultDeselection() {
+            return [...new Set(selectableResults.map(site => site.id))].filter(id => selected.has(id));
+        }
+        function refreshCurrentDeselection() {
+            if (!batchDeselect?.isConnected) return;
+            const removals = currentResultDeselection();
+            batchDeselect.textContent = `${t('deselectResults')} (${removals.length})`;
+            batchDeselect.dataset.unavailable = String(!removals.length || Boolean(selectionUnavailable()) || isComposing() || Boolean(reviewed));
+            batchDeselect.disabled = batchDeselect.dataset.unavailable === 'true';
+        }
         function refreshResultSelection() {
+            refreshCurrentDeselection();
             const additions = currentResultSelection(), overLimit = selected.size + additions.length > 20;
             batchSelect.textContent = `${t('selectResults')} (${additions.length})`;
             batchSelect.dataset.unavailable = String(!additions.length || overLimit || blocked || Boolean(reviewed));

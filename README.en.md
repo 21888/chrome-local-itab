@@ -254,6 +254,8 @@ Reloading or closing a tab requests Chrome’s native warning while an Add/Edit 
 
 [Offline local-workflow checks and scope](docs/offline-local-validation.md).
 
+The built-in site library also offers “Deselect current results (N)”: undo selections in the current filtered results while keeping hidden selections, filters and the destination or new-category draft. This action stays local and does not save shortcuts.
+
 ### Find saved sites
 
 Use the local shortcut finder to search saved titles, addresses and categories, or browse an exact category and narrow it with text without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).

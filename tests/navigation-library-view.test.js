@@ -990,3 +990,69 @@ test('empty recovery stays disabled throughout a write and after uncertain failu
  pending.reject(Object.assign(new Error('synthetic uncertainty'),{code:'CATALOG_UNVERIFIED'}));await tick();assert.equal(emptyRecover(h).disabled,true);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,0);assert.equal(h.calls,1);
  h.view.close();await h.view.open();h.search('absent-93827');assert.equal(emptyRecover(h).disabled,false);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,132);
 });
+
+const deselectResults=h=>h.document.querySelector('.navigation-library-deselect-results');
+test('deselect current results preserves hidden selection, destination and new-category draft in both locales',async()=>{
+ for(const [locale,label] of [['en','Deselect current results'],['zh-CN','取消当前结果的选择']])for(const newTarget of [false,true]){
+  const h=model({locale});await h.view.open();pickSite(h,'github');h.search('canva');
+  const group=cards(h).map(card=>card.dataset.site);assert.ok(group.length>1);
+  h.document.querySelector('.navigation-library-select-results').dispatch('click');
+  const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');
+  if(newTarget){h.document.querySelector('.navigation-library-new-category').dispatch('click');const name=h.document.querySelector('.navigation-library-new-category-panel input');name.value='Synthetic draft';name.dispatch('input');}
+  const action=deselectResults(h);assert.equal(action.textContent,`${label} (${group.length})`);assert.equal(action.disabled,false);
+  action.focus();action.dispatch('click');action.dispatch('click');
+  assert.match(selectionCount(h),/^1 \/ 20/);assert.match(hiddenSelected(h),/1$/);assert.equal(action.textContent,`${label} (0)`);assert.equal(action.disabled,true);
+  assert.ok(cards(h).every(card=>!card.querySelector('input').checked));assert.equal(h.document.querySelector('.navigation-library-search input').value,'canva');
+  assert.equal(target.value,'personal');assert.equal(h.document.activeElement,selectedToggle(h));
+  if(newTarget){assert.equal(h.document.querySelector('.navigation-library-new-category-panel').hidden,false);assert.equal(h.document.querySelector('.navigation-library-new-category-panel input').value,'Synthetic draft');}
+  h.search('github');assert.equal(cards(h).find(card=>card.dataset.site==='github').querySelector('input').checked,true);assert.equal(h.calls,0);
+ }
+});
+test('deselect uses final combined filters including saved-state and selected-only, keeps every filter and stable focus',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');selectedToggle(h).dispatch('click');
+ const site=h.context.LocalItabNavigationSites.find(site=>site.id==='chatgpt');
+ h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category===site.categories[0]).dispatch('click');
+ const values=[site.tags[0],site.country,site.company,site.pricing];
+ for(const [i,value] of values.entries()){const control=h.document.querySelectorAll('.navigation-library-filters select')[i];control.value=value;control.dispatch('change');}
+ h.search('chatgpt');savedControl(h,'added').dispatch('click');assert.equal(deselectResults(h).disabled,true);deselectResults(h).dispatch('click');assert.equal(selectionCount(h),'2 / 20 selected');
+ savedControl(h,'new').dispatch('click');assert.equal(deselectResults(h).textContent,'Deselect current results (1)');deselectResults(h).dispatch('click');
+ assert.equal(cards(h).length,0);assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.document.activeElement,selectedToggle(h));assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');
+ assert.equal(h.document.querySelector('.navigation-library-search input').value,'chatgpt');assert.deepEqual(h.document.querySelectorAll('.navigation-library-filters select').map(node=>node.value),values);
+ assert.equal(savedControl(h,'new').getAttribute('aria-pressed'),'true');assert.equal(h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category===site.categories[0]).getAttribute('aria-pressed'),'true');assert.equal(h.calls,0);
+});
+test('deselect works without a target, releases selection cap and is inert with zero visible selections',async()=>{
+ const h=model();h.snapshot.categories=[];await h.view.open();const ids=cards(h).slice(0,21).map(card=>card.dataset.site);
+ for(const id of ids.slice(0,20))pickSite(h,id);
+ assert.equal(cards(h)[20].querySelector('input').disabled,true);h.search('absent-93827');assert.equal(deselectResults(h).disabled,true);deselectResults(h).dispatch('click');assert.equal(selectionCount(h),'20 / 20 selected');
+ h.search('');selectedToggle(h).dispatch('click');assert.equal(deselectResults(h).textContent,'Deselect current results (20)');deselectResults(h).dispatch('click');
+ assert.equal(cards(h).length,0);assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.document.activeElement,selectedToggle(h));selectedToggle(h).dispatch('click');assert.equal(cards(h)[20].querySelector('input').disabled,false);assert.equal(h.calls,0);
+});
+test('deselect rejects removed nodes, old sessions, repeated and composing activation',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');let action=deselectResults(h);
+ for(const event of [{repeat:true},{detail:2},{isComposing:true},{keyCode:229}])action.dispatch('click',event);
+ for(const key of ['Enter',' '])assert.equal(action.dispatch('keydown',{key,repeat:true}).prevented,true);
+ assert.equal(selectionCount(h),'1 / 20 selected');
+ const input=h.document.querySelector('.navigation-library-search input');input.focus();input.dispatch('compositionstart');assert.equal(action.disabled,true);action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');input.dispatch('compositionend');assert.equal(action.disabled,false);
+ action.remove();action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');
+ h.view.close();await h.view.open();pickSite(h,'github');action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');
+ action=deselectResults(h);h.view.close();await h.view.open();pickSite(h,'chatgpt');action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.calls,0);
+});
+test('deselect disabled and handler share all component, layout, modal and departure guards',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');const action=deselectResults(h);h.context.LocalItabContentLifecycle={departing:false};
+ const locks=[...['_pendingSave','_pendingDelete','_shortcutWritesPending','_shortcutOrderPending'].map(key=>[h.component,key]),...['failedChange','invalidated','pending','timer','modePending'].map(key=>[h.component.layoutController,key]),[h.context.LocalItabContentLifecycle,'departing']];
+ for(const [object,key] of locks){
+  object[key]=true;action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');
+  h.search('');assert.equal(action.disabled,true,key);action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');
+  object[key]=false;h.search('');assert.equal(action.disabled,false,key);
+ }
+ h.component.modal=h.document.createElement('div');h.component.modal.classList.add('active');action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');h.search('');assert.equal(action.disabled,true);h.component.modal.classList.remove('active');h.search('');assert.equal(action.disabled,false);assert.equal(h.calls,0);
+});
+test('deselect cannot alter frozen review or pending and conflicted saves',async()=>{
+ for(const code of ['CATALOG_CONFLICT','CATALOG_UNVERIFIED']){
+  const h=model(),pending={};pending.promise=new Promise((resolve,reject)=>{pending.resolve=resolve;pending.reject=reject;});h.write=pending;await h.view.open();pickSite(h,'chatgpt');h.click('Review selected');
+  const action=deselectResults(h),confirm=h.document.querySelector('.navigation-library-batch-confirm');assert.equal(action.disabled,true);action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.document.querySelector('.navigation-library-batch-confirm'),confirm);
+  h.click('Back to browsing');assert.equal(action.disabled,false);h.click('Review selected');confirm.dispatch('click'); // Retired review cannot save.
+  assert.equal(h.calls,0);h.document.querySelector('.navigation-library-batch-confirm').dispatch('click');assert.equal(h.calls,1);assert.equal(action.disabled,true);action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');
+  pending.reject(Object.assign(new Error('Synthetic failure'),{code}));await tick();assert.equal(action.disabled,true);action.dispatch('click');assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.calls,1);
+ }
+});
