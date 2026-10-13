@@ -338,3 +338,35 @@ test('batch export remains the exact v1 backup shape and roundtrips records plus
     assert.equal(restored.pinnedId, state.pinnedId); assert.equal(restored.enabled, false);
     assert.deepEqual(restored.recovery, seed.recovery); assert.equal(target.b.writes, 1);
 });
+
+test('read-only batch verification requires original receipt and every original record field after unrelated writes', async () => {
+    const { a, c, b } = fixture(); const cmd = a.request('addBatch', { texts: ['same', 'same', ' exact '] });
+    await a.mutate(cmd); await add(c, 'unrelated'); const original = b.raw(), writes = b.writes;
+    assert.deepEqual(await a.verifyBatch(cmd), { matches: true });
+    assert.equal(b.writes, writes); assert.deepEqual(b.raw(), original);
+    for (const [field, value] of Object.entries({ id: 'different_id', version: 'different_version', text: 'changed', state: 'done', removedFrom: 'active', createdAt: '2025-01-01T00:00:00Z', updatedAt: '2025-01-01T00:00:00Z' })) {
+        const changed = clone(original); changed.records[1][field] = value; b.seed(changed);
+        if (field === 'removedFrom') await assert.rejects(a.verifyBatch(cmd));
+        else assert.deepEqual(await a.verifyBatch(cmd), { matches: false }, field);
+        assert.equal(b.writes, writes);
+    }
+    for (const change of [s => s.records.splice(1, 1), s => s.receipts.splice(0, 1), s => { s.records[1].state = 'removed'; s.records[1].removedFrom = 'active'; }]) {
+        const changed = clone(original); change(changed); b.seed(changed);
+        assert.deepEqual(await a.verifyBatch(cmd), { matches: false });
+    }
+    for (const change of [s => s.records.push(clone(s.records[0])), s => s.records[0].unknown = true, s => s.receipts = {}, s => s.receipts.push(null)]) {
+        const changed = clone(original); change(changed); b.seed(changed); await assert.rejects(a.verifyBatch(cmd));
+    }
+    b.seed(original); b.failRead = true; await assert.rejects(a.verifyBatch(cmd), { code: 'READ' }); b.failRead = false;
+    for (const bad of [{ ...cmd, identities: [] }, { ...cmd, identities: [cmd.identities[0], cmd.identities[0], cmd.identities[2]] }, { ...cmd, texts: [] }, { ...cmd, createdAt: null }, { ...cmd, operationId: null }, { ...cmd, identities: cmd.identities.map(i => ({ ...i, unknown: true })) }]) await assert.rejects(a.verifyBatch(bad));
+    assert.equal(b.writes, writes);
+});
+test('batch verification locks its read and never revives an evicted receipt', async () => {
+    const { a, c, b } = fixture(); const cmd = a.request('addBatch', { texts: ['one'] }); await a.mutate(cmd);
+    for (let i = 0; i < 128; i++) await c.mutate(c.request('enable', { enabled: Boolean(i % 2) }));
+    const writes = b.writes; assert.deepEqual(await a.verifyBatch(cmd), { matches: false }); assert.equal(b.writes, writes);
+    const gate = deferred(), entered = deferred(), read = b.read.bind(b); b.read = async () => { entered.resolve(); await gate.promise; return read(); };
+    const verifying = a.verifyBatch(cmd); await entered.promise;
+    const other = c.mutate(c.request('enable', { enabled: true })); await Promise.resolve(); assert.equal(b.writes, writes);
+    gate.resolve(); await verifying; await other; assert.equal(b.writes, writes + 1);
+});

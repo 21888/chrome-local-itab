@@ -162,6 +162,19 @@
             const identities = Object.freeze(texts.map(() => Object.freeze({ id: this.id(), version: this.id() })));
             return Object.freeze({ ...values, texts, identities, createdAt: this.now(), kind, operationId });
         }
+        async verifyBatch(command) {
+            // Receipts contain only operation IDs, not historical command digests.
+            // Confirm only that this entire original batch is present unchanged now.
+            check(command?.kind === 'addBatch' && token(command.operationId));
+            const snapshot = clone(command), expected = initial();
+            appendBatch(expected, snapshot); validate(expected);
+            return this.backend.lock(async () => {
+                const current = await this.readRaw();
+                const matches = current.receipts.includes(snapshot.operationId) &&
+                    expected.records.every(record => same(record, current.records.find(task => task.id === record.id)));
+                return { matches };
+            });
+        }
         async mutate(command, guard = null) {
             check(command && token(command.operationId), 'INVALID');
             return this.backend.lock(async () => {

@@ -1,0 +1,7 @@
+# Uncertain AI task batch: current-state verification
+
+Development feature on 1.1.103. Explicit verification uses the existing task backend lock to read a receipt and compare all seven original record fields for every task in the immutable original batch. Only matches === true clears the uncertainty lock and retires the old review/result. Missing receipt, missing/edited/completed tasks, unreadable data or stale controller state keep the batch locked.
+
+Task receipts contain operation IDs, not historical command digests. This confirms that the entire original batch is currently present unchanged; it does not prove historical submission or guarantee future presence. The operation reads only, never calls mutate, creates a replacement batch, contacts a provider or changes permissions.
+
+Frozen implementation full regression passed strict Node 2597/2597 and Python 81/81, with the 112-file offline package verified. Synthetic Store/controller/view cases cover exact matching, uncertainty and stale lifecycle behavior. Native safe smoke is pending; real uncertain-write faults, receipt and seven-field matching remain synthetic-only unless separately observed.

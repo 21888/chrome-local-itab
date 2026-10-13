@@ -195,6 +195,25 @@
                 throw error;
             } finally { this.busy = false; }
         }
+        async verifyTaskBatch() {
+            check(!this.closed && !this.busy && this.taskCommand && this.taskUncertain && this.taskReview, 'STALE');
+            const command = this.taskCommand, review = this.taskReview, generation = this.generation;
+            const current = () => {
+                this.current(generation);
+                check(this.taskCommand === command && this.taskReview === review &&
+                    review.command === command && review.generation === generation && this.taskUncertain, 'STALE');
+            };
+            current(); this.busy = true;
+            try {
+                await this.ensureActive(); current();
+                const result = await this.taskStore.verifyBatch(command);
+                current(); await this.ensureActive(); current();
+                check(result?.matches === true, 'TASK_UNCERTAIN');
+                this.taskReview = null; this.taskCommand = null; this.taskUncertain = false;
+                this.result = this.resultReview = null;
+                return result;
+            } finally { this.busy = false; }
+        }
         answerSnapshot() {
             check(this.result?.mode === 'answer' && this.resultReview && !this.closed, 'STALE');
             const { packed, request } = this.resultReview;

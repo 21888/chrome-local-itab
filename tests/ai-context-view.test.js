@@ -1015,3 +1015,45 @@ test('actual UI: closing or workspace invalidation during receipt check cannot s
         else { assert.doesNotMatch(h.host.querySelector('.ai-context-status').textContent, /confirmed from its receipt/); assert.equal(h.byText('Cancel / clear').disabled, true); }
     }
 });
+
+async function uncertainTaskView(h) {
+    await send(h); h.click('Review extracted'); await settle();
+    const read = h.b.read.bind(h.b); let fail = true;
+    h.b.read = async () => { if (fail && h.b.writes) { fail = false; throw Error('synthetic readback failure'); } return read(); };
+    h.click('Add these'); await idle(h); assert.equal(h.controller.taskUncertain, true);
+    return h.controller.taskCommand;
+}
+test('actual UI: explicit task check confirms only current complete unchanged batch and unlocks without writing or sending', async () => {
+    const h = await model(); assert.equal(h.byText('Check existing task batch').hidden, true);
+    const command = await uncertainTaskView(h), store = h.controller.taskStore;
+    await store.mutate(store.request('add', { text: 'unrelated synthetic task' }));
+    const writes = h.b.writes, calls = h.calls.length, before = await store.read(), question = h.host.querySelectorAll('textarea')[0].value;
+    assert.equal(h.byText('Cancel / clear').disabled, true); assert.equal(h.byText('Check existing task batch').hidden, false);
+    h.click('Check existing task batch'); assert.equal(h.byText('Check existing task batch').disabled, true); await idle(h);
+    assert.equal(h.controller.taskCommand, null); assert.equal(h.controller.result, null); assert.equal(h.byText('Cancel / clear').disabled, false);
+    assert.equal(h.byText('Check existing task batch').hidden, true); assert.equal(h.host.querySelector('.ai-context-tasks').hidden, true);
+    assert.match(h.host.querySelector('.ai-context-status').textContent, /complete original task batch is currently present and unchanged/);
+    assert.equal(h.b.writes, writes); assert.equal(h.calls.length, calls); assert.deepEqual(await store.read(), before);
+    assert.equal(h.host.querySelectorAll('textarea')[0].value, question); assert.equal(command.texts.length, 3);
+});
+test('actual UI: changed or unreadable task batch stays frozen; close and workspace invalidation suppress late success', async () => {
+    for (const outcome of ['changed', 'read', 'close', 'workspace']) {
+        const h = await model(), command = await uncertainTaskView(h), store = h.controller.taskStore;
+        if (outcome === 'changed') { const task = (await store.read()).records[0]; await store.mutate(store.request('complete', { id: task.id, version: task.version })); }
+        if (outcome === 'read') h.b.read = async () => { throw Error('synthetic read failure'); };
+        const gate = deferred(), entered = deferred(), verify = store.verifyBatch.bind(store);
+        if (['close', 'workspace'].includes(outcome)) store.verifyBatch = async cmd => { const result = await verify(cmd); entered.resolve(); await gate.promise; return result; };
+        const writes = h.b.writes, calls = h.calls.length; h.click('Check existing task batch');
+        if (['close', 'workspace'].includes(outcome)) { await entered.promise; if (outcome === 'close') h.view.destroy(); else h.deactivate(); gate.resolve(); }
+        await idle(h); assert.equal(h.controller.taskCommand, command); assert.equal(h.controller.taskUncertain, true);
+        assert.equal(h.b.writes, writes); assert.equal(h.calls.length, calls);
+        if (outcome !== 'close') { assert.equal(h.byText('Cancel / clear').disabled, true); assert.equal(h.byText('Check existing task batch').disabled, false); assert.match(h.host.querySelector('.ai-context-status').textContent, /keep this draft locked/); }
+        else assert.equal(h.host.children.length, 0);
+    }
+});
+test('task verification locale keys are complete and present in both runtime locales', () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`));
+        for (const key of ['aiContextVerifyTasks', 'aiContextTasksVerified', 'aiContextUncertainTasks']) assert.equal(typeof messages[key].message, 'string');
+    }
+});

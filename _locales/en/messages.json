@@ -4092,7 +4092,7 @@
     "message": "Draft tasks for review"
   },
   "aiContextUncertainTasks": {
-    "message": "The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch."
+    "message": "The earlier task add is unconfirmed. Use “Check existing task batch” to check that the complete original batch is still present and unchanged. Missing receipts, changed tasks or unreadable data keep this draft locked. Nothing is written or sent."
   },
   "customizeInvalid": {
     "message": "Use a valid color or a number within the shown range."
@@ -5548,5 +5548,11 @@
   },
   "aiContextSaveVerified": {
     "message": "The original save was confirmed from its receipt. This does not guarantee the answer is still present: it may have been changed or deleted later. No content was written or sent. You can now clear this draft or start a new request."
+  },
+  "aiContextVerifyTasks": {
+    "message": "Check existing task batch"
+  },
+  "aiContextTasksVerified": {
+    "message": "The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request."
   }
 }

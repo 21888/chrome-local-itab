@@ -594,3 +594,53 @@ test('receipt inspection is explicit, single-flight, and isolates old workspace 
         assert.equal(h.collectionBackend.writes, writes); assert.equal(h.calls.sends, 1); assert.equal(h.calls.permissions, 0);
     }
 });
+
+async function uncertainTasks(h, failure = 'WRITE') {
+    await prepared(h);
+    if (failure === 'WRITE') h.taskBackend.failAfter = true;
+    else { const read = h.taskBackend.read.bind(h.taskBackend); let fail = true; h.taskBackend.read = async () => { if (fail && h.taskBackend.writes) { fail = false; throw Error('synthetic readback failure'); } return read(); }; }
+    await assert.rejects(h.controller.confirmTasks(), { code: failure });
+    return h.controller.taskCommand;
+}
+test('real WRITE/READ uncertainty then other write can explicitly verify unchanged full task batch with zero writes or sends', async () => {
+    for (const failure of ['WRITE', 'READ']) {
+        const h = setup(), command = await uncertainTasks(h, failure), original = structuredClone(command);
+        await h.taskStore.mutate(h.taskStore.request('add', { text: 'unrelated' }));
+        await assert.rejects(h.controller.confirmTasks(), { code: 'TASK_UNCERTAIN' });
+        const writes = h.taskBackend.writes, sends = h.calls.sends, before = await h.taskStore.read();
+        await h.controller.verifyTaskBatch();
+        assert.equal(h.controller.taskCommand, null); assert.equal(h.controller.taskReview, null); assert.equal(h.controller.result, null);
+        assert.equal(h.taskBackend.writes, writes); assert.equal(h.calls.sends, sends); assert.deepEqual(await h.taskStore.read(), before); assert.deepEqual(command, original);
+        assert.equal(h.controller.reviewed.packed.question, 'Summarize');
+    }
+});
+test('task verification rejects edits, completion, removal, read failure and absent receipt without unlocking', async () => {
+    for (const kind of ['edit', 'complete', 'remove', 'read', 'receipt']) {
+        const h = setup(), command = await uncertainTasks(h), result = h.controller.result, review = h.controller.taskReview;
+        const task = (await h.taskStore.read()).records[0];
+        if (kind === 'read') h.taskBackend.read = async () => { throw Error('synthetic failure'); };
+        else if (kind === 'receipt') { for (let i = 0; i < 128; i++) await h.taskStore.mutate(h.taskStore.request('enable', { enabled: true })); }
+        else await h.taskStore.mutate(h.taskStore.request(kind, { id: task.id, version: task.version, text: 'edited' }));
+        const writes = h.taskBackend.writes, sends = h.calls.sends;
+        await assert.rejects(h.controller.verifyTaskBatch());
+        assert.equal(h.controller.taskCommand, command); assert.equal(h.controller.taskReview, review); assert.equal(h.controller.result, result); assert.equal(h.controller.taskUncertain, true);
+        assert.equal(h.taskBackend.writes, writes); assert.equal(h.calls.sends, sends);
+    }
+});
+test('task verification rejects concurrent close, workspace, generation and command changes across awaits', async () => {
+    for (const boundary of ['before', 'after']) for (const change of ['close', 'workspace', 'generation', 'command', 'review']) {
+        const h = setup(), command = await uncertainTasks(h), gate = deferred(), entered = deferred();
+        if (boundary === 'before') { const ensure = h.controller.ensureActive; h.controller.ensureActive = async () => { entered.resolve(); await gate.promise; return ensure(); }; }
+        else { const verify = h.taskStore.verifyBatch.bind(h.taskStore); h.taskStore.verifyBatch = async cmd => { const value = await verify(cmd); entered.resolve(); await gate.promise; return value; }; }
+        const writes = h.taskBackend.writes, pending = h.controller.verifyTaskBatch(); await entered.promise;
+        await assert.rejects(h.controller.verifyTaskBatch(), { code: 'STALE' });
+        if (change === 'close') h.controller.close();
+        if (change === 'workspace') h.deactivate();
+        if (change === 'generation') h.controller.generation++;
+        if (change === 'command') h.controller.taskCommand = { ...command };
+        if (change === 'review') h.controller.taskReview = { ...h.controller.taskReview };
+        gate.resolve(); await assert.rejects(pending);
+        assert.equal(h.controller.taskUncertain, true); assert.equal(h.taskBackend.writes, writes);
+        if (change !== 'command') assert.equal(h.controller.taskCommand, command);
+    }
+});
