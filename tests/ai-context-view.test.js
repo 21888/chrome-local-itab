@@ -6,10 +6,11 @@ const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 function backend() { let raw; return { reads: 0, writes: 0, lock: fn => fn(), async read() { this.reads++; return structuredClone(raw); }, async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
-async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false, clipboard, t } = {}) {
+async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false, clipboard, t, frames } = {}) {
     const document = createDocument({ blurUnavailableFocus }), host = document.createElement('main'); document.body.append(host);
     const confirmations = []; let confirmResult = true;
     const events = new Map(), window = { document, confirm: message => { confirmations.push(message); return confirmResult; }, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
+    if (frames) { window.requestAnimationFrame = frames.request; window.cancelAnimationFrame = frames.cancel; }
     const b = backend(), c = backend(), calls = []; let active = true; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
     const transport = { review: input => ({ ...input, origin: 'https://mock.example', permission: 'https://mock.example:443/*' }), run: async (input, options) => { calls.push({ input, options }); return { text: await reply }; } };
     const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => { if (!active) throw api.fault('WORKSPACE_INVALIDATED'); },
@@ -1495,4 +1496,88 @@ test('page visibility stops stream, clears key, keeps explicit incomplete text a
     assert.throws(() => options.onText('late')); pending.resolve('late'); await settle(); assert.equal(h.controller.result, null);
     h.click('Review exact'); await settle(); assert.equal(h.controller.partial, null);
     h.view.destroy(); assert.equal(h.document.listeners.has('visibilitychange'), false);
+});
+
+function manualFrames() {
+    let next = 0; const pending = new Map(), callbacks = new Map(), cancelled = [];
+    return {
+        request(fn) { const id = ++next; pending.set(id, fn); callbacks.set(id, fn); return id; },
+        cancel(id) { cancelled.push(id); pending.delete(id); },
+        flush() { const batch = [...pending.values()]; pending.clear(); for (const fn of batch) fn(); },
+        pending, callbacks, cancelled
+    };
+}
+async function startProgressive(h) {
+    const reply = deferred(); h.setReply(reply.promise);
+    const stream = h.host.querySelector('.ai-context-stream'); stream.checked = true; stream.dispatch('change');
+    h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
+    return { reply, options: h.calls.at(-1).options };
+}
+function countTextWrites(host) {
+    const writes = [];
+    for (const node of host.querySelectorAll('*')) {
+        let text = node.textContent;
+        Object.defineProperty(node, 'textContent', { configurable: true, get: () => text,
+            set(value) { writes.push({ node, value, previous: text }); text = value; } });
+    }
+    return writes;
+}
+test('progressive bursts paint once per frame with zero budget recomputation or repeated status writes', async () => {
+    const frames = manualFrames(), h = await model(null, { frames,
+        sources: Array.from({ length: 201 }, (_, i) => ({ id: `collection:synthetic${i}`, label: `Synthetic ${i}`, text: 'x'.repeat(2000), scope: 'library' })) });
+    for (const row of h.host.querySelectorAll('.ai-context-source').slice(0, 12)) { const check = row.querySelector('input'); check.checked = true; check.dispatch('change'); }
+    const { reply, options } = await startProgressive(h);
+    assert.equal(h.controller.reviewed.packed.prompt.length, 25050);
+    const writes = countTextWrites(h.host); let budgets = 0;
+    const inspect = h.controller.inspectInput.bind(h.controller); h.controller.inspectInput = (...args) => { budgets++; return inspect(...args); };
+    const pane = h.host.querySelector('.ai-context-partial-text'), stop = h.byText('Stop request');
+    stop.closest('details').open = true; stop.focus(); pane.scrollTop = 17;
+    for (let i = 1; i <= 4000; i++) options.onText('a'.repeat(i));
+    assert.equal(frames.pending.size, 1); assert.equal(writes.length, 0); assert.equal(budgets, 0);
+    frames.flush(); assert.equal(writes.length, 1); assert.equal(writes[0].node, pane); assert.equal(pane.textContent, 'a'.repeat(4000));
+    assert.equal(budgets, 0); assert.equal(h.document.activeElement, stop); assert.equal(pane.scrollTop, 17);
+    assert.equal(pane.closest('[role="status"], [aria-live]'), null);
+    options.onText('a'.repeat(4000)); frames.flush(); assert.equal(writes.length, 1);
+    options.onText('last'); frames.flush(); assert.equal(writes.length, 2); assert.equal(budgets, 0);
+    reply.resolve('last'); await settle(); assert.equal(h.controller.result.text, 'last'); h.view.destroy();
+});
+for (const terminal of ['stop', 'hidden', 'error', 'complete', 'destroy']) {
+    test(`progressive pending frame is cancelled on ${terminal}; terminal text is immediate and late callback harmless`, async () => {
+        const frames = manualFrames(), h = await model(null, { frames }), { reply, options } = await startProgressive(h);
+        const pane = h.host.querySelector('.ai-context-partial-text'); options.onText('last unpainted text');
+        const late = [...frames.callbacks.values()].at(-1); assert.equal(pane.textContent, '');
+        const writes = countTextWrites(h.host), partialStatus = h.host.querySelector('.ai-context-partial-status');
+        if (terminal === 'stop') h.click('Stop request');
+        if (terminal === 'hidden') { h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')(); }
+        if (terminal === 'error') { reply.resolve(Promise.reject(new Error('synthetic failure'))); await settle(); }
+        if (terminal === 'complete') { reply.resolve('validated complete'); await settle(); }
+        if (terminal === 'destroy') h.view.destroy();
+        assert.equal(frames.pending.size, 0); assert.equal(frames.cancelled.length, 1);
+        if (['stop', 'hidden', 'error'].includes(terminal)) {
+            assert.equal(pane.textContent, 'last unpainted text');
+            assert.match(h.host.querySelector('.ai-context-partial-status').textContent, /Incomplete answer/);
+            assert.equal(h.byText('Copy answer').disabled, true); assert.equal(h.byText('Save answer').disabled, true);
+        }
+        if (terminal === 'complete') {
+            assert.equal(pane.textContent, ''); assert.equal(h.host.querySelector('.ai-context-partial').hidden, true);
+            assert.equal(h.host.querySelectorAll('textarea').find(node => node.rows === 8).value, 'validated complete');
+            assert.equal(h.byText('Copy answer').disabled, false);
+        }
+        const before = pane.textContent; late(); assert.equal(pane.textContent, before);
+        assert.equal(writes.filter(write => write.node === partialStatus).length, terminal === 'destroy' ? 0 : 1);
+        if (!['error', 'complete'].includes(terminal)) reply.resolve('late ignored');
+        await settle(); if (terminal !== 'complete') assert.equal(h.controller.result, null);
+        h.view.destroy();
+    });
+}
+test('cancelled old frame cannot paint or cancel a newer request frame after explicit retry', async () => {
+    const frames = manualFrames(), h = await model(null, { frames }), first = await startProgressive(h);
+    first.options.onText('old partial'); const oldFrame = [...frames.callbacks.values()].at(-1);
+    h.click('Stop request'); await settle();
+    const second = await startProgressive(h); second.options.onText('new partial');
+    assert.equal(frames.pending.size, 1); const pane = h.host.querySelector('.ai-context-partial-text');
+    oldFrame(); assert.equal(pane.textContent, ''); assert.equal(frames.pending.size, 1);
+    frames.flush(); assert.equal(pane.textContent, 'new partial');
+    first.reply.resolve('old late completion'); second.reply.resolve('new complete'); await settle();
+    assert.equal(h.controller.result.text, 'new complete'); h.view.destroy();
 });

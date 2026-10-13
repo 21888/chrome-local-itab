@@ -189,7 +189,40 @@
                 row.budget.textContent = row.check.checked ? `${label('Excerpt', 'Outgoing excerpt')}: ${row.input.value.length} / 16000${row.input.value.length > 16000 ? ` (${over})` : ''}` : '';
             }
         }
+        // Only the latest partial text needs painting. Keep source budgets and
+        // live-region announcements out of the per-chunk path.
+        let partialFrame = null, partialTicket = 0;
+        function cancelPartialFrame() {
+            partialTicket++;
+            if (partialFrame !== null) root.cancelAnimationFrame?.(partialFrame);
+            partialFrame = null;
+        }
+        function renderPartial() {
+            partialPanel.hidden = !controller.partial;
+            const text = controller.partial?.text || '';
+            if (partialText.textContent !== text) partialText.textContent = text;
+            const statusText = !controller.partial ? '' : controller.partial.state === 'receiving'
+                ? label('StreamReceiving', 'Receiving an incomplete answer. Save and copy remain unavailable until the complete response is validated.')
+                : label('StreamIncomplete', 'Incomplete answer: stopped or failed. This text is not a completed response and cannot be saved or copied as an answer. Review or explicitly send again to retry, or clear the draft. Any previous response is kept separately and becomes visible after a new review or edit.');
+            if (partialStatus.textContent !== statusText) partialStatus.textContent = statusText;
+        }
+        function queuePartial() {
+            if (disposed || controller.closed || doc.visibilityState === 'hidden') return;
+            if (partialFrame !== null) return;
+            if (typeof root.requestAnimationFrame !== 'function') { renderPartial(); return; }
+            const ticket = ++partialTicket, review = controller.partial?.review;
+            partialFrame = root.requestAnimationFrame(() => {
+                // A cancelled callback may already have been dispatched. Never
+                // let it clear a newer frame or paint a later request's draft.
+                if (ticket !== partialTicket) return;
+                partialFrame = null;
+                if (disposed || controller.closed || doc.visibilityState === 'hidden' ||
+                    controller.partial?.review !== review) return;
+                renderPartial();
+            });
+        }
         function update() {
+            cancelPartialFrame();
             copyGeneration++; copyStatus.textContent = '';
             filterSources();
             updateBudget();
@@ -198,11 +231,7 @@
             for (const input of controls) input.disabled = busy || retry;
             stream.disabled = busy || retry || mode.value !== 'answer';
             streamLabel.hidden = streamHelp.hidden = mode.value !== 'answer';
-            partialPanel.hidden = !controller.partial;
-            partialText.textContent = controller.partial?.text || '';
-            partialStatus.textContent = !controller.partial ? '' : controller.partial.state === 'receiving'
-                ? label('StreamReceiving', 'Receiving an incomplete answer. Save and copy remain unavailable until the complete response is validated.')
-                : label('StreamIncomplete', 'Incomplete answer: stopped or failed. This text is not a completed response and cannot be saved or copied as an answer. Review or explicitly send again to retry, or clear the draft. Any previous response is kept separately and becomes visible after a new review or edit.');
+            renderPartial();
             // The title is local save metadata, not part of the reviewed request.
             // Allow edits during transport, but freeze it for persistence/retry.
             answerTitle.disabled = retry || controller.saved || (busy && !controller.aborter);
@@ -364,7 +393,7 @@
             return action(async () => {
             const reviewed = controller.reviewed;
             try {
-                const result = await controller.send(key.value, { replaceUnsaved: true, onProgress: () => { if (!disposed) update(); } });
+                const result = await controller.send(key.value, { replaceUnsaved: true, onProgress: queuePartial });
                 if (!disposed && !controller.closed && controller.reviewed === reviewed &&
                     controller.generation === reviewed.generation && controller.result === result) {
                     output.value = result.text; outputLabel.hidden = false; includeContext.checked = false; taskList.hidden = true;
@@ -473,7 +502,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') return;
             key.value = ''; controller.stop(); if (!disposed) update();
