@@ -338,7 +338,20 @@
             if (!this.sessionReady() || session.literal || !this.variables().includes(name)) return null;
             return { name, id: record.id, version: record.version, session, epoch: this.excerptEpoch, cancelled: false };
         }
+        draftExcerptContext(name) {
+            const session = this.draftPreview;
+            if (!this.draftPreviewCurrent(session) || !session.result?.variables.includes(name)) return null;
+            return { kind: 'draft', name, session, epoch: this.excerptEpoch,
+                valueRevision: session.valueRevision, values: JSON.stringify(session.values), cancelled: false };
+        }
+        draftExcerptCurrent(context) {
+            return Boolean(context && context.kind === 'draft' && !context.cancelled &&
+                this.draftPreviewCurrent(context.session) && this.excerptEpoch === context.epoch &&
+                context.session.valueRevision === context.valueRevision && JSON.stringify(context.session.values) === context.values &&
+                context.session.result?.variables.includes(context.name));
+        }
         excerptCurrent(context) {
+            if (context?.kind === 'draft') return this.draftExcerptCurrent(context);
             return Boolean(context && this.sessionReady() && !context.cancelled && !this.disposed && !this.busy && !this.pendingCommand && this.pendingReadGeneration === null && !this.linkedPromptUnavailable && !this.draft() &&
                 this.excerptEpoch === context.epoch && this.record()?.id === context.id && this.record()?.version === context.version && !this.record()?.deletedAt && this.session() === context.session && !context.session.literal);
         }
@@ -358,6 +371,7 @@
         async applyExcerpt(review) {
             if (!this.excerptReviewCurrent(review) || review.used) return { ok: false, code: 'STALE' };
             review.used = true;
+            if (review.context.kind === 'draft') return this.applyDraftExcerpt(review);
             try {
                 // Re-read both sources before applying: subscription delivery may be delayed.
                 const [collections, prompts] = await Promise.all([this.collectionStore.read(), this.store.read()]);
@@ -367,6 +381,23 @@
                 const { session, name } = review.context;
                 Core.previewTemplate(session.body, { ...session.values, [name]: review.body });
                 return this.setVariable(name, review.body) ? { ok: true } : { ok: false, code: this.error?.code || 'STALE' };
+            } catch (error) { return { ok: false, code: error.code || 'READ' }; }
+        }
+        async applyDraftExcerpt(review) {
+            try {
+                const collections = Collections.validate(await this.collectionStore.read());
+                const source = collections.records.find(item => item.id === review.id);
+                if (!this.excerptReviewCurrent(review) || !source || source.deletedAt !== null ||
+                    source.version !== review.version || source.currentVersionId !== review.bodyVersion || source.body !== review.body) return { ok: false, code: 'STALE' };
+                const { session, name } = review.context;
+                // Preflight everything without setDraftVariable: rejected manual edits deliberately
+                // clear their old value, while a rejected reviewed replacement must be atomic.
+                if (typeof review.body !== 'string' || Array.from(review.body).length > Core.LIMITS.value ||
+                    this.previewValueSize() - (session.values[name]?.length || 0) + review.body.length > SESSION_VALUE_LIMIT) throw Core.fault('SESSION_LIMIT');
+                const next = Object.assign(Object.create(null), session.values); next[name] = review.body;
+                Core.previewTemplate(session.draft.input.body, next);
+                session.values = next; session.error = null; session.valueRevision++;
+                this.notify('draftPreviewValues'); return { ok: true };
             } catch (error) { return { ok: false, code: error.code || 'READ' }; }
         }
         hasUncommittedWork() {

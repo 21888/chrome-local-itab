@@ -398,7 +398,11 @@
                 const empty = this.button('DraftVariableEmpty', 'Use empty value', () => {
                     if (host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) { field.input.value = ''; c.setDraftVariable(name, ''); }
                 });
-                field.wrap.append(empty); variables.append(field.wrap);
+                const choose = this.button('ExcerptChoose', 'Choose saved excerpt', () => {
+                    if (host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) void this.chooseExcerpt(name, field.input, true);
+                }, 'prompt-empty-value');
+                choose.setAttribute('aria-label', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); this.focusKey(choose, `draft-excerpt-${name}`);
+                field.wrap.append(empty, choose); variables.append(field.wrap);
             }
             const preview = this.el('textarea', 'prompt-preview'); preview.readOnly = true;
             preview.setAttribute('aria-label', this.t('DraftPreviewText', 'Unsaved draft preview')); this.focusKey(preview, 'draft-preview-text');
@@ -530,15 +534,15 @@
             this.previewElements = { literal, variables, preview, status, copy, run, compare }; this.updatePreview();
             this.main.append(this.linkedSection(record.id, c.session(record).versionId, true));
         }
-        async chooseExcerpt(name, input) {
+        async chooseExcerpt(name, input, draft = false) {
             const c = this.controller;
             if (this.openDialog) return;
-            const context = c.excerptContext(name); if (!context) return;
+            const context = draft ? c.draftExcerptContext(name) : c.excerptContext(name); if (!context) return;
             const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', 'prompt-dialog prompt-excerpt-dialog');
             overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
             box.setAttribute('aria-labelledby', 'excerpt-title'); box.setAttribute('aria-describedby', 'excerpt-help');
             const title = this.el('h2', '', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); title.id = 'excerpt-title';
-            const help = this.el('p', '', this.t('ExcerptHelp', 'Review one active saved excerpt, then replace only this variable with its exact body. Notes, links and history are excluded. Values stay in this tab; your saved template will not change.')); help.id = 'excerpt-help';
+            const help = this.el('p', '', draft ? this.t('DraftExcerptHelp', 'Review the exact saved body and previous value, then replace only this temporary draft variable. Nothing is saved, copied or sent.') : this.t('ExcerptHelp', 'Review one active saved excerpt, then replace only this variable with its exact body. Notes, links and history are excluded. Values stay in this tab; your saved template will not change.')); help.id = 'excerpt-help';
             const status = this.el('p', 'prompt-help', this.t('LinkedLoading', 'Reading saved results…')); status.setAttribute('role', 'status');
             const list = this.el('div', 'prompt-excerpt-list'), review = this.el('div'), actions = this.el('div', 'prompt-actions');
             let selection = null, close, finished = false, applying = false, generation = null;
@@ -554,7 +558,18 @@
                 const chosen = selection;
                 const result = await c.applyExcerpt(chosen);
                 if (finished) return;
-                if (result.ok) { input.value = chosen.body; finish(); }
+                if (result.ok) {
+                    // A render may have replaced the opener/input while the read was pending.
+                    // Synchronize only this variable in the still-current draft preview.
+                    if (draft) {
+                        const ui = this.draftPreviewElements;
+                        if (ui?.session === context.session && ui.host.isConnected && c.draftPreviewCurrent(context.session)) {
+                            const current = ui.variables.querySelector(`[data-prompt-focus="draft-variable-${name}"]`);
+                            if (current) current.value = chosen.body;
+                        }
+                    } else if (input.isConnected) input.value = chosen.body;
+                    finish();
+                }
                 else { status.textContent = result.code === 'STALE' ? this.t('ExcerptStale', 'This selection changed or is no longer available. Cancel and choose again.') : this.errorText(result.code); }
                 applying = false;
             }, 'prompt-primary'); apply.disabled = true;
