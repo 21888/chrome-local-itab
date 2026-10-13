@@ -5603,6 +5603,9 @@
   "aiContextLocalCopyBlocked": {
     "message": "无法确认复制成功。可选中上方完整提示词手动复制。继续前请检查当前工作区。"
   },
+  "aiContextLocalCopyWorkspaceInvalid": {
+    "message": "无法验证当前工作空间，本次本地审阅已清除。复制结果无法确认，剪贴板可能已包含该提示词。请关闭面板并重新打开可用工作空间后，再次审阅。"
+  },
   "navigationTagPersonalFinance": {
     "message": "个人财务"
   },

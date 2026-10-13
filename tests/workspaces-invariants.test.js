@@ -779,3 +779,104 @@ bounded('workspace archive recovery does not mutate migrated v1 recovery or trig
     assert.equal(recovery.workspaces[0].modules.scratchpad.content, 'PRIVATE_NOTE_A\n中文');
     assert.equal(f.raw[Workspaces.LEGACY_CONFLICT_KEY], undefined);
 });
+
+// Real workspace sessions back the local-prompt UI. Only storage and DOM are
+// synthetic; no provider, clipboard service, browser profile or network is used.
+async function localCopyWorkspaceUI(f, manager, session, clipboard, locale = 'en') {
+    const fs = require('node:fs'), vm = require('node:vm');
+    const AI = require('../shared/ai-context'), Collections = require('../shared/local-ai-collections-store');
+    const { createDocument } = require('./helpers/task-dom-model');
+    const messages = require(`../_locales/${locale}/messages.json`);
+    const controller = AI.createController({ workspaces: { manager, session }, tasks: Tasks, collections: Collections, scratchpad: Scratchpad,
+        transport: {}, permissions: {} });
+    const document = createDocument(), host = document.createElement('main'); document.body.append(host);
+    const window = { document, addEventListener() {}, removeEventListener() {} };
+    vm.runInNewContext(fs.readFileSync(path.join(project, 'shared/ai-context-view.js'), 'utf8'), { window });
+    const view = window.LocalItabAIContextView.mount(host, { controller, clipboard, t: (key, fallback) => messages[key]?.message || fallback });
+    await view.ready;
+    const button = key => host.querySelectorAll('button').find(node => node.textContent === messages[`aiContext${key}`].message);
+    const question = host.querySelector('textarea'); question.value = 'Synthetic local question'; question.dispatch('input');
+    button('ReviewLocal').dispatch('click'); await f.settled();
+    assert(controller.localReview);
+    return { controller, document, host, view, question, button, messages,
+        status: host.querySelector('.ai-context-status'), panel: host.querySelector('.ai-context-local-review'),
+        localStatus: host.querySelector('.ai-context-local-status') };
+}
+async function localCopyWorkspaceFixture(clipboard, locale) {
+    const f = fixture(), manager = f.manager(); await manager.ready();
+    const entry = await manager.create('Synthetic local copy workspace'), session = manager.capture(entry.id); await session.ready();
+    const other = f.manager(); await other.ready();
+    return { f, manager, other, entry, session, h: await localCopyWorkspaceUI(f, manager, session, clipboard, locale) };
+}
+for (const locale of ['en', 'zh_CN']) for (const timing of ['before-copy', 'during-copy']) for (const focus of ['local-status', 'question']) {
+    bounded(`local prompt: real workspace invalidation ${timing}, ${locale}, focus ${focus}`, async () => {
+        const gate = deferred(), copies = [];
+        const { f, other, entry, session, h } = await localCopyWorkspaceFixture({ writeText: async text => {
+            copies.push(text); if (timing === 'during-copy') await gate.promise;
+        } }, locale);
+        const ticket = h.controller.localReview;
+        if (timing === 'before-copy') await other.trash(entry.id);
+        const writesBeforeCopy = f.writes.length, removalsBeforeCopy = f.removals.length;
+        h.button('CopyLocal').focus(); h.button('CopyLocal').dispatch('click');
+        if (focus === 'question') h.question.focus();
+        await f.settled();
+        if (timing === 'during-copy') {
+            assert.deepEqual(copies, [ticket.packed.prompt]);
+            assert.equal(f.writes.length, writesBeforeCopy);
+            await other.trash(entry.id);
+            gate.resolve(); await f.settled();
+        }
+        assert.equal(session.invalidated, true);
+        assert.equal(h.controller.localReview, null);
+        assert.equal(h.panel.hidden, true); assert.equal(h.panel.querySelector('textarea').value, '');
+        assert.equal(h.localStatus.textContent, '');
+        assert.equal(h.status.textContent, h.messages.aiContextLocalCopyWorkspaceInvalid.message);
+        assert.equal(h.status.getAttribute('role'), 'status');
+        assert.equal(h.document.activeElement, focus === 'question' ? h.question : h.status);
+        assert.equal(copies.length, timing === 'before-copy' ? 0 : 1);
+        const afterTrashWrites = f.writes.length;
+        await assert.rejects(h.controller.copyLocalPrompt(ticket, () => assert.fail('stale ticket reused')));
+        assert.equal(f.writes.length, afterTrashWrites); assert.equal(f.removals.length, removalsBeforeCopy);
+        // B's explicit trash is the only post-review write, not the read-only copy.
+        assert.equal(afterTrashWrites - writesBeforeCopy, timing === 'before-copy' ? 0 : 1);
+        assert.deepEqual(f.providers, []);
+    });
+}
+for (const locale of ['en', 'zh_CN']) for (const race of ['new-review', 'close-new-interface', 'edit']) {
+    bounded(`local prompt: old workspace failure cannot overwrite ${race}, ${locale}`, async () => {
+        const gate = deferred(), copies = [];
+        const { f, manager, other, entry, h } = await localCopyWorkspaceFixture({ writeText: async text => { copies.push(text); await gate.promise; } }, locale);
+        const oldTicket = h.controller.localReview;
+        h.button('CopyLocal').focus(); h.button('CopyLocal').dispatch('click'); await f.settled();
+        assert.equal(copies.length, 1);
+        let current = h;
+        if (race === 'close-new-interface') {
+            h.view.destroy();
+            const session = manager.capture('default'); await session.ready();
+            current = await localCopyWorkspaceUI(f, manager, session, { writeText: async () => {} }, locale);
+        } else {
+            h.question.value = 'New synthetic question'; h.question.dispatch('input');
+            if (race === 'new-review') { h.button('ReviewLocal').dispatch('click'); await f.settled(); }
+        }
+        current.question.focus();
+        const ticket = current.controller.localReview, text = current.status.textContent, prompt = current.panel.querySelector('textarea').value;
+        await other.trash(entry.id);
+        const writes = f.writes.length; gate.resolve(); await f.settled();
+        assert.equal(current.controller.localReview, ticket); assert.notEqual(ticket, oldTicket);
+        assert.equal(current.status.textContent, text); assert.equal(current.panel.querySelector('textarea').value, prompt);
+        assert.equal(current.document.activeElement, current.question);
+        assert.equal(f.writes.length, writes); assert.deepEqual(f.providers, []);
+        assert.equal(copies.length, 1);
+        await assert.rejects(h.controller.copyLocalPrompt(oldTicket, () => assert.fail('old ticket resurrected')));
+    });
+}
+bounded('local prompt: selecting a different workspace in another tab keeps the captured session valid', async () => {
+    const copies = [], { f, other, session, h } = await localCopyWorkspaceFixture({ writeText: async text => copies.push(text) }, 'en');
+    const ticket = h.controller.localReview;
+    await other.select('default'); await session.assertActive();
+    const writes = f.writes.length;
+    h.button('CopyLocal').dispatch('click'); await f.settled();
+    assert.equal(h.controller.localReview, ticket); assert.equal(h.panel.hidden, false);
+    assert.equal(h.localStatus.textContent, h.messages.aiContextLocalCopied.message);
+    assert.deepEqual(copies, [ticket.packed.prompt]); assert.equal(f.writes.length, writes); assert.deepEqual(f.providers, []);
+});

@@ -286,7 +286,17 @@
             } catch (_) {
                 if (current()) localStatus.textContent = label('LocalCopyBlocked', 'Copy could not be confirmed. Select the complete prompt above to copy it manually. Check the current workspace before continuing.');
             } finally {
-                if (!disposed && localCopy === operation && controller.localReview !== ticket) updateLocalReview();
+                if (!disposed && localCopy === operation && controller.localReview !== ticket) {
+                    // Only this unchanged review losing its ticket needs workspace feedback.
+                    // Edits, newer reviews and closed controllers own their own status/focus.
+                    const invalidated = !controller.closed && controller.generation === ticket.generation && controller.localReview === null;
+                    const hiddenFocus = invalidated && localPanel.contains(doc.activeElement);
+                    updateLocalReview();
+                    if (invalidated) {
+                        status.textContent = label('LocalCopyWorkspaceInvalid', 'The current workspace could not be verified, so this local review was cleared. The copy result cannot be confirmed; the clipboard may already contain this prompt. Close this panel, reopen an available workspace, and review again.');
+                        if (hiddenFocus) status.focus();
+                    }
+                }
                 if (localCopy === operation) { localCopy = null; copyLocal.disabled = selectionBlocked() || !controller.localReview || localPanel.hidden; }
             }
         });

@@ -5603,6 +5603,9 @@
   "aiContextLocalCopyBlocked": {
     "message": "Copy could not be confirmed. Select the complete prompt above to copy it manually. Check the current workspace before continuing."
   },
+  "aiContextLocalCopyWorkspaceInvalid": {
+    "message": "The current workspace could not be verified, so this local review was cleared. The copy result cannot be confirmed; the clipboard may already contain this prompt. Close this panel, reopen an available workspace, and review again."
+  },
   "navigationTagPersonalFinance": {
     "message": "Personal finance"
   },
