@@ -77,3 +77,7 @@ Prepared-snapshot results (manifest 1.1.106, unchanged):
 - Offline runtime ZIP: 112 allowlisted files; build/source verification passed.
 - ZIP SHA-256: `664fdade6bfc908472865f7390031fa7a2e06a41638a559614394bf940fe64c0`.
 - No native-browser test, commit, push or release performed by this preparation.
+
+## Limited native development verification
+
+Chinese desktop-light catalog checks passed:139/125/14, each new ASCII brand query returned one intended card; BG/US/DE operator labels, scoped free/account/paid renewal/server/paywall caveats and one hovered official source per site observed. Cross-query three selections/hidden2 appeared in complete local review, canceled without additions; reopen reset selection. No external sites, accounts, server behavior or actual RSS subscriptions tested.204 purposes/18 categories remain source/test counts, not native enumeration; dark/320/exhaustive filtering/focus and prior136 enumeration not run.

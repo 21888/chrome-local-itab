@@ -4,4 +4,4 @@ Ordinary fix on 1.1.106. If workspace validation invalidates the local review du
 
 Frozen strict serial Node2665/2665 and Python81/81 passed;112-file runtime package verified. Real Workspaces regressions include15 cases: eight invalidation cases fail on the old baseline and pass after the fix, with seven controls retained. Independent review found no blocker, including additional race/focus checks. Successful-copy and ordinary-denial focus behavior is unchanged. No storage, provider, permission or clipboard-read operation added.
 
-Native validation is pending; workspace trash/copy races remain synthetic evidence until separately observed. No full browser/platform/accessibility matrix is claimed.
+Limited Chinese desktop-light normal-path native regression passed: blank connection, no-source local review, explicit OS copy/paste of a286-character synthetic prompt into local unsaved question, visible text/count match, edit invalidation and Escape discard/cancel. No workspace deletion/failure was induced; workspace trash/copy races remain synthetic evidence until separately observed. No full browser/platform/accessibility matrix is claimed.

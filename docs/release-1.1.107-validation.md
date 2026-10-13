@@ -1,0 +1,9 @@
+# 1.1.107 validation
+
+Normal patch increment from officialv1.1.106. Parent21929f4cfed9e07ed982da5a7863102d4a075265; only manifest/docs differ from combined features, no recovery marker.
+
+Development full suites passed2665Node/81Python and2670Node/81Python. Both precise ordinary CI runs passed with publication skipped; second CI38357135458 passed2670/81. Actual1.1.107 strict serial full regression passed2670/2670 Node (1GiB heap, no failures/skips/cancellations) and81/81 Python.
+
+Limited native development112-file ZIPs: copy4ef64bbbcd5310209a81af5610480730821ddb2dab1c8e8926c1b64e76308650; catalog664fdade6bfc908472865f7390031fa7a2e06a41638a559614394bf940fe64c0. Chinese desktop light. Normal blank-connection no-source local prompt copied via OS clipboard into local unsaved question; visible full text/count286 matched, edit cleared review/feedback, Escape cancel/discard passed. No fault/workspace deletion induced. Catalog139/125/14, three brand queries each one; BG/US/DE and scoped fees/accounts/server/paywall details, one hovered official source per site, three cross-query selections/hidden2 complete review canceled; reopen reset with zero additions. Baseline Default14/qa remaining2/Clarity light/Grid restored.
+
+Workspace-invalid copy failure/races remain real-Workspaces synthetic-only; no bytewise clipboard assertion, dark/320/full focus/filter/old136 enumeration or external service verification.204tags/18categories are source/test figures. No saves, external paste, provider, permissions or registration. Final minimal identity passed against ZIPb14580a88eb68f32a32b1df10466ab1bd460384437c7bf306e00926374c213b6,112files; integrator verified only manifest differs from combined development. Ordinary CfT reload visibly showed1.1.107; fresh homepage retained Default14/qa remaining2/Clarity light/Grid with no panels/drafts/dialogs. Original content untouched rather than reread. Identity evidence adds no feature coverage or live-publication proof.
