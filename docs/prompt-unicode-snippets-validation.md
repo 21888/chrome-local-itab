@@ -4,4 +4,4 @@ Development fix on 1.1.98. Searching lowercase-expanded text (for example repeat
 
 Five deterministic regression cases cover expansion before matches, mixed supplementary characters and exact excerpt bounds. The implementation strict full suite passed 2532 Node tests and 81 Python tests; the same two frozen implementation files are included here. The five targeted tests were also rerun in this prepared checkout.
 
-Native browser validation is pending. Unicode input and long expansion-boundary matching are synthetic coverage until separately observed. This fix adds no storage writes, network requests, permissions or version bump; ordinary feature publication remains skipped.
+Limited Chinese desktop-light native smoke passed: empty prompt library search/clear and unsaved title draft discard, with zero saved records and dashboard baseline preserved. Actual long Unicode excerpt rendering was not observed natively. Unicode input and long expansion-boundary matching are synthetic coverage until separately observed. This fix adds no storage writes, network requests, permissions or version bump; ordinary feature publication remains skipped.
