@@ -2432,16 +2432,7 @@ class ShortcutsComponent {
         content.draggable = true;
         content.setAttribute('aria-label', `${(window.i18n && i18n.t('openInNewTab')) || 'Open in new tab'}: ${link.title || link.url}`);
 
-        const icon = document.createElement('span');
-        icon.className = 'shortcut-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        this.setShortcutIconContent(icon, link.icon || '🌐', link.url);
-
-        const title = document.createElement('span');
-        title.className = 'shortcut-title';
-        title.textContent = link.title || '';
-
-        content.append(icon, title);
+        this.appendShortcutContent(content, link);
 
         const actions = document.createElement('div');
         actions.className = 'shortcut-actions';
@@ -2459,6 +2450,49 @@ class ShortcutsComponent {
 
         item.append(content, actions);
         return item;
+    }
+
+    appendShortcutContent(content, link, options = {}) {
+        const icon = document.createElement('span');
+        icon.className = 'shortcut-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        this.setShortcutIconContent(icon, link.icon || '🌐', link.url, options);
+        const title = document.createElement('span');
+        title.className = 'shortcut-title';
+        title.textContent = link.title || '';
+        content.append(icon, title);
+    }
+
+    normalizedShortcutDraft() {
+        const [title, rawUrl, icon, category] = this.readShortcutDraft();
+        let url = '';
+        try { url = normalizeHttpUrl(rawUrl.trim()); } catch (_) {}
+        return { title: title.trim(), url, icon: icon.trim() || '🌐', category: (category || 'work').trim() };
+    }
+
+    updateShortcutPreview() {
+        const modal = this.modal;
+        const preview = modal?.querySelector('#shortcut-edit-preview');
+        if (!preview) return;
+        // User size/color overrides live on #dashboard, outside this dialog.
+        // Copy only content variables; never pretend to mirror the grid layout.
+        const dashboard = document.getElementById('dashboard');
+        const style = dashboard && window.getComputedStyle?.(dashboard);
+        for (const name of ['--shortcut-icon-size', '--shortcut-icon-font', '--shortcut-title-size', '--shortcut-title-color']) {
+            const value = style?.getPropertyValue?.(name)?.trim();
+            if (value) preview.style.setProperty(name, value);
+            else preview.style.removeProperty(name);
+        }
+        const revision = this._shortcutPreviewRevision = (this._shortcutPreviewRevision || 0) + 1;
+        const session = this._modalSession;
+        const draft = this.readShortcutDraft();
+        const isCurrent = () => this.modal === modal && this._modalSession === session &&
+            this._shortcutPreviewRevision === revision && modal.classList.contains('active') &&
+            this.readShortcutDraft().slice(0, 3).every((value, index) => value === draft[index]);
+        const hiddenNote = modal.querySelector('#shortcut-preview-hidden');
+        if (hiddenNote) hiddenNote.hidden = !document.body.classList.contains('hide-shortcut-titles');
+        preview.replaceChildren();
+        this.appendShortcutContent(preview, this.normalizedShortcutDraft(), { cacheOnly: true, isCurrent });
     }
 
     createShortcutAction(action, index, title, label) {
@@ -3047,6 +3081,7 @@ class ShortcutsComponent {
         this._modalFocusOrigin = this.captureGridFocus();
         this._closeModal = window.LocalItabDialog.open(this.modal, titleInput, () => this.hideModal());
         this.refreshShortcutUndo();
+        this.updateShortcutPreview();
     }
 
     readShortcutDraft() {
@@ -3142,6 +3177,12 @@ class ShortcutsComponent {
                             </div>
                             <div class="form-hint">${(window.i18n && i18n.t('iconHint')) || 'Enter an emoji, text, or click the button to auto-fetch the website icon'}</div>
                         </div>
+                        <section class="shortcut-preview-panel" aria-labelledby="shortcut-preview-label">
+                            <div id="shortcut-preview-label" class="form-label">${window.i18n?.t('shortcutPreviewLabel') || 'Icon and title preview'}</div>
+                            <div id="shortcut-edit-preview" class="shortcut-edit-preview"></div>
+                            <div id="shortcut-preview-hidden" class="form-hint" hidden>${window.i18n?.t('shortcutPreviewHidden') || 'Titles are hidden on your home page. Check the title in the field above.'}</div>
+                            <div class="form-hint">${window.i18n?.t('shortcutPreviewHint') || 'Uses local cached icons only; otherwise shows your text or 🌐. Size and title visibility follow your settings. Full card layout appears on the home page after saving.'}</div>
+                        </section>
                         <div class="modal-actions">
                             <button type="button" class="modal-btn secondary" id="cancel-btn">${(window.i18n && i18n.t('cancel')) || 'Cancel'}</button>
                             <button type="submit" class="modal-btn primary" id="save-btn">${(window.i18n && i18n.t('save')) || 'Save'}</button>
@@ -3177,10 +3218,13 @@ class ShortcutsComponent {
         // Icon fetch button
         const fetchIconBtn = this.modal.querySelector('#fetch-icon-btn');
         fetchIconBtn.addEventListener('click', () => this.fetchWebsiteIcon());
-        for (const selector of ['#shortcut-url', '#shortcut-icon']) {
+        for (const selector of ['#shortcut-title', '#shortcut-url', '#shortcut-icon']) {
             const input = this.modal.querySelector(selector);
             for (const event of ['input', 'change']) {
-                input.addEventListener(event, () => this.cancelIconRequest());
+                input.addEventListener(event, () => {
+                    if (selector !== '#shortcut-title') this.cancelIconRequest();
+                    this.updateShortcutPreview();
+                });
             }
         }
 
@@ -3212,6 +3256,7 @@ class ShortcutsComponent {
                         this._iconIntentVersion !== intent || !modal.classList.contains('active') ||
                         urlInput.value !== originalUrl || iconInput.value !== originalIcon) return;
                     iconInput.value = '';
+                    this.updateShortcutPreview();
                     showErrorMessage('Icon cache cleared. Click auto-fetch to get a new one.');
                 } catch (e) {}
             });
@@ -3256,10 +3301,8 @@ class ShortcutsComponent {
         const iconInput = this.modal.querySelector('#shortcut-icon');
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
-        const title = titleInput.value.trim();
+        const { title, icon, category } = this.normalizedShortcutDraft();
         let url = urlInput.value.trim();
-        const icon = iconInput.value.trim() || '🌐';
-        const category = (categorySelect?.value || 'work').trim();
 
         // Validate form
         if (!this.validateForm(title, url)) {
@@ -4493,17 +4536,19 @@ class ShortcutsComponent {
     /**
      * Render icon - handle both emoji/text and data URLs (favicons)
      */
-    setShortcutIconContent(slot, icon, url) {
+    setShortcutIconContent(slot, icon, url, options = {}) {
         if (!slot) return;
 
         const fallback = () => {
             slot.textContent = '🌐';
         };
         const setImage = (src) => {
+            if (options.isCurrent && !options.isCurrent()) return;
             const img = document.createElement('img');
             img.className = 'shortcut-icon-img';
             img.src = src;
             img.alt = '';
+            img.draggable = false;
             img.loading = 'lazy';
             img.decoding = 'async';
             img.referrerPolicy = 'no-referrer';
@@ -4531,10 +4576,10 @@ class ShortcutsComponent {
         if (icon.startsWith('http://') || icon.startsWith('https://')) {
             fallback();
             if (window.faviconCache) {
-                window.faviconCache.getIconDataUrlByUrl(icon).then((dataUrl) => {
+                Promise.resolve(options.cacheOnly ? window.faviconCache.peekIconDataUrl?.(icon) : window.faviconCache.getIconDataUrlByUrl(icon)).then((dataUrl) => {
                     if (!dataUrl || !isSafeImageDataUrl(dataUrl) || dataUrl.length < 200) return;
                     setImage(dataUrl);
-                });
+                }).catch(() => {});
             }
             return;
         }
@@ -4544,10 +4589,10 @@ class ShortcutsComponent {
         if (window.faviconCache && url) {
             const origin = window.faviconCache.getOriginFromUrl(url);
             if (origin) {
-                window.faviconCache.getIconDataUrl(origin).then((dataUrl) => {
+                Promise.resolve(options.cacheOnly ? window.faviconCache.peekIconDataUrl?.(origin) : window.faviconCache.getIconDataUrl(origin)).then((dataUrl) => {
                     if (!dataUrl || !isSafeImageDataUrl(dataUrl) || dataUrl.length < 200) return;
                     setImage(dataUrl);
-                });
+                }).catch(() => {});
             }
         }
     }
@@ -4608,7 +4653,10 @@ class ShortcutsComponent {
             // Use Google S2 only after the user explicitly enables online favicons.
             const faviconUrl = `https://www.google.com/s2/favicons?domain=${validUrl.hostname}&sz=64`;
             const s2DataUrl = await this.fetchFaviconAsDataUrl(faviconUrl);
-            if (ownsDraft()) iconInput.value = s2DataUrl || faviconUrl;
+            if (ownsDraft()) {
+                iconInput.value = s2DataUrl || faviconUrl;
+                this.updateShortcutPreview();
+            }
         } catch (error) {
             // A stale rejection belongs to its dismissed/changed draft too.
             if (ownsDraft()) {

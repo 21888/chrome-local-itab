@@ -5780,5 +5780,14 @@
   "claudeUsageTitle": {"message": "Experimental: Claude usage snapshot"},
   "claudeUsageDescription": {"message": "Off by default. Open the experiment to review optional scripting and claude.ai access before choosing a signed-in tab and organization. No background queries or saved usage."},
   "claudeUsageCaution": {"message": "One-time organization snapshot, not account binding or billing evidence. Real-account acceptance testing is still pending."},
-  "claudeUsageOpen": {"message": "Open Claude experiment"}
+  "claudeUsageOpen": {"message": "Open Claude experiment"},
+  "shortcutPreviewLabel": {
+    "message": "Icon and title preview"
+  },
+  "shortcutPreviewHint": {
+    "message": "Uses local cached icons only; otherwise shows your text or 🌐. Size and title visibility follow your settings. Full card layout appears on the home page after saving."
+  },
+  "shortcutPreviewHidden": {
+    "message": "Titles are hidden on your home page. Check the title in the field above."
+  }
 }

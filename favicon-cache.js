@@ -54,6 +54,30 @@
 		}
 	}
 
+    // Read-only preview path: never create/upgrade a database, refresh expired
+    // records, use Cache API (open creates caches), or reach the network.
+    async function peekIconDataUrl(key) {
+        let db;
+        try {
+            if (!key || typeof indexedDB.databases !== 'function') return null;
+            const databases = await indexedDB.databases();
+            if (!databases.some(entry => entry.name === DB_NAME)) return null;
+            db = await new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME);
+                request.onupgradeneeded = () => request.transaction.abort();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+            const record = await new Promise((resolve, reject) => {
+                const request = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).get(key);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+            return record?.dataUrl && Date.now() - (record.updatedAt || 0) < MAX_AGE_MS ? record.dataUrl : null;
+        } catch (_) { return null; }
+        finally { db?.close(); }
+    }
+
 	async function idbSet(record) {
 		try {
 			const db = await openDb();
@@ -211,6 +235,6 @@
 		await idbDelete(origin);
 	}
 
-	window.faviconCache = { getIconDataUrl, prefetch, invalidate, getOriginFromUrl, getIconDataUrlByUrl, prefetchByUrl, invalidateByUrl, setOnlineEnabled };
+	window.faviconCache = { peekIconDataUrl, getIconDataUrl, prefetch, invalidate, getOriginFromUrl, getIconDataUrlByUrl, prefetchByUrl, invalidateByUrl, setOnlineEnabled };
 	})();
 

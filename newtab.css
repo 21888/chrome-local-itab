@@ -3691,3 +3691,19 @@ textarea:focus-visible,
 .world-clock-comparison label { display: block; margin-top: 10px; line-height: 1.5; }
 .world-clock-comparison input[type="range"] { display: block; width: 100%; min-width: 0; margin: 8px 0; accent-color: var(--template-accent); }
 .world-clock-comparison p { margin: 0; color: var(--template-muted); line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+/* Content-only editor sample, deliberately independent of card/grid layout. */
+.shortcut-preview-panel { margin: 12px 0; }
+.shortcut-edit-preview {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    max-width: 100%; padding: 16px; overflow: hidden; pointer-events: none;
+}
+.shortcut-edit-preview .shortcut-icon { flex: 0 0 auto; margin: 0; }
+.shortcut-edit-preview .shortcut-title { max-width: 100%; }
+:root[data-dashboard-template] .shortcut-edit-preview .shortcut-icon {
+    border-radius: min(12px, calc(var(--shortcut-icon-size) * .28));
+    background: var(--glass-bg-hover); border: 1px solid var(--glass-border);
+    box-shadow: none; backdrop-filter: none;
+}
+
+#shortcut-modal .modal { max-height: calc(100dvh - 32px); overflow-y: auto; }
