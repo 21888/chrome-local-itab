@@ -1217,3 +1217,78 @@ test('localized country ordering preserves exact ISO filters, hidden selection a
   assert.equal(JSON.stringify(h.context.LocalItabNavigationSites),before);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);h.view.close();
  }
 });
+
+const browseCategory = (h, id) => h.document.querySelectorAll('.navigation-library-category').find(node => node.dataset.category === id);
+test('compatible categories, All and repeated category clicks retain localized purpose dropdown and chip', async () => {
+ for (const locale of ['en','zh-CN']) for (const [id, tag, from, to] of [['photopea','psd-editing','design','utilities'],['wave','web-accessibility','development','design']]) {
+  const h=model({locale});await h.view.open();browseCategory(h,from).dispatch('click');
+  purpose(h,tag).dispatch('click');const select=h.document.querySelector('.navigation-library-filters select');
+  const label=select.querySelectorAll('option').find(option=>option.value===tag).textContent;
+  for (const category of [from,to,'',from]) {
+   const control=browseCategory(h,category);control.focus();control.dispatch('click');
+   assert.equal(select.value,tag);assert.ok(activePurpose(h).children[0].textContent.includes(label));
+   assert.equal(control.getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,control);
+   assert.ok(cards(h).some(card=>card.dataset.site===id));
+   const expected=h.context.LocalItabNavigationCatalog.filter(h.context.LocalItabNavigationSites,{category,tag});
+   assert.deepEqual(cards(h).map(card=>card.dataset.site),Array.from(expected,site=>site.id));
+   assert.match(h.document.querySelector('.navigation-library-filter-toggle').textContent,/\(1\)$/);
+  }
+  browseCategory(h,'shopping').dispatch('click');assert.equal(select.value,'');assert.equal(activePurpose(h),null);
+  assert.ok(!select.querySelectorAll('option').some(option=>option.value===tag));
+  browseCategory(h,from).dispatch('click');assert.equal(select.value,'');assert.equal(activePurpose(h),null);
+  assert.equal(h.calls,0);assert.equal(h.reads,1);
+ }
+});
+test('category compatibility uses its full tag set despite zero AND results and preserves every unrelated local state', async () => {
+ for (const locale of ['en','zh-CN']) for (const newTarget of [false,true]) {
+  const h=model({locale});await h.view.open();pickSite(h,'photopea');browseCategory(h,'design').dispatch('click');
+  const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');
+  if(newTarget){h.document.querySelector('.navigation-library-new-category').dispatch('click');const name=h.document.querySelector('.navigation-library-new-category-panel input');name.value='Synthetic draft';name.dispatch('input');}
+  const selects=h.document.querySelectorAll('.navigation-library-filters select');
+  const values=['psd-editing','US','OpenAI','paid'];
+  for (const [index,value] of values.entries()){selects[index].value=value;selects[index].dispatch('change');}
+  h.search('synthetic-no-match');savedControl(h,'new').dispatch('click');selectedToggle(h).dispatch('click');
+  const count=selectionCount(h);
+  for (const category of ['utilities','','design']) {
+   browseCategory(h,category).dispatch('click');assert.equal(cards(h).length,0);
+   assert.deepEqual(selects.map(select=>select.value),values);assert.ok(activePurpose(h));
+   assert.equal(h.document.querySelector('input').value,'synthetic-no-match');assert.equal(selectionCount(h),count);
+   assert.equal(savedControl(h,'new').getAttribute('aria-pressed'),'true');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');assert.equal(target.value,'personal');
+   if(newTarget){assert.equal(h.document.querySelector('.navigation-library-new-category-panel').hidden,false);assert.equal(h.document.querySelector('.navigation-library-new-category-panel input').value,'Synthetic draft');}
+  }
+  browseCategory(h,'shopping').dispatch('click');assert.deepEqual(selects.map(select=>select.value),['',...values.slice(1)]);assert.equal(selectionCount(h),count);
+  h.view.close();await h.view.open();assert.equal(h.document.querySelector('.navigation-library-filters select').value,'');assert.equal(activePurpose(h),null);assert.equal(h.calls,0);
+ }
+});
+test('category changes invalidate old review confirmations without losing compatible purpose or selections',async()=>{
+ const h=model(),writer=batchWriter(h);await h.view.open();pickSite(h,'photopea');browseCategory(h,'design').dispatch('click');purpose(h,'psd-editing').dispatch('click');
+ h.click('Review selected');const old=h.button('Confirm and add');assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);
+ browseCategory(h,'utilities').dispatch('click');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
+ assert.equal(h.document.querySelector('.navigation-library-filters select').value,'psd-editing');assert.equal(selectionCount(h),'1 / 20 selected');
+ old.dispatch('click');assert.equal(writer.calls,0);h.click('Review selected');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,1);
+ h.click('Back to browsing');assert.equal(writer.calls,0);assert.equal(h.calls,0);
+});
+test('category controls reject retired sessions, detached nodes, departure, composition, repeats and pending writes',async()=>{
+ const h=model();await h.view.open();const old=browseCategory(h,'shopping');h.view.close();old.dispatch('click');await h.view.open();
+ browseCategory(h,'design').dispatch('click');purpose(h,'psd-editing').dispatch('click');old.dispatch('click');
+ const current=browseCategory(h,'utilities'),select=h.document.querySelector('.navigation-library-filters select');
+ const unchanged=()=>{assert.equal(browseCategory(h,'design').getAttribute('aria-pressed'),'true');assert.equal(select.value,'psd-editing');};
+ unchanged();for(const event of [{isComposing:true},{repeat:true},{detail:2}]){current.dispatch('click',event);unchanged();}
+ h.context.LocalItabContentLifecycle={departing:true};current.dispatch('click');unchanged();h.context.LocalItabContentLifecycle.departing=false;
+ const parent=h.document.querySelector('.navigation-library-categories');current.remove();current.dispatch('click');unchanged();parent.append(current);
+ const pending=deferred();h.write=pending;h.firstAdd().dispatch('click');current.dispatch('click');unchanged();
+ pending.resolve({...h.snapshot,duplicate:true});await tick();current.dispatch('click');assert.equal(current.getAttribute('aria-pressed'),'true');assert.equal(select.value,'psd-editing');
+ h.view.destroy();current.dispatch('click');assert.equal(h.document.querySelector('.navigation-library-overlay'),null);assert.equal(h.calls,1);
+});
+test('retired purpose dropdown cannot reintroduce a tag after reopening or mutate current review',async()=>{
+ const h=model(),writer=batchWriter(h);await h.view.open();browseCategory(h,'design').dispatch('click');
+ const old=h.document.querySelector('.navigation-library-filters select');old.value='psd-editing';old.dispatch('change');
+ h.view.close();await h.view.open();browseCategory(h,'learning').dispatch('click');pickSite(h,'khan-academy');h.click('Review selected');
+ const current=h.document.querySelector('.navigation-library-filters select'),before=cards(h).map(card=>card.dataset.site),review=h.document.querySelector('.navigation-library-review'),confirmation=h.button('Confirm and add');
+ const unchanged=()=>{assert.equal(current.value,'');assert.equal(activePurpose(h),null);assert.deepEqual(cards(h).map(card=>card.dataset.site),before);assert.equal(review.hidden,false);assert.equal(h.button('Confirm and add'),confirmation);};
+ old.dispatch('change');unchanged();
+ const panel=h.document.querySelector('.navigation-library-panel');panel.append(old);old.dispatch('change');unchanged();old.remove();
+ h.context.LocalItabContentLifecycle={departing:true};current.value='psd-editing';current.dispatch('change');current.value='';unchanged();h.context.LocalItabContentLifecycle.departing=false;
+ const wrapper=current.parentElement;current.remove();current.value='psd-editing';current.dispatch('change');current.value='';wrapper.append(current);unchanged();
+ h.click('Back to browsing');assert.equal(writer.calls,0);assert.equal(h.calls,0);
+});

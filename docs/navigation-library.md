@@ -80,3 +80,28 @@ The shortcut stays inside the currently open library. It pauses during review, l
 **Clear filters** turns off this view while retaining selections. **Clear selection** leaves the view active and empty so you can turn it off explicitly. Deselecting a disappearing card moves keyboard focus to an adjacent checkbox, or the view toggle after the last card. Closing the dialog resets both selections and this view.
 
 批选栏的「只看已选」保留完整网站卡片，并与搜索、分类、用途、更多筛选和已添加状态取交集。「被筛选隐藏」显示当前结果外的已选数量；「检查所选」仍检查全部已选网站。清除筛选会关闭只看已选、保留所选；清空所选则保留当前空视图，可随时关闭。浏览不要求先选择目标分类，不会写入或打开网站。
+
+### Compatible use filters across categories
+
+Switching categories, choosing All categories, or choosing the current category
+keeps the selected use when that use exists in the destination category's full
+catalog. An incompatible use is cleared without restoring it on a later category
+change. The use dropdown, active filter chip and card buttons stay in sync. Other
+filters still combine with AND, so a compatible use can remain selected with zero
+results. Search, saved/selected-only views, selected sites, destination and a new
+category name draft remain unchanged. Browsing does not save or open anything.
+
+切换分类时，若目标分类的完整目录仍包含当前用途，则保留用途筛选；选择「全部分类」
+或再次选择当前分类也会保留。不兼容的用途才会清空，之后返回原分类不会自动恢复。
+用途下拉框、当前筛选标签及卡片用途按钮保持一致。其他条件仍须同时满足，因此零结果
+不会让兼容用途被清空。搜索、已添加/仅看所选、勾选网站、添加目标和新分类名称草稿
+均保持不变；浏览不会保存数据或打开网站。
+
+### Compatible-use development verification
+
+The final implementation passed2781/2781 strict Node tests with1 GiB heap,
+81/81 Python,136 focused tests and113-file packaging. Independent review checked
+84 real-catalog transitions across English/Chinese and the stale-dropdown guard.
+The view rejects retired category/select controls rather than allowing a
+prior opening to restore a cleared filter. Native browser acceptance is pending
+for this ordinary development commit; manifest remains1.1.112 without a release.

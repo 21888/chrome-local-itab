@@ -140,7 +140,10 @@
             search.addEventListener('input', () => { criteria.query = search.value; renderResults(); });
             categoryNav = el('nav', undefined, 'navigation-library-categories'); categoryNav.setAttribute('aria-label', t('all'));
             for (const category of [{id: '', en: t('all'), zh: t('all'), icon: '▦'}, ...api.categories]) {
-                const control = button(category[language()], () => { criteria.category = category.id; criteria.tag = ''; refreshTagOptions(); refreshCategories(); renderResults(); }, 'navigation-library-category');
+                const control = button(category[language()], () => {
+                    if (owner !== revision || !control.isConnected || control.disabled || busy || !snapshot || root.LocalItabContentLifecycle?.departing) return;
+                    criteria.category = category.id; refreshTagOptions(); refreshCategories(); renderResults();
+                }, 'navigation-library-category');
                 const total = api.filter(entries, { category: category.id }).length;
                 const badge = el('span', String(total), 'navigation-library-category-count'); badge.setAttribute('aria-hidden', 'true');
                 control.append(badge);
@@ -163,7 +166,10 @@
                 const wrapper = el('label', t(key)), select = el('select'); select.setAttribute('aria-label', t(key));
                 const any = el('option', t('any')); any.value = ''; select.append(any);
                 choices.forEach(value => { const option = el('option', label(value)); option.value = value; select.append(option); });
-                select.addEventListener('change', () => applyFilter(key, select.value)); wrapper.append(select); filtersPanel.append(wrapper); filterControls.push({ key, select, label }); return select;
+                select.addEventListener('change', () => {
+                    if (owner !== revision || !select.isConnected || select.disabled || busy || !snapshot || root.LocalItabContentLifecycle?.departing) return;
+                    applyFilter(key, select.value);
+                }); wrapper.append(select); filtersPanel.append(wrapper); filterControls.push({ key, select, label }); return select;
             }
             function applyFilter(key, value) {
                 criteria[key] = value;
@@ -179,6 +185,9 @@
                 const any = el('option', t('any')); any.value = ''; tagSelect.append(any);
                 const scoped = entries.filter(site => !criteria.category || site.categories.includes(criteria.category));
                 const tags = [...new Set(scoped.flatMap(site => site.tags))].sort((a, b) => tagLabel(a).localeCompare(tagLabel(b), language()));
+                // Keep a use filter when it still exists in the destination category,
+                // independently of the other AND filters or current result count.
+                if (criteria.tag && !tags.includes(criteria.tag)) criteria.tag = '';
                 tags.forEach(tag => { const option = el('option', tagLabel(tag)); option.value = tag; tagSelect.append(option); });
                 tagSelect.value = criteria.tag || '';
             }
