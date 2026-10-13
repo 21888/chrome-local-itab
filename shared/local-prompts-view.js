@@ -414,7 +414,7 @@
             ui.preview.value = result?.text || '';
             ui.copy.disabled = !result?.complete || Boolean(this.copying) || Boolean(this.destroyed);
             for (const control of ui.variables.querySelectorAll('textarea, button')) control.disabled = !c.draftPreviewCurrent(ui.session);
-            ui.status.textContent = result?.error ? this.errorText(result.error) : !result ? this.t('DraftPreviewExpired', 'Temporary preview cleared. Preview the draft again.') : result.missing.length ? `${this.t('MissingValues', 'Fill in these variables')}: ${result.missing.join(', ')}` : this.t('DraftPreviewReady', 'Ready to copy. Nothing has been saved or sent.');
+            ui.status.textContent = result?.error ? this.errorText(result.error) : !result ? this.t('DraftPreviewExpired', 'Temporary preview cleared. Preview the draft again.') : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('DraftPreviewReady', 'Ready to copy. Nothing has been saved or sent.');
         }
         async copyDraftPreview() {
             const c = this.controller, ui = this.draftPreviewElements, ticket = c.draftCopyTicket();

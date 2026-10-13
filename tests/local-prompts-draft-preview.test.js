@@ -114,3 +114,17 @@ test('preview button moves keyboard focus; direct mutation clears only preview w
     const title = h.view.main.querySelector('[data-prompt-focus="title"]'); title.focus(); c.draft().input.category = 'changed';
     assert.equal(h.view.draftPreviewElements, null); assert.equal(old.host.querySelector('textarea'), null); assert.equal(h.doc.activeElement, title); c.dispose();
 });
+
+for (const [language, expected] of [
+    ['en', 'Fill these variables before copying: criteria, optionA, optionB'],
+    ['zh_CN', '复制前请填写以下变量： criteria, optionA, optionB']
+]) test(`${language}: draft missing-variable status has exactly one localized separator`, async () => {
+    const h = await mount({ language }), c = h.controller;
+    fresh(c, '{{criteria}} / {{optionA}} / {{optionB}}');
+    assert.equal(h.view.draftPreviewElements.status.textContent, expected);
+    assert.equal(h.view.draftPreviewElements.copy.disabled, true);
+    c.setDraftVariable('criteria', 'quality');
+    assert.equal(h.view.draftPreviewElements.status.textContent, expected.replace('criteria, ', ''));
+    assert.equal(h.writes, 0);
+    c.dispose();
+});
