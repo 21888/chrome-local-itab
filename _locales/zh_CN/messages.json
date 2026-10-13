@@ -5696,6 +5696,9 @@
   "promptsStarterLoad": {
     "message": "载入未保存草稿"
   },
+  "promptsDraftLiteralHelp": {
+    "message": "按原文使用会保留每个字符，包括反斜杠与 {{花括号}}。关闭后恢复之前填写的临时变量值。此选择不会保存。"
+  },
   "promptsDraftPreviewTitle": {
     "message": "试用未保存草稿"
   },

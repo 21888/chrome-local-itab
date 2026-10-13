@@ -390,16 +390,27 @@
             start.disabled = !c.newDraftReady(); this.focusKey(start, 'draft-preview-start'); host.append(start);
             const session = c.draftPreview;
             if (!c.draftPreviewCurrent(session)) return;
+            const literalWrap = this.el('label', 'prompt-check'), literal = this.el('input'); literal.type = 'checkbox';
+            this.focusKey(literal, 'draft-preview-literal');
+            literal.addEventListener('change', () => {
+                if (!this.destroyed && literal.isConnected && this.draftPreviewElements?.literal === literal && host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) c.setDraftLiteral(literal.checked);
+                literal.checked = session.literal;
+            });
+            literalWrap.append(literal, this.el('span', '', this.t('Literal', 'Use the template literally (do not replace variables)')));
+            host.append(literalWrap, this.el('p', 'prompt-help', this.t('DraftLiteralHelp', 'Literal mode keeps every character, including backslashes and {{braces}}. Turn it off to restore your temporary variable values. This choice is not saved.')));
             const variables = this.el('div', 'prompt-variables');
             for (const name of session.result?.variables || []) {
                 const field = this.field(name, `draft-variable-${name}`, session.values[name] || '', { multiline: true,
                     help: this.t('DraftVariableHelp', 'Not filled yet? Type a value, or choose Use empty value.'),
-                    change: value => { if (host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) c.setDraftVariable(name, value); } });
+                    change: value => {
+                        if (!this.destroyed && field.input.isConnected && host === this.draftPreviewHost && host.isConnected && !session.literal && c.draftPreviewCurrent(session)) c.setDraftVariable(name, value);
+                        else field.input.value = session.values[name] || '';
+                    } });
                 const empty = this.button('DraftVariableEmpty', 'Use empty value', () => {
-                    if (host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) { field.input.value = ''; c.setDraftVariable(name, ''); }
+                    if (!this.destroyed && field.input.isConnected && host === this.draftPreviewHost && host.isConnected && !session.literal && c.draftPreviewCurrent(session) && c.setDraftVariable(name, '')) field.input.value = '';
                 });
                 const choose = this.button('ExcerptChoose', 'Choose saved excerpt', () => {
-                    if (host === this.draftPreviewHost && host.isConnected && c.draftPreviewCurrent(session)) void this.chooseExcerpt(name, field.input, true);
+                    if (!this.destroyed && field.input.isConnected && host === this.draftPreviewHost && host.isConnected && !session.literal && c.draftPreviewCurrent(session)) void this.chooseExcerpt(name, field.input, true);
                 }, 'prompt-empty-value');
                 choose.setAttribute('aria-label', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); this.focusKey(choose, `draft-excerpt-${name}`);
                 field.wrap.append(empty, choose); variables.append(field.wrap);
@@ -409,7 +420,7 @@
             const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
             const copy = this.button('DraftPreviewCopy', 'Copy unsaved preview', () => void this.copyDraftPreview()); this.focusKey(copy, 'draft-preview-copy');
             host.append(variables, preview, status, copy);
-            this.draftPreviewElements = { host, session, variables, preview, status, copy }; this.updateDraftPreview();
+            this.draftPreviewElements = { host, session, literal, variables, preview, status, copy }; this.updateDraftPreview();
         }
         updateDraftPreview() {
             const c = this.controller, ui = this.draftPreviewElements;
@@ -417,7 +428,9 @@
             const result = c.draftPreviewResult();
             ui.preview.value = result?.text || '';
             ui.copy.disabled = !result?.complete || Boolean(this.copying) || Boolean(this.destroyed);
-            for (const control of ui.variables.querySelectorAll('textarea, button')) control.disabled = !c.draftPreviewCurrent(ui.session);
+            ui.literal.checked = ui.session.literal; ui.literal.disabled = !c.draftPreviewCurrent(ui.session);
+            ui.variables.hidden = ui.session.literal;
+            for (const control of ui.variables.querySelectorAll('textarea, button')) control.disabled = ui.session.literal || !c.draftPreviewCurrent(ui.session);
             ui.status.textContent = result?.error ? this.errorText(result.error) : !result ? this.t('DraftPreviewExpired', 'Temporary preview cleared. Preview the draft again.') : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('DraftPreviewReady', 'Ready to copy. Nothing has been saved or sent.');
         }
         async copyDraftPreview() {

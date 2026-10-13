@@ -73,10 +73,11 @@ test('save keeps original placeholders one record/version and clears preview bef
     assert.equal(c.draftPreview, null); if (c.pendingCommand) { assert.equal(c.startDraftPreview(), false); await c.retry(); await settle(c); }
     assert.equal(c.state.records.length, 1); assert.equal(c.record().body, 'Hello {{who}}'); assert.equal(c.record().history.length, 1); assert.equal(JSON.stringify(h.raw).includes('temporary'), false); assert.equal(c.session().values.who, undefined); c.dispose();
 });
-for (const reject of [false, true]) for (const change of ['edit', 'switch', 'save', 'restart', 'destroy', 'dispose', 'pagehide']) test(`deferred clipboard ${reject ? 'failure' : 'success'} after ${change} has no stale feedback/focus or duplicate write`, async () => {
+for (const reject of [false, true]) for (const change of ['edit', 'switch', 'save', 'restart', 'destroy', 'dispose', 'pagehide', 'literal', 'literal-round-trip']) test(`deferred clipboard ${reject ? 'failure' : 'success'} after ${change} has no stale feedback/focus or duplicate write`, async () => {
     const pending = {}; pending.promise = new Promise((resolve, reject) => { pending.resolve = resolve; pending.reject = reject; }); let writes = 0; const h = await mount({ clipboard: { writeText: () => { writes++; return pending.promise; } } }), c = h.controller;
     fresh(c); c.update('title', 'Synthetic'); c.startDraftPreview(); c.setDraftVariable('who', 'old'); const ui = h.view.draftPreviewElements;
     const running = h.view.copyDraftPreview(); await h.view.copyDraftPreview(); assert.equal(writes, 1);
+    if (change.startsWith('literal')) { c.setDraftLiteral(true); if (change === 'literal-round-trip') c.setDraftLiteral(false); }
     if (change === 'edit') c.update('category', 'changed');
     if (change === 'switch') { c.select(null); c.select('new'); }
     if (change === 'save') await c.save();
@@ -127,4 +128,59 @@ for (const [language, expected] of [
     assert.equal(h.view.draftPreviewElements.status.textContent, expected.replace('criteria, ', ''));
     assert.equal(h.writes, 0);
     c.dispose();
+});
+
+for (const language of ['en', 'zh_CN']) test(`${language}: draft literal checkbox preserves exact text and restores variable values without writes`, async () => {
+    const copied = [], h = await mount({ language, clipboard: { writeText: async value => copied.push(value) } }), c = h.controller;
+    const body = '  😀\r\n{{who}} / \\{{who}} / {{}} / {{nested{{x}}}}\r\n';
+    fresh(c, body); c.setDraftVariable('who', 'synthetic');
+    const before = c.draftPreviewResult().text, ui = h.view.draftPreviewElements, input = JSON.stringify(c.draft().input);
+    const ticket = c.draftCopyTicket(), context = c.draftExcerptContext('who');
+    ui.literal.checked = true; ui.literal.dispatch('change');
+    assert.equal(ui.literal.checked, true); assert.equal(ui.variables.hidden, true);
+    for (const control of ui.variables.querySelectorAll('textarea, button')) assert.equal(control.disabled, true);
+    assert.equal(c.setDraftVariable('who', 'must not replace'), false); assert.equal(c.draftExcerptContext('who'), null);
+    assert.equal(c.draftCopyCurrent(ticket), false); assert.equal(c.draftExcerptCurrent(context), false);
+    assert.equal(c.draftPreviewResult().text, body); assert.equal(await h.view.copyDraftPreview(), true); assert.deepEqual(copied, [body]);
+    ui.literal.checked = false; ui.literal.dispatch('change');
+    assert.equal(ui.variables.hidden, false); assert.equal(c.draftPreview.values.who, 'synthetic'); assert.equal(c.draftPreviewResult().text, before);
+    assert.equal(c.draftCopyCurrent(ticket), false); assert.equal(c.draftExcerptCurrent(context), false);
+    assert.equal(JSON.stringify(c.draft().input), input); assert.equal(h.writes, 0); assert.equal(c.sessionReady(), false); c.dispose();
+});
+test('draft literal bypasses parsing limits but retains body, emptiness and shared memory limits', async () => {
+    const h = setup(), c = h.controller; await c.start();
+    const body = Array.from({ length: Core.LIMITS.variables + 1 }, (_, i) => `{{v${i}}}`).join('');
+    fresh(c, body); assert.equal(c.draftCopyTicket(), null); c.setDraftLiteral(true);
+    assert.equal(c.draftPreviewResult().text, body); assert.ok(c.draftCopyTicket()); c.setDraftLiteral(false); assert.equal(c.draftCopyTicket(), null);
+    for (const body of ['', '  ', 'x'.repeat(Core.LIMITS.body + 1)]) { fresh(c, body); c.setDraftLiteral(true); assert.equal(c.draftCopyTicket(), null); }
+    fresh(c, 'x'.repeat(Core.LIMITS.body)); c.setDraftLiteral(true); assert.ok(c.draftCopyTicket());
+    c.sessions.set('synthetic', { values: { x: 'x'.repeat(SESSION_VALUE_LIMIT + 1) } }); assert.equal(c.draftCopyTicket(), null); c.sessions.clear();
+    fresh(c); c.setDraftVariable('who', 'x'.repeat(Core.LIMITS.value + 1)); c.setDraftLiteral(true); assert.ok(c.draftCopyTicket()); c.setDraftLiteral(false); assert.equal(c.draftCopyTicket(), null);
+    assert.equal(c.setDraftLiteral('true'), false); assert.equal(h.writes, 0); c.dispose();
+});
+for (const action of ['edit', 'save', 'discard', 'dispose']) test(`draft literal ${action} clears session and releases retained budget`, async () => {
+    const h = setup(), c = h.controller; await c.start(); fresh(c); c.setDraftVariable('who', 'synthetic'); c.setDraftLiteral(true); const ticket = c.draftCopyTicket();
+    assert.equal(c.previewValueSize(), 9);
+    if (action === 'edit') c.update('title', 'Synthetic');
+    else await c[action]();
+    assert.equal(c.draftPreview, null); assert.equal(c.previewValueSize(), 0); assert.equal(c.draftCopyCurrent(ticket), false); c.dispose();
+});
+
+test('literal preview rejects hidden and detached control callbacks without UI divergence', async () => {
+    const h = await mount(), c = h.controller; fresh(c); c.setDraftVariable('who', 'kept');
+    const ui = h.view.draftPreviewElements, input = ui.variables.querySelector('textarea'); input.value = 'kept';
+    c.setDraftLiteral(true); ui.variables.querySelector('button').dispatch('click');
+    input.value = 'forbidden'; input.dispatch('input');
+    assert.equal(input.value, 'kept'); assert.equal(c.draftPreview.values.who, 'kept');
+    c.setDraftLiteral(false); assert.equal(input.value, 'kept');
+    h.view.renderDraftPreview(); ui.literal.checked = true; ui.literal.dispatch('change');
+    assert.equal(c.draftPreview.literal, false); assert.equal(h.view.draftPreviewElements.literal.checked, false);
+    ui.variables.querySelector('button').dispatch('click'); assert.equal(c.draftPreview.values.who, 'kept'); c.dispose();
+});
+test('rejected visible variable text survives validation and literal round trip for correction', async () => {
+    const h = await mount(), c = h.controller; fresh(c);
+    const ui = h.view.draftPreviewElements, input = ui.variables.querySelector('textarea'), raw = 'x'.repeat(Core.LIMITS.value + 1);
+    input.value = raw; input.dispatch('input'); assert.equal(input.value, raw); assert.equal(c.draftCopyTicket(), null);
+    c.setDraftLiteral(true); assert.ok(c.draftCopyTicket()); c.setDraftLiteral(false);
+    assert.equal(input.value, raw); assert.equal(c.draftCopyTicket(), null); assert.equal(c.draftPreview.values.who, undefined); c.dispose();
 });

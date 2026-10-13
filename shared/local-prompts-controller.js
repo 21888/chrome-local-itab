@@ -210,24 +210,33 @@
             try {
                 if (typeof draft.input.body !== 'string' || !draft.input.body.trim()) throw Core.fault('INVALID');
                 const snapshot = JSON.stringify(draft.input), result = Core.previewTemplate(draft.input.body);
-                this.draftPreview = { draft, snapshot, revision: draft.revision, epoch: this.draftPreviewEpoch, values: Object.create(null), result, error: null, valueRevision: 0 };
+                this.draftPreview = { draft, snapshot, revision: draft.revision, epoch: this.draftPreviewEpoch, values: Object.create(null), result, error: null, literal: false, valueRevision: 0 };
             } catch (error) {
-                this.draftPreview = { draft, snapshot: JSON.stringify(draft.input), revision: draft.revision, epoch: this.draftPreviewEpoch, values: Object.create(null), result: null, error: error.code || 'INVALID', valueRevision: 0 };
+                this.draftPreview = { draft, snapshot: JSON.stringify(draft.input), revision: draft.revision, epoch: this.draftPreviewEpoch, values: Object.create(null), result: null, error: error.code || 'INVALID', literal: false, valueRevision: 0 };
             }
             this.notify('draftPreview'); return true;
         }
         draftPreviewResult() {
             const session = this.draftPreview;
             if (!this.draftPreviewCurrent(session)) return null;
-            if (session.error) return { text: '', variables: session.result?.variables || [], missing: [], complete: false, error: session.error };
+            if (session.error && !session.literal) return { text: '', variables: session.result?.variables || [], missing: [], complete: false, error: session.error };
             try {
                 if (this.previewValueSize() > SESSION_VALUE_LIMIT) throw Core.fault('SESSION_LIMIT');
-                return Core.previewTemplate(session.draft.input.body, session.values);
+                if (typeof session.draft.input.body !== 'string' || !session.draft.input.body.trim()) throw Core.fault('INVALID');
+                return Core.previewTemplate(session.draft.input.body, session.literal ? {} : session.values, { literal: session.literal });
             } catch (error) { return { text: '', variables: session.result?.variables || [], missing: [], complete: false, error: error.code || 'INVALID' }; }
+        }
+        setDraftLiteral(value) {
+            const session = this.draftPreview;
+            if (typeof value !== 'boolean' || !this.draftPreviewCurrent(session)) return false;
+            // Preserve filled values and validation errors for the return to substitution.
+            // Revoke even round-trip copy/review capabilities before updating the view.
+            this.excerptEpoch++; session.valueRevision++; session.literal = value;
+            this.notify('draftPreviewValues'); return true;
         }
         setDraftVariable(name, value) {
             const session = this.draftPreview;
-            if (!this.draftPreviewCurrent(session)) return false;
+            if (!this.draftPreviewCurrent(session) || session.literal) return false;
             session.valueRevision++;
             if (!session.result?.variables.includes(name)) { session.error = 'VARIABLE'; this.notify('draftPreviewValues'); return false; }
             try {
@@ -340,13 +349,13 @@
         }
         draftExcerptContext(name) {
             const session = this.draftPreview;
-            if (!this.draftPreviewCurrent(session) || !session.result?.variables.includes(name)) return null;
+            if (!this.draftPreviewCurrent(session) || session.literal || !session.result?.variables.includes(name)) return null;
             return { kind: 'draft', name, session, epoch: this.excerptEpoch,
                 valueRevision: session.valueRevision, values: JSON.stringify(session.values), cancelled: false };
         }
         draftExcerptCurrent(context) {
             return Boolean(context && context.kind === 'draft' && !context.cancelled &&
-                this.draftPreviewCurrent(context.session) && this.excerptEpoch === context.epoch &&
+                this.draftPreviewCurrent(context.session) && !context.session.literal && this.excerptEpoch === context.epoch &&
                 context.session.valueRevision === context.valueRevision && JSON.stringify(context.session.values) === context.values &&
                 context.session.result?.variables.includes(context.name));
         }

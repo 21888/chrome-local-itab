@@ -5696,6 +5696,9 @@
   "promptsStarterLoad": {
     "message": "Load unsaved draft"
   },
+  "promptsDraftLiteralHelp": {
+    "message": "Literal mode keeps every character, including backslashes and {{braces}}. Turn it off to restore your temporary variable values. This choice is not saved."
+  },
   "promptsDraftPreviewTitle": {
     "message": "Try this unsaved draft"
   },

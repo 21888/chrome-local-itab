@@ -41,10 +41,11 @@ for (const language of ['en', 'zh_CN']) test(`${language}: draft explicitly revi
     assert.equal(c.draftPreviewResult().text, `${h.record.body} / kept`); assert.equal(JSON.stringify(c.draft().input), snapshot);
     assert.deepEqual([h.h.writes, h.collections.writes], writes); assert.equal(c.state.records.length, 0); assert.equal(h.doc.activeElement, choose(h)); c.dispose();
 });
-for (const change of ['edit-revert', 'value-revert', 'restart', 'switch', 'discard', 'save', 'dispose', 'cancel', 'pagehide']) test(`deferred apply cannot fill draft after ${change}`, async () => {
+for (const change of ['edit-revert', 'value-revert', 'restart', 'switch', 'discard', 'save', 'dispose', 'cancel', 'pagehide', 'literal', 'literal-round-trip']) test(`deferred apply cannot fill draft after ${change}`, async () => {
     const h = await fixture(), c = h.c; c.setDraftVariable('topic', 'old'); c.setDraftVariable('reader', 'keep');
     const review = h.review(), values = review.context.session.values, state = await h.collections.store.read(), wait = deferred(); c.collectionStore.read = () => wait.promise;
     const pending = c.applyExcerpt(review);
+    if (change.startsWith('literal')) { c.setDraftLiteral(true); if (change === 'literal-round-trip') c.setDraftLiteral(false); }
     if (change === 'edit-revert') { c.update('category', 'changed'); c.update('category', ''); }
     if (change === 'value-revert') { c.setDraftVariable('reader', 'changed'); c.setDraftVariable('reader', 'keep'); }
     if (change === 'restart') c.startDraftPreview();
