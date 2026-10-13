@@ -4586,6 +4586,12 @@
   "navigationLibrarySavedAdded": {
     "message": "Added"
   },
+  "navigationLibraryCategoryCount": {
+    "message": "{count} sites in full catalog"
+  },
+  "navigationLibraryCategoryCountHelp": {
+    "message": "Full catalog counts stay the same when filtering. A site can belong to multiple categories."
+  },
   "navigationLibraryAll": {
     "message": "All categories"
   },

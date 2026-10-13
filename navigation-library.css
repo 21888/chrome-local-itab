@@ -24,7 +24,7 @@
 .navigation-library-filter-toggle { border: 1px solid var(--nl-line); border-radius: 12px; padding: 0 16px; background: var(--nl-card); font-size: 12px !important; white-space: nowrap; }
 .navigation-library-filter-toggle[aria-expanded="true"] { color: var(--nl-accent); background: var(--nl-selected); }
 .navigation-library-categories { display: flex; flex-wrap: wrap; gap: 6px; padding: 13px 0; border-bottom: 1px solid var(--nl-line); }
-.navigation-library-category { padding: 7px 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-size: 12px !important; white-space: nowrap; }
+.navigation-library-category { display: inline-flex; align-items: center; gap: 5px; padding: 7px 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-size: 12px !important; white-space: nowrap; }
 .navigation-library-category:hover { background: var(--nl-card); }
 .navigation-library-category[aria-pressed="true"] { color: var(--nl-accent); border-color: var(--nl-line); background: var(--nl-selected); font-weight: 650; }
 .navigation-library-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 15px 0; border-bottom: 1px solid var(--nl-line); }
@@ -71,7 +71,7 @@
 .navigation-library-panel :focus-visible, .navigation-library-opener:focus-visible { outline: 3px solid var(--nl-focus, #6f8bff); outline-offset: 3px; }
 .navigation-library-panel button:disabled:not(.is-added) { opacity: .55; }
 @media (max-width: 800px) { .navigation-library-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }.navigation-library-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .navigation-library-overlay { padding: 8px; }.navigation-library-panel { padding: 20px 15px; border-radius: 18px; max-height: calc(100dvh - 16px); }.navigation-library-results { grid-template-columns: 1fr; }.navigation-library-toolbar { flex-wrap: wrap; gap: 10px; }.navigation-library-destination { flex-basis: 100%; margin-left: 0; }.navigation-library-destination select { flex: 1; max-width: none; }.navigation-library-category { padding: 6px 9px; }.navigation-library-categories { max-height: 145px; overflow: auto; }.navigation-library-search-row { gap: 7px; }.navigation-library-filter-toggle { padding: 0 10px; }.navigation-library-card { padding: 16px; }.navigation-library-description { min-height: 0; } }
+@media (max-width: 520px) { .navigation-library-overlay { padding: 8px; }.navigation-library-panel { padding: 20px 15px; border-radius: 18px; max-height: calc(100dvh - 16px); }.navigation-library-results { grid-template-columns: 1fr; }.navigation-library-toolbar { flex-wrap: wrap; gap: 10px; }.navigation-library-destination { flex-basis: 100%; margin-left: 0; }.navigation-library-destination select { flex: 1; max-width: none; }.navigation-library-category { display: inline-flex; align-items: center; gap: 5px; padding: 6px 9px; }.navigation-library-categories { max-height: 145px; overflow: auto; }.navigation-library-search-row { gap: 7px; }.navigation-library-filter-toggle { padding: 0 10px; }.navigation-library-card { padding: 16px; }.navigation-library-description { min-height: 0; } }
 @media (prefers-reduced-motion: reduce) { .navigation-library-card { transition: none; } }
 
 .navigation-library-saved-filters { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 13px; }
@@ -139,3 +139,6 @@
 .navigation-library-panel .navigation-library-selected-only { background: transparent; color: var(--nl-muted); border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; font-size: 11px; }
 .navigation-library-panel .navigation-library-selected-only[aria-pressed="true"] { background: var(--nl-selected); color: var(--nl-accent); font-weight: 650; }
 .navigation-library-hidden-selected { color: var(--nl-muted); }
+
+.navigation-library-category-count { color: var(--nl-muted); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.navigation-library-category-count-help { margin: 8px 0 0; color: var(--nl-muted); font-size: 12px; line-height: 1.5; }

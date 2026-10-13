@@ -4586,6 +4586,12 @@
   "navigationLibrarySavedAdded": {
     "message": "已添加"
   },
+  "navigationLibraryCategoryCount": {
+    "message": "全目录 {count} 个站点"
+  },
+  "navigationLibraryCategoryCountHelp": {
+    "message": "数字为全目录数量，不随筛选变化；一个站点可属于多个类别。"
+  },
   "navigationLibraryAll": {
     "message": "全部分类"
   },

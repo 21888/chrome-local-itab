@@ -5,6 +5,7 @@
         open: 'Discover sites', eyebrow: 'YOUR NEXT USEFUL PLACE', title: 'A little discovery. A better start.',
         intro: 'Browse the built-in library. Add only the sites you want to your own shortcuts.',
         search: 'Search names, uses or companies', searchShortcutHint: 'Press / to search while browsing, outside editing fields.', all: 'All categories', filters: 'More filters', clear: 'Clear filters',
+        categoryCount: '{count} sites in full catalog', categoryCountHelp: 'Full catalog counts stay the same when filtering. A site can belong to multiple categories.',
         activeFilters: 'Active filters', removeFilter: 'Remove filter',
         savedState: 'Saved in this workspace', savedAll: 'All', savedNew: 'Not added', savedAdded: 'Added',
         tag: 'Use', country: 'Operator location', company: 'Company / organization', pricing: 'Pricing',
@@ -135,9 +136,15 @@
             categoryNav = el('nav', undefined, 'navigation-library-categories'); categoryNav.setAttribute('aria-label', t('all'));
             for (const category of [{id: '', en: t('all'), zh: t('all'), icon: '▦'}, ...api.categories]) {
                 const control = button(category[language()], () => { criteria.category = category.id; criteria.tag = ''; refreshTagOptions(); refreshCategories(); renderResults(); }, 'navigation-library-category');
+                const total = api.filter(entries, { category: category.id }).length;
+                const badge = el('span', String(total), 'navigation-library-category-count'); badge.setAttribute('aria-hidden', 'true');
+                control.append(badge);
+                control.setAttribute('aria-label', `${category[language()]} · ${t('categoryCount').replace('{count}', String(total))}`);
                 control.dataset.category = category.id; categoryNav.append(control);
             }
-            panel.append(categoryNav); refreshCategories();
+            categoryNav.setAttribute('aria-describedby', 'navigation-library-category-count-help');
+            const countHelp = el('p', t('categoryCountHelp'), 'navigation-library-category-count-help'); countHelp.id = 'navigation-library-category-count-help';
+            panel.append(categoryNav, countHelp); refreshCategories();
             savedNav = el('div', undefined, 'navigation-library-saved-filters');
             savedNav.setAttribute('role', 'group'); savedNav.setAttribute('aria-label', t('savedState'));
             for (const [value, key] of [['', 'savedAll'], ['new', 'savedNew'], ['added', 'savedAdded']]) {

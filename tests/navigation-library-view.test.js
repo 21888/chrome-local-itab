@@ -1106,3 +1106,60 @@ test('Chinese official references show scoped notes and preserve hidden selectio
   h.view.close();await h.view.open();assert.equal(cards(h).length,141);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);h.view.close();
  }
 });
+
+const catalogBadges = h => h.document.querySelectorAll('.navigation-library-category').map(node => ({
+ id: node.dataset.category, total: node.querySelector('.navigation-library-category-count').textContent,
+ label: node.getAttribute('aria-label')
+}));
+test('full catalog category totals count empty, single and multiple memberships without summing All', async () => {
+ for (const size of [0, 1, 2]) {
+  const h=model(); const source=h.context.LocalItabNavigationSites;
+  h.context.LocalItabNavigationSites=source.slice(0,size).map((site,index)=>({...site,categories:index ? ['ai','development'] : ['ai']}));
+  await h.view.open(); const totals=catalogBadges(h);
+  assert.equal(totals.find(item=>item.id==='').total,String(size));
+  assert.equal(totals.find(item=>item.id==='ai').total,String(size));
+  assert.equal(totals.find(item=>item.id==='development').total,String(size===2 ? 1 : 0));
+  assert.equal(h.reads,1); assert.equal(h.calls,0);
+ }
+});
+test('real category totals remain static through every filter, selection and successful add', async () => {
+ const h=model();await h.view.open(); const original=catalogBadges(h), api=h.context.LocalItabNavigationCatalog, entries=h.context.LocalItabNavigationSites;
+ assert.equal(original[0].total,'141');
+ assert.equal(new Set(entries.map(site=>site.id)).size,141);
+ assert.equal(original.slice(1).reduce((sum,item)=>sum+Number(item.total),0),175);
+ for(const item of original) assert.equal(Number(item.total),api.filter(entries,{category:item.id}).length);
+ const unchanged=()=>assert.deepEqual(catalogBadges(h),original);
+ h.search('chatgpt');unchanged();assert.equal(h.document.querySelector('.navigation-library-count').textContent,'1 site');
+ h.search('');const controls=h.document.querySelectorAll('.navigation-library-filters select');
+ for(const [index,key] of ['tag','country','company','pricing'].entries()) {
+  const value=key==='tag' ? entries[0].tags[0] : entries[0][key];controls[index].value=value;controls[index].dispatch('change');unchanged();
+  assert.equal(cards(h).length,api.filter(entries,{[key]:value}).length);
+  controls[index].value='';controls[index].dispatch('change');
+ }
+ savedControl(h,'added').dispatch('click');unchanged();assert.equal(cards(h).length,0);
+ savedControl(h,'').dispatch('click');
+ selectedToggle(h).dispatch('click');unchanged();assert.equal(cards(h).length,0);
+ selectedToggle(h).dispatch('click');
+ const category=h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='ai');
+ category.focus();category.dispatch('click');unchanged();assert.equal(category.getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,category);
+ assert.equal(cards(h).length,api.filter(entries,{category:'ai'}).length);
+ assert.equal(h.reads,1);assert.equal(h.calls,0);
+ h.firstAdd().dispatch('click');await tick();unchanged();assert.equal(h.calls,1);assert.equal(h.reads,1);
+ savedControl(h,'added').dispatch('click');unchanged();assert.equal(cards(h).length,1);assert.equal(h.document.querySelector('.navigation-library-count').textContent,'1 site');
+});
+test('category totals have bilingual full-catalog context and no extra focus targets',async()=>{
+ for(const locale of ['en','zh-CN']) {
+  const h=model({locale});await h.view.open();const nav=h.document.querySelector('.navigation-library-categories');
+  assert.equal(nav.getAttribute('aria-describedby'),'navigation-library-category-count-help');
+  assert.match(h.document.querySelector('.navigation-library-category-count-help').textContent,locale==='en' ? /stay the same.*multiple categories/ : /不随筛选变化.*多个类别/);
+  for(const control of nav.children) {
+   const badge=control.querySelector('.navigation-library-category-count');assert.equal(badge.tagName,'SPAN');assert.equal(badge.getAttribute('aria-hidden'),'true');assert.ok(badge.getAttribute('tabindex') == null);
+   assert.match(control.getAttribute('aria-label'),locale==='en' ? /\d+ sites in full catalog/ : /全目录 \d+ 个站点/);
+   assert.equal(control.getAttribute('aria-pressed'),String(control.dataset.category===''));
+  }
+ }
+ const css=fs.readFileSync('navigation-library.css','utf8');
+ assert.match(css,/navigation-library-category-count \{[^}]*color: var\(--nl-muted\);[^}]*font-size: 12px;[^}]*tabular-nums/);
+ assert.match(css,/navigation-library-category-count-help \{[^}]*color: var\(--nl-muted\);/);
+ assert.match(css,/navigation-library-categories \{ max-height: 145px; overflow: auto;/);
+});
