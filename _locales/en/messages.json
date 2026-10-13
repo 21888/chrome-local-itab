@@ -6071,5 +6071,80 @@
   },
   "promptsModelRefineDiffClose": {
     "message": "Close text differences"
+  },
+  "aiContextPromptReuse": {
+    "message": "Use a saved prompt"
+  },
+  "aiContextPromptHelp": {
+    "message": "Choose a current, unarchived template from the global prompt library, fill its variables and preview the replacement question. Only an explicit Replace changes this session. Sources, excerpts, output mode, connection and previous response stay unchanged. Nothing is sent, copied or saved; no prompt-version link is attached."
+  },
+  "aiContextPromptSelect": {
+    "message": "Saved prompt template"
+  },
+  "aiContextPromptPreviewText": {
+    "message": "Replacement question preview"
+  },
+  "aiContextPromptPreview": {
+    "message": "Preview replacement question"
+  },
+  "aiContextPromptApply": {
+    "message": "Replace this question"
+  },
+  "aiContextPromptReload": {
+    "message": "Reload saved prompts"
+  },
+  "aiContextPromptClose": {
+    "message": "Close prompt picker"
+  },
+  "aiContextPromptStale": {
+    "message": "The draft or workspace changed, or another operation started. Preview again before replacing the question."
+  },
+  "aiContextPromptLoading": {
+    "message": "Reading saved prompts…"
+  },
+  "aiContextPromptChoose": {
+    "message": "Choose a template"
+  },
+  "aiContextPromptLoaded": {
+    "message": "Choose a template. Your question has not changed."
+  },
+  "aiContextPromptEmpty": {
+    "message": "No unarchived saved prompts are available. Save a template in the prompt library first, then reload here."
+  },
+  "aiContextPromptReadError": {
+    "message": "Could not verify the saved prompts or current workspace. Your question is unchanged. Reload saved prompts to try again."
+  },
+  "aiContextPromptVariable": {
+    "message": "Variable"
+  },
+  "aiContextPromptEmptyValue": {
+    "message": "Use an empty value"
+  },
+  "aiContextPromptInvalid": {
+    "message": "This template cannot be used as a question. Check its variables and text in the prompt library. Nothing was replaced."
+  },
+  "aiContextPromptMissing": {
+    "message": "Fill every variable or explicitly use an empty value"
+  },
+  "aiContextPromptLineEndings": {
+    "message": "The preview displays line breaks as LF. Original line endings and whitespace are retained until you edit the question. Counts use the exact text, including CRLF and emoji."
+  },
+  "aiContextPromptLimit": {
+    "message": "The replacement must contain text and fit within 4,000 UTF-16 units. Nothing is shortened or replaced."
+  },
+  "aiContextPromptReady": {
+    "message": "This preview will replace the entire question only when you choose Replace this question. Review the complete request again afterward."
+  },
+  "aiContextPromptApplied": {
+    "message": "Question replaced for this session. Review the complete request again before copying or sending. The previous response still belongs to its original request."
+  },
+  "aiContextPromptApplyError": {
+    "message": "The saved template or workspace could not be verified unchanged. Nothing was replaced. Reload saved prompts and preview again."
+  },
+  "aiContextPromptChecking": {
+    "message": "Verifying this saved template and workspace…"
+  },
+  "aiContextPromptChanged": {
+    "message": "The saved prompt library changed. Reload saved prompts and preview again. Your question is unchanged."
   }
 }

@@ -6071,5 +6071,80 @@
   },
   "promptsModelRefineDiffClose": {
     "message": "关闭原文差异"
+  },
+  "aiContextPromptReuse": {
+    "message": "使用已保存提示词"
+  },
+  "aiContextPromptHelp": {
+    "message": "从全局提示词库中选择当前未归档模板，填写变量，再预览将替换的问题。只有明确点击替换才会修改本次会话。来源、摘录、输出模式、连接及已有回答保持不变。不发送、复制或保存，也不附加提示词版本关联。"
+  },
+  "aiContextPromptSelect": {
+    "message": "已保存的提示词模板"
+  },
+  "aiContextPromptPreviewText": {
+    "message": "替换问题预览"
+  },
+  "aiContextPromptPreview": {
+    "message": "预览替换问题"
+  },
+  "aiContextPromptApply": {
+    "message": "替换本次问题"
+  },
+  "aiContextPromptReload": {
+    "message": "重新读取已保存提示词"
+  },
+  "aiContextPromptClose": {
+    "message": "关闭提示词选择器"
+  },
+  "aiContextPromptStale": {
+    "message": "草稿或工作区已变化，或已开始其他操作。替换问题前请重新预览。"
+  },
+  "aiContextPromptLoading": {
+    "message": "正在读取已保存提示词…"
+  },
+  "aiContextPromptChoose": {
+    "message": "选择一个模板"
+  },
+  "aiContextPromptLoaded": {
+    "message": "请选择模板。当前问题尚未改变。"
+  },
+  "aiContextPromptEmpty": {
+    "message": "没有可用的未归档提示词。请先在提示词库中保存模板，再在此重新读取。"
+  },
+  "aiContextPromptReadError": {
+    "message": "无法核验已保存提示词或当前工作区。问题未改变。可重新读取已保存提示词后重试。"
+  },
+  "aiContextPromptVariable": {
+    "message": "变量"
+  },
+  "aiContextPromptEmptyValue": {
+    "message": "使用空值"
+  },
+  "aiContextPromptInvalid": {
+    "message": "此模板无法用于问题。请在提示词库中检查变量和文本。未替换任何内容。"
+  },
+  "aiContextPromptMissing": {
+    "message": "请填写每个变量，或明确选择使用空值"
+  },
+  "aiContextPromptLineEndings": {
+    "message": "预览以 LF 显示换行。编辑问题前保留原始换行和空白。按精确文本计数，包括 CRLF 和表情符号。"
+  },
+  "aiContextPromptLimit": {
+    "message": "替换文本须包含非空内容，且不超过 4,000 个 UTF-16 单元。不截短，也未替换。"
+  },
+  "aiContextPromptReady": {
+    "message": "只有点击“替换本次问题”才会用此预览替换整个问题。替换后请重新审阅完整请求。"
+  },
+  "aiContextPromptApplied": {
+    "message": "已替换本次会话的问题。复制或发送前请重新审阅完整请求。已有回答仍属于原请求。"
+  },
+  "aiContextPromptApplyError": {
+    "message": "无法确认已保存模板或工作区保持不变。未替换内容。请重新读取已保存提示词并预览。"
+  },
+  "aiContextPromptChecking": {
+    "message": "正在核验此模板及工作区…"
+  },
+  "aiContextPromptChanged": {
+    "message": "已保存的提示词库发生变化。请重新读取并预览。当前问题未改变。"
   }
 }

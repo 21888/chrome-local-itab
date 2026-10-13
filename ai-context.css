@@ -58,3 +58,8 @@
 .ai-context-task-choice { display: flex; align-items: flex-start; gap: .5rem; margin-block: .65rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ai-context-task-choice input[type=checkbox] { flex: none; width: 1.2rem; height: 1.2rem; }
 .ai-context-task-choice span { min-width: 0; }
+
+.ai-context-prompt-picker { margin-block: .75rem; padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .6rem; }
+.ai-context-prompt-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; border: 1px solid var(--border-color, #aaa); padding: .75rem; }
+.ai-context-prompt-count { font-weight: 600; }
+.ai-context-prompt-variables { margin-block-end: .75rem; }

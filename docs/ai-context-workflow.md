@@ -8,6 +8,10 @@ On a wide screen, saved sources stay beside the question and local review. Sourc
 
 [Design reference and validation scope](ai-context-workbench-validation.md)
 
+## Reuse a saved question template
+
+Choose **Use a saved prompt** beside the question, select a current unarchived template, fill its variables and preview the exact replacement. Only **Replace this question** updates the session question. It rereads the saved template before applying, refuses stale or over-limit input without truncation, and clears old request reviews. Sources, edited excerpts, output/connection settings and the previous response with its original provenance remain unchanged. No sending, copying, persistent write or prompt-version link happens automatically. [Exact text, scope and validation](ai-context-prompt-reuse.md).
+
 ## What can be selected
 
 - Active saved AI collection bodies, explicitly labeled **global collection**: these are existing cross-workspace library records, not workspace-local copies.

@@ -1,7 +1,7 @@
 /* Plain-text, opt-in context UI. No source is selected by default. */
 (function (root) {
     'use strict';
-    function mount(host, { controller, t = (_, fallback) => fallback, clipboard = root.navigator?.clipboard, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }) } = {}) {
+    function mount(host, { controller, t = (_, fallback) => fallback, clipboard = root.navigator?.clipboard, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }), promptStore } = {}) {
         const doc = host.ownerDocument || root.document;
         const el = (tag, cls = '', value = '') => { const node = doc.createElement(tag); node.className = cls; node.textContent = value; return node; };
         const label = (key, fallback) => t(`aiContext${key}`, fallback);
@@ -33,6 +33,35 @@
         const presetName = field('PresetName', 'Connection preset name', 'text'); presetName.maxLength = 80;
         const key = field('Key', 'API key (optional; never saved)', 'password'); key.maxLength = 4096;
         const question = field('Question', 'Question or task extraction instruction', 'textarea', questionPane); question.maxLength = 4000; question.rows = 3;
+        // Preserve an applied template's exact line endings until a real question
+        // edit. A textarea only exposes LF-normalized display values.
+        let appliedPromptQuestion = null;
+        const questionText = () => appliedPromptQuestion && question.value === appliedPromptQuestion.display ? appliedPromptQuestion.raw : question.value;
+        const promptAPI = root.LocalItabPrompts;
+        const promptPicker = el('section', 'ai-context-prompt-picker'); promptPicker.hidden = true; promptPicker.id = 'ai-context-prompt-picker';
+        const reusePrompt = button('PromptReuse', 'Use a saved prompt', () => {
+            if (promptBlocked()) return;
+            promptPicker.hidden = false; reusePrompt.setAttribute('aria-expanded', 'true'); promptStatus.focus(); void loadPrompts();
+        });
+        reusePrompt.className = 'ai-context-prompt-reuse'; reusePrompt.setAttribute('aria-controls', promptPicker.id); reusePrompt.setAttribute('aria-expanded', 'false');
+        const promptHelp = el('p', '', label('PromptHelp', 'Choose a current, unarchived template from the global prompt library, fill its variables and preview the replacement question. Only an explicit Replace changes this session. Sources, excerpts, output mode, connection and previous response stay unchanged. Nothing is sent, copied or saved; no prompt-version link is attached.'));
+        promptHelp.id = 'ai-context-prompt-help'; promptPicker.setAttribute('aria-describedby', promptHelp.id); promptPicker.setAttribute('aria-label', label('PromptReuse', 'Use a saved prompt'));
+        const promptLabel = el('label', 'ai-context-field', label('PromptSelect', 'Saved prompt template'));
+        const promptSelect = el('select', 'ai-context-prompt-select'); promptLabel.append(promptSelect);
+        const promptVariables = el('div', 'ai-context-prompt-variables');
+        const promptPreview = el('pre', 'ai-context-prompt-preview'); promptPreview.hidden = true; promptPreview.setAttribute('tabindex', '0');
+        promptPreview.setAttribute('aria-label', label('PromptPreviewText', 'Replacement question preview'));
+        const promptCount = el('p', 'ai-context-prompt-count'); promptCount.hidden = true;
+        const promptStatus = el('p', 'ai-context-prompt-status'); promptStatus.tabIndex = -1;
+        promptStatus.setAttribute('role', 'status'); promptStatus.setAttribute('aria-live', 'polite');
+        const promptPreviewButton = button('PromptPreview', 'Preview replacement question', previewPrompt);
+        const promptApply = button('PromptApply', 'Replace this question', applyPrompt);
+        const promptReload = button('PromptReload', 'Reload saved prompts', () => { if (!promptBlocked()) void loadPrompts(); });
+        const promptClose = button('PromptClose', 'Close prompt picker', () => closePrompts(true));
+        const promptActions = el('div', 'ai-context-actions'); promptActions.append(promptPreviewButton, promptApply, promptReload, promptClose);
+        promptPicker.append(promptHelp, promptLabel, promptVariables, promptPreview, promptCount, promptActions, promptStatus);
+        questionPane.append(reusePrompt, promptPicker);
+        let promptRecords = [], promptRecord = null, promptRows = [], promptValues = Object.create(null), promptTicket = null, promptOperation = null, promptEpoch = 0, promptSubscription = null;
         const modeLabel = el('label', 'ai-context-field', label('Mode', 'Output'));
         const mode = el('select', 'ai-context-mode');
         for (const [value, name, fallback] of [['answer', 'Answer', 'Answer'], ['tasks', 'Tasks', 'Draft tasks for review']]) { const option = el('option', '', label(name, fallback)); option.value = value; mode.append(option); }
@@ -229,7 +258,7 @@
         sourceSearch.addEventListener('input', filterSources);
         sourceScope.addEventListener('change', filterSources);
         function updateBudget() {
-            const info = controller.inspectInput(question.value, selectedSources(), mode.value);
+            const info = controller.inspectInput(questionText(), selectedSources(), mode.value);
             const over = label('BudgetOver', 'Over limit');
             const unknown = label('BudgetUnknown', 'Not calculated: invalid or unusually large input');
             budget.textContent = `${label('BudgetSelected', 'Selected excerpts')}: ${info.count} / 12${info.count > 12 ? ` (${over})` : ''} · ${label('BudgetQuestion', 'Question')}: ${info.questionLength} / 4000 · ${label('BudgetPrompt', 'Complete prompt')}: ${info.promptLength === null ? unknown : `${info.promptLength} / 32000${info.promptLength > 32000 ? ` (${over})` : ''}`}${info.valid ? '' : ` · ${label('BudgetInvalid', 'Correct empty, invalid or over-limit input before review.')}`}`;
@@ -276,6 +305,7 @@
             filterSources();
             updateBudget();
             updateLocalReview();
+            updatePromptPicker();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
             stream.disabled = busy || retry || mode.value !== 'answer';
@@ -341,6 +371,164 @@
             row.input.focus();
             update();
         }
+        function promptBlocked() {
+            return !promptAPI || selectionBlocked() || !box.isConnected || doc.visibilityState === 'hidden';
+        }
+        function clearPromptPreview() {
+            const focused = promptPreview.contains(doc.activeElement) || doc.activeElement === promptApply;
+            promptTicket = null; promptPreview.textContent = ''; promptPreview.hidden = true; promptCount.textContent = ''; promptCount.hidden = true;
+            if (focused && !promptPicker.hidden) promptStatus.focus();
+        }
+        function cancelPromptOperation() { promptEpoch++; promptOperation = null; }
+        function closePrompts(restoreFocus = false) {
+            const subscription = promptSubscription; promptSubscription = null;
+            try { subscription?.unsubscribe?.(); } catch (_) { /* Closed identities still reject queued notifications. */ }
+            cancelPromptOperation(); clearPromptPreview(); promptRecords = []; promptRecord = null; promptRows = []; promptValues = Object.create(null);
+            promptSelect.replaceChildren(); promptVariables.replaceChildren(); promptStatus.textContent = ''; promptPicker.hidden = true;
+            reusePrompt.setAttribute('aria-expanded', 'false'); reusePrompt.hidden = false;
+            if (restoreFocus) { if (!reusePrompt.disabled) reusePrompt.focus(); else status.focus(); }
+        }
+        function promptDraftCurrent(ticket) {
+            return ticket && !promptBlocked() && !promptPicker.hidden && ticket.epoch === promptEpoch &&
+                ticket.generation === controller.generation && ticket.question === questionText();
+        }
+        function updatePromptPicker() {
+            const blocked = promptBlocked();
+            reusePrompt.disabled = blocked; reusePrompt.hidden = !promptPicker.hidden;
+            if ((promptTicket && !promptDraftCurrent(promptTicket)) || (promptOperation && !promptDraftCurrent(promptOperation))) {
+                cancelPromptOperation(); clearPromptPreview();
+                promptStatus.textContent = label('PromptStale', 'The draft or workspace changed, or another operation started. Preview again before replacing the question.');
+            }
+            promptSelect.disabled = promptReload.disabled = blocked || Boolean(promptOperation);
+            promptPreviewButton.disabled = blocked || Boolean(promptOperation) || !promptRecord;
+            promptApply.disabled = blocked || Boolean(promptOperation) || !promptTicket;
+            for (const row of promptRows) row.input.disabled = row.empty.disabled = blocked || Boolean(promptOperation);
+        }
+        function promptSnapshot() { return { epoch: promptEpoch, generation: controller.generation, question: questionText() }; }
+        function subscribePrompts() {
+            if (promptSubscription) return;
+            const subscription = promptSubscription = {};
+            try {
+                subscription.unsubscribe = promptStore.subscribe(() => {
+                    if (promptSubscription !== subscription || disposed || promptPicker.hidden) return;
+                    const restoreFocus = promptPicker.contains(doc.activeElement);
+                    cancelPromptOperation(); clearPromptPreview(); promptRecords = []; promptRecord = null; promptRows = []; promptValues = Object.create(null);
+                    promptSelect.replaceChildren(); promptVariables.replaceChildren();
+                    promptStatus.textContent = label('PromptChanged', 'The saved prompt library changed. Reload saved prompts and preview again. Your question is unchanged.');
+                    updatePromptPicker(); if (restoreFocus) promptStatus.focus();
+                });
+            } catch (error) { promptSubscription = null; throw error; }
+        }
+        async function readPromptState(operation) {
+            const current = () => { if (promptOperation !== operation || !promptDraftCurrent(operation)) throw Error('Stale prompt operation'); };
+            current(); await controller.ensureActive(); current();
+            if (!promptStore) promptStore = new promptAPI.Store(root.LocalItabWorkspaces.manager.createPromptBackend(promptAPI));
+            subscribePrompts(); current();
+            const state = await promptStore.read(); current();
+            await controller.ensureActive(); current();
+            return state;
+        }
+        async function loadPrompts() {
+            if (promptBlocked() || promptPicker.hidden || promptOperation) return;
+            cancelPromptOperation(); clearPromptPreview(); promptRecord = null; promptRecords = []; promptRows = []; promptValues = Object.create(null);
+            promptSelect.replaceChildren(); promptVariables.replaceChildren();
+            const operation = promptOperation = promptSnapshot();
+            promptStatus.textContent = label('PromptLoading', 'Reading saved prompts…'); promptStatus.focus(); updatePromptPicker();
+            try {
+                const state = await readPromptState(operation);
+                promptRecords = promptAPI.search(state).map(item => item.record);
+                const placeholder = el('option', '', label('PromptChoose', 'Choose a template')); placeholder.value = ''; promptSelect.append(placeholder);
+                for (const record of promptRecords) { const option = el('option', '', record.title); option.value = record.id; promptSelect.append(option); }
+                promptSelect.value = '';
+                promptStatus.textContent = promptRecords.length ? label('PromptLoaded', 'Choose a template. Your question has not changed.') : label('PromptEmpty', 'No unarchived saved prompts are available. Save a template in the prompt library first, then reload here.');
+            } catch (_) {
+                if (promptOperation === operation && promptDraftCurrent(operation)) promptStatus.textContent = label('PromptReadError', 'Could not verify the saved prompts or current workspace. Your question is unchanged. Reload saved prompts to try again.');
+            } finally {
+                if (promptOperation === operation) {
+                    promptOperation = null; if (!disposed) { updatePromptPicker(); if (!promptSelect.disabled && doc.activeElement === promptStatus) promptSelect.focus(); }
+                }
+            }
+        }
+        promptSelect.addEventListener('change', () => {
+            if (promptBlocked() || promptOperation || promptPicker.hidden) return;
+            cancelPromptOperation(); clearPromptPreview(); promptVariables.replaceChildren(); promptRows = []; promptValues = Object.create(null);
+            promptRecord = promptRecords.find(record => record.id === promptSelect.value) || null; promptStatus.textContent = '';
+            try {
+                if (promptRecord) for (const name of promptAPI.previewTemplate(promptRecord.body).variables) {
+                    const wrapper = el('label', 'ai-context-field', `${label('PromptVariable', 'Variable')}: ${name}`);
+                    const input = el('textarea'); input.rows = 2; input.maxLength = 4000; input.autocomplete = 'off'; input.spellcheck = false;
+                    wrapper.append(input);
+                    const setValue = value => {
+                        if (promptBlocked() || promptOperation || promptPicker.hidden || !promptRows.includes(row)) return;
+                        cancelPromptOperation(); clearPromptPreview(); promptValues[name] = value; promptStatus.textContent = ''; updatePromptPicker();
+                    };
+                    const empty = button('PromptEmptyValue', 'Use an empty value', () => { if (promptBlocked() || promptOperation || !promptRows.includes(row)) return; input.value = ''; setValue(''); });
+                    empty.setAttribute('aria-label', `${label('PromptEmptyValue', 'Use an empty value')}: ${name}`);
+                    const row = { input, empty, name }; promptRows.push(row); input.addEventListener('input', () => setValue(input.value));
+                    promptVariables.append(wrapper, empty);
+                }
+            } catch (_) {
+                promptRecord = null;
+                promptStatus.textContent = label('PromptInvalid', 'This template cannot be used as a question. Check its variables and text in the prompt library. Nothing was replaced.');
+            }
+            updatePromptPicker();
+        });
+        function promptQuestion() {
+            // Reuse the library parser, including escaped and non-recursive variables.
+            return promptAPI.renderTemplate(promptRecord.body, promptValues);
+        }
+        function previewPrompt() {
+            if (promptBlocked() || promptOperation || promptPicker.hidden || !promptRecord) return;
+            cancelPromptOperation(); clearPromptPreview();
+            try {
+                const preview = promptAPI.previewTemplate(promptRecord.body, promptValues);
+                if (!preview.complete) { promptStatus.textContent = `${label('PromptMissing', 'Fill every variable or explicitly use an empty value')}: ${preview.missing.join(', ')}`; updatePromptPicker(); return; }
+                const text = promptQuestion();
+                // PRE retains CR in textContent but may not paint a lone CR as a
+                // line break. Normalize only its display copy, never the raw ticket.
+                const display = text.replace(/\r\n?/g, '\n');
+                promptPreview.textContent = display; promptPreview.hidden = false; promptCount.hidden = false;
+                promptCount.textContent = `${label('BudgetQuestion', 'Question')}: ${text.length} / 4000 · ${label('PromptLineEndings', 'The preview displays line breaks as LF. Original line endings and whitespace are retained until you edit the question. Counts use the exact text, including CRLF and emoji.')}`;
+                if (!text.trim() || text.length > 4000) {
+                    promptStatus.textContent = label('PromptLimit', 'The replacement must contain text and fit within 4,000 UTF-16 units. Nothing is shortened or replaced.');
+                } else {
+                    promptTicket = { ...promptSnapshot(), record: promptRecord, text, display, values: JSON.stringify(promptValues) };
+                    promptStatus.textContent = label('PromptReady', 'This preview will replace the entire question only when you choose Replace this question. Review the complete request again afterward.');
+                }
+            } catch (_) { promptStatus.textContent = label('PromptInvalid', 'This template cannot be used as a question. Check its variables and text in the prompt library. Nothing was replaced.'); }
+            updatePromptPicker();
+        }
+        async function applyPrompt() {
+            if (!promptDraftCurrent(promptTicket) || promptOperation) return;
+            const ticket = promptTicket, record = ticket.record;
+            const current = () => promptTicket === ticket && promptDraftCurrent(ticket) && promptRecord === record &&
+                promptSelect.value === record.id && promptPreview.textContent === ticket.display && !promptPreview.hidden &&
+                JSON.stringify(promptValues) === ticket.values && promptQuestion() === ticket.text &&
+                promptRows.every(row => Object.hasOwn(promptValues, row.name) && row.input.value === promptValues[row.name]);
+            if (!current()) { cancelPromptOperation(); clearPromptPreview(); updatePromptPicker(); return; }
+            const operation = promptOperation = { ...promptSnapshot() };
+            promptStatus.textContent = label('PromptChecking', 'Verifying this saved template and workspace…');
+            if (doc.activeElement === promptApply || doc.activeElement === doc.body) promptStatus.focus();
+            updatePromptPicker();
+            try {
+                const state = await readPromptState(operation), latest = state.records.find(item => item.id === record.id);
+                if (!current() || !latest || latest.deletedAt !== null || latest.version !== record.version ||
+                    latest.currentVersionId !== record.currentVersionId || latest.body !== record.body) throw Error('Changed prompt');
+                // No await between final ownership checks, controller edit and assignment.
+                const restoreFocus = promptPicker.contains(doc.activeElement) || doc.activeElement === doc.body;
+                controller.edit(); question.value = ticket.text; appliedPromptQuestion = { raw: ticket.text, display: question.value };
+                reviewText.hidden = taskList.hidden = true;
+                closePrompts(); if (restoreFocus) question.focus();
+                status.textContent = label('PromptApplied', 'Question replaced for this session. Review the complete request again before copying or sending. The previous response still belongs to its original request.');
+                update();
+            } catch (_) {
+                if (promptOperation === operation && promptDraftCurrent(operation)) {
+                    clearPromptPreview();
+                    promptStatus.textContent = label('PromptApplyError', 'The saved template or workspace could not be verified unchanged. Nothing was replaced. Reload saved prompts and preview again.');
+                    if (doc.activeElement === promptApply || doc.activeElement === doc.body) promptStatus.focus();
+                }
+            } finally { if (promptOperation === operation) { promptOperation = null; if (!disposed) updatePromptPicker(); } }
+        }
         function renderPresets() {
             presetSelect.replaceChildren();
             const manual = el('option', '', presetText('PresetManual', 'New / unsaved connection')); manual.value = ''; presetSelect.append(manual);
@@ -396,7 +584,7 @@
         const reviewLocal = button('ReviewLocal', 'Review prompt locally', () => {
             if (selectionBlocked()) return;
             return action(async () => {
-                const ticket = await controller.reviewLocal({ question: question.value, selected: selectedSources(), mode: mode.value, stream: mode.value === 'answer' && stream.checked });
+                const ticket = await controller.reviewLocal({ question: questionText(), selected: selectedSources(), mode: mode.value, stream: mode.value === 'answer' && stream.checked });
                 if (disposed || controller.closed || controller.localReview !== ticket) return;
                 localMode.textContent = requestMode(ticket.packed); localText.value = ticket.packed.prompt; localPanel.hidden = false; reviewText.hidden = taskList.hidden = true;
             }, ['LocalReviewed', 'Local prompt ready to inspect. No endpoint or model is needed. Copying is a separate action; nothing has been sent or saved.']);
@@ -440,7 +628,7 @@
         localPanel.append(copyLocal, localStatus);
         const review = button('Review', 'Review exact request', () => action(async () => {
             const selected = selectedSources();
-            const result = await controller.review({ url: url.value, model: model.value, question: question.value, selected, mode: mode.value, stream: mode.value === 'answer' && stream.checked });
+            const result = await controller.review({ url: url.value, model: model.value, question: questionText(), selected, mode: mode.value, stream: mode.value === 'answer' && stream.checked });
             reviewText.textContent = `${requestMode(result.packed)}\n${result.request.url}\n${result.request.model}\n\n${result.request.prompt}`; reviewText.hidden = false; taskList.hidden = true;
         }, ['Reviewed', 'Review the full destination, model and exact outgoing text. Source text is reference material, not trusted instructions.']));
         const allow = button('Allow', 'Allow this endpoint', () => {
@@ -507,7 +695,7 @@
         const verifyTasks = button('VerifyTasks', 'Check existing task batch', () => action(async () => {
             await controller.verifyTaskBatch(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksVerified', 'The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request.']));
-        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; invalidate(true); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
+        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; closePrompts(); invalidate(true); key.value = ''; output.value = ''; question.value = ''; appliedPromptQuestion = null; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
@@ -520,7 +708,7 @@
         resultPane.append(contextSave, taskSelection, taskList, results, copyStatus);
         questionPane.append(localActions, localPanel, connection, status, partialPanel, resultPane);
         workbench.append(sourcesPane, questionPane); box.append(workbench); host.append(box);
-        for (const input of [url, model, question, mode, stream]) input.addEventListener(input === mode || input === stream ? 'change' : 'input', () => { if (input === url || input === model || input === mode || input === stream) key.value = ''; if (input === mode) stream.checked = false; invalidate(); });
+        for (const input of [url, model, question, mode, stream]) input.addEventListener(input === mode || input === stream ? 'change' : 'input', () => { if (input === question) appliedPromptQuestion = null; if (input === url || input === model || input === mode || input === stream) key.value = ''; if (input === mode) stream.checked = false; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         function buildSourceRows(values) {
             return values.map(source => {
@@ -574,10 +762,10 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); updateCopy(); } return; }
-            key.value = ''; controller.stop(); if (!disposed) update();
+            closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
