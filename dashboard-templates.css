@@ -420,6 +420,7 @@
 :root:is([data-dashboard-template="clarity"], [data-dashboard-template="graphite"], [data-dashboard-template="folio"]) #dashboard .shortcuts-header {
   flex-direction: row;
   flex-wrap: wrap;
+  padding: 6px;
 }
 :root:is([data-dashboard-template="clarity"], [data-dashboard-template="graphite"], [data-dashboard-template="folio"]) #dashboard .shortcuts-header > * {
   flex: 0 1 auto;
