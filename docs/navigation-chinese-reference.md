@@ -66,7 +66,12 @@ Native browser verification and publication are separate from this preparation.
 The frozen implementation passed 2,686/2,686 Node tests with strict unhandled
 rejections, a 1 GiB heap and serial test execution, plus 81/81 Python tests and
 126/126 focused tests. Syntax, locale JSON and diff checks passed. The offline
-runtime package contains 112 allowlisted files. Native browser validation is
-pending for this development commit; the counts above do not claim live service
-availability or browser coverage. Manifest remains 1.1.108 and this ordinary
+runtime package contains 112 allowlisted files. Limited Chinese desktop-light native validation passed: ASCII concised and
+consular each matched one entry; operator TW/CN, public-reference pricing and
+account/application caveats were visible. First official source links were
+checked by hover without opening; cross-query selection reviewed both exact
+URLs and cancelled with zero additions. Reopening restored141/127/14 and zero
+selection. No Chinese/IME input, dark/narrow matrix, all source links or remote
+service behavior was tested. Source-level210 tags/18 categories were not
+enumerated in native UI. Manifest remains 1.1.108 and this ordinary
 feature commit does not publish a new release.
