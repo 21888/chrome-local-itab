@@ -1,6 +1,6 @@
 # Privacy summary
 
-Local iTab's core new tab page can work offline. Optional cloud features send data to Google or a user-selected model provider when used. Optional version checks contact GitHub only after a manual check or explicit opt-in.
+Local iTab's core new tab page can work offline. Optional cloud features send data to Google or a user-selected model provider when used. The separately enabled Claude experiment makes authenticated same-origin requests in a manually selected existing Claude tab. Optional version checks contact GitHub only after a manual check or explicit opt-in.
 
 - Configuration, shortcuts, categories, layout and theme settings, uploaded backgrounds, and local card content are primarily stored in `chrome.storage.local`. Website icons use local IndexedDB with a browser Cache API fallback; some interface state uses browser local storage.
 - Tasks (including completed/removed items and previous local copies) and the Focus timer session are stored separately on this device. They are excluded from configuration exports, Chrome Sync and Drive snapshots; Tasks has its own explicit export/import. Tasks/Focus visibility and Focus durations are also device-only and excluded. Visibility settings for the weather, topic and movie cards remain ordinary configuration. Settings reset/import/restore preserve task content and the Focus session.
@@ -33,3 +33,19 @@ The new-tab AI context panel reads active global AI collection bodies and the pi
 Connection presets are optional, explicitly saved device-local metadata shared by the prompt-model dialog and saved-context Q&A panel. Only the preset name, validated HTTPS endpoint and model ID are stored as unencrypted text. The dedicated API-key/password field is never included. Do not put credentials or other secrets in preset names, endpoint paths or model IDs. Presets are excluded from manual exports, complete backups, Chrome Sync and Drive snapshots; restoring a backup preserves the destination device’s existing presets. Selecting or saving a preset never grants endpoint permission or sends a request; every request still needs exact destination/content review and explicit Send.
 
 - Optional model comparison sends the same explicitly reviewed completed prompt to at most two user-selected saved connections only after Send. Each target has a separate temporary key and explicit origin-permission action; grants alone never send. Each provider may charge separately. Failed/cancelled targets do not discard the other result. Only explicit per-result Save adds a response and its original prompt-version reference to local collections and unencrypted backups. See [model comparison](ai-model-comparison.md).
+
+## Optional Claude session-organization snapshot experiment
+
+This experiment is off by default and has not been validated with a real account. After explicit enablement and browser approval of optional `scripting` and `https://claude.ai/*` access, it lists eligible existing Claude tab IDs for manual selection. Selecting a tab runs packaged extension code in that tab's top-frame MAIN world and requests its organization list; selecting an organization rechecks the list and requests that organization's usage once. It does not bind or verify an account identity and is not a stable subscription balance or billing source. Internal endpoints may change.
+
+The fixed same-origin GET endpoints are `/api/organizations` and `/api/organizations/{UUID}/usage`. Browser-managed existing session credentials authenticate these requests automatically (`credentials: same-origin`); extension code does not read or export cookie/token values. Claude (Anthropic) receives these requests and ordinary connection metadata. The experiment handles organization names/UUIDs and available five-hour/seven-day utilization percentages, reset timestamps and retrieval time in memory. It does not scrape conversations, inspect arbitrary page content, send prompts, use a developer relay, poll in the background, or persist results in extension storage, exports, Sync or backups.
+
+Close/clear or leaving the page removes the local in-memory result and invalidates later callbacks. Closing does not revoke browser-granted permissions. An already-issued page request may continue until it completes or, under normal browser fetch behavior, reaches its ten-second timeout; immediate cancellation is not guaranteed. Organization-list continuity does not prove stable account identity. Verification so far is synthetic testing and account-free local UI checks, without a real permission grant or live account usage request.
+
+### 中文说明
+
+Claude 会话组织快照实验默认关闭，尚未真实账号验收。用户明确启用并通过浏览器授予可选 `scripting` 与精确 `https://claude.ai/*` 权限后，手动选择已有 Claude 标签页；扩展内打包的函数在该页顶层 MAIN 环境读取组织列表，选择组织后再次核对组织集合并读取一次用量。它不绑定或证明账号身份，不是稳定的订阅余额或账单依据，内部接口可能变化。
+
+固定同源 GET 为 `/api/organizations` 和 `/api/organizations/{UUID}/usage`。浏览器通过页面现有会话自动认证（`credentials: same-origin`）；扩展不读取或导出 cookie/token 值。Claude（Anthropic）会收到请求和通常的连接信息。组织名称/UUID、可用的五小时/七天使用百分比、重置时间和读取时间仅在内存中处理。不抓取对话或任意页面内容、不发送提示词、不经过开发者中转、不后台轮询，结果不写入扩展存储、导出、Sync或备份。
+
+关闭/清除或离页会清空本地内存结果并使迟到回调失效，但不撤销浏览器已授予权限。已发出的页面请求可能继续至完成，或在正常浏览器 fetch 行为下达到十秒超时，不能保证立即取消。组织集合未变不代表账号身份稳定。当前证据仅为合成测试和无账号本地UI验收，未实际授权或请求真实账号用量。

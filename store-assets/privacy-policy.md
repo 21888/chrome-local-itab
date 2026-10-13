@@ -2,7 +2,7 @@
 
 Effective date: May 12, 2026
 
-Documentation clarified: October 9, 2026
+Documentation clarified: October 13, 2026
 
 Local iTab is designed to be a private, local-first Chrome new tab page for search, shortcuts, and user-controlled dashboard settings.
 
@@ -56,7 +56,7 @@ There is no scheduled automatic Drive backup. After you confirm a restore, Local
 
 ## Data Collection
 
-The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. The optional service transmissions described above support the corresponding search, icon, sync, backup, version-check and explicitly requested model features. Local iTab does not include analytics, tracking scripts, ads, or remote content feeds. Local use does not require an account; optional Chrome Sync and Google Drive use your Chrome or Google account.
+The developer does not collect, sell, transfer, or use user data for advertising, analytics, creditworthiness, or unrelated purposes. The optional service transmissions described in this policy support the corresponding search, icon, sync, backup, version-check, explicitly requested model features and the optional Claude session-organization experiment. Local iTab does not include analytics, tracking scripts, ads, or remote content feeds. Local use does not require an account; optional Chrome Sync and Google Drive use your Chrome or Google account.
 
 ## Google API Limited Use
 
@@ -67,6 +67,8 @@ The use of information received from Google APIs will adhere to the Chrome Web S
 An explicit selection context-menu action may temporarily hold the browser-provided text and an optional sanitized source address in `chrome.storage.session` for review. It opens an unsaved draft; only explicit Save writes the existing local collection. Temporary entries expire after ten minutes and are removed on subsequent handoff activity, or when the browser session ends. Source addresses exclude query and fragment and remain unchecked by default. Editable and incognito selections are excluded. No automatic page capture, new network request, analytics or model execution occurs. See [scope and limits](../docs/selection-capture.md).
 
 ## Permissions
+
+- Optional `scripting` and exact `https://claude.ai/*` access support the off-by-default Claude session-organization experiment described below. The manifest HTTPS wildcard also permits user-selected model origins, but this experiment requests only the Claude origin at runtime.
 
 - `storage` saves settings and shortcut data locally and supports optional Chrome Sync.
 - `unlimitedStorage` supports user-controlled local image data and cached icons.
@@ -96,3 +98,19 @@ When you explicitly choose Compare models, you can select up to two saved model 
 ## Optional historical Q&A input snapshots
 
 Optional AI context Q&A sends only explicitly selected and reviewed global collection excerpts and the saved workspace note after Send. Saving an answer normally excludes the question and source snapshot. A separate, default-off choice can also retain the exact reviewed question, edited source IDs/labels/text, complete prompt, endpoint and model in the global collection and unencrypted collection/complete backups. API-key fields and authentication headers are excluded; text may still contain user-entered secrets. Omitting attribution source URLs does not remove this snapshot. It is historical input for the first saved answer version; later answer edits may differ, and imported snapshots and model citations are not proof of model output. Connection presets themselves remain excluded from backups; an opted-in answer snapshot separately retains that request's endpoint and model.
+
+## Optional Claude session-organization snapshot experiment
+
+This experiment is off by default and has not been validated with a real account. After explicit enablement and browser approval of optional `scripting` and `https://claude.ai/*` access, it lists eligible existing Claude tab IDs for manual selection. Selecting a tab runs packaged extension code in that tab's top-frame MAIN world and requests its organization list; selecting an organization rechecks the list and requests that organization's usage once. It does not bind or verify an account identity and is not a stable subscription balance or billing source. Internal endpoints may change.
+
+The fixed same-origin GET endpoints are `/api/organizations` and `/api/organizations/{UUID}/usage`. Browser-managed existing session credentials authenticate these requests automatically (`credentials: same-origin`); extension code does not read or export cookie/token values. Claude (Anthropic) receives these requests and ordinary connection metadata. The experiment handles organization names/UUIDs and available five-hour/seven-day utilization percentages, reset timestamps and retrieval time in memory. It does not scrape conversations, inspect arbitrary page content, send prompts, use a developer relay, poll in the background, or persist results in extension storage, exports, Sync or backups.
+
+Close/clear or leaving the page removes the local in-memory result and invalidates later callbacks. Closing does not revoke browser-granted permissions. An already-issued page request may continue until it completes or, under normal browser fetch behavior, reaches its ten-second timeout; immediate cancellation is not guaranteed. Organization-list continuity does not prove stable account identity. Verification so far is synthetic testing and account-free local UI checks, without a real permission grant or live account usage request.
+
+### 中文说明
+
+Claude 会话组织快照实验默认关闭，尚未真实账号验收。用户明确启用并通过浏览器授予可选 `scripting` 与精确 `https://claude.ai/*` 权限后，手动选择已有 Claude 标签页；扩展内打包的函数在该页顶层 MAIN 环境读取组织列表，选择组织后再次核对组织集合并读取一次用量。它不绑定或证明账号身份，不是稳定的订阅余额或账单依据，内部接口可能变化。
+
+固定同源 GET 为 `/api/organizations` 和 `/api/organizations/{UUID}/usage`。浏览器通过页面现有会话自动认证（`credentials: same-origin`）；扩展不读取或导出 cookie/token 值。Claude（Anthropic）会收到请求和通常的连接信息。组织名称/UUID、可用的五小时/七天使用百分比、重置时间和读取时间仅在内存中处理。不抓取对话或任意页面内容、不发送提示词、不经过开发者中转、不后台轮询，结果不写入扩展存储、导出、Sync或备份。
+
+关闭/清除或离页会清空本地内存结果并使迟到回调失效，但不撤销浏览器已授予权限。已发出的页面请求可能继续至完成，或在正常浏览器 fetch 行为下达到十秒超时，不能保证立即取消。组织集合未变不代表账号身份稳定。当前证据仅为合成测试和无账号本地UI验收，未实际授权或请求真实账号用量。
