@@ -1172,3 +1172,91 @@ test('source reload late results never replace rows after close, pagehide, gener
         assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
     }
 });
+
+test('local prompt UI: empty connection, hidden selected excerpts included, unchecked excluded, explicit copy only', async () => {
+    const copied = [], h = await model(undefined, { populate: false, clipboard: { writeText: async text => copied.push(text) }, sources: [
+        { id: 'collection:selected', label: 'Alpha synthetic', text: 'selected content', scope: 'library' },
+        { id: 'collection:excluded', label: 'Beta synthetic', text: 'excluded content', scope: 'library' }
+    ] });
+    h.input(h.host.querySelectorAll('textarea')[0], 'Local question');
+    const row = h.host.querySelectorAll('.ai-context-source')[0]; row.querySelector('input').checked = true; row.querySelector('input').dispatch('change');
+    h.input(row.querySelector('textarea'), 'edited selected excerpt');
+    h.input(h.field('search'), 'Beta'); assert.equal(row.hidden, true);
+    h.click('Review prompt locally'); await settle();
+    const ticket = h.controller.localReview, shown = h.host.querySelector('.ai-context-local-prompt');
+    assert.equal(shown.value, ticket.packed.prompt); assert.equal(shown.readOnly, true);
+    assert.match(shown.value, /collection:selected|edited selected excerpt/); assert.doesNotMatch(shown.value, /collection:excluded|excluded content/);
+    assert.equal(copied.length, 0); assert.equal(h.controller.reviewed, null);
+    assert.equal(h.byText('Allow this').disabled, true); assert.equal(h.byText('Send reviewed').disabled, true);
+    h.click('Copy reviewed prompt'); await settle(); assert.deepEqual(copied, [ticket.packed.prompt]);
+    assert.match(h.host.querySelector('.ai-context-local-status').textContent, /copied/);
+    assert.equal(h.controller.saved, false); assert.equal(h.b.writes + h.c.writes + h.calls.length, 0);
+});
+test('local prompt UI: connection and key never enter copied prompt; local review clears remote authorization', async () => {
+    const copied = [], h = await model(undefined, { clipboard: { writeText: async text => copied.push(text) } });
+    h.input(h.field('password'), 'SYNTHETIC_KEY_SENTINEL'); h.click('Review exact'); await settle();
+    h.click('Review prompt locally'); await settle(); h.click('Copy reviewed prompt'); await settle();
+    assert.equal(h.controller.reviewed, null); assert.doesNotMatch(copied[0], /mock\.example|SYNTHETIC_KEY_SENTINEL|"model"|"url"/);
+    assert.equal(h.byText('Allow this').disabled, true); assert.equal(h.byText('Send reviewed').disabled, true);
+});
+test('local prompt UI: all draft edits, mode, restoration, selection, reload and reset clear shown ticket', async () => {
+    const operations = [h => h.input(h.host.querySelectorAll('textarea')[0], 'changed'), h => h.input(h.field('url'), 'https://other.example/v1/chat/completions'),
+        h => { const mode = h.host.querySelector('select'); mode.value = 'tasks'; mode.dispatch('change'); },
+        h => { const checkbox = h.field('checkbox'); checkbox.checked = true; checkbox.dispatch('change'); },
+        h => h.click('Select visible unselected'), h => h.click('Reload saved sources'), h => h.click('Cancel / clear')];
+    for (const operation of operations) {
+        const h = await model(); h.click('Review prompt locally'); await settle(); operation(h); await settle();
+        assert.equal(h.controller.localReview, null); assert.equal(h.host.querySelector('.ai-context-local-review').hidden, true);
+        assert.equal(h.host.querySelector('.ai-context-local-prompt').value, ''); assert.equal(h.byText('Copy reviewed prompt').disabled, true);
+    }
+    const h = await model(); h.click('Select visible unselected');
+    h.input(h.host.querySelector('.ai-context-source').querySelector('textarea'), 'edited');
+    h.click('Review prompt locally'); await settle(); h.click('Restore original excerpt');
+    assert.equal(h.controller.localReview, null); assert.equal(h.host.querySelector('.ai-context-local-prompt').value, '');
+});
+test('local prompt UI: blocked clipboard offers manual selection with no retries or writes', async () => {
+    let calls = 0; const h = await model(undefined, { clipboard: { writeText: async () => { calls++; throw Error('blocked'); } } });
+    h.click('Review prompt locally'); await settle(); h.click('Copy reviewed prompt'); await settle();
+    assert.equal(calls, 1); assert.match(h.host.querySelector('.ai-context-local-status').textContent, /Select the complete prompt/);
+    assert.equal(h.controller.saved, false); assert.equal(h.b.writes + h.c.writes, 0); assert.equal(h.byText('Copy reviewed prompt').disabled, false);
+});
+test('local prompt UI: late copy success or failure cannot overwrite newer review or copy status', async () => {
+    for (const reject of [false, true]) {
+        const first = {}; first.promise = new Promise((resolve, reject) => { first.resolve = resolve; first.reject = reject; }); const second = deferred(); let calls = 0;
+        const h = await model(undefined, { clipboard: { writeText: () => (++calls === 1 ? first.promise : second.promise) } });
+        h.click('Review prompt locally'); await settle(); h.click('Copy reviewed prompt'); await settle();
+        h.input(h.host.querySelectorAll('textarea')[0], 'newer question'); h.click('Review prompt locally'); await settle();
+        h.click('Copy reviewed prompt'); await settle(); second.resolve(); await settle();
+        const status = h.host.querySelector('.ai-context-local-status').textContent, prompt = h.host.querySelector('.ai-context-local-prompt').value;
+        if (reject) first.reject(Error('late')); else first.resolve(); await settle();
+        assert.equal(h.host.querySelector('.ai-context-local-status').textContent, status); assert.match(status, /copied/);
+        assert.equal(h.host.querySelector('.ai-context-local-prompt').value, prompt); assert.match(prompt, /newer question/);
+    }
+});
+test('local prompt UI: workspace loss and departure block copying and clear local data without late feedback', async () => {
+    const copied = [], h = await model(undefined, { clipboard: { writeText: async text => copied.push(text) } });
+    h.click('Review prompt locally'); await settle(); h.deactivate(); h.click('Copy reviewed prompt'); await settle();
+    assert.equal(copied.length, 0); assert.equal(h.controller.localReview, null); assert.equal(h.host.querySelector('.ai-context-local-prompt').value, '');
+    const gate = deferred(), next = await model(undefined, { clipboard: { writeText: () => gate.promise } });
+    next.click('Review prompt locally'); await settle(); next.click('Copy reviewed prompt'); await settle();
+    const prompt = next.host.querySelector('.ai-context-local-prompt'), status = next.host.querySelector('.ai-context-local-status');
+    next.events.get('pagehide')(); gate.resolve(); await settle();
+    assert.equal(next.controller.localReview, null); assert.equal(prompt.value, ''); assert.equal(status.textContent, ''); assert.equal(next.host.children.length, 0);
+});
+test('local prompt UI: pending and uncertain operation guards block review and copy handlers', async () => {
+    for (const field of ['saveCommand', 'taskCommand']) {
+        const h = await model(); h.click('Review prompt locally'); await settle(); const ticket = h.controller.localReview;
+        h.controller[field] = { id: 'synthetic-pending' }; h.controller.saveUncertain = h.controller.taskUncertain = true;
+        h.byText('Review prompt locally').dispatch('click'); h.byText('Copy reviewed prompt').dispatch('click'); await settle();
+        assert.equal(h.controller.localReview, ticket); assert.equal(h.b.writes + h.c.writes + h.calls.length, 0);
+    }
+    const h = await model(), gate = deferred(); h.controller.ensureActive = () => gate.promise;
+    h.click('Review prompt locally'); assert.equal(h.byText('Review prompt locally').disabled, true); assert.equal(h.byText('Copy reviewed prompt').disabled, true);
+    h.view.destroy(); gate.resolve(); await settle(); assert.equal(h.controller.localReview, null);
+});
+test('local prompt UI has explicit English and Chinese privacy and manual-copy labels', () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        for (const key of ['LocalPrompt', 'LocalPrivacy', 'ReviewLocal', 'CopyLocal', 'LocalReviewed', 'LocalCopied', 'LocalCopyBlocked']) assert(messages[`aiContext${key}`]?.message);
+    }
+});

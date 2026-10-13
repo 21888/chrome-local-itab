@@ -661,3 +661,78 @@ test('source loading checks generation and workspace before reading and after th
         assert.equal(h.taskBackend.writes + h.collectionBackend.writes, 0);
     }
 });
+
+test('local review needs no connection, never authorizes transport, and snapshots immutable selected data', async () => {
+    const h = setup(), c = h.controller;
+    c.transport = Transport;
+    const selected = [{ id: 'synthetic:id', label: 'Synthetic label', text: 'Selected excerpt' }];
+    const ticket = await c.reviewLocal({ question: 'Local question', selected, mode: 'answer' });
+    selected[0].text = 'Changed later';
+    assert(Object.isFrozen(ticket)); assert(Object.isFrozen(ticket.packed.sources[0]));
+    assert.equal(ticket.packed.prompt, api.pack('Local question', [{ id: 'synthetic:id', label: 'Synthetic label', text: 'Selected excerpt' }]).prompt);
+    assert.equal(c.reviewed, null); assert.equal(c.saved, false);
+    await assert.rejects(c.allow(), { code: 'STALE' }); await assert.rejects(c.send(), { code: 'STALE' });
+    await assert.rejects(c.review({ url: '', model: '', question: 'q', selected: [] }));
+    assert.equal(c.localReview, null); assert.equal(c.reviewed, null);
+    assert.deepEqual(h.calls, { permissions: 0, sends: 0 }); assert.equal(h.taskBackend.writes + h.collectionBackend.writes, 0);
+});
+test('local review validates full limits without truncation or weakening remote HTTPS gate', async () => {
+    const h = setup(); h.controller.transport = Transport;
+    for (const input of [{ question: '', selected: [] }, { question: 'q', selected: [{ id: 'id', label: 'label', text: 'x'.repeat(16001) }] }, { question: 'q', selected: [], mode: 'invalid' }]) {
+        await assert.rejects(h.controller.reviewLocal(input)); assert.equal(h.controller.localReview, null);
+    }
+    await assert.rejects(h.controller.review({ url: 'http://example.com/chat/completions', model: 'm', question: 'q', selected: [] }));
+    assert.equal(h.controller.reviewed, null);
+});
+test('local review invalidates remote review and preserves previous answer provenance and unsaved state', async () => {
+    const h = setup(), c = h.controller; await review(h, 'answer'); await c.send();
+    const result = c.result, provenance = c.resultReview;
+    await c.reviewLocal({ question: 'Next local question', selected: [] });
+    assert.equal(c.reviewed, null); assert.equal(c.result, result); assert.equal(c.resultReview, provenance); assert.equal(c.saved, false);
+});
+test('local tickets expire on edit, clear, response edit, remote review and close', async () => {
+    for (const action of [c => c.edit(), c => c.clear(), c => c.editResult('changed'), c => c.review({ url: 'https://model.example/chat/completions', model: 'm', question: 'remote', selected: [] }), c => c.close()]) {
+        const h = setup(), c = h.controller; await review(h); await c.send();
+        const ticket = await c.reviewLocal({ question: 'q', selected: [] }); await action(c);
+        assert.equal(c.localReview, null);
+        await assert.rejects(c.copyLocalPrompt(ticket, () => assert.fail('Must not copy')), { code: 'STALE' });
+    }
+});
+test('local review and copy honor busy, pending save and task operation guards', async () => {
+    for (const field of ['busy', 'saveCommand', 'taskCommand']) {
+        const h = setup(), c = h.controller, ticket = await c.reviewLocal({ question: 'q', selected: [] });
+        c[field] = field === 'busy' ? true : { id: 'synthetic-operation' };
+        c.saveUncertain = c.taskUncertain = true;
+        await assert.rejects(c.reviewLocal({ question: 'q', selected: [] }), { code: 'BUSY' });
+        await assert.rejects(c.copyLocalPrompt(ticket, () => assert.fail('Must not copy')), { code: 'STALE' });
+        assert.equal(c.localReview, ticket);
+    }
+});
+test('local review snapshots before workspace await and rejects late review after edit or departure', async () => {
+    for (const interrupt of [c => c.edit(), c => c.close()]) {
+        const h = setup(), c = h.controller, gate = deferred(); c.ensureActive = () => gate.promise;
+        const operation = c.reviewLocal({ question: 'q', selected: [] }); interrupt(c); gate.resolve();
+        await assert.rejects(operation, { code: 'STALE' }); assert.equal(c.localReview, null);
+    }
+    const h = setup(), c = h.controller, gate = deferred(); c.ensureActive = () => gate.promise;
+    const selected = [{ id: 's', label: 'label', text: 'before' }];
+    const operation = c.reviewLocal({ question: 'q', selected }); selected[0].text = 'after'; gate.resolve();
+    assert.equal((await operation).packed.sources[0].text, 'before');
+});
+test('copy checks workspace before clipboard and after settlement; stale completions cannot revive tickets', async () => {
+    for (const interrupt of [h => h.deactivate(), h => h.controller.edit(), h => h.controller.close()]) {
+        const h = setup(), c = h.controller, ticket = await c.reviewLocal({ question: 'q', selected: [] }), gate = deferred();
+        let written; const copying = c.copyLocalPrompt(ticket, value => { written = value; return gate.promise; });
+        await new Promise(resolve => setImmediate(resolve)); assert.equal(written, ticket.packed.prompt);
+        interrupt(h); gate.resolve(); await assert.rejects(copying); assert.equal(c.localReview, null);
+    }
+    const h = setup(), ticket = await h.controller.reviewLocal({ question: 'q', selected: [] }); h.deactivate();
+    await assert.rejects(h.controller.copyLocalPrompt(ticket, () => assert.fail('Must not copy')));
+    assert.equal(h.controller.localReview, null);
+});
+test('copy invalidation across initial workspace await prevents any clipboard write', async () => {
+    const h = setup(), c = h.controller, ticket = await c.reviewLocal({ question: 'q', selected: [] }), gate = deferred();
+    c.ensureActive = () => gate.promise;
+    const copying = c.copyLocalPrompt(ticket, () => assert.fail('Must not copy')); c.edit(); gate.resolve();
+    await assert.rejects(copying, { code: 'STALE' });
+});

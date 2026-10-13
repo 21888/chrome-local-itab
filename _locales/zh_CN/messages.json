@@ -5578,5 +5578,26 @@
   },
   "aiContextSourceReloadError": {
     "message": "无法载入已保存来源。现有来源、摘录编辑和审阅保持不变。请检查当前工作区后，再次点击“重新载入已保存来源”。"
+  },
+  "aiContextLocalPrompt": {
+    "message": "完整本地提示词"
+  },
+  "aiContextLocalPrivacy": {
+    "message": "此完整提示词包含所选摘录、来源标识和标签，包括已隐藏的选中来源。粘贴到外部服务前，请检查私人信息和密钥。提示词不包含连接配置。审阅和复制不会发送请求、授予权限或保存内容。"
+  },
+  "aiContextReviewLocal": {
+    "message": "在本地审阅提示词"
+  },
+  "aiContextCopyLocal": {
+    "message": "复制已审阅提示词"
+  },
+  "aiContextLocalReviewed": {
+    "message": "本地提示词已可审阅，无需填写端点或模型。复制需要单独操作；尚未发送或保存任何内容。"
+  },
+  "aiContextLocalCopied": {
+    "message": "已复制审阅过的提示词。粘贴到外部服务前请检查私人信息。未保存任何内容。"
+  },
+  "aiContextLocalCopyBlocked": {
+    "message": "无法确认复制成功。可选中上方完整提示词手动复制。继续前请检查当前工作区。"
   }
 }

@@ -102,7 +102,7 @@
     class Controller {
         constructor({ transport, permissions, ensureActive, readSources, taskStore, collectionStore }) {
             Object.assign(this, { transport, permissions, ensureActive, readSources, taskStore, collectionStore });
-            this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.result = null; this.resultReview = null;
+            this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.localReview = null; this.result = null; this.resultReview = null;
             this.taskReview = null; this.saveCommand = null; this.saved = false; this.saveUncertain = false; this.taskCommand = null; this.taskUncertain = false;
             // This controller owns a dedicated collection Store. Fence immediately at its
             // backend write, after all receipt/hash awaits, without changing its schema/API.
@@ -114,7 +114,7 @@
         edit() {
             check(!this.closed && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
             // Editing the next request must not discard the previous response or its provenance.
-            this.generation++; this.reviewed = this.taskReview = null;
+            this.generation++; this.reviewed = this.localReview = this.taskReview = null;
         }
         clear() {
             this.edit(); this.result = this.resultReview = null; this.saved = false; this.saveUncertain = false;
@@ -127,6 +127,30 @@
             const packed = pack(question, selected, mode);
             const request = Object.freeze({ ...this.transport.review({ url, model, prompt: packed.prompt }) });
             this.reviewed = Object.freeze({ request, packed, generation }); return this.reviewed;
+        }
+        async reviewLocal({ question, selected, mode }) {
+            this.edit(); const generation = this.generation;
+            // Capture before awaiting workspace validation: this exact immutable prompt is reviewed.
+            const packed = pack(question, selected, mode);
+            await this.ensureActive(); this.current(generation);
+            this.localReview = Object.freeze({ packed, generation }); return this.localReview;
+        }
+        async copyLocalPrompt(ticket, write) {
+            const current = () => {
+                check(ticket && this.localReview === ticket && !this.busy && !this.taskCommand && !this.saveCommand, 'STALE');
+                this.current(ticket.generation);
+            };
+            const active = async () => {
+                try { await this.ensureActive(); } catch (error) {
+                    if (this.localReview === ticket) this.localReview = null;
+                    throw error;
+                }
+                current();
+            };
+            current(); await active();
+            // The caller rechecks the displayed text before invoking clipboard.writeText.
+            await write(ticket.packed.prompt);
+            await active();
         }
         async allow() {
             check(this.reviewed && !this.busy && !this.closed, 'STALE'); const reviewed = this.reviewed;
@@ -168,7 +192,7 @@
         }
         editResult(value) {
             check(this.result && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
-            text(value, LIMITS.prompt, true); this.generation++; this.reviewed = this.taskReview = null;
+            text(value, LIMITS.prompt, true); this.generation++; this.reviewed = this.localReview = this.taskReview = null;
             this.result = Object.freeze({ ...this.result, text: value });
         }
         async reviewTasks() {
@@ -256,7 +280,7 @@
                 return result;
             } finally { this.busy = false; }
         }
-        close() { this.closed = true; this.generation++; this.stop(); this.reviewed = this.result = this.resultReview = this.taskReview = null; }
+        close() { this.closed = true; this.generation++; this.stop(); this.reviewed = this.localReview = this.result = this.resultReview = this.taskReview = null; }
     }
     function createController({ workspaces, tasks: Tasks, collections: Collections, scratchpad: Scratchpad, transport, permissions }) {
         const session = workspaces.session;

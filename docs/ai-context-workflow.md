@@ -9,6 +9,16 @@ Open **AI context Q&A** from the new-tab navigation. This workflow reuses the di
 - No source is selected by default. No browsing, URL fetching, source-page scraping, clipboard reads, hidden collection annotations, archive/recovery records or other workspace notes are included.
 - Selected excerpts remain temporary unless you explicitly save the optional question/source snapshot with an answer. Selecting one reveals its outgoing editable text; unchecking removes it. Editing an excerpt never edits the saved original. Saved sources changing later do not silently replace the exact reviewed excerpt.
 
+## Review and copy a local prompt
+
+**Review prompt locally** works with an empty endpoint and model. It shows the complete immutable prompt, including the mode instruction, question, selected edited excerpts, source IDs and labels. Hidden selected sources remain included; unchecked sources are excluded. The existing character limits apply without truncation. Inspect the full text for private information or secrets before pasting into any external service.
+
+**Copy reviewed prompt** is a separate explicit action that copies only the current displayed local prompt. It adds no connection settings, API-key fields or authentication metadata. It does not contact a model, request endpoint access, write storage, or mark a response as saved. Local review never enables **Allow this endpoint** or **Send reviewed request**; sending still needs a separate valid HTTPS endpoint/model review. Reviewing locally clears any previous send authorization while keeping an existing answer and its original provenance.
+
+Question, mode, connection or excerpt edits, selection changes, excerpt restoration, successful source reload, draft reset, response edits and closing invalidate the local ticket. Filters alone do not change its selected content. Pending operations and unresolved save/task operations block review and copy. Workspace validation runs before copying; late clipboard success or failure cannot update a newer review or closed panel. Clipboard failure offers manual selection without automatic retries. There is no clipboard read, automatic network request or persistent local-review record.
+
+Synthetic controller and DOM-model tests cover these boundaries. Native browser clipboard behavior and visual acceptance were not tested for this change.
+
 ## Exact outbound review
 
 Enter the endpoint, model, optional key and question; choose **Answer** or **Draft tasks for review**. **Review exact request** shows the complete endpoint URL, model and complete request text, including the mode instruction and JSON-encoded source IDs, labels and excerpts. IDs and labels are untrusted data, not executable instructions. Editing the question, target, mode or selected excerpts invalidates the review. The endpoint changes clear the key.
@@ -71,3 +81,5 @@ Focused synthetic coverage adds exact edited-source retention, default-off save 
 Copying does not save content, review tasks, change a reviewed task list, or mark an unsaved response as saved. Repeated clicks are ignored while a write is pending. A failed or unavailable clipboard API shows a manual-selection fallback without replacing request/save status. Feedback from an older response, cleared draft or closed panel cannot overwrite a later panel's state. No clipboard-read access or permission is added.
 
 Synthetic UI tests cover exact text, edited task JSON, empty input, previous-request retention, saved/unsaved state, no writes or provider calls from copying, repeated clicks, rejection/missing API, late completion after editing/clearing/closing, and supported English/Chinese labels. Actual OS clipboard contents, native focus behavior and browser clipboard policy require browser acceptance; these checks do not claim it.
+
+Development verification (manifest 1.1.104): frozen combined source passed strict serial Node 2640/2640 and Python 81/81, plus 112-file runtime packaging. Native verification is pending. Local prompt review/copy does not grant endpoint permission or create the separate network request review; clipboard content is only the displayed reviewed prompt. No real provider request or browser clipboard success is claimed by synthetic tests.

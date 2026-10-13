@@ -5578,5 +5578,26 @@
   },
   "aiContextSourceReloadError": {
     "message": "Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace."
+  },
+  "aiContextLocalPrompt": {
+    "message": "Complete local prompt"
+  },
+  "aiContextLocalPrivacy": {
+    "message": "This complete prompt includes your selected excerpts, source IDs and labels, including hidden selections. Check for private information and secrets before pasting it into an external service. Connection settings are not included. Reviewing and copying do not send, grant access or save anything."
+  },
+  "aiContextReviewLocal": {
+    "message": "Review prompt locally"
+  },
+  "aiContextCopyLocal": {
+    "message": "Copy reviewed prompt"
+  },
+  "aiContextLocalReviewed": {
+    "message": "Local prompt ready to inspect. No endpoint or model is needed. Copying is a separate action; nothing has been sent or saved."
+  },
+  "aiContextLocalCopied": {
+    "message": "Reviewed prompt copied. Check for private information before pasting into an external service. Nothing was saved."
+  },
+  "aiContextLocalCopyBlocked": {
+    "message": "Copy could not be confirmed. Select the complete prompt above to copy it manually. Check the current workspace before continuing."
   }
 }

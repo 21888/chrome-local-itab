@@ -68,6 +68,13 @@
         box.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
         let sourceRows = [];
         const reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
+        const localPanel = el('section', 'ai-context-local-review'); localPanel.hidden = true;
+        const localText = el('textarea', 'ai-context-local-prompt'); localText.readOnly = true; localText.rows = 10;
+        localText.setAttribute('aria-label', label('LocalPrompt', 'Complete local prompt'));
+        localPanel.append(el('p', '', label('LocalPrivacy', 'This complete prompt includes your selected excerpts, source IDs and labels, including hidden selections. Check for private information and secrets before pasting it into an external service. Connection settings are not included. Reviewing and copying do not send, grant access or save anything.')), localText);
+        const localStatus = el('p', 'ai-context-local-status'); localStatus.tabIndex = -1;
+        localStatus.setAttribute('role', 'status'); localStatus.setAttribute('aria-live', 'polite');
+        let localCopy = null;
         const status = el('p', 'ai-context-status'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const outputLabel = el('label', 'ai-context-field', label('Response', 'Model response (unverified text; task JSON can be edited before review)'));
         const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
@@ -152,6 +159,7 @@
             copyGeneration++; copyStatus.textContent = '';
             filterSources();
             updateBudget();
+            updateLocalReview();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
             // The title is local save metadata, not part of the reviewed request.
@@ -243,6 +251,46 @@
             catch (reason) { if (!disposed) error(reason.code); }
             finally { pending = false; if (!disposed) update(); }
         }
+        function updateLocalReview() {
+            const ticket = controller.localReview;
+            const valid = ticket && !disposed && !controller.closed && ticket.generation === controller.generation;
+            if (!valid) { localPanel.hidden = true; localText.value = ''; }
+            if (!valid || (localCopy && localCopy.ticket !== ticket)) localCopy = null;
+            localStatus.textContent = '';
+            reviewLocal.disabled = selectionBlocked();
+            copyLocal.disabled = selectionBlocked() || !valid || localPanel.hidden || Boolean(localCopy);
+        }
+        const reviewLocal = button('ReviewLocal', 'Review prompt locally', () => {
+            if (selectionBlocked()) return;
+            return action(async () => {
+                const ticket = await controller.reviewLocal({ question: question.value, selected: selectedSources(), mode: mode.value });
+                if (disposed || controller.closed || controller.localReview !== ticket) return;
+                localText.value = ticket.packed.prompt; localPanel.hidden = false; reviewText.hidden = taskList.hidden = true;
+            }, ['LocalReviewed', 'Local prompt ready to inspect. No endpoint or model is needed. Copying is a separate action; nothing has been sent or saved.']);
+        });
+        const copyLocal = button('CopyLocal', 'Copy reviewed prompt', async () => {
+            if (selectionBlocked() || localCopy || localPanel.hidden || !controller.localReview) return;
+            const ticket = controller.localReview, operation = { ticket };
+            const current = () => localCopy === operation && !selectionBlocked() && controller.localReview === ticket &&
+                controller.generation === ticket.generation && !localPanel.hidden && localText.value === ticket.packed.prompt;
+            if (localText.value !== ticket.packed.prompt) return;
+            localCopy = operation; copyLocal.disabled = true; localStatus.textContent = '';
+            if (doc.activeElement === copyLocal || doc.activeElement === doc.body) localStatus.focus();
+            try {
+                await controller.copyLocalPrompt(ticket, text => {
+                    if (!current()) throw new Error('Stale local review');
+                    if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
+                    return clipboard.writeText(text);
+                });
+                if (current()) localStatus.textContent = label('LocalCopied', 'Reviewed prompt copied. Check for private information before pasting into an external service. Nothing was saved.');
+            } catch (_) {
+                if (current()) localStatus.textContent = label('LocalCopyBlocked', 'Copy could not be confirmed. Select the complete prompt above to copy it manually. Check the current workspace before continuing.');
+            } finally {
+                if (!disposed && localCopy === operation && controller.localReview !== ticket) updateLocalReview();
+                if (localCopy === operation) { localCopy = null; copyLocal.disabled = selectionBlocked() || !controller.localReview || localPanel.hidden; }
+            }
+        });
+        localPanel.append(copyLocal, localStatus);
         const review = button('Review', 'Review exact request', () => action(async () => {
             const selected = selectedSources();
             const result = await controller.review({ url: url.value, model: model.value, question: question.value, selected, mode: mode.value });
@@ -304,11 +352,11 @@
         }, ['TasksVerified', 'The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; invalidate(true); key.value = ''; output.value = ''; question.value = ''; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
-        const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop, reset);
+        const actions = el('div', 'ai-context-actions'); actions.append(reviewLocal, review, allow, send, stop, reset);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
         includeContext.addEventListener('change', update);
-        box.append(actions, reviewText, status, previousResult, outputLabel, contextSave, taskList, results, copyStatus); host.append(box);
+        box.append(actions, localPanel, reviewText, status, previousResult, outputLabel, contextSave, taskList, results, copyStatus); host.append(box);
         for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         function buildSourceRows(values) {
@@ -363,7 +411,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; copy.disabled = true; selectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();
