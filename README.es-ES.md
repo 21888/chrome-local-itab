@@ -86,11 +86,7 @@ Puedes deshacer una finalización accidental sin volver a fijar la tarea automá
 
 </details>
 
-### Funciones
-
-- **Revisión de texto seleccionado (candidata local 1.1.27)**: En el detalle de una colección no archivada con un vínculo exacto, elige **Compare saved results** y selecciona explícitamente otro resultado guardado con los mismos ID de prompt y versión. Los textos actuales se muestran literalmente uno junto al otro (apilados en pantallas estrechas), con títulos, etiquetas de herramientas y un aviso si son iguales, sin puntuaciones ni clasificación. Se excluyen borradores, elementos archivados, otras versiones e instantáneas de recuperación. Si falta el prompt, se permite comparar por los ID guardados y se indica la disponibilidad del origen. La comparación es de solo lectura y no usa la red. Una actualización de los datos, escritura o error de lectura la borra; cierra y vuelve a abrir para elegir de nuevo. Nunca se sustituye un candidato automáticamente.
-
-El menú contextual de una selección HTTP(S) abre un borrador sin guardar. Revisa el texto entregado por Chrome, añade un título y guarda explícitamente. El origen es opcional, sin consulta ni fragmento. Solo añade `contextMenus`. Chrome puede aplanar los saltos de línea. [Privacidad y límites](docs/selection-capture.md) · [Validación nativa](docs/selection-capture-native-validation.md) · [Cambios de 1.1.27, sin publicar](docs/releases/1.1.27.md#english). anteriores · 1.1.7 Tareas y concentración
+### Capturas anteriores de funciones · 1.1.7 Tareas y concentración
 
 Completa directamente la tarea fijada sin ampliar la lista. Iniciar permanece desactivado mientras los minutos no estén guardados; guardar la duración no inicia el temporizador. Capturas reales de la versión de desarrollo 1.1.7 con tareas de ejemplo en inglés: la interfaz clara en chino muestra 30 minutos guardados; el recorte oscuro en inglés muestra un borrador de 30 minutos mientras el temporizador conserva 25.
 
@@ -223,9 +219,19 @@ La biblioteca de prompts y las colecciones de IA se guardan en este dispositivo 
 4. **Guarda manualmente un resultado con su versión exacta.** **Save a result for this version** abre otra pestaña con un borrador de colección vacío y sin guardar, vinculado a la versión que utiliza la vista previa. Introduce el resultado, revisa el vínculo y guarda explícitamente; no se lee el portapapeles ni se rellena el resultado. También puedes elegir un prompt y una versión exacta en el editor de colecciones, revisar y aplicar el vínculo, y guardar. Las listas de resultados de la vista previa y del historial solo muestran colecciones no archivadas vinculadas a ese prompt y esa versión. No siguen la última versión ni valoran la calidad; cada tarjeta se abre en otra pestaña. [Guía de colecciones (chino)](docs/ai-collections.zh-CN.md) · [Resultados vinculados (inglés)](docs/prompt-linked-results.md) · [Nuevos borradores (inglés)](docs/releases/1.1.36.md#english)
 5. **Encuentra el contenido guardado.** La búsqueda unificada de la nueva pestaña busca en títulos, textos y etiquetas de prompts y colecciones, incluidas las notas de las colecciones. Puedes filtrar por tipo. Al reabrirla, conserva la consulta y el tipo de esta página y vuelve a leer los datos; Limpiar solo borra la consulta, mientras que recargar la página restablece ambos. [Alcance de búsqueda (inglés)](docs/ai-library-search.md#english)
 
-El menú contextual de una página web permite enviar texto seleccionado a un borrador de colección nuevo y sin guardar para revisarlo y guardarlo explícitamente. La URL de origen se excluye por defecto; si la incluyes, se eliminan la consulta y el fragmento. El navegador puede cambiar los saltos de línea. [Revisión de texto seleccionado (inglés)](docs/selection-capture.md)
+En el detalle de una colección no archivada con un vínculo exacto, elige **Compare saved results** y selecciona explícitamente otro resultado guardado con los mismos ID de prompt y versión. Los textos actuales se muestran literalmente uno junto al otro (apilados en pantallas estrechas), con títulos, etiquetas de herramientas y un aviso si son iguales, sin puntuaciones ni clasificación. Se excluyen borradores, elementos archivados, otras versiones e instantáneas de recuperación. Si falta el prompt, se permite comparar por los ID guardados y se indica la disponibilidad del origen. La comparación es de solo lectura y no usa la red. Una actualización de los datos, escritura o error de lectura la borra; cierra y vuelve a abrir para elegir de nuevo. Nunca se sustituye un candidato automáticamente.
+
+El menú contextual de una página web permite enviar texto seleccionado a un borrador de colección nuevo y sin guardar para revisarlo y guardarlo explícitamente. La URL de origen se excluye por defecto; si la incluyes, se eliminan la consulta y el fragmento. El navegador puede cambiar los saltos de línea. [Revisión de texto seleccionado (inglés)](docs/selection-capture.md) · [Validación nativa de la captura de selección](docs/selection-capture-native-validation.md) · [Registro histórico de cambios de 1.1.27](docs/releases/1.1.27.md#english)
 
 **Exportación y copias:** revisa y descarga un elemento guardado como Markdown. Los prompts conservan los marcadores de variables; las colecciones incluyen el texto actual, notas y metadatos, con inclusión opcional de la URL de origen. Markdown es una copia legible, no un formato para restaurar el historial. Usa las exportaciones JSON de las bibliotecas o selecciónalas en una copia local completa; el JSON de ajustes, Chrome Sync y las instantáneas de Drive no las incluyen. Los borradores sin guardar y las variables temporales no entran en las copias. Los datos locales y archivos exportados no están cifrados. [Exportación Markdown (inglés)](docs/local-ai-markdown-export.md) · [Copia completa](docs/complete-backup.es-ES.md)
+
+### Contexto de IA: revisar y copiar primero en local
+
+Abre **AI context Q&A** desde la nueva pestaña, escribe una pregunta y selecciona, si quieres, extractos guardados de la colección global de IA y la nota guardada del espacio actual. Ninguna fuente se selecciona automáticamente. Sin configurar endpoint, modelo ni clave, pulsa **Review prompt locally**, revisa el texto completo y después **Copy reviewed prompt**. El prompt incluye los extractos seleccionados; comprueba si contiene información privada o secretos antes de pegarlo en un servicio externo. Revisar y copiar localmente no llama a un modelo, no concede acceso al endpoint ni guarda contenido.
+
+Para usar un modelo dentro de la extensión, configura tu conexión y revisa la solicitud completa, autoriza el acceso al endpoint y envíala explícitamente en pasos separados. La revisión local no sustituye estos pasos; el proveedor puede cobrar. Guarda la respuesta explícitamente, o revisa cada tarea extraída antes de confirmar que se añada a Tareas. Las tareas nunca se ejecutan automáticamente. [Flujo y privacidad (inglés)](docs/ai-context-workflow.md)
+
+En el panel de contexto de IA, pulsa **Copy answer** o **Copy task JSON** para copiar solo la respuesta que se muestra. No se adjuntan la pregunta, las fuentes, el endpoint ni los campos de claves. Puedes copiar una respuesta anterior tras editar la solicitud; se conserva su aviso de solicitud anterior. Copiar no guarda contenido ni cambia la revisión de tareas. Si se bloquea, selecciona el texto y cópialo manualmente. Revisa antes el contenido: la respuesta puede repetir información privada de la entrada.
 
 ### Nueva pestaña y herramientas cotidianas
 
@@ -255,7 +261,13 @@ Al recargar o cerrar una pestaña, se solicita el aviso nativo de Chrome si un a
 
 [Pruebas locales sin conexión y su alcance](docs/offline-local-validation.md).
 
-La biblioteca integrada permite deseleccionar los resultados actuales (N), conservando las selecciones ocultas, los filtros y el destino o borrador de categoría. Esta acción local no guarda accesos directos. La interfaz de la extensión sigue disponible en inglés y chino.
+### Descubrir y añadir sitios
+
+Pulsa **Discover sites** en el área de accesos directos de la nueva pestaña para explorar 139 sitios integrados, 18 categorías y 204 etiquetas de uso. Busca por nombre o uso y combina filtros de categoría, uso, ubicación del operador, organización, precio y **All / Not added / Added**. La ubicación del operador no indica desde dónde es accesible un sitio. Los precios y requisitos de cuenta pueden cambiar; consulta las fuentes de la tarjeta y la web oficial. La interfaz sigue disponible en inglés y chino.
+
+Selecciona sitios individualmente o con **Select current results**, hasta un máximo de 20. Elige una categoría de destino existente o escribe el nombre de una nueva; después pulsa **Review selected**. Comprueba la lista completa y el destino; pulsa **Confirm and add** para una categoría existente o **Create category and add (N)** para una nueva. Los sitios ocultos por los filtros siguen seleccionados y se incluyen en la revisión. **Deselect current results (N)** solo deselecciona los resultados visibles, conservando las selecciones ocultas, los filtros, el destino y el borrador de nueva categoría; no guarda accesos directos.
+
+Explorar, buscar y filtrar funciona sin conexión; ningún sitio se añade automáticamente. Al añadir se utilizan y comprueban los ajustes existentes de Sync e iconos en línea. Abrir una web o un enlace de fuente requiere conexión. [Biblioteca de sitios y privacidad (inglés)](docs/navigation-library.md)
 
 ### Buscar sitios guardados
 
@@ -493,11 +505,3 @@ Antes de actualizar, los accesos de esta sección llevan a los apartados existen
 ## Licencia
 
 La documentación existente identifica la licencia como MIT. El repositorio todavía no incluye un archivo `LICENSE` independiente.
-
-### Copia local completa
-
-Ajustes → Datos permite exportar y restaurar módulos guardados seleccionados en un JSON local: configuración e imágenes, Tasks con historial, Scratchpad, Countdown, preferencias de Focus y la biblioteca global de prompts (esquema 3 cuando se incluyen prompts). No incluye borradores ni sesiones activas. [Guía de copia completa y recuperación](docs/complete-backup.es-ES.md).
-
-**Preguntas sobre contexto guardado:** el panel del nuevo inicio permite seleccionar extractos globales de IA y la nota guardada del espacio actual, revisar el contenido y enviarlo al modelo elegido. Guardar la respuesta o añadir tareas revisadas requiere una acción explícita. Ninguna fuente se selecciona automáticamente. [Flujo y privacidad (inglés)](docs/ai-context-workflow.md)
-
-En el panel de contexto de IA, pulsa **Copy answer** o **Copy task JSON** para copiar solo la respuesta que se muestra. No se adjuntan la pregunta, las fuentes, el endpoint ni los campos de claves. Puedes copiar una respuesta anterior tras editar la solicitud; se conserva su aviso de solicitud anterior. Copiar no guarda contenido ni cambia la revisión de tareas. Si se bloquea, selecciona el texto y cópialo manualmente. Revisa antes el contenido: la respuesta puede repetir información privada de la entrada.

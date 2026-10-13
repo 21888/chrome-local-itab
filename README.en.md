@@ -225,6 +225,14 @@ The web-page context menu can send selected text to a new unsaved collection dra
 
 **Export and back up:** review and download one saved item as Markdown. Prompts keep variable placeholders; collections include their current body, notes and metadata, with source URLs separately opt-in. Markdown is a readable copy, not a history-restoration format. Use library JSON exports or select the libraries in a complete local backup; ordinary settings JSON, Chrome Sync and Drive snapshots exclude them. Unsaved drafts and temporary variables are not backed up. Local data and exported files are unencrypted. [Markdown export](docs/local-ai-markdown-export.md) · [Complete backup](docs/complete-backup.en.md)
 
+### AI context Q&A: review and copy locally first
+
+Open **AI context Q&A** from the new tab, enter a question and optionally select saved excerpts from the global AI collection and the current workspace’s saved note. No source is selected automatically. Without configuring an endpoint, model or key, choose **Review prompt locally**, inspect the complete text and then **Copy reviewed prompt**. The prompt includes selected excerpts; check for private information or secrets before pasting it into an external service. Local review and copying do not call a model, grant endpoint access or save content.
+
+To use a model inside the extension, configure your own connection and separately review the complete request, allow endpoint access and explicitly send it. Local review does not replace these steps; providers may charge. Save an answer explicitly, or preview every extracted task before confirming its addition to Tasks. Tasks are never executed automatically. [Workflow and privacy](docs/ai-context-workflow.md)
+
+In the AI context panel, explicitly choose **Copy answer** or **Copy task JSON** to copy only the currently displayed response. No question, source snapshot, endpoint or key fields are appended. An earlier answer stays copyable after request edits, with its previous-request label intact. Copying does not save anything or change task review; if blocked, select the response text and copy manually. Responses may repeat private input, so inspect the text before copying.
+
 ### New tab and everyday tools
 
 - **Browser bookmark export**: In Settings → Data, export saved site titles, full URLs and category folders to a local HTML file. Review the privacy confirmation first; unsaved edits, icons, settings and local tools are excluded. [Scope and limits](docs/bookmark-export.md).
@@ -254,7 +262,13 @@ Reloading or closing a tab requests Chrome’s native warning while an Add/Edit 
 
 [Offline local-workflow checks and scope](docs/offline-local-validation.md).
 
-The built-in site library also offers “Deselect current results (N)”: undo selections in the current filtered results while keeping hidden selections, filters and the destination or new-category draft. This action stays local and does not save shortcuts.
+### Discover and add sites
+
+Choose **Discover sites** in the new-tab shortcut area to browse 139 built-in sites, 18 categories and 204 use tags. Search by name or use, then combine category, use, operator location, organization, pricing and **All / Not added / Added** filters. Operator location does not indicate where a site is accessible. Pricing and account requirements can change; check the card’s sources and the official website.
+
+Select sites individually or use **Select current results**, keeping up to 20 selected sites. Choose an existing destination category or enter a new category name, then choose **Review selected**. Check the complete list and destination, then choose **Confirm and add** for an existing category or **Create category and add (N)** for a new one. Sites hidden by filters stay selected, and review includes the whole selection. **Deselect current results (N)** only deselects currently visible results, keeping hidden selections, filters, the destination and any new-category draft; it does not save shortcuts.
+
+Browsing, searching and filtering are offline, and no site is added automatically. Adding uses and rechecks your existing Sync and online-icon settings. Opening a website or source link needs a network connection. [Site library and privacy](docs/navigation-library.md)
 
 ### Find saved sites
 
@@ -485,10 +499,6 @@ Before updating, use the shortcuts in that section to reach the existing setting
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.
-
-**Ask selected saved context:** the new-tab **AI context Q&A** panel lets you choose global saved AI excerpts and this workspace’s saved note, edit and review the exact outbound content, then ask your selected model. Save an answer explicitly, or review strict task JSON before adding the exact list to Tasks. No source is selected automatically. [Workflow and privacy](docs/ai-context-workflow.md)
-
-In the AI context panel, explicitly choose **Copy answer** or **Copy task JSON** to copy only the currently displayed response. No question, source snapshot, endpoint or key fields are appended. An earlier answer stays copyable after request edits, with its previous-request label intact. Copying does not save anything or change task review; if blocked, select the response text and copy manually. Responses may repeat private input, so inspect the text before copying.
 
 **Reviewed prompt refinement:** choose a saved prompt, review the exact template and refinement instruction sent to your model, compare the proposal, and explicitly accept a new version. Filled values are excluded; original history and variable placeholders are protected. [Workflow](docs/ai-prompt-refinement.md)
 
