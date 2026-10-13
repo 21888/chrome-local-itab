@@ -49,10 +49,25 @@
                 (focused.disabled || focused.closest('[hidden], [inert]')) &&
                 (view.doc.activeElement === focused || view.doc.activeElement === view.doc.body)) status.focus();
         }
+        function releaseReader(target) {
+            target.answerReader?.destroy(); target.answerReader = null; target.readerHost.hidden = true;
+            target.output.hidden = !target.output.value;
+        }
+        function readResponse(target) {
+            releaseReader(target);
+            if (view.doc.hidden || !root.LocalItabSafeAnswerReader) return;
+            target.answerReader = root.LocalItabSafeAnswerReader.create(view.doc, target.response.text, (name, fallback) => {
+                const key = `answerReader${name}`, value = root.i18n?.t(key);
+                return value && value !== key ? value : fallback;
+            });
+            target.answerReader.node.setAttribute('aria-label', target.output.getAttribute('aria-label'));
+            target.readerHost.append(target.answerReader.node); target.readerHost.hidden = false; target.output.hidden = true;
+        }
+        function visibilityChanged() { if (view.doc.hidden) targets.forEach(releaseReader); }
         function invalidate(message, permanent = false) {
             const focused = view.doc.activeElement;
             generation++; batch = null; reviewedValues = null; stale ||= permanent;
-            for (const target of targets) { target.retryReady = false; if (!trial && !permanent) target.heading.textContent = `${t('Target', 'Target')} ${targets.indexOf(target) + 1}`; if (trial) { target.response = null; target.output.value = ''; target.output.hidden = true; target.attempted = false; target.message.textContent = ''; target.reviewText.textContent = ''; } target.aborter?.abort(); target.key.value = ''; target.reviewed = null; target.reviewText.hidden = true; }
+            for (const target of targets) { releaseReader(target); target.retryReady = false; if (!trial && !permanent) target.heading.textContent = `${t('Target', 'Target')} ${targets.indexOf(target) + 1}`; if (trial) { target.response = null; target.output.value = ''; target.output.hidden = true; target.attempted = false; target.message.textContent = ''; target.reviewText.textContent = ''; } target.aborter?.abort(); target.key.value = ''; target.reviewed = null; target.reviewText.hidden = true; }
             if (message) status.textContent = message;
             update(focused);
         }
@@ -80,8 +95,9 @@
             if (trial) keyLabel.hidden = index === 1;
             const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
             const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 10; output.hidden = true; output.setAttribute('aria-label', `${t('Response', 'Model response')} ${index + 1}`);
+            const readerHost = el('div'); readerHost.hidden = true;
             const message = el('p', 'prompt-help'); message.setAttribute('role', 'status'); message.setAttribute('aria-live', 'polite');
-            const target = { select, key, reviewText, output, message, heading, reviewed: null, response: null, running: false, attempted: false, saving: false, saved: false, uncertain: false, permissionPending: false, command: null, retryReady: false, snapshot: null };
+            const target = { readerHost, answerReader: null, select, key, reviewText, output, message, heading, reviewed: null, response: null, running: false, attempted: false, saving: false, saved: false, uncertain: false, permissionPending: false, command: null, retryReady: false, snapshot: null };
             target.allow = button('Allow', 'Allow this endpoint', async () => {
                 if (!checkSource() || target.allow.disabled || !target.reviewed) return;
                 const snapshot = target.reviewed, token = generation; target.permissionPending = true; update();
@@ -140,7 +156,7 @@
             if (trial) { target.save.hidden = true; target.allow.hidden = index === 1; output.setAttribute('aria-label', index === 0 ? t('TrialOriginal', 'Original saved template answer') : t('TrialProposal', 'Unsaved proposal answer')); }
             select.addEventListener('change', () => { if (!select.disabled && checkSource()) invalidate(t('ReviewAgain', 'Connections changed. Review both targets again before sending.')); });
             const buttons = el('div', 'prompt-actions'); buttons.append(target.allow, target.stop, target.save, target.retryReview, target.retrySend);
-            panel.append(heading, selectLabel, keyLabel, reviewText, buttons, message, output); grid.append(panel); targets.push(target);
+            panel.append(heading, selectLabel, keyLabel, reviewText, buttons, message, output, readerHost); grid.append(panel); targets.push(target);
         }
         const review = button('Review', 'Review comparison requests', () => {
             if (!checkSource() || review.disabled) return;
@@ -199,7 +215,7 @@
                 if (trial) targets[0].key.value = '';
                 await Promise.all(snapshots.map(async ({ target, request }) => {
                     if (!active(token)) return;
-                    target.retryReady = false; target.attempted = true; target.running = true; target.aborter = new AbortController(); const signal = target.aborter.signal;
+                    releaseReader(target); target.retryReady = false; target.attempted = true; target.running = true; target.aborter = new AbortController(); const signal = target.aborter.signal;
                     const secret = trial ? trialSecret : target.key.value; target.key.value = ''; update();
                     try {
                         const permitted = await cancellable(root.chrome.permissions.contains({ origins: [request.permission] }), signal);
@@ -208,7 +224,7 @@
                         target.message.textContent = t('Running', 'Waiting for this model…');
                         const result = await cancellable(root.LocalItabAIModel.run(request, { key: secret, signal }), signal);
                         if (!active(token) || signal.aborted) return;
-                        target.response = result; target.output.value = result.text; target.output.hidden = false;
+                        target.response = result; target.output.value = result.text; target.output.hidden = false; readResponse(target);
                         target.message.textContent = trial ? t('TrialReady', 'Temporary test answer. No score or automatic acceptance. Close the trial to decide whether to accept the proposal separately.') : t('Ready', 'Review this result. Save only if you want it in local collections and unencrypted backups.');
                     } catch (error) { if (active(token) && !signal.aborted) target.message.textContent = failure(error.code); }
                     finally { target.key.value = ''; target.running = false; if (!closed) update(); }
@@ -227,9 +243,9 @@
             if (closed || saving()) return;
             if ((sending || targets.some(target => target.response && !target.saved)) && !root.confirm(t('Discard', 'Stop pending requests and discard unsaved comparison results?'))) return;
             closed = true; generation++;
-            targets.forEach(target => { target.aborter?.abort(); target.key.value = ''; target.response = target.reviewed = target.command = target.snapshot = null; target.output.value = ''; if (trial) target.reviewText.textContent = ''; });
+            targets.forEach(target => { releaseReader(target); target.aborter?.abort(); target.key.value = ''; target.response = target.reviewed = target.command = target.snapshot = null; target.output.value = ''; if (trial) target.reviewText.textContent = ''; });
             batch = null; reviewedValues = null;
-            root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); root.chrome?.storage?.onChanged?.removeListener(storageChanged);
+            root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged); root.chrome?.storage?.onChanged?.removeListener(storageChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.checkModelComparison = null; view.cancelModelDialog = null;
             variables.forEach(({ input }) => { input.value = ''; });
             trial?.onClose();
@@ -237,7 +253,7 @@
         const close = button('Close', 'Close', finish);
         actions.append(review, send, close); box.append(title, help, prompt, variableFields, grid, actions, status); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.checkModelComparison = checkSource; view.cancelModelDialog = hide;
-        root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); root.chrome?.storage?.onChanged?.addListener(storageChanged);
+        root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged); root.chrome?.storage?.onChanged?.addListener(storageChanged);
         cleanup = root.LocalItabDialog.open(overlay, trial ? close : targets[0].select, finish);
         function renderPresets() {
             targets.forEach(target => {

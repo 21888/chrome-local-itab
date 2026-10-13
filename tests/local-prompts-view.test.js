@@ -305,3 +305,10 @@ test('refreshed confirmation preserves IME cancellation and nested-dialog focus 
     assert.equal(h.doc.activeElement === nestedButton, true);
     assert.equal(c.draft().input.body, 'Synthetic draft'); nested.remove(); c.dispose();
 });
+
+test('destroy releases an open model dialog exactly once, including controller disposal', async () => {
+    const h = await mount(); let cancelled = 0;
+    h.view.cancelModelDialog = () => { cancelled++; };
+    h.controller.dispose(); assert.equal(cancelled, 1);
+    h.view.destroy(); assert.equal(cancelled, 1);
+});

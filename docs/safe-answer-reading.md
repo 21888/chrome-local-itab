@@ -1,8 +1,8 @@
 # Safe answer reading / 安全答案阅读
 
-完整成功的上下文 AI Answer、AI 收藏的当前正文默认显示只读阅读视图，可随时切换“原文”。段落、标题、列表、粗斜体、删除线、代码、引用与表格仅改变展示；复制、保存、JSON/Markdown 导出和历史版本继续使用未经修改的原始字符串。
+完整成功的上下文 AI Answer、提示词单模型回答、模型对比各列回答（含原稿/提案试用答案），以及 AI 收藏的当前正文默认显示只读阅读视图，可随时切换“原文”。段落、标题、列表、粗斜体、删除线、代码、引用与表格仅改变展示；复制、保存、JSON/Markdown 导出和历史版本继续使用未经修改的原始字符串。
 
-- 任务 JSON、发送前审阅、提示词/正文编辑器、历史正文、历史输入快照和未完成的流式正文均不进入阅读器。
+- 任务 JSON、发送前审阅、提示词/正文编辑器、可编辑优化提案及其原始模型答复、历史正文、历史输入快照和未完成的流式正文均不进入阅读器。
 - 链接与图片只显示标签/替代文字和 URL 文字；不生成可点击链接、图片、预览或网络请求。来源元数据中的原有用户提供链接不受影响。
 - HTML/SVG 等 token 原文显示，不执行。实体如 `&amp;` 保留字面写法，不经过 HTML 解码。
 - 长代码和宽表各自横向滚动；长正文的阅读区可聚焦并滚动。没有语法高亮、公式、图表、自动折叠或编辑能力。
@@ -23,3 +23,13 @@ A completed Answer is parsed on response identity change, not on streaming chunk
 Node tests cover whitelist elements, HTML/SVG/XSS-like strings, dangerous URL schemes, no URL-bearing elements or network APIs, raw copy/save/export/history equality, 32k plain text, dense malicious inputs, nested quotes, unclosed fences, wide tables, budget failures, parse caching, stream/Stop/late-result ownership, record switches, editor exclusion and destruction. Official dependency bytes/license hashes and explicit runtime packaging are checked. These synthetic tests do not call a real model or validate provider accounts. DOM model assertions are not native-browser layout, keyboard or screen-reader acceptance evidence.
 
 References: https://marked.js.org/using_pro#lexer and https://marked.js.org/license
+
+## Prompt model result integration
+
+The prompt page loads the same already-packaged local lexer, reader and CSS. No new parser, package, permissions, provider endpoint or storage fields are introduced. Each successful single-run response or comparison target mounts one independent reader only at final completion. Ordinary status changes, saves, failures/retries in another column, and Reading/Original switches do not reparse. Per-target headings, reviewed connection provenance and exact response strings continue to own collection saves.
+
+Streaming chunks, stopped/failed partial answers, outgoing reviews, saved prompt originals, editable refinement proposals and the refinement's original-model-response textarea remain literal. Trial answers can use the reader because they are completed read-only results, but their existing no-save/no-accept behavior is unchanged. Closing a trial clears its two readers before returning to the editable proposal; a later trial starts empty.
+
+Retry, invalidation, source interruption, close and destruction release the affected reader. A hidden document releases formatted DOM and retains whatever literal output the pre-existing flow permits. Returning to the tab does not reparse or relabel an old result as new; the old original stays selectable. A request completed while hidden stays on the original-text path. Prompt View destruction now invokes its existing model-dialog interruption hook so completed reader DOM is also released on controller teardown. No request is sent by reader controls or visibility changes.
+
+Additional synthetic regression coverage: localized English/Chinese shared controls; single-run completion and streaming failure/stop/late retry; two-column partial failure and isolated retry; exact CRLF/Unicode/trailing-whitespace original and collection-save payload; independent model/origin attribution; unchanged refinement edit/cancel/accept; trial close/reopen and edited-proposal ownership; source/visibility/close/controller cleanup; URL-bearing/active DOM exclusion; two near-32k cards with repeated toggles and save updates parsing only twice total. The coarse two-card timing assertion is a regression guard in the modeled DOM, not a browser performance promise. The existing full suite also covers collection copy/export; native clipboard, focus, layout and actual provider calls are not established by these tests.

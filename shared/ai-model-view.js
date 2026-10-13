@@ -33,6 +33,25 @@
         const status = el('p', 'prompt-help'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
         const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', refining ? t('RefineAfter', 'Proposed template draft (editable; not saved)') : t('Response', 'Model response'));
+        const readerHost = el('div'); readerHost.hidden = true;
+        let answerReader = null;
+        function releaseReader() {
+            answerReader?.destroy(); answerReader = null; readerHost.hidden = true;
+            if (!refining) output.hidden = !output.value;
+        }
+        function readResponse() {
+            releaseReader();
+            // Only a completed, immutable answer enters the shared reader. Drafts
+            // and partial/error text keep their existing literal textarea path.
+            if (refining || view.doc.hidden || !root.LocalItabSafeAnswerReader) return;
+            answerReader = root.LocalItabSafeAnswerReader.create(view.doc, response.text, (name, fallback) => {
+                const key = `answerReader${name}`, value = root.i18n?.t(key);
+                return value && value !== key ? value : fallback;
+            });
+            answerReader.node.setAttribute('aria-label', output.getAttribute('aria-label'));
+            readerHost.append(answerReader.node); readerHost.hidden = false; output.hidden = true;
+        }
+        function visibilityChanged() { if (view.doc.hidden) releaseReader(); }
         const partialLabel = el('p', 'prompt-help', t('StreamPartial', 'Partial response only. It cannot be saved unless this request completes successfully.')); partialLabel.hidden = true;
         const proposalLabel = refining ? el('h3', '', t('RefineAfter', 'Proposed template draft (editable; not saved)')) : null;
         if (proposalLabel) proposalLabel.hidden = true;
@@ -114,7 +133,7 @@
             if (!sourceCurrent()) { suspend(); return; }
             output.value = partialText; output.hidden = !partialText; partialLabel.hidden = !partialText;
         }
-        function checkSource() { if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); }
+        function checkSource() { if (c.disposed) releaseReader(); if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); }
         function invalidateConnection() { key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); }
         function renderPresets() {
             presetSelect.replaceChildren();
@@ -168,15 +187,15 @@
         function finish() {
             if (saving || closed || trialUI) return;
             if ((busy || (response && !saved)) && !root.confirm(t('Discard', 'Stop this request and discard any unsaved response?'))) return;
-            closed = true; stopRequest(); key.value = ''; response = reviewed = command = null;
-            root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide);
+            closed = true; releaseReader(); stopRequest(); key.value = ''; response = reviewed = command = null;
+            root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.cancelModelDialog = null; view.checkModelRun = null;
         }
         function guard(event) { if (busy || saving || (response && !saved)) { event.preventDefault(); event.returnValue = ''; } }
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
             const focused = view.doc.activeElement;
-            suspended = true; stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
+            suspended = true; releaseReader(); stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
             if (reviewedStream) { response = null; partialText = ''; output.value = ''; output.hidden = true; partialLabel.hidden = true; status.textContent = t('StreamStale', 'The prompt source changed or this dialog was interrupted. Review again before sending.'); }
             if (refining) { response = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
             update(focused);
@@ -209,7 +228,7 @@
             if (refining && !refinement.current(c, template)) { status.textContent = failure('STALE'); return; }
             if (reviewedStream && !sourceCurrent()) { suspend(); return; }
             if (reviewedStream) { saved = false; command = null; }
-            partialText = ''; partialLabel.hidden = true; if (!refining) { output.value = ''; output.hidden = true; }
+            releaseReader(); partialText = ''; partialLabel.hidden = true; if (!refining) { output.value = ''; output.hidden = true; }
             busy = true; aborter = new AbortController(); const request = aborter, snapshot = reviewed, signal = request.signal, useStream = reviewedStream;
             const active = () => aborter === request && !c.disposed && !closed && !suspended && !signal.aborted; update(); cancel.focus();
             try {
@@ -240,7 +259,7 @@
                     originalOutput.value = result.text; originalDetails.hidden = false;
                     refinement.validateProposal(template, result.text);
                     status.textContent = t('RefineReady', 'Edit this draft locally, then test or accept the exact edited text. Editing sends and saves nothing. Accept explicitly to create a new version; the saved original remains in history.');
-                } else status.textContent = t('Ready', 'Response received. Review it, then explicitly save it to your AI collection.');
+                } else { readResponse(); status.textContent = t('Ready', 'Response received. Review it, then explicitly save it to your AI collection.'); }
             } catch (error) {
                 if (active()) {
                     if (useStream) paintPartial();
@@ -325,13 +344,13 @@
         if (instruction) instruction.addEventListener('input', () => { prompt.value = ''; invalidateConnection(); });
         for (const input of [url, model]) input.addEventListener('input', invalidateConnection);
         actions.append(review, allow, send, cancel); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
-        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output); if (originalDetails) box.append(originalDetails); box.append(resultActions); overlay.append(box); view.doc.body.append(overlay);
-        view.openDialog = true; view.cancelModelDialog = hide; view.checkModelRun = checkSource; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide);
+        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); box.append(resultActions); overlay.append(box); view.doc.body.append(overlay);
+        view.openDialog = true; view.cancelModelDialog = hide; view.checkModelRun = checkSource; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged);
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
-        return { streaming, partialLabel, originalOutput, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
+        return { readerHost, streaming, partialLabel, originalOutput, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);

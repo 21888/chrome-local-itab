@@ -6,22 +6,29 @@ const Core = require('../shared/local-prompts-store');
 const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick, settle } = require('./helpers/prompts-harness');
-async function mount({ locale, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
+async function mount({ safeReader = false, locale, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
     const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic prompt', body);
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map(); let runs = 0, grants = 0, writes = 0, command;
     const root = { document: doc, LocalItabPrompts: Core, LocalItabAIPromptRefinement: require('../shared/ai-prompt-refinement'), LocalItabAIModel: { ...Client, run: async (...args) => { runs++; return run ? run(...args) : { text: '<script>synthetic output</script>', model: 'fixture-model', origin: 'https://synthetic.test' }; } },
         chrome: { permissions: { contains, request: async (...args) => { grants++; return request(...args); } } }, confirm: () => true,
         addEventListener: (name, fn) => events.set(name, fn), removeEventListener: name => events.delete(name) };
+    let readerParses = 0;
     const context = vm.createContext({ window: root, AbortController, setTimeout, clearTimeout });
+    if (safeReader) {
+        const Marked = require('../vendor/marked/marked.umd.js');
+        root.marked = { Lexer: class extends Marked.Lexer { lex(source) { readerParses++; return super.lex(source); } } };
+        vm.runInContext(fs.readFileSync(`${__dirname}/../shared/safe-answer-reader.js`, 'utf8'), context);
+    }
     for (const file of ['shared/dialog-focus.js', 'shared/ai-model-comparison.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
     const catalog = locale ? JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8')) : {};
+    root.i18n = { t: key => catalog[key]?.message || key };
     const view = { doc, controller: h.controller, t: (key, fallback) => catalog[`prompts${key}`]?.message || fallback,
         el(tag, className, text) { const el = doc.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; },
         button(name, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
     const store = { request(kind, values) { return { kind, ...values, operationId: 'synthetic_operation' }; }, async mutate(value, validator) { writes++; command = value; assert.equal(validator(h.raw, value.promptRef), true); return mutate(value); } };
     const ui = root.LocalItabAIModelView.open({ view, collectionStore: store, presetStore, mode });
     ui.url.value = 'https://synthetic.test/v1/chat/completions'; ui.model.value = 'fixture-model';
-    return { h, ui, root, events, doc, view, get runs() { return runs; }, get grants() { return grants; }, get writes() { return writes; }, get command() { return command; } };
+    return { h, ui, root, events, doc, view, get readerParses() { return readerParses; }, get runs() { return runs; }, get grants() { return grants; }, get writes() { return writes; }, get command() { return command; } };
 }
 const click = async button => { button.dispatch('click'); await tick(); };
 test('open, edit, review and exact-origin grant do not send; explicit send/save are separate', async () => {
@@ -704,4 +711,99 @@ test('trial interruption transfers hidden output focus inside the active trial o
     assert.ok(h.doc.activeElement === trial.status); assert.equal(h.ui.overlay.hidden, true);
     h.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(h.ui.trial, null); assert.equal(h.ui.overlay.hidden, false);
     await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const locale of ['en', 'zh_CN']) test(`reader: complete answer has localized shared controls and exact original/save (${locale})`, async () => {
+    const text = '  # Synthetic heading\r\n\n**Original** 中文 🧪\t  \n\n![pixel](https://invalid.example/pixel)\n\n<svg onload="bad()">literal</svg>';
+    const h = await mount({ safeReader: true, locale, run: async () => ({ text, model: 'fixture-model', origin: 'https://synthetic.test' }) });
+    await click(h.ui.review); assert.equal(h.readerParses, 0); await click(h.ui.send);
+    assert.equal(h.readerParses, 1); assert.equal(h.ui.output.value, text); assert.equal(h.ui.output.hidden, true);
+    const reader = h.ui.readerHost.querySelector('.answer-reader'), [read, raw] = reader.querySelectorAll('button');
+    const catalog = JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`));
+    assert.equal(read.textContent, catalog.answerReaderReading.message); assert.equal(raw.textContent, catalog.answerReaderOriginal.message);
+    assert.equal(reader.getAttribute('aria-label'), h.ui.output.getAttribute('aria-label'));
+    await click(raw); assert.equal(reader.querySelector('.answer-reader-source').textContent, text);
+    await click(read); await click(h.ui.save); assert.equal(h.command.body, text); assert.equal(h.readerParses, 1);
+    assert.equal(reader.querySelectorAll('a,img,script,iframe,svg,style').length, 0);
+    for (const node of reader.querySelectorAll('*')) { assert.equal(node.src, undefined); assert.equal(node.href, undefined); }
+    await click(h.ui.close); assert.equal(reader.children.length, 0); assert.equal(reader.isConnected, false); h.h.controller.dispose();
+});
+
+test('reader: streaming parses only successful final text; partial, failed and stopped attempts remain literal', async () => {
+    let options; const pending = deferred();
+    const h = await mount({ safeReader: true, run: (_, o) => { options = o; return pending.promise; } });
+    await enableStream(h); await click(h.ui.send); options.onText('# partial'); await pausePaint();
+    assert.equal(h.readerParses, 0); assert.equal(h.ui.output.hidden, false); assert.equal(h.ui.output.value, '# partial');
+    pending.resolve({ text: '# Final\r\n\n**exact**', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+    assert.equal(h.readerParses, 1); assert.equal(h.ui.output.hidden, true); assert.equal(h.ui.partialLabel.hidden, true);
+    const oldReader = h.ui.readerHost.querySelector('.answer-reader'); h.events.get('pagehide')();
+    assert.equal(oldReader.children.length, 0); assert.equal(h.ui.output.value, ''); assert.equal(h.ui.readerHost.hidden, true);
+    await click(h.ui.close); h.h.controller.dispose();
+    for (const ending of ['failure', 'stop']) {
+        const next = deferred(); let current;
+        const h = await mount({ safeReader: true, run: (_, o) => { current = o; return next.promise; } });
+        await enableStream(h); await click(h.ui.send); current.onText('**incomplete**'); await pausePaint();
+        if (ending === 'failure') { next.resolve(Promise.reject({ code: 'INCOMPLETE' })); await tick(); }
+        else { await click(h.ui.cancel); next.resolve({ text: 'late full' }); await tick(); }
+        assert.equal(h.readerParses, 0); assert.equal(h.ui.output.value, '**incomplete**'); assert.equal(h.ui.output.hidden, false);
+        assert.equal(h.ui.save.disabled, true); assert.equal(h.ui.readerHost.children.length, 0);
+        await click(h.ui.close); h.h.controller.dispose();
+    }
+});
+
+test('reader: failed old stream cannot render over successful reviewed retry', async () => {
+    let count = 0, oldOptions; const pending = deferred();
+    const h = await mount({ safeReader: true, run: (_, options) => ++count === 1 ? (oldOptions = options, pending.promise) : Promise.resolve({ text: '# New exact answer', model: 'fixture-model', origin: 'https://synthetic.test' }) });
+    await enableStream(h); await click(h.ui.send); oldOptions.onText('# Old partial'); await click(h.ui.cancel);
+    await click(h.ui.review); await click(h.ui.send); assert.equal(h.readerParses, 1);
+    oldOptions.onText('old late'); pending.resolve({ text: '# Old complete' }); await pausePaint();
+    assert.equal(h.ui.output.value, '# New exact answer'); assert.equal(h.readerParses, 1);
+    await click(h.ui.save); assert.equal(h.command.body, '# New exact answer'); await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const end of ['cancel', 'accept']) test(`reader: refinement editable draft and original stay literal on ${end}`, async () => {
+    const h = await mount({ safeReader: true, mode: 'refine', body: 'Original {{topic}}', run: async () => ({ text: '**Revised** {{topic}}' }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    assert.equal(h.readerParses, 0); assert.equal(h.ui.output.hidden, false); assert.equal(h.ui.output.readOnly, false);
+    assert.equal(h.ui.originalOutput.value, '**Revised** {{topic}}');
+    h.ui.output.value = '# Edited {{topic}}'; h.ui.output.dispatch('input');
+    if (end === 'accept') { await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.controller.record().body, '# Edited {{topic}}'); }
+    else assert.equal(h.h.controller.record().body, 'Original {{topic}}');
+    assert.equal(h.readerParses, 0); await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('reader: hiding discards formatted DOM without losing original or reparsing on return', async () => {
+    const h = await mount({ safeReader: true }); await click(h.ui.review); await click(h.ui.send);
+    const reader = h.ui.readerHost.querySelector('.answer-reader'), raw = h.ui.output.value;
+    h.doc.hidden = true; h.doc.listeners.get('visibilitychange')();
+    assert.equal(reader.children.length, 0); assert.equal(h.ui.output.value, raw); assert.equal(h.ui.output.hidden, false);
+    h.doc.hidden = false; h.doc.listeners.get('visibilitychange')(); assert.equal(h.readerParses, 1);
+    await click(h.ui.save); assert.equal(h.command.body, raw); await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('reader: trial answers are read-only; close destroys both before edited proposal can be tested or accepted', async () => {
+    let runs = 0;
+    const h = await mount({ safeReader: true, mode: 'refine', body: 'Original {{topic}}', run: async input => ({ text: ++runs === 1 ? 'Improved {{topic}}' : `# Answer ${runs}\n\n${input.prompt}`, model: input.model, origin: input.origin }) });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); assert.equal(h.readerParses, 0);
+    await click(h.ui.trialButton); await tick(); const first = h.ui.trial;
+    first.variables[0].input.value = 'synthetic value'; first.variables[0].input.dispatch('input');
+    await click(first.review); await click(first.send); assert.equal(h.readerParses, 2);
+    const old = first.targets.map(t => t.readerHost.querySelector('.answer-reader'));
+    assert(first.targets.every(t => t.save.hidden && t.output.hidden));
+    assert.match(first.targets[0].heading.textContent, /Original/); assert.match(first.targets[1].heading.textContent, /proposal/);
+    await click(first.close); for (const r of old) assert.equal(r.children.length, 0);
+    assert.equal(h.ui.output.readOnly, false); assert.equal(h.ui.originalOutput.value, 'Improved {{topic}}');
+    h.ui.output.value = 'Edited {{topic}}'; h.ui.output.dispatch('input'); await click(h.ui.trialButton); await tick();
+    const second = h.ui.trial; assert(second.targets.every(t => t.readerHost.children.length === 0 && t.output.value === ''));
+    assert.equal(h.readerParses, 2); await click(second.close); await click(h.ui.save); await settle(h.h.controller);
+    assert.equal(h.h.controller.record().body, 'Edited {{topic}}'); assert.equal(h.readerParses, 2);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('reader: controller teardown hook clears a completed reader and never reparses', async () => {
+    const h = await mount({ safeReader: true }); await click(h.ui.review); await click(h.ui.send);
+    const reader = h.ui.readerHost.querySelector('.answer-reader');
+    h.h.controller.dispose(); h.view.cancelModelDialog();
+    assert.equal(reader.children.length, 0); assert.equal(h.ui.readerHost.children.length, 0); assert.equal(h.readerParses, 1);
+    await click(h.ui.close); assert.equal(h.doc.listeners.has('visibilitychange'), false);
 });

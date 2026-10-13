@@ -70,7 +70,7 @@ test('fixed official dependency, complete MIT license and exact package allowlis
     const license = fs.readFileSync('vendor/marked/LICENSE');
     assert.match(license.toString(), /Permission is hereby granted, free of charge/);
     assert.equal(crypto.createHash('sha256').update(license).digest('hex'), provenance.licenseSha256);
-    for (const page of ['newtab.html', 'collections.html']) {
+    for (const page of ['newtab.html', 'collections.html', 'prompts.html']) {
         const html = fs.readFileSync(page, 'utf8'); assert(html.indexOf('vendor/marked/marked.umd.js') < html.indexOf('shared/safe-answer-reader.js'));
     }
 });

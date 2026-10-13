@@ -67,6 +67,7 @@
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             this.cancelMarkdownDialog?.();
             this.cancelExcerptDialog?.();
+            this.cancelModelDialog?.();
         }
         attachSearchShortcut() {
             this.detachSearchShortcut?.();
