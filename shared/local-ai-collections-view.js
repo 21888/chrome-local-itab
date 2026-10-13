@@ -7,17 +7,29 @@
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0;
-            controller.onChange = kind => { if (kind === 'dispose') { this.detachSearchShortcut?.(); this.closeComparison?.(); return; } this.updateComparison?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
-            root.addEventListener?.('pagehide', event => {
-                if (!event?.persisted) this.detachSearchShortcut?.();
+            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } this.updateComparison?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            this.pageHide = event => {
+                if (!event?.persisted) { this.destroy(); return; }
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
                 this.cancelMarkdownDialog?.();
                 this.closeComparison?.();
-            });
+            };
+            root.addEventListener?.('pagehide', this.pageHide);
             this.build(); this.attachSearchShortcut();
+        }
+        destroy() {
+            if (this.destroyed) return;
+            this.destroyed = true;
+            this.detachSearchShortcut?.();
+            root.removeEventListener?.('pagehide', this.pageHide);
+            root.removeEventListener?.('beforeunload', this.beforeUnload);
+            this.markdownGeneration = (this.markdownGeneration || 0) + 1;
+            this.cancelMarkdownDialog?.();
+            this.closeComparison?.();
         }
         attachSearchShortcut() {
             this.detachSearchShortcut?.();
+            if (this.destroyed || this.controller.disposed) return;
             let composing = null;
             const start = event => { composing = event.target; };
             const end = event => { if (composing === event.target) composing = null; };
@@ -88,7 +100,12 @@
             this.shell.append(brand, header, this.captureStatus, this.status, layout, footer); this.host.append(this.shell);
             this.main.addEventListener('keydown', event => { if (!event.isComposing && event.keyCode !== 229 && !event.repeat && (event.ctrlKey || event.metaKey) && event.key?.toLowerCase() === 's' && c.draft()) { event.preventDefault(); void this.save(); } });
         }
-        attachDepartureGuard() { root.addEventListener?.('beforeunload', event => { if (this.controller.hasUncommittedWork() || this.revisionDraft !== null || this.proposals.size) { event.preventDefault(); event.returnValue = ''; } }); }
+        attachDepartureGuard() {
+            root.removeEventListener?.('beforeunload', this.beforeUnload);
+            if (this.destroyed || this.controller.disposed) return;
+            this.beforeUnload = event => { if (this.controller.hasUncommittedWork() || this.revisionDraft !== null || this.proposals.size) { event.preventDefault(); event.returnValue = ''; } };
+            root.addEventListener?.('beforeunload', this.beforeUnload);
+        }
         async leave(href) { if (this.controller.busy || this.controller.pendingCommand) return; if (await this.confirm({ title: this.t('Leave', 'Leave this page?'), body: this.t('LeaveBody', 'Unsaved drafts live only in this tab and will be lost.'), accept: this.t('Leave', 'Leave this page?') })) root.location.assign(href); }
         renderList() {
             const c = this.controller; this.search.value = c.filters.query;

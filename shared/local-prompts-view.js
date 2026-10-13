@@ -49,15 +49,27 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller; this.clipboard = clipboard;
             this.t = (name, fallback) => { const value = translate(name, fallback); return value && value !== key(name) ? value : fallback; };
             this.confirm = confirm || (options => this.dialog(options)); this.historyId = null; this.copyGeneration = 0; this.copying = false; this.pendingFocus = null;
-            root.addEventListener?.('pagehide', event => {
-                if (!event?.persisted) this.detachSearchShortcut?.();
+            this.pageHide = event => {
+                if (!event?.persisted) { this.destroy(); return; }
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
                 this.cancelMarkdownDialog?.(); this.cancelExcerptDialog?.();
-            });
-            this.build(); this.attachSearchShortcut(); controller.onChange = kind => this.render(kind);
+            };
+            root.addEventListener?.('pagehide', this.pageHide);
+            this.build(); this.attachSearchShortcut(); controller.onChange = kind => kind === 'dispose' ? this.destroy() : this.render(kind);
+        }
+        destroy() {
+            if (this.destroyed) return;
+            this.destroyed = true;
+            this.detachSearchShortcut?.();
+            root.removeEventListener?.('pagehide', this.pageHide);
+            root.removeEventListener?.('beforeunload', this.beforeUnload);
+            this.markdownGeneration = (this.markdownGeneration || 0) + 1;
+            this.cancelMarkdownDialog?.();
+            this.cancelExcerptDialog?.();
         }
         attachSearchShortcut() {
             this.detachSearchShortcut?.();
+            if (this.destroyed || this.controller.disposed) return;
             let composing = null;
             const start = event => { composing = event.target; };
             const end = event => { if (composing === event.target) composing = null; };
@@ -148,6 +160,8 @@
             }
         }
         attachDepartureGuard() {
+            root.removeEventListener?.('beforeunload', this.beforeUnload);
+            if (this.destroyed || this.controller.disposed) return;
             this.beforeUnload = event => { if (this.controller.hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } };
             root.addEventListener?.('beforeunload', this.beforeUnload);
         }

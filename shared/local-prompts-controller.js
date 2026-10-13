@@ -46,9 +46,11 @@
             await Promise.all([this.refresh(), this.refreshCollections()]);
         }
         dispose() {
+            if (this.disposed) return;
             this.excerptEpoch++; this.disposed = true; this.readGeneration++; this.collectionGeneration++; this.collectionState = null; this.sessions.clear(); this.activeSessions.clear();
             // Teardown must invalidate cards even if one backend's cleanup fails.
             for (const unsubscribe of [this.unsubscribe, this.unsubscribeCollections]) { try { unsubscribe?.(); } catch (_) { /* Continue independent cleanup. */ } }
+            this.onChange('dispose');
         }
         async refreshCollections() {
             if (this.disposed) return;

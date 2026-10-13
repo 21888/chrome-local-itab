@@ -43,7 +43,12 @@
             this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); });
             await Promise.all([this.refresh(), this.refreshPrompts()]);
         }
-        dispose() { this.disposed = true; this.readGeneration++; this.unsubscribe?.(); this.promptGeneration++; this.unsubscribePrompts?.(); this.onChange('dispose'); }
+        dispose() {
+            if (this.disposed) return;
+            this.disposed = true; this.readGeneration++; this.promptGeneration++;
+            for (const unsubscribe of [this.unsubscribe, this.unsubscribePrompts]) { try { unsubscribe?.(); } catch (_) { /* Continue independent cleanup. */ } }
+            this.onChange('dispose');
+        }
         async refreshPrompts() {
             if (!this.promptStore || this.disposed) return null;
             const generation = ++this.promptGeneration;
