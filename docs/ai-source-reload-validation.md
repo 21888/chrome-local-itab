@@ -34,4 +34,4 @@ workspace departure and generation changes reject late results.
 - Close/pagehide and workspace/generation changes prevent late replacement.
 - Source loader checks generation before and after the saved-source read.
 
-Native browser validation is not included in this change's local validation.
+Limited Chinese desktop-light native validation passed with one edited alpha source: cancellation preserved query, selected edit and request review; confirmed reload cleared selection/edit and old review while preserving query, question and connection. Reselecting restored saved alpha original49. No external source changes or writes occurred. External additions/deletions, read failures, races and existing-answer preservation remain synthetic-only; no dark/responsive/full-filter matrix.
