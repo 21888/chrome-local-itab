@@ -48,3 +48,9 @@
     .ai-context-sources-pane,.ai-context-question-pane { max-height: none; overflow: visible; padding: .25rem; scrollbar-gutter: auto; }
     .ai-context-sources { max-height: 22rem; overflow: auto; }
 }
+
+.ai-context-stream-option { display: flex; align-items: flex-start; gap: .4rem; }
+.ai-context-stream-option input { flex: none; }
+.ai-context-partial { margin-block: 1rem; padding: .75rem; border: 1px dashed var(--border-color, #aaa); border-radius: .6rem; }
+.ai-context-partial-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; }
+.ai-context-local-mode,.ai-context-partial-status { font-weight: 600; }

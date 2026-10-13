@@ -37,6 +37,12 @@
         const mode = el('select', 'ai-context-mode');
         for (const [value, name, fallback] of [['answer', 'Answer', 'Answer'], ['tasks', 'Tasks', 'Draft tasks for review']]) { const option = el('option', '', label(name, fallback)); option.value = value; mode.append(option); }
         mode.value = 'answer'; modeLabel.append(mode); questionPane.append(modeLabel); controls.push(mode);
+        const streamLabel = el('label', 'ai-context-stream-option'), stream = el('input', 'ai-context-stream');
+        stream.type = 'checkbox'; stream.checked = false;
+        streamLabel.append(stream, el('span', '', label('Stream', 'Show answer progressively (optional)')));
+        const streamHelp = el('p', 'ai-context-stream-help', label('StreamHelp', 'Off by default; Answer only. Incomplete text cannot be saved or copied as an answer. Switching away from this page stops the request. This is not a background task. Provider streaming compatibility has not been verified with real accounts.'));
+        questionPane.append(streamLabel, streamHelp); controls.push(stream);
+
         const presetText = (name, fallback) => t(`promptsModel${name}`, fallback);
         const presetLabel = el('label', 'ai-context-field', presetText('PresetLabel', 'Saved connections (this device only)'));
         const presetSelect = el('select'); presetLabel.append(presetSelect); connection.append(presetLabel);
@@ -87,6 +93,8 @@
         let sourceRows = [];
         const reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
         const localPanel = el('section', 'ai-context-local-review'); localPanel.hidden = true;
+        const localMode = el('p', 'ai-context-local-mode');
+        localPanel.append(localMode);
         const localText = el('textarea', 'ai-context-local-prompt'); localText.readOnly = true; localText.rows = 10;
         localText.setAttribute('aria-label', label('LocalPrompt', 'Complete local prompt'));
         localPanel.append(el('p', '', label('LocalPrivacy', 'This complete prompt includes your selected excerpts, source IDs and labels, including hidden selections. Check for private information and secrets before pasting it into an external service. Connection settings are not included. Reviewing and copying do not send, grant access or save anything.')), localText);
@@ -98,6 +106,11 @@
         const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
         const output = el('textarea'); output.rows = 8; output.maxLength = 32000; outputLabel.append(output); outputLabel.hidden = true;
         resultPane.append(previousResult, outputLabel);
+        const partialPanel = el('section', 'ai-context-partial'); partialPanel.hidden = true;
+        const partialStatus = el('p', 'ai-context-partial-status'); partialStatus.setAttribute('role', 'status');
+        const partialText = el('pre', 'ai-context-partial-text');
+        partialPanel.append(partialStatus, partialText);
+
         const answerTitle = field('SaveTitle', 'Title for saved answer', 'text', resultPane); answerTitle.maxLength = 200;
         const contextSave = el('section', 'ai-context-save-context'); contextSave.hidden = true;
         const contextLabel = el('label'), includeContext = el('input'); includeContext.type = 'checkbox'; includeContext.checked = false;
@@ -183,12 +196,19 @@
             updateLocalReview();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
+            stream.disabled = busy || retry || mode.value !== 'answer';
+            streamLabel.hidden = streamHelp.hidden = mode.value !== 'answer';
+            partialPanel.hidden = !controller.partial;
+            partialText.textContent = controller.partial?.text || '';
+            partialStatus.textContent = !controller.partial ? '' : controller.partial.state === 'receiving'
+                ? label('StreamReceiving', 'Receiving an incomplete answer. Save and copy remain unavailable until the complete response is validated.')
+                : label('StreamIncomplete', 'Incomplete answer: stopped or failed. This text is not a completed response and cannot be saved or copied as an answer. Review or explicitly send again to retry, or clear the draft. Any previous response is kept separately and becomes visible after a new review or edit.');
             // The title is local save metadata, not part of the reviewed request.
             // Allow edits during transport, but freeze it for persistence/retry.
             answerTitle.disabled = retry || controller.saved || (busy && !controller.aborter);
             for (const row of sourceRows) { row.check.disabled = row.input.disabled = busy || retry; }
             review.disabled = busy || retry; allow.disabled = send.disabled = busy || retry || !controller.reviewed || Boolean(controller.result && controller.resultReview === controller.reviewed);
-            stop.disabled = !controller.busy; save.disabled = busy || !controller.result || controller.saved || controller.result.mode !== 'answer';
+            stop.disabled = !controller.busy; save.disabled = busy || Boolean(controller.partial) || !controller.result || controller.saved || controller.result.mode !== 'answer';
             verifySave.hidden = !controller.saveCommand || !controller.saveUncertain;
             verifySave.disabled = busy || verifySave.hidden;
             verifyTasks.hidden = !controller.taskCommand || !controller.taskUncertain;
@@ -196,8 +216,8 @@
             reviewTasks.disabled = busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry; reloadSources.disabled = selectionBlocked();
-            outputLabel.hidden = !controller.result;
-            resultPane.hidden = !controller.result;
+            outputLabel.hidden = !controller.result || Boolean(controller.partial);
+            resultPane.hidden = !controller.result || Boolean(controller.partial);
             updateCopy();
             previousResult.hidden = !controller.result || controller.resultReview === controller.reviewed;
             contextSave.hidden = !controller.result || controller.result.mode !== 'answer';
@@ -283,12 +303,15 @@
             reviewLocal.disabled = selectionBlocked();
             copyLocal.disabled = selectionBlocked() || !valid || localPanel.hidden || Boolean(localCopy);
         }
+        function requestMode(packed) {
+            return `${label('Mode', 'Output')}: ${packed.mode === 'tasks' ? label('Tasks', 'Draft tasks for review') : label('Answer', 'Answer')} · ${packed.stream ? label('StreamOn', 'Progressive answer: on') : label('StreamOff', 'Progressive answer: off')}`;
+        }
         const reviewLocal = button('ReviewLocal', 'Review prompt locally', () => {
             if (selectionBlocked()) return;
             return action(async () => {
-                const ticket = await controller.reviewLocal({ question: question.value, selected: selectedSources(), mode: mode.value });
+                const ticket = await controller.reviewLocal({ question: question.value, selected: selectedSources(), mode: mode.value, stream: mode.value === 'answer' && stream.checked });
                 if (disposed || controller.closed || controller.localReview !== ticket) return;
-                localText.value = ticket.packed.prompt; localPanel.hidden = false; reviewText.hidden = taskList.hidden = true;
+                localMode.textContent = requestMode(ticket.packed); localText.value = ticket.packed.prompt; localPanel.hidden = false; reviewText.hidden = taskList.hidden = true;
             }, ['LocalReviewed', 'Local prompt ready to inspect. No endpoint or model is needed. Copying is a separate action; nothing has been sent or saved.']);
         });
         const copyLocal = button('CopyLocal', 'Copy reviewed prompt', async () => {
@@ -326,8 +349,8 @@
         localPanel.append(copyLocal, localStatus);
         const review = button('Review', 'Review exact request', () => action(async () => {
             const selected = selectedSources();
-            const result = await controller.review({ url: url.value, model: model.value, question: question.value, selected, mode: mode.value });
-            reviewText.textContent = `${result.request.url}\n${result.request.model}\n\n${result.request.prompt}`; reviewText.hidden = false; taskList.hidden = true;
+            const result = await controller.review({ url: url.value, model: model.value, question: question.value, selected, mode: mode.value, stream: mode.value === 'answer' && stream.checked });
+            reviewText.textContent = `${requestMode(result.packed)}\n${result.request.url}\n${result.request.model}\n\n${result.request.prompt}`; reviewText.hidden = false; taskList.hidden = true;
         }, ['Reviewed', 'Review the full destination, model and exact outgoing text. Source text is reference material, not trusted instructions.']));
         const allow = button('Allow', 'Allow this endpoint', () => {
             if (pending || disposed || !controller.reviewed) return;
@@ -341,7 +364,7 @@
             return action(async () => {
             const reviewed = controller.reviewed;
             try {
-                const result = await controller.send(key.value, { replaceUnsaved: true });
+                const result = await controller.send(key.value, { replaceUnsaved: true, onProgress: () => { if (!disposed) update(); } });
                 if (!disposed && !controller.closed && controller.reviewed === reviewed &&
                     controller.generation === reviewed.generation && controller.result === result) {
                     output.value = result.text; outputLabel.hidden = false; includeContext.checked = false; taskList.hidden = true;
@@ -350,13 +373,13 @@
             }
             finally { key.value = ''; }
         }, ['Received', 'Response received, not saved. Model claims and source citations have not been verified.']); });
-        const stop = button('Stop', 'Stop request', () => { controller.stop(); key.value = ''; status.textContent = label('Stopped', 'Stopped. The provider may still charge for work already started.'); });
+        const stop = button('Stop', 'Stop request', () => { controller.stop(); key.value = ''; status.textContent = label('Stopped', 'Stopped. The provider may still charge for work already started.'); update(); });
         function updateCopy() {
-            copy.disabled = disposed || controller.closed || copying || !controller.result || outputLabel.hidden || !output.value.trim();
+            copy.disabled = disposed || controller.closed || copying || Boolean(controller.partial) || !controller.result || outputLabel.hidden || !output.value.trim();
             copy.textContent = controller.result?.mode === 'tasks' ? label('CopyTasks', 'Copy task JSON') : label('CopyAnswer', 'Copy answer');
         }
         const copy = button('CopyAnswer', 'Copy answer', async () => {
-            if (disposed || controller.closed || copying || !controller.result || outputLabel.hidden || !output.value.trim()) return;
+            if (disposed || controller.closed || copying || Boolean(controller.partial) || !controller.result || outputLabel.hidden || !output.value.trim()) return;
             // Snapshot only the displayed response. No request or connection metadata is copied.
             const text = output.value, result = controller.result, reviewed = controller.resultReview, generation = copyGeneration;
             const current = () => !disposed && !controller.closed && generation === copyGeneration &&
@@ -394,9 +417,9 @@
         // Keep each control in one DOM location. Disclosure changes presentation only,
         // never the draft, authorization ticket, key lifetime or response ownership.
         resultPane.append(contextSave, taskList, results, copyStatus);
-        questionPane.append(localActions, localPanel, connection, status, resultPane);
+        questionPane.append(localActions, localPanel, connection, status, partialPanel, resultPane);
         workbench.append(sourcesPane, questionPane); box.append(workbench); host.append(box);
-        for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
+        for (const input of [url, model, question, mode, stream]) input.addEventListener(input === mode || input === stream ? 'change' : 'input', () => { if (input === url || input === model || input === mode || input === stream) key.value = ''; if (input === mode) stream.checked = false; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
         function buildSourceRows(values) {
             return values.map(source => {
@@ -446,11 +469,16 @@
         // Compare live, session-only draft values with the blank/unselected state.
         // Keep the DOM-normalized source baseline so untouched CRLF excerpts are clean.
         function hasUncommittedWork() {
-            return !disposed && Boolean(controller.busy || controller.result || controller.taskCommand || controller.saveCommand ||
+            return !disposed && Boolean(controller.busy || controller.partial || controller.result || controller.taskCommand || controller.saveCommand ||
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function onVisibility() {
+            if (doc.visibilityState !== 'hidden') return;
+            key.value = ''; controller.stop(); if (!disposed) update();
+        }
+        doc.addEventListener('visibilitychange', onVisibility);
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();

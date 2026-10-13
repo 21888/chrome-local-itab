@@ -736,3 +736,67 @@ test('copy invalidation across initial workspace await prevents any clipboard wr
     const copying = c.copyLocalPrompt(ticket, () => assert.fail('Must not copy')); c.edit(); gate.resolve();
     await assert.rejects(copying, { code: 'STALE' });
 });
+
+test('progressive Answer review is explicit, immutable, default-off and never streams Tasks', async () => {
+    const h = setup(), input = { url: 'https://model.example/v1/chat/completions', model: 'mock', question: 'Synthetic question', selected: [], mode: 'answer' };
+    assert.equal((await h.controller.review(input)).packed.stream, false);
+    const local = await h.controller.reviewLocal({ ...input, stream: true });
+    assert.equal(local.packed.stream, true); assert.equal(h.calls.sends, 0); assert.equal(h.calls.permissions, 0);
+    h.controller.edit(); assert.equal(h.controller.localReview, null);
+    const seen = []; h.controller.transport.run = async (_, options) => { seen.push(options.stream); return { text: '{"tasks":["synthetic"]}' }; };
+    await h.controller.review({ ...input, mode: 'tasks', stream: true }); await h.controller.send();
+    assert.deepEqual(seen, [false]); assert.equal(h.controller.partial, null);
+});
+
+const streamReview = h => h.controller.review({ url: 'https://model.example/v1/chat/completions', model: 'mock', question: 'Synthetic question', selected: [], mode: 'answer', stream: true });
+const sse = (text, finish = null) => `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: text }, finish_reason: finish }] })}\n\n`;
+test('real SSE parser promotes only stop plus DONE; malformed/truncated/tool/refusal streams never save or export partial text', async () => {
+    const endings = ['', sse('', 'length'), 'data: [DONE]\n\n', 'data: nope\n\n',
+        ...['tool_calls', 'refusal'].map(field => `data: ${JSON.stringify({ choices: [{ index: 0, delta: { [field]: 'synthetic' }, finish_reason: 'stop' }] })}\n\n`),
+        sse('', 'stop')];
+    for (const ending of endings) {
+        const h = setup(); let updates = 0;
+        h.controller.transport = { ...Transport, run: (request, options) => Transport.run(request, { ...options,
+            fetcher: async (_, init) => { assert.equal(JSON.parse(init.body).stream, true); return new Response(sse('<script>SYNTHETIC_PARTIAL</script>') + ending, { headers: { 'Content-Type': 'text/event-stream' } }); } }) };
+        await streamReview(h);
+        await assert.rejects(h.controller.send('SYNTHETIC_KEY', { onProgress: () => updates++ }));
+        assert.equal(updates, 1); assert.equal(h.controller.partial.state, 'failed'); assert.match(h.controller.partial.text, /SYNTHETIC_PARTIAL/);
+        assert.equal(h.controller.result, null); await assert.rejects(h.controller.saveAnswer('Not complete'), { code: 'STALE' });
+        assert.equal(h.collectionBackend.writes, 0); assert.doesNotMatch(await h.controller.collectionStore.export(), /SYNTHETIC_PARTIAL|SYNTHETIC_KEY/);
+    }
+    const h = setup();
+    h.controller.transport = { ...Transport, run: (request, options) => Transport.run(request, { ...options,
+        fetcher: async () => new Response(sse('合成 😀') + sse(' complete', 'stop') + 'data: [DONE]\n\n', { headers: { 'Content-Type': 'text/event-stream' } }) }) };
+    await streamReview(h); await h.controller.send();
+    assert.equal(h.controller.partial, null); assert.equal(h.controller.result.text, '合成 😀 complete'); assert.equal(h.collectionBackend.writes, 0);
+    await h.controller.saveAnswer('Synthetic complete'); assert.equal(h.collectionBackend.writes, 1);
+});
+
+test('stopped progressive request keeps incomplete state and fences late chunks, retry completion and close', async () => {
+    const h = setup(), runs = [];
+    h.controller.transport.run = (_, options) => { const pending = deferred(); runs.push({ options, pending }); return pending.promise; };
+    await streamReview(h); const first = h.controller.send(); const rejected = assert.rejects(first, { code: 'CANCELLED' });
+    while (!runs.length) await new Promise(resolve => setImmediate(resolve));
+    runs[0].options.onText('first partial'); h.controller.stop(); assert.equal(h.controller.partial.state, 'stopped');
+    await rejected; await streamReview(h); const second = h.controller.send();
+    while (runs.length < 2) await new Promise(resolve => setImmediate(resolve));
+    assert.throws(() => runs[0].options.onText('late old chunk')); runs[0].pending.resolve({ text: 'late old response' });
+    runs[1].options.onText('new partial'); assert.equal(h.controller.partial.text, 'new partial');
+    runs[1].pending.resolve({ text: 'new complete' }); await second;
+    assert.equal(h.controller.result.text, 'new complete'); assert.equal(h.controller.partial, null);
+    await streamReview(h); const third = h.controller.send('', { replaceUnsaved: true }); const closed = assert.rejects(third);
+    while (runs.length < 3) await new Promise(resolve => setImmediate(resolve));
+    runs[2].options.onText('discard on close'); h.controller.close(); await closed;
+    assert.equal(h.controller.partial, null); assert.equal(h.controller.result, null);
+    assert.throws(() => runs[2].options.onText('late closed chunk')); assert.equal(h.collectionBackend.writes, 0);
+});
+
+test('failed progressive replacement keeps prior completed provenance separate and blocks save until review/edit', async () => {
+    const h = setup(); await review(h, 'answer'); await h.controller.send(); const old = h.controller.result, provenance = h.controller.resultReview;
+    await streamReview(h); h.controller.transport.run = async (_, options) => { options.onText('incomplete replacement'); throw api.fault('INCOMPLETE'); };
+    await assert.rejects(h.controller.send('', { replaceUnsaved: true }));
+    assert.equal(h.controller.result, old); assert.equal(h.controller.resultReview, provenance);
+    await assert.rejects(h.controller.saveAnswer('Not the partial'), { code: 'STALE' });
+    h.controller.edit(); assert.equal(h.controller.partial, null); assert.equal(h.controller.result, old);
+    await h.controller.saveAnswer('Prior complete'); assert.equal((await h.controller.collectionStore.read()).records[0].body, old.text);
+});

@@ -5837,5 +5837,23 @@
   },
   "navigationTagPdfComparison": {
     "message": "PDF对比"
+  },
+  "aiContextStream": {
+    "message": "逐步显示回答（可选）"
+  },
+  "aiContextStreamHelp": {
+    "message": "默认关闭，仅适用于「回答」。未完成文本不能保存或复制为回答。切换离开此页面会停止请求，不会在后台持续运行。尚未使用真实账号验收提供方的流式兼容性。"
+  },
+  "aiContextStreamOn": {
+    "message": "渐进回答：开启"
+  },
+  "aiContextStreamOff": {
+    "message": "渐进回答：关闭"
+  },
+  "aiContextStreamReceiving": {
+    "message": "正在接收尚未完成的回答。只有完整响应通过校验后，才能保存或复制回答。"
+  },
+  "aiContextStreamIncomplete": {
+    "message": "回答未完成：请求已停止或失败。此文本不是完整结果，不能保存或复制为回答。可重新审阅或再次明确发送以重试，也可清空草稿。之前的完整回答单独保留，重新审阅或编辑后恢复显示。"
   }
 }

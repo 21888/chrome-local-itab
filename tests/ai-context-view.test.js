@@ -1453,3 +1453,46 @@ test('actual workbench wrapper trap includes disclosure summaries at both Tab bo
     overlay.dispatch('keydown', { key: 'Tab', shiftKey: true }); assert.equal(document.activeElement, summary);
     overlay.dispatch('keydown', { key: 'Escape' }); assert.equal(overlay.isConnected, false); assert.equal(document.activeElement, trigger);
 });
+
+test('progressive option defaults off, local review names mode, mode changes clear key and invalidate reviews', async () => {
+    const h = await model(), stream = h.host.querySelector('.ai-context-stream'), mode = h.host.querySelector('.ai-context-mode');
+    assert.equal(stream.checked, false);
+    stream.checked = true; stream.dispatch('change'); h.click('Review prompt locally'); await settle();
+    assert.equal(h.controller.localReview.packed.stream, true); assert.match(h.host.querySelector('.ai-context-local-mode').textContent, /Progressive answer: on/);
+    assert.equal(h.calls.length, 0); h.click('Review exact'); await settle();
+    assert.match(h.host.querySelector('.ai-context-review').textContent, /Progressive answer: on/);
+    h.input(h.field('password'), 'synthetic'); mode.value = 'tasks'; mode.dispatch('change');
+    assert.equal(stream.checked, false); assert.equal(stream.disabled, true); assert.equal(h.field('password').value, '');
+    assert.equal(h.controller.reviewed, null); assert.equal(h.controller.localReview, null);
+    await send(h, 'tasks'); assert.equal(h.calls[0].options.stream, false);
+});
+
+test('progressive UI renders literal partial text separately, blocks save/copy and promotes only completion', async () => {
+    const copies = [], h = await model(null, { clipboard: { writeText: async text => copies.push(text) } }), pending = deferred();
+    h.setReply(pending.promise); const stream = h.host.querySelector('.ai-context-stream'); stream.checked = true; stream.dispatch('change');
+    h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
+    const options = h.calls[0].options; assert.equal(options.stream, true);
+    options.onText('<img src=x> synthetic partial');
+    assert.equal(h.host.querySelector('.ai-context-partial').hidden, false);
+    assert.match(h.host.querySelector('.ai-context-partial-text').textContent, /<img src=x>/);
+    assert.equal(h.host.querySelectorAll('img').length, 0); assert.equal(h.controller.result, null);
+    assert.equal(h.byText('Copy answer').disabled, true); assert.equal(h.byText('Save answer').disabled, true);
+    assert.equal(h.c.writes, 0); assert.deepEqual(copies, []);
+    pending.resolve('Synthetic complete'); await settle();
+    assert.equal(h.host.querySelector('.ai-context-partial').hidden, true); assert.equal(h.byText('Copy answer').disabled, false);
+    h.click('Copy answer'); await settle(); assert.deepEqual(copies, ['Synthetic complete']); assert.equal(h.c.writes, 0);
+});
+
+test('page visibility stops stream, clears key, keeps explicit incomplete text and ignores late chunks', async () => {
+    const h = await model(), pending = deferred(); h.setReply(pending.promise);
+    const stream = h.host.querySelector('.ai-context-stream'); stream.checked = true; stream.dispatch('change');
+    h.input(h.field('password'), 'synthetic'); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
+    const options = h.calls[0].options; options.onText('unfinished synthetic');
+    h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')(); await settle();
+    assert.equal(options.signal.aborted, true); assert.equal(h.field('password').value, ''); assert.equal(h.controller.partial.state, 'stopped');
+    assert.match(h.host.querySelector('.ai-context-partial-status').textContent, /Incomplete answer/);
+    assert.equal(h.byText('Copy answer').disabled, true); assert.equal(h.byText('Save answer').disabled, true);
+    assert.throws(() => options.onText('late')); pending.resolve('late'); await settle(); assert.equal(h.controller.result, null);
+    h.click('Review exact'); await settle(); assert.equal(h.controller.partial, null);
+    h.view.destroy(); assert.equal(h.document.listeners.has('visibilitychange'), false);
+});

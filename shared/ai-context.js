@@ -72,11 +72,12 @@
         });
         return context;
     }
-    function pack(question, selected, mode = 'answer') {
+    function pack(question, selected, mode = 'answer', stream = false) {
+        check(typeof stream === 'boolean');
         const context = validateContext(question, selected, mode);
         const prompt = buildPrompt(question, context, mode);
         text(prompt, LIMITS.prompt);
-        return Object.freeze({ question, mode, sources: Object.freeze(context), prompt });
+        return Object.freeze({ question, mode, stream: mode === 'answer' && stream, sources: Object.freeze(context), prompt });
     }
     function tasks(value) {
         text(value, LIMITS.prompt);
@@ -102,7 +103,7 @@
     class Controller {
         constructor({ transport, permissions, ensureActive, readSources, taskStore, collectionStore }) {
             Object.assign(this, { transport, permissions, ensureActive, readSources, taskStore, collectionStore });
-            this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.localReview = null; this.result = null; this.resultReview = null;
+            this.partial = null; this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.localReview = null; this.result = null; this.resultReview = null;
             this.taskReview = null; this.saveCommand = null; this.saved = false; this.saveUncertain = false; this.taskCommand = null; this.taskUncertain = false;
             // This controller owns a dedicated collection Store. Fence immediately at its
             // backend write, after all receipt/hash awaits, without changing its schema/API.
@@ -114,24 +115,24 @@
         edit() {
             check(!this.closed && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
             // Editing the next request must not discard the previous response or its provenance.
-            this.generation++; this.reviewed = this.localReview = this.taskReview = null;
+            this.generation++; this.partial = null; this.reviewed = this.localReview = this.taskReview = null;
         }
         clear() {
             this.edit(); this.result = this.resultReview = null; this.saved = false; this.saveUncertain = false;
         }
         inspectInput(question, selected, mode) { return inspectInput(question, selected, mode); }
         async loadSources() { const generation = this.generation; await this.ensureActive(); this.current(generation); const result = await this.readSources(); await this.ensureActive(); this.current(generation); return result; }
-        async review({ url, model, question, selected, mode }) {
+        async review({ url, model, question, selected, mode, stream = false }) {
             this.edit(); const generation = this.generation;
             await this.ensureActive(); this.current(generation);
-            const packed = pack(question, selected, mode);
+            const packed = pack(question, selected, mode, stream);
             const request = Object.freeze({ ...this.transport.review({ url, model, prompt: packed.prompt }) });
             this.reviewed = Object.freeze({ request, packed, generation }); return this.reviewed;
         }
-        async reviewLocal({ question, selected, mode }) {
+        async reviewLocal({ question, selected, mode, stream = false }) {
             this.edit(); const generation = this.generation;
             // Capture before awaiting workspace validation: this exact immutable prompt is reviewed.
-            const packed = pack(question, selected, mode);
+            const packed = pack(question, selected, mode, stream);
             await this.ensureActive(); this.current(generation);
             this.localReview = Object.freeze({ packed, generation }); return this.localReview;
         }
@@ -158,11 +159,11 @@
             const result = await this.permissions.request({ origins: [reviewed.request.permission] });
             this.current(reviewed.generation); check(this.reviewed === reviewed, 'STALE'); return result;
         }
-        async send(key = '', { replaceUnsaved = false } = {}) {
+        async send(key = '', { replaceUnsaved = false, onProgress = () => {} } = {}) {
             check(this.reviewed && !this.busy && !this.taskCommand && !this.saveCommand && !this.closed &&
                 (!this.result || this.resultReview !== this.reviewed), 'STALE');
             check(!this.result || this.saved || replaceUnsaved === true, 'UNSAVED_RESULT');
-            const review = this.reviewed; this.busy = true; const aborter = new AbortController(); this.aborter = aborter;
+            const review = this.reviewed; this.partial = review.packed.stream ? Object.freeze({ text: '', state: 'receiving', review }) : null; this.busy = true; const aborter = new AbortController(); this.aborter = aborter;
             const current = () => {
                 check(!aborter.signal.aborted, 'CANCELLED');
                 this.current(review.generation); check(this.aborter === aborter, 'STALE');
@@ -172,12 +173,25 @@
                 await wait(() => this.ensureActive());
                 check(await wait(() => this.permissions.contains({ origins: [review.request.permission] })), 'PERMISSION');
                 await wait(() => this.ensureActive());
-                const response = await wait(() => this.transport.run(review.request, { key, signal: aborter.signal }));
+                const response = await wait(() => this.transport.run(review.request, { key, signal: aborter.signal,
+                    stream: review.packed.stream === true,
+                    onText: value => {
+                        current();
+                        check(review.packed.mode === 'answer' && review.packed.stream, 'STALE');
+                        text(value, LIMITS.prompt, true);
+                        this.partial = Object.freeze({ text: value, state: 'receiving', review });
+                        onProgress();
+                    } }));
                 await wait(() => this.ensureActive()); current();
                 text(response.text, LIMITS.prompt);
-                this.resultReview = review; this.saved = false; this.saveUncertain = false; this.taskReview = null;
+                this.partial = null; this.resultReview = review; this.saved = false; this.saveUncertain = false; this.taskReview = null;
                 this.result = Object.freeze({ text: response.text, model: review.request.model, origin: review.request.origin, mode: review.packed.mode });
                 return this.result;
+            } catch (error) {
+                if (this.aborter === aborter && this.partial?.review === review) {
+                    this.partial = Object.freeze({ ...this.partial, state: aborter.signal.aborted ? 'stopped' : 'failed' });
+                }
+                throw error;
             } finally {
                 key = '';
                 // A stopped request must never unlock or clear a newer request.
@@ -188,11 +202,12 @@
             const aborter = this.aborter;
             if (!aborter) return; // Local writes retain their existing transaction fence.
             aborter.abort();
+            if (this.partial?.state === 'receiving') this.partial = Object.freeze({ ...this.partial, state: 'stopped' });
             if (this.aborter === aborter) { this.aborter = null; this.busy = false; }
         }
         editResult(value) {
             check(this.result && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
-            text(value, LIMITS.prompt, true); this.generation++; this.reviewed = this.localReview = this.taskReview = null;
+            text(value, LIMITS.prompt, true); this.generation++; this.partial = null; this.reviewed = this.localReview = this.taskReview = null;
             this.result = Object.freeze({ ...this.result, text: value });
         }
         async reviewTasks() {
@@ -245,7 +260,7 @@
                 endpoint: request.url, model: request.model, prompt: request.prompt });
         }
         async saveAnswer(title, { includeContext = false } = {}) {
-            check(this.result?.mode === 'answer' && !this.busy && !this.saved && !this.closed, 'STALE'); titleText(title);
+            check(!this.partial && this.result?.mode === 'answer' && !this.busy && !this.saved && !this.closed, 'STALE'); titleText(title);
             check(typeof includeContext === 'boolean');
             const generation = this.generation; this.busy = true;
             try {
@@ -280,7 +295,7 @@
                 return result;
             } finally { this.busy = false; }
         }
-        close() { this.closed = true; this.generation++; this.stop(); this.reviewed = this.localReview = this.result = this.resultReview = this.taskReview = null; }
+        close() { this.closed = true; this.generation++; this.stop(); this.partial = this.reviewed = this.localReview = this.result = this.resultReview = this.taskReview = null; }
     }
     function createController({ workspaces, tasks: Tasks, collections: Collections, scratchpad: Scratchpad, transport, permissions }) {
         const session = workspaces.session;

@@ -5837,5 +5837,23 @@
   },
   "navigationTagPdfComparison": {
     "message": "PDF comparison"
+  },
+  "aiContextStream": {
+    "message": "Show answer progressively (optional)"
+  },
+  "aiContextStreamHelp": {
+    "message": "Off by default; Answer only. Incomplete text cannot be saved or copied as an answer. Switching away from this page stops the request. This is not a background task. Provider streaming compatibility has not been verified with real accounts."
+  },
+  "aiContextStreamOn": {
+    "message": "Progressive answer: on"
+  },
+  "aiContextStreamOff": {
+    "message": "Progressive answer: off"
+  },
+  "aiContextStreamReceiving": {
+    "message": "Receiving an incomplete answer. Save and copy remain unavailable until the complete response is validated."
+  },
+  "aiContextStreamIncomplete": {
+    "message": "Incomplete answer: stopped or failed. This text is not a completed response and cannot be saved or copied as an answer. Review or explicitly send again to retry, or clear the draft. Any previous response is kept separately and becomes visible after a new review or edit."
   }
 }
