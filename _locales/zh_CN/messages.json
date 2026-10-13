@@ -5728,5 +5728,8 @@
   },
   "promptsDraftExcerptHelp": {
     "message": "核对已收藏摘录的完整正文和旧值，再只替换这个草稿临时变量。不会自动保存、复制或发送。"
+  },
+  "collectionsFilterByTag": {
+    "message": "按标签筛选"
   }
 }

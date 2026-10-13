@@ -511,3 +511,7 @@ The Prompt library's **Compare models** action can send the same reviewed prompt
 ### Check an earlier AI answer save
 
 If persistence succeeded but its readback failed, the answer panel retains the original operation, title and snapshot choice. **Check earlier save** only reads the original receipt: it does not call the provider, write or re-save content, or request new permissions. Only an exact operation digest with valid current collection-state evidence unlocks the draft. Confirmation acknowledges historical success, not the answer's current presence: it may since have been changed, removed or restored. Backup replacement, recovery, expired receipts or unreadable storage can make verification unavailable; without valid evidence the original operation stays locked rather than guessing success.
+
+### Filter saved excerpts by a detail tag
+
+Click a real tag in a saved or archived excerpt’s details to apply the existing exact tag filter. Type and tool labels remain text. Search, type, tool and archive scope still intersect; comma-bearing and Unicode tags stay intact. The selected detail, focus and unsaved drafts are preserved, with no storage write. The tag dropdown and pressed state stay in sync; use Clear filters to reset.

@@ -109,6 +109,7 @@
         async leave(href) { if (this.controller.busy || this.controller.pendingCommand) return; if (await this.confirm({ title: this.t('Leave', 'Leave this page?'), body: this.t('LeaveBody', 'Unsaved drafts live only in this tab and will be lost.'), accept: this.t('Leave', 'Leave this page?') })) root.location.assign(href); }
         renderList() {
             const c = this.controller; this.search.value = c.filters.query;
+            for (const button of this.main.querySelectorAll('[data-collection-tag]')) button.setAttribute('aria-pressed', String(c.filters.tag === button.dataset.collectionTag));
             for (const [mode, node] of Object.entries(this.nav)) node.setAttribute('aria-pressed', String(c.filters.mode === mode));
             for (const [name, select] of Object.entries(this.filters)) {
                 const values = name === 'type' ? ['answer', 'code', 'plan', 'other'] : [...new Set((c.state?.records || []).flatMap(record => name === 'tag' ? record.tags : [record.tool]).filter(Boolean))].sort();
@@ -296,7 +297,22 @@
                 const note = this.el('div', 'prompt-conflict'); note.append(this.paragraph('ProposalKept', 'A proposed excerpt is kept in this tab. Resume its review or discard it.'), this.button('ResumeRevision', 'Resume revision', () => this.revise(record)), this.button('ProposalAsNew', 'Use proposed text in a new draft', () => this.proposalAsNew(record)), this.button('DiscardProposal', 'Discard proposed text', async () => { if (await this.confirm({ title: this.t('DiscardProposal', 'Discard proposed text'), body: this.t('DiscardBody', 'Discard only this unsaved draft? Saved content is unchanged.'), accept: this.t('Discard', 'Discard draft') })) { this.proposals.delete(record.id); this.render(); } })); this.main.append(note);
             }
             const c = this.controller, top = this.el('div', 'prompt-detail-top'); top.append(this.el('h2', '', record.title));
-            const meta = this.el('div', 'prompt-meta'); for (const text of [this.t(record.type, record.type), record.tool, ...record.tags].filter(Boolean)) meta.append(this.el('span', 'prompt-tag', text)); top.append(meta);
+            const meta = this.el('div', 'prompt-meta');
+            for (const text of [this.t(record.type, record.type), record.tool].filter(Boolean)) meta.append(this.el('span', 'prompt-tag', text));
+            const generation = this.detailGeneration;
+            for (const tag of record.tags) {
+                const button = this.el('button', 'prompt-tag prompt-tag-filter', tag); button.type = 'button';
+                button.dataset.collectionTag = tag;
+                button.setAttribute('aria-label', `${this.t('FilterByTag', 'Filter by tag')}: ${tag}`);
+                button.setAttribute('aria-pressed', String(c.filters.tag === tag));
+                button.addEventListener('click', () => {
+                    if (button.disabled || !button.isConnected || this.destroyed || c.disposed || c.busy || c.pendingCommand ||
+                        this.openDialog || this.detailGeneration !== generation || c.draft() || c.record() !== record) return;
+                    c.filter({ tag });
+                });
+                meta.append(button);
+            }
+            top.append(meta);
             top.append(this.el('p', 'prompt-dates', `${this.t('Updated', 'Updated')} ${new Date(record.updatedAt).toLocaleString()} · ${record.history.length}/20 ${this.t('Versions', 'body versions')}`));
             const actions = this.el('div', 'prompt-actions');
             if (!record.deletedAt) actions.append(this.button('Edit', 'Edit details', () => c.edit()), this.button('Revise', 'Revise excerpt', () => this.revise(record)), this.button('Archive', 'Archive', () => c.action('remove')));

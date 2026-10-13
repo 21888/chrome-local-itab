@@ -5728,5 +5728,8 @@
   },
   "promptsDraftExcerptHelp": {
     "message": "Review the exact saved body and previous value, then replace only this temporary draft variable. Nothing is saved, copied or sent."
+  },
+  "collectionsFilterByTag": {
+    "message": "Filter by tag"
   }
 }
