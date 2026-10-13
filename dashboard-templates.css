@@ -416,6 +416,17 @@
   padding: 0;
   text-align: left;
 }
+/* Keep the original three templates as compact and wrappable as the gallery. */
+:root:is([data-dashboard-template="clarity"], [data-dashboard-template="graphite"], [data-dashboard-template="folio"]) #dashboard .shortcuts-header {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+:root:is([data-dashboard-template="clarity"], [data-dashboard-template="graphite"], [data-dashboard-template="folio"]) #dashboard .shortcuts-header > * {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 :root[data-dashboard-template] #dashboard .shortcuts-title {
   margin: 0;
   font-size: 14px;
