@@ -1473,3 +1473,85 @@ test('native checkbox change after external invalidation but before refresh rest
  await layout.invalidate();pick.checked=true;pick.dispatch('change');assert.equal(pick.checked,false);assert.equal(pick.disabled,true);assert.match(selectionCount(h),/0 \/ 20/);assert.equal(h.calls,0);
  const normal=model();await normal.view.open();normal.search('phet');let current=normal.document.querySelector('.navigation-library-pick input');current.checked=true;current.dispatch('change');current=normal.document.querySelector('.navigation-library-pick input');assert.equal(current.checked,true);assert.equal(current.disabled,false);current.checked=false;current.dispatch('change');assert.match(selectionCount(normal),/0 \/ 20/);assert.equal(normal.calls,0);
 });
+
+test('keyboard refresh retains panel-local Escape and Tab while read is pending',async()=>{
+ for(const key of ['Escape','Tab']) {
+  const h=model(),pending=deferred();h.button('Discover sites').focus();await h.view.open();h.read=pending;
+  const refresh=h.document.querySelector('.navigation-library-refresh-saved');refresh.focus();refresh.dispatch('click');
+  assert.equal(refresh.disabled,true);assert.ok(h.document.activeElement === h.document.querySelector('.navigation-library-panel'));
+  const event=h.document.activeElement.dispatch('keydown',{key});
+  if(key==='Escape')assert.equal(h.document.querySelector('.navigation-library-overlay'),null);
+  else {
+   // Native Tab advances from the focusable panel to its first enabled control.
+   // This DOM model intentionally does not synthesize default keyboard movement.
+   assert.equal(event.prevented,false);const close=h.document.querySelector('.navigation-library-close');assert.equal(close.disabled,false);close.focus();
+  }
+  pending.resolve(h.snapshot);await tick();
+  if(key==='Escape')assert.ok(h.document.activeElement === h.button('Discover sites'));
+  else assert.ok(h.document.activeElement === h.document.querySelector('.navigation-library-close'));
+  assert.equal(h.calls,0);
+ }
+});
+test('keyboard refresh restores only its temporary focus on success or failure, never steals intentional focus',async()=>{
+ for(const failure of [false,true])for(const moved of [false,true]) {
+  const h=model(),pending={};pending.promise=new Promise((resolve,reject)=>Object.assign(pending,{resolve,reject}));h.button('Discover sites').focus();await h.view.open();h.read=pending;
+  const refresh=h.document.querySelector('.navigation-library-refresh-saved'),close=h.document.querySelector('.navigation-library-close');refresh.focus();refresh.dispatch('click');
+  if(moved)close.focus();
+  if(failure)pending.reject(new Error('offline'));else pending.resolve(h.snapshot);await tick();
+  assert.ok(h.document.activeElement === (moved?close:refresh));assert.equal(refresh.disabled,false);assert.equal(h.calls,0);
+ }
+});
+test('invalidated selection blocks every batch path before and after read-only refresh',async()=>{
+ for(const refreshed of [false,true]) {
+  const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');
+  const select=h.document.querySelector('.navigation-library-select-results');await layout.invalidate();
+  if(refreshed){h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();assert.equal(select.disabled,true);assert.equal(select.dataset.unavailable,'true');}
+  select.dispatch('click');assert.match(selectionCount(h),/0 \/ 20/);assert.equal(h.calls,0);
+ }
+ const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');h.document.querySelector('.navigation-library-select-results').dispatch('click');
+ await layout.invalidate();h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();
+ for(const selector of ['.navigation-library-clear', '.navigation-library-deselect-results']) {
+  const control=selector==='.navigation-library-clear'?h.button('Clear selection'):h.document.querySelector(selector);assert.equal(control.disabled,true);control.dispatch('click');assert.match(selectionCount(h),/1 \/ 20/);
+ }
+ assert.equal(h.document.querySelector('.navigation-library-batch-review').disabled,true);assert.equal(h.firstAdd().disabled,true);assert.equal(h.calls,0);
+});
+test('read-only refreshed selected view can exit or reset filters after its last selection becomes saved',async()=>{
+ for(const exit of ['toggle','empty','clear']) {
+  const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');h.document.querySelector('.navigation-library-select-results').dispatch('click');h.document.querySelector('.navigation-library-selected-only').dispatch('click');
+  h.snapshot.links=[{url:'https://phet.colorado.edu/',category:'personal'}];await layout.invalidate();h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();
+  assert.match(selectionCount(h),/0 \/ 20/);assert.equal(h.document.querySelectorAll('article').length,0);
+  const control=exit==='toggle'?h.document.querySelector('.navigation-library-selected-only'):exit==='empty'?h.document.querySelector('.navigation-library-empty-recover'):h.button('Clear filters');
+  assert.equal(control.disabled,false);control.focus();control.dispatch('click');assert.ok(h.document.querySelectorAll('article').length>0);assert.equal(h.document.querySelector('.navigation-library-selected-only').getAttribute('aria-pressed'),'false');
+  assert.notEqual(h.document.activeElement,h.document.body);assert.equal(h.firstAdd().disabled,true);assert.equal(layout.controller.invalidated,true);assert.equal(h.calls,0);
+ }
+});
+test('review removal rejects layout invalidation without changing selection or losing keyboard focus',async()=>{
+ const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();
+ for(const query of ['phet','chatgpt']){h.search(query);h.document.querySelector('.navigation-library-select-results').dispatch('click');}
+ h.document.querySelector('.navigation-library-batch-review').dispatch('click');await layout.invalidate();
+ const remove=h.document.querySelector('.navigation-library-review-remove');remove.focus();remove.dispatch('click');
+ assert.match(selectionCount(h),/2 \/ 20/);assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);assert.ok(h.document.activeElement === remove);assert.match(h.document.querySelector('.navigation-library-status').textContent,/Reload this page/);assert.equal(h.calls,0);
+ remove.dispatch('keydown',{key:'Escape'});assert.equal(h.document.querySelector('.navigation-library-overlay'),null);
+});
+test('rejected native checkbox toggle transfers focus before disabling its owner',async()=>{
+ const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');const pick=h.document.querySelector('.navigation-library-pick input');pick.focus();await layout.invalidate();pick.checked=true;pick.dispatch('change');
+ assert.equal(pick.checked,false);assert.equal(pick.disabled,true);assert.ok(h.document.activeElement === h.document.querySelector('.navigation-library-panel'));h.document.activeElement.dispatch('keydown',{key:'Escape'});assert.equal(h.document.querySelector('.navigation-library-overlay'),null);assert.equal(h.calls,0);
+});
+
+
+test('canceling a review after rejected invalidated confirmation returns to an enabled browsing target',async()=>{
+ for(const change of ['invalidated','pending']) {
+  const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');h.document.querySelector('.navigation-library-select-results').dispatch('click');h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+  if(change==='invalidated')await layout.invalidate();else h.component._pendingSave=true;
+  const confirm=h.document.querySelector('.navigation-library-batch-confirm');confirm.focus();confirm.dispatch('click');await tick();
+  assert.equal(h.document.querySelector('.navigation-library-batch-review').disabled,true);
+  const cancel=h.document.querySelector('.navigation-library-review-cancel');cancel.focus();cancel.dispatch('click');
+  assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);assert.ok(h.document.activeElement===h.document.querySelector('input'));assert.match(selectionCount(h),/1 \/ 20/);assert.equal(h.calls,0);
+  h.document.activeElement.dispatch('keydown',{key:'Escape'});assert.equal(h.document.querySelector('.navigation-library-overlay'),null);
+ }
+});
+test('retired review removal cannot change a newer review status after invalidation',async()=>{
+ const h=model(),layout=actualLayoutForRefresh(h);await h.view.open();h.search('phet');h.document.querySelector('.navigation-library-select-results').dispatch('click');h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+ const retired=h.document.querySelector('.navigation-library-review-remove');h.document.querySelector('.navigation-library-review-cancel').dispatch('click');h.document.querySelector('.navigation-library-batch-review').dispatch('click');await layout.invalidate();
+ const status=h.document.querySelector('.navigation-library-status'),before=status.textContent;retired.dispatch('click');assert.equal(status.textContent,before);assert.match(selectionCount(h),/1 \/ 20/);assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);assert.equal(h.calls,0);
+});

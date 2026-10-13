@@ -37,7 +37,7 @@
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
         let overlay, panel, cleanup, cleanupSearchShortcut, cleanupComposition, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchDeselect, batchHelp, batchSelectedOnly, batchHiddenCount, reviewPanel, reviewConfirm;
-        let refreshSavedButton, privacySummary, refreshing = false, readTicket = 0;
+        let refreshSavedButton, resetFiltersButton, privacySummary, refreshing = false, readTicket = 0;
         let clearFilters = () => {}, leaveSelectedOnly = () => {};
         let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
         let newCategoryMode = false, draftName = '', compositionTarget = null, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
@@ -105,7 +105,11 @@
         }
         function setControls() {
             for (const node of overlay.querySelectorAll('.navigation-library-add, .navigation-library-batch-review')) { if (externalWorkPending()) node.dataset.unavailable = 'true'; }
-            for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || (refreshing && !node.classList.contains('navigation-library-close')) || node.dataset.unavailable === 'true';
+            for (const node of overlay.querySelectorAll('button, input, select')) {
+                const disabled = writing || (refreshing && !node.classList.contains('navigation-library-close')) || node.dataset.unavailable === 'true';
+                if (disabled && document.activeElement === node) panel.focus();
+                node.disabled = disabled;
+            }
             refreshReadControl();
         }
         async function open() {
@@ -234,8 +238,8 @@
 
             const toolbar = el('div', undefined, 'navigation-library-toolbar');
             count = el('span', '', 'navigation-library-count'); count.setAttribute('role', 'status'); toolbar.append(count);
-            clearFilters = () => { if (owner !== revision || selectionUnavailable()) return; selectedOnly = false; criteria = {}; search.value = ''; for (const select of filtersPanel.querySelectorAll('select')) select.value = ''; refreshTagOptions(); refreshCategories(); renderResults(); search.focus(); };
-            const reset = button(t('clear'), clearFilters, 'navigation-library-clear'); toolbar.append(reset);
+            clearFilters = () => { if (owner !== revision || browsingUnavailable()) return; selectedOnly = false; criteria = {}; search.value = ''; for (const select of filtersPanel.querySelectorAll('select')) select.value = ''; refreshTagOptions(); refreshCategories(); renderResults(); search.focus(); };
+            const reset = resetFiltersButton = button(t('clear'), clearFilters, 'navigation-library-clear'); toolbar.append(reset);
             const refreshControl = refreshSavedButton = button(t('refreshSaved'), () => { if (owner === revision && refreshControl.isConnected) refreshSavedState(); }, 'navigation-library-refresh-saved'); toolbar.append(refreshSavedButton);
             const destinationLabel = el('label', t('destination'), 'navigation-library-destination'); destination = el('select'); destination.setAttribute('aria-label', t('destination'));
             const active = root.categoryNavigation?.getCurrentCategory?.();
@@ -260,9 +264,9 @@
                 if (owner !== revision || !batchClear.isConnected || selectionUnavailable()) return;
                 selected.clear(); renderResults(); (selectedOnly ? batchSelectedOnly : search).focus();
             }, 'navigation-library-clear');
-            leaveSelectedOnly = () => { if (owner !== revision || selectionUnavailable()) return; selectedOnly = false; renderResults(); batchSelectedOnly.focus(); };
+            leaveSelectedOnly = () => { if (owner !== revision || browsingUnavailable()) return; selectedOnly = false; renderResults(); batchSelectedOnly.focus(); };
             const selectedToggle = batchSelectedOnly = button(t('selectedOnly'), () => {
-                if (owner !== revision || !selectedToggle.isConnected || selectionUnavailable()) return;
+                if (owner !== revision || !selectedToggle.isConnected || browsingUnavailable()) return;
                 selectedOnly = !selectedOnly; renderResults(); selectedToggle.focus();
             }, 'navigation-library-selected-only');
             batchHiddenCount = el('span', '', 'navigation-library-hidden-selected');
@@ -350,6 +354,7 @@
         function refreshReadControl() {
             if (!refreshSavedButton?.isConnected) return;
             refreshSavedButton.dataset.unavailable = String(Boolean(refreshUnavailable() || reviewed || refreshing));
+            if (refreshSavedButton.dataset.unavailable === 'true' && document.activeElement === refreshSavedButton) panel.focus();
             refreshSavedButton.disabled = refreshSavedButton.dataset.unavailable === 'true';
         }
         async function refreshSavedState() {
@@ -358,6 +363,8 @@
             const workspace = store.workspace, workspaceId = workspace?.id, lifecycle = root.LocalItabContentLifecycle;
             const layoutOwner = component.layoutController, layoutVersion = layoutOwner?.version, layoutGeneration = layoutOwner?.generation, mutationEpoch = layoutOwner?.shortcutMutationEpoch;
             const restoreFocus = document.activeElement === refreshSavedButton;
+            // Move focus before disabling its owner so panel-local Escape/Tab still work.
+            if (restoreFocus) ownedPanel.focus();
             refreshing = busy = true; setControls(); status.textContent = t('refreshingSaved');
             const owns = () => owner === revision && ticket === readTicket && panel === ownedPanel && ownedPanel.isConnected;
             const sameContext = () => store === root.storageManager && workspace === store.workspace && workspaceId === store.workspace?.id &&
@@ -387,7 +394,7 @@
                 if (owns()) {
                     refreshing = busy = false;
                     refreshResultSelection(); setControls();
-                    if (restoreFocus && (!document.activeElement || document.activeElement === document.body || document.activeElement === refreshSavedButton)) refreshSavedButton.focus();
+                    if (restoreFocus && !refreshSavedButton.disabled && document.activeElement === ownedPanel) refreshSavedButton.focus();
                 }
             }
         }
@@ -439,12 +446,12 @@
             refreshCurrentDeselection();
             const additions = currentResultSelection(), overLimit = selected.size + additions.length > 20;
             batchSelect.textContent = `${t('selectResults')} (${additions.length})`;
-            batchSelect.dataset.unavailable = String(!additions.length || overLimit || blocked || Boolean(reviewed));
+            batchSelect.dataset.unavailable = String(!additions.length || overLimit || Boolean(selectionUnavailable()) || isComposing() || Boolean(reviewed));
             batchSelect.disabled = writing || batchSelect.dataset.unavailable === 'true';
             batchHelp.textContent = t(overLimit ? 'selectionLimit' : 'selectionHelp');
         }
         function selectCurrentResults() {
-            if (writing || blocked || reviewed || !snapshot || root.LocalItabContentLifecycle?.departing) return;
+            if (selectionUnavailable() || isComposing() || reviewed) return;
             const additions = currentResultSelection();
             if (!additions.length || selected.size + additions.length > 20) return;
             additions.forEach(id => selected.add(id));
@@ -455,9 +462,10 @@
         function selectionUnavailable() {
             return busy || writing || blocked || !snapshot || root.LocalItabContentLifecycle?.departing || externalWorkPending();
         }
-        function refreshUnavailable() {
+        function browsingUnavailable() {
             return busy || writing || blocked || !snapshot || root.LocalItabContentLifecycle?.departing || externalWorkPending(true);
         }
+        function refreshUnavailable() { return browsingUnavailable(); }
         function readOnlyInvalidatedLayout(controller) {
             // Only the known controller's invalidation-derived modePending is
             // safe to ignore for reads. Never adopt/clear its write fence.
@@ -479,7 +487,9 @@
             batchCount.textContent = `${selected.size} / 20 ${t('selected')}`;
             batchReview.dataset.unavailable = String(!selected.size || (!newCategoryMode && !validDestination()) || blocked || externalWorkPending());
             batchClear.dataset.unavailable = String(!selected.size || selectionUnavailable());
-            batchSelectedOnly.dataset.unavailable = String(Boolean(selectionUnavailable()));
+            resetFiltersButton.dataset.unavailable = String(Boolean(browsingUnavailable()));
+            resetFiltersButton.disabled = resetFiltersButton.dataset.unavailable === 'true';
+            batchSelectedOnly.dataset.unavailable = String(Boolean(browsingUnavailable()));
             batchSelectedOnly.disabled = batchSelectedOnly.dataset.unavailable === 'true';
             batchSelectedOnly.setAttribute('aria-pressed', String(selectedOnly));
             const visibleSelected = selectableResults.filter(site => selected.has(site.id)).length;
@@ -509,7 +519,11 @@
                 if (batch) {
                     row.append(el('span', `${site.name} · ${site.url}`));
                     const remove = button(t('removeSelection'), () => {
-                        if (writing || blocked || reviewed !== confirmation || !selected.has(site.id) || root.LocalItabContentLifecycle?.departing) return;
+                        if (reviewed !== confirmation || !selected.has(site.id)) return;
+                        if (selectionUnavailable()) {
+                            if (externalWorkPending()) status.textContent = t(component.layoutController?.invalidated ? 'refreshReload' : 'layout');
+                            return;
+                        }
                         selected.delete(site.id);
                         // Refresh cards/counts and retire every closure from the old review.
                         // Rebuilding the review creates a new immutable confirmation.
@@ -529,7 +543,12 @@
             });
             reviewPanel.append(list);
             if (snapshot.privacy) reviewPanel.append(el('p', `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}`));
-            const cancel = button(t('cancelSelection'), () => { if (reviewed !== confirmation) return; invalidateReview(); refreshResultSelection(); (batch ? batchReview : nameInput).focus(); }, 'navigation-library-review-cancel');
+            const cancel = button(t('cancelSelection'), () => {
+                if (reviewed !== confirmation) return;
+                invalidateReview(); refreshResultSelection();
+                const target = batch ? batchReview : nameInput;
+                (target?.isConnected && !target.disabled && !target.closest('[hidden]') ? target : !search.disabled ? search : panel).focus();
+            }, 'navigation-library-review-cancel');
             reviewConfirm = button(newCategoryMode ? `${t('createAndAdd')} (${sites.length})` : t('confirmSelection'), () => { if (reviewed === confirmation) save(batch ? sites : sites[0], batch, confirmation); }, 'navigation-library-batch-confirm');
             reviewPanel.append(cancel, reviewConfirm); reviewPanel.hidden = false; refreshResultSelection(); reviewConfirm.focus();
         }
@@ -575,10 +594,10 @@
                 if (!catalogEmpty && hiddenSelection) empty.append(el('p', `${t('hiddenSelected')}: ${selected.size}`));
                 if (!catalogEmpty) {
                     const recover = button(t(noSelection ? 'browseAll' : 'clear'), () => {
-                        if (owner !== revision || !recover.isConnected || recover.disabled || selectionUnavailable()) return;
+                        if (owner !== revision || !recover.isConnected || recover.disabled || browsingUnavailable()) return;
                         (noSelection ? leaveSelectedOnly : clearFilters)();
                     }, 'navigation-library-clear navigation-library-empty-recover');
-                    recover.dataset.unavailable = String(Boolean(selectionUnavailable()));
+                    recover.dataset.unavailable = String(Boolean(browsingUnavailable()));
                     recover.disabled = recover.dataset.unavailable === 'true';
                     recover.addEventListener('keydown', event => {
                         if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
@@ -603,7 +622,10 @@
                         // Native change toggles checked before this handler runs.
                         // Keep the visual state faithful when a read-only fence rejects it.
                         pick.checked = selected.has(site.id);
-                        if (selectionUnavailable()) { pick.dataset.unavailable = 'true'; pick.disabled = true; }
+                        if (selectionUnavailable()) {
+                            if (document.activeElement === pick) panel.focus();
+                            pick.dataset.unavailable = 'true'; pick.disabled = true;
+                        }
                         return;
                     }
                     const index = Array.from(results.children).findIndex(node => node.dataset.site === site.id);
