@@ -6,12 +6,21 @@ const Core = require('../shared/local-prompts-store');
 const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick, settle } = require('./helpers/prompts-harness');
-async function mount({ safeReader = false, locale, clipboard, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
+async function mount({ safeReader = false, normalizeTextareas = false, locale, clipboard, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
     const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic prompt', body);
-    const doc = createDocument({ blurUnavailableFocus: true }), events = new Map(); let runs = 0, grants = 0, writes = 0, command;
+    const doc = createDocument({ blurUnavailableFocus: true }), events = new Map(), eventHandlers = new Map(); let runs = 0, grants = 0, writes = 0, command;
+    if (normalizeTextareas) {
+        const create = doc.createElement;
+        doc.createElement = tag => {
+            const element = create(tag);
+            if (tag.toLowerCase() === 'textarea') { let value = ''; Object.defineProperty(element, 'value', { get: () => value, set: text => { value = String(text).replace(/\r\n?/g, '\n'); } }); }
+            return element;
+        };
+    }
     const root = { document: doc, LocalItabPrompts: Core, LocalItabAIPromptRefinement: require('../shared/ai-prompt-refinement'), LocalItabAIModel: { ...Client, run: async (...args) => { runs++; return run ? run(...args) : { text: '<script>synthetic output</script>', model: 'fixture-model', origin: 'https://synthetic.test' }; } },
         chrome: { permissions: { contains, request: async (...args) => { grants++; return request(...args); } } }, confirm: () => true,
-        addEventListener: (name, fn) => events.set(name, fn), removeEventListener: name => events.delete(name) };
+        addEventListener(name, fn) { const handlers = eventHandlers.get(name) || new Set(); handlers.add(fn); eventHandlers.set(name, handlers); events.set(name, event => { for (const handler of [...handlers]) handler(event); }); },
+        removeEventListener(name, fn) { const handlers = eventHandlers.get(name); handlers?.delete(fn); if (!handlers?.size) { eventHandlers.delete(name); events.delete(name); } } };
     let readerParses = 0;
     const context = vm.createContext({ window: root, AbortController, setTimeout, clearTimeout });
     if (safeReader) {
@@ -19,12 +28,12 @@ async function mount({ safeReader = false, locale, clipboard, run, contains = as
         root.marked = { Lexer: class extends Marked.Lexer { lex(source) { readerParses++; return super.lex(source); } } };
         vm.runInContext(fs.readFileSync(`${__dirname}/../shared/safe-answer-reader.js`, 'utf8'), context);
     }
-    for (const file of ['shared/dialog-focus.js', 'shared/ai-model-comparison.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
+    for (const file of ['shared/dialog-focus.js', 'shared/local-prompts-view.js', 'shared/ai-model-comparison.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
     const catalog = locale ? JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8')) : {};
     root.i18n = { t: key => catalog[key]?.message || key };
     const view = { doc, clipboard, controller: h.controller, t: (key, fallback) => catalog[`prompts${key}`]?.message || fallback,
         el(tag, className, text) { const el = doc.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; },
-        button(name, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
+        button(name, fallback, action) { const b = this.el('button', '', this.t(name, fallback)); b.addEventListener('click', action); return b; } };
     const store = { request(kind, values) { return { kind, ...values, operationId: 'synthetic_operation' }; }, async mutate(value, validator) { writes++; command = value; assert.equal(validator(h.raw, value.promptRef), true); return mutate(value); } };
     const ui = root.LocalItabAIModelView.open({ view, collectionStore: store, presetStore, mode });
     ui.url.value = 'https://synthetic.test/v1/chat/completions'; ui.model.value = 'fixture-model';
@@ -877,4 +886,189 @@ test('code copy: pending single-model write blocks a reopened comparison until t
     assert.equal(oldStatus.textContent, ''); assert.equal(reader.querySelector('.answer-reader-copy-status').textContent, '');
     await click(button); assert.deepEqual(copies, ['fixture-model synthetic code', 'new-model synthetic code']);
     await click(next.close); h.h.controller.dispose();
+});
+
+async function refinedDifference(options = {}) {
+    const h = await mount({ mode: 'refine', body: 'Original {{topic}}\nShared line\n', run: async () => ({ text: 'Revised {{topic}}\nShared line\n' }), ...options });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send); return h;
+}
+function differenceBodies(ui) {
+    const groups = ui.difference.querySelector('.prompt-compare-changes').children;
+    return {
+        before: groups.filter(group => !group.classList.contains('prompt-compare-added')).map(group => group.querySelector('pre').textContent).join(''),
+        after: groups.filter(group => !group.classList.contains('prompt-compare-removed')).map(group => group.querySelector('pre').textContent).join('')
+    };
+}
+for (const locale of ['en', 'zh_CN']) test(`refinement differences: explicit, localized, literal and never a save (${locale})`, async () => {
+    const body = '<script>Original {{topic}}</script>\r\nShared 中文 🧪\n';
+    const proposed = '<img src="https://synthetic.test/pixel">Revised {{topic}}\r\nShared 中文 🧪\n';
+    const h = await refinedDifference({ locale, body, run: async () => ({ text: proposed }) });
+    const catalog = JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`));
+    const writes = h.h.writes, version = h.h.controller.record().currentVersionId;
+    assert.equal(h.ui.compareText.textContent, catalog.promptsModelRefineDiffOpen.message);
+    assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.difference.children.length, 0);
+    assert.equal(h.ui.compareText.getAttribute('aria-expanded'), 'false');
+    assert.equal(h.ui.compareText.getAttribute('aria-controls'), h.ui.difference.id);
+    h.ui.compareText.focus(); await click(h.ui.compareText);
+    assert.equal(h.ui.difference.hidden, false); assert.equal(h.ui.compareText.getAttribute('aria-expanded'), 'true');
+    assert.deepEqual(differenceBodies(h.ui), { before: body, after: proposed });
+    assert.equal(h.ui.difference.querySelector('h3').textContent, catalog.promptsModelRefineDiffTitle.message);
+    assert.ok(h.ui.difference.querySelectorAll('p').some(node => node.textContent === catalog.promptsModelRefineDiffHelp.message));
+    assert.equal(h.ui.difference.querySelectorAll('script,img,iframe,a,svg,style').length, 0);
+    assert.equal(h.runs, 1); assert.equal(h.grants, 0); assert.equal(h.h.writes, writes);
+    assert.equal(h.h.controller.record().currentVersionId, version);
+    const close = h.ui.difference.querySelector('button'); close.focus(); await click(close);
+    assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.difference.hidden, true); assert.equal(h.doc.activeElement, h.ui.compareText);
+    await click(h.ui.compareText); await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: CRLF/CR remain exact despite native textarea display normalization', async () => {
+    const body = 'Original {{topic}}\r\nShared\rFinal\n', proposal = 'Revised {{topic}}\r\nShared\rFinal';
+    const h = await refinedDifference({ normalizeTextareas: true, body, run: async () => ({ text: proposal }) });
+    assert.equal(h.ui.before.value, body.replace(/\r\n?/g, '\n')); assert.equal(h.ui.output.value, proposal.replace(/\r\n?/g, '\n'));
+    await click(h.ui.compareText); assert.deepEqual(differenceBodies(h.ui), { before: body, after: proposal });
+    const paragraphs = h.ui.difference.querySelectorAll('p').map(node => node.textContent).join('\n');
+    assert.match(paragraphs, /Saved template · Line endings: CRLF 1 · LF 1 · CR 1 · Ends with newline: Yes/);
+    assert.match(paragraphs, /Unsaved draft · Line endings: CRLF 1 · LF 0 · CR 1 · Ends with newline: No/);
+    await click(h.ui.trialButton); await tick(); assert.ok(h.ui.trial, 'native-normalized display still owns the exact proposal');
+    assert.equal(h.ui.difference.children.length, 0); await click(h.ui.trial.close);
+    assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.compareText.disabled, false);
+    await click(h.ui.save); await settle(h.h.controller);
+    assert.equal(h.h.controller.record().body, proposal); assert.equal(h.h.controller.record().history[0].body, body);
+    assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.compareText.disabled, true); await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: edits clear old snapshots and a fresh explicit click uses only the current draft', async () => {
+    const h = await refinedDifference(); let calls = 0;
+    const compare = h.root.LocalItabPromptsView.compareBodies;
+    h.root.LocalItabPromptsView.compareBodies = (...args) => { calls++; return compare(...args); };
+    await click(h.ui.compareText); assert.equal(calls, 1);
+    h.ui.output.focus(); h.ui.output.value = 'Locally edited {{topic}}\r\n'; h.ui.output.dispatch('input');
+    assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.difference.hidden, true); assert.equal(h.doc.activeElement, h.ui.output);
+    assert.equal(calls, 1); await click(h.ui.compareText); assert.equal(calls, 2);
+    assert.equal(differenceBodies(h.ui).after, 'Locally edited {{topic}}\r\n');
+    assert.equal(h.ui.originalOutput.value, 'Revised {{topic}}\nShared line\n');
+    h.ui.output.value = 'Revised {{topic}}\nShared line\n'; h.ui.output.dispatch('input');
+    assert.equal(h.ui.difference.hidden, true); assert.equal(calls, 2);
+    await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.controller.record().body, 'Revised {{topic}}\nShared line\n');
+    assert.equal(h.ui.difference.hidden, true); assert.equal(h.runs, 1); await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: invalid, empty and unchanged drafts remain inspectable but cannot be accepted', async () => {
+    const h = await refinedDifference({ run: async () => ({ text: 'Missing variables' }) }); const writes = h.h.writes;
+    for (const draft of ['Missing variables', '', 'Original {{topic}}\nShared line\n']) {
+        h.ui.output.value = draft; h.ui.output.dispatch('input');
+        assert.equal(h.ui.save.disabled, true); assert.equal(h.ui.trialButton.disabled, true); assert.equal(h.ui.compareText.disabled, false);
+        await click(h.ui.compareText); assert.equal(differenceBodies(h.ui).after, draft);
+        if (draft === h.ui.before.value) assert.ok(h.ui.difference.querySelectorAll('p').some(node => /exactly identical/.test(node.textContent)));
+        await click(h.ui.save); assert.equal(h.h.writes, writes);
+    }
+    h.ui.output.value = 'x'.repeat(Core.LIMITS.body + 1); h.ui.output.dispatch('input');
+    assert.equal(h.ui.compareText.disabled, true); await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    h.ui.output.value = 'Repaired {{topic}}'; h.ui.output.dispatch('input'); assert.equal(h.ui.compareText.disabled, false); assert.equal(h.ui.save.disabled, false);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: bounded large-change fallback reconstructs both maximum draft and exact source', async () => {
+    const body = 'a\r\n'.repeat(600), draft = 'b\n'.repeat(16000);
+    const h = await refinedDifference({ body, run: async () => ({ text: draft }) });
+    await click(h.ui.compareText); assert.deepEqual(differenceBodies(h.ui), { before: body, after: draft });
+    assert.ok(h.ui.difference.querySelectorAll('p').some(node => /Large change/.test(node.textContent)));
+    assert.equal(h.ui.difference.querySelector('.prompt-compare-changes').children.length, 2);
+    assert.equal(h.ui.output.value.length, Core.LIMITS.body); assert.equal(h.runs, 1); await click(h.ui.close); h.h.controller.dispose();
+});
+for (const action of ['refresh', 'metadata', 'remove', 'edit', 'read-failure', 'dispose']) test(`refinement differences: ${action} clears the captured source without replacing proposal`, async () => {
+    const h = await refinedDifference(); await click(h.ui.compareText); const proposal = h.ui.output.value;
+    const record = h.h.controller.record();
+    if (action === 'refresh') await h.h.controller.refresh();
+    if (action === 'metadata') { await h.h.store.mutate(h.h.store.request('edit', { id: record.id, version: record.version, title: 'Changed title' })); await tick(); }
+    if (action === 'remove') { await h.h.store.mutate(h.h.store.request('remove', { id: record.id, version: record.version })); await tick(); }
+    if (action === 'edit') h.h.controller.edit();
+    if (action === 'read-failure') { h.h.backend.read = async () => { throw Error('Synthetic read failure'); }; await h.h.controller.refresh(); }
+    if (action === 'dispose') h.h.controller.dispose();
+    h.view.checkModelRun(); assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.compareText.disabled, true);
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true); assert.equal(h.ui.output.value, proposal);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: hidden tab, trial and reentry require a new explicit comparison', async () => {
+    const h = await refinedDifference(); await click(h.ui.compareText);
+    h.ui.difference.querySelector('pre').focus();
+    h.doc.hidden = true; await h.doc.listeners.get('visibilitychange')();
+    assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.compareText.disabled, true);
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    h.doc.hidden = false; await h.doc.listeners.get('visibilitychange')();
+    assert.equal(h.doc.activeElement, h.ui.status);
+    assert.equal(h.ui.compareText.disabled, false); assert.equal(h.ui.difference.hidden, true);
+    await click(h.ui.compareText); await click(h.ui.trialButton); await tick();
+    assert.ok(h.ui.trial); assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.compareText.disabled, true);
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true); await click(h.ui.trial.close);
+    assert.equal(h.ui.compareText.disabled, false); assert.equal(h.ui.difference.hidden, true);
+    await click(h.ui.compareText); h.events.get('pagehide')(); assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.compareText.disabled, true);
+    await click(h.ui.close); const reopened = h.root.LocalItabAIModelView.open({ view: h.view, mode: 'refine' });
+    assert.equal(reopened.compareText.disabled, true); assert.equal(reopened.difference.hidden, true);
+    await click(reopened.close); h.h.controller.dispose();
+});
+test('refinement differences: declined Close keeps it; confirmed Close clears it without taking newer focus', async () => {
+    const h = await refinedDifference(); await click(h.ui.compareText); h.root.confirm = () => false;
+    await click(h.ui.close); assert.equal(h.ui.difference.hidden, false);
+    h.root.confirm = () => true; await click(h.ui.close); assert.equal(h.ui.difference.children.length, 0);
+    const outside = h.doc.createElement('button'); h.doc.body.append(outside); outside.focus();
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true); assert.equal(h.doc.activeElement, outside); h.h.controller.dispose();
+});
+test('refinement differences: pending and uncertain acceptance clear differences and preserve exact retry', async () => {
+    const h = await refinedDifference(), pending = deferred(), mutate = h.h.store.mutate.bind(h.h.store);
+    await click(h.ui.compareText); h.h.failOnce(); h.h.store.mutate = async command => { await pending.promise; return mutate(command); };
+    h.ui.save.dispatch('click'); await tick(); assert.equal(h.ui.compareText.disabled, true); assert.equal(h.ui.difference.children.length, 0);
+    pending.resolve(); await settle(h.h.controller); const operation = h.h.controller.pendingCommand; assert.ok(operation);
+    assert.equal(h.ui.compareText.disabled, true); await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    h.ui.output.value = 'Attempted edit'; h.ui.output.dispatch('input'); assert.equal(h.ui.output.value, operation.command.body);
+    const writes = h.h.writes; await click(h.ui.save); await settle(h.h.controller); assert.equal(h.h.writes, writes); assert.equal(h.h.controller.pendingCommand, null);
+    assert.equal(h.h.controller.record().body, operation.command.body); assert.equal(h.ui.compareText.disabled, true); await click(h.ui.close); h.h.controller.dispose();
+});
+for (const action of ['failure', 'stop', 'close']) test(`refinement differences: ${action} and late result cannot compare incomplete output`, async () => {
+    const pending = rejectableDeferred(); const h = await mount({ mode: 'refine', run: () => pending.promise });
+    assert.equal(h.ui.compareText.disabled, true); h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    if (action === 'failure') pending.reject({ code: 'INCOMPLETE' });
+    if (action === 'stop') await click(h.ui.cancel);
+    if (action === 'close') await click(h.ui.close);
+    pending.resolve({ text: 'Late draft' }); await tick();
+    assert.equal(h.ui.compareText.disabled, true); assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.save.disabled, true);
+    await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true); if (action !== 'close') await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: unowned textarea edits fail closed and non-refinement mode has no difference controls', async () => {
+    const h = await refinedDifference(); await click(h.ui.compareText); const exact = h.ui.output.value;
+    h.ui.output.value = 'Unowned DOM change'; h.view.checkModelRun();
+    assert.equal(h.ui.difference.children.length, 0); assert.equal(h.ui.compareText.disabled, true); await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    h.ui.output.value = exact; h.view.checkModelRun(); assert.equal(h.ui.compareText.disabled, false); assert.equal(h.ui.difference.hidden, true);
+    await click(h.ui.close); h.h.controller.dispose();
+    const run = await mount(); assert.equal(run.ui.compareText, null); assert.equal(run.ui.difference, null); await click(run.ui.close); run.h.controller.dispose();
+});
+test('refinement differences: historical preview and filled variables never replace the current saved template', async () => {
+    const h = await mount({ mode: 'refine', body: 'Historical {{topic}}', run: async () => ({ text: 'Proposed {{topic}}' }) });
+    await click(h.ui.close); const record = h.h.controller.record(), historyId = record.currentVersionId;
+    await h.h.store.mutate(h.h.store.request('edit', { id: record.id, version: record.version, body: 'Current {{topic}}' })); await tick();
+    h.h.controller.useVersion(historyId, 'Historical {{topic}}'); h.h.controller.setVariable('topic', 'Synthetic private value');
+    const session = h.h.controller.session(), writes = h.h.writes;
+    h.ui = h.root.LocalItabAIModelView.open({ view: h.view, mode: 'refine' });
+    h.ui.url.value = 'https://synthetic.test/v1/chat/completions'; h.ui.model.value = 'fixture-model'; h.ui.instruction.value = 'Clarify';
+    await click(h.ui.review); await click(h.ui.send); await click(h.ui.compareText);
+    assert.deepEqual(differenceBodies(h.ui), { before: 'Current {{topic}}', after: 'Proposed {{topic}}' });
+    assert.equal(h.h.controller.session(), session); assert.equal(session.versionId, historyId);
+    assert.equal(h.h.controller.preview().text, 'Historical Synthetic private value'); assert.equal(h.h.writes, writes);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: a source change during transport cannot turn a late completed proposal into a current comparison', async () => {
+    const pending = deferred(), h = await mount({ mode: 'refine', run: () => pending.promise });
+    h.ui.instruction.value = 'Clarify'; await click(h.ui.review); await click(h.ui.send);
+    await h.h.controller.refresh(); pending.resolve({ text: 'Late source proposal' }); await tick();
+    assert.equal(h.ui.compareText.disabled, true); await click(h.ui.compareText); assert.equal(h.ui.difference.hidden, true);
+    assert.equal(h.ui.save.disabled, true); const writes = h.h.writes; await click(h.ui.save); assert.equal(h.h.writes, writes);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+test('refinement differences: source invalidation and hidden return keep a disabled opener inside the keyboard scope', async () => {
+    const h = await refinedDifference(); h.ui.compareText.focus();
+    h.doc.hidden = true; await h.doc.listeners.get('visibilitychange')(); assert.equal(h.ui.compareText.disabled, true);
+    h.doc.hidden = false; await h.doc.listeners.get('visibilitychange')(); assert.equal(h.doc.activeElement, h.ui.status);
+    h.ui.compareText.focus(); await h.h.controller.refresh(); h.view.checkModelRun();
+    assert.equal(h.ui.compareText.disabled, true); assert.equal(h.doc.activeElement, h.ui.status);
+    h.doc.activeElement.dispatch('keydown', { key: 'Escape', isComposing: true }); assert.equal(h.view.openDialog, true);
+    h.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(h.view.openDialog, false); h.h.controller.dispose();
 });

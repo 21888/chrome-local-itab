@@ -6008,5 +6008,53 @@
   },
   "aiContextTaskSelectionEmpty": {
     "message": "Select at least one task before reviewing."
+  },
+  "promptsModelRefineDiffTitle": {
+    "message": "Template text differences"
+  },
+  "promptsModelRefineDiffOpen": {
+    "message": "Compare template text differences"
+  },
+  "promptsModelRefineDiffHelp": {
+    "message": "Read-only comparison of the saved template and this unsaved draft, without filled variable values. Differences are not a quality score or placeholder validation. Editing clears this view; acceptance remains a separate action."
+  },
+  "promptsModelRefineDiffEqual": {
+    "message": "The saved template and draft are exactly identical."
+  },
+  "promptsModelRefineDiffFallback": {
+    "message": "Large change: only common beginning and ending lines are matched. The middle is shown as removed and added blocks."
+  },
+  "promptsModelRefineDiffLegend": {
+    "message": "− Removed from saved template · + Added in draft · = Unchanged. Line endings are compared exactly."
+  },
+  "promptsModelRefineDiffBefore": {
+    "message": "Saved template"
+  },
+  "promptsModelRefineDiffAfter": {
+    "message": "Unsaved draft"
+  },
+  "promptsModelRefineDiffEndings": {
+    "message": "Line endings"
+  },
+  "promptsModelRefineDiffFinal": {
+    "message": "Ends with newline"
+  },
+  "promptsModelRefineDiffYes": {
+    "message": "Yes"
+  },
+  "promptsModelRefineDiffNo": {
+    "message": "No"
+  },
+  "promptsModelRefineDiffSame": {
+    "message": "= Unchanged"
+  },
+  "promptsModelRefineDiffRemoved": {
+    "message": "− Removed from saved template"
+  },
+  "promptsModelRefineDiffAdded": {
+    "message": "+ Added in draft"
+  },
+  "promptsModelRefineDiffClose": {
+    "message": "Close text differences"
   }
 }

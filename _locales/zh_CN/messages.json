@@ -6008,5 +6008,53 @@
   },
   "aiContextTaskSelectionEmpty": {
     "message": "请先至少选择一项待办再审阅。"
+  },
+  "promptsModelRefineDiffTitle": {
+    "message": "模板原文差异"
+  },
+  "promptsModelRefineDiffOpen": {
+    "message": "比较模板原文差异"
+  },
+  "promptsModelRefineDiffHelp": {
+    "message": "只读比较已保存模板与当前未保存草稿，不填入变量值。差异不代表质量评分，也不代表占位符校验通过。编辑会清除此视图；接受仍需单独操作。"
+  },
+  "promptsModelRefineDiffEqual": {
+    "message": "已保存模板与草稿原文完全相同。"
+  },
+  "promptsModelRefineDiffFallback": {
+    "message": "改动较大：仅匹配开头与结尾的相同行，中间内容分别显示为移除和添加的文本块。"
+  },
+  "promptsModelRefineDiffLegend": {
+    "message": "− 从已保存模板移除 · + 草稿新增 · = 未改变。换行符按原文精确比较。"
+  },
+  "promptsModelRefineDiffBefore": {
+    "message": "已保存模板"
+  },
+  "promptsModelRefineDiffAfter": {
+    "message": "未保存草稿"
+  },
+  "promptsModelRefineDiffEndings": {
+    "message": "换行符"
+  },
+  "promptsModelRefineDiffFinal": {
+    "message": "末尾有换行"
+  },
+  "promptsModelRefineDiffYes": {
+    "message": "是"
+  },
+  "promptsModelRefineDiffNo": {
+    "message": "否"
+  },
+  "promptsModelRefineDiffSame": {
+    "message": "= 未改变"
+  },
+  "promptsModelRefineDiffRemoved": {
+    "message": "− 从已保存模板移除"
+  },
+  "promptsModelRefineDiffAdded": {
+    "message": "+ 草稿新增"
+  },
+  "promptsModelRefineDiffClose": {
+    "message": "关闭原文差异"
   }
 }

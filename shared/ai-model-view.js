@@ -79,7 +79,14 @@
             answerReader.node.setAttribute('aria-label', output.getAttribute('aria-label'));
             readerHost.append(answerReader.node); readerHost.hidden = false; output.hidden = true;
         }
-        function visibilityChanged() { if (view.doc.hidden) releaseReader(); }
+        function visibilityChanged() {
+            if (view.doc.hidden) { releaseReader(); clearDifference(); }
+            updateDifference();
+            if (!view.doc.hidden && differenceFocusPending) {
+                differenceFocusPending = false;
+                if (!closed && !trialUI && overlay.isConnected && !overlay.hidden && !overlay.closest('[hidden], [inert]') && view.doc.activeElement === view.doc.body) status.focus();
+            }
+        }
         const partialLabel = el('p', 'prompt-help', t('StreamPartial', 'Partial response only. It cannot be saved unless this request completes successfully.')); partialLabel.hidden = true;
         const proposalLabel = refining ? el('h3', '', t('RefineAfter', 'Proposed template draft (editable; not saved)')) : null;
         if (proposalLabel) proposalLabel.hidden = true;
@@ -99,7 +106,60 @@
         const actions = el('div', 'prompt-actions'), resultActions = el('div', 'prompt-actions');
         let reviewedStream = false, partialText = '', paintTimer = null, paintActive = null;
         let reviewed = null, response = null, aborter = null, busy = false, closed = false, saving = false, saved = false, permissionPending = false, suspended = false, command = null, cleanup, trialUI = null;
+        // A textarea normalizes CRLF/CR on display. Keep its displayed value as
+        // an ownership check without replacing the exact, unedited response.
+        let proposalDisplay = null, differenceFocusPending = false;
         const button = (name, fallback, action) => view.button(`Model${name}`, fallback, action);
+        const difference = refining ? el('section', 'ai-refine-difference') : null;
+        if (difference) { difference.hidden = true; difference.id = 'ai-refine-difference'; difference.setAttribute('aria-label', t('RefineDiffTitle', 'Template text differences')); }
+        function comparable() {
+            return refining && !closed && !suspended && !busy && !saving && !saved && !command && !trialUI &&
+                !view.destroyed && !view.doc.hidden && !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') &&
+                refinement.current(c, template) && typeof root.LocalItabPromptsView?.compareBodies === 'function' &&
+                response && typeof response.text === 'string' && response.text.length <= root.LocalItabPrompts.LIMITS.body &&
+                output.value === proposalDisplay;
+        }
+        function clearDifference() {
+            if (!difference) return;
+            const focusedInside = difference.contains(view.doc.activeElement);
+            difference.replaceChildren(); difference.hidden = true;
+            compareText?.setAttribute('aria-expanded', 'false');
+            if (focusedInside && view.doc.hidden && !closed) differenceFocusPending = true;
+            if (focusedInside && !closed && !trialUI && !view.doc.hidden && !overlay.hidden && overlay.isConnected) status.focus();
+        }
+        function updateDifference() {
+            if (!compareText) return;
+            const focused = view.doc.activeElement;
+            compareText.disabled = !comparable();
+            if (compareText.disabled) clearDifference();
+            if (compareText.disabled && focused === compareText) {
+                if (view.doc.hidden && !closed) differenceFocusPending = true;
+                else if (!closed && !trialUI && !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') &&
+                    (view.doc.activeElement === focused || view.doc.activeElement === view.doc.body)) status.focus();
+            }
+        }
+        const compareText = refining ? button('RefineDiffOpen', 'Compare template text differences', () => {
+            if (!comparable()) { clearDifference(); updateDifference(); return; }
+            if (!difference.hidden) { clearDifference(); return; }
+            const result = root.LocalItabPromptsView.compareBodies(template.body, response.text);
+            difference.append(el('h3', '', t('RefineDiffTitle', 'Template text differences')),
+                el('p', 'prompt-help', t('RefineDiffHelp', 'Read-only comparison of the saved template and this unsaved draft, without filled variable values. Differences are not a quality score or placeholder validation. Editing clears this view; acceptance remains a separate action.')),
+                el('p', 'prompt-help', result.equal ? t('RefineDiffEqual', 'The saved template and draft are exactly identical.') : result.fallback ?
+                    t('RefineDiffFallback', 'Large change: only common beginning and ending lines are matched. The middle is shown as removed and added blocks.') :
+                    t('RefineDiffLegend', '− Removed from saved template · + Added in draft · = Unchanged. Line endings are compared exactly.')));
+            for (const [label, counts] of [[t('RefineDiffBefore', 'Saved template'), result.beforeEndings], [t('RefineDiffAfter', 'Unsaved draft'), result.afterEndings]]) {
+                difference.append(el('p', 'prompt-help', `${label} · ${t('RefineDiffEndings', 'Line endings')}: CRLF ${counts.crlf} · LF ${counts.lf} · CR ${counts.cr} · ${t('RefineDiffFinal', 'Ends with newline')}: ${counts.final ? t('RefineDiffYes', 'Yes') : t('RefineDiffNo', 'No')}`));
+            }
+            const changes = el('div', 'prompt-compare-changes');
+            for (const group of result.groups) {
+                const label = group.kind === 'unchanged' ? t('RefineDiffSame', '= Unchanged') : group.kind === 'removed' ? t('RefineDiffRemoved', '− Removed from saved template') : t('RefineDiffAdded', '+ Added in draft');
+                const block = el('section', `prompt-compare-${group.kind}`), raw = el('pre', 'prompt-readonly', group.text); raw.tabIndex = 0;
+                block.append(el('h4', '', label), raw); changes.append(block);
+            }
+            difference.append(changes, button('RefineDiffClose', 'Close text differences', () => { clearDifference(); compareText.focus(); }));
+            difference.hidden = false; compareText.setAttribute('aria-expanded', 'true');
+        }) : null;
+        if (compareText) { compareText.setAttribute('aria-expanded', 'false'); compareText.setAttribute('aria-controls', difference.id); }
         const failure = code => {
             const messages = {
                 ENDPOINT: ['EndpointError', 'Use a full HTTPS /chat/completions URL without credentials, query or fragment.'],
@@ -144,6 +204,7 @@
             url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
             presetSelect.disabled = presetName.disabled = presetSave.disabled = !presetAvailable || busy || saving || permissionPending || presetPending || Boolean(response);
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
+            updateDifference();
             refreshCopyState();
             // Disabling or hiding the focused control blurs it to body in Chrome.
             // Keep this dialog's keyboard scope without stealing another live focus.
@@ -163,7 +224,7 @@
             if (!sourceCurrent()) { suspend(); return; }
             output.value = partialText; output.hidden = !partialText; partialLabel.hidden = !partialText;
         }
-        function checkSource() { if (c.disposed || (answerReader && !readerSourceCurrent())) releaseReader(); if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); }
+        function checkSource() { if (c.disposed || (answerReader && !readerSourceCurrent())) releaseReader(); if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); updateDifference(); }
         function invalidateConnection() { key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); }
         function renderPresets() {
             presetSelect.replaceChildren();
@@ -217,7 +278,7 @@
         function finish() {
             if (saving || closed || trialUI) return;
             if ((busy || (response && !saved)) && !root.confirm(t('Discard', 'Stop this request and discard any unsaved response?'))) return;
-            closed = true; releaseReader(); stopRequest(); key.value = ''; response = reviewed = command = null;
+            closed = true; clearDifference(); releaseReader(); stopRequest(); key.value = ''; response = reviewed = command = null; proposalDisplay = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.cancelModelDialog = null; view.checkModelRun = null;
             if (view.refreshModelCopy === refreshCopyState) view.refreshModelCopy = null;
@@ -226,9 +287,9 @@
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
             const focused = view.doc.activeElement;
-            suspended = true; releaseReader(); stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
+            suspended = true; clearDifference(); releaseReader(); stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
             if (reviewedStream) { response = null; partialText = ''; output.value = ''; output.hidden = true; partialLabel.hidden = true; status.textContent = t('StreamStale', 'The prompt source changed or this dialog was interrupted. Review again before sending.'); }
-            if (refining) { response = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
+            if (refining) { response = null; proposalDisplay = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
             update(focused);
         }
         const review = button('Review', 'Review request', () => {
@@ -287,6 +348,7 @@
                 clearPaint(); partialLabel.hidden = true; partialText = '';
                 response = result; output.value = result.text; output.hidden = false; if (proposalLabel) proposalLabel.hidden = false;
                 if (refining) {
+                    proposalDisplay = output.value;
                     originalOutput.value = result.text; originalDetails.hidden = false;
                     refinement.validateProposal(template, result.text);
                     status.textContent = t('RefineReady', 'Edit this draft locally, then test or accept the exact edited text. Editing sends and saves nothing. Accept explicitly to create a new version; the saved original remains in history.');
@@ -339,10 +401,10 @@
         const trialButton = refining && root.LocalItabAIModelComparison ? button('RefineTrial', 'Test original versus proposal', () => {
             if (trialButton.disabled || trialUI || closed || !response) return;
             const proposal = response.text, connection = { name: presetName.value || model.value, url: url.value, model: model.value }, chosenPreset = selectedPreset;
-            const current = () => !closed && !suspended && !saved && response?.text === proposal && output.value === proposal && refinement.current(c, template) && url.value === connection.url && model.value === connection.model;
+            const current = () => !closed && !suspended && !saved && response?.text === proposal && output.value === proposalDisplay && refinement.current(c, template) && url.value === connection.url && model.value === connection.model;
             if (!current()) return;
             // Suspend the parent focus scope, retaining the unsaved proposal for explicit acceptance only.
-            cleanup?.(false); overlay.hidden = true; view.openDialog = false;
+            clearDifference(); cleanup?.(false); overlay.hidden = true; view.openDialog = false;
             const restore = () => {
                 trialUI = null; if (closed) return;
                 overlay.hidden = false; view.openDialog = true; view.cancelModelDialog = hide;
@@ -360,10 +422,12 @@
         const close = button('Close', 'Close', finish), collections = el('a', 'prompt-link', t('OpenCollection', 'Open AI collection')); collections.href = 'collections.html';
         collections.addEventListener('click', event => { if (busy || saving || (response && !saved)) { event.preventDefault(); status.textContent = t('SaveFirst', 'Save or close this response before leaving.'); } });
         if (refining) output.addEventListener('input', () => {
+            clearDifference();
             if (closed || c.disposed || !response || busy || saving || saved || suspended || command || trialUI) {
                 output.value = response?.text || ''; return;
             }
             response = { ...response, text: output.value };
+            proposalDisplay = output.value;
             try {
                 if (!refinement.current(c, template)) throw { code: 'STALE' };
                 refinement.validateProposal(template, response.text);
@@ -375,14 +439,14 @@
         if (instruction) instruction.addEventListener('input', () => { prompt.value = ''; invalidateConnection(); });
         for (const input of [url, model]) input.addEventListener('input', invalidateConnection);
         actions.append(review, allow, send, cancel); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
-        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); box.append(resultActions); overlay.append(box); view.doc.body.append(overlay);
+        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); if (compareText) { const diffActions = el('div', 'prompt-actions'); diffActions.append(compareText); box.append(diffActions, difference); } box.append(resultActions); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.cancelModelDialog = hide; view.checkModelRun = checkSource; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged);
         view.refreshModelCopy = refreshCopyState;
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
-        return { readerHost, streaming, partialLabel, originalOutput, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
+        return { readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);

@@ -9,3 +9,5 @@
 .ai-model-dialog details > summary { cursor: pointer; }
 
 .ai-model-field input.ai-model-stream-toggle { width: auto; justify-self: start; }
+.ai-refine-difference { min-width: 0; margin-block: 16px; }
+.ai-refine-difference h3, .ai-refine-difference p { overflow-wrap: anywhere; }
