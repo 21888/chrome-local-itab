@@ -4589,6 +4589,12 @@
   "navigationLibrarySearchShortcutHint": {
     "message": "Press / to search while browsing, outside editing fields."
   },
+  "navigationLibrarySavedLocations": {
+    "message": "Saved in your personal categories:"
+  },
+  "navigationLibraryUnknownSavedCategory": {
+    "message": "Unknown personal category"
+  },
   "navigationLibrarySavedState": {
     "message": "Saved in this workspace"
   },

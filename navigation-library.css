@@ -142,3 +142,7 @@
 
 .navigation-library-category-count { color: var(--nl-muted); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
 .navigation-library-category-count-help { margin: 8px 0 0; color: var(--nl-muted); font-size: 12px; line-height: 1.5; }
+
+.navigation-library-saved-locations { min-width: 0; margin-top: 12px; color: var(--nl-muted); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.navigation-library-saved-locations p { margin: 0; }
+.navigation-library-saved-locations ul { margin: 4px 0 0; padding-left: 18px; }

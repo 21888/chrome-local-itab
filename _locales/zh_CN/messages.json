@@ -4589,6 +4589,12 @@
   "navigationLibrarySearchShortcutHint": {
     "message": "浏览时在编辑框外按 / 搜索。"
   },
+  "navigationLibrarySavedLocations": {
+    "message": "已保存在以下个人分类："
+  },
+  "navigationLibraryUnknownSavedCategory": {
+    "message": "未知个人分类"
+  },
   "navigationLibrarySavedState": {
     "message": "当前工作空间添加状态"
   },

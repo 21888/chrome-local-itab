@@ -1292,3 +1292,46 @@ test('retired purpose dropdown cannot reintroduce a tag after reopening or mutat
  const wrapper=current.parentElement;current.remove();current.value='psd-editing';current.dispatch('change');current.value='';wrapper.append(current);unchanged();
  h.click('Back to browsing');assert.equal(writer.calls,0);assert.equal(h.calls,0);
 });
+
+const locationList=h=>h.document.querySelectorAll('.navigation-library-saved-locations li').map(node=>node.textContent);
+test('saved personal locations are complete, text-only, identity-deduplicated and browse-only',async()=>{
+ const h=model();const hostile='<img src=x onerror=alert(1)>';const long='Long personal name '.repeat(20);
+ h.snapshot.categories=[{id:'work',name:'Work'},{id:'a',name:'Same'},{id:'b',name:'Same'},{id:'html',name:hostile},{id:'long',name:long}];
+ h.snapshot.links=['a','a','b','gone','html','long',undefined].map(category=>({url:'https://CHATGPT.com:443',category}));
+ h.snapshot.links.push({url:'https://chatgpt.com/?other=1',category:'query-only'});
+ const original=JSON.stringify(h.snapshot);await h.view.open();h.search('chatgpt');
+ assert.deepEqual(locationList(h),['Same (a)','Same (b)','Unknown personal category (gone)',hostile,long,'Work']);
+ assert.equal(h.firstAdd().disabled,true);assert.equal(h.document.querySelectorAll('img').length,0);
+ const info=h.document.querySelector('.navigation-library-saved-locations');
+ assert.equal(info.querySelector('p').textContent,'Saved in your personal categories:');
+ assert.equal(info.querySelector('ul').getAttribute('aria-labelledby'),info.querySelector('p').id);
+ assert.equal(h.firstAdd().getAttribute('aria-describedby'),info.querySelector('p').id);
+ assert.equal(info.querySelectorAll('button, a, input').length,0);
+ h.click('More filters');h.click('Clear filters');h.search('chatgpt');h.view.close();
+ assert.equal(h.calls,0);assert.equal(h.reads,1);assert.equal(JSON.stringify(h.snapshot),original);
+ const css=fs.readFileSync('navigation-library.css','utf8');assert.match(css,/navigation-library-saved-locations\s*\{[^}]*overflow-wrap:\s*anywhere/);
+});
+test('saved personal locations follow successful returned snapshots without an extra read',async()=>{
+ const h=model();await h.view.open();h.search('chatgpt');assert.equal(locationList(h).length,0);
+ const pending=deferred();h.write=pending;h.firstAdd().dispatch('click');
+ assert.equal(locationList(h).length,0);
+ pending.resolve({...h.snapshot,categories:[{id:'result',name:'Verified returned category'}],links:[{url:'https://chatgpt.com/',category:'result'}]});await tick();
+ assert.deepEqual(locationList(h),['Verified returned category']);assert.equal(h.firstAdd().disabled,true);assert.equal(h.calls,1);assert.equal(h.reads,1);
+});
+test('fresh workspace snapshot replaces saved location names after reopening without writes',async()=>{
+ const h=model();h.snapshot.links=[{url:'https://chatgpt.com/',category:'personal'}];await h.view.open();h.search('chatgpt');assert.deepEqual(locationList(h),['Personal']);
+ h.view.close();h.snapshot.categories=[{id:'personal',name:'Other workspace category'}];await h.view.open();h.search('chatgpt');
+ assert.deepEqual(locationList(h),['Other workspace category']);h.view.close();h.snapshot.links=[];await h.view.open();h.search('chatgpt');
+ assert.equal(locationList(h).length,0);assert.equal(h.firstAdd().disabled,false);assert.equal(h.calls,0);assert.equal(h.reads,3);
+});
+test('Chinese personal location labels do not describe catalog categories and missing legacy work is unknown',async()=>{
+ const h=model({locale:'zh-CN'});h.snapshot.categories=[{id:'personal',name:'我的分类'}];h.snapshot.links=[{url:'https://chatgpt.com/'},{url:'https://chatgpt.com/',category:'personal'}];
+ await h.view.open();h.search('chatgpt');assert.deepEqual(locationList(h),['未知个人分类 (work)','我的分类']);
+ assert.equal(h.document.querySelector('.navigation-library-saved-locations p').textContent,'已保存在以下个人分类：');assert.equal(h.calls,0);assert.equal(h.reads,1);
+});
+test('a retired workspace read cannot populate current personal locations',async()=>{
+ const h=model(),pending=deferred();h.read=pending;const opening=h.view.open();await tick();h.view.close();h.read=null;
+ h.snapshot.links=[{url:'https://chatgpt.com/',category:'personal'}];await h.view.open();h.search('chatgpt');
+ pending.resolve({...h.snapshot,categories:[{id:'personal',name:'Stale workspace'}]});await opening;
+ assert.deepEqual(locationList(h),['Personal']);assert.equal(h.calls,0);assert.equal(h.reads,2);
+});

@@ -78,5 +78,19 @@
         });
     }
     const savedURLs = links => new Set((links || []).map(link => canonicalURL(link.url)).filter(Boolean));
-    return Object.freeze({ categories, pricing, canonicalURL, localized, validate, filter, savedURLs });
+    // Read-only index of the current workspace snapshot. Match the dashboard's
+    // legacy missing-category semantics and deduplicate by identity, never name.
+    function savedLocations(links = [], personalCategories = []) {
+        const categoriesById = new Map(personalCategories.map(category => [category.id, category.name]));
+        const locations = new Map();
+        for (const link of links) {
+            const url = canonicalURL(link.url);
+            if (!url) continue;
+            const id = link.category || 'work';
+            if (!locations.has(url)) locations.set(url, new Map());
+            locations.get(url).set(id, { id, name: categoriesById.get(id) || null });
+        }
+        return new Map(Array.from(locations, ([url, values]) => [url, Array.from(values.values())]));
+    }
+    return Object.freeze({ categories, pricing, canonicalURL, localized, validate, filter, savedURLs, savedLocations });
 });

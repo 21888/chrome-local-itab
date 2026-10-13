@@ -106,3 +106,17 @@ test('search aliases are optional bounded strings; long queries retain every ter
  for(const query of ['x'.repeat(10000),`${'chatgpt '.repeat(1000)}no-matching-suffix`,'＜img src=x onerror=alert(1)＞'])assert.equal(Catalog.filter(sites,{query}).length,0);
  for(const query of [null,undefined,42,{},[]])assert.doesNotThrow(()=>Catalog.filter(sites,{query}));
 });
+
+test('saved location index canonicalizes URLs and deduplicates category identities without mutating snapshots',()=>{
+ const links=[{url:'https://CHATGPT.com:443',category:'a'},{url:'https://chatgpt.com/',category:'a'},
+  {url:'https://chatgpt.com/',category:'b'},{url:'https://chatgpt.com/',category:'missing'},
+  {url:'https://chatgpt.com/'},{url:'https://chatgpt.com/?different=1',category:'b'},
+  {url:'https://chatgpt.com/#different',category:'b'},{url:'javascript:alert(1)',category:'a'}];
+ const categories=[{id:'a',name:'Same'},{id:'b',name:'Same'},{id:'work',name:'Legacy work'}];
+ const original=JSON.stringify({links,categories});
+ const saved=Catalog.savedLocations(links,categories);
+ assert.deepEqual(saved.get('https://chatgpt.com/'),[{id:'a',name:'Same'},{id:'b',name:'Same'},{id:'missing',name:null},{id:'work',name:'Legacy work'}]);
+ assert.equal(saved.size,3);assert.equal(JSON.stringify({links,categories}),original);
+ assert.deepEqual([...saved.keys()],[...Catalog.savedURLs(links)]);
+ assert.equal(Catalog.savedLocations().size,0);
+});

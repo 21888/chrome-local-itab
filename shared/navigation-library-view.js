@@ -7,6 +7,7 @@
         search: 'Search names, uses or companies', searchShortcutHint: 'Press / to search while browsing, outside editing fields.', all: 'All categories', filters: 'More filters', clear: 'Clear filters',
         categoryCount: '{count} sites in full catalog', categoryCountHelp: 'Full catalog counts stay the same when filtering. A site can belong to multiple categories.',
         activeFilters: 'Active filters', removeFilter: 'Remove filter',
+        savedLocations: 'Saved in your personal categories:', unknownSavedCategory: 'Unknown personal category',
         savedState: 'Saved in this workspace', savedAll: 'All', savedNew: 'Not added', savedAdded: 'Added',
         tag: 'Use', country: 'Operator location', company: 'Company / organization', pricing: 'Pricing',
         any: 'Any', destination: 'Add to your category', results: 'sites', result: 'site', add: 'Add', added: 'Added', visit: 'Open official site', official: 'Official site',
@@ -474,7 +475,7 @@
             renderedDetails.clear();
             const owner = revision;
             refreshActiveFilters();
-            const saved = api.savedURLs(snapshot.links);
+            const saved = api.savedLocations(snapshot.links, snapshot.categories);
             const isSaved = site => saved.has(api.canonicalURL(site.url));
             for (const site of root.LocalItabNavigationSites) if (isSaved(site)) selected.delete(site.id);
             const matching = api.filter(root.LocalItabNavigationSites, criteria, language(), tagLabel).filter(site => !selectedOnly || selected.has(site.id));
@@ -564,6 +565,22 @@
                 add.setAttribute('aria-label', `${added ? t('added') : t('add')}: ${site.name}`);
                 add.dataset.unavailable = String(added || (!newCategoryMode && !currentDestination) || blocked); add.disabled = writing || added || (!newCategoryMode && !currentDestination) || blocked;
                 if (added) add.classList.add('is-added'); actions.append(visit, add); card.append(actions);
+                if (added) {
+                    const locations = saved.get(api.canonicalURL(site.url));
+                    const locationInfo = el('div', undefined, 'navigation-library-saved-locations');
+                    const labelId = `navigation-library-saved-locations-${site.id}`;
+                    const label = el('p', t('savedLocations')); label.id = labelId;
+                    const list = el('ul'); list.setAttribute('aria-labelledby', labelId);
+                    const nameCounts = new Map();
+                    locations.forEach(location => nameCounts.set(location.name, (nameCounts.get(location.name) || 0) + 1));
+                    for (const location of locations) {
+                        const name = location.name || t('unknownSavedCategory');
+                        const distinguish = !location.name || nameCounts.get(location.name) > 1;
+                        list.append(el('li', distinguish ? `${name} (${location.id})` : name));
+                    }
+                    locationInfo.append(label, list); card.append(locationInfo);
+                    add.setAttribute('aria-describedby', labelId);
+                }
                 const details = el('details', undefined, 'navigation-library-details');
                 details.open = expandedDetails.has(site.id);
                 renderedDetails.set(site.id, details);
