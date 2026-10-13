@@ -14,17 +14,17 @@ Pricing describes the linked consumer/service entry, not API prices or unlimited
 
 Use **All / Not added / Added** (**全部 / 未添加 / 已添加**) to find new sites or review the library sites already in your current workspace. Each count reflects the current search, category and advanced filters before the saved-state choice. Saved status uses the same canonical URL match as adding a site, across all personal categories in this workspace; renaming a shortcut or selecting another destination does not change that status. Other workspaces are not included. Clear filters resets this choice too.
 
-After a successful addition in **Not added**, that card disappears and the counts update while the success message stays visible. Keyboard focus moves to the next card (or the previous card at the end); if no results remain, focus moves to the empty-result message. Closing and reopening reads the current workspace again and resets filters. Concurrent saved-data changes still require reopening under the existing conflict protections.
+After a successful addition in **Not added**, that card disappears and the counts update while the success message stays visible. Keyboard focus moves to the next card (or the previous card at the end); if no results remain, focus moves to the empty-result message. Closing and reopening reads the current workspace again and resets filters. Use **Refresh saved state** to explicitly read current saved locations and categories while retaining browsing state. If another page has invalidated layout state, refresh is read-only: reload the entire page before adding sites or adjusting layout. Refresh does not release an uncertain-save lock.
 
 使用「全部 / 未添加 / 已添加」查找新网站或查看当前工作空间中已经添加的网站。数量会结合搜索、分类、用途等筛选；添加状态依据当前工作空间全部个人分类中的网址判断，与快捷方式名称、所选添加分类无关，也不包含其他工作空间。点击「清除筛选」会一并重置添加状态。
 
-在「未添加」中成功添加后，卡片移出列表、数量同步更新，顶部保留成功提示；键盘焦点移到邻近卡片，没有结果时移到空结果提示。关闭后重新打开会读取最新数据并重置筛选；遇到并发修改仍需重新打开确认。
+在「未添加」中成功添加后，卡片移出列表、数量同步更新，顶部保留成功提示；键盘焦点移到邻近卡片，没有结果时移到空结果提示。关闭后重新打开会读取最新数据并重置筛选。也可点击「刷新保存状态」明确读取新的保存位置和分类并保留浏览状态；其他页面变更使布局状态失效时，刷新仅供查看，添加网站或调整布局前必须重新加载整个页面。刷新不会解除不确定保存锁。
 
 ## Privacy and saving
 
 Browsing, searching and filtering are offline. There are no analytics, new permissions, remote catalog downloads or remotely executed code. Adding a link uses existing Sync and online-icon settings, displayed in the library, and rechecks both before saving.
 
-The save transaction preserves existing link objects and categories. It deduplicates canonical HTTP(S) URLs across the current workspace, checks the preview against current shortcuts/categories/layout/privacy, retains existing identity coordinates, and verifies the written result. Concurrent changes require reopening. An unconfirmed result is never presented as a successful addition and is not blindly retried.
+The save transaction preserves existing link objects and categories. It deduplicates canonical HTTP(S) URLs across the current workspace, checks the preview against current shortcuts/categories/layout/privacy, retains existing identity coordinates, and verifies the written result. Concurrent changes retain the existing write protections: explicit refresh may update read-only browsing state, but an invalidated layout requires a full page reload before adding. An uncertain-save lock cannot be released by refresh. An unconfirmed result is never presented as a successful addition and is not blindly retried.
 
 ## Maintaining the catalog
 

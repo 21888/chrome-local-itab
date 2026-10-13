@@ -16,19 +16,42 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
+### Current interface · 1.1.116
+
+Captured on 2026-10-13 from the published 1.1.116 runtime in isolated Linux Chrome for Testing. These four original fullscreen images use 100% browser zoom and retain the browser notice, without cropping, redrawing or retouching. 1364 × 1024 is the image size, not a tested mobile CSS viewport. Interface languages are stated below; workspace names and record contents are synthetic examples, with natural-English sample text.
+
+**Homepage · Chinese, light**: five demonstration shortcuts, slightly scrolled to show complete cards.
+
+![1.1.116 Chinese light homepage with a demonstration workspace and five complete shortcut cards](docs/screenshots/release-1.1.116/dashboard-light-zh-complete-cards.jpg)
+
+**Discover sites · Chinese, light**: full-catalog category counts and use, operator-location, company and pricing filters.
+
+![1.1.116 Chinese discovery overview with category counts, filters and site cards](docs/screenshots/release-1.1.116/navigation-overview-light-zh.jpg)
+
+**Local prompt review · Chinese, light**: inspect the full prompt built from a synthetic excerpt. No model request was sent or answer generated.
+
+![1.1.116 Chinese local prompt review with synthetic source material and an unsent full prompt](docs/screenshots/release-1.1.116/ai-context-local-review-light-zh.jpg)
+
+**AI collections · English, dark**: exact study-tag filtering with the synthetic excerpt and annotation.
+
+![1.1.116 English dark collections showing study-tag filtering, an excerpt and annotation](docs/screenshots/release-1.1.116/collections-tags-dark-en.jpg)
+
+[Capture provenance and checksums](docs/screenshots/release-1.1.116/capture-metadata.json) · [Corresponding release](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.116)
+
+<details>
+<summary>Earlier workspace, feature and template captures</summary>
+
+The following retain their original capture versions, provenance and verification scope.
+
 ### Prompt comparison and result drafts
 
-These original English-interface captures were taken on 2026-10-11 in cloud Linux Chrome for Testing, using isolated synthetic data only. Prompt comparison shows 1.1.35; the unsaved exact-version result draft shows 1.1.36. They document those acceptance runs, not full 1.1.38 or all-device validation.
+These original English-interface captures were taken on 2026-10-11 in cloud Linux Chrome for Testing, using isolated synthetic data only. Prompt comparison shows 1.1.35; the unsaved exact-version result draft shows 1.1.36. They document the interface and acceptance scope of their capture versions, not the current version or full all-device validation.
 
 ![Prompt version comparison: removed, added and unchanged literal lines](docs/qa/prompt-version-comparison/diff-light.jpg)
 ![Exact-version result draft: reviewed version link in a new tab, with an empty unsaved body](docs/qa/exact-version-result-draft/unsaved-exact-v1-review.jpg)
 
 [Comparison acceptance and limits](docs/qa/prompt-version-comparison/native-acceptance.md) · [Result-draft acceptance and limits](docs/qa/exact-version-result-draft/native-acceptance.md)
 
-<details>
-<summary>Earlier workspace, feature and template captures</summary>
-
-The following retain their original capture versions, provenance and verification scope.
 
 ### Earlier workspace screenshots · pre-release 1.1.22 acceptance
 

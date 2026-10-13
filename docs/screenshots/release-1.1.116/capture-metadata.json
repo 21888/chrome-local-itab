@@ -1,0 +1,76 @@
+{
+  "runtime_version": "1.1.116",
+  "source_commit": "ce64407f9746d467d6528b2a7aa81ca6d3eef801",
+  "release_zip_sha256": "2bb413287ab1ed3a53d92ed32b9fe45ed5e42114604e4b2749aba4eac0e51e06",
+  "runtime_file_count": 113,
+  "screen_size_px": [
+    1364,
+    1024
+  ],
+  "css_viewport": "Not measured; do not infer CSS viewport from screenshot pixels.",
+  "capture_period_utc": "2026-10-13 approximately14:01–14:15 UTC",
+  "browser": "Official Chrome for Testing 155.0.8059.39 on Linux; isolated synthetic demonstration profile",
+  "capture_method": "Original native fullscreen screenshot bytes at 100% browser zoom. No cropping, stitching, resizing, retouching or generated imagery. Original capture names used .png; file signatures are JPEG/JFIF, copied byte-for-byte with .jpg names.",
+  "visible_browser_ui": "The original Chrome for Testing information banner is retained.",
+  "privacy_review": "All four images were visually reviewed before publication. They contain synthetic demonstration records, public service names and generic browser UI, with no credentials or personal account data.",
+  "language_note": "The homepage, navigation and local-review interfaces are Chinese; the collection interface is English. Demonstration record titles, text and question use natural English.",
+  "ai_scope": "Local prompt review only. No provider request was sent and no model answer was generated.",
+  "images": [
+    {
+      "original_capture_name": "ai-context-local-review-light-zh.png",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "width_px": 1364,
+      "height_px": 1024,
+      "color_mode": "RGB",
+      "sha256": "78e6b265031baf7f4cfd3eb1f20cc3645b9cda302206687449c006f81afa7ba3",
+      "capture_saved_at_utc": "2026-10-13T14:10:02.814987+00:00",
+      "language": "zh-CN",
+      "theme": "light",
+      "description": "Local prompt review, one synthetic source selected, request not sent; empty endpoint/model/key above current scroll position. Full reviewed prompt visible; no answer generated.",
+      "file": "ai-context-local-review-light-zh.jpg"
+    },
+    {
+      "original_capture_name": "collections-tags-dark-en.png",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "width_px": 1364,
+      "height_px": 1024,
+      "color_mode": "RGB",
+      "sha256": "2277ca36c82ac5efbc41d65725761ae9ea1fea60c61d23e84a1642a14a8f5dc2",
+      "capture_saved_at_utc": "2026-10-13T14:15:19.333921+00:00",
+      "language": "en-US",
+      "theme": "dark",
+      "description": "Saved synthetic Study plan excerpt, study tag exact filter, one result, excerpt and annotation visible.",
+      "file": "collections-tags-dark-en.jpg"
+    },
+    {
+      "original_capture_name": "dashboard-light-zh-complete-cards.png",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "width_px": 1364,
+      "height_px": 1024,
+      "color_mode": "RGB",
+      "sha256": "c80d11211d832edf605db699fb13e185a7ea5fd0a1a6e7643a474da796eb2e21",
+      "capture_saved_at_utc": "2026-10-13T14:05:13.238801+00:00",
+      "language": "zh-CN",
+      "theme": "light",
+      "description": "Homepage, genuine slightly scrolled position; all five shortcut cards complete; workspace row and primary entries visible; brand top partly behind CfT banner.",
+      "file": "dashboard-light-zh-complete-cards.jpg"
+    },
+    {
+      "original_capture_name": "navigation-overview-light-zh.png",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "width_px": 1364,
+      "height_px": 1024,
+      "color_mode": "RGB",
+      "sha256": "469f1cc2a1a2a17941f2f8ce4a764fde0e3e9906537d58457b067439f3607e6d",
+      "capture_saved_at_utc": "2026-10-13T14:11:29.994753+00:00",
+      "language": "zh-CN",
+      "theme": "light",
+      "description": "Discovery overview, empty query, expanded country/company/tag/pricing filters, actual catalog141 and three representative cards; no selections.",
+      "file": "navigation-overview-light-zh.jpg"
+    }
+  ]
+}

@@ -16,19 +16,42 @@
 
 ## 界面预览
 
+### 当前界面 · 1.1.116
+
+2026-10-13 使用正式 1.1.116 运行包，在独立的 Linux Chrome for Testing 中拍摄。以下四张是原始全屏截图，100% 浏览器缩放，保留浏览器提示，未裁切、重绘或美化；1364 × 1024 是图片尺寸，不代表已测固定手机视口。界面语言按图注标明，工作空间与正文均为合成示例，其中使用英文示例名称和文字。
+
+**首页 · 中文浅色**：演示工作空间的五个快捷方式；页面略向下滚动以完整显示卡片。
+
+![1.1.116 中文浅色首页：演示工作空间与五个完整快捷方式卡片](docs/screenshots/release-1.1.116/dashboard-light-zh-complete-cards.jpg)
+
+**发现网站 · 中文浅色**：全目录分类计数与用途、所在地、公司和费用筛选。
+
+![1.1.116 中文网站发现：分类数量、筛选和网站卡片](docs/screenshots/release-1.1.116/navigation-overview-light-zh.jpg)
+
+**本地提示词审阅 · 中文浅色**：选择合成摘录后查看完整提示词；未调用模型，也没有生成回答。
+
+![1.1.116 中文本地提示词审阅：合成资料与完整提示词，未发送请求](docs/screenshots/release-1.1.116/ai-context-local-review-light-zh.jpg)
+
+**AI 收藏 · 英文深色**：按 study 标签精确筛选，查看合成摘录和批注。
+
+![1.1.116 英文深色收藏：study 标签筛选、摘录和批注](docs/screenshots/release-1.1.116/collections-tags-dark-en.jpg)
+
+[截图来源与文件校验](docs/screenshots/release-1.1.116/capture-metadata.json) · [对应正式版本](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.116)
+
+<details>
+<summary>早期工作空间、功能与模版实拍</summary>
+
+以下保留各自拍摄时的版本、来源和验收范围。
+
 ### 提示词版本比较与结果草稿
 
-以下为 2026-10-11 云端 Linux Chrome for Testing 的原始英文界面截图，仅含独立合成数据。版本比较拍自 1.1.35；未保存的精确版本结果草稿拍自 1.1.36。它们展示各自验收时的功能，不代表完整 1.1.38 或所有设备均已验收。
+以下为 2026-10-11 云端 Linux Chrome for Testing 的原始英文界面截图，仅含独立合成数据。版本比较拍自 1.1.35；未保存的精确版本结果草稿拍自 1.1.36。它们记录各自拍摄时的界面与验收范围，不代表当前版本或所有设备的完整验收。
 
 ![提示词版本比较：逐行查看移除、添加和保留的原文](docs/qa/prompt-version-comparison/diff-light.jpg)
 ![精确版本结果草稿：新标签页显示版本关联，正文仍为空且未保存](docs/qa/exact-version-result-draft/unsaved-exact-v1-review.jpg)
 
 [版本比较验收与限制](docs/qa/prompt-version-comparison/native-acceptance.md) · [结果草稿验收与限制](docs/qa/exact-version-result-draft/native-acceptance.md)
 
-<details>
-<summary>早期工作空间、功能与模版实拍</summary>
-
-以下保留各自拍摄时的版本、来源和验收范围。
 
 ### 历史工作空间功能实拍 · 1.1.22 发布前验收
 

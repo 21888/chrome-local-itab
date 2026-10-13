@@ -16,19 +16,42 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
+### Interfaz actual · 1.1.116
+
+Capturas del 2026-10-13 con el paquete publicado 1.1.116 en Chrome for Testing para Linux, en un perfil aislado. Las cuatro imágenes originales de pantalla completa conservan el aviso del navegador, con zoom al 100%, sin recortes, retoques ni redibujado. 1364 × 1024 es el tamaño de la imagen, no una ventana móvil CSS verificada. Se indica el idioma de cada interfaz; los nombres y contenidos son ejemplos sintéticos, con textos de muestra en inglés.
+
+**Inicio · Chino, tema claro**: cinco accesos de demostración; la página está ligeramente desplazada para mostrar las tarjetas completas.
+
+![Inicio 1.1.116 en chino y tema claro, con un espacio de demostración y cinco tarjetas completas](docs/screenshots/release-1.1.116/dashboard-light-zh-complete-cards.jpg)
+
+**Descubrir sitios · Chino, tema claro**: cantidades por categoría del catálogo completo y filtros de uso, ubicación del operador, empresa y precio.
+
+![Catálogo 1.1.116 en chino con cantidades por categoría, filtros y tarjetas de sitios](docs/screenshots/release-1.1.116/navigation-overview-light-zh.jpg)
+
+**Revisión local del prompt · Chino, tema claro**: texto completo preparado a partir de un extracto sintético. No se envió ninguna solicitud a un modelo ni se generó una respuesta.
+
+![Revisión local 1.1.116 en chino con material sintético y el prompt completo sin enviar](docs/screenshots/release-1.1.116/ai-context-local-review-light-zh.jpg)
+
+**Colecciones de IA · Inglés, tema oscuro**: filtro exacto de la etiqueta study, con el extracto sintético y su anotación.
+
+![Colecciones 1.1.116 en inglés y tema oscuro, con filtro study, extracto y anotación](docs/screenshots/release-1.1.116/collections-tags-dark-en.jpg)
+
+[Origen de las capturas y sumas de comprobación](docs/screenshots/release-1.1.116/capture-metadata.json) · [Versión correspondiente](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.116)
+
+<details>
+<summary>Capturas anteriores de espacios, funciones y plantillas</summary>
+
+Se conservan las versiones, la procedencia y el alcance de las pruebas de cada captura.
+
 ### Comparación de prompts y borradores de resultados
 
-Estas capturas originales de la interfaz en inglés se tomaron el 2026-10-11 en Chrome for Testing para Linux en la nube, solo con datos sintéticos aislados. La comparación corresponde a 1.1.35 y el borrador sin guardar de una versión exacta, a 1.1.36. Documentan esas pruebas, no la validación completa de 1.1.38 ni de todos los dispositivos.
+Estas capturas originales de la interfaz en inglés se tomaron el 2026-10-11 en Chrome for Testing para Linux en la nube, solo con datos sintéticos aislados. La comparación corresponde a 1.1.35 y el borrador sin guardar de una versión exacta, a 1.1.36. Documentan la interfaz y el alcance de las pruebas de esas versiones, no la versión actual ni una validación completa en todos los dispositivos.
 
 ![Comparación de versiones: líneas literales eliminadas, añadidas y sin cambios](docs/qa/prompt-version-comparison/diff-light.jpg)
 ![Borrador de resultado: vínculo a la versión exacta en otra pestaña, con texto vacío y sin guardar](docs/qa/exact-version-result-draft/unsaved-exact-v1-review.jpg)
 
 [Validación y límites de la comparación (inglés)](docs/qa/prompt-version-comparison/native-acceptance.md) · [Validación y límites del borrador (inglés)](docs/qa/exact-version-result-draft/native-acceptance.md)
 
-<details>
-<summary>Capturas anteriores de espacios, funciones y plantillas</summary>
-
-Se conservan las versiones, la procedencia y el alcance de las pruebas de cada captura.
 
 ### Capturas anteriores de espacios · validación previa a 1.1.22
 
