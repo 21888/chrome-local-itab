@@ -1260,3 +1260,104 @@ test('local prompt UI has explicit English and Chinese privacy and manual-copy l
         for (const key of ['LocalPrompt', 'LocalPrivacy', 'ReviewLocal', 'CopyLocal', 'LocalReviewed', 'LocalCopied', 'LocalCopyBlocked']) assert(messages[`aiContext${key}`]?.message);
     }
 });
+
+const batchDeselect = h => h.byText('Deselect visible selected');
+test('visible deselection snapshots the 201-source title/scope/selected intersection and preserves hidden selections and draft nodes', async () => {
+    const sources = Array.from({ length: 201 }, (_, i) => ({ id: `collection:deselect-${i}`, label: i < 4 ? 'Match source' : 'Other source', text: `Excerpt ${i}`, scope: i === 0 ? 'workspace' : 'library' }));
+    const h = await model(undefined, { sources, blurUnavailableFocus: true }), rows = sourceRows(h);
+    [0, 1, 2, 200].forEach(i => choose(rows[i]));
+    h.input(rows[1].querySelector('textarea'), 'Keep edited excerpt');
+    h.input(answerTitle(h), 'Keep title'); h.input(h.field('password'), 'synthetic-key');
+    h.input(h.field('search'), '  mAtCh  ');
+    const scope = h.host.querySelector('.ai-context-source-scope'); scope.value = 'library'; scope.dispatch('change');
+    h.click('Show selected only'); h.click('Review exact'); await settle();
+    const generation = h.controller.generation, reads = h.b.reads + h.c.reads, question = questionField(h).value;
+    for (const method of ['readSources', 'loadSources', 'review', 'send', 'allow']) h.controller[method] = () => { throw Error(`deselect called ${method}`); };
+    h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('deselect permission'); };
+    assert.match(batchDeselect(h).textContent, /\(2\)/); batchDeselect(h).focus(); h.click('Deselect visible selected');
+    assert.deepEqual(selectedRows(h), [rows[0], rows[200]]); assert.deepEqual(sourceRows(h), rows);
+    assert.equal(h.controller.generation, generation + 1); assert.equal(h.controller.reviewed, null);
+    assert.equal(rows[1].querySelector('textarea').value, 'Keep edited excerpt'); assert.equal(rows[1].querySelector('textarea').hidden, true);
+    assert.equal(h.document.activeElement, h.byText('Show selected only')); assert.equal(batchDeselect(h).disabled, true);
+    assert.equal(questionField(h).value, question); assert.equal(answerTitle(h).value, 'Keep title');
+    assert.equal(h.field('password').value, 'synthetic-key'); assert.equal(scope.value, 'library');
+    assert.equal(h.field('search').value, '  mAtCh  '); assert.equal(h.view.hasUncommittedWork(), true);
+    assert.match(h.host.querySelector('.ai-context-source-count').textContent, /Selected: 2.*hidden: 2/);
+    assert.match(h.host.querySelector('.ai-context-budget').textContent, /2/);
+    batchDeselect(h).dispatch('click'); assert.equal(h.controller.generation, generation + 1);
+    assert.equal(h.b.reads + h.c.reads, reads); assert.equal(h.b.writes + h.c.writes + h.calls.length, 0);
+});
+test('visible deselection empty targets retain local and network reviews, while removal is never capped at twelve', async () => {
+    const h = await model(undefined, { sources: batchSources() });
+    for (const review of ['Review exact', 'Review prompt locally']) {
+        h.click(review); await settle(); const generation = h.controller.generation, remote = h.controller.reviewed, local = h.controller.localReview;
+        batchDeselect(h).dispatch('click'); assert.equal(h.controller.generation, generation);
+        assert.equal(h.controller.reviewed, remote); assert.equal(h.controller.localReview, local);
+    }
+    sourceRows(h).slice(0, 15).forEach(row => choose(row));
+    assert.equal(batchDeselect(h).disabled, false); h.click('Deselect visible selected'); assert.equal(selectedRows(h).length, 0);
+});
+test('visible deselection invalidates reviews once but retains previous answer provenance and snapshot consent', async () => {
+    const h = await model(); choose(sourceRows(h)[0]); await send(h, 'answer');
+    const result = h.controller.result, resultReview = h.controller.resultReview, snapshot = h.controller.answerSnapshot(), saved = h.controller.saved;
+    const include = h.host.querySelector('.ai-context-save-context').querySelector('input'); include.checked = true; include.dispatch('change');
+    h.input(answerTitle(h), 'Keep original answer');
+    const generation = h.controller.generation;
+    h.click('Deselect visible selected');
+    assert.equal(h.controller.generation, generation + 1); assert.equal(h.controller.taskReview, null); assert.equal(h.controller.reviewed, null);
+    assert.equal(h.controller.result, result); assert.equal(h.controller.resultReview, resultReview); assert.equal(h.controller.saved, saved);
+    assert.deepEqual(h.controller.answerSnapshot(), snapshot); assert.equal(include.checked, true);
+    assert.equal(answerTitle(h).value, 'Keep original answer'); assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false);
+});
+test('visible deselection rejects busy, uncertain task/save, closed, pending, preset and disposed events before mutation', async () => {
+    for (const property of ['busy', 'taskCommand', 'saveCommand', 'closed']) {
+        const h = await model(); choose(sourceRows(h)[0]); const generation = h.controller.generation;
+        h.controller[property] = true; batchDeselect(h).dispatch('click'); h.input(h.field('search'), '');
+        assert.equal(selectedRows(h).length, 1); assert.equal(h.controller.generation, generation); assert.equal(batchDeselect(h).disabled, true);
+    }
+    const h = await model(); choose(sourceRows(h)[0]); const gate = deferred(); h.controller.ensureActive = () => gate.promise;
+    h.click('Review exact'); const generation = h.controller.generation; batchDeselect(h).dispatch('click');
+    assert.equal(batchDeselect(h).disabled, true); assert.equal(selectedRows(h).length, 1); assert.equal(h.controller.generation, generation);
+    gate.resolve(); await settle();
+    const presetGate = deferred(), p = await model({ read: async () => ({ records: [] }), save: () => presetGate.promise });
+    choose(sourceRows(p)[0]); p.click('Save connection preset'); const pg = p.controller.generation;
+    batchDeselect(p).dispatch('click'); assert.equal(batchDeselect(p).disabled, true); assert.equal(selectedRows(p).length, 1); assert.equal(p.controller.generation, pg);
+    presetGate.resolve({ records: [] }); await settle();
+    const button = batchDeselect(p), row = sourceRows(p)[0]; p.view.destroy(); const dg = p.controller.generation;
+    assert.equal(button.disabled, true); button.dispatch('click'); assert.equal(row.querySelector('input').checked, true); assert.equal(p.controller.generation, dg);
+});
+test('visible deselection edit rejection preserves checkbox and reviewed preview', async () => {
+    const h = await model(); choose(sourceRows(h)[0]); h.click('Review exact'); await settle();
+    const reviewed = h.controller.reviewed, generation = h.controller.generation;
+    h.controller.edit = () => { throw api.fault('BUSY'); }; batchDeselect(h).dispatch('click');
+    assert.equal(selectedRows(h).length, 1); assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, generation);
+    assert.equal(h.host.querySelector('.ai-context-review').hidden, false);
+});
+test('visible deselection invalidates local prompt and late clipboard completions cannot replace a newer review', async () => {
+    for (const fail of [false, true]) {
+        let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; });
+        const h = await model(undefined, { clipboard: { writeText: () => promise } }); choose(sourceRows(h)[0]);
+        h.click('Review prompt locally'); await settle(); h.click('Copy reviewed prompt'); await settle();
+        h.click('Deselect visible selected'); assert.equal(h.controller.localReview, null);
+        assert.equal(h.host.querySelector('.ai-context-local-prompt').value, ''); assert.equal(h.byText('Copy reviewed prompt').disabled, true);
+        h.click('Review prompt locally'); await settle();
+        const prompt = h.host.querySelector('.ai-context-local-prompt').value, status = h.host.querySelector('.ai-context-local-status').textContent;
+        if (fail) reject(Error('late')); else resolve(); await settle();
+        assert.equal(h.host.querySelector('.ai-context-local-prompt').value, prompt); assert.equal(h.host.querySelector('.ai-context-local-status').textContent, status);
+    }
+});
+test('visible deselection has explicit English and Chinese count labels and help', () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        assert(messages.aiContextSourceDeselectVisible.message);
+        assert.match(messages.aiContextSourceBatchHelp.message, locale === 'en' ? /Deselect visible keeps hidden selections/ : /取消可见已选会保留隐藏/);
+    }
+});
+
+test('visible deselection also invalidates the extracted-task review', async () => {
+    const h = await model(); choose(sourceRows(h)[0]); await send(h); h.click('Review extracted'); await settle();
+    assert(h.controller.taskReview); const generation = h.controller.generation, result = h.controller.result;
+    h.click('Deselect visible selected'); assert.equal(h.controller.taskReview, null);
+    assert.equal(h.controller.generation, generation + 1); assert.equal(h.controller.result, result);
+    assert.equal(h.byText('Add these').disabled, true);
+});

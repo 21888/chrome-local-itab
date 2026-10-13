@@ -48,11 +48,12 @@
         showSelected.className = 'ai-context-selected-only'; showSelected.setAttribute('aria-pressed', 'false');
         searchActions.append(clearSearch, showSelected);
         const batchActions = el('div', 'ai-context-actions');
-        const selectVisible = button('SourceSelectVisible', 'Select visible unselected sources', () => changeSelection(false));
-        const clearSelection = button('SourceClearSelection', 'Clear all selections', () => changeSelection(true));
-        batchActions.append(selectVisible, clearSelection);
+        const selectVisible = button('SourceSelectVisible', 'Select visible unselected sources', () => changeSelection('add'));
+        const deselectVisible = button('SourceDeselectVisible', 'Deselect visible selected sources', () => changeSelection('visible'));
+        const clearSelection = button('SourceClearSelection', 'Clear all selections', () => changeSelection('all'));
+        batchActions.append(selectVisible, deselectVisible, clearSelection);
         const batchHelp = el('p', 'ai-context-source-batch-help'); batchHelp.id = 'ai-context-source-batch-help';
-        selectVisible.setAttribute('aria-describedby', batchHelp.id); clearSelection.setAttribute('aria-describedby', batchHelp.id);
+        selectVisible.setAttribute('aria-describedby', batchHelp.id); deselectVisible.setAttribute('aria-describedby', batchHelp.id); clearSelection.setAttribute('aria-describedby', batchHelp.id);
         const searchCount = el('p', 'ai-context-source-count'); searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
@@ -136,12 +137,14 @@
             const count = sourceRows.filter(row => !row.node.hidden && !row.check.checked).length;
             const blocked = selectionBlocked();
             selectVisible.textContent = `${label('SourceSelectVisible', 'Select visible unselected sources')} (${count})`;
+            deselectVisible.textContent = `${label('SourceDeselectVisible', 'Deselect visible selected sources')} (${selected - hiddenSelected})`;
             clearSelection.textContent = `${label('SourceClearSelection', 'Clear all selections')} (${selected}; ${label('SourceIncludingHidden', 'including hidden')}: ${hiddenSelected})`;
             selectVisible.disabled = blocked || !count || selected + count > 12;
+            deselectVisible.disabled = blocked || selected === hiddenSelected;
             clearSelection.disabled = blocked || !selected;
-            batchHelp.textContent = `${label('SourceBatchTotal', 'Selection after adding visible sources')}: ${selected + count} / 12. ${selected + count > 12 ? label('SourceBatchOver', 'Too many sources: narrow the title search or deselect sources first. Nothing will be partially selected.') + ' ' : ''}${label('SourceBatchHelp', 'Changing selections requires a new review. Clear all includes hidden selections and keeps your question, filters and edited excerpts. Character limits still apply; nothing is sent or saved.')}`;
+            batchHelp.textContent = `${label('SourceBatchTotal', 'Selection after adding visible sources')}: ${selected + count} / 12. ${selected + count > 12 ? label('SourceBatchOver', 'Too many sources: narrow the title search or deselect sources first. Nothing will be partially selected.') + ' ' : ''}${label('SourceBatchHelp', 'Changing selections requires a new review. Deselect visible keeps hidden selections. Clear all includes hidden selections and keeps your question, filters and edited excerpts. Character limits still apply; nothing is sent or saved.')}`;
             // Capture the button before disabling it: native browsers may blur immediately.
-            if ((batchFocused === selectVisible || batchFocused === clearSelection) && batchFocused.disabled) showSelected.focus();
+            if ((batchFocused === selectVisible || batchFocused === deselectVisible || batchFocused === clearSelection) && batchFocused.disabled) showSelected.focus();
         }
         sourceSearch.addEventListener('input', filterSources);
         sourceScope.addEventListener('change', filterSources);
@@ -193,11 +196,12 @@
         function selectionBlocked() {
             return disposed || controller.closed || pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand);
         }
-        function changeSelection(clear) {
+        function changeSelection(mode) {
             if (selectionBlocked()) return;
             // Compute the entire intended set from the current view, never truncate it.
             const selected = sourceRows.filter(row => row.check.checked);
-            const changed = clear ? selected : sourceRows.filter(row => !row.check.checked && matchesSourceView(row));
+            const clear = mode !== 'add';
+            const changed = mode === 'all' ? selected : sourceRows.filter(row => row.check.checked === clear && matchesSourceView(row));
             if (!changed.length || (!clear && selected.length + changed.length > 12)) return;
             // Authorize the edit before touching any checkbox or its editor.
             try { controller.edit(); } catch (_) { error(); update(); return; }
@@ -421,7 +425,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();
