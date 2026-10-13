@@ -4040,6 +4040,141 @@
         "verifiedOn": "2026-10-13",
         "language": "unknown",
         "signup": "unknown"
+    },
+    {
+        "id": "project-gutenberg",
+        "name": "Project Gutenberg",
+        "url": "https://www.gutenberg.org/",
+        "company": "Project Gutenberg Literary Archive Foundation",
+        "country": "US",
+        "categories": [
+            "learning"
+        ],
+        "tags": [
+            "ebooks",
+            "books"
+        ],
+        "description": {
+            "en": "Read classic literature and historical e-books from Project Gutenberg.",
+            "zh": "在古腾堡计划阅读文学经典和历史文本电子书。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Ebooks are free. Copyright assessments follow United States law; users outside the US should check local copyright rules and each book's license. This is not a guarantee that every book is public domain worldwide.",
+            "zh": "电子书免费。版权判断以美国法律为基础；美国以外用户应核对所在地版权规则和各书许可，不代表全部电子书在全球均属公版。"
+        },
+        "icon": "PG",
+        "sources": [
+            "https://www.gutenberg.org/about/",
+            "https://www.gutenberg.org/about/contact_information.html",
+            "https://www.gutenberg.org/policy/terms_of_use.html",
+            "https://www.gutenberg.org/policy/license"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "smithsonian-open-access",
+        "name": "Smithsonian Open Access",
+        "url": "https://www.si.edu/openaccess",
+        "company": "Smithsonian Institution",
+        "country": "US",
+        "categories": [
+            "learning"
+        ],
+        "tags": [
+            "cultural-collections",
+            "image"
+        ],
+        "description": {
+            "en": "Explore digitized museum collections, images, 3D models and open data.",
+            "zh": "探索史密森尼博物馆文化馆藏、图像、三维模型和开放数据。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Only CC0-designated collection assets are offered for free reuse under CC0. Other items have separate conditions; CC0 does not automatically clear trademarks, publicity, privacy or third-party rights. Check the license for each resource.",
+            "zh": "仅标注 CC0 的馆藏数字资源可依据 CC0 免费复用。其他项目有各自条件；商标、肖像、隐私及第三方权利不因 CC0 自动获准，请核对每项资源的许可。"
+        },
+        "icon": "SI",
+        "sources": [
+            "https://www.si.edu/openaccess",
+            "https://www.si.edu/openaccess/faq",
+            "https://www.si.edu/termsofuse",
+            "https://www.si.edu/contacts",
+            "https://www.si.edu/museums/smithsonian-institution-building"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "openlearn",
+        "name": "OpenLearn",
+        "url": "https://www.open.edu/openlearn/",
+        "company": "The Open University",
+        "country": "GB",
+        "categories": [
+            "learning"
+        ],
+        "tags": [
+            "open-courseware",
+            "academic-subjects",
+            "online-courses"
+        ],
+        "description": {
+            "en": "Study free short courses and open learning materials across subjects from The Open University.",
+            "zh": "学习英国开放大学的跨学科免费短课程和开放学习资料。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "OpenLearn courses are free to browse without an account. An account is needed to save progress and earn participation statements, which do not carry formal qualification credit. Reuse follows non-commercial licensing and item-specific restrictions; check the current license.",
+            "zh": "OpenLearn 课程免费，免账号即可浏览；保存进度和领取参与证明需账号，证明不计正式学历学分。资料复用须遵守非商业许可及个别内容限制，请核对当前许可。"
+        },
+        "icon": "OL",
+        "sources": [
+            "https://www.open.edu/openlearn/get-started-openlearn",
+            "https://www.open.edu/openlearn/about-openlearn/frequently-asked-questions-on-openlearn",
+            "https://university.open.ac.uk/open-educational-resources/openlearn/free-courses",
+            "https://about.open.ac.uk/strategy-and-policies/policies-and-statements/copyright-openlearn",
+            "https://about.open.ac.uk/locations/milton-keynes-campus"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "british-council-learnenglish",
+        "name": "British Council LearnEnglish",
+        "url": "https://learnenglish.britishcouncil.org/",
+        "company": "British Council",
+        "country": "GB",
+        "categories": [
+            "learning"
+        ],
+        "tags": [
+            "english-learning",
+            "learning-resources"
+        ],
+        "description": {
+            "en": "Practise English listening, reading, grammar and vocabulary by language level.",
+            "zh": "按语言水平学习英语，练习听读、语法和词汇。"
+        },
+        "pricing": "freemium",
+        "pricingNote": {
+            "en": "Learning materials are free without an account; separate courses are paid. The former LearnEnglish subscription no longer accepts new subscribers. Community participation and level tests require an account; community features may share text, recordings or photos. Check the site's terms before reusing content.",
+            "zh": "学习资料免费且无需账号；另有独立付费课程。原 LearnEnglish 订阅已停止接收新订户。社区及水平测试需账号，社区功能可能分享文字、录音或图片；复用内容前请核对官网许可。"
+        },
+        "icon": "BC",
+        "sources": [
+            "https://learnenglish.britishcouncil.org/",
+            "https://learnenglish.britishcouncil.org/frequently-asked-questions",
+            "https://www.britishcouncil.org/about-us",
+            "https://www.britishcouncil.org/terms"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

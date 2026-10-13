@@ -6,8 +6,8 @@ const added = sites.slice(108, 114);
 const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');
 test('six useful services append to the reviewed catalog without new categories or metadata schema', () => {
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 128); assert.equal(Catalog.categories.length, 18);
-    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 190);
+    assert.equal(sites.length, 132); assert.equal(Catalog.categories.length, 18);
+    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 193);
     const fields = ['id','name','url','company','country','categories','description','tags','pricing','pricingNote','language','signup','sources','verifiedOn','icon'].sort();
     for (const site of added) {
         assert.deepEqual(Object.keys(beforeChineseAliasReview(site)).sort(), fields, site.id);

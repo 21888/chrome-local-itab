@@ -1,17 +1,17 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), crypto = require('node:crypto');
 const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites');
-const added = sites.slice(124);
+const added = sites.slice(124, 128);
 const ids = ['ezgif', 'cloudconvert', 'audiomass', 'google-maps'];
 const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');
 
 test('media utilities append four reviewed sites while preserving all 124 previous records', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 124))).digest('hex'), '7eeece45d2752240ede5e180955302baa4735728c05a222d99024e0932584e39');
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 128);
-    assert.equal(new Set(sites.map(site => site.id)).size, 128);
-    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 128);
+    assert.equal(sites.length, 132);
+    assert.equal(new Set(sites.map(site => site.id)).size, 132);
+    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 132);
     assert.equal(Catalog.categories.length, 18);
-    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 190);
+    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 193);
     assert.equal(Catalog.validate(sites), true);
     const oldTags = new Set(sites.slice(0, 124).flatMap(site => site.tags));
     assert.deepEqual([...new Set(added.flatMap(site => site.tags).filter(tag => !oldTags.has(tag)))], ['gif-editing', 'animated-images', 'audio-editing', 'audio-effects']);

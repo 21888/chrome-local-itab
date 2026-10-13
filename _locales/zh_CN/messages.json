@@ -5505,5 +5505,8 @@
     "message": "音频效果"
   },
   "navigationLibrarySelectedOnly": { "message": "只看已选" },
-  "navigationLibraryHiddenSelected": { "message": "被筛选隐藏" }
+  "navigationLibraryHiddenSelected": { "message": "被筛选隐藏" },
+  "navigationTagEbooks": { "message": "电子书" },
+  "navigationTagCulturalCollections": { "message": "文化馆藏" },
+  "navigationTagEnglishLearning": { "message": "英语学习" }
 }

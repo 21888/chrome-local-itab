@@ -5505,5 +5505,8 @@
     "message": "Audio effects"
   },
   "navigationLibrarySelectedOnly": { "message": "Show selected only" },
-  "navigationLibraryHiddenSelected": { "message": "Hidden by filters" }
+  "navigationLibraryHiddenSelected": { "message": "Hidden by filters" },
+  "navigationTagEbooks": { "message": "E-books" },
+  "navigationTagCulturalCollections": { "message": "Cultural collections" },
+  "navigationTagEnglishLearning": { "message": "English learning" }
 }
