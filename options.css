@@ -1660,3 +1660,5 @@ textarea:focus-visible,
 }
 
 .world-clock-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.options-brand-mark { display: block; object-fit: contain; margin: 0 auto 12px; }

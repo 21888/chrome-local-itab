@@ -55,7 +55,7 @@ RUNTIME_FILES = (
     "shared/settings-search.js", "shared/search-template.js", "shared/shortcut-finder.js", "shared/shortcut-finder-host.js",
     "shared/shortcut-finder-view.js", "shared/workspace-presets.js", "shared/workspace-presets-view.js", "shared/workspaces.js", "shared/workspaces-view.js",
     "_locales/en/messages.json", "_locales/zh_CN/messages.json",
-    "assets/icon16.png", "assets/icon48.png", "assets/icon128.png",
+    "assets/icon16.png", "assets/icon32.png", "assets/icon48.png", "assets/icon128.png",
 )
 
 

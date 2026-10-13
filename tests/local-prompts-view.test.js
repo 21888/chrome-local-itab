@@ -26,7 +26,9 @@ test('empty/loading/create states render real actions and required save gating',
 });
 test('Chinese catalog renders complete UI labels and user strings remain text', async () => {
     const h = await mount({ language: 'zh_CN' }); await add(h.controller, '<img src="https://bad.test/a" onerror="x">', '中文 <script>alert(1)</script>');
-    assert.match(text(h.host), /提示词库/); assert.match(text(h.host), /准备使用/); assert.equal(h.host.querySelectorAll('img, script, iframe').length, 0);
+    assert.match(text(h.host), /提示词库/); assert.match(text(h.host), /准备使用/); assert.equal(h.host.querySelectorAll('script, iframe').length, 0);
+    const images = h.host.querySelectorAll('img'); assert.equal(images.length, 1);
+    assert.equal(images[0].className, 'prompt-brand-mark'); assert.equal(images[0].src, 'assets/icon48.png'); assert.equal(images[0].alt, '');
     assert.equal(h.view.previewElements.preview.value, '中文 <script>alert(1)</script>'); h.controller.dispose();
 });
 test('variable input updates preserve field focus and do not rebuild active textarea', async () => {

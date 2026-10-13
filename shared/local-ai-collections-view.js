@@ -71,7 +71,9 @@
         build() {
             const c = this.controller;
             this.shell = this.el('div', 'prompt-shell collection-shell');
-            const brand = this.el('div', 'prompt-brand'); brand.append(this.el('span', 'prompt-brand-mark', '≡'), this.el('span', 'prompt-brand-name', 'LOCAL ITAB / AI WORKBENCH'));
+            const brand = this.el('div', 'prompt-brand');
+            const mark = this.el('img', 'prompt-brand-mark'); mark.src = 'assets/icon48.png'; mark.alt = ''; mark.width = 28; mark.height = 28; mark.setAttribute('aria-hidden', 'true');
+            brand.append(mark, this.el('span', 'prompt-brand-name', 'LOCAL ITAB / AI WORKBENCH'));
             const header = this.el('header', 'prompt-header'), heading = this.el('div'); heading.append(this.paragraph('Eyebrow', 'YOUR LOCAL REFERENCE SHELF', 'prompt-eyebrow'), this.el('h1', '', this.t('Heading', 'AI result collection')), this.paragraph('Subtitle', 'Keep the answers worth returning to. Paste an exact excerpt, then add your own context.', 'prompt-subtitle'));
             const actions = this.el('div', 'prompt-header-actions');
             for (const [key, label, href] of [['Back', 'New tab', 'newtab.html'], ['Prompts', 'Prompt library', 'prompts.html']]) {

@@ -20,7 +20,7 @@ h3 { font-size: 15px; }
 .prompt-header, .prompt-header-actions, .prompt-actions, .prompt-section-heading { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .prompt-header { justify-content: space-between; padding-bottom: 22px; }
 .prompt-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
-.prompt-brand-mark { width: 28px; height: 28px; background: var(--template-accent); color: var(--template-accent-ink); display: grid; place-items: center; border-radius: 7px; font-size: 20px; }
+.prompt-brand-mark { width: 28px; height: 28px; flex: 0 0 28px; display: block; object-fit: contain; }
 .prompt-brand-name { color: var(--template-muted); font-size: 12px; letter-spacing: .06em; }
 .prompt-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--template-muted); margin-bottom: 7px; }
 .prompt-subtitle { color: var(--template-muted); margin-top: 9px; max-width: 72ch; }

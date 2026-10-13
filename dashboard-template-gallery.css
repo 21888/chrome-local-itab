@@ -293,3 +293,8 @@
 
 :root[data-dashboard-template] .appearance-controls:has(.template-gallery[open]) {flex:1 1 100%;width:100%;}
 :root[data-dashboard-template] .template-gallery summary:focus-visible {outline:3px solid var(--template-focus);outline-offset:3px;}
+
+/* The product mark keeps its original colors and silhouette in every template. */
+:root[data-dashboard-template] #dashboard img.template-brand-mark {
+  object-fit: contain; background: transparent; border: 0; border-radius: 0;
+}

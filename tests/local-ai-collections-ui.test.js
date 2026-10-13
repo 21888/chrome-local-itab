@@ -89,7 +89,7 @@ test('stale metadata draft is retained and can only become a new independent ite
     const h = setup(), c = h.controller; await c.start(); const record = await add(c); c.edit(); c.update('notes', 'draft'); await h.store.mutate(h.store.request('edit', { id: record.id, version: record.version, notes: 'remote' })); await tick(); assert.equal(c.draft().conflict, true); assert.equal(await c.save(), false); assert.equal(await c.save(true), true); assert.equal(c.state.records.length, 2); assert.equal(c.record().notes, 'draft'); c.dispose();
 });
 test('view renders loading/empty/editor and input updates preserve textarea focus', async () => {
-    const h = await mount(), c = h.controller; assert.match(text(h.host), /Keep the useful part/); h.view.newButton.dispatch('click'); const field = h.view.editor.fields.body; field.focus(); field.value = '<img onerror=x>\n  exact'; field.dispatch('input'); assert.equal(h.doc.activeElement, field); assert.equal(h.view.editor.fields.body, field); c.update('title', 'Title'); await h.view.save(); assert.match(text(h.host), /<img onerror=x>/); assert.equal(h.host.querySelectorAll('img, script, iframe').length, 0); c.dispose();
+    const h = await mount(), c = h.controller; assert.match(text(h.host), /Keep the useful part/); h.view.newButton.dispatch('click'); const field = h.view.editor.fields.body; field.focus(); field.value = '<img onerror=x>\n  exact'; field.dispatch('input'); assert.equal(h.doc.activeElement, field); assert.equal(h.view.editor.fields.body, field); c.update('title', 'Title'); await h.view.save(); assert.match(text(h.host), /<img onerror=x>/); assert.equal(h.host.querySelectorAll('script, iframe').length, 0); const images = h.host.querySelectorAll('img'); assert.equal(images.length, 1); assert.equal(images[0].className, 'prompt-brand-mark'); assert.equal(images[0].src, 'assets/icon48.png'); assert.equal(images[0].alt, ''); c.dispose();
 });
 test('edit body is readonly; duplicate cancel does not save or merge', async () => {
     let approved = false; const h = await mount(async () => approved), c = h.controller; const record = await add(c, 'First', 'same'); c.edit(); assert.equal(h.view.editor.fields.body.readOnly, true); c.discard(); c.create(); c.update('title', 'Second'); c.update('body', 'same'); await h.view.save(); assert.equal(c.state.records.length, 1); assert.ok(c.draft()); approved = true; await h.view.save(); assert.equal(c.state.records.length, 2); assert.equal(c.state.records[0].id, record.id); c.dispose();
@@ -202,7 +202,8 @@ test('saved context detail shows literal historical input and original answer ve
     const panel = h.host.querySelector('.collection-context-snapshot'); assert.equal(Boolean(panel), true);
     assert.equal(panel.querySelector('pre').textContent, JSON.stringify(contextSnapshot, null, 2));
     assert.match(text(panel), new RegExp(first.currentVersionId)); assert.match(text(panel), /Imported snapshots are user-provided/);
-    assert.equal(h.host.querySelectorAll('script').length, 0); assert.equal(h.host.querySelectorAll('img').length, 0);
+    assert.equal(h.host.querySelectorAll('script').length, 0); const images = h.host.querySelectorAll('img'); assert.equal(images.length, 1);
+    assert.equal(images[0].className, 'prompt-brand-mark'); assert.equal(images[0].src, 'assets/icon48.png'); assert.equal(images[0].alt, '');
 });
 
 test('saved annotation search and clear filters preserve selected editor, unsaved drafts and archive scope with zero writes', async () => {

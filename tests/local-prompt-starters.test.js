@@ -55,7 +55,7 @@ for (const language of ['en', 'zh_CN']) test(`${language}: full preview, Escape 
     assert.equal(h.doc.activeElement.tagName, 'H2'); overlay.querySelector('button').dispatch('keydown', { key: 'Escape' }); assert.equal(await cancel, false); assert.equal(h.doc.activeElement, card); assert.equal(c.draft(), undefined);
     const load = h.view.previewStarter('summary'); overlay = h.doc.body.querySelector('.prompt-dialog-overlay'); overlay.querySelectorAll('button')[1].dispatch('click'); assert.equal(await load, true);
     assert.equal(c.draft().input.body, Starters.get('summary', language).body); assert.equal(h.doc.activeElement.dataset.promptFocus, 'title'); assert.equal(c.dirty(), true); assert.equal(h.writes, 0); assert.equal(reads, 0); assert.equal(copies, 0);
-    assert.ok(h.view.main.querySelector('details')); assert.equal(h.host.querySelectorAll('img, iframe, script').length, 0); c.dispose();
+    assert.ok(h.view.main.querySelector('details')); assert.equal(h.host.querySelectorAll('script, iframe').length, 0); const images = h.host.querySelectorAll('img'); assert.equal(images.length, 1); assert.equal(images[0].className, 'prompt-brand-mark'); assert.equal(images[0].src, 'assets/icon48.png'); assert.equal(images[0].alt, ''); c.dispose();
 });
 test('dirty close and leaving are guarded; denied discard preserves starter draft', async () => {
     const h = await mount({ confirm: async () => false }), c = h.controller; c.createFromStarter('summary'); const draft = c.draft(); await h.view.discardDraft(); assert.equal(c.draft(), draft);

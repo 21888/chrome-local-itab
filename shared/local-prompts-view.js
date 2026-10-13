@@ -111,7 +111,7 @@
             const c = this.controller;
             this.shell = this.el('div', 'prompt-shell');
             const brand = this.el('div', 'prompt-brand');
-            const mark = this.el('span', 'prompt-brand-mark', '▦'); mark.setAttribute('aria-hidden', 'true');
+            const mark = this.el('img', 'prompt-brand-mark'); mark.src = 'assets/icon48.png'; mark.alt = ''; mark.width = 28; mark.height = 28; mark.setAttribute('aria-hidden', 'true');
             brand.append(mark, this.el('span', 'prompt-brand-name', 'LOCAL iTAB'));
             const header = this.el('header', 'prompt-header'), title = this.el('div');
             title.append(this.el('p', 'prompt-eyebrow', this.t('Eyebrow', 'Your reusable instructions')), this.el('h1', '', this.t('Title', 'Prompt library')),

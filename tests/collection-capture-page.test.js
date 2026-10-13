@@ -70,7 +70,7 @@ test('model DOM capture source opt-in is unchecked, literal, and only persists a
     h.view.editor.captureCheck.checked = true; h.view.editor.captureCheck.dispatch('change'); assert.equal(c.draft().input.sourceUrl, payload.sourceCandidate); assert.equal(h.writes, 0);
     h.view.editor.captureCheck.checked = false; h.view.editor.captureCheck.dispatch('change'); assert.equal(c.draft().input.sourceUrl, '');
     const input = h.view.editor.fields.sourceUrl; input.value = 'https://manual.example/source'; input.dispatch('input'); assert.equal(h.view.editor.captureCheck.checked, false);
-    c.update('title', 'Reviewed'); await h.view.save(); assert.equal(c.record().sourceUrl, input.value); assert.equal(c.record().body, payload.body); assert.equal(h.host.querySelectorAll('script, iframe, img').length, 0); c.dispose();
+    c.update('title', 'Reviewed'); await h.view.save(); assert.equal(c.record().sourceUrl, input.value); assert.equal(c.record().body, payload.body); assert.equal(h.host.querySelectorAll('script, iframe').length, 0); const images = h.host.querySelectorAll('img'); assert.equal(images.length, 1); assert.equal(images[0].className, 'prompt-brand-mark'); assert.equal(images[0].src, 'assets/icon48.png'); assert.equal(images[0].alt, ''); c.dispose();
 });
 test('captured duplicate still requires existing review; uncertain Save retries same operation', async () => {
     const h = await mount(), c = h.controller; await add(c, 'First', payload.body); c.hydrateCapture(payload, c.captureTicket()); c.update('title', 'Second');
