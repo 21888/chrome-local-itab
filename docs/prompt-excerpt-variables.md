@@ -98,6 +98,9 @@ Integration on the exact punctuation-fix parent preserved both punctuation
 regressions and passed2767/2767 strict serial Node tests (1 GiB heap),81/81 Python,
 and113-file packaging. Final24 new tests,41 prior focused tests and8 independent
 adversarial checks passed. Apply synchronizes only the target input so another
-variable's invalid unsaved text remains untouched. Native browser acceptance
-is pending for this development commit; fault/race coverage is synthetic.
+variable's invalid unsaved text remains untouched. Limited Chinese-light native acceptance passed full alpha/old-value review,
+cancel preserving three values, keyboard target-only Apply at ordinary200% zoom,
+other values/template preservation and returned opener focus. Discard restored
+Prompt0 and baseline. No native save/copy/provider, invalid/max input, external
+mutation or fault/race coverage; those remain synthetic.
 Manifest remains1.1.111; this ordinary feature does not publish a release.
