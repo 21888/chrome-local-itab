@@ -19,8 +19,7 @@ IME and repeated activations, pending external work and saves, uncertain failure
 detached nodes and close/reopen. Existing card/filter/selection coverage remains.
 
 Manifest remains 1.1.102. No permissions, catalog entries, storage schema, network
-provider or save behavior was added. Browser testing was not performed in this
-implementation task. All new test content is synthetic.
+provider or save behavior was added. Implementation tests are synthetic. Subsequent limited Chinese desktop-light native checks passed: zero-selection selected-only exit, hidden-two inline recovery preserving selection and category draft, and ordinary zero-result recovery with visible search focus. No additions occurred. Other-filter preservation in the zero-selection branch was not separately native-tested; dark/responsive/IME/capacity and exhaustive filter or accessibility matrices were not repeated.
 
 Validation: focused navigation view 113/113; Python 81/81; JavaScript syntax and
 whitespace checks passed. Offline package verification passed with the unchanged

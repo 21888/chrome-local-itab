@@ -1,0 +1,9 @@
+# 1.1.103 validation
+
+Normal patch increment from official v1.1.102. Parent 37bc07dfb709278af70ce540ce4c3b9b2e118969; only manifest and documentation differ from combined features. No recovery marker.
+
+Precise ordinary CI passed 2581 Node/81 Python and 2589 Node/81 Python. Actual 1.1.103 full regression passed strict serial Node 2589/2589 (1GiB heap, no failures/skips/cancellations) and Python 81/81.
+
+Limited native development packages (112 files): empty guidance b20364a6b067743c4f28045807a5f585c182a42a04d9b7877a0185e2edc452ba; AI receipt check 0750b1efaff4137b73bc19bd6a4f0e00c96e234c389ee1a830f2b0afb673e5db. Chinese desktop light. Navigation zero-selection exit, hidden-two inline clear preserving selected2/category draft and ordinary zero-match recovery with search focus passed; no additions. AI no-answer recovery button remained absent, local exact alpha preview and clear/close passed; no Allow/Send/save or induced fault. Temporary endpoint/model cleared; dashboard Default14 / qa remaining2 / Clarity light / Grid restored.
+
+Uncertain historical committed receipts and failure/race paths remain real-Store synthetic-only. Zero-selection branch with other active filters was not separately native-tested; no exhaustive keyboard/filter/screen-reader/dark/responsive/IME/capacity matrices. Historical confirmation does not assert current record existence. Final minimal native identity smoke passed against ZIP SHA256 f5b90381a4b8a37485eb1551b6abb7ee29aa0d15f17a03ee53f4b2825d6bcd01, 112 entries; only manifest differs from combined development. Ordinary CfT reload showed actual 1.1.103 and fresh homepage retained Default14 / qa remaining2 / Clarity light / Grid. No temporary drafts or dialogs opened, no data changed; AI originals, empty prompt library and workspace note were untouched rather than reread. Identity evidence does not cover historical receipt faults or expand feature-native coverage, and does not prove live publication.

@@ -4,4 +4,4 @@ Development feature on 1.1.102. An explicit Check earlier save action calls the 
 
 Deterministic tests cover original-command receipt verification with the real Store, strict acknowledgement, missing/error/stale/closed results, single-flight behavior, locked inputs and localized UI. Implementation-source full tests passed 2582 Node and 81 Python. Combined with navigation empty-state recovery, actual strict serial Node 2589/2589 and Python 81/81 passed with no failures, skips or cancellations.
 
-Native safe UI smoke is pending. Actual receipt-bearing uncertain-save faults and recovery remain synthetic-only unless separately exercised. No real provider call or browser fault injection is claimed.
+Limited Chinese desktop-light no-response native smoke passed: recovery button absent, existing alpha source selected for exact local preview, clear/reset and empty close normal. No save, provider call or write fault was induced; temporary endpoint/model were cleared. Actual receipt-bearing uncertain-save faults and recovery remain synthetic-only unless separately exercised. No real provider call or browser fault injection is claimed.
