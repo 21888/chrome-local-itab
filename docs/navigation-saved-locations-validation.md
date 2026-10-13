@@ -14,5 +14,7 @@ perform extra storage reads/writes. Existing Added/saved filters stay equivalent
 Frozen strict Node2806/2806, Python81/81 and focused156/156 passed. Independent
 review passed240 tests including7 additional boundary cases, with no blocker.
 Packaging verifies113 explicit runtime files; manifest remains1.1.114 for this
-ordinary feature. Native display validation is pending. No full visual, narrow
-layout or assistive-technology coverage is claimed from synthetic tests.
+ordinary feature. Limited Chinese-light native representative locations passed: Photopea Learning,
+Gemini/Figma qa remaining, unadded PhET absent, Added14.100%/200% detail/focus
+paths worked, with no writes and restored baseline. No all14/multiple-location,
+long-name, dark/English, narrow or assistive-technology matrix claim.

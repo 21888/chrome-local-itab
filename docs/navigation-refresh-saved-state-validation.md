@@ -20,5 +20,8 @@ Frozen implementation passed2814/2814 strict Node tests and81/81 Python, includi
 eight new refresh cases. Independent audit passed149 view tests and26 additional
 real StorageManager checks covering external changes, reversed reads, mutation
 and layout flags, rejection paths and zero writes.113-file offline packaging
-passed. Manifest remains1.1.114 for this ordinary feature; native acceptance is
-pending, and synthetic read-count/fault evidence is not native verification.
+passed. Manifest remains1.1.114 for this ordinary feature; limited Chinese-light native ordinary refresh passed preservation of query,
+category, selection1, details and unsubmitted category name at100%/200%, plus
+Added14 and Photopea location. Zero saves and baseline restored. External
+mutation, missing targets, failures/reversed reads and read-count internals
+remain synthetic, not native verification.
