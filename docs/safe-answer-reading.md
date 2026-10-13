@@ -1,6 +1,6 @@
 # Safe answer reading / 安全答案阅读
 
-完整成功的上下文 AI Answer、提示词单模型回答、模型对比各列回答（含原稿/提案试用答案），以及 AI 收藏的当前正文默认显示只读阅读视图，可随时切换“原文”。段落、标题、列表、粗斜体、删除线、代码、引用与表格仅改变展示；复制、保存、JSON/Markdown 导出和历史版本继续使用未经修改的原始字符串。
+完整成功的上下文 AI Answer、提示词单模型回答、模型对比各列回答（含原稿/提案试用答案），以及 AI 收藏的当前正文默认显示只读阅读视图，可随时切换“原文”。段落、标题、列表、粗斜体、删除线、代码、引用与表格仅改变展示；整篇复制、保存、JSON/Markdown 导出和历史版本继续使用未经修改的原始字符串；块级“复制代码”只复制 Reading 中所见的代码文本。
 
 - 任务 JSON、发送前审阅、提示词/正文编辑器、可编辑优化提案及其原始模型答复、历史正文、历史输入快照和未完成的流式正文均不进入阅读器。
 - 链接与图片只显示标签/替代文字和 URL 文字；不生成可点击链接、图片、预览或网络请求。来源元数据中的原有用户提供链接不受影响。
@@ -33,3 +33,16 @@ Streaming chunks, stopped/failed partial answers, outgoing reviews, saved prompt
 Retry, invalidation, source interruption, close and destruction release the affected reader. A hidden document releases formatted DOM and retains whatever literal output the pre-existing flow permits. Returning to the tab does not reparse or relabel an old result as new; the old original stays selectable. A request completed while hidden stays on the original-text path. Prompt View destruction now invokes its existing model-dialog interruption hook so completed reader DOM is also released on controller teardown. No request is sent by reader controls or visibility changes.
 
 Additional synthetic regression coverage: localized English/Chinese shared controls; single-run completion and streaming failure/stop/late retry; two-column partial failure and isolated retry; exact CRLF/Unicode/trailing-whitespace original and collection-save payload; independent model/origin attribution; unchanged refinement edit/cancel/accept; trial close/reopen and edited-proposal ownership; source/visibility/close/controller cleanup; URL-bearing/active DOM exclusion; two near-32k cards with repeated toggles and save updates parsing only twice total. The coarse two-card timing assertion is a regression guard in the modeled DOM, not a browser performance promise. The existing full suite also covers collection copy/export; native clipboard, focus, layout and actual provider calls are not established by these tests.
+
+
+## Explicit code-block copy
+
+Each non-empty fenced or indented code block in a completed Reading view has a native “Copy code” button when its host supplies a clipboard adapter. Inline code, empty blocks, raw-text fallback, Original view and readers without that adapter have no active code-copy action. The safe renderer remains a pure whitelist renderer with no clipboard, storage or network access.
+
+The copied string is the same parser token snapshot assigned to code.textContent: no fence, language hint, explanation, trimming or appended newline. This is displayed-code fidelity, not Markdown byte fidelity; lexer newline/indent normalization is reflected in both Reading and code copy. Full-answer copy, saving, history and export still use the untouched source.
+
+A user click starts the clipboard write directly, never queued or automatically retried. Blocks share their host's pending clipboard lock with existing whole-answer/prompt copying; both comparison columns and reopened model dialogs share the prompt view lock. A pending write remains locked until its original promise settles, including when a reader closes or its answer changes. Closing or switching view cannot undo a clipboard write already started. Late feedback requires the same answer and live Reading lifecycle and never changes focus. If copying is unavailable or rejected, select the code and copy manually; no legacy execCommand fallback is used.
+
+English and Chinese labels number code blocks without trusting language strings. One polite status region per reader announces feedback. Code remains separately selectable and horizontally scrollable; locking a focused copy button moves focus synchronously to its code region, while completion never takes focus.
+
+Regression coverage includes displayed whitespace/Unicode/CRLF/HTML equality, optional adapters, partial-render fallback, multiple blocks, whole-answer/history sharing, comparison-column races, hidden/raw/destroyed controls, old promises and rejection. These are synthetic source/DOM checks; native browser layout, clipboard permissions, keyboard activation and assistive-technology announcements require separate acceptance.

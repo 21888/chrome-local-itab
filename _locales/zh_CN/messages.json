@@ -5935,9 +5935,21 @@
     "message": "原文"
   },
   "answerReaderSafety": {
-    "message": "仅调整只读排版。链接与图片仅显示文字；复制、保存和导出均保留原文。"
+    "message": "只做阅读排版；链接和图片仅显示为文字。整篇复制、保存和导出保留原文；复制代码只复制所见代码。"
   },
   "answerReaderFallback": {
     "message": "此内容无法排版，已显示完整原文。"
+  },
+  "answerReaderCopyCode": {
+    "message": "复制代码"
+  },
+  "answerReaderCopyCodeNumber": {
+    "message": "复制第 {number} 段代码"
+  },
+  "answerReaderCodeCopied": {
+    "message": "代码已复制。"
+  },
+  "answerReaderCodeCopyBlocked": {
+    "message": "复制受阻，请选中此代码手动复制。"
   }
 }

@@ -262,11 +262,11 @@ for (const language of ['en', 'zh_CN']) test(`uncertain collection save exposes 
     assert.equal(h.h.writes, writes); assert.equal(JSON.stringify(h.h.raw), before); c.dispose();
 });
 
-async function historicalPromptFixture() {
-    const h = await mount(), c = h.controller;
+async function historicalPromptFixture({ safeReader = false, body = 'Original answer' } = {}) {
+    const h = await mount(undefined, undefined, safeReader), c = h.controller;
     const packed = require('../shared/ai-context').pack('  Synthetic "question" 中文 español 🧪 <script>x</script>\n\\path', [{ id: 'source', label: 'Synthetic', text: 'Exact\nreviewed\ttext' }]);
     const contextSnapshot = { schemaVersion: 1, question: packed.question, sources: packed.sources, prompt: packed.prompt, endpoint: 'https://model.example/v1/chat/completions', model: 'outer-metadata-only' };
-    const saved = await h.store.mutate(h.store.request('add', { title: 'Snapshot', body: 'Original answer', contextSnapshot }));
+    const saved = await h.store.mutate(h.store.request('add', { title: 'Snapshot', body, contextSnapshot }));
     await c.refresh(); c.select(saved.records[0].id);
     const section = h.host.querySelector('.collection-context-snapshot');
     const open = section.querySelectorAll('button').find(b => b.textContent === 'Review historical full prompt');
@@ -369,4 +369,105 @@ test('saved current body reader caches unchanged text, keeps copy/export exact, 
     const departed = h.host.querySelector('.answer-reader'); h.events.get('pagehide')({ persisted: true }); assert.equal(departed.children.length, 0);
     h.events.get('pageshow')({ persisted: true }); assert.equal(h.readerParses, 5);
     h.view.destroy(); assert.equal(h.host.querySelector('.answer-reader'), null); c.dispose();
+});
+
+
+const collectionCodeSource = '# Synthetic saved answer\r\n\r\n```js\r\n  const value = "<img onerror=synthetic> 中文 🧪";\r\n\tvalue;  \r\n```\r\n\r\n~~~text\r\nsecond block <script>literal</script>\r\n~~~';
+test('saved code blocks, complete excerpt and historical prompt share a pending clipboard lock', async () => {
+    const h = await historicalPromptFixture({ safeReader: true, body: collectionCodeSource }), writes = []; let finish;
+    h.view.clipboard = { writeText(value) { writes.push(value); return new Promise(resolve => { finish = resolve; }); } };
+    h.open.dispatch('click');
+    const reader = h.host.querySelector('.answer-reader'), blocks = reader.querySelectorAll('.answer-reader-copy-code');
+    const code = reader.querySelectorAll('pre code'), feedback = reader.querySelector('.answer-reader-copy-status');
+    let whole = h.host.querySelectorAll('button').find(node => node.textContent === 'Copy excerpt');
+    const before = h.h.writes, record = h.c.record();
+    assert.equal(blocks.length, 2); assert.equal(feedback.getAttribute('role'), 'status');
+    blocks[0].dispatch('click'); assert.deepEqual(writes, [code[0].textContent], 'clipboard starts before the click handler returns');
+    assert(blocks.every(node => node.disabled)); assert.equal(whole.disabled, true); assert.equal(h.copy.disabled, true);
+    blocks[1].dispatch('click'); whole.dispatch('click'); h.copy.dispatch('click'); assert.equal(writes.length, 1);
+    h.view.render(); whole = h.host.querySelectorAll('button').find(node => node.textContent === 'Copy excerpt');
+    assert.equal(h.host.querySelector('.answer-reader'), reader); assert(blocks.every(node => node.disabled)); assert.equal(whole.disabled, true);
+    assert(reader.querySelectorAll('.answer-reader-controls button').every(node => !node.disabled), 'reader navigation stays usable during clipboard write');
+    finish(); await tick(); assert.equal(feedback.textContent, '', 'rerender owns a fresh feedback lifecycle');
+    assert(blocks.every(node => !node.disabled)); whole.dispatch('click'); assert.equal(writes[1], collectionCodeSource);
+    blocks[1].dispatch('click'); assert.equal(writes.length, 2); finish(); await tick();
+    const open = h.host.querySelectorAll('button').find(node => node.textContent === 'Review historical full prompt'); open.dispatch('click');
+    const historical = h.host.querySelectorAll('button').find(node => node.textContent === 'Copy historical prompt'); historical.dispatch('click');
+    assert.equal(writes[2], h.contextSnapshot.prompt); assert(blocks.every(node => node.disabled)); assert.equal(whole.disabled, true);
+    blocks[0].dispatch('click'); whole.dispatch('click'); assert.equal(writes.length, 3); finish(); await tick();
+    blocks[1].dispatch('click'); assert.equal(writes[3], code[1].textContent); finish(); await tick(); assert.match(feedback.textContent, /Code copied/);
+    assert.equal(h.h.writes, before); assert.equal(h.c.record(), record); assert.equal(h.readerParses, 1); h.c.dispose();
+});
+for (const outcome of ['resolve', 'reject']) for (const change of ['raw', 'rerender', 'edit', 'switch', 'reload', 'archive', 'hidden', 'detach', 'bfcache', 'destroy']) {
+    test(`saved code-copy ${outcome} suppresses stale feedback after ${change}`, async () => {
+        const h = await historicalPromptFixture({ safeReader: true, body: collectionCodeSource }), writes = []; let resolve, reject;
+        const pending = new Promise((yes, no) => { resolve = yes; reject = no; });
+        h.view.clipboard = { writeText(value) { writes.push(value); return pending; } };
+        const reader = h.host.querySelector('.answer-reader'), block = reader.querySelector('.answer-reader-copy-code'), feedback = reader.querySelector('.answer-reader-copy-status');
+        block.dispatch('click'); assert.equal(writes.length, 1);
+        if (change === 'raw') { reader.querySelectorAll('.answer-reader-controls button')[1].dispatch('click'); reader.querySelectorAll('.answer-reader-controls button')[0].dispatch('click'); }
+        if (change === 'rerender') h.view.render();
+        if (change === 'edit') h.c.edit();
+        if (change === 'switch') await add(h.c, 'Other code', '```text\nother code\n```');
+        if (change === 'reload') await h.c.refresh();
+        if (change === 'archive') await h.c.action('remove');
+        if (change === 'hidden') { h.doc.visibilityState = 'hidden'; h.doc.listeners.get('visibilitychange')(); h.doc.visibilityState = 'visible'; h.doc.listeners.get('visibilitychange')(); }
+        if (change === 'detach') reader.remove();
+        if (change === 'bfcache') { h.events.get('pagehide')({ persisted: true }); h.events.get('pageshow')({ persisted: true }); }
+        if (change === 'destroy') h.view.destroy();
+        h.host.querySelector('.answer-reader-copy-code')?.dispatch('click'); h.host.querySelectorAll('button').find(node => node.textContent === 'Copy excerpt')?.dispatch('click');
+        assert.equal(writes.length, 1); assert.equal(h.view.copying, true, 'lifecycle changes cannot release the original write lock');
+        feedback.textContent = 'Newer reader feedback';
+        if (outcome === 'resolve') resolve(); else reject(Error('blocked')); await tick();
+        assert.equal(h.view.copying, false); assert.equal(feedback.textContent, 'Newer reader feedback'); assert.equal(writes.length, 1);
+        if (change === 'bfcache' || change === 'switch') assert.equal(h.host.querySelector('.answer-reader-copy-status').textContent, '');
+        h.c.dispose();
+    });
+}
+test('saved code copy recovers navigation after busy state and keeps failure feedback local', async () => {
+    for (const clipboard of [undefined, { writeText() { throw Error('blocked'); } }, { writeText: () => Promise.reject(Error('blocked')) }]) {
+        const h = await historicalPromptFixture({ safeReader: true, body: collectionCodeSource }); h.view.clipboard = clipboard;
+        const reader = h.host.querySelector('.answer-reader'), blocks = reader.querySelectorAll('.answer-reader-copy-code');
+        h.c.busy = true; h.view.render(); assert(reader.querySelectorAll('button').every(node => node.disabled));
+        h.c.busy = false; h.view.render(); assert(reader.querySelectorAll('button').every(node => !node.disabled));
+        const page = h.view.status.textContent, before = h.h.writes;
+        blocks[0].dispatch('click'); await tick();
+        assert.match(reader.querySelector('.answer-reader-copy-status').textContent, /Select this code/);
+        assert.equal(h.view.status.textContent, page); assert.equal(h.h.writes, before); assert.equal(blocks[0].disabled, false); h.c.dispose();
+    }
+});
+
+
+test('failed or pending collection reads block every copy entry and clear no saved text', async () => {
+    const h = await historicalPromptFixture({ safeReader: true, body: collectionCodeSource }), writes = [];
+    h.view.clipboard = { writeText: async value => writes.push(value) };
+    const original = h.c.record(), read = h.store.read.bind(h.store);
+    const tryCopies = () => {
+        h.host.querySelector('.answer-reader-copy-code').dispatch('click');
+        h.host.querySelectorAll('button').find(node => node.textContent === 'Copy excerpt').dispatch('click');
+        h.host.querySelectorAll('button').find(node => node.textContent === 'Copy historical prompt').dispatch('click');
+    };
+    h.c.error = { scope: 'read', code: 'READ' }; h.view.render(); tryCopies(); await tick();
+    assert.deepEqual(writes, []); assert.equal(h.host.querySelector('.answer-reader-copy-code').disabled, true);
+    h.c.error = null; h.view.render(); let finish;
+    h.store.read = () => new Promise(resolve => { finish = resolve; });
+    const refreshing = h.c.refresh();
+    assert.equal(h.c.pendingReadGeneration, h.c.readGeneration); assert.equal(h.host.querySelector('.answer-reader-copy-code').disabled, true);
+    tryCopies(); await tick(); assert.deepEqual(writes, []);
+    finish(await read()); await refreshing; h.store.read = read;
+    assert.equal(h.host.querySelector('.answer-reader-copy-code').disabled, false);
+    assert.equal(h.c.record().body, original.body); assert.equal(h.c.record().history[0].body, original.body); h.c.dispose();
+});
+test('copy controls retain keyboard focus while pending and never steal focus when a write settles', async () => {
+    const h = await historicalPromptFixture({ safeReader: true, body: collectionCodeSource }); let finish;
+    h.view.clipboard = { writeText: () => new Promise(resolve => { finish = resolve; }) };
+    const reader = h.host.querySelector('.answer-reader'), block = reader.querySelector('.answer-reader-copy-code');
+    const whole = h.host.querySelectorAll('button').find(node => node.textContent === 'Copy excerpt');
+    h.open.dispatch('click');
+    for (const [control, expected] of [[block, reader.querySelector('pre')], [whole, h.view.status], [h.copy, h.prompt]]) {
+        control.focus(); assert.equal(h.doc.activeElement, control); control.dispatch('click');
+        assert.equal(h.doc.activeElement, expected); h.view.search.focus(); finish(); await tick();
+        assert.equal(h.doc.activeElement, h.view.search);
+    }
+    h.c.dispose();
 });

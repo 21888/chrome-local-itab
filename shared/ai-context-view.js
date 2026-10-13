@@ -113,7 +113,9 @@
             if (readerResult !== result) {
                 answerReader?.destroy(); answerReader = null; readerResult = result;
                 if (result?.mode === 'answer' && root.LocalItabSafeAnswerReader) {
-                    answerReader = root.LocalItabSafeAnswerReader.create(doc, result.text, (key, fallback) => t(`answerReader${key}`, fallback));
+                    answerReader = root.LocalItabSafeAnswerReader.create(doc, result.text, (key, fallback) => t(`answerReader${key}`, fallback), {
+                        copy: (text, target) => copyResponse(text, target), canCopy: canCopyResponse
+                    });
                     readerHost.append(answerReader.node);
                 }
             }
@@ -345,7 +347,13 @@
             if (!valid || (localCopy && localCopy.ticket !== ticket)) localCopy = null;
             localStatus.textContent = '';
             reviewLocal.disabled = selectionBlocked();
-            copyLocal.disabled = selectionBlocked() || !valid || localPanel.hidden || Boolean(localCopy);
+            updateLocalCopyState();
+        }
+        function updateLocalCopyState() {
+            const ticket = controller.localReview;
+            const valid = ticket && !disposed && !controller.closed && ticket.generation === controller.generation;
+            copyLocal.disabled = selectionBlocked() || copying || !valid || localPanel.hidden || Boolean(localCopy) ||
+                !box.isConnected || doc.visibilityState === 'hidden';
         }
         function requestMode(packed) {
             return `${label('Mode', 'Output')}: ${packed.mode === 'tasks' ? label('Tasks', 'Draft tasks for review') : label('Answer', 'Answer')} · ${packed.stream ? label('StreamOn', 'Progressive answer: on') : label('StreamOff', 'Progressive answer: off')}`;
@@ -359,12 +367,14 @@
             }, ['LocalReviewed', 'Local prompt ready to inspect. No endpoint or model is needed. Copying is a separate action; nothing has been sent or saved.']);
         });
         const copyLocal = button('CopyLocal', 'Copy reviewed prompt', async () => {
-            if (selectionBlocked() || localCopy || localPanel.hidden || !controller.localReview) return;
-            const ticket = controller.localReview, operation = { ticket };
+            if (selectionBlocked() || copying || localCopy || localPanel.hidden || !controller.localReview ||
+                !box.isConnected || doc.visibilityState === 'hidden') return;
+            const ticket = controller.localReview, operation = { ticket }, generation = copyGeneration;
             const current = () => localCopy === operation && !selectionBlocked() && controller.localReview === ticket &&
+                generation === copyGeneration && box.isConnected && doc.visibilityState !== 'hidden' &&
                 controller.generation === ticket.generation && !localPanel.hidden && localText.value === ticket.packed.prompt;
             if (localText.value !== ticket.packed.prompt) return;
-            localCopy = operation; copyLocal.disabled = true; localStatus.textContent = '';
+            localCopy = operation; copying = true; localStatus.textContent = ''; updateCopy();
             if (doc.activeElement === copyLocal || doc.activeElement === doc.body) localStatus.focus();
             try {
                 await controller.copyLocalPrompt(ticket, text => {
@@ -379,7 +389,8 @@
                 if (!disposed && localCopy === operation && controller.localReview !== ticket) {
                     // Only this unchanged review losing its ticket needs workspace feedback.
                     // Edits, newer reviews and closed controllers own their own status/focus.
-                    const invalidated = !controller.closed && controller.generation === ticket.generation && controller.localReview === null;
+                    const invalidated = !controller.closed && box.isConnected && doc.visibilityState !== 'hidden' &&
+                        generation === copyGeneration && controller.generation === ticket.generation && controller.localReview === null;
                     const hiddenFocus = invalidated && localPanel.contains(doc.activeElement);
                     updateLocalReview();
                     if (invalidated) {
@@ -387,7 +398,8 @@
                         if (hiddenFocus) status.focus();
                     }
                 }
-                if (localCopy === operation) { localCopy = null; copyLocal.disabled = selectionBlocked() || !controller.localReview || localPanel.hidden; }
+                if (localCopy === operation) localCopy = null;
+                copying = false; if (!disposed) updateCopy();
             }
         });
         localPanel.append(copyLocal, localStatus);
@@ -418,26 +430,37 @@
             finally { key.value = ''; }
         }, ['Received', 'Response received, not saved. Model claims and source citations have not been verified.']); });
         const stop = button('Stop', 'Stop request', () => { controller.stop(); key.value = ''; status.textContent = label('Stopped', 'Stopped. The provider may still charge for work already started.'); update(); });
-        function updateCopy() {
-            copy.disabled = disposed || controller.closed || copying || Boolean(controller.partial) || !controller.result || outputLabel.hidden || !output.value.trim();
-            copy.textContent = controller.result?.mode === 'tasks' ? label('CopyTasks', 'Copy task JSON') : label('CopyAnswer', 'Copy answer');
+        function canCopyResponse() {
+            return !disposed && !controller.closed && !copying && !controller.partial && Boolean(controller.result) &&
+                box.isConnected && doc.visibilityState !== 'hidden' && !outputLabel.hidden && Boolean(output.value.trim());
         }
-        const copy = button('CopyAnswer', 'Copy answer', async () => {
-            if (disposed || controller.closed || copying || Boolean(controller.partial) || !controller.result || outputLabel.hidden || !output.value.trim()) return;
-            // Snapshot only the displayed response. No request or connection metadata is copied.
-            const text = output.value, result = controller.result, reviewed = controller.resultReview, generation = copyGeneration;
+        function updateCopy() {
+            copy.disabled = !canCopyResponse();
+            copy.textContent = controller.result?.mode === 'tasks' ? label('CopyTasks', 'Copy task JSON') : label('CopyAnswer', 'Copy answer');
+            answerReader?.refreshCopyState?.();
+            updateLocalCopyState();
+        }
+        async function copyResponse(text, target) {
+            if (!canCopyResponse() || (target ? !target.current() : output.value !== text)) return;
+            // Own the displayed response and its original review, even when copying one rendered block.
+            const displayed = output.value, result = controller.result, reviewed = controller.resultReview, generation = copyGeneration;
             const current = () => !disposed && !controller.closed && generation === copyGeneration &&
-                controller.result === result && controller.resultReview === reviewed && !outputLabel.hidden && output.value === text;
-            copying = true; copyStatus.textContent = ''; updateCopy();
-            if (doc.activeElement === copy || doc.activeElement === doc.body) copyStatus.focus();
+                box.isConnected && doc.visibilityState !== 'hidden' && !controller.partial &&
+                controller.result === result && controller.resultReview === reviewed && !outputLabel.hidden &&
+                output.value === displayed && (!target || target.current());
+            const feedback = target?.status || copyStatus;
+            copying = true; feedback.textContent = ''; updateCopy();
+            if (!target && (doc.activeElement === copy || doc.activeElement === doc.body)) copyStatus.focus();
             try {
+                // No asynchronous preflight: preserve user activation and serialize every response copy.
                 if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
                 await clipboard.writeText(text);
-                if (current()) copyStatus.textContent = label('Copied', 'Response copied.');
+                if (current()) feedback.textContent = target?.copied || label('Copied', 'Response copied.');
             } catch (_) {
-                if (current()) copyStatus.textContent = label('CopyBlocked', 'Copy was blocked. Select the response text to copy it manually.');
+                if (current()) feedback.textContent = target?.blocked || label('CopyBlocked', 'Copy was blocked. Select the response text to copy it manually.');
             } finally { copying = false; if (!disposed) updateCopy(); }
-        });
+        }
+        const copy = button('CopyAnswer', 'Copy answer', () => copyResponse(output.value));
         const save = button('Save', 'Save answer to AI collection', () => action(() => controller.saveAnswer(answerTitle.value, { includeContext: includeContext.checked }), ['Saved', 'Saved to the existing global AI collection. Saved answers join unencrypted local backups.']));
         const verifySave = button('VerifySave', 'Check earlier save', () => action(() => controller.verifyAnswerSave(), ['SaveVerified', 'The original save was confirmed from its receipt. This does not guarantee the answer is still present: it may have been changed or deleted later. No content was written or sent. You can now clear this draft or start a new request.']));
         const reviewTasks = button('ReviewTasks', 'Review extracted tasks', () => action(async () => {
@@ -519,7 +542,7 @@
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
         function destroy() { if (disposed) return; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
-            if (doc.visibilityState !== 'hidden') return;
+            if (doc.visibilityState !== 'hidden') { if (!disposed) updateCopy(); return; }
             key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);

@@ -450,6 +450,7 @@
                 ui.preview.focus(); ui.preview.select?.(); return false;
             } finally {
                 this.copying = false;
+                this.refreshModelCopy?.();
                 const active = this.draftPreviewElements;
                 if (!this.destroyed && active) active.copy.disabled = !c.draftPreviewResult()?.complete;
                 if (!this.destroyed) this.updateCopyEligibility();
@@ -742,6 +743,7 @@
                 ui.preview.focus(); ui.preview.select?.();
             } finally {
                 this.copying = false;
+                this.refreshModelCopy?.();
                 // Navigation may have replaced the button while the old write was pending.
                 // Refresh only eligibility so a current success/fallback message stays visible.
                 this.updateCopyEligibility();

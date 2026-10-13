@@ -13,3 +13,7 @@
 .answer-reader-table { max-width: 100%; overflow: auto; }
 .answer-reader-table table { border-collapse: collapse; width: max-content; min-width: 100%; }
 .answer-reader-table th, .answer-reader-table td { border: 1px solid currentColor; padding: 6px 10px; min-width: 6em; max-width: 28em; }
+.answer-reader-code-block { min-width: 0; max-width: 100%; margin-block: 1em; }
+.answer-reader-copy-code { margin-bottom: 4px; }
+.answer-reader-code-block pre { margin-block: 0; }
+.answer-reader-copy-status { min-height: 1.65em; font-size: .9em; }

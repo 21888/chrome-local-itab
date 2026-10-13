@@ -1229,10 +1229,13 @@ test('local prompt UI: late copy success or failure cannot overwrite newer revie
         const h = await model(undefined, { clipboard: { writeText: () => (++calls === 1 ? first.promise : second.promise) } });
         h.click('Review prompt locally'); await settle(); h.click('Copy reviewed prompt'); await settle();
         h.input(h.host.querySelector('.ai-context-question'), 'newer question'); h.click('Review prompt locally'); await settle();
-        h.click('Copy reviewed prompt'); await settle(); second.resolve(); await settle();
-        const status = h.host.querySelector('.ai-context-local-status').textContent, prompt = h.host.querySelector('.ai-context-local-prompt').value;
+        const copy = h.byText('Copy reviewed prompt'); assert.equal(copy.disabled, true);
+        copy.dispatch('click'); await settle(); assert.equal(calls, 1, 'new review cannot overtake an unresolved clipboard write');
+        const feedback = h.host.querySelector('.ai-context-local-status'), prompt = h.host.querySelector('.ai-context-local-prompt').value;
         if (reject) first.reject(Error('late')); else first.resolve(); await settle();
-        assert.equal(h.host.querySelector('.ai-context-local-status').textContent, status); assert.match(status, /copied/);
+        assert.equal(feedback.textContent, '', 'stale completion cannot claim the new review was copied');
+        assert.equal(copy.disabled, false); h.click('Copy reviewed prompt'); await settle(); second.resolve(); await settle();
+        assert.match(feedback.textContent, /copied/);
         assert.equal(h.host.querySelector('.ai-context-local-prompt').value, prompt); assert.match(prompt, /newer question/);
     }
 });
@@ -1609,4 +1612,66 @@ test('task JSON, progressive chunks, stopped partial and late completion never e
     const next = await startProgressive(h); next.options.onText('# partial'); next.reply.resolve('# Complete answer'); await settle();
     assert.equal(h.readerParses, 1); assert(h.host.querySelector('.answer-reader-content').querySelector('h1'));
     const old = h.byText('Original text'); h.view.destroy(); old.dispatch('click'); assert.equal(h.host.querySelector('.answer-reader'), null);
+});
+
+
+const codeCopySource = '# Synthetic answer\r\n\r\n```js\r\n  const value = "<img onerror=synthetic> 中文 🧪";\r\n\tvalue;  \r\n```\r\n\r\n~~~text\r\nsecond block <script>literal</script>\r\n~~~';
+test('code, full response and reviewed local prompt share one clipboard lock and exact displayed text', async () => {
+    let finish; const writes = [], h = await model(undefined, { safeReader: true, clipboard: { writeText(value) { writes.push(value); return new Promise(resolve => { finish = resolve; }); } } });
+    h.setReply(codeCopySource); await send(h, 'answer'); h.click('Review prompt locally'); await settle();
+    const reader = h.host.querySelector('.answer-reader'), blocks = reader.querySelectorAll('.answer-reader-copy-code');
+    const code = reader.querySelectorAll('pre code'), feedback = reader.querySelector('.answer-reader-copy-status');
+    const whole = h.byText('Copy answer'), local = h.byText('Copy reviewed prompt');
+    assert.equal(blocks.length, 2); assert.equal(feedback.getAttribute('role'), 'status');
+    const before = { writes: h.b.writes + h.c.writes, calls: h.calls.length, result: h.controller.result, review: h.controller.resultReview };
+    blocks[0].dispatch('click'); assert.deepEqual(writes, [code[0].textContent], 'clipboard starts in the same click stack');
+    assert(blocks.every(node => node.disabled)); assert.equal(whole.disabled, true); assert.equal(local.disabled, true);
+    blocks[1].dispatch('click'); whole.dispatch('click'); local.dispatch('click'); await settle(); assert.equal(writes.length, 1);
+    finish(); await settle(); assert.match(feedback.textContent, /Code copied/); assert(blocks.every(node => !node.disabled));
+    whole.dispatch('click'); assert.deepEqual(writes, [code[0].textContent, codeCopySource]);
+    blocks[1].dispatch('click'); local.dispatch('click'); assert.equal(writes.length, 2); finish(); await settle();
+    local.dispatch('click'); await settle(); assert.equal(writes[2], h.controller.localReview.packed.prompt);
+    assert(blocks.every(node => node.disabled)); assert.equal(whole.disabled, true);
+    blocks[1].dispatch('click'); whole.dispatch('click'); assert.equal(writes.length, 3); finish(); await settle();
+    blocks[1].dispatch('click'); assert.equal(writes[3], code[1].textContent); finish(); await settle();
+    assert.equal(h.controller.result, before.result); assert.equal(h.controller.resultReview, before.review);
+    assert.equal(h.b.writes + h.c.writes, before.writes); assert.equal(h.calls.length, before.calls); assert.equal(h.readerParses, 1);
+    h.view.destroy();
+});
+for (const outcome of ['resolve', 'reject']) for (const change of ['raw', 'edit', 'clear', 'replace', 'hidden', 'detach', 'destroy', 'partial']) {
+    test(`code-copy ${outcome} suppresses stale context feedback after ${change}`, async () => {
+        const gate = {}; gate.promise = new Promise((resolve, reject) => { gate.resolve = resolve; gate.reject = reject; });
+        const writes = [], h = await model(undefined, { safeReader: true, clipboard: { writeText(value) { writes.push(value); return gate.promise; } } });
+        h.setReply(codeCopySource); await send(h, 'answer');
+        const reader = h.host.querySelector('.answer-reader'), block = reader.querySelector('.answer-reader-copy-code'), feedback = reader.querySelector('.answer-reader-copy-status');
+        block.dispatch('click'); assert.equal(writes.length, 1);
+        if (change === 'raw') { h.click('Original text'); h.click('Reading'); }
+        if (change === 'edit') h.input(h.host.querySelector('.ai-context-question'), 'New draft');
+        if (change === 'clear') h.click('Cancel / clear');
+        if (change === 'replace') { h.input(h.host.querySelector('.ai-context-question'), 'New request'); h.setReply('```text\nReplacement code\n```'); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle(); }
+        if (change === 'hidden') { h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')(); h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')(); }
+        if (change === 'detach') reader.remove();
+        if (change === 'destroy') h.view.destroy();
+        if (change === 'partial') { h.controller.partial = { text: 'partial synthetic', stopped: true }; h.input(h.host.querySelector('.ai-context-question'), 'Partial draft'); }
+        const current = h.host.querySelector('.answer-reader-copy-code');
+        if (current) current.dispatch('click'); h.byText('Copy answer')?.dispatch('click'); assert.equal(writes.length, 1, 'transitions cannot release an unresolved write');
+        feedback.textContent = 'Newer reader feedback';
+        if (outcome === 'resolve') gate.resolve(); else gate.reject(Error('blocked')); await settle();
+        assert.equal(feedback.textContent, 'Newer reader feedback');
+        assert.equal(writes.length, 1); assert.equal(h.b.writes + h.c.writes, 0);
+        if (change === 'replace') assert.equal(h.host.querySelector('.answer-reader-copy-status').textContent, '');
+        h.view.destroy();
+    });
+}
+test('code-copy failures stay in the reader status and preserve selectable code without fallback writes', async () => {
+    for (const clipboard of [undefined, { writeText() { throw Error('blocked'); } }, { writeText: () => Promise.reject(Error('blocked')) }]) {
+        const h = await model(undefined, { safeReader: true, clipboard }); h.setReply(codeCopySource); await send(h, 'answer');
+        const reader = h.host.querySelector('.answer-reader'), code = reader.querySelector('pre code').textContent;
+        const page = h.host.querySelector('.ai-context-status').textContent;
+        reader.querySelector('.answer-reader-copy-code').dispatch('click'); await settle();
+        assert.match(reader.querySelector('.answer-reader-copy-status').textContent, /Select this code/);
+        assert.equal(reader.querySelector('pre code').textContent, code); assert.equal(reader.querySelector('.answer-reader-copy-code').disabled, false);
+        assert.equal(h.host.querySelector('.ai-context-copy-status').textContent, ''); assert.equal(h.host.querySelector('.ai-context-status').textContent, page);
+        assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+    }
 });

@@ -6,7 +6,7 @@ const Core = require('../shared/local-prompts-store');
 const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick, settle } = require('./helpers/prompts-harness');
-async function mount({ safeReader = false, locale, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
+async function mount({ safeReader = false, locale, clipboard, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
     const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic prompt', body);
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map(); let runs = 0, grants = 0, writes = 0, command;
     const root = { document: doc, LocalItabPrompts: Core, LocalItabAIPromptRefinement: require('../shared/ai-prompt-refinement'), LocalItabAIModel: { ...Client, run: async (...args) => { runs++; return run ? run(...args) : { text: '<script>synthetic output</script>', model: 'fixture-model', origin: 'https://synthetic.test' }; } },
@@ -22,7 +22,7 @@ async function mount({ safeReader = false, locale, run, contains = async () => t
     for (const file of ['shared/dialog-focus.js', 'shared/ai-model-comparison.js', 'shared/ai-model-view.js']) vm.runInContext(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'), context);
     const catalog = locale ? JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8')) : {};
     root.i18n = { t: key => catalog[key]?.message || key };
-    const view = { doc, controller: h.controller, t: (key, fallback) => catalog[`prompts${key}`]?.message || fallback,
+    const view = { doc, clipboard, controller: h.controller, t: (key, fallback) => catalog[`prompts${key}`]?.message || fallback,
         el(tag, className, text) { const el = doc.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; },
         button(name, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
     const store = { request(kind, values) { return { kind, ...values, operationId: 'synthetic_operation' }; }, async mutate(value, validator) { writes++; command = value; assert.equal(validator(h.raw, value.promptRef), true); return mutate(value); } };
@@ -806,4 +806,75 @@ test('reader: controller teardown hook clears a completed reader and never repar
     h.h.controller.dispose(); h.view.cancelModelDialog();
     assert.equal(reader.children.length, 0); assert.equal(h.ui.readerHost.children.length, 0); assert.equal(h.readerParses, 1);
     await click(h.ui.close); assert.equal(h.doc.listeners.has('visibilitychange'), false);
+});
+
+test('code copy: model writes exact displayed code synchronously and serializes blocks without changing save text', async () => {
+    const pending = deferred(), copied = [];
+    const text = 'Before\r\n\r\n```js\r\n  let π = "中文 🧪";\r\n\t// <script>literal</script>  \r\n```\r\n\r\n    indented second\r\n\r\nAfter';
+    const h = await mount({ safeReader: true, clipboard: { writeText(value) { copied.push(value); return copied.length === 1 ? pending.promise : Promise.resolve(); } }, run: async () => ({ text, model: 'fixture-model', origin: 'https://synthetic.test' }) });
+    await click(h.ui.review); await click(h.ui.send);
+    const reader = h.ui.readerHost.querySelector('.answer-reader'), buttons = reader.querySelectorAll('.answer-reader-copy-code');
+    const code = reader.querySelectorAll('pre code'), status = reader.querySelector('.answer-reader-copy-status');
+    assert.equal(buttons.length, 2); assert.equal(status.getAttribute('role'), 'status');
+    const hostMessage = h.ui.status.textContent; buttons[0].focus(); buttons[0].dispatch('click');
+    assert.deepEqual(copied, [code[0].textContent]); assert.equal(h.view.copying, true);
+    assert(buttons.every(button => button.disabled)); assert.equal(h.doc.activeElement, code[0].parentElement);
+    buttons[0].dispatch('click'); buttons[1].dispatch('click'); assert.equal(copied.length, 1);
+    h.ui.close.focus(); pending.resolve(); await tick();
+    assert.equal(h.doc.activeElement, h.ui.close); assert.equal(h.view.copying, false);
+    assert(buttons.every(button => !button.disabled)); assert.equal(status.textContent, 'Code copied.');
+    await click(buttons[1]); assert.deepEqual(copied, code.map(node => node.textContent));
+    assert.equal(h.ui.status.textContent, hostMessage); assert.equal(h.ui.output.value, text); assert.equal(h.runs, 1);
+    await click(h.ui.save); assert.equal(h.command.body, text); assert.equal(h.writes, 1);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const failure of ['missing', 'throw', 'reject']) test(`code copy: model ${failure} gives isolated manual-copy feedback without retries`, async () => {
+    let copies = 0;
+    const clipboard = failure === 'missing' ? undefined : { writeText() { copies++; if (failure === 'throw') throw Error('private clipboard failure'); return Promise.reject(Error('private clipboard failure')); } };
+    const h = await mount({ safeReader: true, clipboard, run: async () => ({ text: '```\nconst safe = "synthetic";\n```' }) });
+    await click(h.ui.review); await click(h.ui.send);
+    const reader = h.ui.readerHost.querySelector('.answer-reader'), button = reader.querySelector('.answer-reader-copy-code');
+    const hostMessage = h.ui.status.textContent; await click(button);
+    assert.equal(reader.querySelector('.answer-reader-copy-status').textContent, 'Copy was blocked. Select this code and copy it manually.');
+    assert.equal(h.ui.status.textContent, hostMessage); assert.equal(h.view.copying, false); assert.equal(button.disabled, false);
+    assert.equal(copies, failure === 'missing' ? 0 : 1); assert.equal(h.runs, 1); assert.equal(h.writes, 0);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const action of ['original', 'hide', 'pagehide', 'close', 'source', 'dispose', 'overlay']) test(`code copy: model ${action} suppresses late feedback and keeps the write locked until settle`, async () => {
+    const pending = deferred(); let copies = 0;
+    const h = await mount({ safeReader: true, clipboard: { writeText() { copies++; return pending.promise; } }, run: async () => ({ text: '```\nsynthetic code\n```' }) });
+    await click(h.ui.review); await click(h.ui.send);
+    const reader = h.ui.readerHost.querySelector('.answer-reader'), button = reader.querySelector('.answer-reader-copy-code'), status = reader.querySelector('.answer-reader-copy-status');
+    button.dispatch('click'); assert.equal(copies, 1);
+    if (action === 'original') { await click(reader.querySelectorAll('button')[1]); await click(reader.querySelectorAll('button')[0]); }
+    if (action === 'hide') { h.doc.hidden = true; h.doc.listeners.get('visibilitychange')(); h.doc.hidden = false; }
+    if (action === 'pagehide') h.events.get('pagehide')();
+    if (action === 'close') await click(h.ui.close);
+    if (action === 'source') { h.h.controller.excerptEpoch++; h.view.checkModelRun(); }
+    if (action === 'dispose') h.h.controller.dispose();
+    if (action === 'overlay') h.ui.overlay.hidden = true;
+    const statusAfter = status.textContent, hostAfter = h.ui.status.textContent;
+    assert.equal(h.view.copying, true); button.dispatch('click'); assert.equal(copies, 1);
+    pending.resolve(); await tick(); assert.equal(h.view.copying, false);
+    assert.equal(status.textContent, statusAfter); assert.equal(h.ui.status.textContent, hostAfter); assert.equal(copies, 1);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('code copy: pending single-model write blocks a reopened comparison until the original promise settles', async () => {
+    const pending = deferred(), copies = [];
+    const h = await mount({ safeReader: true, clipboard: { writeText(text) { copies.push(text); return copies.length === 1 ? pending.promise : Promise.resolve(); } }, run: async request => ({ text: `\`\`\`\n${request.model} synthetic code\n\`\`\`` }) });
+    await click(h.ui.review); await click(h.ui.send);
+    const oldReader = h.ui.readerHost.querySelector('.answer-reader'), oldStatus = oldReader.querySelector('.answer-reader-copy-status');
+    oldReader.querySelector('.answer-reader-copy-code').dispatch('click'); await click(h.ui.close);
+    assert.equal(h.view.copying, true);
+    const next = h.root.LocalItabAIModelComparison.open({ view: h.view, presetStore: { read: async () => ({ records: [{ name: 'Synthetic', url: 'https://synthetic.test/v1/chat/completions', model: 'new-model' }] }) } });
+    await tick(); next.targets[0].select.value = '0'; next.targets[0].select.dispatch('change'); await click(next.review); await click(next.send);
+    const reader = next.targets[0].readerHost.querySelector('.answer-reader'), button = reader.querySelector('.answer-reader-copy-code');
+    assert.equal(button.disabled, true); button.dispatch('click'); assert.equal(copies.length, 1);
+    pending.resolve(); await tick(); assert.equal(button.disabled, false); assert.equal(h.view.copying, false);
+    assert.equal(oldStatus.textContent, ''); assert.equal(reader.querySelector('.answer-reader-copy-status').textContent, '');
+    await click(button); assert.deepEqual(copies, ['fixture-model synthetic code', 'new-model synthetic code']);
+    await click(next.close); h.h.controller.dispose();
 });

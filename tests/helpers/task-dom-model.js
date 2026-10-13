@@ -5,7 +5,11 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 // A small DOM/event model for ownership and routing. Real native-key behavior,
 // focus painting and browser dragging remain a separate unpacked-extension check.
 function createDocument({ blurUnavailableFocus = false } = {}) {
-    const doc = { activeElement: null, listeners: new Map(), addEventListener(type, fn) { this.listeners.set(type, fn); }, removeEventListener(type) { this.listeners.delete(type); } };
+    const handlers = new Map();
+    const doc = { activeElement: null, listeners: new Map(),
+        addEventListener(type, fn) { const set = handlers.get(type) || new Set(); set.add(fn); handlers.set(type, set); this.listeners.set(type, event => Promise.all([...set].map(handler => handler(event)))); },
+        removeEventListener(type, fn) { const set = handlers.get(type); if (!set) return; if (fn) set.delete(fn); else set.clear(); if (!set.size) { handlers.delete(type); this.listeners.delete(type); } }
+    };
     class Element {
         constructor(tag) { this.tagName = tag.toUpperCase(); this.value = ''; this.hidden = false; this.open = false; this.children = []; this.dataset = {}; this.attributes = {}; this.style = { setProperty(name, value) { this[name] = value; }, removeProperty(name) { delete this[name]; } }; this.listeners = new Map(); this.inert = false; this.ownerDocument = doc; this._classes = new Set(); this.classList = { add: name => this._classes.add(name), remove: name => this._classes.delete(name), contains: name => this._classes.has(name), toggle: (name, enabled) => enabled ? this._classes.add(name) : this._classes.delete(name) }; }
         // Opt in when testing Chrome's loss of focus on disabled/hidden controls.
@@ -23,6 +27,7 @@ function createDocument({ blurUnavailableFocus = false } = {}) {
         append(...children) { for (const child of children) { if (child.tagName === '#FRAGMENT') { this.append(...child.children); continue; } child.parentElement = this; this.children.push(child); } }
         appendChild(child) { this.append(child); }
         replaceChildren(...children) { for (const child of this.children) { if (child.contains(doc.activeElement)) doc.activeElement = doc.body; child.parentElement = null; } this.children = []; this.append(...children); }
+        replaceWith(node) { const parent = this.parentElement; if (!parent) return; const index = parent.children.indexOf(this); parent.children[index] = node; node.parentElement = parent; this.parentElement = null; }
         remove() { if (this.contains(doc.activeElement)) doc.activeElement = doc.body; if (this.parentElement) { this.parentElement.children = this.parentElement.children.filter(item => item !== this); this.parentElement = null; } }
         contains(element) { return element === this || this.children.some(child => child.contains(element)); }
         setAttribute(name, value) { this.attributes[name] = value; if (name === 'tabindex') this.tabIndex = Number(value); }

@@ -74,3 +74,51 @@ test('fixed official dependency, complete MIT license and exact package allowlis
         const html = fs.readFileSync(page, 'utf8'); assert(html.indexOf('vendor/marked/marked.umd.js') < html.indexOf('shared/safe-answer-reader.js'));
     }
 });
+
+test('copy controls are opt-in, block-only, and use the exact displayed token snapshot', () => {
+    const { doc, api } = setup();
+    const source = 'Before `inline`\r\n\r\n```html\r\n  <script>never()</script>\t中文 🧪  \r\n\r\n```\r\n\r\n    indented  \r\n    next\r\n\r\n```\n```';
+    const raw = api.render(doc, source); assert.equal(raw.node.querySelectorAll('button').length, 0);
+    const plain = api.create(doc, source); assert.equal(plain.node.querySelectorAll('button').length, 2);
+    const writes = [], reader = api.create(doc, source, undefined, { copy: (value, target) => { assert(target.current()); writes.push(value); target.status.textContent = target.copied; } });
+    doc.body.append(reader.node);
+    const buttons = reader.node.querySelectorAll('.answer-reader-copy-code'); assert.equal(buttons.length, 2);
+    assert.equal(reader.node.querySelectorAll('[role="status"]').length, 1);
+    for (const [index, button] of buttons.entries()) {
+        assert.equal(button.type, 'button'); assert.equal(button.getAttribute('aria-label'), `Copy code block ${index + 1}`);
+        const code = button.parentElement.querySelector('code'); button.dispatch('click');
+        assert.equal(writes.at(-1), code.textContent); assert.equal(button.parentElement.querySelector('pre').tabIndex, 0);
+    }
+    assert.equal(writes[0], '  <script>never()</script>\t中文 🧪  \n');
+    assert.equal(writes[1], 'indented  \nnext');
+    assert.equal(reader.node.querySelector('.answer-reader-source').textContent, source);
+});
+test('fallback and empty blocks never offer copying, even after a partial render failure', () => {
+    const { doc, api, root } = setup(); const copy = () => assert.fail('No copy expected');
+    for (const source of ['`inline`', '```\n```', 'x'.repeat(32001)]) assert.equal(api.create(doc, source, undefined, { copy }).node.querySelectorAll('.answer-reader-copy-code').length, 0);
+    root.marked = { Lexer: class { lex() { return [{ type: 'code', text: 'discarded' }, { type: 'list', items: null }]; } } };
+    assert.equal(api.create(doc, 'exact raw', undefined, { copy }).node.querySelectorAll('.answer-reader-copy-code').length, 0);
+});
+test('raw, detached, hidden, inert, destroyed and stale lifecycle copy targets are inert', () => {
+    const { doc, api } = setup(); let calls = 0, target;
+    const reader = api.create(doc, '```\ncode\n```', undefined, { copy: (_, value) => { calls++; target = value; } });
+    const button = reader.node.querySelector('.answer-reader-copy-code'), [read, raw] = reader.node.querySelectorAll('button');
+    button.dispatch('click'); assert.equal(calls, 0); doc.body.append(reader.node); button.dispatch('click'); assert.equal(calls, 1); assert(target.current());
+    raw.dispatch('click'); assert(!target.current()); button.dispatch('click'); assert.equal(calls, 1);
+    read.dispatch('click'); assert(!target.current());
+    for (const property of ['hidden', 'inert']) { reader.node[property] = true; button.dispatch('click'); reader.node[property] = false; }
+    doc.hidden = true; button.dispatch('click'); doc.hidden = false;
+    doc.visibilityState = 'hidden'; button.dispatch('click'); doc.visibilityState = 'visible'; assert.equal(calls, 1);
+    button.dispatch('click'); assert.equal(calls, 2);
+    doc.hidden = true; doc.listeners.get('visibilitychange')(); doc.hidden = false; doc.listeners.get('visibilitychange')(); assert(!target.current());
+    reader.destroy(); assert(!target.current()); button.dispatch('click'); assert.equal(calls, 2);
+});
+test('shared host pending disables every code button and protects focus without async focus stealing', () => {
+    const { api } = setup(), doc = createDocument({ blurUnavailableFocus: true }); let locked = false, calls = 0;
+    const reader = api.create(doc, '```\nfirst\n```\n\n```\nsecond\n```', undefined, { canCopy: () => !locked, copy: () => { calls++; locked = true; reader.refreshCopyState(); } });
+    doc.body.append(reader.node); const buttons = reader.node.querySelectorAll('.answer-reader-copy-code'); buttons[0].focus(); buttons[0].dispatch('click');
+    assert.equal(doc.activeElement, buttons[0].parentElement.querySelector('pre')); assert(buttons.every(button => button.disabled));
+    buttons[1].dispatch('click'); assert.equal(calls, 1);
+    reader.node.querySelector('button').focus(); const focused = doc.activeElement; locked = false; reader.refreshCopyState();
+    assert.equal(doc.activeElement, focused); assert(buttons.every(button => !button.disabled));
+});

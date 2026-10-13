@@ -19,6 +19,7 @@
         const grid = el('div', 'ai-compare-grid'), actions = el('div', 'prompt-actions');
         let closed = false, stale = false, loading = true, sending = false, batch = null, presets = [], generation = 0, cleanup, reviewedValues = null;
         const targets = [], variables = [];
+        function refreshCopyState() { targets.forEach(target => target.answerReader?.refreshCopyState()); }
         const variableFields = el('div', 'ai-model-fields');
         if (trial) for (const name of root.LocalItabPrompts.previewTemplate(trial.source.body).variables) {
             const label = el('label', 'ai-model-field', `${t('TrialValue', 'Temporary test value')}: ${name}`), input = el('textarea');
@@ -43,6 +44,7 @@
                 target.stop.disabled = !target.running;
                 target.save.disabled = Boolean(trial) || closed || stale || sending || saving() || !target.response || target.saved;
             }
+            refreshCopyState();
             // Disabling or hiding the focused control blurs it to body in Chrome.
             // Keep this dialog's keyboard scope without stealing another live focus.
             if (!closed && !overlay.hidden && overlay.isConnected && overlay.contains(focused) &&
@@ -56,10 +58,39 @@
         function readResponse(target) {
             releaseReader(target);
             if (view.doc.hidden || !root.LocalItabSafeAnswerReader) return;
-            target.answerReader = root.LocalItabSafeAnswerReader.create(view.doc, target.response.text, (name, fallback) => {
+            const snapshot = target.response, token = generation;
+            let reader;
+            const current = () => !closed && !stale && !view.destroyed && !view.doc.hidden &&
+                !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') &&
+                !target.readerHost.hidden && target.readerHost.isConnected && target.answerReader === reader &&
+                target.response === snapshot && token === generation && sourceCurrent() &&
+                (!trial || reviewedValues === JSON.stringify(variables.map(({ input }) => input.value)));
+            reader = root.LocalItabSafeAnswerReader.create(view.doc, snapshot.text, (name, fallback) => {
                 const key = `answerReader${name}`, value = root.i18n?.t(key);
                 return value && value !== key ? value : fallback;
+            }, {
+                canCopy: () => !view.copying && current(),
+                async copy(text, copyTarget) {
+                    const valid = () => current() && copyTarget.current();
+                    if (view.copying || !valid()) return false;
+                    // Both columns and later dialogs share the view's real
+                    // clipboard lifetime, including when this reader disappears.
+                    view.copying = true; refreshCopyState(); view.updateCopyEligibility?.();
+                    try {
+                        const clipboard = view.clipboard ?? root.navigator?.clipboard;
+                        if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
+                        await clipboard.writeText(text);
+                        if (!valid()) return false;
+                        copyTarget.status.textContent = copyTarget.copied; return true;
+                    } catch (_) {
+                        if (valid()) copyTarget.status.textContent = copyTarget.blocked;
+                        return false;
+                    } finally {
+                        view.copying = false; view.refreshModelCopy?.(); view.updateCopyEligibility?.();
+                    }
+                }
             });
+            target.answerReader = reader;
             target.answerReader.node.setAttribute('aria-label', target.output.getAttribute('aria-label'));
             target.readerHost.append(target.answerReader.node); target.readerHost.hidden = false; target.output.hidden = true;
         }
@@ -247,12 +278,14 @@
             batch = null; reviewedValues = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged); root.chrome?.storage?.onChanged?.removeListener(storageChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.checkModelComparison = null; view.cancelModelDialog = null;
+            if (view.refreshModelCopy === refreshCopyState) view.refreshModelCopy = null;
             variables.forEach(({ input }) => { input.value = ''; });
             trial?.onClose();
         }
         const close = button('Close', 'Close', finish);
         actions.append(review, send, close); box.append(title, help, prompt, variableFields, grid, actions, status); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.checkModelComparison = checkSource; view.cancelModelDialog = hide;
+        view.refreshModelCopy = refreshCopyState;
         root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged); root.chrome?.storage?.onChanged?.addListener(storageChanged);
         cleanup = root.LocalItabDialog.open(overlay, trial ? close : targets[0].select, finish);
         function renderPresets() {

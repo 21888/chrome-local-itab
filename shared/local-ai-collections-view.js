@@ -6,8 +6,8 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller;
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
-            this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0;
-            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0; this.copyGeneration = 0;
+            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
             this.pageHide = event => {
                 if (!event?.persisted) { this.destroy(); return; }
                 this.detailGeneration++;
@@ -19,6 +19,8 @@
                 this.closeComparison?.();
             };
             this.pageShow = event => { if (event?.persisted && !this.destroyed && !controller.disposed) this.render(); };
+            this.visibilityChange = () => { if (this.doc.visibilityState === 'hidden') this.copyGeneration++; this.refreshCopyState(); };
+            this.doc.addEventListener('visibilitychange', this.visibilityChange);
             root.addEventListener?.('pagehide', this.pageHide);
             root.addEventListener?.('pageshow', this.pageShow);
             this.build(); this.attachSearchShortcut();
@@ -31,6 +33,7 @@
             this.detailGeneration++;
             this.closeHistoricalPrompt?.();
             this.detachSearchShortcut?.();
+            this.doc.removeEventListener('visibilitychange', this.visibilityChange);
             root.removeEventListener?.('pagehide', this.pageHide);
             root.removeEventListener?.('pageshow', this.pageShow);
             root.removeEventListener?.('beforeunload', this.beforeUnload);
@@ -95,7 +98,7 @@
             this.exportButton = this.button('Export', 'Export', () => this.exportFile());
             this.newButton = this.button('New', 'Save an excerpt', () => { c.create(); this.main.querySelector('input')?.focus(); }, 'prompt-primary'); actions.append(this.importButton, this.exportButton, this.newButton); header.append(heading, actions);
             this.captureStatus = this.el('div', 'prompt-status'); this.captureStatus.setAttribute('role', 'status'); this.captureStatus.setAttribute('aria-live', 'polite');
-            this.status = this.el('div', 'prompt-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
+            this.status = this.el('div', 'prompt-status'); this.status.tabIndex = -1; this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             const layout = this.el('div', 'prompt-layout'), sidebar = this.el('aside', 'prompt-sidebar'); sidebar.setAttribute('aria-label', this.t('Browse', 'Browse saved excerpts'));
             this.search = this.field(sidebar, 'Search', 'Search title, excerpt, tags and annotations', '', query => c.filter({ query })); this.search.type = 'search'; this.search.maxLength = 500;
             this.search.setAttribute('aria-keyshortcuts', '/');
@@ -151,6 +154,7 @@
             this.closeHistoricalPrompt?.();
             this.closeHistoricalPrompt = null;
             this.updateHistoricalPrompt = null;
+            this.refreshHistoricalCopyState = null;
             this.detailGeneration++;
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             this.renderCaptureStatus();
@@ -177,6 +181,7 @@
                 const empty = this.el('div', 'prompt-empty'); empty.append(this.el('div', 'prompt-empty-mark', '▤'), this.el('h2', '', this.t('Empty', 'Keep the useful part')), this.paragraph('EmptyBody', 'A clear explanation. A code snippet. A plan you want to revisit. Save the exact text and keep your annotations separate.'), this.button('New', 'Save an excerpt', () => c.create(), 'prompt-primary')); this.main.append(empty);
             }
             if (c.busy || c.pendingCommand) for (const control of this.main.querySelectorAll('button, input, textarea, select')) control.disabled = true;
+            this.refreshCopyState();
             if (focused) this.main.querySelector(`[data-collection-field="${focused}"]`)?.focus();
         }
         renderCaptureStatus() {
@@ -356,12 +361,15 @@
                     this.readerId = record.id; this.readerBody = record.body;
                     this.answerReader = root.LocalItabSafeAnswerReader.create(this.doc, record.body, (key, fallback) => {
                         const value = root.i18n?.t(`answerReader${key}`); return value && value !== `answerReader${key}` ? value : fallback;
-                    });
+                    }, { copy: (text, target) => this.copy(text, target), canCopy: () => this.canCopy() });
                 }
-                for (const button of this.answerReader.node.querySelectorAll('button')) button.disabled = false;
+                // Recover navigation after a busy render without unlocking code-copy buttons.
+                for (const button of this.answerReader.node.querySelectorAll('.answer-reader-controls button')) button.disabled = false;
                 this.main.append(this.answerReader.node);
+                this.answerReader.refreshCopyState?.();
             } else { const body = this.el('pre', 'prompt-readonly', record.body); body.tabIndex = 0; this.main.append(body); }
-            this.main.append(this.button('Copy', 'Copy excerpt', () => this.copy(record.body)), this.paragraph('PlainText', 'Saved code and markup are never executed.'));
+            this.copyExcerptButton = this.button('Copy', 'Copy excerpt', () => this.copy(record.body));
+            this.main.append(this.copyExcerptButton, this.paragraph('PlainText', 'Saved code and markup are never executed.'));
             if (record.notes) { const section = this.el('section', 'prompt-section'); section.append(this.el('h3', '', this.t('notes', 'Your annotations')), this.el('pre', 'prompt-readonly', record.notes)); this.main.append(section); }
             const source = root.LocalItabAICollections.sourceMetadata(record.sourceUrl), section = this.el('section', 'prompt-section'); section.append(this.el('h3', '', this.t('Source', 'Source')));
             if (source.provided) { const link = this.el('a', 'collection-source', `${this.t('OpenSource', 'Open user-provided source')} · ${source.host}`); link.href = source.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.referrerPolicy = 'no-referrer'; section.append(link, this.el('p', 'prompt-help collection-url', record.sourceUrl), this.paragraph('SourceHelp', 'User-provided attribution only. This page never fetches the link; the original account or permission may be needed.')); }
@@ -391,11 +399,11 @@
             prompt.setAttribute('aria-label', this.t('HistoricalPromptText', 'Exact historical prompt'));
             const status = this.el('p', 'prompt-help', ''); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
             let review = 0;
-            const close = () => { review++; panel.hidden = true; status.textContent = ''; open.setAttribute('aria-expanded', 'false'); };
+            const close = () => { review++; panel.hidden = true; status.textContent = ''; open.setAttribute('aria-expanded', 'false'); this.refreshHistoricalCopyState?.(); };
             const open = this.button('HistoricalPromptReview', 'Review historical full prompt', () => {
                 if (!current()) return;
                 if (!panel.hidden) { close(); return; }
-                review++; panel.hidden = false; open.setAttribute('aria-expanded', 'true'); prompt.focus();
+                review++; panel.hidden = false; open.setAttribute('aria-expanded', 'true'); this.refreshHistoricalCopyState?.(); prompt.focus();
             });
             open.setAttribute('aria-expanded', 'false'); open.setAttribute('aria-controls', panel.id);
             const copy = this.button('HistoricalPromptCopy', 'Copy historical prompt', () => {
@@ -410,7 +418,13 @@
                 this.el('p', 'prompt-help collection-url', `${this.t('HistoricalPromptVersion', 'First answer version')} · ${record.history[0].id}`), prompt, copy, status,
                 this.button('HistoricalPromptClose', 'Close prompt review', () => { close(); open.focus(); }));
             this.closeHistoricalPrompt = close;
-            this.updateHistoricalPrompt = () => { if (!current()) close(); };
+            this.refreshHistoricalCopyState = () => {
+                const focused = this.doc.activeElement === copy;
+                copy.disabled = !this.canCopy() || !current() || panel.hidden;
+                if (focused && copy.disabled && !this.destroyed && panel.isConnected && !panel.hidden) prompt.focus();
+            };
+            this.updateHistoricalPrompt = () => { if (!current()) close(); else this.refreshHistoricalCopyState(); };
+            this.refreshHistoricalCopyState();
             section.append(open, panel);
         }
         compareSaved(sourceId) {
@@ -474,21 +488,42 @@
             const draft = c.makeDraft(record); delete draft.id; delete draft.version; draft.input.body = this.proposals.get(record.id); draft.baseline = {};
             c.drafts.set('new', draft); c.select('new');
         }
+        canCopy() {
+            const c = this.controller;
+            return !this.copying && !this.destroyed && !c.disposed && !c.busy && !c.pendingCommand && !c.error &&
+                c.pendingReadGeneration !== c.readGeneration && Boolean(c.record()) && !c.draft() && this.host.isConnected && this.doc.visibilityState !== 'hidden';
+        }
+        refreshCopyState() {
+            if (this.copyExcerptButton?.isConnected) {
+                const focused = this.doc.activeElement === this.copyExcerptButton;
+                this.copyExcerptButton.disabled = !this.canCopy();
+                if (focused && this.copyExcerptButton.disabled && !this.destroyed) this.status.focus();
+            }
+            this.refreshHistoricalCopyState?.();
+            this.answerReader?.refreshCopyState?.();
+        }
         async copy(body, target) {
             const c = this.controller, record = c.record();
-            if (this.copying || this.destroyed || c.disposed || c.busy || c.pendingCommand || !record || c.draft() ||
-                (target ? !target.current() : record.body !== body)) return;
-            const context = { generation: this.detailGeneration, id: record.id, version: record.version, body };
-            const isCurrent = () => !this.destroyed && !c.disposed && !c.busy && !c.pendingCommand && !c.draft() &&
-                this.detailGeneration === context.generation && c.record()?.id === context.id &&
-                c.record().version === context.version && (target ? target.current() : c.record().body === context.body);
-            this.copying = true;
+            if (!this.canCopy() || (target ? !target.current() : record.body !== body)) return;
+            const context = { generation: this.detailGeneration, copyGeneration: this.copyGeneration,
+                state: c.state, readGeneration: c.readGeneration, id: record.id, version: record.version, body };
+            const isCurrent = () => !this.destroyed && !c.disposed && !c.busy && !c.pendingCommand && !c.error && !c.draft() &&
+                c.pendingReadGeneration !== c.readGeneration &&
+                this.host.isConnected && this.doc.visibilityState !== 'hidden' && this.copyGeneration === context.copyGeneration &&
+                this.detailGeneration === context.generation && c.state === context.state && c.readGeneration === context.readGeneration &&
+                c.record()?.id === context.id && c.record().version === context.version &&
+                (target ? target.current() : c.record().body === context.body);
+            const status = target?.status || this.status;
+            const feedback = value => Array.isArray(value) ? this.t(...value) : value;
+            this.copying = true; status.textContent = ''; this.refreshCopyState();
             try {
+                // Invoke during the click's activation; hold the shared lock until this exact write settles.
+                if (!this.clipboard?.writeText) throw new Error('Clipboard unavailable');
                 await this.clipboard.writeText(body);
-                if (isCurrent()) (target?.status || this.status).textContent = this.t(...(target?.copied || ['Copied', 'Excerpt copied.']));
+                if (isCurrent()) status.textContent = feedback(target?.copied || ['Copied', 'Excerpt copied.']);
             } catch (_) {
-                if (isCurrent()) (target?.status || this.status).textContent = this.t(...(target?.blocked || ['CopyBlocked', 'Copy was blocked. Select the excerpt text to copy it manually.']));
-            } finally { this.copying = false; }
+                if (isCurrent()) status.textContent = feedback(target?.blocked || ['CopyBlocked', 'Copy was blocked. Select the excerpt text to copy it manually.']);
+            } finally { this.copying = false; if (!this.destroyed) this.refreshCopyState(); }
         }
         async revise(record, historic) {
             if (this.openDialog || this.controller.busy || this.controller.pendingCommand || this.revisionDraft !== null) return;

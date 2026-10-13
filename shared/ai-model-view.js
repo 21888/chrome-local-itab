@@ -7,7 +7,7 @@
         if (view.openDialog || (refining ? !c.sessionReady() : !preview?.complete) || c.busy || c.pendingCommand || c.disposed) return;
         const t = (key, fallback) => view.t(`Model${key}`, fallback), el = (...args) => view.el(...args);
         const template = refining ? refinement.capture(c) : null;
-        const source = { title: record.title, promptId: record.id, bodyVersionId: session.versionId };
+        const source = { title: record.title, promptId: record.id, bodyVersionId: session.versionId, version: record.version, epoch: c.excerptEpoch };
         const overlay = el('div', 'prompt-dialog-overlay'), box = el('section', 'prompt-dialog ai-model-dialog');
         box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'ai-model-title');
         const title = el('h2', '', refining ? t('RefineTitle', 'Refine saved prompt') : t('Title', 'Run with your model')); title.id = 'ai-model-title';
@@ -35,6 +35,7 @@
         const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', refining ? t('RefineAfter', 'Proposed template draft (editable; not saved)') : t('Response', 'Model response'));
         const readerHost = el('div'); readerHost.hidden = true;
         let answerReader = null;
+        function refreshCopyState() { answerReader?.refreshCopyState(); }
         function releaseReader() {
             answerReader?.destroy(); answerReader = null; readerHost.hidden = true;
             if (!refining) output.hidden = !output.value;
@@ -44,10 +45,37 @@
             // Only a completed, immutable answer enters the shared reader. Drafts
             // and partial/error text keep their existing literal textarea path.
             if (refining || view.doc.hidden || !root.LocalItabSafeAnswerReader) return;
-            answerReader = root.LocalItabSafeAnswerReader.create(view.doc, response.text, (name, fallback) => {
+            const snapshot = response;
+            let reader;
+            const current = () => !closed && !suspended && !view.destroyed && !c.disposed && !view.doc.hidden &&
+                !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') &&
+                !readerHost.hidden && readerHost.isConnected && answerReader === reader && response === snapshot && readerSourceCurrent();
+            reader = root.LocalItabSafeAnswerReader.create(view.doc, snapshot.text, (name, fallback) => {
                 const key = `answerReader${name}`, value = root.i18n?.t(key);
                 return value && value !== key ? value : fallback;
+            }, {
+                canCopy: () => !view.copying && current(),
+                async copy(text, target) {
+                    const valid = () => current() && target.current();
+                    if (view.copying || !valid()) return false;
+                    // The view lock survives reader/dialog teardown. Never free it
+                    // until the original clipboard promise has really settled.
+                    view.copying = true; refreshCopyState(); view.updateCopyEligibility?.();
+                    try {
+                        const clipboard = view.clipboard ?? root.navigator?.clipboard;
+                        if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
+                        await clipboard.writeText(text);
+                        if (!valid()) return false;
+                        target.status.textContent = target.copied; return true;
+                    } catch (_) {
+                        if (valid()) target.status.textContent = target.blocked;
+                        return false;
+                    } finally {
+                        view.copying = false; view.refreshModelCopy?.(); view.updateCopyEligibility?.();
+                    }
+                }
             });
+            answerReader = reader;
             answerReader.node.setAttribute('aria-label', output.getAttribute('aria-label'));
             readerHost.append(answerReader.node); readerHost.hidden = false; output.hidden = true;
         }
@@ -116,6 +144,7 @@
             url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
             presetSelect.disabled = presetName.disabled = presetSave.disabled = !presetAvailable || busy || saving || permissionPending || presetPending || Boolean(response);
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
+            refreshCopyState();
             // Disabling or hiding the focused control blurs it to body in Chrome.
             // Keep this dialog's keyboard scope without stealing another live focus.
             if (!closed && !trialUI && !overlay.hidden && overlay.isConnected && overlay.contains(focused) &&
@@ -126,6 +155,7 @@
             return c.sessionReady() && c.record()?.id === source.promptId && c.session() === session &&
                 c.sessionSourceCurrent() && c.preview()?.text === preview.text;
         }
+        function readerSourceCurrent() { return sourceCurrent() && c.record()?.version === source.version && c.excerptEpoch === source.epoch; }
         function clearPaint() { if (paintTimer !== null) clearTimeout(paintTimer); paintTimer = null; }
         function paintPartial() {
             clearPaint();
@@ -133,7 +163,7 @@
             if (!sourceCurrent()) { suspend(); return; }
             output.value = partialText; output.hidden = !partialText; partialLabel.hidden = !partialText;
         }
-        function checkSource() { if (c.disposed) releaseReader(); if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); }
+        function checkSource() { if (c.disposed || (answerReader && !readerSourceCurrent())) releaseReader(); if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); }
         function invalidateConnection() { key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); }
         function renderPresets() {
             presetSelect.replaceChildren();
@@ -190,6 +220,7 @@
             closed = true; releaseReader(); stopRequest(); key.value = ''; response = reviewed = command = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.cancelModelDialog = null; view.checkModelRun = null;
+            if (view.refreshModelCopy === refreshCopyState) view.refreshModelCopy = null;
         }
         function guard(event) { if (busy || saving || (response && !saved)) { event.preventDefault(); event.returnValue = ''; } }
         function hide() { trialUI?.hide(); suspend(); }
@@ -346,6 +377,7 @@
         actions.append(review, allow, send, cancel); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
         box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); box.append(resultActions); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.cancelModelDialog = hide; view.checkModelRun = checkSource; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged);
+        view.refreshModelCopy = refreshCopyState;
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();

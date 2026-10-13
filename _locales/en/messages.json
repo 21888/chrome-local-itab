@@ -5935,9 +5935,21 @@
     "message": "Original text"
   },
   "answerReaderSafety": {
-    "message": "Read-only formatting. Links and images are text only. Copy, save and export keep the original text."
+    "message": "Read-only formatting. Links and images are text only. Whole-answer copy, save and export keep the original text. Copy code copies only the displayed code."
   },
   "answerReaderFallback": {
     "message": "Formatting is unavailable for this text. The complete original is shown."
+  },
+  "answerReaderCopyCode": {
+    "message": "Copy code"
+  },
+  "answerReaderCopyCodeNumber": {
+    "message": "Copy code block {number}"
+  },
+  "answerReaderCodeCopied": {
+    "message": "Code copied."
+  },
+  "answerReaderCodeCopyBlocked": {
+    "message": "Copy was blocked. Select this code and copy it manually."
   }
 }
