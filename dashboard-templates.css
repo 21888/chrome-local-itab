@@ -889,6 +889,8 @@
   min-height: 43px;
   flex: 0 0 auto;
   padding: 10px 0;
+  /* Reserve space for the shared inset focus ring before focus changes. */
+  padding-inline: 6px;
   gap: 7px;
   border-radius: 0;
   border: 0;
