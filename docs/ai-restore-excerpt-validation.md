@@ -2,7 +2,7 @@
 
 This ordinary feature retains manifest1.1.90 and is not a release. A per-source
 Restore action returns that temporary outgoing excerpt to the DOM-normalized
-text loaded when this panel opened, without clearing the question, other edits
+most recently loaded text (on opening or explicit saved-source reload), without clearing the question, other edits
 or selections. It does not reread or overwrite the original stored source.
 Busy guards and existing request-review invalidation remain in effect.
 

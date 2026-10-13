@@ -5409,7 +5409,7 @@
     "message": "Restore original excerpt"
   },
   "aiContextSourceRestoreHelp": {
-    "message": "Restore this excerpt to the text loaded when this panel opened. The saved source is unchanged."
+    "message": "Restore this excerpt to its most recently loaded text. The saved source is unchanged."
   },
   "aiContextSourceRestored": {
     "message": "Original excerpt restored. Review the exact request again before sending."
@@ -5563,5 +5563,20 @@
   },
   "collectionsOutcomeUncertain": {
     "message": "The earlier save may already have completed. Your draft is kept and new saves are paused. Check its saved receipt without writing; if no matching receipt remains, keep this tab open and inspect the library before taking further action."
+  },
+  "aiContextSourceReload": {
+    "message": "Reload saved sources"
+  },
+  "aiContextSourceReloadHelp": {
+    "message": "Read the latest saved sources for this workspace and the global collection. A successful reload clears all source selections and excerpt edits, including hidden ones. Your question, connection, filters and previous response stay unchanged. Nothing is sent or saved."
+  },
+  "aiContextSourceReloadConfirm": {
+    "message": "Reload saved sources? On success, all source selections and excerpt edits will be cleared, including hidden and unselected excerpts. Your question, connection, filters, answer title and previous response with its original snapshot will be kept."
+  },
+  "aiContextSourceReloaded": {
+    "message": "Saved sources reloaded. Nothing is selected. Review the exact request again before sending; the previous response still belongs to its original request."
+  },
+  "aiContextSourceReloadError": {
+    "message": "Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace."
   }
 }

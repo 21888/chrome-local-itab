@@ -5409,7 +5409,7 @@
     "message": "恢复原始摘录"
   },
   "aiContextSourceRestoreHelp": {
-    "message": "将这一条恢复为打开本面板时加载的原文，不修改已保存的来源。"
+    "message": "将此摘录恢复为最近一次载入的文本，不会更改已保存的来源。"
   },
   "aiContextSourceRestored": {
     "message": "已恢复原始摘录。发送前请重新审阅完整请求。"
@@ -5563,5 +5563,20 @@
   },
   "collectionsOutcomeUncertain": {
     "message": "先前操作可能已保存成功。草稿仍保留，新的保存已暂停。可只读核验原操作的保存凭据；若无匹配凭据，请保持此页打开并检查收藏库后再决定下一步。"
+  },
+  "aiContextSourceReload": {
+    "message": "重新载入已保存来源"
+  },
+  "aiContextSourceReloadHelp": {
+    "message": "读取当前工作区和全局收藏中最新保存的来源。载入成功后将清除所有来源勾选和摘录编辑，包括隐藏的来源。问题、连接、筛选和已有回答保持不变。不会发送请求或保存内容。"
+  },
+  "aiContextSourceReloadConfirm": {
+    "message": "重新载入已保存来源？成功后将清除所有来源勾选和摘录编辑，包括隐藏和未勾选的摘录。问题、连接、筛选、回答标题以及已有回答和它的原始快照会保留。"
+  },
+  "aiContextSourceReloaded": {
+    "message": "已重新载入保存的来源，当前没有勾选任何来源。发送前请重新审阅确切请求；已有回答仍对应原始请求。"
+  },
+  "aiContextSourceReloadError": {
+    "message": "无法载入已保存来源。现有来源、摘录编辑和审阅保持不变。请检查当前工作区后，再次点击“重新载入已保存来源”。"
   }
 }

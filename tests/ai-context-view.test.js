@@ -13,7 +13,7 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
     const b = backend(), c = backend(), calls = []; let active = true; let reply = '{"tasks":["<b>literal</b>","same","same"]}';
     const transport = { review: input => ({ ...input, origin: 'https://mock.example', permission: 'https://mock.example:443/*' }), run: async (input, options) => { calls.push({ input, options }); return { text: await reply }; } };
     const controller = new api.Controller({ transport, permissions: { request: async () => true, contains: async () => true }, ensureActive: async () => { if (!active) throw api.fault('WORKSPACE_INVALIDATED'); },
-        readSources: async () => sources || [{ id: 'collection:synthetic', label: '<img src=x>', text: 'synthetic saved text', scope: 'library' }], taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
+        readSources: async () => typeof sources === 'function' ? sources() : sources || [{ id: 'collection:synthetic', label: '<img src=x>', text: 'synthetic saved text', scope: 'library' }], taskStore: new Tasks.Store(b), collectionStore: new Collections.Store(c) });
     // The DOM model executes UI in a VM; real UI/controller share one realm.
     const review = controller.review.bind(controller);
     controller.review = input => review(JSON.parse(JSON.stringify(input)));
@@ -459,7 +459,7 @@ test('hidden selections cannot bypass 13-source limit; real edits invalidate; cl
 });
 test('unselected edited rows stay dirty across search, and restored visibility preserves exact nodes and selection', async () => {
     const h = await model(undefined, { populate: false, sources: syntheticSources(25) }), row = sourceRows(h)[0];
-    choose(row); const excerpt = row.querySelector('textarea'); h.input(excerpt, 'Unsent edit'); choose(row, false);
+    choose(row); const excerpt = row.querySelector('textarea'); h.input(excerpt, 'Unsent edit'); row.querySelector('input').checked = false; row.querySelector('input').dispatch('change');
     h.input(h.field('search'), 'title 24'); assert.equal(row.hidden, true); assert.equal(h.view.hasUncommittedWork(), true);
     h.click('Clear title search'); assert.equal(sourceRows(h)[0], row); assert.equal(row.querySelector('textarea'), excerpt);
     assert.equal(excerpt.value, 'Unsent edit'); assert.equal(excerpt.hidden, true); assert.equal(row.querySelector('input').checked, false);
@@ -687,7 +687,7 @@ test('restore is selected-only, title filtering preserves its state and hidden h
     h.click('Clear title search'); assert.equal(restoreButton(row), restore); assert.equal(restore.disabled, false);
     restore.dispatch('click'); assert.equal(excerpt.value, 'Synthetic excerpt 0');
     h.input(h.field('search'), 'no match'); h.click('Clear title search'); assert.equal(restore.disabled, true);
-    h.input(excerpt, 'Changed again'); choose(row, false); assert.equal(restore.hidden, true); assert.equal(restore.disabled, true);
+    h.input(excerpt, 'Changed again'); row.querySelector('input').checked = false; row.querySelector('input').dispatch('change'); assert.equal(restore.hidden, true); assert.equal(restore.disabled, true);
     const g = h.controller.generation; restore.dispatch('click'); assert.equal(excerpt.value, 'Changed again'); assert.equal(h.controller.generation, g);
 });
 test('restore returns excerpt dirtiness to baseline, retaining dirty selection or other edits until explicitly cleared', async () => {
@@ -1055,5 +1055,120 @@ test('task verification locale keys are complete and present in both runtime loc
     for (const locale of ['en', 'zh_CN']) {
         const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`));
         for (const key of ['aiContextVerifyTasks', 'aiContextTasksVerified', 'aiContextUncertainTasks']) assert.equal(typeof messages[key].message, 'string');
+    }
+});
+
+
+test('explicit source reload replaces saved sources atomically, keeps filters and old answer provenance without provider or writes', async () => {
+    const h = await model(), oldRow = sourceRows(h)[0]; choose(oldRow); h.input(oldRow.querySelector('textarea'), 'Reviewed excerpt');
+    h.setReply('Previous answer'); await send(h, 'answer');
+    const result = h.controller.result, resultReview = h.controller.resultReview, snapshot = h.controller.answerSnapshot();
+    const include = h.host.querySelector('.ai-context-save-context').querySelector('input'); include.checked = true; include.dispatch('change');
+    h.input(answerTitle(h), 'Keep this answer title'); h.input(h.field('password'), 'synthetic-key');
+    h.input(h.field('search'), 'latest'); h.host.querySelector('.ai-context-source-scope').value = 'library';
+    h.host.querySelector('.ai-context-source-scope').dispatch('change'); h.click('Show selected only');
+    const before = { generation: h.controller.generation, question: h.host.querySelector('textarea').value, endpoint: h.field('url').value, model: h.field('text').value };
+    let reads = 0; const gate = deferred();
+    h.controller.readSources = () => { reads++; return gate.promise; };
+    h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('Reload requested permission'); };
+    const reload = h.click('Reload saved'); reload.dispatch('click'); await settle();
+    assert.equal(reads, 1); assert.equal(reload.disabled, true); assert.equal(sourceRows(h)[0], oldRow);
+    assert.equal(h.controller.reviewed, resultReview); assert.equal(h.controller.generation, before.generation);
+    gate.resolve([{ id: 'collection:new', label: '<img>latest', text: 'Latest <script>saved</script> text', scope: 'library' }]); await settle();
+    assert.equal(h.confirmations.length, 1); assert.match(h.confirmations[0], /hidden and unselected/);
+    const row = sourceRows(h)[0]; assert.notEqual(row, oldRow); assert.equal(oldRow.isConnected, false);
+    assert.equal(row.querySelector('textarea').value, 'Latest <script>saved</script> text'); assert.equal(row.querySelector('input').checked, false);
+    assert.equal(row.hidden, true); assert.equal(h.field('search').value, 'latest'); assert.equal(h.host.querySelector('.ai-context-source-scope').value, 'library');
+    assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true'); assert.equal(h.controller.generation, before.generation + 1);
+    assert.equal(h.controller.reviewed, null); assert.equal(h.controller.result, result); assert.equal(h.controller.resultReview, resultReview);
+    assert.deepEqual(h.controller.answerSnapshot(), snapshot); assert.equal(include.checked, true); assert.equal(answerTitle(h).value, 'Keep this answer title');
+    assert.equal(h.host.querySelector('textarea').value, before.question); assert.equal(h.field('url').value, before.endpoint); assert.equal(h.field('text').value, before.model);
+    assert.equal(h.field('password').value, 'synthetic-key'); assert.equal(h.calls.length, 1); assert.equal(h.b.writes + h.c.writes, 0);
+    assert.equal(h.host.querySelectorAll('img, script').length, 0); assert.equal(h.host.querySelector('.ai-context-previous-result').hidden, false);
+    h.click('Show selected only'); choose(row); h.input(row.querySelector('textarea'), 'edited latest'); restoreButton(row).dispatch('click');
+    assert.equal(row.querySelector('textarea').value, 'Latest <script>saved</script> text');
+    assert.match(restoreButton(row).title, /most recently loaded/); assert.equal(reads, 1);
+    const generation = h.controller.generation; oldRow.querySelector('input').dispatch('change'); oldRow.querySelector('textarea').dispatch('input'); restoreButton(oldRow).dispatch('click');
+    assert.equal(h.controller.generation, generation);
+});
+
+test('source reload cancellation catches hidden selections and hidden unselected edits with zero reads or state changes', async () => {
+    for (const kind of ['selected', 'unselected-edit']) {
+        const h = await model(), row = sourceRows(h)[0]; choose(row);
+        if (kind === 'unselected-edit') { h.input(row.querySelector('textarea'), 'Keep unsent edit'); row.querySelector('input').checked = false; row.querySelector('input').dispatch('change'); }
+        h.input(h.field('search'), 'hidden'); h.click('Review exact'); await settle();
+        const review = h.controller.reviewed, generation = h.controller.generation, status = h.host.querySelector('.ai-context-status').textContent;
+        let reads = 0; h.controller.readSources = async () => { reads++; return []; }; h.setConfirm(false);
+        h.click('Reload saved'); await settle();
+        assert.equal(reads, 0); assert.equal(h.controller.generation, generation); assert.equal(h.controller.reviewed, review);
+        assert.equal(sourceRows(h)[0], row); assert.equal(h.host.querySelector('.ai-context-status').textContent, status); assert.equal(h.confirmations.length, 1);
+        if (kind === 'unselected-edit') assert.equal(row.querySelector('textarea').value, 'Keep unsent edit');
+    }
+});
+
+test('source reload clean or empty state does not confirm and always leaves newly loaded sources unselected', async () => {
+    const h = await model(undefined, { sources: [] }); let reads = 0;
+    h.controller.readSources = async () => { reads++; return [{ id: 'collection:new', label: 'New', text: 'saved', scope: 'library' }]; };
+    h.click('Reload saved'); await settle(); assert.equal(h.confirmations.length, 0); assert.equal(reads, 1); assert.equal(selectedRows(h).length, 0);
+    h.controller.readSources = async () => { reads++; return []; }; h.click('Reload saved'); await settle();
+    assert.equal(h.confirmations.length, 0); assert.equal(reads, 2); assert.equal(sourceRows(h).length, 0);
+});
+
+test('source reload read or row-build failure preserves source edits, reviewed request and extracted task review', async () => {
+    for (const failure of ['read', 'build']) {
+        const h = await model(), row = sourceRows(h)[0]; choose(row); h.input(row.querySelector('textarea'), 'Keep edited excerpt');
+        await send(h); h.click('Review extracted'); await settle();
+        const reviewed = h.controller.reviewed, taskReview = h.controller.taskReview, result = h.controller.result, generation = h.controller.generation;
+        h.controller.readSources = async () => {
+            if (failure === 'read') throw Error('Synthetic read failure');
+            return [{ id: 'collection:valid', label: 'Valid', text: 'Complete only', scope: 'library' }, { label: null, text: 'Invalid' }];
+        };
+        h.click('Reload saved'); await settle();
+        assert.equal(sourceRows(h)[0], row); assert.equal(sourceRows(h).length, 1); assert.equal(row.querySelector('textarea').value, 'Keep edited excerpt');
+        assert.equal(row.querySelector('input').checked, true); assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.taskReview, taskReview);
+        assert.equal(h.controller.result, result); assert.equal(h.controller.generation, generation); assert.equal(h.host.querySelector('.ai-context-tasks').hidden, false);
+        assert.equal(h.byText('Add these').disabled, false); assert.match(h.host.querySelector('.ai-context-status').textContent, /current sources, excerpt edits and reviews are unchanged/);
+        h.controller.readSources = async () => []; h.click('Reload saved'); await settle();
+        assert.equal(sourceRows(h).length, 0); assert.equal(h.controller.taskReview, null); assert.equal(h.controller.result, result);
+        assert.equal(h.byText('Add these').disabled, true); assert.equal(h.host.querySelector('.ai-context-tasks').hidden, true);
+    }
+});
+
+test('initial source-read failure can explicitly retry in the same panel', async () => {
+    let reads = 0;
+    const h = await model(undefined, { sources: () => { reads++; throw Error('Synthetic initial failure'); } });
+    assert.equal(sourceRows(h).length, 0); assert.equal(h.byText('Reload saved').disabled, false);
+    h.controller.readSources = async () => { reads++; return [{ id: 'collection:recovered', label: 'Recovered', text: 'saved', scope: 'library' }]; };
+    h.click('Reload saved'); await settle(); assert.equal(reads, 2); assert.equal(sourceRows(h).length, 1); assert.equal(h.confirmations.length, 0);
+});
+
+test('source reload locks while reading, permission, transport, preset persistence and uncertain persistence are pending', async () => {
+    for (const kind of ['permission', 'transport', 'preset', 'save', 'tasks']) {
+        const gate = deferred(), h = await model(kind === 'preset' ? { read: async () => ({ records: [] }), save: () => gate.promise } : undefined);
+        let reads = 0; h.controller.readSources = async () => { reads++; return []; };
+        if (kind === 'permission') { h.click('Review exact'); await settle(); h.controller.permissions.request = () => gate.promise; h.click('Allow this'); }
+        if (kind === 'transport') { h.setReply(gate.promise); h.click('Review exact'); await settle(); h.click('Send reviewed'); }
+        if (kind === 'preset') h.click('Save connection preset');
+        if (kind === 'save') await uncertainView(h);
+        if (kind === 'tasks') await uncertainTaskView(h);
+        const reload = h.byText('Reload saved'), generation = h.controller.generation;
+        assert.equal(reload.disabled, true, kind); reload.dispatch('click'); await settle();
+        assert.equal(reads, 0, kind); assert.equal(h.controller.generation, generation, kind); assert.equal(h.confirmations.length, 0, kind);
+        h.view.destroy(); gate.resolve(kind === 'preset' ? { records: [] } : true); await settle();
+    }
+});
+
+test('source reload late results never replace rows after close, pagehide, generation change or workspace departure', async () => {
+    for (const kind of ['close', 'pagehide', 'generation', 'workspace']) {
+        const h = await model(), row = sourceRows(h)[0], gate = deferred();
+        h.controller.readSources = () => gate.promise; h.click('Reload saved'); await settle();
+        if (kind === 'close') h.view.destroy();
+        if (kind === 'pagehide') h.events.get('pagehide')();
+        if (kind === 'generation') h.controller.edit();
+        if (kind === 'workspace') h.deactivate();
+        gate.resolve([{ id: 'collection:late', label: 'Late', text: 'late', scope: 'library' }]); await settle();
+        if (kind === 'close' || kind === 'pagehide') assert.equal(h.host.children.length, 0);
+        else assert.equal(sourceRows(h)[0], row);
+        assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
     }
 });

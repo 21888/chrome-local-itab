@@ -120,7 +120,7 @@
             this.edit(); this.result = this.resultReview = null; this.saved = false; this.saveUncertain = false;
         }
         inspectInput(question, selected, mode) { return inspectInput(question, selected, mode); }
-        async loadSources() { const generation = this.generation; await this.ensureActive(); const result = await this.readSources(); await this.ensureActive(); this.current(generation); return result; }
+        async loadSources() { const generation = this.generation; await this.ensureActive(); this.current(generation); const result = await this.readSources(); await this.ensureActive(); this.current(generation); return result; }
         async review({ url, model, question, selected, mode }) {
             this.edit(); const generation = this.generation;
             await this.ensureActive(); this.current(generation);

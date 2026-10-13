@@ -644,3 +644,20 @@ test('task verification rejects concurrent close, workspace, generation and comm
         if (change !== 'command') assert.equal(h.controller.taskCommand, command);
     }
 });
+
+
+test('source loading checks generation and workspace before reading and after the saved-source read', async () => {
+    for (const phase of ['before', 'after']) for (const invalidation of ['generation', 'closed', 'workspace']) {
+        const h = setup(), gate = deferred(); let ensures = 0, reads = 0;
+        const original = h.controller.ensureActive;
+        h.controller.ensureActive = async () => { ensures++; if (phase === 'before' && ensures === 1) await gate.promise; await original(); };
+        h.controller.readSources = async () => { reads++; if (phase === 'after') await gate.promise; return []; };
+        const loading = h.controller.loadSources(); await new Promise(resolve => setImmediate(resolve));
+        if (invalidation === 'generation') h.controller.edit();
+        if (invalidation === 'closed') h.controller.close();
+        if (invalidation === 'workspace') h.deactivate();
+        gate.resolve(); await assert.rejects(loading);
+        assert.equal(reads, phase === 'before' ? 0 : 1); assert.equal(h.calls.permissions + h.calls.sends, 0);
+        assert.equal(h.taskBackend.writes + h.collectionBackend.writes, 0);
+    }
+});

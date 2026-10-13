@@ -57,10 +57,17 @@
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
         box.append(searchLabel, scopeLabel, scopeHelp, searchActions, searchCount, el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.')), searchEmpty, batchActions, batchHelp);
+        const reloadActions = el('div', 'ai-context-actions');
+        const reloadSources = button('SourceReload', 'Reload saved sources', () => loadSourceRows(true));
+        reloadSources.className = 'ai-context-source-reload';
+        const reloadHelp = el('p', 'ai-context-source-reload-help', label('SourceReloadHelp', 'Read the latest saved sources for this workspace and the global collection. A successful reload clears all source selections and excerpt edits, including hidden ones. Your question, connection, filters and previous response stay unchanged. Nothing is sent or saved.'));
+        reloadHelp.id = 'ai-context-source-reload-help'; reloadSources.setAttribute('aria-describedby', reloadHelp.id);
+        reloadActions.append(reloadSources); box.append(reloadActions, reloadHelp);
         const sourceList = el('div', 'ai-context-sources'); box.append(sourceList);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         box.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
-        const sourceRows = [], reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
+        let sourceRows = [];
+        const reviewText = el('pre', 'ai-context-review'); reviewText.hidden = true;
         const status = el('p', 'ai-context-status'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const outputLabel = el('label', 'ai-context-field', label('Response', 'Model response (unverified text; task JSON can be edited before review)'));
         const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
@@ -159,7 +166,7 @@
             verifyTasks.disabled = busy || verifyTasks.hidden;
             reviewTasks.disabled = busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
-            reset.disabled = busy || retry;
+            reset.disabled = busy || retry; reloadSources.disabled = selectionBlocked();
             outputLabel.hidden = !controller.result;
             updateCopy();
             previousResult.hidden = !controller.result || controller.resultReview === controller.reviewed;
@@ -176,7 +183,7 @@
             update();
         }
         function selectionBlocked() {
-            return disposed || pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand);
+            return disposed || controller.closed || pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand);
         }
         function changeSelection(clear) {
             if (selectionBlocked()) return;
@@ -192,7 +199,7 @@
             update();
         }
         function restoreExcerpt(row) {
-            if (selectionBlocked() || row.node.hidden || !row.check.checked || row.input.value === row.initialText) return;
+            if (selectionBlocked() || !sourceRows.includes(row) || row.node.hidden || !row.check.checked || row.input.value === row.initialText) return;
             // Only the already-loaded, DOM-normalized baseline is used; never reread storage.
             try { controller.edit(); } catch (_) { error(); update(); return; }
             row.input.value = row.initialText;
@@ -304,9 +311,8 @@
         box.append(actions, reviewText, status, previousResult, outputLabel, contextSave, taskList, results, copyStatus); host.append(box);
         for (const input of [url, model, question, mode]) input.addEventListener(input === mode ? 'change' : 'input', () => { if (input === url || input === model) key.value = ''; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
-        const ready = action(async () => {
-            const values = await controller.loadSources(); if (disposed) return;
-            for (const source of values) {
+        function buildSourceRows(values) {
+            return values.map(source => {
                 const row = el('div', 'ai-context-source'), sourceLabel = el('label'), check = el('input'); check.type = 'checkbox'; check.checked = false;
                 const input = el('textarea'); input.value = source.text; input.maxLength = 16000; input.rows = 3; input.hidden = true;
                 input.setAttribute('aria-label', `${label('Excerpt', 'Outgoing excerpt')}: ${source.label}`);
@@ -314,15 +320,42 @@
                 const state = { source, node: row, searchTitle: source.label.toLowerCase(), check, input, budget: sourceBudget, initialText: input.value };
                 const restore = button('SourceRestore', 'Restore original excerpt', () => restoreExcerpt(state));
                 restore.className = 'ai-context-source-restore';
-                restore.title = label('SourceRestoreHelp', 'Restore this excerpt to the text loaded when this panel opened. The saved source is unchanged.');
+                restore.title = label('SourceRestoreHelp', 'Restore this excerpt to its most recently loaded text. The saved source is unchanged.');
                 restore.setAttribute('aria-label', `${label('SourceRestore', 'Restore original excerpt')}: ${source.label}`);
                 state.restore = restore;
                 sourceLabel.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`));
                 row.append(sourceLabel, input, sourceBudget, restore);
-                sourceRows.push(state); sourceList.append(row);
-                check.addEventListener('change', () => { input.hidden = !check.checked; invalidate(); }); input.addEventListener('input', invalidate);
-            }
-        }, ['Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.']);
+                check.addEventListener('change', () => { if (selectionBlocked() || !sourceRows.includes(state)) return; input.hidden = !check.checked; invalidate(); });
+                input.addEventListener('input', () => { if (!selectionBlocked() && sourceRows.includes(state)) invalidate(); });
+                return state;
+            });
+        }
+        async function loadSourceRows(reload) {
+            if (selectionBlocked()) return;
+            // Include unselected and filtered-out edits. Cancellation must not read or invalidate anything.
+            if (reload && sourceRows.some(row => row.check.checked || row.input.value !== row.initialText) &&
+                !root.confirm?.(label('SourceReloadConfirm', 'Reload saved sources? On success, all source selections and excerpt edits will be cleared, including hidden and unselected excerpts. Your question, connection, filters, answer title and previous response with its original snapshot will be kept.'))) return;
+            if (selectionBlocked()) return;
+            const generation = controller.generation;
+            pending = true; update();
+            try {
+                const values = await controller.loadSources();
+                if (disposed || controller.closed) return;
+                controller.current(generation);
+                // Build every row off-screen before invalidating the review or replacing any visible state.
+                const nextRows = buildSourceRows(values);
+                controller.current(generation);
+                if (reload) controller.edit();
+                sourceList.replaceChildren(...nextRows.map(row => row.node)); sourceRows = nextRows;
+                if (reload) {
+                    reviewText.hidden = taskList.hidden = true;
+                    status.textContent = label('SourceReloaded', 'Saved sources reloaded. Nothing is selected. Review the exact request again before sending; the previous response still belongs to its original request.');
+                } else status.textContent = label('Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.');
+            } catch (_) {
+                if (!disposed && !controller.closed) status.textContent = label('SourceReloadError', 'Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace.');
+            } finally { pending = false; if (!disposed) update(); }
+        }
+        const ready = loadSourceRows(false);
         // Compare live, session-only draft values with the blank/unselected state.
         // Keep the DOM-normalized source baseline so untouched CRLF excerpts are clean.
         function hasUncommittedWork() {
@@ -330,7 +363,7 @@
                 question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; disposed = true; copy.disabled = true; selectVisible.disabled = clearSelection.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
+        function destroy() { if (disposed) return; disposed = true; copy.disabled = true; selectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); box.remove(); }
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
         const presetsReady = presetStore ? Promise.resolve().then(() => presetStore.read()).then(state => {
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();
