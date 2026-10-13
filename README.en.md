@@ -16,27 +16,27 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
-### Current interface · 1.1.116
+### Current interface · 1.1.118
 
-Captured on 2026-10-13 from the published 1.1.116 runtime in isolated Linux Chrome for Testing. These four original fullscreen images use 100% browser zoom and retain the browser notice, without cropping, redrawing or retouching. 1364 × 1024 is the image size, not a tested mobile CSS viewport. Interface languages are stated below; workspace names and record contents are synthetic examples, with natural-English sample text.
+Captured on 2026-10-13 from the published 1.1.118 runtime in isolated Linux Chrome for Testing. These four original fullscreen images use 100% browser zoom and retain the browser notice, without cropping, redrawing or retouching. 1364 × 1024 is the image size, not a tested mobile CSS viewport. Interface languages are stated below; workspace names and record contents are synthetic examples, with natural-English sample text.
 
-**Homepage · Chinese, light**: five demonstration shortcuts, slightly scrolled to show complete cards.
+**Homepage · Chinese, light**: the new L brand, compact toolbar and five demonstration shortcuts visible together.
 
-![1.1.116 Chinese light homepage with a demonstration workspace and five complete shortcut cards](docs/screenshots/release-1.1.116/dashboard-light-zh-complete-cards.jpg)
+![1.1.118 Chinese light homepage with a demonstration workspace and five complete shortcut cards](docs/screenshots/release-1.1.118/dashboard-light-zh.jpg)
 
 **Discover sites · Chinese, light**: full-catalog category counts and use, operator-location, company and pricing filters.
 
-![1.1.116 Chinese discovery overview with category counts, filters and site cards](docs/screenshots/release-1.1.116/navigation-overview-light-zh.jpg)
+![1.1.118 Chinese discovery overview with category counts, filters and site cards](docs/screenshots/release-1.1.118/navigation-overview-light-zh.jpg)
 
-**Local prompt review · Chinese, light**: inspect the full prompt built from a synthetic excerpt. No model request was sent or answer generated.
+**Local prompt review · Chinese, light**: view sources beside the question and full prompt built from a synthetic excerpt. No model request was sent or answer generated.
 
-![1.1.116 Chinese local prompt review with synthetic source material and an unsent full prompt](docs/screenshots/release-1.1.116/ai-context-local-review-light-zh.jpg)
+![1.1.118 Chinese local prompt review with synthetic source material and an unsent full prompt](docs/screenshots/release-1.1.118/ai-context-local-review-light-zh.jpg)
 
 **AI collections · English, dark**: exact study-tag filtering with the synthetic excerpt and annotation.
 
-![1.1.116 English dark collections showing study-tag filtering, an excerpt and annotation](docs/screenshots/release-1.1.116/collections-tags-dark-en.jpg)
+![1.1.118 English dark collections showing study-tag filtering, an excerpt and annotation](docs/screenshots/release-1.1.118/collections-tags-dark-en.jpg)
 
-[Capture provenance and checksums](docs/screenshots/release-1.1.116/capture-metadata.json) · [Corresponding release](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.116)
+[Capture provenance and checksums](docs/screenshots/release-1.1.118/capture-metadata.json) · [Corresponding release](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.118)
 
 <details>
 <summary>Earlier workspace, feature and template captures</summary>

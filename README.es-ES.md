@@ -16,27 +16,27 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
-### Interfaz actual · 1.1.116
+### Interfaz actual · 1.1.118
 
-Capturas del 2026-10-13 con el paquete publicado 1.1.116 en Chrome for Testing para Linux, en un perfil aislado. Las cuatro imágenes originales de pantalla completa conservan el aviso del navegador, con zoom al 100%, sin recortes, retoques ni redibujado. 1364 × 1024 es el tamaño de la imagen, no una ventana móvil CSS verificada. Se indica el idioma de cada interfaz; los nombres y contenidos son ejemplos sintéticos, con textos de muestra en inglés.
+Capturas del 2026-10-13 con el paquete publicado 1.1.118 en Chrome for Testing para Linux, en un perfil aislado. Las cuatro imágenes originales de pantalla completa conservan el aviso del navegador, con zoom al 100%, sin recortes, retoques ni redibujado. 1364 × 1024 es el tamaño de la imagen, no una ventana móvil CSS verificada. Se indica el idioma de cada interfaz; los nombres y contenidos son ejemplos sintéticos, con textos de muestra en inglés.
 
-**Inicio · Chino, tema claro**: cinco accesos de demostración; la página está ligeramente desplazada para mostrar las tarjetas completas.
+**Inicio · Chino, tema claro**: la nueva marca L, la barra compacta y cinco accesos de demostración visibles a la vez.
 
-![Inicio 1.1.116 en chino y tema claro, con un espacio de demostración y cinco tarjetas completas](docs/screenshots/release-1.1.116/dashboard-light-zh-complete-cards.jpg)
+![Inicio 1.1.118 en chino y tema claro, con un espacio de demostración y cinco tarjetas completas](docs/screenshots/release-1.1.118/dashboard-light-zh.jpg)
 
 **Descubrir sitios · Chino, tema claro**: cantidades por categoría del catálogo completo y filtros de uso, ubicación del operador, empresa y precio.
 
-![Catálogo 1.1.116 en chino con cantidades por categoría, filtros y tarjetas de sitios](docs/screenshots/release-1.1.116/navigation-overview-light-zh.jpg)
+![Catálogo 1.1.118 en chino con cantidades por categoría, filtros y tarjetas de sitios](docs/screenshots/release-1.1.118/navigation-overview-light-zh.jpg)
 
-**Revisión local del prompt · Chino, tema claro**: texto completo preparado a partir de un extracto sintético. No se envió ninguna solicitud a un modelo ni se generó una respuesta.
+**Revisión local del prompt · Chino, tema claro**: fuentes junto a la pregunta y el texto completo preparado a partir de un extracto sintético. No se envió ninguna solicitud a un modelo ni se generó una respuesta.
 
-![Revisión local 1.1.116 en chino con material sintético y el prompt completo sin enviar](docs/screenshots/release-1.1.116/ai-context-local-review-light-zh.jpg)
+![Revisión local 1.1.118 en chino con material sintético y el prompt completo sin enviar](docs/screenshots/release-1.1.118/ai-context-local-review-light-zh.jpg)
 
 **Colecciones de IA · Inglés, tema oscuro**: filtro exacto de la etiqueta study, con el extracto sintético y su anotación.
 
-![Colecciones 1.1.116 en inglés y tema oscuro, con filtro study, extracto y anotación](docs/screenshots/release-1.1.116/collections-tags-dark-en.jpg)
+![Colecciones 1.1.118 en inglés y tema oscuro, con filtro study, extracto y anotación](docs/screenshots/release-1.1.118/collections-tags-dark-en.jpg)
 
-[Origen de las capturas y sumas de comprobación](docs/screenshots/release-1.1.116/capture-metadata.json) · [Versión correspondiente](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.116)
+[Origen de las capturas y sumas de comprobación](docs/screenshots/release-1.1.118/capture-metadata.json) · [Versión correspondiente](https://github.com/21888/chrome-local-itab/releases/tag/v1.1.118)
 
 <details>
 <summary>Capturas anteriores de espacios, funciones y plantillas</summary>

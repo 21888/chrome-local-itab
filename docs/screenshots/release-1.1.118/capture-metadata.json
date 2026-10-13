@@ -1,0 +1,88 @@
+{
+  "version": "1.1.118",
+  "source_commit": "493a49584fc3453a8036311db5604194099ec1e6",
+  "release_zip_sha256": "6d70be1b4d63fb6601dca26295e5b0fa323aed5cda765ea0047719d54d9c29a2",
+  "runtime_files": 114,
+  "browser": "Official Chrome for Testing 155.0.8059.39, existing independent synthetic profile",
+  "capture_method": "Native F11 fullscreen, unmodified raw screenshot bytes. No crop, compositing, redraw or re-encoding. Chrome testing banner retained.",
+  "screenshot_dimensions": [
+    1364,
+    1024
+  ],
+  "css_viewport": "Not measured; screenshot dimensions are not claimed as CSS viewport.",
+  "files": [
+    {
+      "filename": "ai-context-local-review-light-zh.jpg",
+      "sha256": "26571f7947072be233ffc291ff7e9fb87c950f0b5c4c150316b2b3b96b411e9f",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "size": [
+        1364,
+        1024
+      ],
+      "mode": "RGB",
+      "saved_at_utc": "2026-10-13T15:39:10.200055+00:00",
+      "language": "zh-CN",
+      "theme": "light",
+      "zoom_percent": 100
+    },
+    {
+      "filename": "collections-tags-dark-en.jpg",
+      "sha256": "a4feda907119907c28957059f5b62fd7379302a1e376a7d42af6a019bc987c67",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "size": [
+        1364,
+        1024
+      ],
+      "mode": "RGB",
+      "saved_at_utc": "2026-10-13T15:42:55.095518+00:00",
+      "language": "en",
+      "theme": "dark",
+      "zoom_percent": 100
+    },
+    {
+      "filename": "dashboard-light-zh.jpg",
+      "sha256": "95bfdb65af5d99d716978ac7c56a3d4a5df4125588fcbb6e9bce928ea5983da6",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "size": [
+        1364,
+        1024
+      ],
+      "mode": "RGB",
+      "saved_at_utc": "2026-10-13T15:36:15.740396+00:00",
+      "language": "zh-CN",
+      "theme": "light",
+      "zoom_percent": 100
+    },
+    {
+      "filename": "navigation-overview-light-zh.jpg",
+      "sha256": "148004be6232ffa740b38965751e9ef636361ad5706e55730b1cc376480ccdf6",
+      "mime_type": "image/jpeg",
+      "encoding": "JPEG",
+      "size": [
+        1364,
+        1024
+      ],
+      "mode": "RGB",
+      "saved_at_utc": "2026-10-13T15:37:31.324174+00:00",
+      "language": "zh-CN",
+      "theme": "light",
+      "zoom_percent": 100
+    }
+  ],
+  "image_notes": {
+    "dashboard-light-zh.jpg": "Top position, new L branding, compact toolbar and all five cards visible together.",
+    "navigation-overview-light-zh.jpg": "141-site overview, empty query, expanded filters, zero selections, Demo five already added. Bottom card details continue below visible area.",
+    "ai-context-local-review-light-zh.jpg": "Actual two-column source/question/local-prompt view; all local prompt text is visible, textarea continues below panel edge. This is a reviewed prompt, not a model answer.",
+    "collections-tags-dark-en.jpg": "Actual study tag clicked, one matching item, original body and synthetic annotation visible; list card continues below viewport."
+  },
+  "privacy_review": "All four original images were visually reviewed before publication: synthetic demonstration records, public website names and generic browser UI only; no personal account data or credentials.",
+  "synthetic_scope": {
+    "workspace": "Demonstration workspace with five public links: GitHub, Notion, Photopea, PhET and Figma.",
+    "collection": "Synthetic Study plan excerpt, study and notes tags, and an annotation identifying the README example.",
+    "ai": "Local prompt review from a synthetic excerpt; no model request sent or answer generated.",
+    "language_note": "Chinese interfaces with natural-English demonstration text; the collections image uses the actual English dark interface."
+  }
+}
