@@ -72,3 +72,11 @@ The shortcut stays inside the currently open library. It pauses during review, l
 在导航库内浏览时，从非编辑控件或卡片按 `/`，会聚焦搜索框并选中现有搜索词。仅移动焦点，不重新搜索、不清除筛选、所选网站或未完成的分类名称，也不读写已保存数据。搜索框关联中英文可见提示。输入框、下拉选择和可编辑内容中仍可正常输入 `/`；组合键、长按及输入法组词时不触发。支持用 Shift 输入 `/` 的键盘布局。
 
 快捷键只在当前打开的导航库中生效；复核、读取、保存、冲突阻止、待完成的快捷方式或布局修改、离开页面、其他可见对话框或菜单出现时暂停。关闭会移除监听，重新打开使用新的会话。页面级「查找已保存网站」的快捷键保持原样。
+
+## Inspect selected sites
+
+**Show selected only** in the batch bar narrows the full cards to your current selections. It combines with search, category, purpose, advanced and saved-state filters; **Hidden by filters** counts selected sites outside those results. **Review selected** always reviews the entire selection, including hidden sites. This browsing view needs no destination category and does not write or open websites.
+
+**Clear filters** turns off this view while retaining selections. **Clear selection** leaves the view active and empty so you can turn it off explicitly. Deselecting a disappearing card moves keyboard focus to an adjacent checkbox, or the view toggle after the last card. Closing the dialog resets both selections and this view.
+
+批选栏的「只看已选」保留完整网站卡片，并与搜索、分类、用途、更多筛选和已添加状态取交集。「被筛选隐藏」显示当前结果外的已选数量；「检查所选」仍检查全部已选网站。清除筛选会关闭只看已选、保留所选；清空所选则保留当前空视图，可随时关闭。浏览不要求先选择目标分类，不会写入或打开网站。

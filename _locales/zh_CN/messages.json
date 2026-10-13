@@ -5503,5 +5503,7 @@
   },
   "navigationTagAudioEffects": {
     "message": "音频效果"
-  }
+  },
+  "navigationLibrarySelectedOnly": { "message": "只看已选" },
+  "navigationLibraryHiddenSelected": { "message": "被筛选隐藏" }
 }

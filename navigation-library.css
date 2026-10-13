@@ -135,3 +135,7 @@
 .navigation-library-all-uses { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
 
 .navigation-library-search-hint { margin: 7px 0 0; color: var(--nl-muted); font-size: 11px; line-height: 1.5; }
+
+.navigation-library-panel .navigation-library-selected-only { background: transparent; color: var(--nl-muted); border: 1px solid var(--nl-line); border-radius: 8px; padding: 6px 13px; font-size: 11px; }
+.navigation-library-panel .navigation-library-selected-only[aria-pressed="true"] { background: var(--nl-selected); color: var(--nl-accent); font-weight: 650; }
+.navigation-library-hidden-selected { color: var(--nl-muted); }

@@ -869,3 +869,56 @@ test('navigation close while reading retires composition before a later opening 
  h.firstAdd().dispatch('click');assert.equal(h.calls,0);k.input.dispatch('compositionend');
  const toggle=h.document.querySelector('.navigation-library-filter-toggle');toggle.dispatch('click');assert.equal(h.document.querySelector('.navigation-library-filters').hidden,false);assert.equal(h.calls,0);h.view.close();
 });
+
+const selectedToggle=h=>h.document.querySelector('.navigation-library-selected-only');
+const hiddenSelected=h=>h.document.querySelector('.navigation-library-hidden-selected').textContent;
+test('selected-only combines all filters, reports hidden selections, and reviews the entire selection without writes',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');selectedToggle(h).dispatch('click');
+ assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');assert.equal(cards(h).length,2);assert.equal(hiddenSelected(h),'Hidden by filters: 0');
+ const site=h.context.LocalItabNavigationSites.find(site=>site.id==='chatgpt');
+ h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category===site.categories[0]).dispatch('click');
+ for(const [i,value] of [site.tags[0],site.country,site.company,site.pricing].entries()){
+  const control=h.document.querySelectorAll('.navigation-library-filters select')[i];control.value=value;control.dispatch('change');
+ }
+ h.search('chatgpt');assert.equal(cards(h).length,1);assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(hiddenSelected(h),'Hidden by filters: 1');
+ savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,0);assert.equal(hiddenSelected(h),'Hidden by filters: 2');
+ h.click('Review selected');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,2);const old=h.button('Confirm and add');
+ selectedToggle(h).dispatch('click');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);old.dispatch('click');assert.equal(h.calls,0);
+ h.click('Clear filters');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'false');assert.equal(cards(h).length,128);assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(hiddenSelected(h),'Hidden by filters: 0');
+});
+test('selected-only needs no target, preserves complete cards and details, and remains escapable when empty',async()=>{
+ const h=model();h.snapshot.categories=[];await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');
+ const details=cards(h).find(node=>node.dataset.site==='chatgpt').querySelector('details');details.open=true;
+ selectedToggle(h).dispatch('click');assert.equal(cards(h).length,2);assert.equal(cards(h)[0].querySelector('details').open,true);
+ assert.ok(cards(h)[0].querySelector('.navigation-library-visit'));assert.ok(cards(h)[0].querySelector('.navigation-library-description'));assert.ok(cards(h)[0].querySelector('.navigation-library-tag'));
+ assert.equal(h.document.querySelector('.navigation-library-batch-review').disabled,true);assert.equal(selectedToggle(h).disabled,false);
+ h.click('Clear selection');assert.equal(cards(h).length,0);assert.ok(h.document.querySelector('.navigation-library-empty'));assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,selectedToggle(h));
+ selectedToggle(h).dispatch('click');assert.equal(cards(h).length,128);assert.equal(h.calls,0);
+});
+test('deselecting selected-only cards focuses next then previous checkbox, and finally the view toggle',async()=>{
+ const h=model();await h.view.open();const ids=cards(h).slice(0,3).map(card=>card.dataset.site);for(const id of ids)pickSite(h,id);selectedToggle(h).dispatch('click');
+ const stale=cards(h)[1].querySelector('input');pickSite(h,ids[1],false);assert.equal(h.document.activeElement,cards(h)[1].querySelector('input'));
+ stale.checked=true;stale.dispatch('change');assert.equal(selectionCount(h),'2 / 20 selected');
+ pickSite(h,ids[2],false);assert.equal(h.document.activeElement,cards(h)[0].querySelector('input'));
+ pickSite(h,ids[0],false);assert.equal(cards(h).length,0);assert.equal(h.document.activeElement,selectedToggle(h));assert.equal(h.calls,0);
+});
+test('selected-only preserves selection cap, empty filters clear only the view, and old-session controls cannot act',async()=>{
+ const h=model();await h.view.open();const ids=cards(h).slice(0,21).map(card=>card.dataset.site);for(const id of ids.slice(0,20))pickSite(h,id);
+ const old=selectedToggle(h);old.dispatch('click');assert.equal(cards(h).length,20);assert.equal(h.document.querySelector('.navigation-library-select-results').disabled,true);
+ h.search('absent-923849');assert.equal(hiddenSelected(h),'Hidden by filters: 20');h.click('Clear filters');assert.equal(selectionCount(h),'20 / 20 selected');assert.equal(cards(h).find(card=>card.dataset.site===ids[20]).querySelector('input').disabled,true);
+ h.view.close();await h.view.open();old.dispatch('click');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'false');assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.calls,0);
+});
+test('selected-only ignores composition and repeat, and blocks pending writes, external pending work and conflicts',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');const toggle=selectedToggle(h);
+ for(const event of [{repeat:true},{detail:2},{isComposing:true},{keyCode:229}])toggle.dispatch('click',event);
+ assert.equal(toggle.getAttribute('aria-pressed'),'false');
+ for(const key of ['_pendingSave','_pendingDelete','_shortcutWritesPending','_shortcutOrderPending']){
+  h.component[key]=true;h.search('chatgpt');assert.equal(toggle.disabled,true);toggle.dispatch('click');assert.equal(toggle.getAttribute('aria-pressed'),'false');h.component[key]=false;
+ }
+ h.search('chatgpt');assert.equal(toggle.disabled,false);let reject;const pending={promise:new Promise((resolve,rejectFn)=>{reject=rejectFn;})};h.write=pending;h.firstAdd().dispatch('click');assert.equal(toggle.disabled,true);toggle.dispatch('click');assert.equal(toggle.getAttribute('aria-pressed'),'false');
+ reject(Object.assign(new Error(),{code:'CATALOG_CONFLICT'}));await tick();assert.equal(toggle.disabled,true);toggle.dispatch('click');assert.equal(toggle.getAttribute('aria-pressed'),'false');assert.equal(h.calls,1);
+});
+test('selected-only bilingual labels and hidden counts remain plain text',async()=>{
+ const h=model({locale:'zh-CN'});await h.view.open();pickSite(h,'chatgpt');h.search('github');assert.equal(selectedToggle(h).textContent,'只看已选');assert.equal(hiddenSelected(h),'被筛选隐藏: 1');
+ selectedToggle(h).dispatch('click');assert.equal(cards(h).length,0);h.click('清除筛选');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'false');assert.equal(selectionCount(h),'1 / 20 已选');assert.equal(h.calls,0);
+});

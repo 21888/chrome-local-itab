@@ -5503,5 +5503,7 @@
   },
   "navigationTagAudioEffects": {
     "message": "Audio effects"
-  }
+  },
+  "navigationLibrarySelectedOnly": { "message": "Show selected only" },
+  "navigationLibraryHiddenSelected": { "message": "Hidden by filters" }
 }
