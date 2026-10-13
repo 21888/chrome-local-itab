@@ -3903,6 +3903,143 @@
         "verifiedOn": "2026-10-12",
         "language": "unknown",
         "signup": "unknown"
+    },
+    {
+        "id": "ezgif",
+        "name": "Ezgif",
+        "url": "https://ezgif.com/",
+        "company": "Open Idea",
+        "country": "LV",
+        "categories": [
+            "utilities",
+            "design",
+            "media"
+        ],
+        "tags": [
+            "gif-editing",
+            "animated-images",
+            "image-formats"
+        ],
+        "description": {
+            "en": "Create, crop and optimize GIF animations, and convert animated images and videos.",
+            "zh": "制作、裁剪和优化 GIF 动画，编辑动图并转换图片与视频格式。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Free tools, including for commercial use, supported by advertising; individual tools have file-size limits. Files are uploaded to servers and retained for up to 1 hour after last use; avoid sensitive media.",
+            "zh": "工具免费，含商业用途；网站通过广告支持，各工具有文件大小限制。文件上传至服务器，最后使用后最多保留 1 小时；勿上传敏感素材。"
+        },
+        "icon": "EZ",
+        "sources": [
+            "https://ezgif.com/about",
+            "https://ezgif.com/help/commercial-use",
+            "https://ezgif.com/privacy"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "cloudconvert",
+        "name": "CloudConvert",
+        "url": "https://cloudconvert.com/",
+        "company": "Lunaweb GmbH",
+        "country": "DE",
+        "categories": [
+            "utilities",
+            "office",
+            "media"
+        ],
+        "tags": [
+            "file-conversion",
+            "image-formats"
+        ],
+        "description": {
+            "en": "Convert document, image, audio and video file formats.",
+            "zh": "转换文档、图片、音频和视频等文件格式。"
+        },
+        "pricing": "freemium",
+        "pricingNote": {
+            "en": "The free plan includes 10 credits per day, a 1 GB file limit and a processing limit of 5 minutes; some conversions use multiple credits. One-time credit packages and monthly subscriptions are available. Files are uploaded to servers; the privacy policy specifies automatic deletion within 24 hours. Avoid sensitive files.",
+            "zh": "免费版每日 10 个积分，单文件上限 1 GB、处理时长上限 5 分钟；部分转换消耗多个积分。另有一次性积分包和按月订阅。文件上传至服务器，隐私政策规定最迟 24 小时自动删除；勿上传敏感文件。"
+        },
+        "icon": "CC",
+        "sources": [
+            "https://cloudconvert.com/about",
+            "https://cloudconvert.com/pricing",
+            "https://cloudconvert.com/privacy"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "audiomass",
+        "name": "AudioMass",
+        "url": "https://audiomass.co/",
+        "company": "Pantelis Kalogiros / AudioMass",
+        "country": "unknown",
+        "categories": [
+            "media",
+            "utilities"
+        ],
+        "tags": [
+            "audio-editing",
+            "audio-effects"
+        ],
+        "description": {
+            "en": "Trim audio, adjust volume, apply effects and mix tracks in a waveform editor.",
+            "zh": "在波形编辑器中剪辑音频、调整音量、添加效果和混音。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Free and open source. Audio editing runs locally in the browser without a backend; edited files are not uploaded for processing. It can work offline after loading, subject to browser and device resources. Recording requires microphone permission; local editing does not imply that visiting the site collects no data.",
+            "zh": "免费开源；音频编辑在浏览器本地运行，无需后端，编辑文件不上传处理。页面加载后可离线使用，受浏览器和设备资源限制。录音需要麦克风权限；本地编辑不等于访问网站完全不收集数据。"
+        },
+        "icon": "AM",
+        "sources": [
+            "https://audiomass.co/about.html",
+            "https://github.com/pkalogiros/AudioMass",
+            "https://github.com/pkalogiros/AudioMass/blob/production/LICENSE"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "google-maps",
+        "name": "Google Maps",
+        "url": "https://www.google.com/maps/",
+        "company": "Google",
+        "country": "unknown",
+        "categories": [
+            "travel",
+            "lifestyle"
+        ],
+        "tags": [
+            "maps",
+            "places",
+            "route-planning"
+        ],
+        "description": {
+            "en": "Find places, plan routes and organize travel lists with Google Maps.",
+            "zh": "使用谷歌地图查询地点、规划路线并整理出行地点清单。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "The consumer Maps service is free to use; mobile carriers may charge for data. The developer platform and API are separate billed products. Location and activity retention depends on permissions and account settings; features vary by region. The service operator also depends on the user’s region, so operator location remains unknown.",
+            "zh": "消费者地图服务免费使用；移动数据可能由运营商收费。开发者平台和 API 是另行计费产品。位置与活动数据的保存取决于权限和账号设置，功能因地区而异。服务运营主体也取决于用户地区，因此运营方所在地保留未知。"
+        },
+        "icon": "GM",
+        "sources": [
+            "https://www.google.com/maps/about/",
+            "https://support.google.com/maps/answer/3096703?hl=en",
+            "https://support.google.com/maps/answer/10400210?hl=en",
+            "https://policies.google.com/terms?hl=en-US"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

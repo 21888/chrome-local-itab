@@ -1,19 +1,19 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), crypto = require('node:crypto');
 const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites');
-const added = sites.slice(120);
+const added = sites.slice(120, 124);
 const ids = ['usa-gov', 'ifixit', 'lichess', 'buffer'];
 const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');
 
 test('daily utilities append four reviewed sites without changing any original record', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 120))).digest('hex'), '5c2b22fe9c94bb43e6f76823344a1692b8475d0f5c5f313fea0645ab8644e9b2');
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 124);
-    assert.equal(new Set(sites.map(site => site.id)).size, 124);
-    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 124);
+    assert.equal(sites.length, 128);
+    assert.equal(new Set(sites.map(site => site.id)).size, 128);
+    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 128);
     assert.equal(Catalog.categories.length, 18);
     const oldTags = new Set(sites.slice(0, 120).flatMap(site => site.tags));
     assert.deepEqual([...new Set(added.flatMap(site => site.tags).filter(tag => !oldTags.has(tag)))], ['repair-guides', 'device-repair', 'online-chess', 'chess-practice', 'social-scheduling', 'social-publishing']);
-    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 186);
+    assert.equal(new Set(sites.flatMap(site => site.tags)).size, 190);
     assert.equal(Catalog.validate(sites), true);
     for (const site of added) {
         assert.equal(site.verifiedOn, '2026-10-12');

@@ -5491,5 +5491,17 @@
   },
   "collectionsSearchShortcut": {
     "message": "按 / 搜索"
+  },
+  "navigationTagGifEditing": {
+    "message": "GIF 编辑"
+  },
+  "navigationTagAnimatedImages": {
+    "message": "动画图片"
+  },
+  "navigationTagAudioEditing": {
+    "message": "音频剪辑"
+  },
+  "navigationTagAudioEffects": {
+    "message": "音频效果"
   }
 }

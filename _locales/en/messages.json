@@ -5491,5 +5491,17 @@
   },
   "collectionsSearchShortcut": {
     "message": "Press / to search"
+  },
+  "navigationTagGifEditing": {
+    "message": "GIF editing"
+  },
+  "navigationTagAnimatedImages": {
+    "message": "Animated images"
+  },
+  "navigationTagAudioEditing": {
+    "message": "Audio editing"
+  },
+  "navigationTagAudioEffects": {
+    "message": "Audio effects"
   }
 }
