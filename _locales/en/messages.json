@@ -5602,5 +5602,26 @@
   },
   "aiContextLocalCopyBlocked": {
     "message": "Copy could not be confirmed. Select the complete prompt above to copy it manually. Check the current workspace before continuing."
+  },
+  "navigationTagPersonalFinance": {
+    "message": "Personal finance"
+  },
+  "navigationTagFinancialEducation": {
+    "message": "Financial education"
+  },
+  "navigationTagShoppingGuides": {
+    "message": "Shopping guides"
+  },
+  "navigationTagScamAwareness": {
+    "message": "Scam awareness"
+  },
+  "navigationTagOnlineBoardGames": {
+    "message": "Online board games"
+  },
+  "navigationTagMultiplayerGames": {
+    "message": "Multiplayer games"
+  },
+  "navigationTagHikingTrails": {
+    "message": "Hiking trails"
   }
 }

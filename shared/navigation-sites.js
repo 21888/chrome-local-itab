@@ -4175,6 +4175,152 @@
         "verifiedOn": "2026-10-13",
         "language": "unknown",
         "signup": "unknown"
+    },
+    {
+        "id": "cfpb-consumer-resources",
+        "name": "CFPB Consumer Resources",
+        "url": "https://www.consumerfinance.gov/consumer-tools/",
+        "company": "Consumer Financial Protection Bureau",
+        "country": "US",
+        "categories": [
+            "finance",
+            "public-services"
+        ],
+        "tags": [
+            "personal-finance",
+            "financial-education"
+        ],
+        "searchAliases": [
+            "CFPB",
+            "Consumer Financial Protection Bureau"
+        ],
+        "description": {
+            "en": "Read consumer guides about credit, borrowing, banking and major financial decisions in the United States.",
+            "zh": "阅读美国信用、借贷、银行服务及重大财务决策的消费者指南。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "The consumer educational information and tools are free. Guidance focuses on the United States; linked financial products have their own fees and eligibility rules. Educational resources are not personalized financial or legal advice.",
+            "zh": "消费者教育资料和工具免费。内容以美国制度为主；链接中的金融产品另有费用和资格要求。教育资料不等于针对个人的财务或法律建议。"
+        },
+        "icon": "CF",
+        "sources": [
+            "https://www.consumerfinance.gov/consumer-tools/",
+            "https://www.consumerfinance.gov/about-us/",
+            "https://www.consumerfinance.gov/about-us/contact-us/",
+            "https://www.consumerfinance.gov/archive/blog/you-have-the-right-to-free-unbiased-financial-information/",
+            "https://www.consumerfinance.gov/privacy/website-privacy-policy/"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "ftc-shopping-guides",
+        "name": "FTC Shopping Guides",
+        "url": "https://consumer.ftc.gov/shopping-and-donating/shopping",
+        "company": "Federal Trade Commission",
+        "country": "US",
+        "categories": [
+            "shopping",
+            "public-services"
+        ],
+        "tags": [
+            "shopping-guides",
+            "scam-awareness"
+        ],
+        "searchAliases": [
+            "FTC",
+            "Federal Trade Commission"
+        ],
+        "description": {
+            "en": "Read guides on online shopping, product reviews, returns, warranties and recognizing shopping scams.",
+            "zh": "阅读网购、商品评价、退换货、保修及购物诈骗识别指南。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Consumer education materials are free. Legal rights and remedies described mainly concern the United States; rules elsewhere may differ. This entry opens reading resources, not a purchase or complaint-submission service.",
+            "zh": "消费者教育资料免费。所述法律权利和救济主要适用于美国，其他地区规则可能不同。此入口提供阅读资料，不直接购物或提交投诉。"
+        },
+        "icon": "FT",
+        "sources": [
+            "https://consumer.ftc.gov/shopping-and-donating/shopping",
+            "https://consumer.ftc.gov/share-our-resources",
+            "https://www.ftc.gov/about-ftc/contact"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "board-game-arena",
+        "name": "Board Game Arena",
+        "url": "https://boardgamearena.com/",
+        "company": "AD2G Studio SAS",
+        "country": "FR",
+        "categories": [
+            "games"
+        ],
+        "tags": [
+            "online-board-games",
+            "multiplayer-games"
+        ],
+        "searchAliases": [
+            "BGA",
+            "BoardGameArena"
+        ],
+        "description": {
+            "en": "Play board games online with other players in your browser.",
+            "zh": "在浏览器中与其他玩家进行在线桌游。"
+        },
+        "pricing": "freemium",
+        "pricingNote": {
+            "en": "Free accounts can play non-Premium games. Starting a Premium game table requires a Premium member, who can invite free members. Paid plans add features, including same-device play. Accounts and public game activity involve personal-data processing; subscription renewal conditions apply.",
+            "zh": "免费账号可玩非 Premium 游戏。Premium 游戏开桌需至少一名付费会员，可邀请免费玩家加入。付费版另有同设备多人游戏等功能。账号及公开对局活动涉及个人信息处理，订阅有续费条件。"
+        },
+        "icon": "BG",
+        "sources": [
+            "https://boardgamearena.com/",
+            "https://en.boardgamearena.com/legal?section=legal",
+            "https://en.boardgamearena.com/premium"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "alltrails",
+        "name": "AllTrails",
+        "url": "https://www.alltrails.com/",
+        "company": "AllTrails, LLC",
+        "country": "US",
+        "categories": [
+            "travel",
+            "lifestyle"
+        ],
+        "tags": [
+            "hiking-trails",
+            "route-planning"
+        ],
+        "description": {
+            "en": "Discover hiking and outdoor trails, compare route details and organize trails for future trips.",
+            "zh": "查找徒步及户外步道，比较路线信息并整理出行清单。"
+        },
+        "pricing": "freemium",
+        "pricingNote": {
+            "en": "Base membership is free. Plus and Peak are paid plans; offline map downloads require a paid plan. Some navigation features are app-only. Trials can convert to renewing subscriptions. Trail information is not a guarantee of current conditions or safety.",
+            "zh": "Base 会员免费；Plus 和 Peak 为付费方案，离线地图下载需付费版。部分导航功能仅限应用内使用。试用可能转为自动续费订阅；路线资料不保证实时路况或户外安全。"
+        },
+        "icon": "AT",
+        "sources": [
+            "https://www.alltrails.com/",
+            "https://support.alltrails.com/hc/en-us/articles/37202982202900-AllTrails-Base-membership",
+            "https://www.alltrails.com/plans",
+            "https://www.alltrails.com/terms"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

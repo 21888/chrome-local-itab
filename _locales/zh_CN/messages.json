@@ -5602,5 +5602,26 @@
   },
   "aiContextLocalCopyBlocked": {
     "message": "无法确认复制成功。可选中上方完整提示词手动复制。继续前请检查当前工作区。"
+  },
+  "navigationTagPersonalFinance": {
+    "message": "个人财务"
+  },
+  "navigationTagFinancialEducation": {
+    "message": "财务知识"
+  },
+  "navigationTagShoppingGuides": {
+    "message": "购物指南"
+  },
+  "navigationTagScamAwareness": {
+    "message": "诈骗识别"
+  },
+  "navigationTagOnlineBoardGames": {
+    "message": "在线桌游"
+  },
+  "navigationTagMultiplayerGames": {
+    "message": "多人游戏"
+  },
+  "navigationTagHikingTrails": {
+    "message": "徒步步道"
   }
 }
