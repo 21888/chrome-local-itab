@@ -4321,6 +4321,116 @@
         "verifiedOn": "2026-10-13",
         "language": "unknown",
         "signup": "unknown"
+    },
+    {
+        "id": "inoreader",
+        "name": "Inoreader",
+        "url": "https://www.inoreader.com/",
+        "company": "Innologica Ltd",
+        "country": "BG",
+        "categories": [
+            "news",
+            "office"
+        ],
+        "tags": [
+            "rss-reader",
+            "read-later"
+        ],
+        "searchAliases": [
+            "RSS 阅读器"
+        ],
+        "description": {
+            "en": "Follow RSS feeds and organize articles from websites, blogs and other sources in one reading hub.",
+            "zh": "订阅网站、博客等来源的 RSS，在统一阅读入口整理文章。"
+        },
+        "pricing": "freemium",
+        "pricingNote": {
+            "en": "The free account supports up to 150 RSS feeds. Paid plans expand limits and add monitoring and automation features. A personal feed collection requires an account; paid subscriptions renew automatically unless canceled. Source publishers may apply their own access rules.",
+            "zh": "免费账号最多订阅150个 RSS 源；付费方案提高额度并增加监测和自动化功能。个人订阅集合需要账号；付费订阅默认自动续费，需自行取消。原内容发布方可能另设访问条件。"
+        },
+        "icon": "IN",
+        "sources": [
+            "https://www.inoreader.com/",
+            "https://www.inoreader.com/pricing",
+            "https://www.inoreader.com/tos",
+            "https://www.inoreader.com/privacy_policy"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "hacker-news",
+        "name": "Hacker News",
+        "url": "https://news.ycombinator.com/",
+        "company": "Y Combinator Management, LLC",
+        "country": "US",
+        "categories": [
+            "news",
+            "social"
+        ],
+        "tags": [
+            "technology-news",
+            "discussions"
+        ],
+        "searchAliases": [
+            "HN",
+            "黑客新闻"
+        ],
+        "description": {
+            "en": "Browse community-submitted links and discussions about technology, startups and other topics.",
+            "zh": "浏览社区分享的科技、创业及其他话题链接与讨论。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "Public listings and discussions can be read without payment or an account. Participation uses an account and is subject to community rules and feature thresholds. Linked publishers may have paywalls; free browsing here does not include access to every linked article.",
+            "zh": "公开列表和讨论可免付费、免登录阅读。参与互动使用账号，并受社区规则和功能门槛限制。外链发布方可能设有付费墙；本站免费浏览不等于所有外链文章免费。"
+        },
+        "icon": "HN",
+        "sources": [
+            "https://news.ycombinator.com/",
+            "https://news.ycombinator.com/newsfaq.html",
+            "https://news.ycombinator.com/login?goto=news",
+            "https://www.ycombinator.com/legal/"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "mastodon",
+        "name": "Mastodon",
+        "url": "https://joinmastodon.org/",
+        "company": "Mastodon GmbH",
+        "country": "DE",
+        "categories": [
+            "social"
+        ],
+        "tags": [
+            "federated-social",
+            "communities"
+        ],
+        "searchAliases": [
+            "长毛象"
+        ],
+        "description": {
+            "en": "Explore a federated social network and find independently operated servers for sharing posts and following people.",
+            "zh": "了解联邦式社交网络，查找独立运营的服务器，用于分享动态和关注他人。"
+        },
+        "pricing": "free",
+        "pricingNote": {
+            "en": "The software and public project directory are free. Joining the network requires an account on a chosen server. Independent servers set their own registration policies, terms and any charges; self-hosting and optional donations are outside this free classification.",
+            "zh": "软件及公开项目目录免费。加入网络需在选定服务器注册账号。独立服务器自行规定注册方式、条款及可能的费用；自建服务器成本和自愿捐款不包含在此免费分类内。"
+        },
+        "icon": "MA",
+        "sources": [
+            "https://joinmastodon.org/",
+            "https://joinmastodon.org/about",
+            "https://docs.joinmastodon.org/user/signup/"
+        ],
+        "verifiedOn": "2026-10-13",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

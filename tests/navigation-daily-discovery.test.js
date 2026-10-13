@@ -1,11 +1,11 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), crypto = require('node:crypto');
 const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites');
-const added = sites.slice(132), ids = ['cfpb-consumer-resources', 'ftc-shopping-guides', 'board-game-arena', 'alltrails'];
+const added = sites.slice(132,136), ids = ['cfpb-consumer-resources', 'ftc-shopping-guides', 'board-game-arena', 'alltrails'];
 const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');
 test('daily discovery preserves 132 previous records and adds four reviewed sites and seven uses', () => {
  assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0,132))).digest('hex'),'022320e9aae5e3fd80fa4225bb7d4b8a9f1c2a69cd3e563d48425c19958d3005');
- assert.deepEqual(added.map(site=>site.id),ids);assert.equal(sites.length,136);assert.equal(new Set(sites.map(site=>site.id)).size,136);assert.equal(new Set(sites.map(site=>Catalog.canonicalURL(site.url))).size,136);
- assert.equal(Catalog.validate(sites),true);assert.equal(Catalog.categories.length,18);assert.equal(new Set(sites.flatMap(site=>site.tags)).size,200);
+ assert.deepEqual(added.map(site=>site.id),ids);assert.equal(sites.length,139);assert.equal(new Set(sites.map(site=>site.id)).size,139);assert.equal(new Set(sites.map(site=>Catalog.canonicalURL(site.url))).size,139);
+ assert.equal(Catalog.validate(sites),true);assert.equal(Catalog.categories.length,18);assert.equal(new Set(sites.flatMap(site=>site.tags)).size,204);
  const oldTags=new Set(sites.slice(0,132).flatMap(site=>site.tags));assert.deepEqual([...new Set(added.flatMap(site=>site.tags).filter(tag=>!oldTags.has(tag)))],['personal-finance','financial-education','shopping-guides','scam-awareness','online-board-games','multiplayer-games','hiking-trails']);
  for(const site of added){assert.equal(site.verifiedOn,'2026-10-13');assert.equal(site.language,'unknown');assert.equal(site.signup,'unknown');assert.match(site.icon,/^[A-Z]{2}$/);assert.equal(new Set(site.sources).size,site.sources.length);for(const source of site.sources){assert.ok(Catalog.canonicalURL(source));assert.ok(source.startsWith('https://'));assert.doesNotMatch(source,/[?&](utm_\w+|src)=/i);}}
 });

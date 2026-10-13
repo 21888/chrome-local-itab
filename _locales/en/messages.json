@@ -5626,5 +5626,17 @@
   },
   "navigationTagHikingTrails": {
     "message": "Hiking trails"
+  },
+  "navigationTagRssReader": {
+    "message": "RSS reader"
+  },
+  "navigationTagReadLater": {
+    "message": "Read later"
+  },
+  "navigationTagTechnologyNews": {
+    "message": "Technology news"
+  },
+  "navigationTagFederatedSocial": {
+    "message": "Federated social"
   }
 }

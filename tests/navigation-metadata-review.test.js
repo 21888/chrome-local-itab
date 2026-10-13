@@ -10,7 +10,7 @@ const { beforeChineseAliasReview } = require('./helpers/navigation-chinese-alias
 const byId = id => sites.find(site => site.id === id);
 
 test('review changes only the 17 existing entries and explicitly reviewed metadata fields', () => {
-    assert.equal(sites.length, 136);
+    assert.equal(sites.length, 139);
     assert.equal(review.changes.length, 17);
     assert.equal(review.changes.filter(change => 'country' in change.fields).length, 16);
     assert.equal(review.changes.filter(change => 'pricing' in change.fields).length, 3);

@@ -5626,5 +5626,17 @@
   },
   "navigationTagHikingTrails": {
     "message": "徒步步道"
+  },
+  "navigationTagRssReader": {
+    "message": "RSS 阅读器"
+  },
+  "navigationTagReadLater": {
+    "message": "稍后阅读"
+  },
+  "navigationTagTechnologyNews": {
+    "message": "科技资讯"
+  },
+  "navigationTagFederatedSocial": {
+    "message": "联邦式社交"
   }
 }
