@@ -1,0 +1,9 @@
+# 1.1.101 validation
+
+Normal patch increment from official v1.1.100. Parent 289f4308bfbe70f96b5ad2637d3232855b09b3f5; only manifest and documentation change from the combined second feature. No recovery marker.
+
+Precise ordinary CI passed 2561 Node/81 Python and 2564 Node/81 Python. Actual 1.1.101 full regression passed strict serial Node 2564/2564 (1GiB heap, no failures/skips/cancellations) and Python 81/81.
+
+Limited native development packages (112 files): IME cb72442f3302f06e69ef16c940eb45c14350a2a378d1423615f1e6e27080cb67; media 213ca75b20ed89fafd1c94f635927d7c042357bbb3994ba02d37dd0820aed937. Chinese desktop light. ASCII PhET search/selection/slash focus/review cancellation/close-reopen passed. Four new brand queries each returned one card; source/price/privacy details and complete four-item review observed; cancel/reopen left 128/114/14 and zero selected. CloudConvert 10 credits/day, 1GB/5min and 24h; Maps operator unknown; AudioMass mic caveat visible. No additions, external links, service use, uploads or permission requests. Default14 / qa remaining2 / Clarity light / Grid restored.
+
+Real IME composition/blur/stale events remain synthetic-only. The 190 tags/18 categories are source/test counts. No responsive/dark/exhaustive filter-focus validation or live third-party service verification. Final minimal identity smoke passed against ZIP SHA256 39922a2156caff5b42621044daa466514c97cbc7e59077694db129c517860411, 112 entries; only manifest differs from combined development. Ordinary CfT reload visibly showed 1.1.101 and fresh homepage retained Default14 / qa remaining2 / Clarity light / Grid. No data operations; AI originals, prompt library and workspace note were untouched rather than reread. Identity evidence does not expand feature-native coverage or prove live publication.

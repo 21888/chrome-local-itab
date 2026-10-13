@@ -55,3 +55,7 @@ Prepared-snapshot results (manifest 1.1.100, unchanged):
 - Changed JavaScript syntax, manifest/localization JSON and `git diff --check`: pass.
 - Offline runtime ZIP: 112 allowlisted files; build and source verification pass.
 - No browser tests, commit, push or release performed in this preparation step.
+
+## Limited native development observations
+
+Chinese desktop-light local catalog checks passed: 128 total /114 unadded /14 added; each of the four ASCII brand queries returned one card. Details displayed CloudConvert 10 credits/day, 1GB, 5-minute and conservative 24-hour deletion limits; Ezgif upload/one-hour caveat; AudioMass local-processing and microphone caveat; Google Maps unknown operator location and separate API billing. Four hidden selections persisted across queries into a complete local review, then cancellation/reopening reset selection without adding anything. No external site was opened, upload performed, microphone/location permission requested or live service tested. Responsive/dark and exhaustive filters/focus were not covered. The 190 use tags and 18 categories are source/test counts, not individually native-verified.
