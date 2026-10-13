@@ -89,3 +89,17 @@ test('20,000 saved rows: DOM model holds 50 results with exact first/last counts
     assert.equal(document.querySelectorAll('.finder-result').length, 50);
     view.destroy(); assert.equal(document.querySelectorAll('.finder-result').length, 0);
 });
+
+test('20,000 saved rows: all words stays page-bounded with cross-field matches and unchanged identities', () => {
+    const f = fixture();
+    const first = f.controller.search('cafe path Category', 0, '', 'all-words');
+    assert.equal(first.total, 20000); assert.equal(first.rows.length, 50);
+    assert.equal(f.counts.urls, 50); assert.equal(f.counts.snapshots, 0);
+    f.reset(); const last = f.controller.search('Category path cafe', 399);
+    assert.equal(last.total, 20000); assert.equal(last.start, 19950); assert.equal(last.rows[49].token.id, id(20000));
+    assert.equal(f.counts.urls, 50); assert.equal(f.counts.snapshots, 0);
+    f.reset(); const scoped = f.controller.search('Category path cafe', 0, 'c1999');
+    assert.equal(scoped.total, 10); assert.equal(scoped.rows[9].token.id, id(20000));
+    assert.equal(f.counts.urls, 10); assert.equal(f.counts.snapshots, 0);
+    assert.equal(f.opened.length, 0);
+});

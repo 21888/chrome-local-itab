@@ -24,12 +24,14 @@
             this.pending = null;
             this.query = '';
             this.category = '';
+            this.matchMode = 'phrase';
             this.page = 0;
         }
-        search(query = this.query, page = 0, category = this.category) {
+        search(query = this.query, page = 0, category = this.category, matchMode = this.matchMode) {
             this.cancelPending();
             this.query = String(query);
             this.category = String(category || '');
+            this.matchMode = matchMode === 'all-words' ? 'all-words' : 'phrase';
             const snapshot = this.getSnapshot() || {};
             const links = Array.isArray(snapshot.links) ? snapshot.links : [];
             const categories = new Map((snapshot.categories || []).map(item => [item.id, item.name]));
@@ -44,12 +46,18 @@
             if (this.category && !choices.has(this.category)) choices.set(this.category, this.category);
             const categoryOptions = Array.from(choices, ([id, name]) => ({ id, name, count: counts.get(id) || 0 }));
             const needle = fold(this.query.trim());
+            // Whitespace separates literal terms only in the explicitly chosen mode.
+            // Each term can match a different field; punctuation is never query syntax.
+            const terms = this.matchMode === 'all-words' ? [...new Set(needle.split(/\s+/u).filter(Boolean))] : [needle];
             const matches = [];
             links.forEach((link, index) => {
                 const category = categories.get(link.category || 'work') || link.category || 'work';
                 if (this.category && (link.category || 'work') !== this.category) return;
                 if (!needle && !this.category) return;
-                if (needle && ![link.title, link.url, category].some(value => fold(value).includes(needle))) return;
+                if (needle) {
+                    const fields = [link.title, link.url, category].map(fold);
+                    if (!terms.every(term => fields.some(value => value.includes(term)))) return;
+                }
                 matches.push({ link, category, index });
             });
             this.page = Math.min(Math.max(0, Math.floor(page) || 0), Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1));
@@ -62,7 +70,7 @@
                 return { title: link.title || link.url || '', url: link.url || '', domain: url?.hostname || '', category,
                     safe: Boolean(url), token: { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } };
             });
-            return { query: this.query, category: this.category, categoryOptions, total: matches.length, saved: links.length, page: this.page,
+            return { query: this.query, category: this.category, matchMode: this.matchMode, categoryOptions, total: matches.length, saved: links.length, page: this.page,
                 start: this.page * PAGE_SIZE, rows,
                 hasPrevious: this.page > 0, hasNext: (this.page + 1) * PAGE_SIZE < matches.length };
         }
@@ -107,7 +115,7 @@
             if (!this.pending) return;
             const request = this.pending; this.pending = null; request.lease.close();
         }
-        clear() { this.cancelPending(); this.query = ''; this.category = ''; this.page = 0; }
+        clear() { this.cancelPending(); this.query = ''; this.category = ''; this.matchMode = 'phrase'; this.page = 0; }
 
     }
     return { Controller, fold, safeUrl, PAGE_SIZE };

@@ -3764,6 +3764,21 @@
   "finderAllCategories": {
     "message": "全部分类"
   },
+  "finderMatchMode": {
+    "message": "匹配方式"
+  },
+  "finderMatchPhrase": {
+    "message": "连续短语"
+  },
+  "finderMatchAllWords": {
+    "message": "所有词"
+  },
+  "finderMatchPhraseHint": {
+    "message": "完整文字需连续出现在同一标题、地址或分类中。空格和标点按原文匹配。"
+  },
+  "finderMatchAllWordsHint": {
+    "message": "用空格分隔词语。每个词都需出现在标题、地址或分类中，可跨字段、任意顺序匹配。标点按原文匹配。"
+  },
   "finderCategoryHint": {
     "message": "数量为文字筛选前已保存的网站数。选择分类后，无需输入即可浏览。"
   },

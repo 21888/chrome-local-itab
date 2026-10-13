@@ -4,6 +4,9 @@
     const fallback = {
         finderOpen: 'Find saved sites', finderShortcutHint: 'Press / outside editing fields to find saved sites.', finderScope: 'Only your saved sites · local search',
         finderLabel: 'Title, address or category', finderHint: 'Type or choose a category to find a saved site. This does not search the web.',
+        finderMatchMode: 'Match', finderMatchPhrase: 'Continuous phrase', finderMatchAllWords: 'All words',
+        finderMatchPhraseHint: 'Find the full text in one title, address or category. Spaces and punctuation stay literal.',
+        finderMatchAllWordsHint: 'Separate words with spaces. Every word must appear in the title, address or category, in any order. Punctuation stays literal.',
         finderCategory: 'Filter by category', finderAllCategories: 'All categories',
         finderCategoryHint: 'Counts show saved sites before text filtering. Choose a category to browse without typing.',
         finderEmpty: 'No saved sites yet.', finderNone: 'No matching saved sites.', finderClose: 'Close', finderClear: 'Clear',
@@ -22,7 +25,7 @@
     }
     function mount(host, options) {
         const controller = new api.Controller(options);
-        let overlay = null, input, categorySelect, list, status, alert, previous, next, cleanup, composing = false, compositionTarget = null;
+        let overlay = null, input, categorySelect, matchSelect, matchHint, list, status, alert, previous, next, cleanup, composing = false, compositionTarget = null;
         const opener = button(t('finderOpen'), open);
         opener.classList.add('finder-opener'); opener.setAttribute('aria-haspopup', 'dialog');
         const shortcutEnabled = options.shortcutEnabled !== false;
@@ -68,7 +71,9 @@
             if (!overlay) return;
             const focused = document.activeElement;
             const hadResultFocus = list.contains(focused);
-            const result = controller.search(input.value, page, categorySelect.value);
+            const result = controller.search(input.value, page, categorySelect.value, matchSelect.value);
+            matchSelect.value = result.matchMode;
+            matchHint.textContent = t(result.matchMode === 'all-words' ? 'finderMatchAllWordsHint' : 'finderMatchPhraseHint');
             const options = [['', `${t('finderAllCategories')} (${result.saved})`],
                 ...result.categoryOptions.map(category => [category.id, `${category.name} (${category.count})`])];
             // Do not rebuild the native select while its options are unchanged.
@@ -122,6 +127,14 @@
             const scope = el('p', 'finder-meta', t('finderScope')); scope.id = 'shortcut-finder-scope'; panel.setAttribute('aria-describedby', scope.id);
             const label = el('label', 'finder-label', t('finderLabel')); label.htmlFor = 'shortcut-finder-query';
             input = el('input', 'finder-input'); input.id = 'shortcut-finder-query'; input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false;
+            const matchLabel = el('label', 'finder-label', t('finderMatchMode')); matchLabel.htmlFor = 'shortcut-finder-match-mode';
+            matchSelect = el('select', 'finder-input finder-match-mode'); matchSelect.id = 'shortcut-finder-match-mode';
+            for (const [value, key] of [['phrase', 'finderMatchPhrase'], ['all-words', 'finderMatchAllWords']]) {
+                const option = el('option', '', t(key)); option.value = value; matchSelect.append(option);
+            }
+            matchSelect.value = 'phrase';
+            matchHint = el('p', 'finder-meta'); matchHint.id = 'shortcut-finder-match-hint';
+            matchSelect.setAttribute('aria-describedby', matchHint.id); input.setAttribute('aria-describedby', matchHint.id);
             const categoryLabel = el('label', 'finder-label', t('finderCategory')); categoryLabel.htmlFor = 'shortcut-finder-category';
             categorySelect = el('select', 'finder-input finder-category'); categorySelect.id = 'shortcut-finder-category';
             const categoryHint = el('p', 'finder-meta', t('finderCategoryHint')); categoryHint.id = 'shortcut-finder-category-hint';
@@ -132,9 +145,10 @@
             previous = button(t('finderPrevious'), () => render(controller.page - 1));
             next = button(t('finderNext'), () => render(controller.page + 1));
             const actions = el('div', 'finder-actions');
-            actions.append(button(t('finderClear'), () => { input.value = ''; categorySelect.value = ''; alert.textContent = ''; render(); input.focus(); }), button(t('finderClose'), close));
+            actions.append(button(t('finderClear'), () => { input.value = ''; categorySelect.value = ''; matchSelect.value = 'phrase'; alert.textContent = ''; render(); input.focus(); }), button(t('finderClose'), close));
             const pages = el('div', 'finder-actions'); pages.append(previous, next);
-            panel.append(heading, scope, label, input, categoryLabel, categorySelect, categoryHint, actions, status, alert, list, pages); overlay.append(panel); document.body.append(overlay);
+            panel.append(heading, scope, label, input, matchLabel, matchSelect, matchHint, categoryLabel, categorySelect, categoryHint, actions, status, alert, list, pages); overlay.append(panel); document.body.append(overlay);
+            matchSelect.addEventListener('change', () => { alert.textContent = ''; render(); updatePending(); });
             categorySelect.addEventListener('change', () => { alert.textContent = ''; render(); updatePending(); });
             input.addEventListener('input', () => { alert.textContent = ''; if (!composing) render(); });
             input.addEventListener('compositionstart', () => { composing = true; controller.cancelPending(); updatePending(); });

@@ -3764,6 +3764,21 @@
   "finderAllCategories": {
     "message": "All categories"
   },
+  "finderMatchMode": {
+    "message": "Match"
+  },
+  "finderMatchPhrase": {
+    "message": "Continuous phrase"
+  },
+  "finderMatchAllWords": {
+    "message": "All words"
+  },
+  "finderMatchPhraseHint": {
+    "message": "Find the full text in one title, address or category. Spaces and punctuation stay literal."
+  },
+  "finderMatchAllWordsHint": {
+    "message": "Separate words with spaces. Every word must appear in the title, address or category, in any order. Punctuation stays literal."
+  },
   "finderCategoryHint": {
     "message": "Counts show saved sites before text filtering. Choose a category to browse without typing."
   },

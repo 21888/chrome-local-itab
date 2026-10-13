@@ -22,5 +22,5 @@
 
 .ai-search-result { box-sizing: border-box; text-decoration: none; }
 .ai-search-snippet { white-space: pre-wrap; }
-/* Keep the native category picker within narrow and zoomed dialogs. */
-.finder-category { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+/* Keep native filter pickers within narrow and zoomed dialogs. */
+.finder-category, .finder-match-mode { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
