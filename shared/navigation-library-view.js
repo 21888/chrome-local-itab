@@ -20,6 +20,7 @@
         close: 'Close', privacy: 'Browsing this library stays offline. Adding uses your existing Sync and online-icon settings.',
         disclosure: 'Location describes the company or service operator, not where a site is accessible. Plans, availability and account requirements can change.',
         source: 'Sources & details', allUses: 'All uses', categories: 'Categories', moreUse: 'more use in details', moreUses: 'more uses in details', sources: 'Sources', checked: 'Checked', unknown: 'Unknown', free: 'Free entry', freemium: 'Free + paid plans', paid: 'Paid', not_applicable: 'Not applicable',
+        refreshSaved: 'Refresh saved state', refreshingSaved: 'Refreshing saved state…', refreshedSaved: 'Saved state refreshed.', refreshRemoved: '{count} selected sites are now added and were removed from the selection.', refreshFailed: 'Could not refresh saved state. The previous saved state is still shown; your browsing and drafts are unchanged.', missingDestination: 'The selected personal category is no longer available. Choose another category before adding.',
         readError: 'Could not read your saved sites. Close and reopen to try again.',
         conflict: 'Your shortcuts, workspace or settings changed. Close and reopen to review the latest state.',
         failed: 'Nothing was added. You can try adding the site again.',
@@ -36,6 +37,7 @@
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
         let overlay, panel, cleanup, cleanupSearchShortcut, cleanupComposition, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchDeselect, batchHelp, batchSelectedOnly, batchHiddenCount, reviewPanel, reviewConfirm;
+        let refreshSavedButton, privacySummary, refreshing = false, readTicket = 0;
         let clearFilters = () => {}, leaveSelectedOnly = () => {};
         let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
         let newCategoryMode = false, draftName = '', compositionTarget = null, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
@@ -66,7 +68,7 @@
         const opener = button(t('open'), open, 'navigation-library-opener'); opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
         function close() {
             if (writing) return false;
-            revision++; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanupSearchShortcut?.(); cleanupSearchShortcut = null; cleanupComposition?.(); cleanupComposition = null; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); selectedOnly = false; reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null; return true;
+            revision++; readTicket++; refreshing = false; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanupSearchShortcut?.(); cleanupSearchShortcut = null; cleanupComposition?.(); cleanupComposition = null; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); selectedOnly = false; reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null; return true;
         }
         function isComposing() {
             // A lost end/blur event must not strand every action after focus moves
@@ -102,7 +104,8 @@
             };
         }
         function setControls() {
-            for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || node.dataset.unavailable === 'true';
+            for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = writing || (refreshing && !node.classList.contains('navigation-library-close')) || node.dataset.unavailable === 'true';
+            refreshReadControl();
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
@@ -232,11 +235,12 @@
             count = el('span', '', 'navigation-library-count'); count.setAttribute('role', 'status'); toolbar.append(count);
             clearFilters = () => { if (owner !== revision || selectionUnavailable()) return; selectedOnly = false; criteria = {}; search.value = ''; for (const select of filtersPanel.querySelectorAll('select')) select.value = ''; refreshTagOptions(); refreshCategories(); renderResults(); search.focus(); };
             const reset = button(t('clear'), clearFilters, 'navigation-library-clear'); toolbar.append(reset);
+            const refreshControl = refreshSavedButton = button(t('refreshSaved'), () => { if (owner === revision && refreshControl.isConnected) refreshSavedState(); }, 'navigation-library-refresh-saved'); toolbar.append(refreshSavedButton);
             const destinationLabel = el('label', t('destination'), 'navigation-library-destination'); destination = el('select'); destination.setAttribute('aria-label', t('destination'));
             const active = root.categoryNavigation?.getCurrentCategory?.();
             currentDestination = snapshot.categories.some(category => category.id === active) ? active : snapshot.categories[0]?.id || '';
             rebuildDestinations();
-            destination.addEventListener('change', () => { if (writing) return; currentDestination = destination.value; renderResults(); });
+            destination.addEventListener('change', () => { if (busy || writing) return; currentDestination = destination.value; renderResults(); });
             destinationLabel.append(destination); existingDestination = destinationLabel; toolbar.append(destinationLabel);
             newCategoryButton = button(t('newCategory'), () => changeTargetMode(true), 'navigation-library-new-category'); toolbar.append(newCategoryButton); panel.append(toolbar);
             newCategoryPanel = el('div', undefined, 'navigation-library-new-category-panel'); newCategoryPanel.hidden = true;
@@ -287,7 +291,7 @@
             reviewPanel.setAttribute('aria-label', t('reviewTitle')); panel.append(reviewPanel);
             results = el('div', undefined, 'navigation-library-results'); panel.append(results);
             const foot = el('footer', undefined, 'navigation-library-footer'); foot.append(el('p', t('privacy')));
-            if (snapshot.privacy) foot.append(el('p', `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}`));
+            privacySummary = el('p'); foot.append(privacySummary); refreshPrivacySummary();
             foot.append(el('p', t('disclosure'))); panel.append(foot);
             status.textContent = currentDestination ? '' : t('noCategory'); renderResults(); search.focus(); bindSearchShortcut();
         }
@@ -338,14 +342,61 @@
                 ownedPanel.removeEventListener('keydown', handleSearchShortcut);
             };
         }
+        function validDestination() { return snapshot?.categories.some(category => category.id === currentDestination); }
+        function refreshPrivacySummary() {
+            if (privacySummary) privacySummary.textContent = snapshot.privacy ? `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}` : '';
+        }
+        function refreshReadControl() {
+            if (!refreshSavedButton?.isConnected) return;
+            refreshSavedButton.dataset.unavailable = String(Boolean(selectionUnavailable() || reviewed || refreshing));
+            refreshSavedButton.disabled = refreshSavedButton.dataset.unavailable === 'true';
+        }
+        async function refreshSavedState() {
+            if (!refreshSavedButton?.isConnected || selectionUnavailable() || reviewed || isComposing() || refreshing) return;
+            const owner = revision, ticket = ++readTicket, ownedPanel = panel, store = root.storageManager;
+            const workspace = store.workspace, workspaceId = workspace?.id, lifecycle = root.LocalItabContentLifecycle;
+            const restoreFocus = document.activeElement === refreshSavedButton;
+            refreshing = busy = true; setControls(); status.textContent = t('refreshingSaved');
+            const owns = () => owner === revision && ticket === readTicket && panel === ownedPanel && ownedPanel.isConnected;
+            const sameContext = () => store === root.storageManager && workspace === store.workspace && workspaceId === store.workspace?.id &&
+                lifecycle === root.LocalItabContentLifecycle && !lifecycle?.departing && !externalWorkPending();
+            try {
+                const fresh = await store.readNavigationLibrarySnapshot();
+                if (!owns()) return;
+                if (!sameContext()) {
+                    blocked = true; refreshing = busy = false; renderResults(); status.textContent = t('conflict'); return;
+                }
+                const before = selected.size;
+                snapshot = fresh;
+                rebuildDestinations(); refreshPrivacySummary();
+                useExisting.dataset.unavailable = String(!snapshot.categories.length);
+                // Render against one coherent snapshot without rebuilding editor/filter nodes.
+                refreshing = busy = false; renderResults();
+                const removed = before - selected.size;
+                status.textContent = [t('refreshedSaved'), removed ? t('refreshRemoved').replace('{count}', String(removed)) : '',
+                    !newCategoryMode && !validDestination() ? t('missingDestination') : ''].filter(Boolean).join(' ');
+            } catch (_) {
+                if (owns()) {
+                    if (!sameContext()) { blocked = true; refreshing = busy = false; renderResults(); }
+                    status.textContent = t(blocked ? 'conflict' : 'refreshFailed');
+                }
+            } finally {
+                if (owns()) {
+                    refreshing = busy = false;
+                    refreshResultSelection(); setControls();
+                    if (restoreFocus && (!document.activeElement || document.activeElement === document.body || document.activeElement === refreshSavedButton)) refreshSavedButton.focus();
+                }
+            }
+        }
         function rebuildDestinations() {
             destination.replaceChildren();
+            if (!validDestination()) { const missing = el('option', currentDestination ? `${t('missingDestination')} (${currentDestination})` : t('noCategory')); missing.value = currentDestination; missing.disabled = true; destination.append(missing); }
             snapshot.categories.forEach(category => { const option = el('option', category.name); option.value = category.id; destination.append(option); });
             destination.value = currentDestination;
         }
-        function invalidateReview() { reviewed = null; if (reviewPanel) reviewPanel.hidden = true; }
+        function invalidateReview() { reviewed = null; if (reviewPanel) reviewPanel.hidden = true; refreshReadControl(); }
         function changeTargetMode(value) {
-            if (writing || blocked) return;
+            if (busy || writing || blocked) return;
             newCategoryMode = value; newCategoryPanel.hidden = !value; existingDestination.hidden = value; newCategoryButton.hidden = value;
             renderResults(); (value ? nameInput : destination).focus();
         }
@@ -381,6 +432,7 @@
             batchDeselect.disabled = batchDeselect.dataset.unavailable === 'true';
         }
         function refreshResultSelection() {
+            refreshReadControl();
             refreshCurrentDeselection();
             const additions = currentResultSelection(), overLimit = selected.size + additions.length > 20;
             batchSelect.textContent = `${t('selectResults')} (${additions.length})`;
@@ -398,22 +450,24 @@
             (batchReview.disabled ? batchClear : batchReview).focus();
         }
         function selectionUnavailable() {
-            return busy || writing || blocked || !snapshot || root.LocalItabContentLifecycle?.departing ||
-                component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending ||
+            return busy || writing || blocked || !snapshot || root.LocalItabContentLifecycle?.departing || externalWorkPending();
+        }
+        function externalWorkPending() {
+            return component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending ||
                 component.layoutController?.failedChange || component.layoutController?.invalidated || component.layoutController?.pending ||
                 component.layoutController?.timer || component.layoutController?.modePending || component.modal?.classList.contains('active');
         }
         function refreshBatch() {
             reviewed = null; reviewPanel.hidden = true;
             batchCount.textContent = `${selected.size} / 20 ${t('selected')}`;
-            batchReview.dataset.unavailable = String(!selected.size || (!newCategoryMode && !currentDestination) || blocked);
+            batchReview.dataset.unavailable = String(!selected.size || (!newCategoryMode && !validDestination()) || blocked);
             batchClear.dataset.unavailable = String(!selected.size || selectionUnavailable());
             batchSelectedOnly.dataset.unavailable = String(Boolean(selectionUnavailable()));
             batchSelectedOnly.disabled = batchSelectedOnly.dataset.unavailable === 'true';
             batchSelectedOnly.setAttribute('aria-pressed', String(selectedOnly));
             const visibleSelected = selectableResults.filter(site => selected.has(site.id)).length;
             batchHiddenCount.textContent = `${t('hiddenSelected')}: ${selected.size - visibleSelected}`;
-            batchReview.disabled = writing || !selected.size || (!newCategoryMode && !currentDestination) || blocked;
+            batchReview.disabled = writing || !selected.size || (!newCategoryMode && !validDestination()) || blocked;
             batchClear.disabled = batchClear.dataset.unavailable === 'true';
             refreshResultSelection();
         }
@@ -421,7 +475,7 @@
             reviewSites(root.LocalItabNavigationSites.filter(site => selected.has(site.id)), true);
         }
         function reviewSites(sites, batch) {
-            if (writing || isComposing() || blocked || !sites.length || (!newCategoryMode && !currentDestination)) return;
+            if (busy || writing || isComposing() || blocked || !sites.length || (!newCategoryMode && !validDestination())) return;
             const name = newCategoryMode ? validatedName() : null;
             if (newCategoryMode && !name) return;
             const confirmation = frozenCopy({ sites: sites.map(serialize), batch, baseline: snapshot.state,
@@ -563,7 +617,7 @@
                 const visit = el('a', t('official'), 'navigation-library-visit'); visit.href = site.url; visit.target = '_blank'; visit.rel = 'noopener noreferrer'; visit.setAttribute('aria-label', `${t('visit')}: ${site.name}`); visit.title = t('visit');
                 const add = button(added ? `✓ ${t('added')}` : `+ ${t('add')}`, () => newCategoryMode ? reviewSites([site], false) : save(site), 'navigation-library-add');
                 add.setAttribute('aria-label', `${added ? t('added') : t('add')}: ${site.name}`);
-                add.dataset.unavailable = String(added || (!newCategoryMode && !currentDestination) || blocked); add.disabled = writing || added || (!newCategoryMode && !currentDestination) || blocked;
+                add.dataset.unavailable = String(added || (!newCategoryMode && !validDestination()) || blocked); add.disabled = writing || added || (!newCategoryMode && !validDestination()) || blocked;
                 if (added) add.classList.add('is-added'); actions.append(visit, add); card.append(actions);
                 if (added) {
                     const locations = saved.get(api.canonicalURL(site.url));
@@ -613,7 +667,7 @@
             }
         }
         async function save(site, batch = false, confirmation = null) {
-            if (writing || isComposing() || blocked || !snapshot || (!newCategoryMode && !currentDestination) || root.LocalItabContentLifecycle?.departing || (confirmation && reviewed !== confirmation) || (newCategoryMode && !confirmation?.newCategory)) return;
+            if (busy || writing || isComposing() || blocked || !snapshot || (!newCategoryMode && !validDestination()) || root.LocalItabContentLifecycle?.departing || (confirmation && reviewed !== confirmation) || (newCategoryMode && !confirmation?.newCategory)) return;
             writing = busy = true; setControls(); panel.focus(); status.textContent = batch ? `${t('saving')} ${site.length}` : `${t('saving')} ${site.name}`;
             const request = confirmation ? { baseline: confirmation.baseline,
                 ...(batch ? { sites: confirmation.sites } : { site: confirmation.sites[0] }),

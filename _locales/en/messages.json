@@ -5737,5 +5737,23 @@
   },
   "collectionsFilterByTag": {
     "message": "Filter by tag"
+  },
+  "navigationLibraryRefreshSaved": {
+    "message": "Refresh saved state"
+  },
+  "navigationLibraryRefreshingSaved": {
+    "message": "Refreshing saved state…"
+  },
+  "navigationLibraryRefreshedSaved": {
+    "message": "Saved state refreshed."
+  },
+  "navigationLibraryRefreshRemoved": {
+    "message": "{count} selected sites are now added and were removed from the selection."
+  },
+  "navigationLibraryRefreshFailed": {
+    "message": "Could not refresh saved state. The previous saved state is still shown; your browsing and drafts are unchanged."
+  },
+  "navigationLibraryMissingDestination": {
+    "message": "The selected personal category is no longer available. Choose another category before adding."
   }
 }

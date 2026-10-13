@@ -1335,3 +1335,68 @@ test('a retired workspace read cannot populate current personal locations',async
  pending.resolve({...h.snapshot,categories:[{id:'personal',name:'Stale workspace'}]});await opening;
  assert.deepEqual(locationList(h),['Personal']);assert.equal(h.calls,0);assert.equal(h.reads,2);
 });
+
+test('explicit refresh reads once, preserves browsing and drafts, reconciles external saved changes without writes',async()=>{
+ const h=model();h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,3);await h.view.open();
+ h.document.querySelector('article input').checked=true;h.document.querySelector('article input').dispatch('change');
+ h.search('chatgpt');h.click('More filters');h.document.querySelector('details').open=true;
+ h.click('New personal category');const draft=h.document.querySelector('.navigation-library-new-category-panel input');draft.value='Draft kept';draft.dispatch('input');
+ const refresh=h.document.querySelector('.navigation-library-refresh-saved');refresh.focus();
+ h.snapshot.categories[0].name='Renamed work';h.snapshot.links=[{url:'https://chatgpt.com/',category:'work'}];
+ refresh.dispatch('click');await tick();
+ assert.equal(h.reads,2);assert.equal(h.calls,0);assert.equal(h.document.querySelector('input').value,'chatgpt');assert.equal(draft.value,'Draft kept');
+ assert.equal(h.document.querySelector('.navigation-library-filters').hidden,false);assert.equal(h.document.querySelector('details').open,true);
+ assert.match(h.document.querySelector('.navigation-library-status').textContent,/1 selected sites/);assert.match(h.document.querySelector('.navigation-library-saved-locations li').textContent,/Renamed work/);
+ assert.equal(h.document.activeElement,refresh);assert.equal(h.firstAdd().disabled,true);
+ h.snapshot.links=[];refresh.dispatch('click');await tick();assert.equal(h.firstAdd().disabled,false);assert.equal(h.reads,3);assert.equal(h.calls,0);
+});
+test('deleted destination stays explicitly invalid until user chooses a valid target',async()=>{
+ const h=model();await h.view.open();h.snapshot.categories=h.snapshot.categories.filter(c=>c.id!=='work');
+ h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();
+ const dest=h.document.querySelector('.navigation-library-destination select');assert.equal(dest.value,'work');assert.match(dest.children[0].textContent,/no longer available/);assert.equal(h.firstAdd().disabled,true);
+ h.firstAdd().dispatch('click');await tick();assert.equal(h.calls,0);dest.value='personal';dest.dispatch('change');assert.equal(h.firstAdd().disabled,false);
+});
+test('refresh failure preserves old saved state, target, filters, selections and draft and allows read-only retry',async()=>{
+ const h=model();await h.view.open();const pick=h.document.querySelector('article input');pick.checked=true;pick.dispatch('change');h.search('chatgpt');
+ h.click('New personal category');const draft=h.document.querySelector('.navigation-library-new-category-panel input');draft.value='Keep me';draft.dispatch('input');
+ const pending={};pending.promise=new Promise((resolve,reject)=>Object.assign(pending,{resolve,reject}));h.read=pending;const refresh=h.document.querySelector('.navigation-library-refresh-saved');refresh.dispatch('click');refresh.dispatch('click');assert.equal(h.reads,2);assert.equal(h.view.pending,true);
+ pending.reject(new Error('offline'));await tick();assert.match(h.document.querySelector('.navigation-library-status').textContent,/previous saved state/);assert.equal(h.document.querySelector('article input').checked,true);assert.equal(draft.value,'Keep me');assert.equal(h.document.querySelector('input').value,'chatgpt');assert.equal(refresh.disabled,false);assert.equal(h.calls,0);
+});
+test('refresh cannot invalidate reviews, writes, or uncertain-save locks',async()=>{
+ const h=model();await h.view.open();let pick=h.document.querySelector('article input');pick.checked=true;pick.dispatch('change');h.click('Review selected');
+ const refresh=h.document.querySelector('.navigation-library-refresh-saved');assert.equal(refresh.disabled,true);refresh.dispatch('click');assert.equal(h.reads,1);
+ h.click('Back to browsing');assert.equal(refresh.disabled,false);const pending={};pending.promise=new Promise((resolve,reject)=>Object.assign(pending,{resolve,reject}));h.write=pending;h.firstAdd().dispatch('click');assert.equal(refresh.disabled,true);refresh.dispatch('click');assert.equal(h.reads,1);
+ pending.reject(Object.assign(new Error(),{code:'CATALOG_UNVERIFIED',mayHaveCommitted:true}));await tick();assert.equal(refresh.disabled,true);refresh.dispatch('click');assert.equal(h.reads,1);assert.match(h.document.querySelector('.navigation-library-status').textContent,/Could not confirm/);
+});
+test('closed refresh cannot overwrite a newer read that completes first',async()=>{
+ const h=model();await h.view.open();const older=deferred();h.read=older;const oldButton=h.document.querySelector('.navigation-library-refresh-saved');oldButton.dispatch('click');h.view.close();
+ h.read=null;h.snapshot.links=[{url:'https://chatgpt.com/',category:'personal'}];await h.view.open();older.resolve({...h.snapshot,links:[]});await tick();assert.equal(h.firstAdd().disabled,true);assert.equal(h.view.pending,false);assert.equal(h.reads,3);oldButton.dispatch('click');await tick();assert.equal(h.reads,3);
+});
+test('refresh rejects workspace replacement and lifecycle departure without adopting late state',async()=>{
+ for(const mode of ['workspace','departing']){const h=model();await h.view.open();const pending={};pending.promise=new Promise((resolve,reject)=>Object.assign(pending,{resolve,reject}));h.read=pending;h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');
+ if(mode==='workspace')h.context.storageManager.workspace={id:'other'};else h.context.LocalItabContentLifecycle.allowDeparture();
+ pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/',category:'personal'}]});await tick();assert.match(h.document.querySelector('.navigation-library-status').textContent,/workspace or settings changed/);assert.doesNotMatch(h.firstAdd().textContent,/Added/);assert.equal(h.calls,0);
+ }
+});
+test('refresh preserves remaining selected-only filters, valid renamed destination, and bilingual notice',async()=>{
+ for(const locale of ['en','zh-CN']){
+ const h=model({locale});h.context.LocalItabNavigationSites=h.context.LocalItabNavigationSites.slice(0,3);await h.view.open();
+ for(let i=0;i<2;i++){const pick=h.document.querySelectorAll('article input')[i];pick.checked=true;pick.dispatch('change');}
+ h.document.querySelector('.navigation-library-selected-only').dispatch('click');
+ const dest=h.document.querySelector('.navigation-library-destination select');dest.value='personal';dest.dispatch('change');h.snapshot.categories[1].name='Renamed personal';
+ h.snapshot.links=[{url:h.context.LocalItabNavigationSites[0].url,category:'work'}];h.snapshot.privacy.onlineFavicons=true;
+ h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');await tick();
+ assert.equal(dest.value,'personal');assert.equal(dest.children.find(n=>n.value==='personal').textContent,'Renamed personal');assert.equal(h.document.querySelectorAll('article').length,1);assert.equal(h.document.querySelector('article input').checked,true);
+ assert.equal(h.document.querySelector('.navigation-library-selected-only').getAttribute('aria-pressed'),'true');
+ assert.match(h.document.querySelector('.navigation-library-status').textContent,locale==='en'?/1 selected sites/:/已选的 1 个网站/);assert.equal(h.calls,0);assert.equal(h.reads,2);
+ }
+});
+test('refresh rejects reads if external writes begin while pending, including failed reads after workspace changes',async()=>{
+ for(const mode of ['write','failed-workspace']){
+ const h=model();await h.view.open();const pending={};pending.promise=new Promise((resolve,reject)=>Object.assign(pending,{resolve,reject}));h.read=pending;
+ h.document.querySelector('.navigation-library-refresh-saved').dispatch('click');
+ if(mode==='write'){h.component._pendingSave=true;pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/',category:'work'}]});}
+ else {h.context.storageManager.workspace={id:'other'};pending.reject(new Error('read failed'));}
+ await tick();assert.match(h.document.querySelector('.navigation-library-status').textContent,/workspace or settings changed/);assert.equal(h.firstAdd().textContent,'+ Add');assert.equal(h.firstAdd().disabled,true);assert.equal(h.document.querySelector('.navigation-library-refresh-saved').disabled,true);assert.equal(h.calls,0);
+ }
+});

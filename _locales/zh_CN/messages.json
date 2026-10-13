@@ -5737,5 +5737,23 @@
   },
   "collectionsFilterByTag": {
     "message": "按标签筛选"
+  },
+  "navigationLibraryRefreshSaved": {
+    "message": "刷新已保存状态"
+  },
+  "navigationLibraryRefreshingSaved": {
+    "message": "正在刷新已保存状态…"
+  },
+  "navigationLibraryRefreshedSaved": {
+    "message": "已刷新保存状态。"
+  },
+  "navigationLibraryRefreshRemoved": {
+    "message": "已选的 {count} 个网站现已添加，已从选择中移除。"
+  },
+  "navigationLibraryRefreshFailed": {
+    "message": "无法刷新已保存状态。当前仍显示上一次的保存状态；浏览条件与草稿保持不变。"
+  },
+  "navigationLibraryMissingDestination": {
+    "message": "所选个人分类已失效，请重新选择分类后再添加。"
   }
 }
