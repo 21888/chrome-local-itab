@@ -104,7 +104,7 @@
         constructor({ transport, permissions, ensureActive, readSources, taskStore, collectionStore }) {
             Object.assign(this, { transport, permissions, ensureActive, readSources, taskStore, collectionStore });
             this.partial = null; this.generation = 0; this.closed = false; this.busy = false; this.reviewed = null; this.localReview = null; this.result = null; this.resultReview = null;
-            this.taskReview = null; this.saveCommand = null; this.saved = false; this.saveUncertain = false; this.taskCommand = null; this.taskUncertain = false;
+            this.taskReview = null; this.taskSelection = null; this.saveCommand = null; this.saved = false; this.saveUncertain = false; this.taskCommand = null; this.taskUncertain = false;
             // This controller owns a dedicated collection Store. Fence immediately at its
             // backend write, after all receipt/hash awaits, without changing its schema/API.
             const backend = collectionStore.backend;
@@ -118,7 +118,7 @@
             this.generation++; this.partial = null; this.reviewed = this.localReview = this.taskReview = null;
         }
         clear() {
-            this.edit(); this.result = this.resultReview = null; this.saved = false; this.saveUncertain = false;
+            this.edit(); this.result = this.resultReview = this.taskSelection = null; this.saved = false; this.saveUncertain = false;
         }
         inspectInput(question, selected, mode) { return inspectInput(question, selected, mode); }
         async loadSources() { const generation = this.generation; await this.ensureActive(); this.current(generation); const result = await this.readSources(); await this.ensureActive(); this.current(generation); return result; }
@@ -210,12 +210,31 @@
             text(value, LIMITS.prompt, true); this.generation++; this.partial = null; this.reviewed = this.localReview = this.taskReview = null;
             this.result = Object.freeze({ ...this.result, text: value });
         }
+        taskCandidates() {
+            check(this.result?.mode === 'tasks' && !this.closed, 'STALE');
+            if (this.taskSelection?.result !== this.result) {
+                const texts = tasks(this.result.text);
+                this.taskSelection = Object.freeze({ result: this.result, texts, selected: Object.freeze(texts.map(() => true)) });
+            }
+            return this.taskSelection;
+        }
+        selectTask(index, selected, result) {
+            check(!this.closed && !this.busy && !this.taskCommand && !this.saveCommand && result === this.result, 'STALE');
+            const current = this.taskCandidates();
+            check(Number.isSafeInteger(index) && index >= 0 && index < current.texts.length && typeof selected === 'boolean', 'INVALID');
+            if (current.selected[index] === selected) return current;
+            const choices = current.selected.slice(); choices[index] = selected;
+            this.taskReview = null;
+            this.taskSelection = Object.freeze({ ...current, selected: Object.freeze(choices) });
+            return this.taskSelection;
+        }
         async reviewTasks() {
             check(this.result?.mode === 'tasks' && !this.busy && !this.taskCommand, 'STALE');
             const generation = this.generation, result = this.result; this.taskReview = null;
-            const values = tasks(result.text);
+            const selection = this.taskCandidates(), values = selection.texts.filter((_, index) => selection.selected[index]);
+            check(values.length > 0, 'TASK_SELECTION');
             await this.ensureActive(); const review = await this.taskStore.reviewBatch(values.join('\n'));
-            this.current(generation); check(this.result === result, 'STALE');
+            this.current(generation); check(this.result === result && this.taskSelection === selection, 'STALE');
             this.taskReview = Object.freeze({ ...review, generation }); return this.taskReview;
         }
         async confirmTasks() {
@@ -226,7 +245,7 @@
                 const saved = await this.taskStore.mutate(this.taskCommand, current => {
                     this.current(review.generation); check(current.revision === review.revision, 'CONFLICT');
                 });
-                this.current(review.generation); this.taskReview = null; this.taskCommand = null; this.taskUncertain = false; this.result = this.resultReview = null; return saved;
+                this.current(review.generation); this.taskReview = null; this.taskCommand = null; this.taskUncertain = false; this.result = this.resultReview = this.taskSelection = null; return saved;
             } catch (error) {
                 if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) this.taskUncertain = true;
                 if (error.code === 'CONFLICT' && !this.taskUncertain) { this.taskReview = null; this.taskCommand = null; }
@@ -249,7 +268,7 @@
                 current(); await this.ensureActive(); current();
                 check(result?.matches === true, 'TASK_UNCERTAIN');
                 this.taskReview = null; this.taskCommand = null; this.taskUncertain = false;
-                this.result = this.resultReview = null;
+                this.result = this.resultReview = this.taskSelection = null;
                 return result;
             } finally { this.busy = false; }
         }
@@ -295,7 +314,7 @@
                 return result;
             } finally { this.busy = false; }
         }
-        close() { this.closed = true; this.generation++; this.stop(); this.partial = this.reviewed = this.localReview = this.result = this.resultReview = this.taskReview = null; }
+        close() { this.closed = true; this.generation++; this.stop(); this.partial = this.reviewed = this.localReview = this.result = this.resultReview = this.taskReview = this.taskSelection = null; }
     }
     function createController({ workspaces, tasks: Tasks, collections: Collections, scratchpad: Scratchpad, transport, permissions }) {
         const session = workspaces.session;

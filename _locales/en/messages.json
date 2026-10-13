@@ -5993,5 +5993,20 @@
   },
   "promptsCompareDiffClose": {
     "message": "Close text differences"
+  },
+  "aiContextTaskSelectionTitle": {
+    "message": "Choose tasks to add"
+  },
+  "aiContextTaskSelectionChanged": {
+    "message": "Task selection changed. Review the selected tasks again before adding them. The original JSON is unchanged."
+  },
+  "aiContextTaskSelectionCount": {
+    "message": "Selected tasks"
+  },
+  "aiContextTaskSelectionHelp": {
+    "message": "Only checked tasks will be reviewed and added, in their original order. Editing the JSON resets selection to all tasks. Nothing is executed or sent."
+  },
+  "aiContextTaskSelectionEmpty": {
+    "message": "Select at least one task before reviewing."
   }
 }

@@ -54,3 +54,7 @@
 .ai-context-partial { margin-block: 1rem; padding: .75rem; border: 1px dashed var(--border-color, #aaa); border-radius: .6rem; }
 .ai-context-partial-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; }
 .ai-context-local-mode,.ai-context-partial-status { font-weight: 600; }
+.ai-context-task-selection { margin-block: 1rem; padding-block: .75rem; border-block: 1px solid var(--border-color, #aaa); }
+.ai-context-task-choice { display: flex; align-items: flex-start; gap: .5rem; margin-block: .65rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ai-context-task-choice input[type=checkbox] { flex: none; width: 1.2rem; height: 1.2rem; }
+.ai-context-task-choice span { min-width: 0; }

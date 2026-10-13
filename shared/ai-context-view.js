@@ -134,6 +134,39 @@
         const contextPreview = el('pre', 'ai-context-review'); contextPreview.hidden = true;
         contextSave.append(contextLabel, el('p', '', label('SaveContextPrivacy', 'Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot.')), contextPreview);
         const taskList = el('ol', 'ai-context-tasks'); taskList.hidden = true;
+        const taskSelection = el('section', 'ai-context-task-selection'); taskSelection.hidden = true;
+        const taskSelectionHelp = el('p', 'ai-context-task-selection-help');
+        const taskChoices = el('div', 'ai-context-task-choices');
+        taskSelection.append(el('h3', '', label('TaskSelectionTitle', 'Choose tasks to add')), taskSelectionHelp, taskChoices);
+        let taskChoiceResult = null, taskChoiceRows = [];
+        function renderTaskSelection(blocked) {
+            let selection;
+            try { if (controller.result?.mode === 'tasks' && !controller.partial) selection = controller.taskCandidates(); } catch (_) {}
+            taskSelection.hidden = !selection;
+            if (!selection) { taskChoiceResult = null; taskChoiceRows = []; taskChoices.replaceChildren(); return null; }
+            if (taskChoiceResult !== selection.result) {
+                taskChoiceResult = selection.result; taskChoices.replaceChildren(); taskChoiceRows = [];
+                selection.texts.forEach((text, index) => {
+                    const row = el('label', 'ai-context-task-choice'), check = el('input'); check.type = 'checkbox';
+                    const value = el('span', '', `${index + 1}. ${text}`); row.append(check, value);
+                    const entry = { check, result: selection.result }; taskChoiceRows.push(entry); taskChoices.append(row);
+                    check.addEventListener('change', () => {
+                        if (disposed || !taskChoiceRows.includes(entry)) return;
+                        if (pending || controller.busy || presetPending || controller.taskCommand || controller.saveCommand || doc.visibilityState === 'hidden') { renderTaskSelection(true); return; }
+                        try {
+                            controller.selectTask(index, check.checked, entry.result); taskList.hidden = true;
+                            status.textContent = label('TaskSelectionChanged', 'Task selection changed. Review the selected tasks again before adding them. The original JSON is unchanged.');
+                        } catch (_) { error(); }
+                        update();
+                    });
+                });
+            }
+            taskChoiceRows.forEach(({ check }, index) => { check.checked = selection.selected[index]; check.disabled = blocked; });
+            const count = selection.selected.filter(Boolean).length;
+            taskSelectionHelp.textContent = `${label('TaskSelectionCount', 'Selected tasks')}: ${count} / ${selection.texts.length}. ${label('TaskSelectionHelp', 'Only checked tasks will be reviewed and added, in their original order. Editing the JSON resets selection to all tasks. Nothing is executed or sent.')}`;
+            return count;
+        }
+
         const initialAnswerTitle = answerTitle.value;
         let disposed = false, pending = false, titleEdited = false, copying = false, copyGeneration = 0;
         const copyStatus = el('p', 'ai-context-copy-status'); copyStatus.tabIndex = -1; copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
@@ -144,7 +177,7 @@
             if (controller.taskCommand && controller.taskUncertain) {
                 status.textContent = label('UncertainTasks', 'The earlier task add is unconfirmed. Use “Check existing task batch” to check that the complete original batch is still present and unchanged. Missing receipts, changed tasks or unreadable data keep this draft locked. Nothing is written or sent.'); return;
             }
-            const errors = { CANCELLED: ['Stopped', 'Stopped. The provider may still charge for work already started.'], CONTEXT_LIMIT: ['SnapshotLimit', 'The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer.'], SIZE_LIMIT: ['SnapshotCapacity', 'The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer.'], TASK_UNCERTAIN: ['UncertainTasks', 'The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch.'], TASK_FORMAT: ['TaskFormat', 'Use exactly {"tasks":["one task","another task"]}, with 1–50 single-line tasks and no extra fields.'], LIMIT: ['Limit', 'The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request.'], CONFLICT: ['Changed', 'The task list changed. Review the extracted tasks again before adding them.'], PERMISSION: ['Permission', 'Allow the reviewed endpoint before sending.'] };
+            const errors = { CANCELLED: ['Stopped', 'Stopped. The provider may still charge for work already started.'], CONTEXT_LIMIT: ['SnapshotLimit', 'The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer.'], SIZE_LIMIT: ['SnapshotCapacity', 'The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer.'], TASK_UNCERTAIN: ['UncertainTasks', 'The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch.'], TASK_SELECTION: ['TaskSelectionEmpty', 'Select at least one task before reviewing.'], TASK_FORMAT: ['TaskFormat', 'Use exactly {"tasks":["one task","another task"]}, with 1–50 single-line tasks and no extra fields.'], LIMIT: ['Limit', 'The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request.'], CONFLICT: ['Changed', 'The task list changed. Review the extracted tasks again before adding them.'], PERMISSION: ['Permission', 'Allow the reviewed endpoint before sending.'] };
             if (errors[code]) { status.textContent = label(...errors[code]); return; }
             status.textContent = label('Error', 'Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation.'); };
         const selectedSources = () => sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: row.input.value }));
@@ -258,7 +291,8 @@
             verifySave.disabled = busy || verifySave.hidden;
             verifyTasks.hidden = !controller.taskCommand || !controller.taskUncertain;
             verifyTasks.disabled = busy || verifyTasks.hidden;
-            reviewTasks.disabled = busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
+            const selectedTaskCount = renderTaskSelection(busy || retry || doc.visibilityState === 'hidden');
+            reviewTasks.disabled = selectedTaskCount === 0 || busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry; reloadSources.disabled = selectionBlocked();
             outputLabel.hidden = !controller.result || Boolean(controller.partial);
@@ -483,7 +517,7 @@
         connection.append(actions, reviewText);
         // Keep each control in one DOM location. Disclosure changes presentation only,
         // never the draft, authorization ticket, key lifetime or response ownership.
-        resultPane.append(contextSave, taskList, results, copyStatus);
+        resultPane.append(contextSave, taskSelection, taskList, results, copyStatus);
         questionPane.append(localActions, localPanel, connection, status, partialPanel, resultPane);
         workbench.append(sourcesPane, questionPane); box.append(workbench); host.append(box);
         for (const input of [url, model, question, mode, stream]) input.addEventListener(input === mode || input === stream ? 'change' : 'input', () => { if (input === url || input === model || input === mode || input === stream) key.value = ''; if (input === mode) stream.checked = false; invalidate(); });
@@ -542,7 +576,7 @@
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
         function destroy() { if (disposed) return; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
-            if (doc.visibilityState !== 'hidden') { if (!disposed) updateCopy(); return; }
+            if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); updateCopy(); } return; }
             key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);

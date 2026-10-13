@@ -112,3 +112,11 @@ Explicit Send is still required after exact request review and endpoint permissi
 Only the strict client's successful protocol completion (normal stop and `[DONE]`, within its existing timeout, wire/text limits and metadata validation), followed by current-session/workspace checks, promotes the final response. EOF, malformed events, refusal/tool metadata, abnormal finish, timeout and cancellation cannot promote partial content. Stop retains an incomplete preview; retry and departure fence late chunks and completions. Hiding the document stops the request and clears the key; closing or pagehide also discards volatile text. This is not persistent background execution, and a provider may still charge for already-started work.
 
 Validation uses synthetic SSE and mocked transport/permissions/storage only. No real provider account, API call or paid service was used. Actual provider compatibility remains unverified; no new permissions, dependencies or persistence schema were added.
+
+## Choose an extracted task subset
+
+A valid task JSON response now has a local checklist, initially all selected. Uncheck unwanted tasks, then use **Review extracted tasks** and separately **Add these tasks**. Only the checked items are included in that exact reviewed batch, in original order; duplicate strings remain separate tasks. The original JSON, provider response and source provenance are unchanged, and selection never sends anything or executes a task.
+
+Changing a checkbox invalidates the previous task review. Editing the JSON replaces the candidate snapshot and resets selection to all valid tasks; old rows cannot refer to new indices. Invalid JSON retains the existing editable repair path. Zero selection cannot be reviewed or added. Editing the next request retains the previous result and its selected subset until a replacement response arrives or the draft is cleared.
+
+Controls are locked during pending work and after an uncertain add. Checking the existing uncertain batch still verifies the same original operation, without creating another batch or silently changing its selected tasks. Synthetic controller/view tests cover subset identity, duplicates, stale async reviews, JSON edits, hidden/pending controls and uncertain-operation verification. Native browser and real provider behavior are verified separately.

@@ -1675,3 +1675,39 @@ test('code-copy failures stay in the reader status and preserve selectable code 
         assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
     }
 });
+
+test('task selection UI reviews only checked duplicates, preserves JSON and invalidates confirm after each choice', async () => {
+    const h = await model(); await send(h); const original = h.controller.result.text;
+    const choices = h.host.querySelectorAll('.ai-context-task-choice').map(row => row.querySelector('input'));
+    assert.equal(choices.length, 3); assert(choices.every(node => node.checked));
+    choices[0].checked = false; choices[0].dispatch('change'); h.click('Review extracted'); await settle();
+    assert.deepEqual(h.host.querySelectorAll('li').map(node => node.textContent), ['same', 'same']);
+    choices[1].checked = false; choices[1].dispatch('change'); assert.equal(h.byText('Add these').disabled, true);
+    assert.equal(h.controller.result.text, original); h.click('Review extracted'); await settle();
+    assert.deepEqual(h.host.querySelectorAll('li').map(node => node.textContent), ['same']);
+    h.click('Add these'); await settle(); assert.deepEqual((await h.controller.taskStore.read()).records.map(row => row.text), ['same']);
+    assert.equal(h.calls.length, 1); assert.equal(h.host.querySelectorAll('b').length, 0);
+});
+test('task selection UI zero selection, edited JSON and stale detached checkboxes cannot reuse old indices', async () => {
+    const h = await model(); await send(h);
+    const old = h.host.querySelectorAll('.ai-context-task-choice').map(row => row.querySelector('input'));
+    for (const node of old) { node.checked = false; node.dispatch('change'); }
+    assert.equal(h.byText('Review extracted').disabled, true); assert.equal(h.byText('Add these').disabled, true);
+    const output = h.host.querySelectorAll('textarea').find(node => node.rows === 8); h.input(output, '{"tasks":["new second","new first"]}');
+    const fresh = h.host.querySelectorAll('.ai-context-task-choice').map(row => row.querySelector('input'));
+    assert.equal(fresh.length, 2); assert(fresh.every(node => node.checked)); old[0].checked = true; old[0].dispatch('change');
+    assert.deepEqual(h.controller.taskCandidates().selected, [true, true]);
+    h.click('Review extracted'); await settle(); h.input(output, 'bad JSON');
+    assert.equal(h.byText('Add these').disabled, true); assert.equal(h.host.querySelector('.ai-context-task-selection').hidden, true);
+    assert.equal(h.b.writes, 0);
+});
+test('task selection hidden and pending controls remain bound to the original immutable selection', async () => {
+    const h = await model(); await send(h); const choices = h.host.querySelectorAll('.ai-context-task-choice').map(row => row.querySelector('input'));
+    h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')();
+    choices[0].checked = false; choices[0].dispatch('change'); assert.equal(choices[0].checked, true);
+    h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')(); assert.equal(choices[0].disabled, false);
+    const delayed = deferred(), original = h.controller.taskStore.reviewBatch.bind(h.controller.taskStore);
+    h.controller.taskStore.reviewBatch = async text => { await delayed.promise; return original(text); };
+    h.click('Review extracted'); choices[1].checked = false; choices[1].dispatch('change'); assert.equal(choices[1].checked, true);
+    delayed.resolve(); await settle(); assert.deepEqual(h.controller.taskReview.texts, ['<b>literal</b>', 'same', 'same']);
+});

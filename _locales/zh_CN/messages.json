@@ -5993,5 +5993,20 @@
   },
   "promptsCompareDiffClose": {
     "message": "关闭原文差异"
+  },
+  "aiContextTaskSelectionTitle": {
+    "message": "选择要添加的待办"
+  },
+  "aiContextTaskSelectionChanged": {
+    "message": "待办选择已更改。添加前请重新审阅选中的待办，原始 JSON 未改变。"
+  },
+  "aiContextTaskSelectionCount": {
+    "message": "已选待办"
+  },
+  "aiContextTaskSelectionHelp": {
+    "message": "仅审阅并添加勾选的待办，保留原有顺序。编辑 JSON 后会重新全选。不会执行待办或发送内容。"
+  },
+  "aiContextTaskSelectionEmpty": {
+    "message": "请先至少选择一项待办再审阅。"
   }
 }

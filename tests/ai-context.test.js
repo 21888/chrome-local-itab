@@ -800,3 +800,38 @@ test('failed progressive replacement keeps prior completed provenance separate a
     h.controller.edit(); assert.equal(h.controller.partial, null); assert.equal(h.controller.result, old);
     await h.controller.saveAnswer('Prior complete'); assert.equal((await h.controller.collectionStore.read()).records[0].body, old.text);
 });
+
+test('task subset uses immutable positional identity, exact order and duplicate text without changing JSON', async () => {
+    const h = setup(), c = h.controller; await review(h); await c.send();
+    c.editResult('{"tasks":[" same ","skip"," same "]}'); const original = c.result, choices = c.taskCandidates();
+    assert(Object.isFrozen(choices)); assert(Object.isFrozen(choices.texts)); assert(Object.isFrozen(choices.selected));
+    c.selectTask(1, false, original); const reviewed = await c.reviewTasks();
+    assert.deepEqual(reviewed.texts, [' same ', ' same ']); assert.equal(c.result, original); assert.equal(h.taskBackend.writes, 0);
+    await c.confirmTasks(); assert.deepEqual((await h.taskStore.read()).records.map(row => row.text), [' same ', ' same ']); assert.equal(h.calls.sends, 1);
+});
+test('task subset rejects invalid identity/index/type and zero selection in controller; edits reset choices', async () => {
+    const h = setup(), c = h.controller; await review(h); await c.send(); const original = c.result;
+    for (const index of [-1, 2, 0.5, NaN, '0']) assert.throws(() => c.selectTask(index, false, original));
+    assert.throws(() => c.selectTask(0, 0, original)); assert.throws(() => c.selectTask(0, false, { ...original }));
+    c.selectTask(0, false, original); c.selectTask(1, false, original); await assert.rejects(c.reviewTasks(), { code: 'TASK_SELECTION' });
+    c.editResult('{"tasks":["two","one"]}'); assert.deepEqual(c.taskCandidates().selected, [true, true]);
+    assert.throws(() => c.selectTask(0, true, original), { code: 'STALE' });
+    c.editResult('invalid JSON'); assert.throws(() => c.taskCandidates()); await assert.rejects(c.reviewTasks());
+    c.clear(); assert.equal(c.taskSelection, null);
+});
+for (const boundary of ['ensureActive', 'reviewBatch']) test(`task subset invalidates in-flight review across ${boundary}`, async () => {
+    const h = setup(), c = h.controller; await review(h); await c.send(); const pending = deferred();
+    if (boundary === 'ensureActive') c.ensureActive = () => pending.promise;
+    else { const original = h.taskStore.reviewBatch.bind(h.taskStore); h.taskStore.reviewBatch = async value => { await pending.promise; return original(value); }; }
+    const work = c.reviewTasks(); c.selectTask(1, false, c.result); pending.resolve(); await assert.rejects(work, { code: 'STALE' }); assert.equal(c.taskReview, null);
+    const fresh = await c.reviewTasks(); assert.deepEqual(fresh.texts, ['one']);
+});
+test('task subset survives next-request edits and is frozen during uncertain original command verification', async () => {
+    const h = setup(), c = h.controller; await review(h); await c.send(); c.selectTask(1, false, c.result);
+    const result = c.result, provenance = c.resultReview; c.edit(); assert.equal(c.resultReview, provenance); assert.equal(c.result, result);
+    await c.reviewTasks(); h.taskBackend.failAfter = true; await assert.rejects(c.confirmTasks());
+    const command = c.taskCommand, choices = c.taskSelection; assert.equal(c.taskUncertain, true);
+    assert.throws(() => c.selectTask(1, true, result)); assert.throws(() => c.editResult(result.text)); await assert.rejects(c.reviewTasks());
+    assert.equal(c.taskCommand, command); assert.equal(c.taskSelection, choices); const writes = h.taskBackend.writes;
+    await c.verifyTaskBatch(); assert.equal(h.taskBackend.writes, writes); assert.equal(c.taskCommand, null); assert.equal(c.result, null);
+});
