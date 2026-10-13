@@ -1711,3 +1711,22 @@ test('task selection hidden and pending controls remain bound to the original im
     h.click('Review extracted'); choices[1].checked = false; choices[1].dispatch('change'); assert.equal(choices[1].checked, true);
     delayed.resolve(); await settle(); assert.deepEqual(h.controller.taskReview.texts, ['<b>literal</b>', 'same', 'same']);
 });
+
+for (const invalidation of ['subset', 'zero', 'json', 'request', 'response', 'clear']) test(`task confirmation count clears with an invalidated review: ${invalidation}`, async () => {
+    const h = await model(); await send(h); h.click('Review extracted'); await settle();
+    assert.equal(h.byText('Add these').textContent, 'Add these tasks (3)');
+    if (invalidation === 'subset' || invalidation === 'zero') {
+        const checks = h.host.querySelectorAll('.ai-context-task-choice').map(row => row.querySelector('input'));
+        for (const check of invalidation === 'zero' ? checks : [checks[1]]) { check.checked = false; check.dispatch('change'); }
+    } else if (invalidation === 'json') h.input(h.host.querySelectorAll('textarea').find(node => node.rows === 8), '{"tasks":["edited"]}');
+    else if (invalidation === 'request') h.input(h.host.querySelector('.ai-context-question'), 'Next request draft');
+    else if (invalidation === 'response') { h.setReply('{"tasks":["replacement"]}'); await send(h); }
+    else h.click('Cancel / clear');
+    assert.equal(h.controller.taskReview, null); assert.equal(h.byText('Add these').disabled, true);
+    assert.equal(h.byText('Add these').textContent, 'Add these tasks');
+    if (invalidation === 'subset' || invalidation === 'json' || invalidation === 'response') {
+        h.click('Review extracted'); await settle();
+        assert.equal(h.byText('Add these').textContent, `Add these tasks (${invalidation === 'subset' ? 2 : 1})`);
+    }
+    assert.equal(h.b.writes, 0); h.view.destroy();
+});

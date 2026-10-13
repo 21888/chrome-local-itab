@@ -293,6 +293,7 @@
             verifyTasks.disabled = busy || verifyTasks.hidden;
             const selectedTaskCount = renderTaskSelection(busy || retry || doc.visibilityState === 'hidden');
             reviewTasks.disabled = selectedTaskCount === 0 || busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
+            confirm.textContent = `${label('Confirm', 'Add these tasks')}${controller.taskReview ? ` (${controller.taskReview.count})` : ''}`;
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry; reloadSources.disabled = selectionBlocked();
             outputLabel.hidden = !controller.result || Boolean(controller.partial);
@@ -499,7 +500,6 @@
         const verifySave = button('VerifySave', 'Check earlier save', () => action(() => controller.verifyAnswerSave(), ['SaveVerified', 'The original save was confirmed from its receipt. This does not guarantee the answer is still present: it may have been changed or deleted later. No content was written or sent. You can now clear this draft or start a new request.']));
         const reviewTasks = button('ReviewTasks', 'Review extracted tasks', () => action(async () => {
             const result = await controller.reviewTasks(); taskList.replaceChildren(...result.texts.map(value => el('li', '', value))); taskList.hidden = false;
-            confirm.textContent = `${label('Confirm', 'Add these tasks')} (${result.count})`;
         }, ['TasksReviewed', 'Check every task above. Confirmation adds exactly this list to the current workspace. No task is executed.']));
         const confirm = button('Confirm', 'Add these tasks', () => action(async () => {
             await controller.confirmTasks(); taskList.hidden = true; outputLabel.hidden = true;
