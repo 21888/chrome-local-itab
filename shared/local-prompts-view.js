@@ -49,11 +49,43 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller; this.clipboard = clipboard;
             this.t = (name, fallback) => { const value = translate(name, fallback); return value && value !== key(name) ? value : fallback; };
             this.confirm = confirm || (options => this.dialog(options)); this.historyId = null; this.copyGeneration = 0; this.copying = false; this.pendingFocus = null;
-            root.addEventListener?.('pagehide', () => {
+            root.addEventListener?.('pagehide', event => {
+                if (!event?.persisted) this.detachSearchShortcut?.();
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
                 this.cancelMarkdownDialog?.(); this.cancelExcerptDialog?.();
             });
-            this.build(); controller.onChange = kind => this.render(kind);
+            this.build(); this.attachSearchShortcut(); controller.onChange = kind => this.render(kind);
+        }
+        attachSearchShortcut() {
+            this.detachSearchShortcut?.();
+            let composing = null;
+            const start = event => { composing = event.target; };
+            const end = event => { if (composing === event.target) composing = null; };
+            const editable = element => {
+                for (let node = element; node; node = node.parentElement) {
+                    if (/^(INPUT|TEXTAREA|SELECT)$/i.test(node.tagName) || node.isContentEditable ||
+                        (node.getAttribute?.('contenteditable') != null && node.getAttribute('contenteditable') !== 'false')) return true;
+                }
+                return false;
+            };
+            const keydown = event => {
+                if (composing && (!composing.isConnected || !composing.contains(this.doc.activeElement))) composing = null;
+                if (event.defaultPrevented || event.key !== '/' || event.isComposing || event.keyCode === 229 || composing ||
+                    event.repeat || event.ctrlKey || event.metaKey || event.altKey || this.controller.disposed ||
+                    this.openDialog || this.comparison || this.exportingMarkdown || !this.search.isConnected ||
+                    this.search.disabled || this.host.inert || editable(event.target) || editable(this.doc.activeElement) ||
+                    this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
+                this.search.focus();
+                if (this.doc.activeElement !== this.search) return;
+                event.preventDefault();
+                this.search.select();
+            };
+            const listeners = [['keydown', keydown], ['compositionstart', start], ['compositionend', end], ['focusout', end]];
+            for (const [type, listener] of listeners) this.doc.addEventListener(type, listener);
+            this.detachSearchShortcut = () => {
+                for (const [type, listener] of listeners) this.doc.removeEventListener(type, listener);
+                composing = null;
+            };
         }
         el(tag, className, text) { const element = this.doc.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; }
         button(name, fallback, action, className = '') {
@@ -84,6 +116,9 @@
             this.search = this.el('input'); this.search.type = 'search'; this.search.id = 'prompt-search'; this.search.maxLength = root.LocalItabPrompts.LIMITS.query;
             this.search.placeholder = this.t('SearchPlaceholder', 'Title, body, tags…'); this.search.autocomplete = 'off'; this.search.spellcheck = false;
             this.search.addEventListener('input', () => c.filter({ query: this.search.value })); search.append(label, this.search);
+            this.search.setAttribute('aria-keyshortcuts', '/');
+            const searchHint = this.el('p', 'prompt-help', this.t('SearchShortcut', 'Press / to search')); searchHint.id = 'prompt-search-shortcut';
+            this.search.setAttribute('aria-describedby', searchHint.id); search.append(searchHint);
             const nav = this.el('nav', 'prompt-nav'); nav.setAttribute('aria-label', this.t('Views', 'Library views')); this.nav = {};
             for (const [mode, name, fallback] of [['all', 'All', 'All'], ['favorites', 'Favorites', 'Favorites'], ['trash', 'Trash', 'Trash']]) {
                 const button = this.button(name, fallback, () => c.filter({ mode })); this.nav[mode] = button; nav.append(button);

@@ -19,3 +19,17 @@ Only existing fenced local stores are read. No model/provider calls, scraping, n
 Focused Node tests cover notes-only excerpt matches, excluded prompt notes and source URLs, absent/non-string notes, match priority and deduplication, notes-specific Unicode/HTML snippets and stale/read-error refresh, literal search, deterministic ordering, type filters, cross-store asynchronous generations, read failures and recovery, disposal, strict navigation validation, unavailable/missing/archived destinations, retained drafts, IME, arrow navigation, repeated Enter, Escape/focus return, localized labels and runtime wiring. The package inventory includes the three new JavaScript files.
 
 These automated checks do not establish native-browser acceptance. Native Chrome keyboard/link behavior, narrow layouts and theme appearance need the integrated candidate's separate browser pass.
+
+## 资料库页面快捷搜索 / Library-page search shortcut
+
+在提示词库或 AI 收藏页面，未在输入内容且没有打开弹窗、版本对比或导出预览时，按 `/` 可聚焦本页搜索框并选中已有查询；查询内容不会被替换，也不会自动筛选或保存。搜索框下方显示提示，并提供 `aria-keyshortcuts` 和关联说明。中英文界面均支持。
+
+On either standalone library page, press `/` outside editable controls to focus the page's search field and select its existing query. The shortcut does not change the query, trigger filtering or write data. It stays inactive during dialogs, inline version comparison and Markdown export preparation/review. It leaves IME composition, held-key repeats, Ctrl/Meta/Alt combinations and browser Find or editor Save shortcuts untouched. A quiet localized hint is associated with each search field.
+
+The synthetic DOM tests in `tests/library-search-shortcut.test.js` cover both libraries, exact query preservation, editable descendants and active controls, modal closing/reopening behavior, disposal, non-persisted page teardown and BFCache preservation. Native-browser shortcut/selection behavior still requires a separate browser check.
+
+Shortcut candidate verification (manifest 1.1.98): `node --unhandled-rejections=strict --max-old-space-size=1024 --test --test-concurrency=1 tests/*.test.js` passed **2,542/2,542**, with no failures, cancellations or skips. `python3 -m unittest discover -s tests -p '*_test.py'` passed **81/81**. Changed view scripts pass `node --check`; `git diff --check` and the unchanged 112-file runtime package inventory pass. All fixture content is synthetic. Browser testing was not performed in this implementation task.
+
+### Development validation: library search shortcut
+
+Frozen combined source on manifest 1.1.98 passed strict serial Node 2542/2542 and Python 81/81, including ten targeted shortcut regressions. Offline packaging retains the 112-file runtime whitelist. Native browser validation is pending; input, composition, dialog, modifier, repeat and lifecycle guards are deterministic synthetic coverage until separately observed. No controller, store, schema or permissions changed. This ordinary feature commit does not publish a release.

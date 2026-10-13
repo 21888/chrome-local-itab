@@ -7,13 +7,45 @@
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0;
-            controller.onChange = kind => { if (kind === 'dispose') { this.closeComparison?.(); return; } this.updateComparison?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
-            root.addEventListener?.('pagehide', () => {
+            controller.onChange = kind => { if (kind === 'dispose') { this.detachSearchShortcut?.(); this.closeComparison?.(); return; } this.updateComparison?.(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            root.addEventListener?.('pagehide', event => {
+                if (!event?.persisted) this.detachSearchShortcut?.();
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
                 this.cancelMarkdownDialog?.();
                 this.closeComparison?.();
             });
-            this.build();
+            this.build(); this.attachSearchShortcut();
+        }
+        attachSearchShortcut() {
+            this.detachSearchShortcut?.();
+            let composing = null;
+            const start = event => { composing = event.target; };
+            const end = event => { if (composing === event.target) composing = null; };
+            const editable = element => {
+                for (let node = element; node; node = node.parentElement) {
+                    if (/^(INPUT|TEXTAREA|SELECT)$/i.test(node.tagName) || node.isContentEditable ||
+                        (node.getAttribute?.('contenteditable') != null && node.getAttribute('contenteditable') !== 'false')) return true;
+                }
+                return false;
+            };
+            const keydown = event => {
+                if (composing && (!composing.isConnected || !composing.contains(this.doc.activeElement))) composing = null;
+                if (event.defaultPrevented || event.key !== '/' || event.isComposing || event.keyCode === 229 || composing ||
+                    event.repeat || event.ctrlKey || event.metaKey || event.altKey || this.controller.disposed ||
+                    this.openDialog || this.comparison || this.exportingMarkdown || !this.search.isConnected ||
+                    this.search.disabled || this.host.inert || editable(event.target) || editable(this.doc.activeElement) ||
+                    this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
+                this.search.focus();
+                if (this.doc.activeElement !== this.search) return;
+                event.preventDefault();
+                this.search.select();
+            };
+            const listeners = [['keydown', keydown], ['compositionstart', start], ['compositionend', end], ['focusout', end]];
+            for (const [type, listener] of listeners) this.doc.addEventListener(type, listener);
+            this.detachSearchShortcut = () => {
+                for (const [type, listener] of listeners) this.doc.removeEventListener(type, listener);
+                composing = null;
+            };
         }
         el(tag, className = '', text) { const node = this.doc.createElement(tag); node.className = className; if (text !== undefined) node.textContent = text; return node; }
         button(key, fallback, action, className = '') { const node = this.el('button', className, this.t(key, fallback)); node.type = 'button'; node.addEventListener('click', () => { if (!node.disabled) void action(); }); return node; }
@@ -40,6 +72,9 @@
             this.status = this.el('div', 'prompt-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             const layout = this.el('div', 'prompt-layout'), sidebar = this.el('aside', 'prompt-sidebar'); sidebar.setAttribute('aria-label', this.t('Browse', 'Browse saved excerpts'));
             this.search = this.field(sidebar, 'Search', 'Search title, excerpt, tags and annotations', '', query => c.filter({ query })); this.search.type = 'search'; this.search.maxLength = 500;
+            this.search.setAttribute('aria-keyshortcuts', '/');
+            const searchHint = this.paragraph('SearchShortcut', 'Press / to search'); searchHint.id = 'collection-search-shortcut';
+            this.search.setAttribute('aria-describedby', searchHint.id); sidebar.append(searchHint);
             const nav = this.el('nav', 'prompt-nav'); this.nav = {};
             for (const [mode, key, label] of [['all', 'Active', 'Saved'], ['trash', 'Archived', 'Archived']]) { const button = this.button(key, label, () => c.filter({ mode })); this.nav[mode] = button; nav.append(button); } sidebar.append(nav);
             this.filters = {};

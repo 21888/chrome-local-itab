@@ -5482,5 +5482,11 @@
   },
   "collectionsAnnotationMatch": {
     "message": "匹配已保存批注"
+  },
+  "promptsSearchShortcut": {
+    "message": "按 / 搜索"
+  },
+  "collectionsSearchShortcut": {
+    "message": "按 / 搜索"
   }
 }

@@ -5482,5 +5482,11 @@
   },
   "collectionsAnnotationMatch": {
     "message": "Matched saved annotations"
+  },
+  "promptsSearchShortcut": {
+    "message": "Press / to search"
+  },
+  "collectionsSearchShortcut": {
+    "message": "Press / to search"
   }
 }
