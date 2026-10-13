@@ -11,6 +11,15 @@ only the reviewed body is inserted: notes, tool labels, URLs and version history
 are not copied. HTML, code and `{{template syntax}}` inside the excerpt remain
 literal text, with their original whitespace and Unicode characters.
 
+Search excerpt titles to narrow the already-loaded list, with a match count and
+Clear title search. Search matches every space-separated term in the title,
+ignoring case and Unicode compatibility differences (including full-width letters
+and composed/decomposed accents). It does not search bodies or read storage again.
+Changing or clearing the query clears the current review and disables Apply;
+select a visible result again. Duplicate titles keep their separate original IDs.
+Search is disabled during loading, Apply or a stale/error state; Cancel and reopen
+to retry after an error. This also works in unsaved new-draft previews.
+
 ## Safety and lifecycle
 
 - Selection is tied to one prompt, its exact in-memory preview session, one
@@ -47,6 +56,11 @@ apply cancellation/page departure, stale navigation and edits, delayed cross-tab
 changes, archival, read errors/corruption, superseded reads, duplicate apply,
 selection locking, preview expansion limits and retained older preview versions.
 
+`tests/local-prompts-excerpt-search.test.js` also covers title-only matching,
+Unicode normalization, duplicates/original IDs, empty/no-match states, review
+invalidation, stale detached choices, read counts, loading/Apply locks and IME
+cancellation for both saved and unsaved-draft previews in English and Chinese.
+
 These automated DOM-model tests do not establish native-browser layout, actual
 focus behavior or browser clipboard acceptance. Native acceptance and screenshots
 are recorded separately; no native pass is claimed here.
@@ -56,6 +70,12 @@ are recorded separately; no native pass is claimed here.
 在某个变量旁点击「选择已收藏摘录」，明确选择一条未归档的收藏，核对完整正文
 和将被替换的旧值，再点击「替换此变量」。只替换这个变量；其他变量、已保存的
 模板和当前预览所用的正文版本不变。笔记、链接、工具说明和历史不会一起填入。
+
+可搜索当前已读取的摘录标题，查看匹配数量并清空搜索。以空白分隔的词均需
+匹配标题，忽略大小写和 Unicode 兼容形式；不搜索正文，不额外读取存储。
+更改或清空搜索会撤销审阅并禁用替换，须重新选择可见结果；同名摘录仍保留
+各自的原始身份。读取、替换核验、过期或错误期间禁用搜索；可取消后重开。
+新草稿临时预览同样支持。
 
 摘录中的 HTML、代码、花括号、空白和 Unicode 均按字面保留。填入只发生在当前
 标签页内存中，不自动保存、复制、联网、调用模型或建立关联。
@@ -104,3 +124,12 @@ other values/template preservation and returned opener focus. Discard restored
 Prompt0 and baseline. No native save/copy/provider, invalid/max input, external
 mutation or fault/race coverage; those remain synthetic.
 Manifest remains1.1.111; this ordinary feature does not publish a release.
+
+### Title-search development verification
+
+The frozen implementation passed2776/2776 strict Node tests with1 GiB heap and
+81/81 Python tests. Independent6-case audit and49 related tests passed after
+ensuring invalidated review text moves focus to Cancel before removal. Runtime
+packaging verifies113 explicit files, with no controller, Store, permission or
+schema change. Native search validation is pending for this ordinary feature;
+manifest remains1.1.112 and no release is created by this commit.

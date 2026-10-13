@@ -3590,6 +3590,21 @@
   "promptsExcerptStale": {
     "message": "This selection changed or is no longer available. Cancel and choose again."
   },
+  "promptsExcerptSearch": {
+    "message": "Search excerpt titles"
+  },
+  "promptsExcerptSearchHelp": {
+    "message": "Search only titles already loaded here, not excerpt bodies. Changing the search clears your review."
+  },
+  "promptsExcerptSearchClear": {
+    "message": "Clear title search"
+  },
+  "promptsExcerptSearchCount": {
+    "message": "{shown} of {total} excerpts"
+  },
+  "promptsExcerptSearchEmpty": {
+    "message": "No titles match. Clear the search or try another title."
+  },
   "promptsExcerptSelect": {
     "message": "Select an excerpt to review its full current body."
   },

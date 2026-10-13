@@ -545,7 +545,20 @@
             const help = this.el('p', '', draft ? this.t('DraftExcerptHelp', 'Review the exact saved body and previous value, then replace only this temporary draft variable. Nothing is saved, copied or sent.') : this.t('ExcerptHelp', 'Review one active saved excerpt, then replace only this variable with its exact body. Notes, links and history are excluded. Values stay in this tab; your saved template will not change.')); help.id = 'excerpt-help';
             const status = this.el('p', 'prompt-help', this.t('LinkedLoading', 'Reading saved results…')); status.setAttribute('role', 'status');
             const list = this.el('div', 'prompt-excerpt-list'), review = this.el('div'), actions = this.el('div', 'prompt-actions');
-            let selection = null, close, finished = false, applying = false, generation = null;
+            const view = this;
+            const filter = this.el('div', 'prompt-excerpt-filter'), label = this.el('label', '', this.t('ExcerptSearch', 'Search excerpt titles'));
+            const search = this.el('input'); search.type = 'search'; search.id = 'excerpt-search'; search.disabled = true;
+            label.setAttribute('for', search.id); search.setAttribute('aria-describedby', 'excerpt-search-help');
+            const searchHelp = this.el('p', 'prompt-help', this.t('ExcerptSearchHelp', 'Search only titles already loaded here, not excerpt bodies. Changing the search clears your review.')); searchHelp.id = 'excerpt-search-help';
+            const count = this.el('p', 'prompt-help'); count.setAttribute('role', 'status');
+            const clear = this.button('ExcerptSearchClear', 'Clear title search', () => {
+                if (search.disabled) return;
+                search.value = ''; paintChoices(); search.focus();
+            }); clear.disabled = true;
+            filter.append(label, search, clear, searchHelp, count);
+            search.addEventListener('input', () => { if (!search.disabled) paintChoices(); });
+            let selection = null, close, finished = false, applying = false, generation = null, rows = [], stale = false, queryRevision = 0;
+            const lockSearch = () => { search.disabled = true; clear.disabled = true; };
             const finish = () => {
                 if (finished) return; finished = true; context.cancelled = true; this.openDialog = false;
                 this.cancelExcerptDialog = null; this.checkExcerptDialog = null; close?.(); overlay.remove();
@@ -553,7 +566,7 @@
             const cancel = this.button('Cancel', 'Cancel', finish), apply = this.button('ExcerptApply', 'Replace this variable', async () => {
                 if (applying || !selection || !c.excerptReviewCurrent(selection)) return;
                 // Keep keyboard cancellation reachable when disabling the active Apply button.
-                cancel.focus(); applying = true; apply.disabled = true;
+                cancel.focus(); applying = true; apply.disabled = true; lockSearch();
                 for (const button of list.querySelectorAll('button')) button.disabled = true;
                 const chosen = selection;
                 const result = await c.applyExcerpt(chosen);
@@ -575,35 +588,50 @@
             }, 'prompt-primary'); apply.disabled = true;
             this.checkExcerptDialog = () => {
                 if (!c.excerptCurrent(context) || (generation !== null && generation !== c.collectionGeneration)) {
-                    if (this.doc.activeElement === apply || list.contains(this.doc.activeElement)) cancel.focus();
-                    apply.disabled = true; selection = null;
+                    if (this.doc.activeElement === apply || filter.contains(this.doc.activeElement) || list.contains(this.doc.activeElement) || review.contains(this.doc.activeElement)) cancel.focus();
+                    stale = true; lockSearch(); apply.disabled = true; selection = null; review.replaceChildren();
                     for (const button of list.querySelectorAll('button')) button.disabled = true;
                     status.textContent = this.t('ExcerptStale', 'This selection changed or is no longer available. Cancel and choose again.');
                 }
             };
-            actions.append(cancel, apply); box.append(title, help, status, list, review, actions); overlay.append(box); this.doc.body.append(overlay);
+            actions.append(cancel, apply); box.append(title, help, filter, status, list, review, actions); overlay.append(box); this.doc.body.append(overlay);
             this.openDialog = true; this.cancelExcerptDialog = finish; close = root.LocalItabDialog.open(overlay, cancel, finish);
             await c.refreshCollections();
             if (finished) return;
             if (!c.excerptCurrent(context)) { this.checkExcerptDialog(); return; }
             generation = c.collectionGeneration;
             if (c.collectionError || !c.collectionState || c.collectionLoading) { status.textContent = this.t('LinkedUnavailable', 'Saved results could not be read safely. This is not an empty result list.'); return; }
-            const rows = c.excerptRows(context);
-            status.textContent = rows.length ? this.t('ExcerptSelect', 'Select an excerpt to review its full current body.') : this.t('ExcerptEmpty', 'No active saved excerpts are available.');
-            for (const row of rows) {
-                const button = this.el('button', 'prompt-excerpt-choice', row.title); button.type = 'button'; button.setAttribute('aria-pressed', 'false');
-                button.addEventListener('click', () => {
-                    if (applying) return;
-                    const selected = c.reviewExcerpt(context, row); if (!selected) { this.checkExcerptDialog(); return; }
-                    selection = selected; review.replaceChildren();
-                    for (const item of list.children) item.setAttribute('aria-pressed', String(item === button));
-                    review.append(this.el('h3', '', this.t('ExcerptBody', 'Exact saved body')), this.el('pre', 'prompt-readonly', selected.body));
-                    const previous = context.session.values[name];
-                    if (previous) review.append(this.el('h3', '', this.t('ExcerptPrevious', 'Current variable value that will be replaced')), this.el('pre', 'prompt-readonly', previous));
-                    for (const pre of review.querySelectorAll('pre')) pre.tabIndex = 0;
-                    apply.disabled = false;
-                });
-                list.append(button);
+            rows = c.excerptRows(context);
+            search.disabled = false;
+            paintChoices();
+            function fold(value) { return value.normalize('NFKC').toLowerCase(); }
+            function usable() { return !finished && !applying && !stale && generation !== null && c.excerptCurrent(context) && generation === c.collectionGeneration; }
+            // Filtering is local to this opening's immutable rows. Keep each original
+            // row/ID; duplicate display titles must never become selection identities.
+            function paintChoices() {
+                if (!usable()) return;
+                const revision = ++queryRevision;
+                selection = null; apply.disabled = true; review.replaceChildren(); list.replaceChildren();
+                const terms = fold(search.value).trim().split(/\s+/u).filter(Boolean);
+                const matches = rows.filter(row => terms.every(term => fold(row.title).includes(term)));
+                clear.disabled = !search.value;
+                count.textContent = view.t('ExcerptSearchCount', '{shown} of {total} excerpts').replace('{shown}', String(matches.length)).replace('{total}', String(rows.length));
+                status.textContent = !rows.length ? view.t('ExcerptEmpty', 'No active saved excerpts are available.') : !matches.length ? view.t('ExcerptSearchEmpty', 'No titles match. Clear the search or try another title.') : view.t('ExcerptSelect', 'Select an excerpt to review its full current body.');
+                for (const row of matches) {
+                    const button = view.el('button', 'prompt-excerpt-choice', row.title); button.type = 'button'; button.setAttribute('aria-pressed', 'false');
+                    button.addEventListener('click', () => {
+                        if (!usable() || revision !== queryRevision) return;
+                        const selected = c.reviewExcerpt(context, row); if (!selected) { view.checkExcerptDialog?.(); return; }
+                        selection = selected; review.replaceChildren();
+                        for (const item of list.children) item.setAttribute('aria-pressed', String(item === button));
+                        review.append(view.el('h3', '', view.t('ExcerptBody', 'Exact saved body')), view.el('pre', 'prompt-readonly', selected.body));
+                        const previous = context.session.values[name];
+                        if (previous) review.append(view.el('h3', '', view.t('ExcerptPrevious', 'Current variable value that will be replaced')), view.el('pre', 'prompt-readonly', previous));
+                        for (const pre of review.querySelectorAll('pre')) pre.tabIndex = 0;
+                        apply.disabled = false;
+                    });
+                    list.append(button);
+                }
             }
         }
         linkedSection(promptId, versionId, session = false) {

@@ -47,7 +47,7 @@ test('cancel and IME-aware Escape preserve values and restore keyboard focus wit
 });
 test('cancel during initial async read leaves no late dialog or application', async () => {
     const h = await fixture(), wait = deferred(), state = await h.collections.store.read(); h.c.collectionStore.read = () => wait.promise;
-    choose(h).dispatch('click'); overlay(h).querySelector('button').dispatch('click'); wait.resolve(state); await tick(); assert.equal(overlay(h), null); assert.deepEqual(Object.keys(h.c.session().values), []); h.c.dispose();
+    choose(h).dispatch('click'); overlay(h).querySelector('.prompt-actions button').dispatch('click'); wait.resolve(state); await tick(); assert.equal(overlay(h), null); assert.deepEqual(Object.keys(h.c.session().values), []); h.c.dispose();
 });
 test('navigation away and back, session resets, value edits and disposal invalidate exact review even during apply', async () => {
     for (const change of [c => { const id = c.selected; c.select(null); c.select(id); }, c => c.clearVariables(), c => c.setVariable('reader', 'changed'), c => c.setLiteral(true), c => c.dispose()]) {

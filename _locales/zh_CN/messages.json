@@ -3590,6 +3590,21 @@
   "promptsExcerptStale": {
     "message": "所选内容已变化或不可用。请取消后重新选择。"
   },
+  "promptsExcerptSearch": {
+    "message": "搜索摘录标题"
+  },
+  "promptsExcerptSearchHelp": {
+    "message": "仅搜索当前已读取的标题，不搜索正文。更改搜索会清除当前审阅。"
+  },
+  "promptsExcerptSearchClear": {
+    "message": "清空标题搜索"
+  },
+  "promptsExcerptSearchCount": {
+    "message": "显示 {shown} / {total} 条摘录"
+  },
+  "promptsExcerptSearchEmpty": {
+    "message": "没有匹配的标题。请清空搜索或尝试其他标题。"
+  },
   "promptsExcerptSelect": {
     "message": "选择一条摘录以查看其当前完整正文。"
   },

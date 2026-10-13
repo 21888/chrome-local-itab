@@ -134,3 +134,7 @@ h3 { font-size: 15px; }
 .prompt-starter-disclosure { margin-block: 1rem; }
 .prompt-starter-disclosure summary { cursor: pointer; }
 @media (max-width: 540px) { .prompt-starter-grid { grid-template-columns: 1fr; } }
+
+.prompt-excerpt-filter { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.prompt-excerpt-filter label, .prompt-excerpt-filter .prompt-help { grid-column: 1 / -1; }
+.prompt-excerpt-filter input { min-width: 0; width: 100%; }
