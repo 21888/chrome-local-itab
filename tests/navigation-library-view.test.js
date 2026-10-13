@@ -1163,3 +1163,57 @@ test('category totals have bilingual full-catalog context and no extra focus tar
  assert.match(css,/navigation-library-category-count-help \{[^}]*color: var\(--nl-muted\);/);
  assert.match(css,/navigation-library-categories \{ max-height: 145px; overflow: auto;/);
 });
+
+test('operator choices follow their visible localized labels, with Any first and Unknown last', async () => {
+ for(const locale of ['en','zh-CN']){
+  const h=model({locale}),before=JSON.stringify(h.context.LocalItabNavigationSites);await h.view.open();
+  const options=countrySelect(h).querySelectorAll('option'),known=options.filter(node=>node.value&&node.value!=='unknown');
+  assert.equal(options[0].value,'');assert.equal(options.at(-1).value,'unknown');
+  const expected=[...known].sort((a,b)=>a.textContent.localeCompare(b.textContent,locale==='en'?'en':'zh')||(a.value<b.value?-1:a.value>b.value?1:0));
+  assert.deepEqual(known.map(node=>node.value),expected.map(node=>node.value));
+  if(locale==='en'){const values=known.map(node=>node.value);assert.ok(values.indexOf('FR')<values.indexOf('DE'));assert.ok(values.indexOf('JP')<values.indexOf('GB'));}
+  assert.equal(JSON.stringify(h.context.LocalItabNavigationSites),before);assert.equal(h.calls,0);h.view.close();
+ }
+});
+test('country label cache is shared by options, active chips and details and refreshed on reopen', async () => {
+ const h=model(),calls=new Map();let generation=0;
+ h.context.Intl={DisplayNames:class {of(code){calls.set(code,(calls.get(code)||0)+1);return `Region ${generation} ${code}`;}}};
+ await h.view.open();const select=countrySelect(h),option=select.querySelectorAll('option').find(node=>node.value==='BG');
+ select.value='BG';select.dispatch('change');const title=h.context.i18n.t('navigationLibraryCountry');
+ assert.equal(countryDetail(cards(h)[0],title).textContent,`${title}: ${option.textContent}`);
+ assert.equal(h.document.querySelector('.navigation-library-active-filter span').textContent,`${title}: ${option.textContent}`);
+ h.search('');for(const count of calls.values())assert.equal(count,1);
+ generation++;h.view.close();await h.view.open();assert.equal(countrySelect(h).querySelectorAll('option').find(node=>node.value==='BG').textContent,'Region 1 BG (BG)');
+ for(const count of calls.values())assert.equal(count,2);assert.equal(h.calls,0);h.view.close();
+});
+test('equal country names retain ISO order and collating ties explicitly use ISO order', async () => {
+ for(const forceTie of [false,true]){
+  const h=model();h.context.Intl={DisplayNames:class {of(){return 'Same region';}}};
+  if(forceTie)vm.runInContext('String.prototype.localeCompare = function () { return 0; };',h.context);
+  await h.view.open();const values=countrySelect(h).querySelectorAll('option').map(node=>node.value).filter(value=>value&&value!=='unknown');
+  assert.deepEqual(values,[...values].sort());assert.equal(countrySelect(h).querySelectorAll('option').at(-1).value,'unknown');h.view.close();
+ }
+});
+test('unavailable, throwing and malformed Intl country names retain ISO choices and ordering', async () => {
+ const variants=[undefined,{}, {DisplayNames:class {constructor(){throw Error('unavailable');}}},
+  {DisplayNames:class {of(){throw Error('invalid region');}}},
+  ...[undefined,null,42,{},'', '   '].map(name=>({DisplayNames:class {of(){return name;}}})),
+  {DisplayNames:class {of(code){return code;}}}];
+ for(const locale of ['en','zh-CN'])for(const intl of variants){
+  const h=model({locale});h.context.Intl=intl;assert.equal(await h.view.open(),true);
+  const options=countrySelect(h).querySelectorAll('option'),known=options.filter(node=>node.value&&node.value!=='unknown');
+  assert.deepEqual(known.map(node=>node.value),known.map(node=>node.value).sort());
+  for(const option of known)assert.equal(option.textContent,option.value);
+  assert.equal(options[0].value,'');assert.equal(options.at(-1).value,'unknown');assert.equal(h.calls,0);h.view.close();
+ }
+});
+test('localized country ordering preserves exact ISO filters, hidden selection and catalog data', async () => {
+ for(const locale of ['en','zh-CN']){
+  const h=model({locale}),before=JSON.stringify(h.context.LocalItabNavigationSites);await h.view.open();pickSite(h,'chatgpt');
+  const select=countrySelect(h);select.value='BG';select.dispatch('change');
+  assert.equal(select.value,'BG');assert.deepEqual(cards(h).map(card=>card.dataset.site),['inoreader']);
+  assert.match(selectionCount(h),/^1 \/ 20/);assert.match(hiddenSelected(h),/1$/);
+  h.click(locale==='en'?'Clear filters':'清除筛选');assert.equal(select.value,'');assert.match(selectionCount(h),/^1 \/ 20/);
+  assert.equal(JSON.stringify(h.context.LocalItabNavigationSites),before);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);h.view.close();
+ }
+});

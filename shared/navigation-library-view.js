@@ -43,12 +43,16 @@
         let reviewed = null, selectedOnly = false;
         let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, currentDestination = '';
         const language = () => /^zh/i.test(document.documentElement.lang || '') ? 'zh' : 'en';
+        const countryLabels = new Map();
         const countryLabel = country => {
+            const key = `${language()}:${country}`;
+            if (countryLabels.has(key)) return countryLabels.get(key);
             if (country === 'unknown') return t('unknown');
             try {
                 const name = new Intl.DisplayNames([language()], { type: 'region' }).of(country);
-                return typeof name === 'string' && name.trim() && name !== country ? `${name} (${country})` : country;
-            } catch (_) { return country; }
+                countryLabels.set(key, typeof name === 'string' && name.trim() && name !== country ? `${name} (${country})` : country);
+            } catch (_) { countryLabels.set(key, country); }
+            return countryLabels.get(key);
         };
         const tagLabel = tag => {
             const id = `navigationTag${tag.split(/[-_]/).map(part => part[0]?.toUpperCase() + part.slice(1)).join('')}`;
@@ -101,6 +105,7 @@
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
+            countryLabels.clear();
             const owner = ++revision; expandedDetails.clear(); renderedDetails.clear(); busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); selectedOnly = false; reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null;
             overlay = el('div', undefined, 'navigation-library-overlay'); panel = el('section', undefined, 'navigation-library-panel'); panel.tabIndex = -1;
             bindComposition(owner, panel);
@@ -178,7 +183,11 @@
                 tagSelect.value = criteria.tag || '';
             }
             refreshTagOptions();
-            selectFilter('country', distinct('country'), countryLabel);
+            const countries = distinct('country').sort((a, b) => {
+                if (a === 'unknown' || b === 'unknown') return a === b ? 0 : a === 'unknown' ? 1 : -1;
+                return countryLabel(a).localeCompare(countryLabel(b), language()) || (a < b ? -1 : a > b ? 1 : 0);
+            });
+            selectFilter('country', countries, countryLabel);
             selectFilter('company', distinct('company'), value => value === 'unknown' ? t('unknown') : value);
             selectFilter('pricing', api.pricing, t); panel.append(filtersPanel);
             const activeFilters = el('div', undefined, 'navigation-library-active-filters');
