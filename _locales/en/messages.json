@@ -6226,7 +6226,7 @@
     "message": "Check this exact saved body, source attribution and version before selecting it. Only this excerpt is included, never its historical question/source snapshot or annotations. Nothing is sent, copied or saved. Displayed line breaks are normalized; the original CRLF/CR text is retained until you edit it."
   },
   "aiContextCollectionUnavailable": {
-    "message": "This exact saved version is unavailable or could not be verified. Nothing was selected. Close this panel, refresh the collection and start again from its current saved detail."
+    "message": "This exact saved version is unavailable or could not be verified. Close this panel, refresh the collection and start again from its current saved detail."
   },
   "aiContextCollectionLoading": {
     "message": "Verifying this exact saved excerpt locally…"
@@ -6253,6 +6253,18 @@
     "message": "Deselect another source before adding this excerpt. Nothing was changed."
   },
   "aiContextCollectionApplied": {
-    "message": "This exact excerpt is selected for this question. The original saved body and attribution stay above; outgoing edits appear below. Review the complete question before copying or sending."
+    "message": "This exact reviewed excerpt is selected for this question. The body and attribution above remain the reviewed snapshot. Review the complete question before copying or sending."
+  },
+  "aiContextCollectionApplyAgain": {
+    "message": "Use this excerpt again"
+  },
+  "aiContextCollectionNotSelected": {
+    "message": "This reviewed excerpt is not selected for this question. The body and attribution above remain the reviewed snapshot."
+  },
+  "aiContextCollectionSelectedDifferent": {
+    "message": "This source is selected, but its outgoing text or saved version differs from the reviewed body above. Review the current outgoing excerpt below; the body above stays unchanged."
+  },
+  "aiContextCollectionReuseReady": {
+    "message": "Choose Use this excerpt again to recheck and select the same saved version."
   }
 }

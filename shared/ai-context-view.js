@@ -21,7 +21,7 @@
             el('p', '', label('CollectionHelp', 'Check this exact saved body, source attribution and version before selecting it. Only this excerpt is included, never its historical question/source snapshot or annotations. Nothing is sent, copied or saved. Displayed line breaks are normalized; the original CRLF/CR text is retained until you edit it.')),
             collectionInfo, collectionText, collectionApply, collectionStatus);
         sourcesPane.append(collectionPanel);
-        let collectionTicket = null, collectionApplied = false, collectionEpoch = 0, collectionInvalidated = false, collectionSubscription = null, sourcesLoaded = false;
+        let collectionTicket = null, collectionUsed = false, collectionEpoch = 0, collectionInvalidated = false, collectionSubscription = null, sourcesLoaded = false;
 
         const questionPane = el('section', 'ai-context-question-pane');
         questionPane.setAttribute('aria-label', label('QuestionHeading', 'Question and review'));
@@ -330,7 +330,7 @@
             updateBudget();
             updateLocalReview();
             updatePromptPicker();
-            collectionApply.disabled = selectionBlocked() || !collectionTicket || collectionApplied;
+            updateCollectionSelection();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
             stream.disabled = busy || retry || mode.value !== 'answer';
@@ -754,7 +754,7 @@
             await controller.verifyTaskBatch(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksVerified', 'The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; closePrompts(); invalidate(true); key.value = ''; output.value = ''; question.value = ''; appliedPromptQuestion = null; answerTitle.value = ''; titleEdited = false;
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; row.rawText = row.source.text; } collectionTicket = null; collectionApplied = true; collectionPanel.hidden = true; sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; row.rawText = row.source.text; } collectionTicket = null; collectionUsed = false; collectionPanel.hidden = true; sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
@@ -812,9 +812,43 @@
                 if (!disposed && !controller.closed) status.textContent = label('SourceReloadError', 'Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace.');
             } finally { pending = false; if (!disposed) update(); }
         }
+        function collectionSelection() {
+            const source = collectionTicket?.source;
+            const row = source && sourceRows.find(row => row.source.id === source.id && row.check.checked);
+            const exact = Boolean(row && sourceText(row) === source.text &&
+                ['id', 'label', 'text', 'revision', 'bodyVersionId', 'sourceUrl'].every(key => row.source[key] === source[key]));
+            return { row, exact };
+        }
+        function updateCollectionSelection() {
+            // A native browser may blur this button as soon as it is disabled.
+            // Only that button's current focus belongs to this status update.
+            const ownedFocus = doc.activeElement === collectionApply;
+            const { row, exact } = collectionSelection();
+            collectionApply.textContent = collectionUsed
+                ? label('CollectionApplyAgain', 'Use this excerpt again')
+                : label('CollectionApply', 'Use this excerpt for this question');
+            collectionApply.disabled = selectionBlocked() || !collectionTicket || collectionInvalidated || exact;
+            if (collectionPanel.hidden) return;
+            const unavailable = label('CollectionUnavailable', 'This exact saved version is unavailable or could not be verified. Close this panel, refresh the collection and start again from its current saved detail.');
+            if (!collectionTicket) { if (collectionInvalidated) collectionStatus.textContent = unavailable; }
+            else {
+                const current = exact
+                    ? label('CollectionApplied', 'This exact reviewed excerpt is selected for this question. The body and attribution above remain the reviewed snapshot. Review the complete question before copying or sending.')
+                    : row
+                    ? label('CollectionSelectedDifferent', 'This source is selected, but its outgoing text or saved version differs from the reviewed body above. Review the current outgoing excerpt below; the body above stays unchanged.')
+                    : !collectionUsed && !collectionInvalidated
+                    ? label('CollectionReady', 'The exact current saved version was verified. Review it above, then choose Use this excerpt. It is not selected yet.')
+                    : label('CollectionNotSelected', 'This reviewed excerpt is not selected for this question. The body and attribution above remain the reviewed snapshot.');
+                collectionStatus.textContent = current + (collectionInvalidated ? ` ${unavailable}` : !exact && collectionUsed
+                    ? ` ${label('CollectionReuseReady', 'Choose Use this excerpt again to recheck and select the same saved version.')}` : '');
+            }
+            if (ownedFocus && collectionApply.disabled && collectionPanel.isConnected && doc.visibilityState !== 'hidden') collectionStatus.focus();
+        }
         function collectionUnavailable() {
-            collectionTicket = null;
-            collectionStatus.textContent = label('CollectionUnavailable', 'This exact saved version is unavailable or could not be verified. Nothing was selected. Close this panel, refresh the collection and start again from its current saved detail.');
+            // Keep the reviewed snapshot and current outgoing draft distinct.
+            // Invalidation never selects, clears or substitutes a source row.
+            collectionInvalidated = true;
+            updateCollectionSelection();
         }
         async function reviewCollection() {
             if (!collectionRequest || selectionBlocked()) return;
@@ -825,7 +859,7 @@
                 if (!sourcesLoaded || !collectionCurrent?.()) throw Error('Sources unavailable');
                 const subscription = collectionSubscription = {};
                 subscription.unsubscribe = controller.collectionStore.subscribe(() => {
-                    if (disposed || collectionSubscription !== subscription || collectionApplied) return;
+                    if (disposed || collectionSubscription !== subscription || collectionPanel.hidden) return;
                     collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); update();
                 });
                 const source = await controller.loadCollection(collectionRequest);
@@ -841,16 +875,18 @@
         }
         async function applyCollection() {
             const ticket = collectionTicket;
-            if (selectionBlocked() || !ticket || collectionApplied || !collectionPanel.isConnected || doc.visibilityState === 'hidden') return;
+            if (selectionBlocked() || !ticket || collectionInvalidated || collectionSelection().exact || !collectionPanel.isConnected || doc.visibilityState === 'hidden') return;
             const existing = sourceRows.find(row => row.source.id === ticket.source.id);
             if (existing && sourceText(existing) !== existing.source.text && !root.confirm?.(label('CollectionReplaceExcerpt', 'Replace this source’s edited outgoing excerpt with the exact saved body reviewed above? Cancel keeps your draft unchanged.'))) return;
-            if (selectionBlocked() || ticket !== collectionTicket) return;
+            if (selectionBlocked() || collectionInvalidated || ticket !== collectionTicket) return;
             const selected = sourceRows.filter(row => row.check.checked).length;
             if (!existing?.check.checked && selected >= 12) { collectionStatus.textContent = label('CollectionSelectionLimit', 'Deselect another source before adding this excerpt. Nothing was changed.'); return; }
             const generation = controller.generation;
-            const current = () => !disposed && !controller.closed && ticket === collectionTicket && ticket.epoch === collectionEpoch &&
+            const current = () => !disposed && !controller.closed && !collectionInvalidated && ticket === collectionTicket && ticket.epoch === collectionEpoch &&
                 generation === controller.generation && !controller.busy && !controller.taskCommand && !controller.saveCommand &&
                 collectionCurrent?.() && collectionPanel.isConnected && doc.visibilityState !== 'hidden' && collectionInfo.textContent === ticket.info && collectionText.textContent === ticket.display;
+            const previousStatus = status.textContent;
+            let applied = false;
             pending = true; update();
             try {
                 if (!current()) throw Error('Stale review');
@@ -861,12 +897,14 @@
                 next.check.checked = true; next.input.hidden = false;
                 if (existing) sourceRows = sourceRows.map(row => row === existing ? next : row); else sourceRows = [next, ...sourceRows];
                 sourceList.replaceChildren(...sourceRows.map(row => row.node));
-                collectionApplied = true; reviewText.hidden = taskList.hidden = true;
-                collectionStatus.textContent = label('CollectionApplied', 'This exact excerpt is selected for this question. The original saved body and attribution stay above; outgoing edits appear below. Review the complete question before copying or sending.');
+                collectionUsed = applied = true; reviewText.hidden = taskList.hidden = true;
+                // This successful selection invalidates old reload/review feedback,
+                // but a newer message arriving during the read keeps its ownership.
+                if (status.textContent === previousStatus) status.textContent = label('SourceBatchChanged', 'Selection changed. Review the exact request again before sending.');
                 // Reveal the explicit selection, rather than leaving it hidden by an older filter.
                 sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false;
             } catch (_) { if (!disposed) collectionUnavailable(); }
-            finally { pending = false; if (!disposed) { update(); if (collectionApplied) question.focus(); } }
+            finally { pending = false; if (!disposed) { update(); if (applied) question.focus(); } }
         }
         const ready = loadSourceRows(false);
         // Compare live, session-only draft values with the blank/unselected state.
@@ -890,7 +928,7 @@
         function destroy() { if (disposed) return; collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); updateCopy(); } return; }
-            if (collectionRequest && !collectionApplied) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
+            if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
             closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);

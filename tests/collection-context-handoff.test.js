@@ -348,3 +348,169 @@ test('handoff rechecks synchronous session invalidation after readiness returns'
     assert.equal(await h.window.LocalItabAIContextEntry.openCollection(h.reference()), false);
     assert.equal(h.q('.ai-context-dialog'), dialog); assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC keep pinned draft'); quiet(h);
 });
+
+for (const removal of ['clear all', 'visible deselect', 'checkbox', 'reload']) test(`handoff status follows ${removal} and explicit reuse freshly selects the reviewed version`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    h.input('.ai-context-question', 'SYNTHETIC keep this question');
+    const info = h.q('.ai-context-collection-info').textContent, body = h.q('.ai-context-collection-text').textContent;
+    if (removal === 'checkbox') { const check = checks(h)[0].querySelector('input'); check.checked = false; check.dispatch('change'); }
+    else { h.click(removal === 'clear all' ? 'Clear all selections' : removal === 'visible deselect' ? 'Deselect visible selected' : 'Reload saved sources'); await settle(); }
+    assert.equal(checks(h).length, 0);
+    assert.match(h.q('.ai-context-collection-status').textContent, /not selected for this question/);
+    assert.equal(h.button('Use this excerpt').disabled, false);
+    assert.match(h.button('Use this excerpt').textContent, /again/);
+    assert.equal(h.q('.ai-context-collection-info').textContent, info); assert.equal(h.q('.ai-context-collection-text').textContent, body);
+    h.click('Review prompt locally'); await settle(); assert.equal(h.window.contextController.localReview.packed.sources.length, 0);
+    let reads = 0; h.setReadHook(keys => { if (keys.includes('__localItabAICollectionsV1')) reads++; });
+    h.click('Use this excerpt'); await settle(); assert(reads > 0, 'every reuse checks the current saved record');
+    assert.equal(checks(h).length, 1); assert.equal(h.window.contextController.localReview, null);
+    assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC keep this question');
+    assert.match(h.q('.ai-context-collection-status').textContent, /exact reviewed excerpt is selected/);
+    assert.equal(h.button('Use this excerpt').disabled, true);
+    h.click('Review prompt locally'); await settle(); assert.equal(h.window.contextController.localReview.packed.sources[0].text, h.record.body); quiet(h);
+});
+
+test('edited selected excerpt is distinguished from the retained review; explicit reuse confirms replacement', async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    const editor = checks(h)[0].querySelector('textarea'); editor.value = 'SYNTHETIC outgoing edit'; editor.dispatch('input');
+    h.input('.ai-context-question', 'SYNTHETIC question'); h.click('Review prompt locally'); await settle();
+    const reviewed = h.window.contextController.localReview, body = h.q('.ai-context-collection-text').textContent;
+    assert.match(h.q('.ai-context-collection-status').textContent, /differs from the reviewed body/);
+    assert.equal(h.button('Use this excerpt').disabled, false);
+    h.setConfirm(false); let reads = 0; h.setReadHook(() => reads++); h.click('Use this excerpt'); await settle();
+    assert.equal(reads, 0); assert.equal(h.window.contextController.localReview, reviewed); assert.equal(editor.value, 'SYNTHETIC outgoing edit');
+    h.setConfirm(true); h.click('Use this excerpt'); await settle();
+    assert.equal(checks(h).length, 1); assert.equal(checks(h)[0].querySelector('textarea').value, body);
+    assert.equal(h.window.contextController.localReview, null); assert.equal(h.q('.ai-context-collection-text').textContent, body);
+    h.click('Review prompt locally'); await settle(); assert.equal(h.window.contextController.localReview.packed.sources[0].text, h.record.body); quiet(h);
+});
+
+for (const state of ['selected', 'cleared', 'reloaded']) test(`collection notification after use preserves ${state} draft and blocks stale reuse`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    if (state === 'cleared') h.click('Clear all selections');
+    if (state === 'reloaded') { h.click('Reload saved sources'); await settle(); }
+    const before = checks(h).length, body = h.q('.ai-context-collection-text').textContent;
+    await h.run(`(async () => { const r = (await seedStore.read()).records[0]; const plan = await seedStore.reviewRevision({ id: r.id, version: r.version, body: 'SYNTHETIC newer saved body' }); await seedStore.mutate(seedStore.request('revise', plan)); })()`); await settle(); h.writes.length = 0;
+    assert.match(h.q('.ai-context-collection-status').textContent, /unavailable/);
+    assert.equal(h.button('Use this excerpt').disabled, true); assert.equal(checks(h).length, before);
+    h.button('Use this excerpt').dispatch('click'); await settle(); assert.equal(checks(h).length, before);
+    assert.equal(h.q('.ai-context-collection-text').textContent, body); quiet(h);
+});
+
+for (const change of ['revise', 'metadata', 'body identity', 'archive', 'unreadable', 'workspace']) test(`explicit reuse freshly refuses silent ${change} without selecting or replacing the snapshot`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle(); h.click('Clear all selections');
+    const body = h.q('.ai-context-collection-text').textContent;
+    const record = h.raw.__localItabAICollectionsV1.records[0];
+    if (change === 'revise') { record.body = record.history.at(-1).body = 'SYNTHETIC changed body'; record.version = 'synthetic_new_version'; }
+    if (change === 'metadata') { record.title = 'SYNTHETIC changed title'; record.version = 'synthetic_new_version'; }
+    if (change === 'body identity') record.currentVersionId = 'synthetic_new_body';
+    if (change === 'archive') record.deletedAt = '2026-10-14T00:00:00.000Z';
+    if (change === 'unreadable') h.setReadHook(keys => { if (keys.includes('__localItabAICollectionsV1')) throw Error('Synthetic read failure'); });
+    if (change === 'workspace') h.raw.quote = 'SYNTHETIC legacy drift';
+    h.click('Use this excerpt'); await settle();
+    assert.equal(checks(h).length, 0); assert.match(h.q('.ai-context-collection-status').textContent, /not selected for this question/);
+    assert.match(h.q('.ai-context-collection-status').textContent, /unavailable/); assert.equal(h.button('Use this excerpt').disabled, true);
+    assert.equal(h.q('.ai-context-collection-text').textContent, body); quiet(h);
+});
+
+for (const pending of [false, true]) test(`hide/show after initial use invalidates ${pending ? 'pending' : 'available'} reuse without selecting`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle(); h.click('Clear all selections');
+    const gate = deferred(); let held = false;
+    if (pending) {
+        h.setReadHook(async keys => { if (!held && keys.includes('__localItabAICollectionsV1')) { held = true; await gate.promise; } });
+        h.click('Use this excerpt'); await settle(); assert.equal(held, true);
+    }
+    h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')({});
+    h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')({});
+    gate.resolve(); await settle();
+    assert.equal(checks(h).length, 0); assert.equal(h.button('Use this excerpt').disabled, true);
+    assert.match(h.q('.ai-context-collection-status').textContent, /not selected for this question/);
+    h.button('Use this excerpt').dispatch('click'); await settle(); assert.equal(checks(h).length, 0); quiet(h);
+});
+
+for (const reuse of [false, true]) for (const newerFocus of [false, true]) test(`focused ${reuse ? 'reuse' : 'initial use'} read failure keeps ${newerFocus ? 'newer external' : 'local status'} focus`, async () => {
+    const h = await page(); await h.open();
+    if (reuse) { h.click('Use this excerpt'); await settle(); h.click('Clear all selections'); }
+    const gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.includes('__localItabAICollectionsV1')) { held = true; await gate.promise; throw Error('Synthetic failed read'); } });
+    h.button('Use this excerpt').focus(); h.click('Use this excerpt'); await settle(); assert.equal(held, true);
+    assert.equal(h.document.activeElement, h.q('.ai-context-collection-status'));
+    const external = h.document.createElement('button'); h.document.body.append(external);
+    if (newerFocus) external.focus();
+    gate.resolve(); await settle();
+    assert.equal(h.document.activeElement, newerFocus ? external : h.q('.ai-context-collection-status'));
+    assert.equal(h.button('Use this excerpt').disabled, true); assert.equal(checks(h).length, 0); quiet(h);
+});
+
+test('collection notification moves only the newly disabled focused reuse button to its status', async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle(); h.click('Clear all selections');
+    h.button('Use this excerpt').focus();
+    await h.run(`(async () => { const r = (await seedStore.read()).records[0]; const plan = await seedStore.reviewRevision({ id: r.id, version: r.version, body: 'SYNTHETIC revised while button focused' }); await seedStore.mutate(seedStore.request('revise', plan)); })()`); await settle(); h.writes.length = 0;
+    assert.equal(h.document.activeElement, h.q('.ai-context-collection-status'));
+    assert.equal(h.button('Use this excerpt').disabled, true); assert.equal(checks(h).length, 0); quiet(h);
+});
+
+test('successful explicit reuse returns focus to the unchanged question', async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle(); h.click('Clear all selections');
+    h.input('.ai-context-question', 'SYNTHETIC unchanged question'); h.button('Use this excerpt').focus();
+    h.click('Use this excerpt'); await settle();
+    assert.equal(h.document.activeElement, h.q('.ai-context-question'));
+    assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC unchanged question'); quiet(h);
+});
+
+for (const previous of ['reload', 'local review', 'failed reload']) test(`successful explicit reuse replaces obsolete ${previous} feedback with selection feedback`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    h.click('Reload saved sources'); await settle();
+    h.input('.ai-context-question', 'SYNTHETIC unchanged question');
+    // Set the old status after the question edit, which separately clears it.
+    if (previous === 'reload') { h.click('Reload saved sources'); await settle(); }
+    else if (previous === 'failed reload') {
+        h.setReadHook(keys => { if (keys.includes('__localItabAICollectionsV1')) throw Error('Synthetic reload error'); });
+        h.click('Reload saved sources'); await settle(); h.setReadHook(null);
+    } else { h.click('Review prompt locally'); await settle(); assert(h.window.contextController.localReview); }
+    assert.match(h.q('.ai-context-status').textContent, previous === 'reload' ? /Nothing is selected/ : previous === 'failed reload' ? /Could not load saved sources/ : /Local prompt ready/);
+    h.click('Use this excerpt'); await settle();
+    assert.equal(checks(h).length, 1); assert.equal(h.window.contextController.localReview, null);
+    assert.match(h.q('.ai-context-status').textContent, /Selection changed\. Review the exact request again/);
+    assert.doesNotMatch(h.q('.ai-context-status').textContent, /Nothing is selected|Local prompt ready/);
+    assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC unchanged question'); quiet(h);
+});
+
+for (const result of ['success', 'read failure', 'stale generation']) test(`reuse ${result} does not overwrite newer generic feedback during its read`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    h.click('Reload saved sources'); await settle();
+    const gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.includes('__localItabAICollectionsV1')) { held = true; await gate.promise; if (result === 'read failure') throw Error('Synthetic failure'); } });
+    h.click('Use this excerpt'); await settle(); assert.equal(held, true);
+    if (result === 'stale generation') h.input('.ai-context-question', 'SYNTHETIC newer draft');
+    h.q('.ai-context-status').textContent = 'SYNTHETIC newer feedback owned by another step';
+    gate.resolve(); await settle();
+    assert.equal(h.q('.ai-context-status').textContent, 'SYNTHETIC newer feedback owned by another step');
+    assert.equal(checks(h).length, result === 'success' ? 1 : 0); quiet(h);
+});
+
+for (const blocker of ['busy', 'saveCommand', 'taskCommand']) test(`blocked ${blocker} reuse preserves generic error feedback`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle(); h.click('Clear all selections');
+    h.q('.ai-context-status').textContent = 'SYNTHETIC unresolved operation feedback';
+    h.window.contextController[blocker] = true;
+    h.button('Use this excerpt').dispatch('click'); await settle();
+    assert.equal(h.q('.ai-context-status').textContent, 'SYNTHETIC unresolved operation feedback');
+    assert.equal(checks(h).length, 0); quiet(h);
+});
+
+test('failed reuse leaves the earlier truthful reload feedback unchanged', async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle(); h.click('Reload saved sources'); await settle();
+    const before = h.q('.ai-context-status').textContent;
+    h.setReadHook(keys => { if (keys.includes('__localItabAICollectionsV1')) throw Error('Synthetic failed reuse'); });
+    h.click('Use this excerpt'); await settle();
+    assert.equal(h.q('.ai-context-status').textContent, before); assert.equal(checks(h).length, 0); quiet(h);
+});
+
+test('cancelling edited-excerpt reuse retains its existing reviewed feedback', async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    const editor = checks(h)[0].querySelector('textarea'); editor.value = 'SYNTHETIC edited excerpt'; editor.dispatch('input');
+    h.input('.ai-context-question', 'SYNTHETIC retained question'); h.click('Review prompt locally'); await settle();
+    const before = h.q('.ai-context-status').textContent, review = h.window.contextController.localReview;
+    h.setConfirm(false); h.click('Use this excerpt'); await settle();
+    assert.equal(h.q('.ai-context-status').textContent, before); assert.equal(h.window.contextController.localReview, review); quiet(h);
+});

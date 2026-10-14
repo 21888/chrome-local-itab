@@ -6226,7 +6226,7 @@
     "message": "请先核对这条已保存摘录的正文、来源标注和版本，再将其选入本次问题。仅使用摘录正文，不带入历史问题/来源快照或批注。不会发送、复制或保存任何内容。预览统一显示换行；实际编辑前仍保留原始 CRLF/CR 正文。"
   },
   "aiContextCollectionUnavailable": {
-    "message": "此确切保存版本已不可用或无法核验，未选入本次问题。请关闭面板、刷新收藏，再从当前保存的详情重新开始。"
+    "message": "此确切保存版本已不可用或无法核验。请关闭面板、刷新收藏，再从当前保存的详情重新开始。"
   },
   "aiContextCollectionLoading": {
     "message": "正在本地核验这条确切保存的摘录…"
@@ -6253,6 +6253,18 @@
     "message": "请先取消选择另一条来源，再添加此摘录。尚未更改任何内容。"
   },
   "aiContextCollectionApplied": {
-    "message": "已将这条确切摘录选入本次问题。上方保留原始保存正文和来源标注，待发送内容的编辑显示在下方。复制或发送前仍须审阅完整问题。"
+    "message": "这条确切的已审阅摘录当前已选入本次问题。上方正文和来源标注仍是审阅时的快照。复制或发送前仍须审阅完整问题。"
+  },
+  "aiContextCollectionApplyAgain": {
+    "message": "再次用于本次问题"
+  },
+  "aiContextCollectionNotSelected": {
+    "message": "这条已审阅摘录当前未选入本次问题。上方正文和来源标注仍是此前审阅的快照。"
+  },
+  "aiContextCollectionSelectedDifferent": {
+    "message": "此来源已选入，但待发送正文或保存版本与上方审阅正文不同。请核对下方当前待发送摘录；上方正文保持不变。"
+  },
+  "aiContextCollectionReuseReady": {
+    "message": "点击“再次用于本次问题”会重新核验并选入同一保存版本。"
   }
 }
