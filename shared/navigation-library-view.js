@@ -38,6 +38,7 @@
     function mount(host, component) {
         let overlay, panel, cleanup, cleanupSearchShortcut, cleanupComposition, snapshot, status, results, count, search, destination, categoryNav, filtersPanel, savedNav, batchCount, batchReview, batchClear, batchSelect, batchDeselect, batchHelp, batchSelectedOnly, batchHiddenCount, reviewPanel, reviewConfirm;
         let refreshSavedButton, resetFiltersButton, privacySummary, refreshing = false, readTicket = 0;
+        let destinationLabels = new Map(), missingDestinationFeedback = null;
         let clearFilters = () => {}, leaveSelectedOnly = () => {};
         let selectableResults = [], refreshActiveFilters = () => {}, applyTagFilter = () => {};
         let newCategoryMode = false, draftName = '', compositionTarget = null, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
@@ -114,7 +115,7 @@
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
-            countryLabels.clear();
+            countryLabels.clear(); missingDestinationFeedback = null;
             const owner = ++revision; expandedDetails.clear(); renderedDetails.clear(); busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); selectedOnly = false; reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null;
             overlay = el('div', undefined, 'navigation-library-overlay'); panel = el('section', undefined, 'navigation-library-panel'); panel.tabIndex = -1;
             bindComposition(owner, panel);
@@ -245,7 +246,17 @@
             const active = root.categoryNavigation?.getCurrentCategory?.();
             currentDestination = snapshot.categories.some(category => category.id === active) ? active : snapshot.categories[0]?.id || '';
             rebuildDestinations();
-            destination.addEventListener('change', () => { if (busy || writing) return; currentDestination = destination.value; renderResults(); });
+            destination.addEventListener('change', () => {
+                if (busy || writing) return;
+                currentDestination = destination.value;
+                if (validDestination() && missingDestinationFeedback) {
+                    // Retire only the missing-target part of this refresh's own
+                    // feedback. Read-only guidance and newer errors stay intact.
+                    if (status.textContent === missingDestinationFeedback.text) status.textContent = missingDestinationFeedback.remaining;
+                    missingDestinationFeedback = null;
+                }
+                renderResults();
+            });
             destinationLabel.append(destination); existingDestination = destinationLabel; toolbar.append(destinationLabel);
             newCategoryButton = button(t('newCategory'), () => changeTargetMode(true), 'navigation-library-new-category'); toolbar.append(newCategoryButton); panel.append(toolbar);
             newCategoryPanel = el('div', undefined, 'navigation-library-new-category-panel'); newCategoryPanel.hidden = true;
@@ -383,8 +394,10 @@
                 // Render against one coherent snapshot without rebuilding editor/filter nodes.
                 refreshing = busy = false; renderResults();
                 const removed = before - selected.size;
-                status.textContent = [t(component.layoutController?.invalidated ? 'refreshReadOnly' : 'refreshedSaved'), removed ? t('refreshRemoved').replace('{count}', String(removed)) : '',
-                    !newCategoryMode && !validDestination() ? t('missingDestination') : ''].filter(Boolean).join(' ');
+                const remaining = [t(component.layoutController?.invalidated ? 'refreshReadOnly' : 'refreshedSaved'), removed ? t('refreshRemoved').replace('{count}', String(removed)) : ''].filter(Boolean).join(' ');
+                const missing = !newCategoryMode && !validDestination();
+                status.textContent = [remaining, missing ? t('missingDestination') : ''].filter(Boolean).join(' ');
+                missingDestinationFeedback = missing ? { text: status.textContent, remaining } : null;
             } catch (_) {
                 if (owns()) {
                     if (!sameContext()) { blocked = true; refreshing = busy = false; renderResults(); }
@@ -399,9 +412,10 @@
             }
         }
         function rebuildDestinations() {
+            destinationLabels = api.personalCategoryLabels(snapshot.categories);
             destination.replaceChildren();
             if (!validDestination()) { const missing = el('option', currentDestination ? `${t('missingDestination')} (${currentDestination})` : t('noCategory')); missing.value = currentDestination; missing.disabled = true; destination.append(missing); }
-            snapshot.categories.forEach(category => { const option = el('option', category.name); option.value = category.id; destination.append(option); });
+            snapshot.categories.forEach(category => { const option = el('option', destinationLabels.get(category.id)); option.value = category.id; destination.append(option); });
             destination.value = currentDestination;
         }
         function invalidateReview() { reviewed = null; if (reviewPanel) reviewPanel.hidden = true; refreshReadControl(); }
@@ -510,7 +524,7 @@
                 ...(newCategoryMode ? { newCategory: { name } } : { destination: currentDestination }) });
             reviewed = confirmation;
             reviewPanel.replaceChildren();
-            const target = newCategoryMode ? `${t('willCreate')}: ${name}` : `${t('destination')}: ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
+            const target = newCategoryMode ? `${t('willCreate')}: ${name}` : `${t('destination')}: ${destinationLabels.get(currentDestination) || currentDestination}`;
             reviewPanel.append(el('h3', t('reviewTitle')), el('p', `${sites.length} ${t('selected')} · ${target}`));
             const list = el('ul');
             if (batch) list.className = 'navigation-library-review-list';
@@ -672,12 +686,8 @@
                     const labelId = `navigation-library-saved-locations-${site.id}`;
                     const label = el('p', t('savedLocations')); label.id = labelId;
                     const list = el('ul'); list.setAttribute('aria-labelledby', labelId);
-                    const nameCounts = new Map();
-                    locations.forEach(location => nameCounts.set(location.name, (nameCounts.get(location.name) || 0) + 1));
                     for (const location of locations) {
-                        const name = location.name || t('unknownSavedCategory');
-                        const distinguish = !location.name || nameCounts.get(location.name) > 1;
-                        list.append(el('li', distinguish ? `${name} (${location.id})` : name));
+                        list.append(el('li', destinationLabels.get(location.id) || `${t('unknownSavedCategory')} (${location.id})`));
                     }
                     locationInfo.append(label, list); card.append(locationInfo);
                     add.setAttribute('aria-describedby', labelId);
@@ -726,7 +736,7 @@
                 if (saved.createdCategory) { currentDestination = saved.destination || saved.createdCategory.id; draftName = ''; nameInput.value = ''; newCategoryMode = false; newCategoryPanel.hidden = true; existingDestination.hidden = false; newCategoryButton.hidden = false; }
                 rebuildDestinations();
                 useExisting.dataset.unavailable = String(!snapshot.categories.length);
-                status.textContent = request.newCategory && !saved.createdCategory ? t('noNewSites') : batch ? `${saved.addedCount} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}${saved.skippedCount ? ` · ${saved.skippedCount} ${t('skipped')}` : ''}` : saved.duplicate ? `${site.name}: ${t('duplicate')}` : `${site.name} · ${t('saved')} ${snapshot.categories.find(category => category.id === currentDestination)?.name || currentDestination}`;
+                status.textContent = request.newCategory && !saved.createdCategory ? t('noNewSites') : batch ? `${saved.addedCount} · ${t('saved')} ${destinationLabels.get(currentDestination) || currentDestination}${saved.skippedCount ? ` · ${saved.skippedCount} ${t('skipped')}` : ''}` : saved.duplicate ? `${site.name}: ${t('duplicate')}` : `${site.name} · ${t('saved')} ${destinationLabels.get(currentDestination) || currentDestination}`;
             } catch (error) {
                 blocked = error.mayHaveCommitted || !['CATALOG_FAILED', 'CATALOG_CATEGORY_NAME', 'CATALOG_CATEGORY_EXISTS'].includes(error.code);
                 status.textContent = t(error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_CATEGORY_NAME' ? 'categoryInvalid' : error.code === 'CATALOG_CATEGORY_EXISTS' ? 'categoryExists' : error.code === 'CATALOG_FAILED' ? (batch ? 'batchFailed' : 'failed') : error.code === 'CATALOG_UNVERIFIED' || error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_LAYOUT_PENDING' ? 'layout' : 'conflict');

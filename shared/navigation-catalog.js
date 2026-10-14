@@ -78,6 +78,41 @@
         });
     }
     const savedURLs = links => new Set((links || []).map(link => canonicalURL(link.url)).filter(Boolean));
+    // One read-only label per personal category identity, across the complete
+    // snapshot. Never use a website's subset or its order to name a destination.
+    function personalCategoryLabels(personalCategories = []) {
+        const entries = personalCategories.map(({ id, name }) => ({ id, name, level: 0 }));
+        const groups = key => {
+            const values = new Map();
+            for (const entry of entries) {
+                const value = key(entry);
+                if (!values.has(value)) values.set(value, []);
+                values.get(value).push(entry);
+            }
+            return [...values.values()].filter(group => group.length > 1);
+        };
+        for (const group of groups(entry => entry.name.trim().normalize('NFC').toLowerCase())) {
+            for (const entry of group) entry.level = 1;
+        }
+        const label = entry => entry.level === 0 ? entry.name : entry.level === 1 ? `${entry.name} (${entry.id})` : JSON.stringify([entry.name, entry.id]);
+        // Each entry can advance at most twice, so even collision chains end
+        // within 2N passes (and usually one). No suffix-growing identity scheme.
+        for (;;) {
+            let changed = false;
+            for (const group of groups(label)) {
+                // A literal name may imitate a generated label. Decorate that
+                // name too, without changing the original twin's stable label.
+                const plain = group.filter(entry => entry.level === 0);
+                for (const entry of plain.length ? plain : group) {
+                    // Unusual legacy IDs can themselves contain parentheses.
+                    // A full name/ID tuple is unambiguous even in that case.
+                    if (entry.level < 2) { entry.level++; changed = true; }
+                }
+            }
+            if (!changed) break;
+        }
+        return new Map(entries.map(entry => [entry.id, label(entry)]));
+    }
     // Read-only index of the current workspace snapshot. Match the dashboard's
     // legacy missing-category semantics and deduplicate by identity, never name.
     function savedLocations(links = [], personalCategories = []) {
@@ -92,5 +127,5 @@
         }
         return new Map(Array.from(locations, ([url, values]) => [url, Array.from(values.values())]));
     }
-    return Object.freeze({ categories, pricing, canonicalURL, localized, validate, filter, savedURLs, savedLocations });
+    return Object.freeze({ categories, pricing, canonicalURL, localized, validate, filter, savedURLs, savedLocations, personalCategoryLabels });
 });
