@@ -991,6 +991,18 @@ class StorageManager {
         return { reason, payload, providerState: this.validateSyncConfig(raw.sync || this.defaultConfig.sync), checksum: await this.fingerprint(payload) };
     }
 
+    async persistVerifiedSyncRecovery(recovery, previous) {
+        if (previous) recovery.previousRecovery = LayoutIdentity.copy(previous);
+        // Hash before handing a detached value to the backend. Readback must
+        // prove the requested copy, not merely echo a mutated input object.
+        const expected = await this.fingerprint(recovery);
+        await this._local.set({ [this.restoreRecoveryKey]: LayoutIdentity.copy(recovery) });
+        const saved = (await this._local.get([this.restoreRecoveryKey]))[this.restoreRecoveryKey];
+        if (!saved || await this.fingerprint(saved) !== expected) {
+            throw new Error('The recovery backup could not be verified. No replacement was submitted.');
+        }
+    }
+
     async getRecoveryBackup(kind = 'latest') {
         const keys = kind === 'original' ? [this.identityRecoveryKey] : [this.restoreRecoveryKey, this.identityRecoveryKey];
         const raw = await this._local.get(keys);
@@ -2136,7 +2148,7 @@ class StorageManager {
                 const config = this.validateConfigObject(raw); delete config.sync;
                 const localFingerprint = guard.blocked?.localFingerprint || error.localFingerprint || await this.fingerprint(config);
                 await this._local.set({ [this.syncIdentityStateKey]: { ...guard,
-                    blocked: ['restore', 'initialization'].includes(guard.blocked?.kind) ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
+                    blocked: ['restore', 'initialization', 'review'].includes(guard.blocked?.kind) ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
                 } });
             }, true);
         } catch (statusError) { this._syncCompatibilityError = blocked; console.warn('Could not persist Sync compatibility status:', statusError); }
@@ -2195,7 +2207,7 @@ class StorageManager {
 
     checkSyncIdentity(local, remote, guard, { pushing = false, confirmedReplacement = false } = {}) {
         if (confirmedReplacement) return;
-        if (['restore', 'initialization'].includes(guard.blocked?.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
+        if (['restore', 'initialization', 'review'].includes(guard.blocked?.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
         if (pushing && (guard.blocked || this._syncCompatibilityError)) throw this.compatibilityError(guard.blocked?.reason || this._syncCompatibilityError.reason);
         if (!remote.payload) return;
         if (pushing && remote.schema === 2 && this.losesIdentityHistory(this.layoutSnapshot(remote.validated), local)) {
@@ -2231,16 +2243,37 @@ class StorageManager {
             Object.prototype.hasOwnProperty.call(raw, key)).map(key => [key, raw[key]])));
     }
 
+    async sameSyncConfiguration(raw, remote) {
+        const local = this.validateConfigObject(raw), incoming = this.validateConfigObject(remote.validated);
+        delete local.sync; delete incoming.sync;
+        return await this.fingerprint(local) === await this.fingerprint(incoming);
+    }
+
+    syncReviewError() {
+        return this.compatibilityError('Automatic full-copy replacement is temporarily paused to protect saved data. Preview the cloud copy in Settings, then explicitly choose a backed-up replacement.', 'review');
+    }
+
+    async persistSyncReview(raw) {
+        const error = this.syncReviewError();
+        this._syncCompatibilityError = { kind: error.kind, reason: error.message };
+        try {
+            await this._local.set({ [this.syncIdentityStateKey]: {
+                ...(raw[this.syncIdentityStateKey] || {}), blocked: this._syncCompatibilityError
+            } });
+        } catch (cause) { error.cause = cause; }
+        throw error;
+    }
+
     async acceptSyncSnapshot(remote, { confirmedReplacement = false, initializing = false, expectedLocalFingerprint } = {}) {
         return this.withLocalWriteLock(async () => {
             const raw = await this._local.get(null);
             const local = this.layoutSnapshot(raw);
             const guard = raw[this.syncIdentityStateKey] || {};
-            if (!confirmedReplacement && this._syncCompatibilityError?.kind === 'initialization') {
-                throw this.compatibilityError(this._syncCompatibilityError.reason, 'initialization');
+            if (!confirmedReplacement && ['initialization', 'review'].includes(this._syncCompatibilityError?.kind)) {
+                throw this.compatibilityError(this._syncCompatibilityError.reason, this._syncCompatibilityError.kind);
             }
             if (guard.blocked && !confirmedReplacement) {
-                if (['restore', 'initialization'].includes(guard.blocked.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
+                if (['restore', 'initialization', 'review'].includes(guard.blocked.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
                 const config = this.validateConfigObject(raw); delete config.sync;
                 if (!guard.blocked.localFingerprint || guard.blocked.localFingerprint !== await this.fingerprint(config)) throw this.compatibilityError('Local settings changed while Sync was blocked. Review the copies and choose a backed-up replacement explicitly.');
             }
@@ -2270,18 +2303,17 @@ class StorageManager {
                 // if the storage write failed; it never acknowledges the remote.
                 throw error;
             }
+            if (!confirmedReplacement && raw.sync?.enabled !== true) return this.persistSyncReview(raw);
             await this.checkSyncIdentityAtRead(local, remote, guard, raw, { confirmedReplacement });
-            // A pre-feature lastSync timestamp alone is not an identity-safe ack.
-            // Only exact complete payload equality can establish its fingerprint
-            // without replaying already-known legacy data.
-            if (initializing && raw.sync?.lastSync === remote.meta.updatedAt && !confirmedReplacement) {
-                const localPayload = this.prepareSyncPayload(this.validateConfigObject(raw)).payload;
-                const fingerprint = await this.fingerprint({ schema: LayoutIdentity.active(raw.layout) ? 2 : 1, payload: localPayload });
-                if (fingerprint === remote.fingerprint) {
-                    await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null } });
-                    this._syncCompatibilityError = null;
-                }
-                return { applied: false, acknowledged: fingerprint === remote.fingerprint };
+            if (!confirmedReplacement) {
+                if (!(await this.sameSyncConfiguration(raw, remote))) return this.persistSyncReview(raw);
+                // Equal data needs an acknowledgement only, never a default-filled
+                // full write that could erase omitted assets or absence semantics.
+                await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ack: {
+                    fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema
+                }, blocked: null } });
+                this._syncCompatibilityError = null;
+                return { applied: false, acknowledged: true };
             }
             const validated = remote.validated;
             const written = { ...validated,
@@ -2290,8 +2322,21 @@ class StorageManager {
                 [this.settingsGenerationKey]: this.createLayoutGeneration(),
                 [this.syncIdentityStateKey]: { ...guard, ack: { fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema }, blocked: null }
             };
-            if (confirmedReplacement) written[this.restoreRecoveryKey] = await this.makeRecovery(raw, 'beforeCloudReplacement');
-            await this._local.set(written);
+            // Persist and verify recovery independently before submitting the
+            // replacement. A failed or ambiguous commit must leave this copy.
+            const recovery = await this.makeRecovery(raw, 'beforeCloudReplacement');
+            // Portable exports deliberately fill defaults. Keep a second,
+            // device-only exact snapshot so absent fields and original records
+            // are recoverable too. Never collect unrelated/auth storage keys.
+            const recoveryKeys = [...Object.keys(this.defaultConfig), 'schemaVersion', this.layoutGenerationKey, this.settingsGenerationKey];
+            recovery.rawConfiguration = LayoutIdentity.copy(Object.fromEntries(recoveryKeys.filter(key =>
+                Object.prototype.hasOwnProperty.call(raw, key)).map(key => [key, raw[key]])));
+            recovery.rawConfigurationChecksum = await this.fingerprint(recovery.rawConfiguration);
+            await this.persistVerifiedSyncRecovery(recovery, raw[this.restoreRecoveryKey]);
+            const expectedWrittenHash = await this.fingerprint(written);
+            if (await this._local.set(LayoutIdentity.copy(written)) === false) throw new Error('Cloud replacement was not acknowledged. The verified local recovery copy is retained.');
+            const readback = await this._local.get(Object.keys(written));
+            if (await this.fingerprint(readback) !== expectedWrittenHash) throw new Error('Cloud replacement could not be verified. The verified local recovery copy is retained.');
             this._syncCompatibilityError = null;
             return { applied: true };
         }, true);
@@ -2304,8 +2349,12 @@ class StorageManager {
         this._syncInitPromise = (async () => {
             if (!this.isSyncAvailable()) { this._syncInitialized = true; return; }
             try {
-                const expectedLocalFingerprint = await this.withLocalWriteLock(async () =>
-                    this.syncInitializationFingerprint(await this._local.get(null)), true);
+                const expectedLocalFingerprint = await this.withLocalWriteLock(async () => {
+                    const raw = await this._local.get(null);
+                    return raw.sync?.enabled === true ? this.syncInitializationFingerprint(raw) : null;
+                }, true);
+                // Chrome's cloud preference is not consent on this device.
+                if (expectedLocalFingerprint === null) return;
                 const remote = await this.readSyncSnapshot();
                 if (remote.meta?.enabled) await this.acceptSyncSnapshot(remote, { initializing: true, expectedLocalFingerprint });
             } catch (error) {
@@ -2325,11 +2374,19 @@ class StorageManager {
     async getSyncStatus() {
         if (!(await this.isDefaultWorkspace())) return this.forDefaultWorkspace().getSyncStatus(...arguments);
         await this.ensureSyncInitialized();
+        let remote = null;
+        if (this.isSyncAvailable()) {
+            try { remote = await this.getRemoteMeta(); }
+            catch (error) {
+                if (error.code !== 'SYNC_IDENTITY_COMPATIBILITY') throw error;
+                await this.blockSync(error);
+            }
+        }
         const raw = await this._local.get(['sync', this.syncIdentityStateKey]);
         const localSync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
         return { available: this.isSyncAvailable(), enabled: localSync.enabled, local: localSync,
             compatibilityBlocked: raw[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError,
-            remote: this.isSyncAvailable() ? await this.getRemoteMeta() : null,
+            remote,
             storage: (await this.getStorageInfo()).sync };
     }
 
@@ -2371,6 +2428,14 @@ class StorageManager {
                     const guard = raw[this.syncIdentityStateKey] || {};
                     const local = this.layoutSnapshot(raw);
                     await this.checkSyncIdentityAtRead(local, remote, guard, raw, { pushing: true });
+                    if (raw.sync?.enabled !== true) return this.persistSyncReview(raw);
+                    if (remote.payload) {
+                        if (!(await this.sameSyncConfiguration(raw, remote))) return this.persistSyncReview(raw);
+                        await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ack: {
+                            fingerprint: remote.fingerprint, revision: remote.revision, schema: remote.schema
+                        }, blocked: null } });
+                        return { acknowledged: true };
+                    }
                     const { payload, omittedAssets } = this.prepareSyncPayload(this.validateConfigObject(raw));
                     const schema = LayoutIdentity.active(payload.layout) ? 2 : 1;
                     const fingerprint = await this.fingerprint({ schema, payload });
@@ -2385,13 +2450,19 @@ class StorageManager {
                     await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), own] } });
                     return { items, meta, own, generation: local.generation };
                 }, true);
+                if (ticket.acknowledged) return this.getSyncStatus();
+                const latestRemote = await this.readSyncSnapshot();
+                if (JSON.stringify(latestRemote.meta) !== JSON.stringify(remote.meta) || latestRemote.fingerprint !== remote.fingerprint) {
+                    await this.withLocalWriteLock(async () => this.persistSyncReview(await this._local.get(null)), true);
+                }
                 // Recheck shared state after asynchronous snapshot preparation;
                 // another page may have blocked Sync while this upload waited.
                 let upload;
                 await this.withLocalWriteLock(async () => {
-                    const latest = await this._local.get([this.syncIdentityStateKey, this.layoutGenerationKey]);
+                    const latest = await this._local.get([this.syncIdentityStateKey, this.layoutGenerationKey, 'sync']);
                     if (latest[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError) throw this.compatibilityError(latest[this.syncIdentityStateKey]?.blocked?.reason || this._syncCompatibilityError.reason);
                     if ((latest[this.layoutGenerationKey] || null) !== ticket.generation) throw new Error('Local data was replaced before upload. Review it and retry.');
+                    if (latest.sync?.enabled !== true) throw this.syncReviewError();
                     // Enqueue under the same local lock as persisted blocking.
                     // Provider completion is awaited outside the critical section.
                     upload = this.chromeApi.storage.sync.set(ticket.items);
@@ -2469,8 +2540,11 @@ class StorageManager {
     async getRemoteMeta() {
         if (!this.isSyncAvailable()) return null;
         const result = await this.chromeApi.storage.sync.get([this.syncMetaKey]);
+        if (!result || typeof result !== 'object' || Array.isArray(result)) throw this.compatibilityError('Cloud metadata could not be read safely.', 'incomplete');
+        if (!Object.prototype.hasOwnProperty.call(result, this.syncMetaKey)) return null;
         const meta = result[this.syncMetaKey];
-        return meta && typeof meta === 'object' ? meta : null;
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta) || typeof meta.enabled !== 'boolean' || (meta.enabled === false && meta.chunkCount !== 0)) throw this.compatibilityError('Cloud metadata is malformed. Nothing was replaced or removed.', 'incomplete');
+        return meta;
     }
 
     async readRemoteSyncData(meta) {
@@ -2489,13 +2563,23 @@ class StorageManager {
         if (!this.isSyncAvailable()) return;
         await this.withSyncWriteLock(async () => {
             const oldMeta = await this.getRemoteMeta();
-            const raw = await this._local.get([this.syncIdentityStateKey]);
-            if (raw[this.syncIdentityStateKey]?.blocked && oldMeta?.enabled) {
-                // The UI explicitly confirmed off/clear. Retain the divergent
-                // readable cloud copy before removing its chunks.
+            if (oldMeta && (typeof oldMeta.enabled !== 'boolean' || (oldMeta.enabled === false && oldMeta.chunkCount !== 0))) {
+                throw this.compatibilityError('Cloud state is incomplete. Nothing was removed.', 'incomplete');
+            }
+            if (oldMeta?.enabled) {
+                // Every readable cloud copy needs verified recovery before
+                // removal, including when a prior block could not be persisted.
                 const cloud = await this.readSyncSnapshot();
+                if (!cloud.payload || !cloud.validated || JSON.stringify(cloud.meta) !== JSON.stringify(oldMeta)) throw this.syncReviewError();
                 const payload = this.buildManualExportPayload(cloud.validated);
-                await this.local.set({ [this.restoreRecoveryKey]: { reason: 'beforeCloudClear', payload, checksum: await this.fingerprint(payload) } });
+                await this.withLocalWriteLock(async () => {
+                    const prior = (await this._local.get([this.restoreRecoveryKey]))[this.restoreRecoveryKey];
+                    const rawConfiguration = LayoutIdentity.copy(cloud.payload);
+                    await this.persistVerifiedSyncRecovery({ reason: 'beforeCloudClear', payload, checksum: await this.fingerprint(payload),
+                        rawConfiguration, rawConfigurationChecksum: await this.fingerprint(rawConfiguration) }, prior);
+                }, true);
+                const latest = await this.readSyncSnapshot();
+                if (latest.fingerprint !== cloud.fingerprint || JSON.stringify(latest.meta) !== JSON.stringify(cloud.meta)) throw this.syncReviewError();
             }
             const disabledMeta = { enabled: false, version: 2, configurationSchemaVersion: 0, revision: this.createLayoutGeneration(), payloadHash: await this.fingerprint({ enabled: false }), updatedAt: new Date().toISOString(), chunkCount: 0, payloadBytes: 0, omittedAssets: [] };
             await this.withLocalWriteLock(async () => {
@@ -2503,6 +2587,8 @@ class StorageManager {
                 const guard = raw[this.syncIdentityStateKey] || {};
                 await this._local.set({ [this.syncIdentityStateKey]: { ...guard, ownWrites: [...(guard.ownWrites || []).slice(-7), { revision: disabledMeta.revision, fingerprint: disabledMeta.payloadHash, schema: 0 }] } });
             }, true);
+            const latestMeta = await this.getRemoteMeta();
+            if (JSON.stringify(latestMeta) !== JSON.stringify(oldMeta)) throw this.syncReviewError();
             const oldCount = Number.isFinite(oldMeta?.chunkCount) ? oldMeta.chunkCount : 0;
             await this.chromeApi.storage.sync.set({ [this.syncMetaKey]: disabledMeta });
             if (oldCount) await this.chromeApi.storage.sync.remove(Array.from({ length: oldCount }, (_, index) => `${this.syncChunkPrefix}${index}`));

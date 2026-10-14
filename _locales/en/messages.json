@@ -6321,5 +6321,6 @@
   },
   "spacesDiagnosticCode": {
     "message": "Error code"
-  }
+  },
+  "syncSafetyReview": {"message": "Automatic full-copy Sync replacement is temporarily paused to protect saved data. Preview the cloud copy, then explicitly choose a backed-up replacement. Your saved data and this device’s enabled preference stay unchanged."}
 }

@@ -531,7 +531,8 @@ bounded('non-Default settings reset preserves sibling data, personal modules and
 });
 
 bounded('Sync upload invoked from another workspace serializes Default only', async () => {
-    const f = fixture(seeded()), { manager } = await selected(f), second = await manager.create('Private second');
+    const original = seeded(); original.sync.enabled = true; // This device explicitly opted in.
+    const f = fixture(original), { manager } = await selected(f), second = await manager.create('Private second');
     const session = manager.capture(second.id); await session.local.set({ quote: 'SECOND_SECRET_QUOTE', links: [{ title: 'SECOND_SECRET_SITE', url: 'https://private.example/', category: 'work' }] });
     await manager.select(second.id);
     const remote = {}, calls = [];
@@ -820,7 +821,7 @@ bounded('Sync-clear safety recovery cannot overwrite a concurrently saved person
         const storage = new StorageManager({ workspace: session }); storage._syncInitialized = true;
         f.raw[storage.syncIdentityStateKey] = { blocked: { kind: 'restore', reason: 'Synthetic existing block' } };
         storage.getRemoteMeta = async () => ({ enabled: true, chunkCount: 0 });
-        storage.readSyncSnapshot = async () => ({ validated: storage.cloneDefaultConfig() });
+        storage.readSyncSnapshot = async () => ({ meta: { enabled: true, chunkCount: 0 }, validated: storage.cloneDefaultConfig(), payload: storage.prepareSyncPayload(storage.cloneDefaultConfig()).payload });
         f.chrome.storage.sync.set = async () => {};
         f.chrome.storage.sync.remove = async () => {};
         const entered = deferred(), release = deferred(); let held = false;

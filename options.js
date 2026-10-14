@@ -2509,7 +2509,9 @@ async function renderSyncStatus(status = null) {
         const note = document.createElement('div');
         note.className = 'sync-status-note is-error';
         note.setAttribute('role', 'status');
-        note.textContent = `${t('syncCompatibilityDetails', 'Sync is paused for compatibility. Local settings and your enabled preference are preserved. Update other devices and retry Download, or explicitly choose which copy to replace.')} ${syncStatus.compatibilityBlocked.reason}`;
+        note.textContent = syncStatus.compatibilityBlocked.kind === 'review'
+            ? t('syncSafetyReview', 'Automatic full-copy Sync replacement is temporarily paused to protect saved data. Preview the cloud copy, then explicitly choose a backed-up replacement. Your saved data and this device’s enabled preference stay unchanged.')
+            : `${t('syncCompatibilityDetails', 'Sync is paused for compatibility. Local settings and your enabled preference are preserved. Update other devices and retry Download, or explicitly choose which copy to replace.')} ${syncStatus.compatibilityBlocked.reason}`;
         children.push(note);
     }
     if (local.lastError) {

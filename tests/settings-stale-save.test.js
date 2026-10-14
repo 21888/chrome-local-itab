@@ -115,6 +115,55 @@ function conflict(page) {
 function editCategory(page, name) { page.document.querySelector('#category-manage-list .cat-name').value = name; }
 const bounded = (name, fn) => test(name, {timeout: 8000}, fn);
 
+// These page fixtures deliberately have no provider. Exercise the real local
+// acceptance transaction after proving an unknown copy is refused first.
+async function acceptReviewedSyncReplacement(f, manager, remote) {
+    const before = f.state(), writesBefore = f.writes.length;
+    const reviewRequired = error => error.code === 'SYNC_IDENTITY_COMPATIBILITY' && error.kind === 'review';
+    await assert.rejects(manager.acceptSyncSnapshot(remote), reviewRequired);
+    same(f.state(), { ...before, [manager.syncIdentityStateKey]: {
+        ...(before[manager.syncIdentityStateKey] || {}), blocked: manager._syncCompatibilityError
+    } }, 'an unconfirmed copy changes only the local review receipt');
+    assert.equal(f.writes.length, writesBefore + 1);
+    assert.equal(f.state()[manager.syncIdentityStateKey].blocked.kind, 'review');
+    const blocked = f.state();
+    await assert.rejects(f.manager().acceptSyncSnapshot(remote), reviewRequired);
+    await assert.rejects(manager.acceptSyncSnapshot(remote), reviewRequired);
+    same(f.state(), blocked, 'a fresh page and an existing page both retain the review refusal');
+    assert.equal(f.writes.length, writesBefore + 1);
+
+    const recoveryKey = manager.restoreRecoveryKey, generationKey = manager.settingsGenerationKey;
+    const trace = [], recoveryKeys = [...Object.keys(manager.defaultConfig), 'schemaVersion', manager.layoutGenerationKey, generationKey];
+    const rawBefore = Object.fromEntries(Object.entries(before).filter(([key]) => recoveryKeys.includes(key)));
+    f.hooks.read = async keys => {
+        if (keys?.includes(recoveryKey)) trace.push('recovery-read');
+        if (keys?.includes(generationKey)) trace.push('replacement-read');
+    };
+    f.hooks.write = async values => {
+        if (Object.hasOwn(values, recoveryKey)) {
+            same(Object.keys(values), [recoveryKey], 'recovery is persisted independently of replacement');
+            trace.push('recovery-write');
+        }
+        if (Object.hasOwn(values, generationKey)) {
+            same(trace, ['recovery-write', 'recovery-read'], 'replacement waits for recovery readback');
+            const recovery = f.state()[recoveryKey];
+            same(recovery.rawConfiguration, rawBefore, 'recovery retains the exact raw local settings');
+            assert.equal(recovery.rawConfigurationChecksum, await manager.fingerprint(rawBefore));
+            assert.equal(recovery.checksum, await manager.fingerprint(recovery.payload));
+            same(f.state(), { ...blocked, [recoveryKey]: recovery }, 'saved settings are untouched until recovery is verified');
+            trace.push('replacement-write');
+        }
+    };
+    try { assert.equal((await manager.acceptSyncSnapshot(remote, { confirmedReplacement: true })).applied, true); }
+    finally { f.hooks.read = null; f.hooks.write = null; }
+    same(trace, ['recovery-write', 'recovery-read', 'replacement-write', 'replacement-read']);
+    assert.equal(f.writes.length, writesBefore + 3, 'one review receipt, one recovery write, and one replacement');
+    assert.equal(f.state().sync.enabled, before.sync?.enabled === true, 'confirmation does not opt this device into Sync');
+    for (const key of PERSONAL_KEYS) same(f.state()[key], before[key], 'replacement preserves local personal content');
+    assert(PERSONAL_KEYS.every(key => !JSON.stringify(f.state()[recoveryKey]).includes(key)), 'personal stores never enter portable recovery');
+}
+
+
 bounded('two rendered tabs preserve independent quote, visibility, and weather fields', async () => {
     const f = fixture(), a = await f.page(), b = await f.page();
     b.field('quote-text').value = 'Written in B'; await b.save(); success(b);
@@ -182,9 +231,15 @@ bounded('accepted Sync replacement rotates the fence; acknowledged copy does not
     const payload = m.prepareSyncPayload(f.state()).payload;
     const remote = {payload, validated: m.validateImportPayload(payload), schema: 1,
         meta: {enabled: true, updatedAt: '2026-10-09T12:00:00.000Z'}, revision: 'remote-1', fingerprint: await m.fingerprint({schema: 1, payload})};
-    assert.equal((await m.acceptSyncSnapshot(remote)).applied, true); assert.ok(f.state()[TOKEN]);
+    await acceptReviewedSyncReplacement(f, m, remote); assert.ok(f.state()[TOKEN]);
     const token = f.state()[TOKEN];
-    assert.equal((await m.acceptSyncSnapshot(remote)).acknowledged, true); assert.equal(f.state()[TOKEN], token);
+    f.patch({ quote: 'Newer local quote after confirmed replacement' });
+    const beforeAck = f.state(), writesBeforeAck = f.writes.length;
+    const acknowledged = await m.acceptSyncSnapshot(remote);
+    assert.equal(acknowledged.applied, false); assert.equal(acknowledged.acknowledged, true);
+    assert.equal(f.state()[TOKEN], token); same(f.state(), beforeAck, 'acknowledgement cannot replay the known snapshot or rewrite recovery');
+    assert.equal(f.writes.length, writesBeforeAck + 1);
+    same(Object.keys(f.writes.at(-1)), [m.syncIdentityStateKey]);
     const before = f.state(), count = f.writes.length;
     a.field('quote-text').value = 'Stale after Sync'; await a.save(); conflict(a);
     same(f.state(), before); assert.equal(f.writes.length, count);

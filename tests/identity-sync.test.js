@@ -47,16 +47,52 @@ function fixture() {
     }
     const payload = () => m.prepareSyncPayload(m.validateConfigObject(local)).payload;
     const allocate = async () => m.applyLayoutPatch({ autoArrange: false }, {}, await m.getLayoutSnapshotForUpdate());
-    return { m, page, hooks, timers, writes, publish, payload, allocate, listen: fn => listeners.push(fn), async drain() { while (events.size) await Promise.all([...events]); }, local: () => clone(local), remote: () => clone(remote), setLocal: values => Object.assign(local, clone(values)), setRemote: values => Object.assign(remote, clone(values)) };
+    // Synthetic provider setup only: this is never an application cloud-delete action.
+    const clearRemote = () => { remote = {}; };
+    return { m, page, hooks, timers, writes, publish, payload, allocate, listen: fn => listeners.push(fn), async drain() { while (events.size) await Promise.all([...events]); }, local: () => clone(local), remote: () => clone(remote), setLocal: values => Object.assign(local, clone(values)), setRemote: values => Object.assign(remote, clone(values)), clearRemote };
 }
 const watchdog = setTimeout(() => { console.error('Identity model did not settle.'); process.exit(1); }, 10000);
 (async () => {
-    // Acknowledged legacy copy may upgrade once. Every page recognizes this
-    // profile's exact upload; a legacy rewrite two milliseconds later is not ignored.
+    // Equal existing copies only acknowledge. A later local identity allocation
+    // cannot authorize replacement of that complete cloud copy, even with its ack.
+    {
+        const f = fixture(), { m } = f; const legacy = f.payload(); await f.publish(legacy);
+        const originalRemote = f.remote(), originalSync = f.local().sync;
+        const pulled = await m.pullFromSync();
+        assert.equal(pulled.applied, false); assert.equal(pulled.acknowledged, true);
+        await m.pushToSync();
+        equal(f.payload(), legacy); equal(f.remote(), originalRemote); equal(f.local().sync, originalSync);
+        assert.equal(f.writes.filter(w => w.type === 'sync').length, 0, 'equal cloud data is acknowledged without any provider write');
+        assert.equal(f.writes.filter(w => w.values.links || w.values.layout).length, 0, 'acknowledgement never rewrites configuration');
+        await f.allocate(); const allocated = f.payload(), remoteBefore = f.remote();
+        await assert.rejects(m.pushToSync(), error => error.code === 'SYNC_IDENTITY_COMPATIBILITY' && error.kind === 'review');
+        equal(f.payload(), allocated); equal(f.remote(), remoteBefore);
+        assert.equal(f.local().sync.enabled, true); assert.equal(f.local()[m.syncIdentityStateKey].blocked.kind, 'review');
+        assert.equal(f.writes.filter(w => w.type === 'sync').length, 0, 'a previously acknowledged but different full copy is never overwritten');
+        await assert.rejects(f.page().pullFromSync(), error => error.kind === 'review');
+        equal(f.payload(), allocated); equal(f.remote(), remoteBefore);
+    }
+    // A different compatible copy requires explicit preview and confirmed,
+    // verified recovery before replacement; ordinary pulls preserve both copies.
+    {
+        const f = fixture(), { m } = f; const original = f.payload(), cloud = clone(original);
+        cloud.quote = 'SYNTHETIC_CLOUD_QUOTE'; await f.publish(cloud);
+        const remoteBefore = f.remote();
+        await assert.rejects(m.pullFromSync(), error => error.code === 'SYNC_IDENTITY_COMPATIBILITY' && error.kind === 'review');
+        equal(f.payload(), original); equal(f.remote(), remoteBefore);
+        assert.equal(f.writes.filter(w => w.type === 'sync' || w.values.links || w.values.layout).length, 0);
+        const expectedRemote = await m.previewCloudReplacement();
+        assert.equal((await m.pullFromSync({ confirmedReplacement: true, expectedRemote })).applied, true);
+        equal(f.payload(), cloud); equal((await m.getRecoveryBackup()).data.quote, original.quote);
+        equal(f.remote(), remoteBefore); assert.equal(f.local()[m.syncIdentityStateKey].blocked, null);
+    }
+    // A separate empty-cloud fixture permits its first upload. Every page
+    // recognizes this profile's exact upload; a later legacy rewrite is not ignored.
     {
         const f = fixture(), { m } = f; const legacy = f.payload(); await f.publish(legacy);
         await m.pullFromSync(); const ack = f.local()[m.syncIdentityStateKey].ack;
-        await f.allocate(); assert(ack); await m.pushToSync();
+        await f.allocate(); assert(ack); f.clearRemote(); equal(f.remote(), {}); await m.pushToSync();
+        assert.equal(f.writes.filter(w => w.type === 'sync').length, 1, 'an empty cloud permits exactly the initial complete upload');
         const cloud = await m.readSyncSnapshot(); assert.equal(cloud.schema, 2); assert(cloud.payload.links[0].layoutId);
         assert(!('data' in cloud.payload)); equal(cloud.payload.layout.positions, legacy.layout.positions);
         const second = f.page();
@@ -105,7 +141,7 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     // recovery and the prior first-upgrade recovery. A queued other page cannot
     // upload or pull either an old own revision or a newer compatible copy.
     {
-        const f = fixture(), { m } = f; const legacy = f.payload(); await f.publish(legacy); await m.pullFromSync(); await f.allocate(); await m.pushToSync();
+        const f = fixture(), { m } = f; const legacy = f.payload(); await f.publish(legacy); await m.pullFromSync(); await f.allocate(); f.clearRemote(); await m.pushToSync();
         const cloud = await m.readSyncSnapshot(), other = f.page(); other.scheduleSyncPush();
         const restored = m.prepareRestoredConfig(legacy, { sync: f.local().sync });
         assert.equal(await m.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }), true);
@@ -126,7 +162,7 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     // An old upload already waiting on remote reads must recheck the shared
     // block immediately before it can enqueue any remote write.
     {
-        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate();
+        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate(); f.clearRemote();
         const second = f.page(), started = deferred(), resume = deferred(); let held = false;
         f.hooks.afterRemoteGet = async () => { if (!held) { held = true; started.resolve(); await resume.promise; } };
         const pending = second.pushToSync(); await started.promise;
@@ -136,9 +172,9 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     // Final eligibility and enqueue are ordered by the local lock. The lock
     // is released while the provider is pending, so another page can block.
     {
-        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate();
+        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate(); f.clearRemote();
         const readStarted = deferred(), releaseRead = deferred(), enqueued = deferred(), provider = deferred(); let held = false;
-        f.hooks.afterLocalGet = async keys => { if (!held && keys?.length === 2 && keys.includes(m.layoutGenerationKey)) { held = true; readStarted.resolve(); await releaseRead.promise; } };
+        f.hooks.afterLocalGet = async keys => { if (!held && keys?.length === 3 && keys.includes(m.layoutGenerationKey) && keys.includes('sync')) { held = true; readStarted.resolve(); await releaseRead.promise; } };
         f.hooks.beforeRemoteSet = async () => { enqueued.resolve(); await provider.promise; };
         const upload = m.pushToSync(); await readStarted.promise;
         let blocked = false; const block = f.page().blockSync(m.compatibilityError('later compatibility conflict')).then(() => { blocked = true; });
@@ -151,7 +187,7 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     // Reset during an already enqueued upload invalidates the acknowledgment.
     // It must not resurrect enabled state, identities, or their recovery copies.
     {
-        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate();
+        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate(); f.clearRemote();
         const entered = deferred(), resume = deferred(); let once = false;
         f.hooks.beforeRemoteSet = async () => { if (!once) { once = true; entered.resolve(); await resume.promise; } };
         const oldGeneration = f.local()[m.layoutGenerationKey];
@@ -164,7 +200,7 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     }
     // Quota failure never omits identity data or flips an existing preference.
     {
-        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate();
+        const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate(); f.clearRemote();
         const local = f.payload(), remote = f.remote(); m.syncTotalBudget = 1;
         await assert.rejects(m.pushToSync(), /quota/); equal(f.payload(), local); equal(f.remote(), remote); assert.equal(f.local().sync.enabled, true);
     }
@@ -175,11 +211,16 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
         f.setLocal({ links: legacy.links, layout: legacy.layout });
         const before = f.remote(); await assert.rejects(m.pushToSync(), /remove cloud layout identity/); equal(f.remote(), before);
         assert.equal(f.local().sync.enabled, true);
-        await m.pullFromSync(); equal(f.local().links, identified.links);
+        const localBeforeReview = f.payload();
+        await assert.rejects(m.pullFromSync(), error => error.kind === 'review');
+        equal(f.payload(), localBeforeReview); equal(f.remote(), before);
+        const expectedRemote = await m.previewCloudReplacement();
+        await m.pullFromSync({ confirmedReplacement: true, expectedRemote }); equal(f.local().links, identified.links);
+        equal((await m.getRecoveryBackup()).data.links, legacy.links);
     }
     // Remote-off checks the same locked snapshot as its preference write.
     {
-        const f = fixture(), { m } = f; f.setRemote({ [m.syncMetaKey]: { enabled: false } });
+        const f = fixture(), { m } = f; f.setRemote({ [m.syncMetaKey]: { enabled: false, chunkCount: 0 } });
         const started = deferred(), resume = deferred(); let once = false;
         f.hooks.beforeLocalSet = async values => { if (!once && values.links && values.layout) { once = true; started.resolve(); await resume.promise; } };
         const allocation = f.allocate(); await started.promise;
@@ -189,7 +230,7 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     // Explicit off is an exact owned revision before chunk cleanup. Late
     // partial-read/self notifications cannot recreate a compatibility block.
     {
-        const f = fixture(), { m } = f; const legacy = f.payload(); await f.publish(legacy); await m.pullFromSync(); await f.allocate(); await m.pushToSync();
+        const f = fixture(), { m } = f; const legacy = f.payload(); await f.publish(legacy); await m.pullFromSync(); await f.allocate(); f.clearRemote(); await m.pushToSync();
         await f.publish(legacy); await assert.rejects(m.pullFromSync());
         const other = f.page();
         f.listen(async (changes, area) => { if (area !== 'sync') return; try { if (!await other.shouldIgnoreRemoteSyncChange(changes)) await other.pullFromSync(); } catch (_) {} });

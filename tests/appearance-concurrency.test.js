@@ -90,6 +90,55 @@ function fixture(initial) {
 }
 const appearance = (template = 'clarity', colorMode = 'light') => ({ template, colorMode });
 
+// These page fixtures deliberately have no provider. Exercise the real local
+// acceptance transaction after proving an unknown copy is refused first.
+async function acceptReviewedSyncReplacement(f, manager, remote) {
+    const before = f.state(), writesBefore = f.writes.length;
+    const reviewRequired = error => error.code === 'SYNC_IDENTITY_COMPATIBILITY' && error.kind === 'review';
+    await assert.rejects(manager.acceptSyncSnapshot(remote), reviewRequired);
+    same(f.state(), { ...before, [manager.syncIdentityStateKey]: {
+        ...(before[manager.syncIdentityStateKey] || {}), blocked: manager._syncCompatibilityError
+    } }, 'an unconfirmed copy changes only the local review receipt');
+    assert.equal(f.writes.length, writesBefore + 1);
+    assert.equal(f.state()[manager.syncIdentityStateKey].blocked.kind, 'review');
+    const blocked = f.state();
+    await assert.rejects(f.manager().acceptSyncSnapshot(remote), reviewRequired);
+    await assert.rejects(manager.acceptSyncSnapshot(remote), reviewRequired);
+    same(f.state(), blocked, 'a fresh page and an existing page both retain the review refusal');
+    assert.equal(f.writes.length, writesBefore + 1);
+
+    const recoveryKey = manager.restoreRecoveryKey, generationKey = manager.settingsGenerationKey;
+    const trace = [], recoveryKeys = [...Object.keys(manager.defaultConfig), 'schemaVersion', manager.layoutGenerationKey, generationKey];
+    const rawBefore = Object.fromEntries(Object.entries(before).filter(([key]) => recoveryKeys.includes(key)));
+    f.hooks.read = async keys => {
+        if (keys?.includes(recoveryKey)) trace.push('recovery-read');
+        if (keys?.includes(generationKey)) trace.push('replacement-read');
+    };
+    f.hooks.write = async values => {
+        if (Object.hasOwn(values, recoveryKey)) {
+            same(Object.keys(values), [recoveryKey], 'recovery is persisted independently of replacement');
+            trace.push('recovery-write');
+        }
+        if (Object.hasOwn(values, generationKey)) {
+            same(trace, ['recovery-write', 'recovery-read'], 'replacement waits for recovery readback');
+            const recovery = f.state()[recoveryKey];
+            same(recovery.rawConfiguration, rawBefore, 'recovery retains the exact raw local settings');
+            assert.equal(recovery.rawConfigurationChecksum, await manager.fingerprint(rawBefore));
+            assert.equal(recovery.checksum, await manager.fingerprint(recovery.payload));
+            same(f.state(), { ...blocked, [recoveryKey]: recovery }, 'saved settings are untouched until recovery is verified');
+            trace.push('replacement-write');
+        }
+    };
+    try { assert.equal((await manager.acceptSyncSnapshot(remote, { confirmedReplacement: true })).applied, true); }
+    finally { f.hooks.read = null; f.hooks.write = null; }
+    same(trace, ['recovery-write', 'recovery-read', 'replacement-write', 'replacement-read']);
+    assert.equal(f.writes.length, writesBefore + 3, 'one review receipt, one recovery write, and one replacement');
+    assert.equal(f.state().sync.enabled, before.sync?.enabled === true, 'confirmation does not opt this device into Sync');
+    for (const key of PERSONAL) same(f.state()[key], before[key], 'replacement preserves local personal content');
+    assert(PERSONAL.every(key => !JSON.stringify(f.state()[recoveryKey]).includes(key)), 'personal stores never enter portable recovery');
+}
+
+
 for (const order of ['template-first', 'color-first']) bounded(`concurrent dashboard/Settings appearance fields merge ${order}`, async () => {
     const f = fixture(), a = await f.page(), b = await f.page('options'), before = f.state();
     const choices = order === 'template-first' ? [['template', 'folio'], ['colorMode', 'dark']] : [['colorMode', 'dark'], ['template', 'folio']];
@@ -196,7 +245,7 @@ for (const replacement of ['restore', 'reset', 'Sync']) bounded(`${replacement} 
         const payload = m.prepareSyncPayload(before).payload;
         const remote = { payload, validated: m.validateImportPayload(payload), schema: 1, meta: { enabled: true, updatedAt: '2026-10-09T22:00:00.000Z' },
             revision: 'appearance-test-remote', fingerprint: await m.fingerprint({ schema: 1, payload }) };
-        assert.equal((await m.acceptSyncSnapshot(remote)).applied, true);
+        await acceptReviewedSyncReplacement(f, m, remote);
     }
     await f.settle(); const after = f.state(), count = f.writes.length; assert(after[GENERATION]);
     for (const key of PERSONAL) same(after[key], before[key]);

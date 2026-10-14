@@ -269,18 +269,68 @@ test('Sync remains opt-in and its wire payload preserves the configured clocks',
     assert.equal(f.state().sync.enabled, true);
 });
 
-test('valid and legacy Sync replacements are clock-locked and reject an older form', async () => {
+test('valid and legacy Sync replacements require review, preserve recovery, and reject an older clock form', async () => {
     for (const importedClock of [clock('Europe/London', 'London'), { hour12: false, showSeconds: true }]) {
-        const f = fixture({ clock: clock() });
-        const baseline = (await f.manager.getAll())._clockBaseline;
-        await f.publish({ links: [], clock: importedClock, quote: 'Remote quote' });
-        const result = await f.manager.pullFromSync();
-        assert.equal(result.applied, true);
-        equal(f.state().clock, { ...importedClock, worldClocks: importedClock.worldClocks || [] });
-        await assert.rejects(f.page().setAll({ clock: clock('UTC', 'UTC'), quote: 'Stale form' }, { expectedClock: baseline }), { code: 'CLOCK_CONFLICT' });
-        assert.equal(f.state().quote, 'Remote quote');
-        const clockWrites = f.writes.filter(write => Object.hasOwn(write.values, 'clock'));
-        assert.equal(clockWrites.length, 1); assert.equal(clockWrites[0].locked, true);
+        for (const enabled of [false, true]) {
+            const personalKey = '__localItabPersonalTasksV1';
+            const f = fixture({ clock: clock(), quote: 'Local quote', sync: { enabled },
+                [personalKey]: { tasks: [{ title: 'Synthetic local-only task' }] } });
+            const baseline = (await f.manager.getAll())._clockBaseline, before = f.state();
+            const reviewRequired = error => error.code === 'SYNC_IDENTITY_COMPATIBILITY' && error.kind === 'review';
+            await f.publish({ links: [], clock: importedClock, quote: 'Remote quote' });
+            await assert.rejects(f.manager.pullFromSync(), reviewRequired);
+            const guardKey = f.manager.syncIdentityStateKey, blocked = f.state();
+            assert.equal(blocked[guardKey].blocked.kind, 'review');
+            const withoutGuard = state => Object.fromEntries(Object.entries(state).filter(([key]) => key !== guardKey));
+            equal(withoutGuard(blocked), before, 'unknown cloud copies leave every local setting unchanged');
+            await assert.rejects(f.page().pullFromSync(), reviewRequired);
+            equal(f.state(), blocked, 'the review refusal survives a fresh page');
+            assert(f.writes.every(write => write.kind === 'local' && Object.keys(write.values).join() === guardKey),
+                'unconfirmed pulls may write only the local review receipt');
+
+            const beforePreview = f.writes.length, expectedRemote = await f.manager.previewCloudReplacement();
+            assert.equal(f.writes.length, beforePreview, 'preview is read-only');
+            const recoveryKey = f.manager.restoreRecoveryKey, generationKey = f.manager.settingsGenerationKey;
+            const rawBefore = { clock: before.clock, quote: before.quote, sync: before.sync };
+            const trace = []; let replacementRead = false;
+            f.hooks.beforeLocalGet = async keys => {
+                if (replacementRead) return;
+                if (keys?.includes(recoveryKey)) trace.push('recovery-read');
+                if (keys?.includes(generationKey)) { trace.push('replacement-read'); replacementRead = true; }
+            };
+            f.hooks.beforeLocalSet = async values => {
+                if (Object.hasOwn(values, recoveryKey)) {
+                    equal(Object.keys(values), [recoveryKey], 'raw recovery is its own durable write');
+                    trace.push('recovery-write');
+                }
+                if (Object.hasOwn(values, 'clock')) {
+                    equal(trace, ['recovery-write', 'recovery-read'], 'clock replacement follows recovery readback');
+                    const recovery = f.state()[recoveryKey];
+                    equal(recovery.rawConfiguration, rawBefore, 'raw recovery preserves absent settings without filling defaults');
+                    assert.equal(recovery.rawConfigurationChecksum, await f.manager.fingerprint(rawBefore));
+                    assert.equal(recovery.checksum, await f.manager.fingerprint(recovery.payload));
+                    assert(!JSON.stringify(recovery).includes(personalKey), 'personal data is excluded from recovery exports');
+                    equal(f.state(), { ...blocked, [recoveryKey]: recovery }, 'no clock or companion setting changes before recovery verification');
+                    trace.push('replacement-write');
+                }
+            };
+            const result = await f.manager.pullFromSync({ confirmedReplacement: true, expectedRemote });
+            f.hooks.beforeLocalGet = null; f.hooks.beforeLocalSet = null;
+            assert.equal(result.applied, true);
+            equal(trace, ['recovery-write', 'recovery-read', 'replacement-write', 'replacement-read']);
+            const confirmedWrites = f.writes.slice(beforePreview);
+            assert.equal(confirmedWrites.length, 2);
+            assert(confirmedWrites.every(write => write.kind === 'local' && write.locked));
+            assert.equal(f.state().sync.enabled, enabled, 'replacement preserves this device’s Sync choice');
+            equal(f.state()[personalKey], before[personalKey]);
+            equal(f.state().clock, { ...importedClock, worldClocks: importedClock.worldClocks || [] });
+            const after = f.state(), writesBeforeStale = f.writes.length;
+            await assert.rejects(f.page().setAll({ clock: clock('UTC', 'UTC'), quote: 'Stale form' }, { expectedClock: baseline }), { code: 'CLOCK_CONFLICT' });
+            equal(f.state(), after); assert.equal(f.writes.length, writesBeforeStale);
+            assert.equal(f.state().quote, 'Remote quote');
+            const clockWrites = f.writes.filter(write => Object.hasOwn(write.values, 'clock'));
+            assert.equal(clockWrites.length, 1); assert.equal(clockWrites[0].locked, true);
+        }
     }
 });
 

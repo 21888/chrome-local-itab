@@ -9,11 +9,11 @@ const watchdog = setTimeout(() => { console.error('Personal boundary model did n
 (async () => {
     const oldChrome = global.chrome, oldNavigator = Object.getOwnPropertyDescriptor(global, 'navigator'), oldError = console.error;
     let state, failSet = false, failRemove = false, pauseRead = null, providerInitializations = 0, writes = 0;
-    const queues = new Map();
+    const queues = new Map(), writeValues = [];
     Object.defineProperty(global, 'navigator', { configurable: true, value: { locks: { request(name, action) { const task = (queues.get(name) || Promise.resolve()).then(action); queues.set(name, task.catch(() => {})); return task; } } } });
     global.chrome = { storage: { local: {
         async get(keys) { const snapshot = clone(keys ? Object.fromEntries(keys.filter(key => Object.hasOwn(state, key)).map(key => [key, state[key]])) : state); if (!keys && pauseRead) await pauseRead(); return snapshot; },
-        async set(values) { if (failSet) throw new Error('write failed'); Object.assign(state, clone(values)); writes++; },
+        async set(values) { if (failSet) throw new Error('write failed'); Object.assign(state, clone(values)); writes++; writeValues.push(clone(values)); },
         async remove(keys) { if (failRemove) throw new Error('remove failed'); for (const key of keys) delete state[key]; }
     } } };
     console.error = () => {};
@@ -58,7 +58,19 @@ const watchdog = setTimeout(() => { console.error('Personal boundary model did n
         assert.equal(await m.setAll(imported, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }), true);
         assert.deepEqual(state[KEY], personal); assert(!JSON.stringify(state[m.restoreRecoveryKey]).includes(sentinel));
         const payload = m.prepareSyncPayload(m.cloneDefaultConfig()).payload;
-        await m.acceptSyncSnapshot({ payload, validated: m.validateConfigObject(payload), schema: 1, fingerprint: await m.fingerprint({ schema: 1, payload }), revision: 'remote-current', meta: { enabled: true, updatedAt: '2026-10-08T18:00:00Z' } });
+        const remote = { payload, validated: m.validateConfigObject(payload), schema: 1, fingerprint: await m.fingerprint({ schema: 1, payload }), revision: 'remote-current', meta: { enabled: true, updatedAt: '2026-10-08T18:00:00Z' } };
+        const beforeSync = clone(state), writeCount = writeValues.length;
+        await assert.rejects(m.acceptSyncSnapshot(remote), error => error.code === 'SYNC_IDENTITY_COMPATIBILITY');
+        const afterBlocked = clone(state); delete afterBlocked[m.syncIdentityStateKey];
+        const beforeBlocked = clone(beforeSync); delete beforeBlocked[m.syncIdentityStateKey];
+        assert.deepEqual(afterBlocked, beforeBlocked);
+        assert(writeValues.slice(writeCount).every(value => Object.keys(value).every(key => key === m.syncIdentityStateKey)));
+        const recoveryWrite = writeValues.length;
+        await m.acceptSyncSnapshot(remote, { confirmedReplacement: true });
+        assert(Object.hasOwn(writeValues[recoveryWrite], m.restoreRecoveryKey));
+        assert(!Object.hasOwn(writeValues[recoveryWrite], 'links'));
+        assert(Object.hasOwn(writeValues[recoveryWrite + 1], 'links'));
+        assert(!JSON.stringify(state[m.restoreRecoveryKey]).includes(sentinel));
         assert.deepEqual(state[KEY], personal);
         const drive = m.buildDriveBackupPayload(state), restored = m.prepareRestoredConfig(drive, await m.getLocalProviderState());
         assert.equal(await m.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }), true);
