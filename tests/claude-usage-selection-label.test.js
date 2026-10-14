@@ -27,7 +27,7 @@ function harness(organizations = twins) {
     const window = { addEventListener: (type, fn) => listeners.set(type, fn) };
     vm.runInNewContext(fs.readFileSync('i18n.js', 'utf8'), { document, window, chrome });
     vm.runInNewContext(fs.readFileSync('claude-usage-experiment.js', 'utf8'), { document, chrome, window,
-        ClaudeUsageSnapshot: { createController: (transport, publish, options) => (controller = API.createController(transport, publish, options)) } });
+        ClaudeUsageSnapshot: { validTimestamp: require('../shared/claude-usage-snapshot').validTimestamp, createController: (transport, publish, options) => (controller = API.createController(transport, publish, options)) } });
     const text = () => result.children.map(node => node.textContent).join('\n');
     const scripts = () => calls.filter(call => call[0] === 'script').map(call => call[1]);
     const ready = async () => { await controller.enable(); await controller.selectTab(7); };

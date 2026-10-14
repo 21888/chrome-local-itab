@@ -14,7 +14,7 @@ function harness() {
     const window = { addEventListener: (event, listener) => listeners.set(event, listener) };
     const chrome = { i18n: { getMessage: key => require('../_locales/zh_CN/messages.json')[key]?.message || '' } };
     vm.runInNewContext(fs.readFileSync('i18n.js', 'utf8'), { document, window, chrome });
-    vm.runInNewContext(source, { document, window, chrome, ClaudeUsageSnapshot: { createController: (_, publish) => { render = publish; return controller; } } });
+    vm.runInNewContext(source, { document, window, chrome, ClaudeUsageSnapshot: { validTimestamp: require('../shared/claude-usage-snapshot').validTimestamp, createController: (_, publish) => { render = publish; return controller; } } });
     return { document, calls, listeners, render, result: document.getElementById('result'), text: () => document.getElementById('result').children.map(el => el.textContent).join('\n') };
 }
 test('settings experiment entry is local, discoverable, bilingual, and grants nothing on open', () => {

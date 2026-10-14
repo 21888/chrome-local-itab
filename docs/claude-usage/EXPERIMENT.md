@@ -91,3 +91,22 @@ The frozen standalone implementation passed2884 Node/84 Python and51 focused che
 Limited Chinese-light native checks on the final118-file development package (SHA2567aae4434de8092e014efc73a315cd6392ba402487d6749c1ca40bf53f7aa5da7) passed Settings search/entry, complete entry focus rings at100%/200%, readable disclosure, default-closed empty state, safe Close/Clear, Return and reopening. Enable was never activated. No permission was granted, no Claude account/site was accessed, and no organization/usage request was made. Permission prompts, real usage parsing, network cancellation, races and nonempty cleanup therefore remain untested natively. This is a one-time session-organization snapshot experiment, not stable subscription balance, billing evidence or account binding.
 
 Final integrated regression on the current master parent passed2884/2884 strict serial Node tests (1GiB heap),84/84 Python tests and52 focused snapshot/entry/settings-search tests. The118-file runtime matched the final native-tested development package byte-for-byte; JavaScript syntax, diff and manifest-boundary checks passed. The manifest adds only optional scripting eligibility; version, required permissions and host declarations remain unchanged. This source declaration is not an actual browser grant.
+
+## Local snapshot timestamps
+
+The snapshot page formats valid collected/reset instants in its current interface
+language and the device's time zone, including the applicable GMT offset. The
+full date and seconds remain visible across midnight and daylight-saving changes.
+This is a display-only conversion of already-collected data: it adds no countdown,
+refresh, storage, permissions, account lookup or provider request. A collapsed
+**Original timestamps** disclosure retains the exact source values as plain text.
+Unknown reset times and unprovided windows remain distinct. Invalid timestamps
+still fail the existing transport validation; the renderer also defensively marks
+invalid/missing times unknown. If local formatting is unavailable, a labeled
+original timestamp with its source offset is shown instead.
+
+`node --test tests/claude-usage-*.test.js` covers the actual page scripts with
+synthetic data, including both interface languages, UTC/positive/negative offsets,
+cross-date conversion, spring/fall DST, equivalent instant encodings, formatter
+failure and clearing on close/reselection. These are DOM-model checks, not new
+native-browser or real-account verification.

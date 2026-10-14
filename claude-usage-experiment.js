@@ -30,6 +30,9 @@
         "WindowUnavailable": "{window}: not provided",
         "WindowUsage": "{window}: used {percent}% · Reset time: {reset}",
         "UnknownReset": "Unknown",
+        "TimeZoneNotice": "Times use this device’s time zone when available. This is a snapshot, not a live countdown.",
+        "OriginalTimestamps": "Original timestamps",
+        "TimeFormatFallback": "Original timestamp (local formatting unavailable): {time}",
         "FetchedAt": "Collected at: {time}. Reading again requires selecting the tab and organization again.",
         "ErrorInvalidSelection": "Invalid selection. Select a page and an organization again.",
         "ErrorHttp": "The official site returned an unexpected status. No usage was displayed.",
@@ -56,6 +59,19 @@
         return value && value !== key ? value : fallback[name];
     };
     const format = (key, values) => t(key).replace(/\{(\w+)\}/g, (token, name) => Object.hasOwn(values, name) ? String(values[name]) : token);
+    // Presentation only: format the collected instant, never estimate a reset or refresh.
+    function snapshotTime(raw) {
+        if (!ClaudeUsageSnapshot.validTimestamp(raw)) return t('UnknownReset');
+        try {
+            return new Intl.DateTimeFormat(document.documentElement.lang || 'en', {
+                year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                timeZoneName: 'longOffset'
+            }).format(new Date(raw));
+        } catch {
+            return format('TimeFormatFallback', { time: raw });
+        }
+    }
     function line(text) { const p = document.createElement('p'); p.textContent = text; result.append(p); }
     function button(label, action) { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', action); result.append(b); }
     const controller = ClaudeUsageSnapshot.createController(chrome, state => {
@@ -74,11 +90,23 @@
         } else if (state.phase === 'snapshot') {
             line(format('SnapshotHeading', { organization: state.organizationLabel }));
             if (state.unavailable) line(t('NoWindows'));
+            line(t('TimeZoneNotice'));
+            const originals = document.createElement('details'), summary = document.createElement('summary');
+            summary.textContent = t('OriginalTimestamps'); originals.append(summary);
+            const originalLine = (label, raw) => {
+                const p = document.createElement('p');
+                p.textContent = `${label}: ${typeof raw === 'string' && raw ? raw : t('UnknownReset')}`;
+                originals.append(p);
+            };
             for (const [key, label] of [['five_hour', t('FiveHourWindow')], ['seven_day', t('SevenDayWindow')]]) {
                 const window = state.windows[key];
-                line(window === null ? format('WindowUnavailable', { window: label }) : format('WindowUsage', { window: label, percent: window.usedPercent, reset: window.resetAt || t('UnknownReset') }));
+                line(window === null ? format('WindowUnavailable', { window: label }) : format('WindowUsage', { window: label, percent: window.usedPercent, reset: snapshotTime(window.resetAt) }));
+                if (window !== null) originalLine(label, window.resetAt);
             }
-            line(format('FetchedAt', { time: state.fetchedAt }));
+            line(format('FetchedAt', { time: snapshotTime(state.fetchedAt) }));
+            const collected = document.createElement('p');
+            collected.textContent = format('FetchedAt', { time: typeof state.fetchedAt === 'string' && state.fetchedAt ? state.fetchedAt : t('UnknownReset') });
+            originals.append(collected); result.append(originals);
         }
         if (hadFocus) result.focus();
     }, { unnamedOrganizationLabel: t('UnnamedOrganization') });
