@@ -46,7 +46,7 @@ test('source contract: local-only reads, text-safe rendering, no document-level 
 });
 test('host adapter observes only local links/categories and never mutates active component/editor', () => {
     let handler; let removed; let options;
-    const context = { window: null, chrome: { storage: { onChanged: { addListener(fn) { handler = fn; }, removeListener(fn) { removed = fn; } } } }, LocalItabFinder: { mount(host, value) { options = value; return value; } } };
+    const context = { window: null, chrome: { storage: { onChanged: { addListener(fn) { handler = fn; }, removeListener(fn) { removed = fn; } } } }, LocalItabFinder: { catalogLookup: require('../shared/shortcut-finder').catalogLookup, mount(host, value) { options = value; return value; } } };
     context.window = context; vm.createContext(context);
     scopeFinderStorage(context);
     vm.runInContext(fs.readFileSync(path.join(base, 'shared/shortcut-finder-host.js'), 'utf8'), context);
@@ -73,7 +73,7 @@ test('host reserves only its own blank tab, severs opener and relinquishes owner
     let options, target; const calls = [];
     const context = { window: null, open(url, name) { calls.push([url, name]); target = { opener: 'parent', closed: false, location: { href: 'about:blank' }, close() { this.closed = true; calls.push('close'); } }; return target; },
         chrome: { storage: { local: { async get(keys) { calls.push(keys); return { links: [{ title: 'fresh', url: 'https://fresh.test' }] }; } }, onChanged: { addListener() {}, removeListener() {} } } },
-        LocalItabFinder: { mount(host, value) { options = value; return value; } } };
+        LocalItabFinder: { catalogLookup: require('../shared/shortcut-finder').catalogLookup, mount(host, value) { options = value; return value; } } };
     context.window = context; scopeFinderStorage(context); vm.createContext(context); vm.runInContext(fs.readFileSync(path.join(base, 'shared/shortcut-finder-host.js'), 'utf8'), context);
     context.LocalItabFinder.mountForShortcuts({}, { links: [], categories: [], openShortcutRecord(link, tab) { assert.equal(tab.opener, null); calls.push(link.url); return true; } });
     const lease = options.reserve(); assert.equal(target.opener, null); assert.equal(calls[0][0], 'about:blank');

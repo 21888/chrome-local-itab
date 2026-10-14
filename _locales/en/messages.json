@@ -666,8 +666,9 @@
   "finderScope": {
     "message": "Only your saved sites · local search"
   },
+  "finderCatalogMatch": {"message": "Built-in use/alias match"},
   "finderLabel": {
-    "message": "Title, address or category"
+    "message": "Title, address, category or built-in use"
   },
   "finderHint": {
     "message": "Type or choose a category to find a saved site. This does not search the web."
@@ -3801,10 +3802,10 @@
     "message": "All words"
   },
   "finderMatchPhraseHint": {
-    "message": "Find the full text in one title, address or category. Spaces and punctuation stay literal."
+    "message": "Find the full text in one title, address, category or built-in use/alias. Spaces and punctuation stay literal."
   },
   "finderMatchAllWordsHint": {
-    "message": "Separate words with spaces. Every word must appear in the title, address or category, in any order. Punctuation stays literal."
+    "message": "Separate words with spaces. Every word must appear in the title, address, category or built-in use/alias, in any order. Punctuation stays literal."
   },
   "finderCategoryHint": {
     "message": "Counts show saved sites before text filtering. Choose a category to browse without typing."

@@ -3,16 +3,16 @@
     const api = root.LocalItabFinder;
     const fallback = {
         finderOpen: 'Find saved sites', finderShortcutHint: 'Press / outside editing fields to find saved sites.', finderScope: 'Only your saved sites · local search',
-        finderLabel: 'Title, address or category', finderHint: 'Type or choose a category to find a saved site. This does not search the web.',
+        finderLabel: 'Title, address, category or built-in use', finderHint: 'Type or choose a category to find a saved site. This does not search the web.',
         finderMatchMode: 'Match', finderMatchPhrase: 'Continuous phrase', finderMatchAllWords: 'All words',
-        finderMatchPhraseHint: 'Find the full text in one title, address or category. Spaces and punctuation stay literal.',
-        finderMatchAllWordsHint: 'Separate words with spaces. Every word must appear in the title, address or category, in any order. Punctuation stays literal.',
+        finderMatchPhraseHint: 'Find the full text in one title, address, category or built-in use/alias. Spaces and punctuation stay literal.',
+        finderMatchAllWordsHint: 'Separate words with spaces. Every word must appear in the title, address, category or built-in use/alias, in any order. Punctuation stays literal.',
         finderCategory: 'Filter by category', finderAllCategories: 'All categories',
         finderCategoryHint: 'Counts show saved sites before text filtering. Choose a category to browse without typing.',
         finderEmpty: 'No saved sites yet.', finderNone: 'No matching saved sites.', finderClose: 'Close', finderClear: 'Clear',
         finderPrevious: 'Previous results', finderNext: 'Next results', finderResults: 'Results', finderShowing: 'Showing',
         finderPending: 'Checking the latest saved site…', finderReadError: 'Could not verify the saved site. Nothing was opened. Try again.', finderBlocked: 'Could not open a new tab. Allow this page to open tabs and try again.',
-        finderChanged: 'This saved site changed or is no longer available. Results refreshed; choose again.', finderUnsafe: 'Unsupported address'
+        finderChanged: 'This saved site changed or is no longer available. Results refreshed; choose again.', finderUnsafe: 'Unsupported address', finderCatalogMatch: 'Built-in use/alias match'
     };
     const t = key => { const value = root.i18n?.t(key); return value && value !== key ? value : fallback[key]; };
     function el(tag, className, text) {
@@ -113,6 +113,7 @@
                 }, 'finder-button finder-result');
                 control.disabled = !row.safe; control.dataset.finderUnsafe = String(!row.safe);
                 control.append(el('span', 'finder-title', row.title), el('span', 'finder-meta', `${row.category} · ${row.domain || t('finderUnsafe')}`), el('span', 'finder-url', row.url));
+                if (row.catalogMatches?.length) control.append(el('span', 'finder-meta finder-catalog-match', `${t('finderCatalogMatch')}: ${row.catalogMatches.join(' · ')}`));
                 item.append(control); list.append(item);
             }
             previous.hidden = !result.hasPrevious; next.hidden = !result.hasNext;

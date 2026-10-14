@@ -23,6 +23,11 @@
         }
         return root.LocalItabFinder.mount(host, {
             shortcutEnabled: component.finderShortcutEnabled !== false,
+            getCatalogFields: root.LocalItabFinder.catalogLookup(root.LocalItabNavigationCatalog, root.LocalItabNavigationSites, tag => {
+                const key = `navigationTag${tag.split(/[-_]/).map(part => part[0]?.toUpperCase() + part.slice(1)).join('')}`;
+                const value = root.i18n?.t(key);
+                return value && value !== key ? value : tag.replace(/[-_]/g, ' ');
+            }),
             getSnapshot: () => snapshot,
             readSnapshot,
             async prepareSnapshot(isCurrent = () => true) {

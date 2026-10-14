@@ -16,9 +16,22 @@
             return ['http:', 'https:'].includes(url.protocol) ? url : null;
         } catch (_) { return null; }
     }
+    // An optional read-only overlay. Saved rows and their identity tokens stay raw.
+    function catalogLookup(catalog, entries, label = tag => tag.replace(/[-_]/g, ' ')) {
+        const index = new Map();
+        try {
+            catalog.validate(entries);
+            for (const site of entries) {
+                const fields = [...new Set([...site.tags, ...site.tags.map(label), ...(site.searchAliases || [])])];
+                index.set(catalog.canonicalURL(site.url), fields);
+            }
+        } catch (_) { return () => []; } // A missing/invalid catalog cannot break saved-site search.
+        return raw => index.get(catalog.canonicalURL(raw)) || [];
+    }
     class Controller {
-        constructor({ getSnapshot, readSnapshot = getSnapshot, activate, reserve }) {
+        constructor({ getSnapshot, readSnapshot = getSnapshot, activate, reserve, getCatalogFields = () => [] }) {
             this.getSnapshot = getSnapshot;
+            this.getCatalogFields = getCatalogFields;
             this.readSnapshot = readSnapshot;
             this.reserve = reserve || (() => ({ open: activate, close() {} }));
             this.pending = null;
@@ -54,21 +67,27 @@
                 const category = categories.get(link.category || 'work') || link.category || 'work';
                 if (this.category && (link.category || 'work') !== this.category) return;
                 if (!needle && !this.category) return;
+                let catalogMatches = [];
                 if (needle) {
                     const fields = [link.title, link.url, category].map(fold);
-                    if (!terms.every(term => fields.some(value => value.includes(term)))) return;
+                    const missing = terms.filter(term => !fields.some(value => value.includes(term)));
+                    if (missing.length) {
+                        const extra = this.getCatalogFields(link.url);
+                        if (!missing.every(term => extra.some(value => fold(value).includes(term)))) return;
+                        catalogMatches = extra.filter(value => missing.some(term => fold(value).includes(term)));
+                    }
                 }
-                matches.push({ link, category, index });
+                matches.push({ link, category, index, catalogMatches });
             });
             this.page = Math.min(Math.max(0, Math.floor(page) || 0), Math.max(0, Math.ceil(matches.length / PAGE_SIZE) - 1));
             const visible = matches.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE);
             // Only legacy rows need a complete snapshot for fresh-read identity checks.
             // Keep icons and other unrelated data out of ordinary saved-ID searches.
             const baseline = visible.some(({ link }) => !link.layoutId) ? JSON.stringify(links) : null;
-            const rows = visible.map(({ link, category, index }) => {
+            const rows = visible.map(({ link, category, index, catalogMatches }) => {
                 const url = safeUrl(link.url);
                 return { title: link.title || link.url || '', url: link.url || '', domain: url?.hostname || '', category,
-                    safe: Boolean(url), token: { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } };
+                    safe: Boolean(url), catalogMatches, token: { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } };
             });
             return { query: this.query, category: this.category, matchMode: this.matchMode, categoryOptions, total: matches.length, saved: links.length, page: this.page,
                 start: this.page * PAGE_SIZE, rows,
@@ -118,5 +137,5 @@
         clear() { this.cancelPending(); this.query = ''; this.category = ''; this.matchMode = 'phrase'; this.page = 0; }
 
     }
-    return { Controller, fold, safeUrl, PAGE_SIZE };
+    return { Controller, fold, safeUrl, PAGE_SIZE, catalogLookup };
 });

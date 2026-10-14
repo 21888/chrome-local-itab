@@ -666,8 +666,9 @@
   "finderScope": {
     "message": "仅查找已保存的网站 · 本地搜索"
   },
+  "finderCatalogMatch": {"message": "内置用途/别名匹配"},
   "finderLabel": {
-    "message": "标题、网址或分类"
+    "message": "标题、网址、分类或内置用途"
   },
   "finderHint": {
     "message": "输入文字或选择分类以查找已保存的网站，不会搜索网页。"
@@ -3801,10 +3802,10 @@
     "message": "所有词"
   },
   "finderMatchPhraseHint": {
-    "message": "完整文字需连续出现在同一标题、地址或分类中。空格和标点按原文匹配。"
+    "message": "在同一标题、网址、分类或内置用途/别名中匹配完整文字；空格和标点按原样匹配。"
   },
   "finderMatchAllWordsHint": {
-    "message": "用空格分隔词语。每个词都需出现在标题、地址或分类中，可跨字段、任意顺序匹配。标点按原文匹配。"
+    "message": "用空格分隔多个词。每个词都须在同一网站的标题、网址、分类或内置用途/别名中出现，顺序不限；标点按原样匹配。"
   },
   "finderCategoryHint": {
     "message": "数量为文字筛选前已保存的网站数。选择分类后，无需输入即可浏览。"
