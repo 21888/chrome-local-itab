@@ -22,7 +22,7 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
     if (safeReader) { const Marked = require('../vendor/marked/marked.umd.js'); window.marked = { Lexer: class extends Marked.Lexer { lex(source) { readerParses++; return super.lex(source); } } }; vm.runInNewContext(fs.readFileSync('shared/safe-answer-reader.js', 'utf8'), { window }); }
     vm.runInNewContext(fs.readFileSync('shared/ai-context-view.js', 'utf8'), { window });
     const view = window.LocalItabAIContextView.mount(host, { controller, presetStore, clipboard, t }); await view.ready;
-    const field = type => host.querySelectorAll('input').find(node => node.type === type);
+    const field = type => type === 'text' ? host.querySelector('.ai-context-model') : host.querySelectorAll('input').find(node => node.type === type);
     const byText = text => host.querySelectorAll('button').find(node => node.textContent.startsWith(text));
     const click = text => { const node = byText(text); assert(node); assert.equal(Boolean(node.disabled), false, `${text} enabled`); node.dispatch('click'); return node; };
     const input = (node, value) => { node.value = value; node.dispatch('input'); };
@@ -307,7 +307,7 @@ test('actual view and wrapper protect unsent drafts on Close and Escape; cancel 
         const key = overlay.querySelectorAll('input').find(node => node.type === 'password'); edit(key, 'synthetic-key');
         if (reviewed) {
             edit(overlay.querySelectorAll('input').find(node => node.type === 'url'), 'https://mock.example/v1/chat/completions');
-            edit(overlay.querySelectorAll('input').find(node => node.type === 'text'), 'mock'); edit(key, 'synthetic-key');
+            edit(overlay.querySelector('.ai-context-model'), 'mock'); edit(key, 'synthetic-key');
             overlay.querySelectorAll('button').find(node => node.textContent === 'Review exact request').dispatch('click'); await settle(); assert(controller.reviewed);
         }
         const dismiss = () => method === 'close' ? overlay.querySelector('.ai-context-close').dispatch('click') : overlay.dispatch('keydown', { key: 'Escape' });

@@ -57,6 +57,18 @@
         reusePrompt.className = 'ai-context-prompt-reuse'; reusePrompt.setAttribute('aria-controls', promptPicker.id); reusePrompt.setAttribute('aria-expanded', 'false');
         const promptHelp = el('p', '', label('PromptHelp', 'Choose a current, unarchived template from the global prompt library, fill its variables and preview the replacement question. Only an explicit Replace changes this session. Sources, excerpts, output mode, connection and previous response stay unchanged. Nothing is sent, copied or saved; no prompt-version link is attached.'));
         promptHelp.id = 'ai-context-prompt-help'; promptPicker.setAttribute('aria-describedby', promptHelp.id); promptPicker.setAttribute('aria-label', label('PromptReuse', 'Use a saved prompt'));
+        const promptSearchLabel = el('label', 'ai-context-field', label('PromptSearch', 'Search template titles'));
+        const promptSearch = el('input', 'ai-context-prompt-search'); promptSearch.type = 'text'; promptSearch.autocomplete = 'off'; promptSearch.spellcheck = false;
+        promptSearchLabel.append(promptSearch);
+        const promptSearchHelp = el('p', '', label('PromptSearchHelp', 'Search titles locally. Changing or clearing the search clears the template selection, variables and preview; your question stays unchanged.'));
+        promptSearchHelp.id = 'ai-context-prompt-search-help'; promptSearch.setAttribute('aria-describedby', promptSearchHelp.id);
+        const promptSearchReset = button('PromptSearchReset', 'Clear template search', () => {
+            if (promptBlocked() || promptOperation || promptPicker.hidden || !promptAvailable) return;
+            promptSearch.value = ''; filterPrompts(); promptSearch.focus();
+        });
+        const promptSearchControls = el('div', 'ai-context-prompt-search-controls'); promptSearchControls.append(promptSearchLabel, promptSearchReset);
+        const promptMatches = el('p', 'ai-context-prompt-matches'); promptMatches.hidden = true;
+        promptMatches.setAttribute('role', 'status'); promptMatches.setAttribute('aria-live', 'polite');
         const promptLabel = el('label', 'ai-context-field', label('PromptSelect', 'Saved prompt template'));
         const promptSelect = el('select', 'ai-context-prompt-select'); promptLabel.append(promptSelect);
         const promptVariables = el('div', 'ai-context-prompt-variables');
@@ -70,9 +82,9 @@
         const promptReload = button('PromptReload', 'Reload saved prompts', () => { if (!promptBlocked()) void loadPrompts(); });
         const promptClose = button('PromptClose', 'Close prompt picker', () => closePrompts(true));
         const promptActions = el('div', 'ai-context-actions'); promptActions.append(promptPreviewButton, promptApply, promptReload, promptClose);
-        promptPicker.append(promptHelp, promptLabel, promptVariables, promptPreview, promptCount, promptActions, promptStatus);
+        promptPicker.append(promptHelp, promptSearchControls, promptSearchHelp, promptMatches, promptLabel, promptVariables, promptPreview, promptCount, promptActions, promptStatus);
         questionPane.append(reusePrompt, promptPicker);
-        let promptRecords = [], promptRecord = null, promptRows = [], promptValues = Object.create(null), promptTicket = null, promptOperation = null, promptEpoch = 0, promptSubscription = null;
+        let promptRecords = [], promptRecord = null, promptRows = [], promptValues = Object.create(null), promptTicket = null, promptOperation = null, promptEpoch = 0, promptSubscription = null, promptAvailable = false, promptComposing = false;
         const modeLabel = el('label', 'ai-context-field', label('Mode', 'Output'));
         const mode = el('select', 'ai-context-mode');
         for (const [value, name, fallback] of [['answer', 'Answer', 'Answer'], ['tasks', 'Tasks', 'Draft tasks for review']]) { const option = el('option', '', label(name, fallback)); option.value = value; mode.append(option); }
@@ -397,13 +409,14 @@
             const subscription = promptSubscription; promptSubscription = null;
             try { subscription?.unsubscribe?.(); } catch (_) { /* Closed identities still reject queued notifications. */ }
             cancelPromptOperation(); clearPromptPreview(); promptRecords = []; promptRecord = null; promptRows = []; promptValues = Object.create(null);
+            promptAvailable = false; promptSearch.value = ''; promptComposing = false; promptMatches.hidden = true; promptMatches.textContent = '';
             promptSelect.replaceChildren(); promptVariables.replaceChildren(); promptStatus.textContent = ''; promptPicker.hidden = true;
             reusePrompt.setAttribute('aria-expanded', 'false'); reusePrompt.hidden = false;
             if (restoreFocus) { if (!reusePrompt.disabled) reusePrompt.focus(); else status.focus(); }
         }
         function promptDraftCurrent(ticket) {
             return ticket && !promptBlocked() && !promptPicker.hidden && ticket.epoch === promptEpoch &&
-                ticket.generation === controller.generation && ticket.question === questionText();
+                ticket.generation === controller.generation && ticket.question === questionText() && ticket.search === promptSearch.value;
         }
         function updatePromptPicker() {
             const blocked = promptBlocked();
@@ -413,11 +426,15 @@
                 promptStatus.textContent = label('PromptStale', 'The draft or workspace changed, or another operation started. Preview again before replacing the question.');
             }
             promptSelect.disabled = promptReload.disabled = blocked || Boolean(promptOperation);
+            const searchDisabled = blocked || Boolean(promptOperation) || !promptAvailable, resetDisabled = searchDisabled || !promptSearch.value;
+            // Move focus before disabling: native controls may blur to body first.
+            if (!promptPicker.hidden && ((doc.activeElement === promptSearch && searchDisabled) || (doc.activeElement === promptSearchReset && resetDisabled))) promptStatus.focus();
+            promptSearch.disabled = searchDisabled; promptSearchReset.disabled = resetDisabled;
             promptPreviewButton.disabled = blocked || Boolean(promptOperation) || !promptRecord;
             promptApply.disabled = blocked || Boolean(promptOperation) || !promptTicket;
             for (const row of promptRows) row.input.disabled = row.empty.disabled = blocked || Boolean(promptOperation);
         }
-        function promptSnapshot() { return { epoch: promptEpoch, generation: controller.generation, question: questionText() }; }
+        function promptSnapshot() { return { epoch: promptEpoch, generation: controller.generation, question: questionText(), search: promptSearch.value }; }
         function subscribePrompts() {
             if (promptSubscription) return;
             const subscription = promptSubscription = {};
@@ -426,6 +443,7 @@
                     if (promptSubscription !== subscription || disposed || promptPicker.hidden) return;
                     const restoreFocus = promptPicker.contains(doc.activeElement);
                     cancelPromptOperation(); clearPromptPreview(); promptRecords = []; promptRecord = null; promptRows = []; promptValues = Object.create(null);
+                    promptAvailable = false; promptMatches.hidden = true; promptMatches.textContent = '';
                     promptSelect.replaceChildren(); promptVariables.replaceChildren();
                     promptStatus.textContent = label('PromptChanged', 'The saved prompt library changed. Reload saved prompts and preview again. Your question is unchanged.');
                     updatePromptPicker(); if (restoreFocus) promptStatus.focus();
@@ -444,28 +462,55 @@
         async function loadPrompts() {
             if (promptBlocked() || promptPicker.hidden || promptOperation) return;
             cancelPromptOperation(); clearPromptPreview(); promptRecord = null; promptRecords = []; promptRows = []; promptValues = Object.create(null);
+            promptAvailable = false; promptMatches.hidden = true; promptMatches.textContent = '';
             promptSelect.replaceChildren(); promptVariables.replaceChildren();
             const operation = promptOperation = promptSnapshot();
             promptStatus.textContent = label('PromptLoading', 'Reading saved prompts…'); promptStatus.focus(); updatePromptPicker();
             try {
                 const state = await readPromptState(operation);
                 promptRecords = promptAPI.search(state).map(item => item.record);
-                const placeholder = el('option', '', label('PromptChoose', 'Choose a template')); placeholder.value = ''; promptSelect.append(placeholder);
-                for (const record of promptRecords) { const option = el('option', '', record.title); option.value = record.id; promptSelect.append(option); }
-                promptSelect.value = '';
-                promptStatus.textContent = promptRecords.length ? label('PromptLoaded', 'Choose a template. Your question has not changed.') : label('PromptEmpty', 'No unarchived saved prompts are available. Save a template in the prompt library first, then reload here.');
+                promptAvailable = true; renderPromptChoices();
             } catch (_) {
                 if (promptOperation === operation && promptDraftCurrent(operation)) promptStatus.textContent = label('PromptReadError', 'Could not verify the saved prompts or current workspace. Your question is unchanged. Reload saved prompts to try again.');
             } finally {
                 if (promptOperation === operation) {
-                    promptOperation = null; if (!disposed) { updatePromptPicker(); if (!promptSelect.disabled && doc.activeElement === promptStatus) promptSelect.focus(); }
+                    promptOperation = null; if (!disposed) { updatePromptPicker(); if (!promptSearch.disabled && doc.activeElement === promptStatus) promptSearch.focus(); }
                 }
             }
         }
+        // Match only the loaded titles; no store read, regex or template rendering.
+        const foldPromptTitle = value => value.normalize('NFKC').toLowerCase().replace(/\s+/gu, ' ').trim();
+        function promptCandidates() {
+            const query = foldPromptTitle(promptSearch.value);
+            return promptRecords.filter(record => foldPromptTitle(record.title).includes(query));
+        }
+        function renderPromptChoices() {
+            const matches = promptCandidates();
+            const placeholder = el('option', '', label('PromptChoose', 'Choose a template')); placeholder.value = '';
+            promptSelect.replaceChildren(placeholder);
+            for (const record of matches) { const option = el('option', '', record.title); option.value = record.id; promptSelect.append(option); }
+            promptSelect.value = '';
+            promptMatches.textContent = `${label('PromptMatches', 'Matching titles')}: ${matches.length} / ${promptRecords.length}`; promptMatches.hidden = false;
+            promptStatus.textContent = !promptRecords.length ? label('PromptEmpty', 'No unarchived saved prompts are available. Save a template in the prompt library first, then reload here.') :
+                !matches.length ? label('PromptNoMatches', 'No template titles match. Change or clear the search. Your question is unchanged.') : label('PromptLoaded', 'Choose a template. Your question has not changed.');
+        }
+        function filterPrompts() {
+            if (promptBlocked() || promptOperation || promptPicker.hidden || !promptAvailable) return;
+            cancelPromptOperation(); clearPromptPreview(); promptRecord = null; promptRows = []; promptValues = Object.create(null); promptVariables.replaceChildren();
+            renderPromptChoices(); updatePromptPicker();
+        }
+        promptSearch.addEventListener('input', filterPrompts);
+        promptSearch.addEventListener('compositionstart', () => { promptComposing = true; });
+        promptSearch.addEventListener('compositionend', () => { promptComposing = false; });
+        promptSearch.addEventListener('focusout', () => { promptComposing = false; });
+        promptSearch.addEventListener('keydown', event => {
+            // Let the IME handle its own Escape, without closing the outer dialog.
+            if (event.key === 'Escape' && (promptComposing || event.isComposing || event.keyCode === 229)) event.stopPropagation();
+        });
         promptSelect.addEventListener('change', () => {
             if (promptBlocked() || promptOperation || promptPicker.hidden) return;
             cancelPromptOperation(); clearPromptPreview(); promptVariables.replaceChildren(); promptRows = []; promptValues = Object.create(null);
-            promptRecord = promptRecords.find(record => record.id === promptSelect.value) || null; promptStatus.textContent = '';
+            promptRecord = promptCandidates().find(record => record.id === promptSelect.value) || null; promptStatus.textContent = '';
             try {
                 if (promptRecord) for (const name of promptAPI.previewTemplate(promptRecord.body).variables) {
                     const wrapper = el('label', 'ai-context-field', `${label('PromptVariable', 'Variable')}: ${name}`);
@@ -834,7 +879,7 @@
             // A confirmation cannot authorize discarding edits made while the host awaits readiness.
             const signature = () => JSON.stringify([controls.map(input => [input.value, input.checked]), mode.value, stream.checked,
                 sourceRows.map(row => [row.source.id, row.input.value, row.rawText, row.check.checked]), sourceSearch.value, sourceScope.value, selectedOnly,
-                answerTitle.value, output.value, includeContext.checked, promptPicker.hidden, promptSelect.value,
+                answerTitle.value, output.value, includeContext.checked, promptPicker.hidden, promptSelect.value, promptSearch.value,
                 promptRows.map(row => [row.name, row.input.value]), promptPreview.textContent, promptEpoch, collectionEpoch]);
             const before = signature(), generation = controller.generation, result = controller.result, reviewed = controller.reviewed, localReview = controller.localReview;
             const taskSelection = controller.taskSelection, taskReview = controller.taskReview;

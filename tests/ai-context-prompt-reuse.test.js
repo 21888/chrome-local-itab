@@ -252,7 +252,7 @@ test('pending connection-preset load and a restore fence block the picker withou
 for (const locale of ['en', 'zh_CN']) test(`${locale}: localized picker preserves native-focus recovery and labels`, async () => {
     const h = await mount({ locale, body: 'Synthetic template' }), messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
     const launch = h.button(messages.aiContextPromptReuse.message); launch.focus(); await h.open();
-    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-select')); assert.equal(launch.getAttribute('aria-expanded'), 'true');
+    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-search')); assert.equal(launch.getAttribute('aria-expanded'), 'true');
     h.pick(); h.click(messages.aiContextPromptPreview.message);
     assert.equal(h.q('.ai-context-prompt-preview').getAttribute('tabindex'), '0'); assert.ok(h.q('.ai-context-prompt-preview').getAttribute('aria-label'));
     const apply = h.button(messages.aiContextPromptApply.message), wait = deferred(), read = h.p.read.bind(h.p); h.p.read = async () => { await wait.promise; return read(); };
@@ -283,4 +283,165 @@ test('all prompt-picker labels have matching English/Chinese keys, no new permis
     const source = fs.readFileSync('shared/ai-context-view.js', 'utf8'), keys = new Set([...source.matchAll(/(?:label|button)\('(Prompt\w+)'/g)].map(match => `aiContext${match[1]}`));
     for (const locale of ['en', 'zh_CN']) { const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8')); for (const key of keys) assert.ok(messages[key]?.message, `${locale}: ${key}`); }
     assert.doesNotMatch(source, /clipboard\.read|innerHTML|fetch\(/); assert.deepEqual(JSON.parse(fs.readFileSync('manifest.json', 'utf8')).permissions, ['storage', 'unlimitedStorage', 'identity', 'contextMenus']);
+});
+
+// Full-capacity synthetic titles use the same validated schema, without 200 writes.
+function seedTitles(h, titles) {
+    const raw = h.p.raw, base = raw.records[0];
+    raw.records = titles.map((title, index) => {
+        const record = structuredClone(base); record.id = `search-record-${index}`; record.currentVersionId = `search-version-${index}`;
+        record.history[0].id = record.currentVersionId; record.title = title;
+        return record;
+    });
+    h.p.replace(Prompts.validate(raw)); return raw.records;
+}
+const choices = h => h.q('.ai-context-prompt-select').querySelectorAll('option').filter(node => node.value).map(node => node.textContent);
+
+test('title-only filtering at 200 templates is local, literal and never picks the only match', async () => {
+    const h = await mount({ body: 'body-only needle' }), records = seedTitles(h, Array.from({ length: 200 }, (_, i) => i === 199 ? '<b>Unique synthetic title</b>' : `Template ${i}`));
+    await h.open(); const raw = h.p.raw; assert.equal(choices(h).length, 200); assert.match(h.q('.ai-context-prompt-matches').textContent, /200 \/ 200/);
+    h.input(h.q('.ai-context-prompt-search'), 'unique synthetic');
+    assert.deepEqual(choices(h), ['<b>Unique synthetic title</b>']); assert.equal(h.host.querySelectorAll('b').length, 0);
+    assert.match(h.q('.ai-context-prompt-matches').textContent, /1 \/ 200/); assert.equal(h.q('.ai-context-prompt-select').value, '');
+    assert.equal(h.button('Preview replacement').disabled, true); assert.equal(h.button('Replace this question').disabled, true);
+    h.q('.ai-context-prompt-search').dispatch('keydown', { key: 'Enter' }); assert.equal(h.q('.ai-context-question').value, '');
+    h.input(h.q('.ai-context-prompt-search'), 'body-only needle'); assert.deepEqual(choices(h), []);
+    h.pick(records[199].id); assert.equal(h.button('Preview replacement').disabled, true, 'hidden/stale choices are refused');
+    assert.equal(h.p.reads, 1); assert.deepEqual(h.p.raw, raw); quiet(h);
+});
+
+const titleCases = [
+    ['中文', '日报 中文 摘要', ' 中文 '], ['case', 'MiXeD Title', 'mIXed tITle'],
+    ['spaces', 'Weekly   Summary', ' \tWEEKLY\u00a0 \nSUMMARY  '], ['width', 'ＡＢＣ　１２３', 'abc 123'],
+    ['canonical Unicode', 'Café notes', 'CAFE\u0301'], ['emoji', 'Launch 😀 report', '😀'],
+    ['brackets', 'Array [a-z] draft', '[a-z]'], ['regex characters', 'Literal .* +?$', '.*'],
+    ['backslash', 'Path \\draft', '\\draft'], ['percent', '100% summary', '100%'],
+    ['blank', 'Any title', ' \t\u3000 ']
+];
+for (const [name, title, query] of titleCases) test(`title filtering supports ${name} without changing stored/displayed titles`, async () => {
+    const h = await mount(); seedTitles(h, [title]); await h.open(); h.input(h.q('.ai-context-prompt-search'), query);
+    assert.deepEqual(choices(h), [title]); assert.equal(h.q('.ai-context-prompt-select').value, ''); assert.equal(h.p.reads, 1); quiet(h);
+});
+
+test('search does not match body, tags, category, tool, archived or recovery-only titles', async () => {
+    const h = await mount({ body: 'BodyNeedle' }), raw = h.p.raw, base = raw.records[0];
+    base.tags = ['TagNeedle']; base.category = 'CategoryNeedle'; base.tool = 'ToolNeedle';
+    const archived = structuredClone(base); archived.id = 'archived-search-record'; archived.currentVersionId = archived.history[0].id = 'archived-search-version'; archived.title = 'ArchivedNeedle'; archived.deletedAt = archived.updatedAt;
+    raw.records.push(archived);
+    const recovery = structuredClone(base); recovery.id = 'recovery-search-record'; recovery.currentVersionId = recovery.history[0].id = 'recovery-search-version'; recovery.title = 'RecoveryNeedle';
+    raw.recovery.push({ id: 'search-recovery-copy', createdAt: base.createdAt, content: { records: [recovery] } });
+    h.p.replace(Prompts.validate(raw)); await h.open();
+    for (const query of ['BodyNeedle', 'TagNeedle', 'CategoryNeedle', 'ToolNeedle', 'ArchivedNeedle', 'RecoveryNeedle', '.*']) {
+        h.input(h.q('.ai-context-prompt-search'), query); assert.deepEqual(choices(h), []); assert.match(h.q('.ai-context-prompt-status').textContent, /No template titles match/);
+    }
+    assert.equal(h.p.reads, 1); quiet(h);
+});
+
+test('filter changes and clear invalidate selection, variables and preview, retaining question and existing review', async () => {
+    const h = await mount(); h.input(h.q('.ai-context-question'), 'Keep question'); await review(h, true); const ticket = h.controller.localReview;
+    await h.preview({ topic: 'Previous value' }); assert.equal(h.button('Replace this question').disabled, false);
+    h.q('.ai-context-prompt-search').focus(); h.input(h.q('.ai-context-prompt-search'), 'Synthetic');
+    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-search')); assert.equal(h.q('.ai-context-prompt-select').value, '');
+    assert.equal(h.q('.ai-context-prompt-variables').children.length, 0); assert.equal(h.q('.ai-context-prompt-preview').hidden, true);
+    h.button('Replace this question').dispatch('click'); await settle(); assert.equal(h.p.reads, 1);
+    h.pick(); assert.equal(h.q('.ai-context-prompt-variables').querySelector('textarea').value, ''); h.click('Preview replacement');
+    assert.match(h.q('.ai-context-prompt-status').textContent, /Fill every variable/);
+    h.button('Clear template search').focus(); h.click('Clear template search');
+    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-search')); assert.equal(h.q('.ai-context-prompt-search').value, '');
+    assert.equal(h.q('.ai-context-prompt-select').value, ''); assert.equal(h.button('Clear template search').disabled, true);
+    assert.equal(h.q('.ai-context-question').value, 'Keep question'); assert.equal(h.controller.localReview, ticket); quiet(h);
+});
+
+for (const locale of ['en', 'zh_CN']) test(`${locale}: search labels, no-match feedback, clear/close/reopen focus and empty library`, async () => {
+    const h = await mount({ locale }), messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+    await h.open(); const search = h.q('.ai-context-prompt-search'); assert.equal(h.document.activeElement, search);
+    assert.equal(search.type, 'text'); assert.equal(search.parentElement.tagName, 'LABEL'); assert.ok(search.parentElement.textContent.includes(messages.aiContextPromptSearch.message));
+    assert.equal(search.getAttribute('aria-describedby'), 'ai-context-prompt-search-help');
+    h.input(search, 'no match'); assert.equal(h.q('.ai-context-prompt-status').textContent, messages.aiContextPromptNoMatches.message);
+    assert.match(h.q('.ai-context-prompt-matches').textContent, /0 \/ 1/); assert.equal(h.q('.ai-context-prompt-select').value, '');
+    h.click(messages.aiContextPromptSearchReset.message); assert.equal(h.document.activeElement, search);
+    h.input(search, 'Synthetic'); h.click(messages.aiContextPromptClose.message);
+    assert.equal(h.document.activeElement, h.button(messages.aiContextPromptReuse.message)); assert.equal(search.value, '');
+    await h.open(); assert.equal(search.value, ''); assert.equal(h.q('.ai-context-prompt-select').value, ''); quiet(h);
+    const empty = await mount({ locale, empty: true }); await empty.open(); empty.input(empty.q('.ai-context-prompt-search'), 'anything');
+    assert.equal(empty.q('.ai-context-prompt-status').textContent, messages.aiContextPromptEmpty.message); assert.match(empty.q('.ai-context-prompt-matches').textContent, /0 \/ 0/); quiet(empty);
+});
+
+test('search belongs to the host draft signature, including query-only changes without an input event', async () => {
+    const h = await mount(); await h.open(); assert.equal(h.view.hasUncommittedWork(), true);
+    const current = h.view.captureDraft(); assert.equal(current(), true);
+    h.q('.ai-context-prompt-search').value = 'changed without event'; assert.equal(current(), false);
+    h.input(h.q('.ai-context-prompt-search'), ''); assert.equal(current(), false, 'an edited/reverted search still owns a new picker epoch'); quiet(h);
+});
+
+for (const signal of ['tracked composition', 'isComposing', 'keyCode 229']) test(`${signal}: search Escape stays with the IME; ordinary Escape reaches the host`, async () => {
+    const h = await mount(); await h.open(); const search = h.q('.ai-context-prompt-search'); h.input(search, '中文');
+    let escapes = 0; h.host.addEventListener('keydown', event => { if (event.key === 'Escape') escapes++; });
+    if (signal === 'tracked composition') search.dispatch('compositionstart');
+    const event = search.dispatch('keydown', { key: 'Escape', isComposing: signal === 'isComposing', keyCode: signal === 'keyCode 229' ? 229 : 27 });
+    assert.equal(event.stopped, true); assert.equal(event.prevented, false); assert.equal(escapes, 0); assert.equal(search.value, '中文');
+    search.dispatch('compositionend'); const ordinary = search.dispatch('keydown', { key: 'Escape' });
+    assert.equal(ordinary.stopped, false); assert.equal(escapes, 1); quiet(h);
+});
+
+for (const lock of ['busy', 'save uncertain', 'task uncertain']) for (const focused of ['search', 'reset']) test(`${lock}, focused ${focused}: search and reset cannot bypass the existing locks`, async () => {
+    const h = await mount({ body: 'Keep template' }); await h.preview(); h.input(h.q('.ai-context-prompt-search'), 'Synthetic');
+    (focused === 'search' ? h.q('.ai-context-prompt-search') : h.button('Clear template search')).focus();
+    if (lock === 'busy') h.controller.busy = true;
+    if (lock === 'save uncertain') { h.controller.saveCommand = {}; h.controller.saveUncertain = true; }
+    if (lock === 'task uncertain') { h.controller.taskCommand = {}; h.controller.taskUncertain = true; }
+    h.input(h.q('.ai-context-question'), 'Keep question'); // Existing update path paints the lock.
+    assert.equal(h.q('.ai-context-prompt-search').disabled, true); assert.equal(h.button('Clear template search').disabled, true);
+    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-status'), 'focus leaves a disabled filter control safely');
+    const oldChoices = choices(h), oldStatus = h.q('.ai-context-prompt-status').textContent;
+    h.input(h.q('.ai-context-prompt-search'), 'No match'); h.button('Clear template search').dispatch('click');
+    assert.equal(h.q('.ai-context-prompt-search').value, 'No match'); assert.deepEqual(choices(h), oldChoices); assert.equal(h.q('.ai-context-prompt-status').textContent, oldStatus);
+    assert.equal(h.p.reads, 1); assert.equal(h.q('.ai-context-question').value, 'Keep question'); quiet(h);
+});
+
+for (const point of ['list', 'apply']) test(`${point}: programmatic query changes during a pending read invalidate the operation`, async () => {
+    const h = await mount({ body: 'Replacement' }); h.input(h.q('.ai-context-question'), 'Keep');
+    if (point === 'apply') await h.preview();
+    const wait = deferred(), read = h.p.read.bind(h.p); h.p.read = async () => { await wait.promise; return read(); };
+    h.click(point === 'list' ? 'Use a saved prompt' : 'Replace this question'); await settle();
+    assert.equal(h.q('.ai-context-prompt-search').disabled, true); assert.equal(h.button('Clear template search').disabled, true);
+    h.q('.ai-context-prompt-search').value = 'new raw query'; wait.resolve(); await settle();
+    assert.equal(h.q('.ai-context-question').value, 'Keep'); assert.equal(h.button('Replace this question').disabled, true); quiet(h);
+});
+
+test('query-only DOM tampering cannot apply an earlier preview', async () => {
+    const h = await mount({ body: 'Replacement' }); h.input(h.q('.ai-context-question'), 'Keep'); await h.preview();
+    h.q('.ai-context-prompt-search').value = 'different filter'; h.button('Replace this question').dispatch('click'); await settle();
+    assert.equal(h.q('.ai-context-question').value, 'Keep'); assert.equal(h.p.reads, 1); quiet(h);
+});
+
+test('library notification clears counts and preview, preserves filter, disables filter actions and requires explicit reload', async () => {
+    const h = await mount(); await h.open(); h.input(h.q('.ai-context-prompt-search'), 'Synthetic'); h.pick();
+    h.input(h.q('.ai-context-prompt-variables').querySelector('textarea'), 'Value'); h.click('Preview replacement');
+    h.q('.ai-context-prompt-search').focus(); h.p.notify();
+    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-status')); assert.equal(h.q('.ai-context-prompt-search').value, 'Synthetic');
+    assert.equal(h.q('.ai-context-prompt-search').disabled, true); assert.equal(h.button('Clear template search').disabled, true);
+    assert.equal(h.q('.ai-context-prompt-matches').hidden, true); assert.equal(h.q('.ai-context-prompt-preview').hidden, true);
+    h.q('.ai-context-prompt-search').dispatch('input'); h.button('Clear template search').dispatch('click');
+    assert.match(h.q('.ai-context-prompt-status').textContent, /library changed/); assert.equal(h.p.reads, 1);
+    h.click('Reload saved prompts'); await settle(); assert.equal(h.p.reads, 2); assert.equal(h.q('.ai-context-prompt-search').value, 'Synthetic');
+    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-search')); assert.equal(h.q('.ai-context-prompt-select').value, ''); assert.match(h.q('.ai-context-prompt-matches').textContent, /1 \/ 1/); quiet(h);
+});
+
+test('failed reload keeps the filter and readable diagnostic; retry and outside focus stay explicit', async () => {
+    const h = await mount(); await h.open(); h.input(h.q('.ai-context-prompt-search'), 'Synthetic'); const read = h.p.read.bind(h.p);
+    h.p.read = async () => { throw Error('Synthetic failure'); }; h.click('Reload saved prompts'); await settle();
+    assert.equal(h.q('.ai-context-prompt-search').value, 'Synthetic'); assert.equal(h.q('.ai-context-prompt-search').disabled, true);
+    assert.equal(h.document.activeElement, h.q('.ai-context-prompt-status')); assert.equal(h.q('.ai-context-prompt-matches').hidden, true);
+    h.button('Clear template search').dispatch('click'); assert.match(h.q('.ai-context-prompt-status').textContent, /Could not verify/);
+    const wait = deferred(); h.p.read = async () => { await wait.promise; return read(); }; h.click('Reload saved prompts'); await settle();
+    h.q('.ai-context-question').focus(); wait.resolve(); await settle(); assert.equal(h.document.activeElement, h.q('.ai-context-question'));
+    assert.equal(h.q('.ai-context-prompt-search').disabled, false); assert.deepEqual(choices(h), ['<b>Synthetic template</b>']); quiet(h);
+});
+
+test('leaving an interrupted search composition does not swallow a later ordinary Escape', async () => {
+    const h = await mount(); await h.open(); const search = h.q('.ai-context-prompt-search');
+    search.dispatch('compositionstart'); search.dispatch('focusout'); search.focus();
+    let escapes = 0; h.host.addEventListener('keydown', event => { if (event.key === 'Escape') escapes++; });
+    assert.equal(search.dispatch('keydown', { key: 'Escape' }).stopped, false); assert.equal(escapes, 1); quiet(h);
 });

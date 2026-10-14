@@ -6105,6 +6105,21 @@
   "aiContextPromptHelp": {
     "message": "Choose a current, unarchived template from the global prompt library, fill its variables and preview the replacement question. Only an explicit Replace changes this session. Sources, excerpts, output mode, connection and previous response stay unchanged. Nothing is sent, copied or saved; no prompt-version link is attached."
   },
+  "aiContextPromptSearch": {
+    "message": "Search template titles"
+  },
+  "aiContextPromptSearchHelp": {
+    "message": "Search titles locally. Changing or clearing the search clears the template selection, variables and preview; your question stays unchanged."
+  },
+  "aiContextPromptSearchReset": {
+    "message": "Clear template search"
+  },
+  "aiContextPromptMatches": {
+    "message": "Matching titles"
+  },
+  "aiContextPromptNoMatches": {
+    "message": "No template titles match. Change or clear the search. Your question is unchanged."
+  },
   "aiContextPromptSelect": {
     "message": "Saved prompt template"
   },

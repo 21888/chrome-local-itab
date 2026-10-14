@@ -6105,6 +6105,21 @@
   "aiContextPromptHelp": {
     "message": "从全局提示词库中选择当前未归档模板，填写变量，再预览将替换的问题。只有明确点击替换才会修改本次会话。来源、摘录、输出模式、连接及已有回答保持不变。不发送、复制或保存，也不附加提示词版本关联。"
   },
+  "aiContextPromptSearch": {
+    "message": "搜索模板标题"
+  },
+  "aiContextPromptSearchHelp": {
+    "message": "仅在本地搜索标题。修改或清空搜索会清除当前模板选择、变量与预览，问题草稿保持不变。"
+  },
+  "aiContextPromptSearchReset": {
+    "message": "清空模板搜索"
+  },
+  "aiContextPromptMatches": {
+    "message": "匹配标题"
+  },
+  "aiContextPromptNoMatches": {
+    "message": "没有匹配的模板标题，请修改或清空搜索。问题草稿保持不变。"
+  },
   "aiContextPromptSelect": {
     "message": "已保存的提示词模板"
   },
