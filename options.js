@@ -1054,7 +1054,7 @@ function setupEventListeners() {
             } catch (error) {
                 console.error('Cloud sync toggle error:', error);
                 syncToggle.checked = (await storageManager.getSyncStatus()).enabled;
-                showMessage(t('syncFailed', 'Chrome 同步失败：$1', error.message), 'error');
+                showMessage(t('syncFailed', 'Chrome 同步失败：$1', syncErrorMessage(error)), 'error');
                 await renderSyncStatus();
             } finally {
                 const status = await storageManager.getSyncStatus();
@@ -1072,7 +1072,7 @@ function setupEventListeners() {
                 await renderSyncStatus(status);
             } catch (error) {
                 console.error('Cloud sync upload error:', error);
-                showMessage(t('syncUploadFailed', '上传失败：$1', error.message), 'error');
+                showMessage(t('syncUploadFailed', '上传失败：$1', syncErrorMessage(error)), 'error');
                 await renderSyncStatus();
             }
         });
@@ -1092,7 +1092,7 @@ function setupEventListeners() {
                 }
             } catch (error) {
                 console.error('Cloud sync download error:', error);
-                showMessage(t('syncDownloadFailed', '下载失败：$1', error.message), 'error');
+                showMessage(t('syncDownloadFailed', '下载失败：$1', syncErrorMessage(error)), 'error');
                 await renderSyncStatus();
             }
         });
@@ -2423,6 +2423,16 @@ function t(key, fallback, substitutions) {
     }, fallback);
 }
 
+function syncStoredURLPausedMessage() {
+    return t('syncStoredURLPaused', 'Sync transfers are paused to preserve older URL spelling and layout relationships. Your saved copies and enabled preference are unchanged. Cloud preview is still available; use a current-version manual or Drive backup instead of Sync for these records.');
+}
+
+function syncErrorMessage(error) {
+    return error?.code === 'SYNC_IDENTITY_COMPATIBILITY' && error.kind === 'stored-url'
+        ? syncStoredURLPausedMessage()
+        : error.message;
+}
+
 async function renderRecoveryControls() {
     const available = await storageManager.getRecoveryAvailability?.();
     const container = document.getElementById('layout-recovery-controls');
@@ -2455,7 +2465,7 @@ async function replaceLocalFromCloud() {
         await replaceSettings(() => storageManager.pullFromSync({ confirmedReplacement: true, expectedRemote }));
         window.LocalItabContentLifecycle.reload();
     } catch (error) {
-        showMessage(t('syncDownloadFailed', 'Download failed: $1', error.message), 'error');
+        showMessage(t('syncDownloadFailed', 'Download failed: $1', syncErrorMessage(error)), 'error');
         await renderSyncStatus();
     } finally { cloudReplacementInProgress = false; if (button) button.disabled = false; }
 }
@@ -2510,13 +2520,17 @@ async function renderSyncStatus(status = null) {
         note.className = 'sync-status-note is-error';
         note.setAttribute('role', 'status');
         note.textContent = syncStatus.compatibilityBlocked.kind === 'stored-url'
-            ? t('syncStoredURLPaused', 'Sync transfers are paused to preserve older URL spelling and layout relationships. Your saved copies and enabled preference are unchanged. Cloud preview is still available; use a current-version manual or Drive backup instead of Sync for these records.')
+            ? syncStoredURLPausedMessage()
             : syncStatus.compatibilityBlocked.kind === 'review'
             ? t('syncSafetyReview', 'Automatic full-copy Sync replacement is temporarily paused to protect saved data. Preview the cloud copy, then explicitly choose a backed-up replacement. Your saved data and this device’s enabled preference stay unchanged.')
             : `${t('syncCompatibilityDetails', 'Sync is paused for compatibility. Local settings and your enabled preference are preserved. Update other devices and retry Download, or explicitly choose which copy to replace.')} ${syncStatus.compatibilityBlocked.reason}`;
         children.push(note);
     }
-    if (local.lastError) {
+    // Suppress only the raw error already represented by this localized guard note.
+    const repeatedStoredURLError = syncStatus.compatibilityBlocked?.kind === 'stored-url' &&
+        typeof syncStatus.compatibilityBlocked.reason === 'string' &&
+        local.lastError === syncStatus.compatibilityBlocked.reason;
+    if (local.lastError && !repeatedStoredURLError) {
         const error = document.createElement('div');
         error.className = 'sync-status-note is-error';
         error.textContent = local.lastError;
