@@ -2529,7 +2529,8 @@ async function renderSyncStatus(status = null) {
     // Suppress only the raw error already represented by this localized guard note.
     const repeatedStoredURLError = syncStatus.compatibilityBlocked?.kind === 'stored-url' &&
         typeof syncStatus.compatibilityBlocked.reason === 'string' &&
-        local.lastError === syncStatus.compatibilityBlocked.reason;
+        (local.lastError === syncStatus.compatibilityBlocked.reason ||
+            local.lastError === storageManager.validateSyncConfig({ lastError: syncStatus.compatibilityBlocked.reason }).lastError);
     if (local.lastError && !repeatedStoredURLError) {
         const error = document.createElement('div');
         error.className = 'sync-status-note is-error';
