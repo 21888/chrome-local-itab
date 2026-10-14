@@ -2,8 +2,26 @@
 (function (root) {
     'use strict';
     const copy = {
+        ReviewCopy: 'Review configuration file', ReviewingCopy: 'Checking this exact saved copy…',
+        ReviewTitle: 'Configuration file review', CloseReview: 'Close file review', DownloadRecovery: 'Download reviewed configuration',
+        ReviewUnavailable: 'An importable file needs an independently checksummed, complete supported copy. This record remains available for investigation.',
+        ReviewFailed: 'This exact copy did not pass the recovery-file checks. You can still inspect its allowed text. No saved data was changed.',
+        ReviewIntegrity: 'This representation has no matching recorded checksum. A new checksum cannot establish what was originally saved.',
+        ReviewFields: 'This copy has missing, unknown or unsupported fields, or would need changes to import. It remains investigation-only.',
+        ReviewCredentials: 'Recognized credentials were found in this copy. No importable file will be made from it.',
+        ReviewSize: 'This copy exceeds the recovery-file safety limit. No file was prepared.',
+        ReviewReady: 'The selected copy passed the file checks. Read its source, scope and site text, then choose Download reviewed configuration.',
+        ReviewScope: 'Configuration only: shortcuts, categories, layout, appearance, saved text and supported settings. This is not a Complete backup.',
+        ReviewExclusions: 'Sync and provider preferences, runtime generation markers, personal modules, prompts, collections, other workspaces and older copies are not included. Downloading does not change current settings.',
+        ReviewLatest: 'This surviving copy may not contain your most recent edits. A matching checksum does not prove authenticity, completeness of all your data or that this is the latest copy.',
+        ReviewPrivacy: 'The file can contain private saved text and full URLs. Keep it private and review it before sharing. Importing it later is a separate, explicit replacement step in Settings.',
+        ReviewSource: 'Selected source', ReviewSourceTime: 'Time inside the checked representation', ReviewRawTime: 'Unknown · raw checksum does not cover adjacent backup times',
+        ReviewGeneratedAt: 'New file generated at', CategoryCount: 'Categories', DuplicateCount: 'Repeated exact URLs', PositionCount: 'Saved coordinate records',
+        RecoveryDownloadRequested: 'Reviewed configuration download requested. Check your downloads. Nothing has been imported or overwritten.',
+        RecoveryDownloadFailed: 'The reviewed file could not be downloaded. No saved data was changed. Review this copy again before trying.',
+        ReviewTruncated: 'Long title or URL text is shortened to 4,000 characters in this review. The configuration file preserves the checked value in full.',
         Results: 'Saved local copies', Refresh: 'Refresh inspection', Loading: 'Reading supported local records…',
-        Ready: 'Inspection finished. Select a copy to preview its site records or download investigation JSON.',
+        Ready: 'Inspection finished. Choose a copy for text investigation, or review an eligible copy before downloading a configuration file.',
         Empty: 'No supported saved copies were found in this inspection. This does not prove that your content was deleted.',
         InspectedAt: 'Inspected at (this device’s time)', Unknown: 'Unknown', RecordedAt: 'Recorded time (this device’s time)',
         MigrationTime: 'Migration time (this device’s time)', BackupTime: 'Backup time (this device’s time)',
@@ -66,15 +84,16 @@
         return value && value !== 'recovery' + key ? value : (copy[key] || key).replace(/\$(\d+)/g, (_, n) => values[Number(n) - 1] ?? '');
     };
     const filename = 'local-itab-readonly-investigation.json';
+    const recoveryFilename = 'local-itab-reviewed-configuration.json';
     const pageSize = 100;
     const previewTextLimit = 4000;
-    function defaultDownload(json) {
+    function defaultDownload(json, targetFilename = filename) {
         let url, link;
         try {
             const blob = new root.Blob([json], { type: 'application/json;charset=utf-8' });
             url = root.URL.createObjectURL(blob);
             link = root.document.createElement('a');
-            link.href = url; link.download = filename; link.hidden = true;
+            link.href = url; link.download = targetFilename; link.hidden = true;
             root.document.body.append(link); link.click();
         } finally {
             link?.remove();
@@ -84,6 +103,7 @@
     function mount({ host, inspector, download = defaultDownload } = {}) {
         const doc = host.ownerDocument;
         let revision = 0, report = null, closed = false, suspended = false, cooldown = false, timer = null;
+        let reviewSerial = 0, activeReview = null;
         const create = (tag, className, text, parent) => {
             const element = doc.createElement(tag);
             if (className) element.className = className;
@@ -93,7 +113,7 @@
         const button = (key, action, parent, className = '') => {
             const element = create('button', 'recovery-button ' + className, t(key), parent); element.type = 'button';
             element.addEventListener('keydown', event => { if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault(); });
-            element.addEventListener('click', () => { if (!element.disabled && !closed && !suspended) action(); });
+            element.addEventListener('click', () => { if (!element.disabled && !closed && !suspended && doc.visibilityState !== 'hidden') action(); });
             return element;
         };
         host.replaceChildren();
@@ -119,7 +139,18 @@
                 if (!shown.has(key)) { shown.add(key); create('li', '', t(key), list); }
             }
         }
-        function valid(snapshot, generation) { return !closed && !suspended && report === snapshot && revision === generation; }
+        function valid(snapshot, generation) { return !closed && !suspended && doc.visibilityState !== 'hidden' && report === snapshot && revision === generation; }
+        function retireReview(repairFocus = true) {
+            reviewSerial++;
+            const previous = activeReview; activeReview = null;
+            try { inspector?.retireRecovery?.(); } catch (_) { /* Retire locally even if the provider is unavailable. */ }
+            if (!previous) return;
+            const containedFocus = previous.panel.contains(doc.activeElement);
+            if (previous.download) { previous.download.dataset.exportable = 'false'; previous.download.disabled = true; }
+            previous.panel.hidden = true; previous.panel.replaceChildren();
+            previous.trigger.disabled = false; previous.trigger.textContent = t('ReviewCopy'); previous.trigger.setAttribute('aria-expanded', 'false');
+            if (repairFocus && containedFocus && doc.activeElement === doc.body) status.focus();
+        }
         function updateDownloads() {
             entries.querySelectorAll('[data-recovery-download]').forEach(element => {
                 element.disabled = cooldown || !report || element.dataset.exportable !== 'true';
@@ -172,10 +203,81 @@
             downloadButton.setAttribute('aria-describedby', 'recovery-download-help');
             downloadButton.disabled = entry.exportable !== true || cooldown;
             if (entry.exportable !== true) create('p', 'recovery-help', t('ExportUnavailable'), row);
+            const reviewButton = button('ReviewCopy', () => { void reviewCopy(); }, actions);
+            const canReview = entry.integrity === 'verified' && ['raw', 'portable'].includes(source.representation) &&
+                typeof inspector?.reviewRecovery === 'function' && typeof inspector?.exportRecovery === 'function';
+            reviewButton.disabled = !canReview;
+            const reviewHost = create('section', 'recovery-preview recovery-file-review', undefined, row);
+            reviewHost.hidden = true; reviewHost.id = 'recovery-file-review-' + generation + '-' + index;
+            reviewButton.setAttribute('aria-expanded', 'false'); reviewButton.setAttribute('aria-controls', reviewHost.id);
+            if (!canReview) create('p', 'recovery-help', t('ReviewUnavailable'), row);
+            async function reviewCopy() {
+                if (!valid(snapshot, generation) || !canReview || cooldown) return;
+                retireReview();
+                const request = reviewSerial, wasFocused = doc.activeElement === reviewButton;
+                const state = { panel: reviewHost, trigger: reviewButton, review: null, rendered: false, download: null };
+                activeReview = state; reviewButton.disabled = true; reviewButton.textContent = t('ReviewingCopy'); announce('ReviewingCopy');
+                if (wasFocused && doc.activeElement === doc.body) status.focus();
+                const current = () => valid(snapshot, generation) && activeReview === state && request === reviewSerial;
+                try {
+                    const review = await inspector.reviewRecovery(snapshot, entry.id);
+                    if (!current()) { try { inspector.retireRecovery?.(review); } catch (_) {} return; }
+                    if (!review || review.scope !== 'configuration-only' || !Array.isArray(review.links) ||
+                        !['siteCount', 'categoryCount', 'duplicateCount', 'positionCount'].every(key => Number.isSafeInteger(review[key]) && review[key] >= 0) ||
+                        review.siteCount !== review.links.length || review.links.some(link => !link || typeof link.title !== 'string' || typeof link.url !== 'string')) throw { code: 'INVALID' };
+                    state.review = review;
+                    reviewHost.replaceChildren();
+                    const heading = create('h3', '', t('ReviewTitle'), reviewHost); heading.tabIndex = -1;
+                    const details = create('dl', 'recovery-facts', undefined, reviewHost);
+                    const detail = (key, value) => { const pair = create('div', '', undefined, details); create('dt', '', t(key), pair); create('dd', '', value, pair); };
+                    detail('ReviewSource', t(titleKey));
+                    if (typeof source.workspaceName === 'string') detail('Workspace', source.workspaceName);
+                    if (typeof source.workspaceId === 'string') detail('WorkspaceId', source.workspaceId);
+                    detail('Attribution', t(source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
+                    detail('Representation', t(source.representation === 'raw' ? 'Raw' : 'Portable'));
+                    detail('Depth', String(Number.isSafeInteger(source.depth) && source.depth >= 0 ? source.depth : 0));
+                    detail('ReviewSourceTime', review.timeVerified === true ? time(review.recordedAt) : t('ReviewRawTime'));
+                    detail('ReviewGeneratedAt', time(review.generatedAt));
+                    for (const [label, key] of [['SiteCount', 'siteCount'], ['CategoryCount', 'categoryCount'], ['DuplicateCount', 'duplicateCount'], ['PositionCount', 'positionCount']]) detail(label, String(review[key]));
+                    for (const key of ['ReviewScope', 'ReviewExclusions', 'ReviewLatest', 'ReviewPrivacy']) create('p', 'recovery-help', t(key), reviewHost);
+                    if (!review.links.length) create('p', 'recovery-help', t('NoSites'), reviewHost);
+                    else renderSites(review.links, reviewHost, 'ReviewTruncated');
+                    const reviewActions = create('div', 'recovery-actions', undefined, reviewHost);
+                    const fileButton = button('DownloadRecovery', () => exportRecovery(state), reviewActions, 'recovery-primary');
+                    fileButton.disabled = true; fileButton.dataset.recoveryDownload = 'true'; fileButton.dataset.exportable = 'false';
+                    state.download = fileButton;
+                    button('CloseReview', () => { if (!current() || !state.rendered || reviewHost.hidden) return; const focused = reviewHost.contains(doc.activeElement); retireReview(); if (focused && doc.activeElement === status) reviewButton.focus(); announce('Ready'); }, reviewActions);
+                    if (!current()) return;
+                    reviewHost.hidden = false; state.rendered = true;
+                    reviewButton.textContent = t('ReviewCopy'); reviewButton.disabled = false; reviewButton.setAttribute('aria-expanded', 'true');
+                    fileButton.dataset.exportable = 'true'; updateDownloads(); announce('ReviewReady');
+                    if (wasFocused && doc.activeElement === status) heading.focus({ preventScroll: true });
+                } catch (error) {
+                    if (!current()) return;
+                    retireReview();
+                    const reason = { RECOVERY_INTEGRITY: 'ReviewIntegrity', RECOVERY_UNVERIFIED: 'ReviewIntegrity', RECOVERY_FIELDS: 'ReviewFields', RECOVERY_FORMAT: 'ReviewFields', RECOVERY_REWRITE: 'ReviewFields', RECOVERY_CREDENTIAL: 'ReviewCredentials', SIZE_LIMIT: 'ReviewSize' };
+                    announce(typeof error?.code === 'string' && own(reason, error.code) ? reason[error.code] : 'ReviewFailed', true);
+                    if (wasFocused && doc.activeElement === status) reviewButton.focus();
+                }
+            }
+            function exportRecovery(state) {
+                if (!valid(snapshot, generation) || cooldown || activeReview !== state || !state.rendered || reviewHost.hidden || !state.review) return;
+                startCooldown(state.download);
+                try {
+                    const json = inspector.exportRecovery(snapshot, entry.id, state.review);
+                    if (!valid(snapshot, generation) || activeReview !== state || !state.rendered || reviewHost.hidden) return;
+                    if (typeof json !== 'string' || !json.length) throw { code: 'INVALID' };
+                    download(json, recoveryFilename);
+                    if (valid(snapshot, generation)) announce('RecoveryDownloadRequested');
+                } catch (_) {
+                    if (valid(snapshot, generation)) { retireReview(); announce('RecoveryDownloadFailed', true); }
+                }
+            }
             const previewHost = create('section', 'recovery-preview', undefined, row); previewHost.hidden = true; previewHost.id = 'recovery-preview-' + generation + '-' + index;
             previewButton.setAttribute('aria-expanded', 'false'); previewButton.setAttribute('aria-controls', previewHost.id);
             function togglePreview() {
                 if (!valid(snapshot, generation)) return;
+                retireReview();
                 if (!previewHost.hidden) {
                     previewHost.hidden = true; previewHost.replaceChildren(); previewButton.textContent = t('Preview'); previewButton.setAttribute('aria-expanded', 'false'); return;
                 }
@@ -192,12 +294,12 @@
                     previewHost.hidden = false; previewButton.textContent = t('HidePreview'); previewButton.setAttribute('aria-expanded', 'true');
                 } catch (_) { announce('PreviewFailed', true); }
             }
-            function renderSites(links) {
+            function renderSites(links, target = previewHost, truncatedKey = 'PreviewTruncated') {
                 let offset = 0;
-                const list = create('ol', 'recovery-site-list', undefined, previewHost);
+                const list = create('ol', 'recovery-site-list', undefined, target);
                 let previous, next, range;
                 if (links.length > pageSize) {
-                    const pagination = create('div', 'recovery-pagination', undefined, previewHost);
+                    const pagination = create('div', 'recovery-pagination', undefined, target);
                     previous = button('Previous', () => changePage(-pageSize, previous), pagination);
                     range = create('p', '', '', pagination); range.setAttribute('aria-live', 'polite'); range.setAttribute('aria-atomic', 'true');
                     next = button('Next', () => changePage(pageSize, next), pagination);
@@ -219,7 +321,7 @@
                         }
                         field(link?.title, 'MissingTitle', 'recovery-site-title');
                         field(link?.url, 'MissingUrl', 'recovery-site-url');
-                        if (truncated) create('p', 'recovery-help', t('PreviewTruncated'), item);
+                        if (truncated) create('p', 'recovery-help', t(truncatedKey), item);
                     }
                     if (range) {
                         range.textContent = t('Range', [String(offset + 1), String(Math.min(offset + pageSize, links.length)), String(links.length)]);
@@ -227,7 +329,7 @@
                     }
                 }
                 function changePage(delta, trigger) {
-                    if (!valid(snapshot, generation) || previewHost.hidden) return;
+                    if (!valid(snapshot, generation) || target.hidden) return;
                     offset = Math.max(0, Math.min(Math.floor((links.length - 1) / pageSize) * pageSize, offset + delta));
                     const focused = doc.activeElement === trigger;
                     paint();
@@ -237,6 +339,7 @@
             }
             function exportEntry() {
                 if (!valid(snapshot, generation) || cooldown || entry.exportable !== true) return;
+                retireReview();
                 startCooldown(downloadButton);
                 try {
                     // Always preview the exact inspected snapshot before export;
@@ -252,6 +355,7 @@
         }
         async function refresh() {
             if (closed || suspended) return;
+            retireReview();
             const generation = ++revision;
             const returnFocus = doc.activeElement === refreshButton || doc.activeElement === status;
             report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
@@ -282,11 +386,14 @@
             }
         }
         function suspend() {
+            retireReview(false);
             suspended = true; revision++; report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
             if (timer !== null) root.clearTimeout(timer); timer = null; cooldown = false;
         }
         function resume() { if (closed) return; suspended = false; return refresh(); }
-        function destroy() { closed = true; suspend(); refreshButton.disabled = true; }
+        function destroy() { closed = true; suspend(); refreshButton.disabled = true; doc.removeEventListener?.('visibilitychange', visibilityChanged); }
+        function visibilityChanged() { if (closed) return; if (doc.visibilityState === 'hidden') suspend(); else if (suspended) void resume(); }
+        doc.addEventListener?.('visibilitychange', visibilityChanged);
         return { ready: refresh(), refresh, suspend, resume, destroy };
     }
     root.LocalItabRecoveryView = Object.freeze({ mount });

@@ -19,13 +19,19 @@
         <aside class="recovery-notice" aria-labelledby="recovery-safety-title">
             <h2 id="recovery-safety-title" data-i18n="recoverySafetyTitle">Keep the original page and its drafts open</h2>
             <p data-i18n="recoverySafetyHelp">Not finding a copy does not prove that content was deleted. Unverified records do not guarantee recovery. Do not reset storage or reinstall while investigating.</p>
-            <p id="recovery-download-help" data-i18n="recoveryPrivateHelp">Downloads are private investigation JSON files. They can contain saved text, site titles and full URLs with private query parameters. They are not recovery backups that can be imported directly. Review a file before sharing it.</p>
+            <p id="recovery-download-help" data-i18n="recoveryPrivateHelp">Investigation JSON files are not recovery backups that can be imported directly. A separate reviewed configuration file is offered only when the selected copy passes stricter checks. Both can contain private saved text and full URLs. Keep downloads private and review them before sharing.</p>
         </aside>
         <section id="recovery-inspection" aria-label="Local storage inspection" data-i18n-aria-label="recoveryInspectionLabel"></section>
         <noscript>This inspection needs JavaScript. Keep your original page open; this page has not changed any saved data.</noscript>
         <footer class="recovery-footer"><p data-i18n="recoveryFootnote">Only a read-only snapshot of supported local records is inspected. No cloud copy is fetched. Site previews are plain text; site links and images are never opened.</p></footer>
     </main>
     <script src="i18n.js"></script>
+    <script src="shared/layout-identity.js"></script>
+    <script src="shared/dashboard-template-registry.js"></script>
+    <script src="shared/world-clocks.js"></script>
+    <script src="shared/stored-shortcut-url.js"></script>
+    <script src="shared/configuration-codec.js"></script>
+    <script src="shared/recovery-file.js"></script>
     <script src="shared/recovery-inspector.js"></script>
     <script src="recovery.js"></script>
 </body>

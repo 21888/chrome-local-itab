@@ -1,9 +1,9 @@
 /* Read-only recovery inspection. No managers, migrations, providers or writers. */
 (function (root, factory) {
-    const api = factory();
+    const api = factory(() => typeof module === 'object' && module.exports && typeof require === 'function' ? require('./recovery-file.js') : root.LocalItabRecoveryFile);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabRecovery = api;
-})(typeof window === 'undefined' ? globalThis : window, function () {
+})(typeof window === 'undefined' ? globalThis : window, function (getRecoveryFile) {
     'use strict';
     const KEYS = Object.freeze({ registry: '__localItabWorkspaceRegistryV1', activation: '__localItabWorkspaceActivationV1',
         migration: '__localItabWorkspacePreMigrationV1', restore: '__localItabRestoreRecovery', identity: '__localItabIdentityRecovery' });
@@ -23,7 +23,11 @@
         if (value && typeof value === 'object' && !Object.isFrozen(value)) { Object.values(value).forEach(freeze); Object.freeze(value); }
         return value;
     }
-    function boundedCopy(value, budget = { bytes: 0, nodes: 0 }) {
+    // Keep investigation's historical projection behavior, but remember whether
+    // copying discarded a hidden/symbol own property. The stricter recovery
+    // path must not mistake that omission for a complete original inventory.
+    const copySafety = new WeakMap();
+    function boundedCopy(value, budget = { bytes: 0, nodes: 0 }, { strict = false } = {}) {
         let nodes = 0, bytes = 0; const ancestors = new Set();
         const charge = count => { bytes += count; check(bytes + budget.bytes <= LIMITS.bytes, 'SIZE_LIMIT'); };
         const textBytes = value => new TextEncoder().encode(value).length;
@@ -36,16 +40,22 @@
             const proto = Object.getPrototypeOf(item), array = Array.isArray(item);
             check(array || proto === null || Object.getPrototypeOf(proto) === null);
             const keys = Object.keys(item); check(keys.length <= LIMITS.nodes, 'SIZE_LIMIT');
+            const ownSafe = Reflect.ownKeys(item).every(key => (array && key === 'length') ||
+                (typeof key === 'string' && Object.getOwnPropertyDescriptor(item, key)?.enumerable)) &&
+                (!array || proto === null || (Array.isArray(proto) && Object.getPrototypeOf(Object.getPrototypeOf(proto)) === null));
+            if (strict) check(ownSafe);
             if (array) check(item.length <= LIMITS.nodes && keys.length === item.length, 'SIZE_LIMIT');
-            const result = array ? [] : {}; ancestors.add(item);
+            const result = array ? [] : {}; let deepSafe = ownSafe; ancestors.add(item);
             for (const key of keys) {
                 const descriptor = Object.getOwnPropertyDescriptor(item, key);
                 check(descriptor && own(descriptor, 'value'));
                 if (array) check(/^(0|[1-9][0-9]*)$/.test(key) && Number(key) < item.length);
                 charge(textBytes(key) + 3);
-                put(result, key, visit(descriptor.value, depth + 1));
+                const copied = visit(descriptor.value, depth + 1);
+                if (copied && typeof copied === 'object' && copySafety.get(copied)?.deep === false) deepSafe = false;
+                put(result, key, copied);
             }
-            ancestors.delete(item); return result;
+            ancestors.delete(item); copySafety.set(result, { own: ownSafe, deep: deepSafe }); return result;
         }
         const result = visit(value, 0); budget.bytes += bytes; budget.nodes += nodes; return result;
     }
@@ -77,6 +87,7 @@
             return Boolean(parsed.username || parsed.password) || [...parsed.searchParams.keys()].some(key => sensitive.test(key));
         } catch (_) { return false; }
     }
+    const credentialPositionKey = key => credentialURL(key.slice(key.indexOf('|') + 1)) || key.split('|').some(credentialURL);
     const string = 'string', number = 'number', bool = 'boolean';
     const nullable = schema => ({ union: [schema, 'null'] });
     const fields = value => ({ fields: value });
@@ -86,7 +97,7 @@
     const viewKey = key => !forbidden(key) && typeof key === 'string' && key.length > 0 && key.length <= 100;
     const legacyPosition = key => {
         const index = key.indexOf('|');
-        return index > 0 && viewKey(key.slice(0, index)) && key.length <= 17000 && !credentialURL(key.slice(index + 1));
+        return index > 0 && viewKey(key.slice(0, index)) && key.length <= 17000 && !credentialPositionKey(key);
     };
     const idKey = key => /^l_[a-f0-9]{32}$/.test(key);
     const color = string;
@@ -133,7 +144,7 @@
                 if (schema.fields && !own(schema.fields, key)) {
                     omissions.add(/auth|token|secret|password|credential|sync|provider|^__/i.test(key) ? 'PRIVATE_FIELDS_OMITTED' : 'UNKNOWN_FIELDS_OMITTED'); continue;
                 }
-                if (schema.map && (!schema.validKey(key) || forbidden(key))) { omissions.add(credentialURL(key.slice(key.indexOf('|') + 1)) ? 'CREDENTIAL_URL_OMITTED' : 'INVALID_FIELDS_OMITTED'); continue; }
+                if (schema.map && (!schema.validKey(key) || forbidden(key))) { omissions.add(credentialPositionKey(key) ? 'CREDENTIAL_URL_OMITTED' : 'INVALID_FIELDS_OMITTED'); continue; }
                 const projected = walk(value[key], schema.map || schema.fields[key]);
                 if (projected === OMIT) omissions.add('INVALID_FIELDS_OMITTED'); else put(result, key, projected);
             }
@@ -158,6 +169,13 @@
     }
     function createInspector({ local, crypto = globalThis.crypto, now = () => new Date().toISOString() } = {}) {
         const reports = new WeakMap();
+        let activeReport = null, activeReview = null, inspectEpoch = 0, reviewEpoch = 0;
+        function retireRecovery(review) {
+            // A stale capability cannot retire somebody else's newer review.
+            if (arguments.length && activeReview?.review !== review) return;
+            reviewEpoch++; activeReview = null;
+        }
+
         async function read(keys, retain = true) {
             const data = {}, faults = {}, hashes = {}, budget = { bytes: 0, nodes: 0 };
             // One explicit key at a time bounds backend response size across a
@@ -176,6 +194,7 @@
             return { data, faults, fingerprint: await hash({ hashes, faults }, crypto) };
         }
         async function inspect() {
+            const epoch = ++inspectEpoch; activeReport = null; retireRecovery();
             check(local && typeof local.get === 'function', 'READ_FAILED');
             const initial = await read([KEYS.registry, KEYS.activation]), entries = [], warnings = new Set(Object.values(initial.faults)), candidates = [];
             const registry = initial.data[KEYS.registry];
@@ -190,10 +209,11 @@
             check(first.fingerprint === second.fingerprint, 'CHANGED');
             for (const key of [KEYS.registry, KEYS.activation]) check(JSON.stringify(initial.data[key]) === JSON.stringify(first.data[key]) && initial.faults[key] === first.faults[key], 'CHANGED');
             Object.values(first.faults).forEach(code => warnings.add(code));
-            const raw = first.data, checkedRegistry = registryValid(raw[KEYS.registry], raw[KEYS.activation]);
+            check(epoch === inspectEpoch, 'RECOVERY_STALE');
+            const raw = freeze(first.data), checkedRegistry = registryValid(raw[KEYS.registry], raw[KEYS.activation]);
             if (own(raw, KEYS.registry) || own(raw, KEYS.activation)) { if (!checkedRegistry) warnings.add('REGISTRY_INVALID'); }
             const inspectedAt = now(); check(date(inspectedAt)); const downloads = new Map();
-            function add(value, source, recordedAt = null, timeKind = 'unknown', integrity = 'unverified', extra = []) {
+            function add(value, source, recordedAt = null, timeKind = 'unknown', integrity = 'unverified', extra = [], recovery = null) {
                 if (entries.length >= LIMITS.entries) { warnings.add('CHAIN_LIMIT'); return; }
                 const projected = project(value), rowWarnings = new Set([...projected.omissions, ...extra]);
                 if (!recordedAt) rowWarnings.add('RECORD_TIME_UNKNOWN');
@@ -204,7 +224,7 @@
                 const entry = freeze({ id, source: { ...source }, recordedAt, timeKind, siteCount: projected.siteCount, integrity, warnings: [...rowWarnings], exportable: projected.exportable });
                 const download = freeze({ type: 'local-itab-readonly-recovery', formatVersion: 1, inspectedAt, source: entry.source,
                     recordedAt, timeKind, integrity, configurationProjection: projected.configuration, omissions: [...rowWarnings] });
-                entries.push(entry); downloads.set(id, { download, preview: freeze({ links: Array.isArray(projected.configuration.links) ? projected.configuration.links : null, omissions: [...rowWarnings] }) });
+                entries.push(entry); downloads.set(id, { download, recovery, preview: freeze({ links: Array.isArray(projected.configuration.links) ? projected.configuration.links : null, omissions: [...rowWarnings] }) });
             }
             async function integrity(value, checksum) {
                 if (checksum === undefined) return 'unverified';
@@ -218,11 +238,20 @@
                     const kind = ['beforeCloudReplacement', 'beforeCloudClear'].includes(node.reason) ? node.reason : fallbackKind;
                     const timestamp = date(node.payload?.createdAt) ? node.payload.createdAt : date(node.payload?.exportDate) ? node.payload.exportDate : null;
                     const origin = { ...source, kind, depth };
+                    // References point into the one immutable bounded snapshot.
+                    // Do not copy each node's previous chain or use the privacy
+                    // projection as the source of an importable configuration.
+                    const selection = (representation, valueKey, checksumKey) => freeze({
+                        safe: copySafety.get(node)?.own !== false && copySafety.get(node[valueKey])?.deep !== false,
+                        input: { representation, value: node[valueKey],
+                            ...(own(node, checksumKey) ? { checksum: node[checksumKey] } : {}),
+                            ...(own(node, 'reason') ? { reason: node.reason } : {}), containerKeys: Object.keys(node) }
+                    });
                     const portableData = object(node.payload?.data) ? node.payload.data : object(node.payload?.settings) ? node.payload.settings : node.payload;
                     const differing = own(node, 'rawConfiguration') && own(node, 'payload') &&
                         (Array.isArray(node.rawConfiguration?.links) ? node.rawConfiguration.links.length : null) !==
                         (Array.isArray(portableData?.links) ? portableData.links.length : null) ? ['CONTENT_DIFFERS'] : [];
-                    if (own(node, 'rawConfiguration')) add(node.rawConfiguration, { ...origin, representation: 'raw' }, timestamp, timestamp ? 'backup' : 'unknown', await integrity(node.rawConfiguration, node.rawConfigurationChecksum), differing);
+                    if (own(node, 'rawConfiguration')) add(node.rawConfiguration, { ...origin, representation: 'raw' }, timestamp, timestamp ? 'backup' : 'unknown', await integrity(node.rawConfiguration, node.rawConfigurationChecksum), differing, selection('raw', 'rawConfiguration', 'rawConfigurationChecksum'));
                     if (own(node, 'payload')) {
                         const payload = node.payload, value = object(payload?.data) ? { ...payload.data, ...(own(payload, 'schemaVersion') && !own(payload.data, 'schemaVersion') ? { schemaVersion: payload.schemaVersion } : {}) } : object(payload?.settings) ? payload.settings : payload;
                         const formatWarnings = [...differing];
@@ -231,7 +260,7 @@
                             (!own(payload, 'metadata') || (object(payload.metadata) && payload.metadata.urlIdentityVersion === 1 && payload.metadata.app === payload.app && payload.metadata.type === payload.type && payload.metadata.schemaVersion === payload.schemaVersion));
                         if (object(payload) && ((payload.version === '2.0' || own(payload, 'urlIdentityVersion') || own(payload.metadata, 'urlIdentityVersion')) && !storedURLFormat)) formatWarnings.push('UNKNOWN_FORMAT');
                         if (object(payload) && ((own(payload, 'version') && payload.version !== '1.0' && !storedURLFormat) || (own(payload, 'schemaVersion') && ![1, 2].includes(payload.schemaVersion)))) formatWarnings.push('UNKNOWN_VERSION');
-                        add(value, { ...origin, representation: 'portable' }, timestamp, timestamp ? 'backup' : 'unknown', await integrity(payload, node.checksum), formatWarnings);
+                        add(value, { ...origin, representation: 'portable' }, timestamp, timestamp ? 'backup' : 'unknown', await integrity(payload, node.checksum), formatWarnings, selection('portable', 'payload', 'checksum'));
                     }
                     if (!own(node, 'rawConfiguration') && !own(node, 'payload')) add(null, { ...origin, representation: 'configuration' }, null, 'unknown', 'unverified', ['INVALID_SOURCE']);
                     if (!own(node, 'previousRecovery')) return;
@@ -260,10 +289,40 @@
                 if (!object(bundle) || !object(bundle.values)) { warnings.add('BUNDLE_MISSING'); add(null, { ...source, depth: 0, representation: 'configuration' }, null, 'unknown', 'unverified', ['BUNDLE_MISSING']); }
                 else await sources(bundle.values, source);
             }
-            const report = freeze({ inspectedAt, entries, warnings: [...warnings] }); reports.set(report, downloads); return report;
+            check(epoch === inspectEpoch, 'RECOVERY_STALE');
+            const report = freeze({ inspectedAt, entries, warnings: [...warnings] }); reports.set(report, downloads); activeReport = report; return report;
         }
         function selected(report, id) { const item = reports.get(report)?.get(id); check(item, 'INVALID'); return item; }
-        return Object.freeze({ inspect,
+        async function reviewRecovery(report, id) {
+            retireRecovery();
+            const inspection = inspectEpoch, review = reviewEpoch;
+            const current = () => inspection === inspectEpoch && review === reviewEpoch && activeReport === report;
+            check(current(), 'RECOVERY_STALE');
+            const item = reports.get(report)?.get(id); check(item, 'RECOVERY_STALE');
+            check(item.recovery, 'RECOVERY_INTEGRITY');
+            check(item.recovery.safe, 'RECOVERY_FIELDS');
+            let result, api;
+            try {
+                api = getRecoveryFile(); check(api && typeof api.create === 'function', 'RECOVERY_UNAVAILABLE');
+                const gate = api.create({ copy: boundedCopy, hash: value => hash(value, crypto), maxBytes: LIMITS.bytes });
+                result = await gate.build(item.recovery.input, now());
+            }
+            catch (failure) {
+                check(current(), 'RECOVERY_STALE');
+                throw issue(api?.CODES?.includes(failure?.code) ? failure.code : 'RECOVERY_UNAVAILABLE');
+            }
+            check(current(), 'RECOVERY_STALE');
+            const capability = freeze(result.review);
+            activeReview = { report, id, selection: item.recovery, review: capability, text: result.text };
+            return capability;
+        }
+        function exportRecovery(report, id, review) {
+            const item = activeReport === report && reports.get(report)?.get(id);
+            check(activeReview && activeReview.report === report && activeReview.id === id && activeReview.review === review &&
+                item && activeReview.selection === item.recovery, 'RECOVERY_STALE');
+            return activeReview.text;
+        }
+        return Object.freeze({ inspect, reviewRecovery, exportRecovery, retireRecovery,
             preview: (report, id) => selected(report, id).preview,
             exportEntry(report, id) { const item = selected(report, id); check(report.entries.find(entry => entry.id === id)?.exportable, 'INVALID'); const text = JSON.stringify(item.download, null, 2); check(new TextEncoder().encode(text).length <= LIMITS.bytes, 'SIZE_LIMIT'); return text; }
         });

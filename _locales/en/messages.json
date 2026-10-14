@@ -6351,7 +6351,7 @@
     "message": "Not finding a copy does not prove that content was deleted. Unverified records do not guarantee recovery. Do not reset storage or reinstall while investigating."
   },
   "recoveryPrivateHelp": {
-    "message": "Downloads are private investigation JSON files. They can contain saved text, site titles and full URLs with private query parameters. They are not recovery backups that can be imported directly. Review a file before sharing it."
+    "message": "Investigation JSON files are not recovery backups that can be imported directly. A separate reviewed configuration file is offered only when the selected copy passes stricter checks. Both can contain private saved text and full URLs. Keep downloads private and review them before sharing."
   },
   "recoveryInspectionLabel": {
     "message": "Local storage inspection"
@@ -6369,7 +6369,7 @@
     "message": "Reading supported local records…"
   },
   "recoveryReady": {
-    "message": "Inspection finished. Select a copy to preview its site records or download investigation JSON."
+    "message": "Inspection finished. Choose a copy for text investigation, or review an eligible copy before downloading a configuration file."
   },
   "recoveryEmpty": {
     "message": "No supported saved copies were found in this inspection. This does not prove that your content was deleted."
@@ -6595,5 +6595,83 @@
   },
   "syncStoredURLPaused": {
     "message": "Sync transfers are paused to preserve older URL spelling and layout relationships. Your saved copies and enabled preference are unchanged. Cloud preview is still available; use a current-version manual or Drive backup instead of Sync for these records."
+  },
+  "recoveryReviewCopy": {
+    "message": "Review configuration file"
+  },
+  "recoveryReviewingCopy": {
+    "message": "Checking this exact saved copy…"
+  },
+  "recoveryReviewTitle": {
+    "message": "Configuration file review"
+  },
+  "recoveryCloseReview": {
+    "message": "Close file review"
+  },
+  "recoveryDownloadRecovery": {
+    "message": "Download reviewed configuration"
+  },
+  "recoveryReviewUnavailable": {
+    "message": "An importable file needs an independently checksummed, complete supported copy. This record remains available for investigation."
+  },
+  "recoveryReviewFailed": {
+    "message": "This exact copy did not pass the recovery-file checks. You can still inspect its allowed text. No saved data was changed."
+  },
+  "recoveryReviewIntegrity": {
+    "message": "This representation has no matching recorded checksum. A new checksum cannot establish what was originally saved."
+  },
+  "recoveryReviewFields": {
+    "message": "This copy has missing, unknown or unsupported fields, or would need changes to import. It remains investigation-only."
+  },
+  "recoveryReviewCredentials": {
+    "message": "Recognized credentials were found in this copy. No importable file will be made from it."
+  },
+  "recoveryReviewSize": {
+    "message": "This copy exceeds the recovery-file safety limit. No file was prepared."
+  },
+  "recoveryReviewReady": {
+    "message": "The selected copy passed the file checks. Read its source, scope and site text, then choose Download reviewed configuration."
+  },
+  "recoveryReviewScope": {
+    "message": "Configuration only: shortcuts, categories, layout, appearance, saved text and supported settings. This is not a Complete backup."
+  },
+  "recoveryReviewExclusions": {
+    "message": "Sync and provider preferences, runtime generation markers, personal modules, prompts, collections, other workspaces and older copies are not included. Downloading does not change current settings."
+  },
+  "recoveryReviewLatest": {
+    "message": "This surviving copy may not contain your most recent edits. A matching checksum does not prove authenticity, completeness of all your data or that this is the latest copy."
+  },
+  "recoveryReviewPrivacy": {
+    "message": "The file can contain private saved text and full URLs. Keep it private and review it before sharing. Importing it later is a separate, explicit replacement step in Settings."
+  },
+  "recoveryReviewSource": {
+    "message": "Selected source"
+  },
+  "recoveryReviewSourceTime": {
+    "message": "Time inside the checked representation"
+  },
+  "recoveryReviewRawTime": {
+    "message": "Unknown · raw checksum does not cover adjacent backup times"
+  },
+  "recoveryReviewGeneratedAt": {
+    "message": "New file generated at"
+  },
+  "recoveryCategoryCount": {
+    "message": "Categories"
+  },
+  "recoveryDuplicateCount": {
+    "message": "Repeated exact URLs"
+  },
+  "recoveryPositionCount": {
+    "message": "Saved coordinate records"
+  },
+  "recoveryRecoveryDownloadRequested": {
+    "message": "Reviewed configuration download requested. Check your downloads. Nothing has been imported or overwritten."
+  },
+  "recoveryRecoveryDownloadFailed": {
+    "message": "The reviewed file could not be downloaded. No saved data was changed. Review this copy again before trying."
+  },
+  "recoveryReviewTruncated": {
+    "message": "Long title or URL text is shortened to 4,000 characters in this review. The configuration file preserves the checked value in full."
   }
 }

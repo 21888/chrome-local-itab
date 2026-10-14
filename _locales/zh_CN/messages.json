@@ -6351,7 +6351,7 @@
     "message": "未找到副本不代表内容已删除。未经校验的记录不保证能够恢复。调查期间请勿重置存储或重新安装扩展。"
   },
   "recoveryPrivateHelp": {
-    "message": "下载的是私密调查 JSON 文件，可能包含已保存的文字、站点标题及带有私密查询参数的完整网址。这不是可直接导入的恢复备份，分享前请自行检查文件内容。"
+    "message": "调查 JSON 不能导入。只有所选副本通过更严格的检查，才会提供单独的已审阅配置文件。两类文件都可能包含私密文字和完整网址，请妥善保管，分享前先检查。"
   },
   "recoveryInspectionLabel": {
     "message": "本地存储调查"
@@ -6369,7 +6369,7 @@
     "message": "正在读取支持的本地记录…"
   },
   "recoveryReady": {
-    "message": "检查完成。选择副本预览站点文字，或下载调查 JSON。"
+    "message": "检查已完成。请选择副本调查文字，或先审阅符合条件的副本，再下载配置文件。"
   },
   "recoveryEmpty": {
     "message": "本次检查未找到支持的已保存副本。这不代表你的内容已删除。"
@@ -6595,5 +6595,83 @@
   },
   "syncStoredURLPaused": {
     "message": "为保留旧网址拼写及布局关系，Sync传输已暂停。已存副本和本机启用选项保持不变。仍可预览云端；这些记录请使用新版手动备份或Drive备份。"
+  },
+  "recoveryReviewCopy": {
+    "message": "检查可导入配置文件"
+  },
+  "recoveryReviewingCopy": {
+    "message": "正在核查这份原始副本…"
+  },
+  "recoveryReviewTitle": {
+    "message": "配置文件审阅"
+  },
+  "recoveryCloseReview": {
+    "message": "关闭文件审阅"
+  },
+  "recoveryDownloadRecovery": {
+    "message": "下载已审阅配置"
+  },
+  "recoveryReviewUnavailable": {
+    "message": "可导入文件需要具有独立校验和、完整且受支持的副本。这条记录仍可用于调查。"
+  },
+  "recoveryReviewFailed": {
+    "message": "这份副本未通过恢复文件检查。你仍可查看允许显示的文字。已保存的数据没有改变。"
+  },
+  "recoveryReviewIntegrity": {
+    "message": "这份表示没有匹配的原有校验和。现在重新计算校验和不能证明当时保存了什么。"
+  },
+  "recoveryReviewFields": {
+    "message": "这份副本有缺失、未知或不受支持的字段，或导入时需要改写。它只能用于调查。"
+  },
+  "recoveryReviewCredentials": {
+    "message": "这份副本中发现了可识别的凭据，因此不会生成可导入文件。"
+  },
+  "recoveryReviewSize": {
+    "message": "这份副本超过恢复文件的安全大小限制，未生成文件。"
+  },
+  "recoveryReviewReady": {
+    "message": "所选副本已通过文件检查。请阅读来源、范围和站点文字，再选择“下载已审阅配置”。"
+  },
+  "recoveryReviewScope": {
+    "message": "仅包含配置：快捷方式、分类、布局、外观、保存的文字和受支持的设置。这不是完整备份。"
+  },
+  "recoveryReviewExclusions": {
+    "message": "不包含同步及服务商偏好、运行时世代标记、个人模块、提示词、资料库、其他工作区和更早的副本。下载不会改变当前设置。"
+  },
+  "recoveryReviewLatest": {
+    "message": "存留副本可能不包含最近的编辑。校验和匹配不能证明真实性、所有用户数据的完整性，也不能证明这是最新副本。"
+  },
+  "recoveryReviewPrivacy": {
+    "message": "文件可能包含私密文字和完整网址。请妥善保管，分享前先检查。以后在设置中导入仍是需要明确操作的独立替换步骤。"
+  },
+  "recoveryReviewSource": {
+    "message": "所选来源"
+  },
+  "recoveryReviewSourceTime": {
+    "message": "校验范围内的记录时间"
+  },
+  "recoveryReviewRawTime": {
+    "message": "未知 · 原始副本的校验和不覆盖旁边的备份时间"
+  },
+  "recoveryReviewGeneratedAt": {
+    "message": "新文件生成时间"
+  },
+  "recoveryCategoryCount": {
+    "message": "分类数量"
+  },
+  "recoveryDuplicateCount": {
+    "message": "完全相同网址的重复记录"
+  },
+  "recoveryPositionCount": {
+    "message": "保存的坐标记录"
+  },
+  "recoveryRecoveryDownloadRequested": {
+    "message": "已请求下载审阅后的配置，请检查下载列表。未导入或覆盖任何内容。"
+  },
+  "recoveryRecoveryDownloadFailed": {
+    "message": "无法下载已审阅的文件。已保存的数据没有改变，请重新检查这份副本后再试。"
+  },
+  "recoveryReviewTruncated": {
+    "message": "本次审阅中的长标题或网址只显示前 4,000 个字符，配置文件会完整保留通过检查的值。"
   }
 }

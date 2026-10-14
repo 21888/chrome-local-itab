@@ -53,3 +53,6 @@ p + p { margin-top: 10px; }
 @media (max-width: 600px) { .recovery-page { width: calc(100% - 28px); padding-top: 24px; } .recovery-notice, .recovery-entry { padding: 16px; } .recovery-facts { grid-template-columns: minmax(0, 1fr); gap: 10px; } .recovery-actions { display: grid; grid-template-columns: minmax(0, 1fr); } .recovery-actions .recovery-button { width: 100%; } .recovery-toolbar .recovery-button { flex-shrink: 0; } }
 @media (prefers-color-scheme: dark) { :root { --recovery-bg: #18221d; --recovery-surface: #202d25; --recovery-text: #ecf1ed; --recovery-muted: #bccbbf; --recovery-line: #4c5f50; --recovery-accent: #b5dbc0; --recovery-tint: #304636; --recovery-warn: #f5d39b; --recovery-warn-bg: #3b3324; --recovery-error: #ffc2b7; --recovery-error-bg: #492b27; --recovery-focus: #8ac2ff; } }
 @media (forced-colors: active) { .recovery-badge, .recovery-notice, .recovery-entry { border: 1px solid CanvasText; } }
+
+.recovery-file-review { padding: 18px; border: 1px solid var(--recovery-accent); border-radius: 8px; background: var(--recovery-tint); }
+.recovery-file-review .recovery-help + .recovery-help { margin-top: 10px; }

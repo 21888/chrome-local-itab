@@ -33,7 +33,7 @@ RUNTIME_FILES = (
     "collection-capture-background.js", "shared/collection-capture.js", "shared/collection-capture-page.js", "shared/collection-prompt-draft.js",
     "local-ai-search.js", "shared/local-ai-search.js", "shared/local-ai-search-view.js",
     "newtab.html", "options.html",
-    "recovery.html", "recovery.css", "recovery.js", "shared/recovery-inspector.js",
+    "recovery.html", "recovery.css", "recovery.js", "shared/recovery-inspector.js", "shared/recovery-file.js",
     "ai-context.js", "ai-context.css", "shared/ai-context.js", "shared/ai-context-view.js",
     "shared/shortcut-organizer.js", "shared/shortcut-organizer-view.js", "shortcut-organizer.css",
     "collections.html", "collections.js", "collections.css",

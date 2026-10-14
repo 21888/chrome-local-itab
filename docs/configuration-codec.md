@@ -58,5 +58,7 @@ loads are separately checked against forbidden API access.
 
 Existing import, export, layout/URL, Sync, Complete and workspace suites remain
 required in addition to differential tests. A dependency-loading change in a VM
-fixture does not relax its behavior assertions. The package contains exactly129
-runtime files including the codec, and excludes the entire tests tree.
+fixture does not relax its behavior assertions. The foundation commit packages exactly129
+runtime files including the codec, and excludes the entire tests tree. Later
+features may add explicitly inventoried assets; the codec fixtures remain
+test-only and must never be included.
