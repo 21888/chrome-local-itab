@@ -2218,6 +2218,7 @@ class ShortcutsComponent {
      * Render the shortcuts component
      */
     render() {
+        this._escapedFreeDragClick = null;
         this._cancelFreeDrag?.();
         if (!this.container) return;
         this.finderView?.destroy();
@@ -2595,6 +2596,14 @@ class ShortcutsComponent {
     }
 
     handleGridClick(e) {
+        const escaped = this._escapedFreeDragClick;
+        if (escaped && e.detail > 0 && e.target.closest('.shortcut-item') === escaped.item &&
+            (e.pointerId == null || e.pointerId === escaped.pointerId)) {
+            this._escapedFreeDragClick = null;
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+        }
         if (this._suppressClickUntil && Date.now() < this._suppressClickUntil) {
             e.stopPropagation();
             e.preventDefault();
@@ -3663,6 +3672,7 @@ class ShortcutsComponent {
      * Update shortcuts grid
      */
     updateGrid(requestedFocus = null) {
+        this._escapedFreeDragClick = null;
         this._cancelFreeDrag?.();
         const grid = document.getElementById('shortcuts-grid');
         if (grid) {
@@ -3726,6 +3736,7 @@ class ShortcutsComponent {
         let focusIntent = null;
         if (this._renderedGrouping !== undefined && this._renderedGrouping !== this.usesCollections()) {
             // An external placement change can regroup a keyboard-focused tile.
+            this._escapedFreeDragClick = null;
             focusIntent = this.captureGridFocus(grid);
             grid.replaceChildren(this.buildShortcutsFragment());
             window.categoryNavigation?.filterShortcuts({ reflow: false });
@@ -3834,6 +3845,7 @@ class ShortcutsComponent {
     }
 
     detachFreeDrag() {
+        this._escapedFreeDragClick = null;
         this._cancelFreeDrag?.();
         if (this.gridEl && this._freeDragAttached) {
             this.gridEl.removeEventListener('pointerdown', this._onPointerDown);
@@ -3842,6 +3854,9 @@ class ShortcutsComponent {
     }
 
     onPointerDown(e) {
+        // A fresh primary gesture cannot inherit the cancelled gesture's click.
+        // An ignored secondary contact does not end the cancelled primary hold.
+        if (e.isPrimary !== false) this._escapedFreeDragClick = null;
         // Keep modified clicks, nested buttons and other pointers as ordinary UI actions.
         if (this._shortcutUndoPending || window.LocalItabIdentity?.needs(this.links) || this.layoutController?.modePending || this._cancelFreeDrag || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.isPrimary === false) return;
         const interactive = e.target.closest('button, a, input, select, textarea, [contenteditable]');
@@ -3922,6 +3937,11 @@ class ShortcutsComponent {
             document.removeEventListener('pointermove', onMove);
             document.removeEventListener('pointerup', onUp);
             document.removeEventListener('pointercancel', onCancel);
+            document.removeEventListener('keydown', onKeydown);
+            document.removeEventListener('compositionstart', onCompositionStart);
+            document.removeEventListener('compositionend', onCompositionEnd);
+            document.removeEventListener('focusout', onCompositionEnd);
+            compositionTarget = null;
             item.removeEventListener('lostpointercapture', onCancel);
             if (commit && moved) {
                 event?.preventDefault();
@@ -3974,6 +3994,23 @@ class ShortcutsComponent {
             finish(event, true);
         };
         const onCancel = event => finish(event, false);
+        let compositionTarget = null;
+        const onCompositionStart = event => { if (!finished) compositionTarget = event.target; };
+        const onCompositionEnd = event => {
+            if (!finished && compositionTarget === event.target) compositionTarget = null;
+        };
+        const onKeydown = event => {
+            if (finished || event.key !== 'Escape' || event.defaultPrevented || event.repeat ||
+                event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+            if (compositionTarget && (!compositionTarget.isConnected || !compositionTarget.contains(document.activeElement))) compositionTarget = null;
+            if (event.isComposing || event.keyCode === 229 || compositionTarget) return;
+            event.preventDefault();
+            event.stopPropagation();
+            // Escape may precede the physical release by any length of time.
+            // Consume only that gesture's pointer click, never keyboard launch.
+            this._escapedFreeDragClick = { item, pointerId: e.pointerId };
+            finish(null, false);
+        };
         this._cancelFreeDrag = () => finish(null, false);
         this.refreshShortcutUndo();
         document.addEventListener('scroll', updatePosition, true);
@@ -3981,6 +4018,11 @@ class ShortcutsComponent {
         document.addEventListener('pointermove', onMove, { passive: false });
         document.addEventListener('pointerup', onUp);
         document.addEventListener('pointercancel', onCancel);
+        // Bubble so focused menus/dialogs can handle Escape before this session.
+        document.addEventListener('keydown', onKeydown);
+        document.addEventListener('compositionstart', onCompositionStart);
+        document.addEventListener('compositionend', onCompositionEnd);
+        document.addEventListener('focusout', onCompositionEnd);
         item.addEventListener('lostpointercapture', onCancel);
         try { item.setPointerCapture?.(e.pointerId); } catch (_) {}
     }

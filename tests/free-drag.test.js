@@ -397,3 +397,180 @@ console.log('free drag live scroll, layout-shift, resize and cleanup tests ok');
     assert.deepEqual(JSON.parse(JSON.stringify(h.component.identityPositions['scroll-0'].all)), { x: 60, y: 190 }, 'release uses its newest client endpoint and current canvas origin');
     assert.equal(h.saved.length, 1);
 }
+
+const test = require('node:test');
+const sessionTypes = ['keydown', 'compositionstart', 'compositionend', 'focusout', 'pointermove', 'pointerup', 'pointercancel', 'scroll'];
+const countSessionListeners = h => sessionTypes.reduce((total, type) => total + (h.document.listeners.get(type)?.size || 0), 0);
+const escape = (h, fields = {}) => h.event({ key: 'Escape', pointerId: undefined, ...fields });
+const emitEscape = (h, fields = {}) => { const event = escape(h, fields); h.document.emit('keydown', event); return event; };
+const startMovedDrag = h => {
+    h.component.onPointerDown(h.event({ clientX: 10, clientY: 10 }));
+    h.document.emit('pointermove', h.event({ clientX: 150, clientY: 130 }));
+};
+
+for (const alignToGrid of [false, true]) for (const moved of [false, true]) {
+    test(`DOM model: Escape restores ${alignToGrid ? 'manual snap' : 'Free'} ${moved ? 'drag' : 'jitter'} without a late save`, () => {
+        const h = createHarness(); h.component.layout.alignToGrid = alignToGrid;
+        const style = { ...h.items[0].style }, positions = JSON.stringify(h.component.positions);
+        h.component._suppressClickUntil = 99;
+        h.component.onPointerDown(h.event());
+        const stale = Object.fromEntries(sessionTypes.map(type => [type, [...(h.document.listeners.get(type) || [])][0]]));
+        h.document.emit('pointermove', h.event({ clientX: moved ? 150 : 12, clientY: moved ? 130 : 12 }));
+        const oldFrame = [...h.frames.values()][0];
+        // Pointerdown preserves focus. Escape from the unrelated search field
+        // has no pointerId and still belongs to the active drag.
+        const search = { closest() { return null; } };
+        const event = emitEscape(h, { target: search });
+        assert.equal(h.component._cancelFreeDrag, null);
+        assert.equal(event.prevented, true); assert.equal(event.stopped, true);
+        assert.deepEqual(h.items[0].style, style);
+        assert.equal(JSON.stringify(h.component.positions), positions);
+        assert.equal(h.component._suppressClickUntil, 99);
+        assert.equal(h.component._dragMoved, false); assert.equal(h.component._dragStartPos, null);
+        assert.equal(h.items[0].classList.contains('drag-free'), false);
+        assert.equal(h.frames.size, 0); assert.equal(countSessionListeners(h), 0);
+        assert.equal(h.window.listeners.get('resize').size, 0);
+        assert.equal(h.items[0].listeners.get('lostpointercapture').size, 0);
+        stale.pointermove?.(h.event({ clientX: 250, clientY: 250 })); stale.pointerup?.(h.event()); stale.pointercancel?.(h.event());
+        oldFrame?.(); h.items[0].emit('lostpointercapture', h.event()); h.document.emit('pointerup', h.event());
+        assert.deepEqual(h.items[0].style, style); assert.equal(h.frames.size, 0); assert.equal(h.saves(), 0);
+    });
+}
+
+for (const fields of [{ key: 'Enter' }, { key: ' ' }, { key: 'a' }, { repeat: true }, { isComposing: true }, { keyCode: 229 }, { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { defaultPrevented: true }]) {
+    test(`DOM model: drag Escape ignores ${JSON.stringify(fields)}`, () => {
+        const h = createHarness(); startMovedDrag(h);
+        const event = emitEscape(h, fields);
+        assert.equal(event.prevented, false); assert.equal(event.stopped, false);
+        assert.equal(typeof h.component._cancelFreeDrag, 'function');
+        h.document.emit('pointerup', h.event());
+        assert.equal(h.saves(), 1); assert.equal(countSessionListeners(h), 0);
+    });
+}
+
+for (const ending of ['compositionend', 'focusout', 'focus change', 'removed target']) {
+    test(`DOM model: unflagged composing Escape stays native until ${ending}`, () => {
+        const h = createHarness(); startMovedDrag(h);
+        const field = { isConnected: true, contains(target) { return target === this; } }, other = {};
+        h.document.activeElement = field;
+        h.document.emit('compositionstart', { target: field });
+        h.document.emit('compositionend', { target: other });
+        assert.equal(emitEscape(h, { target: field }).prevented, false);
+        assert.equal(typeof h.component._cancelFreeDrag, 'function');
+        if (ending === 'focus change') h.document.activeElement = other;
+        else if (ending === 'removed target') field.isConnected = false;
+        else h.document.emit(ending, { target: field });
+        assert.equal(emitEscape(h, { target: h.document.activeElement }).prevented, true);
+        assert.equal(h.saves(), 0); assert.equal(countSessionListeners(h), 0);
+    });
+}
+
+for (const end of ['pointerup', 'pointercancel', 'lostpointercapture', 'detach', 'render', 'rebuild', 'category']) {
+    test(`DOM model: ${end} removes Escape listeners and stale callbacks cannot affect another drag`, () => {
+        const h = createHarness(); startMovedDrag(h);
+        const stale = Object.fromEntries(sessionTypes.map(type => [type, [...(h.document.listeners.get(type) || [])][0]]));
+        if (end === 'detach') h.component.detachFreeDrag();
+        else if (end === 'render') h.component.render();
+        else if (end === 'rebuild') { h.component.buildShortcutsFragment = () => []; h.component.applyLayoutMode = () => {}; h.component.updateGrid(); }
+        else if (end === 'category') { h.component.layout.autoArrange = true; h.component.reflowVisibleLayout(); h.component.layout.autoArrange = false; }
+        else (end === 'lostpointercapture' ? h.items[0] : h.document).emit(end, h.event());
+        assert.equal(countSessionListeners(h), 0);
+        assert.equal(emitEscape(h).prevented, false, 'ended sessions do not consume Escape');
+        h.component.onPointerDown(h.event({ clientX: 10, clientY: 10 }));
+        const current = h.component._cancelFreeDrag;
+        const event = escape(h); stale.keydown?.(event); stale.pointercancel?.(h.event()); stale.pointerup?.(h.event());
+        stale.compositionstart?.({ target: h.items[0] }); stale.compositionend?.({ target: h.items[0] }); stale.focusout?.({ target: h.items[0] });
+        assert.equal(event.prevented, false); assert.equal(event.stopped, false);
+        assert.equal(h.component._cancelFreeDrag, current);
+        h.document.emit('pointermove', h.event({ clientX: 200, clientY: 200 })); h.document.emit('pointerup', h.event());
+        assert.equal(h.saves(), end === 'pointerup' ? 2 : 1);
+        assert.equal(countSessionListeners(h), 0);
+    });
+}
+
+for (const pointerId of [1, undefined]) {
+    test(`DOM model: Escape prevents the cancelled physical click with pointerId ${pointerId}, even after a long hold`, () => {
+        const h = createHarness(); startMovedDrag(h); emitEscape(h);
+        // Any timer-based click suppression has expired before release.
+        h.component._suppressClickUntil = 0;
+        h.document.emit('pointerup', h.event());
+        const keyboard = h.event({ detail: 0, pointerId: -1 }); h.component.handleGridClick(keyboard);
+        assert.equal(h.opens(), 1, 'keyboard activation still works');
+        const physical = h.event({ detail: 1, pointerId }); h.component.handleGridClick(physical);
+        assert.equal(physical.prevented, true); assert.equal(physical.stopped, true);
+        assert.equal(h.opens(), 1); assert.equal(h.saves(), 0);
+        h.component.onPointerDown(h.event()); h.document.emit('pointerup', h.event());
+        h.component.handleGridClick(h.event({ detail: 1, pointerId }));
+        assert.equal(h.opens(), 2, 'the next physical click works with reused or absent pointerId');
+    });
+}
+
+test('DOM model: Escape click fence ignores other pointers and targets, and a new down clears it', () => {
+    const h = createHarness(); startMovedDrag(h); emitEscape(h);
+    h.component.handleGridClick(h.event({ detail: 1, pointerId: 2 }));
+    h.component.handleGridClick(h.event({ detail: 1, target: h.items[1] }));
+    assert.equal(h.opens(), 2);
+    h.component.onPointerDown(h.event()); h.document.emit('pointerup', h.event());
+    const click = h.event({ detail: 1 }); h.component.handleGridClick(click);
+    assert.equal(click.prevented, false); assert.equal(h.opens(), 3);
+});
+
+for (const reset of ['detach', 'render', 'rebuild', 'auto mode']) {
+    test(`DOM model: ${reset} clears a cancelled pointer-click fence`, () => {
+        const h = createHarness(); startMovedDrag(h); emitEscape(h);
+        if (reset === 'detach') h.component.detachFreeDrag();
+        else if (reset === 'render') h.component.render();
+        else if (reset === 'rebuild') { h.component.buildShortcutsFragment = () => []; h.component.applyLayoutMode = () => {}; h.component.updateGrid(); }
+        else { h.component.layout.autoArrange = true; h.component.applyAutoColumns = () => {}; h.component.applyLayoutMode(); }
+        assert.equal(h.component._escapedFreeDragClick, null);
+        assert.equal(countSessionListeners(h), 0); assert.equal(h.saves(), 0);
+    });
+}
+
+for (const alignToGrid of [false, true]) {
+    test(`DOM model: Escape preserves fitted fractional duplicate identities in ${alignToGrid ? 'snap' : 'Free'} mode`, () => {
+        const h = createHarness({ height: 600 }); h.component.layout.alignToGrid = alignToGrid;
+        h.component.links.forEach((link, i) => { link.layoutId = `escape-${i}`; link.url = 'https://example.com/duplicate'; });
+        h.component.identityPositions = { 'escape-0': { all: { x: 600.25, y: 0.75 } }, 'escape-1': { all: { x: 800.5, y: 0.125 }, work: { x: 320.25, y: 115.5 } } };
+        h.items.forEach(item => { item.getBoundingClientRect = () => ({ left: parseFloat(item.style.left), top: parseFloat(item.style.top), width: 80, height: 80 }); });
+        h.component.applyVisibleTransformsFromPositions();
+        const before = JSON.stringify(h.component.identityPositions), style = { ...h.items[1].style };
+        h.component.onPointerDown(h.event({ target: h.items[1], clientX: 218, clientY: 106 }));
+        h.document.emit('pointermove', h.event({ target: h.items[1], clientX: 110, clientY: 210 })); emitEscape(h);
+        h.document.emit('pointerup', h.event());
+        assert.deepEqual(h.items[1].style, style); assert.equal(JSON.stringify(h.component.identityPositions), before);
+        assert.equal(h.saves(), 0); assert.equal(countSessionListeners(h), 0);
+    });
+}
+
+test('DOM model: a secondary contact cannot re-enable the cancelled primary release click', () => {
+    const h = createHarness(); startMovedDrag(h); emitEscape(h);
+    h.component.onPointerDown(h.event({ pointerId: 2, isPrimary: false }));
+    h.document.emit('pointerup', h.event({ pointerId: 2 }));
+    h.document.emit('pointerup', h.event());
+    const click = h.event({ detail: 1 }); h.component.handleGridClick(click);
+    assert.equal(click.prevented, true); assert.equal(h.opens(), 0); assert.equal(h.saves(), 0);
+    assert.equal(countSessionListeners(h), 0);
+});
+
+for (const repaint of ['saved callback', 'template', 'resize/category']) {
+    test(`DOM model: ${repaint} cannot re-enable the cancelled physical release click`, () => {
+        const h = createHarness(); startMovedDrag(h); emitEscape(h);
+        h.component.initializeMissingPositions = () => {};
+        h.component.applyVisibleTransformsFromPositions = () => {};
+        h.component.positionAddTile = () => {};
+        if (repaint === 'saved callback') {
+            h.window.LocalItabLayout = { Controller: class { constructor(options) { this.options = options; } } };
+            h.component.ensureLayoutController().options.onApply({ ...h.component.layout, positions: h.component.positions }, 'saved', { links: h.component.links });
+        } else if (repaint === 'template') h.component.refreshTemplate();
+        else h.component.reflowVisibleLayout();
+        h.component._suppressClickUntil = 0;
+        h.document.emit('pointerup', h.event());
+        const click = h.event({ detail: 1 }); h.component.handleGridClick(click);
+        assert.equal(click.prevented, true); assert.equal(h.opens(), 0); assert.equal(h.saves(), 0);
+        assert.equal(countSessionListeners(h), 0);
+        h.component.onPointerDown(h.event()); h.document.emit('pointerup', h.event());
+        h.component.handleGridClick(h.event({ detail: 1 }));
+        assert.equal(h.opens(), 1, 'the next primary click remains available after a repaint');
+    });
+}
