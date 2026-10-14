@@ -10,10 +10,10 @@
     function validOrganizations(value) {
         return Array.isArray(value) && value.length <= 100 && value.every(org => typeof org?.id === 'string' && UUID.test(org.id) && typeof org.name === 'string' && org.name.length <= 120) && new Set(value.map(org => org.id.toLowerCase())).size === value.length;
     }
-    function organizationDisplayLabel(org, organizations) {
+    function organizationDisplayLabel(org, organizations, unnamedOrganizationLabel) {
         const fragment = `${org.id.slice(0, 8)}…${org.id.slice(-12)}`;
         const collision = organizations.some(other => other.id !== org.id && `${other.id.slice(0, 8)}…${other.id.slice(-12)}` === fragment);
-        return `${org.name || '未命名组织'} (${collision ? org.id : fragment})`;
+        return `${org.name || unnamedOrganizationLabel} (${collision ? org.id : fragment})`;
     }
     function validTimestamp(value) {
         if (typeof value !== 'string') return false;
@@ -80,7 +80,7 @@
         } catch { return bad(controller.signal.aborted ? 'timeout' : 'network_or_redirect'); }
         finally { clearTimeout(timer); if (reader) { try { await reader.cancel(); } catch {} } controller.abort(); }
     }
-    function createController(chrome, publish = () => {}) {
+    function createController(chrome, publish = () => {}, { unnamedOrganizationLabel = 'Unnamed organization' } = {}) {
         let epoch = 0, state = { phase: 'disabled' }, disposed = false;
         const emit = value => { state = value; publish(value); };
         const clear = (phase = 'idle') => { epoch++; emit({ phase }); };
@@ -121,7 +121,7 @@
                     const tab = await chrome.tabs.get(tabId); if (!active(token)) return; if (!exactTab(tab)) throw new Error('wrong_page');
                     const result = await inject(tabId, null, 'organizations'); if (!active(token)) return;
                     if (!validOrganizations(result.data?.organizations)) throw new Error('schema_changed');
-                    emit({ phase: 'organizations', tabId, documentId: result.documentId, organizations: result.data.organizations.map(org => ({ id: org.id, name: org.name, displayLabel: organizationDisplayLabel(org, result.data.organizations) })) });
+                    emit({ phase: 'organizations', tabId, documentId: result.documentId, organizations: result.data.organizations.map(org => ({ id: org.id, name: org.name, displayLabel: organizationDisplayLabel(org, result.data.organizations, unnamedOrganizationLabel) })) });
                 } catch (e) { fail(token, e.message); }
             },
             async selectOrganization(id) {

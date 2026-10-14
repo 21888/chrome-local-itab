@@ -12,7 +12,9 @@ function harness() {
     let render;
     const controller = { close: () => { calls.push('close'); render({ phase: 'disabled' }); }, enable: () => calls.push('enable'), selectTab: id => calls.push(['tab', id]), selectOrganization: id => calls.push(['org', id]), dispose: () => calls.push('dispose') };
     const window = { addEventListener: (event, listener) => listeners.set(event, listener) };
-    vm.runInNewContext(source, { document, window, chrome: {}, ClaudeUsageSnapshot: { createController: (_, publish) => { render = publish; return controller; } } });
+    const chrome = { i18n: { getMessage: key => require('../_locales/zh_CN/messages.json')[key]?.message || '' } };
+    vm.runInNewContext(fs.readFileSync('i18n.js', 'utf8'), { document, window, chrome });
+    vm.runInNewContext(source, { document, window, chrome, ClaudeUsageSnapshot: { createController: (_, publish) => { render = publish; return controller; } } });
     return { document, calls, listeners, render, result: document.getElementById('result'), text: () => document.getElementById('result').children.map(el => el.textContent).join('\n') };
 }
 test('settings experiment entry is local, discoverable, bilingual, and grants nothing on open', () => {
@@ -21,7 +23,9 @@ test('settings experiment entry is local, discoverable, bilingual, and grants no
     assert.ok(!options.includes('src="shared/claude-usage-snapshot.js"'));
     for (const locale of ['en','zh_CN']) { const strings = require(`../_locales/${locale}/messages.json`); for (const key of ['claudeUsageTitle','claudeUsageDescription','claudeUsageCaution','claudeUsageOpen']) assert.ok(strings[key].message); }
     assert.match(fs.readFileSync('shared/settings-search.js','utf8'), /"target": "claude-usage-settings", "tab": "privacy"/);
-    assert.match(html, /真实账号尚未验收/); assert.match(html, /默认关闭/); assert.match(html, /不是账号绑定/); assert.match(html, /计费证据/); assert.match(html, /Chrome 原生弹窗/); assert.match(html, /https:\/\/claude.ai\/\*/); assert.match(html, /scripting/);
+    const notices = JSON.stringify(require('../_locales/zh_CN/messages.json'));
+    assert.match(notices, /真实账号尚未验收/); assert.match(notices, /默认关闭/); assert.match(notices, /不是账号绑定/); assert.match(notices, /计费证据/); assert.match(notices, /Chrome 原生弹窗/);
+    assert.match(html, /src="i18n.js"/); assert.match(html, /https:\/\/claude.ai\/\*/); assert.match(html, /scripting/);
     const h = harness(); assert.deepEqual(h.calls, ['close']); assert.match(h.text(), /已关闭/);
 });
 test('enable is explicit, close and back clear immediately, pagehide clears and unload disposes', () => {
@@ -44,7 +48,7 @@ test('empty tabs and zero organizations explain recovery; no auto-select, pure t
 });
 test('selection controls hand focus to status when replaced, and snapshot null is never synthetic zero', () => {
     const h = harness(); h.render({ phase: 'tabs', tabs: [{ id: 7 }] }); h.result.querySelector('button').focus(); h.render({ phase: 'loading' }); assert.equal(h.document.activeElement, h.result);
-    h.render({ phase: 'snapshot', name: 'Synthetic', organizationLabel: 'Synthetic (11111111…111111111111)', windows: { five_hour: { usedPercent: 0, resetAt: null }, seven_day: null }, fetchedAt: '2026-10-13T10:00:00Z' }); assert.match(h.text(), /已用 0%/); assert.match(h.text(), /重置时间：未知/); assert.match(h.text(), /每周窗口：未提供该窗口/);
+    h.render({ phase: 'snapshot', name: 'Synthetic', organizationLabel: 'Synthetic (11111111…111111111111)', windows: { five_hour: { usedPercent: 0, resetAt: null }, seven_day: null }, fetchedAt: '2026-10-13T10:00:00Z' }); assert.match(h.text(), /已用 0%/); assert.match(h.text(), /重置时间：未知/); assert.match(h.text(), /七天窗口：未提供该窗口/);
 });
 test('settings entry has existing padded content wrapper so outward focus ring is not clipped at section edge', () => {
     const options = fs.readFileSync('options.html', 'utf8');

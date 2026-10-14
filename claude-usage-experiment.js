@@ -1,33 +1,87 @@
 (function () {
     'use strict';
+    // Keep the HTML's English safety text if the message API is unavailable.
+    // The shared helper chooses document language from Chrome's actual catalog.
+    const staticText = Array.from(document.querySelectorAll('[data-i18n], [data-i18n-aria-label]'), node => ({
+        node, text: node.textContent, textKey: node.getAttribute('data-i18n'),
+        label: node.getAttribute('aria-label'), labelKey: node.getAttribute('data-i18n-aria-label')
+    }));
+    window.i18n?.localizeDocument(document);
+    for (const item of staticText) {
+        if (item.textKey && (!item.node.textContent || item.node.textContent === item.textKey)) item.node.textContent = item.text;
+        if (item.labelKey && (!item.node.getAttribute('aria-label') || item.node.getAttribute('aria-label') === item.labelKey)) item.node.setAttribute('aria-label', item.label);
+    }
     const result = document.getElementById('result');
-    const errors = { invalid_selection: '选择无效，请重新选择页面和组织。', http_error: '官网返回了未预期的状态，未显示用量。', unsupported_response: '浏览器不支持安全读取此响应。', read_failed: '读取失败，请重新选择页面和组织。', permission_denied: '未授予所需权限。', wrong_page: '请选择精确 claude.ai 页面。', document_changed: '页面已变化，请重新选择。', organizations_changed: '组织列表已变化，请重新选择。', login_required: '请自行到 Claude 页面登录。', access_denied: '访问被拒绝，请到官网检查访问权限或验证要求。', challenge: '官网需要完成验证，请自行处理。', rate_limited: '请求过于频繁，请稍后手动重试。', temporary_error: 'Claude 服务暂时不可用。', schema_changed: '返回格式不符合预期，未显示用量。', non_json: '返回了非 JSON 页面，可能需要官网验证。', network_or_redirect: '网络失败或被重定向，请检查官网。', timeout: '读取超时。', too_large: '响应过大，已停止读取。' };
+    const fallback = {
+        "Disabled": "Closed. No snapshot has been saved.",
+        "PageChanged": "The target page closed or navigated. Results were cleared. Enable again to continue.",
+        "Loading": "Waiting for permission or reading…",
+        "ReadUnavailable": "Unable to read. Select a page and an organization again.",
+        "ChooseTab": "Choose an already-open Claude tab. Numbers are browser tab IDs; page titles are not read.",
+        "NoTabs": "No open Claude tabs were found. Open the official site yourself, then enable again.",
+        "TabLabel": "Claude tab #{id}",
+        "ChooseOrganization": "Choose one organization for this read. Even a single organization must be selected manually.",
+        "NoOrganizations": "No organizations were returned for this session.",
+        "UnnamedOrganization": "Unnamed organization",
+        "SnapshotHeading": "Usage snapshot for the organization selected in this page session: {organization}",
+        "NoWindows": "This organization did not provide subscription windows.",
+        "FiveHourWindow": "5-hour window",
+        "SevenDayWindow": "7-day window",
+        "WindowUnavailable": "{window}: not provided",
+        "WindowUsage": "{window}: used {percent}% · Reset time: {reset}",
+        "UnknownReset": "Unknown",
+        "FetchedAt": "Collected at: {time}. Reading again requires selecting the tab and organization again.",
+        "ErrorInvalidSelection": "Invalid selection. Select a page and an organization again.",
+        "ErrorHttp": "The official site returned an unexpected status. No usage was displayed.",
+        "ErrorUnsupportedResponse": "This browser cannot safely read this response.",
+        "ErrorReadFailed": "The read failed. Select a page and an organization again.",
+        "ErrorPermissionDenied": "The required permissions were not granted.",
+        "ErrorWrongPage": "Choose a page on the exact claude.ai origin.",
+        "ErrorDocumentChanged": "The page changed. Select it again.",
+        "ErrorOrganizationsChanged": "The organization list changed. Select again.",
+        "ErrorLoginRequired": "Go to the Claude site and sign in yourself.",
+        "ErrorAccessDenied": "Access was denied. Check access permissions or verification requirements on the official site.",
+        "ErrorChallenge": "The official site requires verification. Complete it yourself.",
+        "ErrorRateLimited": "Too many requests. Retry manually later.",
+        "ErrorTemporary": "Claude is temporarily unavailable.",
+        "ErrorSchemaChanged": "The response format was unexpected. No usage was displayed.",
+        "ErrorNonJson": "A non-JSON page was returned. The official site may require verification.",
+        "ErrorNetwork": "The network read failed or was redirected. Check the official site.",
+        "ErrorTimeout": "The read timed out.",
+        "ErrorTooLarge": "The response was too large. Reading stopped."
+    };
+    const errors = {"invalid_selection": "ErrorInvalidSelection", "http_error": "ErrorHttp", "unsupported_response": "ErrorUnsupportedResponse", "read_failed": "ErrorReadFailed", "permission_denied": "ErrorPermissionDenied", "wrong_page": "ErrorWrongPage", "document_changed": "ErrorDocumentChanged", "organizations_changed": "ErrorOrganizationsChanged", "login_required": "ErrorLoginRequired", "access_denied": "ErrorAccessDenied", "challenge": "ErrorChallenge", "rate_limited": "ErrorRateLimited", "temporary_error": "ErrorTemporary", "schema_changed": "ErrorSchemaChanged", "non_json": "ErrorNonJson", "network_or_redirect": "ErrorNetwork", "timeout": "ErrorTimeout", "too_large": "ErrorTooLarge"};
+    const t = name => {
+        const key = `claudeUsage${name}`, value = window.i18n?.t(key);
+        return value && value !== key ? value : fallback[name];
+    };
+    const format = (key, values) => t(key).replace(/\{(\w+)\}/g, (token, name) => Object.hasOwn(values, name) ? String(values[name]) : token);
     function line(text) { const p = document.createElement('p'); p.textContent = text; result.append(p); }
     function button(label, action) { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', action); result.append(b); }
     const controller = ClaudeUsageSnapshot.createController(chrome, state => {
         const hadFocus = result.contains(document.activeElement);
         result.replaceChildren();
-        if (['disabled', 'idle'].includes(state.phase)) line('已关闭，未保存任何快照。');
-        else if (state.phase === 'page_changed') line('目标页面已关闭或导航，结果已清除。请重新启用。');
-        else if (['enabling', 'loading'].includes(state.phase)) line('等待授权或读取中…');
-        else if (state.phase === 'error') line(errors[state.error] || '无法读取，请重新选择页面和组织。');
+        if (['disabled', 'idle'].includes(state.phase)) line(t('Disabled'));
+        else if (state.phase === 'page_changed') line(t('PageChanged'));
+        else if (['enabling', 'loading'].includes(state.phase)) line(t('Loading'));
+        else if (state.phase === 'error') line(t(Object.hasOwn(errors, state.error) ? errors[state.error] : 'ReadUnavailable'));
         else if (state.phase === 'tabs') {
-            line(state.tabs.length ? '请选择已经打开的 Claude 标签页。编号为浏览器标签 ID，不读取页面标题。' : '未发现已打开的 Claude 标签页。请自行打开官网后重新启用。');
-            state.tabs.forEach(tab => button(`Claude 标签页 #${tab.id}`, () => controller.selectTab(tab.id)));
+            line(t(state.tabs.length ? 'ChooseTab' : 'NoTabs'));
+            state.tabs.forEach(tab => button(format('TabLabel', { id: tab.id }), () => controller.selectTab(tab.id)));
         } else if (state.phase === 'organizations') {
-            line(state.organizations.length ? '本次请选择一个组织；即使只有一个也需手动选择。' : '此会话没有返回可选组织。');
+            line(t(state.organizations.length ? 'ChooseOrganization' : 'NoOrganizations'));
             state.organizations.forEach(org => button(org.displayLabel, () => controller.selectOrganization(org.id)));
         } else if (state.phase === 'snapshot') {
-            line(`本次页面会话下所选组织的用量快照：${state.organizationLabel}`);
-            if (state.unavailable) line('此组织未提供订阅窗口。');
-            for (const [key, label] of [['five_hour', '五小时窗口'], ['seven_day', '每周窗口']]) {
+            line(format('SnapshotHeading', { organization: state.organizationLabel }));
+            if (state.unavailable) line(t('NoWindows'));
+            for (const [key, label] of [['five_hour', t('FiveHourWindow')], ['seven_day', t('SevenDayWindow')]]) {
                 const window = state.windows[key];
-                line(window === null ? `${label}：未提供该窗口` : `${label}：已用 ${window.usedPercent}% · 重置时间：${window.resetAt || '未知'}`);
+                line(window === null ? format('WindowUnavailable', { window: label }) : format('WindowUsage', { window: label, percent: window.usedPercent, reset: window.resetAt || t('UnknownReset') }));
             }
-            line(`采集时间：${state.fetchedAt}。重新读取必须重新选择标签页和组织。`);
+            line(format('FetchedAt', { time: state.fetchedAt }));
         }
         if (hadFocus) result.focus();
-    });
+    }, { unnamedOrganizationLabel: t('UnnamedOrganization') });
     document.getElementById('enable').addEventListener('click', () => controller.enable());
     document.getElementById('close').addEventListener('click', () => controller.close());
     document.getElementById('back').addEventListener('click', () => controller.close());

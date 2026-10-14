@@ -23,8 +23,11 @@ function harness(organizations = twins) {
         scripting: { executeScript: async request => { calls.push(['script', request.args]); return [{ frameId: 0, documentId: 'synthetic-document', result: await respond(...request.args) }]; } }
     };
     let controller;
-    vm.runInNewContext(fs.readFileSync('claude-usage-experiment.js', 'utf8'), { document, chrome, window: { addEventListener: (type, fn) => listeners.set(type, fn) },
-        ClaudeUsageSnapshot: { createController: (transport, publish) => (controller = API.createController(transport, publish)) } });
+    chrome.i18n = { getMessage: key => require('../_locales/zh_CN/messages.json')[key]?.message || '' };
+    const window = { addEventListener: (type, fn) => listeners.set(type, fn) };
+    vm.runInNewContext(fs.readFileSync('i18n.js', 'utf8'), { document, window, chrome });
+    vm.runInNewContext(fs.readFileSync('claude-usage-experiment.js', 'utf8'), { document, chrome, window,
+        ClaudeUsageSnapshot: { createController: (transport, publish, options) => (controller = API.createController(transport, publish, options)) } });
     const text = () => result.children.map(node => node.textContent).join('\n');
     const scripts = () => calls.filter(call => call[0] === 'script').map(call => call[1]);
     const ready = async () => { await controller.enable(); await controller.selectTab(7); };
