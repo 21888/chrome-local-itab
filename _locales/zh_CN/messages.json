@@ -6586,5 +6586,11 @@
   },
   "spacesLegacyPaused": {
     "message": "工作区暂不可用。旧标签页写入冲突需要检查，保存已暂停。"
+  },
+  "storedURLExported": {
+    "message": "已保留原始网址拼写及布局关系导出。请使用支持原网址身份备份的新版导入此文件。"
+  },
+  "syncStoredURLPaused": {
+    "message": "为保留旧网址拼写及布局关系，Sync传输已暂停。已存副本和本机启用选项保持不变。仍可预览云端；这些记录请使用新版手动备份或Drive备份。"
   }
 }

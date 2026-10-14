@@ -83,9 +83,17 @@ test('settings export, Drive, Sync, restore and reset keep the established perso
  const oldChrome=global.chrome, oldNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');global.chrome=h.chrome;Object.defineProperty(globalThis,'navigator',{value:{locks:h.locks},configurable:true});
  try {
   const manager=new StorageManager(); const saved=clone(h.data);
-  for(const payload of [manager.sanitizeConfigForBackup(h.data),manager.buildManualExportPayload(h.data),manager.buildDriveBackupPayload(h.data),manager.prepareSyncPayload(h.data),await manager.makeRecovery(h.data,'beforeRestore')]) {
+  for(const payload of [manager.sanitizeConfigForBackup(h.data),manager.buildManualExportPayload(h.data),manager.buildDriveBackupPayload(h.data),await manager.makeRecovery(h.data,'beforeRestore')]) {
    for(const sentinel of [tasks.KEY,focus.KEY,'PRIVATE_TASK_SENTINEL','PRIVATE_SESSION_SENTINEL'])assert(!JSON.stringify(payload).includes(sentinel));
   }
+  assert.throws(()=>manager.prepareSyncPayload(h.data),error=>error.code==='SYNC_IDENTITY_COMPATIBILITY'&&error.kind==='stored-url');
+  assert.deepEqual(h.data,saved,'a refused legacy-URL Sync payload preserves every local configuration and personal value');
+  assert.deepEqual(h.remote,[],'payload refusal does not call the synthetic provider');
+  const canonical=clone(h.data);canonical.links[0].url='https://example.com/';
+  const canonicalPayload=manager.prepareSyncPayload(canonical);
+  assert.equal(canonicalPayload.payload.links[0].url,'https://example.com/');
+  for(const sentinel of [tasks.KEY,focus.KEY,'PRIVATE_TASK_SENTINEL','PRIVATE_SESSION_SENTINEL'])assert(!JSON.stringify(canonicalPayload).includes(sentinel));
+  assert.deepEqual(h.data,saved,'canonical positive control must not edit the original raw-URL profile');
   const restored=manager.prepareRestoredConfig(manager.buildManualExportPayload(manager.cloneDefaultConfig()),{sync:{enabled:false}});
   assert.equal(await manager.setAll(restored,{skipSyncInitialization:true,skipSyncSideEffects:true,confirmedRestore:true}),true);
   assert.deepEqual(h.data[tasks.KEY],saved[tasks.KEY]);assert.deepEqual(h.data[focus.KEY],saved[focus.KEY]);

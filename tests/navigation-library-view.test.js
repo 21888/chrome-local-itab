@@ -8,7 +8,7 @@ function model({locale='en'}={}) {
     const component={layoutController:{async flush(){}},async addCatalogShortcut(request){calls++;if(write)return write.promise;const site=request.site; snapshot.links.push({title:site.name,url:site.url,icon:site.icon,category:request.destination});return structuredClone(snapshot);}};
     const dictionary=JSON.parse(fs.readFileSync(`_locales/${locale==='zh-CN'?'zh_CN':'en'}/messages.json`));
     const context={document,URL,Intl,console,setTimeout,window:null,addEventListener(){},storageManager:{async readNavigationLibrarySnapshot(){reads++;return read?read.promise:structuredClone(snapshot);}},i18n:{t(key){return dictionary[key]?.message||key;}},shortcutsComponentInstance:component};context.window=context;vm.createContext(context);
-    for(const file of ['shared/dialog-focus.js','shared/navigation-catalog.js','shared/navigation-sites.js','shared/navigation-library-view.js','shared/local-content-lifecycle.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
+    for(const file of ['shared/dialog-focus.js','shared/stored-shortcut-url.js', 'shared/navigation-catalog.js','shared/navigation-sites.js','shared/navigation-library-view.js','shared/local-content-lifecycle.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
     const view=component.navigationLibraryView=context.LocalItabNavigationLibrary.mount(host,component);
     component.hasUncommittedShortcutWork=()=>view.hasUncommittedWork();
     const button=text=>document.querySelectorAll('button').find(b=>b.textContent===text);

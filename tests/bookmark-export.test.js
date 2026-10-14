@@ -27,11 +27,12 @@ test('ordinary exported fixture parses with folder and title content intact', ()
     assert.deepEqual(result.records.map(record => record.title), ['Example', 'Reading']);
     assert.equal(result.skipped.total, 0);
 });
-test('escapes text/attributes and whitespace, preserves saved URL spelling and Unicode', () => {
+test('escapes text/attributes and whitespace, derives absolute HREF and preserves source Unicode', () => {
     const data = config(); data.categories[0].name = '📚<&>"\'\t\r\n';
     data.links = [link('<script>你好 & "\'\t\r\n', 'a', 'HTTPS://Example.COM/path?q="quoted"&x=\'<tag>#frag')];
-    const html = api.serialize(data);
-    assert.ok(html.includes('HREF="HTTPS://Example.COM/path?q=&quot;quoted&quot;&amp;x=&#39;&lt;tag&gt;#frag"'));
+    const before = structuredClone(data), html = api.serialize(data);
+    assert.ok(html.includes('HREF="https://example.com/path?q=%22quoted%22&amp;x=%27%3Ctag%3E#frag"'));
+    assert.deepEqual(data, before);
     assert.ok(!html.includes('<script>')); assert.ok(html.includes('📚&lt;&amp;&gt;&quot;&#39;&#9;&#13;&#10;'));
 });
 test('reads only titles URLs category membership and category identity/name', () => {

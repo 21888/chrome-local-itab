@@ -25,7 +25,7 @@ RUNTIME_FILES = (
     "vendor/marked/marked.umd.js", "vendor/marked/LICENSE", "vendor/marked/PROVENANCE.json",
     "shared/safe-answer-reader.js", "safe-answer-reader.css",
     "claude-usage-experiment.html", "claude-usage-experiment.css", "claude-usage-experiment.js", "shared/claude-usage-snapshot.js",
-    "shared/navigation-catalog.js", "shared/navigation-sites.js", "shared/navigation-library-view.js", "navigation-library.css",
+    "shared/stored-shortcut-url.js", "shared/navigation-catalog.js", "shared/navigation-sites.js", "shared/navigation-library-view.js", "navigation-library.css",
     "dashboard-customization.css", "shared/dashboard-customization.js", "shared/dashboard-card-layout.js",
     "shared/ai-model-comparison.js", "ai-model-comparison.css",
     "manifest.json", "shared/local-ai-markdown.js",

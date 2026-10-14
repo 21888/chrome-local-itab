@@ -174,9 +174,10 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     {
         const f = fixture(), { m } = f; await f.publish(f.payload()); await m.pullFromSync(); await f.allocate(); f.clearRemote();
         const readStarted = deferred(), releaseRead = deferred(), enqueued = deferred(), provider = deferred(); let held = false;
-        f.hooks.afterLocalGet = async keys => { if (!held && keys?.length === 3 && keys.includes(m.layoutGenerationKey) && keys.includes('sync')) { held = true; readStarted.resolve(); await releaseRead.promise; } };
+        f.hooks.afterLocalGet = async keys => { if (!held && Array.isArray(keys) && [m.syncIdentityStateKey, m.layoutGenerationKey, 'sync', 'links'].every(key => keys.includes(key))) { held = true; readStarted.resolve(); await releaseRead.promise; } };
         f.hooks.beforeRemoteSet = async () => { enqueued.resolve(); await provider.promise; };
         const upload = m.pushToSync(); await readStarted.promise;
+        assert.equal(held, true, 'the final guarded enqueue read includes the current raw links');
         let blocked = false; const block = f.page().blockSync(m.compatibilityError('later compatibility conflict')).then(() => { blocked = true; });
         await Promise.resolve(); assert.equal(blocked, false, 'block waits for locked enqueue boundary');
         releaseRead.resolve(); await enqueued.promise; await block;

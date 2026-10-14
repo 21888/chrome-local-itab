@@ -6586,5 +6586,11 @@
   },
   "spacesLegacyPaused": {
     "message": "Workspace unavailable. Saving is paused while the older-tab conflict is reviewed."
+  },
+  "storedURLExported": {
+    "message": "Settings exported with original URL spelling and layout relationships. Import this file only with a version that supports stored URL identity backups."
+  },
+  "syncStoredURLPaused": {
+    "message": "Sync transfers are paused to preserve older URL spelling and layout relationships. Your saved copies and enabled preference are unchanged. Cloud preview is still available; use a current-version manual or Drive backup instead of Sync for these records."
   }
 }

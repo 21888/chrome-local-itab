@@ -242,3 +242,13 @@ test('final UTF-8 export limit includes indentation and the investigation envelo
     assert.equal(row.siteCount, 1); assert(row.exportable);
     assert.throws(() => api.exportEntry(report, row.id), e => e.code === 'SIZE_LIMIT');
 });
+
+test('read-only inspection recognizes intact stored-URL backup versions without rewriting their original identities', async()=>{
+    const storage=new Storage(),source={...storage.cloneDefaultConfig(),...config()},payload=storage.buildManualExportPayload(source);
+    assert.equal(payload.version,'2.0');const f=fixture({[KEYS.restore]:{payload,checksum:await hash(payload)}}),report=await f.api.inspect(),row=report.entries.find(e=>e.source.representation==='portable');
+    assert(!row.warnings.includes('UNKNOWN_VERSION'));assert(!row.warnings.includes('UNKNOWN_FORMAT'));assert.deepEqual(f.api.preview(report,row.id).links,payload.data.links);
+    assert.deepEqual(JSON.parse(f.api.exportEntry(report,row.id)).configurationProjection.layout,payload.data.layout);assert.deepEqual(f.writes,[]);
+    for(const mutate of [p=>{delete p.urlIdentityVersion;},p=>{p.urlIdentityVersion=2;},p=>{p.version='1.0';},p=>{p.app='other';},p=>{p.schemaVersion=3;}]){
+        const bad=clone(payload);mutate(bad);const next=fixture({[KEYS.restore]:{payload:bad}}),checked=await next.api.inspect(),entry=checked.entries.find(e=>e.source.representation==='portable');assert(entry.warnings.includes('UNKNOWN_FORMAT')||entry.warnings.includes('UNKNOWN_VERSION'));
+    }
+});

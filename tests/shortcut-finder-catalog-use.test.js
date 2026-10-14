@@ -32,7 +32,7 @@ test('canonical association preserves full path, query, fragment, scheme and aut
     const exact = 'https://WWW.DEEPL.COM:443/translator';
     const variants = [deepL.url + '/', deepL.url + '?x=1', deepL.url + '#x', 'https://www.deepl.com/', 'http://www.deepl.com/translator', 'https://deepl.com/translator', 'www.deepl.com/translator', 'https://user@www.deepl.com/translator', 'https://www.deepl.com.evil.invalid/translator'];
     const { c } = setup([saved(exact), ...variants.map((url, i) => saved(url, i + 2))]);
-    assert.deepEqual(c.search('翻译').rows.map(row => row.url), [exact]);
+    assert.deepEqual(c.search('翻译').rows.map(row => row.url), [exact, 'www.deepl.com/translator']);
     assert.equal(c.search('translator').total, 9, 'ordinary URL searching remains unchanged');
 });
 test('phrase stays within individual fields; all words may span original and built-in fields', () => {

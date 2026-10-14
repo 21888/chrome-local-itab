@@ -1,9 +1,10 @@
 /* Inert Netscape bookmark text parser. No DOM, I/O, storage or remote icon lookup. */
 (function (root, factory) {
-    const api = factory();
+    const api = factory(typeof module === 'object' && module.exports
+        ? require('./stored-shortcut-url.js') : root.LocalItabStoredURL);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabBookmarkImport = api;
-})(typeof window === 'undefined' ? globalThis : window, function () {
+})(typeof window === 'undefined' ? globalThis : window, function (storedURL) {
     'use strict';
     const LIMITS = Object.freeze({ inputBytes: 10 * 1024 * 1024, bookmarks: 10000,
         additions: 2000, newCategories: 200, depth: 16, title: 256, path: 256,
@@ -228,7 +229,7 @@
         bounded(rootLabel, LIMITS.path, 'PATH_LIMIT');
         const parsed = parse(text), seen = new Set(), usedIds = new Set(['all']), usedNames = new Set();
         for (const link of existing.links) {
-            const url = canonicalURL(link && link.url); if (url) seen.add(url);
+            const url = canonicalURL(link && link.url) || storedURL.destinationForSavedURL(link && link.url); if (url) seen.add(url);
             if (link && typeof link.category === 'string') usedIds.add(link.category);
         }
         const categoryIds = new Set();

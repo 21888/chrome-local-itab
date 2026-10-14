@@ -151,7 +151,7 @@ test('privacy toggles require a new preview and cannot race a checked commit', a
 test('corrupt raw records fail closed and never invoke display recovery or normalization', async () => {
     const corruptions = [
         s => { s.links = null; }, s => { s.links.push({ title: '', url: 'https://bad.example', icon: 'x', category: 'work' }); },
-        s => { s.links[0].title = ' padded '; }, s => { s.links[0].url = 'missing-scheme.example'; }, s => { delete s.links[0].icon; },
+        s => { s.links[0].title = ' padded '; }, s => { s.links[0].url = '//missing-scheme.example'; }, s => { delete s.links[0].icon; },
         s => { s.links[0].layoutId = 'invalid'; }, s => { s.categories.push(clone(s.categories[0])); },
         s => { s.categories[0].name = ' padded '; }, s => { delete s.categories[0].id; },
         s => { s.layout = null; }, s => { s.layout.positions = { x: { x: 'no', y: 2 } }; },

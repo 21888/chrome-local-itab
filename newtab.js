@@ -2469,7 +2469,11 @@ class ShortcutsComponent {
     normalizedShortcutDraft() {
         const [title, rawUrl, icon, category] = this.readShortcutDraft();
         let url = '';
-        try { url = normalizeHttpUrl(rawUrl.trim()); } catch (_) {}
+        // An unchanged field is the stored identity, including historical URL
+        // spelling. Only an explicitly edited/new URL takes the input policy.
+        const original = this.links[this.currentEditIndex];
+        if (original && rawUrl === original.url) url = rawUrl;
+        else try { url = normalizeHttpUrl(rawUrl.trim()); } catch (_) {}
         return { title: title.trim(), url, icon: icon.trim() || '🌐', category: (category || 'work').trim() };
     }
 
@@ -2948,10 +2952,9 @@ class ShortcutsComponent {
             const flushed = await controller?.flush();
             if (flushed === false || controller?.failedChange || controller?.invalidated) throw Object.assign(new Error('Pending layout change'), { code: 'CATALOG_LAYOUT_PENDING' });
             const saved = await storageManager.addCatalogShortcut(request);
-            // Navigation preserves raw legacy records for exact write guards.
-            // The dashboard/layout controller use the normal display projection,
-            // so our own storage notification must compare like-for-like links.
-            this.adoptShortcutSnapshot({ ...saved, links: storageManager.validateLinksConfig(saved.links) });
+            // Preserve saved URL identities in the display/layout baseline too,
+            // so late storage notifications compare the same raw spelling.
+            this.adoptShortcutSnapshot({ ...saved, links: storageManager.validateStoredLinksConfig(saved.links) });
             if (Array.isArray(saved.categories)) {
                 this.categories = saved.categories;
                 if (window.categoryNavigation) {
@@ -3316,13 +3319,15 @@ class ShortcutsComponent {
         const categorySelect = this.modal.querySelector('#shortcut-category');
 
         const { title, icon, category } = this.normalizedShortcutDraft();
-        let url = urlInput.value.trim();
+        const original = this.links[this.currentEditIndex];
+        const unchangedURL = original && urlInput.value === original.url;
+        let url = unchangedURL ? original.url : urlInput.value.trim();
 
         // Validate form
         if (!this.validateForm(title, url)) {
             return;
         }
-        url = normalizeHttpUrl(url);
+        if (!unchangedURL) url = normalizeHttpUrl(url);
 
         const saveSession = this._modalSession;
         const pendingSave = {};
@@ -3330,7 +3335,9 @@ class ShortcutsComponent {
         this.setSavingState(true);
 
         // Save shortcut WITHOUT overwriting user's original icon field
-        const shortcut = { ...(this.links[this.currentEditIndex]?.layoutId ? { layoutId: this.links[this.currentEditIndex].layoutId } : {}), title, url, icon, category };
+        // Retain every original field for strict storage validation; rebuilding
+        // only recognized fields must never turn a rejected record into success.
+        const shortcut = { ...(original || {}), title, url, icon, category };
         const previousLinks = this.links.map(link => ({ ...link }));
         const nextLinks = previousLinks.map(link => ({ ...link }));
         const editIndex = this.currentEditIndex;

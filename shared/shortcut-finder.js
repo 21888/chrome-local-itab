@@ -1,8 +1,9 @@
 (function (root, factory) {
-    const api = factory();
+    const api = factory(typeof module === 'object' && module.exports
+        ? require('./stored-shortcut-url.js') : root.LocalItabStoredURL);
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.LocalItabFinder = api;
-})(typeof window === 'undefined' ? globalThis : window, function () {
+})(typeof window === 'undefined' ? globalThis : window, function (storedURL) {
     'use strict';
     const PAGE_SIZE = 50;
     // Keep variation selectors/Chinese marks intact; fold canonical Latin accents.
@@ -26,7 +27,7 @@
                 index.set(catalog.canonicalURL(site.url), fields);
             }
         } catch (_) { return () => []; } // A missing/invalid catalog cannot break saved-site search.
-        return raw => index.get(catalog.canonicalURL(raw)) || [];
+        return raw => index.get(catalog.canonicalURL(raw) || storedURL.destinationForSavedURL(raw)) || [];
     }
     class Controller {
         constructor({ getSnapshot, readSnapshot = getSnapshot, activate, reserve, getCatalogFields = () => [] }) {

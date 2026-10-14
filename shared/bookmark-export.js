@@ -1,10 +1,12 @@
 /* Pure, bounded Netscape HTML serialization. No I/O or configuration writes. */
 (function (root, factory) {
     const api = factory(typeof module === 'object' && module.exports
-        ? require('./bookmark-import.js') : root.LocalItabBookmarkImport);
+        ? require('./bookmark-import.js') : root.LocalItabBookmarkImport,
+        typeof module === 'object' && module.exports
+            ? require('./stored-shortcut-url.js') : root.LocalItabStoredURL);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabBookmarkExport = api;
-})(typeof window === 'undefined' ? globalThis : window, function (importer) {
+})(typeof window === 'undefined' ? globalThis : window, function (importer, storedURL) {
     'use strict';
     // Collection/byte budgets match the bookmark storage boundary; string budgets
     // match the importer. Reject excess rather than silently truncating data.
@@ -38,9 +40,14 @@
         }
         for (const link of config.links) {
             if (!link || typeof link !== 'object') fail();
-            const title = checked(link.title, LIMITS.text), url = checked(link.url, LIMITS.url);
+            const title = checked(link.title, LIMITS.text), raw = checked(link.url, LIMITS.url);
+            const destination = importer.canonicalURL(raw) || storedURL.destinationForSavedURL(raw);
+            if (!destination) fail();
+            const url = checked(destination, LIMITS.url);
             const category = checked(link.category, LIMITS.id);
-            if (url.length > LIMITS.url || !importer.canonicalURL(url)) fail();
+            // URL encoding can expand valid Unicode input. Bound the derived HREF
+            // too; append() separately enforces the complete escaped byte budget.
+            if (raw.length > LIMITS.url || url.length > LIMITS.url) fail();
             (byId.get(category)?.links || loose).push({title, url});
         }
         const chunks = []; let bytes = 0;

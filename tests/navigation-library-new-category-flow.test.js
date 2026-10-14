@@ -30,7 +30,7 @@ function flow(categories = [], links = []) {
     const context = { document, URL, Intl, console, setTimeout, window: null, addEventListener() {}, storageManager: storage,
         shortcutsComponentInstance: component };
     context.window = context; vm.createContext(context);
-    for (const file of ['shared/dialog-focus.js', 'shared/navigation-catalog.js', 'shared/navigation-sites.js', 'shared/navigation-library-view.js']) {
+    for (const file of ['shared/dialog-focus.js', 'shared/stored-shortcut-url.js', 'shared/navigation-catalog.js', 'shared/navigation-sites.js', 'shared/navigation-library-view.js']) {
         vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     }
     const view = component.navigationLibraryView = context.LocalItabNavigationLibrary.mount(host, component);

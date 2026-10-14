@@ -28,7 +28,7 @@ function flow(categories, locale = 'en') {
     const context = { document, URL, Intl, console, setTimeout, window: null, addEventListener() {}, storageManager: storage,
         shortcutsComponentInstance: component, i18n: { t: key => dictionary[key]?.message || key } };
     context.window = context; vm.createContext(context);
-    for (const file of ['shared/dialog-focus.js', 'shared/navigation-catalog.js', 'shared/navigation-sites.js', 'shared/navigation-library-view.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
+    for (const file of ['shared/dialog-focus.js', 'shared/stored-shortcut-url.js', 'shared/navigation-catalog.js', 'shared/navigation-sites.js', 'shared/navigation-library-view.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     context.LocalItabNavigationSites = context.LocalItabNavigationSites.slice(0, 3);
     const view = component.navigationLibraryView = context.LocalItabNavigationLibrary.mount(host, component);
     const q = selector => document.querySelector(selector), select = () => q('.navigation-library-destination select');

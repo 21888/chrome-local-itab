@@ -58,9 +58,12 @@ test('empty and omitted category lists keep their existing semantics, and shortc
         assert.deepEqual(legacy.categories.map(category => category.id), ['cat_import_1', 'cat_import_2']);
         assert.doesNotThrow(() => manager.validateCategoryBaseline(legacy.categories));
     }
-    for (const categories of [undefined, [], [{ name: 'Legacy' }]]) {
-        assert.throws(() => manager.validateImportPayload({ categories }), /shortcuts array is required/);
+    for (const payload of [{}, { categories: [] }, { categories: [{ name: 'Legacy' }] }]) {
+        assert.throws(() => manager.validateImportPayload(payload), /shortcuts array is required/);
     }
+    const nonJSON = { categories: undefined };
+    assert.throws(() => manager.validateImportPayload(nonJSON), /Invalid backup: backup must be bounded plain JSON/);
+    assert.deepEqual(nonJSON, { categories: undefined }, 'non-JSON refusal does not mutate the supplied object');
 });
 
 test('valid explicit IDs, category references and names survive a settings round trip unchanged', () => {

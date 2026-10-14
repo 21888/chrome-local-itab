@@ -7,6 +7,7 @@ const LayoutIdentity = typeof module !== 'undefined' && module.exports ? require
 const DashboardTemplates = typeof module !== 'undefined' && module.exports ? require('./shared/dashboard-template-registry.js') : window.LocalItabTemplates;
 const ClockPreferences = typeof module !== 'undefined' && module.exports ? require('./shared/world-clocks.js') : window.WorldClocks;
 // Resolve lazily so non-import consumers need not load the bookmark parser.
+const getStoredURL = () => typeof module !== 'undefined' && module.exports ? require('./shared/stored-shortcut-url.js') : window.LocalItabStoredURL;
 const getBookmarkImportPlanner = () => typeof module !== 'undefined' && module.exports ? require('./shared/bookmark-import.js') : window.LocalItabBookmarkImport;
 const BOOKMARK_IMPORT_STORAGE_LIMITS = Object.freeze({ links: 20000, categories: 2000, bytes: 32 * 1024 * 1024, nodes: 250000, depth: 32 });
 
@@ -198,7 +199,7 @@ class StorageManager {
         // Old shortcuts/categories may omit cosmetic optional fields. Validate
         // their documented default projection without rewriting original IDs,
         // receipts, positions or stored content during migration.
-        const projected = LayoutIdentity.copy(values);
+        const projected = this.copyStoredConfiguration(values);
         if (Array.isArray(projected.links)) projected.links = projected.links.map(link =>
             link && typeof link === 'object' && !Array.isArray(link)
                 ? { icon: '🌐', category: 'work', ...link } : link);
@@ -241,9 +242,10 @@ class StorageManager {
             if (result[key] !== undefined) {
                 // Validate retrieved data
                 try {
-                    const validatedValue = this.validateData(key, result[key]);
+                    const validatedValue = this.validateStoredData(key, result[key]);
                     return validatedValue;
                 } catch (validationError) {
+                    if (validationError.code === 'STORED_CONFIG_INVALID') throw validationError;
                     if (this.workspace) { const error = new Error('Workspace settings are invalid. Saved data has not been replaced.'); error.code = 'WORKSPACE_CORRUPT'; throw error; }
                     console.warn(`Data validation failed for key "${key}", using default:`, validationError);
                     
@@ -272,7 +274,7 @@ class StorageManager {
             
             return this.getDefaultValue(key);
         } catch (error) {
-            if (error.code?.startsWith('WORKSPACE_')) throw error;
+            if (error.code?.startsWith('WORKSPACE_') || error.code === 'STORED_CONFIG_INVALID') throw error;
             console.error(`Storage get error for key "${key}":`, error);
             
             // Handle specific storage errors
@@ -478,7 +480,7 @@ class StorageManager {
                 throw error;
             }
             if (guarded) {
-                const expectedLinks = this.validateLinksConfig(options.expectedLinks);
+                const expectedLinks = this.validateStoredLinksConfig(options.expectedLinks);
                 if (JSON.stringify(latest.links) !== JSON.stringify(expectedLinks) ||
                     (Object.prototype.hasOwnProperty.call(options, 'expectedLayoutGeneration') && options.expectedLayoutGeneration !== latest.generation)) {
                     const error = new Error('Shortcuts changed in another tab. Reopen the shortcut and try again.');
@@ -496,6 +498,8 @@ class StorageManager {
                 allocated = assignment.changed;
             }
             LayoutIdentity.validateBundle(candidate);
+            const schemaVersion = this.layoutSchemaForMutation(raw, candidate.layout);
+            if (schemaVersion !== undefined) candidate.schemaVersion = schemaVersion;
             const protectedBefore = LayoutIdentity.active(latest.layout);
             if (protectedBefore && !(this.workspace?.manager.locks?.request || (typeof navigator !== 'undefined' && navigator.locks?.request))) { const error = new Error('Safe identity writes require Web Locks.'); error.code = 'LAYOUT_LOCK_UNAVAILABLE'; throw error; }
             const losesIdentity = protectedBefore && this.losesIdentityHistory(latest, this.layoutSnapshot(candidate));
@@ -508,6 +512,7 @@ class StorageManager {
                 invalidatesLayout = JSON.stringify(previous) !== JSON.stringify(values.categories);
             }
             const written = { ...values };
+            if (schemaVersion !== undefined && schemaVersion !== raw.schemaVersion) written.schemaVersion = schemaVersion;
             if (allocated) { written.links = candidate.links; written.layout = candidate.layout; }
             if (allocated && !protectedBefore && !raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
             if (options.confirmedRestore) {
@@ -733,7 +738,7 @@ class StorageManager {
                     throw this.shortcutUndoError('CATALOG_CATEGORY_EXISTS', 'A category with that name already exists. Choose it or enter a different name.');
                 }
             } else if (!snapshot.categories.some(category => category.id === ticket.plan.destination)) throw conflict();
-            const urls = new Set(snapshot.links.map(link => this.catalogCanonicalURL(link.url)));
+            const urls = new Set(snapshot.links.map(link => this.catalogCanonicalURL(link.url) || getStoredURL()?.destinationForSavedURL(link.url)).filter(Boolean));
             const additions = [];
             for (const candidate of ticket.candidates) {
                 if (urls.has(candidate.url)) continue;
@@ -879,7 +884,7 @@ class StorageManager {
                     this._shortcutUndoTicket = null;
                 }
                 const latest = this.shortcutUndoSnapshot(raw);
-                if (!this.sameShortcutUndoValue(this.validateLinksConfig(expected), this.validateLinksConfig(latest.links)) ||
+                if (!this.sameShortcutUndoValue(this.validateStoredLinksConfig(expected), this.validateStoredLinksConfig(latest.links)) ||
                     (Object.prototype.hasOwnProperty.call(options, 'expectedLayoutGeneration') && options.expectedLayoutGeneration !== latest.generation)) {
                     const error = this.shortcutUndoError('LINKS_CONFLICT', 'Shortcuts changed in another tab. Reopen the shortcut and try again.');
                     error.latestLinks = latest.links; throw error;
@@ -987,7 +992,7 @@ class StorageManager {
     }
 
     async makeRecovery(raw, reason) {
-        const payload = this.buildManualExportPayload(this.validateConfigObject(raw));
+        const payload = this.buildManualExportPayload(this.validateStoredConfigObject(raw));
         return { reason, payload, providerState: this.validateSyncConfig(raw.sync || this.defaultConfig.sync), checksum: await this.fingerprint(payload) };
     }
 
@@ -1041,7 +1046,7 @@ class StorageManager {
         this.assertConfigurationKeys([key]);
         try {
             // Snapshot the caller value before yielding to another mutation.
-            const validatedValue = this.validateData(key, value);
+            const validatedValue = this.validateStoredData(key, value);
             if (key === 'clock' && Object.prototype.hasOwnProperty.call(options, 'expectedClock')) {
                 options = { ...options, expectedClock: this.validateClockBaseline(options.expectedClock) };
             }
@@ -1105,9 +1110,18 @@ class StorageManager {
         return value;
     }
 
+    layoutSchemaForMutation(raw, nextLayout) {
+        if (!Object.prototype.hasOwnProperty.call(raw, 'schemaVersion')) return undefined;
+        const previous = LayoutIdentity.active(raw.layout) ? 2 : 1;
+        if (raw.schemaVersion !== previous) LayoutIdentity.invalid('Stored schema does not match layout identities.');
+        // Only an explicit mutation/restore owns this transition. Startup and
+        // read projections retain both the original marker and its absence.
+        return LayoutIdentity.active(nextLayout) ? 2 : 1;
+    }
+
     layoutSnapshot(raw) {
         const rawLinks = raw.links === undefined ? this.defaultConfig.links : raw.links;
-        const links = this.validateLinksConfig(rawLinks);
+        const links = this.validateStoredLinksConfig(rawLinks);
         LayoutIdentity.validateBundle({ links, layout: raw.layout || this.defaultConfig.layout });
         if (links.length !== rawLinks.length) throw new Error('Stored shortcuts are invalid.');
         return JSON.parse(JSON.stringify({
@@ -1188,7 +1202,7 @@ class StorageManager {
         if (!planner || typeof planner.planImport !== 'function') throw this.bookmarkImportError('BOOKMARK_IMPORT_UNAVAILABLE', 'Bookmark import is unavailable. Reload Settings.');
         for (const link of source.links) {
             if (!object(link) || typeof link.title !== 'string' || !link.title.trim() || link.title !== link.title.trim() ||
-                typeof link.url !== 'string' || !planner.canonicalURL(link.url) ||
+                typeof link.url !== 'string' || !(planner.canonicalURL(link.url) || getStoredURL()?.destinationForSavedURL(link.url)) ||
                 typeof link.icon !== 'string' || typeof link.category !== 'string' || !link.category) invalid();
         }
         const ids = new Set();
@@ -1327,7 +1341,7 @@ class StorageManager {
         if (!expected || !Object.prototype.hasOwnProperty.call(expected, 'generation') || !Array.isArray(expected.links)) {
             throw new Error('A trusted layout baseline is required.');
         }
-        const expectedLinks = this.validateLinksConfig(expected.links);
+        const expectedLinks = this.validateStoredLinksConfig(expected.links);
         if (expectedLinks.length !== expected.links.length) throw new Error('Invalid expected shortcut list.');
         expected.links = expectedLinks;
         const fields = ['autoArrange', 'alignToGrid', 'gridSize', 'columns'];
@@ -1380,10 +1394,10 @@ class StorageManager {
                 if (allocated) {
                     written.links = links;
                     written[this.layoutGenerationKey] = this.createLayoutGeneration();
-                    if (!LayoutIdentity.active(latest.layout)) {
-                        const raw = await this._local.get(null);
-                        if (!raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
-                    }
+                    const raw = await this._local.get(null);
+                    const schemaVersion = this.layoutSchemaForMutation(raw, candidate);
+                    if (schemaVersion !== undefined && schemaVersion !== raw.schemaVersion) written.schemaVersion = schemaVersion;
+                    if (!LayoutIdentity.active(latest.layout) && !raw[this.identityRecoveryKey]) written[this.identityRecoveryKey] = await this.makeRecovery(raw, 'beforeIdentity');
                 }
                 onWrite(copy(candidate));
                 await this._local.set(written);
@@ -1426,7 +1440,7 @@ class StorageManager {
             // Preserve the existing successful-read normalization and allowlist.
             // Unlike getAll(), this boundary propagates errors instead of exporting
             // runtime fallback defaults as a successful backup.
-            return this.validateConfigObject(raw);
+            return this.validateStoredConfigObject(raw);
         });
     }
 
@@ -1443,7 +1457,7 @@ class StorageManager {
                 try { this.validateWorkspaceConfig(result); }
                 catch (_) { const error = new Error('Workspace settings are invalid. Saved data has not been replaced.'); error.code = 'WORKSPACE_CORRUPT'; throw error; }
             }
-            const config = this.validateConfigObject(result);
+            const config = this.validateStoredConfigObject(result);
             try { Object.defineProperty(config, '_settingsBaseline', { value: this.settingsSnapshot(result) }); }
             catch (error) {
             if (error.code?.startsWith('WORKSPACE_')) throw error; console.warn('Settings baseline unavailable:', error); }
@@ -1470,7 +1484,7 @@ class StorageManager {
             return config;
         } catch (error) {
             if (error.code?.startsWith('WORKSPACE_')) throw error;
-            if (error.code === 'LAYOUT_IDENTITY_INVALID') throw error;
+            if (error.code === 'LAYOUT_IDENTITY_INVALID' || error.code === 'STORED_CONFIG_INVALID') throw error;
             console.error('Storage getAll error:', error);
             return { ...this.defaultConfig };
         }
@@ -1490,7 +1504,7 @@ class StorageManager {
             }
             const validatedData = {};
             for (const [key, value] of Object.entries(data)) {
-                validatedData[key] = this.validateData(key, value);
+                validatedData[key] = this.validateStoredData(key, value);
             }
             if (Object.prototype.hasOwnProperty.call(data, 'clock') && Object.prototype.hasOwnProperty.call(options, 'expectedClock')) {
                 options = { ...options, expectedClock: this.validateClockBaseline(options.expectedClock) };
@@ -1641,7 +1655,7 @@ class StorageManager {
     }
 
     sanitizeConfigForBackup(config) {
-        const sanitized = this.validateConfigObject(config);
+        const sanitized = this.validateStoredConfigObject(config);
         sanitized.sync = this.getDisabledSyncConfig();
         return sanitized;
     }
@@ -1656,7 +1670,7 @@ class StorageManager {
     }
 
     countBackupItems(config) {
-        const source = this.validateConfigObject(config);
+        const source = this.validateStoredConfigObject(config);
         const links = Array.isArray(source.links) ? source.links : [];
         const hot = source.hot || {};
         const dataUrlIcons = links.filter(link => typeof link.icon === 'string' && link.icon.startsWith('data:')).length;
@@ -1674,12 +1688,28 @@ class StorageManager {
         };
     }
 
+    hasLegacyURLSpelling(config) {
+        if (!config || typeof config !== 'object' || Array.isArray(config)) throw this.storedConfigurationError('Stored configuration must be an object.');
+        const prototype = Object.getPrototypeOf(config), descriptor = Object.getOwnPropertyDescriptor(config, 'links');
+        if ((prototype !== null && Object.getPrototypeOf(prototype) !== null) || (descriptor && !Object.prototype.hasOwnProperty.call(descriptor, 'value'))) throw this.storedConfigurationError('Stored shortcut accessors are unsupported.');
+        const links = this.validateStoredLinksConfig(descriptor?.value === undefined ? this.defaultConfig.links : descriptor.value);
+        return links.some(link => this.validateLinksConfig([link])[0]?.url !== link.url);
+    }
+
+    assertSyncURLCompatibility(...configs) {
+        if (configs.filter(Boolean).some(config => this.hasLegacyURLSpelling(config))) {
+            throw this.compatibilityError('Sync is paused because this copy preserves older URL spelling and layout relationships that older versions may rewrite. Local data and the enabled preference are unchanged. Use a current-version local or Drive backup; previews remain available.', 'stored-url');
+        }
+    }
+
     buildManualExportPayload(config, metadata = {}) {
         const sanitized = this.sanitizeConfigForBackup(config);
         const exportDate = metadata.exportDate || new Date().toISOString();
+        const storedURLs = this.hasLegacyURLSpelling(sanitized);
 
         return {
-            version: '1.0',
+            version: storedURLs ? '2.0' : '1.0',
+            ...(storedURLs ? { urlIdentityVersion: 1, type: 'backupSnapshot', app: 'local-itab' } : {}),
             schemaVersion: LayoutIdentity.active(sanitized.layout) ? 2 : 1,
             exportDate,
             createdAt: exportDate,
@@ -1696,9 +1726,11 @@ class StorageManager {
         const snapshotId = metadata.snapshotId || `snapshot_${Date.now()}`;
         const deviceId = typeof metadata.deviceId === 'string' ? metadata.deviceId : '';
         const deviceName = typeof metadata.deviceName === 'string' ? metadata.deviceName : '';
+        const storedURLs = this.hasLegacyURLSpelling(sanitized);
 
         return {
-            version: '1.0',
+            version: storedURLs ? '2.0' : '1.0',
+            ...(storedURLs ? { urlIdentityVersion: 1 } : {}),
             schemaVersion: LayoutIdentity.active(sanitized.layout) ? 2 : 1,
             type: 'backupSnapshot',
             app: 'local-itab',
@@ -1712,6 +1744,7 @@ class StorageManager {
                 name: deviceName
             },
             metadata: {
+                ...(storedURLs ? { urlIdentityVersion: 1 } : {}),
                 app: 'local-itab',
                 type: 'backupSnapshot',
                 schemaVersion: LayoutIdentity.active(sanitized.layout) ? 2 : 1,
@@ -1729,7 +1762,18 @@ class StorageManager {
         const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
         const invalid = detail => { throw new Error(`Invalid backup: ${detail}. No settings have been changed.`); };
         if (!isObject(importData)) invalid('settings data must be an object');
-        if (has(importData, 'version') && importData.version !== '1.0') invalid('unsupported backup version');
+        try { importData = this.copyStoredValue(importData); } catch (_) { invalid('backup must be bounded plain JSON'); }
+        const storedURLFormat = importData.version === '2.0';
+        if (has(importData, 'version') && !['1.0', '2.0'].includes(importData.version)) invalid('unsupported backup version');
+        if (storedURLFormat !== has(importData, 'urlIdentityVersion') || (storedURLFormat && importData.urlIdentityVersion !== 1)) invalid('unsupported stored URL identity format');
+        if (storedURLFormat) {
+            const allowed = ['version', 'urlIdentityVersion', 'schemaVersion', 'type', 'app', 'exportDate', 'createdAt', 'exportedBy', 'extensionVersion', 'itemCounts', 'data', 'snapshotId', 'device', 'metadata'];
+            if (Object.keys(importData).some(key => !allowed.includes(key)) || !has(importData, 'data') || ![1, 2].includes(importData.schemaVersion) || importData.type !== 'backupSnapshot' || importData.app !== 'local-itab') invalid('incomplete stored URL identity envelope');
+            if (has(importData, 'metadata')) {
+                const meta = importData.metadata, allowedMeta = ['urlIdentityVersion', 'app', 'type', 'schemaVersion', 'deviceId', 'snapshotId', 'reason'];
+                if (!isObject(meta) || Object.keys(meta).some(key => !allowedMeta.includes(key)) || meta.urlIdentityVersion !== 1 || meta.app !== importData.app || meta.type !== importData.type || meta.schemaVersion !== importData.schemaVersion || ['deviceId', 'snapshotId', 'reason'].some(key => has(meta, key) && typeof meta[key] !== 'string')) invalid('stored URL metadata does not match the envelope');
+            }
+        } else if (isObject(importData.metadata) && has(importData.metadata, 'urlIdentityVersion')) invalid('stored URL metadata needs its intact envelope');
         if (has(importData, 'type') && importData.type !== 'backupSnapshot') invalid('unrecognized backup type');
         if (has(importData, 'app') && importData.app !== 'local-itab') invalid('backup belongs to another app');
         if (has(importData, 'schemaVersion') && ![1, 2].includes(importData.schemaVersion)) {
@@ -1821,7 +1865,7 @@ class StorageManager {
         let links;
         let categories;
         try {
-            links = this.validateLinksConfig(settings.links);
+            links = this.validateStoredLinksConfig(settings.links);
             if (has(settings, 'categories')) categories = this.validateCategoriesConfig(importCategories);
         } catch (_) {
             invalid('a shortcut or category is malformed');
@@ -1839,12 +1883,13 @@ class StorageManager {
             }
         }
 
-        const validated = this.validateConfigObject(categories ? { ...settings, categories } : settings);
+        const validated = this.validateStoredConfigObject(categories ? { ...settings, categories } : settings);
         if (worldClocks !== undefined) validated.clock.worldClocks = worldClocks;
         if (settings.bg?.type === 'image' && settings.bg.value && !validated.bg.value) invalid('background image data is corrupt or unsupported');
         if (settings.movie?.poster && !validated.movie.poster) invalid('movie poster data is corrupt or unsupported');
         if (settings.search?.custom?.trim() && !validated.search.custom) invalid('custom search URL is invalid');
         validated.sync = this.getDisabledSyncConfig();
+        if (storedURLFormat && !this.sameShortcutUndoValue(validated, settings)) invalid('stored URL configuration is malformed or would require rewriting');
         return validated;
     }
 
@@ -1875,6 +1920,7 @@ class StorageManager {
     }
 
     completeBackupConfigFromRaw(raw) {
+        raw = this.copyStoredConfiguration(raw);
         if (Object.hasOwn(raw, 'schemaVersion') && ![1, 2].includes(raw.schemaVersion)) throw new Error('Unknown stored configuration schema.');
         this.readLayoutGeneration(raw); this.settingsSnapshot(raw);
         const defaults = this.cloneDefaultConfig(), data = {};
@@ -1949,7 +1995,57 @@ class StorageManager {
         return restored;
     }
 
-    validateConfigObject(data) {
+    storedConfigurationError(message) {
+        const error = new Error(message); error.code = 'STORED_CONFIG_INVALID'; return error;
+    }
+
+    validateStoredData(key, value) {
+        return key === 'links' ? this.validateStoredLinksConfig(value) : this.validateData(key, value);
+    }
+
+    copyStoredValue(value, depth = 0, ancestors = new Set(), budget = { nodes: 0, chars: 0 }) {
+        // Match the existing workspace JSON-copy capacity contract. The stricter
+        // bookmark and complete-file budgets belong only to those boundaries;
+        // they must not make an already supported large configuration unopenable.
+        const check = ok => { if (!ok) throw this.storedConfigurationError('Stored configuration is not supported plain JSON or exceeds its existing safety limits.'); };
+        check(++budget.nodes <= 500000 && depth <= 40);
+        if (typeof value === 'string') { budget.chars += value.length; check(budget.chars <= 128 * 1024 * 1024); return value; }
+        if (value === null || typeof value === 'boolean') return value;
+        if (typeof value === 'number') { check(Number.isFinite(value)); return value; }
+        check(value && typeof value === 'object' && !ancestors.has(value));
+        const array = Array.isArray(value), prototype = Object.getPrototypeOf(value);
+        check(array || prototype === null || Object.getPrototypeOf(prototype) === null);
+        const keys = Object.keys(value); check(keys.length <= 250000);
+        ancestors.add(value); const result = array ? [] : {};
+        for (const key of keys) {
+            const descriptor = Object.getOwnPropertyDescriptor(value, key); check(descriptor && Object.prototype.hasOwnProperty.call(descriptor, 'value'));
+            Object.defineProperty(result, key, { value: this.copyStoredValue(descriptor.value, depth + 1, ancestors, budget), enumerable: true, writable: true, configurable: true });
+        }
+        if (array) check(result.length === value.length && Object.keys(result).length === value.length);
+        ancestors.delete(value); return result;
+    }
+
+    copyStoredConfiguration(data) {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) throw this.storedConfigurationError('Stored configuration must be an object.');
+        const prototype = Object.getPrototypeOf(data);
+        if (prototype !== null && Object.getPrototypeOf(prototype) !== null) throw this.storedConfigurationError('Stored configuration must be plain JSON.');
+        // Select configuration only before copying: unrelated personal/provider
+        // records are neither exported nor allowed to consume this copy budget.
+        const selected = {}, keys = [...Object.keys(this.defaultConfig), 'schemaVersion', this.layoutGenerationKey, this.settingsGenerationKey];
+        for (const key of keys) {
+            const descriptor = Object.getOwnPropertyDescriptor(data, key);
+            if (!descriptor) continue;
+            if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) throw this.storedConfigurationError('Stored configuration accessors are unsupported.');
+            Object.defineProperty(selected, key, { value: descriptor.value, enumerable: true, configurable: true });
+        }
+        return this.copyStoredValue(selected);
+    }
+
+    validateStoredConfigObject(data) {
+        return this.validateConfigObject(this.copyStoredConfiguration(data), { storedURLs: true });
+    }
+
+    validateConfigObject(data, { storedURLs = false } = {}) {
         const validated = this.cloneDefaultConfig();
         if (!data || typeof data !== 'object') {
             return validated;
@@ -1958,7 +2054,7 @@ class StorageManager {
         if (LayoutIdentity.active(data.layout) || (Array.isArray(data.links) && data.links.some(link => LayoutIdentity.has(link, 'layoutId')))) LayoutIdentity.validateBundle(data);
         for (const key of Object.keys(this.defaultConfig)) {
             if (Object.prototype.hasOwnProperty.call(data, key)) {
-                validated[key] = this.validateData(key, data[key]);
+                validated[key] = storedURLs ? this.validateStoredData(key, data[key]) : this.validateData(key, data[key]);
             }
         }
 
@@ -2145,10 +2241,10 @@ class StorageManager {
             await this.withLocalWriteLock(async () => {
                 const raw = await this._local.get(null);
                 const guard = raw[this.syncIdentityStateKey] || {};
-                const config = this.validateConfigObject(raw); delete config.sync;
+                const config = this.validateStoredConfigObject(raw); delete config.sync;
                 const localFingerprint = guard.blocked?.localFingerprint || error.localFingerprint || await this.fingerprint(config);
                 await this._local.set({ [this.syncIdentityStateKey]: { ...guard,
-                    blocked: ['restore', 'initialization', 'review'].includes(guard.blocked?.kind) ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
+                    blocked: error.kind !== 'stored-url' && ['restore', 'initialization', 'review', 'stored-url'].includes(guard.blocked?.kind) ? guard.blocked : { ...blocked, localFingerprint, ...(remote ? { fingerprint: remote.fingerprint, revision: remote.revision } : {}) }
                 } });
             }, true);
         } catch (statusError) { this._syncCompatibilityError = blocked; console.warn('Could not persist Sync compatibility status:', statusError); }
@@ -2207,7 +2303,7 @@ class StorageManager {
 
     checkSyncIdentity(local, remote, guard, { pushing = false, confirmedReplacement = false } = {}) {
         if (confirmedReplacement) return;
-        if (['restore', 'initialization', 'review'].includes(guard.blocked?.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
+        if (['restore', 'initialization', 'review', 'stored-url'].includes(guard.blocked?.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
         if (pushing && (guard.blocked || this._syncCompatibilityError)) throw this.compatibilityError(guard.blocked?.reason || this._syncCompatibilityError.reason);
         if (!remote.payload) return;
         if (pushing && remote.schema === 2 && this.losesIdentityHistory(this.layoutSnapshot(remote.validated), local)) {
@@ -2223,12 +2319,12 @@ class StorageManager {
     }
 
     async checkSyncIdentityAtRead(local, remote, guard, raw, options) {
-        try { this.checkSyncIdentity(local, remote, guard, options); }
+        try { this.assertSyncURLCompatibility(raw, remote.payload, remote.validated); this.checkSyncIdentity(local, remote, guard, options); }
         catch (error) {
             if (error.code?.startsWith('WORKSPACE_')) throw error;
             // Bind a newly detected conflict to the same locked local read;
             // later edits cannot be mistaken for the unchanged blocked copy.
-            const config = this.validateConfigObject(raw); delete config.sync;
+            const config = this.validateStoredConfigObject(raw); delete config.sync;
             error.localFingerprint = await this.fingerprint(config);
             throw error;
         }
@@ -2244,7 +2340,7 @@ class StorageManager {
     }
 
     async sameSyncConfiguration(raw, remote) {
-        const local = this.validateConfigObject(raw), incoming = this.validateConfigObject(remote.validated);
+        const local = this.validateStoredConfigObject(raw), incoming = this.validateStoredConfigObject(remote.validated);
         delete local.sync; delete incoming.sync;
         return await this.fingerprint(local) === await this.fingerprint(incoming);
     }
@@ -2268,13 +2364,14 @@ class StorageManager {
         return this.withLocalWriteLock(async () => {
             const raw = await this._local.get(null);
             const local = this.layoutSnapshot(raw);
+            this.assertSyncURLCompatibility(raw, remote.payload, remote.validated);
             const guard = raw[this.syncIdentityStateKey] || {};
-            if (!confirmedReplacement && ['initialization', 'review'].includes(this._syncCompatibilityError?.kind)) {
+            if (!confirmedReplacement && ['initialization', 'review', 'stored-url'].includes(this._syncCompatibilityError?.kind)) {
                 throw this.compatibilityError(this._syncCompatibilityError.reason, this._syncCompatibilityError.kind);
             }
             if (guard.blocked && !confirmedReplacement) {
-                if (['restore', 'initialization', 'review'].includes(guard.blocked.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
-                const config = this.validateConfigObject(raw); delete config.sync;
+                if (['restore', 'initialization', 'review', 'stored-url'].includes(guard.blocked.kind)) throw this.compatibilityError(guard.blocked.reason, guard.blocked.kind);
+                const config = this.validateStoredConfigObject(raw); delete config.sync;
                 if (!guard.blocked.localFingerprint || guard.blocked.localFingerprint !== await this.fingerprint(config)) throw this.compatibilityError('Local settings changed while Sync was blocked. Review the copies and choose a backed-up replacement explicitly.');
             }
             if (!remote.payload) return { applied: false, empty: true };
@@ -2351,6 +2448,7 @@ class StorageManager {
             try {
                 const expectedLocalFingerprint = await this.withLocalWriteLock(async () => {
                     const raw = await this._local.get(null);
+                    if (raw.sync?.enabled === true) this.assertSyncURLCompatibility(raw);
                     return raw.sync?.enabled === true ? this.syncInitializationFingerprint(raw) : null;
                 }, true);
                 // Chrome's cloud preference is not consent on this device.
@@ -2436,7 +2534,7 @@ class StorageManager {
                         }, blocked: null } });
                         return { acknowledged: true };
                     }
-                    const { payload, omittedAssets } = this.prepareSyncPayload(this.validateConfigObject(raw));
+                    const { payload, omittedAssets } = this.prepareSyncPayload(this.validateStoredConfigObject(raw));
                     const schema = LayoutIdentity.active(payload.layout) ? 2 : 1;
                     const fingerprint = await this.fingerprint({ schema, payload });
                     const revision = this.createLayoutGeneration(), updatedAt = new Date().toISOString();
@@ -2459,7 +2557,8 @@ class StorageManager {
                 // another page may have blocked Sync while this upload waited.
                 let upload;
                 await this.withLocalWriteLock(async () => {
-                    const latest = await this._local.get([this.syncIdentityStateKey, this.layoutGenerationKey, 'sync']);
+                    const latest = await this._local.get([this.syncIdentityStateKey, this.layoutGenerationKey, 'sync', 'links']);
+                    this.assertSyncURLCompatibility(latest);
                     if (latest[this.syncIdentityStateKey]?.blocked || this._syncCompatibilityError) throw this.compatibilityError(latest[this.syncIdentityStateKey]?.blocked?.reason || this._syncCompatibilityError.reason);
                     if ((latest[this.layoutGenerationKey] || null) !== ticket.generation) throw new Error('Local data was replaced before upload. Review it and retry.');
                     if (latest.sync?.enabled !== true) throw this.syncReviewError();
@@ -2508,9 +2607,10 @@ class StorageManager {
                 if (remote.meta?.enabled === false && await this.isOwnSyncMeta(remote.meta)) return { applied: false, status: await this.getSyncStatus() };
                 await this.withLocalWriteLock(async () => {
                     const raw = await this._local.get(null);
+                    this.assertSyncURLCompatibility(raw);
                     if (raw.sync?.enabled && (LayoutIdentity.active(raw.layout) || raw[this.syncIdentityStateKey]?.blocked)) {
                         const error = this.compatibilityError('The cloud copy was removed or disabled. Local data and the enabled preference are preserved. Review Sync settings before replacing either copy.');
-                        const config = this.validateConfigObject(raw); delete config.sync;
+                        const config = this.validateStoredConfigObject(raw); delete config.sync;
                         error.localFingerprint = await this.fingerprint(config);
                         throw error;
                     }
@@ -2687,7 +2787,8 @@ class StorageManager {
     }
 
     prepareSyncPayload(config) {
-        const source = this.validateConfigObject(config);
+        this.assertSyncURLCompatibility(config);
+        const source = this.validateStoredConfigObject(config);
         const payload = {};
         const omittedAssets = [];
 
@@ -2971,7 +3072,13 @@ class StorageManager {
     /**
      * Validate links configuration
      */
-    validateLinksConfig(value) {
+    validateStoredLinksConfig(value) {
+        // Bound and detach JSON records before examining their URLs. In
+        // particular, accessors/toJSON cannot participate in legacy admission.
+        return this.validateLinksConfig(this.copyStoredValue(value), { storedURLs: true });
+    }
+
+    validateLinksConfig(value, { storedURLs = false } = {}) {
         if (!Array.isArray(value)) {
             throw new Error('Links must be an array');
         }
@@ -2991,6 +3098,19 @@ class StorageManager {
                     url = parsed.toString();
                 }
             } catch (_) {}
+            if (storedURLs) {
+                const original = link.url;
+                if (typeof original !== 'string' || original !== rawUrl || !url) throw this.storedConfigurationError('Stored shortcut URL is invalid.');
+                if (original !== url) {
+                    const destination = getStoredURL()?.destinationForSavedURL(original);
+                    if (!destination || destination !== url || Object.keys(link).some(key => !['layoutId', 'title', 'url', 'icon', 'category'].includes(key))) {
+                        throw this.storedConfigurationError('Unsupported legacy shortcut URL record.');
+                    }
+                }
+                // Identity is the original string; destination normalization is
+                // for navigation/matching only, never a saved-state projection.
+                url = original;
+            }
 
             return {
                 ...(Object.prototype.hasOwnProperty.call(link, 'layoutId') ? { layoutId: link.layoutId } : {}),

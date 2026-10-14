@@ -100,7 +100,7 @@ for (const failure of ['read', 'lock', 'validation', 'shape']) {
     });
 }
 
-test('successful reads preserve existing legacy and tolerant normalization exactly', async () => {
+test('successful backup reads preserve stored URL spelling while keeping other tolerant normalization', async () => {
     const saved = {
         themePreset: 'warm-studio',
         clock: { hour12: true },
@@ -109,7 +109,10 @@ test('successful reads preserve existing legacy and tolerant normalization exact
     };
     const h = harness(saved);
     const expected = h.manager.buildManualExportPayload(h.manager.validateConfigObject(saved)).data;
+    expected.links[0].url = 'example.com';
     assert.deepEqual(await successfulBackups(h), expected);
+    assert.equal(h.manager.buildManualExportPayload(expected).version, '2.0');
+    assert.equal(h.manager.buildManualExportPayload(expected).urlIdentityVersion, 1);
 });
 
 test('existing identity validation errors fail closed at both backup boundaries', async () => {

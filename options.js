@@ -2185,7 +2185,7 @@ async function exportSettings() {
             recordCount: itemCounts.shortcuts + itemCounts.hotTopics + (itemCounts.hasBackgroundImage ? 1 : 0) + (itemCounts.hasMoviePoster ? 1 : 0)
         };
         
-        showImportExportFeedback('export', 'success', exportData.schemaVersion === 2 ? t('identityExported', 'Settings exported in schema 2. Import with an updated version that supports independent positions.') : 'Settings exported.', details);
+        showImportExportFeedback('export', 'success', exportData.version === '2.0' ? t('storedURLExported', 'Settings exported with original URL spelling and layout relationships. Import this file only with a version that supports stored URL identity backups.') : exportData.schemaVersion === 2 ? t('identityExported', 'Settings exported in schema 2. Import with an updated version that supports independent positions.') : 'Settings exported.', details);
         
     } catch (error) {
         console.error('Error exporting settings:', error);
@@ -2509,7 +2509,9 @@ async function renderSyncStatus(status = null) {
         const note = document.createElement('div');
         note.className = 'sync-status-note is-error';
         note.setAttribute('role', 'status');
-        note.textContent = syncStatus.compatibilityBlocked.kind === 'review'
+        note.textContent = syncStatus.compatibilityBlocked.kind === 'stored-url'
+            ? t('syncStoredURLPaused', 'Sync transfers are paused to preserve older URL spelling and layout relationships. Your saved copies and enabled preference are unchanged. Cloud preview is still available; use a current-version manual or Drive backup instead of Sync for these records.')
+            : syncStatus.compatibilityBlocked.kind === 'review'
             ? t('syncSafetyReview', 'Automatic full-copy Sync replacement is temporarily paused to protect saved data. Preview the cloud copy, then explicitly choose a backed-up replacement. Your saved data and this device’s enabled preference stay unchanged.')
             : `${t('syncCompatibilityDetails', 'Sync is paused for compatibility. Local settings and your enabled preference are preserved. Update other devices and retry Download, or explicitly choose which copy to replace.')} ${syncStatus.compatibilityBlocked.reason}`;
         children.push(note);

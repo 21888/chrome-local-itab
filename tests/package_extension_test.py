@@ -48,7 +48,7 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), other.read_bytes())
         pack.verify(other, files)
         with zipfile.ZipFile(other) as archive:
-            self.assertEqual(127, len(archive.namelist()))
+            self.assertEqual(128, len(archive.namelist()))
             for runtime in ("vendor/marked/marked.umd.js", "vendor/marked/LICENSE", "vendor/marked/PROVENANCE.json", "shared/safe-answer-reader.js", "safe-answer-reader.css"):
                 self.assertIn(runtime, archive.namelist())
                 self.assertEqual(files[runtime], archive.read(runtime))
@@ -65,7 +65,7 @@ class PackagingTests(unittest.TestCase):
             for runtime in ("shared/ai-model-comparison.js", "ai-model-comparison.css", "shared/ai-prompt-refinement.js", "shared/dashboard-card-layout.js", "shared/ai-model-presets.js", "shared/dashboard-customization.js", "dashboard-customization.css", "ai-context.js", "ai-context.css", "shared/ai-context.js", "shared/ai-context-view.js", "shared/ai-model-client.js", "shared/ai-model-view.js", "ai-model.css", "shared/dashboard-template-gallery.js", "dashboard-template-gallery.css", "shared/dashboard-template-registry.js"):
                 self.assertIn(runtime, archive.namelist())
                 self.assertEqual(files[runtime], archive.read(runtime))
-            for runtime in ("shared/navigation-catalog.js", "shared/navigation-sites.js", "shared/navigation-library-view.js", "navigation-library.css", "shared/shortcut-organizer.js", "shared/shortcut-organizer-view.js", "shortcut-organizer.css"):
+            for runtime in ("shared/stored-shortcut-url.js", "shared/navigation-catalog.js", "shared/navigation-sites.js", "shared/navigation-library-view.js", "navigation-library.css", "shared/shortcut-organizer.js", "shared/shortcut-organizer-view.js", "shortcut-organizer.css"):
                 self.assertIn(runtime, archive.namelist())
             for runtime in ("collection-capture-background.js", "shared/collection-capture.js", "shared/collection-capture-page.js"):
                 self.assertIn(runtime, archive.namelist())

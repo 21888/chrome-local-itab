@@ -227,7 +227,10 @@
                         const payload = node.payload, value = object(payload?.data) ? { ...payload.data, ...(own(payload, 'schemaVersion') && !own(payload.data, 'schemaVersion') ? { schemaVersion: payload.schemaVersion } : {}) } : object(payload?.settings) ? payload.settings : payload;
                         const formatWarnings = [...differing];
                         if (object(payload) && ((own(payload, 'type') && payload.type !== 'backupSnapshot') || (own(payload, 'app') && payload.app !== 'local-itab') || own(payload, 'format'))) formatWarnings.push('UNKNOWN_FORMAT');
-                        if (object(payload) && ((own(payload, 'version') && payload.version !== '1.0') || (own(payload, 'schemaVersion') && ![1, 2].includes(payload.schemaVersion)))) formatWarnings.push('UNKNOWN_VERSION');
+                        const storedURLFormat = object(payload) && payload.version === '2.0' && payload.urlIdentityVersion === 1 && payload.type === 'backupSnapshot' && payload.app === 'local-itab' && [1, 2].includes(payload.schemaVersion) && object(payload.data) && !own(payload, 'settings') &&
+                            (!own(payload, 'metadata') || (object(payload.metadata) && payload.metadata.urlIdentityVersion === 1 && payload.metadata.app === payload.app && payload.metadata.type === payload.type && payload.metadata.schemaVersion === payload.schemaVersion));
+                        if (object(payload) && ((payload.version === '2.0' || own(payload, 'urlIdentityVersion') || own(payload.metadata, 'urlIdentityVersion')) && !storedURLFormat)) formatWarnings.push('UNKNOWN_FORMAT');
+                        if (object(payload) && ((own(payload, 'version') && payload.version !== '1.0' && !storedURLFormat) || (own(payload, 'schemaVersion') && ![1, 2].includes(payload.schemaVersion)))) formatWarnings.push('UNKNOWN_VERSION');
                         add(value, { ...origin, representation: 'portable' }, timestamp, timestamp ? 'backup' : 'unknown', await integrity(payload, node.checksum), formatWarnings);
                     }
                     if (!own(node, 'rawConfiguration') && !own(node, 'payload')) add(null, { ...origin, representation: 'configuration' }, null, 'unknown', 'unverified', ['INVALID_SOURCE']);

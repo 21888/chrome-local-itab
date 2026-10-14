@@ -188,15 +188,21 @@ test('UTF-8 input bounds, unpaired surrogates, and marker checks', () => {
 });
 
 test('runtime performs zero IO and works with dangerous globals denied', () => {
-    const sandbox = { module: { exports: {} }, URL };
-    for (const name of ['document', 'DOMParser', 'fetch', 'XMLHttpRequest', 'Image', 'chrome', 'localStorage', 'navigator', 'require', 'eval', 'Function', 'setTimeout']) Object.defineProperty(sandbox, name, { get() { throw Error(`I/O access: ${name}`); } });
+    const helper = { module: { exports: {} }, URL };
+    const sandbox = { module: { exports: {} }, URL, require(name) {
+        assert.equal(name, './stored-shortcut-url.js');
+        return helper.module.exports;
+    } };
+    for (const name of ['document', 'DOMParser', 'fetch', 'XMLHttpRequest', 'Image', 'chrome', 'localStorage', 'navigator', 'eval', 'Function', 'setTimeout']) Object.defineProperty(sandbox, name, { get() { throw Error(`I/O access: ${name}`); } });
+    for (const name of ['document', 'fetch', 'chrome', 'require']) Object.defineProperty(helper, name, { get() { throw Error(`I/O access: ${name}`); } });
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../shared/stored-shortcut-url.js'), 'utf8'), helper, { timeout: 1000 });
     vm.createContext(sandbox);
     const source = fs.readFileSync(path.join(__dirname, '../shared/bookmark-import.js'), 'utf8');
     vm.runInContext(source, sandbox, { timeout: 1000 });
     const html = fs.readFileSync(path.join(__dirname, 'fixtures/bookmarks/chrome.html'), 'utf8');
     const result = sandbox.module.exports.planImport(html, empty(), opts);
     assert.equal(result.preview.addedBookmarks, 3);
-    assert.ok(!/\b(?:DOMParser|innerHTML|iframe\s*=|eval\s*\(|fetch\s*\(|require\s*\()/.test(source));
+    assert.ok(!/\b(?:DOMParser|innerHTML|iframe\s*=|eval\s*\(|fetch\s*\(|require\s*\()/.test(source.replace("require('./stored-shortcut-url.js')", 'pureStoredURLDependency')));
 });
 
 test('bounded large adversarial scans finish without regex backtracking', () => {

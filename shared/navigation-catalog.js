@@ -1,8 +1,9 @@
 (function (root, factory) {
-    const api = factory();
+    const api = factory(typeof module === 'object' && module.exports
+        ? require('./stored-shortcut-url.js') : root.LocalItabStoredURL);
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.LocalItabNavigationCatalog = api;
-})(typeof window === 'undefined' ? globalThis : window, function () {
+})(typeof window === 'undefined' ? globalThis : window, function (storedURL) {
     'use strict';
     const categories = [
         ['ai', 'AI', 'AI 工具', '✦'], ['development', 'Development', '开发', '</>'],
@@ -77,7 +78,7 @@
                 (compactTerms[index] && compactNames.some(name => name.includes(compactTerms[index]))));
         });
     }
-    const savedURLs = links => new Set((links || []).map(link => canonicalURL(link.url)).filter(Boolean));
+    const savedURLs = links => new Set((links || []).map(link => canonicalURL(link.url) || storedURL.destinationForSavedURL(link.url)).filter(Boolean));
     // One read-only label per personal category identity, across the complete
     // snapshot. Never use a website's subset or its order to name a destination.
     function personalCategoryLabels(personalCategories = []) {
@@ -119,7 +120,7 @@
         const categoriesById = new Map(personalCategories.map(category => [category.id, category.name]));
         const locations = new Map();
         for (const link of links) {
-            const url = canonicalURL(link.url);
+            const url = canonicalURL(link.url) || storedURL.destinationForSavedURL(link.url);
             if (!url) continue;
             const id = link.category || 'work';
             if (!locations.has(url)) locations.set(url, new Map());

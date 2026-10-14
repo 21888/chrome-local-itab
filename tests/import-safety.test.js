@@ -59,7 +59,13 @@ assert.equal(restoredAssets.movie.poster, assets.movie.poster);
 assert.deepEqual(restoredAssets.ui.dashboardPadding, assets.ui.dashboardPadding);
 assert.deepEqual(restoredAssets.layout.positions, assets.layout.positions);
 assert.equal(manager.validateImportPayload({ links: [], ui: { dashboardPadding: 8 } }).ui.dashboardPadding.top, 8);
-assert.equal(manager.validateImportPayload({ links: [{ title: 'Old site', url: 'example.com' }] }).links[0].url, 'https://example.com/');
+const legacyURLImport = { links: [{ title: 'Old site', url: 'example.com' }], layout: { positions: { 'all|example.com': { x: 11.25, y: -7.5 } } } };
+const legacyBefore = structuredClone(legacyURLImport);
+const legacyRestored = manager.validateImportPayload(legacyURLImport);
+assert.equal(legacyRestored.links[0].url, 'example.com');
+assert.deepEqual(legacyRestored.layout.positions, legacyURLImport.layout.positions);
+assert.deepEqual(legacyURLImport, legacyBefore, 'legacy import must preserve the caller and its raw URL-position relationship');
+assert.equal(manager.validateLinksConfig(legacyURLImport.links)[0].url, 'https://example.com/', 'new input keeps the existing canonicalizer');
 const providerState = { sync: { enabled: true, lastSync: 'local marker', lastError: '', includeLargeAssets: false } };
 assert.deepEqual(manager.prepareRestoredConfig(valid, providerState).sync, providerState.sync);
 
