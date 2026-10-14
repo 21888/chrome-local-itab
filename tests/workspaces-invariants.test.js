@@ -141,6 +141,64 @@ bounded('migration is one-time, preserves original source, and verifies recovery
     assert.deepEqual(f.providers, []);
 });
 
+for (const onlineWallpapers of [false, true]) for (const onlineFavicons of [false, true]) bounded(`legacy wallpaper privacy (${onlineWallpapers}/${onlineFavicons}) migrates without changing privacy or contacting providers`, async () => {
+    const original = seeded(); original.privacy = { onlineWallpapers, onlineFavicons };
+    const f = fixture(original), { session } = await selected(f);
+    assert.deepEqual(f.raw.privacy, original.privacy);
+    assert.deepEqual(f.raw[constants.recovery].values.privacy, original.privacy);
+    assert.deepEqual((await session.local.get(['privacy'])).privacy, original.privacy);
+    assert.deepEqual((await session.local.get(['links'])).links, original.links);
+    await withGlobals(f, async () => {
+        const storage = new StorageManager({ workspace: session }); storage._syncInitialized = true;
+        const config = await storage.getAll();
+        assert.deepEqual(config.privacy, { onlineFavicons });
+        assert.deepEqual(storage.completeBackupConfigFromRaw(await session.local.get(null)).data.privacy, { onlineFavicons });
+    });
+    assert.deepEqual(f.raw.privacy, original.privacy);
+    assert.deepEqual(f.providers, []);
+    const before = copy(f.raw), writes = f.writes.length;
+    await f.manager().ready(); assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes);
+});
+
+for (const privacy of [
+    { onlineWallpapers: 'false', onlineFavicons: false },
+    { onlineWallpapers: null, onlineFavicons: false },
+    { onlineWallpapers: 0, onlineFavicons: false },
+    { onlineWallpapers: [], onlineFavicons: false },
+    { onlineWallpapers: false, onlineFavicons: 'false' },
+    { onlineWallpapers: false, onlineFavicons: false, unknownPrivacy: true }
+]) bounded(`legacy privacy projection rejects malformed or unknown supplied fields (${JSON.stringify(privacy)})`, async () => {
+    const original = { ...seeded(), privacy }, f = fixture(original);
+    await assert.rejects(f.manager().ready(), code('WORKSPACE_CORRUPT'));
+    assert.deepEqual(f.raw, original); assert.equal(f.writes.length, 0); assert.deepEqual(f.providers, []);
+});
+
+bounded('deprecated wallpaper privacy remains invalid in an imported portable archive', () => {
+    const storage = new StorageManager(), archive = storage.completeBackupConfigFromRaw({});
+    archive.data.privacy.onlineWallpapers = false;
+    assert.throws(() => storage.validateCompleteBackupConfig(archive));
+});
+
+bounded('interrupted legacy privacy migration resumes from its exact original recovery', async () => {
+    const original = seeded(); original.privacy = { onlineWallpapers: true };
+    const f = fixture(original); let interrupted = false;
+    f.hooks.set = (values, raw, apply) => {
+        if (Object.hasOwn(values, constants.recovery) && !interrupted) {
+            interrupted = true; apply(values); throw Error('synthetic interruption after recovery');
+        }
+        return DEFER;
+    };
+    await assert.rejects(f.manager().ready(), code('WORKSPACE_WRITE'));
+    assert(interrupted); assert.deepEqual(f.raw.privacy, original.privacy);
+    assert.deepEqual(f.raw[constants.recovery].values, original);
+    assert.equal(f.raw[constants.activation], undefined);
+    const recovery = copy(f.raw[constants.recovery]);
+    const { session } = await selected(f);
+    assert.deepEqual(f.raw[constants.recovery], recovery);
+    assert.deepEqual((await session.local.get(['privacy'])).privacy, original.privacy);
+    assert.deepEqual(f.raw.privacy, original.privacy); assert.deepEqual(f.providers, []);
+});
+
 for (const mode of ['throw', 'false', 'drop', 'corrupt']) bounded(`migration recovery ${mode} must block activation and keep legacy source`, async () => {
     const original = seeded(), f = fixture(original);
     f.hooks.set = (values, raw, apply) => {

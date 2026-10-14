@@ -1881,6 +1881,13 @@ class StorageManager {
         for (const key of Object.keys(defaults)) {
             if (key !== 'sync') data[key] = Object.hasOwn(raw, key) ? fillMissing(raw[key], defaults[key]) : defaults[key];
         }
+        // v1.1.4 persisted this boolean before online wallpapers were removed.
+        // Recognize only that exact historical field in the read projection;
+        // leave original storage/recovery unchanged and never revive permission.
+        // Wrong types and unknown privacy fields still fail strict validation.
+        if (object(data.privacy) && typeof data.privacy.onlineWallpapers === 'boolean') {
+            delete data.privacy.onlineWallpapers;
+        }
         // Older saved shortcut/category records may omit their cosmetic defaults.
         // Fill only absent properties. Supplied invalid values and unknown fields
         // remain present for the strict portable validator below to reject.
