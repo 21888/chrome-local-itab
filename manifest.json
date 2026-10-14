@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_appName__",
-  "version": "1.1.137",
+  "version": "1.1.138",
   "description": "__MSG_appDescription__",
   "permissions": [
     "storage",
