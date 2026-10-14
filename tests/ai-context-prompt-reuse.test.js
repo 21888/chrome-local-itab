@@ -80,7 +80,7 @@ test('select, fill and preview are session-only; explicit apply rereads and clea
     assert.equal(h.q('.ai-context-prompt-picker').hidden, true); assert.equal(h.document.activeElement, h.q('.ai-context-question')); quiet(h);
 });
 
-test('apply preserves selected hidden source edits, filters, output/stream, connection/key, old response provenance and save metadata', async () => {
+for (const delayedSave of [false, true]) test(`apply preserves selected hidden source edits, filters, output/stream, connection/key, old response provenance and save metadata (delayed save: ${delayedSave})`, { timeout: 10000 }, async () => {
     const h = await mount({ body: 'New question' }); h.input(h.q('.ai-context-question'), 'Old question');
     const source = h.q('.ai-context-source'), check = source.querySelector('input'); check.checked = true; check.dispatch('change'); h.input(source.querySelector('textarea'), 'Edited excerpt');
     await review(h); h.click('Send reviewed request'); await settle();
@@ -94,7 +94,22 @@ test('apply preserves selected hidden source edits, filters, output/stream, conn
     assert.equal(h.controller.result, result); assert.equal(h.controller.resultReview, resultReview); assert.equal(h.q('.ai-context-savetitle').value, 'Previous answer title'); assert.equal(consent.checked, true);
     assert.equal(h.q('.ai-context-previous-result').hidden, false); assert.equal(h.controller.answerSnapshot().question, 'Old question');
     assert.equal(h.calls.length, 1); assert.equal(h.p.writes + h.b.writes + h.c.writes, 0); assert.equal(h.grants.length + h.copied.length, 0);
-    h.click('Save answer'); for (let i = 0; i < 40 && h.controller.busy; i++) await settle();
+    const entered = deferred(), release = deferred(), write = h.c.write.bind(h.c);
+    if (delayedSave) h.c.write = async value => { entered.resolve(); await release.promise; return write(value); };
+    // Wait for the exact operation started by the UI. A fixed number of event
+    // loop turns says nothing about WebCrypto or a backend write completing.
+    let saving;
+    const saveAnswer = h.controller.saveAnswer.bind(h.controller);
+    h.controller.saveAnswer = (...args) => { saving = saveAnswer(...args); return saving; };
+    h.click('Save answer'); assert.ok(saving instanceof Promise, 'the click started a real save operation');
+    if (delayedSave) {
+        try {
+            await entered.promise; await settle();
+            assert.equal(h.controller.busy, true); assert.equal(h.controller.saved, false); assert.equal(h.c.writes, 0);
+        } finally { release.resolve(); }
+    }
+    await saving; await settle();
+    assert.equal(h.controller.busy, false); assert.equal(h.controller.saved, true); assert.equal(h.c.writes, 1);
     const saved = (await h.controller.collectionStore.read()).records[0]; assert.equal(saved.promptRef, null); assert.equal(saved.contextSnapshot.question, 'Old question');
 });
 
