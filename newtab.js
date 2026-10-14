@@ -123,6 +123,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
 
     try {
+        // Localize the static shell even when workspace startup cannot finish.
+        window.i18n?.localizeDocument(document);
         // Initialize dashboard components with stored data
         await window.LocalItabWorkspacesView?.mountPage();
         const config = await initializeDashboard();

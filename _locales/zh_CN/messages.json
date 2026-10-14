@@ -6312,5 +6312,14 @@
   "claudeUsageErrorNonJson": {"message": "返回了非 JSON 页面，可能需要官网验证。"},
   "claudeUsageErrorNetwork": {"message": "网络失败或被重定向，请检查官网。"},
   "claudeUsageErrorTimeout": {"message": "读取超时。"},
-  "claudeUsageErrorTooLarge": {"message": "响应过大，已停止读取。"}
+  "claudeUsageErrorTooLarge": {"message": "响应过大，已停止读取。"},
+  "spacesUnavailable": {
+    "message": "工作区暂不可用"
+  },
+  "spacesLoadHelp": {
+    "message": "工作区未能打开，此错误不代表已保存内容被删除。请勿清空存储或卸载重装。请先复制或导出草稿，再尝试新开标签页。"
+  },
+  "spacesDiagnosticCode": {
+    "message": "错误代码"
+  }
 }

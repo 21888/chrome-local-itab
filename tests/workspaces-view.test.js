@@ -5,20 +5,20 @@ const {createDocument,deferred} = require('./helpers/task-dom-model');
 const source=fs.readFileSync('shared/workspaces-view.js','utf8');
 const tick=()=>new Promise(resolve=>setTimeout(resolve,5));
 const clone=value=>JSON.parse(JSON.stringify(value));
-function model() {
+function model(options = {}) {
     const document=createDocument({blurUnavailableFocus:true}),create=document.createElement;
     document.createElement=tag=>{const el=create(tag);el.removeAttribute=name=>{delete el.attributes[name]};return el;};
     const switcher=document.createElement('section'),managerHost=document.createElement('section');document.body.append(switcher,managerHost);
     let registry={schemaVersion:1,defaultId:'default',lastUsedId:'default',revision:0,workspaces:[{id:'default',name:'Default',order:0,generation:'g0',deletedAt:null},{id:'work',name:'Work',order:1,generation:'g1',deletedAt:null}]};
     const calls=[],listeners=new Set();const record=(method,...args)=>calls.push([method,...args]);
-    const manager={list:async()=>clone(registry),subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},
+    const manager={list:async()=>{if(options.listError)throw options.listError;return clone(registry)},subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);},
         create:async name=>{record('create',name);registry.workspaces.push({id:'new',name,order:2,generation:'newg',deletedAt:null});},
         rename:async(id,name)=>{record('rename',id,name);registry.workspaces.find(w=>w.id===id).name=name;},
         duplicate:async(id,name)=>{record('duplicate',id,name);registry.workspaces.push({id:'copy',name,order:2,generation:'copyg',deletedAt:null});},
         trash:async id=>{record('trash',id);registry.workspaces.find(w=>w.id===id).deletedAt=123;},
         restore:async id=>{record('restore',id);const w=registry.workspaces.find(w=>w.id===id);w.deletedAt=null;w.generation+='restored';},
         select:async id=>{record('select',id);registry.lastUsedId=id;}};
-    const session={id:'default',generation:'g0',ready:async()=>({id:'default',generation:'g0'}),flush:async()=>record('flush'),suspendWrites:()=>record('suspend'),resumeWrites:()=>record('resume')};
+    const session={requestedId:options.requestedId,id:options.readyError?null:'default',generation:options.readyError?null:'g0',ready:async()=>{if(options.readyError)throw options.readyError;return{id:'default',generation:'g0'}},flush:async()=>record('flush'),suspendWrites:()=>record('suspend'),resumeWrites:()=>record('resume')};
     let dirty=false;const lifecycle={waitForPending:async()=>record('wait'),hasUncommittedWork:()=>dirty,saveDrafts:async()=>{record('save');dirty=false;return true;},pauseAutosave:()=>record('pause'),resumeAutosave:()=>record('resume-auto'),allowDeparture:()=>record('depart'),cancelDeparture:()=>record('cancel-depart')};
     const window={document,location:{href:'chrome-extension://unit/newtab.html'},chrome:{runtime:{getURL:p=>'chrome-extension://unit/'+p}},i18n:{t:key=>key}};
     vm.runInNewContext(fs.readFileSync('shared/dialog-focus.js','utf8'),{window});
@@ -80,9 +80,61 @@ test('legacy-write conflict blocks workspace actions and exports both saved copi
  m.find('Download both saved copies').dispatch('click');await tick();const file=m.calls.find(c=>c[0]==='download');assert(file[1].includes('current')&&file[1].includes('old'));assert(!m.calls.some(c=>c[0]==='select'||c[0]==='navigate'));assert(!m.switcher.querySelector('.spaces-legacy').hidden);
 });
 test('legacy recovery requires counted review and explicit keep; success never reloads old drafts',async()=>{
- const m=model();await m.view.ready;const normalList=m.manager.list;let conflict=true;m.session.invalidated=true;m.manager.list=async()=>{if(conflict)throw {code:'WORKSPACE_LEGACY_CONFLICT'};return normalList();};m.manager.reviewLegacyConflict=async()=>({id:'review',detectedAt:'2026-10-10T19:00:00Z',legacy:{sites:2,tasks:1,scratchpadCharacters:5},workspaces:{count:2,trash:1,sites:3,tasks:4,scratchpadCharacters:6}});m.manager.resolveLegacyConflict=async(review,options)=>{m.calls.push(['resolve',review.id,options.confirmed]);conflict=false;return{resolved:true,reloadRequired:true};};m.notify();await tick();m.find('Review recovery choice').dispatch('click');await tick();assert(m.dialog().querySelectorAll('li').some(n=>n.textContent==='Sites: 2'));assert(!m.calls.some(c=>c[0]==='resolve'));m.find('Keep current workspaces and retain older-tab copy').dispatch('click');m.find('Keep current workspaces and retain older-tab copy')?.dispatch('click');await tick();assert.equal(m.calls.filter(c=>c[0]==='resolve').length,1);assert(!m.calls.some(c=>c[0]==='navigate'));assert(!m.dialog());assert(!m.switcher.querySelector('.spaces-invalid').hidden);
+ const m=model();await m.view.ready;const normalList=m.manager.list;let conflict=true;m.session.invalidated=true;m.manager.list=async()=>{if(conflict)throw {code:'WORKSPACE_LEGACY_CONFLICT'};return normalList();};m.manager.reviewLegacyConflict=async()=>({id:'review',detectedAt:'2026-10-10T19:00:00Z',legacy:{sites:2,tasks:1,scratchpadCharacters:5},workspaces:{count:2,trash:1,sites:3,tasks:4,scratchpadCharacters:6}});m.manager.resolveLegacyConflict=async(review,options)=>{m.calls.push(['resolve',review.id,options.confirmed]);conflict=false;return{resolved:true,reloadRequired:true};};m.notify();await tick();m.find('Review recovery choice').dispatch('click');await tick();assert(m.dialog().querySelectorAll('li').some(n=>n.textContent==='Sites: 2'));assert(!m.calls.some(c=>c[0]==='resolve'));m.find('Keep current workspaces and retain older-tab copy').dispatch('click');m.find('Keep current workspaces and retain older-tab copy')?.dispatch('click');await tick();assert.equal(m.calls.filter(c=>c[0]==='resolve').length,1);assert(!m.calls.some(c=>c[0]==='navigate'));assert(!m.dialog());assert(m.switcher.querySelector('.spaces-invalid').hidden);assert(!m.switcher.querySelector('.spaces-load-error').hidden);
 });
 test('stale legacy review refuses reuse; cancel while reading cannot reopen or resolve',async()=>{
  const m=model();await m.view.ready;m.manager.list=async()=>{throw {code:'WORKSPACE_LEGACY_CONFLICT'}};const wait=deferred();m.manager.reviewLegacyConflict=()=>wait.promise;m.notify();await tick();m.find('Review recovery choice').dispatch('click');m.find('Cancel',m.dialog()).dispatch('click');wait.resolve({id:'old',legacy:{},workspaces:{}});await tick();assert(!m.dialog());
  m.manager.reviewLegacyConflict=async()=>({id:'new',detectedAt:1,legacy:{},workspaces:{}});m.manager.resolveLegacyConflict=async()=>{throw {code:'WORKSPACE_CONFLICT'}};m.find('Review recovery choice').dispatch('click');await tick();m.find('Keep current workspaces and retain older-tab copy').dispatch('click');await tick();assert(m.find('Keep current workspaces and retain older-tab copy').disabled);assert(!m.find('Review again').disabled);assert(m.dialog().querySelectorAll('p').some(p=>p.textContent.includes('Saved copies changed')));
+});
+
+for (const code of ['WORKSPACE_READ', 'WORKSPACE_WRITE', 'WORKSPACE_CORRUPT', 'WORKSPACE_UNAVAILABLE', 'WORKSPACE_MIGRATION_INCOMPLETE']) test(`startup ${code} is not evidence that a workspace was deleted`, async () => {
+ const error=Object.assign(new Error('Sensitive synthetic details must not be displayed'),{code});
+ const m=model({readyError:error,listError:error});await m.view.ready;
+ assert(m.switcher.querySelector('.spaces-invalid').hidden);
+ const banner=m.switcher.querySelector('.spaces-load-error');assert(!banner.hidden);
+ assert(banner.querySelectorAll('p').some(p=>p.textContent.endsWith(code)));
+ assert(!banner.querySelectorAll('p').some(p=>p.textContent.includes('Sensitive synthetic')));
+ assert.equal(m.switcher.querySelector('.spaces-switch').textContent,'Workspace unavailable');
+ assert(m.switcher.querySelector('.spaces-switch').disabled);assert(m.find('New workspace').disabled);
+ assert(!m.calls.some(c=>['create','select','navigate','save'].includes(c[0])));
+});
+test('a list recovered after uncaptured startup does not pretend Default was loaded or deleted',async()=>{
+ const m=model({readyError:{code:'WORKSPACE_READ'}});await m.view.ready;
+ assert.equal(m.session.id,null);assert(m.switcher.querySelector('.spaces-invalid').hidden);
+ assert(!m.switcher.querySelector('.spaces-load-error').hidden);
+ assert.equal(m.switcher.querySelector('.spaces-switch').textContent,'Workspace unavailable');
+ assert(m.switcher.querySelector('.spaces-switch').disabled);
+});
+test('startup failure preserves page drafts and exports text only after the user requests it',async()=>{
+ const error={code:'WORKSPACE_CORRUPT'},m=model({readyError:error,listError:error});
+ const draft=m.document.createElement('textarea');draft.value='Synthetic saved-on-page draft';m.document.body.append(draft);
+ await m.view.ready;assert.equal(draft.value,'Synthetic saved-on-page draft');assert(!m.calls.some(c=>c[0]==='download'));
+ m.find('Export page text',m.switcher.querySelector('.spaces-load-error')).dispatch('click');await tick();
+ assert(m.calls.some(c=>c[0]==='download'&&c[1].includes(draft.value)));assert.equal(draft.value,'Synthetic saved-on-page draft');
+});
+test('unknown startup exceptions expose only a fixed diagnostic code and no exception contents',async()=>{
+ const error={code:'PRIVATE_SYNTHETIC_DETAILS',message:'PRIVATE_SYNTHETIC_MESSAGE'},m=model({readyError:error,listError:error});await m.view.ready;
+ const paragraphs=m.switcher.querySelector('.spaces-load-error').querySelectorAll('p').map(p=>p.textContent).join(' ');
+ assert(paragraphs.includes('WORKSPACE_STARTUP'));assert(!paragraphs.includes('PRIVATE_SYNTHETIC'));
+});
+test('later transient list failure is generic and a successful explicit refresh clears it',async()=>{
+ const m=model();await m.view.ready;const original=m.manager.list;m.manager.list=async()=>{throw{code:'WORKSPACE_READ'}};
+ await m.view.refresh();assert(m.switcher.querySelector('.spaces-invalid').hidden);assert(!m.switcher.querySelector('.spaces-load-error').hidden);
+ m.manager.list=original;await m.view.refresh();assert(m.switcher.querySelector('.spaces-load-error').hidden);
+ assert(!m.switcher.querySelector('.spaces-switch').disabled);assert.equal(m.managerHost.querySelector('.spaces-status').textContent,'');
+});
+test('session invalidation without deletion evidence is reported generically and remains unable to save drafts',async()=>{
+ const m=model();await m.view.ready;m.session.invalidated=true;m.notify();await tick();
+ assert(m.switcher.querySelector('.spaces-invalid').hidden);assert(!m.switcher.querySelector('.spaces-load-error').hidden);
+ m.dirty();await m.view.requestSwitch('work');assert(m.find('Save and switch').disabled);
+});
+test('dashboard static localization precedes the first fallible workspace initialization',()=>{
+ const dashboard=fs.readFileSync('newtab.js','utf8');const start=dashboard.indexOf("document.addEventListener('DOMContentLoaded', async function");
+ assert(dashboard.indexOf('window.i18n?.localizeDocument(document)',start)<dashboard.indexOf('await window.LocalItabWorkspacesView?.mountPage()',start));
+});
+
+test('an explicitly requested workspace confirmed deleted at startup retains the real deletion warning',async()=>{
+ const m=model({readyError:{code:'WORKSPACE_DELETED'},requestedId:'work'});m.registry.workspaces[1].deletedAt=123;
+ await m.view.ready;assert.equal(m.session.id,null);assert(!m.switcher.querySelector('.spaces-invalid').hidden);
+ assert(m.switcher.querySelector('.spaces-load-error').hidden);assert(m.switcher.querySelector('.spaces-switch').disabled);
 });

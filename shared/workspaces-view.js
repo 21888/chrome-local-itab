@@ -19,6 +19,8 @@
         Deleted: 'Workspace moved to Trash. Saved content can be restored below.', Restored: 'Workspace restored. Open it to use a fresh session.',
         Error: 'Could not confirm the action. Check the current list before trying again. Your draft is still here.',
         LoadError: 'Could not load workspaces. Your current page is unchanged.', Retry: 'Refresh list', NameError: 'Enter a workspace name with 1–80 characters.',
+        Unavailable: 'Workspace unavailable', LoadHelp: 'The workspace could not be opened. This error does not confirm that saved content was deleted. Do not reset storage or reinstall. Copy or export any drafts, then try opening a new tab.',
+        DiagnosticCode: 'Error code',
         DraftTitle: 'Before changing workspaces', DraftHelp: 'This page has unsaved drafts or open reviews. Save supported edits, finish the open editor, or explicitly discard them. Nothing is saved during unload.',
         SaveSwitch: 'Save and switch', DiscardSwitch: 'Discard drafts and switch', SaveIncomplete: 'Some edits need attention in their original editor. Stay here to finish or export them, or choose Discard drafts and switch.',
         SaveFailed: 'Could not save every draft. This page and its drafts are still here. Stay here to review the error.',
@@ -39,7 +41,7 @@
             const next = new URL(root.location.href); next.searchParams.set('workspace', id); root.location.assign(next.href);
         }, download = defaultDownload } = {}) {
         const doc = (switcher || managerHost).ownerDocument;
-        let registry = null, busy = false, closed = false, modal = null, invalid = false, refreshRevision = 0, legacyConflict = false, recoveryPending = false, legacyReviewPending = false;
+        let registry = null, busy = false, closed = false, modal = null, invalid = false, refreshRevision = 0, legacyConflict = false, recoveryPending = false, legacyReviewPending = false, loadError = null;
         const create = (tag, cls, value, parent) => { const el = doc.createElement(tag); if (cls) el.className = cls; if (value !== undefined) el.textContent = value; parent?.append(el); return el; };
         const button = (key, action, parent, cls = '') => {
             const el = create('button', 'spaces-button ' + cls, t(key), parent); el.type = 'button';
@@ -53,6 +55,11 @@
         const invalidBanner = create('section', 'spaces-invalid', undefined, bar); invalidBanner.hidden = true;
         create('p', '', t('Invalid'), invalidBanner); create('p', 'spaces-help', t('ExportHelp'), invalidBanner);
         button('ExportDrafts', exportDrafts, invalidBanner);
+        const loadBanner = create('section', 'spaces-invalid spaces-load-error', undefined, bar); loadBanner.hidden = true; loadBanner.setAttribute('role', 'alert');
+        create('p', '', t('LoadHelp'), loadBanner);
+        const diagnostic = create('p', 'spaces-help', '', loadBanner);
+        create('p', 'spaces-help', t('ExportHelp'), loadBanner);
+        button('ExportDrafts', exportDrafts, loadBanner);
         const legacyBanner = create('section', 'spaces-invalid spaces-legacy', undefined, bar); legacyBanner.hidden = true; legacyBanner.setAttribute('role','alert');
         create('p', '', t('LegacyConflict'), legacyBanner);
         const recoveryDownload = button('LegacyDownload', exportLegacyRecovery, legacyBanner);
@@ -77,21 +84,29 @@
         function current() { return registry?.workspaces.find(item => item.id === session.id); }
         function setStatus(key) { status.textContent = t(key); }
         function controls() {
-            switchButton.disabled = busy || !registry || legacyConflict;
-            if (createButton) createButton.disabled = busy || !registry || legacyConflict;
+            switchButton.disabled = busy || !registry || !session.id || legacyConflict || Boolean(loadError);
+            if (createButton) createButton.disabled = busy || !registry || !session.id || legacyConflict || Boolean(loadError);
             if (retry) retry.disabled = busy;
             [list, trash].filter(Boolean).forEach(host => host.querySelectorAll('button').forEach(node => {
-                node.disabled = busy || legacyConflict || node.dataset.fixedDisabled === 'true';
+                node.disabled = busy || !session.id || legacyConflict || Boolean(loadError) || node.dataset.fixedDisabled === 'true';
             }));
             (managerHost || bar).setAttribute('aria-busy', String(busy));
         }
         function render() {
             if (closed || !registry) return;
             const loaded = current();
-            invalid = legacyConflict || session.invalidated === true || Boolean(loaded && (loaded.deletedAt || loaded.generation !== session.generation)) || !loaded;
-            switchButton.textContent = `${t('Current')}: ${loaded?.name || t('Default')} ▾`;
-            switchButton.setAttribute('aria-label', `${t('Switch')}: ${loaded?.name || t('Default')}`);
-            invalidBanner.hidden = legacyConflict || !invalid;
+            // A failed read or an uncaptured session is not evidence of deletion.
+            // Require the explicit deleted-entry check for a requested ID, or
+            // compare an already captured identity with a validated registry.
+            const retired = Boolean((loadError === 'WORKSPACE_DELETED' && session.requestedId) ||
+                (session.id && (!loaded || loaded.deletedAt !== null || loaded.generation !== session.generation)));
+            invalid = legacyConflict || session.invalidated === true || retired || !loaded || Boolean(loadError);
+            const emptyLabel = t(loadError || session.invalidated === true ? 'Unavailable' : 'Loading');
+            switchButton.textContent = loaded ? `${t('Current')}: ${loaded.name} ▾` : emptyLabel;
+            switchButton.setAttribute('aria-label', loaded ? `${t('Switch')}: ${loaded.name}` : emptyLabel);
+            invalidBanner.hidden = legacyConflict || !retired;
+            loadBanner.hidden = legacyConflict || retired || (!loadError && session.invalidated !== true);
+            if (!loadBanner.hidden && !loadError) diagnostic.textContent = `${t('DiagnosticCode')}: WORKSPACE_INVALIDATED`;
             if (invalid) lifecycle?.pauseAutosave?.();
             pinned.textContent = t('Pinned');
             if (list) {
@@ -127,12 +142,27 @@
         }
         async function refresh() {
             const request = ++refreshRevision;
-            try { const next = await manager.list(); if (closed || request !== refreshRevision) return; registry = next; legacyConflict = false; legacyBanner.hidden = true; render(); }
-            catch (error) { if (!closed && request === refreshRevision) { if (!reportLegacyConflict(error)) setStatus('LoadError'); controls(); } }
+            try { const next = await manager.list(); if (closed || request !== refreshRevision) return; registry = next; legacyConflict = false; legacyBanner.hidden = true;
+                if (session.id && session.invalidated !== true) { if (loadError) status.textContent = ''; loadError = null; loadBanner.hidden = true; }
+                render(); }
+            catch (error) { if (!closed && request === refreshRevision) { if (!reportLegacyConflict(error)) reportLoadError(error); controls(); } }
+        }
+        function reportLoadError(error) {
+            if (closed) return;
+            const known = ['READ', 'WRITE', 'VERIFY', 'CORRUPT', 'UNAVAILABLE', 'INVALID', 'INVALIDATED', 'NOT_FOUND', 'DELETED', 'VERSION', 'CAPACITY', 'SIZE_LIMIT', 'BOUNDARY', 'ACTIVATION', 'BUNDLE_MISSING', 'MIGRATION_INCOMPLETE', 'MIGRATION_CHANGED', 'RESTORE_PENDING', 'VALIDATOR_UNAVAILABLE', 'CONFLICT'];
+            const code = known.map(value => 'WORKSPACE_' + value).includes(error?.code) ? error.code : 'WORKSPACE_STARTUP';
+            const deleted = code === 'WORKSPACE_DELETED' && Boolean(session.requestedId);
+            loadError = code; invalid = true; invalidBanner.hidden = !deleted; loadBanner.hidden = deleted;
+            diagnostic.textContent = `${t('DiagnosticCode')}: ${code}`;
+            if (!registry) { switchButton.textContent = t('Unavailable'); switchButton.setAttribute('aria-label', t('Unavailable')); }
+            // A list-only read failure does not retire an already captured
+            // session or take ownership of another editor's autosave pause.
+            if (!session.id || session.invalidated === true) lifecycle?.pauseAutosave?.();
+            setStatus('LoadError'); controls();
         }
         function reportLegacyConflict(error) {
             if (error?.code !== 'WORKSPACE_LEGACY_CONFLICT' || closed) return false;
-            legacyConflict = invalid = true; legacyBanner.hidden = false; invalidBanner.hidden = true;
+            legacyConflict = invalid = true; legacyBanner.hidden = false; invalidBanner.hidden = loadBanner.hidden = true;
             lifecycle?.pauseAutosave?.(); controls(); return true;
         }
         async function exportLegacyRecovery() {
@@ -339,7 +369,7 @@
         }
         const unsubscribe = manager.subscribe(event => { reportLegacyConflict(event?.error); refresh(); });
         controls(); setStatus('Loading');
-        const ready = session.ready().then(() => refresh()).then(() => { if (!closed && registry) status.textContent = ''; }).catch(error => { invalid = true; if (!reportLegacyConflict(error)) { invalidBanner.hidden = false; setStatus('LoadError'); } return refresh(); });
+        const ready = session.ready().then(() => refresh()).then(() => { if (!closed && registry && !loadError) status.textContent = ''; }).catch(error => { if (!reportLegacyConflict(error)) reportLoadError(error); return refresh(); });
         return {ready, refresh, requestSwitch, get pending() { return busy; }, hasUncommittedWork: () => Boolean(modal || busy),
             destroy() { closed = true; refreshRevision++; unsubscribe?.(); if (modal) { modal.executing = false; modal.close(); } } };
     }

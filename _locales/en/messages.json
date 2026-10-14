@@ -6312,5 +6312,14 @@
   "claudeUsageErrorNonJson": {"message": "A non-JSON page was returned. The official site may require verification."},
   "claudeUsageErrorNetwork": {"message": "The network read failed or was redirected. Check the official site."},
   "claudeUsageErrorTimeout": {"message": "The read timed out."},
-  "claudeUsageErrorTooLarge": {"message": "The response was too large. Reading stopped."}
+  "claudeUsageErrorTooLarge": {"message": "The response was too large. Reading stopped."},
+  "spacesUnavailable": {
+    "message": "Workspace unavailable"
+  },
+  "spacesLoadHelp": {
+    "message": "The workspace could not be opened. This error does not confirm that saved content was deleted. Do not reset storage or reinstall. Copy or export any drafts, then try opening a new tab."
+  },
+  "spacesDiagnosticCode": {
+    "message": "Error code"
+  }
 }
