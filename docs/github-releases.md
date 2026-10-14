@@ -8,6 +8,21 @@ Before any publication mutation, the baseline must also resolve through GitHub's
 
 The first workflow integration is version **1.1.8**. Its exact source SHA will be the integration commit, not the earlier 1.1.7 candidate. Existing unpublished or unrelated working-tree changes must not be included accidentally.
 
+## Upgrade data-preservation gate
+
+Preserving user data is a release requirement for every upgrade, including urgent fixes. A working screen or passing happy-path test is not enough. If a migration can discard or silently replace user data, stop publication until the defect is fixed and the exact candidate is verified. This is an engineering gate, not an absolute guarantee against disk failure, browser corruption or untested environments.
+
+For every upgrade or migration change:
+
+- Retain a complete, verified original copy before relying on transformed data. Check original values, supported unknown fields, module coverage and recovery readability; a newly created but incomplete snapshot does not satisfy the gate.
+- Do not delete or overwrite original values to make validation pass. Concurrent changes from older tabs/writers must be preserved and surfaced as conflicts, not silently accepted as a successful migration with stale visible data.
+- Fail closed on failed reads/writes/readback, incomplete snapshots, ambiguous results and conflicts. Do not mark the session ready or enable unsafe mutation merely because part of the migration succeeded. Preserve available drafts and explain recovery without recommending storage reset or uninstall/reinstall.
+- Exercise actual injected faults against the production migration path: failures before/after staging, registry and activation writes, readback failure, interrupted/repeated startup, and late concurrent old-writer changes. Compare exact originals and recovery copies after each case. Record the source SHA, test outcome and boundaries; a checklist is not passing evidence.
+- Run the required full suites on the final source and the relevant native checks. Keep failed/interrupted runs in the record; an unchanged retry can supply new passing evidence but cannot erase an earlier failure or prove its cause. Revalidate affected paths after any later code change.
+- Distinguish synthetic data and memory-adapter evidence from real installed-upgrade/storage validation. State any unverified install, browser restart, quota/crash or disk-durability cases explicitly. Do not promise that the user's actual stored data is safe based solely on synthetic tests.
+
+Release notes must describe the verified protection and remaining limits. If a discovered data-preservation defect is unresolved, hold the release rather than waive this gate for speed. Documentation-only maintenance is not counted as a functional commit in the release batch.
+
 ## Jobs and cost boundary
 
 - Both jobs have a pre-run exact repository/public visibility guard. Only a standard `ubuntu-latest` hosted runner is used.
