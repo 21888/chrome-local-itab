@@ -482,9 +482,11 @@
                         if (item.contextSnapshot) section.append(this.el('p', 'prompt-help collection-url',
                             `${this.t('ManualCompareHistorical', 'This item has historical input for its first answer version, which may differ from the current revised excerpt.')} · ${item.history[0].id}`));
                     }
-                    const body = this.el('pre', 'prompt-readonly', item.body); body.tabIndex = 0; section.append(body); bodies.append(section);
+                    // Browsers can visually discard a bare CR inside a pre.
+                    // Normalize only this display copy; equality still uses raw bodies.
+                    const body = this.el('pre', 'prompt-readonly', item.body.replace(/\r\n?/g, '\n')); body.tabIndex = 0; section.append(body); bodies.append(section);
                 }
-                status.textContent = !candidates.length ? (manual ? this.t('ManualCompareEmpty', 'No other current unarchived saved excerpt is available. Save another excerpt, then reopen this comparison.') : this.t('CompareEmpty', 'No other active saved result has this exact prompt and version link.')) : other && source.body === other.body ? this.t('CompareEqual', 'These saved bodies are exactly identical.') : this.t('CompareLiteral', 'Saved text is shown literally. Different text does not imply better quality.');
+                status.textContent = !candidates.length ? (manual ? this.t('ManualCompareEmpty', 'No other current unarchived saved excerpt is available. Save another excerpt, then reopen this comparison.') : this.t('CompareEmpty', 'No other active saved result has this exact prompt and version link.')) : other && source.body === other.body ? this.t('CompareEqual', 'These saved bodies are exactly identical.') : this.t('CompareLiteral', 'Saved markup is shown as text. Different original text does not imply better quality.');
             };
             const updateReference = () => {
                 if (manual) return;
@@ -503,7 +505,8 @@
             };
             chooser.addEventListener('change', () => { if (closed) return; this.updateComparison?.(); if (stale || !current()) return; selectedId = chooser.value; renderBodies(); });
             chooser.disabled = !candidates.length; renderBodies(); updateReference();
-            box.append(heading, scopeHelp); if (!manual) box.append(context, referenceStatus);
+            box.append(heading, scopeHelp, this.paragraph('CompareLineBreaks', 'Displayed line breaks are normalized to LF so every line remains visible. Saved originals and exact-equality checks keep their original CRLF, CR or LF; visually identical text may still differ.'));
+            if (!manual) box.append(context, referenceStatus);
             box.append(label, status, bodies, close); overlay.append(box); this.doc.body.append(overlay);
             this.openDialog = true; this.closeComparison = finish; cleanup = root.LocalItabDialog.open(overlay, chooser.disabled ? close : chooser, finish);
         }

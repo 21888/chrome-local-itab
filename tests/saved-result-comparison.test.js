@@ -35,7 +35,7 @@ test('literal equal bodies, explicit chooser, Escape and unrelated drafts preser
     assert.deepEqual(chooser.children.map(node => node.value), ['', b.id]);
     chooser.value = b.id; chooser.dispatch('change');
     assert.equal(overlay.querySelectorAll('pre').length, 2); assert.match(text(overlay), /exactly identical/);
-    assert.equal(overlay.querySelectorAll('pre')[1].textContent, b.body); assert.equal(overlay.querySelectorAll('script, img, iframe').length, 0);
+    assert.equal(overlay.querySelectorAll('pre')[1].textContent, b.body.replace(/\r\n?/g, '\n')); assert.equal(overlay.querySelectorAll('script, img, iframe').length, 0);
     chooser.dispatch('keydown', { key: 'Escape', isComposing: true }); assert.equal(view.openDialog, true);
     chooser.dispatch('keydown', { key: 'Escape' }); assert.equal(view.openDialog, false); assert.equal(doc.activeElement, trigger);
     assert.deepEqual(view.main.children, main); assert.equal(c.drafts.get('new'), draft); assert.equal(draft.input.body, 'private draft');

@@ -6,7 +6,7 @@ The existing **Compare saved results** action remains separate and still limits 
 
 ## What is shown
 
-- The two current saved bodies, as literal text, with their own title, tool label, record ID and body-version ID. CRLF, CR, LF, whitespace, Unicode and code-like text are not transformed. No HTML is executed.
+- The two current saved bodies, as literal text, with their own title, tool label, record ID and body-version ID. Only the displayed copy normalizes CRLF and bare CR to LF so browsers show every line. Saved originals, exact-equality checks, copying and export keep their existing raw text. Spaces, tabs, Unicode and code-like text are not transformed. No HTML is executed. The dialog explicitly discloses normalization and warns that visually identical text can still differ in original line endings.
 - Each item's user-provided source URL as text, explicitly unverified. Links are not fetched or made into new navigation controls.
 - Each item's exact saved prompt/version link, or an explicit unlinked label. No prompt body is fetched or substituted.
 - When an item has a context snapshot, a note identifies its first answer version and explains that its historical input may not describe the current revised excerpt. Snapshot text, notes, hidden input, old body versions and recovery records are not added to this comparison.
@@ -24,7 +24,7 @@ Comparison readiness now requires a separately verified current read/write gener
 
 ## Validation
 
-Synthetic store/controller/DOM-model coverage is in `tests/manual-saved-excerpt-comparison.test.js`; the unchanged exact-link workflow is covered by `tests/saved-result-comparison.test.js`. Tests exercise unlinked context answers, arbitrary saved candidates, independently labeled provenance, literal line endings/markup, first-version history, no automatic choice, empty candidates, filters and retained drafts, both sides of archival/metadata/body changes, failed and out-of-order reads, cache error-clearing regressions, lower revisions, pending/uncertain operations, close/reopen, IME Escape, pagehide/BFCache, disposal and Chinese labels. Counters assert that the comparison has no writes, network, grant or clipboard side effects.
+Synthetic store/controller/DOM-model coverage is in `tests/manual-saved-excerpt-comparison.test.js`; the unchanged exact-link workflow is covered by `tests/saved-result-comparison.test.js`. Tests exercise unlinked context answers, arbitrary saved candidates, independently labeled provenance, normalized display line endings with raw equality/markup, first-version history, no automatic choice, empty candidates, filters and retained drafts, both sides of archival/metadata/body changes, failed and out-of-order reads, cache error-clearing regressions, lower revisions, pending/uncertain operations, close/reopen, IME Escape, pagehide/BFCache, disposal and Chinese labels. Counters assert that the comparison has no writes, network, grant or clipboard side effects.
 
 Run:
 
@@ -38,7 +38,7 @@ These are synthetic checks, not native layout or provider-account acceptance. No
 
 未归档收藏新增「手动对照任意收藏摘录」，可对照上下文问答保存的答案、手动摘录或关联不同提示词的结果。需明确选择另一条当前未归档收藏，不受侧栏筛选限制，也不假定输入、提示词、模型或来源相同。原「对比已保存结果」仍只接受同一精确提示词及版本的结果。
 
-各自显示原样正文、标题、工具、条目和正文版本 ID、未经核验的来源网址以及各自提示词关联。有历史输入时，仅说明其关联首版回答，不把历史输入冒充当前修订正文的来源。对照只读，不联网、不写入、不复制、不导出、不请求权限。数据刷新、读取失败或变更会清空对照；切换条目清掉错误提示也不能重新使用未经核验的旧缓存。请成功刷新后重新打开并选择。
+各自显示正文、标题、工具、条目和正文版本 ID、未经核验的来源网址以及各自提示词关联。有历史输入时，仅说明其关联首版回答，不把历史输入冒充当前修订正文的来源。显示副本将 CRLF/CR 统一为 LF，避免裸 CR 视觉连行；原文保存、复制、导出和精确相等判断不变，界面明确提示看似相同仍可能存在原始换行差异。对照只读，不联网、不写入、不复制、不导出、不请求权限。数据刷新、读取失败或变更会清空对照；切换条目清掉错误提示也不能重新使用未经核验的旧缓存。请成功刷新后重新打开并选择。
 
 ## Español
 

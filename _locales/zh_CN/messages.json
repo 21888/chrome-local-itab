@@ -3770,8 +3770,11 @@
   "collectionsCompareEqual": {
     "message": "两个已保存正文完全相同。"
   },
+  "collectionsCompareLineBreaks": {
+    "message": "显示时将换行统一为 LF，确保每一行可见。已保存原文和精确相等判断仍保留原有 CRLF、CR 或 LF；看起来相同的文本仍可能不同。"
+  },
   "collectionsCompareLiteral": {
-    "message": "按原样显示已保存文本。文本不同并不代表质量更好。"
+    "message": "已保存的标记按文本显示。原始文本不同并不代表质量更好。"
   },
   "collectionsCompareStale": {
     "message": "已保存数据发生变化或无法核验，本次对比已清空。请关闭对比，按需刷新已保存数据，然后重新打开并选择。"

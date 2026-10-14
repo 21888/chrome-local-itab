@@ -3758,8 +3758,11 @@
   "collectionsCompareEqual": {
     "message": "These saved bodies are exactly identical."
   },
+  "collectionsCompareLineBreaks": {
+    "message": "Displayed line breaks are normalized to LF so every line remains visible. Saved originals and exact-equality checks keep their original CRLF, CR or LF; visually identical text may still differ."
+  },
   "collectionsCompareLiteral": {
-    "message": "Saved text is shown literally. Different text does not imply better quality."
+    "message": "Saved markup is shown as text. Different original text does not imply better quality."
   },
   "collectionsCompareStale": {
     "message": "Saved data changed or could not be verified. This comparison has been cleared. Close it, refresh saved data if needed, then reopen to choose again."

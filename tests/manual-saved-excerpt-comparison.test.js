@@ -9,6 +9,7 @@ const { createDocument } = require('./helpers/task-dom-model');
 const text = node => [node.textContent || '', ...node.children.map(text)].join(' ');
 const ref = { promptId: 'prompt_0001', bodyVersionId: 'version_0001' };
 const manualTitle = 'Compare any saved excerpts';
+const display = value => value.replace(/\r\n?/g, '\n');
 
 async function mount({ locale = 'en', fixtures = true } = {}) {
     const h = setup(), c = h.controller, doc = createDocument({ blurUnavailableFocus: true }), events = new Map();
@@ -71,7 +72,7 @@ test('unlinked context answer has a manual entry and explicit chooser, with exac
     assert.match(text(overlay), /historical input for its first answer version/); assert.ok(text(overlay).includes(a.history[0].id));
     assert.equal(text(overlay).includes('Snapshot-only synthetic text'), false); assert.equal(text(overlay).includes('Private synthetic question'), false);
     chooser.value = b.id; chooser.dispatch('change');
-    assert.deepEqual(overlay.querySelectorAll('pre').map(node => node.textContent), [a.body, b.body]);
+    assert.deepEqual(overlay.querySelectorAll('pre').map(node => node.textContent), [display(a.body), display(b.body)]);
     for (const item of [a, b]) { assert.ok(text(overlay).includes(item.id)); assert.ok(text(overlay).includes(item.currentVersionId)); assert.ok(text(overlay).includes(item.sourceUrl)); }
     assert.equal(overlay.querySelectorAll('a, script, iframe, img').length, 0);
     assert.equal(JSON.stringify(c.state), before); assert.equal(h.h.writes, writes); assert.deepEqual(h.calls, { network: 0, clipboard: 0, grant: 0 });
@@ -83,7 +84,7 @@ test('manual selection includes all active saved records despite sidebar filters
     const h = await mount(); h.c.edit(h.b.id); h.c.update('body', 'UNSAVED BODY'); const draft = h.c.draft();
     h.c.select(h.a.id); h.c.filter({ query: 'no results', tag: 'no tag', type: 'code', tool: 'no tool' });
     const d = h.open(); h.choose(d, h.b.id);
-    assert.deepEqual(d.bodies().map(node => node.textContent), [h.a.body, h.b.body]);
+    assert.deepEqual(d.bodies().map(node => node.textContent), [display(h.a.body), display(h.b.body)]);
     assert.equal(text(d.overlay).includes('UNSAVED BODY'), false); assert.match(text(d.overlay), /regardless of sidebar filters/);
     h.view.closeComparison(); assert.equal(h.c.drafts.get(h.b.id), draft); assert.equal(draft.input.body, 'UNSAVED BODY'); h.c.dispose();
 });
@@ -113,7 +114,7 @@ test('only current bodies are compared after revision, with historical input exp
 test('identical saved text is reported exactly, and a selected unknown or archived ID cannot substitute text', async () => {
     const h = await mount(), equal = await h.save({ title: 'Identical', body: h.a.body }); h.c.select(h.a.id);
     const d = h.open(); h.choose(d, equal.id); assert.match(text(d.overlay), /exactly identical/);
-    for (const id of ['missing', h.archived.id, h.a.id, '']) { h.choose(d, id); assert.deepEqual(d.bodies().map(node => node.textContent), [h.a.body]); assert.doesNotMatch(text(d.overlay), /exactly identical/); }
+    for (const id of ['missing', h.archived.id, h.a.id, '']) { h.choose(d, id); assert.deepEqual(d.bodies().map(node => node.textContent), [display(h.a.body)]); assert.doesNotMatch(text(d.overlay), /exactly identical/); }
     h.c.dispose();
 });
 
@@ -189,7 +190,7 @@ test('Close clears detached bodies and old chooser callbacks cannot alter a reop
     const h = await mount(), old = h.open(); h.choose(old, h.b.id); h.view.closeComparison();
     assert.equal(old.bodies().length, 0); assert.equal(old.chooser.disabled, true);
     const next = h.open(); h.choose(old, h.linked.id);
-    assert.equal(old.bodies().length, 0); assert.equal(next.chooser.value, ''); assert.deepEqual(next.bodies().map(node => node.textContent), [h.a.body]); h.c.dispose();
+    assert.equal(old.bodies().length, 0); assert.equal(next.chooser.value, ''); assert.deepEqual(next.bodies().map(node => node.textContent), [display(h.a.body)]); h.c.dispose();
 });
 
 for (const cause of ['busy', 'uncertain', 'read-pending', 'read-error', 'draft', 'hidden', 'detached', 'disposed', 'invalid-scope']) test(`${cause} blocks a new manual comparison`, async () => {
@@ -223,6 +224,43 @@ test('Chinese labels describe arbitrary excerpt scope and each independent sourc
     assert.match(text(d.overlay), /手动对照任意收藏摘录/); assert.match(text(d.overlay), /不假定共有提示词或来源/);
     assert.match(text(d.overlay), /用户提供的来源网址（未经核验）/); assert.match(text(d.overlay), /没有已保存的提示词版本关联/);
     assert.match(text(d.overlay), /首版回答的历史输入/); h.c.dispose();
+});
+
+for (const scope of ['manual', 'prompt']) for (const [name, left, right] of [
+    ['CRLF versus LF', 'first\r\nsecond\r\n', 'first\nsecond\n'],
+    ['bare CR versus LF', 'first\rsecond\r', 'first\nsecond\n'],
+    ['bare CR versus CRLF', 'first\rsecond', 'first\r\nsecond'],
+    ['identical mixed line endings', '\r\r\nfirst\rsecond\n  😀\t\r', '\r\r\nfirst\rsecond\n  😀\t\r'],
+    ['mixed endings versus normalized copy', '\r\r\nfirst\rsecond\n  😀\t\r', '\n\nfirst\nsecond\n  😀\t\n']
+]) test(`${scope} ${name}: normalize display only, preserve raw equality and saved bytes`, async () => {
+    const h = await mount({ fixtures: false }), promptRef = scope === 'prompt' ? ref : null;
+    const a = await h.save({ title: 'Left', body: left, promptRef }), b = await h.save({ title: 'Right', body: right, promptRef }); h.c.select(a.id);
+    const before = JSON.stringify(h.c.state), writes = h.h.writes, d = h.open(a.id, scope); h.choose(d, b.id);
+    assert.deepEqual(d.bodies().map(node => node.textContent), [display(left), display(right)]);
+    assert.equal(text(d.overlay).includes('These saved bodies are exactly identical.'), left === right);
+    assert.match(text(d.overlay), /Displayed line breaks are normalized to LF/);
+    assert.match(text(d.overlay), /visually identical text may still differ/);
+    assert.equal(h.c.record(a.id).body, left); assert.equal(h.c.record(b.id).body, right);
+    assert.equal(h.c.record(a.id).currentVersionId, a.currentVersionId); assert.equal(h.c.record(b.id).currentVersionId, b.currentVersionId);
+    assert.equal(JSON.stringify(h.c.state), before); assert.equal(h.h.writes, writes);
+    assert.deepEqual(h.calls, { network: 0, clipboard: 0, grant: 0 }); h.c.dispose();
+});
+
+test('normalized comparison leaves existing explicit excerpt copy and Markdown/JSON exports on raw text', async () => {
+    const h = await mount(), d = h.open(); h.choose(d, h.b.id); h.view.closeComparison();
+    const copied = []; h.view.clipboard = { writeText: async value => copied.push(value) };
+    await h.view.copy(h.c.record().body); assert.deepEqual(copied, [h.a.body]);
+    const markdown = require('../shared/local-ai-markdown').serialize('collection', h.c.record());
+    assert.ok(markdown.includes(h.a.body));
+    const backup = JSON.parse(await h.store.export());
+    assert.equal(backup.content.records.find(item => item.id === h.a.id).body, h.a.body);
+    assert.equal(backup.content.records.find(item => item.id === h.b.id).body, h.b.body); h.c.dispose();
+});
+
+test('Chinese comparison explicitly discloses display normalization and original line-ending equality', async () => {
+    const h = await mount({ locale: 'zh_CN' }), d = h.open(); h.choose(d, h.b.id);
+    assert.match(text(d.overlay), /显示时将换行统一为 LF/); assert.match(text(d.overlay), /精确相等判断仍保留原有 CRLF、CR 或 LF/);
+    assert.match(text(d.overlay), /看起来相同的文本仍可能不同/); h.c.dispose();
 });
 
 test('responsive comparison layout remains side-by-side with a narrow-screen stack and scrollable exact bodies', () => {
