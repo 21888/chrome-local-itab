@@ -42,7 +42,7 @@ RUNTIME_FILES = (
     "shared/local-prompt-starters.js",
     "shared/local-prompts-store.js", "shared/local-prompts-controller.js", "shared/local-prompts-view.js",
     "context-menu.js", "drive-backup.js", "error-handler.js", "favicon-cache.js",
-    "i18n.js", "newtab.js", "options.js", "storage.js",
+    "i18n.js", "newtab.js", "options.js", "storage.js", "shared/configuration-codec.js",
     "workspaces.css", "appearance.css", "bookmark-import.css", "complete-backup.css", "context-menu.css", "update-checker.css",
     "dashboard-template-gallery.css", "dashboard-templates.css", "local-focus.css",
     "local-countdown.css", "local-month-calendar.css", "local-scratchpad.css", "local-tasks.css", "newtab.css", "options.css", "shortcut-finder.css",

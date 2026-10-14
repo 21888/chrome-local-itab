@@ -1,0 +1,5 @@
+# Preserve the exact historic mixed-line-ending source bytes on every platform.
+formal139-storage.js -text -whitespace
+shared/*.js -text
+# The storage oracle retains historical trailing spaces as well as CRLF;
+# exempt this exact byte-pinned fixture only, never current runtime sources.
