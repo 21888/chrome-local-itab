@@ -69,12 +69,28 @@ After closing all extension pages, the runtime files were replaced inside the un
 
 Independent comparisons of baseline → upgraded and upgraded → reopened passed: each entire seven-module archive is exact except the top-level and both global `exportedAt` fields. No workspace timestamps, task/library mutation tokens, revisions, archived records, recovery entries, immutable version bodies or exact link IDs changed during the upgrade. Nonempty task recovery was preserved: one entry each in Default, Work and Trash. All three native exports are 14,625 bytes. The old inventory matched all 89 snapshot files (manifest SHA-256 `e0ce243ebb52392aa6b3d15d9456a046763cc0a1e1a5470d659a1af7f19f1250`); the replacement inventory matched all 90 current lane files. This establishes the tested UI-import-seeded, manually revised same-path upgrade and fresh-page reopening, not wholly hand-authored fixture setup or browser-process restart durability.
 
+## Bounded follow-up, 2026-10-14: missing exact prompt reference
+
+A separate English/light desktop check passed on source `3110eceb0b5b8227939a53cb46dd8ecaecb59dce`, manifest **1.1.134**. All 123 copied runtime files matched that source byte-for-byte. The full production Collections page and production complete-backup component ran with explicit synthetic RAM platform adapters. This was native browser interaction with those components, not the installed extension, the full Settings page or native persistent storage. The earlier 2026-10-11 results and their provenance remain unchanged.
+
+The synthetic source contained a collection linked to an older immutable prompt body. The destination contained a same-title prompt with different IDs; the source prompt ID and body-version ID were absent from all destination active, archived and recovery prompt records.
+
+- The native file picker selected the source, and Escape cancelled review with **zero writes** and an exact prior raw state.
+- Selecting the file again, deselecting all modules except collections, choosing the global collections destination and explicitly confirming performed one successful restore with **five RAM transaction writes**.
+- The production collection details showed the missing-version notice and both original IDs. **Refresh local prompts**, then reconstructing a fresh page and stores from the same serialized RAM, retained the unresolved reference. No same-title or latest-version substitution occurred; the saved collection body remained readable.
+- Independent source/baseline/cancelled/restored/recovery/reopened comparisons passed the existing strict selective-restore rules. Unselected portable workspace/Trash data, including timestamps, and the complete prompt raw state stayed exact. Selected collection mutation tokens/revisions and retained recovery followed their existing restore contract.
+- The raw workspace registry revision advanced normally from 4 to 5, with all other registry fields unchanged. Recovery records and the combined-restore fence also changed normally. These are included in the reported writes, not hidden by a claim of whole-raw-state equality after confirmation. Reopening and source refresh added no writes.
+
+The synthetic-file shortcut was not used. Instrumentation recorded no network, provider, permission, clipboard, external-navigation or persistent-storage operation, and no runtime errors. No production bug was found; this is a verification/documentation update without a version change or new feature.
+
+Coverage remains bounded to English/light desktop, the production page/component with synthetic RAM, and one fresh-frame reconstruction. It does not establish installed-extension storage, full Settings integration, browser-process restart, disk durability, cross-tab/fault races or a complete locale/accessibility matrix. No raw receipts, profiles, screenshots or backup contents are published here.
+
 ## Remaining coverage
 
 - Freshly downloaded old-release asset installation, rather than existing digest/tag-matched local bytes.
 - Full browser-process restart, packaged CRX auto-update, downgrade, crash/kill recovery, disk/quota failure and native uncertainty-fence recovery.
 - Cross-tab races, real-user migrations, account/provider flows and other operating systems/browser variants.
-- A genuinely missing prompt-version reference in the native collections-only UI.
+- A genuinely missing prompt-version reference using installed-extension storage. The bounded English/light synthetic-RAM production-component case is covered by the 2026-10-14 follow-up above; installation and durability remain unverified.
 - Nonempty task recovery in the manually authored legacy 1.1.21 lane.
 - The full Chinese/English × light/dark × narrow-window accessibility/focus matrix. Multilingual imported content is not full locale coverage; no Spanish UI claim is made.
 
