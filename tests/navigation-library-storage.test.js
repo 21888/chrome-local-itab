@@ -582,3 +582,59 @@ test('new-category definite write failure followed by external duplicate conflic
     assert.equal(h.writes, 1); assert.equal(h.syncs, 0); assert.deepEqual(h.state, external);
     assert.deepEqual(h.state.categories, before.categories);
 });
+
+for (const omitted of [['icon'], ['category'], ['icon', 'category']]) {
+    test(`legacy omitted ${omitted.join('/')} reads and adds without repairing stored records`, async () => {
+        const h = model();
+        for (const field of omitted) delete h.state.links[0][field];
+        const before = clone(h.state);
+        const snapshot = await h.m.readNavigationLibrarySnapshot();
+        assert.deepEqual(snapshot.links, before.links);
+        assert.deepEqual(snapshot.state.links, before.links);
+        assert.equal(h.writes, 0);
+        await assert.rejects(h.m.readShortcutOrganizerSnapshot(), { code: 'SHORTCUT_UNDO_INVALID' });
+        assert.throws(() => h.m.shortcutUndoSnapshot(h.state), { code: 'SHORTCUT_UNDO_INVALID' });
+        const duplicate = await h.m.addCatalogShortcut(await h.plan({ name: 'Twin', url: 'https://example.com/', icon: 'T' }));
+        assert.equal(duplicate.duplicate, true); assert.equal(h.writes, 0);
+        await h.m.addCatalogShortcut(await h.plan());
+        assert.deepEqual(h.state.links.slice(0, 2), before.links);
+        assert.deepEqual(h.state.layout, before.layout);
+        assert.deepEqual(h.state.categories, before.categories);
+        assert.deepEqual(h.state.arbitrary, before.arbitrary);
+        assert.equal(Object.hasOwn(h.state, 'schemaVersion'), false);
+        assert.equal(h.writes, 1);
+    });
+}
+for (const [field, value] of [['icon', null], ['icon', 1], ['icon', undefined], ['category', null], ['category', 1], ['category', ''],
+    ['title', ' Twin '], ['url', 'example.com'], ['url', 'javascript:alert(1)']]) {
+    test(`legacy projection still rejects explicit ${field}=${String(value)}`, () => {
+        const h = model(); delete h.state.links[0].icon; delete h.state.links[0].category;
+        h.state.links[0][field] = value;
+        assert.throws(() => h.m.navigationLibrarySnapshot(h.state), { code: 'CATALOG_INVALID' });
+        assert.equal(h.writes, 0);
+    });
+}
+for (const field of ['icon', 'category']) {
+    test(`raw absence of ${field} remains distinct from its default in freshness checks`, async () => {
+        for (const direction of ['insert', 'delete']) {
+            const h = model(); h.state.links[0][field] = field === 'icon' ? '🌐' : 'work';
+            if (direction === 'insert') delete h.state.links[0][field];
+            const request = await h.plan();
+            if (direction === 'insert') h.state.links[0][field] = field === 'icon' ? '🌐' : 'work';
+            else delete h.state.links[0][field];
+            const before = clone(h.state);
+            await assert.rejects(h.m.addCatalogShortcut(request), { code: 'CATALOG_CONFLICT' });
+            assert.deepEqual(h.state, before); assert.equal(h.writes, 0);
+        }
+    });
+}
+test('identity-mode legacy optional fields preserve IDs and all old layout maps', async () => {
+    const id = 'l_' + '1'.repeat(32), next = 'l_' + '2'.repeat(32);
+    const h = model({ schemaVersion: 2, links: [{ title: 'Old', url: 'https://old.example.com/', layoutId: id, extra: { keep: true } }],
+        layout: { identityVersion: 1, positions: {}, positionsById: { [id]: { work: { x: 3, y: 4 } } }, extra: true } });
+    const before = clone(h.state); h.m.createLayoutIdentity = () => next;
+    await h.m.addCatalogShortcut(await h.plan());
+    assert.deepEqual(h.state.links[0], before.links[0]); assert.equal(h.state.links[1].layoutId, next);
+    assert.deepEqual(h.state.layout, { ...before.layout, positionsById: { ...before.layout.positionsById, [next]: {} } });
+    assert.equal(h.state.schemaVersion, 2);
+});

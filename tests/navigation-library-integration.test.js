@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {createDocument,deferred}=require('./helpers/task-dom-model');
 function model() {
     const document=createDocument(),events=[];
-    const context=vm.createContext({document,URL,console:{log(){},warn(){},error(){}},window:{},storageManager:{defaultConfig:{layout:{columns:6}}}});
+    const context=vm.createContext({document,URL,console:{log(){},warn(){},error(){}},window:{},storageManager:{defaultConfig:{layout:{columns:6}},validateLinksConfig:links=>links}});
     vm.runInContext(fs.readFileSync('newtab.js','utf8')+'\nthis.ShortcutsComponent=ShortcutsComponent;',context);
     const component=new context.ShortcutsComponent([{title:'A',url:'https://example.com/',icon:'A',category:'work'}]);
     component.layoutController={holdShortcutMutation(){events.push('hold');},async flush(){events.push('flush');},releaseShortcutMutation(){events.push('release');}};

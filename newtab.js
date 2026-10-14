@@ -2946,7 +2946,10 @@ class ShortcutsComponent {
             const flushed = await controller?.flush();
             if (flushed === false || controller?.failedChange || controller?.invalidated) throw Object.assign(new Error('Pending layout change'), { code: 'CATALOG_LAYOUT_PENDING' });
             const saved = await storageManager.addCatalogShortcut(request);
-            this.adoptShortcutSnapshot(saved);
+            // Navigation preserves raw legacy records for exact write guards.
+            // The dashboard/layout controller use the normal display projection,
+            // so our own storage notification must compare like-for-like links.
+            this.adoptShortcutSnapshot({ ...saved, links: storageManager.validateLinksConfig(saved.links) });
             if (Array.isArray(saved.categories)) {
                 this.categories = saved.categories;
                 if (window.categoryNavigation) {

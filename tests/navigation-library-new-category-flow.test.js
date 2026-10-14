@@ -8,11 +8,11 @@ const tick = () => new Promise(setImmediate);
 
 // Exercise the real view-to-storage request contract. The DOM model never opens
 // a browser or loads a remote resource; all user content here is synthetic.
-function flow(categories = []) {
+function flow(categories = [], links = []) {
     const document = createDocument({ blurUnavailableFocus: true });
     document.documentElement.lang = 'en';
     const host = document.createElement('header'); document.body.append(host);
-    const raw = { links: [], categories, layout: { positions: {}, autoArrange: false },
+    const raw = { links, categories, layout: { positions: {}, autoArrange: false },
         privacy: { onlineFavicons: false }, sync: { enabled: false }, unknown: { keep: true } };
     const writes = [], requests = [];
     const storage = new StorageManager(); storage._syncInitialized = true;
@@ -126,3 +126,27 @@ test('real active-filter removal preserves unrelated browse and target drafts an
  assert.equal(h.requests.length,0);assert.equal(h.writes.length,0);assert.deepEqual(h.raw,before);
  h.document.querySelector('.navigation-library-use-existing').dispatch('click');assert.equal(target.value,'personal');
 });
+
+for (const omitted of [['icon'], ['category'], ['icon', 'category']]) {
+    test(`real view reads legacy omitted ${omitted.join('/')} and saves without migration`, async () => {
+        const link = { title: 'Saved ChatGPT', url: 'https://chatgpt.com/', icon: 'C', category: 'work', extra: { keep: true } };
+        for (const field of omitted) delete link[field];
+        const h = flow([{ id: 'work', name: 'Work' }], [link]);
+        const before = structuredClone(h.raw);
+        assert.equal(await h.view.open(), true);
+        assert.equal(h.document.querySelectorAll('article').length, h.context.LocalItabNavigationSites.length);
+        const saved = h.document.querySelectorAll('article').find(node => node.dataset.site === 'chatgpt');
+        assert.equal(saved.querySelector('.navigation-library-add').disabled, true);
+        assert.equal(saved.querySelector('.navigation-library-saved-locations li').textContent, 'Work');
+        assert.deepEqual(h.raw, before); assert.equal(h.writes.length, 0);
+        const card = h.document.querySelectorAll('article').find(node => node.dataset.site === 'github');
+        card.querySelector('.navigation-library-add').dispatch('click'); await tick();
+        assert.equal(h.writes.length, 1); assert.equal(h.raw.links.length, 2);
+        assert.deepEqual(h.raw.links[0], before.links[0]);
+        assert.deepEqual(h.raw.layout, before.layout); assert.deepEqual(h.raw.categories, before.categories);
+        assert.deepEqual(h.raw.unknown, before.unknown); assert(!Object.hasOwn(h.raw, 'schemaVersion'));
+        assert.equal(card.querySelector('.navigation-library-add').disabled, true);
+        h.view.close(); assert.equal(await h.view.open(), true);
+        assert.equal(h.writes.length, 1); assert.deepEqual(h.raw.links[0], before.links[0]);
+    });
+}

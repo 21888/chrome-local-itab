@@ -612,7 +612,15 @@ class StorageManager {
     navigationLibrarySnapshot(raw) {
         const fail = () => { throw this.shortcutUndoError('CATALOG_INVALID', 'Saved sites or privacy settings require review before adding a site.'); };
         try {
-            const snapshot = this.shortcutUndoSnapshot(raw);
+            // Workspace migration accepts absent legacy cosmetic fields without
+            // rewriting saved records. Validate that same projection here only;
+            // deletion/restoration stay strict and freshness still uses raw data.
+            const links = raw.links === undefined ? this.defaultConfig.links : raw.links;
+            const projectedLinks = Array.isArray(links) ? links.map(link =>
+                link && typeof link === 'object' && !Array.isArray(link)
+                    ? { icon: '🌐', category: 'work', ...link } : link) : links;
+            const snapshot = this.shortcutUndoSnapshot({ ...raw, links: projectedLinks });
+            snapshot.links = this.copyBookmarkImportValue(links);
             const categories = this.copyBookmarkImportValue(raw.categories === undefined ? this.defaultConfig.categories : raw.categories);
             if (!Array.isArray(categories) || categories.length > BOOKMARK_IMPORT_STORAGE_LIMITS.categories ||
                 snapshot.links.length > BOOKMARK_IMPORT_STORAGE_LIMITS.links) fail();
