@@ -283,6 +283,93 @@ bounded('legacy writer changing source during awaited recovery blocks migration 
     assert.equal(f.raw.quote, 'NEWER_LEGACY_TAB_QUOTE');
 });
 
+for (const boundary of [constants.registry, constants.activation]) bounded(`legacy write during ${boundary} commit blocks first-session admission and retains both branches`, async () => {
+    const original = seeded(), f = fixture(original), manager = f.manager(), session = manager.capture(); let raced = false;
+    f.hooks.set = (values, raw, apply) => {
+        if (raced || !Object.hasOwn(values, boundary)) return DEFER;
+        raced = true; apply(values); f.apply({ quote: 'LATE_LEGACY_QUOTE' }); return undefined;
+    };
+    await assert.rejects(session.ready(), code('WORKSPACE_LEGACY_CONFLICT')); await f.settled();
+    assert(raced); assert.equal(session.id, null); assert.equal(f.raw.quote, 'LATE_LEGACY_QUOTE');
+    assert.deepEqual(f.raw[constants.recovery].values, original);
+    const entry = f.raw[constants.registry].workspaces[0];
+    assert.equal(f.raw[Workspaces.bundleKey(entry)].values.quote, original.quote);
+    assert(f.raw[Workspaces.LEGACY_CONFLICT_KEY]); assert.equal(f.raw[Workspaces.LEGACY_CONFLICT_KEY].resolvedAt, undefined);
+    const before = copy(f.raw), writes = f.writes.length;
+    await assert.rejects(session.local.set({ quote: 'MUST_NOT_OVERWRITE_LATE_BRANCH' }));
+    await assert.rejects(f.manager().capture().ready(), code('WORKSPACE_LEGACY_CONFLICT'));
+    assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes);
+    assert.deepEqual(f.removals, []); assert.deepEqual(f.providers, []);
+});
+
+bounded('existing activated metadata rechecks legacy changes that arrive while reading its bundles', async () => {
+    const original = seeded(), source = fixture(original), { registry } = await selected(source);
+    const f = fixture(source.raw), manager = f.manager(), session = manager.capture(); let raced = false;
+    const key = Workspaces.bundleKey(registry.workspaces[0]);
+    f.hooks.get = keys => {
+        if (!raced && Array.isArray(keys) && keys.includes(key)) {
+            raced = true; f.apply({ quote: 'LATE_EXISTING_METADATA_QUOTE' });
+        }
+        return DEFER;
+    };
+    await assert.rejects(session.ready(), code('WORKSPACE_LEGACY_CONFLICT')); await f.settled();
+    assert(raced); assert.equal(session.id, null); assert.equal(f.raw.quote, 'LATE_EXISTING_METADATA_QUOTE');
+    assert.deepEqual(f.raw[constants.recovery], source.raw[constants.recovery]);
+    assert.deepEqual(f.raw[key], source.raw[key]); assert.deepEqual(f.removals, []); assert.deepEqual(f.providers, []);
+});
+
+for (const failPersistence of [false, true]) bounded(`final admission keeps an onChanged conflict when get returns an earlier snapshot (persist fails=${failPersistence})`, async () => {
+    const original = seeded(), f = fixture(original), manager = f.manager(), session = manager.capture(); let raced = false;
+    f.hooks.get = keys => {
+        if (!raced && manager._activated && Array.isArray(keys) && keys.includes(Workspaces.SNAPSHOT_KEY) && keys.includes(Workspaces.LEGACY_CONFLICT_KEY)) {
+            raced = true; const earlier = f.extract(keys); f.apply({ quote: 'LATE_FINAL_READ_QUOTE' }); return earlier;
+        }
+        return DEFER;
+    };
+    if (failPersistence) f.hooks.set = values => {
+        if (Object.hasOwn(values, Workspaces.LEGACY_CONFLICT_KEY)) throw Error('synthetic conflict-marker write failure');
+        return DEFER;
+    };
+    await assert.rejects(session.ready(), code('WORKSPACE_LEGACY_CONFLICT')); await f.settled();
+    assert(raced); assert.equal(session.id, null); assert.equal(manager._legacyConflict, true);
+    assert.equal(f.raw.quote, 'LATE_FINAL_READ_QUOTE'); assert.deepEqual(f.raw[constants.recovery].values, original);
+    const entry = f.raw[constants.registry].workspaces[0]; assert.equal(f.raw[Workspaces.bundleKey(entry)].values.quote, original.quote);
+    await assert.rejects(session.local.set({ quote: 'MUST_NOT_RESUME_WRITING' }));
+    await assert.rejects(f.manager().capture().ready(), code(failPersistence ? 'WORKSPACE_WRITE' : 'WORKSPACE_LEGACY_CONFLICT'));
+    delete f.hooks.set;
+    await assert.rejects(f.manager().capture().ready(), code('WORKSPACE_LEGACY_CONFLICT'));
+    assert.equal(f.raw.quote, 'LATE_FINAL_READ_QUOTE'); assert.deepEqual(f.raw[constants.recovery].values, original);
+    assert.deepEqual(f.removals, []); assert.deepEqual(f.providers, []);
+});
+
+bounded('failed final admission read rejects without defaults and a new capture can retry verified metadata', async () => {
+    const original = seeded(), f = fixture(original), manager = f.manager(); let failed = false;
+    f.hooks.get = keys => {
+        if (!failed && manager._activated && Array.isArray(keys) && keys.includes(Workspaces.SNAPSHOT_KEY)) {
+            failed = true; throw Error('synthetic final admission read failure');
+        }
+        return DEFER;
+    };
+    await assert.rejects(manager.capture().ready(), code('WORKSPACE_READ'));
+    assert(failed); assert.equal(manager._ready, null);
+    const before = copy(f.raw), writes = f.writes.length, session = manager.capture();
+    await session.ready(); assert.equal((await session.local.get(['quote'])).quote, original.quote);
+    assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes);
+    assert.deepEqual(f.raw[constants.recovery].values, original); assert.deepEqual(f.providers, []);
+});
+
+bounded('concurrent ready callers share one final admission and no extra lifecycle lock is needed after capture', async () => {
+    const f = fixture(seeded()), manager = f.manager(); let finalReads = 0;
+    f.hooks.get = keys => {
+        if (manager._activated && Array.isArray(keys) && keys.includes(Workspaces.SNAPSHOT_KEY)) finalReads++;
+        return DEFER;
+    };
+    const sessions = [manager.capture(), manager.capture()]; await Promise.all(sessions.map(session => session.ready()));
+    assert.equal(finalReads, 1); assert.equal(sessions[0].id, sessions[1].id);
+    await sessions[0].local.set({ quote: 'AFTER_VALID_ADMISSION' });
+    assert.equal((await sessions[1].local.get(['quote'])).quote, 'AFTER_VALID_ADMISSION'); assert.equal(finalReads, 1);
+});
+
 bounded('missing explicit workspace never silently redirects to Default', async () => {
     const f = fixture(seeded()), { manager } = await selected(f), before = copy(f.raw);
     await assert.rejects(manager.capture('synthetic_missing_workspace').local.get(null));

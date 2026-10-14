@@ -307,7 +307,19 @@
         }
         legacyLock(fn) { return this.locks.request('local-itab-personal-tasks-v1', { mode: 'exclusive' }, () => this.locks.request('local-itab-focus-v1', { mode: 'exclusive' }, () => this.locks.request('local-itab-local-write', { mode: 'exclusive' }, fn))); }
         ready() {
-            if (!this._ready) this._ready = this.initialize().catch(error => { this._ready = null; throw error; });
+            if (!this._ready) this._ready = this.initialize().then(async () => {
+                // Old pages do not share the workspace lock. A legacy write can
+                // arrive after the staged-source check while metadata commits.
+                // Start observing before the last admission read and preserve
+                // both saved branches instead of giving out a stale session.
+                this._activated = true;
+                await this.locks.request(LOCK, { mode: 'exclusive' }, async () => {
+                    await this.checkLegacySource();
+                    // onChanged may arrive while get() returns an older snapshot;
+                    // its sticky conflict must win even if that read looks equal.
+                    check(!this._legacyConflict, 'LEGACY_CONFLICT');
+                });
+            }).catch(error => { this._ready = null; throw error; });
             return this._ready.then(async () => { this._activated = true; return this.registry(); });
         }
         async initialize() {
