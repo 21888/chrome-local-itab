@@ -4,10 +4,16 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 
 // A small DOM/event model for ownership and routing. Real native-key behavior,
 // focus painting and browser dragging remain a separate unpacked-extension check.
-function createDocument() {
+function createDocument({ blurUnavailableFocus = false } = {}) {
     const doc = { activeElement: null, listeners: new Map(), addEventListener(type, fn) { this.listeners.set(type, fn); }, removeEventListener(type) { this.listeners.delete(type); } };
     class Element {
         constructor(tag) { this.tagName = tag.toUpperCase(); this.value = ''; this.hidden = false; this.open = false; this.children = []; this.dataset = {}; this.attributes = {}; this.style = { setProperty(name, value) { this[name] = value; }, removeProperty(name) { delete this[name]; } }; this.listeners = new Map(); this.inert = false; this.ownerDocument = doc; this._classes = new Set(); this.classList = { add: name => this._classes.add(name), remove: name => this._classes.delete(name), contains: name => this._classes.has(name), toggle: (name, enabled) => enabled ? this._classes.add(name) : this._classes.delete(name) }; }
+        // Opt in to Chrome-style focus loss when an active control becomes unavailable.
+        // Key probes then route through activeElement instead of a retired button.
+        set disabled(value) { this._disabled = value; if (blurUnavailableFocus && value && doc.activeElement && this.contains(doc.activeElement)) doc.activeElement = doc.body; }
+        get disabled() { return this._disabled; }
+        set hidden(value) { this._hidden = value; if (blurUnavailableFocus && value && doc.activeElement && this.contains(doc.activeElement)) doc.activeElement = doc.body; }
+        get hidden() { return this._hidden; }
         set className(value) { this._classes = new Set(value.split(/\s+/).filter(Boolean)); }
         get className() { return [...this._classes].join(' '); }
         get tabIndex() { return this._tabIndex ?? (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY'].includes(this.tagName) ? 0 : -1); }

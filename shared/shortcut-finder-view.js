@@ -115,7 +115,14 @@
         function updatePending() {
             if (!overlay) return;
             list.setAttribute('aria-busy', String(Boolean(controller.pending)));
-            for (const control of list.querySelectorAll('button')) control.disabled = Boolean(controller.pending) || control.dataset.finderUnsafe === 'true';
+            for (const control of list.querySelectorAll('button')) {
+                const disabled = Boolean(controller.pending) || control.dataset.finderUnsafe === 'true';
+                // Chrome blurs a disabled active button to the body, outside this
+                // dialog's Escape/Tab handlers. Transfer only its owned focus
+                // before disabling; later read outcomes never reclaim newer focus.
+                if (disabled && document.activeElement === control) input.focus({ preventScroll: true });
+                control.disabled = disabled;
+            }
             alert.textContent = controller.pending ? t('finderPending') : '';
         }
         function open() {
