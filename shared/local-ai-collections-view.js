@@ -174,6 +174,8 @@
                 this.answerReader.destroy(); this.answerReader = null;
             }
             const focused = this.doc.activeElement?.getAttribute?.('data-collection-field');
+            const restoreReaderFocus = this.answerReader?.captureNavigationFocus?.();
+            const restoreReaderPosition = this.answerReader?.captureReadingPosition?.();
             this.main.replaceChildren(); this.editor = null; this.promptPanel = null;
             if (!c.state) { this.main.append(this.el('h2', '', this.t(c.error ? 'Unavailable' : 'Loading', c.error ? 'The library could not be read' : 'Loading your collection…'))); return; }
             const draft = c.draft(), record = c.record();
@@ -182,6 +184,8 @@
             }
             if (c.busy || c.pendingCommand) for (const control of this.main.querySelectorAll('button, input, textarea, select')) control.disabled = true;
             this.refreshCopyState();
+            restoreReaderPosition?.();
+            restoreReaderFocus?.();
             if (focused) this.main.querySelector(`[data-collection-field="${focused}"]`)?.focus();
         }
         renderCaptureStatus() {
@@ -385,7 +389,8 @@
                     this.readerId = record.id; this.readerBody = record.body;
                     this.answerReader = root.LocalItabSafeAnswerReader.create(this.doc, record.body, (key, fallback) => {
                         const value = root.i18n?.t(`answerReader${key}`); return value && value !== `answerReader${key}` ? value : fallback;
-                    }, { copy: (text, target) => this.copy(text, target), canCopy: () => this.canCopy() });
+                    }, { copy: (text, target) => this.copy(text, target), canCopy: () => this.canCopy(),
+                        sections: true, canNavigate: () => this.canNavigateAnswer() });
                 }
                 // Recover navigation after a busy render without unlocking code-copy buttons.
                 for (const button of this.answerReader.node.querySelectorAll('.answer-reader-controls button')) button.disabled = false;
@@ -538,6 +543,12 @@
             return !this.copying && !this.destroyed && !c.disposed && !c.busy && !c.pendingCommand && !c.error &&
                 c.pendingReadGeneration !== c.readGeneration && Boolean(c.record()) && !c.draft() && this.host.isConnected && this.doc.visibilityState !== 'hidden';
         }
+        canNavigateAnswer() {
+            const c = this.controller, record = c.record();
+            return !this.destroyed && !c.disposed && !c.busy && !c.pendingCommand && !c.error &&
+                c.pendingReadGeneration !== c.readGeneration && !c.draft() && Boolean(record) && record.id === this.readerId &&
+                record.body === this.readerBody && this.host.isConnected && this.doc.visibilityState !== 'hidden';
+        }
         refreshCopyState() {
             if (this.continueContextButton?.isConnected) this.continueContextButton.disabled = !this.canContinueContext(this.controller.record() || {});
             if (this.copyExcerptButton?.isConnected) {
@@ -547,6 +558,7 @@
             }
             this.refreshHistoricalCopyState?.();
             this.answerReader?.refreshCopyState?.();
+            this.answerReader?.refreshNavigationState?.();
         }
         async copy(body, target) {
             const c = this.controller, record = c.record();

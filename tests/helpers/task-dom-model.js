@@ -4,7 +4,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 
 // A small DOM/event model for ownership and routing. Real native-key behavior,
 // focus painting and browser dragging remain a separate unpacked-extension check.
-function createDocument({ blurUnavailableFocus = false } = {}) {
+function createDocument({ blurUnavailableFocus = false, aggregateTextContent = false } = {}) {
     const handlers = new Map();
     const doc = { activeElement: null, listeners: new Map(),
         addEventListener(type, fn) { const set = handlers.get(type) || new Set(); set.add(fn); handlers.set(type, set); this.listeners.set(type, event => Promise.all([...set].map(handler => handler(event)))); },
@@ -19,6 +19,9 @@ function createDocument({ blurUnavailableFocus = false } = {}) {
         get disabled() { return this._disabled; }
         set hidden(value) { this._hidden = value; if (blurUnavailableFocus && value && doc.activeElement && this.contains(doc.activeElement)) doc.activeElement = doc.body; }
         get hidden() { return this._hidden; }
+        // Opt in for consumers that read a rendered subtree's native textContent.
+        get textContent() { return aggregateTextContent ? (this._textContent || '') + this.children.map(child => child.textContent || '').join('') : this._textContent; }
+        set textContent(value) { this._textContent = value; if (aggregateTextContent && this.children) this.replaceChildren(); }
         set className(value) { this._classes = new Set(value.split(/\s+/).filter(Boolean)); }
         get className() { return [...this._classes].join(' '); }
         get tabIndex() { return this._tabIndex ?? (['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY'].includes(this.tagName) ? 0 : -1); }

@@ -5998,6 +5998,9 @@
   "answerReaderOriginal": {
     "message": "原文"
   },
+  "answerReaderSections": {
+    "message": "章节（{count}）"
+  },
   "answerReaderSafety": {
     "message": "只做阅读排版；链接和图片仅显示为文字。整篇复制、保存和导出保留原文；复制代码只复制所见代码。"
   },

@@ -5998,6 +5998,9 @@
   "answerReaderOriginal": {
     "message": "Original text"
   },
+  "answerReaderSections": {
+    "message": "Sections ({count})"
+  },
   "answerReaderSafety": {
     "message": "Read-only formatting. Links and images are text only. Whole-answer copy, save and export keep the original text. Copy code copies only the displayed code."
   },

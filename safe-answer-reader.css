@@ -17,3 +17,8 @@
 .answer-reader-copy-code { margin-bottom: 4px; }
 .answer-reader-code-block pre { margin-block: 0; }
 .answer-reader-copy-status { min-height: 1.65em; font-size: .9em; }
+.answer-reader-sections { margin-bottom: 12px; padding: 8px 12px; border: 1px solid currentColor; border-radius: 8px; }
+.answer-reader-sections summary { cursor: pointer; }
+.answer-reader-section-list { display: grid; gap: 6px; max-height: 12rem; overflow: auto; overscroll-behavior: contain; margin: 8px 0 0; padding: 0; list-style: none; }
+.answer-reader-section-button { width: 100%; min-width: 0; max-height: 5em; overflow: hidden; text-align: start; white-space: normal; overflow-wrap: anywhere; }
+.answer-reader-content :is(h1, h2, h3, h4, h5, h6):focus { outline: 2px solid currentColor; outline-offset: 2px; }
