@@ -10,6 +10,11 @@
     function validOrganizations(value) {
         return Array.isArray(value) && value.length <= 100 && value.every(org => typeof org?.id === 'string' && UUID.test(org.id) && typeof org.name === 'string' && org.name.length <= 120) && new Set(value.map(org => org.id.toLowerCase())).size === value.length;
     }
+    function organizationDisplayLabel(org, organizations) {
+        const fragment = `${org.id.slice(0, 8)}…${org.id.slice(-12)}`;
+        const collision = organizations.some(other => other.id !== org.id && `${other.id.slice(0, 8)}…${other.id.slice(-12)}` === fragment);
+        return `${org.name || '未命名组织'} (${collision ? org.id : fragment})`;
+    }
     function validTimestamp(value) {
         if (typeof value !== 'string') return false;
         const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?(?:Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
@@ -116,12 +121,16 @@
                     const tab = await chrome.tabs.get(tabId); if (!active(token)) return; if (!exactTab(tab)) throw new Error('wrong_page');
                     const result = await inject(tabId, null, 'organizations'); if (!active(token)) return;
                     if (!validOrganizations(result.data?.organizations)) throw new Error('schema_changed');
-                    emit({ phase: 'organizations', tabId, documentId: result.documentId, organizations: result.data.organizations.map(org => ({ id: org.id, name: org.name })) });
+                    emit({ phase: 'organizations', tabId, documentId: result.documentId, organizations: result.data.organizations.map(org => ({ id: org.id, name: org.name, displayLabel: organizationDisplayLabel(org, result.data.organizations) })) });
                 } catch (e) { fail(token, e.message); }
             },
             async selectOrganization(id) {
                 if (state.phase !== 'organizations' || !UUID.test(id) || !state.organizations.some(org => org.id === id)) return;
-                const context = state; clear('loading'); const token = epoch; emit({ phase: 'loading', tabId: context.tabId });
+                // Capture only the explicit choice's locally generated display label.
+                // The snapshot must match its button, not guess an account identity.
+                const context = state, selected = context.organizations.find(org => org.id === id);
+                const name = selected.name, organizationLabel = selected.displayLabel;
+                clear('loading'); const token = epoch; emit({ phase: 'loading', tabId: context.tabId });
                 try {
                     if (!await allowed()) throw new Error('permission_denied'); if (!active(token)) return;
                     const refreshed = await inject(context.tabId, context.documentId, 'organizations'); if (!active(token)) return;
@@ -139,7 +148,7 @@
                         if (!item || typeof item.usedPercent !== 'number' || !Number.isFinite(item.usedPercent) || item.usedPercent < 0 || item.usedPercent > 100 || !(item.resetAt === null || validTimestamp(item.resetAt))) throw new Error('schema_changed');
                         windows[key] = { usedPercent: item.usedPercent, resetAt: item.resetAt };
                     }
-                    emit({ phase: 'snapshot', tabId: context.tabId, name: context.organizations.find(org => org.id === id).name, windows, fetchedAt: new Date().toISOString(), unavailable: windows.five_hour === null && windows.seven_day === null });
+                    emit({ phase: 'snapshot', tabId: context.tabId, name, organizationLabel, windows, fetchedAt: new Date().toISOString(), unavailable: windows.five_hour === null && windows.seven_day === null });
                 } catch (e) { fail(token, e.message); }
             },
             dispose() { clear('disabled'); disposed = true; chrome.tabs.onUpdated.removeListener(onUpdated); chrome.tabs.onRemoved.removeListener(onRemoved); chrome.permissions.onRemoved.removeListener(onPermissionRemoved); }

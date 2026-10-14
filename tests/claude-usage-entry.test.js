@@ -26,7 +26,7 @@ test('settings experiment entry is local, discoverable, bilingual, and grants no
 });
 test('enable is explicit, close and back clear immediately, pagehide clears and unload disposes', () => {
     const h = harness(); h.document.getElementById('enable').dispatch('click'); assert.equal(h.calls.at(-1), 'enable');
-    h.render({ phase: 'snapshot', name: 'Synthetic', windows: { five_hour: null, seven_day: null }, fetchedAt: 'synthetic', unavailable: true });
+    h.render({ phase: 'snapshot', name: 'Synthetic', organizationLabel: 'Synthetic (11111111…111111111111)', windows: { five_hour: null, seven_day: null }, fetchedAt: 'synthetic', unavailable: true });
     h.document.getElementById('close').dispatch('click'); assert.match(h.text(), /已关闭/); assert.ok(!h.text().includes('Synthetic'));
     h.document.getElementById('back').dispatch('click'); assert.equal(h.calls.at(-1), 'close'); h.listeners.get('pagehide')(); assert.equal(h.calls.at(-1), 'close'); h.listeners.get('unload')(); assert.equal(h.calls.at(-1), 'dispose');
 });
@@ -38,13 +38,13 @@ test('all core error codes have specific readable text; errors never display inc
 test('empty tabs and zero organizations explain recovery; no auto-select, pure text duplicate names', () => {
     const h = harness(); h.render({ phase: 'tabs', tabs: [] }); assert.match(h.text(), /未发现/);
     h.render({ phase: 'organizations', organizations: [] }); assert.match(h.text(), /没有返回可选组织/);
-    h.render({ phase: 'organizations', organizations: [{ id: '11111111-1111-1111-1111-111111111111', name: '<img synthetic>' }, { id: '22222222-2222-2222-2222-222222222222', name: '<img synthetic>' }] });
+    h.render({ phase: 'organizations', organizations: [{ id: '11111111-1111-1111-1111-111111111111', name: '<img synthetic>', displayLabel: '<img synthetic> (11111111…111111111111)' }, { id: '22222222-2222-2222-2222-222222222222', name: '<img synthetic>', displayLabel: '<img synthetic> (22222222…222222222222)' }] });
     assert.deepEqual(h.calls, ['close']); const buttons = h.result.querySelectorAll('button'); assert.equal(buttons.length, 2); assert.notEqual(buttons[0].textContent, buttons[1].textContent); assert.equal(h.result.querySelectorAll('img').length, 0);
     buttons[1].dispatch('click'); assert.deepEqual(h.calls.at(-1), ['org','22222222-2222-2222-2222-222222222222']);
 });
 test('selection controls hand focus to status when replaced, and snapshot null is never synthetic zero', () => {
     const h = harness(); h.render({ phase: 'tabs', tabs: [{ id: 7 }] }); h.result.querySelector('button').focus(); h.render({ phase: 'loading' }); assert.equal(h.document.activeElement, h.result);
-    h.render({ phase: 'snapshot', name: 'Synthetic', windows: { five_hour: { usedPercent: 0, resetAt: null }, seven_day: null }, fetchedAt: '2026-10-13T10:00:00Z' }); assert.match(h.text(), /已用 0%/); assert.match(h.text(), /重置时间：未知/); assert.match(h.text(), /每周窗口：未提供该窗口/);
+    h.render({ phase: 'snapshot', name: 'Synthetic', organizationLabel: 'Synthetic (11111111…111111111111)', windows: { five_hour: { usedPercent: 0, resetAt: null }, seven_day: null }, fetchedAt: '2026-10-13T10:00:00Z' }); assert.match(h.text(), /已用 0%/); assert.match(h.text(), /重置时间：未知/); assert.match(h.text(), /每周窗口：未提供该窗口/);
 });
 test('settings entry has existing padded content wrapper so outward focus ring is not clipped at section edge', () => {
     const options = fs.readFileSync('options.html', 'utf8');

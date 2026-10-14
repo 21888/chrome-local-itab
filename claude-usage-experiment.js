@@ -16,13 +16,9 @@
             state.tabs.forEach(tab => button(`Claude 标签页 #${tab.id}`, () => controller.selectTab(tab.id)));
         } else if (state.phase === 'organizations') {
             line(state.organizations.length ? '本次请选择一个组织；即使只有一个也需手动选择。' : '此会话没有返回可选组织。');
-            state.organizations.forEach(org => {
-                const fragment = `${org.id.slice(0, 8)}…${org.id.slice(-12)}`;
-                const collision = state.organizations.some(other => other.id !== org.id && `${other.id.slice(0, 8)}…${other.id.slice(-12)}` === fragment);
-                button(`${org.name || '未命名组织'} (${collision ? org.id : fragment})`, () => controller.selectOrganization(org.id));
-            });
+            state.organizations.forEach(org => button(org.displayLabel, () => controller.selectOrganization(org.id)));
         } else if (state.phase === 'snapshot') {
-            line(`本次页面会话下所选组织的用量快照：${state.name || '未命名组织'}`);
+            line(`本次页面会话下所选组织的用量快照：${state.organizationLabel}`);
             if (state.unavailable) line('此组织未提供订阅窗口。');
             for (const [key, label] of [['five_hour', '五小时窗口'], ['seven_day', '每周窗口']]) {
                 const window = state.windows[key];

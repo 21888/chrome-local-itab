@@ -107,7 +107,7 @@ test('revocation clears snapshot and disposes listeners', async () => {
     const m = mock(); await ready(m); await m.controller.selectOrganization(A); m.chrome.permissions.onRemoved.fire({ origins: ['https://claude.ai/*'] }); assert.deepEqual(m.controller.getState(), { phase: 'disabled' }); m.controller.dispose(); assert.equal(m.chrome.tabs.onUpdated.count(), 0); assert.equal(m.chrome.tabs.onRemoved.count(), 0); assert.equal(m.chrome.permissions.onRemoved.count(), 0);
 });
 test('same org list cannot establish account continuity: no account claim or identity cached', async () => {
-    const m = mock(); await ready(m); await m.controller.selectOrganization(B); assert.deepEqual(Object.keys(m.controller.getState()).sort(), ['fetchedAt', 'name', 'phase', 'tabId', 'unavailable', 'windows']);
+    const m = mock(); await ready(m); await m.controller.selectOrganization(B); assert.deepEqual(Object.keys(m.controller.getState()).sort(), ['fetchedAt', 'name', 'organizationLabel', 'phase', 'tabId', 'unavailable', 'windows']);
 });
 test('manifest required permissions unchanged and scripting optional; production entry not wired', () => {
     const fs = require('node:fs'); const manifest = require('../manifest.json'); assert.deepEqual(manifest.permissions, ['storage', 'unlimitedStorage', 'identity', 'contextMenus']); assert.deepEqual(manifest.optional_permissions, ['scripting']); assert.ok(!fs.readFileSync('newtab.html', 'utf8').includes('claude-usage'));
