@@ -3719,6 +3719,30 @@
   "collectionsCompare": {
     "message": "对比已保存结果"
   },
+  "collectionsManualCompare": {
+    "message": "手动对照任意收藏摘录"
+  },
+  "collectionsManualCompareScope": {
+    "message": "从所有当前未归档的收藏摘录中手动选择，不受侧栏筛选限制。输入和模型可能不同，不假定共有提示词或来源。不包含草稿、历史正文和恢复快照。不调用模型，也不评判质量。"
+  },
+  "collectionsManualCompareChoose": {
+    "message": "选择另一条收藏摘录"
+  },
+  "collectionsManualCompareSource": {
+    "message": "用户提供的来源网址（未经核验）"
+  },
+  "collectionsManualCompareUnlinked": {
+    "message": "没有已保存的提示词版本关联。"
+  },
+  "collectionsManualCompareHistorical": {
+    "message": "此条目保留首版回答的历史输入，可能不对应当前修订后的摘录。"
+  },
+  "collectionsCompareRefreshRequired": {
+    "message": "请先成功刷新已保存数据，再对照当前摘录。"
+  },
+  "collectionsManualCompareEmpty": {
+    "message": "没有其他当前未归档的收藏摘录。请先保存另一条摘录，再重新打开对照。"
+  },
   "collectionsCompareScope": {
     "message": "仅对比关联同一精确提示词及版本的当前已保存摘录。不包含草稿、已归档项目或恢复快照。不调用模型，也不评判质量。"
   },

@@ -21,8 +21,11 @@
         return { ...Object.fromEntries(editable.map(key => [key, input[key]])), tags, promptRef: input.promptId || input.bodyVersionId ? { promptId: input.promptId, bodyVersionId: input.bodyVersionId } : null };
     }
     // Active saved records only. Never search drafts, history or recovery snapshots.
-    function comparisonCandidates(state, sourceId) {
+    function comparisonCandidates(state, sourceId, scope = 'prompt') {
+        if (!['prompt', 'manual'].includes(scope)) return [];
         const source = state?.records.find(record => record.id === sourceId && !record.deletedAt);
+        if (!source) return [];
+        if (scope === 'manual') return state.records.filter(record => record.id !== sourceId && !record.deletedAt);
         const ref = source?.promptRef;
         if (!ref?.promptId || !ref.bodyVersionId) return [];
         return state.records.filter(record => record.id !== sourceId && !record.deletedAt &&
@@ -35,6 +38,9 @@
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
+            // Selection/editing can clear ordinary notices, never proof that the
+            // current saved state was read or its write acknowledgement verified.
+            this.comparisonReadGeneration = null;
             this.collectionReviews = new WeakSet();
             this.interactionGeneration = 0; this.pendingCommand = null; this.pendingInspection = false; this.disposed = false; this.refreshQueued = false;
         }
@@ -113,7 +119,8 @@
             try {
                 const next = await this.store.read();
                 if (this.disposed || generation !== this.readGeneration) return;
-                this.accept(next);
+                if (!this.accept(next)) throw Core.fault('READ');
+                this.comparisonReadGeneration = generation;
                 if (!this.pendingCommand && this.error?.scope === 'read') this.error = null;
             } catch (error) {
                 if (this.disposed || generation !== this.readGeneration) return;
@@ -124,7 +131,7 @@
             this.notify();
         }
         accept(next) {
-            if (this.state && next.revision < this.state.revision) return;
+            if (this.state && next.revision < this.state.revision) return false;
             this.state = next;
             for (const [id, draft] of this.drafts) {
                 if (id === 'new') continue;
@@ -136,12 +143,14 @@
                 }
             }
             if (this.selected === null) this.selected = this.results()[0]?.record.id || null;
+            return true;
         }
         comparisonReady() {
             return !this.disposed && Boolean(this.state) && !this.busy && !this.pendingCommand && !this.error &&
+                this.comparisonReadGeneration === this.readGeneration &&
                 this.pendingReadGeneration !== this.readGeneration;
         }
-        comparisonCandidates(id = this.selected) { return this.comparisonReady() ? comparisonCandidates(this.state, id) : []; }
+        comparisonCandidates(id = this.selected, scope = 'prompt') { return this.comparisonReady() ? comparisonCandidates(this.state, id, scope) : []; }
         record(id = this.selected) { return this.state?.records.find(record => record.id === id) || null; }
         results() {
             if (!this.state) return [];
@@ -289,7 +298,8 @@
                     if (saved) this.selected = saved.id;
                 }
                 if (['replace', 'recover'].includes(operation.action)) this.selected = null;
-                this.accept(state); this.notice = inspect ? 'reconciled' : operation.action === 'save' ? 'saved' : operation.action;
+                if (this.accept(state)) this.comparisonReadGeneration = generation;
+                this.notice = inspect ? 'reconciled' : operation.action === 'save' ? 'saved' : operation.action;
                 return true;
             } catch (error) {
                 if (this.disposed || generation !== this.readGeneration) return false;

@@ -3719,6 +3719,30 @@
   "collectionsCompare": {
     "message": "Compare saved results"
   },
+  "collectionsManualCompare": {
+    "message": "Compare any saved excerpts"
+  },
+  "collectionsManualCompareScope": {
+    "message": "Manually choose from all current unarchived saved excerpts, regardless of sidebar filters. Inputs and models may differ; no shared prompt or provenance is assumed. Drafts, historical bodies and recovery snapshots are excluded. No model calls or quality ranking."
+  },
+  "collectionsManualCompareChoose": {
+    "message": "Choose another saved excerpt"
+  },
+  "collectionsManualCompareSource": {
+    "message": "User-provided source URL (not verified)"
+  },
+  "collectionsManualCompareUnlinked": {
+    "message": "No saved prompt-version link."
+  },
+  "collectionsManualCompareHistorical": {
+    "message": "This item has historical input for its first answer version, which may differ from the current revised excerpt."
+  },
+  "collectionsCompareRefreshRequired": {
+    "message": "Refresh saved data successfully before comparing current excerpts."
+  },
+  "collectionsManualCompareEmpty": {
+    "message": "No other current unarchived saved excerpt is available. Save another excerpt, then reopen this comparison."
+  },
   "collectionsCompareReference": {
     "message": "Exact linked prompt / version"
   },
