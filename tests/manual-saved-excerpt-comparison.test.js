@@ -269,3 +269,72 @@ test('responsive comparison layout remains side-by-side with a narrow-screen sta
     assert.match(css, /collection-comparison-grid \.prompt-readonly[^}]+overflow: auto; white-space: pre-wrap/);
     assert.match(css, /@media \(max-width: 700px\)[^}]+grid-template-columns: minmax\(0, 1fr\)/);
 });
+
+for (const scope of ['manual', 'prompt']) for (const cause of ['unchanged', 'tab-switch', 'candidate-edit', 'copy-settles']) for (const dismissal of ['close', 'escape']) test(`${scope} ${cause}: ${dismissal} restores current Continue asking eligibility`, async () => {
+    const h = await mount(); let opened = 0, finishCopy, pendingCopy;
+    if (scope === 'prompt') {
+        h.a = h.linked; h.b = await h.save({ title: 'Other linked result', body: 'Synthetic linked body', promptRef: ref }); h.c.select(h.a.id);
+    }
+    h.root.LocalItabAIContextEntry = { openCollection() { opened++; } }; h.view.render();
+    assert.equal(h.view.continueContextButton.disabled, false);
+    if (cause === 'copy-settles') {
+        h.view.clipboard = { writeText: () => new Promise(resolve => { finishCopy = resolve; }) };
+        pendingCopy = h.view.copy(h.a.body);
+    }
+    const d = h.open(h.a.id, scope); h.choose(d, h.b.id);
+    if (cause === 'tab-switch') {
+        h.doc.visibilityState = 'hidden'; h.doc.listeners.get('visibilitychange')();
+        h.doc.visibilityState = 'visible'; h.doc.listeners.get('visibilitychange')();
+    }
+    if (cause === 'candidate-edit') {
+        await h.store.mutate(h.store.request('edit', { id: h.b.id, version: h.b.version, title: 'Changed synthetic title' })); await tick();
+    }
+    if (cause === 'copy-settles') { finishCopy(); await pendingCopy; }
+    if (cause !== 'unchanged') assert.equal(h.view.continueContextButton.disabled, true);
+    const writes = h.h.writes, calls = { ...h.calls };
+    if (dismissal === 'escape') d.chooser.dispatch('keydown', { key: 'Escape' });
+    else d.overlay.querySelectorAll('button').find(node => node.textContent === 'Close comparison').dispatch('click');
+    assert.equal(h.view.openDialog, false); assert.equal(h.host.inert, false);
+    assert.equal(h.view.canContinueContext(h.c.record()), true);
+    assert.equal(h.view.continueContextButton.disabled, false);
+    h.view.continueContextButton.dispatch('click'); assert.equal(opened, 1);
+    assert.equal(h.h.writes, writes); assert.deepEqual(h.calls, calls); h.c.dispose();
+});
+
+for (const cause of ['busy', 'uncertain', 'read-pending', 'read-error', 'draft', 'archived', 'hidden', 'detached', 'disposed', 'revision', 'proposal']) test(`comparison dismissal keeps Continue asking blocked for ${cause}`, async () => {
+    const h = await mount(); let opened = 0;
+    h.root.LocalItabAIContextEntry = { openCollection() { opened++; } }; h.view.render();
+    const d = h.open(), close = h.view.closeComparison, button = h.view.continueContextButton;
+    if (cause === 'busy') h.c.busy = true;
+    if (cause === 'uncertain') h.c.pendingCommand = {};
+    if (cause === 'read-pending') h.c.pendingReadGeneration = h.c.readGeneration;
+    if (cause === 'read-error') { h.store.read = async () => { throw Error('synthetic failure'); }; await h.c.refresh(); }
+    if (cause === 'draft') h.c.edit();
+    if (cause === 'archived') { await h.store.mutate(h.store.request('remove', { id: h.a.id, version: h.a.version })); await tick(); }
+    if (cause === 'hidden') h.doc.visibilityState = 'hidden';
+    if (cause === 'detached') h.host.remove();
+    if (cause === 'disposed') h.c.dispose();
+    if (cause === 'revision') h.view.revisionDraft = '';
+    if (cause === 'proposal') h.view.proposals.set(h.a.id, 'synthetic proposal');
+    h.view.refreshCopyState(); close();
+    assert.equal(h.view.openDialog, false); assert.equal(h.host.inert, false);
+    assert.equal(h.view.canContinueContext(h.c.record() || {}), false);
+    if (h.view.continueContextButton?.isConnected) assert.equal(h.view.continueContextButton.disabled, true);
+    button.dispatch('click'); assert.equal(opened, 0); assert.equal(d.bodies().length, 0); h.c.dispose();
+});
+
+for (const outcome of ['resolve', 'reject']) test(`old comparison close and late clipboard ${outcome} cannot revive a newer dialog`, async () => {
+    const h = await mount(); let settleCopy;
+    h.root.LocalItabAIContextEntry = { openCollection() {} }; h.view.render();
+    h.view.clipboard = { writeText: () => new Promise((resolve, reject) => { settleCopy = outcome === 'resolve' ? resolve : () => reject(Error('synthetic blocked copy')); }) };
+    const pending = h.view.copy(h.a.body), old = h.open(), oldClose = h.view.closeComparison;
+    oldClose(); const next = h.open(); h.view.refreshCopyState();
+    const focus = h.doc.activeElement;
+    oldClose(); old.chooser.dispatch('keydown', { key: 'Escape' });
+    settleCopy(); await pending;
+    assert.equal(h.view.openDialog, true); assert.equal(h.host.inert, true);
+    assert.equal(h.doc.activeElement, focus); assert.equal(next.overlay.isConnected, true);
+    assert.equal(h.view.continueContextButton.disabled, true);
+    // Clipboard feedback may settle, but closing an obsolete dialog never changes the current dialog.
+    h.view.closeComparison(); assert.equal(h.view.continueContextButton.disabled, false); h.c.dispose();
+});

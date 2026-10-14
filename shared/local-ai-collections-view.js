@@ -481,6 +481,7 @@
                 closed = true; bodies.replaceChildren(); chooser.disabled = true;
                 this.updateComparison = null; this.closeComparison = null; this.openDialog = false;
                 cleanup?.(); overlay.remove();
+                this.refreshCopyState();
                 if (!this.doc.activeElement || this.doc.activeElement === this.doc.body) this.main.focus();
             };
             const close = this.button('CompareClose', 'Close comparison', finish);
