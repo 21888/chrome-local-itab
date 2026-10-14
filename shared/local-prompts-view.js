@@ -143,7 +143,14 @@
             this.tag = this.el('select'); this.tag.id = 'prompt-tag-filter'; this.tag.addEventListener('change', () => c.filter({ tag: this.tag.value })); tagFilter.append(tagLabel, this.tag);
             this.draftList = this.el('div', 'prompt-draft-list');
             const listHeading = this.el('div', 'prompt-list-heading'); this.count = this.el('span');
-            this.clearButton = this.button('ClearFilters', 'Clear filters', () => c.filter({ query: '', mode: 'all', category: '', tag: '' }), 'prompt-clear'); listHeading.append(this.count, this.clearButton);
+            this.clearButton = this.button('ClearFilters', 'Clear filters', () => {
+                if (this.destroyed || c.disposed || this.clearButton.disabled || !this.clearButton.isConnected ||
+                    this.clearButton.closest('[hidden], [inert]')) return;
+                // Transfer only this action's focus before render hides its button.
+                // Other controls and any newer render focus keep ownership.
+                if (this.doc.activeElement === this.clearButton) this.search.focus();
+                c.filter({ query: '', mode: 'all', category: '', tag: '' });
+            }, 'prompt-clear'); listHeading.append(this.count, this.clearButton);
             this.list = this.el('div', 'prompt-list'); this.list.setAttribute('aria-label', this.t('Results', 'Saved prompts'));
             sidebar.append(search, nav, filter, tagFilter, this.draftList, listHeading, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'prompt-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);

@@ -92,3 +92,43 @@ test('filter lifecycle retains selection, preview variables, drafts and attached
     assert.equal(c.filters.tag, 'alpha,beta'); c.filter({ mode: 'all' }); assert.deepEqual(titles(c), ['Exact', 'Other category']);
     await c.refresh(); assert.equal(c.filters.tag, 'alpha,beta'); assert.equal(c.session().values.topic, 'private in-memory value'); c.dispose();
 });
+
+for (const language of ['en', 'zh_CN']) test(`clear filters restores its owned focus before hiding (${language})`, async () => {
+    const h = await mount(language), { c, view, doc } = h, writes = h.writesNow(), raw = h.raw;
+    c.setVariable('topic', 'Synthetic variable');
+    const session = c.session(), preview = view.previewElements;
+    view.search.value = 'Synthetic no matching title'; view.search.dispatch('input');
+    assert.equal(c.results().length, 0);
+    view.clearButton.focus(); view.clearButton.dispatch('click');
+    assert.ok(doc.activeElement === view.search, 'search owns focus'); assert.equal(view.clearButton.hidden, true);
+    assert.deepEqual(c.filters, { query: '', mode: 'all', category: '', tag: '' }); assert.equal(c.results().length, 3);
+    assert.equal(c.session(), session); assert.equal(session.values.topic, 'Synthetic variable'); assert.equal(view.previewElements, preview);
+    c.edit(); c.update('body', 'Synthetic unsaved draft'); const draft = c.draft(), editor = view.editorElements;
+    c.filter({ query: 'absent', mode: 'trash', category: 'Home', tag: 'missing' });
+    view.clearButton.focus(); view.clearButton.dispatch('click');
+    assert.ok(doc.activeElement === view.search, 'search owns focus'); assert.equal(c.draft(), draft); assert.equal(draft.input.body, 'Synthetic unsaved draft'); assert.equal(view.editorElements, editor);
+    assert.equal(h.writesNow(), writes); assert.deepEqual(h.raw, raw); c.dispose();
+});
+
+test('clear filters does not take focus from another control or a newer render focus', async () => {
+    const { c, view, doc } = await mount();
+    c.filter({ query: 'absent' }); view.tag.focus(); view.clearButton.dispatch('click');
+    assert.ok(doc.activeElement === view.tag, 'tag keeps focus');
+    c.filter({ query: 'absent' }); view.search.focus(); c.filter({ query: '' });
+    assert.equal(doc.activeElement, view.search, 'ordinary list renders leave focus alone');
+    c.filter({ query: 'absent' }); view.clearButton.focus();
+    const render = c.onChange; c.onChange = kind => { render(kind); view.tag.focus(); };
+    view.clearButton.dispatch('click'); assert.equal(doc.activeElement, view.tag, 'a newer render owns its focus'); c.dispose();
+});
+
+for (const retired of ['hidden', 'destroyed', 'disposed', 'detached', 'inert']) test(`a ${retired} clear filter control cannot act`, async () => {
+    const { c, view, doc, host } = await mount();
+    c.filter({ query: 'keep this query' });
+    if (retired === 'hidden') view.clearButton.hidden = true;
+    if (retired === 'destroyed') view.destroy();
+    if (retired === 'disposed') c.dispose();
+    if (retired === 'detached') host.remove();
+    if (retired === 'inert') host.inert = true;
+    doc.body.focus(); view.clearButton.dispatch('click');
+    assert.equal(c.filters.query, 'keep this query'); assert.equal(doc.activeElement, doc.body); c.dispose();
+});
