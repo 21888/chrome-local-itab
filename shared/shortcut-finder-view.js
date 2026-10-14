@@ -25,6 +25,7 @@
     }
     function mount(host, options) {
         const controller = new api.Controller(options);
+        let preparation = null;
         let overlay = null, input, categorySelect, matchSelect, matchHint, list, status, alert, previous, next, cleanup, composing = false, compositionTarget = null;
         const opener = button(t('finderOpen'), open);
         opener.classList.add('finder-opener'); opener.setAttribute('aria-haspopup', 'dialog');
@@ -69,6 +70,12 @@
         }
         function render(page = 0) {
             if (!overlay) return;
+            if (preparation) {
+                list.replaceChildren(); previous.hidden = next.hidden = true;
+                status.textContent = t(preparation === 'loading' ? 'finderPending' : 'finderReadError');
+                list.setAttribute('aria-busy', String(preparation === 'loading'));
+                return;
+            }
             const focused = document.activeElement;
             const hadResultFocus = list.contains(focused);
             const result = controller.search(input.value, page, categorySelect.value, matchSelect.value);
@@ -113,7 +120,7 @@
             if (hadResultFocus || (focused === next && next.hidden) || (focused === previous && previous.hidden)) input.focus({ preventScroll: true });
         }
         function updatePending() {
-            if (!overlay) return;
+            if (!overlay || preparation) return;
             list.setAttribute('aria-busy', String(Boolean(controller.pending)));
             for (const control of list.querySelectorAll('button')) {
                 const disabled = Boolean(controller.pending) || control.dataset.finderUnsafe === 'true';
@@ -176,7 +183,19 @@
                 const target = event.target === input ? (event.key === 'ArrowDown' ? 0 : controls.length - 1) : (index + (event.key === 'ArrowDown' ? 1 : -1) + controls.length) % controls.length;
                 controls[target].focus();
             });
+            preparation = options.prepareSnapshot ? 'loading' : null;
             render(); cleanup = root.LocalItabDialog.open(overlay, input, close);
+            if (options.prepareSnapshot) {
+                const ownedOverlay = overlay;
+                Promise.resolve().then(() => options.prepareSnapshot(() => overlay === ownedOverlay)).then(() => {
+                    if (overlay !== ownedOverlay) return;
+                    preparation = null;
+                    if (!composing) render();
+                }, () => {
+                    if (overlay !== ownedOverlay) return;
+                    preparation = 'error'; render();
+                });
+            }
         }
         const unsubscribe = options.subscribe?.(() => { if (overlay && !composing) render(controller.page); });
         return { get pending() { return Boolean(controller.pending); }, hasUncommittedWork: () => Boolean(overlay), refresh: () => { if (overlay && !composing) render(controller.page); }, close, destroy() {

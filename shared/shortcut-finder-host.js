@@ -4,17 +4,35 @@
     // An open edit elsewhere, selected category and Free-layout coordinates stay untouched.
     root.LocalItabFinder.mountForShortcuts = function (host, component) {
         let revision = 0;
-        let snapshot = { links: component.links || [], categories: component.categories || [] };
+        let snapshot = { links: [], categories: [] };
+        const adopt = next => {
+            // Unchanged legacy rows must retain the references held by visible tokens.
+            // Keep the raw records intact; never normalize away a real storage change.
+            if (snapshot.links.some(link => !link.layoutId) && JSON.stringify(snapshot.links) === JSON.stringify(next.links)) {
+                next.links = snapshot.links;
+            }
+            snapshot = next;
+        };
+        async function readSnapshot(isCurrent = () => true) {
+            // Native read only: do not run migration, provider initialization or writes.
+            const ownRevision = ++revision;
+            const fresh = await root.storageManager.local.get(['links', 'categories']);
+            const next = { links: fresh.links || [], categories: fresh.categories || [] };
+            if (revision === ownRevision && isCurrent()) adopt(next);
+            return next;
+        }
         return root.LocalItabFinder.mount(host, {
             shortcutEnabled: component.finderShortcutEnabled !== false,
             getSnapshot: () => snapshot,
-            async readSnapshot() {
-                // Native read only: do not run migration, provider initialization or writes.
-                const ownRevision = ++revision;
-                const fresh = await root.storageManager.local.get(['links', 'categories']);
-                const next = { links: fresh.links || [], categories: fresh.categories || [] };
-                if (revision === ownRevision) snapshot = next;
-                return next;
+            readSnapshot,
+            async prepareSnapshot(isCurrent = () => true) {
+                // A storage notification may overtake a read. Re-read rather than
+                // publishing an incomplete initial snapshot or an older sequence.
+                let expected;
+                do {
+                    if (!isCurrent()) return;
+                    expected = revision + 1; await readSnapshot(isCurrent);
+                } while (revision !== expected && isCurrent());
             },
             reserve() {
                 let tab;
