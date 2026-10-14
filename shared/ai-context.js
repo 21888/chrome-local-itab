@@ -19,11 +19,26 @@
         check(Array.from(value).length <= 200, 'LIMIT');
         return value;
     }
+    function collectionReference(value) {
+        try {
+            const keys = ['id', 'version', 'currentVersionId'];
+            if (!value || typeof value !== 'object' || Reflect.ownKeys(value).length !== keys.length) return null;
+            const result = {};
+            for (const key of keys) {
+                const descriptor = Object.getOwnPropertyDescriptor(value, key);
+                if (!descriptor || !Object.hasOwn(descriptor, 'value') || typeof descriptor.value !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(descriptor.value)) return null;
+                result[key] = descriptor.value;
+            }
+            return Object.freeze(result);
+        } catch (_) { return null; }
+    }
+    function collectionSource(record) {
+        return Object.freeze({ id: `collection:${record.id}`, label: titleText(record.title), text: record.body,
+            revision: record.version, bodyVersionId: record.currentVersionId, sourceUrl: record.sourceUrl, scope: 'library' });
+    }
     function sources({ collections, scratchpad, workspaceId }) {
         text(workspaceId, 200);
-        const result = (collections?.records || []).filter(r => !r.deletedAt).map(r => Object.freeze({
-            id: `collection:${r.id}`, label: titleText(r.title), text: r.body, revision: r.version, scope: 'library'
-        }));
+        const result = (collections?.records || []).filter(r => !r.deletedAt).map(collectionSource);
         if (scratchpad?.content) result.push(Object.freeze({ id: `scratchpad:${workspaceId}`, label: 'Saved workspace note', text: scratchpad.content, revision: String(scratchpad.revision), scope: 'workspace' }));
         return Object.freeze(result);
     }
@@ -122,6 +137,18 @@
         }
         inspectInput(question, selected, mode) { return inspectInput(question, selected, mode); }
         async loadSources() { const generation = this.generation; await this.ensureActive(); this.current(generation); const result = await this.readSources(); await this.ensureActive(); this.current(generation); return result; }
+        async loadCollection(reference) {
+            const exact = collectionReference(reference), generation = this.generation;
+            check(exact, 'INVALID');
+            const current = () => { this.current(generation); check(!this.busy && !this.taskCommand && !this.saveCommand, 'BUSY'); };
+            current(); await this.ensureActive(); current();
+            const state = await this.collectionStore.read();
+            await this.ensureActive(); current();
+            const record = state.records.find(item => item.id === exact.id && !item.deletedAt &&
+                item.version === exact.version && item.currentVersionId === exact.currentVersionId);
+            check(record, 'STALE'); // Never substitute a historical, recovered or newer body.
+            return collectionSource(record);
+        }
         async review({ url, model, question, selected, mode, stream = false }) {
             this.edit(); const generation = this.generation;
             await this.ensureActive(); this.current(generation);
@@ -335,5 +362,5 @@
             } });
         return controller;
     }
-    return { LIMITS, fault, sources, pack, inspectInput, tasks, guardedBackend, Controller, createController };
+    return { LIMITS, fault, collectionReference, sources, pack, inspectInput, tasks, guardedBackend, Controller, createController };
 });

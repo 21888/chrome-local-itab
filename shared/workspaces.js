@@ -123,14 +123,14 @@
             const value = { schemaVersion: 1, id: pending?.id || this.id(), detectedAt: pending?.detectedAt || this.now(), keys: [...new Set([...(pending?.keys || []), ...keys])].filter(scoped).sort() };
             await this.verifiedSet({ [LEGACY_CONFLICT_KEY]: value }); this.signalLegacyConflict();
         }
-        async checkLegacySource() {
+        async checkLegacySource({ readOnly = false } = {}) {
             const raw = await this.get([SNAPSHOT_KEY, LEGACY_CONFLICT_KEY, ...SCOPED_KEYS]);
             if (raw[LEGACY_CONFLICT_KEY] && !raw[LEGACY_CONFLICT_KEY].resolvedAt) { this.signalLegacyConflict(); throw fault('LEGACY_CONFLICT'); }
             const snapshot = raw[SNAPSHOT_KEY]; check(snapshot?.schemaVersion === 1 && snapshot.values, 'MIGRATION_INCOMPLETE');
             const baseline = raw[LEGACY_CONFLICT_KEY]?.resolvedAt ? raw[LEGACY_CONFLICT_KEY].baseline : snapshot.values;
             object(baseline);
             const changed = SCOPED_KEYS.filter(key => own(raw, key) !== own(baseline, key) || !same(raw[key], baseline[key]));
-            if (changed.length) { await this.persistLegacyConflict(changed); throw fault('LEGACY_CONFLICT'); }
+            if (changed.length) { if (!readOnly) await this.persistLegacyConflict(changed); throw fault('LEGACY_CONFLICT'); }
         }
         async readLegacyConflictRecovery() {
             const raw = await this.get([REGISTRY_KEY, ACTIVATION_KEY, LEGACY_CONFLICT_KEY, ...SCOPED_KEYS]);
@@ -588,8 +588,31 @@
             })();
             return this._ready.then(copy);
         }
+        readyExisting() {
+            // Read-only entry for global-library pages. Never start/resume migration.
+            if (!this._ready) {
+                const ready = (async () => {
+                    this.manager.available();
+                    return this.manager.locks.request(LOCK, { mode: 'exclusive' }, async () => {
+                        await this.manager.assertRestoreSettled();
+                        const registry = await this.manager.registry();
+                        await this.manager.checkLegacySource({ readOnly: true });
+                        await this.manager.readSnapshot(registry);
+                        const wanted = this.requestedId === undefined ? registry.lastUsedId : this.requestedId;
+                        const entry = registry.workspaces.find(item => item.id === wanted);
+                        check(entry && entry.deletedAt === null, 'NOT_FOUND');
+                        this._identity = Object.freeze({ id: entry.id, generation: entry.generation }); this._existingOnly = true;
+                        return this._identity;
+                    });
+                })().catch(error => { if (this._ready === ready) this._ready = null; throw error; });
+                this._ready = ready;
+            }
+            return this._ready.then(copy);
+        }
         async assertActive() {
-            await this.ready(); check(!this.invalidated, 'INVALIDATED'); const registry = await this.manager.registry();
+            await this.ready(); check(!this.invalidated, 'INVALIDATED');
+            if (this._existingOnly) await this.manager.checkLegacySource({ readOnly: true });
+            const registry = await this.manager.registry();
             const entry = registry.workspaces.find(item => item.id === this.id);
             if (!entry || entry.deletedAt !== null || entry.generation !== this.generation) { this.invalidated = true; throw fault('INVALIDATED'); }
             return entry;

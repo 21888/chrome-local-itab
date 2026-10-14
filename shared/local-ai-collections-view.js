@@ -323,6 +323,13 @@
             } catch (error) { c.error = { code: error.code || 'INVALID' }; c.notify(); }
         }
         async discard() { const c = this.controller; if (c.busy || c.pendingCommand) return; if (!c.dirty() || await this.confirm({ title: this.t('Discard', 'Discard draft'), body: this.t('DiscardBody', 'Discard only this unsaved draft? Saved content is unchanged.'), accept: this.t('Discard', 'Discard draft') })) c.discard(); }
+        canContinueContext(reference) {
+            const c = this.controller, record = c.record();
+            return Boolean(root.LocalItabAIContextEntry && !this.destroyed && !c.disposed && !this.openDialog &&
+                !this.comparison && !this.exportingMarkdown && this.revisionDraft === null && !this.proposals.size &&
+                this.host.isConnected && this.doc.visibilityState !== 'hidden' && c.comparisonReady() && !c.draft() &&
+                record && !record.deletedAt && record.id === reference.id && record.version === reference.version && record.currentVersionId === reference.currentVersionId);
+        }
         renderDetail(record) {
             if (this.proposals.has(record.id)) {
                 const note = this.el('div', 'prompt-conflict'); note.append(this.paragraph('ProposalKept', 'A proposed excerpt is kept in this tab. Resume its review or discard it.'), this.button('ResumeRevision', 'Resume revision', () => this.revise(record)), this.button('ProposalAsNew', 'Use proposed text in a new draft', () => this.proposalAsNew(record)), this.button('DiscardProposal', 'Discard proposed text', async () => { if (await this.confirm({ title: this.t('DiscardProposal', 'Discard proposed text'), body: this.t('DiscardBody', 'Discard only this unsaved draft? Saved content is unchanged.'), accept: this.t('Discard', 'Discard draft') })) { this.proposals.delete(record.id); this.render(); } })); this.main.append(note);
@@ -351,6 +358,15 @@
             if (!record.deletedAt && record.promptRef) {
                 const compare = this.button('Compare', 'Compare saved results', () => this.compareSaved(record.id));
                 compare.disabled = !c.comparisonReady(); actions.append(compare);
+            }
+            if (!record.deletedAt) {
+                const reference = { id: record.id, version: record.version, currentVersionId: record.currentVersionId };
+                const ask = this.button('ContinueContext', 'Continue asking with this excerpt', () => {
+                    if (this.detailGeneration !== generation || !this.canContinueContext(reference)) return;
+                    return root.LocalItabAIContextEntry.openCollection(reference);
+                });
+                ask.disabled = !this.canContinueContext(reference); actions.append(ask);
+                this.continueContextButton = ask;
             }
             if (!record.deletedAt) {
                 const compare = this.button('ManualCompare', 'Compare any saved excerpts', () => this.compareSaved(record.id, 'manual'));
@@ -522,6 +538,7 @@
                 c.pendingReadGeneration !== c.readGeneration && Boolean(c.record()) && !c.draft() && this.host.isConnected && this.doc.visibilityState !== 'hidden';
         }
         refreshCopyState() {
+            if (this.continueContextButton?.isConnected) this.continueContextButton.disabled = !this.canContinueContext(this.controller.record() || {});
             if (this.copyExcerptButton?.isConnected) {
                 const focused = this.doc.activeElement === this.copyExcerptButton;
                 this.copyExcerptButton.disabled = !this.canCopy();

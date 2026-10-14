@@ -63,3 +63,7 @@
 .ai-context-prompt-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; border: 1px solid var(--border-color, #aaa); padding: .75rem; }
 .ai-context-prompt-count { font-weight: 600; }
 .ai-context-prompt-variables { margin-block-end: .75rem; }
+
+.ai-context-collection-review { margin-block: .75rem; padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .6rem; }
+.ai-context-collection-info { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.ai-context-collection-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 26rem; overflow: auto; border: 1px solid var(--border-color, #aaa); padding: .75rem; }

@@ -1,7 +1,7 @@
 /* Plain-text, opt-in context UI. No source is selected by default. */
 (function (root) {
     'use strict';
-    function mount(host, { controller, t = (_, fallback) => fallback, clipboard = root.navigator?.clipboard, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }), promptStore } = {}) {
+    function mount(host, { controller, t = (_, fallback) => fallback, clipboard = root.navigator?.clipboard, presetStore = root.LocalItabAIModelPresets?.createStore({ chromeApi: root.chrome, locks: root.navigator?.locks }), promptStore, collectionRequest, collectionCurrent } = {}) {
         const doc = host.ownerDocument || root.document;
         const el = (tag, cls = '', value = '') => { const node = doc.createElement(tag); node.className = cls; node.textContent = value; return node; };
         const label = (key, fallback) => t(`aiContext${key}`, fallback);
@@ -12,6 +12,17 @@
         const sourcesPane = el('section', 'ai-context-sources-pane');
         sourcesPane.setAttribute('aria-label', label('SourcesHeading', 'Saved sources'));
         sourcesPane.append(el('h3', '', label('SourcesHeading', 'Saved sources')));
+        const collectionPanel = el('section', 'ai-context-collection-review'); collectionPanel.hidden = !collectionRequest;
+        const collectionInfo = el('pre', 'ai-context-collection-info');
+        const collectionText = el('pre', 'ai-context-collection-text'); collectionText.tabIndex = 0;
+        const collectionStatus = el('p', 'ai-context-collection-status'); collectionStatus.tabIndex = -1; collectionStatus.setAttribute('role', 'status');
+        const collectionApply = button('CollectionApply', 'Use this excerpt for this question', () => void applyCollection());
+        collectionPanel.append(el('h3', '', label('CollectionReview', 'Review the selected saved excerpt')),
+            el('p', '', label('CollectionHelp', 'Check this exact saved body, source attribution and version before selecting it. Only this excerpt is included, never its historical question/source snapshot or annotations. Nothing is sent, copied or saved. Displayed line breaks are normalized; the original CRLF/CR text is retained until you edit it.')),
+            collectionInfo, collectionText, collectionApply, collectionStatus);
+        sourcesPane.append(collectionPanel);
+        let collectionTicket = null, collectionApplied = false, collectionEpoch = 0, collectionInvalidated = false, collectionSubscription = null, sourcesLoaded = false;
+
         const questionPane = el('section', 'ai-context-question-pane');
         questionPane.setAttribute('aria-label', label('QuestionHeading', 'Question and review'));
         questionPane.append(el('h3', '', label('QuestionHeading', 'Question and review')));
@@ -209,7 +220,8 @@
             const errors = { CANCELLED: ['Stopped', 'Stopped. The provider may still charge for work already started.'], CONTEXT_LIMIT: ['SnapshotLimit', 'The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer.'], SIZE_LIMIT: ['SnapshotCapacity', 'The collection has insufficient space. Nothing was written. Free space or uncheck the snapshot option and explicitly save only the answer.'], TASK_UNCERTAIN: ['UncertainTasks', 'The earlier task add may already be saved. Check Tasks before adding anything else. This panel keeps the original operation and will not create a new batch.'], TASK_SELECTION: ['TaskSelectionEmpty', 'Select at least one task before reviewing.'], TASK_FORMAT: ['TaskFormat', 'Use exactly {"tasks":["one task","another task"]}, with 1–50 single-line tasks and no extra fields.'], LIMIT: ['Limit', 'The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request.'], CONFLICT: ['Changed', 'The task list changed. Review the extracted tasks again before adding them.'], PERMISSION: ['Permission', 'Allow the reviewed endpoint before sending.'] };
             if (errors[code]) { status.textContent = label(...errors[code]); return; }
             status.textContent = label('Error', 'Could not complete this step. Check the input, endpoint access and current workspace. Nothing is saved without confirmation; an uncertain save can be retried with the same operation.'); };
-        const selectedSources = () => sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: row.input.value }));
+        const sourceText = row => row.rawText !== null && row.input.value === row.initialText ? row.rawText : row.input.value;
+        const selectedSources = () => sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: sourceText(row) }));
         // Session-only visibility: never rebuild rows or change the outgoing selection.
         function matchesSourceView(row) {
             return row.searchTitle.includes(sourceSearch.value.trim().toLowerCase()) &&
@@ -225,7 +237,7 @@
             for (const row of sourceRows) {
                 row.node.hidden = !matchesSourceView(row);
                 row.restore.hidden = !row.check.checked;
-                row.restore.disabled = selectionBlocked() || !row.check.checked || row.input.value === row.initialText;
+                row.restore.disabled = selectionBlocked() || !row.check.checked || sourceText(row) === row.source.text;
                 if (!row.node.hidden) visible++;
                 if (row.check.checked) { selected++; if (row.node.hidden) hiddenSelected++; }
             }
@@ -264,7 +276,7 @@
             budget.textContent = `${label('BudgetSelected', 'Selected excerpts')}: ${info.count} / 12${info.count > 12 ? ` (${over})` : ''} · ${label('BudgetQuestion', 'Question')}: ${info.questionLength} / 4000 · ${label('BudgetPrompt', 'Complete prompt')}: ${info.promptLength === null ? unknown : `${info.promptLength} / 32000${info.promptLength > 32000 ? ` (${over})` : ''}`}${info.valid ? '' : ` · ${label('BudgetInvalid', 'Correct empty, invalid or over-limit input before review.')}`}`;
             for (const row of sourceRows) {
                 row.budget.hidden = !row.check.checked;
-                row.budget.textContent = row.check.checked ? `${label('Excerpt', 'Outgoing excerpt')}: ${row.input.value.length} / 16000${row.input.value.length > 16000 ? ` (${over})` : ''}` : '';
+                row.budget.textContent = row.check.checked ? `${label('Excerpt', 'Outgoing excerpt')}: ${sourceText(row).length} / 16000${sourceText(row).length > 16000 ? ` (${over})` : ''}` : '';
             }
         }
         // Only the latest partial text needs painting. Keep source budgets and
@@ -306,6 +318,7 @@
             updateBudget();
             updateLocalReview();
             updatePromptPicker();
+            collectionApply.disabled = selectionBlocked() || !collectionTicket || collectionApplied;
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
             for (const input of controls) input.disabled = busy || retry;
             stream.disabled = busy || retry || mode.value !== 'answer';
@@ -361,10 +374,10 @@
             update();
         }
         function restoreExcerpt(row) {
-            if (selectionBlocked() || !sourceRows.includes(row) || row.node.hidden || !row.check.checked || row.input.value === row.initialText) return;
+            if (selectionBlocked() || !sourceRows.includes(row) || row.node.hidden || !row.check.checked || sourceText(row) === row.source.text) return;
             // Only the already-loaded, DOM-normalized baseline is used; never reread storage.
             try { controller.edit(); } catch (_) { error(); update(); return; }
-            row.input.value = row.initialText;
+            row.input.value = row.initialText; row.rawText = row.source.text;
             if (!controller.result) includeContext.checked = false; reviewText.hidden = taskList.hidden = true;
             status.textContent = label('SourceRestored', 'Original excerpt restored. Review the exact request again before sending.');
             // Move focus before disabling the now-clean restore button (native browsers may blur it).
@@ -696,7 +709,7 @@
             await controller.verifyTaskBatch(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksVerified', 'The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; closePrompts(); invalidate(true); key.value = ''; output.value = ''; question.value = ''; appliedPromptQuestion = null; answerTitle.value = ''; titleEdited = false;
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; } sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; row.rawText = row.source.text; } collectionTicket = null; collectionApplied = true; collectionPanel.hidden = true; sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
@@ -716,7 +729,7 @@
                 const input = el('textarea'); input.value = source.text; input.maxLength = 16000; input.rows = 3; input.hidden = true;
                 input.setAttribute('aria-label', `${label('Excerpt', 'Outgoing excerpt')}: ${source.label}`);
                 const sourceBudget = el('span', 'ai-context-source-budget'); sourceBudget.hidden = true;
-                const state = { source, node: row, searchTitle: source.label.toLowerCase(), check, input, budget: sourceBudget, initialText: input.value };
+                const state = { source, node: row, searchTitle: source.label.toLowerCase(), check, input, budget: sourceBudget, initialText: input.value, rawText: source.text };
                 const restore = button('SourceRestore', 'Restore original excerpt', () => restoreExcerpt(state));
                 restore.className = 'ai-context-source-restore';
                 restore.title = label('SourceRestoreHelp', 'Restore this excerpt to its most recently loaded text. The saved source is unchanged.');
@@ -725,14 +738,14 @@
                 sourceLabel.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`));
                 row.append(sourceLabel, input, sourceBudget, restore);
                 check.addEventListener('change', () => { if (selectionBlocked() || !sourceRows.includes(state)) return; input.hidden = !check.checked; invalidate(); });
-                input.addEventListener('input', () => { if (!selectionBlocked() && sourceRows.includes(state)) invalidate(); });
+                input.addEventListener('input', () => { if (!selectionBlocked() && sourceRows.includes(state)) { state.rawText = null; invalidate(); } });
                 return state;
             });
         }
         async function loadSourceRows(reload) {
             if (selectionBlocked()) return;
             // Include unselected and filtered-out edits. Cancellation must not read or invalidate anything.
-            if (reload && sourceRows.some(row => row.check.checked || row.input.value !== row.initialText) &&
+            if (reload && sourceRows.some(row => row.check.checked || sourceText(row) !== row.source.text) &&
                 !root.confirm?.(label('SourceReloadConfirm', 'Reload saved sources? On success, all source selections and excerpt edits will be cleared, including hidden and unselected excerpts. Your question, connection, filters, answer title and previous response with its original snapshot will be kept.'))) return;
             if (selectionBlocked()) return;
             const generation = controller.generation;
@@ -745,7 +758,7 @@
                 const nextRows = buildSourceRows(values);
                 controller.current(generation);
                 if (reload) controller.edit();
-                sourceList.replaceChildren(...nextRows.map(row => row.node)); sourceRows = nextRows;
+                sourceList.replaceChildren(...nextRows.map(row => row.node)); sourceRows = nextRows; sourcesLoaded = true;
                 if (reload) {
                     reviewText.hidden = taskList.hidden = true;
                     status.textContent = label('SourceReloaded', 'Saved sources reloaded. Nothing is selected. Review the exact request again before sending; the previous response still belongs to its original request.');
@@ -754,17 +767,84 @@
                 if (!disposed && !controller.closed) status.textContent = label('SourceReloadError', 'Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace.');
             } finally { pending = false; if (!disposed) update(); }
         }
+        function collectionUnavailable() {
+            collectionTicket = null;
+            collectionStatus.textContent = label('CollectionUnavailable', 'This exact saved version is unavailable or could not be verified. Nothing was selected. Close this panel, refresh the collection and start again from its current saved detail.');
+        }
+        async function reviewCollection() {
+            if (!collectionRequest || selectionBlocked()) return;
+            if (collectionInvalidated) { collectionUnavailable(); update(); return; }
+            const epoch = ++collectionEpoch;
+            pending = true; collectionStatus.textContent = label('CollectionLoading', 'Verifying this exact saved excerpt locally…'); update();
+            try {
+                if (!sourcesLoaded || !collectionCurrent?.()) throw Error('Sources unavailable');
+                const subscription = collectionSubscription = {};
+                subscription.unsubscribe = controller.collectionStore.subscribe(() => {
+                    if (disposed || collectionSubscription !== subscription || collectionApplied) return;
+                    collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); update();
+                });
+                const source = await controller.loadCollection(collectionRequest);
+                if (disposed || controller.closed || epoch !== collectionEpoch || doc.visibilityState === 'hidden') return;
+                if (!collectionCurrent()) throw Error('Source view changed');
+                const info = `${source.label}\n${source.id}\n${label('CollectionVersion', 'Saved record version')}: ${source.revision}\n${label('CollectionBodyVersion', 'Body version')}: ${source.bodyVersionId}\n${label('CollectionSource', 'User-provided source URL (not fetched)')}: ${source.sourceUrl || label('CollectionNoSource', 'Not supplied')}`;
+                const display = source.text.replace(/\r\n?/g, '\n');
+                collectionInfo.textContent = info; collectionText.textContent = display;
+                collectionTicket = { source, info, display, epoch };
+                collectionStatus.textContent = label('CollectionReady', 'The exact current saved version was verified. Review it above, then choose Use this excerpt. It is not selected yet.');
+            } catch (_) { if (!disposed && epoch === collectionEpoch) collectionUnavailable(); }
+            finally { pending = false; if (!disposed) update(); }
+        }
+        async function applyCollection() {
+            const ticket = collectionTicket;
+            if (selectionBlocked() || !ticket || collectionApplied || !collectionPanel.isConnected || doc.visibilityState === 'hidden') return;
+            const existing = sourceRows.find(row => row.source.id === ticket.source.id);
+            if (existing && sourceText(existing) !== existing.source.text && !root.confirm?.(label('CollectionReplaceExcerpt', 'Replace this source’s edited outgoing excerpt with the exact saved body reviewed above? Cancel keeps your draft unchanged.'))) return;
+            if (selectionBlocked() || ticket !== collectionTicket) return;
+            const selected = sourceRows.filter(row => row.check.checked).length;
+            if (!existing?.check.checked && selected >= 12) { collectionStatus.textContent = label('CollectionSelectionLimit', 'Deselect another source before adding this excerpt. Nothing was changed.'); return; }
+            const generation = controller.generation;
+            const current = () => !disposed && !controller.closed && ticket === collectionTicket && ticket.epoch === collectionEpoch &&
+                generation === controller.generation && !controller.busy && !controller.taskCommand && !controller.saveCommand &&
+                collectionCurrent?.() && collectionPanel.isConnected && doc.visibilityState !== 'hidden' && collectionInfo.textContent === ticket.info && collectionText.textContent === ticket.display;
+            pending = true; update();
+            try {
+                if (!current()) throw Error('Stale review');
+                const source = await controller.loadCollection(collectionRequest);
+                if (!current() || ['id', 'label', 'text', 'revision', 'bodyVersionId', 'sourceUrl'].some(key => source[key] !== ticket.source[key])) throw Error('Stale source');
+                const next = buildSourceRows([source])[0];
+                controller.edit(); // The controller's uncertain-write lock still owns this edit.
+                next.check.checked = true; next.input.hidden = false;
+                if (existing) sourceRows = sourceRows.map(row => row === existing ? next : row); else sourceRows = [next, ...sourceRows];
+                sourceList.replaceChildren(...sourceRows.map(row => row.node));
+                collectionApplied = true; reviewText.hidden = taskList.hidden = true;
+                collectionStatus.textContent = label('CollectionApplied', 'This exact excerpt is selected for this question. The original saved body and attribution stay above; outgoing edits appear below. Review the complete question before copying or sending.');
+                // Reveal the explicit selection, rather than leaving it hidden by an older filter.
+                sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false;
+            } catch (_) { if (!disposed) collectionUnavailable(); }
+            finally { pending = false; if (!disposed) { update(); if (collectionApplied) question.focus(); } }
+        }
         const ready = loadSourceRows(false);
         // Compare live, session-only draft values with the blank/unselected state.
         // Keep the DOM-normalized source baseline so untouched CRLF excerpts are clean.
         function hasUncommittedWork() {
             return !disposed && Boolean(controller.busy || controller.partial || controller.result || controller.taskCommand || controller.saveCommand ||
-                question.value || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || row.input.value !== row.initialText));
+                question.value || collectionTicket || !promptPicker.hidden || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || sourceText(row) !== row.source.text));
+        }
+        function captureDraft() {
+            // A confirmation cannot authorize discarding edits made while the host awaits readiness.
+            const signature = () => JSON.stringify([controls.map(input => [input.value, input.checked]), mode.value, stream.checked,
+                sourceRows.map(row => [row.source.id, row.input.value, row.rawText, row.check.checked]), sourceSearch.value, sourceScope.value, selectedOnly,
+                answerTitle.value, output.value, includeContext.checked, promptPicker.hidden, promptSelect.value,
+                promptRows.map(row => [row.name, row.input.value]), promptPreview.textContent, promptEpoch, collectionEpoch]);
+            const before = signature(), generation = controller.generation, result = controller.result, reviewed = controller.reviewed, localReview = controller.localReview;
+            return () => !disposed && generation === controller.generation && result === controller.result && reviewed === controller.reviewed &&
+                localReview === controller.localReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); updateCopy(); } return; }
+            if (collectionRequest && !collectionApplied) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
             closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);
@@ -773,7 +853,7 @@
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!disposed) status.textContent = presetText('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!disposed) update(); }) : Promise.resolve();
         presetPending = Boolean(presetStore);
-        update(); return { controller, ready: Promise.all([ready, presetsReady]), destroy, presetSelect, presetName, presetSave, presetDelete, hasUncommittedWork };
+        update(); return { controller, ready: Promise.all([ready, presetsReady]).then(() => reviewCollection()), get pending() { return selectionBlocked() || Boolean(promptOperation); }, destroy, presetSelect, presetName, presetSave, presetDelete, hasUncommittedWork, captureDraft };
     }
     root.LocalItabAIContextView = { mount };
 })(typeof window === 'undefined' ? globalThis : window);

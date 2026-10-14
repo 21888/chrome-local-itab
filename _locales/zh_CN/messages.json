@@ -6173,5 +6173,50 @@
   },
   "aiContextPromptChanged": {
     "message": "已保存的提示词库发生变化。请重新读取并预览。当前问题未改变。"
+  },
+  "collectionsContinueContext": {
+    "message": "以此摘录继续提问"
+  },
+  "aiContextCollectionWorkspace": {
+    "message": "此工作区尚未准备好进行上下文问答。请先正常打开新标签页完成已有的设置或恢复，再返回此处。收藏和草稿保持不变。"
+  },
+  "aiContextCollectionApply": {
+    "message": "用于本次问题"
+  },
+  "aiContextCollectionReview": {
+    "message": "审阅这条已保存摘录"
+  },
+  "aiContextCollectionHelp": {
+    "message": "请先核对这条已保存摘录的正文、来源标注和版本，再将其选入本次问题。仅使用摘录正文，不带入历史问题/来源快照或批注。不会发送、复制或保存任何内容。预览统一显示换行；实际编辑前仍保留原始 CRLF/CR 正文。"
+  },
+  "aiContextCollectionUnavailable": {
+    "message": "此确切保存版本已不可用或无法核验，未选入本次问题。请关闭面板、刷新收藏，再从当前保存的详情重新开始。"
+  },
+  "aiContextCollectionLoading": {
+    "message": "正在本地核验这条确切保存的摘录…"
+  },
+  "aiContextCollectionVersion": {
+    "message": "收藏记录版本"
+  },
+  "aiContextCollectionBodyVersion": {
+    "message": "正文版本"
+  },
+  "aiContextCollectionSource": {
+    "message": "用户提供的来源网址（未读取）"
+  },
+  "aiContextCollectionNoSource": {
+    "message": "未提供"
+  },
+  "aiContextCollectionReady": {
+    "message": "已核验当前确切保存版本。请审阅上方内容，再点击“用于本次问题”。目前尚未选中。"
+  },
+  "aiContextCollectionReplaceExcerpt": {
+    "message": "用上方已审阅的确切保存正文替换此来源已编辑的待发送摘录？取消将保留现有草稿。"
+  },
+  "aiContextCollectionSelectionLimit": {
+    "message": "请先取消选择另一条来源，再添加此摘录。尚未更改任何内容。"
+  },
+  "aiContextCollectionApplied": {
+    "message": "已将这条确切摘录选入本次问题。上方保留原始保存正文和来源标注，待发送内容的编辑显示在下方。复制或发送前仍须审阅完整问题。"
   }
 }

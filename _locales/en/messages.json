@@ -6173,5 +6173,50 @@
   },
   "aiContextPromptChanged": {
     "message": "The saved prompt library changed. Reload saved prompts and preview again. Your question is unchanged."
+  },
+  "collectionsContinueContext": {
+    "message": "Continue asking with this excerpt"
+  },
+  "aiContextCollectionWorkspace": {
+    "message": "This workspace is not ready for context Q&A. Open the normal new-tab page to finish its existing setup or recovery, then return here. The collection and drafts are unchanged."
+  },
+  "aiContextCollectionApply": {
+    "message": "Use this excerpt for this question"
+  },
+  "aiContextCollectionReview": {
+    "message": "Review the selected saved excerpt"
+  },
+  "aiContextCollectionHelp": {
+    "message": "Check this exact saved body, source attribution and version before selecting it. Only this excerpt is included, never its historical question/source snapshot or annotations. Nothing is sent, copied or saved. Displayed line breaks are normalized; the original CRLF/CR text is retained until you edit it."
+  },
+  "aiContextCollectionUnavailable": {
+    "message": "This exact saved version is unavailable or could not be verified. Nothing was selected. Close this panel, refresh the collection and start again from its current saved detail."
+  },
+  "aiContextCollectionLoading": {
+    "message": "Verifying this exact saved excerpt locally…"
+  },
+  "aiContextCollectionVersion": {
+    "message": "Saved record version"
+  },
+  "aiContextCollectionBodyVersion": {
+    "message": "Body version"
+  },
+  "aiContextCollectionSource": {
+    "message": "User-provided source URL (not fetched)"
+  },
+  "aiContextCollectionNoSource": {
+    "message": "Not supplied"
+  },
+  "aiContextCollectionReady": {
+    "message": "The exact current saved version was verified. Review it above, then choose Use this excerpt. It is not selected yet."
+  },
+  "aiContextCollectionReplaceExcerpt": {
+    "message": "Replace this source’s edited outgoing excerpt with the exact saved body reviewed above? Cancel keeps your draft unchanged."
+  },
+  "aiContextCollectionSelectionLimit": {
+    "message": "Deselect another source before adding this excerpt. Nothing was changed."
+  },
+  "aiContextCollectionApplied": {
+    "message": "This exact excerpt is selected for this question. The original saved body and attribution stay above; outgoing edits appear below. Review the complete question before copying or sending."
   }
 }
