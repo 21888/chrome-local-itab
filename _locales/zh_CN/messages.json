@@ -6583,5 +6583,8 @@
   },
   "recoveryWarningFormat": {
     "message": "无法识别已存记录的格式。这里只展示允许检查的字段。"
+  },
+  "spacesLegacyPaused": {
+    "message": "工作区暂不可用。旧标签页写入冲突需要检查，保存已暂停。"
   }
 }

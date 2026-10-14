@@ -6583,5 +6583,8 @@
   },
   "recoveryWarningFormat": {
     "message": "The stored record format is not recognized. Only allowed fields are shown for investigation."
+  },
+  "spacesLegacyPaused": {
+    "message": "Workspace unavailable. Saving is paused while the older-tab conflict is reviewed."
   }
 }

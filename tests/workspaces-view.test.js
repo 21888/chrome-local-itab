@@ -18,14 +18,14 @@ function model(options = {}) {
         trash:async id=>{record('trash',id);registry.workspaces.find(w=>w.id===id).deletedAt=123;},
         restore:async id=>{record('restore',id);const w=registry.workspaces.find(w=>w.id===id);w.deletedAt=null;w.generation+='restored';},
         select:async id=>{record('select',id);registry.lastUsedId=id;}};
-    const session={requestedId:options.requestedId,id:options.readyError?null:'default',generation:options.readyError?null:'g0',ready:async()=>{if(options.readyError)throw options.readyError;return{id:'default',generation:'g0'}},flush:async()=>record('flush'),suspendWrites:()=>record('suspend'),resumeWrites:()=>record('resume')};
+    const session={requestedId:options.requestedId,id:options.readyError?null:'default',generation:options.readyError?null:'g0',ready:async()=>{if(options.readyGate)await options.readyGate;if(options.readyError)throw options.readyError;return{id:'default',generation:'g0'}},flush:async()=>record('flush'),suspendWrites:()=>record('suspend'),resumeWrites:()=>record('resume')};
     let dirty=false;const lifecycle={waitForPending:async()=>record('wait'),hasUncommittedWork:()=>dirty,saveDrafts:async()=>{record('save');dirty=false;return true;},pauseAutosave:()=>record('pause'),resumeAutosave:()=>record('resume-auto'),allowDeparture:()=>record('depart'),cancelDeparture:()=>record('cancel-depart')};
-    const window={document,location:{href:'chrome-extension://unit/newtab.html'},chrome:{runtime:{getURL:p=>'chrome-extension://unit/'+p}},i18n:{t:key=>key}};
+    const window={document,location:{href:'chrome-extension://unit/newtab.html'},chrome:{runtime:{getURL:p=>'chrome-extension://unit/'+p}},i18n:{t:key=>options.locale?JSON.parse(fs.readFileSync(`_locales/${options.locale}/messages.json`))[key]?.message||key:key}};
     vm.runInNewContext(fs.readFileSync('shared/dialog-focus.js','utf8'),{window});
     vm.runInNewContext(source,{window,URL,Blob,setTimeout});
     const view=window.LocalItabWorkspacesView.mount({switcher,managerHost,manager,session,lifecycle,navigate:id=>record('navigate',id),download:async(...args)=>record('download',...args)});
     const find=(text,host=document.body)=>host.querySelectorAll('button').find(b=>b.textContent===text);
-    return {document,window,switcher,managerHost,manager,session,lifecycle,view,calls,find,registry,dirty(value=true){dirty=value;},notify(){listeners.forEach(fn=>fn(registry));},dialog:()=>document.querySelector('.spaces-dialog'),input:()=>document.querySelector('.spaces-name-input')};
+    return {document,window,switcher,managerHost,manager,session,lifecycle,view,calls,find,registry,dirty(value=true){dirty=value;},notify(event=registry){listeners.forEach(fn=>fn(event));},dialog:()=>document.querySelector('.spaces-dialog'),input:()=>document.querySelector('.spaces-name-input')};
 }
 test('initialization is nonmutating; separate Default and Work, current and last-used labels',async()=>{
  const m=model();await m.view.ready;assert.equal(m.calls.length,0);assert.match(m.switcher.querySelector('.spaces-switch').textContent,/Default/);assert.equal(m.managerHost.querySelectorAll('.spaces-row').length,2);const del=m.managerHost.querySelector('[data-workspace-id="default"][data-workspace-action="delete"]');assert(del.disabled);del.dispatch('click');assert(!m.dialog());
@@ -80,7 +80,7 @@ test('legacy-write conflict blocks workspace actions and exports both saved copi
  m.find('Download both saved copies').dispatch('click');await tick();const file=m.calls.find(c=>c[0]==='download');assert(file[1].includes('current')&&file[1].includes('old'));assert(!m.calls.some(c=>c[0]==='select'||c[0]==='navigate'));assert(!m.switcher.querySelector('.spaces-legacy').hidden);
 });
 test('legacy recovery requires counted review and explicit keep; success never reloads old drafts',async()=>{
- const m=model();await m.view.ready;const normalList=m.manager.list;let conflict=true;m.session.invalidated=true;m.manager.list=async()=>{if(conflict)throw {code:'WORKSPACE_LEGACY_CONFLICT'};return normalList();};m.manager.reviewLegacyConflict=async()=>({id:'review',detectedAt:'2026-10-10T19:00:00Z',legacy:{sites:2,tasks:1,scratchpadCharacters:5},workspaces:{count:2,trash:1,sites:3,tasks:4,scratchpadCharacters:6}});m.manager.resolveLegacyConflict=async(review,options)=>{m.calls.push(['resolve',review.id,options.confirmed]);conflict=false;return{resolved:true,reloadRequired:true};};m.notify();await tick();m.find('Review recovery choice').dispatch('click');await tick();assert(m.dialog().querySelectorAll('li').some(n=>n.textContent==='Sites: 2'));assert(!m.calls.some(c=>c[0]==='resolve'));m.find('Keep current workspaces and retain older-tab copy').dispatch('click');m.find('Keep current workspaces and retain older-tab copy')?.dispatch('click');await tick();assert.equal(m.calls.filter(c=>c[0]==='resolve').length,1);assert(!m.calls.some(c=>c[0]==='navigate'));assert(!m.dialog());assert(m.switcher.querySelector('.spaces-invalid').hidden);assert(!m.switcher.querySelector('.spaces-load-error').hidden);
+ const m=model();await m.view.ready;const normalList=m.manager.list;let conflict=true;m.session.invalidated=true;m.manager.list=async()=>{if(conflict)throw {code:'WORKSPACE_LEGACY_CONFLICT'};return normalList();};m.manager.reviewLegacyConflict=async()=>({id:'review',detectedAt:'2026-10-10T19:00:00Z',legacy:{sites:2,tasks:1,scratchpadCharacters:5},workspaces:{count:2,trash:1,sites:3,tasks:4,scratchpadCharacters:6}});m.manager.resolveLegacyConflict=async(review,options)=>{m.calls.push(['resolve',review.id,options.confirmed]);conflict=false;return{resolved:true,reloadRequired:true};};m.notify();await tick();m.find('Review recovery choice').dispatch('click');await tick();assert(m.dialog().querySelectorAll('li').some(n=>n.textContent==='Sites: 2'));assert(!m.calls.some(c=>c[0]==='resolve'));m.find('Keep current workspaces and retain older-tab copy').dispatch('click');m.find('Keep current workspaces and retain older-tab copy')?.dispatch('click');await tick();assert.equal(m.calls.filter(c=>c[0]==='resolve').length,1);assert(!m.calls.some(c=>c[0]==='navigate'));assert(!m.dialog());assert(m.switcher.querySelector('.spaces-invalid').hidden);assert(!m.switcher.querySelector('.spaces-load-error').hidden);assert.match(m.managerHost.querySelector('.spaces-status').textContent,/Current workspaces are kept.*old page still cannot save/);
 });
 test('stale legacy review refuses reuse; cancel while reading cannot reopen or resolve',async()=>{
  const m=model();await m.view.ready;m.manager.list=async()=>{throw {code:'WORKSPACE_LEGACY_CONFLICT'}};const wait=deferred();m.manager.reviewLegacyConflict=()=>wait.promise;m.notify();await tick();m.find('Review recovery choice').dispatch('click');m.find('Cancel',m.dialog()).dispatch('click');wait.resolve({id:'old',legacy:{},workspaces:{}});await tick();assert(!m.dialog());
@@ -137,4 +137,62 @@ test('an explicitly requested workspace confirmed deleted at startup retains the
  const m=model({readyError:{code:'WORKSPACE_DELETED'},requestedId:'work'});m.registry.workspaces[1].deletedAt=123;
  await m.view.ready;assert.equal(m.session.id,null);assert(!m.switcher.querySelector('.spaces-invalid').hidden);
  assert(m.switcher.querySelector('.spaces-load-error').hidden);assert(m.switcher.querySelector('.spaces-switch').disabled);
+});
+
+for (const locale of ['en','zh_CN']) test(`first-open legacy conflict ends Loading in visible and accessible labels (${locale})`, async () => {
+ const error={code:'WORKSPACE_LEGACY_CONFLICT'},m=model({readyError:error,listError:error,locale});await m.view.ready;
+ const catalog=JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`)),button=m.switcher.querySelector('.spaces-switch');
+ assert.equal(button.textContent,catalog.spacesUnavailable.message);assert.equal(button.getAttribute('aria-label'),catalog.spacesUnavailable.message);assert(button.disabled);
+ assert.equal(m.managerHost.querySelector('.spaces-status').textContent,catalog.spacesLegacyPaused.message);
+ assert(!m.switcher.querySelector('.spaces-legacy').hidden);assert(m.switcher.querySelector('.spaces-invalid').hidden);assert(m.switcher.querySelector('.spaces-load-error').hidden);
+ assert(!m.calls.some(c=>['create','select','navigate','save','resume-auto'].includes(c[0])));
+});
+
+test('a successful list cannot invent an identity after first-open legacy conflict or leave Loading behind', async()=>{
+ const m=model({readyError:{code:'WORKSPACE_LEGACY_CONFLICT'}});await m.view.ready;
+ assert.equal(m.session.id,null);assert.equal(m.switcher.querySelector('.spaces-switch').textContent,'Workspace unavailable');assert(m.switcher.querySelector('.spaces-switch').disabled);
+ assert(m.switcher.querySelector('.spaces-invalid').hidden);assert(!m.switcher.querySelector('.spaces-load-error').hidden);
+ assert.equal(m.managerHost.querySelector('.spaces-status').textContent,'Could not load workspaces. Your current page is unchanged.');
+ assert(!m.calls.some(c=>['create','select','navigate','save','resume-auto'].includes(c[0])));
+});
+
+test('late older list results cannot replace a newer conflict status or enable actions', async()=>{
+ const m=model();await m.view.ready;const late=deferred();m.manager.list=()=>late.promise;const older=m.view.refresh();
+ m.manager.list=async()=>{throw {code:'WORKSPACE_LEGACY_CONFLICT'}};m.notify({error:{code:'WORKSPACE_LEGACY_CONFLICT'}});await tick();
+ const status=m.managerHost.querySelector('.spaces-status');assert.match(status.textContent,/Saving is paused/);
+ late.resolve(clone(m.registry));await older;assert.match(status.textContent,/Saving is paused/);assert(!m.switcher.querySelector('.spaces-legacy').hidden);assert(m.switcher.querySelector('.spaces-switch').disabled);
+ assert(!m.calls.some(c=>['select','navigate','save','resume-auto'].includes(c[0])));
+});
+
+test('terminal conflict status takes disabled-control focus but never steals a draft caret', async()=>{
+ for(const draftFocused of [false,true]){const m=model();await m.view.ready;const draft=m.document.createElement('textarea');draft.value='UNSAVED';m.document.body.append(draft);
+ const switchButton=m.switcher.querySelector('.spaces-switch');(draftFocused?draft:switchButton).focus();m.manager.list=async()=>{throw {code:'WORKSPACE_LEGACY_CONFLICT'}};m.notify({error:{code:'WORKSPACE_LEGACY_CONFLICT'}});await tick();
+ assert.equal(m.document.activeElement===(draftFocused?draft:m.managerHost.querySelector('.spaces-status')),true);assert.equal(draft.value,'UNSAVED');}
+});
+
+test('destroyed view ignores a late conflict error without changing its status or focus', async()=>{
+ const m=model();await m.view.ready;const late=deferred();m.manager.list=async()=>{await late.promise;throw {code:'WORKSPACE_LEGACY_CONFLICT'};};const pending=m.view.refresh();
+ const status=m.managerHost.querySelector('.spaces-status'),before=status.textContent;const draft=m.document.createElement('textarea');m.document.body.append(draft);draft.focus();m.view.destroy();
+ late.resolve();await pending;assert.equal(status.textContent,before);assert.equal(m.document.activeElement===draft,true);
+});
+
+test('startup completion cannot erase a conflict reported after an earlier list succeeded', async()=>{
+ const gate=deferred(),m=model({readyGate:gate.promise});m.notify();await tick();
+ assert.equal(m.managerHost.querySelectorAll('.spaces-row').length,2);
+ m.manager.list=async()=>{throw {code:'WORKSPACE_LEGACY_CONFLICT'}};gate.resolve();await m.view.ready;
+ assert.match(m.managerHost.querySelector('.spaces-status').textContent,/Saving is paused/);
+ assert(!m.switcher.querySelector('.spaces-legacy').hidden);assert(m.switcher.querySelector('.spaces-switch').disabled);
+});
+
+test('external conflict resolution leaves an invalidated captured tab unavailable without claiming review is still pending', async()=>{
+ const m=model();await m.view.ready;const original=m.manager.list;m.session.invalidated=true;
+ m.manager.list=async()=>{throw {code:'WORKSPACE_LEGACY_CONFLICT'}};m.notify({error:{code:'WORKSPACE_LEGACY_CONFLICT'}});await tick();
+ assert.match(m.managerHost.querySelector('.spaces-status').textContent,/Saving is paused/);
+ const draft=m.document.createElement('textarea');draft.value='NEWER UNSAVED DRAFT';m.document.body.append(draft);draft.focus();
+ m.manager.list=original;await m.view.refresh();
+ assert(m.switcher.querySelector('.spaces-legacy').hidden);assert(m.switcher.querySelector('.spaces-invalid').hidden);
+ const banner=m.switcher.querySelector('.spaces-load-error');assert(!banner.hidden);assert(banner.querySelectorAll('p').some(p=>p.textContent.endsWith('WORKSPACE_INVALIDATED')));
+ assert.equal(m.managerHost.querySelector('.spaces-status').textContent,'Could not load workspaces. Your current page is unchanged.');
+ assert(m.switcher.querySelector('.spaces-switch').disabled);assert(m.find('New workspace').disabled);assert.equal(m.document.activeElement===draft,true);assert.equal(draft.value,'NEWER UNSAVED DRAFT');
+ assert(!m.calls.some(c=>['select','navigate','save','resume-auto','resume'].includes(c[0])));
 });

@@ -28,6 +28,7 @@
         ExportDrafts: 'Export page text', ExportHelp: 'Downloads editable text from this page, including unsaved form values. Keep this private; it is a text copy, not a restorable backup.',
         ExportRequested: 'Text download requested. Check your downloads before leaving this page.', ExportFailed: 'Could not export page text. Copy the fields you need before leaving.',
         WaitFailed: 'An action is still running. Stay here and try switching again when it finishes.',
+        LegacyPaused: 'Workspace unavailable. Saving is paused while the older-tab conflict is reviewed.',
         LegacyConflict: 'An older Local iTab tab wrote to the previous storage format. Close older tabs. Both saved copies are retained; saving is paused until this conflict is reviewed. Download both copies before choosing how to recover.',
         LegacyReview: 'Review recovery choice', LegacyReviewTitle: 'Review both saved copies', LegacyKeep: 'Keep current workspaces and retain older-tab copy', LegacyReviewHelp: 'Close every older Local iTab tab before continuing. This keeps the current workspaces active and preserves the older-tab copy separately. It does not merge or delete either copy.', LegacyCurrent: 'Current workspaces', LegacyOlder: 'Older-tab copy', LegacyDetected: 'Conflict detected', LegacySites: 'Sites', LegacyTasks: 'Tasks', LegacyNotes: 'Scratchpad characters', LegacySpaces: 'Workspaces', LegacyTrash: 'In Trash', LegacyChanged: 'Saved copies changed during review. Review again before choosing a recovery action.', LegacyReviewAgain: 'Review again', LegacyResolved: 'Current workspaces are kept and the older-tab copy is retained. This old page still cannot save. Copy or export its drafts, then explicitly reopen a workspace.',
         LegacyDownload: 'Download both saved copies', LegacyRequested: 'Recovery download requested. It contains both saved workspace copies, without account credentials or cloud-provider settings. Check your downloads before making recovery changes.', LegacyExportFailed: 'Could not export both saved copies. They remain on this device. Keep this page open and retry after closing older tabs.',
@@ -108,7 +109,9 @@
             const retired = Boolean((loadError === 'WORKSPACE_DELETED' && session.requestedId) ||
                 (session.id && (!loaded || loaded.deletedAt !== null || loaded.generation !== session.generation)));
             invalid = legacyConflict || session.invalidated === true || retired || !loaded || Boolean(loadError);
-            const emptyLabel = t(loadError || session.invalidated === true ? 'Unavailable' : 'Loading');
+            // Rendering a returned registry without a captured identity is terminal,
+            // not a workspace request still in flight.
+            const emptyLabel = t('Unavailable');
             switchButton.textContent = loaded ? `${t('Current')}: ${loaded.name} ▾` : emptyLabel;
             switchButton.setAttribute('aria-label', loaded ? `${t('Switch')}: ${loaded.name}` : emptyLabel);
             invalidBanner.hidden = legacyConflict || !retired;
@@ -149,7 +152,8 @@
         }
         async function refresh() {
             const request = ++refreshRevision;
-            try { const next = await manager.list(); if (closed || request !== refreshRevision) return; registry = next; legacyConflict = false; legacyBanner.hidden = true;
+            try { const next = await manager.list(); if (closed || request !== refreshRevision) return; registry = next; const retiredConflict = legacyConflict && (!session.id || session.invalidated === true); legacyConflict = false; legacyBanner.hidden = true;
+                if (retiredConflict) reportLoadError({ code: session.invalidated === true ? 'WORKSPACE_INVALIDATED' : 'WORKSPACE_UNAVAILABLE' });
                 if (session.id && session.invalidated !== true) { if (loadError) status.textContent = ''; loadError = null; loadBanner.hidden = true; }
                 render(); }
             catch (error) { if (!closed && request === refreshRevision) { if (!reportLegacyConflict(error)) reportLoadError(error); controls(); } }
@@ -169,8 +173,13 @@
         }
         function reportLegacyConflict(error) {
             if (error?.code !== 'WORKSPACE_LEGACY_CONFLICT' || closed) return false;
+            const focused = doc.activeElement;
             legacyConflict = invalid = true; legacyBanner.hidden = false; invalidBanner.hidden = loadBanner.hidden = true;
-            lifecycle?.pauseAutosave?.(); controls(); return true;
+            if (!current()) { switchButton.textContent = t('Unavailable'); switchButton.setAttribute('aria-label', t('Unavailable')); }
+            setStatus('LegacyPaused');
+            lifecycle?.pauseAutosave?.(); controls();
+            if (focused?.disabled && doc.activeElement === doc.body) status.focus();
+            return true;
         }
         async function exportLegacyRecovery() {
             if (closed || recoveryPending) return;
@@ -376,7 +385,7 @@
         }
         const unsubscribe = manager.subscribe(event => { reportLegacyConflict(event?.error); refresh(); });
         controls(); setStatus('Loading');
-        const ready = session.ready().then(() => refresh()).then(() => { if (!closed && registry && !loadError) status.textContent = ''; }).catch(error => { if (!reportLegacyConflict(error)) reportLoadError(error); return refresh(); });
+        const ready = session.ready().then(() => refresh()).then(() => { if (!closed && registry && !loadError && !legacyConflict) status.textContent = ''; }).catch(error => { if (!reportLegacyConflict(error)) reportLoadError(error); return refresh(); });
         return {ready, refresh, requestSwitch, get pending() { return busy; }, hasUncommittedWork: () => Boolean(modal || busy),
             destroy() { closed = true; refreshRevision++; unsubscribe?.(); if (modal) { modal.executing = false; modal.close(); } } };
     }
