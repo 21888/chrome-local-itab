@@ -837,8 +837,9 @@
                 answerTitle.value, output.value, includeContext.checked, promptPicker.hidden, promptSelect.value,
                 promptRows.map(row => [row.name, row.input.value]), promptPreview.textContent, promptEpoch, collectionEpoch]);
             const before = signature(), generation = controller.generation, result = controller.result, reviewed = controller.reviewed, localReview = controller.localReview;
+            const taskSelection = controller.taskSelection, taskReview = controller.taskReview;
             return () => !disposed && generation === controller.generation && result === controller.result && reviewed === controller.reviewed &&
-                localReview === controller.localReview && before === signature();
+                localReview === controller.localReview && taskSelection === controller.taskSelection && taskReview === controller.taskReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
         function destroy() { if (disposed) return; collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }

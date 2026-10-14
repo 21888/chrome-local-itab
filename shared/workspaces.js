@@ -590,24 +590,38 @@
         }
         readyExisting() {
             // Read-only entry for global-library pages. Never start/resume migration.
-            if (!this._ready) {
-                const ready = (async () => {
-                    this.manager.available();
-                    return this.manager.locks.request(LOCK, { mode: 'exclusive' }, async () => {
-                        await this.manager.assertRestoreSettled();
-                        const registry = await this.manager.registry();
-                        await this.manager.checkLegacySource({ readOnly: true });
-                        await this.manager.readSnapshot(registry);
-                        const wanted = this.requestedId === undefined ? registry.lastUsedId : this.requestedId;
-                        const entry = registry.workspaces.find(item => item.id === wanted);
-                        check(entry && entry.deletedAt === null, 'NOT_FOUND');
+            // A cached identity is not proof that a later dialog can replace a
+            // draft: recheck recovery, metadata and bundles on every admission.
+            const inspect = async () => {
+                this.manager.available();
+                return this.manager.locks.request(LOCK, { mode: 'exclusive' }, async () => {
+                    check(!this.invalidated, 'INVALIDATED');
+                    await this.manager.assertRestoreSettled();
+                    const registry = await this.manager.registry();
+                    await this.manager.checkLegacySource({ readOnly: true });
+                    const wanted = this.id || (this.requestedId === undefined ? registry.lastUsedId : this.requestedId);
+                    const entry = registry.workspaces.find(item => item.id === wanted);
+                    if (this._identity && (!entry || entry.deletedAt !== null || entry.generation !== this.generation)) this.invalidated = true;
+                    check(!this.invalidated, 'INVALIDATED');
+                    check(entry && entry.deletedAt === null, 'NOT_FOUND');
+                    await this.manager.readSnapshot(registry);
+                    await this.manager.checkLegacySource({ readOnly: true });
+                    await this.manager.assertRestoreSettled();
+                    const current = await this.manager.registry();
+                    const currentEntry = current.workspaces.find(item => item.id === wanted);
+                    if (this._identity && (!currentEntry || currentEntry.deletedAt !== null || currentEntry.generation !== this.generation)) this.invalidated = true;
+                    check(!this.invalidated, 'INVALIDATED');
+                    check(same(current, registry), 'CONFLICT');
+                    if (!this._identity) {
                         this._identity = Object.freeze({ id: entry.id, generation: entry.generation }); this._existingOnly = true;
-                        return this._identity;
-                    });
-                })().catch(error => { if (this._ready === ready) this._ready = null; throw error; });
-                this._ready = ready;
-            }
-            return this._ready.then(copy);
+                    }
+                    return this._identity;
+                });
+            };
+            if (this._ready) return this._ready.then(inspect).then(copy);
+            const ready = inspect().catch(error => { if (this._ready === ready) this._ready = null; throw error; });
+            this._ready = ready;
+            return ready.then(copy);
         }
         async assertActive() {
             await this.ready(); check(!this.invalidated, 'INVALIDATED');

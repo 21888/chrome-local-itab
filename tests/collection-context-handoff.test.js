@@ -218,3 +218,133 @@ test('legacy drift after read-only admission is rejected without creating a conf
     h.raw.quote = { text: 'Changed legacy data after opening' }; h.click('Use this excerpt'); await settle();
     assert.equal(checks(h).length, 0); assert.match(h.q('.ai-context-collection-status').textContent, /unavailable/); quiet(h);
 });
+
+for (const lifecycle of ['hide-show', 'persisted-pagehide']) test(`host readiness cannot revive a handoff after ${lifecycle} before the first dialog exists`, async () => {
+    const h = await page(), gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.length === 3 && keys.includes('__localItabWorkspaceRegistryV1')) { held = true; await gate.promise; } });
+    const opening = h.window.LocalItabAIContextEntry.openCollection(h.reference()); await settle();
+    assert.equal(held, true); assert.equal(h.q('.ai-context-dialog'), null);
+    if (lifecycle === 'hide-show') {
+        h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')({});
+        h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')({});
+    } else for (const fn of [...h.events.get('pagehide') || []]) fn({ persisted: true });
+    gate.resolve(); assert.equal(await opening, false); await settle();
+    assert.equal(h.q('.ai-context-dialog'), null); quiet(h);
+    // The invalid request does not poison a fresh, explicit foreground entry.
+    h.setReadHook(null); assert.equal(await h.window.LocalItabAIContextEntry.openCollection(h.reference()), true); await settle();
+    assert.match(h.q('.ai-context-collection-status').textContent, /not selected yet/); quiet(h);
+});
+
+for (const condition of ['restore', 'legacy', 'activation', 'generation', 'bundle', 'invalidated']) test(`reused read-only readiness preserves the existing draft when ${condition} changes`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    h.input('.ai-context-question', 'SYNTHETIC keep this draft');
+    const editor = h.q('.ai-context-source').querySelector('textarea'); editor.value = 'SYNTHETIC edited source'; editor.dispatch('input');
+    h.click('Review prompt locally'); await settle();
+    const dialog = h.q('.ai-context-dialog'), review = h.window.contextController.localReview, W = h.window.LocalItabWorkspaces;
+    const rawBefore = structuredClone(h.raw);
+    if (condition === 'restore') h.raw[W.RESTORE_TRANSACTION_KEY] = { schemaVersion: 1, id: 'synthetic_restore', status: 'prepared' };
+    if (condition === 'legacy') h.raw.quote = 'SYNTHETIC legacy drift';
+    if (condition === 'activation') delete h.raw[W.ACTIVATION_KEY];
+    if (condition === 'generation') h.raw[W.REGISTRY_KEY].workspaces[0].generation = 'synthetic_new_generation';
+    if (condition === 'bundle') delete h.raw[W.bundleKey(W.session)];
+    if (condition === 'invalidated') W.session.invalidated = true;
+    assert.equal(await h.window.LocalItabAIContextEntry.openCollection(h.reference()), false); await settle();
+    assert.equal(h.q('.ai-context-dialog'), dialog); assert.equal(h.window.contextController.localReview, review);
+    assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC keep this draft'); assert.equal(editor.value, 'SYNTHETIC edited source');
+    assert.equal(checks(h).length, 1); assert.match(h.window.localCollectionsView.status.textContent, /normal new-tab/); quiet(h);
+    // Readiness failures leave the cached successful identity usable after a transient read/restore failure is repaired.
+    if (condition !== 'invalidated' && condition !== 'generation') {
+        for (const key of Object.keys(h.raw)) delete h.raw[key]; Object.assign(h.raw, rawBefore);
+        assert.equal(await h.window.LocalItabAIContextEntry.openCollection(h.reference()), true); await settle();
+        assert.notEqual(h.q('.ai-context-dialog'), dialog); assert.match(h.q('.ai-context-collection-status').textContent, /not selected yet/); quiet(h);
+    }
+});
+
+test('approved handoff cannot discard a newer extracted-task selection while readiness waits', async () => {
+    const h = await page(); await h.open();
+    h.run(`contextController.result = Object.freeze({ text: '{"tasks":["SYNTHETIC first task","SYNTHETIC second task"]}', mode: 'tasks', model: 'synthetic', origin: 'https://example.com' });`);
+    h.input('.ai-context-question', 'SYNTHETIC task question');
+    const choices = h.q('.ai-context-task-choices').querySelectorAll('input'); assert.equal(choices.length, 2);
+    const dialog = h.q('.ai-context-dialog'), gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.length === 3 && keys.includes('__localItabWorkspaceRegistryV1')) { held = true; await gate.promise; } });
+    const opening = h.window.LocalItabAIContextEntry.openCollection(h.reference()); await settle(); assert.equal(held, true);
+    choices[1].checked = false; choices[1].dispatch('change'); const selection = h.window.contextController.taskSelection;
+    assert.deepEqual([...selection.selected], [true, false]); gate.resolve();
+    assert.equal(await opening, false); assert.equal(h.q('.ai-context-dialog'), dialog);
+    assert.equal(h.window.contextController.taskSelection, selection); assert.equal(choices[1].checked, false); quiet(h);
+});
+
+test('reused read-only session stays pinned after another workspace becomes last used', async () => {
+    const h = await page(); await h.open(); const W = h.window.LocalItabWorkspaces, identity = await W.session.readyExisting();
+    const registry = h.raw[W.REGISTRY_KEY], previous = registry.workspaces[0];
+    const other = { ...previous, id: 'synthetic_other_workspace', generation: 'synthetic_other_generation', name: 'SYNTHETIC other workspace', order: 1 };
+    registry.workspaces.push(other); registry.lastUsedId = other.id; registry.revision++;
+    h.raw[W.bundleKey(other)] = { schemaVersion: 1, id: other.id, generation: other.generation, values: {} };
+    const identities = await Promise.all([W.session.readyExisting(), W.session.readyExisting(), W.session.ready()]);
+    for (const actual of identities) assert.deepEqual(actual, identity);
+    assert.equal(W.session.id, previous.id); assert.equal(W.manager._activated, false); quiet(h);
+});
+
+for (const previousAdmission of [false, true]) test(`read-only admission rejects registry changes during its snapshot read (already pinned: ${previousAdmission})`, async () => {
+    const h = await page(), W = h.window.LocalItabWorkspaces;
+    if (previousAdmission) await W.session.readyExisting();
+    const originalGeneration = h.raw[W.REGISTRY_KEY].workspaces[0].generation;
+    const gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.length === 1 && keys[0].startsWith(W.PREFIX)) { held = true; await gate.promise; } });
+    const admission = W.session.readyExisting(); await settle(); assert.equal(held, true);
+    h.raw[W.REGISTRY_KEY].workspaces[0].generation = 'synthetic_concurrent_generation';
+    gate.resolve(); await assert.rejects(admission, error => /WORKSPACE_(INVALIDATED|CONFLICT)/.test(error.code));
+    if (previousAdmission) {
+        h.raw[W.REGISTRY_KEY].workspaces[0].generation = originalGeneration;
+        await assert.rejects(W.session.readyExisting(), error => error.code === 'WORKSPACE_INVALIDATED');
+    }
+    if (!previousAdmission) assert.equal(W.session.id, null); quiet(h);
+});
+
+test('handoff selection changes only its exact source and keeps other global and workspace edits', async () => {
+    const h = await page();
+    await h.run(`seedStore.mutate(seedStore.request('add', { title: 'SYNTHETIC second source', body: 'SYNTHETIC second body' }))`); await settle();
+    const W = h.window.LocalItabWorkspaces, entry = h.raw[W.REGISTRY_KEY].workspaces[0];
+    h.raw[W.bundleKey(entry)].values.__localItabScratchpadV1 = { schemaVersion: 1, revision: 1, enabled: true, content: 'SYNTHETIC saved workspace note' };
+    h.writes.length = 0; await h.open(); const rows = h.document.querySelectorAll('.ai-context-source'); assert.equal(rows.length, 3);
+    const others = rows.slice(1);
+    for (let i = 0; i < others.length; i++) { const check = others[i].querySelector('input'); check.checked = i === 0; check.dispatch('change'); const editor = others[i].querySelector('textarea'); editor.value = `SYNTHETIC kept outgoing ${i}`; editor.dispatch('input'); }
+    h.click('Use this excerpt'); await settle();
+    for (let i = 0; i < others.length; i++) { assert.equal(others[i].querySelector('textarea').value, `SYNTHETIC kept outgoing ${i}`); assert.equal(others[i].querySelector('input').checked, i === 0); }
+    h.input('.ai-context-question', 'SYNTHETIC combined question'); h.click('Review prompt locally'); await settle();
+    assert.equal(h.window.contextController.localReview.packed.sources.length, 2); quiet(h);
+});
+
+for (const change of ['source-edit', 'source-selection', 'prompt-choice']) test(`incoming handoff keeps a newer ${change} made during readiness`, async () => {
+    const h = await page();
+    if (change === 'prompt-choice') {
+        await h.run(`(async () => { const store = new LocalItabPrompts.Store(LocalItabWorkspaces.manager.createPromptBackend(LocalItabPrompts)); await store.mutate(store.request('add', { title: 'SYNTHETIC template', body: 'SYNTHETIC question' })); globalThis.syntheticPromptId = (await store.read()).records[0].id; })()`); h.writes.length = 0;
+    }
+    await h.open(); h.input('.ai-context-question', 'SYNTHETIC existing question');
+    if (change === 'prompt-choice') { h.click('Use a saved prompt'); await settle(); }
+    const dialog = h.q('.ai-context-dialog'), gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.length === 3 && keys.includes('__localItabWorkspaceRegistryV1')) { held = true; await gate.promise; } });
+    const opening = h.window.LocalItabAIContextEntry.openCollection(h.reference()); await settle(); assert.equal(held, true);
+    if (change === 'source-edit') { const input = h.q('.ai-context-source').querySelector('textarea'); input.value = 'SYNTHETIC newest excerpt'; input.dispatch('input'); }
+    if (change === 'source-selection') { const check = h.q('.ai-context-source').querySelector('input'); check.checked = true; check.dispatch('change'); }
+    if (change === 'prompt-choice') { const select = h.q('.ai-context-prompt-select'); select.value = h.window.syntheticPromptId; select.dispatch('change'); h.click('Preview replacement'); }
+    gate.resolve(); assert.equal(await opening, false); assert.equal(h.q('.ai-context-dialog'), dialog); quiet(h);
+});
+
+for (const condition of ['restore', 'legacy']) test(`read-only admission rechecks ${condition} after snapshot awaits`, async () => {
+    const h = await page(), W = h.window.LocalItabWorkspaces, gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.length === 1 && keys[0].startsWith(W.PREFIX)) { held = true; await gate.promise; } });
+    const admission = W.session.readyExisting(); await settle(); assert.equal(held, true);
+    if (condition === 'restore') h.raw[W.RESTORE_TRANSACTION_KEY] = { schemaVersion: 1, id: 'synthetic_delayed_restore', status: 'prepared' };
+    else h.raw.quote = 'SYNTHETIC delayed legacy drift';
+    gate.resolve(); await assert.rejects(admission, error => /WORKSPACE_(RESTORE_PENDING|LEGACY_CONFLICT)/.test(error.code));
+    assert.equal(W.session.id, null); quiet(h);
+});
+
+test('handoff rechecks synchronous session invalidation after readiness returns', async () => {
+    const h = await page(); await h.open(); h.input('.ai-context-question', 'SYNTHETIC keep pinned draft');
+    const dialog = h.q('.ai-context-dialog'), session = h.window.LocalItabWorkspaces.session, ready = session.readyExisting.bind(session);
+    session.readyExisting = async () => { const identity = await ready(); session.invalidated = true; return identity; };
+    assert.equal(await h.window.LocalItabAIContextEntry.openCollection(h.reference()), false);
+    assert.equal(h.q('.ai-context-dialog'), dialog); assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC keep pinned draft'); quiet(h);
+});

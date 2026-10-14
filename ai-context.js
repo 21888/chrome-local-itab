@@ -48,8 +48,15 @@
         if (previous?.view?.hasUncommittedWork() && !root.confirm(t('aiContextDiscard', 'Stop any model request and discard this unsaved draft or response? Already confirmed writes remain saved.'))) return false;
         const sameDraft = previous?.view?.captureDraft?.();
         incoming = true;
+        // Readiness can wait before any dialog exists to own departure handling.
+        // Once hidden or left, this request must not revive on a later return.
+        let departed = false;
+        const leave = () => { departed = true; };
+        const visibility = () => { if (root.document.visibilityState === 'hidden') leave(); };
+        root.addEventListener('pagehide', leave);
+        root.document.addEventListener('visibilitychange', visibility);
         try {
-            const sourceCurrent = () => root.LocalItabWorkspaces.session === session && shelf === root.localCollectionsView && shelf.canContinueContext(reference) &&
+            const sourceCurrent = () => !departed && !session.invalidated && root.LocalItabWorkspaces.session === session && shelf === root.localCollectionsView && shelf.canContinueContext(reference) &&
                 shelf.controller.readGeneration === generation && shelf.controller.state === state && shelf.detailGeneration === detail;
             await session.readyExisting();
             if (blocked() || !sourceCurrent() || (sameDraft && !sameDraft())) return false;
@@ -58,6 +65,10 @@
         } catch (_) {
             if (shelf === root.localCollectionsView && !shelf.destroyed) shelf.status.textContent = t('aiContextCollectionWorkspace', 'This workspace is not ready for context Q&A. Open the normal new-tab page to finish its existing setup or recovery, then return here. The collection and drafts are unchanged.');
             return false;
-        } finally { incoming = false; }
+        } finally {
+            root.removeEventListener('pagehide', leave);
+            root.document.removeEventListener('visibilitychange', visibility);
+            incoming = false;
+        }
     } };
 })(window);
