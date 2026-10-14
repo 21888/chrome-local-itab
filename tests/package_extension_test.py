@@ -48,8 +48,11 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), other.read_bytes())
         pack.verify(other, files)
         with zipfile.ZipFile(other) as archive:
-            self.assertEqual(123, len(archive.namelist()))
+            self.assertEqual(127, len(archive.namelist()))
             for runtime in ("vendor/marked/marked.umd.js", "vendor/marked/LICENSE", "vendor/marked/PROVENANCE.json", "shared/safe-answer-reader.js", "safe-answer-reader.css"):
+                self.assertIn(runtime, archive.namelist())
+                self.assertEqual(files[runtime], archive.read(runtime))
+            for runtime in ("recovery.html", "recovery.css", "recovery.js", "shared/recovery-inspector.js"):
                 self.assertIn(runtime, archive.namelist())
                 self.assertEqual(files[runtime], archive.read(runtime))
             self.assertNotIn("vendor/marked/marked.umd.js.map", archive.namelist())

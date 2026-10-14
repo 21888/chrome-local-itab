@@ -1,0 +1,55 @@
+/* Independent recovery surface: no appearance/storage bootstrap or remote assets. */
+:root { color-scheme: light dark; --recovery-bg: #f5f6f3; --recovery-surface: #fff; --recovery-text: #25352e; --recovery-muted: #536159; --recovery-line: #ced7d0; --recovery-accent: #315d48; --recovery-tint: #eaf1eb; --recovery-warn: #714e16; --recovery-warn-bg: #fff8e8; --recovery-error: #8c332a; --recovery-error-bg: #fff0ec; --recovery-focus: #1663b7; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--recovery-bg); color: var(--recovery-text); font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 16px; line-height: 1.6; }
+[hidden] { display: none !important; }
+.recovery-page { width: min(100% - 48px, 1040px); margin: 0 auto; padding: 42px 0 28px; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.35rem); line-height: 1.25; letter-spacing: -.025em; margin: 12px 0 16px; }
+h2 { font-size: 1.15rem; line-height: 1.4; }
+h3 { font-size: 1rem; line-height: 1.5; }
+p + p { margin-top: 10px; }
+.recovery-eyebrow { font-size: .9rem; font-weight: 650; display: flex; gap: 12px 24px; flex-wrap: wrap; }
+.recovery-eyebrow span { color: var(--recovery-accent); font-weight: 500; }
+.recovery-lead { max-width: 75ch; color: var(--recovery-muted); }
+.recovery-notice { margin-top: 26px; padding: 18px 20px; background: var(--recovery-warn-bg); border: 1px solid var(--recovery-line); border-inline-start: 4px solid var(--recovery-warn); border-radius: 8px; }
+.recovery-notice h2 { color: var(--recovery-warn); margin-bottom: 8px; font-size: 1rem; }
+.recovery-notice p, .recovery-help, .recovery-footer { font-size: .875rem; }
+.recovery-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px; margin: 30px 0 12px; }
+.recovery-button { appearance: none; min-height: 44px; max-width: 100%; border: 1px solid var(--recovery-line); border-radius: 7px; padding: 9px 14px; background: var(--recovery-surface); color: var(--recovery-text); font: inherit; font-size: .9rem; line-height: 1.5; font-weight: 600; text-align: start; cursor: pointer; overflow-wrap: anywhere; }
+.recovery-button:hover:not(:disabled) { background: var(--recovery-tint); border-color: var(--recovery-accent); }
+.recovery-button:disabled { color: var(--recovery-muted); background: var(--recovery-bg); cursor: not-allowed; }
+.recovery-primary { color: var(--recovery-accent); background: var(--recovery-tint); border-color: var(--recovery-accent); }
+:focus-visible { outline: 3px solid var(--recovery-focus); outline-offset: 3px; }
+.recovery-status { min-height: 1.6em; margin: 8px 0; font-size: .95rem; }
+.recovery-status[data-tone="error"] { color: var(--recovery-error); }
+.recovery-inspected-at, .recovery-help, .recovery-footer { color: var(--recovery-muted); overflow-wrap: anywhere; }
+.recovery-inspected-at { font-size: .8rem; margin-bottom: 12px; }
+.recovery-entries { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 16px; }
+.recovery-entry { min-width: 0; padding: 20px; border: 1px solid var(--recovery-line); border-radius: 10px; background: var(--recovery-surface); }
+.recovery-entry-title { overflow-wrap: anywhere; }
+.recovery-badge { display: inline-block; margin-top: 8px; padding: 2px 8px; border-radius: 4px; background: var(--recovery-tint); color: var(--recovery-accent); font-size: .8rem; }
+.recovery-badge[data-integrity="unverified"] { background: var(--recovery-warn-bg); color: var(--recovery-warn); }
+.recovery-badge[data-integrity="failed"] { background: var(--recovery-error-bg); color: var(--recovery-error); }
+.recovery-facts { margin: 18px 0 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+.recovery-facts div { min-width: 0; }
+.recovery-facts dt { color: var(--recovery-muted); font-size: .8rem; }
+.recovery-facts dd { margin: 2px 0 0; overflow-wrap: anywhere; unicode-bidi: plaintext; }
+.recovery-warnings { font-size: .85rem; margin: 12px 0; padding-inline-start: 20px; color: var(--recovery-warn); }
+.recovery-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.recovery-preview { border-top: 1px solid var(--recovery-line); margin-top: 20px; padding-top: 18px; min-width: 0; }
+.recovery-preview h3 { margin-bottom: 6px; }
+.recovery-site-list { padding-inline-start: 24px; margin: 14px 0 0; }
+.recovery-site-list li { padding: 10px 4px; border-bottom: 1px solid var(--recovery-line); }
+.recovery-site-title, .recovery-site-url { display: block; white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: plaintext; }
+.recovery-site-title { font-size: .9rem; }
+.recovery-site-url { font: .85rem/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--recovery-muted); margin-top: 2px; }
+.recovery-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.recovery-pagination p { flex: 1 1 150px; font-size: .85rem; }
+.recovery-empty { padding: 22px; border: 1px dashed var(--recovery-line); border-radius: 8px; background: var(--recovery-surface); }
+.recovery-footer { padding-top: 18px; border-top: 1px solid var(--recovery-line); margin-top: 24px; }
+.recovery-skip { position: fixed; inset-block-start: 8px; inset-inline-start: 12px; padding: 10px 16px; border: 1px solid var(--recovery-line); background: var(--recovery-surface); color: var(--recovery-accent); z-index: 3; transform: translateY(-180%); }
+.recovery-skip:focus { transform: translateY(0); }
+@media (max-width: 600px) { .recovery-page { width: calc(100% - 28px); padding-top: 24px; } .recovery-notice, .recovery-entry { padding: 16px; } .recovery-facts { grid-template-columns: minmax(0, 1fr); gap: 10px; } .recovery-actions { display: grid; grid-template-columns: minmax(0, 1fr); } .recovery-actions .recovery-button { width: 100%; } .recovery-toolbar .recovery-button { flex-shrink: 0; } }
+@media (prefers-color-scheme: dark) { :root { --recovery-bg: #18221d; --recovery-surface: #202d25; --recovery-text: #ecf1ed; --recovery-muted: #bccbbf; --recovery-line: #4c5f50; --recovery-accent: #b5dbc0; --recovery-tint: #304636; --recovery-warn: #f5d39b; --recovery-warn-bg: #3b3324; --recovery-error: #ffc2b7; --recovery-error-bg: #492b27; --recovery-focus: #8ac2ff; } }
+@media (forced-colors: active) { .recovery-badge, .recovery-notice, .recovery-entry { border: 1px solid CanvasText; } }

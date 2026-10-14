@@ -6322,5 +6322,266 @@
   "spacesDiagnosticCode": {
     "message": "错误代码"
   },
-  "syncSafetyReview": {"message": "为保护已保存的数据，暂时暂停自动用整份同步副本覆盖。请先预览云端副本，再明确选择“备份后替换本机”。已保存的数据和本机同步开关保持不变。"}
+  "syncSafetyReview": {"message": "为保护已保存的数据，暂时暂停自动用整份同步副本覆盖。请先预览云端副本，再明确选择“备份后替换本机”。已保存的数据和本机同步开关保持不变。"},
+  "recoveryPageTitle": {
+    "message": "只读恢复调查 · Local iTab"
+  },
+  "recoveryEntry": {
+    "message": "查看本地副本（只读）"
+  },
+  "recoverySkip": {
+    "message": "跳至调查结果"
+  },
+  "recoveryReadOnly": {
+    "message": "只读 · 仅此设备"
+  },
+  "recoveryTitle": {
+    "message": "查看已保存的本地副本"
+  },
+  "recoveryIntro": {
+    "message": "即使工作区无法打开，也可查找保留的站点记录。本页独立读取本地存储，不会保存、恢复、覆盖、同步或清空任何内容。"
+  },
+  "recoverySafetyTitle": {
+    "message": "请保留原页面及其中的草稿"
+  },
+  "recoverySafetyHelp": {
+    "message": "未找到副本不代表内容已删除。未经校验的记录不保证能够恢复。调查期间请勿重置存储或重新安装扩展。"
+  },
+  "recoveryPrivateHelp": {
+    "message": "下载的是私密调查 JSON 文件，可能包含已保存的文字、站点标题及带有私密查询参数的完整网址。这不是可直接导入的恢复备份，分享前请自行检查文件内容。"
+  },
+  "recoveryInspectionLabel": {
+    "message": "本地存储调查"
+  },
+  "recoveryFootnote": {
+    "message": "仅检查支持的本地记录的只读快照，不获取云端副本。站点预览仅显示文字，不打开站点链接或加载图片。"
+  },
+  "recoveryResults": {
+    "message": "已保存的本地副本"
+  },
+  "recoveryRefresh": {
+    "message": "重新检查"
+  },
+  "recoveryLoading": {
+    "message": "正在读取支持的本地记录…"
+  },
+  "recoveryReady": {
+    "message": "检查完成。选择副本预览站点文字，或下载调查 JSON。"
+  },
+  "recoveryEmpty": {
+    "message": "本次检查未找到支持的已保存副本。这不代表你的内容已删除。"
+  },
+  "recoveryInspectedAt": {
+    "message": "检查时间（此设备时间）"
+  },
+  "recoveryUnknown": {
+    "message": "未知"
+  },
+  "recoveryRecordedAt": {
+    "message": "记录时间（此设备时间）"
+  },
+  "recoveryMigrationTime": {
+    "message": "迁移时间（此设备时间）"
+  },
+  "recoveryBackupTime": {
+    "message": "备份时间（此设备时间）"
+  },
+  "recoverySiteCount": {
+    "message": "站点记录数"
+  },
+  "recoveryUnknownCount": {
+    "message": "未知 · 缺失或无法读取"
+  },
+  "recoveryChecked": {
+    "message": "校验通过"
+  },
+  "recoveryUnverified": {
+    "message": "未校验"
+  },
+  "recoveryFailed": {
+    "message": "校验未通过"
+  },
+  "recoveryValidationHelp": {
+    "message": "校验仅说明当前保存记录的状态，不代表它能够恢复。"
+  },
+  "recoveryWorkspace": {
+    "message": "工作区标签"
+  },
+  "recoveryWorkspaceId": {
+    "message": "工作区 ID"
+  },
+  "recoveryAttribution": {
+    "message": "工作区归属"
+  },
+  "recoveryAttributionVerified": {
+    "message": "已与本次检查的工作区目录核对"
+  },
+  "recoveryAttributionUnverified": {
+    "message": "未经核验"
+  },
+  "recoveryTrash": {
+    "message": "此保存记录中标为回收站内容"
+  },
+  "recoveryRepresentation": {
+    "message": "记录格式"
+  },
+  "recoveryConfiguration": {
+    "message": "配置副本"
+  },
+  "recoveryRaw": {
+    "message": "保留的原始副本"
+  },
+  "recoveryPortable": {
+    "message": "可移植副本"
+  },
+  "recoveryDepth": {
+    "message": "嵌套副本层级"
+  },
+  "recoverySourcePreMigration": {
+    "message": "工作区迁移前副本"
+  },
+  "recoverySourceLegacy": {
+    "message": "旧版本地存储格式"
+  },
+  "recoverySourceWorkspace": {
+    "message": "工作区副本"
+  },
+  "recoverySourceBeforeCloudReplacement": {
+    "message": "云端替换前副本"
+  },
+  "recoverySourceBeforeCloudClear": {
+    "message": "清空云端前保留的云端副本"
+  },
+  "recoverySourceIdentityRecovery": {
+    "message": "布局标识恢复副本"
+  },
+  "recoverySourceRecovery": {
+    "message": "保留的恢复副本"
+  },
+  "recoverySourceUnknown": {
+    "message": "其他保留的本地副本"
+  },
+  "recoveryPreview": {
+    "message": "预览站点文字"
+  },
+  "recoveryHidePreview": {
+    "message": "收起站点文字"
+  },
+  "recoveryPreviewTitle": {
+    "message": "站点记录 · 仅文字"
+  },
+  "recoveryPreviewHelp": {
+    "message": "保留原有顺序和重复记录。缺失字段会明确标注，不加载图标或打开站点链接。"
+  },
+  "recoveryPreviewUnavailable": {
+    "message": "无法从此副本读取站点记录。这不代表站点数为零。"
+  },
+  "recoveryNoSites": {
+    "message": "此副本的站点记录数组为空。"
+  },
+  "recoveryMissingTitle": {
+    "message": "[标题字段缺失]"
+  },
+  "recoveryMissingUrl": {
+    "message": "[网址字段缺失]"
+  },
+  "recoveryPrevious": {
+    "message": "上一组站点"
+  },
+  "recoveryNext": {
+    "message": "下一组站点"
+  },
+  "recoveryRange": {
+    "message": "站点记录 $1–$2，共 $3 条"
+  },
+  "recoveryDownload": {
+    "message": "下载调查 JSON"
+  },
+  "recoveryExportUnavailable": {
+    "message": "此记录无法导出调查文件。"
+  },
+  "recoveryDownloadRequested": {
+    "message": "已请求下载私密调查 JSON，请检查下载记录。此文件不能直接作为恢复备份导入。"
+  },
+  "recoveryDownloadFailed": {
+    "message": "无法生成调查下载文件。未更改任何已保存数据，请重新检查后再试。"
+  },
+  "recoveryPreviewFailed": {
+    "message": "无法预览此检查记录，请重新检查后再试。"
+  },
+  "recoveryErrorRead": {
+    "message": "无法读取本地记录。请保留原页面并重试「重新检查」。这不代表数据已删除。"
+  },
+  "recoveryErrorChanged": {
+    "message": "检查期间本地记录发生了变化，未显示该次读取结果。请重新检查以获取新快照。"
+  },
+  "recoveryErrorSize": {
+    "message": "已达到检查的安全限制，未显示该次读取结果。请保留原页面，未更改任何已保存数据。"
+  },
+  "recoveryErrorInvalid": {
+    "message": "无法校验本地记录。请保留原页面，未更改任何已保存数据。"
+  },
+  "recoveryErrorUnavailable": {
+    "message": "只读检查暂不可用。请保留原页面，未更改任何已保存数据。"
+  },
+  "recoveryDiagnosticCode": {
+    "message": "检查代码"
+  },
+  "recoveryWarningInvalid": {
+    "message": "部分来源数据无法校验。"
+  },
+  "recoveryWarningUnknown": {
+    "message": "调查预览和文件会省略无法识别的字段。"
+  },
+  "recoveryWarningInvalidFields": {
+    "message": "无效字段已省略，部分站点记录可能不完整。"
+  },
+  "recoveryWarningPrivate": {
+    "message": "私密或不受支持的字段已省略，这不是完整备份。"
+  },
+  "recoveryWarningSize": {
+    "message": "由于安全限制，部分数据无法检查或导出。"
+  },
+  "recoveryWarningChain": {
+    "message": "更深层嵌套的恢复副本超出本次检查的安全限制。"
+  },
+  "recoveryWarningRegistry": {
+    "message": "无法校验工作区目录，工作区归属可能不确定。"
+  },
+  "recoveryWarningBundle": {
+    "message": "本次读取未找到预期的工作区数据包，这不代表它已删除。"
+  },
+  "recoveryWarningUnverified": {
+    "message": "来源未经核验，不保证能够恢复。"
+  },
+  "recoveryWarningChecksumMissing": {
+    "message": "缺少可用的校验和，无法进行该项验证。"
+  },
+  "recoveryWarningChecksumFailed": {
+    "message": "记录的校验和不匹配，此副本未通过完整性校验。"
+  },
+  "recoveryWarningTime": {
+    "message": "没有可信的记录时间。"
+  },
+  "recoveryWarningContentDiffers": {
+    "message": "保留的不同格式副本内容不一致，请分别检查。"
+  },
+  "recoveryWarningCredentialUrl": {
+    "message": "包含可识别凭据的网址已从调查预览和文件中省略。"
+  },
+  "recoveryWarningGeneric": {
+    "message": "部分数据无法完整检查或已被省略，这不是完整的恢复备份。"
+  },
+  "spacesInspectRecovery": {
+    "message": "查看本地副本（只读）"
+  },
+  "recoveryPreviewTruncated": {
+    "message": "较长的标题或网址在此仅显示前 4,000 个字符，调查 JSON 会完整保留允许导出的字段原值。"
+  },
+  "recoveryWarningVersion": {
+    "message": "无法识别此配置的存储版本，恢复兼容性未知。"
+  },
+  "recoveryWarningFormat": {
+    "message": "无法识别已存记录的格式。这里只展示允许检查的字段。"
+  }
 }

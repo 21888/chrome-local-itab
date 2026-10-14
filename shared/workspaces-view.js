@@ -20,7 +20,7 @@
         Error: 'Could not confirm the action. Check the current list before trying again. Your draft is still here.',
         LoadError: 'Could not load workspaces. Your current page is unchanged.', Retry: 'Refresh list', NameError: 'Enter a workspace name with 1–80 characters.',
         Unavailable: 'Workspace unavailable', LoadHelp: 'The workspace could not be opened. This error does not confirm that saved content was deleted. Do not reset storage or reinstall. Copy or export any drafts, then try opening a new tab.',
-        DiagnosticCode: 'Error code',
+        DiagnosticCode: 'Error code', InspectRecovery: 'Inspect saved copies (read-only)',
         DraftTitle: 'Before changing workspaces', DraftHelp: 'This page has unsaved drafts or open reviews. Save supported edits, finish the open editor, or explicitly discard them. Nothing is saved during unload.',
         SaveSwitch: 'Save and switch', DiscardSwitch: 'Discard drafts and switch', SaveIncomplete: 'Some edits need attention in their original editor. Stay here to finish or export them, or choose Discard drafts and switch.',
         SaveFailed: 'Could not save every draft. This page and its drafts are still here. Stay here to review the error.',
@@ -48,6 +48,11 @@
             el.addEventListener('keydown', event => { if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault(); });
             el.addEventListener('click', event => { if (!el.disabled && !closed) action(event); }); return el;
         };
+        function inspectionLink(parent) {
+            const link = create('a', 'spaces-manage', t('InspectRecovery'), parent);
+            link.href = root.chrome?.runtime?.getURL?.('recovery.html') || 'recovery.html';
+            link.target = '_blank'; link.rel = 'noopener'; return link;
+        }
         const bar = switcher || create('div', 'workspace-bar', undefined, managerHost);
         const switchButton = button('Loading', () => showPicker(), bar, 'spaces-switch'); switchButton.setAttribute('aria-haspopup', 'dialog');
         const pinned = create('span', 'spaces-pinned', t('Pinned'), bar);
@@ -60,11 +65,13 @@
         const diagnostic = create('p', 'spaces-help', '', loadBanner);
         create('p', 'spaces-help', t('ExportHelp'), loadBanner);
         button('ExportDrafts', exportDrafts, loadBanner);
+        inspectionLink(loadBanner);
         const legacyBanner = create('section', 'spaces-invalid spaces-legacy', undefined, bar); legacyBanner.hidden = true; legacyBanner.setAttribute('role','alert');
         create('p', '', t('LegacyConflict'), legacyBanner);
         const recoveryDownload = button('LegacyDownload', exportLegacyRecovery, legacyBanner);
         const recoveryReview = button('LegacyReview', reviewLegacyRecovery, legacyBanner);
         button('ExportDrafts', exportDrafts, legacyBanner);
+        inspectionLink(legacyBanner);
         let list, trash, createButton, retry;
         if (managerHost) {
             create('h2', 'section-title', t('Title'), managerHost);

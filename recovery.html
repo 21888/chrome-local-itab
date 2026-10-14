@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="description" content="Read-only inspection of saved local copies in Local iTab.">
+    <title data-i18n="recoveryPageTitle">Read-only recovery inspection · Local iTab</title>
+    <link rel="stylesheet" href="recovery.css">
+</head>
+<body>
+    <a class="recovery-skip" href="#recovery-main" data-i18n="recoverySkip">Skip to inspection</a>
+    <main id="recovery-main" class="recovery-page" tabindex="-1">
+        <header class="recovery-header">
+            <p class="recovery-eyebrow">Local iTab <span data-i18n="recoveryReadOnly">Read-only · On this device</span></p>
+            <h1 data-i18n="recoveryTitle">Inspect saved local copies</h1>
+            <p class="recovery-lead" data-i18n="recoveryIntro">Look for retained site records even when a workspace cannot open. This page reads local storage independently; it does not save, restore, overwrite, sync or clear anything.</p>
+        </header>
+        <aside class="recovery-notice" aria-labelledby="recovery-safety-title">
+            <h2 id="recovery-safety-title" data-i18n="recoverySafetyTitle">Keep the original page and its drafts open</h2>
+            <p data-i18n="recoverySafetyHelp">Not finding a copy does not prove that content was deleted. Unverified records do not guarantee recovery. Do not reset storage or reinstall while investigating.</p>
+            <p id="recovery-download-help" data-i18n="recoveryPrivateHelp">Downloads are private investigation JSON files. They can contain saved text, site titles and full URLs with private query parameters. They are not recovery backups that can be imported directly. Review a file before sharing it.</p>
+        </aside>
+        <section id="recovery-inspection" aria-label="Local storage inspection" data-i18n-aria-label="recoveryInspectionLabel"></section>
+        <noscript>This inspection needs JavaScript. Keep your original page open; this page has not changed any saved data.</noscript>
+        <footer class="recovery-footer"><p data-i18n="recoveryFootnote">Only a read-only snapshot of supported local records is inspected. No cloud copy is fetched. Site previews are plain text; site links and images are never opened.</p></footer>
+    </main>
+    <script src="i18n.js"></script>
+    <script src="shared/recovery-inspector.js"></script>
+    <script src="recovery.js"></script>
+</body>
+</html>

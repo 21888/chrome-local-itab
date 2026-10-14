@@ -6322,5 +6322,266 @@
   "spacesDiagnosticCode": {
     "message": "Error code"
   },
-  "syncSafetyReview": {"message": "Automatic full-copy Sync replacement is temporarily paused to protect saved data. Preview the cloud copy, then explicitly choose a backed-up replacement. Your saved data and this device’s enabled preference stay unchanged."}
+  "syncSafetyReview": {"message": "Automatic full-copy Sync replacement is temporarily paused to protect saved data. Preview the cloud copy, then explicitly choose a backed-up replacement. Your saved data and this device’s enabled preference stay unchanged."},
+  "recoveryPageTitle": {
+    "message": "Read-only recovery inspection · Local iTab"
+  },
+  "recoveryEntry": {
+    "message": "Inspect saved copies (read-only)"
+  },
+  "recoverySkip": {
+    "message": "Skip to inspection"
+  },
+  "recoveryReadOnly": {
+    "message": "Read-only · On this device"
+  },
+  "recoveryTitle": {
+    "message": "Inspect saved local copies"
+  },
+  "recoveryIntro": {
+    "message": "Look for retained site records even when a workspace cannot open. This page reads local storage independently; it does not save, restore, overwrite, sync or clear anything."
+  },
+  "recoverySafetyTitle": {
+    "message": "Keep the original page and its drafts open"
+  },
+  "recoverySafetyHelp": {
+    "message": "Not finding a copy does not prove that content was deleted. Unverified records do not guarantee recovery. Do not reset storage or reinstall while investigating."
+  },
+  "recoveryPrivateHelp": {
+    "message": "Downloads are private investigation JSON files. They can contain saved text, site titles and full URLs with private query parameters. They are not recovery backups that can be imported directly. Review a file before sharing it."
+  },
+  "recoveryInspectionLabel": {
+    "message": "Local storage inspection"
+  },
+  "recoveryFootnote": {
+    "message": "Only a read-only snapshot of supported local records is inspected. No cloud copy is fetched. Site previews are plain text; site links and images are never opened."
+  },
+  "recoveryResults": {
+    "message": "Saved local copies"
+  },
+  "recoveryRefresh": {
+    "message": "Refresh inspection"
+  },
+  "recoveryLoading": {
+    "message": "Reading supported local records…"
+  },
+  "recoveryReady": {
+    "message": "Inspection finished. Select a copy to preview its site records or download investigation JSON."
+  },
+  "recoveryEmpty": {
+    "message": "No supported saved copies were found in this inspection. This does not prove that your content was deleted."
+  },
+  "recoveryInspectedAt": {
+    "message": "Inspected at (this device’s time)"
+  },
+  "recoveryUnknown": {
+    "message": "Unknown"
+  },
+  "recoveryRecordedAt": {
+    "message": "Recorded time (this device’s time)"
+  },
+  "recoveryMigrationTime": {
+    "message": "Migration time (this device’s time)"
+  },
+  "recoveryBackupTime": {
+    "message": "Backup time (this device’s time)"
+  },
+  "recoverySiteCount": {
+    "message": "Site records"
+  },
+  "recoveryUnknownCount": {
+    "message": "Unknown · missing or unreadable"
+  },
+  "recoveryChecked": {
+    "message": "Checks passed"
+  },
+  "recoveryUnverified": {
+    "message": "Not verified"
+  },
+  "recoveryFailed": {
+    "message": "Checks failed"
+  },
+  "recoveryValidationHelp": {
+    "message": "Checks describe this saved record only. They do not confirm that it can be restored."
+  },
+  "recoveryWorkspace": {
+    "message": "Workspace label"
+  },
+  "recoveryWorkspaceId": {
+    "message": "Workspace ID"
+  },
+  "recoveryAttribution": {
+    "message": "Workspace attribution"
+  },
+  "recoveryAttributionVerified": {
+    "message": "Verified against the inspected registry"
+  },
+  "recoveryAttributionUnverified": {
+    "message": "Unverified"
+  },
+  "recoveryTrash": {
+    "message": "Listed in Trash in this saved record"
+  },
+  "recoveryRepresentation": {
+    "message": "Record format"
+  },
+  "recoveryConfiguration": {
+    "message": "Configuration copy"
+  },
+  "recoveryRaw": {
+    "message": "Retained raw copy"
+  },
+  "recoveryPortable": {
+    "message": "Portable copy"
+  },
+  "recoveryDepth": {
+    "message": "Nested copy depth"
+  },
+  "recoverySourcePreMigration": {
+    "message": "Before workspace migration"
+  },
+  "recoverySourceLegacy": {
+    "message": "Previous local storage format"
+  },
+  "recoverySourceWorkspace": {
+    "message": "Workspace copy"
+  },
+  "recoverySourceBeforeCloudReplacement": {
+    "message": "Before cloud replacement"
+  },
+  "recoverySourceBeforeCloudClear": {
+    "message": "Cloud copy retained before clearing"
+  },
+  "recoverySourceIdentityRecovery": {
+    "message": "Layout identity recovery copy"
+  },
+  "recoverySourceRecovery": {
+    "message": "Retained recovery copy"
+  },
+  "recoverySourceUnknown": {
+    "message": "Other retained local copy"
+  },
+  "recoveryPreview": {
+    "message": "Preview site text"
+  },
+  "recoveryHidePreview": {
+    "message": "Hide site text"
+  },
+  "recoveryPreviewTitle": {
+    "message": "Site records · text only"
+  },
+  "recoveryPreviewHelp": {
+    "message": "Original order and duplicate records are retained. Missing fields are labelled; icons and site links are never loaded."
+  },
+  "recoveryPreviewUnavailable": {
+    "message": "Site records could not be read from this copy. That is not a count of zero."
+  },
+  "recoveryNoSites": {
+    "message": "This copy contains an empty site-record array."
+  },
+  "recoveryMissingTitle": {
+    "message": "[Title field missing]"
+  },
+  "recoveryMissingUrl": {
+    "message": "[URL field missing]"
+  },
+  "recoveryPrevious": {
+    "message": "Previous sites"
+  },
+  "recoveryNext": {
+    "message": "Next sites"
+  },
+  "recoveryRange": {
+    "message": "Site records $1–$2 of $3"
+  },
+  "recoveryDownload": {
+    "message": "Download investigation JSON"
+  },
+  "recoveryExportUnavailable": {
+    "message": "Investigation export is unavailable for this record."
+  },
+  "recoveryDownloadRequested": {
+    "message": "Private investigation JSON download requested. Check your downloads. This file cannot be imported directly as a recovery backup."
+  },
+  "recoveryDownloadFailed": {
+    "message": "Could not prepare the investigation download. No saved data was changed. Refresh the inspection before trying again."
+  },
+  "recoveryPreviewFailed": {
+    "message": "Could not preview this inspected record. Refresh the inspection before trying again."
+  },
+  "recoveryErrorRead": {
+    "message": "Local records could not be read. Keep the original page open and try Refresh inspection. This does not prove that data was deleted."
+  },
+  "recoveryErrorChanged": {
+    "message": "Local records changed during inspection. No result from that read is shown. Refresh to inspect a new snapshot."
+  },
+  "recoveryErrorSize": {
+    "message": "The inspection safety limit was reached. No result from that read is shown. Keep your original page open; no saved data was changed."
+  },
+  "recoveryErrorInvalid": {
+    "message": "The inspection could not validate the local records. Keep your original page open; no saved data was changed."
+  },
+  "recoveryErrorUnavailable": {
+    "message": "Read-only inspection is unavailable. Keep your original page open; no saved data was changed."
+  },
+  "recoveryDiagnosticCode": {
+    "message": "Inspection code"
+  },
+  "recoveryWarningInvalid": {
+    "message": "Some source data could not be validated."
+  },
+  "recoveryWarningUnknown": {
+    "message": "Unrecognized fields are omitted from the investigation view and file."
+  },
+  "recoveryWarningInvalidFields": {
+    "message": "Invalid fields are omitted. Some site records may be incomplete."
+  },
+  "recoveryWarningPrivate": {
+    "message": "Private or unsupported fields are omitted. This is not a complete backup."
+  },
+  "recoveryWarningSize": {
+    "message": "A safety limit prevents inspection or export of some data."
+  },
+  "recoveryWarningChain": {
+    "message": "Deeper nested recovery copies are outside this inspection’s safety limit."
+  },
+  "recoveryWarningRegistry": {
+    "message": "The workspace registry could not be validated. Workspace attribution may be uncertain."
+  },
+  "recoveryWarningBundle": {
+    "message": "An expected workspace bundle was not found in this read. This does not prove deletion."
+  },
+  "recoveryWarningUnverified": {
+    "message": "The source has not been verified. Recovery is not guaranteed."
+  },
+  "recoveryWarningChecksumMissing": {
+    "message": "No usable checksum was available for verification."
+  },
+  "recoveryWarningChecksumFailed": {
+    "message": "The recorded checksum did not match. The copy has not passed integrity checks."
+  },
+  "recoveryWarningTime": {
+    "message": "No trustworthy record time is available."
+  },
+  "recoveryWarningContentDiffers": {
+    "message": "Retained representations contain different content. Inspect each separately."
+  },
+  "recoveryWarningCredentialUrl": {
+    "message": "URLs containing recognized credentials are omitted from the investigation view and file."
+  },
+  "recoveryWarningGeneric": {
+    "message": "Some data could not be fully inspected or was omitted. This is not a complete recovery backup."
+  },
+  "spacesInspectRecovery": {
+    "message": "Inspect saved copies (read-only)"
+  },
+  "recoveryPreviewTruncated": {
+    "message": "Long title or URL text is shortened to the first 4,000 characters here. Investigation JSON keeps allowed field values in full."
+  },
+  "recoveryWarningVersion": {
+    "message": "The stored configuration version is not recognized. Recovery compatibility is unknown."
+  },
+  "recoveryWarningFormat": {
+    "message": "The stored record format is not recognized. Only allowed fields are shown for investigation."
+  }
 }
