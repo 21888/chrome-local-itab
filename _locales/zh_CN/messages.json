@@ -3902,6 +3902,27 @@
   "organizerEmpty": {
     "message": "暂无已保存网站。"
   },
+  "organizerSearch": {
+    "message": "搜索已保存网站"
+  },
+  "organizerSearchPlaceholder": {
+    "message": "标题、网址或来源分类"
+  },
+  "organizerClearSearch": {
+    "message": "清除搜索"
+  },
+  "organizerSearchHelp": {
+    "message": "搜索仅筛选当前列表。预览移动会包含全部已选网站，包括被搜索隐藏的条目。"
+  },
+  "organizerMatches": {
+    "message": "匹配网站"
+  },
+  "organizerHiddenSelected": {
+    "message": "隐藏的已选网站"
+  },
+  "organizerNoMatches": {
+    "message": "没有与搜索匹配的已保存网站。"
+  },
   "organizerOpen": {
     "message": "整理已保存网站"
   },

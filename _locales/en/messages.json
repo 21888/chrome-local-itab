@@ -3902,6 +3902,27 @@
   "organizerEmpty": {
     "message": "No saved sites."
   },
+  "organizerSearch": {
+    "message": "Search saved sites"
+  },
+  "organizerSearchPlaceholder": {
+    "message": "Title, URL or source category"
+  },
+  "organizerClearSearch": {
+    "message": "Clear search"
+  },
+  "organizerSearchHelp": {
+    "message": "Search only filters this list. Review includes all selected sites, even hidden ones."
+  },
+  "organizerMatches": {
+    "message": "Matching sites"
+  },
+  "organizerHiddenSelected": {
+    "message": "Hidden selected sites"
+  },
+  "organizerNoMatches": {
+    "message": "No saved sites match this search."
+  },
   "organizerOpen": {
     "message": "Organize saved sites"
   },

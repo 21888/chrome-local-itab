@@ -13,3 +13,10 @@
 
 .organizer-panel { box-sizing: border-box; max-height: 90dvh; }
 .organizer-row strong, .organizer-list strong { white-space: pre-wrap; }
+
+.organizer-search-row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.organizer-search-label { flex: 1 1 250px; min-width: 0; }
+.organizer-search-input { display: block; box-sizing: border-box; width: 100%; min-width: 0; font: inherit; margin-top: 6px; padding: 9px 12px; border: 1px solid #8792a577; border-radius: 8px; background: transparent; color: inherit; }
+.organizer-search-row button { margin: 0; }
+.organizer-search-help { font-size: .85rem; opacity: .8; }
+.organizer-count { overflow-wrap: anywhere; }

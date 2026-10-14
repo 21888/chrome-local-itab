@@ -13,12 +13,12 @@ function model() {
     const button=text=>document.querySelectorAll('button').find(b=>b.textContent===text);
     const click=text=>button(text).dispatch('click',{detail:1});
     return {document,host,component,context,view,snapshot,button,click,beforeUnload,get calls(){return calls;},get request(){return request;},get reads(){return reads;},set write(v){write=v;},set read(v){read=v;},
-        select(){const select=document.querySelector('select');select.value='personal';select.dispatch('change');const checks=document.querySelectorAll('input');checks[1].checked=true;checks[1].dispatch('change');},
+        select(){const select=document.querySelector('select');select.value='personal';select.dispatch('change');const checks=document.querySelectorAll('input').filter(input => input.type === 'checkbox');checks[1].checked=true;checks[1].dispatch('change');},
         async review(){await view.open();this.select();click('Review move');}};
 }
 test('selection and exact escaped review target only chosen identical twin; cancel writes nothing',async()=>{
     const h=model();await h.review();assert.equal(h.calls,0);assert.equal(h.document.querySelectorAll('li').length,1);assert.equal(h.document.querySelector('li').querySelector('strong').textContent,'2. <b>Twin</b>');assert.equal(h.document.querySelectorAll('b').length,0);
-    h.click('Back');assert.equal(h.document.querySelectorAll('input')[1].checked,true);h.click('Review move');h.click('Cancel');assert.equal(h.calls,0);assert.equal(h.view.hasUncommittedWork(),false);
+    h.click('Back');assert.equal(h.document.querySelectorAll('input').filter(input => input.type === 'checkbox')[1].checked,true);h.click('Review move');h.click('Cancel');assert.equal(h.calls,0);assert.equal(h.view.hasUncommittedWork(),false);
 });
 test('pending guarded submit ignores repeats, prevents cancellation and protects workspace departure',async()=>{
     const h=model(),pending=deferred();h.write=pending;await h.review();h.click('Move reviewed sites');h.click('Move reviewed sites');assert.equal(h.calls,1);assert.equal(h.view.close(),false);assert.equal(h.view.pending,true);assert.equal(h.context.LocalItabContentLifecycle.pending(),true);
@@ -32,13 +32,13 @@ test('stale destination and workspace errors do not offer another mutation',asyn
     for(const code of ['ORGANIZER_CONFLICT','WORKSPACE_STALE']) {const h=model();h.component.moveReviewedShortcuts=async()=>{const e=new Error();e.code=code;throw e;};await h.review();h.click('Move reviewed sites');await tick();assert.equal(h.button('Retry reviewed move').disabled,true);h.click('Cancel');assert.equal(h.view.hasUncommittedWork(),false);}
 });
 test('cancelled delayed read cannot reopen or overwrite newer organizer session',async()=>{
-    const h=model(),read=deferred();h.read=read;const first=h.view.open();await tick();h.click('Cancel');assert.equal(h.view.hasUncommittedWork(),false);h.read=null;await h.view.open();h.select();read.resolve({links:[],categories:[],state:{}});await first;assert.equal(h.document.querySelectorAll('input').length,2);assert.equal(h.document.querySelectorAll('input')[1].checked,true);
+    const h=model(),read=deferred();h.read=read;const first=h.view.open();await tick();h.click('Cancel');assert.equal(h.view.hasUncommittedWork(),false);h.read=null;await h.view.open();h.select();read.resolve({links:[],categories:[],state:{}});await first;assert.equal(h.document.querySelectorAll('input').filter(input => input.type === 'checkbox').length,2);assert.equal(h.document.querySelectorAll('input').filter(input => input.type === 'checkbox')[1].checked,true);
 });
 test('read error permits close and subsequent successful open',async()=>{
     const h=model();h.context.storageManager.readShortcutOrganizerSnapshot=async()=>{throw new Error();};await h.view.open();assert.match(h.document.querySelector('[role="status"]').textContent,/Could not read/);h.click('Cancel');assert.equal(h.view.pending,false);
 });
 test('destination change removes no-op selections and orphan group stays readable',async()=>{
-    const h=model();await h.view.open();assert(h.document.querySelectorAll('h3').some(n=>n.textContent.includes('orphan')));const input=h.document.querySelector('input');input.checked=true;input.dispatch('change');let select=h.document.querySelector('select');select.value='work';select.dispatch('change');assert.equal(h.document.querySelector('input').checked,false);assert.equal(h.document.querySelector('input').disabled,true);assert.equal(h.button('Review move').disabled,true);
+    const h=model();await h.view.open();assert(h.document.querySelectorAll('h3').some(n=>n.textContent.includes('orphan')));const input=h.document.querySelectorAll('input').find(input => input.type === 'checkbox');input.checked=true;input.dispatch('change');let select=h.document.querySelector('select');select.value='work';select.dispatch('change');assert.equal(h.document.querySelectorAll('input').find(input => input.type === 'checkbox').checked,false);assert.equal(h.document.querySelectorAll('input').find(input => input.type === 'checkbox').disabled,true);assert.equal(h.button('Review move').disabled,true);
 });
 test('open review defers automatic reload and never saves on workspace Save action',async()=>{
     const h=model();await h.review();assert.equal(h.context.LocalItabContentLifecycle.hasUncommittedWork(),true);assert.equal(await h.context.LocalItabContentLifecycle.saveDrafts(),false);assert.equal(h.calls,0);

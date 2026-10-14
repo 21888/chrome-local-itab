@@ -2,6 +2,14 @@
 
 Open **Organize saved sites** beside Find saved sites, or from a category’s context menu. Choose individual saved records and an existing destination category. Review the exact count, title, full URL and source for each selected occurrence, then choose **Move reviewed sites**. **Cancel** and **Back** do not write. Orphaned source categories remain visible by their saved identifier. Sites already in the destination cannot be selected.
 
+## Search within the current organizer
+
+**Search saved sites** filters the current snapshot by title, full URL or displayed source category name. An orphaned category uses its saved identifier. Matching is a literal substring after Unicode NFKC, case and whitespace folding; it does not use regular expressions, split the query into tokens, or search hidden record properties. Empty or whitespace-only searches show the original grouped list. Original record numbers and order remain unchanged, including identical title/URL occurrences.
+
+The summary shows matching sites out of all saved sites, all selected sites, and selected sites hidden by the search. Selections and destination stay in place while searching. **Review move** always includes all selected occurrences, even if the current search matches none. **Back** restores the query, selections and destination. **Clear search** only clears the query and returns focus to the same search field. Choosing another destination still removes selections that are already in that category, including hidden selections.
+
+Search is temporary, local view state. It makes no additional storage reads, writes, permission requests or network calls. Canceling or closing discards it; reopening starts with an empty query, selection and destination. The search field stays mounted while typing and composing with an IME. Detached controls, previous dialog sessions and controls behind a pending reviewed move cannot change the active selection.
+
 This is separate from the read-only Finder. The organizer never launches URLs, creates/removes categories, reorders sites, allocates IDs, or migrates coordinate maps. Legacy missing IDs and identical title/URL twins are distinguished by the reviewed index within a fully compared snapshot. Every property except selected records’ category is preserved.
 
 ## Transaction and interruption guarantees
@@ -14,7 +22,7 @@ This is separate from the read-only Finder. The organizer never launches URLs, c
 
 ## Verification
 
-Focused Node suites: `tests/shortcut-organizer-storage.test.js`, `tests/shortcut-organizer-view.test.js`, `tests/shortcut-organizer-integration.test.js`. Storage tests compare entire before/after objects, including unknown fields and coordinate maps. View tests use a DOM model; they do not prove browser-native layout or keyboard behavior. Native extension QA and the serialized aggregate suite remain required release gates.
+Focused Node suites: `tests/shortcut-organizer-storage.test.js`, `tests/shortcut-organizer-view.test.js`, `tests/shortcut-organizer-integration.test.js`, `tests/shortcut-organizer-search.test.js`. Storage tests compare entire before/after objects, including unknown fields and coordinate maps. View tests use a DOM model; they do not prove browser-native layout or keyboard behavior. Native extension QA and the serialized aggregate suite remain required release gates.
 
 ## Integrated verification — version 1.1.45
 
