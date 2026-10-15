@@ -260,6 +260,8 @@ Open **AI context Q&A** from the new tab, enter a question and optionally select
 
 To use a model inside the extension, configure your own connection and separately review the complete request, allow endpoint access and explicitly send it. Local review does not replace these steps; providers may charge. Save an answer explicitly, or preview every extracted task before confirming its addition to Tasks. Tasks are never executed automatically. [Workflow and privacy](docs/ai-context-workflow.md)
 
+For tasks returned by an external AI website, choose **Draft tasks for review** → **Review external task JSON**. Paste plain `{"tasks":["one task"]}` JSON, explicitly load it, select the tasks, review the exact list and confirm adding it. No connection or key is required. Loading and reviewing do not send or save anything; only final confirmation writes tasks. The result is marked manually pasted and cannot be saved as an answer or source snapshot. [Limits and safe replacement](docs/ai-context-external-tasks.md).
+
 In the AI context panel, explicitly choose **Copy answer** or **Copy task JSON** to copy only the currently displayed response. No question, source snapshot, endpoint or key fields are appended. An earlier answer stays copyable after request edits, with its previous-request label intact. Copying does not save anything or change task review; if blocked, select the response text and copy manually. Responses may repeat private input, so inspect the text before copying.
 
 ### New tab and everyday tools

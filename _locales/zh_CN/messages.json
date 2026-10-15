@@ -7096,5 +7096,35 @@
   },
   "recoveryClosureCurrentInvestigation": {
     "message": "此决定时保存的配置仅用于调查，并未作为支持的恢复文件格式保留。仅归档指纹匹配不能使其成为可导入文件。"
+  },
+  "aiContextExternalTasks": {
+    "message": "审阅外部任务 JSON"
+  },
+  "aiContextExternalTasksHelp": {
+    "message": "粘贴你所用 AI 服务返回的纯 JSON：{\"tasks\":[\"任务一\",\"任务二\"]}。只能有一个 tasks 字段，包含 1–50 条非空单行文本；每条最多 1,000 个 UTF-16 单位，整个 JSON 最多 32,000 个单位。不接受代码围栏或额外字段。载入仅供本地审阅，不会读取剪贴板、发送、保存或执行任何内容。"
+  },
+  "aiContextExternalTasksInput": {
+    "message": "待载入的外部任务 JSON"
+  },
+  "aiContextExternalTasksResponse": {
+    "message": "外部任务 JSON（手动粘贴，未经核实；审阅前可编辑）"
+  },
+  "aiContextExternalTasksProvenance": {
+    "message": "这些任务由你从外部手动粘贴，扩展未发送请求，也未核实其来源。任务与上方的问题、所选摘录或连接没有关联。审阅并确认后，仅添加所选任务的文本。"
+  },
+  "aiContextExternalTasksLoad": {
+    "message": "载入任务 JSON 供审阅"
+  },
+  "aiContextExternalTasksReplace": {
+    "message": "载入这份外部 JSON，并替换当前未保存的回复或未完成的草稿？取消将保留当前回复和已粘贴的 JSON。问题和摘录保持不变。"
+  },
+  "aiContextExternalTasksLoaded": {
+    "message": "外部任务 JSON 已在本地载入。请选择任务、审阅所选列表，然后确认添加。未发送请求，也未保存任何内容。"
+  },
+  "aiContextExternalTasksDiscard": {
+    "message": "清空这份草稿，包括已粘贴的外部任务 JSON 和当前回复？"
+  },
+  "aiContextExternalTasksInvalid": {
+    "message": "未载入已粘贴的 JSON。请仅使用 {\"tasks\":[\"任务一\"]} 格式，包含 1–50 条非空单行文本，每条最多 1,000 个 UTF-16 单位，总计最多 32,000 个单位。请去除代码围栏和额外字段。已粘贴的文本和原回复均已保留。"
   }
 }

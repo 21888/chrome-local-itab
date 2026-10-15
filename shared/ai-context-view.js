@@ -154,10 +154,19 @@
         localStatus.setAttribute('role', 'status'); localStatus.setAttribute('aria-live', 'polite');
         let localCopy = null;
         const status = el('p', 'ai-context-status'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-        const outputLabel = el('label', 'ai-context-field', label('Response', 'Model response (unverified text; task JSON can be edited before review)'));
+        const outputLabel = el('label', 'ai-context-field'), outputHeading = el('span'); outputLabel.append(outputHeading);
         const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
         const output = el('textarea'); output.rows = 8; output.maxLength = 32000; outputLabel.append(output); outputLabel.hidden = true;
         resultPane.append(previousResult, outputLabel);
+        const externalPanel = el('details', 'ai-context-external-tasks'); externalPanel.hidden = true;
+        externalPanel.append(summary('ExternalTasks', 'Review external task JSON'),
+            el('p', '', label('ExternalTasksHelp', 'Paste plain JSON from your chosen AI service: {"tasks":["one task","another task"]}. Use exactly one tasks field, 1–50 nonempty single-line strings, at most 1,000 UTF-16 units per task and 32,000 in the JSON. Code fences and extra fields are not accepted. Loading only prepares a local review; it does not read the clipboard, send, save or execute anything.')));
+        const externalLabel = el('label', 'ai-context-field', label('ExternalTasksInput', 'External task JSON to load'));
+        // Do not set maxlength: native paste truncation could turn an oversized
+        // response into different valid JSON. The explicit parser rejects it whole.
+        const externalInput = el('textarea', 'ai-context-external-input'); externalInput.rows = 6; externalInput.spellcheck = false; externalInput.autocomplete = 'off';
+        externalInput.placeholder = '{"tasks":["one task","another task"]}'; externalLabel.append(externalInput); externalPanel.append(externalLabel);
+        let externalEpoch = 0;
         let answerReader = null, readerResult = null;
         const readerHost = el('div'); resultPane.append(readerHost);
         function updateAnswerReader() {
@@ -223,6 +232,9 @@
         let disposed = false, pending = false, titleEdited = false, copying = false, copyGeneration = 0;
         const copyStatus = el('p', 'ai-context-copy-status'); copyStatus.tabIndex = -1; copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
         const error = code => {
+            if (code === 'EXTERNAL_TASK_FORMAT') {
+                status.textContent = label('ExternalTasksInvalid', 'The pasted JSON was not loaded. Use only {"tasks":["one task"]}, with 1–50 nonempty single-line strings, at most 1,000 UTF-16 units each and 32,000 total. Remove code fences and extra fields. Your pasted text and previous response are kept.'); return;
+            }
             if (controller.saveCommand && controller.saveUncertain) {
                 status.textContent = label('UncertainAnswer', 'The earlier answer save is unconfirmed. Use “Check earlier save” to check its receipt without writing or contacting the provider. Missing or unreadable evidence keeps this draft locked; the original operation, title and snapshot choice stay unchanged.'); return;
             }
@@ -332,6 +344,9 @@
             updatePromptPicker();
             updateCollectionSelection();
             const focused = doc.activeElement, busy = pending || controller.busy || presetPending, retry = Boolean(controller.taskCommand || controller.saveCommand);
+            externalPanel.hidden = mode.value !== 'tasks';
+            externalInput.disabled = busy || retry;
+            loadExternal.disabled = busy || retry || externalPanel.hidden || !externalInput.value.trim() || doc.visibilityState === 'hidden';
             for (const input of controls) input.disabled = busy || retry;
             stream.disabled = busy || retry || mode.value !== 'answer';
             streamLabel.hidden = streamHelp.hidden = mode.value !== 'answer';
@@ -355,7 +370,13 @@
             resultPane.hidden = !controller.result || Boolean(controller.partial);
             updateAnswerReader();
             updateCopy();
-            previousResult.hidden = !controller.result || controller.resultReview === controller.reviewed;
+            const external = controller.result?.provenance === 'external';
+            outputHeading.textContent = external ? label('ExternalTasksResponse', 'External task JSON (manually pasted, unverified; editable before review)') : label('Response', 'Model response (unverified text; task JSON can be edited before review)');
+            previousResult.hidden = !controller.result || (!external && controller.resultReview === controller.reviewed);
+            previousResult.textContent = external
+                ? label('ExternalTasksProvenance', 'Manually pasted external tasks. The extension did not send a request or verify their origin. These tasks are not linked to the question, selected excerpts or connection shown above. Only the selected task text is added after review and confirmation.')
+                : label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.');
+            save.hidden = answerTitle.parentElement.hidden = external;
             contextSave.hidden = !controller.result || controller.result.mode !== 'answer';
             includeContext.disabled = busy || retry || controller.saved;
             contextPreview.hidden = !includeContext.checked || contextSave.hidden;
@@ -723,6 +744,29 @@
             void action(async () => { if (!await permission) throw Error('Permission denied'); }, ['Allowed', 'Endpoint access allowed. This has not sent a request.']);
         });
         const confirmDiscard = key => !controller.result || controller.saved || Boolean(root.confirm?.(key === 'ReplaceResult' ? label('ReplaceResult', 'Send a new request? A successful response will replace this unsaved response. Cancel to keep it and save or add its tasks first.') : label('DiscardResult', 'Clear this draft and discard its unsaved response?')));
+        const loadExternal = button('ExternalTasksLoad', 'Load task JSON for review', () => {
+            if (selectionBlocked() || externalPanel.hidden || doc.visibilityState === 'hidden' || !box.isConnected) return;
+            const value = externalInput.value, epoch = externalEpoch, draftCurrent = captureDraft();
+            const current = () => !disposed && !controller.closed && box.isConnected && doc.visibilityState !== 'hidden' &&
+                mode.value === 'tasks' && epoch === externalEpoch && externalInput.value === value && draftCurrent();
+            if (((controller.result && !controller.saved) || controller.partial) &&
+                !root.confirm?.(label('ExternalTasksReplace', 'Load this external JSON and replace the current unsaved response or incomplete draft? Cancel keeps both the current response and pasted JSON. Your question and excerpts stay unchanged.'))) return;
+            // Confirmation is not consent to discard edits made while it was open.
+            if (!current() || selectionBlocked()) return;
+            return action(async () => {
+                let result;
+                try { result = await controller.loadExternalTasks(value, { mode: mode.value, replaceUnsaved: true, isCurrent: current }); }
+                catch (reason) {
+                    if (['LIMIT', 'TASK_FORMAT'].includes(reason.code)) throw Object.assign(new Error('Invalid external task JSON'), { code: 'EXTERNAL_TASK_FORMAT' });
+                    throw reason;
+                }
+                if (disposed || controller.closed || controller.result !== result) return;
+                output.value = result.text; externalInput.value = ''; externalEpoch++;
+                includeContext.checked = false; reviewText.hidden = taskList.hidden = true;
+            }, ['ExternalTasksLoaded', 'External task JSON loaded locally. Choose tasks, review the selected list, then confirm to add it. No request was sent and nothing has been saved.']);
+        });
+        externalPanel.append(loadExternal);
+        externalInput.addEventListener('input', () => { externalEpoch++; update(); });
         const send = button('Send', 'Send reviewed request', () => {
             if (pending || presetPending || disposed || controller.busy || !confirmDiscard('ReplaceResult')) return;
             return action(async () => {
@@ -780,7 +824,13 @@
         const verifyTasks = button('VerifyTasks', 'Check existing task batch', () => action(async () => {
             await controller.verifyTaskBatch(); taskList.hidden = true; outputLabel.hidden = true;
         }, ['TasksVerified', 'The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request.']));
-        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand || !confirmDiscard('DiscardResult')) return; closePrompts(); invalidate(true); key.value = ''; output.value = ''; question.value = ''; appliedPromptQuestion = null; answerTitle.value = ''; titleEdited = false;
+        const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand) return;
+            const current = captureDraft();
+            const allowed = externalInput.value
+                ? root.confirm?.(label('ExternalTasksDiscard', 'Clear this draft, including the pasted external task JSON and current response?'))
+                : confirmDiscard('DiscardResult');
+            if (!allowed || !current() || selectionBlocked()) return;
+            closePrompts(); invalidate(true); key.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; question.value = ''; appliedPromptQuestion = null; answerTitle.value = ''; titleEdited = false;
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; row.rawText = row.source.text; } collectionTicket = null; collectionUsed = false; collectionPanel.hidden = true; sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
@@ -791,7 +841,7 @@
         // Keep each control in one DOM location. Disclosure changes presentation only,
         // never the draft, authorization ticket, key lifetime or response ownership.
         resultPane.append(contextSave, taskSelection, taskList, results, copyStatus);
-        questionPane.append(localActions, localPanel, connection, status, partialPanel, resultPane);
+        questionPane.append(localActions, localPanel, externalPanel, connection, status, partialPanel, resultPane);
         workbench.append(sourcesPane, questionPane); box.append(workbench); host.append(box);
         for (const input of [url, model, question, mode, stream]) input.addEventListener(input === mode || input === stream ? 'change' : 'input', () => { if (input === question) appliedPromptQuestion = null; if (input === url || input === model || input === mode || input === stream) key.value = ''; if (input === mode) stream.checked = false; invalidate(); });
         output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
@@ -938,13 +988,13 @@
         // Keep the DOM-normalized source baseline so untouched CRLF excerpts are clean.
         function hasUncommittedWork() {
             return !disposed && Boolean(controller.busy || controller.partial || controller.result || controller.taskCommand || controller.saveCommand ||
-                question.value || collectionTicket || !promptPicker.hidden || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || sourceText(row) !== row.source.text));
+                question.value || externalInput.value || collectionTicket || !promptPicker.hidden || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || sourceText(row) !== row.source.text));
         }
         function captureDraft() {
             // A confirmation cannot authorize discarding edits made while the host awaits readiness.
             const signature = () => JSON.stringify([controls.map(input => [input.value, input.checked]), mode.value, stream.checked,
                 sourceRows.map(row => [row.source.id, row.input.value, row.rawText, row.check.checked]), sourceSearch.value, sourceScope.value, selectedOnly,
-                answerTitle.value, output.value, includeContext.checked, promptPicker.hidden, promptSelect.value, promptSearch.value,
+                answerTitle.value, output.value, externalInput.value, externalEpoch, includeContext.checked, promptPicker.hidden, promptSelect.value, promptSearch.value,
                 promptRows.map(row => [row.name, row.input.value]), promptPreview.textContent, promptEpoch, collectionEpoch]);
             const before = signature(), generation = controller.generation, result = controller.result, reviewed = controller.reviewed, localReview = controller.localReview;
             const taskSelection = controller.taskSelection, taskReview = controller.taskReview;
@@ -952,11 +1002,11 @@
                 localReview === controller.localReview && taskSelection === controller.taskSelection && taskReview === controller.taskReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); update(); } return; }
             if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
-            presetReloadEpoch++; closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
+            externalEpoch++; presetReloadEpoch++; closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);

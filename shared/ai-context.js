@@ -232,6 +232,27 @@
             if (this.partial?.state === 'receiving') this.partial = Object.freeze({ ...this.partial, state: 'stopped' });
             if (this.aborter === aborter) { this.aborter = null; this.busy = false; }
         }
+        async loadExternalTasks(value, { mode, replaceUnsaved = false, isCurrent = () => true } = {}) {
+            check(mode === 'tasks' && typeof isCurrent === 'function', 'STALE');
+            const generation = this.generation, result = this.result, selection = this.taskSelection, review = this.taskReview;
+            const current = () => {
+                this.current(generation);
+                check(!this.busy && !this.taskCommand && !this.saveCommand && this.result === result &&
+                    this.taskSelection === selection && this.taskReview === review && isCurrent() === true, 'STALE');
+            };
+            current();
+            check((!result || this.saved) && !this.partial || replaceUnsaved === true, 'UNSAVED_RESULT');
+            // Parse the exact pasted string before touching the previous response or review.
+            // Reuse the same bounded task contract as provider responses; task-store review
+            // still validates every selected line before creating its existing batch command.
+            const texts = tasks(value);
+            await this.ensureActive(); current();
+            this.edit();
+            this.result = Object.freeze({ text: value, mode: 'tasks', provenance: 'external' });
+            this.resultReview = null; this.saved = false; this.saveUncertain = false;
+            this.taskSelection = Object.freeze({ result: this.result, texts, selected: Object.freeze(texts.map(() => true)) });
+            return this.result;
+        }
         editResult(value) {
             check(this.result && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
             text(value, LIMITS.prompt, true); this.generation++; this.partial = null; this.reviewed = this.localReview = this.taskReview = null;

@@ -7096,5 +7096,35 @@
   },
   "recoveryClosureCurrentInvestigation": {
     "message": "The configuration saved at this decision is investigation-only. It was not retained as a supported recovery-file representation. The archive checksum alone cannot make it importable."
+  },
+  "aiContextExternalTasks": {
+    "message": "Review external task JSON"
+  },
+  "aiContextExternalTasksHelp": {
+    "message": "Paste plain JSON from your chosen AI service: {\"tasks\":[\"one task\",\"another task\"]}. Use exactly one tasks field, 1–50 nonempty single-line strings, at most 1,000 UTF-16 units per task and 32,000 in the JSON. Code fences and extra fields are not accepted. Loading only prepares a local review; it does not read the clipboard, send, save or execute anything."
+  },
+  "aiContextExternalTasksInput": {
+    "message": "External task JSON to load"
+  },
+  "aiContextExternalTasksResponse": {
+    "message": "External task JSON (manually pasted, unverified; editable before review)"
+  },
+  "aiContextExternalTasksProvenance": {
+    "message": "Manually pasted external tasks. The extension did not send a request or verify their origin. These tasks are not linked to the question, selected excerpts or connection shown above. Only the selected task text is added after review and confirmation."
+  },
+  "aiContextExternalTasksLoad": {
+    "message": "Load task JSON for review"
+  },
+  "aiContextExternalTasksReplace": {
+    "message": "Load this external JSON and replace the current unsaved response or incomplete draft? Cancel keeps both the current response and pasted JSON. Your question and excerpts stay unchanged."
+  },
+  "aiContextExternalTasksLoaded": {
+    "message": "External task JSON loaded locally. Choose tasks, review the selected list, then confirm to add it. No request was sent and nothing has been saved."
+  },
+  "aiContextExternalTasksDiscard": {
+    "message": "Clear this draft, including the pasted external task JSON and current response?"
+  },
+  "aiContextExternalTasksInvalid": {
+    "message": "The pasted JSON was not loaded. Use only {\"tasks\":[\"one task\"]}, with 1–50 nonempty single-line strings, at most 1,000 UTF-16 units each and 32,000 total. Remove code fences and extra fields. Your pasted text and previous response are kept."
   }
 }

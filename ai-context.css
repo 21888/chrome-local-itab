@@ -37,7 +37,7 @@
 .ai-context h3 { margin: .25rem 0 .75rem; }
 .ai-context p { overflow-wrap: anywhere; }
 .ai-context button,.ai-context summary { max-width: 100%; overflow-wrap: anywhere; }
-.ai-context-connection,.ai-context-result-pane { margin-block: 1rem; padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .6rem; }
+.ai-context-connection,.ai-context-result-pane,.ai-context-external-tasks { margin-block: 1rem; padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .6rem; }
 .ai-context summary { cursor: pointer; font-weight: 600; padding: .35rem; }
 .ai-context-local-actions { margin-block: .75rem; }
 .ai-context-local-actions > button:first-child { font-weight: 700; }
