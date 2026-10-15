@@ -54,6 +54,7 @@
         }
     }
     function pauseAutosave() {
+        void root.appearanceController?.cancelTemplatePreview?.();
         autosavePaused = true;
         root.localScratchpadView?.controller.cancelTimer?.();
         root.localScratchpadSettingsView?.controller.cancelTimer?.();

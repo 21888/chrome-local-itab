@@ -298,3 +298,11 @@
 :root[data-dashboard-template] #dashboard img.template-brand-mark {
   object-fit: contain; background: transparent; border: 0; border-radius: 0;
 }
+
+/* Real-content preview keeps a compact chooser and a visible explicit decision. */
+:root[data-dashboard-template] .template-gallery[data-live-preview="true"] .template-gallery-grid {max-height:24dvh;}
+:root[data-dashboard-template] .template-preview-actions:not([hidden]) {position:sticky;bottom:12px;z-index:15;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px;margin-block:12px;background:var(--template-surface);color:var(--template-text);border:1px solid var(--template-accent);border-radius:10px;box-shadow:0 3px 16px rgb(0 0 0 / 12%);}
+:root[data-dashboard-template] .template-preview-actions > span {flex:1 1 180px;font-size:12px;line-height:1.5;}
+:root[data-dashboard-template] .template-preview-actions button {min-height:36px;padding:7px 14px;border:1px solid var(--template-border);border-radius:6px;background:var(--template-surface-raised);color:var(--template-text);font:inherit;font-size:12px;cursor:pointer;}
+:root[data-dashboard-template] .template-preview-actions .template-preview-apply {background:var(--template-accent);color:var(--template-accent-ink);border-color:var(--template-accent);}
+:root[data-dashboard-template] .template-preview-actions button:disabled {opacity:.6;cursor:wait;}

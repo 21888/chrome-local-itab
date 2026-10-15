@@ -1,4 +1,19 @@
 {
+  "templatePreviewActive": {
+    "message": "Temporary preview with your content. Apply saves locally; enabled Chrome Sync follows its existing settings. Cancel discards the preview."
+  },
+  "templatePreviewBlocked": {
+    "message": "Finish the current layout or appearance edit before previewing."
+  },
+  "templatePreviewReading": {
+    "message": "Reading saved appearance…"
+  },
+  "templatePreviewUnconfirmed": {
+    "message": "The save could not be confirmed and may have completed. No rollback was attempted. Open the gallery again to read the saved appearance."
+  },
+  "templatePreviewSaved": {
+    "message": "Template saved locally. Enabled Chrome Sync follows its existing settings."
+  },
   "completeBackupInterruptedChanged": {
     "message": "A retained saved copy changed after the interrupted restore. Automatic rollback is blocked to avoid losing newer content. Download both saved copies for review; the pre-restore download is also available."
   },

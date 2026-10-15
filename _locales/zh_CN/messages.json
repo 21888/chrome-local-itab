@@ -1,4 +1,19 @@
 {
+  "templatePreviewActive": {
+    "message": "正在用你的内容临时预览。应用后保存到本地；已启用的 Chrome 同步按既有设置继续。取消会放弃预览。"
+  },
+  "templatePreviewBlocked": {
+    "message": "请先完成当前布局或外观编辑，再开始预览。"
+  },
+  "templatePreviewReading": {
+    "message": "正在读取已保存的外观…"
+  },
+  "templatePreviewUnconfirmed": {
+    "message": "无法确认保存结果，保存可能已经完成；未尝试回写旧设置。请重新打开图库，读取已保存的外观。"
+  },
+  "templatePreviewSaved": {
+    "message": "模板已保存到本地；已启用的 Chrome 同步按既有设置继续。"
+  },
   "completeBackupInterruptedChanged": {
     "message": "中断恢复后，保留的数据副本发生变化。为避免丢失较新内容，自动回退已阻止。请下载两份已保存数据以供核对，也可下载恢复前副本。"
   },

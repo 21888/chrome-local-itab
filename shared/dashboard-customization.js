@@ -78,19 +78,20 @@
         }
     }
 
-    function mount(host, { storage, baseline, refresh }) {
+    function mount(host, { storage, baseline, refresh, canOpen = () => true }) {
         if (!host || !global.LocalItabDialog) return;
         const doc = host.ownerDocument;
         const launch = doc.createElement('button'); launch.type = 'button'; launch.className = 'customize-launch';
         launch.textContent = tr('customizeDashboard', 'Customize'); host.append(launch);
         let open = false;
         launch.addEventListener('click', async () => {
-            if (open) return;
+            if (open || !canOpen()) return;
             open = true;
             // Read before opening, without rebasing the settings generation fence.
             let initial;
             try { initial = await storage.getAppearanceForUpdate(); }
             catch (_) { open = false; launch.textContent = tr('customizeReadFailed', 'Could not read settings. Try again.'); return; }
+            if (!canOpen()) { open = false; return; }
             apply(initial.customization);
             const overlay = doc.createElement('div'); overlay.className = 'customize-overlay';
             const panel = doc.createElement('section'); panel.className = 'customize-panel'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-labelledby', 'customize-heading');
@@ -227,5 +228,5 @@
         });
         return launch;
     }
-    global.LocalItabCustomization = { apply, paint, Controller, mount };
+    global.LocalItabCustomization = { apply, paint, Controller, mount, get isPreviewing() { return previewing; } };
 })(window);

@@ -1919,6 +1919,88 @@ class StorageManager {
         return this.resolveAppearance(raw);
     }
 
+    // Preview admission is local/read-only: never initialize Sync, migrate a
+    // workspace, or select lastUsed. A dashboard must already own its session.
+    templatePreviewAppearance(raw) {
+        if (Object.hasOwn(raw, 'appearance')) {
+            const value = raw.appearance;
+            if (!value || typeof value !== 'object' || Array.isArray(value) ||
+                (Object.hasOwn(value, 'template') && !DashboardTemplates.ids.includes(value.template)) ||
+                (Object.hasOwn(value, 'colorMode') && !['light', 'dark'].includes(value.colorMode))) throw this.appearanceError();
+        }
+        return this.resolveAppearance(raw);
+    }
+
+    async getTemplatePreviewSnapshot() {
+        const workspace = this.workspace;
+        if (workspace && (!workspace.id || !workspace.generation || workspace.invalidated || workspace._suspended)) throw this.appearanceError();
+        return this.withLocalWriteLock(async () => {
+            if (this.workspace !== workspace || workspace?.invalidated || workspace?._suspended) throw this.appearanceError();
+            const raw = await this._local.get(['appearance', 'themePreset', this.settingsGenerationKey]);
+            if (this.workspace !== workspace || workspace?.invalidated || workspace?._suspended) throw this.appearanceError();
+            const appearance = this.templatePreviewAppearance(raw);
+            const snapshot = { appearance, generation: this.settingsSnapshot(raw).generation };
+            const ticket = { workspace, id: workspace?.id, workspaceGeneration: workspace?.generation,
+                generation: snapshot.generation, template: appearance.template,
+                source: JSON.stringify([Object.hasOwn(raw, 'appearance'), raw.appearance?.template]) };
+            (this._templatePreviewTickets ||= new WeakMap()).set(snapshot, ticket);
+            return snapshot;
+        }, true);
+    }
+
+    // A one-use, template-only compare-and-set. No whole-settings rollback is
+    // safe after a failed set/readback: the result may already have committed.
+    async applyTemplatePreview(template, snapshot, { isCurrent = () => true, onSubmit = () => {} } = {}) {
+        const ticket = this._templatePreviewTickets?.get(snapshot);
+        if (!ticket || !DashboardTemplates.ids.includes(template)) throw this.appearanceError();
+        this._templatePreviewTickets.delete(snapshot);
+        let submitted = false;
+        const current = () => {
+            const workspace = ticket.workspace;
+            if (!isCurrent() || this.workspace !== workspace || workspace?.invalidated || workspace?._suspended ||
+                workspace?.id !== ticket.id || workspace?.generation !== ticket.workspaceGeneration) throw this.appearanceError();
+        };
+        let committed;
+        try {
+            committed = await this.withLocalWriteLock(async () => {
+                current();
+                const keys = ['appearance', 'themePreset', this.settingsGenerationKey];
+                const raw = await this._local.get(keys);
+                current();
+                const latest = this.templatePreviewAppearance(raw);
+                if (this.settingsSnapshot(raw).generation !== ticket.generation || latest.template !== ticket.template ||
+                    JSON.stringify([Object.hasOwn(raw, 'appearance'), raw.appearance?.template]) !== ticket.source) throw this.appearanceError();
+                // Existing sparse objects retain every own field exactly. A legacy
+                // record without appearance needs its effective palette carried
+                // forward so creating the template does not reset legacy dark.
+                const appearance = Object.hasOwn(raw, 'appearance') ? { ...raw.appearance, template } : { template, colorMode: latest.colorMode };
+                if (latest.template !== template) {
+                    const beforeSubmit = () => { current(); onSubmit(LayoutIdentity.copy(appearance)); submitted = true; };
+                    if (ticket.workspace) await ticket.workspace.set({ appearance }, beforeSubmit);
+                    else { beforeSubmit(); await this._local.set({ appearance }); }
+                }
+                const readback = await this._local.get(keys);
+                current();
+                const confirmed = this.templatePreviewAppearance(readback);
+                if (this.settingsSnapshot(readback).generation !== ticket.generation || confirmed.template !== template ||
+                    (submitted && !this.sameShortcutUndoValue(readback.appearance, appearance))) throw this.appearanceError();
+                return confirmed;
+            }, true);
+        } catch (error) {
+            // This error explicitly does not mean that no write happened.
+            if (submitted) throw this.appearanceError('APPEARANCE_SAVE_UNCONFIRMED');
+            if (error.code === 'LINKS_LOCK_UNAVAILABLE') throw this.appearanceError('APPEARANCE_LOCK_UNAVAILABLE');
+            throw error;
+        }
+        // A confirmed local Apply follows the existing opt-in Sync scheduler.
+        // Provider failures cannot turn the verified local commit into failure.
+        if (submitted) {
+            try { if (!this._isApplyingSync && await this.isSyncEnabledLocally()) this.scheduleSyncPush(); }
+            catch (error) { console.warn('Template saved locally; Sync scheduling failed:', error); }
+        }
+        return committed;
+    }
+
     // Independent selectors own only their requested axes. Read, generation
     // check, merge and write share the same lock as Settings and replacements.
     async patchAppearance(patch, baseline) {

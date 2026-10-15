@@ -437,9 +437,21 @@ function updateTemplateIntro(template = 'clarity') {
 
 function setupDashboardAppearance(config) {
     if (!window.LocalItabAppearance) return;
+    const session = window.LocalItabWorkspaces?.session;
+    const previewCurrent = () => !window.LocalItabContentLifecycle?.autosavePaused &&
+        (!session || window.LocalItabWorkspaces?.session === session && storageManager.workspace === session && !session.invalidated && !session._suspended);
     window.appearanceController = window.LocalItabAppearance.mount(document.getElementById('dashboard-appearance'), {
         initial: config.appearance,
         baseline: config._settingsBaseline,
+        previewEnabled: true,
+        isPreviewCurrent: previewCurrent,
+        onPreviewStart() {
+            if (!previewCurrent()) return false;
+            if (window.LocalItabCustomization?.isPreviewing || document.querySelector('.customize-overlay') ||
+                window.LocalItabContentLifecycle?.autosavePaused) return false;
+            return window.shortcutsComponentInstance?.beginTemplatePreview() ?? true;
+        },
+        onPreviewEnd() { window.shortcutsComponentInstance?.endTemplatePreview(); },
         onBeforeApply(value, previous) {
             if (value.template !== previous.template) window.shortcutsComponentInstance?._cancelFreeDrag?.();
         },
@@ -2397,6 +2409,33 @@ class ShortcutsComponent {
         });
     }
 
+    beginTemplatePreview() {
+        const layout = this.layoutController;
+        if (this._templatePreview || this._shortcutWritesPending || this._pendingSave || this._pendingDelete ||
+            this._shortcutOrderPending || this._shortcutUndoPending || this._isSaving ||
+            this.modal?.classList.contains('active') || this.confirmDialog?.isConnected ||
+            document.querySelector('.context-menu') || this.organizerView?.hasUncommittedWork?.() ||
+            this.navigationLibraryView?.hasUncommittedWork?.() ||
+            layout && (layout.pending || layout.timer || layout.modePending || layout.failedChange ||
+                Object.keys(layout.positions).length || Object.keys(layout.identityPositions).length)) return false;
+        this._cancelFreeDrag?.();
+        this.cleanupDragState();
+        const nodes = [this.container, document.getElementById('category-list')].filter(Boolean);
+        this._templatePreview = { nodes: nodes.map(node => [node, node.inert]) };
+        for (const node of nodes) node.inert = true;
+        this.detachFreeDrag();
+        return true;
+    }
+
+    endTemplatePreview() {
+        if (!this._templatePreview) return;
+        for (const [node, inert] of this._templatePreview.nodes) node.inert = inert;
+        this._templatePreview = null;
+        // No layout initialization here: preview never created coordinates that
+        // should be flushed later. Resume ordinary gestures on the saved plane.
+        if (!this.layout.autoArrange && !window.LocalItabIdentity?.needs(this.links)) this.attachFreeDrag();
+    }
+
     refreshTemplate() {
         this._cancelFreeDrag?.();
         if (this.layout.autoArrange) {
@@ -2435,7 +2474,10 @@ class ShortcutsComponent {
         content.draggable = true;
         content.setAttribute('aria-label', `${(window.i18n && i18n.t('openInNewTab')) || 'Open in new tab'}: ${link.title || link.url}`);
 
-        this.appendShortcutContent(content, link);
+        const preview = this._templatePreview;
+        this.appendShortcutContent(content, link, preview ? { cacheOnly: true,
+            isCurrent: asynchronous => this.links[index] === link && (!asynchronous ||
+                item.isConnected && this.gridEl === document.getElementById('shortcuts-grid') && this.gridEl.contains(item)) } : {});
 
         const actions = document.createElement('div');
         actions.className = 'shortcut-actions';
@@ -2602,6 +2644,7 @@ class ShortcutsComponent {
     }
 
     handleGridClick(e) {
+        if (this._templatePreview) { e.preventDefault(); return; }
         const escaped = this._escapedFreeDragClick;
         if (escaped && e.detail > 0 && e.target.closest('.shortcut-item') === escaped.item &&
             (e.pointerId == null || e.pointerId === escaped.pointerId)) {
@@ -3770,6 +3813,13 @@ class ShortcutsComponent {
             this.detachFreeDrag();
         } else {
             grid.classList.add('free-layout');
+            if (this._templatePreview) {
+                this.detachFreeDrag();
+                this.applyVisibleTransformsFromPositions();
+                this.positionAddTile();
+                if (focusIntent) this.restoreGridFocus(grid, focusIntent);
+                return;
+            }
             if (window.LocalItabIdentity?.needs(this.links)) {
                 this.detachFreeDrag();
                 const controller = this.ensureLayoutController();
@@ -3866,6 +3916,7 @@ class ShortcutsComponent {
     }
 
     onPointerDown(e) {
+        if (this._templatePreview) return;
         // A fresh primary gesture cannot inherit the cancelled gesture's click.
         // An ignored secondary contact does not end the cancelled primary hold.
         if (e.isPrimary !== false) this._escapedFreeDragClick = null;
@@ -4161,17 +4212,23 @@ class ShortcutsComponent {
     }
 
     setLayout(patch) {
+        if (this._templatePreview) return Promise.resolve(false);
         this._cancelFreeDrag?.();
         this.cleanupDragState();
         return this.ensureLayoutController().change(patch);
     }
 
     saveLayoutDebounced(positions, identityPositions = {}) {
+        if (this._templatePreview) return Promise.resolve(false);
         return this.ensureLayoutController().change({}, positions, { debounce: true, identityPositions });
     }
 
     reflowVisibleLayout() {
         this._cancelFreeDrag?.();
+        if (this._templatePreview) {
+            if (!this.layout.autoArrange) { this.applyVisibleTransformsFromPositions(); this.positionAddTile(); }
+            return;
+        }
         if (this.layout?.autoArrange) return;
         if (window.LocalItabIdentity?.needs(this.links)) { this.applyLayoutMode(); return; }
         this.initializeMissingPositions();
@@ -4182,6 +4239,7 @@ class ShortcutsComponent {
     // Initialize only missing visible view keys, using flat tile rectangles rather
     // than grouped Grid geometry. Existing category maps/fractional values survive.
     initializeMissingPositions(persist = true) {
+        if (this._templatePreview) return;
         const grid = this.gridEl;
         if (!grid) return;
         const width = grid.getBoundingClientRect().width;
@@ -4364,6 +4422,7 @@ class ShortcutsComponent {
      * Handle drag start
      */
     handleDragStart(e) {
+        if (this._templatePreview) { e.preventDefault(); return; }
         if (this._shortcutUndoPending || this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange) {
             e.preventDefault();
             return;
@@ -4431,6 +4490,7 @@ class ShortcutsComponent {
      * Handle drop
      */
     async handleDrop(e) {
+        if (this._templatePreview) { e.preventDefault(); return; }
         e.preventDefault();
         
         const draggedIndex = this._shortcutUndoPending || this._pendingDelete || this._shortcutOrderPending || this.layoutController?.modePending || !this.layout.autoArrange ? null : this.draggedIndex;
@@ -4596,8 +4656,8 @@ class ShortcutsComponent {
         const fallback = () => {
             slot.textContent = '🌐';
         };
-        const setImage = (src) => {
-            if (options.isCurrent && !options.isCurrent()) return;
+        const setImage = (src, asynchronous = false) => {
+            if (options.isCurrent && !options.isCurrent(asynchronous)) return;
             const img = document.createElement('img');
             img.className = 'shortcut-icon-img';
             img.src = src;
@@ -4632,7 +4692,7 @@ class ShortcutsComponent {
             if (window.faviconCache) {
                 Promise.resolve(options.cacheOnly ? window.faviconCache.peekIconDataUrl?.(icon) : window.faviconCache.getIconDataUrlByUrl(icon)).then((dataUrl) => {
                     if (!dataUrl || !isSafeImageDataUrl(dataUrl) || dataUrl.length < 200) return;
-                    setImage(dataUrl);
+                    setImage(dataUrl, true);
                 }).catch(() => {});
             }
             return;
@@ -4645,7 +4705,7 @@ class ShortcutsComponent {
             if (origin) {
                 Promise.resolve(options.cacheOnly ? window.faviconCache.peekIconDataUrl?.(origin) : window.faviconCache.getIconDataUrl(origin)).then((dataUrl) => {
                     if (!dataUrl || !isSafeImageDataUrl(dataUrl) || dataUrl.length < 200) return;
-                    setImage(dataUrl);
+                    setImage(dataUrl, true);
                 }).catch(() => {});
             }
         }
@@ -4845,6 +4905,7 @@ class CategoryNavigation {
     }
 
     selectCategory(category) {
+        if (window.appearanceController?.previewGuard || window.shortcutsComponentInstance?._templatePreview) return;
         if (this.currentCategory === category) return;
         this.currentCategory = category;
         try {
