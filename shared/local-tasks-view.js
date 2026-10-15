@@ -51,8 +51,9 @@
         const heading = el('h2', '', title); heading.id = `tasks-dialog-${crypto.randomUUID()}`; panel.setAttribute('aria-labelledby', heading.id);
         panel.append(heading); overlay.append(panel); document.body.append(overlay);
         let cleanup = null, closed = false;
-        const close = () => { if (closed) return; closed = true; cleanup?.(); overlay.remove(); onClose?.(); };
-        return { panel, close, get isOpen() { return !closed; }, open: focus => { cleanup = root.LocalItabDialog.open(overlay, focus, close); } };
+        const close = (restoreFocus = true) => { if (closed) return; closed = true; cleanup?.(restoreFocus); overlay.remove(); onClose?.(restoreFocus); };
+        const modal = { panel, close, get isOpen() { return !closed; }, open: focus => { cleanup = root.LocalItabDialog.open(overlay, focus, () => modal.close()); } };
+        return modal;
     }
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, alwaysVisible = false } = {}) {
@@ -154,9 +155,9 @@
         createDialog(title, onClose) {
             if (this.destroyed || this.dialogs.size) return null;
             this.reviewGeneration++; this.pendingReview = false;
-            const modal = dialog(title, () => {
+            const modal = dialog(title, restoreFocus => {
                 this.dialogs.delete(modal); onClose?.();
-                if (!this.destroyed && document.activeElement === document.body && !this.host.hidden) this.input.focus();
+                if (restoreFocus && !this.destroyed && document.activeElement === document.body && !this.host.hidden) this.input.focus();
             });
             this.dialogs.add(modal); return modal;
         }
@@ -396,7 +397,8 @@
                     if (this.filterQuery) { up.title = t('tasksFilterReorder'); down.title = t('tasksFilterReorder'); }
                     actions.append(up, down);
                 }
-                actions.append(button('tasksEdit', () => this.edit(task)), button('tasksRemove', () => {
+                const edit = button('tasksEdit', () => this.edit(task, edit));
+                actions.append(edit, button('tasksRemove', () => {
                     const hadFocus = item.contains(document.activeElement);
                     run('remove', {}, () => {
                         this.render();
@@ -504,17 +506,41 @@
                 if (this.undo === record) this.undo = null;
             });
         }
-        edit(task) {
-            let ownedOperationId = null;
-            const modal = this.createDialog(t('tasksEditTitle'), () => this.controller.dismissRetry(ownedOperationId)); if (!modal) return;
+        edit(task, origin = null) {
+            let ownedOperationId = null, focusDeparted = false;
+            const moved = event => { focusDeparted = !modal.panel.contains(event.target); };
+            const departed = () => { focusDeparted = true; };
+            const modal = this.createDialog(t('tasksEditTitle'), () => {
+                document.removeEventListener('focusin', moved, true);
+                document.removeEventListener('visibilitychange', departed, true); root.removeEventListener?.('blur', departed);
+                this.controller.dismissRetry(ownedOperationId);
+            }); if (!modal) return;
             const input = el('textarea', 'tasks-editor', task.text), hint = el('p', 'tasks-help', t('tasksTextLimit'));
             input.value = task.text; input.setAttribute('aria-label', t('tasksEditTitle')); input.rows = 4;
             const feedback = el('p', 'tasks-dialog-feedback'); feedback.setAttribute('role', 'status');
             const latest = el('p', 'tasks-latest'); latest.hidden = true;
             let baseline = task, generation = 0, open = true, failedCommand = null, pending = false, reviewedLatest = null;
             input.addEventListener('input', () => { generation++; failedCommand = null; });
-            const originalClose = modal.close; const close = () => { open = false; originalClose(); };
+            const originalClose = modal.close;
             const owns = () => !this.destroyed && open && modal.isOpen && input.isConnected;
+            const close = () => {
+                // A revision rebuilds the row. Resolve its current Edit by task identity,
+                // but only while this opening still owns focus (including native blur).
+                const restore = owns() && !focusDeparted && !document.hidden &&
+                    (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
+                open = false; originalClose(origin ? false : restore);
+                if (!origin || !restore || this.destroyed || this.dialogs.size || !this.host.isConnected || document.activeElement !== document.body) return;
+                const item = Array.from(this.host.querySelectorAll('[data-task-id]')).find(node => node.dataset.taskId === task.id);
+                const target = item && Array.from(item.querySelectorAll('[data-task-action]')).find(node => node.dataset.taskAction === t('tasksEdit'));
+                const visible = node => {
+                    if (!node?.isConnected || node.disabled || node.closest('[hidden], [inert]') || !node.getClientRects().length) return false;
+                    // Chromium can report layout boxes for closed details descendants.
+                    for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
+                    return true;
+                };
+                if (visible(target)) target.focus(); else if (visible(this.input)) this.input.focus();
+            };
+            modal.close = close;
             const setControl = (node, disabled, hidden = node.hidden) => {
                 if (!owns()) return;
                 // Move only this opening's active control before Chrome blurs a
@@ -550,7 +576,9 @@
             };
             const buttons = el('div', 'tasks-dialog-actions');
             const saveButton = button('tasksSave', () => save(), 'tasks-primary'), overwrite = button('tasksOverwrite', () => save(true)); overwrite.hidden = true;
-            buttons.append(button('tasksCancel', close), overwrite, saveButton); modal.panel.append(input, hint, latest, feedback, buttons); modal.open(input);
+            buttons.append(button('tasksCancel', () => close()), overwrite, saveButton); modal.panel.append(input, hint, latest, feedback, buttons); modal.open(input);
+            document.addEventListener('focusin', moved, true);
+            document.addEventListener('visibilitychange', departed, true); root.addEventListener?.('blur', departed);
         }
         async export() {
             let source;

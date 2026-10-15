@@ -222,8 +222,13 @@ for (const change of ['focus', 'focus-away-back', 'body-focus', 'pointer', 'key'
         });
     }
     gate.resolve(); await settle(); assert.equal(h.backend.raw().records[0].state, 'done');
-    assert.notEqual(h.document.activeElement, h.view.input); assert.equal(h.document.listeners.size, 0);
-    h.view.destroy();
+    assert.notEqual(h.document.activeElement, h.view.input);
+    if (change === 'dialog') {
+        // The newer editor owns focus/visibility tracking; the completed pinned
+        // action must remove only its own listeners, without touching the editor.
+        assert.deepEqual([...h.document.listeners.keys()].sort(), ['focusin', 'visibilitychange']);
+    } else assert.equal(h.document.listeners.size, 0);
+    h.view.destroy(); assert.equal(h.document.listeners.size, 0);
 });
 
 test('an unrelated remote revision preserves the current Next up control without stealing focus', async () => {
