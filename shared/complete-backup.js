@@ -157,7 +157,7 @@
             // Legacy stores and already-open pages use these locks. Never call a
             // public Store or StorageManager writer while holding this chain.
             lock: fn => locks.request(tasks.LOCK, { mode: 'exclusive' }, () => locks.request(focus.LOCK, { mode: 'exclusive' }, () => locks.request('local-itab-local-write', { mode: 'exclusive' }, fn))),
-            read: keys => chromeApi.storage.local.get(keys || [...Object.keys(manager.defaultConfig), 'schemaVersion', manager.layoutGenerationKey, manager.settingsGenerationKey, manager.syncIdentityStateKey, ...Object.values(apis).map(api => api.KEY)]),
+            read: keys => chromeApi.storage.local.get(keys || [...Object.keys(manager.defaultConfig), 'schemaVersion', manager.layoutGenerationKey, manager.settingsGenerationKey, manager.syncIdentityStateKey, manager.restoreReceiptKey, ...Object.values(apis).map(api => api.KEY)]),
             write: values => chromeApi.storage.local.set(values),
             readRecovery: async (key = RECOVERY_KEY) => (await chromeApi.storage.local.get([key]))[key]
         };
@@ -270,6 +270,27 @@
             const next = planner.replacement(current, archive, planner.nextId(), planner.timestamp());
             planner.finish(next, planner.nextId(), '0'.repeat(64)); next.receipts = []; return collections.validate(next);
         }
+        assertConfigImportSettled(raw, workspaceId = null) {
+            const key = this.manager.restoreReceiptKey;
+            if (!Object.hasOwn(raw, key)) return;
+            const receipt = raw[key];
+            // Only validate the operation envelope. Never settle an earlier
+            // import, compare its content hashes, or alter retained evidence.
+            try { this.manager.validateRestoreReceipt(receipt); }
+            catch (_) { throw Object.assign(fault('CONFIG_IMPORT_RECEIPT_INVALID'), { workspaceId }); }
+            if (receipt.status !== 'verified') throw Object.assign(fault('CONFIG_IMPORT_PENDING'), { workspaceId });
+        }
+        assertWorkspaceConfigImportsSettled(snapshot, file, names, targetWorkspaceId) {
+            if (!names.includes('config')) return;
+            // A legacy file replaces only its explicitly chosen destination.
+            // A complete topology replacement also affects removed workspaces;
+            // matching partial configuration archives affect every matching ID.
+            if (file.schemaVersion === 1 && !targetWorkspaceId) return;
+            for (const bundle of snapshot.bundles) {
+                if (file.schemaVersion === 1 && bundle.id !== targetWorkspaceId) continue;
+                this.assertConfigImportSettled(bundle.values, bundle.id);
+            }
+        }
         workspaceReview(file, names, options) {
             const targetWorkspaceId = options.targetWorkspaceId, scope = scopedSelection(names), hasPrompts = names.includes('prompts'), hasCollections = names.includes('collections');
             return this.workspaces.withSnapshotLock(async tx => {
@@ -314,6 +335,7 @@
                     const signature = value => JSON.stringify({live: value.registry.entries.map(entry => entry.id).sort(), trash: value.trash.map(entry => entry.id).sort()});
                     check(signature(file) === signature(current), 'TOPOLOGY');
                 }
+                this.assertWorkspaceConfigImportsSettled(snapshot, file, names, target?.id);
                 if (!preview.requiresTarget && !preview.requiresPromptTarget && !preview.requiresCollectionTarget) this.tickets.set(preview, { workspace: true, file, names: [...names], snapshot, promptState, nextPrompts, collectionState, nextCollections, targetWorkspaceId: target?.id });
                 return preview;
             });
@@ -365,7 +387,9 @@
         workspaceRestore(ticket, isCurrent) {
             return this.workspaces.withSnapshotLock(async tx => {
                 check(isCurrent(), 'CANCELLED');
-                const snapshot = await this.workspaceRead(tx); check(same(snapshot, ticket.snapshot), 'CONFLICT');
+                const snapshot = await this.workspaceRead(tx);
+                this.assertWorkspaceConfigImportsSettled(snapshot, ticket.file, ticket.names, ticket.targetWorkspaceId);
+                check(same(snapshot, ticket.snapshot), 'CONFLICT');
                 if (ticket.promptState) check(same(await this.promptState(tx), ticket.promptState), 'CONFLICT');
                 if (ticket.collectionState) check(same(await this.collectionState(tx), ticket.collectionState), 'CONFLICT');
                 if (ticket.names.includes('focus')) {
@@ -375,6 +399,13 @@
                 const replacement = this.workspaceReplacement(ticket, snapshot);
                 const source = this.workspaceSnapshot(snapshot, [...SCOPED_MODULES, ...(ticket.promptState ? ['prompts'] : []), ...(ticket.collectionState ? ['collections'] : [])], ticket.promptState, ticket.collectionState).source, recovery = { source, checksum: await this.manager.fingerprint(source) };
                 check(isCurrent(), 'CANCELLED');
+                // Recheck after asynchronous recovery preparation as well as at
+                // lock admission, before overwriting even the recovery slot.
+                if (ticket.names.includes('config')) {
+                    const latest = await this.workspaceRead(tx);
+                    this.assertWorkspaceConfigImportsSettled(latest, ticket.file, ticket.names, ticket.targetWorkspaceId);
+                    check(same(latest, snapshot), 'CONFLICT');
+                }
                 try {
                     check(await this.backend.write({ [WORKSPACE_RECOVERY_KEY]: recovery }) !== false, 'RECOVERY');
                     check(same(await this.backend.readRecovery(WORKSPACE_RECOVERY_KEY), recovery), 'RECOVERY');
@@ -433,7 +464,9 @@
             if (this.workspaces) return this.workspaceReview(file, names, options);
             check(file.schemaVersion === 1, 'UNAVAILABLE');
             return this.backend.lock(async () => {
-                const raw = await this.raw(), current = this.snapshot(raw);
+                const raw = await this.raw();
+                if (names.includes('config')) this.assertConfigImportSettled(raw);
+                const current = this.snapshot(raw);
                 const preview = { modules: Object.keys(file.modules), selected: [...names], exportedAt: file.exportedAt, incoming: this.counts(file.modules), current: this.counts(current.file.modules) };
                 preview.current.focus.activeSession = ['running', 'paused', 'uncertain'].includes(raw[focus.KEY]?.session?.status);
                 this.tickets.set(preview, { file, names, raw }); return preview;
@@ -481,7 +514,9 @@
             if (ticket.workspace) return this.workspaceRestore(ticket, isCurrent);
             return this.backend.lock(async () => {
                 check(isCurrent(), 'CANCELLED');
-                const raw = await this.raw(); check(same(raw, ticket.raw), 'CONFLICT');
+                const raw = await this.raw();
+                if (ticket.names.includes('config')) this.assertConfigImportSettled(raw);
+                check(same(raw, ticket.raw), 'CONFLICT');
                 if (ticket.names.includes('focus')) check(!['running', 'paused', 'uncertain'].includes(raw[focus.KEY]?.session?.status), 'FOCUS_ACTIVE');
                 const recoverySource = this.snapshot(raw).source, written = {};
                 for (const name of ticket.names) {
@@ -499,6 +534,11 @@
                 }
                 const recovery = { source: recoverySource, checksum: await this.manager.fingerprint(recoverySource) };
                 check(isCurrent(), 'CANCELLED');
+                if (ticket.names.includes('config')) {
+                    const latest = await this.raw();
+                    this.assertConfigImportSettled(latest);
+                    check(same(latest, raw), 'CONFLICT');
+                }
                 // Establish a verified recovery copy BEFORE touching target keys.
                 // The final multi-key set is one submission, not a promise of
                 // browser-crash atomicity. Never retry or roll back an uncertain set.

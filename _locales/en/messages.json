@@ -6781,5 +6781,14 @@
   },
   "spacesDuplicateImportInvalid": {
     "message": "This workspace has an unsupported or invalid import record. No copy was created. Keep the original workspace and inspect its saved recovery copies; do not reset it to bypass this protection."
+  },
+  "completeBackupConfigImportPending": {
+    "message": "An affected workspace has an unverified configuration import. This restore made no replacement. Export the current configuration and inspect its retained copies below. Use the original file in Settings to verify the earlier import; if its saved state has changed, it remains blocked and cannot be resolved automatically."
+  },
+  "completeBackupConfigImportReceiptInvalid": {
+    "message": "An affected workspace has an invalid or unsupported configuration-import receipt. This restore made no replacement. Export the current configuration and inspect the retained copies below. Do not reset storage or retry to bypass this protection."
+  },
+  "completeBackupInspectConfigImport": {
+    "message": "Inspect affected workspace copies (read-only)"
   }
 }

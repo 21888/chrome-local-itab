@@ -6781,5 +6781,14 @@
   },
   "spacesDuplicateImportInvalid": {
     "message": "此工作区的导入记录不受支持或无效，未创建副本。请保留原工作区并检查已保存的恢复副本，不要通过重置来绕过保护。"
+  },
+  "completeBackupConfigImportPending": {
+    "message": "受影响的工作区有一项尚未核验的配置导入，本次恢复未替换任何内容。请导出当前配置，并通过下方入口只读检查保留的副本。可在设置中用原文件核验先前导入；若其保存状态已改变，则仍会被阻止，不能自动解除。"
+  },
+  "completeBackupConfigImportReceiptInvalid": {
+    "message": "受影响工作区的配置导入回执无效或版本不受支持，本次恢复未替换任何内容。请导出当前配置，并通过下方入口只读检查保留的副本。不要重置存储或反复重试以绕过保护。"
+  },
+  "completeBackupInspectConfigImport": {
+    "message": "只读检查受影响工作区的副本"
   }
 }

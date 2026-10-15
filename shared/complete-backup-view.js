@@ -1,6 +1,9 @@
 (function (root) {
     'use strict';
     const fallback = {
+    "ConfigImportPending": "An affected workspace has an unverified configuration import. This restore made no replacement. Export the current configuration and inspect its retained copies below. Use the original file in Settings to verify the earlier import; if its saved state has changed, it remains blocked and cannot be resolved automatically.",
+    "ConfigImportReceiptInvalid": "An affected workspace has an invalid or unsupported configuration-import receipt. This restore made no replacement. Export the current configuration and inspect the retained copies below. Do not reset storage or retry to bypass this protection.",
+    "InspectConfigImport": "Inspect affected workspace copies (read-only)",
     "DuplicateKey": "This backup contains duplicate JSON fields. Restore has not started. Choose a valid backup file.",
     "Prompts": "Prompt library and saved versions",
     "PromptHelp": "Prompts are one global reusable library shared across workspaces. This includes saved versions and archived prompts, but excludes drafts, variable values and provider credentials.",
@@ -146,6 +149,8 @@
         const largeButton = button('Continue', 'large', confirmActions); largeButton.hidden = true;
         const apply = button('Apply', 'apply', confirmActions, true), cancel = button('Cancel', 'cancel', confirmActions);
         const status = make('p', 'form-hint complete-backup-status', '', shell); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.setAttribute('aria-atomic', 'true'); status.tabIndex = -1;
+        const configInspection = make('a', 'complete-backup-config-inspection', t('InspectConfigImport'), shell);
+        configInspection.target = '_blank'; configInspection.rel = 'noopener'; configInspection.hidden = true;
         const reloadButton = button('Reload', 'reload', shell); reloadButton.hidden = true;
         const recovery = button('Recovery', 'recovery', shell); make('p', 'form-hint', t('RecoveryHelp'), shell);
         const downloadInterrupted = button('DownloadInterrupted', 'download-interrupted', shell); downloadInterrupted.hidden = typeof store.exportInterruptedCandidates !== 'function';
@@ -175,10 +180,15 @@
                 if (target && valid && !destroyed && !doc.hidden && shell.getClientRects().length && [origin, file, doc.body].includes(doc.activeElement)) target.focus(); };
         }
         const errorText = (error, applying = false) => {
+            configInspection.hidden = !['CONFIG_IMPORT_PENDING', 'CONFIG_IMPORT_RECEIPT_INVALID'].includes(error?.code);
+            if (!configInspection.hidden) {
+                const id = error.workspaceId;
+                configInspection.href = 'recovery.html' + (typeof id === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(id) ? '?workspace=' + encodeURIComponent(id) : '');
+            }
             if (error?.mayHaveCommitted || error?.code === 'UNCONFIRMED') return t('Unconfirmed');
-            return t(({DUPLICATE_KEY:'DuplicateKey',INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
+            return t(({CONFIG_IMPORT_PENDING:'ConfigImportPending',CONFIG_IMPORT_RECEIPT_INVALID:'ConfigImportReceiptInvalid',DUPLICATE_KEY:'DuplicateKey',INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
         };
-        function clear() { preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); for (const input of Object.values(inputs)) input.disabled = false; }
+        function clear() { configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); for (const input of Object.values(inputs)) input.disabled = false; }
         function abandon() { if (phase === 'applying') return; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
         const countText = (value, module) => {
             if (!value || typeof value !== 'object') return '';
