@@ -19,3 +19,8 @@ for (const schema of [99, 1, '2', null]) {
         run(checkpoint);
     });
 }
+
+test('compatibility ordinary layout edit rejects schema corrupted during set, then restart stays read-only', () => {
+    const checkpoint = run({ workspace: false, mode: 'schema', phase: 'fault', preallocate: true });
+    run(checkpoint);
+});

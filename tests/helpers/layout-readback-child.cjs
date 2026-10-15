@@ -56,6 +56,7 @@ async function run(input) {
         scopedKey = W.bundleKey(raw[W.REGISTRY_KEY].workspaces[0]);
     }
     const s = new S({ workspace: session }); s._syncInitialized = true;
+    if (input.preallocate && phase !== 'restart') await s.applyLayoutPatch({ autoArrange: false }, {}, await s.getLayoutSnapshotForUpdate());
     const before = clone(raw); writes.length = 0;
     const values = () => workspace ? raw[scopedKey].values : raw;
     if (phase === 'restart') {

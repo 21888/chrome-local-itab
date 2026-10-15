@@ -1446,12 +1446,13 @@ class StorageManager {
                     // compatibility adapter only forwards set(), so require an
                     // authoritative readback before exposing a saved snapshot.
                     try {
-                        const keys = [...new Set([...Object.keys(written), 'links', 'layout', this.layoutGenerationKey])];
+                        const keys = [...new Set([...Object.keys(written), 'links', 'layout', this.layoutGenerationKey, 'schemaVersion'])];
                         const readback = await this._local.get(keys);
                         if (Object.keys(written).some(key => !Object.prototype.hasOwnProperty.call(readback, key) ||
                             !this.sameShortcutUndoValue(readback[key], written[key]))) {
                             throw new Error('Layout write did not match its readback.');
                         }
+                        this.layoutSchemaForMutation(readback, readback.layout);
                         return this.layoutSnapshot(readback);
                     } catch (cause) {
                         // Preserve ambiguous persisted state and its recovery.
