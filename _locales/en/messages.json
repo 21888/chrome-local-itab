@@ -4744,7 +4744,7 @@
     "message": "Browsing this library stays offline. Adding uses your existing Sync and online-icon settings."
   },
   "navigationLibraryDisclosure": {
-    "message": "Location describes the company or service operator, not where a site is accessible. Plans, availability and account requirements can change."
+    "message": "Location describes the company or service operator, not where a site is accessible. Unknown means the information has not been sufficiently confirmed. The date records source review, not a guarantee of current pricing or availability. Plans and account requirements can change."
   },
   "navigationLibraryAllUses": {
     "message": "All uses"
@@ -4765,7 +4765,7 @@
     "message": "Sources & details"
   },
   "navigationLibraryChecked": {
-    "message": "Checked"
+    "message": "Source reviewed"
   },
   "navigationLibraryUnknown": {
     "message": "Unknown"

@@ -4744,7 +4744,7 @@
     "message": "浏览导航库时无需联网。添加网站沿用你现有的同步与在线图标设置。"
   },
   "navigationLibraryDisclosure": {
-    "message": "所在地指公司或服务运营方，不代表网站在哪些地区可用。费用、服务范围和账号要求可能变化。"
+    "message": "所在地指公司或服务运营方，不代表网站在哪些地区可用。未知表示相关资料尚未充分确认。日期记录来源查阅时间，不保证当前费用或可用性；方案和账号要求可能变化。"
   },
   "navigationLibraryAllUses": {
     "message": "完整用途"
@@ -4765,7 +4765,7 @@
     "message": "来源与详情"
   },
   "navigationLibraryChecked": {
-    "message": "资料核验"
+    "message": "来源查阅日期"
   },
   "navigationLibraryUnknown": {
     "message": "未知"

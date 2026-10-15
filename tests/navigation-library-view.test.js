@@ -1555,3 +1555,38 @@ test('retired review removal cannot change a newer review status after invalidat
  const retired=h.document.querySelector('.navigation-library-review-remove');h.document.querySelector('.navigation-library-review-cancel').dispatch('click');h.document.querySelector('.navigation-library-batch-review').dispatch('click');await layout.invalidate();
  const status=h.document.querySelector('.navigation-library-status'),before=status.textContent;retired.dispatch('click');assert.equal(status.textContent,before);assert.match(selectionCount(h),/1 \/ 20/);assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);assert.equal(h.calls,0);
 });
+
+for (const locale of ['en', 'zh-CN']) test(`metadata source-review date and unknown explanation stay scoped in ${locale}`, async () => {
+ const h=model({locale});
+ const original=JSON.stringify(h.context.LocalItabNavigationSites);
+ const site=h.context.LocalItabNavigationSites.find(site=>site.id==='luma-dream-machine');
+ await h.view.open();h.search('Luma');
+ const details=h.document.querySelector('article details');
+ details.open=true;details.dispatch('toggle');
+ const dictionary=JSON.parse(fs.readFileSync(`_locales/${locale==='zh-CN'?'zh_CN':'en'}/messages.json`));
+ assert.ok(details.querySelectorAll('p').map(p=>p.textContent).join(' ').includes(`${dictionary.navigationLibraryChecked.message}: ${site.verifiedOn}`));
+ assert.ok(details.querySelectorAll('p').map(p=>p.textContent).join(' ').includes(dictionary.navigationLibraryUnknown.message));
+ const footer=h.document.querySelector('.navigation-library-footer').querySelectorAll('p').map(p=>p.textContent).join(' ');
+ if(locale==='en'){
+  assert.match(footer,/not where a site is accessible/);
+  assert.match(footer,/Unknown means the information has not been sufficiently confirmed/);
+  assert.match(footer,/date records source review, not a guarantee of current pricing or availability/);
+ }else{
+  assert.match(footer,/不代表网站在哪些地区可用/);
+  assert.match(footer,/未知表示相关资料尚未充分确认/);
+  assert.match(footer,/日期记录来源查阅时间，不保证当前费用或可用性/);
+ }
+ const links=details.querySelectorAll('a');
+ assert.deepEqual(links.map(link=>link.href),Array.from(site.sources));
+ for(const link of links){assert.equal(link.target,'_blank');assert.equal(link.rel,'noopener noreferrer');}
+ assert.equal(JSON.stringify(h.context.LocalItabNavigationSites),original);
+ assert.equal(h.calls,0);h.view.close();
+});
+
+test('metadata source-review fallback matches English locale without changing catalog data', async () => {
+ const h=model();h.context.i18n.t=key=>key;await h.view.open();h.search('Luma');
+ assert.match(h.document.querySelector('article details').querySelectorAll('p').map(p=>p.textContent).join(' '),/Source reviewed: 2026-10-15/);
+ const en=JSON.parse(fs.readFileSync('_locales/en/messages.json'));
+ assert.ok(h.document.querySelector('.navigation-library-footer').querySelectorAll('p').map(p=>p.textContent).join(' ').includes(en.navigationLibraryDisclosure.message));
+ assert.equal(h.calls,0);h.view.close();
+});
