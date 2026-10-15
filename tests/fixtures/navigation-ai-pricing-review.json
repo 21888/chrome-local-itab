@@ -1,0 +1,116 @@
+{
+  "baseline": "e8fe3aca0c976ba5b94f15117ffc20d480f124ea",
+  "verifiedOn": "2026-10-15",
+  "baselineSha256": "76bbc6f24f4a838136ba95da92dff7e18098a054aa2f8b508de9a91a25829a57",
+  "changes": [
+    {
+      "id": "cursor",
+      "before": {
+        "pricingNote": {
+          "en": "Hobby is free with limited Agent requests. Paid subscriptions increase limits; additional usage may be billed separately.",
+          "zh": "Hobby 免费且 Agent 请求有限；付费订阅提高额度，可另付按量使用费用。"
+        },
+        "sources": [
+          "https://cursor.com/pricing",
+          "https://cursor.com/terms-of-service"
+        ],
+        "verifiedOn": "2026-10-12"
+      },
+      "after": {
+        "pricingNote": {
+          "en": "Limited free Agent and Chat usage is available. Paid plans expand included usage and features; third-party models, where available, are billed separately from the first request. Legacy plans have different rules.",
+          "zh": "提供有限免费 Agent 与对话额度；付费方案扩展内含额度及功能。可用的第三方模型从首次请求起另计费用；旧版套餐规则不同。"
+        },
+        "sources": [
+          "https://cursor.com/pricing",
+          "https://cursor.com/terms-of-service",
+          "https://cursor.com/docs/models-and-pricing"
+        ],
+        "verifiedOn": "2026-10-15"
+      }
+    },
+    {
+      "id": "grok",
+      "before": {
+        "pricingNote": {
+          "en": "A limited free plan is available. SuperGrok and other subscriptions expand limits and features.",
+          "zh": "提供有限额免费版；SuperGrok 等订阅提高额度和功能。"
+        },
+        "sources": [
+          "https://x.ai/pricing",
+          "https://x.ai/legal/terms-of-service"
+        ],
+        "verifiedOn": "2026-10-12"
+      },
+      "after": {
+        "pricingNote": {
+          "en": "A limited free plan is available. Paid subscriptions expand limits and features.",
+          "zh": "提供有限额免费版；付费订阅提高额度和功能。"
+        },
+        "sources": [
+          "https://x.ai/pricing",
+          "https://x.ai/legal/terms-of-service",
+          "https://docs.x.ai/x-subscription/overview"
+        ],
+        "verifiedOn": "2026-10-15"
+      }
+    },
+    {
+      "id": "luma-dream-machine",
+      "before": {
+        "pricing": "freemium",
+        "pricingNote": {
+          "en": "Free and paid plans are available. Free features are limited; video model access and commercial rights depend on the plan. API billing is separate.",
+          "zh": "有 Free 与付费方案；免费功能有限，视频模型及商用权依方案而异，API 另计。"
+        },
+        "sources": [
+          "https://lumalabs.ai/learning-hub/dream-machine-credit-system",
+          "https://lumalabs.ai/learning-hub/licensing",
+          "https://lumalabs.ai/legal/terms-of-service"
+        ],
+        "verifiedOn": "2026-10-12"
+      },
+      "after": {
+        "pricing": "unknown",
+        "pricingNote": {
+          "en": "Legacy Dream Machine guides list Free; current Luma pricing lists paid plans and its FAQ mentions a free trial, but the free allowance is unverified. Legacy and current plans differ; check the plan and terms for commercial rights. API is billed separately.",
+          "zh": "Dream Machine 旧版帮助页列有 Free；当前 Luma 价格页列付费方案，FAQ 提及免费试用，但免费额度未核实。新旧方案不同，商用权请核对对应方案及条款；API 另计。"
+        },
+        "sources": [
+          "https://lumalabs.ai/learning-hub/dream-machine-credit-system",
+          "https://lumalabs.ai/learning-hub/licensing",
+          "https://lumalabs.ai/legal/terms-of-service",
+          "https://lumalabs.ai/pricing",
+          "https://lumalabs.ai/learning-hub/frequently-asked-questions-about-the-new-luma-agents-app"
+        ],
+        "verifiedOn": "2026-10-15"
+      }
+    },
+    {
+      "id": "pika",
+      "before": {
+        "pricingNote": {
+          "zh": "官方价格页与旧版 FAQ 存在差异。当前价格页 Free 方案不含月度生成额度，生成需购买积分包或订阅；旧版、iOS 和 API 额度独立，请核对官网。",
+          "en": "The pricing page and older FAQ differ. The current pricing page lists no monthly generation credits for Free; generation requires credit packs or a subscription. Legacy, iOS and API credits are separate. Check the official page."
+        },
+        "sources": [
+          "https://pika.art/pricing",
+          "https://pika.art/terms-of-service"
+        ],
+        "verifiedOn": "2026-10-12"
+      },
+      "after": {
+        "pricingNote": {
+          "zh": "官方价格页与旧版 FAQ 存在差异。当前价格页 Free 方案不含月度生成额度，可购买积分包或订阅获取额度；旧版、iOS 和 API 额度独立，请核对官网。",
+          "en": "The pricing page and older FAQ differ. The current pricing page lists no monthly generation credits for Free; paid credit packs or subscriptions supply credits. Legacy, iOS and API credits are separate. Check the official page."
+        },
+        "sources": [
+          "https://pika.art/pricing",
+          "https://pika.art/terms-of-service",
+          "https://pika.art/faq"
+        ],
+        "verifiedOn": "2026-10-15"
+      }
+    }
+  ]
+}

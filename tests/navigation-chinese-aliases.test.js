@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const sites = require('../shared/navigation-sites');
+const sites = require('../shared/navigation-sites').map(require('./helpers/navigation-ai-pricing-review').beforeAiPricingReview);
 const Catalog = require('../shared/navigation-catalog');
 const { review, beforeChineseAliasReview } = require('./helpers/navigation-chinese-alias-review');
 const cases = [

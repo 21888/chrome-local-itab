@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), crypto = require('node:crypto');
-const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites');
+const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites').map(require('./helpers/navigation-ai-pricing-review').beforeAiPricingReview);
 const added = sites.slice(128, 132);
 const ids = ['project-gutenberg', 'smithsonian-open-access', 'openlearn', 'british-council-learnenglish'];
 const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');

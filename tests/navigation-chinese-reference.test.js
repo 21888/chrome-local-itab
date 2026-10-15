@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict'), crypto = require('node:crypto'), fs = require('node:fs');
-const sites = require('../shared/navigation-sites'), Catalog = require('../shared/navigation-catalog');
+const sites = require('../shared/navigation-sites').map(require('./helpers/navigation-ai-pricing-review').beforeAiPricingReview), Catalog = require('../shared/navigation-catalog');
 const added = sites.slice(139,141), ids = ['moe-concised-dictionary','china-consular-services'];
 const key = tag => 'navigationTag'+tag.split('-').map(part=>part[0].toUpperCase()+part.slice(1)).join('');
 test('Chinese reference additions preserve all 139 records and pin 146 safe unique entries / 218 uses',()=>{

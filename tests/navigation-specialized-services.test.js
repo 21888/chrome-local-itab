@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), crypto = require('node:crypto');
-const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites');
+const Catalog = require('../shared/navigation-catalog'), sites = require('../shared/navigation-sites').map(require('./helpers/navigation-ai-pricing-review').beforeAiPricingReview);
 const { beforeChineseAliasReview } = require('./helpers/navigation-chinese-alias-review');
 const added = sites.slice(114, 120);
 const ids = ['phet','wave','onet-online','we-work-remotely','google-dataset-search','google-ads-transparency'];

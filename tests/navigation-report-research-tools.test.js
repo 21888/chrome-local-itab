@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict'), crypto = require('node:crypto'), fs = require('node:fs');
-const sites = require('../shared/navigation-sites'), Catalog = require('../shared/navigation-catalog');
+const sites = require('../shared/navigation-sites').map(require('./helpers/navigation-ai-pricing-review').beforeAiPricingReview), Catalog = require('../shared/navigation-catalog');
 const added = sites.slice(141, 146);
 const ids = ['datawrapper', 'wikimedia-commons', 'worldcat', 'typst', 'pdf24-tools'];
 const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');
