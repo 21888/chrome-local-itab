@@ -2,6 +2,8 @@
     'use strict';
     const api = root.LocalItabFocus;
     const fallback = {
+        focusTitleBackground: 'Timer in background',
+        focusTitleHelp: 'While this page is visible, a running timer shows its remaining time in the tab title. In the background the title shows only the interval type, without a live countdown or completion alert. Pausing or finishing restores the original title.',
         focusViewEnter: 'Temporary focus view', focusViewExit: 'Exit focus view',
         focusViewHelp: 'Hide other modules on this page until you exit or the interval ends. Your saved layout stays the same.',
         focusViewBlocked: 'Finish or save open edits and close other panels before entering focus view.',
@@ -20,6 +22,48 @@
     function t(key) { const translated = root.i18n?.t(key); return translated && translated !== key ? translated : fallback[key] || key; }
     function el(tag, cls, text) { const node = document.createElement(tag); if (cls) node.className = cls; if (text !== undefined) node.textContent = text; return node; }
     function button(key, action) { const node = el('button', 'focus-button', t(key)); node.type = 'button'; node.addEventListener('click', action); node.addEventListener('keydown', event => { if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault(); }); return node; }
+    // Presentation only: no second ticker, storage calls or background work.
+    class TitlePresentation {
+        constructor(view, titleNode) {
+            this.view = view; this.node = titleNode; this.original = document.title;
+            this.last = this.original; this.workspace = root.LocalItabWorkspaces?.session?.id;
+            this.closed = false; this.yielded = false; this.suspended = false;
+            this.pagehide = () => { this.restore(); this.suspended = true; };
+            this.pageshow = () => { this.suspended = false; this.update(); };
+            root.addEventListener?.('pagehide', this.pagehide);
+            root.addEventListener?.('pageshow', this.pageshow);
+        }
+        owns() {
+            if (this.yielded || document.querySelector('title') !== this.node ||
+                document.querySelector('title[data-i18n="newTabTitle"]') !== this.node || document.title !== this.last) {
+                this.yielded = true; return false;
+            }
+            return true;
+        }
+        write(value) {
+            if (!this.owns()) return;
+            if (document.title !== value) document.title = value;
+            this.last = value;
+        }
+        restore() { this.write(this.original); }
+        update() {
+            if (this.closed || this.suspended || this.yielded) return;
+            const view = this.view, state = view.controller.snapshot();
+            if (this.workspace !== root.LocalItabWorkspaces?.session?.id || root.LocalItabContentLifecycle?.departing ||
+                view.closed || !view.host.isConnected) { this.restore(); this.destroy(); return; }
+            if (!state?.enabled || state.session.status !== 'running' || view.controller.error) { this.restore(); return; }
+            const phase = t(state.session.phase === 'focus' ? 'focusWork' : 'focusBreak');
+            // Hidden-page timers can be throttled or frozen indefinitely. Never
+            // leave a stale numeric countdown or claim an interval is still running.
+            this.write(document.hidden ? `${phase} · ${t('focusTitleBackground')}` : `${api.formatRemaining(state.session.remainingMs)} · ${phase}`);
+        }
+        destroy() {
+            if (this.closed) return;
+            this.restore(); this.closed = true;
+            root.removeEventListener?.('pagehide', this.pagehide);
+            root.removeEventListener?.('pageshow', this.pageshow);
+        }
+    }
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {} } = {}) {
             this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.timeout = null; this.closed = false; this.lastStatus = null; this.durationDrafts = new Map(); this.minutesPhase = null; this.durationInputPhase = null; this.temporaryFocus = null;
@@ -48,7 +92,7 @@
             const controls = el('div', 'focus-controls'); controls.append(this.start, this.reset);
             this.feedback = el('p', 'focus-feedback'); this.feedback.setAttribute('role', 'status'); this.retry = button('focusRetry', () => controller.refresh().catch(() => {}));
             const details = el('details', 'focus-help');
-            details.append(el('summary', '', t('focusDetails')), el('p', '', t('focusHelp')));
+            details.append(el('summary', '', t('focusDetails')), el('p', '', t('focusHelp')), el('p', '', t('focusTitleHelp')));
             host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.status, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
             this.visibility = () => { this.cancelTick(); if (!document.hidden) { controller.tick(); controller.refresh().catch(() => {}); } this.render(); };
             document.addEventListener('visibilitychange', this.visibility);
@@ -67,6 +111,15 @@
             root.addEventListener?.('keydown', this.focusViewKey);
             root.addEventListener?.('pagehide', this.focusViewPageHide);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
+        }
+        attachDocumentTitle() {
+            // Called only after newtab's final static-shell localization. Options
+            // and standalone component hosts never opt in implicitly.
+            if (this.closed || this.titlePresentation || !this.host.isConnected || !this.host.closest('#dashboard')) return false;
+            const node = document.querySelector('title[data-i18n="newTabTitle"]');
+            const expected = root.i18n?.t('newTabTitle') || 'New Tab';
+            if (!node || document.querySelector('title') !== node || document.title !== expected) return false;
+            this.titlePresentation = new TitlePresentation(this, node); this.titlePresentation.update(); return true;
         }
         hasFocusViewOverlay() {
             return Boolean(this.host.closest('[inert]')) || Array.from(document.querySelectorAll(
@@ -162,6 +215,7 @@
         cancelTick() { if (this.timeout !== null) { root.clearTimeout(this.timeout); this.timeout = null; } }
         render() {
             if (this.closed) return;
+            this.titlePresentation?.update();
             this.cancelTick(); const state = this.controller.snapshot(), pending = Boolean(this.controller.pending);
             if (!state) { this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
             const s = state.session;
@@ -204,7 +258,7 @@
             }
         }
         hasUncommittedWork() { return this.durationDrafts.size > 0 || this.controller.hasUncommittedWork(); }
-        destroy() { this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); this.closed = true; this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
+        destroy() { this.titlePresentation?.destroy(); this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); this.closed = true; this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
         host.classList.add('local-focus-settings'); const label = el('label', 'focus-enable-label'), input = el('input'); input.type = 'checkbox'; input.disabled = true;

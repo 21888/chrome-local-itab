@@ -134,6 +134,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (window.i18n) {
             window.i18n.localizeDocument(document);
         }
+        window.localFocusView?.attachDocumentTitle();
 
         // Set up settings button
         const settingsButton = document.getElementById('open-options');

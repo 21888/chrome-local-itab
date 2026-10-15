@@ -1965,6 +1965,12 @@
   "focusViewBlocked": {
     "message": "Finish or save open edits and close other panels before entering focus view."
   },
+  "focusTitleBackground": {
+    "message": "Timer in background"
+  },
+  "focusTitleHelp": {
+    "message": "While this page is visible, a running timer shows its remaining time in the tab title. In the background the title shows only the interval type, without a live countdown or completion alert. Pausing or finishing restores the original title."
+  },
   "focusTitle": {
     "message": "Focus timer"
   },

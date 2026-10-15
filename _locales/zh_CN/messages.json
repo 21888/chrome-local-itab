@@ -1965,6 +1965,12 @@
   "focusViewBlocked": {
     "message": "请先完成或保存正在编辑的内容，并关闭其他面板，再进入专注视图。"
   },
+  "focusTitleBackground": {
+    "message": "后台计时页"
+  },
+  "focusTitleHelp": {
+    "message": "本页可见时，运行中的计时器会在标签标题中显示剩余时间；切到后台后只显示计时阶段，不提供实时倒计时或完成提醒。暂停或结束后恢复原标题。"
+  },
   "focusTitle": {
     "message": "专注计时器"
   },
