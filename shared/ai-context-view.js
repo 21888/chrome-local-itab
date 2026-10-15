@@ -6,12 +6,12 @@
         const el = (tag, cls = '', value = '') => { const node = doc.createElement(tag); node.className = cls; node.textContent = value; return node; };
         const label = (key, fallback) => t(`aiContext${key}`, fallback);
         const button = (key, fallback, action) => { const node = el('button', '', label(key, fallback)); node.type = 'button'; node.addEventListener('click', action); return node; };
-        const box = el('section', 'ai-context'), heading = el('h2', '', label('Title', 'Ask your saved context'));
-        box.append(heading, el('p', '', label('Help', 'Choose saved excerpts and review a complete prompt locally, without a connection. Optionally open model settings to review, allow and send a request. Nothing is selected or sent automatically. Providers may charge; keys are cleared after a request or departure.')));
+        const box = el('section', 'ai-context'), heading = el('h2', '', label('Title', 'Ask your context'));
+        box.append(heading, el('p', '', label('Help', 'Choose saved or manually added temporary excerpts and review a complete prompt locally, without a connection. Optionally open model settings to review, allow and send a request. Nothing is selected or sent automatically. Providers may charge; keys are cleared after a request or departure.')));
         const workbench = el('div', 'ai-context-workbench');
         const sourcesPane = el('section', 'ai-context-sources-pane');
-        sourcesPane.setAttribute('aria-label', label('SourcesHeading', 'Saved sources'));
-        sourcesPane.append(el('h3', '', label('SourcesHeading', 'Saved sources')));
+        sourcesPane.setAttribute('aria-label', label('SourcesHeading', 'Context sources'));
+        sourcesPane.append(el('h3', '', label('SourcesHeading', 'Context sources')));
         const collectionPanel = el('section', 'ai-context-collection-review'); collectionPanel.hidden = !collectionRequest;
         const collectionInfo = el('pre', 'ai-context-collection-info');
         const collectionText = el('pre', 'ai-context-collection-text'); collectionText.tabIndex = 0;
@@ -101,13 +101,13 @@
         connection.append(el('p', '', presetText('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.')));
         const presetActions = el('div', 'ai-context-actions'); connection.append(presetActions);
         let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false, presetReloadEpoch = 0;
-        const scopeNote = el('p', 'ai-context-scope', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included.'));
+        const scopeNote = el('p', 'ai-context-scope', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Manual temporary excerpts are unverified text you explicitly add for this session. Unsaved notes, browser history and other workspaces are never included.'));
         const searchLabel = el('label', 'ai-context-field', label('SourceSearch', 'Search loaded source titles'));
         const sourceSearch = el('input', 'ai-context-source-search'); sourceSearch.type = 'search';
         sourceSearch.autocomplete = 'off'; sourceSearch.spellcheck = false; searchLabel.append(sourceSearch);
         const scopeLabel = el('label', 'ai-context-field', label('SourceScope', 'Filter loaded source scope'));
         const sourceScope = el('select', 'ai-context-source-scope');
-        for (const [value, name, fallback] of [['all', 'SourceScopeAll', 'All sources'], ['workspace', 'SourceScopeWorkspace', 'Current workspace note'], ['library', 'SourceScopeLibrary', 'Global collection']]) {
+        for (const [value, name, fallback] of [['all', 'SourceScopeAll', 'All sources'], ['workspace', 'SourceScopeWorkspace', 'Current workspace note'], ['library', 'SourceScopeLibrary', 'Global collection'], ['manual', 'SourceScopeManual', 'Manual temporary excerpts (unverified)']]) {
             const option = el('option', '', label(name, fallback)); option.value = value; sourceScope.append(option);
         }
         sourceScope.value = 'all'; scopeLabel.append(sourceScope);
@@ -133,13 +133,28 @@
         const reloadActions = el('div', 'ai-context-actions');
         const reloadSources = button('SourceReload', 'Reload saved sources', () => loadSourceRows(true));
         reloadSources.className = 'ai-context-source-reload';
-        const reloadHelp = el('p', 'ai-context-source-reload-help', label('SourceReloadHelp', 'Read the latest saved sources for this workspace and the global collection. A successful reload clears all source selections and excerpt edits, including hidden ones. Your question, connection, filters and previous response stay unchanged. Nothing is sent or saved.'));
+        const reloadHelp = el('p', 'ai-context-source-reload-help', label('SourceReloadHelp', 'Read the latest saved sources for this workspace and the global collection. A successful reload clears saved-source selections and edits, including hidden ones. Manual temporary excerpts, their selections and edits, the unadded text, your question, connection, filters and previous response stay unchanged. Nothing is sent or saved.'));
         reloadHelp.id = 'ai-context-source-reload-help'; reloadSources.setAttribute('aria-describedby', reloadHelp.id);
         reloadActions.append(reloadSources);
+        const manualPanel = el('details', 'ai-context-manual');
+        const manualSummary = summary('ManualHeading', 'Add a temporary excerpt');
+        manualPanel.append(manualSummary, el('p', '', label('ManualHelp', 'Type or paste a title and plain text, then explicitly add it. Up to 12 temporary candidates; none are selected automatically. Title: 200 Unicode characters (400 UTF-16 units); text: 16,000 UTF-16 units. Complete input is kept on errors, never shortened. These unverified excerpts stay in this panel until removed, the draft is cleared or the panel closes. No clipboard, file or URL is read. Selecting and reviewing do not save them. If you later choose to save an answer with its question/source snapshot, selected manual text is included in the global collection and unencrypted backups.')));
+        const manualTitle = field('ManualTitle', 'Temporary excerpt title', 'text', manualPanel);
+        const manualBody = field('ManualBody', 'Temporary excerpt text', 'textarea', manualPanel); manualBody.rows = 5;
+        // No maxlength: retain the complete pasted draft, including invalid input.
+        const manualCount = el('p', 'ai-context-manual-count');
+        const manualStatus = el('p', 'ai-context-manual-status'); manualStatus.tabIndex = -1;
+        manualStatus.setAttribute('role', 'status'); manualStatus.setAttribute('aria-live', 'polite');
+        const manualAdd = button('ManualAdd', 'Add temporary excerpt', () => void addManualSource());
+        manualAdd.className = 'ai-context-manual-add';
+        manualPanel.append(manualCount, manualAdd, manualStatus);
+        let manualEpoch = 0;
         const sourceList = el('div', 'ai-context-sources');
+        const savedSourceList = el('div', 'ai-context-saved-sources'), manualSourceList = el('div', 'ai-context-manual-sources');
+        sourceList.append(savedSourceList, manualSourceList);
         const sourceHelp = el('details', 'ai-context-source-help');
         sourceHelp.append(summary('SourceHelpHeading', 'Source scope, limits and reload'), scopeNote, scopeHelp, searchHelp, batchHelp, reloadActions, reloadHelp);
-        sourcesPane.append(searchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
+        sourcesPane.append(manualPanel, searchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         questionPane.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
         let sourceRows = [];
@@ -198,7 +213,7 @@
         const contextLabel = el('label'), includeContext = el('input'); includeContext.type = 'checkbox'; includeContext.checked = false;
         contextLabel.append(includeContext, el('span', '', label('SaveContext', 'Also save this exact question and reviewed source excerpts')));
         const contextPreview = el('pre', 'ai-context-review'); contextPreview.hidden = true;
-        contextSave.append(contextLabel, el('p', '', label('SaveContextPrivacy', 'Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot.')), contextPreview);
+        contextSave.append(contextLabel, el('p', '', label('SaveContextPrivacy', 'Optional, off by default. The exact question, edited excerpts (including selected manual temporary text), source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot.')), contextPreview);
         const taskList = el('ol', 'ai-context-tasks'); taskList.hidden = true;
         const taskSelection = el('section', 'ai-context-task-selection'); taskSelection.hidden = true;
         const taskSelectionHelp = el('p', 'ai-context-task-selection-help');
@@ -276,6 +291,11 @@
                 row.node.hidden = !matchesSourceView(row);
                 row.restore.hidden = !row.check.checked;
                 row.restore.disabled = selectionBlocked() || !row.check.checked || sourceText(row) === row.source.text;
+                if (row.remove) {
+                    const blocked = selectionBlocked() || doc.visibilityState === 'hidden';
+                    if (doc.activeElement === row.remove && blocked) status.focus();
+                    row.remove.disabled = blocked;
+                }
                 if (!row.node.hidden) visible++;
                 if (row.check.checked) { selected++; if (row.node.hidden) hiddenSelected++; }
             }
@@ -368,7 +388,14 @@
             loadExternal.textContent = answerMode ? label('ExternalAnswerLoad', 'Load answer for review') : label('ExternalTasksLoad', 'Load task JSON for review');
             externalInput.disabled = busy || retry;
             loadExternal.disabled = busy || retry || externalPanel.hidden || !externalInput.value.trim() || doc.visibilityState === 'hidden';
+            const manualTotal = sourceRows.filter(row => row.source.scope === 'manual').length;
+            const manualBlocked = busy || retry || disposed || controller.closed || doc.visibilityState === 'hidden';
+            const addDisabled = manualBlocked || manualTotal >= 12 || !manualTitle.value.trim() || !manualBody.value.trim();
+            if ((focused === manualAdd && addDisabled) || ((focused === manualTitle || focused === manualBody) && manualBlocked)) manualStatus.focus();
+            manualAdd.disabled = addDisabled;
+            manualCount.textContent = `${label('ManualCount', 'Temporary candidates')}: ${manualTotal} / 12 · ${label('ManualTitleCount', 'Title characters')}: ${Array.from(manualTitle.value).length} / 200 · ${label('ManualBodyCount', 'Text UTF-16 units')}: ${manualBody.value.length} / 16000`;
             for (const input of controls) input.disabled = busy || retry;
+            manualTitle.disabled = manualBody.disabled = manualBlocked;
             stream.disabled = busy || retry || mode.value !== 'answer';
             streamLabel.hidden = streamHelp.hidden = mode.value !== 'answer';
             renderPartial();
@@ -410,7 +437,7 @@
             presetReload.disabled = !presetStore || presetPending || disposed || controller.closed || pending || controller.busy || controller.taskCommand || controller.saveCommand || doc.visibilityState === 'hidden';
             presetName.disabled = presetSelect.disabled = presetSave.disabled = !presetAvailable || busy || retry;
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
-            if (focused?.disabled && box.contains(focused)) status.focus();
+            if (focused?.disabled && box.contains(focused) && ![manualTitle, manualBody, manualAdd].includes(focused)) status.focus();
         }
         function invalidate(discard = false) {
             try { if (discard === true) controller.clear(); else controller.edit(); if (!controller.result) { if (!titleEdited) answerTitle.value = ''; includeContext.checked = false; } reviewText.hidden = taskList.hidden = true; status.textContent = ''; } catch (_) { error(); }
@@ -444,6 +471,51 @@
             row.input.focus();
             update();
         }
+        function manualBlocked() {
+            return selectionBlocked() || !box.isConnected || doc.visibilityState === 'hidden';
+        }
+        async function addManualSource() {
+            if (manualBlocked() || sourceRows.filter(row => row.source.scope === 'manual').length >= 12) return;
+            const draftCurrent = captureDraft(), epoch = manualEpoch;
+            const current = () => !disposed && !controller.closed && epoch === manualEpoch && draftCurrent() &&
+                !controller.busy && !controller.taskCommand && !controller.saveCommand && box.isConnected && doc.visibilityState !== 'hidden';
+            const title = manualTitle.value, value = manualBody.value, count = sourceRows.filter(row => row.source.scope === 'manual').length;
+            pending = true; manualStatus.textContent = ''; update();
+            try {
+                if (!current()) return;
+                const source = await controller.prepareManualSource(title, value, { count, isCurrent: current });
+                if (!current()) return;
+                const row = buildSourceRows([source])[0];
+                controller.edit();
+                sourceRows.push(row); manualSourceList.append(row.node);
+                manualTitle.value = manualBody.value = ''; manualEpoch++;
+                if (!controller.result) includeContext.checked = false;
+                reviewText.hidden = taskList.hidden = true;
+                manualStatus.textContent = label('ManualAdded', 'Temporary excerpt added, not selected. Current filters may hide it. Select it to review or edit its outgoing text; nothing was sent or saved.');
+                status.textContent = '';
+            } catch (reason) {
+                if (current()) manualStatus.textContent = reason.code === 'LIMIT'
+                    ? label('ManualInvalid', 'Not added. Use a nonempty title up to 200 Unicode characters (400 UTF-16 units), and nonempty text up to 16,000 UTF-16 units, with valid Unicode. The complete input and existing sources are kept; nothing was shortened or saved.')
+                    : label('ManualError', 'Could not add this temporary excerpt. Check the current workspace and try again. Your complete input and existing sources are unchanged.');
+            } finally { pending = false; if (!disposed) update(); }
+        }
+        function removeManualSource(row) {
+            if (manualBlocked() || !sourceRows.includes(row) || row.source.scope !== 'manual' || row.node.hidden) return;
+            try { controller.edit(); } catch (_) { error(); update(); return; }
+            const index = sourceRows.indexOf(row), ownedFocus = row.node.contains(doc.activeElement);
+            const available = item => item !== row && !item.node.hidden && !item.check.disabled;
+            const next = sourceRows.slice(index + 1).find(available) || sourceRows.slice(0, index).reverse().find(available);
+            if (ownedFocus) (next?.check || manualSummary).focus();
+            row.node.remove(); sourceRows = sourceRows.filter(item => item !== row); manualEpoch++;
+            if (!controller.result) includeContext.checked = false;
+            reviewText.hidden = taskList.hidden = true;
+            status.textContent = label('ManualRemoved', 'Temporary excerpt removed from this draft. Review again before copying or sending. A previous response and its original snapshot remain unchanged.');
+            update();
+        }
+        for (const input of [manualTitle, manualBody]) input.addEventListener('input', () => {
+            if (manualBlocked()) return;
+            manualEpoch++; manualStatus.textContent = ''; invalidate();
+        });
         function promptBlocked() {
             return !promptAPI || selectionBlocked() || !box.isConnected || doc.visibilityState === 'hidden';
         }
@@ -861,11 +933,16 @@
         }, ['TasksVerified', 'The complete original task batch is currently present and unchanged. Nothing was written or sent. You can now clear this draft or start a new request.']));
         const reset = button('Cancel', 'Cancel / clear draft', () => { if (pending || controller.busy || controller.taskCommand || controller.saveCommand) return;
             const current = captureDraft();
-            const allowed = externalInput.value
+            const allowed = manualTitle.value || manualBody.value || sourceRows.some(row => row.source.scope === 'manual')
+                ? root.confirm?.(label('ManualClearConfirm', 'Clear the entire draft, including all temporary excerpts, unadded text, selections and the current response? Cancel keeps everything unchanged.'))
+                : externalInput.value
                 ? root.confirm?.(label('ExternalDraftDiscard', 'Clear this draft, including the pasted external text and current response?'))
                 : confirmDiscard('DiscardResult');
             if (!allowed || !current() || selectionBlocked()) return;
             closePrompts(); invalidate(true); key.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; question.value = ''; appliedPromptQuestion = null; answerTitle.value = ''; titleEdited = false;
+            manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualEpoch++;
+            for (const row of sourceRows.filter(item => item.source.scope === 'manual')) row.node.remove();
+            sourceRows = sourceRows.filter(row => row.source.scope !== 'manual');
             for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; row.rawText = row.source.text; } collectionTicket = null; collectionUsed = false; collectionPanel.hidden = true; sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
@@ -896,17 +973,25 @@
         function buildSourceRows(values) {
             return values.map(source => {
                 const row = el('div', 'ai-context-source'), sourceLabel = el('label'), check = el('input'); check.type = 'checkbox'; check.checked = false;
-                const input = el('textarea'); input.value = source.text; input.maxLength = 16000; input.rows = 3; input.hidden = true;
+                const input = el('textarea'); input.value = source.text; if (source.scope !== 'manual') input.maxLength = 16000; input.rows = 3; input.hidden = true;
                 input.setAttribute('aria-label', `${label('Excerpt', 'Outgoing excerpt')}: ${source.label}`);
                 const sourceBudget = el('span', 'ai-context-source-budget'); sourceBudget.hidden = true;
                 const state = { source, node: row, searchTitle: source.label.toLowerCase(), check, input, budget: sourceBudget, initialText: input.value, rawText: source.text };
                 const restore = button('SourceRestore', 'Restore original excerpt', () => restoreExcerpt(state));
                 restore.className = 'ai-context-source-restore';
-                restore.title = label('SourceRestoreHelp', 'Restore this excerpt to its most recently loaded text. The saved source is unchanged.');
+                restore.title = source.scope === 'manual'
+                    ? label('ManualRestoreHelp', 'Restore the exact original text you manually added in this session.')
+                    : label('SourceRestoreHelp', 'Restore this excerpt to its most recently loaded text. The saved source is unchanged.');
                 restore.setAttribute('aria-label', `${label('SourceRestore', 'Restore original excerpt')}: ${source.label}`);
                 state.restore = restore;
-                sourceLabel.append(check, el('span', '', `${source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`));
+                sourceLabel.append(check, el('span', '', `${source.scope === 'manual' ? label('ManualScope', 'Manual temporary excerpt (unverified)') : source.scope === 'workspace' ? label('Workspace', 'Workspace note') : label('Global', 'Global collection')}: ${source.label}`));
                 row.append(sourceLabel, input, sourceBudget, restore);
+                if (source.scope === 'manual') {
+                    const remove = button('ManualRemove', 'Remove temporary excerpt', () => removeManualSource(state));
+                    remove.className = 'ai-context-manual-remove';
+                    remove.setAttribute('aria-label', `${label('ManualRemove', 'Remove temporary excerpt')}: ${source.label}`);
+                    state.remove = remove; row.append(remove);
+                }
                 check.addEventListener('change', () => { if (selectionBlocked() || !sourceRows.includes(state)) return; input.hidden = !check.checked; invalidate(); });
                 input.addEventListener('input', () => { if (!selectionBlocked() && sourceRows.includes(state)) { state.rawText = null; invalidate(); } });
                 return state;
@@ -914,27 +999,31 @@
         }
         async function loadSourceRows(reload) {
             if (selectionBlocked()) return;
-            // Include unselected and filtered-out edits. Cancellation must not read or invalidate anything.
-            if (reload && sourceRows.some(row => row.check.checked || sourceText(row) !== row.source.text) &&
-                !root.confirm?.(label('SourceReloadConfirm', 'Reload saved sources? On success, all source selections and excerpt edits will be cleared, including hidden and unselected excerpts. Your question, connection, filters, answer title and previous response with its original snapshot will be kept.'))) return;
-            if (selectionBlocked()) return;
+            // Confirm only replaced saved rows; preserve manual rows and their exact DOM.
+            const draftCurrent = captureDraft(), epoch = manualEpoch;
+            if (reload && sourceRows.some(row => row.source.scope !== 'manual' && (row.check.checked || sourceText(row) !== row.source.text)) &&
+                !root.confirm?.(label('SourceReloadConfirm', 'Reload saved sources? On success, saved-source selections and edits will be cleared, including hidden and unselected saved excerpts. Manual temporary excerpts, their selections and edits, unadded text, your question, connection, filters, answer title and previous response with its original snapshot will be kept.'))) return;
+            if (selectionBlocked() || !draftCurrent()) return;
             const generation = controller.generation;
+            const current = () => !disposed && !controller.closed && epoch === manualEpoch && draftCurrent() && doc.visibilityState !== 'hidden';
             pending = true; update();
             try {
                 const values = await controller.loadSources();
-                if (disposed || controller.closed) return;
+                if (!current()) return;
                 controller.current(generation);
                 // Build every row off-screen before invalidating the review or replacing any visible state.
                 const nextRows = buildSourceRows(values);
                 controller.current(generation);
+                if (!current()) return;
                 if (reload) controller.edit();
-                sourceList.replaceChildren(...nextRows.map(row => row.node)); sourceRows = nextRows; sourcesLoaded = true;
+                savedSourceList.replaceChildren(...nextRows.map(row => row.node));
+                sourceRows = [...nextRows, ...sourceRows.filter(row => row.source.scope === 'manual')]; sourcesLoaded = true;
                 if (reload) {
                     reviewText.hidden = taskList.hidden = true;
-                    status.textContent = label('SourceReloaded', 'Saved sources reloaded. Nothing is selected. Review the exact request again before sending; the previous response still belongs to its original request.');
+                    status.textContent = label('SourceReloaded', 'Saved sources reloaded and left unselected. Manual temporary excerpts and their selections and edits are kept. Review the exact request again before sending; the previous response still belongs to its original request.');
                 } else status.textContent = label('Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.');
             } catch (_) {
-                if (!disposed && !controller.closed) status.textContent = label('SourceReloadError', 'Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace.');
+                if (current()) status.textContent = label('SourceReloadError', 'Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace.');
             } finally { pending = false; if (!disposed) update(); }
         }
         function collectionSelection() {
@@ -1021,7 +1110,7 @@
                 controller.edit(); // The controller's uncertain-write lock still owns this edit.
                 next.check.checked = true; next.input.hidden = false;
                 if (existing) sourceRows = sourceRows.map(row => row === existing ? next : row); else sourceRows = [next, ...sourceRows];
-                sourceList.replaceChildren(...sourceRows.map(row => row.node));
+                savedSourceList.replaceChildren(...sourceRows.filter(row => row.source.scope !== 'manual').map(row => row.node));
                 collectionUsed = applied = true; reviewText.hidden = taskList.hidden = true;
                 // This successful selection invalidates old reload/review feedback,
                 // but a newer message arriving during the read keeps its ownership.
@@ -1036,13 +1125,13 @@
         // Keep the DOM-normalized source baseline so untouched CRLF excerpts are clean.
         function hasUncommittedWork() {
             return !disposed && Boolean(controller.busy || controller.partial || controller.result || controller.taskCommand || controller.saveCommand ||
-                question.value || externalInput.value || collectionTicket || !promptPicker.hidden || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || sourceText(row) !== row.source.text));
+                question.value || externalInput.value || manualTitle.value || manualBody.value || sourceRows.some(row => row.source.scope === 'manual') || collectionTicket || !promptPicker.hidden || (titleEdited && answerTitle.value !== initialAnswerTitle) || sourceRows.some(row => row.check.checked || sourceText(row) !== row.source.text));
         }
         function captureDraft() {
             // A confirmation cannot authorize discarding edits made while the host awaits readiness.
             const signature = () => JSON.stringify([controls.map(input => [input.value, input.checked]), mode.value, stream.checked,
                 sourceRows.map(row => [row.source.id, row.input.value, row.rawText, row.check.checked]), sourceSearch.value, sourceScope.value, selectedOnly,
-                answerTitle.value, output.value, externalInput.value, externalEpoch, includeContext.checked, promptPicker.hidden, promptSelect.value, promptSearch.value,
+                answerTitle.value, output.value, externalInput.value, externalEpoch, manualTitle.value, manualBody.value, manualEpoch, includeContext.checked, promptPicker.hidden, promptSelect.value, promptSearch.value,
                 promptRows.map(row => [row.name, row.input.value]), promptPreview.textContent, promptEpoch, collectionEpoch]);
             const before = signature(), generation = controller.generation, result = controller.result, reviewed = controller.reviewed, localReview = controller.localReview;
             const taskSelection = controller.taskSelection, taskReview = controller.taskReview, partial = controller.partial;
@@ -1050,11 +1139,11 @@
                 localReview === controller.localReview && partial === controller.partial && taskSelection === controller.taskSelection && taskReview === controller.taskReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); update(); } return; }
             if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
-            externalEpoch++; presetReloadEpoch++; closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
+            manualEpoch++; externalEpoch++; presetReloadEpoch++; closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);

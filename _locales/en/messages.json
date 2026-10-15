@@ -4078,10 +4078,10 @@
     "message": "Could not confirm the save. Your response remains here. Retry uses the same save operation."
   },
   "aiContextTitle": {
-    "message": "Ask your saved context"
+    "message": "Ask your context"
   },
   "aiContextHelp": {
-    "message": "Choose saved excerpts and review a complete prompt locally, without a connection. Optionally open model settings to review, allow and send a request. Nothing is selected or sent automatically. Providers may charge; keys are cleared after a request or departure."
+    "message": "Choose saved or manually added temporary excerpts and review a complete prompt locally, without a connection. Optionally open model settings to review, allow and send a request. Nothing is selected or sent automatically. Providers may charge; keys are cleared after a request or departure."
   },
   "aiContextEndpoint": {
     "message": "Full HTTPS endpoint URL"
@@ -4099,7 +4099,7 @@
     "message": "Output"
   },
   "aiContextScope": {
-    "message": "AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included."
+    "message": "AI collections are global saved excerpts. The saved note belongs to this workspace. Manual temporary excerpts are unverified text you explicitly add for this session. Unsaved notes, browser history and other workspaces are never included."
   },
   "aiContextResponse": {
     "message": "Model response (unverified text; task JSON can be edited before review)"
@@ -4576,7 +4576,7 @@
     "message": "Also save this exact question and reviewed source excerpts"
   },
   "aiContextSaveContextPrivacy": {
-    "message": "Optional, off by default. The exact question, edited excerpts, source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot."
+    "message": "Optional, off by default. The exact question, edited excerpts (including selected manual temporary text), source IDs and labels, full reviewed prompt, endpoint and model below will join the global AI collection and unencrypted backups. Check for private information or secrets in the text before saving. API-key fields and authentication headers are never included. Removing source URLs from a backup does not remove this snapshot."
   },
   "aiContextSnapshotLimit": {
     "message": "The reviewed snapshot exceeds its size limit. Nothing was written. You can uncheck the snapshot option and explicitly save only the answer."
@@ -5701,13 +5701,13 @@
     "message": "Reload saved sources"
   },
   "aiContextSourceReloadHelp": {
-    "message": "Read the latest saved sources for this workspace and the global collection. A successful reload clears all source selections and excerpt edits, including hidden ones. Your question, connection, filters and previous response stay unchanged. Nothing is sent or saved."
+    "message": "Read the latest saved sources for this workspace and the global collection. A successful reload clears saved-source selections and edits, including hidden ones. Manual temporary excerpts, their selections and edits, the unadded text, your question, connection, filters and previous response stay unchanged. Nothing is sent or saved."
   },
   "aiContextSourceReloadConfirm": {
-    "message": "Reload saved sources? On success, all source selections and excerpt edits will be cleared, including hidden and unselected excerpts. Your question, connection, filters, answer title and previous response with its original snapshot will be kept."
+    "message": "Reload saved sources? On success, saved-source selections and edits will be cleared, including hidden and unselected saved excerpts. Manual temporary excerpts, their selections and edits, unadded text, your question, connection, filters, answer title and previous response with its original snapshot will be kept."
   },
   "aiContextSourceReloaded": {
-    "message": "Saved sources reloaded. Nothing is selected. Review the exact request again before sending; the previous response still belongs to its original request."
+    "message": "Saved sources reloaded and left unselected. Manual temporary excerpts and their selections and edits are kept. Review the exact request again before sending; the previous response still belongs to its original request."
   },
   "aiContextSourceReloadError": {
     "message": "Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace."
@@ -5863,7 +5863,7 @@
     "message": "Page data changed. Reload this page before adding sites or adjusting the layout."
   },
   "aiContextSourcesHeading": {
-    "message": "Saved sources"
+    "message": "Context sources"
   },
   "aiContextQuestionHeading": {
     "message": "Question and review"
@@ -7201,5 +7201,56 @@
   },
   "aiContextExternalAnswerCapacity": {
     "message": "The global AI collection is full or has insufficient space. Nothing was written. Your loaded answer, title and pasted draft are kept. Free space in the collection, then save again."
+  },
+  "aiContextSourceScopeManual": {
+    "message": "Manual temporary excerpts (unverified)"
+  },
+  "aiContextManualHeading": {
+    "message": "Add a temporary excerpt"
+  },
+  "aiContextManualHelp": {
+    "message": "Type or paste a title and plain text, then explicitly add it. Up to 12 temporary candidates; none are selected automatically. Title: 200 Unicode characters (400 UTF-16 units); text: 16,000 UTF-16 units. Complete input is kept on errors, never shortened. These unverified excerpts stay in this panel until removed, the draft is cleared or the panel closes. No clipboard, file or URL is read. Selecting and reviewing do not save them. If you later choose to save an answer with its question/source snapshot, selected manual text is included in the global collection and unencrypted backups."
+  },
+  "aiContextManualTitle": {
+    "message": "Temporary excerpt title"
+  },
+  "aiContextManualBody": {
+    "message": "Temporary excerpt text"
+  },
+  "aiContextManualAdd": {
+    "message": "Add temporary excerpt"
+  },
+  "aiContextManualCount": {
+    "message": "Temporary candidates"
+  },
+  "aiContextManualTitleCount": {
+    "message": "Title characters"
+  },
+  "aiContextManualBodyCount": {
+    "message": "Text UTF-16 units"
+  },
+  "aiContextManualAdded": {
+    "message": "Temporary excerpt added, not selected. Current filters may hide it. Select it to review or edit its outgoing text; nothing was sent or saved."
+  },
+  "aiContextManualInvalid": {
+    "message": "Not added. Use a nonempty title up to 200 Unicode characters (400 UTF-16 units), and nonempty text up to 16,000 UTF-16 units, with valid Unicode. The complete input and existing sources are kept; nothing was shortened or saved."
+  },
+  "aiContextManualError": {
+    "message": "Could not add this temporary excerpt. Check the current workspace and try again. Your complete input and existing sources are unchanged."
+  },
+  "aiContextManualRemoved": {
+    "message": "Temporary excerpt removed from this draft. Review again before copying or sending. A previous response and its original snapshot remain unchanged."
+  },
+  "aiContextManualClearConfirm": {
+    "message": "Clear the entire draft, including all temporary excerpts, unadded text, selections and the current response? Cancel keeps everything unchanged."
+  },
+  "aiContextManualRestoreHelp": {
+    "message": "Restore the exact original text you manually added in this session."
+  },
+  "aiContextManualScope": {
+    "message": "Manual temporary excerpt (unverified)"
+  },
+  "aiContextManualRemove": {
+    "message": "Remove temporary excerpt"
   }
 }

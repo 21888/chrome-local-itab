@@ -4078,10 +4078,10 @@
     "message": "无法确认保存成功。回复仍保留在此处；重试会使用同一个保存操作。"
   },
   "aiContextTitle": {
-    "message": "用已保存资料提问"
+    "message": "用资料提问"
   },
   "aiContextHelp": {
-    "message": "选择已保存的摘录，无需连接即可在本地审阅完整提示词。也可展开模型设置，分别审阅请求、授权接口和发送。不会自动选择或发送；服务商可能收费，密钥在请求结束或离开时清除。"
+    "message": "选择已保存或手动添加的临时摘录，无需连接即可在本地审阅完整提示词。也可展开模型设置，分别审阅请求、授权接口和发送。不会自动选择或发送；服务商可能收费，密钥在请求结束或离开时清除。"
   },
   "aiContextEndpoint": {
     "message": "完整 HTTPS 接口地址"
@@ -4099,7 +4099,7 @@
     "message": "输出方式"
   },
   "aiContextScope": {
-    "message": "AI 收藏是跨工作空间的资料库；已保存便笺仅属于当前工作空间。不包含未保存便笺、浏览历史或其他工作空间内容。"
+    "message": "AI 收藏是跨工作空间的资料库；已保存便笺仅属于当前工作空间。手动临时摘录是你明确加入当前会话、未经核验的文字。不包含未保存便笺、浏览历史或其他工作空间内容。"
   },
   "aiContextResponse": {
     "message": "模型回复（未经核验；待办 JSON 可在确认前编辑）"
@@ -4576,7 +4576,7 @@
     "message": "同时保存本次确切问题与已审核的资料摘录"
   },
   "aiContextSaveContextPrivacy": {
-    "message": "可选，默认关闭。下方确切问题、已编辑摘录、来源 ID 与标签、完整已审核提示词、接口地址和模型将进入全局 AI 收藏及未加密备份。保存前请检查文本是否含私人资料或秘密。不会包含 API 密钥字段或认证请求头。备份时移除来源网址不会移除此快照。"
+    "message": "可选，默认关闭。下方完整问题、编辑后的摘录（包括勾选的手动临时文字）、来源 ID 与标题、完整审阅提示词、接口地址和模型将进入全局 AI 收藏及未加密备份。保存前请检查文字中的私人信息或密钥。不会包含 API 密钥输入框或认证请求头；备份时移除来源网址也不会移除此快照。"
   },
   "aiContextSnapshotLimit": {
     "message": "已审核快照超过容量限制，未写入任何内容。可取消勾选快照选项，再明确选择仅保存答案。"
@@ -5701,13 +5701,13 @@
     "message": "重新载入已保存来源"
   },
   "aiContextSourceReloadHelp": {
-    "message": "读取当前工作区和全局收藏中最新保存的来源。载入成功后将清除所有来源勾选和摘录编辑，包括隐藏的来源。问题、连接、筛选和已有回答保持不变。不会发送请求或保存内容。"
+    "message": "重新读取当前工作空间与全局收藏中已保存的来源。成功后仅清除已保存来源的勾选与摘录编辑，包括隐藏项。手动临时摘录及其勾选和编辑、尚未加入的文字、问题、连接、筛选和之前的回复都保持不变。不会发送或保存。"
   },
   "aiContextSourceReloadConfirm": {
-    "message": "重新载入已保存来源？成功后将清除所有来源勾选和摘录编辑，包括隐藏和未勾选的摘录。问题、连接、筛选、回答标题以及已有回答和它的原始快照会保留。"
+    "message": "重新载入已保存来源？成功后将清除已保存来源的勾选与编辑，包括隐藏和未勾选的已保存摘录。手动临时摘录及其勾选和编辑、尚未加入的文字、问题、连接、筛选、回答标题和之前回复的原始快照都会保留。"
   },
   "aiContextSourceReloaded": {
-    "message": "已重新载入保存的来源，当前没有勾选任何来源。发送前请重新审阅确切请求；已有回答仍对应原始请求。"
+    "message": "已重新载入保存的来源，均未勾选。手动临时摘录及其勾选和编辑已保留。发送前请重新审阅完整请求；之前的回复仍属于原来的请求。"
   },
   "aiContextSourceReloadError": {
     "message": "无法载入已保存来源。现有来源、摘录编辑和审阅保持不变。请检查当前工作区后，再次点击“重新载入已保存来源”。"
@@ -5863,7 +5863,7 @@
     "message": "页面数据已改变。请重新加载此页面后再添加网站或调整布局。"
   },
   "aiContextSourcesHeading": {
-    "message": "已保存的资料"
+    "message": "上下文来源"
   },
   "aiContextQuestionHeading": {
     "message": "问题与审阅"
@@ -7201,5 +7201,56 @@
   },
   "aiContextExternalAnswerCapacity": {
     "message": "全局 AI 资料库已满或空间不足，没有写入任何内容。已载入回答、标题和粘贴草稿均已保留。请先腾出资料库空间，再次收藏。"
+  },
+  "aiContextSourceScopeManual": {
+    "message": "手动临时摘录（未经核验）"
+  },
+  "aiContextManualHeading": {
+    "message": "添加临时摘录"
+  },
+  "aiContextManualHelp": {
+    "message": "手动输入或粘贴标题和纯文本，再明确点击添加。最多 12 条临时候选，均不自动勾选。标题最多 200 个 Unicode 字符（400 个 UTF-16 单位），正文最多 16,000 个 UTF-16 单位。出错时完整保留输入，不会截短。这些未经核验的摘录保留到被移除、清空草稿或关闭面板。不读取剪贴板、文件或网址；勾选和审阅不会保存。若之后明确选择随回答保存问题/来源快照，所选手动文字会一同进入全局收藏及未加密备份。"
+  },
+  "aiContextManualTitle": {
+    "message": "临时摘录标题"
+  },
+  "aiContextManualBody": {
+    "message": "临时摘录正文"
+  },
+  "aiContextManualAdd": {
+    "message": "添加临时摘录"
+  },
+  "aiContextManualCount": {
+    "message": "临时候选"
+  },
+  "aiContextManualTitleCount": {
+    "message": "标题字符数"
+  },
+  "aiContextManualBodyCount": {
+    "message": "正文 UTF-16 单位数"
+  },
+  "aiContextManualAdded": {
+    "message": "已添加临时摘录，尚未勾选；当前筛选可能将其隐藏。勾选后可审阅或编辑待发送正文；没有发送或保存。"
+  },
+  "aiContextManualInvalid": {
+    "message": "未添加。请使用非空标题，最多 200 个 Unicode 字符（400 个 UTF-16 单位），以及最多 16,000 个 UTF-16 单位的非空正文，且须为有效 Unicode。完整输入和已有来源均已保留，没有截短或保存。"
+  },
+  "aiContextManualError": {
+    "message": "无法添加此临时摘录。请检查当前工作空间后重试。完整输入与已有来源保持不变。"
+  },
+  "aiContextManualRemoved": {
+    "message": "已从当前草稿移除临时摘录。复制或发送前请重新审阅。之前的回复及其原始快照保持不变。"
+  },
+  "aiContextManualClearConfirm": {
+    "message": "清空整个草稿，包括所有临时摘录、尚未添加的文字、勾选和当前回复？取消会完整保留。"
+  },
+  "aiContextManualRestoreHelp": {
+    "message": "恢复为你在本次会话中最初手动添加的完整正文。"
+  },
+  "aiContextManualScope": {
+    "message": "手动临时摘录（未经核验）"
+  },
+  "aiContextManualRemove": {
+    "message": "移除临时摘录"
   }
 }

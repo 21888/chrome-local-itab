@@ -468,11 +468,11 @@ for (const previous of ['reload', 'local review', 'failed reload']) test(`succes
         h.setReadHook(keys => { if (keys.includes('__localItabAICollectionsV1')) throw Error('Synthetic reload error'); });
         h.click('Reload saved sources'); await settle(); h.setReadHook(null);
     } else { h.click('Review prompt locally'); await settle(); assert(h.window.contextController.localReview); }
-    assert.match(h.q('.ai-context-status').textContent, previous === 'reload' ? /Nothing is selected/ : previous === 'failed reload' ? /Could not load saved sources/ : /Local prompt ready/);
+    assert.match(h.q('.ai-context-status').textContent, previous === 'reload' ? /Saved sources reloaded and left unselected/ : previous === 'failed reload' ? /Could not load saved sources/ : /Local prompt ready/);
     h.click('Use this excerpt'); await settle();
     assert.equal(checks(h).length, 1); assert.equal(h.window.contextController.localReview, null);
     assert.match(h.q('.ai-context-status').textContent, /Selection changed\. Review the exact request again/);
-    assert.doesNotMatch(h.q('.ai-context-status').textContent, /Nothing is selected|Local prompt ready/);
+    assert.doesNotMatch(h.q('.ai-context-status').textContent, /Saved sources reloaded and left unselected|Local prompt ready/);
     assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC unchanged question'); quiet(h);
 });
 
@@ -513,4 +513,17 @@ test('cancelling edited-excerpt reuse retains its existing reviewed feedback', a
     const before = h.q('.ai-context-status').textContent, review = h.window.contextController.localReview;
     h.setConfirm(false); h.click('Use this excerpt'); await settle();
     assert.equal(h.q('.ai-context-status').textContent, before); assert.equal(h.window.contextController.localReview, review); quiet(h);
+});
+
+test('actual read-only collection workspace supports temporary manual sources without migration or persistent writes', async () => {
+    const h = await page(); await h.open(); const before = JSON.stringify(h.raw);
+    h.q('.ai-context-manual').open = true;
+    h.input('.ai-context-manualtitle', 'Synthetic temporary title'); h.input('.ai-context-manualbody', 'Synthetic temporary body'); h.click('Add temporary excerpt'); await settle();
+    const row = h.q('.ai-context-manual-sources').querySelector('.ai-context-source'); assert(row); assert.equal(row.querySelector('input').checked, false);
+    row.querySelector('input').checked = true; row.querySelector('input').dispatch('change');
+    h.input('.ai-context-question', 'Synthetic manual question'); h.click('Review prompt locally'); await settle();
+    const source = h.window.contextController.localReview.packed.sources[0]; assert.match(source.id, /^manual:/); assert.equal(source.text, 'Synthetic temporary body');
+    h.click('Reload saved sources'); await settle(); assert.equal(h.q('.ai-context-manual-sources').querySelector('.ai-context-source'), row); assert.equal(row.querySelector('input').checked, true);
+    assert.equal(JSON.stringify(h.raw), before); quiet(h);
+    h.click('Cancel / clear draft'); assert.equal(h.q('.ai-context-manual-sources').querySelectorAll('.ai-context-source').length, 0); assert.equal(JSON.stringify(h.raw), before); quiet(h);
 });

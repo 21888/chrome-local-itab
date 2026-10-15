@@ -754,7 +754,7 @@ test('scope filter uses actual library/workspace scopes across 25/201 sources an
     for (const count of [25, 201]) {
         const h = await model(undefined, { populate: false, sources: mixedSources(count) }), rows = sourceRows(h), scope = scopeFilter(h);
         assert.equal(scope.tagName, 'SELECT'); assert.equal(scope.parentElement.tagName, 'LABEL');
-        assert.deepEqual(scope.querySelectorAll('option').map(option => option.value), ['all', 'workspace', 'library']);
+        assert.deepEqual(scope.querySelectorAll('option').map(option => option.value), ['all', 'workspace', 'library', 'manual']);
         assert.equal(scope.getAttribute('aria-describedby'), 'ai-context-source-scope-help');
         scope.focus(); setScope(h, 'workspace'); assert.equal(h.document.activeElement, scope);
         assert.deepEqual(visibleRows(h), [rows[count - 1]]);
@@ -1374,7 +1374,7 @@ test('workbench uses one labeled source pane, one question pane and optional con
     const connection = h.host.querySelector('.ai-context-connection');
     assert.equal(connection.tagName, 'DETAILS'); assert.equal(connection.open, false);
     assert.equal(connection.querySelector('summary').textContent, 'Optional: call a model in this extension');
-    assert.equal(sources.getAttribute('aria-label'), 'Saved sources'); assert.equal(question.getAttribute('aria-label'), 'Question and review');
+    assert.equal(sources.getAttribute('aria-label'), 'Context sources'); assert.equal(question.getAttribute('aria-label'), 'Question and review');
     for (const selector of ['.ai-context-source-search', '.ai-context-source-scope', '.ai-context-source-count', '.ai-context-source-reload', '.ai-context-sources']) assert(sources.querySelector(selector));
     for (const selector of ['.ai-context-question', '.ai-context-mode', '.ai-context-local-review', '.ai-context-result-pane']) assert(question.querySelector(selector));
     assert.equal(h.host.querySelectorAll('.ai-context-question').length, 1);

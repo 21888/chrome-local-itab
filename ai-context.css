@@ -71,3 +71,7 @@
 .ai-context-prompt-search-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; }
 .ai-context-prompt-search-controls > label { flex: 1 1 12rem; margin: 0; }
 .ai-context-prompt-matches { font-weight: 600; }
+
+.ai-context-manual { margin-block: .75rem; padding: .75rem; border: 1px solid var(--border-color, #aaa); border-radius: .6rem; }
+.ai-context-manual-count { font-weight: 600; }
+.ai-context-manual-remove { align-self: flex-start; }

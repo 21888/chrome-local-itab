@@ -941,7 +941,7 @@ async function localCopyWorkspaceUI(f, manager, session, clipboard, locale = 'en
     const view = window.LocalItabAIContextView.mount(host, { controller, clipboard, t: (key, fallback) => messages[key]?.message || fallback });
     await view.ready;
     const button = key => host.querySelectorAll('button').find(node => node.textContent === messages[`aiContext${key}`].message);
-    const question = host.querySelector('textarea'); question.value = 'Synthetic local question'; question.dispatch('input');
+    const question = host.querySelector('.ai-context-question'); question.value = 'Synthetic local question'; question.dispatch('input');
     button('ReviewLocal').dispatch('click'); await f.settled();
     assert(controller.localReview);
     return { controller, document, host, view, question, button, messages,
