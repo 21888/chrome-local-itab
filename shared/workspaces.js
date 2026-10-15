@@ -404,10 +404,10 @@
             check(bundle && Object.keys(bundle).length === 4 && ['schemaVersion', 'id', 'generation', 'values'].every(key => own(bundle, key)) && bundle.schemaVersion === 1 && bundle.id === entry.id && bundle.generation === entry.generation, 'BUNDLE_MISSING');
             return validateValues(bundle.values);
         }
-        async writeBundle(entry, values) {
+        async writeBundle(entry, values, globals = {}) {
             await this.assertRestoreSettled();
-            await this.validateBundle(values);
-            await this.verifiedSet({ [bundleKey(entry)]: { schemaVersion: 1, id: entry.id, generation: entry.generation, values: copy(values) } });
+            await this.validateBundle(values, globals);
+            await this.verifiedSet({ ...globals, [bundleKey(entry)]: { schemaVersion: 1, id: entry.id, generation: entry.generation, values: copy(values) } });
         }
         async readSnapshot(registry, keys = null) {
             const bundles = [];
@@ -671,11 +671,14 @@
             const values = object(copy(input)), keys = Object.keys(values); check(keys.every(key => scoped(key) || GLOBAL_KEYS.includes(key)), 'BOUNDARY');
             const entry = await this.assertActive(), scopedValues = Object.fromEntries(Object.entries(values).filter(([key]) => scoped(key)));
             check(entry.id === DEFAULT_ID || !keys.some(key => key === 'sync' || key === '__localItabSyncIdentityState'), 'PROVIDER_BOUNDARY');
-            if (Object.keys(scopedValues).length) {
-                const before = await this.manager.readBundle(entry); await this.manager.writeBundle(entry, { ...before, ...scopedValues });
-            }
             const globals = Object.fromEntries(Object.entries(values).filter(([key]) => !scoped(key)));
-            if (Object.keys(globals).length) await this.manager.verifiedSet(globals);
+            if (Object.keys(scopedValues).length) {
+                // One settings operation must not commit its workspace and then
+                // fail a separate provider/privacy write. Submit and verify the
+                // complete local update together, including its recovery copy.
+                const before = await this.manager.readBundle(entry);
+                await this.manager.writeBundle(entry, { ...before, ...scopedValues }, globals);
+            } else if (Object.keys(globals).length) await this.manager.verifiedSet(globals);
         }
         async remove(keys) {
             await this.manager.assertRestoreSettled();

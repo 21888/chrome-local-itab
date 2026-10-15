@@ -518,3 +518,76 @@ bounded('complete archive validates unknown noncanonical fields even in an unsel
         assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes); assertNoProvider(f);
     });
 });
+
+for (const target of ['default', 'named']) for (const failure of ['throw', 'false', 'quota']) bounded(`reviewed recovery import ${target} refuses ${failure} global-storage failure without replacing workspace content`, async () => {
+    const f = fixture(seed({ schema: 2, label: 'destination' }));
+    await withGlobals(f, async () => {
+        const b = await multiWorkspace(f), targetId = target === 'default' ? 'default' : b.liveId;
+        const session = b.manager.capture(targetId); await session.ready();
+        const storage = storageFor(f, session), source = new Storage().cloneDefaultConfig();
+        source.links = [{ title: 'Recovered hidden site', url: 'example.com', icon: 'S', category: 'hidden-orphan' }];
+        source.layout.positions = { 'hidden|example.com': { x: 11.25, y: -7.5 } };
+        const node = await storage.makeRecovery(source, 'beforeRestore');
+        const Inspector = require('../shared/recovery-inspector');
+        const inspector = Inspector.createInspector({ local: { get: async keys => keys.includes(Inspector.KEYS.restore) ? { [Inspector.KEYS.restore]: node } : {} }, crypto: webcrypto, now: () => NOW });
+        const report = await inspector.inspect(), row = report.entries.find(entry => entry.source.representation === 'portable');
+        const review = await inspector.reviewRecovery(report, row.id), payload = JSON.parse(inspector.exportRecovery(report, row.id, review));
+        const restored = storage.prepareRestoredConfig(payload, await storage.getLocalProviderState());
+        const before = clone(f.raw);
+        f.hooks.set = written => {
+            if (Object.hasOwn(written, 'privacy')) {
+                if (failure === 'false') return false;
+                throw Error(failure === 'quota' ? 'QUOTA_EXCEEDED synthetic' : 'Synthetic global storage failure');
+            }
+            return DEFER;
+        };
+        await assert.rejects(storage.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }), code('WORKSPACE_WRITE'));
+        assert.deepEqual(f.raw, before, 'rejected restore must not commit a workspace before its globals');
+    });
+});
+
+for (const schema of [1, 2]) for (const target of ['default', 'named']) for (const representation of ['raw', 'portable']) bounded(`reviewed ${representation} schema-${schema} recovery commits exact relationships to ${target} only`, async () => {
+    const f = fixture(seed({ schema: 2, label: 'destination' }));
+    await withGlobals(f, async () => {
+        const b = await multiWorkspace(f), targetId = target === 'default' ? 'default' : b.liveId;
+        const session = b.manager.capture(targetId); await session.ready();
+        const storage = storageFor(f, session), original = seed({ schema, duplicate: true });
+        const source = Object.fromEntries([...Object.keys(storage.defaultConfig), 'schemaVersion'].map(key => [key, original[key]]));
+        source.links[0].category = 'hidden-orphan';
+        const node = await storage.makeRecovery(source, 'beforeRestore');
+        node.rawConfiguration = source; node.rawConfigurationChecksum = await storage.fingerprint(source);
+        const Inspector = require('../shared/recovery-inspector');
+        const inspector = Inspector.createInspector({ local: { get: async keys => keys.includes(Inspector.KEYS.restore) ? { [Inspector.KEYS.restore]: node } : {} }, crypto: webcrypto, now: () => NOW });
+        const report = await inspector.inspect(), row = report.entries.find(entry => entry.source.representation === representation);
+        const review = await inspector.reviewRecovery(report, row.id), payload = JSON.parse(inspector.exportRecovery(report, row.id, review));
+        const before = clone(f.raw), count = f.writes.length, old = clone(values(f, targetId));
+        const restored = storage.prepareRestoredConfig(payload, await storage.getLocalProviderState());
+        assert.equal(await storage.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }), true);
+        assertRelationships(values(f, targetId), source);
+        assert.deepEqual(values(f, targetId).categories, source.categories);
+        assert.equal(f.writes.length - count, 1, 'bundle, recovery and globals share one storage submission');
+        assert(Object.hasOwn(f.writes.at(-1), 'privacy'));
+        assert.deepEqual((await storage.getRecoveryBackup()).data.links, old.links);
+        for (const api of Object.values(APIs)) assert.deepEqual(values(f, targetId)[api.KEY], old[api.KEY]);
+        for (const entry of before[Workspaces.REGISTRY_KEY].workspaces) if (entry.id !== targetId) assert.deepEqual(f.raw[Workspaces.bundleKey(entry)], before[Workspaces.bundleKey(entry)]);
+        assert.deepEqual(f.raw[Workspaces.REGISTRY_KEY], before[Workspaces.REGISTRY_KEY]);
+        exactOriginal(f, seed({ schema: 2, label: 'destination' })); assertNoProvider(f);
+    });
+});
+
+bounded('combined settings submission readback failure is reported as uncertain with original recovery retained', async () => {
+    const f = fixture(seed({ schema: 2, label: 'destination' }));
+    await withGlobals(f, async () => {
+        const b = await boot(f), original = clone(values(f)), entry = f.raw[Workspaces.REGISTRY_KEY].workspaces[0], key = Workspaces.bundleKey(entry);
+        const restored = b.storage.cloneDefaultConfig(); restored.quote = 'Submitted incoming quote'; let submitted = false;
+        f.hooks.set = written => { if (Object.hasOwn(written, key)) submitted = true; return DEFER; };
+        f.hooks.get = keys => { if (submitted && keys?.includes(key)) throw Error('Synthetic readback unavailable'); return DEFER; };
+        await assert.rejects(b.storage.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }));
+        // A failed verification is not proof of no write. Do not retry or roll
+        // back blindly: the same submitted bundle retains the original copy.
+        f.hooks.get = null;
+        assert.equal(values(f).quote, restored.quote);
+        assert.deepEqual((await b.storage.getRecoveryBackup()).data.links, original.links);
+        assert.deepEqual((await b.storage.getRecoveryBackup()).data.layout, original.layout);
+    });
+});
