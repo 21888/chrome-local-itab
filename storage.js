@@ -1165,7 +1165,13 @@ class StorageManager {
     }
 
     async getLayoutSnapshotForUpdate({ underLock = false } = {}) {
-        const read = async () => this.layoutSnapshot(await this._local.get(['layout', 'links', this.layoutGenerationKey]));
+        const read = async () => {
+            const raw = await this._local.get(['layout', 'links', this.layoutGenerationKey, 'schemaVersion']);
+            // Unknown/mismatched schemas must not become a fresh write baseline,
+            // including after an unverified compatibility write and restart.
+            this.layoutSchemaForMutation(raw, raw.layout);
+            return this.layoutSnapshot(raw);
+        };
         return underLock ? read() : this.withLocalWriteLock(read);
     }
 
