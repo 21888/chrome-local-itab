@@ -2149,6 +2149,7 @@ function applyDashboardHiddenState(hidden) {
 }
 
 function setDashboardHidden(hidden) {
+    if (window.localFocusView?.temporaryFocus) return Promise.resolve(false);
     if (hidden && window.localScratchpadView?.hasUncommittedWork()) return Promise.resolve(false);
     const owner = dashboardVisibilityOwner;
     const ownsView = () => owner?.isConnected && owner === document.getElementById('dashboard');

@@ -1953,6 +1953,18 @@
   "allShortcuts": {
     "message": "All shortcuts"
   },
+  "focusViewEnter": {
+    "message": "Temporary focus view"
+  },
+  "focusViewExit": {
+    "message": "Exit focus view"
+  },
+  "focusViewHelp": {
+    "message": "Hide other modules on this page until you exit or the interval ends. Your saved layout stays the same."
+  },
+  "focusViewBlocked": {
+    "message": "Finish or save open edits and close other panels before entering focus view."
+  },
   "focusTitle": {
     "message": "Focus timer"
   },

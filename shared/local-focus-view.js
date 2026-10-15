@@ -2,6 +2,9 @@
     'use strict';
     const api = root.LocalItabFocus;
     const fallback = {
+        focusViewEnter: 'Temporary focus view', focusViewExit: 'Exit focus view',
+        focusViewHelp: 'Hide other modules on this page until you exit or the interval ends. Your saved layout stays the same.',
+        focusViewBlocked: 'Finish or save open edits and close other panels before entering focus view.',
         focusTitle: 'Focus timer', focusLocal: 'On this device', focusPhase: 'Interval', focusWork: 'Focus', focusBreak: 'Break',
         focusMinutes: 'Minutes (1–180)', focusStart: 'Start', focusPause: 'Pause', focusResume: 'Resume', focusReset: 'Stop / reset',
         focusNextBreak: 'Choose break', focusNextWork: 'Choose focus', focusRemaining: 'Remaining time', focusReady: 'Ready to start',
@@ -19,9 +22,13 @@
     function button(key, action) { const node = el('button', 'focus-button', t(key)); node.type = 'button'; node.addEventListener('click', action); node.addEventListener('keydown', event => { if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault(); }); return node; }
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {} } = {}) {
-            this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.timeout = null; this.closed = false; this.lastStatus = null; this.durationDrafts = new Map(); this.minutesPhase = null; this.durationInputPhase = null;
+            this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.timeout = null; this.closed = false; this.lastStatus = null; this.durationDrafts = new Map(); this.minutesPhase = null; this.durationInputPhase = null; this.temporaryFocus = null;
             host.classList.add('local-focus-card'); host.setAttribute('aria-label', t('focusTitle')); host.hidden = true;
             const header = el('header', 'focus-header'); header.append(el('h2', '', t('focusTitle')), el('span', 'focus-local', t('focusLocal')));
+            this.focusViewButton = button('focusViewEnter', () => this.temporaryFocus ? this.exitTemporaryFocus() : this.enterTemporaryFocus());
+            this.focusViewButton.setAttribute('aria-pressed', 'false'); this.focusViewButton.title = t('focusViewHelp');
+            header.append(this.focusViewButton);
+            this.focusViewNotice = el('p', 'focus-feedback'); this.focusViewNotice.setAttribute('role', 'status'); this.focusViewNotice.hidden = true;
             this.phase = el('select'); this.phase.setAttribute('aria-label', t('focusPhase'));
             for (const [value, key] of [['focus', 'focusWork'], ['break', 'focusBreak']]) { const option = el('option', '', t(key)); option.value = value; this.phase.append(option); }
             this.phase.addEventListener('change', () => this.run('phase', this.phase.value));
@@ -42,10 +49,60 @@
             this.feedback = el('p', 'focus-feedback'); this.feedback.setAttribute('role', 'status'); this.retry = button('focusRetry', () => controller.refresh().catch(() => {}));
             const details = el('details', 'focus-help');
             details.append(el('summary', '', t('focusDetails')), el('p', '', t('focusHelp')));
-            host.replaceChildren(header, inputs, this.remaining, this.status, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
+            host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.status, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
             this.visibility = () => { this.cancelTick(); if (!document.hidden) { controller.tick(); controller.refresh().catch(() => {}); } this.render(); };
             document.addEventListener('visibilitychange', this.visibility);
+            // Window bubbling lets nested dialogs, menus and disclosures own Escape first.
+            this.focusViewKey = event => {
+                if (!this.temporaryFocus || event.key !== 'Escape' || event.defaultPrevented || event.repeat ||
+                    event.isComposing || event.keyCode === 229 || this.hasFocusViewOverlay()) return;
+                if (event.target?.closest('select')) return;
+                const details = event.target?.closest('details[open]');
+                if (details && this.host.contains(details)) {
+                    event.preventDefault(); details.open = false; details.querySelector('summary')?.focus(); return;
+                }
+                event.preventDefault(); this.exitTemporaryFocus();
+            };
+            this.focusViewPageHide = () => this.exitTemporaryFocus(false);
+            root.addEventListener?.('keydown', this.focusViewKey);
+            root.addEventListener?.('pagehide', this.focusViewPageHide);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
+        }
+        hasFocusViewOverlay() {
+            return Boolean(this.host.closest('[inert]')) || Array.from(document.querySelectorAll(
+                '[role="dialog"], [role="alertdialog"], dialog[open], .modal-overlay.active, [role="menu"]'
+            )).some(node => node.getClientRects().length && !node.closest('[hidden], [inert], [aria-hidden="true"]'));
+        }
+        enterTemporaryFocus() {
+            const state = this.controller.snapshot();
+            if (this.closed || this.temporaryFocus || !this.host.isConnected || this.host.hidden ||
+                !this.host.closest('#dashboard') || root.dashboardHiddenState || document.body.classList.contains('dashboard-hidden') ||
+                !state?.enabled || !['ready', 'running', 'paused'].includes(state.session.status)) return false;
+            if (this.hasUncommittedWork() || root.localScratchpadView?.hasUncommittedWork() ||
+                root.LocalItabContentLifecycle?.hasUncommittedWork() || root.LocalItabContentLifecycle?.departing ||
+                root.appearanceController?.previewGuard || root.appearanceController?.previewBusy ||
+                this.hasFocusViewOverlay()) {
+                this.focusViewNotice.textContent = t('focusViewBlocked'); this.focusViewNotice.hidden = false; return false;
+            }
+            this.focusViewNotice.hidden = true;
+            this.temporaryFocus = { workspace: root.LocalItabWorkspaces?.session?.id,
+                run: state.session.status === 'ready' ? null : state.session.id, x: root.scrollX || 0, y: root.scrollY || 0 };
+            document.body.classList.add('temporary-focus-view');
+            this.focusViewButton.textContent = t('focusViewExit'); this.focusViewButton.setAttribute('aria-pressed', 'true');
+            this.focusViewButton.focus({ preventScroll: true }); root.scrollTo?.({ top: 0, left: 0, behavior: 'instant' });
+            return true;
+        }
+        exitTemporaryFocus(restoreScroll = true) {
+            const session = this.temporaryFocus;
+            if (!session) return false;
+            this.temporaryFocus = null;
+            document.body.classList.remove('temporary-focus-view');
+            this.focusViewButton.textContent = t('focusViewEnter'); this.focusViewButton.setAttribute('aria-pressed', 'false');
+            // The same button stays mounted, so no focus restoration can steal
+            // a newer target. Restore the old scroll only while this card owns it.
+            if (restoreScroll && !document.hidden && this.host.isConnected && this.host.contains(document.activeElement) &&
+                !this.hasFocusViewOverlay()) root.scrollTo?.({ top: session.y, left: session.x, behavior: 'instant' });
+            return true;
         }
         trackDurationDraft() {
             const state = this.controller.snapshot();
@@ -106,8 +163,17 @@
         render() {
             if (this.closed) return;
             this.cancelTick(); const state = this.controller.snapshot(), pending = Boolean(this.controller.pending);
-            if (!state) { this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
-            const s = state.session; this.host.hidden = !state.enabled; if (this.host.hidden) this.focusIntent = null;
+            if (!state) { this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
+            const s = state.session;
+            if (this.temporaryFocus) {
+                if (!state.enabled || !this.host.isConnected || root.dashboardHiddenState || document.body.classList.contains('dashboard-hidden') ||
+                    this.temporaryFocus.workspace !== root.LocalItabWorkspaces?.session?.id ||
+                    !['ready', 'running', 'paused'].includes(s.status) ||
+                    (this.temporaryFocus.run && (s.status === 'ready' || this.temporaryFocus.run !== s.id))) this.exitTemporaryFocus();
+                else if (s.status !== 'ready' && s.id) this.temporaryFocus.run = s.id;
+            }
+            this.focusViewButton.disabled = !this.temporaryFocus && (pending || !['ready', 'running', 'paused'].includes(s.status));
+            this.host.hidden = !state.enabled; if (this.host.hidden) this.focusIntent = null;
             if (this.visible !== state.enabled) { this.visible = state.enabled; this.onVisibility(state.enabled); }
             this.phase.value = s.phase; this.phase.disabled = pending || !['ready', 'completed'].includes(s.status);
             for (const [phase, value] of this.durationDrafts) {
@@ -138,7 +204,7 @@
             }
         }
         hasUncommittedWork() { return this.durationDrafts.size > 0 || this.controller.hasUncommittedWork(); }
-        destroy() { this.closed = true; this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
+        destroy() { this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); this.closed = true; this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
         host.classList.add('local-focus-settings'); const label = el('label', 'focus-enable-label'), input = el('input'); input.type = 'checkbox'; input.disabled = true;

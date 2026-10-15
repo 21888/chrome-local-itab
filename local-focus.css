@@ -19,3 +19,39 @@
 .local-focus-settings { margin-top: 16px; }
 @media (max-width: 600px) { .local-focus-card { padding: 16px; } }
 /* No animation: reduced-motion and coarse status announcements are the defaults. */
+
+/* Page-memory-only presentation. Never rewrite hidden, style or layout values
+   on the original modules: removing this class reveals their current state. */
+body.temporary-focus-view > .skip-link,
+body.temporary-focus-view #dashboard > :not(.main-content-wrapper),
+body.temporary-focus-view #dashboard > .main-content-wrapper > :not(.dashboard-main),
+body.temporary-focus-view #dashboard .dashboard-main > :not(#info-cards-container),
+body.temporary-focus-view #dashboard #info-cards-container > :not(#local-focus-card) { display: none !important; }
+body.temporary-focus-view #dashboard,
+body.temporary-focus-view #dashboard > .main-content-wrapper,
+body.temporary-focus-view #dashboard .dashboard-main,
+body.temporary-focus-view #dashboard #info-cards-container {
+  display: block !important;
+  position: static !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: visible !important;
+  transform: none !important;
+}
+body.temporary-focus-view #dashboard { min-height: 100dvh !important; padding: 24px 16px !important; }
+body.temporary-focus-view #dashboard #local-focus-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  grid-column: auto;
+}
+body.temporary-focus-view .focus-header { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--template-surface); }
+body.temporary-focus-view .focus-header .focus-button { margin-inline-start: auto; }
