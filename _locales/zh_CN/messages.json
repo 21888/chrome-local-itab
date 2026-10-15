@@ -4146,6 +4146,12 @@
   "aiContextGlobal": {
     "message": "全局 AI 收藏"
   },
+  "aiContextTaskEditInvalid": {
+    "message": "编辑后的待办 JSON 超过 32,000 个 UTF-16 单位或含有无效 Unicode。完整草稿仍保留在此处，之前的待办审阅已取消。请修正文字，再重新审阅后添加。"
+  },
+  "aiContextTaskEditChanged": {
+    "message": "待办 JSON 已修改。请重新审阅编辑后的待办，再确认添加。"
+  },
   "aiContextTaskFormat": {
     "message": "请仅使用 {\"tasks\":[\"待办一\",\"待办二\"]} 格式，包含 1–50 条单行待办，不加其他字段。"
   },

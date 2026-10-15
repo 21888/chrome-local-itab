@@ -4146,6 +4146,12 @@
   "aiContextGlobal": {
     "message": "Global collection"
   },
+  "aiContextTaskEditInvalid": {
+    "message": "This edited task JSON exceeds 32,000 UTF-16 units or contains invalid Unicode. The full draft is kept here, and the previous task review is canceled. Fix the text, then review it again before adding tasks."
+  },
+  "aiContextTaskEditChanged": {
+    "message": "Task JSON changed. Review the edited tasks again before adding them."
+  },
   "aiContextTaskFormat": {
     "message": "Use exactly {\"tasks\":[\"one task\",\"another task\"]}, with 1–50 single-line tasks and no extra fields."
   },

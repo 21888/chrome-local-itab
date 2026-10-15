@@ -156,8 +156,12 @@
         const status = el('p', 'ai-context-status'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const outputLabel = el('label', 'ai-context-field'), outputHeading = el('span'); outputLabel.append(outputHeading);
         const previousResult = el('p', 'ai-context-previous-result', label('PreviousResult', 'This response belongs to the previous reviewed request. Saving or adding tasks uses that response and its original request, not the edited draft.')); previousResult.hidden = true;
-        const output = el('textarea'); output.rows = 8; output.maxLength = 32000; outputLabel.append(output); outputLabel.hidden = true;
-        resultPane.append(previousResult, outputLabel);
+        // Preserve the complete editable draft; controller validation rejects oversized
+        // text whole, rather than letting native maxlength truncate it into different JSON.
+        const output = el('textarea'); output.rows = 8; outputLabel.append(output); outputLabel.hidden = true;
+        const taskEditStatus = el('p', 'ai-context-task-edit-status', label('TaskEditInvalid', 'This edited task JSON exceeds 32,000 UTF-16 units or contains invalid Unicode. The full draft is kept here, and the previous task review is canceled. Fix the text, then review it again before adding tasks.'));
+        taskEditStatus.hidden = true; taskEditStatus.setAttribute('role', 'status'); taskEditStatus.setAttribute('aria-live', 'polite');
+        resultPane.append(previousResult, outputLabel, taskEditStatus);
         const externalPanel = el('details', 'ai-context-external-tasks'); externalPanel.hidden = true;
         externalPanel.append(summary('ExternalTasks', 'Review external task JSON'),
             el('p', '', label('ExternalTasksHelp', 'Paste plain JSON from your chosen AI service: {"tasks":["one task","another task"]}. Use exactly one tasks field, 1–50 nonempty single-line strings, at most 1,000 UTF-16 units per task and 32,000 in the JSON. Code fences and extra fields are not accepted. Loading only prepares a local review; it does not read the clipboard, send, save or execute anything.')));
@@ -361,8 +365,10 @@
             verifySave.disabled = busy || verifySave.hidden;
             verifyTasks.hidden = !controller.taskCommand || !controller.taskUncertain;
             verifyTasks.disabled = busy || verifyTasks.hidden;
+            const invalidTaskEdit = Boolean(controller.result && controller.invalidTaskEdit === controller.result);
+            taskEditStatus.hidden = !invalidTaskEdit; output.setAttribute('aria-invalid', String(invalidTaskEdit));
             const selectedTaskCount = renderTaskSelection(busy || retry || doc.visibilityState === 'hidden');
-            reviewTasks.disabled = selectedTaskCount === 0 || busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
+            reviewTasks.disabled = invalidTaskEdit || selectedTaskCount === 0 || busy || !controller.result || controller.result.mode !== 'tasks' || Boolean(controller.taskCommand);
             confirm.textContent = `${label('Confirm', 'Add these tasks')}${controller.taskReview ? ` (${controller.taskReview.count})` : ''}`;
             confirm.disabled = busy || !controller.taskReview; output.disabled = busy || retry; output.readOnly = controller.result?.mode !== 'tasks';
             reset.disabled = busy || retry; reloadSources.disabled = selectionBlocked();
@@ -844,7 +850,17 @@
         questionPane.append(localActions, localPanel, externalPanel, connection, status, partialPanel, resultPane);
         workbench.append(sourcesPane, questionPane); box.append(workbench); host.append(box);
         for (const input of [url, model, question, mode, stream]) input.addEventListener(input === mode || input === stream ? 'change' : 'input', () => { if (input === question) appliedPromptQuestion = null; if (input === url || input === model || input === mode || input === stream) key.value = ''; if (input === mode) stream.checked = false; invalidate(); });
-        output.addEventListener('input', () => { try { controller.editResult(output.value); taskList.hidden = true; } catch (_) { error(); } update(); });
+        output.addEventListener('input', () => {
+            try {
+                controller.editResult(output.value); taskList.hidden = true;
+                status.textContent = label('TaskEditChanged', 'Task JSON changed. Review the edited tasks again before adding them.');
+            } catch (reason) {
+                if (controller.result && controller.invalidTaskEdit === controller.result) {
+                    taskList.hidden = true; status.textContent = '';
+                } else error(reason.code);
+            }
+            update();
+        });
         function buildSourceRows(values) {
             return values.map(source => {
                 const row = el('div', 'ai-context-source'), sourceLabel = el('label'), check = el('input'); check.type = 'checkbox'; check.checked = false;
