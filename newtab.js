@@ -2516,7 +2516,12 @@ class ShortcutsComponent {
         const original = this.links[this.currentEditIndex];
         if (original && rawUrl === original.url) url = rawUrl;
         else try { url = normalizeHttpUrl(rawUrl.trim()); } catch (_) {}
-        return { title: title.trim(), url, icon: icon.trim() || '🌐', category: (category || 'work').trim() };
+        // Category options carry IDs, not free text. Preserve the exact chosen
+        // value, including whitespace, only when it is an actual option.
+        const categoryOptions = this.modal?.querySelector('#shortcut-category')?.querySelectorAll?.('option') || [];
+        const selectedCategory = category && Array.from(categoryOptions).some(option => option.value === category);
+        return { title: title.trim(), url, icon: icon.trim() || '🌐',
+            category: selectedCategory ? category : (category || 'work').trim() };
     }
 
     updateShortcutPreview() {
@@ -3346,6 +3351,16 @@ class ShortcutsComponent {
             option.textContent = `${cat.icon || ''} ${cat.name || ''}`.trim();
             categorySelect.appendChild(option);
         });
+        // Deleting category metadata does not move its saved shortcuts. Keep
+        // this editor's original ID selectable without recreating a category.
+        const originalCategory = this.links[this.currentEditIndex]?.category;
+        if (typeof originalCategory === 'string' && originalCategory &&
+            !categories.some(cat => cat.id === originalCategory)) {
+            const option = document.createElement('option');
+            option.value = originalCategory;
+            option.textContent = `${originalCategory} (${window.i18n?.t('shortcutCategoryUnlisted') || 'Not in category list'})`;
+            categorySelect.appendChild(option);
+        }
     }
 
     /**

@@ -1125,6 +1125,9 @@
   "categoryLabel": {
     "message": "Category"
   },
+  "shortcutCategoryUnlisted": {
+    "message": "Not in category list"
+  },
   "autoFetchIcon": {
     "message": "Auto-fetch website icon"
   },
