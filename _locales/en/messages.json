@@ -6733,5 +6733,47 @@
   },
   "recoveryContextMatchedAll": {
     "message": "Requested workspace ID: $1. This snapshot contains $2 copies with verified attribution to this workspace."
+  },
+  "recoveryContextHistoricalMatched": {
+    "message": "Requested workspace ID: $1. Showing $2 current-registry copies and $3 historical-registry copies. $4 other or unattributed copies are hidden. Historical matches do not mean this workspace is currently present."
+  },
+  "recoveryContextHistoricalMatchedAll": {
+    "message": "Requested workspace ID: $1. This snapshot contains $2 current-registry copies and $3 historical-registry copies for that ID. Historical matches do not mean this workspace is currently present."
+  },
+  "recoverySourceHistoricalWorkspace": {
+    "message": "Workspace copy retained before replacement"
+  },
+  "recoveryHistoricalOrigin": {
+    "message": "Retained historical workspace snapshot"
+  },
+  "recoveryHistoricalHelp": {
+    "message": "This copy comes from a retained earlier registry, not a selection of the current workspace state. Its recorded generation and Trash status belong to that historical snapshot. No data is restored or selected automatically."
+  },
+  "recoveryAttributionHistorical": {
+    "message": "Matched to the retained historical registry; not proof of current membership or content integrity"
+  },
+  "recoveryWorkspaceGeneration": {
+    "message": "Recorded workspace generation"
+  },
+  "recoverySnapshotTime": {
+    "message": "Snapshot time (this device’s time)"
+  },
+  "recoveryCurrentRelation": {
+    "message": "Comparison with current registry"
+  },
+  "recoveryRelationSame": {
+    "message": "Same ID and generation are currently listed"
+  },
+  "recoveryRelationDifferent": {
+    "message": "Current registry lists this ID with a different generation"
+  },
+  "recoveryRelationAbsent": {
+    "message": "This ID is not listed in the current registry; this does not prove deletion"
+  },
+  "recoveryRelationUnknown": {
+    "message": "Current registry could not be verified"
+  },
+  "recoveryWarningHistorical": {
+    "message": "The retained pre-replacement workspace snapshot could not be validated. Its records are not attributed or shown; other sources remain available."
   }
 }

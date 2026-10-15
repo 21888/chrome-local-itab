@@ -2,6 +2,20 @@
 (function (root) {
     'use strict';
     const copy = {
+        ContextHistoricalMatched: "Requested workspace ID: $1. Showing $2 current-registry copies and $3 historical-registry copies. $4 other or unattributed copies are hidden. Historical matches do not mean this workspace is currently present.",
+        ContextHistoricalMatchedAll: "Requested workspace ID: $1. This snapshot contains $2 current-registry copies and $3 historical-registry copies for that ID. Historical matches do not mean this workspace is currently present.",
+        SourceHistoricalWorkspace: "Workspace copy retained before replacement",
+        HistoricalOrigin: "Retained historical workspace snapshot",
+        HistoricalHelp: "This copy comes from a retained earlier registry, not a selection of the current workspace state. Its recorded generation and Trash status belong to that historical snapshot. No data is restored or selected automatically.",
+        AttributionHistorical: "Matched to the retained historical registry; not proof of current membership or content integrity",
+        WorkspaceGeneration: "Recorded workspace generation",
+        SnapshotTime: "Snapshot time (this device’s time)",
+        CurrentRelation: "Comparison with current registry",
+        RelationSame: "Same ID and generation are currently listed",
+        RelationDifferent: "Current registry lists this ID with a different generation",
+        RelationAbsent: "This ID is not listed in the current registry; this does not prove deletion",
+        RelationUnknown: "Current registry could not be verified",
+        WarningHistorical: "The retained pre-replacement workspace snapshot could not be validated. Its records are not attributed or shown; other sources remain available.",
         ContextAll: "Showing saved copies from all workspaces, including unattributed records. No copy is selected automatically.",
         ContextMatchedAll: "Requested workspace ID: $1. This snapshot contains $2 copies with verified attribution to this workspace.",
         ContextMatched: "Requested workspace ID: $1. Showing $2 copies with verified workspace attribution. $3 other or unattributed copies are hidden.",
@@ -80,12 +94,12 @@
         WarningFormat: 'The stored record format is not recognized. Only allowed fields are shown for investigation.',
         WarningGeneric: 'Some data could not be fully inspected or was omitted. This is not a complete recovery backup.'
     };
-    const sources = Object.freeze({ preMigration: 'SourcePreMigration', legacy: 'SourceLegacy', workspace: 'SourceWorkspace',
+    const sources = Object.freeze({ preMigration: 'SourcePreMigration', legacy: 'SourceLegacy', workspace: 'SourceWorkspace', historicalWorkspace: 'SourceHistoricalWorkspace',
         beforeCloudReplacement: 'SourceBeforeCloudReplacement', beforeCloudClear: 'SourceBeforeCloudClear',
         identityRecovery: 'SourceIdentityRecovery', recovery: 'SourceRecovery' });
     const warnings = Object.freeze({ INVALID_SOURCE: 'WarningInvalid', UNKNOWN_FIELDS_OMITTED: 'WarningUnknown',
         INVALID_FIELDS_OMITTED: 'WarningInvalidFields', PRIVATE_FIELDS_OMITTED: 'WarningPrivate', SIZE_LIMIT: 'WarningSize',
-        CHAIN_LIMIT: 'WarningChain', REGISTRY_INVALID: 'WarningRegistry', BUNDLE_MISSING: 'WarningBundle',
+        CHAIN_LIMIT: 'WarningChain', REGISTRY_INVALID: 'WarningRegistry', HISTORICAL_INVALID: 'WarningHistorical', BUNDLE_MISSING: 'WarningBundle',
         UNVERIFIED_SOURCE: 'WarningUnverified', CHECKSUM_MISSING: 'WarningChecksumMissing', CHECKSUM_FAILED: 'WarningChecksumFailed',
         RECORD_TIME_UNKNOWN: 'WarningTime', CONTENT_DIFFERS: 'WarningContentDiffers', CREDENTIAL_URL_OMITTED: 'WarningCredentialUrl', UNKNOWN_VERSION: 'WarningVersion', UNKNOWN_FORMAT: 'WarningFormat' });
     const errors = Object.freeze({ READ_FAILED: 'ErrorRead', CHANGED: 'ErrorChanged', SIZE_LIMIT: 'ErrorSize', INVALID: 'ErrorInvalid' });
@@ -168,9 +182,11 @@
         const entries = create('ol', 'recovery-entries', undefined, host);
         function renderContext(snapshot, generation) {
             const matching = context.kind === 'workspace' ? snapshot.entries.filter(entry =>
-                entry.source?.workspaceId === context.id && entry.source?.identityStatus === 'verified') : [];
+                entry.source?.workspaceId === context.id && ['verified', 'historical'].includes(entry.source?.identityStatus)) : [];
             const hasMatch = matching.length > 0;
+            const historicalCount = matching.filter(entry => entry.source.identityStatus === 'historical').length;
             contextText.textContent = context.kind === 'all' ? t('ContextAll') : context.kind === 'invalid' ? t('ContextInvalid') :
+                historicalCount ? t(showAll ? 'ContextHistoricalMatchedAll' : 'ContextHistoricalMatched', [context.id, String(matching.length - historicalCount), String(historicalCount), String(snapshot.entries.length - matching.length)]) :
                 hasMatch ? t(showAll ? 'ContextMatchedAll' : 'ContextMatched', [context.id, String(matching.length), String(snapshot.entries.length - matching.length)]) :
                     t('ContextMissing', [context.id, String(snapshot.entries.length)]);
             // Keep the request warning visible even after opting into the global inventory.
@@ -241,12 +257,18 @@
             badge.dataset.integrity = integrity;
             const facts = create('dl', 'recovery-facts', undefined, row);
             const fact = (key, value) => { const pair = create('div', '', undefined, facts); create('dt', '', t(key), pair); create('dd', '', value, pair); };
-            fact(entry.timeKind === 'migration' ? 'MigrationTime' : entry.timeKind === 'backup' ? 'BackupTime' : 'RecordedAt', time(entry.recordedAt));
+            fact(entry.timeKind === 'migration' ? 'MigrationTime' : entry.timeKind === 'backup' ? 'BackupTime' : entry.timeKind === 'snapshot' ? 'SnapshotTime' : 'RecordedAt', time(entry.recordedAt));
             fact('SiteCount', Number.isSafeInteger(entry.siteCount) && entry.siteCount >= 0 ? String(entry.siteCount) : t('UnknownCount'));
             if (typeof source.workspaceName === 'string') fact('Workspace', source.workspaceName);
             if (typeof source.workspaceId === 'string') {
                 fact('WorkspaceId', source.workspaceId);
-                fact('Attribution', t(source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
+                fact('Attribution', t(source.identityStatus === 'historical' ? 'AttributionHistorical' : source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
+            }
+            if (source.historical === true) {
+                create('p', 'recovery-help', t('HistoricalOrigin') + '. ' + t('HistoricalHelp'), row);
+                fact('WorkspaceGeneration', source.workspaceGeneration);
+                if (entry.timeKind !== 'snapshot') fact('SnapshotTime', time(source.snapshotAt));
+                fact('CurrentRelation', t({ sameGeneration: 'RelationSame', differentGeneration: 'RelationDifferent', absent: 'RelationAbsent' }[source.currentRelation] || 'RelationUnknown'));
             }
             if (source.deleted === true) create('p', 'recovery-help', t('Trash'), row);
             const representation = { configuration: 'Configuration', raw: 'Raw', portable: 'Portable' };
@@ -291,9 +313,14 @@
                     detail('ReviewSource', t(titleKey));
                     if (typeof source.workspaceName === 'string') detail('Workspace', source.workspaceName);
                     if (typeof source.workspaceId === 'string') detail('WorkspaceId', source.workspaceId);
-                    detail('Attribution', t(source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
+                    detail('Attribution', t(source.identityStatus === 'historical' ? 'AttributionHistorical' : source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
                     detail('Representation', t(source.representation === 'raw' ? 'Raw' : 'Portable'));
                     detail('Depth', String(Number.isSafeInteger(source.depth) && source.depth >= 0 ? source.depth : 0));
+                    if (source.historical === true) {
+                        detail('HistoricalOrigin', t('HistoricalHelp'));
+                        detail('WorkspaceGeneration', source.workspaceGeneration);
+                        detail('SnapshotTime', time(source.snapshotAt));
+                    }
                     detail('ReviewSourceTime', review.timeVerified === true ? time(review.recordedAt) : t('ReviewRawTime'));
                     detail('ReviewGeneratedAt', time(review.generatedAt));
                     for (const [label, key] of [['SiteCount', 'siteCount'], ['CategoryCount', 'categoryCount'], ['DuplicateCount', 'duplicateCount'], ['PositionCount', 'positionCount']]) detail(label, String(review[key]));

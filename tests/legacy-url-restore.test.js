@@ -827,3 +827,30 @@ for (const pending of [false, true]) bounded(`actual Options same-file import af
         assertNoProvider(f);
     });
 });
+
+bounded('read-only inspection discovers a replaced workspace only through the fixed retained prior snapshot', async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await multiWorkspace(f), original = clone(values(f, b.liveId));
+        const snapshot = await b.manager.exportSnapshot();
+        snapshot.registry.workspaces = snapshot.registry.workspaces.filter(entry => entry.id !== b.liveId);
+        snapshot.bundles = snapshot.bundles.filter(bundle => bundle.id !== b.liveId);
+        snapshot.registry.lastUsedId = 'default';
+        await b.manager.replaceSnapshot(snapshot);
+        const Inspector = require('../shared/recovery-inspector');
+        const before = clone(f.raw), writes = f.writes.length, reads = [];
+        const inspector = Inspector.createInspector({ local: { get: async keys => { reads.push(clone(keys)); return f.chrome.storage.local.get(keys); } }, crypto: webcrypto, now: () => NOW });
+        const report = await inspector.inspect(), row = report.entries.find(entry => entry.source.historical && entry.source.workspaceId === b.liveId);
+        assert(row); assert.equal(row.source.currentRelation, 'absent'); assert.equal(row.source.identityStatus, 'historical');
+        assert.deepEqual(inspector.preview(report, row.id).links, original.links);
+        const projected = JSON.parse(inspector.exportEntry(report, row.id)).configurationProjection.layout;
+        for (const [key, value] of Object.entries(projected.positions)) assert.deepEqual(value, original.layout.positions[key]);
+        for (const [id, views] of Object.entries(projected.positionsById)) for (const [view, point] of Object.entries(views)) assert.deepEqual(point, original.layout.positionsById[id][view]);
+        assert(projected.positions['hidden|view|https://example.com']);
+        await assert.rejects(inspector.reviewRecovery(report, row.id), code('RECOVERY_INTEGRITY'));
+        assert(reads.every(keys => Array.isArray(keys) && keys.length === 1));
+        assert(reads.flat().includes(Workspaces.RECOVERY_KEY));
+        assert(!reads.flat().some(key => key.startsWith(`${Workspaces.PREFIX}${b.liveId}:`)));
+        assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes); assertNoProvider(f);
+    });
+});

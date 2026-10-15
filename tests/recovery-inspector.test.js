@@ -252,3 +252,122 @@ test('read-only inspection recognizes intact stored-URL backup versions without 
         const bad=clone(payload);mutate(bad);const next=fixture({[KEYS.restore]:{payload:bad}}),checked=await next.api.inspect(),entry=checked.entries.find(e=>e.source.representation==='portable');assert(entry.warnings.includes('UNKNOWN_FORMAT')||entry.warnings.includes('UNKNOWN_VERSION'));
     }
 });
+
+function historical(values = config()) {
+    const previous = registry();
+    previous.workspaces.push({ ...previous.workspaces[0], id: 'retired', generation: 'g2', name: 'Synthetic old workspace', order: 1, deletedAt: NOW });
+    return { schemaVersion: 1, createdAt: NOW, snapshot: { registry: previous, bundles: previous.workspaces.map(item => ({ id: item.id, generation: item.generation, values: clone(values) })) } };
+}
+
+test('fixed historical snapshot exposes replaced topology without reading orphan keys or assigning current membership', async () => {
+    const f = fixture({ ...seed(), [KEYS.prior]: historical() }), before = clone(f.raw), report = await f.api.inspect();
+    const rows = report.entries.filter(row => row.source.historical);
+    assert.equal(rows.length, 2);
+    const old = rows.find(row => row.source.workspaceId === 'retired');
+    assert.equal(old.source.identityStatus, 'historical'); assert.equal(old.source.workspaceGeneration, 'g2');
+    assert.equal(old.source.currentRelation, 'absent'); assert.equal(old.source.deleted, true);
+    assert.equal(old.timeKind, 'snapshot'); assert.equal(old.recordedAt, NOW); assert.equal(old.integrity, 'unverified');
+    assert.equal(rows.find(row => row.source.workspaceId === 'default').source.currentRelation, 'sameGeneration');
+    assert.deepEqual(f.api.preview(report, old.id).links, config().links);
+    assert.deepEqual(JSON.parse(f.api.exportEntry(report, old.id)).configurationProjection.layout, config().layout);
+    await assert.rejects(f.api.reviewRecovery(report, old.id), e => e.code === 'RECOVERY_INTEGRITY');
+    assert(f.reads.every(keys => keys.length === 1)); assert(!f.reads.flat().some(k => k.includes(':retired:') || k === '__localItabCombinedRestoreV1'));
+    assert(f.reads.flat().includes(KEYS.prior)); assert.deepEqual(f.raw, before); assert.deepEqual(f.writes, []);
+});
+
+test('historical attribution is independent of unavailable current registry and exposes differing generations honestly', async () => {
+    const prior = historical(); prior.snapshot.registry.workspaces[0].generation = 'older'; prior.snapshot.bundles[0].generation = 'older';
+    for (const current of [seed(), {}]) {
+        const f = fixture({ ...current, [KEYS.prior]: prior }), report = await f.api.inspect();
+        const old = report.entries.find(row => row.source.historical && row.source.workspaceId === 'default');
+        assert.equal(old.source.identityStatus, 'historical'); assert.equal(old.source.currentRelation, Object.keys(current).length ? 'differentGeneration' : 'unknown');
+        assert.equal(old.integrity, 'unverified');
+    }
+});
+
+const historicalMutations = [
+    ['wrong version', p => { p.schemaVersion = 2; }], ['unknown envelope key', p => { p.unrecognized = true; }],
+    ['bad time', p => { p.createdAt = 'not a time'; }], ['missing registry', p => { delete p.snapshot.registry; }],
+    ['extra snapshot key', p => { p.snapshot.extra = true; }], ['registry unknown key', p => { p.snapshot.registry.extra = true; }],
+    ['missing bundle', p => { p.snapshot.bundles.pop(); }], ['extra bundle', p => { p.snapshot.bundles.push(clone(p.snapshot.bundles[0])); }],
+    ['duplicate bundle identity', p => { p.snapshot.bundles[1] = clone(p.snapshot.bundles[0]); }],
+    ['mismatched generation', p => { p.snapshot.bundles[1].generation = 'wrong'; }],
+    ['duplicate registry ID', p => { p.snapshot.registry.workspaces[1].id = 'default'; }],
+    ['duplicate registry generation', p => { p.snapshot.registry.workspaces[1].generation = 'g1'; p.snapshot.bundles[1].generation = 'g1'; }],
+    ['duplicate order', p => { p.snapshot.registry.workspaces[1].order = 0; }],
+    ['invalid token', p => { p.snapshot.registry.workspaces[1].id = '../bad'; p.snapshot.bundles[1].id = '../bad'; }],
+    ['pollution token', p => { p.snapshot.registry.workspaces[1].id = '__proto__'; p.snapshot.bundles[1].id = '__proto__'; }],
+    ['pollution generation', p => { p.snapshot.registry.workspaces[1].generation = 'constructor'; p.snapshot.bundles[1].generation = 'constructor'; }],
+    ['pollution property', p => { Object.defineProperty(p.snapshot.registry, '__proto__', { value: {}, enumerable: true }); }],
+    ['wrong bundle shape', p => { p.snapshot.bundles[1].schemaVersion = 1; }],
+    ['bad values', p => { p.snapshot.bundles[1].values = []; }],
+    ['nonempty active default required', p => { p.snapshot.registry.workspaces[0].deletedAt = NOW; }]
+];
+for (const [name, mutate] of historicalMutations) test(`malformed historical snapshot has no attributed rows: ${name}`, async () => {
+    const prior = historical(); mutate(prior);
+    const f = fixture({ ...seed(), [KEYS.prior]: prior }), report = await f.api.inspect();
+    assert.equal(report.entries.filter(row => row.source.historical).length, 0);
+    assert(report.warnings.includes('HISTORICAL_INVALID') || report.warnings.includes('INVALID_SOURCE'));
+    assert(report.entries.some(row => row.source.kind === 'workspace')); assert.deepEqual(f.writes, []);
+});
+
+test('historical budget refusal preserves current inspection and does not expand known-key reads', async () => {
+    const prior = historical(); prior.snapshot.bundles[0].values.oversized = 'x'.repeat(Inspector.LIMITS.bytes + 1);
+    const f = fixture({ ...seed(), [KEYS.prior]: prior }), report = await f.api.inspect();
+    assert(report.warnings.includes('SIZE_LIMIT')); assert(!report.entries.some(row => row.source.historical));
+    assert(report.entries.some(row => row.source.kind === 'workspace')); assert.deepEqual(f.writes, []);
+});
+
+test('changing historical snapshot between bounded read passes refuses the whole read', async () => {
+    const f = fixture({ ...seed(), [KEYS.prior]: historical() }); let seen = 0;
+    f.hooks.get = (keys, raw) => { if (keys[0] === KEYS.prior && ++seen === 2) raw[KEYS.prior].snapshot.bundles[1].values.quote = 'late change'; return Object.fromEntries(keys.filter(k => Object.hasOwn(raw, k)).map(k => [k, clone(raw[k])])); };
+    await assert.rejects(f.api.inspect(), e => e.code === 'CHANGED'); assert.deepEqual(f.writes, []);
+});
+
+test('only independently checksummed nested historical copies qualify; source secrets remain excluded', async () => {
+    const storage = new Storage(), full = { ...storage.cloneDefaultConfig(), ...config() };
+    full.links = [{title:'First', url:'https://example.com', icon:'A', category:'work'}, {title:'Second', url:'https://example.com/', icon:'B', category:'hidden'}];
+    const payload = storage.buildManualExportPayload(full), node = { reason: 'beforeRestore', payload, checksum: await hash(payload), providerState: { enabled: false } };
+    const prior = historical({ ...full, [KEYS.restore]: node, __auth: SECRET, __localItabPersonalTasksV1: { text: SECRET } });
+    const f = fixture({ ...seed(), [KEYS.prior]: prior }), report = await f.api.inspect();
+    const old = report.entries.find(row => row.source.historical && row.source.workspaceId === 'retired' && row.source.representation === 'portable');
+    assert.equal(old.source.kind, 'recovery'); assert.equal(old.source.identityStatus, 'historical'); assert.equal(old.integrity, 'verified');
+    const review = await f.api.reviewRecovery(report, old.id), downloaded = f.api.exportRecovery(report, old.id, review);
+    assert.deepEqual(storage.validateImportPayload(JSON.parse(downloaded)).links, full.links);
+    assert(!JSON.stringify(report).includes(SECRET));
+    for (const row of report.entries.filter(row => row.source.historical)) if (row.exportable) assert(!f.api.exportEntry(report, row.id).includes(SECRET));
+    f.raw[KEYS.prior].snapshot.bundles[1].values[KEYS.restore].checksum = 'a'.repeat(64);
+    const next = await f.api.inspect();
+    assert.throws(() => f.api.exportRecovery(report, old.id, review), e => e.code === 'RECOVERY_STALE');
+    const bad = next.entries.find(row => row.source.historical && row.source.workspaceId === 'retired' && row.source.representation === 'portable');
+    assert.equal(bad.integrity, 'failed'); await assert.rejects(f.api.reviewRecovery(next, bad.id), e => e.code === 'RECOVERY_INTEGRITY');
+    assert.deepEqual(f.writes, []);
+});
+
+for (const value of [' leading', 'trailing ', 'control\nname', 'x'.repeat(81)]) test(`historical labels rejected by workspace registry cannot claim historical attribution: ${JSON.stringify(value)}`, async () => {
+    const prior = historical(); prior.snapshot.registry.workspaces[1].name = value;
+    assert.throws(() => require('../shared/workspaces').validateRegistry(prior.snapshot.registry));
+    const f = fixture({ ...seed(), [KEYS.prior]: prior }), report = await f.api.inspect();
+    assert(!report.entries.some(row => row.source.historical)); assert(report.warnings.includes('HISTORICAL_INVALID')); assert.deepEqual(f.writes, []);
+});
+
+test('historical label boundary follows Unicode codepoints without truncation or repair', async () => {
+    const prior = historical(); prior.snapshot.registry.workspaces[1].name = '🌿'.repeat(80);
+    require('../shared/workspaces').validateRegistry(prior.snapshot.registry);
+    const f = fixture({ [KEYS.prior]: prior }), report = await f.api.inspect();
+    assert.equal(report.entries.find(row => row.source.workspaceId === 'retired').source.workspaceName, '🌿'.repeat(80));
+});
+
+for (const kind of ['unknown-field', 'credential-url']) test(`matching nested historical checksum never bypasses ${kind} admission`, async () => {
+    const storage = new Storage(), payload = storage.buildManualExportPayload(storage.cloneDefaultConfig());
+    payload.data.links = [{ title: 'Synthetic', url: 'https://example.invalid/', icon: 'S', category: 'work' }];
+    if (kind === 'unknown-field') payload.data.links[0].unexpected = 'must not disappear silently';
+    else payload.data.links[0].url = 'https://synthetic:secret@example.invalid/';
+    const node = { reason: 'beforeRestore', payload, checksum: await hash(payload) };
+    const f = fixture({ [KEYS.prior]: historical({ [KEYS.restore]: node }) }), report = await f.api.inspect();
+    const row = report.entries.find(item => item.source.historical && item.source.representation === 'portable');
+    assert.equal(row.integrity, 'verified');
+    await assert.rejects(f.api.reviewRecovery(report, row.id), error => ['RECOVERY_FIELDS', 'RECOVERY_CREDENTIAL'].includes(error.code));
+    assert(!f.api.exportEntry(report, row.id).includes('synthetic:secret'));
+    assert.deepEqual(f.writes, []);
+});

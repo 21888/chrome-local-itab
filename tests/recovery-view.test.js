@@ -376,3 +376,43 @@ test('actual automatic bootstrap scopes the real inspector snapshot and never bo
         assert.equal(host.querySelectorAll('.recovery-entry').length, 2); assert.deepEqual(forbidden, []);
     }
 });
+
+const historicalEntry = (id, workspaceId, extra = {}) => entry({ id, source: { kind: 'historicalWorkspace', workspaceId, workspaceName: 'Historical synthetic workspace',
+    identityStatus: 'historical', historical: true, workspaceGeneration: 'old_generation', snapshotAt: '2026-10-12T10:00:00.000Z', currentRelation: 'absent',
+    representation: 'configuration', ...extra }, timeKind: 'snapshot', recordedAt: '2026-10-12T10:00:00.000Z' });
+
+test('historical-only query matches disclose earlier attribution, generation and absent current membership', async () => {
+    const m = model({ search: '?workspace=retired', report: report([scopedEntry('current', 'default'), historicalEntry('old', 'retired', { deleted: true })]) });
+    await m.view.ready;
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1);
+    assert(m.allText().includes('0 current-registry copies and 1 historical-registry copies'));
+    assert(m.allText().includes('Historical matches do not mean this workspace is currently present'));
+    assert(m.allText().includes('retained historical registry')); assert(m.allText().includes('old_generation'));
+    assert(m.allText().includes('not listed in the current registry')); assert(m.allText().includes('Listed in Trash'));
+    assert(!m.allText().includes('No copies with verified attribution'));
+    assert.deepEqual(m.calls.map(call => call[0]), ['inspect']); assert.equal(m.downloads.length, 0);
+    const stale = m.find('Download investigation JSON');
+    m.find('Show all saved copies').dispatch('click'); stale.dispatch('click');
+    assert.equal(m.downloads.length, 0); assert.equal(m.host.querySelectorAll('.recovery-entry').length, 2);
+    assert(m.allText().includes('0 current-registry copies and 1 historical-registry copies'));
+});
+
+for (const locale of ['en', 'zh_CN']) test(`mixed current and historical query remains distinct and refresh removes old rows (${locale})`, async () => {
+    const m = model({ locale, search: '?workspace=default', report: report([scopedEntry('now', 'default'), historicalEntry('old', 'default', { currentRelation: 'differentGeneration' })]) });
+    await m.view.ready;
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 2);
+    assert(m.allText().includes(locale === 'en' ? '1 current-registry copies and 1 historical-registry copies' : '1 份当前登记归属的副本和 1 份历史登记归属的副本'));
+    assert(m.allText().includes(locale === 'en' ? 'different generation' : '代际不同'));
+    assert(m.allText().includes('old_generation'));
+    const stale = m.find(locale === 'en' ? 'Download investigation JSON' : '下载调查 JSON');
+    m.setReport(report([scopedEntry('fresh', 'default')])); await m.view.refresh();
+    if (stale) stale.dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1); assert(!m.allText().includes('old_generation')); assert.equal(m.downloads.length, 0);
+});
+
+test('invalid query does not silently expose historical rows before explicit all choice', async () => {
+    const m = model({ search: '?workspace=retired&workspace=retired', report: report([historicalEntry('old', 'retired')]) });
+    await m.view.ready; assert.equal(m.host.querySelectorAll('.recovery-entry').length, 0);
+    m.find('Show all saved copies').dispatch('click'); assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1);
+    assert(m.allText().includes('invalid or ambiguous')); assert.equal(m.downloads.length, 0);
+});

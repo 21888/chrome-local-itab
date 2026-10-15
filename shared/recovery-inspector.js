@@ -6,7 +6,7 @@
 })(typeof window === 'undefined' ? globalThis : window, function (getRecoveryFile) {
     'use strict';
     const KEYS = Object.freeze({ registry: '__localItabWorkspaceRegistryV1', activation: '__localItabWorkspaceActivationV1',
-        migration: '__localItabWorkspacePreMigrationV1', restore: '__localItabRestoreRecovery', identity: '__localItabIdentityRecovery' });
+        prior: '__localItabWorkspaceRecoveryV1', migration: '__localItabWorkspacePreMigrationV1', restore: '__localItabRestoreRecovery', identity: '__localItabIdentityRecovery' });
     const PREFIX = '__localItabWorkspaceV1:';
     const CONFIG_KEYS = Object.freeze(['schemaVersion', 'clock', 'search', 'bg', 'themePreset', 'appearance', 'show', 'categories', 'links', 'weather', 'hot', 'movie', 'quote', 'layout', 'ui']);
     const BASE_KEYS = Object.freeze([...Object.values(KEYS), ...CONFIG_KEYS]);
@@ -155,10 +155,9 @@
         if (own(input, 'schemaVersion') && ![1, 2].includes(input.schemaVersion)) omissions.add('UNKNOWN_VERSION');
         return { configuration, omissions: [...omissions], siteCount: Array.isArray(input.links) ? input.links.length : null, exportable: Object.keys(configuration).length > 0 };
     }
-    function registryValid(registry, activation) {
-        if (!object(registry) || !object(activation) || registry.schemaVersion !== 1 || registry.defaultId !== 'default' || !token(registry.migrationId) || !token(registry.lastUsedId) || !Number.isSafeInteger(registry.revision) || registry.revision < 0) return false;
+    function registryShapeValid(registry) {
+        if (!object(registry) || registry.schemaVersion !== 1 || registry.defaultId !== 'default' || !token(registry.migrationId) || !token(registry.lastUsedId) || !Number.isSafeInteger(registry.revision) || registry.revision < 0) return false;
         if (Object.keys(registry).sort().join() !== ['schemaVersion', 'revision', 'defaultId', 'lastUsedId', 'migrationId', 'workspaces'].sort().join()) return false;
-        if (Object.keys(activation).sort().join() !== ['schemaVersion', 'migrationId', 'defaultId'].sort().join() || activation.schemaVersion !== 1 || activation.migrationId !== registry.migrationId || activation.defaultId !== registry.defaultId) return false;
         if (!Array.isArray(registry.workspaces) || !registry.workspaces.length || registry.workspaces.length > LIMITS.workspaces) return false;
         const ids = new Set(), orders = new Set();
         for (const entry of registry.workspaces) {
@@ -166,6 +165,30 @@
             ids.add(entry.id); orders.add(entry.order);
         }
         return ['default', registry.lastUsedId].every(id => registry.workspaces.some(entry => entry.id === id && entry.deletedAt === null));
+    }
+    function registryValid(registry, activation) {
+        return registryShapeValid(registry) && object(activation) &&
+            Object.keys(activation).sort().join() === ['schemaVersion', 'migrationId', 'defaultId'].sort().join() &&
+            activation.schemaVersion === 1 && activation.migrationId === registry.migrationId && activation.defaultId === registry.defaultId;
+    }
+    function priorSnapshotValid(value) {
+        const exact = (item, keys) => object(item) && Object.keys(item).sort().join() === [...keys].sort().join();
+        if (!exact(value, ['schemaVersion', 'createdAt', 'snapshot']) || value.schemaVersion !== 1 || !date(value.createdAt) ||
+            copySafety.get(value)?.deep === false || !exact(value.snapshot, ['registry', 'bundles']) || !registryShapeValid(value.snapshot.registry)) return false;
+        const { registry, bundles } = value.snapshot;
+        if (!Array.isArray(bundles) || bundles.length !== registry.workspaces.length) return false;
+        const identities = new Map(), generations = new Set(), seen = new Set();
+        for (const entry of registry.workspaces) {
+            if (entry.name !== entry.name.trim() || Array.from(entry.name).length > 80 || /[\u0000-\u001f\u007f]/.test(entry.name) ||
+                forbidden(entry.id) || forbidden(entry.generation) || generations.has(entry.generation)) return false;
+            identities.set(entry.id, entry.generation); generations.add(entry.generation);
+        }
+        for (const bundle of bundles) {
+            if (!exact(bundle, ['id', 'generation', 'values']) || !object(bundle.values) ||
+                !identities.has(bundle.id) || identities.get(bundle.id) !== bundle.generation || seen.has(bundle.id)) return false;
+            seen.add(bundle.id);
+        }
+        return true;
     }
     function createInspector({ local, crypto = globalThis.crypto, now = () => new Date().toISOString() } = {}) {
         const reports = new WeakMap();
@@ -204,7 +227,9 @@
                     if (object(entry) && token(entry.id) && token(entry.generation)) candidates.push(entry); else warnings.add('REGISTRY_INVALID');
                 }
             }
-            const keys = [...new Set([...BASE_KEYS, ...candidates.map(entry => `${PREFIX}${entry.id}:${entry.generation}`)])];
+            // Current records retain priority under the shared budget. The one fixed
+            // historical snapshot is last; never enumerate orphan storage keys.
+            const keys = [...new Set([...BASE_KEYS.filter(key => key !== KEYS.prior), ...candidates.map(entry => `${PREFIX}${entry.id}:${entry.generation}`), KEYS.prior])];
             const first = await read(keys), second = await read(keys, false);
             check(first.fingerprint === second.fingerprint, 'CHANGED');
             for (const key of [KEYS.registry, KEYS.activation]) check(JSON.stringify(initial.data[key]) === JSON.stringify(first.data[key]) && initial.faults[key] === first.faults[key], 'CHANGED');
@@ -219,7 +244,7 @@
                 if (!recordedAt) rowWarnings.add('RECORD_TIME_UNKNOWN');
                 if (integrity === 'unverified') rowWarnings.add('CHECKSUM_MISSING');
                 if (integrity === 'failed') rowWarnings.add('CHECKSUM_FAILED');
-                if (source.identityStatus !== 'verified') rowWarnings.add('UNVERIFIED_SOURCE');
+                if (!['verified', 'historical'].includes(source.identityStatus)) rowWarnings.add('UNVERIFIED_SOURCE');
                 const id = `copy_${entries.length + 1}`;
                 const entry = freeze({ id, source: { ...source }, recordedAt, timeKind, siteCount: projected.siteCount, integrity, warnings: [...rowWarnings], exportable: projected.exportable });
                 const download = freeze({ type: 'local-itab-readonly-recovery', formatVersion: 1, inspectedAt, source: entry.source,
@@ -288,6 +313,23 @@
                     ...(typeof entry.name === 'string' && entry.name.length <= 160 ? { workspaceName: entry.name } : {}) };
                 if (!object(bundle) || !object(bundle.values)) { warnings.add('BUNDLE_MISSING'); add(null, { ...source, depth: 0, representation: 'configuration' }, null, 'unknown', 'unverified', ['BUNDLE_MISSING']); }
                 else await sources(bundle.values, source);
+            }
+            if (own(raw, KEYS.prior)) {
+                const prior = raw[KEYS.prior];
+                if (!priorSnapshotValid(prior)) warnings.add('HISTORICAL_INVALID');
+                else {
+                    const previous = prior.snapshot, bundles = new Map(previous.bundles.map(bundle => [bundle.id, bundle]));
+                    for (const entry of previous.registry.workspaces) {
+                        const current = checkedRegistry ? raw[KEYS.registry].workspaces.find(item => item.id === entry.id) : null;
+                        const source = { kind: 'historicalWorkspace', identityStatus: 'historical', historical: true,
+                            workspaceId: entry.id, workspaceName: entry.name, workspaceGeneration: entry.generation,
+                            snapshotAt: prior.createdAt, deleted: entry.deletedAt !== null,
+                            currentRelation: !checkedRegistry ? 'unknown' : !current ? 'absent' : current.generation === entry.generation ? 'sameGeneration' : 'differentGeneration' };
+                        // The outer snapshot has no historical checksum. Only
+                        // independently checksummed nested nodes can qualify.
+                        await sources(bundles.get(entry.id).values, source, prior.createdAt, 'snapshot');
+                    }
+                }
             }
             check(epoch === inspectEpoch, 'RECOVERY_STALE');
             const report = freeze({ inspectedAt, entries, warnings: [...warnings] }); reports.set(report, downloads); activeReport = report; return report;

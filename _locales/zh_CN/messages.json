@@ -6733,5 +6733,47 @@
   },
   "recoveryContextMatchedAll": {
     "message": "请求的工作区 ID：$1。本次快照包含 $2 份归属已核验为此工作区的副本。"
+  },
+  "recoveryContextHistoricalMatched": {
+    "message": "请求的工作区 ID：$1。显示 $2 份当前登记归属的副本和 $3 份历史登记归属的副本；另有 $4 份其他或归属未核验的副本被隐藏。历史匹配不表示该工作区目前仍存在。"
+  },
+  "recoveryContextHistoricalMatchedAll": {
+    "message": "请求的工作区 ID：$1。此次读取包含该 ID 的 $2 份当前登记归属副本和 $3 份历史登记归属副本。历史匹配不表示该工作区目前仍存在。"
+  },
+  "recoverySourceHistoricalWorkspace": {
+    "message": "工作区替换前保留的副本"
+  },
+  "recoveryHistoricalOrigin": {
+    "message": "保留的历史工作区快照"
+  },
+  "recoveryHistoricalHelp": {
+    "message": "此副本来自保留的早先工作区登记，并非选定当前工作区状态。所列代际和回收站状态属于该历史快照；不会自动恢复或选择任何数据。"
+  },
+  "recoveryAttributionHistorical": {
+    "message": "与保留的历史登记对应；不证明当前仍属此工作区或内容完整性"
+  },
+  "recoveryWorkspaceGeneration": {
+    "message": "记录的工作区代际"
+  },
+  "recoverySnapshotTime": {
+    "message": "快照时间（此设备时区）"
+  },
+  "recoveryCurrentRelation": {
+    "message": "与当前登记的比较"
+  },
+  "recoveryRelationSame": {
+    "message": "当前登记仍列出相同 ID 和代际"
+  },
+  "recoveryRelationDifferent": {
+    "message": "当前登记列出此 ID，但代际不同"
+  },
+  "recoveryRelationAbsent": {
+    "message": "当前登记未列出此 ID；这不证明内容已被删除"
+  },
+  "recoveryRelationUnknown": {
+    "message": "当前登记无法核验"
+  },
+  "recoveryWarningHistorical": {
+    "message": "无法校验保留的替换前工作区快照；未对其中记录分配归属或展示，其他来源仍可查看。"
   }
 }
