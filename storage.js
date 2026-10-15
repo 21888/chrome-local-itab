@@ -1170,7 +1170,14 @@ class StorageManager {
             // Unknown/mismatched schemas must not become a fresh write baseline,
             // including after an unverified compatibility write and restart.
             this.layoutSchemaForMutation(raw, raw.layout);
-            return this.layoutSnapshot(raw);
+            const snapshot = this.layoutSnapshot(raw);
+            // The codec also normalizes caller drafts and read projections. A
+            // persisted mutation baseline must not silently round/clamp supplied
+            // numeric fields; only absent legacy fields may take their defaults.
+            if (['columns', 'gridSize'].some(key => raw.layout?.[key] !== undefined && raw.layout[key] !== snapshot.layout[key])) {
+                throw new Error('Stored layout settings are invalid.');
+            }
+            return snapshot;
         };
         return underLock ? read() : this.withLocalWriteLock(read);
     }

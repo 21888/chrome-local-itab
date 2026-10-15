@@ -102,9 +102,11 @@ async function run(input) {
         } else if (!['drop', 'reject'].includes(mode)) await originalRecovery();
         if (baseline && !['drop', 'reject'].includes(mode)) {
             await assert.rejects(() => s.applyLayoutPatch({ columns: 7 }, {}, baseline), error =>
-                error.code === (['corrupt', 'schema'].includes(mode) ? 'LAYOUT_IDENTITY_INVALID' : 'LAYOUT_CONTEXT_CHANGED'));
+                mode === 'layout' ? /Stored layout settings are invalid/.test(error.message) :
+                    error.code === (['corrupt', 'schema'].includes(mode) ? 'LAYOUT_IDENTITY_INVALID' : 'LAYOUT_CONTEXT_CHANGED'));
         }
-        if (mode === 'corrupt' || mode === 'schema') {
+        if (['corrupt', 'schema', 'layout'].includes(mode)) {
+            await assert.rejects(() => s.getLayoutSnapshotForUpdate());
             await assert.rejects(async () => s.applyLayoutPatch({ autoArrange: false }, {}, await s.getLayoutSnapshotForUpdate()));
         }
         unchanged();
@@ -131,9 +133,8 @@ async function run(input) {
             if (mode === 'recovery') await assert.rejects(() => s.getRecoveryBackup('original'), /integrity check failed/);
             else await originalRecovery();
         }
-        // columns=11 remains a separately reported admission/normalization gap:
-        // this matrix proves only unchanged reads and stale-baseline rejection
-        // for that case, not that a newly read baseline refuses all mutation.
+        // Invalid persisted columns never become a fresh write baseline. The
+        // complete raw fault checkpoint and retained recovery stay unchanged.
     } else {
         baseline = baseline || await s.getLayoutSnapshotForUpdate(); fault = true;
         const operation = () => s.applyLayoutPatch({ autoArrange: false }, {}, baseline);

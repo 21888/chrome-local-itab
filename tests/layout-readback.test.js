@@ -36,12 +36,11 @@ for (const workspace of [false, true]) for (const mode of ['drop', 'corrupt', 's
         assert.deepEqual(inspected.raw, checkpoint.raw);
         assert.equal(inspected.writes.length, 0);
         assert.equal(new Set([prepared.pid, checkpoint.pid, inspected.pid]).size, 3);
-        if (!['corrupt', 'schema', 'layout'].includes(mode)) {
+        if (!['corrupt', 'schema'].includes(mode)) {
             const changed = run(checkpoint, directory, '04-explicit-fresh-edit');
-            assert.equal(changed.writes.length, 1);
+            assert.equal(changed.writes.length, mode === 'layout' ? 0 : 1);
+            if (mode === 'layout') assert.deepEqual(changed.raw, checkpoint.raw);
             assert.equal(new Set([prepared.pid, checkpoint.pid, inspected.pid, changed.pid]).size, 4);
         }
-        // Invalid columns=11 is inspected without normalizing the saved state.
-        // Fresh-baseline admission for it is an open gap, not a passing guarantee.
     });
 }
