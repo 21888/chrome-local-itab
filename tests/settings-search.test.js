@@ -159,3 +159,33 @@ for (const locale of ['en', 'zh_CN']) {
   assert(h.api.find(locales[locale][key].message).some(entry=>entry.target==='subscription-usage-settings' && entry.tab==='privacy'));
  }
 }
+
+// Native anchor activation is not modeled here; it requires separate browser verification.
+// This model checks
+// the real HTML destination against the production tab/search state and verifies
+// that the already-focusable input can receive focus without changing drafts.
+const test = require('node:test');
+for (const locale of ['en', 'zh_CN']) for (const scenario of ['initial', 'claude-return', 'after-search']) {
+ test(`skip destination remains visible and preserves state: ${locale}/${scenario}`, () => {
+  const href=html.match(/<a\b[^>]*class="skip-link"[^>]*href="([^"]+)"/)[1];
+  assert.equal(href,'#settings-search-input');
+  assert.match(html,/<input\b[^>]*id="settings-search-input"[^>]*type="search"/);
+  assert(html.indexOf('id="settings-search-input"') < html.indexOf('class="tab-panel'));
+  const h=harness(locale,false,scenario==='claude-return'?'#claude-usage-settings':'');
+  h.query(locales[locale].subscriptionUsageCodexOpen.message);
+  if(scenario==='after-search'){
+   const entry=h.entries.find(entry=>entry.target==='subscription-usage-settings');
+   h.resultFor(entry).dispatch('click',{detail:0});
+  }
+  const active=h.tabs.find(tab=>tab.getAttribute('aria-selected')==='true').dataset.tab;
+  assert.equal(active,scenario==='initial'?'appearance':'privacy');
+  const before={query:h.input.value,drafts:JSON.stringify(h.drafts),writes:h.writes,refreshes:h.refreshes};
+  const target=h.document.getElementById(href.slice(1));
+  assert.equal(target,h.input);assert.equal(target.closest('.tab-panel'),null);
+  assert(target.getClientRects().length);assert.notEqual(target.disabled,true);assert.equal(target.tabIndex,0);
+  target.focus(); // Models the destination's focusability, not native anchor default behavior.
+  assert.equal(h.document.activeElement,target);
+  assert.equal(h.tabs.find(tab=>tab.getAttribute('aria-selected')==='true').dataset.tab,active);
+  assert.deepEqual({query:h.input.value,drafts:JSON.stringify(h.drafts),writes:h.writes,refreshes:h.refreshes},before);
+ });
+}
