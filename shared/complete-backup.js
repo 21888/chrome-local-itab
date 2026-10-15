@@ -158,7 +158,7 @@
             // public Store or StorageManager writer while holding this chain.
             lock: fn => locks.request(tasks.LOCK, { mode: 'exclusive' }, () => locks.request(focus.LOCK, { mode: 'exclusive' }, () => locks.request('local-itab-local-write', { mode: 'exclusive' }, fn))),
             read: keys => chromeApi.storage.local.get(keys || [...Object.keys(manager.defaultConfig), 'schemaVersion', manager.layoutGenerationKey, manager.settingsGenerationKey, manager.syncIdentityStateKey, manager.restoreReceiptKey, ...Object.values(apis).map(api => api.KEY)]),
-            write: values => chromeApi.storage.local.set(values),
+            write: values => { check(!Object.hasOwn(values, '__localItabImportClosureV1'), 'BOUNDARY'); return chromeApi.storage.local.set(values); },
             readRecovery: async (key = RECOVERY_KEY) => (await chromeApi.storage.local.get([key]))[key]
         };
     }

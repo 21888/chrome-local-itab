@@ -13,7 +13,7 @@
             // No existing writer acquires both locks. Always tasks -> focus; never call Store.read/mutate under these locks.
             lock: fn => locks.request(tasks.LOCK, { mode: 'exclusive' }, () => locks.request(focus.LOCK, { mode: 'exclusive' }, fn)),
             read: () => chromeApi.storage.local.get([tasks.KEY, focus.KEY]),
-            write: values => chromeApi.storage.local.set(values)
+            write: values => { if (Object.hasOwn(values, '__localItabImportClosureV1')) throw Object.assign(new Error('Protected import evidence.'), { code: 'IMPORT_CLOSURE_BOUNDARY' }); return chromeApi.storage.local.set(values); }
         };
     }
     class Store {

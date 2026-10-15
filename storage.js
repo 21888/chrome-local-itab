@@ -13,6 +13,7 @@ const getBookmarkImportPlanner = () => typeof module !== 'undefined' && module.e
 const BOOKMARK_IMPORT_STORAGE_LIMITS = Object.freeze({ links: 20000, categories: 2000, bytes: 32 * 1024 * 1024, nodes: 250000, depth: 32 });
 
 // Personal content is owned by dedicated local stores, never configuration.
+const IMPORT_CLOSURE_KEY = '__localItabImportClosureV1';
 const LOCAL_PERSONAL_CONTENT_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1']);
 
 // Logical fields owned by the ordinary Settings form. Arrays and dependent
@@ -186,6 +187,9 @@ class StorageManager {
     }
 
     assertConfigurationKeys(keys) {
+        if (keys.includes(IMPORT_CLOSURE_KEY)) {
+            throw Object.assign(new Error('Import closure evidence has a dedicated immutable boundary.'), { code: 'IMPORT_CLOSURE_BOUNDARY' });
+        }
         if (keys.some(key => LOCAL_PERSONAL_CONTENT_KEYS.includes(key))) {
             const error = new Error('Personal content must use its dedicated local store.');
             error.code = 'PERSONAL_CONTENT_BOUNDARY';
@@ -1547,7 +1551,7 @@ class StorageManager {
                     blocked: { kind: 'restore', reason: 'Default workspace settings were reset locally. Review compatible cloud data before resuming Sync.' }
                 };
                 await this._local.set(fences);
-                await this._local.remove(Object.keys(stored).filter(key => key !== this.layoutGenerationKey && key !== this.settingsGenerationKey && !LOCAL_PERSONAL_CONTENT_KEYS.includes(key) && (!this.workspace || !['privacy', 'sync', this.syncIdentityStateKey].includes(key))));
+                await this._local.remove(Object.keys(stored).filter(key => key !== IMPORT_CLOSURE_KEY && key !== this.layoutGenerationKey && key !== this.settingsGenerationKey && !LOCAL_PERSONAL_CONTENT_KEYS.includes(key) && (!this.workspace || !['privacy', 'sync', this.syncIdentityStateKey].includes(key))));
             });
             if (wasSyncing) {
                 await this.disableRemoteSync();

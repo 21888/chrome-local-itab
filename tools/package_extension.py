@@ -55,6 +55,7 @@ RUNTIME_FILES = (
     "shared/local-scratchpad-store.js", "shared/local-scratchpad-controller.js", "shared/local-scratchpad-view.js",
     "shared/local-tasks-controller.js", "shared/local-tasks-store.js", "shared/local-tasks-view.js",
     "shared/update-checker.js", "shared/update-view.js",
+    "shared/import-closure.js",
     "shared/complete-backup.js", "shared/complete-backup-view.js",
     "shared/settings-search.js", "shared/search-template.js", "shared/shortcut-finder.js", "shared/shortcut-finder-host.js",
     "shared/shortcut-finder-view.js", "shared/workspace-presets.js", "shared/workspace-presets-view.js", "shared/workspaces.js", "shared/workspaces-view.js",

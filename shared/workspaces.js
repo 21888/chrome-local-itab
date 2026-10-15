@@ -11,6 +11,7 @@
     }
 })(typeof window === 'undefined' ? globalThis : window, function (root) {
     'use strict';
+    const IMPORT_CLOSURE_KEY = '__localItabImportClosureV1';
     const REGISTRY_KEY = '__localItabWorkspaceRegistryV1';
     const ACTIVATION_KEY = '__localItabWorkspaceActivationV1';
     const SNAPSHOT_KEY = '__localItabWorkspacePreMigrationV1';
@@ -300,6 +301,7 @@
             }));
         }
         async verifiedSet(values) {
+            check(!own(values, IMPORT_CLOSURE_KEY), 'BOUNDARY');
             try { check((await this.chrome.storage.local.set(copy(values))) !== false, 'WRITE'); }
             catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('WRITE'); }
             const readback = await this.get(Object.keys(values));
@@ -379,7 +381,7 @@
                 return registry;
             }));
         }
-        legacySource(raw) { return Object.fromEntries(Object.entries(raw).filter(([key]) => ![REGISTRY_KEY, ACTIVATION_KEY, SNAPSHOT_KEY, STAGE_KEY, RECOVERY_KEY, LEGACY_CONFLICT_KEY].includes(key) && !key.startsWith(PREFIX))); }
+        legacySource(raw) { return Object.fromEntries(Object.entries(raw).filter(([key]) => ![IMPORT_CLOSURE_KEY, REGISTRY_KEY, ACTIVATION_KEY, SNAPSHOT_KEY, STAGE_KEY, RECOVERY_KEY, LEGACY_CONFLICT_KEY].includes(key) && !key.startsWith(PREFIX))); }
         activation(registry) { return { schemaVersion: 1, migrationId: registry.migrationId, defaultId: registry.defaultId }; }
         validateActivation(marker, registry) { check(same(marker, this.activation(registry)), 'ACTIVATION'); }
         async registry() {
