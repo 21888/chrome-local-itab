@@ -565,8 +565,9 @@ for (const schema of [1, 2]) for (const target of ['default', 'named']) for (con
         assert.equal(await storage.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }), true);
         assertRelationships(values(f, targetId), source);
         assert.deepEqual(values(f, targetId).categories, source.categories);
-        assert.equal(f.writes.length - count, 1, 'bundle, recovery and globals share one storage submission');
-        assert(Object.hasOwn(f.writes.at(-1), 'privacy'));
+        assert.equal(f.writes.length - count, 2, 'replacement is atomic; a second receipt-only submission records verification');
+        assert(Object.hasOwn(f.writes[count], 'privacy'));
+        assert(!Object.hasOwn(f.writes.at(-1), 'privacy'));
         assert.deepEqual((await storage.getRecoveryBackup()).data.links, old.links);
         for (const api of Object.values(APIs)) assert.deepEqual(values(f, targetId)[api.KEY], old[api.KEY]);
         for (const entry of before[Workspaces.REGISTRY_KEY].workspaces) if (entry.id !== targetId) assert.deepEqual(f.raw[Workspaces.bundleKey(entry)], before[Workspaces.bundleKey(entry)]);
@@ -590,4 +591,156 @@ bounded('combined settings submission readback failure is reported as uncertain 
         assert.deepEqual((await b.storage.getRecoveryBackup()).data.links, original.links);
         assert.deepEqual((await b.storage.getRecoveryBackup()).data.layout, original.layout);
     });
+});
+
+const restoreOptions = { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true };
+async function uncertainImport(f, storage, session, restored) {
+    const entry = f.raw[Workspaces.REGISTRY_KEY].workspaces.find(item => item.id === session.id);
+    const key = Workspaces.bundleKey(entry); let submitted = false;
+    f.hooks.set = written => { if (Object.hasOwn(written, key)) submitted = true; return DEFER; };
+    f.hooks.get = keys => { if (submitted && keys?.includes(key)) throw Error('Synthetic readback unavailable'); return DEFER; };
+    await assert.rejects(storage.setAll(restored, restoreOptions), code('WORKSPACE_READ'));
+    f.hooks.get = f.hooks.set = null;
+    assert.equal(values(f, session.id)[storage.restoreReceiptKey].status, 'pending');
+}
+
+for (const target of ['default', 'named']) for (const reopen of [false, true]) bounded(`uncertain import retry preserves post-migration ${target} edits; reopened=${reopen}`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await boot(f);
+        let session = b.session;
+        if (target === 'named') session = b.manager.capture((await b.manager.create('Synthetic retry')).id);
+        await session.ready();
+        let storage = storageFor(f, session);
+        const edited = seed({ schema: 2, label: 'SYNTHETIC_NEW_EDIT' });
+        await session.local.set(scoped(edited));
+        const restored = storage.cloneDefaultConfig(); restored.quote = 'Synthetic incoming';
+        await uncertainImport(f, storage, session, restored);
+        const retained = clone(values(f, session.id)[storage.restoreRecoveryKey]);
+        if (reopen) {
+            const manager = f.manager(); session = manager.capture(session.id); await session.ready();
+            storage = storageFor(f, session);
+        }
+        assert.equal(await storage.setAll(restored, restoreOptions), true);
+        assert.equal(values(f, session.id)[storage.restoreReceiptKey].status, 'verified');
+        const count = f.writes.length;
+        for (let n = 0; n < 3; n++) assert.equal(await storage.setAll(restored, restoreOptions), true);
+        assert.equal(f.writes.length, count, 'verified retries must not submit another write');
+        assert.deepEqual(values(f, session.id)[storage.restoreRecoveryKey], retained);
+        assert.deepEqual((await storage.getRecoveryBackup()).data.links, edited.links);
+        assertNoProvider(f);
+    });
+});
+
+bounded('different file cannot replace pending import until verification and another confirmation', async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const { storage, session } = await boot(f), first = storage.cloneDefaultConfig(); first.quote = 'First';
+        await uncertainImport(f, storage, session, first);
+        const recovery = clone(values(f)[storage.restoreRecoveryKey]);
+        const second = { ...first, quote: 'Second' };
+        await assert.rejects(storage.setAll(second, { ...restoreOptions, newRestoreOperation: true }), code('RESTORE_RECONFIRM'));
+        assert.equal(values(f).quote, 'First');
+        assert.deepEqual(values(f)[storage.restoreRecoveryKey], recovery);
+        assert.equal(await storage.setAll(second, restoreOptions), true);
+        assert.equal(values(f).quote, 'Second');
+        assert.equal((await storage.getRecoveryBackup()).data.quote, 'First');
+    });
+});
+
+for (const change of ['configuration', 'recovery', 'receipt']) bounded(`pending ${change} mismatch cannot be bypassed with a new-operation flag`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const { storage, session } = await boot(f), restored = storage.cloneDefaultConfig();
+        await uncertainImport(f, storage, session, restored);
+        if (change === 'configuration') await session.local.set({ quote: 'New edit after uncertain commit' });
+        if (change === 'recovery') values(f)[storage.restoreRecoveryKey].checksum = 'f'.repeat(64);
+        if (change === 'receipt') values(f)[storage.restoreReceiptKey].target = 'invalid';
+        const before = clone(f.raw), count = f.writes.length;
+        for (const options of [restoreOptions, { ...restoreOptions, newRestoreOperation: true }]) {
+            await assert.rejects(storage.setAll(restored, options), code('RESTORE_RETRY_CONFLICT', 'RESTORE_RECEIPT_INVALID'));
+            await assert.rejects(storage.setAll({ ...restored, quote: 'Different file' }, options), code('RESTORE_RETRY_CONFLICT', 'RESTORE_RECEIPT_INVALID'));
+        }
+        assert.deepEqual(f.raw, before); assert.equal(f.writes.length, count);
+    });
+});
+
+bounded('verified same-file replay after edits requires explicit new operation and retains ancestry', async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const { storage, session } = await boot(f), restored = storage.cloneDefaultConfig();
+        const ancestor = await storage.makeRecovery(seed({ schema: 1, label: 'Synthetic ancestor' }), 'beforeRestore');
+        const old = await storage.makeRecovery(seed({ schema: 2 }), 'beforeRestore'); old.previousRecovery = ancestor;
+        await session.local.set({ [storage.restoreRecoveryKey]: old });
+        assert.equal(await storage.setAll(restored, restoreOptions), true);
+        await session.local.set({ quote: 'Reviewed new edit' });
+        const before = clone(f.raw);
+        await assert.rejects(storage.setAll(restored, restoreOptions), error => error.code === 'RESTORE_RETRY_CONFLICT' && error.canStartNewRestore === true);
+        assert.deepEqual(f.raw, before);
+        assert.equal(await storage.setAll(restored, { ...restoreOptions, newRestoreOperation: true }), true);
+        assert.equal((await storage.getRecoveryBackup()).data.quote, 'Reviewed new edit');
+        assert.deepEqual(values(f)[storage.restoreRecoveryKey].previousRecovery, ancestor);
+        for (const payload of [storage.buildManualExportPayload(values(f)), storage.prepareSyncPayload(values(f)), await storage.makeRecovery(values(f), 'beforeRestore')]) {
+            assert(!JSON.stringify(payload).includes(storage.restoreReceiptKey), 'receipt is local-only');
+        }
+    });
+});
+
+for (const phase of ['replacement', 'settlement']) for (const failure of ['false', 'quota']) bounded(`${phase} ${failure} leaves original recovery available`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const { storage, session } = await boot(f), restored = storage.cloneDefaultConfig();
+        const old = await storage.makeRecovery(seed({ schema: 1, label: 'Existing recovery' }), 'beforeRestore');
+        await session.local.set({ [storage.restoreRecoveryKey]: old });
+        const before = clone(f.raw), original = clone(values(f)); let writes = 0;
+        f.hooks.set = () => {
+            writes++;
+            if (writes === (phase === 'replacement' ? 1 : 2)) {
+                if (failure === 'false') return false;
+                throw Error('QUOTA_EXCEEDED synthetic');
+            }
+            return DEFER;
+        };
+        await assert.rejects(storage.setAll(restored, restoreOptions));
+        f.hooks.set = null;
+        if (phase === 'replacement') assert.deepEqual(f.raw, before);
+        else {
+            assert.equal(values(f)[storage.restoreReceiptKey].status, 'pending');
+            assert.deepEqual((await storage.getRecoveryBackup()).data.links, original.links);
+            const retained = clone(values(f)[storage.restoreRecoveryKey]);
+            assert.equal(await storage.setAll(restored, restoreOptions), true);
+            assert.deepEqual(values(f)[storage.restoreRecoveryKey], retained);
+        }
+    });
+});
+
+bounded('ordinary successful distinct imports rotate latest recovery without growing ancestry', async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const { storage } = await boot(f), restored = storage.cloneDefaultConfig();
+        for (let n = 0; n < 12; n++) {
+            assert.equal(await storage.setAll({ ...restored, quote: `Synthetic import ${n}` }, restoreOptions), true);
+            assert.equal(values(f)[storage.restoreReceiptKey].status, 'verified');
+            assert.equal(values(f)[storage.restoreRecoveryKey].previousRecovery, undefined);
+            if (n) assert.equal((await storage.getRecoveryBackup()).data.quote, `Synthetic import ${n - 1}`);
+        }
+    });
+});
+
+bounded('restore confirmation UI never offers to bypass pending verification; explicit new import can be declined', async () => {
+    const source = fs.readFileSync(require.resolve('../options.js'), 'utf8');
+    const start = source.indexOf('async function saveConfirmedRestore('), end = source.indexOf('async function createBeforeRestoreSafetyBackup', start);
+    let prompts = 0, calls = [], proceed = false;
+    const context = vm.createContext({ t: (_key, text) => text, confirm: () => { prompts++; return proceed; } });
+    vm.runInContext(source.slice(start, end), context);
+    const pending = Object.assign(Error('Pending'), { code: 'RESTORE_RETRY_CONFLICT' });
+    await assert.rejects(context.saveConfirmedRestore({ setAll: async () => { throw pending; } }, {}), error => error === pending);
+    assert.equal(prompts, 0);
+    const changed = Object.assign(Error('Changed'), { code: 'RESTORE_RETRY_CONFLICT', canStartNewRestore: true });
+    const manager = { setAll: async (_settings, options) => { calls.push(clone(options)); if (!options.newRestoreOperation) throw changed; return true; } };
+    await assert.rejects(context.saveConfirmedRestore(manager, {}), error => error === changed);
+    assert.equal(calls.length, 1); assert.equal(prompts, 1);
+    proceed = true; calls = [];
+    assert.equal(await context.saveConfirmedRestore(manager, {}), true);
+    assert.equal(calls.length, 2); assert.equal(calls[1].newRestoreOperation, true);
 });

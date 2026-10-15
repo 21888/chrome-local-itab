@@ -150,3 +150,45 @@ JSON 或 Drive 整体恢复、重置、已应用的 Chrome 同步快照会让旧
 The Shortcuts → Module Visibility checkbox “Use / to open Find saved sites” is an independent `ui.finderShortcutEnabled` field. It defaults to true, including older configurations and backups that omit it. False survives manual/Drive backup and validated restore, and follows the existing optional configuration-sync path; it creates no permission or provider requirement. Backup validation rejects non-boolean values. Reset restores the enabled default.
 
 Saving merges only that changed field under the existing settings lock. A stale save of other UI fields preserves the latest saved preference. Whole-configuration replacement fences stale drafts, including this checkbox. The dashboard reads the preference on initialization and keeps it through shortcut rerenders. Save then open a new tab, or finish your work before refreshing an existing tab. Existing guarded automatic refreshes still preserve unfinished work, including an open Finder; there is no new reload or live setting listener. Disabled mode removes the visual and accessible shortcut hints and does not cancel / key events. The visible Finder button and native result-button selection are unchanged.
+
+## Interrupted configuration imports
+
+A JSON or Drive configuration import records a device-local receipt with the
+replacement and its before-import recovery copy in the same storage submission.
+The receipt contains hashes, not additional configuration text. Only a matching
+readback of the settings and retained recovery copy can mark the import verified.
+A reported storage/readback failure may therefore mean the import was saved.
+Retrying the same file verifies that operation instead of replacing its recovery
+copy again, including after reopening Settings or in another tab.
+
+An unresolved import blocks a different file. If verification succeeds, the
+operation only resolves the earlier import and asks you to review and confirm the
+new one again. If the retained settings or recovery copy no longer match, it stops
+without replacing either. Inspect and export the retained copies in Recovery
+before deciding what to keep. A previously verified import whose settings later
+changed needs an additional explicit confirmation to import the same file anew.
+Ordinary new, verified imports still rotate the latest recovery copy; this is not
+permanent backup history. Existing recovery ancestry is retained unchanged.
+
+Receipts stay local to their workspace and are excluded from portable
+configuration exports, Drive payloads and Chrome Sync. This does not change
+complete-backup or portable recovery-file formats. Older extension versions that
+do not recognize the receipt key may refuse to open an affected workspace; do
+not downgrade such a profile. A separate copy/export should be reviewed before
+any rollback. Quota and verification errors never trigger recovery deletion to
+make room. These checks cannot restore data already lost before this protection.
+
+### 导入中断后的保护
+
+JSON 或云盘配置导入会将本地摘要记录、替换内容和导入前恢复副本一起提交。
+只有读取并核对当前设置及恢复副本完全一致，才会标记为已核验。报错不一定代表
+没有保存；再次选择同一文件会核验原操作，不会再次覆盖恢复副本，重开设置页
+或换标签页也一样。
+
+前一次导入未核验时，不能直接换文件覆盖。核验成功后，先保留现状并提示重新
+检查、确认新导入；如果当前设置或恢复副本不匹配，则停止写入，请先在恢复页
+检查并导出保留内容。已核验的导入之后又修改了设置，要重新导入同一文件时
+需要额外确认。正常新导入仍轮换最新恢复副本，不承诺永久保留全部历史，已有
+恢复链保持不变。摘要不进入配置导出、云盘或Chrome同步。旧版扩展可能因不识别
+新的本地记录而拒绝打开工作区，请勿直接降级该配置。空间不足或核验失败不会
+通过删除恢复副本来腾空间，也不能恢复启用此保护之前已经丢失的数据。

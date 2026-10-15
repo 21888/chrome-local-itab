@@ -40,6 +40,7 @@ class StorageManager {
         this.settingsFormPaths = SETTINGS_FORM_PATHS;
         this.identityRecoveryKey = '__localItabIdentityRecovery';
         this.restoreRecoveryKey = '__localItabRestoreRecovery';
+        this.restoreReceiptKey = '__localItabRestoreReceiptV1';
         this.syncIdentityStateKey = '__localItabSyncIdentityState';
         this.syncChunkPrefix = '__localItabSyncData_';
         this.syncMaxChunks = 20;
@@ -370,6 +371,7 @@ class StorageManager {
                 if (Object.keys(values).length) await this._local.set(values);
                 return;
             }
+            if (options.confirmedRestore && await this.reconcileRestoreReceipt(raw, values, options)) return this.layoutSnapshot(raw);
             const latest = this.layoutSnapshot(raw);
             if (guardedCategories && JSON.stringify(this.validateCategoryBaseline(raw.categories === undefined ? this.defaultConfig.categories : raw.categories)) !==
                 JSON.stringify(this.validateCategoryBaseline(options.expectedCategories))) {
@@ -420,15 +422,36 @@ class StorageManager {
                 if (!this.workspace || this.workspace.id === 'default') written.sync = this.validateSyncConfig(raw.sync || this.defaultConfig.sync);
                 else delete written.sync;
                 written[this.restoreRecoveryKey] = await this.makeRecovery(raw, 'beforeRestore');
+                // Preserve pre-existing recovery ancestry; ordinary, verified new
+                // imports still rotate the latest beforeRestore copy.
+                if (raw[this.restoreRecoveryKey]?.previousRecovery !== undefined) {
+                    written[this.restoreRecoveryKey].previousRecovery = LayoutIdentity.copy(raw[this.restoreRecoveryKey].previousRecovery);
+                }
                 if ((!this.workspace || this.workspace.id === 'default') && raw.sync?.enabled) written[this.syncIdentityStateKey] = {
                     ...(raw[this.syncIdentityStateKey] || {}),
                     blocked: { kind: 'restore', reason: 'Restored data is kept locally. Review compatible cloud data before resuming Sync.' }
                 };
             }
             if (invalidatesLayout) written[this.layoutGenerationKey] = this.createLayoutGeneration();
-            await this._local.set(written);
+            if (options.confirmedRestore) {
+                written[this.restoreReceiptKey] = {
+                    version: 1, status: 'pending', request: await this.restoreRequestHash(values),
+                    target: await this.fingerprint(this.restoreReceiptState({ ...raw, ...written })),
+                    recovery: await this.fingerprint(written[this.restoreRecoveryKey])
+                };
+                try {
+                    if (await this._local.set(written) === false) throw this.restoreReceiptError('RESTORE_UNCERTAIN');
+                    await this.settleRestoreReceipt(written[this.restoreReceiptKey]);
+                } catch (error) {
+                    // Failure is not evidence that nothing committed. The receipt
+                    // travels with the replacement and survives tabs/restarts.
+                    error.message = this.restoreReceiptError('RESTORE_UNCERTAIN').message + ' ' + error.message;
+                    if (!error.code) error.code = 'RESTORE_UNCERTAIN';
+                    throw error;
+                }
+            } else await this._local.set(written);
             return this.layoutSnapshot({ ...raw, ...written });
-        }, guardedSettings || guarded || guardedCategories || guardedClock || LayoutIdentity.active(values.layout));
+        }, options.confirmedRestore || guardedSettings || guarded || guardedCategories || guardedClock || LayoutIdentity.active(values.layout));
     }
 
     shortcutUndoError(code, message) {
@@ -882,6 +905,76 @@ class StorageManager {
     async makeRecovery(raw, reason) {
         const payload = this.buildManualExportPayload(this.validateStoredConfigObject(raw));
         return { reason, payload, providerState: this.validateSyncConfig(raw.sync || this.defaultConfig.sync), checksum: await this.fingerprint(payload) };
+    }
+
+    restoreReceiptError(code) {
+        const messages = {
+            RESTORE_UNCERTAIN: 'The import may already have been saved. Its recovery copy is retained. Retry the same file to verify it; do not replace it blindly.',
+            RESTORE_RETRY_CONFLICT: 'This file was already imported, but settings have since changed. Review the current settings and recovery copy before starting a new import.',
+            RESTORE_RECONFIRM: 'The previous import is now verified and its recovery copy is retained. Review the current settings, then confirm the new import again.',
+            RESTORE_RECEIPT_INVALID: 'The retained import receipt could not be verified. No replacement was submitted. Review the recovery copy.'
+        };
+        const key = { RESTORE_UNCERTAIN: 'restoreUncertain', RESTORE_RETRY_CONFLICT: 'restoreRetryConflict', RESTORE_RECONFIRM: 'restoreReconfirm', RESTORE_RECEIPT_INVALID: 'restoreReceiptInvalid' }[code];
+        return Object.assign(new Error(this.chromeApi?.i18n?.getMessage?.(key) || messages[code]), { code });
+    }
+
+    restoreReceiptState(raw) {
+        const keys = [...Object.keys(this.defaultConfig).filter(key => key !== 'sync'), 'schemaVersion', this.layoutGenerationKey, this.settingsGenerationKey];
+        return Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]]));
+    }
+
+    async restoreRequestHash(values) {
+        // Provider preferences are live device state, never the imported request.
+        return this.fingerprint(Object.fromEntries(Object.entries(values).filter(([key]) => key !== 'sync')));
+    }
+
+    validateRestoreReceipt(receipt) {
+        if (!receipt || receipt.version !== 1 || !['pending', 'verified'].includes(receipt.status) ||
+            Object.keys(receipt).sort().join(',') !== 'recovery,request,status,target,version' ||
+            !['request', 'target', 'recovery'].every(key => typeof receipt[key] === 'string' && /^[a-f0-9]{64}$/.test(receipt[key]))) {
+            throw this.restoreReceiptError('RESTORE_RECEIPT_INVALID');
+        }
+    }
+
+    async verifyRestoreReceipt(raw, receipt) {
+        this.validateRestoreReceipt(receipt);
+        if (!raw[this.restoreRecoveryKey] || await this.fingerprint(raw[this.restoreRecoveryKey]) !== receipt.recovery ||
+            await this.fingerprint(this.restoreReceiptState(raw)) !== receipt.target) {
+            throw this.restoreReceiptError('RESTORE_RETRY_CONFLICT');
+        }
+    }
+
+    async settleRestoreReceipt(receipt) {
+        const raw = await this._local.get(null);
+        if (await this.fingerprint(raw[this.restoreReceiptKey] || null) !== await this.fingerprint(receipt)) throw this.restoreReceiptError('RESTORE_RECEIPT_INVALID');
+        await this.verifyRestoreReceipt(raw, receipt);
+        if (receipt.status === 'verified') return;
+        const verified = { ...receipt, status: 'verified' };
+        if (await this._local.set({ [this.restoreReceiptKey]: verified }) === false) throw this.restoreReceiptError('RESTORE_UNCERTAIN');
+        const saved = (await this._local.get([this.restoreReceiptKey]))[this.restoreReceiptKey];
+        if (await this.fingerprint(saved || null) !== await this.fingerprint(verified)) throw this.restoreReceiptError('RESTORE_UNCERTAIN');
+    }
+
+    async reconcileRestoreReceipt(raw, values, options) {
+        const receipt = raw[this.restoreReceiptKey];
+        if (receipt === undefined) return false;
+        this.validateRestoreReceipt(receipt);
+        const sameRequest = receipt.request === await this.restoreRequestHash(values);
+        if (receipt.status === 'pending') {
+            // Even another file cannot replace an unverified transaction. A
+            // matching readback settles only the earlier operation; the user
+            // must then explicitly confirm the new operation in a later call.
+            await this.settleRestoreReceipt(receipt);
+            if (!sameRequest) throw this.restoreReceiptError('RESTORE_RECONFIRM');
+            return true;
+        }
+        if (!sameRequest || options.newRestoreOperation === true) return false;
+        try { await this.verifyRestoreReceipt(raw, receipt); }
+        catch (error) {
+            if (error.code === 'RESTORE_RETRY_CONFLICT') error.canStartNewRestore = true;
+            throw error;
+        }
+        return true;
     }
 
     async persistVerifiedSyncRecovery(recovery, previous) {
@@ -1419,7 +1512,7 @@ class StorageManager {
             return true;
         } catch (error) {
             if (error.code?.startsWith('WORKSPACE_')) throw error;
-            if (error.code?.startsWith('SETTINGS_') || error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
+            if (error.code?.startsWith('RESTORE_') || error.code?.startsWith('SETTINGS_') || error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
             console.error('Storage setAll error:', error);
             
             if (error.message && error.message.includes('QUOTA_EXCEEDED')) {

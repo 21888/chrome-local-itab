@@ -6685,5 +6685,20 @@
   },
   "promptsModelPresetReloadFailed": {
     "message": "Could not reload saved connections. The current list and draft are unchanged. Try again."
+  },
+  "restoreStartNewConfirm": {
+    "message": "This file was already imported and settings have changed since then. Start a new import, replacing the current settings and keeping them as the latest recovery copy?"
+  },
+  "restoreUncertain": {
+    "message": "The import may already have been saved. Its recovery copy is retained. Retry the same file to verify it; do not replace it blindly."
+  },
+  "restoreRetryConflict": {
+    "message": "This file was already imported, but settings have since changed. Review the current settings and recovery copy before starting a new import."
+  },
+  "restoreReconfirm": {
+    "message": "The previous import is now verified and its recovery copy is retained. Review the current settings, then confirm the new import again."
+  },
+  "restoreReceiptInvalid": {
+    "message": "The retained import receipt could not be verified. No replacement was submitted. Review the recovery copy."
   }
 }

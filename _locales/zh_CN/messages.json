@@ -6685,5 +6685,20 @@
   },
   "promptsModelPresetReloadFailed": {
     "message": "无法重新载入连接。当前列表和草稿保持不变，请重试。"
+  },
+  "restoreStartNewConfirm": {
+    "message": "这个文件已导入，此后设置发生了变化。是否开始一次新的导入，替换当前设置，并将当前设置保留为最新恢复副本？"
+  },
+  "restoreUncertain": {
+    "message": "导入可能已经保存，恢复副本仍保留。请重试同一文件以核验结果，不要直接进行另一次替换。"
+  },
+  "restoreRetryConflict": {
+    "message": "此文件已提交导入，但设置或恢复副本此后发生了变化。请先检查当前设置和恢复副本，再开始新的导入。"
+  },
+  "restoreReconfirm": {
+    "message": "上次导入现已核验，恢复副本仍保留。请检查当前设置，然后重新确认新的导入。"
+  },
+  "restoreReceiptInvalid": {
+    "message": "无法核验保留的导入记录。未提交新的替换，请检查恢复副本。"
   }
 }

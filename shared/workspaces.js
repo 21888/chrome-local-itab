@@ -27,7 +27,7 @@
     const DEFAULT_ID = 'default';
     const CONFIG_KEYS = Object.freeze(['clock', 'search', 'bg', 'themePreset', 'appearance', 'show', 'categories', 'links', 'weather', 'hot', 'movie', 'quote', 'layout', 'ui']);
     const PERSONAL_KEYS = Object.freeze(['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1']);
-    const SCOPED_KEYS = Object.freeze([...CONFIG_KEYS, ...PERSONAL_KEYS, 'schemaVersion', '__localItabLayoutGeneration', '__localItabSettingsGeneration', '__localItabIdentityRecovery', '__localItabRestoreRecovery', '__localItabCompleteRecoveryV1']);
+    const SCOPED_KEYS = Object.freeze([...CONFIG_KEYS, ...PERSONAL_KEYS, 'schemaVersion', '__localItabLayoutGeneration', '__localItabSettingsGeneration', '__localItabIdentityRecovery', '__localItabRestoreRecovery', '__localItabRestoreReceiptV1', '__localItabCompleteRecoveryV1']);
     const GLOBAL_KEYS = Object.freeze(['privacy', 'sync', '__localItabSyncIdentityState']);
     const scoped = key => SCOPED_KEYS.includes(key);
     const own = (value, key) => Object.hasOwn(value, key);

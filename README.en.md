@@ -544,3 +544,5 @@ If persistence succeeded but its readback failed, the answer panel retains the o
 ### Filter saved excerpts by a detail tag
 
 Click a real tag in a saved or archived excerpt’s details to apply the existing exact tag filter. Type and tool labels remain text. Search, type, tool and archive scope still intersect; comma-bearing and Unicode tags stay intact. The selected detail, focus and unsaved drafts are preserved, with no storage write. The tag dropdown and pressed state stay in sync; use Clear filters to reset.
+
+Configuration imports now verify a local receipt before retrying an uncertain save. Older extension versions may refuse to open workspaces containing this receipt, so do not downgrade that profile. [Interrupted-import protection and recovery limits](docs/settings-save-safety.md#interrupted-configuration-imports).

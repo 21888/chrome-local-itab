@@ -261,7 +261,9 @@ bounded('restore already holding the lock rejects an older queued appearance int
     const restored = m.setAll(m.validateConfigObject(before), { confirmedRestore: true }); await gate.entered;
     const selection = a.choose('template', 'folio'); await turn(); gate.resume();
     assert.equal(await restored, true); assert.equal(await selection, false); await f.settle();
-    same(f.state().appearance, before.appearance); assert.equal(f.writes.length, 1); assert.match(a.status.textContent, /open a new tab/);
+    same(f.state().appearance, before.appearance); assert.equal(f.writes.length, 2);
+    assert.deepEqual(Object.keys(f.writes[1]), [m.restoreReceiptKey], 'verification records only the receipt, never the queued appearance intention');
+    assert.match(a.status.textContent, /open a new tab/);
 });
 
 bounded('appearance before a queued restore cannot change the replacement payload', async () => {

@@ -1757,6 +1757,19 @@ async function refreshDriveBackupList(interactive = true) {
     });
 }
 
+// A second confirmation is only available after the previous import was
+// verified. Pending/unknown commits can never be bypassed by this UI.
+async function saveConfirmedRestore(manager, settings) {
+    const options = { skipSyncSideEffects: true, skipSyncInitialization: true, confirmedRestore: true };
+    try { return await manager.setAll(settings, options); }
+    catch (error) {
+        if (!error.canStartNewRestore) throw error;
+        const proceed = confirm(t('restoreStartNewConfirm', 'This file was already imported and settings have changed since then. Start a new import, replacing the current settings and keeping them as the latest recovery copy?'));
+        if (!proceed) throw error;
+        return manager.setAll(settings, { ...options, newRestoreOperation: true });
+    }
+}
+
 async function createBeforeRestoreSafetyBackup() {
     const manager = getDriveBackupManager();
     const draft = await manager.createSnapshotDraft({ reason: 'beforeRestore' });
@@ -1796,11 +1809,7 @@ async function restoreDriveSnapshot(snapshot) {
         const payload = await manager.downloadSnapshotPayload(snapshot.id, { interactive: true });
         const providerState = await providerStorage.getLocalProviderState();
         const validatedSettings = providerStorage.prepareRestoredConfig(payload, providerState);
-        const success = await replaceSettings(() => providerStorage.setAll(validatedSettings, {
-            skipSyncSideEffects: true,
-            skipSyncInitialization: true,
-            confirmedRestore: true
-        }));
+        const success = await replaceSettings(() => saveConfirmedRestore(providerStorage, validatedSettings));
         if (!success) {
             throw new Error(t('driveRestoreSaveFailed', '保存恢复后的设置失败。'));
         }
@@ -2269,11 +2278,7 @@ async function importSettings(file) {
         }
         
         // Save validated settings
-        const success = await replaceSettings(() => storageManager.setAll(validatedSettings, {
-            skipSyncSideEffects: true,
-            skipSyncInitialization: true,
-            confirmedRestore: true
-        }));
+        const success = await replaceSettings(() => saveConfirmedRestore(storageManager, validatedSettings));
         
         if (success) {
             const details = {
