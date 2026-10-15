@@ -253,8 +253,33 @@
             this.taskSelection = Object.freeze({ result: this.result, texts, selected: Object.freeze(texts.map(() => true)) });
             return this.result;
         }
+        async loadExternalAnswer(value, { mode, replaceUnsaved = false, isCurrent = () => true } = {}) {
+            check(mode === 'answer' && typeof isCurrent === 'function', 'STALE');
+            const generation = this.generation, result = this.result, partial = this.partial;
+            const selection = this.taskSelection, review = this.taskReview;
+            const current = () => {
+                this.current(generation);
+                check(!this.busy && !this.taskCommand && !this.saveCommand && this.result === result && this.partial === partial &&
+                    this.taskSelection === selection && this.taskReview === review && isCurrent() === true, 'STALE');
+            };
+            current();
+            check((!result || this.saved) && !partial || replaceUnsaved === true, 'UNSAVED_RESULT');
+            // Preserve the exact complete pasted string. No provider or request lineage
+            // can be inferred from the surrounding draft or from claims in this text.
+            text(value, LIMITS.prompt);
+            // Match the collection store's multiline control-character contract before
+            // loading a read-only body; otherwise a later save cannot be repaired here.
+            check(!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value), 'LIMIT');
+            await this.ensureActive(); current();
+            this.edit();
+            this.result = Object.freeze({ text: value, mode: 'answer', provenance: 'external' });
+            this.resultReview = this.taskSelection = this.invalidTaskEdit = null;
+            this.saved = false; this.saveUncertain = false;
+            return this.result;
+        }
         editResult(value) {
             check(this.result && !this.busy && !this.taskCommand && !this.saveCommand, 'BUSY');
+            check(!(this.result.mode === 'answer' && this.result.provenance === 'external'), 'READ_ONLY');
             // An editable response changes the authorization even if its new text is
             // rejected. Keep rejected text only in the editor, never parse/store it or
             // silently re-review the previous result. Existing writes retain priority.
@@ -336,12 +361,18 @@
         async saveAnswer(title, { includeContext = false } = {}) {
             check(!this.partial && this.result?.mode === 'answer' && !this.busy && !this.saved && !this.closed, 'STALE'); titleText(title);
             check(typeof includeContext === 'boolean');
+            const manual = this.result.provenance === 'external';
+            check(!manual || includeContext === false, 'CONTEXT_UNAVAILABLE');
+            // A manual title must satisfy the existing collection single-line field
+            // before creating an immutable command that cannot be edited on retry.
+            check(!manual || !/[\u0000-\u001f\u007f]/u.test(title), 'LIMIT');
             const generation = this.generation; this.busy = true;
             try {
                 await this.ensureActive(); this.current(generation);
                 this.saveGeneration = generation;
-                this.saveCommand ||= this.collectionStore.request('add', { title, body: this.result.text, type: 'answer', tool: this.result.model, sourceUrl: this.result.origin,
-                    notes: 'AI-generated from user-reviewed excerpts. Source references in the answer are model claims, not verified provenance.', promptRef: null,
+                this.saveCommand ||= this.collectionStore.request('add', { title, body: this.result.text, type: 'answer', tool: manual ? '' : this.result.model, sourceUrl: manual ? '' : this.result.origin,
+                    notes: manual ? 'Manually pasted external answer. Origin, model and source references have not been verified. No request context was attached.'
+                        : 'AI-generated from user-reviewed excerpts. Source references in the answer are model claims, not verified provenance.', promptRef: null,
                     ...(includeContext ? { contextSnapshot: this.answerSnapshot() } : {}) });
                 const saved = await this.collectionStore.mutate(this.saveCommand);
                 this.current(generation); this.saved = true; this.saveCommand = null; this.saveUncertain = false; return saved;

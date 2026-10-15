@@ -7162,5 +7162,44 @@
   },
   "aiContextExternalTasksInvalid": {
     "message": "未载入已粘贴的 JSON。请仅使用 {\"tasks\":[\"任务一\"]} 格式，包含 1–50 条非空单行文本，每条最多 1,000 个 UTF-16 单位，总计最多 32,000 个单位。请去除代码围栏和额外字段。已粘贴的文本和原回复均已保留。"
+  },
+  "aiContextExternalAnswer": {
+    "message": "审阅外部回答"
+  },
+  "aiContextExternalAnswerHelp": {
+    "message": "粘贴所选 AI 服务的完整纯文本回答，最多 32,000 个 UTF-16 单位。先载入只读审阅，再单独将已载入原文收藏到全局 AI 资料库。请先检查私人信息：收藏原文会进入现有未加密本地备份。不附加问题或来源快照。载入不会读取剪贴板、发送、保存或核验来源。"
+  },
+  "aiContextExternalAnswerInput": {
+    "message": "待载入的外部回答（纯文本）"
+  },
+  "aiContextExternalAnswerResponse": {
+    "message": "已载入外部回答（手动粘贴，未经核验；只读原文）"
+  },
+  "aiContextExternalAnswerProvenance": {
+    "message": "这是手动粘贴的外部回答，来源、模型和引用均未核验。它不关联上方问题、摘录或连接。收藏仅将此处已载入原文与您填写的标题保存到全局 AI 资料库，并进入未加密本地备份。收藏前请检查私人信息。编辑粘贴框不会更改已载入回答；请点击载入来替换。"
+  },
+  "aiContextExternalAnswerSave": {
+    "message": "将已载入回答收藏到全局 AI 资料库"
+  },
+  "aiContextExternalAnswerLoad": {
+    "message": "载入回答并审阅"
+  },
+  "aiContextExternalAnswerReplace": {
+    "message": "载入此外部回答并替换当前未保存回答或未完成草稿？取消会保留回答、标题、选择和粘贴文本。问题与摘录保持不变。"
+  },
+  "aiContextExternalAnswerLoaded": {
+    "message": "外部回答已载入供只读审阅，尚未保存。若要保留在全局 AI 资料库，请填写标题并明确收藏已载入原文。"
+  },
+  "aiContextExternalAnswerInvalid": {
+    "message": "未载入粘贴的回答。请使用非空、有效 Unicode 且不含不支持控制字符的纯文本，最多 32,000 个 UTF-16 单位。完整粘贴草稿与之前回答均保留，没有截短或保存。"
+  },
+  "aiContextExternalAnswerContextUnavailable": {
+    "message": "手动粘贴的回答没有经过核验的请求上下文，不能附加问题或来源快照保存。没有写入任何内容。"
+  },
+  "aiContextExternalDraftDiscard": {
+    "message": "清除此草稿，包括粘贴的外部文本和当前回答？"
+  },
+  "aiContextExternalAnswerCapacity": {
+    "message": "全局 AI 资料库已满或空间不足，没有写入任何内容。已载入回答、标题和粘贴草稿均已保留。请先腾出资料库空间，再次收藏。"
   }
 }

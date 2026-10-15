@@ -29,9 +29,13 @@ Question, mode, connection or excerpt edits, selection changes, excerpt restorat
 
 Synthetic controller and DOM-model tests cover these boundaries. Native browser clipboard behavior and visual acceptance were not tested for this change.
 
+## Bring an external answer back to the workbench
+
+In **Answer** mode, open **Review external answer**, paste plain text, and explicitly **Load answer for review**. Inspect the read-only original, enter a title, then separately **Save loaded answer to global AI collection**. Check for private information before saving: this cross-workspace collection joins existing unencrypted local backups. Manual answers have no verified model/request lineage and cannot attach the question or source snapshot. No request, clipboard read or save happens on load. The existing library's manual capture remains available. [External-answer limits, privacy and interrupted saves](ai-context-external-answer.md).
+
 ## Exact outbound review
 
-To bring back tasks from an external AI website without configuring a model connection, choose **Draft tasks for review** → **Review external task JSON**. Paste the plain JSON, explicitly load it, select tasks, then review and confirm the exact batch. External results have an explicit manual-origin label and cannot become saved answers or source snapshots. [External task workflow, limits and interruption behavior](ai-context-external-tasks.md).
+To bring back tasks from an external AI website without configuring a model connection, choose **Draft tasks for review** → **Review external task JSON**. Paste the plain JSON, explicitly load it, select tasks, then review and confirm the exact batch. External task results have an explicit manual-origin label and cannot become saved answers or source snapshots. [External task workflow, limits and interruption behavior](ai-context-external-tasks.md).
 
 Enter the endpoint, model, optional key and question; choose **Answer** or **Draft tasks for review**. **Review exact request** shows the complete endpoint URL, model and complete request text, including the mode instruction and JSON-encoded source IDs, labels and excerpts. IDs and labels are untrusted data, not executable instructions. Editing the question, target, mode or selected excerpts invalidates the review. The endpoint changes clear the key.
 

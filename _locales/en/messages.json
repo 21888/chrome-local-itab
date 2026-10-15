@@ -7162,5 +7162,44 @@
   },
   "aiContextExternalTasksInvalid": {
     "message": "The pasted JSON was not loaded. Use only {\"tasks\":[\"one task\"]}, with 1–50 nonempty single-line strings, at most 1,000 UTF-16 units each and 32,000 total. Remove code fences and extra fields. Your pasted text and previous response are kept."
+  },
+  "aiContextExternalAnswer": {
+    "message": "Review external answer"
+  },
+  "aiContextExternalAnswerHelp": {
+    "message": "Paste a complete plain-text answer from your chosen AI service, up to 32,000 UTF-16 units. Load it for read-only review, then separately save the loaded original to the global AI collection. Check for private information first: saved text joins existing unencrypted local backups. No question or source snapshot is attached. Loading does not read the clipboard, send, save or verify the origin."
+  },
+  "aiContextExternalAnswerInput": {
+    "message": "External answer to load (plain text)"
+  },
+  "aiContextExternalAnswerResponse": {
+    "message": "Loaded external answer (manually pasted, unverified; read-only original)"
+  },
+  "aiContextExternalAnswerProvenance": {
+    "message": "Manually pasted external answer; origin, model and citations are unverified. It is not linked to the question, excerpts or connection above. Save keeps only this loaded original and your title in the global AI collection and unencrypted local backups. Check for private information before saving. Editing the paste field does not change this loaded answer; use Load to replace it."
+  },
+  "aiContextExternalAnswerSave": {
+    "message": "Save loaded answer to global AI collection"
+  },
+  "aiContextExternalAnswerLoad": {
+    "message": "Load answer for review"
+  },
+  "aiContextExternalAnswerReplace": {
+    "message": "Load this external answer and replace the current unsaved response or incomplete draft? Cancel keeps the response, title, selections and pasted text. Your question and excerpts stay unchanged."
+  },
+  "aiContextExternalAnswerLoaded": {
+    "message": "External answer loaded for read-only review, not saved. Enter a title and explicitly save the loaded original if you want to keep it in the global AI collection."
+  },
+  "aiContextExternalAnswerInvalid": {
+    "message": "The pasted answer was not loaded. Use nonempty plain text with valid Unicode and no unsupported control characters, at most 32,000 UTF-16 units. The complete pasted draft and previous response are kept; nothing was shortened or saved."
+  },
+  "aiContextExternalAnswerContextUnavailable": {
+    "message": "A manually pasted answer has no verified request context. It cannot be saved with the question or source snapshot. Nothing was written."
+  },
+  "aiContextExternalDraftDiscard": {
+    "message": "Clear this draft, including the pasted external text and current response?"
+  },
+  "aiContextExternalAnswerCapacity": {
+    "message": "The global AI collection is full or has insufficient space. Nothing was written. Your loaded answer, title and pasted draft are kept. Free space in the collection, then save again."
   }
 }

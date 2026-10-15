@@ -160,7 +160,7 @@ test('manual committed-write verification preserves the identical selected batch
 });
 
 test('UI manual paste works with blank connection/question and never parses until explicit load', async () => {
-    const h = await ui(); assert.equal(h.panel.hidden, true); h.mode('tasks'); h.panel.open = true;
+    const h = await ui(); assert.equal(h.panel.hidden, false); h.mode('tasks'); h.panel.open = true;
     h.input(h.external, json(['<b>literal</b>', 'https://example.invalid', 'same', 'same']));
     assert.equal(h.controller.result, null); assert.equal(h.host.querySelector('.ai-context-task-selection').hidden, true);
     assert.equal(h.view.hasUncommittedWork(), true); assert.equal(h.b.writes + h.c.writes, 0);
