@@ -73,7 +73,13 @@ const watchdog = setTimeout(() => { console.error('Personal boundary model did n
         assert(!JSON.stringify(state[m.restoreRecoveryKey]).includes(sentinel));
         assert.deepEqual(state[KEY], personal);
         const drive = m.buildDriveBackupPayload(state), restored = m.prepareRestoredConfig(drive, await m.getLocalProviderState());
-        assert.equal(await m.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }), true);
+        const beforeDrive = clone(state), beforeDriveWrites = writes;
+        await assert.rejects(m.setAll(restored, { confirmedRestore: true, skipSyncInitialization: true, skipSyncSideEffects: true }),
+            error => error.code === 'RESTORE_RETRY_CONFLICT' && error.canStartNewRestore === true);
+        assert.deepEqual(state, beforeDrive); assert.equal(writes, beforeDriveWrites);
+        // The actual Options path asks an additional confirmation before
+        // treating a changed, previously verified same-file import as new work.
+        assert.equal(await m.setAll(restored, { confirmedRestore: true, newRestoreOperation: true, skipSyncInitialization: true, skipSyncSideEffects: true }), true);
         assert.deepEqual(state[KEY], personal); assert(!JSON.stringify(drive).includes(sentinel)); assert(!JSON.stringify(state[m.restoreRecoveryKey]).includes(sentinel));
         console.log('personal content boundary tests ok (actual configuration reset, concurrent retention, import/Sync/Drive/recovery models)');
     } finally {

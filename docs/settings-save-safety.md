@@ -170,6 +170,9 @@ conflict. This version has no automatic resolution for a pending import whose
 settings or recovery copy changed; exporting the copies does not itself unlock
 imports. Keep both exports for a later, controlled resolution. A previously verified import whose settings later
 changed needs an additional explicit confirmation to import the same file anew.
+Accepting that new-operation confirmation in Settings allows the import and
+keeps the current edits as the latest recovery copy; this verified case is not
+permanently blocked.
 Ordinary new, verified imports still rotate the latest recovery copy; this is not
 permanent backup history. Existing recovery ancestry is retained unchanged.
 
@@ -193,7 +196,8 @@ JSON 或云盘配置导入会将本地摘要记录、替换内容和导入前恢
 检查并导出保留内容。此时重开设置或反复导入不会解除保护，本版本没有自动
 解除这种冲突的功能；导出副本本身也不会解锁，请保留两份导出供后续受控处理。
 已核验的导入之后又修改了设置，要重新导入同一文件时
-需要额外确认。正常新导入仍轮换最新恢复副本，不承诺永久保留全部历史，已有
+需要额外确认。在设置页接受“开始新导入”的确认后即可继续，并将当前修改保留
+为最新恢复副本；这种已核验的情况不会永久阻断。正常新导入仍轮换最新恢复副本，不承诺永久保留全部历史，已有
 恢复链保持不变。摘要不进入配置导出、云盘或Chrome同步。旧版扩展可能因不识别
 新的本地记录而拒绝打开工作区，请勿直接降级该配置。空间不足或核验失败不会
 通过删除恢复副本来腾空间，也不能恢复启用此保护之前已经丢失的数据。

@@ -785,3 +785,45 @@ bounded('pending conflict recovery link keeps the captured workspace and does no
     await assert.rejects(context.saveConfirmedRestore(manager, {}));
     assert.equal(notice.children.length, 2, 'repeated failures replace the notice rather than append duplicate links');
 });
+
+for (const pending of [false, true]) bounded(`actual Options same-file import after editing: pending=${pending}`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const { storage, session } = await boot(f);
+        const { createDocument } = require('./helpers/task-dom-model');
+        const document = createDocument(), notice = document.createElement('section'), draft = document.createElement('input');
+        notice.id = 'restore-conflict-notice'; notice.hidden = true; draft.value = 'Unsaved synthetic draft'; document.body.append(notice, draft);
+        let confirmations = 0; const feedback = [];
+        const context = vm.createContext({ storageManager: storage, document, URL, Blob, encodeURIComponent,
+            window: {}, console: { error() {}, log() {}, warn() {} }, setTimeout() {},
+            confirm() { confirmations++; return true; }, localStorage: { getItem() { return null; } } });
+        vm.runInContext(fs.readFileSync(require.resolve('../options.js'), 'utf8'), context);
+        context.showImportExportFeedback = (_operation, status, message) => feedback.push({ status, message });
+        const data = storage.cloneDefaultConfig(), file = { name: 'synthetic.json', size: 100, text: async () => JSON.stringify(data) };
+        if (pending) {
+            const key = Workspaces.bundleKey(f.raw[Workspaces.REGISTRY_KEY].workspaces[0]); let submitted = false;
+            f.hooks.set = written => { if (Object.hasOwn(written, key)) submitted = true; return DEFER; };
+            f.hooks.get = keys => { if (submitted && keys?.includes(key)) throw Error('Synthetic verification failure'); return DEFER; };
+        }
+        await context.importSettings(file);
+        f.hooks.get = f.hooks.set = null;
+        assert.equal(feedback.at(-1).status, pending ? 'error' : 'success');
+        assert.equal(values(f)[storage.restoreReceiptKey].status, pending ? 'pending' : 'verified');
+        await session.local.set({ quote: 'SYNTHETIC_EDIT_AFTER_IMPORT' });
+        const before = clone(f.raw), writes = f.writes.length, prompts = confirmations;
+        await context.importSettings(file);
+        if (pending) {
+            assert.equal(feedback.at(-1).status, 'error');
+            assert.equal(confirmations - prompts, 1, 'no second confirmation may bypass pending verification');
+            assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes);
+            assert.equal(notice.hidden, false); assert.equal(draft.value, 'Unsaved synthetic draft');
+        } else {
+            assert.equal(feedback.at(-1).status, 'success');
+            assert.equal(confirmations - prompts, 2, 'ordinary preview plus explicit new-operation confirmation');
+            assert.equal(values(f).quote, data.quote);
+            assert.equal((await storage.getRecoveryBackup()).data.quote, 'SYNTHETIC_EDIT_AFTER_IMPORT');
+            assert.equal(values(f)[storage.restoreReceiptKey].status, 'verified');
+        }
+        assertNoProvider(f);
+    });
+});

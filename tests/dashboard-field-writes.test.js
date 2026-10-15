@@ -273,7 +273,8 @@ bounded('replacement waiting on the shared lock fences queued pre-replacement da
     const f = fixture(), dash = await f.dashboard(), options = await f.options();
     const gate = f.pauseNextWrite(), restored = options.import(f.state()); await gate.entered;
     const selection = dash.editor().choose('duck'); gate.resume(); await restored; await selection;
-    optionsSaved(options); assert.equal(f.state().search.engine, 'google'); assert.equal(f.writes.length, 1);
+    optionsSaved(options); assert.equal(f.state().search.engine, 'google'); assert.equal(f.writes.length, 2);
+    assert.deepEqual(Object.keys(f.writes[1]), ['__localItabRestoreReceiptV1'], 'verification never commits the queued dashboard intention');
     assert.equal(dash.editor().select.value, 'google');
 });
 
