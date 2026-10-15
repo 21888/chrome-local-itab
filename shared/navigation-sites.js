@@ -4706,6 +4706,119 @@
         "icon": "PF",
         "language": "unknown",
         "signup": "unknown"
+    },
+    {
+        "id": "ollama",
+        "name": "Ollama",
+        "url": "https://ollama.com/",
+        "company": "Ollama Inc.",
+        "country": "unknown",
+        "categories": [
+            "ai"
+        ],
+        "tags": [
+            "chat",
+            "coding"
+        ],
+        "pricing": "freemium",
+        "description": {
+            "en": "Download and run models locally, or choose Ollama cloud models.",
+            "zh": "下载模型在本地运行，也可选择 Ollama 云端模型。"
+        },
+        "pricingNote": {
+            "en": "Local software is free and requires suitable hardware. Cloud usage has a limited free allowance, paid subscriptions and pay-as-you-go credits. Each model has its own license.",
+            "zh": "本地软件免费，需合适硬件；云端有有限免费额度、付费订阅及按量付费额度。各模型适用自己的许可。"
+        },
+        "sources": [
+            "https://ollama.com/",
+            "https://ollama.com/pricing",
+            "https://ollama.com/terms",
+            "https://github.com/ollama/ollama/blob/main/LICENSE"
+        ],
+        "verifiedOn": "2026-10-15",
+        "searchAliases": [
+            "本地模型",
+            "local models"
+        ],
+        "icon": "OL",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "comfyui",
+        "name": "ComfyUI",
+        "url": "https://comfy.org/download/",
+        "company": "Comfy Organization, Inc.",
+        "country": "US",
+        "categories": [
+            "ai"
+        ],
+        "tags": [
+            "image",
+            "video"
+        ],
+        "pricing": "free",
+        "description": {
+            "en": "Build node workflows to generate and edit images and video on your own hardware.",
+            "zh": "通过节点工作流，在自己的硬件上生成和编辑图像与视频。"
+        },
+        "pricingNote": {
+            "en": "The local core is free; models and suitable hardware are required, and model licenses are separate. Comfy Cloud and usage-based Partner Nodes cost extra; a cloud trial is not permanent free access.",
+            "zh": "本地核心免费，需模型及合适硬件，模型许可独立；Comfy Cloud 和按量计费的 Partner Nodes 另计，云端试用不代表永久免费。"
+        },
+        "sources": [
+            "https://comfy.org/download/",
+            "https://github.com/Comfy-Org/ComfyUI",
+            "https://github.com/Comfy-Org/ComfyUI/blob/master/LICENSE",
+            "https://comfy.org/pricing/",
+            "https://comfy.org/terms-of-service/"
+        ],
+        "verifiedOn": "2026-10-15",
+        "searchAliases": [
+            "本地绘图",
+            "节点工作流",
+            "local image generation",
+            "node workflows"
+        ],
+        "icon": "CU",
+        "language": "unknown",
+        "signup": "unknown"
+    },
+    {
+        "id": "librechat",
+        "name": "LibreChat",
+        "url": "https://www.librechat.ai/docs/quick_start/local_setup",
+        "company": "LibreChat project",
+        "country": "unknown",
+        "categories": [
+            "ai"
+        ],
+        "tags": [
+            "chat"
+        ],
+        "pricing": "free",
+        "description": {
+            "en": "Self-host a unified chat interface that connects local or cloud models.",
+            "zh": "自托管统一聊天界面，连接本地模型或云端模型。"
+        },
+        "pricingNote": {
+            "en": "The MIT-licensed self-hosted software is free. You must deploy it, provide hardware or hosting and connect models; external API and hosting charges are separate.",
+            "zh": "MIT 许可的自托管软件免费；需自行部署、提供硬件或托管环境并连接模型，外部 API 与托管费用另计。"
+        },
+        "sources": [
+            "https://www.librechat.ai/docs/quick_start/local_setup",
+            "https://github.com/LibreChat-AI/LibreChat",
+            "https://github.com/LibreChat-AI/LibreChat/blob/main/LICENSE",
+            "https://clickhouse.com/blog/librechat-open-source-agentic-data-stack"
+        ],
+        "verifiedOn": "2026-10-15",
+        "searchAliases": [
+            "自托管",
+            "self hosted"
+        ],
+        "icon": "LC",
+        "language": "unknown",
+        "signup": "unknown"
     }
 ];
     if (typeof module !== 'undefined' && module.exports) module.exports = sites;

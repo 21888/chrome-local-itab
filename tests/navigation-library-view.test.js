@@ -118,10 +118,10 @@ const assertSavedCounts=(h,total,added)=>{
 };
 test('saved filters count canonical URL matches once across categories and ignore unrelated URLs',async()=>{
  const h=model();h.snapshot.links=[{url:'https://CHATGPT.com:443',category:'personal'},{url:'https://chatgpt.com/',category:'work'},{url:'https://chatgpt.com/?other=1'},{url:'javascript:alert(1)'}];
- await h.view.open();assertSavedCounts(h,146,1);
+ await h.view.open();assertSavedCounts(h,149,1);
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(h.firstAdd().disabled,true);assert.equal(cards(h)[0].dataset.site,'chatgpt');
- savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,145);assert.ok(cards(h).every(card=>card.dataset.site!=='chatgpt'));
- savedControl(h,'').dispatch('click');assert.equal(cards(h).length,146);assert.equal(h.calls,0);
+ savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,148);assert.ok(cards(h).every(card=>card.dataset.site!=='chatgpt'));
+ savedControl(h,'').dispatch('click');assert.equal(cards(h).length,149);assert.equal(h.calls,0);
 });
 test('saved filters combine with all discovery criteria and show contextual counts',async()=>{
  const h=model();const site=h.context.LocalItabNavigationSites[0];h.snapshot.links=[{url:site.url}];await h.view.open();
@@ -130,12 +130,12 @@ test('saved filters combine with all discovery criteria and show contextual coun
  for(const [select,value] of selects.map((select,i)=>[select,[site.tags[0],site.country,site.company,site.pricing][i]])){select.value=value;select.dispatch('change');}
  h.search(site.name);assertSavedCounts(h,1,1);savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,0);assert.ok(h.document.querySelector('.navigation-library-empty'));assert.equal(h.document.querySelector('.navigation-library-count').textContent,'0 sites');
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');
- h.click('Clear filters');assertSavedCounts(h,146,1);assert.equal(cards(h).length,146);assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,h.document.querySelector('input'));assert.equal(h.calls,0);
+ h.click('Clear filters');assertSavedCounts(h,149,1);assert.equal(cards(h).length,149);assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,h.document.querySelector('input'));assert.equal(h.calls,0);
 });
 test('adding in Not added removes only saved card, updates counts and focuses next card',async()=>{
  const h=model();await h.view.open();savedControl(h,'new').dispatch('click');const before=cards(h).map(card=>card.dataset.site);
  cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();
- assertSavedCounts(h,146,1);assert.equal(cards(h).length,145);assert.ok(!cards(h).some(card=>card.dataset.site===before[2]));assert.equal(h.document.activeElement.dataset.site,before[3]);
+ assertSavedCounts(h,149,1);assert.equal(cards(h).length,148);assert.ok(!cards(h).some(card=>card.dataset.site===before[2]));assert.equal(h.document.activeElement.dataset.site,before[3]);
  assert.match(h.document.querySelector('.navigation-library-status').textContent,/Added to Work/);assert.equal(savedControl(h,'new').getAttribute('aria-pressed'),'true');
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,before[2]);assert.equal(h.firstAdd().disabled,true);
 });
@@ -151,15 +151,15 @@ test('Not added failure retains card and counts, then successful retry removes i
  h.firstAdd().dispatch('click');await tick();assertSavedCounts(h,1,1);assert.equal(cards(h).length,0);
 });
 test('saved filter state remains local to dialog; fresh workspace snapshot owns all counts',async()=>{
- const h=model();h.snapshot.links=[{url:'https://chatgpt.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');assertSavedCounts(h,146,1);
+ const h=model();h.snapshot.links=[{url:'https://chatgpt.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');assertSavedCounts(h,149,1);
  assert.equal(h.view.close(),true);h.snapshot.links=[{url:'https://github.com/'}];await h.view.open();assert.equal(savedControl(h,'').getAttribute('aria-pressed'),'true');
- savedControl(h,'added').dispatch('click');assertSavedCounts(h,146,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(h.calls,0);
+ savedControl(h,'added').dispatch('click');assertSavedCounts(h,149,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(h.calls,0);
 });
 test('cancelled old workspace read cannot overwrite the newly opened saved filter',async()=>{
  const h=model(),pending=deferred();h.read=pending;const oldOpen=h.view.open();await tick();h.view.close();
  h.read=null;h.snapshot.links=[{url:'https://github.com/'}];await h.view.open();savedControl(h,'added').dispatch('click');
  pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/'}]});await oldOpen;
- assertSavedCounts(h,146,1);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');assert.equal(h.calls,0);
+ assertSavedCounts(h,149,1);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'github');assert.equal(savedControl(h,'added').getAttribute('aria-pressed'),'true');assert.equal(h.calls,0);
 });
 test('pending filtered save locks controls and cancellation until verified late callback',async()=>{
  const h=model(),pending=deferred();h.write=pending;await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');
@@ -169,8 +169,8 @@ test('pending filtered save locks controls and cancellation until verified late 
 test('saved filter labels and group description are bilingual, including empty Added view',async()=>{
  for(const [locale,group,all,fresh,added] of [['en','Saved in this workspace','All','Not added','Added'],['zh-CN','当前工作空间添加状态','全部','未添加','已添加']]){
   const h=model({locale});await h.view.open();assert.equal(h.document.querySelector('.navigation-library-saved-filters').getAttribute('aria-label'),group);
-  assert.equal(savedControl(h,'').textContent,`${all} (146)`);assert.equal(savedControl(h,'new').textContent,`${fresh} (146)`);assert.equal(savedControl(h,'added').textContent,`${added} (0)`);
-  savedControl(h,'added').dispatch('click');assert.ok(h.document.querySelector('.navigation-library-empty'));assertSavedCounts(h,146,0);assert.equal(h.calls,0);
+  assert.equal(savedControl(h,'').textContent,`${all} (149)`);assert.equal(savedControl(h,'new').textContent,`${fresh} (149)`);assert.equal(savedControl(h,'added').textContent,`${added} (0)`);
+  savedControl(h,'added').dispatch('click');assert.ok(h.document.querySelector('.navigation-library-empty'));assertSavedCounts(h,149,0);assert.equal(h.calls,0);
  }
 });
 test('adding the final card focuses its previous neighbor and duplicate callback is reflected honestly',async()=>{
@@ -181,7 +181,7 @@ test('adding the final card focuses its previous neighbor and duplicate callback
 test('failure after an earlier successful addition focuses the attempted card, not the old success',async()=>{
  const h=model();await h.view.open();h.firstAdd().dispatch('click');await tick();
  h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_FAILED'});};const attempted=cards(h)[2].dataset.site;
- cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();assert.equal(h.document.activeElement.dataset.site,attempted);assertSavedCounts(h,146,1);
+ cards(h)[2].querySelector('.navigation-library-add').dispatch('click');await tick();assert.equal(h.document.activeElement.dataset.site,attempted);assertSavedCounts(h,149,1);
 });
 test('conflict does not falsely move a Not added card into Added',async()=>{
  const h=model();h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_CONFLICT'});};await h.view.open();h.search('chatgpt');savedControl(h,'new').dispatch('click');h.firstAdd().dispatch('click');await tick();
@@ -234,7 +234,7 @@ test('pending batch locks picks, target, filters and confirmation; no double sub
  pending.resolve({...h.snapshot,links:[{url:'https://chatgpt.com/'},{url:'https://github.com/'}],addedCount:1,skippedCount:1});await tick();assert.equal(selectionCount(h),'0 / 20 selected');assert.match(h.document.querySelector('.navigation-library-status').textContent,/1.*Added to Work.*1 already added, skipped/);assert.equal(h.view.close(),true);
 });
 for(const code of ['CATALOG_FAILED','CATALOG_CONFLICT','CATALOG_UNVERIFIED'])test(`batch ${code} retains selections without false success or automatic retry`,async()=>{
- const h=model();let calls=0;h.component.addCatalogShortcut=async()=>{calls++;throw Object.assign(new Error(),{code});};await h.view.open();pickSite(h,'chatgpt');h.click('Review selected');h.click('Confirm and add');await tick();assert.equal(calls,1);assert.equal(selectionCount(h),'1 / 20 selected');assertSavedCounts(h,146,0);assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
+ const h=model();let calls=0;h.component.addCatalogShortcut=async()=>{calls++;throw Object.assign(new Error(),{code});};await h.view.open();pickSite(h,'chatgpt');h.click('Review selected');h.click('Confirm and add');await tick();assert.equal(calls,1);assert.equal(selectionCount(h),'1 / 20 selected');assertSavedCounts(h,149,0);assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
  assert.equal(h.button('Review selected').disabled,code!=='CATALOG_FAILED');assert.match(h.document.querySelector('.navigation-library-status').textContent,code==='CATALOG_FAILED'?/Nothing was added/:/Close and reopen/);
  if(code==='CATALOG_FAILED'){h.click('Review selected');assert.equal(calls,1);h.click('Confirm and add');await tick();assert.equal(calls,2);}
 });
@@ -253,10 +253,10 @@ test('bilingual normalized search and aliases remain offline, read-only and safe
   }
   h.search('＜img src=x onerror=alert(1)＞');assert.equal(cards(h).length,0);assert.equal(h.document.querySelectorAll('img').length,0);
   h.search(`${'chatgpt '.repeat(1000)}no-matching-suffix`);assert.equal(cards(h).length,0);
-  h.click(locale==='en'?'Clear filters':'清除筛选');assert.equal(cards(h).length,146);assert.equal(h.document.querySelector('input').value,'');
+  h.click(locale==='en'?'Clear filters':'清除筛选');assert.equal(cards(h).length,149);assert.equal(h.document.querySelector('input').value,'');
   h.search('谷歌');assert.equal(cards(h)[0].querySelector('h3').textContent,'Google');
   assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);
-  h.view.close();assert.equal(h.view.hasUncommittedWork(),false);await h.view.open();assert.equal(cards(h).length,146);assert.equal(h.calls,0);
+  h.view.close();assert.equal(h.view.hasUncommittedWork(),false);await h.view.open();assert.equal(cards(h).length,149);assert.equal(h.calls,0);
  }
 });
 
@@ -300,7 +300,7 @@ test('current-results action cannot change review or pending save and restores a
  pending.resolve({...h.snapshot,links:h.context.LocalItabNavigationSites.map(site=>({url:site.url})),addedCount:3,skippedCount:0});await tick();assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(selectResults(h).disabled,true);
 });
 test('current-results action is blocked after uncertain saves and translated without relying on English fallback',async()=>{
- const h=model({locale:'zh-CN'});await h.view.open();assert.equal(selectResults(h).textContent,'选择当前结果 (146)');assert.match(selectionHelp(h).textContent,/先收窄筛选/);h.search('chatgpt');assert.equal(selectResults(h).textContent,'选择当前结果 (1)');selectResults(h).dispatch('click');assert.equal(h.document.activeElement,h.button('检查所选'));h.click('清空选择');assert.equal(selectionCount(h),'0 / 20 已选');
+ const h=model({locale:'zh-CN'});await h.view.open();assert.equal(selectResults(h).textContent,'选择当前结果 (149)');assert.match(selectionHelp(h).textContent,/先收窄筛选/);h.search('chatgpt');assert.equal(selectResults(h).textContent,'选择当前结果 (1)');selectResults(h).dispatch('click');assert.equal(h.document.activeElement,h.button('检查所选'));h.click('清空选择');assert.equal(selectionCount(h),'0 / 20 已选');
  h.component.addCatalogShortcut=async()=>{throw Object.assign(new Error(),{code:'CATALOG_UNVERIFIED'});};h.firstAdd().dispatch('click');await tick();assert.equal(selectResults(h).disabled,true);selectResults(h).dispatch('click');assert.equal(selectionCount(h),'0 / 20 已选');
 });
 
@@ -395,7 +395,7 @@ test('six service additions support local bilingual discovery, review cancellati
   h.click(locale==='en'?'Back to browsing':'返回浏览');assert.equal(writer.calls,0);
   h.click(locale==='en'?'Review selected':'检查所选');h.click(locale==='en'?'Confirm and add':'确认并添加');await tick();
   assert.equal(writer.calls,1);assert.deepEqual(Array.from(writer.request.sites,site=>site.url),ids.map(id=>h.context.LocalItabNavigationSites.find(site=>site.id===id).url));
-  h.click(locale==='en'?'Clear filters':'清除筛选');assertSavedCounts(h,146,6);
+  h.click(locale==='en'?'Clear filters':'清除筛选');assertSavedCounts(h,149,6);
   savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,6);assert.ok(cards(h).every(card=>card.querySelector('.navigation-library-add').disabled));
  }
 });
@@ -480,7 +480,7 @@ test('six specialized services support local bilingual discovery, review cancell
   h.click(locale==='en'?'Back to browsing':'返回浏览');assert.equal(writer.calls,0);
   h.click(locale==='en'?'Review selected':'检查所选');h.click(locale==='en'?'Confirm and add':'确认并添加');await tick();
   assert.equal(writer.calls,1);assert.deepEqual(Array.from(writer.request.sites,site=>site.url),ids.map(id=>h.context.LocalItabNavigationSites.find(site=>site.id===id).url));
-  h.click(locale==='en'?'Clear filters':'清除筛选');assertSavedCounts(h,146,6);
+  h.click(locale==='en'?'Clear filters':'清除筛选');assertSavedCounts(h,149,6);
   savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,6);assert.ok(cards(h).every(card=>card.querySelector('.navigation-library-add').disabled));
  }
 });
@@ -675,7 +675,7 @@ test('four daily utilities support local bilingual discovery, review cancellatio
   h.click(locale==='en'?'Back to browsing':'返回浏览');assert.equal(writer.calls,0);
   h.click(locale==='en'?'Review selected':'检查所选');h.click(locale==='en'?'Confirm and add':'确认并添加');await tick();
   assert.equal(writer.calls,1);assert.deepEqual(Array.from(writer.request.sites,site=>site.url),ids.map(id=>h.context.LocalItabNavigationSites.find(site=>site.id===id).url));
-  h.click(locale==='en'?'Clear filters':'清除筛选');assertSavedCounts(h,146,4);
+  h.click(locale==='en'?'Clear filters':'清除筛选');assertSavedCounts(h,149,4);
   savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,4);assert.ok(cards(h).every(card=>card.querySelector('.navigation-library-add').disabled));
  }
 });
@@ -884,7 +884,7 @@ test('selected-only combines all filters, reports hidden selections, and reviews
  savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,0);assert.equal(hiddenSelected(h),'Hidden by filters: 2');
  h.click('Review selected');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,2);const old=h.button('Confirm and add');
  selectedToggle(h).dispatch('click');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);old.dispatch('click');assert.equal(h.calls,0);
- h.click('Clear filters');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'false');assert.equal(cards(h).length,146);assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(hiddenSelected(h),'Hidden by filters: 0');
+ h.click('Clear filters');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'false');assert.equal(cards(h).length,149);assert.equal(selectionCount(h),'2 / 20 selected');assert.equal(hiddenSelected(h),'Hidden by filters: 0');
 });
 test('selected-only needs no target, preserves complete cards and details, and remains escapable when empty',async()=>{
  const h=model();h.snapshot.categories=[];await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');
@@ -893,7 +893,7 @@ test('selected-only needs no target, preserves complete cards and details, and r
  assert.ok(cards(h)[0].querySelector('.navigation-library-visit'));assert.ok(cards(h)[0].querySelector('.navigation-library-description'));assert.ok(cards(h)[0].querySelector('.navigation-library-tag'));
  assert.equal(h.document.querySelector('.navigation-library-batch-review').disabled,true);assert.equal(selectedToggle(h).disabled,false);
  h.click('Clear selection');assert.equal(cards(h).length,0);assert.ok(h.document.querySelector('.navigation-library-empty'));assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');assert.equal(h.document.activeElement,selectedToggle(h));
- selectedToggle(h).dispatch('click');assert.equal(cards(h).length,146);assert.equal(h.calls,0);
+ selectedToggle(h).dispatch('click');assert.equal(cards(h).length,149);assert.equal(h.calls,0);
 });
 test('deselecting selected-only cards focuses next then previous checkbox, and finally the view toggle',async()=>{
  const h=model();await h.view.open();const ids=cards(h).slice(0,3).map(card=>card.dataset.site);for(const id of ids)pickSite(h,id);selectedToggle(h).dispatch('click');
@@ -930,7 +930,7 @@ test('four learning resources remain local, preserve hidden selections and cance
   for(const id of ids){const site=h.context.LocalItabNavigationSites.find(site=>site.id===id);h.search(site.name);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,id);assert.match(textTree(cards(h)[0].querySelector('details')),/2026-10-13/);pickSite(h,id);}
   selectedToggle(h).dispatch('click');assert.equal(cards(h).length,1);assert.match(hiddenSelected(h),/3$/);
   h.click(locale==='en'?'Review selected':'检查所选');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,4);assert.equal(h.calls,0);
-  h.view.close();await h.view.open();assert.equal(cards(h).length,146);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
+  h.view.close();await h.view.open();assert.equal(cards(h).length,149);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
   h.view.close();
  }
 });
@@ -961,7 +961,7 @@ test('empty hidden-selection recovery counts all hidden sites, preserves targets
 });
 test('ordinary zero-match uses one clear-filter recovery and does not imply missing selections',async()=>{
  const h=model();await h.view.open();h.search('absent-93827');assert.equal(h.document.querySelector('.navigation-library-empty h3').textContent,'No sites match these filters.');
- assert.equal(emptyRecover(h).textContent,'Clear filters');emptyRecover(h).dispatch('click');assert.equal(cards(h).length,146);assert.equal(h.calls,0);
+ assert.equal(emptyRecover(h).textContent,'Clear filters');emptyRecover(h).dispatch('click');assert.equal(cards(h).length,149);assert.equal(h.calls,0);
 });
 test('empty catalog and unavailable catalog are distinct from unmatched filters and saved-site read failure',async()=>{
  for(const locale of ['en','zh-CN']){
@@ -982,13 +982,13 @@ test('empty recovery is inert during external pending work, composition and repe
  for(const key of ['_pendingSave','_pendingDelete','_shortcutWritesPending','_shortcutOrderPending']){
   h.component[key]=true;h.search('');assert.equal(emptyRecover(h).disabled,true);emptyRecover(h).dispatch('click');assert.equal(selectedToggle(h).getAttribute('aria-pressed'),'true');h.component[key]=false;
  }
- h.search('');assert.equal(emptyRecover(h).disabled,false);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,146);assert.equal(h.calls,0);
+ h.search('');assert.equal(emptyRecover(h).disabled,false);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,149);assert.equal(h.calls,0);
 });
 test('empty recovery stays disabled throughout a write and after uncertain failure',async()=>{
  const h=model(),pending={};pending.promise=new Promise((resolve,reject)=>{pending.resolve=resolve;pending.reject=reject;});h.write=pending;await h.view.open();pickSite(h,'chatgpt');h.search('absent-93827');h.click('Review selected');h.click('Confirm and add');
  assert.equal(h.calls,1);assert.equal(emptyRecover(h).disabled,true);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,0);
  pending.reject(Object.assign(new Error('synthetic uncertainty'),{code:'CATALOG_UNVERIFIED'}));await tick();assert.equal(emptyRecover(h).disabled,true);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,0);assert.equal(h.calls,1);
- h.view.close();await h.view.open();h.search('absent-93827');assert.equal(emptyRecover(h).disabled,false);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,146);
+ h.view.close();await h.view.open();h.search('absent-93827');assert.equal(emptyRecover(h).disabled,false);emptyRecover(h).dispatch('click');assert.equal(cards(h).length,149);
 });
 
 const deselectResults=h=>h.document.querySelector('.navigation-library-deselect-results');
@@ -1064,7 +1064,7 @@ test('four daily discovery resources remain local, preserve hidden selections an
   for(const id of ids){const site=h.context.LocalItabNavigationSites.find(site=>site.id===id);h.search(site.name);assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,id);assert.match(textTree(cards(h)[0].querySelector('details')),/2026-10-13/);pickSite(h,id);}
   selectedToggle(h).dispatch('click');assert.equal(cards(h).length,1);assert.match(hiddenSelected(h),/3$/);
   h.click(locale==='en'?'Review selected':'检查所选');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,4);assert.equal(h.calls,0);
-  h.view.close();await h.view.open();assert.equal(cards(h).length,146);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
+  h.view.close();await h.view.open();assert.equal(cards(h).length,149);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);
   h.view.close();
  }
 });
@@ -1076,7 +1076,7 @@ test('news and social selection stays local across aliases, hidden review and ca
   }
   selectedToggle(h).dispatch('click');assert.equal(cards(h).length,1);assert.match(hiddenSelected(h),/2$/);
   h.click(locale==='en'?'Review selected':'检查所选');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,3);assert.equal(h.calls,0);
-  h.view.close();await h.view.open();assert.equal(cards(h).length,146);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);h.view.close();
+  h.view.close();await h.view.open();assert.equal(cards(h).length,149);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);h.view.close();
  }
 });
 test('Bulgaria operator label uses existing Intl translation and ISO fallback without adding a locale', async () => {
@@ -1103,7 +1103,7 @@ test('Chinese official references show scoped notes and preserve hidden selectio
   }
   selectedToggle(h).dispatch('click');assert.equal(cards(h).length,1);assert.match(hiddenSelected(h),/1$/);
   h.click(locale==='en'?'Review selected':'检查所选');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,2);assert.equal(h.calls,0);
-  h.view.close();await h.view.open();assert.equal(cards(h).length,146);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);h.view.close();
+  h.view.close();await h.view.open();assert.equal(cards(h).length,149);assert.equal(h.calls,0);assert.equal(h.snapshot.links.length,0);assert.match(selectionCount(h),/^0 \/ 20/);h.view.close();
  }
 });
 
@@ -1124,9 +1124,9 @@ test('full catalog category totals count empty, single and multiple memberships 
 });
 test('real category totals remain static through every filter, selection and successful add', async () => {
  const h=model();await h.view.open(); const original=catalogBadges(h), api=h.context.LocalItabNavigationCatalog, entries=h.context.LocalItabNavigationSites;
- assert.equal(original[0].total,'146');
- assert.equal(new Set(entries.map(site=>site.id)).size,146);
- assert.equal(original.slice(1).reduce((sum,item)=>sum+Number(item.total),0),186);
+ assert.equal(original[0].total,'149');
+ assert.equal(new Set(entries.map(site=>site.id)).size,149);
+ assert.equal(original.slice(1).reduce((sum,item)=>sum+Number(item.total),0),189);
  for(const item of original) assert.equal(Number(item.total),api.filter(entries,{category:item.id}).length);
  const unchanged=()=>assert.deepEqual(catalogBadges(h),original);
  h.search('chatgpt');unchanged();assert.equal(h.document.querySelector('.navigation-library-count').textContent,'1 site');
@@ -1589,4 +1589,40 @@ test('metadata source-review fallback matches English locale without changing ca
  const en=JSON.parse(fs.readFileSync('_locales/en/messages.json'));
  assert.ok(h.document.querySelector('.navigation-library-footer').querySelectorAll('p').map(p=>p.textContent).join(' ').includes(en.navigationLibraryDisclosure.message));
  assert.equal(h.calls,0);h.view.close();
+});
+
+test('local AI cards render bilingual scoped pricing and exact filters without saving or opening services', async () => {
+ for (const locale of ['en', 'zh-CN']) {
+  const h=model({locale}), before=JSON.stringify(h.snapshot), language=locale==='en'?'en':'zh';
+  let external=0;h.context.open=h.context.fetch=()=>{external++;throw new Error('Browsing the catalog must stay local');};
+  await h.view.open();assertSavedCounts(h,149,0);
+  assert.equal(catalogBadges(h).find(item=>item.id==='ai').total,'28');
+  const queries=locale==='en'?['local models','node workflows','self hosted']:['本地模型','节点工作流','自托管'];
+  for (const [index,id] of ['ollama','comfyui','librechat'].entries()) {
+   h.click(locale==='en'?'Clear filters':'清除筛选');h.search(queries[index]);
+   assert.ok(cards(h).some(card=>card.dataset.site===id));
+   const site=h.context.LocalItabNavigationSites.find(site=>site.id===id);h.search(site.name);
+   h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='ai').dispatch('click');
+   if(h.document.querySelector('.navigation-library-filters').hidden)h.click(locale==='en'?'More filters':'更多筛选');
+   const selects=h.document.querySelectorAll('.navigation-library-filters select');
+   for(const [select,value] of selects.map((select,i)=>[select,[site.tags[0],site.country,site.company,site.pricing][i]])){select.value=value;select.dispatch('change');}
+   assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,id);
+   assert.equal(cards(h)[0].querySelector('.navigation-library-visit').href,site.url);
+   const details=cards(h)[0].querySelector('details');details.open=true;
+   assert.ok(textTree(details).includes(site.pricingNote[language]));assert.match(textTree(details),/2026-10-15/);
+   assert.deepEqual(details.querySelectorAll('a').map(link=>link.href),Array.from(site.sources));
+   const pricing=selects[3];pricing.value=site.pricing==='free'?'freemium':'free';pricing.dispatch('change');assert.equal(cards(h).length,0);
+   pricing.value=site.pricing;pricing.dispatch('change');assert.equal(cards(h).length,1);
+   const country=selects[1];country.value=site.country==='unknown'?'US':'unknown';country.dispatch('change');assert.equal(cards(h).length,0);
+   country.value=site.country;country.dispatch('change');assert.equal(cards(h).length,1);
+   savedControl(h,'added').dispatch('click');assert.equal(cards(h).length,0);
+   savedControl(h,'new').dispatch('click');assert.equal(cards(h).length,1);
+   pickSite(h,id);assert.equal(h.calls,0);assert.equal(external,0);
+  }
+  h.click(locale==='en'?'Review selected':'检查所选');assert.equal(h.document.querySelectorAll('.navigation-library-review li').length,3);
+  h.click(locale==='en'?'Back to browsing':'返回浏览');h.view.close();
+  assert.equal(JSON.stringify(h.snapshot),before);assert.equal(h.calls,0);assert.equal(external,0);
+  await h.view.open();assertSavedCounts(h,149,0);assert.equal(cards(h).length,149);assert.match(selectionCount(h),/^0 \/ 20/);
+  h.view.close();assert.equal(JSON.stringify(h.snapshot),before);assert.equal(h.calls,0);
+ }
 });

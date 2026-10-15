@@ -7,7 +7,7 @@ const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperC
 test('specialized services preserve every original record and append six sites with twelve new uses', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0,114).map(beforeChineseAliasReview))).digest('hex'), '0da3d5a424fc0293c8f736b6330e59d9e0c2c243ae46e952e430bbd0e45cf7df');
     assert.deepEqual(added.map(site=>site.id), ids);
-    assert.equal(sites.length,146); assert.equal(Catalog.categories.length,18);
+    assert.equal(sites.length,149); assert.equal(Catalog.categories.length,18);
     assert.equal(new Set(sites.flatMap(site=>site.tags)).size,218);
     const oldTags=new Set(sites.slice(0,114).flatMap(site=>site.tags));
     assert.equal(new Set(added.flatMap(site=>site.tags).filter(tag=>!oldTags.has(tag))).size,12);

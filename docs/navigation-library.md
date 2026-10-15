@@ -4,7 +4,9 @@ The new-tab shortcut header has a **Discover sites / 发现网站** button. Brow
 
 ## What is included
 
-The catalog includes 146 unique sites and 218 bilingual use tags. The versioned, offline catalog covers AI, development, design, productivity, learning, search, news, video/music, social, shopping, travel, everyday life, finance data, careers, marketing, utilities, games, and public services. A site can have multiple category/use tags. Advanced filters combine use, company/operator location, organization, and pricing. The catalog is an editorial selection, not a traffic or popularity ranking.
+The catalog includes 149 unique sites and 218 bilingual use tags. The versioned, offline catalog covers AI, development, design, productivity, learning, search, news, video/music, social, shopping, travel, everyday life, finance data, careers, marketing, utilities, games, and public services. A site can have multiple category/use tags. Advanced filters combine use, company/operator location, organization, and pricing. The catalog is an editorial selection, not a traffic or popularity ranking.
+
+The AI category includes local and self-hosted options: [Ollama, ComfyUI and LibreChat](navigation-local-ai-tools.md). Their free/paid labels are scoped to the linked local software or service, with separate hardware, model-license and hosted/API costs explained in each card.
 
 Cards use local text marks, descriptions and a few tags. They do not fetch favicons. Official site and evidence links open only when clicked, in a new tab with `noopener noreferrer`. The source panel records evidence links and the review date. The existing source date is labeled Source reviewed / 来源查阅日期. The review date means source review, not a live guarantee of every feature or region's availability. The existing footer explains that Unknown means information has not been sufficiently confirmed and that the date does not guarantee current pricing or availability. Missing facts remain `unknown`.
 

@@ -6,7 +6,7 @@ const Catalog = require('../shared/navigation-catalog');
 const { review, beforeAiPricingReview } = require('./helpers/navigation-ai-pricing-review');
 
 test('bounded AI review preserves every unrelated field, ID, URL, operator and catalog entry', () => {
-    assert.equal(sites.length, 146);
+    assert.equal(sites.length, 149);
     assert.deepEqual(review.changes.map(c => c.id), ['cursor', 'grok', 'luma-dream-machine', 'pika']);
     for (const change of review.changes) {
         assert.deepEqual(Object.keys(change.after).sort(),
@@ -14,7 +14,8 @@ test('bounded AI review preserves every unrelated field, ID, URL, operator and c
         assert.equal(change.after.verifiedOn, '2026-10-15');
         for (const lang of ['en', 'zh']) assert.ok(change.after.pricingNote[lang].length > 0);
     }
-    assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.map(beforeAiPricingReview))).digest('hex'), review.baselineSha256);
+    // Later append-only additions are pinned in navigation-local-ai-tools.test.js.
+    assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 146).map(beforeAiPricingReview))).digest('hex'), review.baselineSha256);
     assert.equal(Catalog.validate(sites), true);
 });
 

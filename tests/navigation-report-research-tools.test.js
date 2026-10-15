@@ -7,9 +7,9 @@ const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperC
 test('report and research tools preserve all 141 prior records and append five unique reviewed entries', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 141))).digest('hex'), '421b2cc0359df964537317904b6b1859f9f47987b2196f2296b9fabbebd1dfc2');
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 146);
-    assert.equal(new Set(sites.map(site => site.id)).size, 146);
-    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 146);
+    assert.equal(sites.length, 149);
+    assert.equal(new Set(sites.map(site => site.id)).size, 149);
+    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 149);
     assert.equal(Catalog.categories.length, 18);
     assert.equal(new Set(sites.flatMap(site => site.tags)).size, 218);
     assert.equal(Catalog.validate(sites), true);

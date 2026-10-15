@@ -54,9 +54,9 @@ test('every fine-grained use label and pricing note is bilingual; duplicate site
  assert.equal(sites.find(site=>site.id==='pika').pricing,'unknown');assert.equal(sites.find(site=>site.id==='qwen').pricing,'unknown');
 });
 
-test('expanded catalog has 146 unique sites, 218 bilingual uses and the same 18 categories',()=>{
- assert.equal(sites.length,146);assert.equal(new Set(sites.map(site=>site.id)).size,146);
- assert.equal(new Set(sites.map(site=>Catalog.canonicalURL(site.url))).size,146);
+test('expanded catalog has 149 unique sites, 218 bilingual uses and the same 18 categories',()=>{
+ assert.equal(sites.length,149);assert.equal(new Set(sites.map(site=>site.id)).size,149);
+ assert.equal(new Set(sites.map(site=>Catalog.canonicalURL(site.url))).size,149);
  assert.equal(new Set(sites.flatMap(site=>site.tags)).size,218);
  for(const id of ['squoosh','photopea','regex101','cyberchef','caniuse','hoppscotch','google-fonts','lucide','adobe-color','excalidraw','drawio','freecodecamp','the-odin-project','exercism','mit-ocw','javascript-info','geogebra','overleaf','zotero','china-laws','china-standards','w3c-validator','crontab-guru','json-crack']){
   const site=sites.find(site=>site.id===id);assert.ok(site,id);assert.equal(site.verifiedOn,'2026-10-12');assert.equal(site.language,'unknown');assert.equal(site.signup,'unknown');

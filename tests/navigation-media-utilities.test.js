@@ -7,9 +7,9 @@ const key = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperC
 test('media utilities append four reviewed sites while preserving all 124 previous records', () => {
     assert.equal(crypto.createHash('sha256').update(JSON.stringify(sites.slice(0, 124))).digest('hex'), '7eeece45d2752240ede5e180955302baa4735728c05a222d99024e0932584e39');
     assert.deepEqual(added.map(site => site.id), ids);
-    assert.equal(sites.length, 146);
-    assert.equal(new Set(sites.map(site => site.id)).size, 146);
-    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 146);
+    assert.equal(sites.length, 149);
+    assert.equal(new Set(sites.map(site => site.id)).size, 149);
+    assert.equal(new Set(sites.map(site => Catalog.canonicalURL(site.url))).size, 149);
     assert.equal(Catalog.categories.length, 18);
     assert.equal(new Set(sites.flatMap(site => site.tags)).size, 218);
     assert.equal(Catalog.validate(sites), true);
