@@ -6703,5 +6703,35 @@
   },
   "restorePendingConflict": {
     "message": "前次导入尚未核验，当前设置或恢复副本已发生变化。已停止导入，当前内容和保留的恢复副本均未被替换。请先导出当前配置，再打开恢复页检查并导出早先的副本。重开设置或反复导入不会解除此冲突；本版本没有自动解除功能。"
+  },
+  "recoveryContextAll": {
+    "message": "正在显示所有工作区的本地副本，包括归属不明的记录。不会自动选中任何副本。"
+  },
+  "recoveryContextMatched": {
+    "message": "请求的工作区 ID：$1。正在显示 $2 份工作区归属已核验的副本，另有 $3 份其他或归属不明的副本未显示。"
+  },
+  "recoveryContextMissing": {
+    "message": "请求的工作区 ID：$1。本次快照未找到归属已核验为此工作区的副本，这不代表内容已被删除。本次快照还包含 $2 份其他或归属不明的副本。"
+  },
+  "recoveryContextInvalid": {
+    "message": "工作区链接无效或含有歧义，未选定任何工作区。请使用“查看全部本地副本”检查所有记录。"
+  },
+  "recoveryContextExpanded": {
+    "message": "下方正在显示全部 $1 份本地副本。审阅或下载前，请核对每份副本的工作区归属。"
+  },
+  "recoveryContextNoRows": {
+    "message": "当前工作区上下文没有可显示的副本。你可以明确选择查看全部本地副本。"
+  },
+  "recoveryContextShowAll": {
+    "message": "查看全部本地副本"
+  },
+  "recoveryContextShowRequested": {
+    "message": "仅查看请求的工作区"
+  },
+  "recoveryContextHideAll": {
+    "message": "返回工作区提示"
+  },
+  "recoveryContextMatchedAll": {
+    "message": "请求的工作区 ID：$1。本次快照包含 $2 份归属已核验为此工作区的副本。"
   }
 }

@@ -56,3 +56,6 @@ p + p { margin-top: 10px; }
 
 .recovery-file-review { padding: 18px; border: 1px solid var(--recovery-accent); border-radius: 8px; background: var(--recovery-tint); }
 .recovery-file-review .recovery-help + .recovery-help { margin-top: 10px; }
+
+.recovery-context { margin-top: 16px; }
+.recovery-context .recovery-button { margin-top: 12px; }

@@ -2,6 +2,17 @@
 (function (root) {
     'use strict';
     const copy = {
+        ContextAll: "Showing saved copies from all workspaces, including unattributed records. No copy is selected automatically.",
+        ContextMatchedAll: "Requested workspace ID: $1. This snapshot contains $2 copies with verified attribution to this workspace.",
+        ContextMatched: "Requested workspace ID: $1. Showing $2 copies with verified workspace attribution. $3 other or unattributed copies are hidden.",
+        ContextMissing: "Requested workspace ID: $1. No copies with verified attribution to this workspace were found in this snapshot. This does not prove deletion. This snapshot contains $2 other or unattributed copies.",
+        ContextInvalid: "The workspace link is invalid or ambiguous. No workspace has been selected. Use Show all saved copies to inspect the global inventory.",
+        ContextExpanded: "All $1 saved copies are shown below. Check each copy’s workspace attribution before reviewing or downloading it.",
+        ContextNoRows: "No copies are shown for this workspace context. You can explicitly view all saved copies.",
+        ContextShowAll: "Show all saved copies",
+        ContextShowRequested: "Show requested workspace only",
+        ContextHideAll: "Return to workspace warning",
+
         ReviewCopy: 'Review configuration file', ReviewingCopy: 'Checking this exact saved copy…',
         ReviewTitle: 'Configuration file review', CloseReview: 'Close file review', DownloadRecovery: 'Download reviewed configuration',
         ReviewUnavailable: 'An importable file needs an independently checksummed, complete supported copy. This record remains available for investigation.',
@@ -100,8 +111,29 @@
             if (url) root.URL.revokeObjectURL(url);
         }
     }
+    // This is a view context only, never an authorization or a restore target.
+    // Reject duplicate parameters even when their values agree.
+    function workspaceContext(search) {
+        if (typeof search !== 'string' || !search) return { kind: 'all' };
+        if (search.length > 8192) return { kind: 'invalid' };
+        const values = [];
+        try {
+            for (const part of search.replace(/^\?/, '').split('&')) {
+                const separator = part.indexOf('=');
+                const key = separator < 0 ? part : part.slice(0, separator);
+                const value = separator < 0 ? '' : part.slice(separator + 1);
+                const decode = text => decodeURIComponent(text.replace(/\+/g, ' '));
+                if (decode(key) === 'workspace') values.push(decode(value));
+            }
+        } catch (_) { return { kind: 'invalid' }; }
+        if (!values.length) return { kind: 'all' };
+        if (values.length !== 1 || !/^[a-zA-Z0-9_-]{1,100}$/.test(values[0])) return { kind: 'invalid' };
+        return { kind: 'workspace', id: values[0] };
+    }
     function mount({ host, inspector, download = defaultDownload } = {}) {
         const doc = host.ownerDocument;
+        const context = workspaceContext(root.location?.search);
+        let showAll = context.kind === 'all';
         let revision = 0, report = null, closed = false, suspended = false, cooldown = false, timer = null;
         let reviewSerial = 0, activeReview = null;
         const create = (tag, className, text, parent) => {
@@ -123,7 +155,33 @@
         const status = create('p', 'recovery-status', '', host); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.setAttribute('aria-atomic', 'true'); status.tabIndex = -1;
         const inspectedAt = create('p', 'recovery-inspected-at', '', host);
         const globalWarnings = create('div', '', undefined, host);
+        const contextPanel = create('section', 'recovery-context recovery-notice', undefined, host);
+        const contextText = create('p', 'recovery-help', '', contextPanel);
+        contextText.setAttribute('role', 'status'); contextText.setAttribute('aria-live', 'polite');
+        const expandedText = create('p', 'recovery-help', '', contextPanel);
+        const contextToggle = button('ContextShowAll', () => {
+            if (!report) return;
+            retireReview(); showAll = !showAll; revision++;
+            renderContext(report, revision); announce('Ready');
+        }, contextPanel);
+        contextToggle.hidden = context.kind === 'all'; contextToggle.disabled = true;
         const entries = create('ol', 'recovery-entries', undefined, host);
+        function renderContext(snapshot, generation) {
+            const matching = context.kind === 'workspace' ? snapshot.entries.filter(entry =>
+                entry.source?.workspaceId === context.id && entry.source?.identityStatus === 'verified') : [];
+            const hasMatch = matching.length > 0;
+            contextText.textContent = context.kind === 'all' ? t('ContextAll') : context.kind === 'invalid' ? t('ContextInvalid') :
+                hasMatch ? t(showAll ? 'ContextMatchedAll' : 'ContextMatched', [context.id, String(matching.length), String(snapshot.entries.length - matching.length)]) :
+                    t('ContextMissing', [context.id, String(snapshot.entries.length)]);
+            // Keep the request warning visible even after opting into the global inventory.
+            expandedText.textContent = showAll && context.kind !== 'all' ? t('ContextExpanded', [String(snapshot.entries.length)]) : '';
+            contextToggle.textContent = t(context.kind === 'all' ? 'ContextShowAll' : showAll ? (hasMatch ? 'ContextShowRequested' : 'ContextHideAll') : 'ContextShowAll');
+            contextToggle.disabled = false;
+            entries.replaceChildren();
+            const visible = showAll ? snapshot.entries : matching;
+            if (!visible.length) create('li', 'recovery-empty', t(showAll ? 'Empty' : 'ContextNoRows'), entries);
+            else visible.forEach(entry => renderEntry(entry, snapshot, generation, snapshot.entries.indexOf(entry)));
+        }
         function announce(key, failed = false) { status.textContent = t(key); status.dataset.tone = failed ? 'error' : 'normal'; }
         function time(value) {
             if (typeof value !== 'string' || !value || value.length > 80) return t('Unknown');
@@ -359,6 +417,7 @@
             const generation = ++revision;
             const returnFocus = doc.activeElement === refreshButton || doc.activeElement === status;
             report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+            contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
             refreshButton.disabled = true; host.setAttribute('aria-busy', 'true'); announce('Loading');
             if (returnFocus) status.focus();
             try {
@@ -369,12 +428,12 @@
                 report = next;
                 inspectedAt.textContent = `${t('InspectedAt')}: ${time(next.inspectedAt)}`;
                 renderWarnings(next.warnings, globalWarnings);
-                if (!next.entries.length) create('li', 'recovery-empty', t('Empty'), entries);
-                else next.entries.forEach((entry, index) => renderEntry(entry, next, generation, index));
+                renderContext(next, generation);
                 announce(next.entries.length ? 'Ready' : 'Empty');
             } catch (error) {
                 if (closed || suspended || generation !== revision) return;
                 report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+                contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
                 const code = typeof error?.code === 'string' && own(errors, error.code) ? error.code : null;
                 announce(code ? errors[code] : 'ErrorUnavailable', true);
                 if (code) create('p', 'recovery-help', `${t('DiagnosticCode')}: ${code}`, globalWarnings);
@@ -388,6 +447,7 @@
         function suspend() {
             retireReview(false);
             suspended = true; revision++; report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+            contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
             if (timer !== null) root.clearTimeout(timer); timer = null; cooldown = false;
         }
         function resume() { if (closed) return; suspended = false; return refresh(); }

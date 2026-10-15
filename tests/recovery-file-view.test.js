@@ -27,7 +27,7 @@ function model(options = {}) {
     if (options.inspect) inspector.inspect = options.inspect;
     if (options.reviewRecovery) inspector.reviewRecovery = options.reviewRecovery;
     if (options.exportRecovery) inspector.exportRecovery = options.exportRecovery;
-    const window = { document, Blob, URL: { createObjectURL(blob) { blobs.push(blob); return 'blob:synthetic-' + blobs.length; }, revokeObjectURL(url) { revoked.push(url); } },
+    const window = { document, location: { search: options.search || '' }, Blob, URL: { createObjectURL(blob) { blobs.push(blob); return 'blob:synthetic-' + blobs.length; }, revokeObjectURL(url) { revoked.push(url); } },
         setTimeout(fn) { timers.set(++timerId, fn); return timerId; }, clearTimeout(id) { timers.delete(id); }, addEventListener() {} };
     const create = document.createElement;
     document.createElement = tag => { const node = create(tag); node.click = () => { if (node.tagName === 'A') { downloads.push({ filename: node.download, href: node.href }); if (options.clickError) throw Error('PRIVATE_CLICK_ERROR'); } node.dispatch('click'); }; return node; };
@@ -179,4 +179,22 @@ test('late failed review does not replace the newer source status or focus', asy
     const choices = m.host.querySelectorAll('button').filter(node => node.textContent === 'Review configuration file'); choices[0].dispatch('click'); choices[1].dispatch('click'); await tick();
     const download = m.find('Download reviewed configuration'); download.focus(); pending.reject({ code: 'RECOVERY_FIELDS', message: 'PRIVATE_LATE_ERROR' }); await tick();
     assert.equal(m.document.activeElement, download); assert(m.allText().includes('selected copy passed')); assert(!m.allText().includes('PRIVATE_LATE_ERROR')); assert(!download.disabled);
+});
+
+test('changing workspace visibility retires rendered review and refuses stale download controls', async () => {
+    const m = model({ search: '?workspace=named', report: report([row('named-copy', { source: { kind: 'beforeCloudReplacement', workspaceId: 'named', identityStatus: 'verified', representation: 'raw' } }), row('other-copy')]) });
+    await open(m); const download = m.find('Download reviewed configuration'); assert(download && !download.disabled);
+    m.find('Show all saved copies').dispatch('click'); download.dispatch('click');
+    assert.equal(m.downloads.length, 0); assert(!m.find('Download reviewed configuration'));
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 2);
+    m.find('Show requested workspace only').dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1); assert.equal(m.downloads.length, 0);
+});
+
+test('workspace visibility change retires an in-flight review result without rendering it', async () => {
+    const wait = deferred(); const m = model({ search: '?workspace=named', report: report([row('named-copy', { source: { kind: 'beforeCloudReplacement', workspaceId: 'named', identityStatus: 'verified', representation: 'raw' } })]) });
+    await m.view.ready; m.inspector.reviewRecovery = () => wait.promise;
+    m.find('Review configuration file').dispatch('click'); m.find('Show all saved copies').dispatch('click');
+    wait.resolve(review()); await tick();
+    assert(!m.find('Download reviewed configuration')); assert.equal(m.downloads.length, 0);
 });

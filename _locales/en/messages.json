@@ -6703,5 +6703,35 @@
   },
   "restorePendingConflict": {
     "message": "The previous import is unverified and the current settings or recovery copy have changed. Import is blocked; the current content and retained recovery copy have not been replaced. Export the current configuration and open Recovery to inspect and export the earlier copy. Reopening Settings or retrying cannot unlock this conflict; this version has no automatic resolution."
+  },
+  "recoveryContextAll": {
+    "message": "Showing saved copies from all workspaces, including unattributed records. No copy is selected automatically."
+  },
+  "recoveryContextMatched": {
+    "message": "Requested workspace ID: $1. Showing $2 copies with verified workspace attribution. $3 other or unattributed copies are hidden."
+  },
+  "recoveryContextMissing": {
+    "message": "Requested workspace ID: $1. No copies with verified attribution to this workspace were found in this snapshot. This does not prove deletion. This snapshot contains $2 other or unattributed copies."
+  },
+  "recoveryContextInvalid": {
+    "message": "The workspace link is invalid or ambiguous. No workspace has been selected. Use Show all saved copies to inspect the global inventory."
+  },
+  "recoveryContextExpanded": {
+    "message": "All $1 saved copies are shown below. Check each copy’s workspace attribution before reviewing or downloading it."
+  },
+  "recoveryContextNoRows": {
+    "message": "No copies are shown for this workspace context. You can explicitly view all saved copies."
+  },
+  "recoveryContextShowAll": {
+    "message": "Show all saved copies"
+  },
+  "recoveryContextShowRequested": {
+    "message": "Show requested workspace only"
+  },
+  "recoveryContextHideAll": {
+    "message": "Return to workspace warning"
+  },
+  "recoveryContextMatchedAll": {
+    "message": "Requested workspace ID: $1. This snapshot contains $2 copies with verified attribution to this workspace."
   }
 }

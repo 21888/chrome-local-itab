@@ -16,7 +16,7 @@ function model(options = {}) {
         preview: (r, id) => { calls.push(['preview', r, id]); return { links, omissions: options.omissions || [] }; },
         exportEntry: (r, id) => { calls.push(['exportEntry', r, id]); return JSON.stringify({ privateInvestigation: true, id }); } };
     if (options.inspect) inspector.inspect = options.inspect;
-    const window = { document, Blob, crypto: require('node:crypto').webcrypto,
+    const window = { document, location: { search: options.search || '' }, Blob, crypto: require('node:crypto').webcrypto,
         URL: { createObjectURL(blob) { blobs.push(blob); return 'blob:synthetic-' + blobs.length; }, revokeObjectURL(url) { revoked.push(url); } },
         setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, delay }); return id; }, clearTimeout(id) { timers.delete(id); },
         addEventListener(name, fn) { const list = events.get(name) || []; list.push(fn); events.set(name, list); },
@@ -288,4 +288,91 @@ test('huge preview fields are visibly truncated without changing exported values
     assert(m.allText().includes('first 4,000 characters')); assert.equal(m.host.querySelectorAll('.recovery-site-list li').length, 2);
     m.find('Download investigation JSON').dispatch('click');
     assert.equal(JSON.parse(m.downloads[0]).links[0].title, longTitle); assert.equal(JSON.parse(m.downloads[0]).links[0].url, longUrl);
+});
+
+const scopedEntry = (id, workspaceId, extra = {}) => entry({ id, source: { kind: 'workspace', workspaceId, workspaceName: 'Synthetic ' + workspaceId, identityStatus: 'verified', representation: 'configuration', ...extra } });
+const scopedReport = () => report([entry({ id: 'unattributed' }), scopedEntry('default-row', 'default'), scopedEntry('named-row', 'named'), scopedEntry('trash-row', 'trash', { deleted: true }), scopedEntry('uncertain-row', 'named', { identityStatus: 'unverified' })]);
+
+test('direct Recovery entry explicitly shows the global inventory without selecting or exporting', async () => {
+    const m = model({ report: scopedReport() }); await m.view.ready;
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 5);
+    assert(m.allText().includes('all workspaces, including unattributed records'));
+    assert.equal(m.find('Show all saved copies').hidden, true);
+    assert.deepEqual(m.calls.map(c => c[0]), ['inspect']); assert.equal(m.downloads.length, 0);
+});
+
+for (const id of ['default', 'named', 'trash']) test(`workspace query ${id} scopes only verified-attribution rows and preserves labels`, async () => {
+    const m = model({ search: '?workspace=' + id, report: scopedReport() }); await m.view.ready;
+    const rows = m.host.querySelectorAll('.recovery-entry'); assert.equal(rows.length, 1);
+    assert(text(rows[0]).includes(id)); assert(m.allText().includes('4 other or unattributed copies are hidden'));
+    if (id === 'trash') assert(text(rows[0]).includes('Listed in Trash'));
+    assert.deepEqual(m.calls.map(c => c[0]), ['inspect']); assert.equal(m.downloads.length, 0);
+    m.find('Show all saved copies').focus(); m.find('Show all saved copies').dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 5);
+    assert(m.allText().includes('All 5 saved copies')); assert.equal(m.document.activeElement, m.find('Show requested workspace only'));
+    m.find('Show requested workspace only').dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1);
+    m.find('Preview site text').dispatch('click');
+    assert.equal(m.calls.find(c => c[0] === 'preview')[2], id + '-row');
+});
+
+for (const query of ['?workspace=', '?workspace', '?workspace=named&workspace=default', '?workspace=named&workspace=named', '?workspace=%E0%A4%A', '?workspace=%3Cimg%3E', '?workspace=' + 'a'.repeat(101), '?' + 'x'.repeat(8193)]) test(`ambiguous or invalid workspace query is never a silent fallback (${query.slice(0, 70)})`, async () => {
+    const m = model({ search: query, report: scopedReport() }); await m.view.ready;
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 0);
+    assert(m.allText().includes('invalid or ambiguous')); assert(m.allText().includes('No workspace has been selected'));
+    assert.equal(m.host.querySelectorAll('img, script').length, 0); assert.equal(m.downloads.length, 0);
+    m.find('Show all saved copies').dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 5);
+    assert(m.allText().includes('invalid or ambiguous'));
+    m.find('Return to workspace warning').dispatch('click'); assert.equal(m.host.querySelectorAll('.recovery-entry').length, 0);
+});
+
+test('unknown and unverified-only workspaces never claim a match, but preserve explicit global access', async () => {
+    for (const id of ['missing', 'named']) {
+        const r = report([scopedEntry('uncertain', 'named', { identityStatus: 'unverified' }), scopedEntry('other', 'default')]);
+        const m = model({ search: '?workspace=' + id, report: r }); await m.view.ready;
+        assert.equal(m.host.querySelectorAll('.recovery-entry').length, 0);
+        assert(m.allText().includes('No copies with verified attribution'));
+        m.find('Show all saved copies').dispatch('click');
+        assert.equal(m.host.querySelectorAll('.recovery-entry').length, 2);
+        assert(m.allText().includes('No copies with verified attribution'));
+    }
+});
+
+test('refresh and resume recompute workspace matching without keeping stale rows or exports', async () => {
+    const m = model({ search: '?workspace=named', report: scopedReport() }); await m.view.ready;
+    m.setReport(report([scopedEntry('default-only', 'default')])); await m.view.refresh();
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 0); assert(m.allText().includes('No copies with verified attribution'));
+    m.setReport(scopedReport()); m.view.suspend(); await m.view.resume();
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1); assert.equal(m.downloads.length, 0);
+});
+
+test('percent-encoded workspace parameter is decoded once, with no generated markup', async () => {
+    const m = model({ search: '?%77orkspace=%6eamed', report: scopedReport() }); await m.view.ready;
+    assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1); assert(m.allText().includes('Requested workspace ID: named'));
+});
+
+test('Chinese workspace context includes hidden-copy disclosure and an explicit global choice', async () => {
+    const m = model({ search: '?workspace=named', report: scopedReport(), locale: 'zh_CN' }); await m.view.ready;
+    assert(m.allText().includes('请求的工作区 ID：named')); assert(m.allText().includes('另有 4 份'));
+    m.find('查看全部本地副本').dispatch('click'); assert(m.allText().includes('全部 5 份')); assert(m.find('仅查看请求的工作区'));
+});
+
+test('actual automatic bootstrap scopes the real inspector snapshot and never boots a writer', async () => {
+    const core = require('../shared/recovery-inspector'), now = '2026-10-15T00:00:00.000Z';
+    const raw = { [core.KEYS.registry]: { schemaVersion: 1, revision: 0, defaultId: 'default', lastUsedId: 'default', migrationId: 'm1', workspaces: ['default', 'named'].map((id, order) => ({ id, generation: 'g1', name: 'Synthetic ' + id, order, createdAt: now, updatedAt: now, deletedAt: null })) }, [core.KEYS.activation]: { schemaVersion: 1, defaultId: 'default', migrationId: 'm1' } };
+    for (const id of ['default', 'named']) raw['__localItabWorkspaceV1:' + id + ':g1'] = { schemaVersion: 1, id, generation: 'g1', values: { links: [{ title: 'Synthetic ' + id, url: 'https://example.invalid/' + id }] } };
+    for (const search of ['?workspace=named', '?workspace=missing', '?workspace=named&workspace=default']) {
+        const document = createDocument(), host = document.createElement('section'), forbidden = []; host.id = 'recovery-inspection'; document.body.append(host);
+        let inspection;
+        const reject = label => { forbidden.push(label); throw Error(label); };
+        const local = { async get(keys) { return structuredClone(Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]]))); }, set: () => reject('set'), remove: () => reject('remove'), clear: () => reject('clear') };
+        const window = { document, location: { search }, crypto: require('node:crypto').webcrypto, chrome: { storage: { local, get sync() { return reject('sync'); } } }, setTimeout, clearTimeout, addEventListener() {}, LocalItabRecovery: { createInspector(options) { const api = core.createInspector(options); return { ...api, inspect() { inspection = api.inspect(); return inspection; } }; } } };
+        for (const key of ['storageManager', 'LocalItabWorkspaces', 'fetch', 'XMLHttpRequest']) Object.defineProperty(window, key, { get() { return reject(key); } });
+        vm.runInNewContext(source, { window }); await inspection; await tick();
+        assert.equal(host.querySelectorAll('.recovery-entry').length, search === '?workspace=named' ? 1 : 0);
+        if (search === '?workspace=named') assert(text(host.querySelector('.recovery-entry')).includes('named'));
+        host.querySelectorAll('button').find(b => b.textContent === 'Show all saved copies').dispatch('click');
+        assert.equal(host.querySelectorAll('.recovery-entry').length, 2); assert.deepEqual(forbidden, []);
+    }
 });
