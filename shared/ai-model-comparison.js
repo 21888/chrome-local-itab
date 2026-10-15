@@ -340,7 +340,20 @@
             });
         }
         renderPresets(); update();
-        Promise.resolve().then(() => presetStore.read()).then(state => { if (!closed) { presets = state.records; renderPresets(); status.textContent = trial ? t('TrialStart', 'Fill temporary values and review both requests. No trial request has been sent.') : t('Select', 'Select one or two saved connections. Create connections with Run with your model first.'); } }).catch(() => { if (!closed) { stale = true; status.textContent = t('LoadError', 'Saved connections could not be verified. No requests were started. Close and reopen to try again.'); } }).finally(() => { loading = false; if (!closed) update(); });
+        const loadGeneration = generation;
+        Promise.resolve().then(() => presetStore.read()).then(state => {
+            if (!active(loadGeneration)) return;
+            presets = state.records; renderPresets();
+            status.textContent = trial ? t('TrialStart', 'Fill temporary values and review both requests. No trial request has been sent.') : t('Select', 'Select one or two saved connections. Create connections with Run with your model first.');
+        }).catch(() => {
+            if (!active(loadGeneration)) return;
+            stale = true; status.textContent = t('LoadError', 'Saved connections could not be verified. No requests were started. Close and reopen to try again.');
+        }).finally(() => {
+            // A failed current read still settles loading; an invalidated read
+            // must not replace recovery guidance, controls or keyboard focus.
+            if (closed || loadGeneration !== generation) return;
+            loading = false; update();
+        });
         return { targets, review, send, close, prompt, status, overlay, checkSource, variables, hide, compareText, difference };
     }
     root.LocalItabAIModelComparison = { open };

@@ -7,7 +7,7 @@ const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick } = require('./helpers/prompts-harness');
 const click = async button => { button.dispatch('click'); await tick(); };
-async function mount({ safeReader = false, locale, clipboard, trial = null, body = 'Same synthetic input', run, contains = async () => true, request = async () => true, mutate = async () => {}, inspectOperation = async () => ({ committed: true }) } = {}) {
+async function mount({ safeReader = false, locale, clipboard, trial = null, body = 'Same synthetic input', run, presetRead, contains = async () => true, request = async () => true, mutate = async () => {}, inspectOperation = async () => ({ committed: true }) } = {}) {
     const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic comparison', body);
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map();
     const profiles = [{ name: 'Synthetic A', url: 'https://a.synthetic.test/v1/chat/completions', model: 'model-a' }, { name: 'Synthetic B', url: 'https://b.synthetic.test/v1/chat/completions', model: 'model-b' }];
@@ -29,7 +29,7 @@ async function mount({ safeReader = false, locale, clipboard, trial = null, body
         el(tag, className, text) { const element = doc.createElement(tag); if (className) element.className = className; if (text !== undefined) element.textContent = text; return element; },
         button(_, fallback, action) { const b = this.el('button', '', fallback); b.addEventListener('click', action); return b; } };
     const store = { inspectOperation, request(kind, values) { return { kind, ...values, operationId: `synthetic_${values.tool}` }; }, async mutate(command, validator) { writes.push(command); if (!validator(h.raw, command.promptRef)) throw Error('STALE'); return mutate(command); } };
-    const ui = root.LocalItabAIModelComparison.open({ view, trial, collectionStore: store, presetStore: { read: async () => ({ records: profiles.map(item => ({ ...item })) }) } });
+    const ui = root.LocalItabAIModelComparison.open({ view, trial, collectionStore: store, presetStore: { read: async () => presetRead ? presetRead(profiles) : ({ records: profiles.map(item => ({ ...item })) }) } });
     await tick();
     const choose = (index, value) => { ui.targets[index].select.value = value; ui.targets[index].select.dispatch('change'); };
     const selectBoth = () => { choose(0, '0'); choose(1, '1'); };
@@ -318,6 +318,137 @@ test('missing confirmation evidence stays unconfirmed without repeated writes; s
     h.h.controller.excerptEpoch++; h.ui.checkSource(); await click(a.save);
     assert.equal(checks, 2); assert.equal(a.save.disabled, true); await h.done();
 });
+
+function initialLoadTrial() {
+    let current = true;
+    return { source: { body: 'Original {{topic}}' }, proposal: 'Revised {{topic}}', current: () => current, onClose() {}, invalidate: () => { current = false; } };
+}
+for (const mode of ['comparison', 'trial']) {
+    for (const outcome of ['success', 'failure']) {
+        for (const action of ['pagehide', 'preset change', 'workspace change', 'restore', 'source change', 'close']) {
+            test(`initial preset read ${outcome} after ${action} preserves ${mode} invalidation`, async () => {
+                const pending = deferred(), trial = mode === 'trial' ? initialLoadTrial() : null;
+                const h = await mount({ trial, presetRead: () => pending.promise });
+                try {
+                    assert.equal(h.ui.review.disabled, true);
+                    assert(h.ui.targets.every(target => target.select.children.length === 1));
+                    if (action === 'pagehide') h.events.get('pagehide')();
+                    if (action === 'preset change') h.change({ __localItabAIModelPresetsV1: {} });
+                    if (action === 'workspace change') h.change({ __localItabWorkspaceRegistryV1: {} });
+                    if (action === 'restore') h.change({ __localItabCombinedRestoreV1: {} });
+                    if (action === 'source change') {
+                        if (trial) trial.invalidate(); else h.h.controller.excerptEpoch++;
+                        h.ui.checkSource();
+                    }
+                    if (action === 'close') await click(h.ui.close);
+                    const message = h.ui.status.textContent, options = h.ui.targets.map(target => target.select.children.slice());
+                    if (action !== 'close') assert.match(message, /Close and reopen/);
+                    const focused = action === 'close' ? h.view.doc.createElement('button') : h.ui.close;
+                    if (action === 'close') h.view.doc.body.append(focused);
+                    focused.focus();
+                    const select = h.ui.targets[0].select;
+                    const disabled = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(select), 'disabled');
+                    let lateControlUpdates = 0;
+                    Object.defineProperty(select, 'disabled', {
+                        get() { return disabled.get.call(this); },
+                        set(value) { lateControlUpdates++; disabled.set.call(this, value); }
+                    });
+                    if (outcome === 'success') pending.resolve({ records: h.profiles });
+                    else pending.resolve(Promise.reject(new Error('Synthetic initial read failure')));
+                    await tick();
+                    assert.equal(h.ui.status.textContent, message);
+                    assert.equal(lateControlUpdates, 0, 'An obsolete finally must not update controls or focus');
+                    assert.equal(h.view.doc.activeElement, focused);
+                    assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.send.disabled, true);
+                    h.ui.targets.forEach((target, index) => {
+                        assert.deepEqual(target.select.children, options[index]);
+                        assert.equal(target.select.disabled, true); assert.equal(target.key.disabled, true);
+                        assert.equal(target.allow.disabled, true); assert.equal(target.save.disabled, true);
+                    });
+                    assert.equal(h.runs.length, 0); assert.equal(h.grants.length, 0); assert.equal(h.writes.length, 0);
+                    assert.equal(h.view.openDialog, action !== 'close');
+                } finally { await h.done(); }
+            });
+        }
+        test(`initial preset read ${outcome} from a closed ${mode} cannot affect its reopened dialog`, async () => {
+            const pending = deferred(), trial = mode === 'trial' ? initialLoadTrial() : null;
+            const h = await mount({ trial, presetRead: () => pending.promise }); let reopened;
+            try {
+                await click(h.ui.close);
+                reopened = h.root.LocalItabAIModelComparison.open({ view: h.view, trial,
+                    presetStore: { read: async () => ({ records: h.profiles.map(item => ({ ...item, name: `${item.name} reopened` })) }) } });
+                await tick();
+                if (trial) { reopened.variables[0].input.value = 'Reopened synthetic topic'; reopened.variables[0].input.dispatch('input'); }
+                else reopened.targets.forEach((target, index) => { target.select.value = String(index); target.select.dispatch('change'); });
+                await click(reopened.review); assert.equal(reopened.send.disabled, false);
+                const message = reopened.status.textContent, reviewed = reopened.targets.map(target => target.reviewed);
+                reopened.close.focus();
+                if (outcome === 'success') pending.resolve({ records: h.profiles });
+                else pending.resolve(Promise.reject(new Error('Synthetic old initial read failure')));
+                await tick();
+                assert.equal(reopened.status.textContent, message); assert.equal(reopened.send.disabled, false);
+                assert.equal(h.view.doc.activeElement, reopened.close); assert.equal(h.view.checkModelComparison, reopened.checkSource);
+                assert.equal(h.view.openDialog, true); assert.equal(reopened.overlay.isConnected, true);
+                reopened.targets.forEach((target, index) => {
+                    assert.equal(target.reviewed, reviewed[index]);
+                    assert.match(target.select.children[1].textContent, /reopened/);
+                });
+                assert.equal(h.runs.length, 0); assert.equal(h.grants.length, 0); assert.equal(h.writes.length, 0);
+            } finally { if (reopened) await click(reopened.close); await h.done(); }
+        });
+        test(`initial preset read ${outcome} detects an unannounced ${mode} source change`, async () => {
+            const pending = deferred(), trial = mode === 'trial' ? initialLoadTrial() : null;
+            const h = await mount({ trial, presetRead: () => pending.promise });
+            try {
+                if (trial) trial.invalidate(); else h.h.controller.excerptEpoch++;
+                if (outcome === 'success') pending.resolve({ records: h.profiles });
+                else pending.resolve(Promise.reject(new Error('Synthetic initial read failure')));
+                await tick();
+                assert.match(h.ui.status.textContent, /prompt or source changed.*Close and reopen/);
+                assert(h.ui.targets.every(target => target.select.children.length === 1 && target.select.disabled));
+                assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.send.disabled, true);
+                assert.equal(h.runs.length, 0); assert.equal(h.grants.length, 0); assert.equal(h.writes.length, 0);
+            } finally { await h.done(); }
+        });
+    }
+    test(`initial preset read normally enables ${mode} after unrelated events and disabled interactions`, async () => {
+        const pending = deferred(), trial = mode === 'trial' ? initialLoadTrial() : null;
+        const h = await mount({ trial, presetRead: () => pending.promise });
+        try {
+            assert.equal(h.ui.review.disabled, true);
+            h.change({ unrelatedPreference: {} }); h.change({ __localItabAIModelPresetsV1: {} }, 'sync');
+            h.view.doc.hidden = true; h.view.doc.listeners.get('visibilitychange')();
+            h.view.doc.hidden = false; h.view.doc.listeners.get('visibilitychange')();
+            h.ui.targets.forEach(target => target.select.dispatch('change'));
+            h.ui.variables.forEach(({ input }) => input.dispatch('input'));
+            await click(h.ui.review); await click(h.ui.send);
+            pending.resolve({ records: h.profiles }); await tick();
+            assert.equal(h.ui.review.disabled, false); assert.equal(h.ui.send.disabled, true);
+            h.ui.targets.forEach(target => {
+                assert.equal(target.select.children.length, h.profiles.length + 1);
+                assert.equal(target.select.disabled, Boolean(trial));
+                assert.equal(target.select.value, trial ? '0' : '');
+            });
+            assert.match(h.ui.status.textContent, trial ? /Fill temporary values/ : /Select one or two/);
+            if (trial) { h.ui.variables[0].input.value = 'Synthetic topic'; h.ui.variables[0].input.dispatch('input'); }
+            else h.selectBoth();
+            await click(h.ui.review); assert.equal(h.ui.send.disabled, false);
+            assert(h.ui.targets.every(target => target.reviewed && !target.reviewText.hidden));
+            assert.equal(h.runs.length, 0); assert.equal(h.grants.length, 0); assert.equal(h.writes.length, 0);
+        } finally { await h.done(); }
+    });
+    test(`initial preset read failure keeps ${mode} locked with recoverable guidance`, async () => {
+        const pending = deferred(), trial = mode === 'trial' ? initialLoadTrial() : null;
+        const h = await mount({ trial, presetRead: () => pending.promise });
+        try {
+            pending.resolve(Promise.reject(new Error('Synthetic initial read failure'))); await tick();
+            assert.match(h.ui.status.textContent, /Saved connections could not be verified.*Close and reopen/);
+            assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.send.disabled, true); assert.equal(h.ui.close.disabled, false);
+            assert(h.ui.targets.every(target => target.select.children.length === 1 && target.select.disabled));
+            assert.equal(h.runs.length, 0); assert.equal(h.grants.length, 0); assert.equal(h.writes.length, 0);
+        } finally { await h.done(); }
+    });
+}
 
 test('initial preset loading leaves a keyboard-operable dialog', async () => {
     const h = await mount();
