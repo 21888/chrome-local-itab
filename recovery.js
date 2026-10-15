@@ -2,6 +2,40 @@
 (function (root) {
     'use strict';
     const copy = {
+        ImportTitle: "Current workspace import status",
+        ImportIntro: "A point-in-time, read-only comparison of recorded import fingerprints. Refresh inspection to recheck. Historical copies below are never treated as current imports.",
+        ImportFilter: "The workspace filter also applies to current import status. Show all saved copies includes import status from all validated current workspaces.",
+        ImportEmpty: "No current workspace import record could be inspected in this context. Historical copies do not establish a current operation. This does not prove deletion.",
+        ImportWorkspace: "Current-registry workspace",
+        ImportMembership: "Current registry membership",
+        ImportLive: "Listed as a live workspace",
+        ImportTrash: "Listed in Trash in the current registry",
+        ImportStatus: "Recorded import receipt status",
+        ImportVersion: "Supported receipt version",
+        ImportPending: "Recorded as pending",
+        ImportVerified: "Recorded as verified",
+        ImportMissing: "No import receipt is present in this current bundle",
+        ImportInvalid: "Invalid receipt; no fingerprint comparison is available",
+        ImportUnsupported: "Unsupported receipt version; no fingerprint comparison is available",
+        ImportUnavailable: "The current source could not be inspected reliably",
+        ImportTarget: "Current saved state versus recorded target",
+        ImportRecovery: "Retained recovery object versus recorded recovery",
+        ImportMatch: "Match",
+        ImportMismatch: "Mismatch",
+        ImportAbsent: "Missing",
+        ImportUnknown: "Unavailable",
+        ImportMatchedHelp: "These saved fingerprints currently match. This read-only check does not complete the earlier import, verify the original file or establish recoverability. Use the original file in Settings for the normal verification flow.",
+        ImportMismatchHelp: "The current saved state differs from the recorded target and/or retained copy. Nothing was changed or unlocked. Inspect saved copies below; this does not establish that any earlier data can be restored.",
+        ImportIncompleteHelp: "At least one complete source is missing or unavailable. No successful comparison can be inferred for it. Nothing was changed or unlocked.",
+        ImportFileUnchecked: "Original import file not supplied; file identity has not been checked.",
+        ImportRecordedHelp: "The status above is only what the saved receipt records. This page does not settle, retry or unlock an import. Receipt matches never authorize a configuration download.",
+        ImportDigests: "Show recorded and computed fingerprints",
+        ImportRequestDigest: "Recorded request fingerprint · original file unchecked",
+        ImportExpectedTarget: "Recorded target fingerprint",
+        ImportCurrentTarget: "Computed current-state fingerprint",
+        ImportExpectedRecovery: "Recorded recovery fingerprint",
+        ImportCurrentRecovery: "Computed complete recovery fingerprint",
+
         ContextHistoricalMatched: "Requested workspace ID: $1. Showing $2 current-registry copies and $3 historical-registry copies. $4 other or unattributed copies are hidden. Historical matches do not mean this workspace is currently present.",
         ContextHistoricalMatchedAll: "Requested workspace ID: $1. This snapshot contains $2 current-registry copies and $3 historical-registry copies for that ID. Historical matches do not mean this workspace is currently present.",
         SourceHistoricalWorkspace: "Workspace copy retained before replacement",
@@ -179,6 +213,7 @@
             renderContext(report, revision); announce('Ready');
         }, contextPanel);
         contextToggle.hidden = context.kind === 'all'; contextToggle.disabled = true;
+        const importSection = create('section', 'recovery-imports', undefined, host);
         const entries = create('ol', 'recovery-entries', undefined, host);
         function renderContext(snapshot, generation) {
             const matching = context.kind === 'workspace' ? snapshot.entries.filter(entry =>
@@ -193,10 +228,59 @@
             expandedText.textContent = showAll && context.kind !== 'all' ? t('ContextExpanded', [String(snapshot.entries.length)]) : '';
             contextToggle.textContent = t(context.kind === 'all' ? 'ContextShowAll' : showAll ? (hasMatch ? 'ContextShowRequested' : 'ContextHideAll') : 'ContextShowAll');
             contextToggle.disabled = false;
+            renderImports(snapshot);
             entries.replaceChildren();
             const visible = showAll ? snapshot.entries : matching;
             if (!visible.length) create('li', 'recovery-empty', t(showAll ? 'Empty' : 'ContextNoRows'), entries);
             else visible.forEach(entry => renderEntry(entry, snapshot, generation, snapshot.entries.indexOf(entry)));
+        }
+        function renderImports(snapshot) {
+            importSection.replaceChildren();
+            const heading = create('h2', '', t('ImportTitle'), importSection); heading.id = 'recovery-import-title';
+            importSection.setAttribute('aria-labelledby', heading.id);
+            create('p', 'recovery-help', t('ImportIntro'), importSection);
+            create('p', 'recovery-help', t('ImportFilter'), importSection);
+            const summaries = Array.isArray(snapshot.imports) ? snapshot.imports : [];
+            const visible = summaries.filter(row => row?.source?.kind === 'workspace' && !row.source.historical &&
+                (showAll || (context.kind === 'workspace' && row.source.identityStatus === 'verified' && row.source.workspaceId === context.id)));
+            if (!visible.length) { create('p', 'recovery-empty', t('ImportEmpty'), importSection); return; }
+            const list = create('ol', 'recovery-entries', undefined, importSection);
+            const statuses = { pending: 'ImportPending', verified: 'ImportVerified', missing: 'ImportMissing', invalid: 'ImportInvalid', unsupported: 'ImportUnsupported', unavailable: 'ImportUnavailable' };
+            const comparisons = { match: 'ImportMatch', mismatch: 'ImportMismatch', missing: 'ImportAbsent', unavailable: 'ImportUnknown' };
+            const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+            for (const summary of visible) {
+                const source = summary.source, row = create('li', 'recovery-import-entry', undefined, list);
+                create('h3', 'recovery-entry-title', t('ImportWorkspace'), row);
+                const facts = create('dl', 'recovery-facts', undefined, row);
+                const fact = (parent, key, value) => { const pair = create('div', '', undefined, parent); create('dt', '', t(key), pair); create('dd', '', value, pair); };
+                for (const [label, key, max] of [['Workspace', 'workspaceName', 160], ['WorkspaceId', 'workspaceId', 100], ['WorkspaceGeneration', 'workspaceGeneration', 100]]) {
+                    if (typeof source[key] === 'string' && source[key].length <= max) fact(facts, label, source[key]);
+                }
+                fact(facts, 'Attribution', t(source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
+                fact(facts, 'ImportMembership', t(source.deleted ? 'ImportTrash' : 'ImportLive'));
+                const statusKey = typeof summary.status === 'string' && own(statuses, summary.status) ? statuses[summary.status] : 'ImportUnavailable';
+                fact(facts, 'ImportStatus', t(statusKey));
+                create('p', 'recovery-help', t('ImportRecordedHelp'), row);
+                if (!['pending', 'verified'].includes(summary.status) || summary.version !== 1 || !digest(summary.request) ||
+                    !digest(summary.target?.expected) || !digest(summary.recovery?.expected)) continue;
+                fact(facts, 'ImportVersion', '1');
+                const states = ['target', 'recovery'].map(key => {
+                    const value = summary[key];
+                    const state = typeof value.comparison === 'string' && own(comparisons, value.comparison) &&
+                        (!['match', 'mismatch'].includes(value.comparison) || (digest(value.current) &&
+                            (value.comparison === 'match') === (value.current === value.expected))) ? value.comparison : 'unavailable';
+                    fact(facts, key === 'target' ? 'ImportTarget' : 'ImportRecovery', t(comparisons[state]));
+                    return state;
+                });
+                create('p', 'recovery-help', t(states.includes('mismatch') ? 'ImportMismatchHelp' : states.every(state => state === 'match') ? 'ImportMatchedHelp' : 'ImportIncompleteHelp'), row);
+                create('p', 'recovery-help', t('ImportFileUnchecked'), row);
+                const disclosure = create('details', 'recovery-import-digests', undefined, row);
+                create('summary', '', t('ImportDigests'), disclosure);
+                const hashes = create('dl', 'recovery-facts', undefined, disclosure);
+                fact(hashes, 'ImportRequestDigest', summary.request);
+                for (const [label, value] of [['ImportExpectedTarget', summary.target.expected], ['ImportCurrentTarget', summary.target.current],
+                    ['ImportExpectedRecovery', summary.recovery.expected], ['ImportCurrentRecovery', summary.recovery.current]]) fact(hashes, label, digest(value) ? value : t('ImportUnknown'));
+            }
         }
         function announce(key, failed = false) { status.textContent = t(key); status.dataset.tone = failed ? 'error' : 'normal'; }
         function time(value) {
@@ -443,7 +527,7 @@
             retireReview();
             const generation = ++revision;
             const returnFocus = doc.activeElement === refreshButton || doc.activeElement === status;
-            report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+            report = null; importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
             contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
             refreshButton.disabled = true; host.setAttribute('aria-busy', 'true'); announce('Loading');
             if (returnFocus) status.focus();
@@ -456,10 +540,10 @@
                 inspectedAt.textContent = `${t('InspectedAt')}: ${time(next.inspectedAt)}`;
                 renderWarnings(next.warnings, globalWarnings);
                 renderContext(next, generation);
-                announce(next.entries.length ? 'Ready' : 'Empty');
+                announce(next.entries.length || next.imports?.length ? 'Ready' : 'Empty');
             } catch (error) {
                 if (closed || suspended || generation !== revision) return;
-                report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+                report = null; importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
                 contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
                 const code = typeof error?.code === 'string' && own(errors, error.code) ? error.code : null;
                 announce(code ? errors[code] : 'ErrorUnavailable', true);
@@ -473,7 +557,7 @@
         }
         function suspend() {
             retireReview(false);
-            suspended = true; revision++; report = null; entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+            suspended = true; revision++; report = null; importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
             contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
             if (timer !== null) root.clearTimeout(timer); timer = null; cooldown = false;
         }

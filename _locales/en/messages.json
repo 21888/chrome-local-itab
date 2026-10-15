@@ -6790,5 +6790,104 @@
   },
   "completeBackupInspectConfigImport": {
     "message": "Inspect affected workspace copies (read-only)"
+  },
+  "recoveryImportTitle": {
+    "message": "Current workspace import status"
+  },
+  "recoveryImportIntro": {
+    "message": "A point-in-time, read-only comparison of recorded import fingerprints. Refresh inspection to recheck. Historical copies below are never treated as current imports."
+  },
+  "recoveryImportFilter": {
+    "message": "The workspace filter also applies to current import status. Show all saved copies includes import status from all validated current workspaces."
+  },
+  "recoveryImportEmpty": {
+    "message": "No current workspace import record could be inspected in this context. Historical copies do not establish a current operation. This does not prove deletion."
+  },
+  "recoveryImportWorkspace": {
+    "message": "Current-registry workspace"
+  },
+  "recoveryImportMembership": {
+    "message": "Current registry membership"
+  },
+  "recoveryImportLive": {
+    "message": "Listed as a live workspace"
+  },
+  "recoveryImportTrash": {
+    "message": "Listed in Trash in the current registry"
+  },
+  "recoveryImportStatus": {
+    "message": "Recorded import receipt status"
+  },
+  "recoveryImportVersion": {
+    "message": "Supported receipt version"
+  },
+  "recoveryImportPending": {
+    "message": "Recorded as pending"
+  },
+  "recoveryImportVerified": {
+    "message": "Recorded as verified"
+  },
+  "recoveryImportMissing": {
+    "message": "No import receipt is present in this current bundle"
+  },
+  "recoveryImportInvalid": {
+    "message": "Invalid receipt; no fingerprint comparison is available"
+  },
+  "recoveryImportUnsupported": {
+    "message": "Unsupported receipt version; no fingerprint comparison is available"
+  },
+  "recoveryImportUnavailable": {
+    "message": "The current source could not be inspected reliably"
+  },
+  "recoveryImportTarget": {
+    "message": "Current saved state versus recorded target"
+  },
+  "recoveryImportRecovery": {
+    "message": "Retained recovery object versus recorded recovery"
+  },
+  "recoveryImportMatch": {
+    "message": "Match"
+  },
+  "recoveryImportMismatch": {
+    "message": "Mismatch"
+  },
+  "recoveryImportAbsent": {
+    "message": "Missing"
+  },
+  "recoveryImportUnknown": {
+    "message": "Unavailable"
+  },
+  "recoveryImportMatchedHelp": {
+    "message": "These saved fingerprints currently match. This read-only check does not complete the earlier import, verify the original file or establish recoverability. Use the original file in Settings for the normal verification flow."
+  },
+  "recoveryImportMismatchHelp": {
+    "message": "The current saved state differs from the recorded target and/or retained copy. Nothing was changed or unlocked. Inspect saved copies below; this does not establish that any earlier data can be restored."
+  },
+  "recoveryImportIncompleteHelp": {
+    "message": "At least one complete source is missing or unavailable. No successful comparison can be inferred for it. Nothing was changed or unlocked."
+  },
+  "recoveryImportFileUnchecked": {
+    "message": "Original import file not supplied; file identity has not been checked."
+  },
+  "recoveryImportRecordedHelp": {
+    "message": "The status above is only what the saved receipt records. This page does not settle, retry or unlock an import. Receipt matches never authorize a configuration download."
+  },
+  "recoveryImportDigests": {
+    "message": "Show recorded and computed fingerprints"
+  },
+  "recoveryImportRequestDigest": {
+    "message": "Recorded request fingerprint · original file unchecked"
+  },
+  "recoveryImportExpectedTarget": {
+    "message": "Recorded target fingerprint"
+  },
+  "recoveryImportCurrentTarget": {
+    "message": "Computed current-state fingerprint"
+  },
+  "recoveryImportExpectedRecovery": {
+    "message": "Recorded recovery fingerprint"
+  },
+  "recoveryImportCurrentRecovery": {
+    "message": "Computed complete recovery fingerprint"
   }
 }

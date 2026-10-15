@@ -6790,5 +6790,104 @@
   },
   "completeBackupInspectConfigImport": {
     "message": "只读检查受影响工作区的副本"
+  },
+  "recoveryImportTitle": {
+    "message": "当前工作区导入状态"
+  },
+  "recoveryImportIntro": {
+    "message": "只读比较本次快照中的导入指纹。需要重新核对时，请刷新检查。下方历史副本不会被视为当前导入。"
+  },
+  "recoveryImportFilter": {
+    "message": "工作区筛选也适用于当前导入状态。「显示所有已保存副本」会一并显示所有已验证当前工作区的导入状态。"
+  },
+  "recoveryImportEmpty": {
+    "message": "在此范围内无法检查当前工作区的导入记录。历史副本不能证明当前存在某次导入，也不能据此判断数据已删除。"
+  },
+  "recoveryImportWorkspace": {
+    "message": "当前登记的工作区"
+  },
+  "recoveryImportMembership": {
+    "message": "当前登记状态"
+  },
+  "recoveryImportLive": {
+    "message": "当前登记为使用中的工作区"
+  },
+  "recoveryImportTrash": {
+    "message": "当前登记在废纸篓中"
+  },
+  "recoveryImportStatus": {
+    "message": "导入回执记录的状态"
+  },
+  "recoveryImportVersion": {
+    "message": "支持的回执版本"
+  },
+  "recoveryImportPending": {
+    "message": "回执记录为待核验"
+  },
+  "recoveryImportVerified": {
+    "message": "回执记录为已核验"
+  },
+  "recoveryImportMissing": {
+    "message": "此当前工作区包中没有导入回执"
+  },
+  "recoveryImportInvalid": {
+    "message": "回执无效，无法比较指纹"
+  },
+  "recoveryImportUnsupported": {
+    "message": "不支持此回执版本，无法比较指纹"
+  },
+  "recoveryImportUnavailable": {
+    "message": "无法可靠检查当前来源"
+  },
+  "recoveryImportTarget": {
+    "message": "当前保存状态与回执目标的比较"
+  },
+  "recoveryImportRecovery": {
+    "message": "保留恢复对象与回执恢复指纹的比较"
+  },
+  "recoveryImportMatch": {
+    "message": "一致"
+  },
+  "recoveryImportMismatch": {
+    "message": "不一致"
+  },
+  "recoveryImportAbsent": {
+    "message": "缺失"
+  },
+  "recoveryImportUnknown": {
+    "message": "无法检查"
+  },
+  "recoveryImportMatchedHelp": {
+    "message": "这些已保存的指纹目前一致。此次只读检查不会完成先前导入、验证原始文件，也不能证明数据可恢复。请在设置中使用原始文件走正常核验流程。"
+  },
+  "recoveryImportMismatchHelp": {
+    "message": "当前保存状态与回执目标或保留副本不同。未修改或解锁任何内容。可检查下方已保存副本，但这不能证明先前数据能够恢复。"
+  },
+  "recoveryImportIncompleteHelp": {
+    "message": "至少一个完整来源缺失或无法检查，不能推断该项比较成功。未修改或解锁任何内容。"
+  },
+  "recoveryImportFileUnchecked": {
+    "message": "未提供原始导入文件，尚未检查文件身份。"
+  },
+  "recoveryImportRecordedHelp": {
+    "message": "上方状态仅反映已保存回执的记录。本页不会确认完成、重试或解锁导入。回执指纹一致也不会授权下载配置文件。"
+  },
+  "recoveryImportDigests": {
+    "message": "显示已记录和本次计算的指纹"
+  },
+  "recoveryImportRequestDigest": {
+    "message": "已记录的请求指纹 · 原始文件未检查"
+  },
+  "recoveryImportExpectedTarget": {
+    "message": "已记录的目标指纹"
+  },
+  "recoveryImportCurrentTarget": {
+    "message": "本次计算的当前状态指纹"
+  },
+  "recoveryImportExpectedRecovery": {
+    "message": "已记录的恢复指纹"
+  },
+  "recoveryImportCurrentRecovery": {
+    "message": "本次计算的完整恢复对象指纹"
   }
 }

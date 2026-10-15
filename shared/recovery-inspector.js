@@ -8,8 +8,15 @@
     const KEYS = Object.freeze({ registry: '__localItabWorkspaceRegistryV1', activation: '__localItabWorkspaceActivationV1',
         prior: '__localItabWorkspaceRecoveryV1', migration: '__localItabWorkspacePreMigrationV1', restore: '__localItabRestoreRecovery', identity: '__localItabIdentityRecovery' });
     const PREFIX = '__localItabWorkspaceV1:';
+    const RECEIPT_KEY = '__localItabRestoreReceiptV1';
+    // Presence-preserving parity with StorageManager.restoreReceiptState. Sync is deliberately excluded.
+    const GENERATION_KEYS = Object.freeze(['__localItabLayoutGeneration', '__localItabSettingsGeneration']);
     const CONFIG_KEYS = Object.freeze(['schemaVersion', 'clock', 'search', 'bg', 'themePreset', 'appearance', 'show', 'categories', 'links', 'weather', 'hot', 'movie', 'quote', 'layout', 'ui']);
-    const BASE_KEYS = Object.freeze([...Object.values(KEYS), ...CONFIG_KEYS]);
+    const TARGET_KEYS = Object.freeze([...CONFIG_KEYS, 'privacy', ...GENERATION_KEYS]);
+    // Pure inventory parity-tested with Workspaces.SCOPED_KEYS; never load its manager here.
+    const SCOPED_KEYS = Object.freeze([...CONFIG_KEYS, ...GENERATION_KEYS, KEYS.identity, KEYS.restore, RECEIPT_KEY, '__localItabCompleteRecoveryV1',
+        '__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1']);
+    const BASE_KEYS = Object.freeze([...Object.values(KEYS), ...CONFIG_KEYS, 'privacy']);
     const LIMITS = Object.freeze({ bytes: 32 * 1024 * 1024, nodes: 300000, depth: 80, chain: 32, entries: 512, workspaces: 100, links: 20000 });
     const own = (value, key) => Boolean(value && Object.prototype.hasOwnProperty.call(value, key));
     const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -69,6 +76,26 @@
         const text = JSON.stringify(canonical(value)), bytes = new TextEncoder().encode(text);
         check(bytes.length <= LIMITS.bytes, 'SIZE_LIMIT');
         return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+    // Never hash a projected copy as a complete original. boundedCopy retains
+    // provenance for hidden/symbol properties; accessors already fail the read.
+    function strictInventory(value) {
+        const visit = item => {
+            if (!item || typeof item !== 'object') return;
+            check(copySafety.get(item)?.deep !== false);
+            for (const key of Object.keys(item)) { check(!forbidden(key)); visit(item[key]); }
+        };
+        visit(value);
+        return boundedCopy(value, { bytes: 0, nodes: 0 }, { strict: true });
+    }
+    const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+    function receiptStatus(value) {
+        try {
+            const checked = strictInventory(value);
+            if (!object(checked) || Object.keys(checked).sort().join() !== 'recovery,request,status,target,version' ||
+                !['pending', 'verified'].includes(checked.status) || !['request', 'target', 'recovery'].every(key => digest(checked[key]))) return 'invalid';
+            return checked.version === 1 ? checked.status : Number.isSafeInteger(checked.version) && checked.version > 1 ? 'unsupported' : 'invalid';
+        } catch (error) { return error.code === 'SIZE_LIMIT' ? 'unavailable' : 'invalid'; }
     }
     function credentialURL(value) {
         if (typeof value !== 'string') return false;
@@ -210,7 +237,9 @@
                 try {
                     const descriptor = Object.getOwnPropertyDescriptor(result, key); check(descriptor && own(descriptor, 'value'));
                     const value = boundedCopy(descriptor.value, budget);
-                    hashes[key] = await hash(value, crypto);
+                    // Projection provenance participates in the repeat-read check too:
+                    // adding a hidden/symbol property must not look unchanged.
+                    hashes[key] = { digest: await hash(value, crypto), complete: copySafety.get(value)?.deep !== false };
                     if (retain) put(data, key, value);
                 } catch (error) { faults[key] = error.code === 'SIZE_LIMIT' ? 'SIZE_LIMIT' : 'INVALID_SOURCE'; }
             }
@@ -230,14 +259,54 @@
             // Current records retain priority under the shared budget. The one fixed
             // historical snapshot is last; never enumerate orphan storage keys.
             const keys = [...new Set([...BASE_KEYS.filter(key => key !== KEYS.prior), ...candidates.map(entry => `${PREFIX}${entry.id}:${entry.generation}`), KEYS.prior])];
-            const first = await read(keys), second = await read(keys, false);
-            check(first.fingerprint === second.fingerprint, 'CHANGED');
+            const first = await read(keys);
             for (const key of [KEYS.registry, KEYS.activation]) check(JSON.stringify(initial.data[key]) === JSON.stringify(first.data[key]) && initial.faults[key] === first.faults[key], 'CHANGED');
             Object.values(first.faults).forEach(code => warnings.add(code));
             check(epoch === inspectEpoch, 'RECOVERY_STALE');
             const raw = freeze(first.data), checkedRegistry = registryValid(raw[KEYS.registry], raw[KEYS.activation]);
             if (own(raw, KEYS.registry) || own(raw, KEYS.activation)) { if (!checkedRegistry) warnings.add('REGISTRY_INVALID'); }
-            const inspectedAt = now(); check(date(inspectedAt)); const downloads = new Map();
+            const inspectedAt = now(); check(date(inspectedAt)); const downloads = new Map(), imports = [];
+            // Historical/legacy sources cannot establish a current import identity.
+            let receiptRegistry = checkedRegistry;
+            try {
+                strictInventory(raw[KEYS.registry]); strictInventory(raw[KEYS.activation]);
+                const generations = new Set();
+                for (const entry of raw[KEYS.registry].workspaces) {
+                    check(!forbidden(entry.id) && !forbidden(entry.generation) && !generations.has(entry.generation));
+                    check(entry.name === entry.name.trim() && Array.from(entry.name).length <= 80 && !/[\u0000-\u001f\u007f]/.test(entry.name));
+                    generations.add(entry.generation);
+                }
+            } catch (_) { receiptRegistry = false; }
+            async function inspectImport(values, source, trustworthy) {
+                const blank = () => ({ expected: null, current: null, comparison: 'unavailable' });
+                const row = { source: { ...source }, version: null, status: 'unavailable', request: null, target: blank(), recovery: blank() };
+                if (!trustworthy) { imports.push(freeze(row)); return; }
+                if (!own(values, RECEIPT_KEY)) { row.status = 'missing'; imports.push(freeze(row)); return; }
+                const receipt = values[RECEIPT_KEY]; row.status = receiptStatus(receipt);
+                if (!['pending', 'verified'].includes(row.status)) { imports.push(freeze(row)); return; }
+                row.version = 1; row.request = receipt.request;
+                row.target.expected = receipt.target; row.recovery.expected = receipt.recovery;
+                try {
+                    check(!own(first.faults, 'privacy'));
+                    const target = {};
+                    for (const key of TARGET_KEYS) {
+                        const owner = key === 'privacy' ? raw : values;
+                        if (own(owner, key)) put(target, key, owner[key]);
+                    }
+                    row.target.current = await hash(strictInventory(target), crypto);
+                    row.target.comparison = row.target.current === receipt.target ? 'match' : 'mismatch';
+                } catch (_) { /* An unreadable source is not evidence of a mismatch. */ }
+                if (!own(values, KEYS.restore)) row.recovery.comparison = 'missing';
+                else {
+                    try {
+                        // Includes ancestry and provider metadata, but exposes only a digest.
+                        check(object(values[KEYS.restore]));
+                        row.recovery.current = await hash(strictInventory(values[KEYS.restore]), crypto);
+                        row.recovery.comparison = row.recovery.current === receipt.recovery ? 'match' : 'mismatch';
+                    } catch (_) { /* Complete original inventory is required. */ }
+                }
+                imports.push(freeze(row));
+            }
             function add(value, source, recordedAt = null, timeKind = 'unknown', integrity = 'unverified', extra = [], recovery = null) {
                 if (entries.length >= LIMITS.entries) { warnings.add('CHAIN_LIMIT'); return; }
                 const projected = project(value), rowWarnings = new Set([...projected.omissions, ...extra]);
@@ -311,6 +380,11 @@
                 const bundle = raw[key], valid = checkedRegistry && object(bundle) && bundle.schemaVersion === 1 && bundle.id === entry.id && bundle.generation === entry.generation && object(bundle.values) && Object.keys(bundle).length === 4;
                 const source = { kind: 'workspace', workspaceId: entry.id, identityStatus: valid ? 'verified' : 'unverified', deleted: date(entry.deletedAt),
                     ...(typeof entry.name === 'string' && entry.name.length <= 160 ? { workspaceName: entry.name } : {}) };
+                if (receiptRegistry) {
+                    const trustworthy = valid && copySafety.get(bundle)?.own !== false && copySafety.get(bundle.values)?.own !== false &&
+                        Object.keys(bundle.values).every(key => SCOPED_KEYS.includes(key));
+                    await inspectImport(bundle?.values, { ...source, workspaceGeneration: entry.generation, identityStatus: trustworthy ? 'verified' : 'unverified' }, trustworthy);
+                }
                 if (!object(bundle) || !object(bundle.values)) { warnings.add('BUNDLE_MISSING'); add(null, { ...source, depth: 0, representation: 'configuration' }, null, 'unknown', 'unverified', ['BUNDLE_MISSING']); }
                 else await sources(bundle.values, source);
             }
@@ -331,8 +405,12 @@
                     }
                 }
             }
+            // The final pass follows every async digest, including receipt comparisons.
+            // A concurrent edit retires the whole result rather than mixing snapshots.
+            const second = await read(keys, false);
+            check(first.fingerprint === second.fingerprint, 'CHANGED');
             check(epoch === inspectEpoch, 'RECOVERY_STALE');
-            const report = freeze({ inspectedAt, entries, warnings: [...warnings] }); reports.set(report, downloads); activeReport = report; return report;
+            const report = freeze({ inspectedAt, entries, imports, warnings: [...warnings] }); reports.set(report, downloads); activeReport = report; return report;
         }
         function selected(report, id) { const item = reports.get(report)?.get(id); check(item, 'INVALID'); return item; }
         async function reviewRecovery(report, id) {
@@ -369,5 +447,5 @@
             exportEntry(report, id) { const item = selected(report, id); check(report.entries.find(entry => entry.id === id)?.exportable, 'INVALID'); const text = JSON.stringify(item.download, null, 2); check(new TextEncoder().encode(text).length <= LIMITS.bytes, 'SIZE_LIMIT'); return text; }
         });
     }
-    return Object.freeze({ createInspector, boundedCopy, CONFIG_KEYS, BASE_KEYS, KEYS, LIMITS });
+    return Object.freeze({ createInspector, boundedCopy, CONFIG_KEYS, TARGET_KEYS, SCOPED_KEYS, BASE_KEYS, KEYS, LIMITS });
 });
