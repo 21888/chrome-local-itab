@@ -303,7 +303,7 @@ Browsing, searching and filtering are offline, and no site is added automaticall
 
 ### Find saved sites
 
-Use the local shortcut finder to search saved titles, addresses and categories, or browse an exact category and narrow it with text without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).
+Use the local shortcut finder to search saved titles, addresses and categories in the current workspace, or explicitly choose All workspaces for active workspaces on this device. Browse an exact category and narrow it with text without sending queries to the web. Results are verified against the latest saved record before opening; queries never alter layout or Tasks. [Finder guide](docs/shortcut-finder.en.md).
 
 ### Import browser bookmarks
 

@@ -657,6 +657,21 @@
   "finderShortcutSettingDesc": {
     "message": "Turn off to leave / typing unchanged. The Find saved sites button still works. Save, then open a new tab or finish your work before refreshing an existing tab."
   },
+  "finderWorkspaceScope": {
+    "message": "Workspaces"
+  },
+  "finderCurrentWorkspace": {
+    "message": "Current workspace"
+  },
+  "finderAllWorkspaces": {
+    "message": "All workspaces"
+  },
+  "finderAllWorkspaceHint": {
+    "message": "Search saved sites in active workspaces on this device. Opening a result keeps this workspace unchanged."
+  },
+  "finderAllUnavailable": {
+    "message": "All-workspace search is unavailable. Some workspaces could not be checked. Try Current workspace, or close and reopen to retry."
+  },
   "finderOpen": {
     "message": "Find saved sites"
   },

@@ -5,7 +5,7 @@
 .finder-panel h2 { color: inherit; font-size: 20px; margin: 0 0 8px; }
 .finder-meta, .finder-url { color: var(--template-muted); font-size: 12px; line-height: 1.5; }
 .finder-label { display: block; font-size: 13px; margin: 12px 0 6px; }
-.finder-input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--template-border); border-radius: 8px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; }
+.finder-input, .finder-workspace-scope { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--template-border); border-radius: 8px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; }
 .finder-button { appearance: none; min-height: 36px; padding: 7px 10px; border: 1px solid var(--template-border); border-radius: 8px; background: var(--template-surface); color: var(--template-text); font: inherit; font-size: 12px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
 .finder-button:hover:not(:disabled) { background: var(--template-surface-raised); border-color: var(--template-accent); }
 .finder-button:disabled { opacity: .6; cursor: default; }
@@ -24,3 +24,4 @@
 .ai-search-snippet { white-space: pre-wrap; }
 /* Keep native filter pickers within narrow and zoomed dialogs. */
 .finder-category, .finder-match-mode { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.finder-workspace { font-weight: 600; overflow-wrap: anywhere; }

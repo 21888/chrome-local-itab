@@ -657,6 +657,21 @@
   "finderShortcutSettingDesc": {
     "message": "关闭后保留 / 原有输入行为，仍可点击「查找已保存的网站」按钮。保存后打开新标签页，或先完成当前操作再刷新已有标签页。"
   },
+  "finderWorkspaceScope": {
+    "message": "工作空间"
+  },
+  "finderCurrentWorkspace": {
+    "message": "当前工作空间"
+  },
+  "finderAllWorkspaces": {
+    "message": "全部工作空间"
+  },
+  "finderAllWorkspaceHint": {
+    "message": "查找本设备所有未移入回收站工作空间中的已保存网站。打开结果不会切换当前工作空间。"
+  },
+  "finderAllUnavailable": {
+    "message": "暂时无法查找全部工作空间，部分工作空间未能完成检查。可改选当前工作空间，或关闭后重新打开再试。"
+  },
   "finderOpen": {
     "message": "查找已保存的网站"
   },

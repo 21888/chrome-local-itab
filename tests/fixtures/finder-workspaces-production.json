@@ -1,0 +1,229 @@
+{
+  "source": "3807ac1fb0e9ce25672335f04a56982e6fa477c4",
+  "raw": {
+    "links": [
+      {
+        "title": "Synthetic shared site",
+        "url": "https://example.test/",
+        "category": "work"
+      }
+    ],
+    "categories": [
+      {
+        "id": "work",
+        "name": "Work",
+        "icon": "S"
+      }
+    ],
+    "quote": "Synthetic legacy quote",
+    "sync": {
+      "enabled": false,
+      "lastSync": "",
+      "lastError": "",
+      "includeLargeAssets": false
+    },
+    "privacy": {
+      "onlineFavicons": false
+    },
+    "__syntheticUnknown": "SYNTHETIC_PRIVATE_PREMIGRATION",
+    "__localItabWorkspacePreMigrationV1": {
+      "schemaVersion": 1,
+      "id": "fixture_identity_2",
+      "createdAt": "2026-10-15T00:00:00.000Z",
+      "values": {
+        "links": [
+          {
+            "title": "Synthetic shared site",
+            "url": "https://example.test/",
+            "category": "work"
+          }
+        ],
+        "categories": [
+          {
+            "id": "work",
+            "name": "Work",
+            "icon": "S"
+          }
+        ],
+        "quote": "Synthetic legacy quote",
+        "sync": {
+          "enabled": false,
+          "lastSync": "",
+          "lastError": "",
+          "includeLargeAssets": false
+        },
+        "privacy": {
+          "onlineFavicons": false
+        },
+        "__syntheticUnknown": "SYNTHETIC_PRIVATE_PREMIGRATION"
+      }
+    },
+    "__localItabWorkspaceV1:default:fixture_identity_1": {
+      "schemaVersion": 1,
+      "id": "default",
+      "generation": "fixture_identity_1",
+      "values": {
+        "links": [
+          {
+            "title": "Synthetic shared site",
+            "url": "https://example.test/",
+            "category": "work"
+          }
+        ],
+        "categories": [
+          {
+            "id": "work",
+            "name": "Work",
+            "icon": "S"
+          }
+        ],
+        "quote": "Synthetic legacy quote"
+      }
+    },
+    "__localItabWorkspaceStageV1": {
+      "schemaVersion": 1,
+      "migrationId": "fixture_identity_2",
+      "registry": {
+        "schemaVersion": 1,
+        "revision": 0,
+        "defaultId": "default",
+        "lastUsedId": "default",
+        "migrationId": "fixture_identity_2",
+        "workspaces": [
+          {
+            "id": "default",
+            "name": "Default",
+            "order": 0,
+            "generation": "fixture_identity_1",
+            "createdAt": "2026-10-15T00:00:00.000Z",
+            "updatedAt": "2026-10-15T00:00:00.000Z",
+            "deletedAt": null
+          }
+        ]
+      },
+      "snapshotId": "fixture_identity_2"
+    },
+    "__localItabWorkspaceRegistryV1": {
+      "schemaVersion": 1,
+      "revision": 2,
+      "defaultId": "default",
+      "lastUsedId": "default",
+      "migrationId": "fixture_identity_2",
+      "workspaces": [
+        {
+          "id": "default",
+          "name": "Default",
+          "order": 0,
+          "generation": "fixture_identity_1",
+          "createdAt": "2026-10-15T00:00:00.000Z",
+          "updatedAt": "2026-10-15T00:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "fixture_identity_3",
+          "generation": "fixture_identity_4",
+          "name": "Empty workspace",
+          "order": 1,
+          "createdAt": "2026-10-15T00:00:00.000Z",
+          "updatedAt": "2026-10-15T00:00:00.000Z",
+          "deletedAt": null
+        },
+        {
+          "id": "fixture_identity_5",
+          "generation": "fixture_identity_6",
+          "name": "Named workspace",
+          "order": 2,
+          "createdAt": "2026-10-15T00:00:00.000Z",
+          "updatedAt": "2026-10-15T00:00:00.000Z",
+          "deletedAt": null
+        }
+      ]
+    },
+    "__localItabWorkspaceActivationV1": {
+      "schemaVersion": 1,
+      "migrationId": "fixture_identity_2",
+      "defaultId": "default"
+    },
+    "__localItabWorkspaceV1:fixture_identity_3:fixture_identity_4": {
+      "schemaVersion": 1,
+      "id": "fixture_identity_3",
+      "generation": "fixture_identity_4",
+      "values": {}
+    },
+    "__localItabWorkspaceV1:fixture_identity_5:fixture_identity_6": {
+      "schemaVersion": 1,
+      "id": "fixture_identity_5",
+      "generation": "fixture_identity_6",
+      "values": {
+        "links": [
+          {
+            "title": "Synthetic named site",
+            "url": "https://named.test/",
+            "category": "work"
+          }
+        ],
+        "categories": [
+          {
+            "id": "work",
+            "name": "Work",
+            "icon": "N"
+          }
+        ]
+      }
+    }
+  },
+  "identity": {
+    "id": "default",
+    "generation": "fixture_identity_1"
+  },
+  "empty": {
+    "id": "fixture_identity_3",
+    "generation": "fixture_identity_4",
+    "name": "Empty workspace",
+    "order": 1,
+    "createdAt": "2026-10-15T00:00:00.000Z",
+    "updatedAt": "2026-10-15T00:00:00.000Z",
+    "deletedAt": null
+  },
+  "named": {
+    "id": "fixture_identity_5",
+    "generation": "fixture_identity_6",
+    "name": "Named workspace",
+    "order": 2,
+    "createdAt": "2026-10-15T00:00:00.000Z",
+    "updatedAt": "2026-10-15T00:00:00.000Z",
+    "deletedAt": null
+  },
+  "writerLog": [
+    [
+      "__localItabWorkspacePreMigrationV1"
+    ],
+    [
+      "__localItabWorkspaceV1:default:fixture_identity_1"
+    ],
+    [
+      "__localItabWorkspaceStageV1"
+    ],
+    [
+      "__localItabWorkspaceRegistryV1"
+    ],
+    [
+      "__localItabWorkspaceActivationV1"
+    ],
+    [
+      "__localItabWorkspaceV1:fixture_identity_3:fixture_identity_4"
+    ],
+    [
+      "__localItabWorkspaceRegistryV1"
+    ],
+    [
+      "__localItabWorkspaceV1:fixture_identity_5:fixture_identity_6"
+    ],
+    [
+      "__localItabWorkspaceRegistryV1"
+    ],
+    [
+      "__localItabWorkspaceV1:fixture_identity_5:fixture_identity_6"
+    ]
+  ]
+}

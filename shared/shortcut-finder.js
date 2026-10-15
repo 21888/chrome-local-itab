@@ -30,8 +30,10 @@
         return raw => index.get(catalog.canonicalURL(raw) || storedURL.destinationForSavedURL(raw)) || [];
     }
     class Controller {
-        constructor({ getSnapshot, readSnapshot = getSnapshot, activate, reserve, getCatalogFields = () => [] }) {
+        constructor({ getSnapshot, readSnapshot = getSnapshot, activate, reserve, activateAll, getCatalogFields = () => [] }) {
             this.getSnapshot = getSnapshot;
+            this.activateAll = activateAll;
+            this.searchEpoch = 0;
             this.getCatalogFields = getCatalogFields;
             this.readSnapshot = readSnapshot;
             this.reserve = reserve || (() => ({ open: activate, close() {} }));
@@ -43,6 +45,7 @@
         }
         search(query = this.query, page = 0, category = this.category, matchMode = this.matchMode) {
             this.cancelPending();
+            const searchEpoch = ++this.searchEpoch;
             this.query = String(query);
             this.category = String(category || '');
             this.matchMode = matchMode === 'all-words' ? 'all-words' : 'phrase';
@@ -54,7 +57,7 @@
                 const id = link.category || 'work';
                 counts.set(id, (counts.get(id) || 0) + 1);
             }
-            const choices = new Map(categories);
+            const choices = new Map((snapshot.categories || []).map(item => [item.id, snapshot.scope === 'all' ? item.label || item.name : item.name]));
             for (const id of counts.keys()) if (!choices.has(id)) choices.set(id, id);
             // A deleted filter stays explicit and empty, never silently widens the search.
             if (this.category && !choices.has(this.category)) choices.set(this.category, this.category);
@@ -84,17 +87,20 @@
             const visible = matches.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE);
             // Only legacy rows need a complete snapshot for fresh-read identity checks.
             // Keep icons and other unrelated data out of ordinary saved-ID searches.
-            const baseline = visible.some(({ link }) => !link.layoutId) ? JSON.stringify(links) : null;
+            const all = snapshot.scope === 'all';
+            const baseline = !all && visible.some(({ link }) => !link.layoutId) ? JSON.stringify(links) : null;
             const rows = visible.map(({ link, category, index, catalogMatches }) => {
                 const url = safeUrl(link.url);
                 return { title: link.title || link.url || '', url: link.url || '', domain: url?.hostname || '', category,
-                    safe: Boolean(url), catalogMatches, token: { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } };
+                    safe: all ? Boolean(storedURL.destinationForSavedURL(link.url)) : Boolean(url), catalogMatches, workspace: all ? link.workspaceName : null,
+                    token: all ? { crossWorkspace: link.finderToken, reference: link, searchEpoch } : { id: link.layoutId || null, reference: link, fingerprint: fingerprint(link), baseline, index } };
             });
             return { query: this.query, category: this.category, matchMode: this.matchMode, categoryOptions, total: matches.length, saved: links.length, page: this.page,
                 start: this.page * PAGE_SIZE, rows,
                 hasPrevious: this.page > 0, hasNext: (this.page + 1) * PAGE_SIZE < matches.length };
         }
         resolve(token, links, fresh = false) {
+            if (token?.crossWorkspace) return token.searchEpoch === this.searchEpoch && links.includes(token.reference) && storedURL.destinationForSavedURL(token.reference.url) ? token.reference : null;
             let candidates;
             if (token?.id) candidates = links.filter(link => link.layoutId === token.id);
             else if (fresh) {
@@ -118,6 +124,12 @@
             const request = { lease };
             this.pending = request;
             try {
+                if (token.crossWorkspace) {
+                    if (!this.activateAll) { lease.close(); return 'error'; }
+                    const outcome = await this.activateAll(token.crossWorkspace, record => lease.open(record) === true, () => this.pending === request);
+                    if (outcome !== 'opened') lease.close();
+                    return this.pending === request ? outcome : 'cancelled';
+                }
                 const snapshot = await this.readSnapshot();
                 if (this.pending !== request) return 'cancelled';
                 const record = this.resolve(token, snapshot?.links || [], true);
@@ -135,7 +147,8 @@
             if (!this.pending) return;
             const request = this.pending; this.pending = null; request.lease.close();
         }
-        clear() { this.cancelPending(); this.query = ''; this.category = ''; this.matchMode = 'phrase'; this.page = 0; }
+        invalidate() { this.searchEpoch++; this.cancelPending(); }
+        clear() { this.searchEpoch++; this.cancelPending(); this.query = ''; this.category = ''; this.matchMode = 'phrase'; this.page = 0; }
 
     }
     return { Controller, fold, safeUrl, PAGE_SIZE, catalogLookup };

@@ -298,7 +298,7 @@ Explorar, buscar y filtrar funciona sin conexión; ningún sitio se añade autom
 
 ### Buscar sitios guardados
 
-El buscador local encuentra títulos, direcciones y categorías guardados; también permite explorar una categoría exacta y combinarla con texto sin enviar consultas a la web. Comprueba el registro actual antes de abrirlo y no modifica la disposición ni las tareas. [Guía del buscador (en inglés)](docs/shortcut-finder.en.md).
+El buscador local encuentra títulos, direcciones y categorías guardados en el espacio actual; puedes elegir explícitamente todos los espacios activos de este dispositivo. También permite explorar una categoría exacta y combinarla con texto sin enviar consultas a la web. Comprueba el registro actual antes de abrirlo y no modifica la disposición ni las tareas. [Guía del buscador (en inglés)](docs/shortcut-finder.en.md).
 
 ### Importar marcadores del navegador
 

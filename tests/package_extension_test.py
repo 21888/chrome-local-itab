@@ -48,7 +48,8 @@ class PackagingTests(unittest.TestCase):
         self.assertEqual(self.output.read_bytes(), other.read_bytes())
         pack.verify(other, files)
         with zipfile.ZipFile(other) as archive:
-            self.assertEqual(132, len(archive.namelist()))
+            self.assertEqual(133, len(archive.namelist()))
+            self.assertIn("shared/shortcut-finder-workspaces.js", archive.namelist())
             self.assertIn("shared/configuration-codec.js", archive.namelist())
             self.assertEqual(files["shared/configuration-codec.js"], archive.read("shared/configuration-codec.js"))
             self.assertFalse(any(name.startswith("tests/") for name in archive.namelist()),
