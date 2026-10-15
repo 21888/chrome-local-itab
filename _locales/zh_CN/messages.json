@@ -5841,6 +5841,27 @@
   "aiContextSourceHelpHeading": {
     "message": "资料范围、限制与重新加载"
   },
+  "subscriptionUsageTitle": {
+    "message": "在官网查看订阅用量"
+  },
+  "subscriptionUsageDescription": {
+    "message": "Local iTab 尚未接入 Codex 或 Grok 的实时订阅用量。此处不读取或显示用量、余额；API 账单不等于订阅用量。"
+  },
+  "subscriptionUsageCodexHint": {
+    "message": "Codex：官方指南说明如何在设置、用量仪表盘或现有 CLI 会话的 /status 中查看用量。此链接打开帮助，不会启动 Codex 应用或连接账号。"
+  },
+  "subscriptionUsageCodexOpen": {
+    "message": "打开 Codex 用量指南"
+  },
+  "subscriptionUsageGrokHint": {
+    "message": "Grok：打开官方仪表盘后选择 Usage；旧版 SuperGrok 可在 Settings → Usage 查看。登录、可见额度和重置时间以官网为准。"
+  },
+  "subscriptionUsageGrokOpen": {
+    "message": "打开 Grok 官方仪表盘"
+  },
+  "subscriptionUsagePrivacy": {
+    "message": "这些链接仅在点击时打开，不会为 Local iTab 授权、读取账号或刷新用量。下方独立 Claude 实验仍默认关闭，需要单独审阅权限。"
+  },
   "claudeUsageTitle": {"message": "实验性：Claude 用量快照"},
   "claudeUsageDescription": {"message": "默认关闭。在实验页了解可选 scripting 与仅 claude.ai 站点权限后，自行授权并选择已登录的官方标签页和组织。不后台查询或保存用量。"},
   "claudeUsageCaution": {"message": "仅本次组织用量快照，不代表账号绑定或计费证据。真实账号尚未验收。"},

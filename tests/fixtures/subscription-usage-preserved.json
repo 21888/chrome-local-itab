@@ -1,0 +1,26 @@
+{
+  "options.js": "f0928b85e18ebf7496154f946ed09fd4c61360230e6a942e6bb9c579f4390570",
+  "shared/navigation-sites.js": "6627b45b82cbd234c77cb50ce286c69c25970cafa6a1bb5e7551f32476927720",
+  "shared/claude-usage-snapshot.js": "eda889dede4b36a82a6f0dc9c85769a2e3376cd1d95127f776cb3c68bb81bc54",
+  "claude-usage-experiment.js": "92fd556a4a480c6843d0bd67d40afb697426e4bd5fb180bdd09bf2ebf5647365",
+  "claude-usage-experiment.html": "93c79594a217977e57d7929e17584719487a873e15d5a398cf0bb9ca6f0f5e8f",
+  "options.css": "2729c1d1465a5dd01fe39e659c431bb9510616b7025ca467d917ea8f1b377428",
+  "manifestPermissions": {
+    "permissions": [
+      "storage",
+      "unlimitedStorage",
+      "identity",
+      "contextMenus"
+    ],
+    "host_permissions": [
+      "https://www.googleapis.com/*"
+    ],
+    "optional_host_permissions": [
+      "https://www.google.com/*",
+      "https://*/*"
+    ],
+    "optional_permissions": [
+      "scripting"
+    ]
+  }
+}

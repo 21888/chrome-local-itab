@@ -366,6 +366,23 @@
                     </div>
 
                     <div class="tab-panel" id="tab-privacy" data-tab="privacy" role="tabpanel">
+                        <section class="settings-section" id="subscription-usage-settings" aria-labelledby="subscription-usage-heading">
+                            <div class="section-header">
+                                <h2 id="subscription-usage-heading" class="section-title" data-i18n="subscriptionUsageTitle">Subscription usage on official sites</h2>
+                                <p class="section-description" data-i18n="subscriptionUsageDescription">Local iTab is not connected to real-time Codex or Grok subscription usage. No usage or balance is read or displayed here. API billing is not subscription usage.</p>
+                            </div>
+                            <div class="settings-grid">
+                                <div class="setting-group full-width">
+                                    <p class="form-hint" data-i18n="subscriptionUsageCodexHint">Codex: the official guide explains how to find usage in Settings or the usage dashboard, and /status in an existing CLI session. This link opens help, not the Codex app or an account connection.</p>
+                                    <a class="btn btn-secondary" id="subscription-usage-codex" href="https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan" target="_blank" rel="noopener noreferrer" data-i18n="subscriptionUsageCodexOpen">Open Codex usage guide</a>
+                                </div>
+                                <div class="setting-group full-width">
+                                    <p class="form-hint" data-i18n="subscriptionUsageGrokHint">Grok: open the official dashboard and choose Usage. Legacy SuperGrok may use Settings → Usage. Sign-in, available limits and reset times are handled by the official site.</p>
+                                    <a class="btn btn-secondary" id="subscription-usage-grok" href="https://grok.com/dashboard" target="_blank" rel="noopener noreferrer" data-i18n="subscriptionUsageGrokOpen">Open Grok dashboard</a>
+                                </div>
+                                <p class="form-hint setting-group full-width" data-i18n="subscriptionUsagePrivacy">These links open only when clicked. They do not grant access, read an account or refresh usage in Local iTab. The separate Claude experiment below remains off by default and requires its own permission review.</p>
+                            </div>
+                        </section>
                         <section class="settings-section" id="claude-usage-settings" aria-labelledby="claude-usage-heading">
                             <div class="section-header">
                                 <h2 id="claude-usage-heading" class="section-title" data-i18n="claudeUsageTitle">Experimental: Claude usage snapshot</h2>

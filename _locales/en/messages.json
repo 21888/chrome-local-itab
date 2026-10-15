@@ -5841,6 +5841,27 @@
   "aiContextSourceHelpHeading": {
     "message": "Source scope, limits and reload"
   },
+  "subscriptionUsageTitle": {
+    "message": "Subscription usage on official sites"
+  },
+  "subscriptionUsageDescription": {
+    "message": "Local iTab is not connected to real-time Codex or Grok subscription usage. No usage or balance is read or displayed here. API billing is not subscription usage."
+  },
+  "subscriptionUsageCodexHint": {
+    "message": "Codex: the official guide explains how to find usage in Settings or the usage dashboard, and /status in an existing CLI session. This link opens help, not the Codex app or an account connection."
+  },
+  "subscriptionUsageCodexOpen": {
+    "message": "Open Codex usage guide"
+  },
+  "subscriptionUsageGrokHint": {
+    "message": "Grok: open the official dashboard and choose Usage. Legacy SuperGrok may use Settings → Usage. Sign-in, available limits and reset times are handled by the official site."
+  },
+  "subscriptionUsageGrokOpen": {
+    "message": "Open Grok dashboard"
+  },
+  "subscriptionUsagePrivacy": {
+    "message": "These links open only when clicked. They do not grant access, read an account or refresh usage in Local iTab. The separate Claude experiment below remains off by default and requires its own permission review."
+  },
   "claudeUsageTitle": {"message": "Experimental: Claude usage snapshot"},
   "claudeUsageDescription": {"message": "Off by default. Open the experiment to review optional scripting and claude.ai access before choosing a signed-in tab and organization. No background queries or saved usage."},
   "claudeUsageCaution": {"message": "One-time organization snapshot, not account binding or billing evidence. Real-account acceptance testing is still pending."},
