@@ -175,10 +175,11 @@
         sourceChanged(changes) {
             if (!this.previewGuard) return false;
             // The write's own appearance event arrives before its readback.
-            // The locked CAS/readback still owns validation; refresh afterward.
+            // The locked CAS/readback still owns validation. Only this exact
+            // event is consumed, so it cannot immediately erase confirmed status.
             if (this.previewWriting && this.previewSubmitted && Object.keys(changes).every(key => key === 'appearance') &&
                 JSON.stringify(changes.appearance?.newValue) === JSON.stringify(this.previewSubmitted)) {
-                this.externalChange = true; return true;
+                return true;
             }
             void this.cancelTemplatePreview({ error: this.storage.appearanceError() });
             return true;

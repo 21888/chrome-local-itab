@@ -79,7 +79,10 @@
         host.appendChild(details);
         return { close, render(value, state = '') {
             const active = preview && ['preview', 'preview-loading', 'preview-saving', 'preview-restoring'].includes(state);
-            const ownedFocus = actions.contains(doc.activeElement);
+            // Initial admission disables the focused choice synchronously. Move
+            // only that owned focus before disabling it; late reads never claim it.
+            const ownedFocus = actions.contains(doc.activeElement) || (preview && state === 'preview-loading' &&
+                [...buttons.values()].includes(doc.activeElement));
             actions.hidden = !active;
             details.dataset.livePreview = active ? 'true' : 'false';
             const busy = active && state !== 'preview';

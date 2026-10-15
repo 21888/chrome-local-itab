@@ -34,7 +34,7 @@ function fixture({ immediate = false, language = 'en', initial, current = () => 
     manager.ensureSyncInitialized = async () => assert.fail('Preview must not initialize Sync');
     manager.isSyncEnabledLocally = async () => { sync.push('enabled-check'); return state.sync?.enabled === true; };
     manager.scheduleSyncPush = () => { sync.push('scheduled'); };
-    const document = createDocument(), host = document.createElement('div'); document.body.append(host);
+    const document = createDocument({ blurUnavailableFocus: true }), host = document.createElement('div'); document.body.append(host);
     const draft = document.createElement('textarea'); draft.value = 'Unsubmitted task / scratchpad draft'; document.body.append(draft);
     const messages = JSON.parse(source(`_locales/${language}/messages.json`));
     const window = { document, storageManager: manager, LocalItabTemplates: registry,
@@ -53,6 +53,172 @@ function fixture({ immediate = false, language = 'en', initial, current = () => 
         notify(changes) { for (const fn of listeners) fn(changes, 'local'); },
         async settle() { for (let i = 0; i < 6; i++) { await tick(); await queue; } } };
 }
+
+function holdRead(h) {
+    const entered = deferred(), gate = deferred(); let first = true;
+    h.hooks.get = async () => { if (first) { first = false; entered.resolve(); await gate.promise; } };
+    return { entered, gate };
+}
+
+for (const language of ['en', 'zh_CN']) test(`${language}: first keyboard choice owns the loading notice; subsequent choices keep their focus`, async () => {
+    const h = fixture({ language }), read = holdRead(h);
+    const choice = h.host.querySelector('[data-template-choice="folio"]');
+    const notice = h.host.querySelector('.template-preview-actions [role="status"]');
+    choice.focus(); assert.equal(h.document.activeElement === choice, true);
+    choice.dispatch('click', { detail: 0 });
+    assert.equal(h.host.dataset.saveState, 'preview-loading');
+    assert.equal(h.document.activeElement === notice, true, 'handoff happens synchronously before the choice is disabled');
+    assert.equal(choice.disabled, true); await read.entered.promise;
+    read.gate.resolve(); await h.settle();
+    assert.equal(h.host.dataset.saveState, 'preview'); assert.equal(h.document.activeElement === notice, true);
+    for (const id of ['today', 'graphite', 'folio']) {
+        const next = h.host.querySelector(`[data-template-choice="${id}"]`);
+        next.focus(); next.dispatch('click', { detail: 0 }); await h.settle();
+        assert.equal(h.document.activeElement === next, true);
+        assert.equal(next.getAttribute('aria-pressed'), 'true');
+        assert.equal(h.host.querySelectorAll('[aria-pressed="true"]').length, 1);
+    }
+    assert.equal(h.writes.length, 0);
+});
+
+test('initial admission and late completion respect focus already moved to another input or the summary', async () => {
+    for (const target of ['input', 'summary']) for (const timing of ['before', 'during']) {
+        const h = fixture(), read = holdRead(h);
+        const choice = h.host.querySelector('[data-template-choice="folio"]');
+        const moved = target === 'input' ? h.draft : h.host.querySelector('summary');
+        (timing === 'before' ? moved : choice).focus();
+        const pending = h.controller.previewTemplate('folio');
+        if (timing === 'before') assert.equal(h.document.activeElement === moved, true);
+        await read.entered.promise; moved.focus();
+        read.gate.resolve(); assert.equal(await pending, true); await h.settle();
+        assert.equal(h.document.activeElement === moved, true, `${target}: ${timing}`);
+        assert.equal(h.draft.value, 'Unsubmitted task / scratchpad draft');
+    }
+});
+
+test('Close, collapse and Escape retire focused first admission without a late focus handoff', async () => {
+    for (const close of ['button', 'toggle', 'escape']) {
+        const h = fixture(), read = holdRead(h), summary = h.host.querySelector('summary');
+        h.host.querySelector('[data-template-choice="folio"]').focus();
+        const pending = h.controller.previewTemplate('folio'); await read.entered.promise;
+        assert.equal(h.document.activeElement === h.host.querySelector('.template-preview-actions [role="status"]'), true);
+        if (close === 'button') h.host.querySelector('.template-preview-close').dispatch('click');
+        if (close === 'toggle') { summary.focus(); summary.dispatch('click'); h.details.open = false; h.details.dispatch('toggle'); }
+        if (close === 'escape') h.event('keydown', { key: 'Escape', preventDefault() {} });
+        assert.equal(h.details.open, false); assert.equal(h.document.activeElement === summary, true);
+        h.draft.focus(); read.gate.resolve(); assert.equal(await pending, false); await h.settle();
+        assert.equal(h.document.activeElement === h.draft, true); assert.equal(h.controller.preview, null);
+        assert.equal(h.document.documentElement.dataset.dashboardTemplate, 'clarity'); assert.equal(h.writes.length, 0);
+    }
+});
+
+test('failed first admission returns owned notice focus to summary without reclaiming newer focus', async () => {
+    for (const moved of [false, true]) {
+        const h = fixture(), read = holdRead(h), get = h.hooks.get;
+        h.hooks.get = async keys => { await get(keys); throw new Error('read unavailable'); };
+        h.host.querySelector('[data-template-choice="folio"]').focus();
+        const pending = h.controller.previewTemplate('folio'); await read.entered.promise;
+        if (moved) h.draft.focus(); read.gate.resolve(); assert.equal(await pending, false);
+        assert.equal(h.document.activeElement === (moved ? h.draft : h.host.querySelector('summary')), true);
+        assert.equal(h.host.dataset.saveState, 'error'); assert.equal(h.writes.length, 0);
+    }
+});
+
+test('Apply and Cancel hand off their own busy focus, while completion respects newer input or summary focus', async () => {
+    for (const action of ['apply', 'cancel']) for (const target of ['owned', 'input', 'summary']) {
+        const h = fixture(); await h.controller.previewTemplate('folio');
+        const gate = deferred(), entered = deferred();
+        if (action === 'apply') h.hooks.set = async () => { entered.resolve(); await gate.promise; };
+        else h.hooks.get = async () => { entered.resolve(); await gate.promise; };
+        const control = h.host.querySelector(`.template-preview-${action}`), summary = h.host.querySelector('summary');
+        control.focus();
+        const pending = action === 'apply' ? h.controller.applyTemplatePreview() : h.controller.cancelTemplatePreview();
+        assert.equal(h.document.activeElement === h.host.querySelector('.template-preview-actions [role="status"]'), true);
+        await entered.promise;
+        if (target !== 'owned') (target === 'input' ? h.draft : summary).focus();
+        gate.resolve(); assert.equal(await pending, true); await h.settle();
+        assert.equal(h.document.activeElement === (target === 'input' ? h.draft : summary), true);
+        assert.equal(h.host.querySelector('.template-preview-actions').hidden, true);
+    }
+});
+
+for (const language of ['en', 'zh_CN']) test(`${language}: own exact storage event preserves confirmed Apply status until a later action or source change`, async () => {
+    const h = fixture({ language }); await h.controller.previewTemplate('folio');
+    const renders = [], render = h.controller.render, status = h.host.querySelector('.appearance-status');
+    h.controller.render = (value, state, error) => { render(value, state, error); renders.push(state); };
+    assert.equal(await h.controller.applyTemplatePreview(), true); await h.settle();
+    assert.deepEqual(renders, ['preview-saving', 'preview-saved']);
+    assert.equal(h.host.dataset.saveState, 'preview-saved'); assert.equal(h.host.getAttribute('aria-busy'), 'false');
+    assert.equal(status.getAttribute('role'), 'status'); assert.equal(status.getAttribute('aria-live'), 'polite');
+    assert.match(status.textContent, language === 'en' ? /saved locally/i : /已保存到本地/);
+    assert.equal(h.writes.length, 1); assert.equal(h.state.appearance.template, 'folio');
+    await h.controller.previewTemplate('today');
+    assert.equal(h.host.dataset.saveState, 'preview');
+    assert.match(status.textContent, language === 'en' ? /Temporary preview/ : /临时预览/);
+    await h.controller.cancelTemplatePreview();
+    h.state.appearance = { ...h.state.appearance, colorMode: 'dark' };
+    h.notify({ appearance: { newValue: clone(h.state.appearance) } }); await h.settle();
+    assert.equal(h.host.dataset.saveState, ''); assert.equal(status.textContent, '');
+    assert.equal(h.document.documentElement.dataset.colorMode, 'dark');
+});
+
+test('a genuine external appearance change clears saved status even when the template is unchanged', async () => {
+    for (const patch of [{ colorMode: 'dark' }, { customization: { cardPadding: 22 } }, { revision: 8 }]) {
+        const h = fixture(); await h.controller.previewTemplate('folio');
+        assert.equal(await h.controller.applyTemplatePreview(), true); await h.settle();
+        assert.equal(h.host.dataset.saveState, 'preview-saved');
+        h.state.appearance = { ...h.state.appearance, ...patch };
+        h.notify({ appearance: { newValue: clone(h.state.appearance) } }); await h.settle();
+        assert.equal(h.host.dataset.saveState, ''); assert.equal(h.host.querySelector('.appearance-status').textContent, '');
+        assert.deepEqual(clone(h.controller.confirmed), h.manager.resolveAppearance(h.state));
+        assert.equal(h.writes.length, 1);
+    }
+});
+
+test('same-template external appearance before submission is not recognized as the Apply event', async () => {
+    for (const patch of [{}, { colorMode: 'dark' }, { customization: { cardPadding: 22 } }]) {
+        const h = fixture(); await h.controller.previewTemplate('folio');
+        const gate = deferred(), entered = deferred();
+        const hold = navigator.locks.request('local-itab-local-write', async () => { entered.resolve(); await gate.promise; });
+        await entered.promise; const pending = h.controller.applyTemplatePreview();
+        h.state.appearance = { ...h.state.appearance, template: 'folio', ...patch };
+        h.notify({ appearance: { newValue: clone(h.state.appearance) } }); gate.resolve(); await hold;
+        assert.equal(await pending, false); await h.settle();
+        assert.equal(h.writes.length, 0); assert.equal(h.controller.preview, null);
+        assert.equal(h.host.dataset.saveState, 'error');
+        assert.equal(h.document.documentElement.dataset.dashboardTemplate, 'folio');
+    }
+});
+
+test('external color, customization, adjacent revision and other-source events after submission still invalidate Apply', async () => {
+    for (const kind of ['colorMode', 'customization', 'adjacent revision', 'extra source', 'settings generation']) {
+        const h = fixture(); h.state.appearance.revision = 7;
+        await h.controller.previewTemplate('folio');
+        const renders = [], render = h.controller.render;
+        h.controller.render = (value, state, error) => { render(value, state, error); renders.push(state); };
+        h.hooks.afterSet = values => {
+            assert.equal(h.controller.preview?.template, 'folio', 'the preceding exact own event alone preserves the pending preview');
+            const appearance = clone(values.appearance);
+            if (kind === 'colorMode') appearance.colorMode = 'dark';
+            if (kind === 'customization') appearance.customization = { cardPadding: 22 };
+            if (kind === 'adjacent revision') appearance.revision++;
+            h.state.appearance = appearance;
+            const changes = { appearance: { newValue: clone(appearance) } };
+            if (kind === 'extra source') changes.links = { newValue: clone(h.state.links) };
+            if (kind === 'settings generation') {
+                h.state.__localItabSettingsGeneration = 'settings-two';
+                changes.__localItabSettingsGeneration = { newValue: 'settings-two' };
+            }
+            h.notify(changes);
+            assert.equal(h.controller.preview, null, `${kind} invalidates synchronously`);
+        };
+        assert.equal(await h.controller.applyTemplatePreview(), false); await h.settle();
+        assert.equal(h.writes.length, 1, 'never rolls back the submitted write');
+        assert.equal(h.state.appearance.template, 'folio'); assert.equal(h.controller.preview, null);
+        assert.equal(renders.includes('preview-saved'), false); assert.equal(h.host.dataset.saveState, 'error');
+        assert.deepEqual(clone(h.controller.confirmed), h.manager.resolveAppearance(h.state));
+    }
+});
 
 test('new-tab gallery previews A/B/C real root without writes, and Cancel rereads saved state preserving unrelated drafts', async () => {
     const h = fixture(), original = clone(h.state);
