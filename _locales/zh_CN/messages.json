@@ -4279,7 +4279,7 @@
     "message": "连接预设已删除。"
   },
   "promptsModelPresetConflict": {
-    "message": "此预设已在另一标签页更改。请关闭并重新打开此对话框后再编辑。"
+    "message": "此连接已在其他标签页变更。请重新载入已保存连接，再主动选择当前连接进行编辑。"
   },
   "promptsModelPresetError": {
     "message": "无法保存或加载预设。请使用唯一名称、有效端点和模型 ID。凭据不会保存。"
@@ -6676,5 +6676,14 @@
   },
   "recoveryReviewTruncated": {
     "message": "本次审阅中的长标题或网址只显示前 4,000 个字符，配置文件会完整保留通过检查的值。"
+  },
+  "promptsModelPresetReload": {
+    "message": "重新载入已保存连接"
+  },
+  "promptsModelPresetReloaded": {
+    "message": "已重新载入连接列表。当前填写内容和回答保持不变。请主动选择连接后再应用；已变更或删除的连接已与当前草稿解除关联。"
+  },
+  "promptsModelPresetReloadFailed": {
+    "message": "无法重新载入连接。当前列表和草稿保持不变，请重试。"
   }
 }

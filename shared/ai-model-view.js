@@ -80,8 +80,8 @@
             readerHost.append(answerReader.node); readerHost.hidden = false; output.hidden = true;
         }
         function visibilityChanged() {
-            if (view.doc.hidden) { releaseReader(); clearDifference(); }
-            updateDifference();
+            if (view.doc.hidden || view.doc.visibilityState === 'hidden') { presetReloadEpoch++; releaseReader(); clearDifference(); }
+            update();
             if (!view.doc.hidden && differenceFocusPending) {
                 differenceFocusPending = false;
                 if (!closed && !trialUI && overlay.isConnected && !overlay.hidden && !overlay.closest('[hidden], [inert]') && view.doc.activeElement === view.doc.body) status.focus();
@@ -102,7 +102,7 @@
         const presetSelect = el('select'); presetLabel.append(presetSelect);
         const presetHelp = el('p', 'prompt-help', t('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.'));
         const presetActions = el('div', 'prompt-actions');
-        let presets = [], selectedPreset = null, presetPending = Boolean(presetStore), presetAvailable = false;
+        let presets = [], selectedPreset = null, presetPending = Boolean(presetStore), presetAvailable = false, presetReloadEpoch = 0;
         const actions = el('div', 'prompt-actions'), resultActions = el('div', 'prompt-actions');
         let reviewedStream = false, partialText = '', paintTimer = null, paintActive = null;
         let reviewed = null, response = null, aborter = null, busy = false, closed = false, saving = false, saved = false, permissionPending = false, suspended = false, command = null, cleanup, trialUI = null;
@@ -197,12 +197,13 @@
                 proposalLabel.textContent = label; output.setAttribute('aria-label', label);
             }
             if (streaming) streaming.disabled = busy || saving || permissionPending || Boolean(response);
-            if (trialButton) trialButton.disabled = busy || saving || saved || suspended || Boolean(command) || !valid;
-            review.disabled = busy || saving || permissionPending || presetPending; allow.disabled = busy || saving || permissionPending || !reviewed; send.disabled = busy || saving || permissionPending || !reviewed || Boolean(response);
+            if (trialButton) trialButton.disabled = busy || saving || presetPending || saved || suspended || Boolean(command) || !valid;
+            review.disabled = busy || saving || permissionPending || presetPending; allow.disabled = busy || saving || permissionPending || presetPending || !reviewed; send.disabled = busy || saving || permissionPending || presetPending || !reviewed || Boolean(response);
             if (instruction) instruction.disabled = busy || saving || Boolean(response);
-            cancel.disabled = !busy; save.disabled = busy || saving || !response || saved || (refining && (suspended || (!valid && !command))); close.disabled = saving;
+            cancel.disabled = !busy; save.disabled = busy || saving || presetPending || !response || saved || (refining && (suspended || (!valid && !command))); close.disabled = saving;
             url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
             presetSelect.disabled = presetName.disabled = presetSave.disabled = !presetAvailable || busy || saving || permissionPending || presetPending || Boolean(response);
+            presetReload.disabled = !presetStore || presetPending || closed || c.disposed || busy || saving || permissionPending || command || trialUI || view.doc.visibilityState === 'hidden' || suspended;
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
             updateDifference();
             refreshCopyState();
@@ -232,7 +233,31 @@
             presets.forEach((item, index) => { const option = el('option', '', item.name); option.value = String(index); presetSelect.append(option); });
             presetSelect.value = selectedPreset ? String(presets.findIndex(item => item.name === selectedPreset.name)) : '';
         }
-        const presetFailure = error => t(error?.code === 'CONFLICT' ? 'PresetConflict' : 'PresetError', error?.code === 'CONFLICT' ? 'This preset changed in another tab. Close and reopen this dialog before editing it.' : 'Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved.');
+        const presetFailure = error => t(error?.code === 'CONFLICT' ? 'PresetConflict' : 'PresetError', error?.code === 'CONFLICT' ? 'This preset changed in another tab. Reload saved connections, then explicitly choose the current connection before editing it.' : 'Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved.');
+        // Reload metadata only. Never apply a connection, clear a draft or write storage.
+        async function reloadPresets() {
+            if (!presetStore || presetPending || closed || c.disposed || busy || saving || permissionPending || command || trialUI || suspended || view.doc.visibilityState === 'hidden') return;
+            const epoch = ++presetReloadEpoch, identity = reviewed, previous = selectedPreset;
+            const signature = () => JSON.stringify([presetName.value, url.value, model.value, key.value]);
+            const before = signature();
+            const current = () => !closed && !c.disposed && overlay.isConnected && !suspended && epoch === presetReloadEpoch &&
+                view.doc.visibilityState !== 'hidden' && reviewed === identity && selectedPreset === previous && signature() === before;
+            presetPending = true; update();
+            try {
+                const state = await presetStore.read();
+                if (!current()) return;
+                // Construct every option before replacing the current list. A failed read/build is atomic.
+                const manual = el('option', '', t('PresetManual', 'New / unsaved connection')); manual.value = '';
+                const options = state.records.map((item, index) => { const option = el('option', '', item.name); option.value = String(index); return option; });
+                const retained = previous && state.records.find(item => item.name === previous.name && item.url === previous.url && item.model === previous.model);
+                presetSelect.replaceChildren(manual, ...options);
+                presets = state.records; selectedPreset = retained || null; presetAvailable = true;
+                presetSelect.value = retained ? String(presets.indexOf(retained)) : '';
+                status.textContent = t('PresetReloaded', 'Saved connections reloaded. Your current fields and response are unchanged. Choose a connection explicitly to apply it; changed or deleted connections are now detached from this draft.');
+            } catch (_) {
+                if (current()) status.textContent = t('PresetReloadFailed', 'Could not reload saved connections. The current list and draft are unchanged. Try again.');
+            } finally { presetPending = false; if (!closed) update(); }
+        }
         async function changePreset(removing) {
             if (closed || c.disposed || !presetAvailable || presetPending || busy || saving || permissionPending || response || (removing && !selectedPreset)) return;
             presetPending = true; invalidateConnection();
@@ -249,13 +274,14 @@
         }
         const presetSave = button('PresetSave', 'Save connection preset', () => changePreset(false));
         const presetDelete = button('PresetDelete', 'Delete connection preset', () => changePreset(true));
+        const presetReload = button('PresetReload', 'Reload saved connections', () => void reloadPresets());
         presetSelect.addEventListener('change', () => {
             if (presetSelect.disabled || closed || c.disposed) return;
             selectedPreset = presetSelect.value === '' ? null : presets[Number(presetSelect.value)];
             presetName.value = selectedPreset?.name || ''; url.value = selectedPreset?.url || ''; model.value = selectedPreset?.model || '';
             invalidateConnection();
         });
-        renderPresets(); presetActions.append(presetSave, presetDelete);
+        renderPresets(); presetActions.append(presetSave, presetDelete, presetReload);
         function cancellable(promise, signal) {
             return new Promise((resolve, reject) => {
                 const cancel = () => { signal.removeEventListener('abort', cancel); reject({ code: 'CANCELLED' }); };
@@ -287,7 +313,7 @@
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
             const focused = view.doc.activeElement;
-            suspended = true; clearDifference(); releaseReader(); stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
+            presetReloadEpoch++; suspended = true; clearDifference(); releaseReader(); stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
             if (reviewedStream) { response = null; partialText = ''; output.value = ''; output.hidden = true; partialLabel.hidden = true; status.textContent = t('StreamStale', 'The prompt source changed or this dialog was interrupted. Review again before sending.'); }
             if (refining) { response = null; proposalDisplay = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
             update(focused);
@@ -306,7 +332,7 @@
             } catch (error) { reviewed = null; status.textContent = failure(error.code); } update();
         });
         const allow = button('Allow', 'Allow this endpoint', async () => {
-            if (c.disposed || !reviewed || busy || saving || permissionPending || suspended) return;
+            if (c.disposed || !reviewed || busy || saving || permissionPending || presetPending || suspended) return;
             if (refining && !refinement.current(c, template)) { status.textContent = failure('STALE'); return; } const snapshot = reviewed;
             permissionPending = true; update();
             try {
@@ -316,7 +342,7 @@
             finally { permissionPending = false; if (!closed) update(); }
         });
         const send = button('Send', 'Send reviewed prompt', async () => {
-            if (c.disposed || !reviewed || busy || saving || permissionPending || response || suspended) return;
+            if (c.disposed || !reviewed || busy || saving || permissionPending || presetPending || response || suspended) return;
             if (refining && !refinement.current(c, template)) { status.textContent = failure('STALE'); return; }
             if (reviewedStream && !sourceCurrent()) { suspend(); return; }
             if (reviewedStream) { saved = false; command = null; }
@@ -368,7 +394,7 @@
             stopRequest(); status.textContent = failure('CANCELLED');
         });
         const save = button(refining ? 'RefineAccept' : 'Save', refining ? 'Accept as new prompt version' : 'Save response to AI collection', async () => {
-            if (c.disposed || trialUI || busy || !response || saving || saved || closed || (refining && suspended)) return;
+            if (c.disposed || trialUI || busy || !response || saving || presetPending || saved || closed || (refining && suspended)) return;
             if (reviewedStream && !sourceCurrent()) { suspend(); return; }
             saving = true; update();
             try {
@@ -446,7 +472,7 @@
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
-        return { readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
+        return { readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, presetReload, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);

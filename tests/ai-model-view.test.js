@@ -1103,3 +1103,41 @@ test('refinement differences: source invalidation and hidden return keep a disab
     h.doc.activeElement.dispatch('keydown', { key: 'Escape', isComposing: true }); assert.equal(h.view.openDialog, true);
     h.doc.activeElement.dispatch('keydown', { key: 'Escape' }); assert.equal(h.view.openDialog, false); h.h.controller.dispose();
 });
+
+test('preset reload preserves response and edited connection; changed or deleted identity is detached without writes', async () => {
+    const original = { name: 'Fixture', url: 'https://synthetic.test/v1/chat/completions', model: 'fixture-model' };
+    let records = [original], reads = 0;
+    const h = await mount({ presetStore: { read: async () => { reads++; return { records }; } } }); await tick();
+    h.ui.presetSelect.value = '0'; h.ui.presetSelect.dispatch('change'); h.ui.presetName.value = 'Edited draft';
+    await click(h.ui.review); await click(h.ui.send); const output = h.ui.output.value;
+    records = [{ ...original, model: 'new-model' }]; await click(h.ui.presetReload);
+    assert.equal(h.ui.output.value, output); assert.equal(h.ui.model.value, original.model); assert.equal(h.ui.presetName.value, 'Edited draft'); assert.equal(h.ui.presetSelect.value, ''); assert.equal(h.ui.presetDelete.disabled, true);
+    records = []; await click(h.ui.presetReload); assert.equal(h.ui.presetSelect.children.length, 1);
+    assert.equal(h.runs, 1); assert.equal(h.writes, 0); assert.equal(h.grants, 0); assert.equal(reads, 3);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('preset reload initial/further failures preserve draft, pending read fences send and stale callbacks', async () => {
+    let read = async () => { throw Error('synthetic'); }, reads = 0;
+    const h = await mount({ presetStore: { read: () => { reads++; return read(); } } }); await tick();
+    const original = { name: 'Fixture', url: 'https://synthetic.test/v1/chat/completions', model: 'fixture-model' };
+    assert.equal(h.ui.presetReload.disabled, false); read = async () => ({ records: [original] }); await click(h.ui.presetReload); assert.equal(h.ui.presetSelect.children.length, 2);
+    read = async () => { throw Error('synthetic'); }; await click(h.ui.presetReload); assert.equal(h.ui.presetSelect.children.length, 2); assert.match(h.ui.status.textContent, /current list and draft are unchanged/);
+    await click(h.ui.review); const gate = deferred(); read = () => gate.promise; const count = reads; h.ui.presetReload.dispatch('click'); h.ui.presetReload.dispatch('click');
+    h.ui.send.dispatch('click'); h.ui.allow.dispatch('click'); assert.equal(reads, count + 1); assert.equal(h.runs, 0); assert.equal(h.grants, 0);
+    h.ui.model.value = 'new draft'; gate.resolve({ records: [] }); await tick(); assert.equal(h.ui.presetSelect.children.length, 2);
+    const hidden = deferred(); read = () => hidden.promise; h.ui.presetReload.dispatch('click'); h.events.get('pagehide')(); hidden.resolve({ records: [] }); await tick(); assert.equal(h.ui.presetSelect.children.length, 2);
+    await click(h.ui.review); const close = deferred(); read = () => close.promise; h.ui.presetReload.dispatch('click'); await click(h.ui.close); close.resolve({ records: [] }); await tick(); assert.equal(h.ui.presetSelect.children.length, 2); h.h.controller.dispose();
+});
+
+test('preset reload visibility round trip rejects late list and retained selection preserves key/review', async () => {
+    const record = { name: 'Fixture', url: 'https://synthetic.test/v1/chat/completions', model: 'fixture-model' };
+    let read = async () => ({ records: [record] });
+    const h = await mount({ presetStore: { read: () => read() } }); await tick(); h.ui.presetSelect.value = '0'; h.ui.presetSelect.dispatch('change');
+    await click(h.ui.review); h.ui.key.value = 'synthetic-only'; const review = h.ui.reviewText.textContent;
+    await click(h.ui.presetReload); assert.equal(h.ui.presetSelect.value, '0'); assert.equal(h.ui.key.value, 'synthetic-only'); assert.equal(h.ui.reviewText.textContent, review); assert.equal(h.ui.send.disabled, false);
+    const gate = deferred(); read = () => gate.promise; h.ui.presetReload.dispatch('click');
+    h.doc.hidden = true; h.doc.visibilityState = 'hidden'; h.doc.listeners.get('visibilitychange')(); h.doc.hidden = false; h.doc.visibilityState = 'visible'; h.doc.listeners.get('visibilitychange')();
+    gate.resolve({ records: [] }); await tick(); assert.equal(h.ui.presetSelect.children.length, 2); assert.equal(h.ui.presetSelect.value, '0');
+    assert.equal(h.runs + h.writes + h.grants, 0); await click(h.ui.close); h.h.controller.dispose();
+});

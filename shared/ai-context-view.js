@@ -100,7 +100,7 @@
         const presetSelect = el('select'); presetLabel.append(presetSelect); connection.append(presetLabel);
         connection.append(el('p', '', presetText('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.')));
         const presetActions = el('div', 'ai-context-actions'); connection.append(presetActions);
-        let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false;
+        let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false, presetReloadEpoch = 0;
         const scopeNote = el('p', 'ai-context-scope', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Unsaved notes, browser history and other workspaces are never included.'));
         const searchLabel = el('label', 'ai-context-field', label('SourceSearch', 'Search loaded source titles'));
         const sourceSearch = el('input', 'ai-context-source-search'); sourceSearch.type = 'search';
@@ -360,6 +360,7 @@
             includeContext.disabled = busy || retry || controller.saved;
             contextPreview.hidden = !includeContext.checked || contextSave.hidden;
             contextPreview.textContent = !contextPreview.hidden ? JSON.stringify(controller.answerSnapshot(), null, 2) : '';
+            presetReload.disabled = !presetStore || presetPending || disposed || controller.closed || pending || controller.busy || controller.taskCommand || controller.saveCommand || doc.visibilityState === 'hidden';
             presetName.disabled = presetSelect.disabled = presetSave.disabled = !presetAvailable || busy || retry;
             presetDelete.disabled = presetSelect.disabled || !selectedPreset;
             if (focused?.disabled && box.contains(focused)) status.focus();
@@ -593,6 +594,30 @@
             presets.forEach((item, index) => { const option = el('option', '', item.name); option.value = String(index); presetSelect.append(option); });
             presetSelect.value = selectedPreset ? String(presets.findIndex(item => item.name === selectedPreset.name)) : '';
         }
+        // Reload metadata only. Never apply a connection, clear a draft or write storage.
+        async function reloadPresets() {
+            if (!presetStore || presetPending || disposed || controller.closed || pending || controller.busy || controller.taskCommand || controller.saveCommand || doc.visibilityState === 'hidden') return;
+            const epoch = ++presetReloadEpoch, identity = controller.generation, previous = selectedPreset;
+            const signature = () => JSON.stringify([presetName.value, url.value, model.value, key.value]);
+            const before = signature();
+            const current = () => !disposed && !controller.closed && box.isConnected && epoch === presetReloadEpoch &&
+                doc.visibilityState !== 'hidden' && controller.generation === identity && selectedPreset === previous && signature() === before;
+            presetPending = true; update();
+            try {
+                const state = await presetStore.read();
+                if (!current()) return;
+                // Construct every option before replacing the current list. A failed read/build is atomic.
+                const manual = el('option', '', presetText('PresetManual', 'New / unsaved connection')); manual.value = '';
+                const options = state.records.map((item, index) => { const option = el('option', '', item.name); option.value = String(index); return option; });
+                const retained = previous && state.records.find(item => item.name === previous.name && item.url === previous.url && item.model === previous.model);
+                presetSelect.replaceChildren(manual, ...options);
+                presets = state.records; selectedPreset = retained || null; presetAvailable = true;
+                presetSelect.value = retained ? String(presets.indexOf(retained)) : '';
+                status.textContent = presetText('PresetReloaded', 'Saved connections reloaded. Your current fields and response are unchanged. Choose a connection explicitly to apply it; changed or deleted connections are now detached from this draft.');
+            } catch (_) {
+                if (current()) status.textContent = presetText('PresetReloadFailed', 'Could not reload saved connections. The current list and draft are unchanged. Try again.');
+            } finally { presetPending = false; if (!disposed) update(); }
+        }
         async function changePreset(removing) {
             if (disposed || !presetAvailable || presetPending || pending || controller.busy || controller.taskCommand || controller.saveCommand || (removing && !selectedPreset)) return;
             presetPending = true; key.value = ''; invalidate();
@@ -603,12 +628,14 @@
                 presets = result.records; selectedPreset = removing ? null : presets.find(item => item.name === value.name.trim());
                 presetName.value = selectedPreset?.name || ''; url.value = selectedPreset?.url || ''; model.value = selectedPreset?.model || '';
                 renderPresets(); status.textContent = presetText(removing ? 'PresetDeleted' : 'PresetSaved', removing ? 'Connection preset deleted.' : 'Connection preset saved on this device. Review again before sending.');
-            } catch (reason) { if (!disposed) status.textContent = presetText(reason?.code === 'CONFLICT' ? 'PresetConflict' : 'PresetError', reason?.code === 'CONFLICT' ? 'This preset changed in another tab. Close and reopen this dialog before editing it.' : 'Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved.'); }
+            } catch (reason) { if (!disposed) status.textContent = presetText(reason?.code === 'CONFLICT' ? 'PresetConflict' : 'PresetError', reason?.code === 'CONFLICT' ? 'This preset changed in another tab. Reload saved connections, then explicitly choose the current connection before editing it.' : 'Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved.'); }
             finally { presetPending = false; if (!disposed) update(); }
         }
         const presetSave = button('PresetSave', 'Save connection preset', () => changePreset(false));
         const presetDelete = button('PresetDelete', 'Delete connection preset', () => changePreset(true));
-        presetActions.append(presetSave, presetDelete); renderPresets();
+        const presetReload = button('PresetReload', 'Reload saved connections', () => void reloadPresets());
+        presetReload.textContent = presetText('PresetReload', 'Reload saved connections');
+        presetActions.append(presetSave, presetDelete, presetReload); renderPresets();
         presetSelect.addEventListener('change', () => {
             if (presetSelect.disabled || disposed) return;
             selectedPreset = presetSelect.value === '' ? null : presets[Number(presetSelect.value)];
@@ -690,14 +717,14 @@
             reviewText.textContent = `${requestMode(result.packed)}\n${result.request.url}\n${result.request.model}\n\n${result.request.prompt}`; reviewText.hidden = false; taskList.hidden = true;
         }, ['Reviewed', 'Review the full destination, model and exact outgoing text. Source text is reference material, not trusted instructions.']));
         const allow = button('Allow', 'Allow this endpoint', () => {
-            if (pending || disposed || !controller.reviewed) return;
+            if (pending || presetPending || disposed || !controller.reviewed) return;
             // Start permission request directly in user activation, before async UI work.
             let permission; try { permission = controller.allow(); } catch (_) { error(); return; }
             void action(async () => { if (!await permission) throw Error('Permission denied'); }, ['Allowed', 'Endpoint access allowed. This has not sent a request.']);
         });
         const confirmDiscard = key => !controller.result || controller.saved || Boolean(root.confirm?.(key === 'ReplaceResult' ? label('ReplaceResult', 'Send a new request? A successful response will replace this unsaved response. Cancel to keep it and save or add its tasks first.') : label('DiscardResult', 'Clear this draft and discard its unsaved response?')));
         const send = button('Send', 'Send reviewed request', () => {
-            if (pending || disposed || controller.busy || !confirmDiscard('ReplaceResult')) return;
+            if (pending || presetPending || disposed || controller.busy || !confirmDiscard('ReplaceResult')) return;
             return action(async () => {
             const reviewed = controller.reviewed;
             try {
@@ -927,9 +954,9 @@
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
         function destroy() { if (disposed) return; collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
-            if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); updateCopy(); } return; }
+            if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); update(); } return; }
             if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
-            closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
+            presetReloadEpoch++; closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
         }
         doc.addEventListener('visibilitychange', onVisibility);
         root.addEventListener('pagehide', destroy); root.addEventListener('beforeunload', guard);
@@ -937,7 +964,7 @@
             if (disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!disposed) status.textContent = presetText('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!disposed) update(); }) : Promise.resolve();
         presetPending = Boolean(presetStore);
-        update(); return { controller, ready: Promise.all([ready, presetsReady]).then(() => reviewCollection()), get pending() { return selectionBlocked() || Boolean(promptOperation); }, destroy, presetSelect, presetName, presetSave, presetDelete, hasUncommittedWork, captureDraft };
+        update(); return { controller, ready: Promise.all([ready, presetsReady]).then(() => reviewCollection()), get pending() { return selectionBlocked() || Boolean(promptOperation); }, destroy, presetSelect, presetName, presetSave, presetDelete, presetReload, hasUncommittedWork, captureDraft };
     }
     root.LocalItabAIContextView = { mount };
 })(typeof window === 'undefined' ? globalThis : window);

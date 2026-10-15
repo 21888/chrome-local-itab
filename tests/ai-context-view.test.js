@@ -1730,3 +1730,60 @@ for (const invalidation of ['subset', 'zero', 'json', 'request', 'response', 'cl
     }
     assert.equal(h.b.writes, 0); h.view.destroy();
 });
+
+test('preset reload preserves question, source edits, answer and connection while detaching changed/deleted presets', async () => {
+    const original = { name: 'Fixture', url: 'https://mock.example/v1/chat/completions', model: 'mock' };
+    let records = [original], reads = 0;
+    const h = await model({ read: async () => { reads++; return { records }; } });
+    h.view.presetSelect.value = '0'; h.view.presetSelect.dispatch('change');
+    const row = h.host.querySelector('.ai-context-source'); row.querySelector('input').checked = true; row.querySelector('input').dispatch('change');
+    h.input(row.querySelector('textarea'), 'edited synthetic source'); h.setReply('Synthetic answer'); await send(h, 'answer');
+    const answer = h.controller.result, snapshot = h.controller.resultReview, question = h.host.querySelector('.ai-context-question').value;
+    records = [{ ...original, model: 'new-model' }]; h.click('Reload saved connections'); await settle();
+    assert.equal(reads, 2); assert.equal(h.controller.result, answer); assert.equal(h.controller.resultReview, snapshot);
+    assert.equal(h.host.querySelector('.ai-context-question').value, question); assert.equal(row.querySelector('textarea').value, 'edited synthetic source');
+    assert.equal(h.field('text').value, 'mock'); assert.equal(h.view.presetName.value, 'Fixture'); assert.equal(h.view.presetSelect.value, ''); assert.equal(h.view.presetDelete.disabled, true);
+    records = []; h.click('Reload saved connections'); await settle(); assert.equal(h.view.presetSelect.children.length, 1);
+    assert.equal(h.field('url').value, original.url); assert.equal(h.calls.length, 1); assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+});
+
+test('preset reload retries initial failure, keeps failed reads atomic and fences duplicates, edits, hiding and close', async () => {
+    const original = { name: 'Fixture', url: 'https://mock.example/v1/chat/completions', model: 'mock' };
+    let read = async () => { throw Error('synthetic failure'); }, reads = 0;
+    const h = await model({ read: () => { reads++; return read(); } });
+    assert.equal(h.view.presetReload.disabled, false); read = async () => ({ records: [original] }); h.click('Reload saved connections'); await settle();
+    assert.equal(h.view.presetSelect.children.length, 2);
+    read = async () => { throw Error('synthetic failure'); }; h.click('Reload saved connections'); await settle(); assert.equal(h.view.presetSelect.children.length, 2); assert.match(h.host.querySelector('.ai-context-status').textContent, /current list and draft are unchanged/);
+    for (const interrupt of ['edit', 'hidden', 'close']) {
+        const gate = deferred(); read = () => gate.promise; const before = reads; h.click('Reload saved connections'); h.view.presetReload.dispatch('click'); assert.equal(reads, before + 1);
+        if (interrupt === 'edit') h.input(h.field('url'), 'https://changed.example/chat/completions');
+        if (interrupt === 'hidden') { h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')(); h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')(); }
+        if (interrupt === 'close') h.view.destroy();
+        gate.resolve({ records: [] }); await settle(); assert.equal(h.view.presetSelect.children.length, 2);
+    }
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+});
+
+test('preset reload cannot run during transport or local uncertain writes', async () => {
+    let reads = 0; const h = await model({ read: async () => { reads++; return { records: [] }; } });
+    const gate = deferred(); h.setReply(gate.promise); h.click('Review exact'); await settle(); h.click('Send reviewed'); await settle();
+    h.view.presetReload.dispatch('click'); assert.equal(reads, 1); h.click('Stop request'); await settle();
+    h.click('Reload saved connections'); await settle(); assert.equal(reads, 2); gate.resolve('late'); await settle();
+    h.controller.saveCommand = {}; h.view.presetReload.dispatch('click'); assert.equal(reads, 2); h.view.destroy();
+});
+
+test('preset reload recovers cross-tab conflicts without restoring deletions or applying new endpoint', async () => {
+    const Presets = require('../shared/ai-model-presets');
+    const original = { name: 'Fixture', url: 'https://mock.example/v1/chat/completions', model: 'mock' };
+    let state = { version: 1, records: [original] }, writes = 0;
+    const store = Presets.createStore({ chromeApi: { storage: { local: { get: async () => ({ [Presets.KEY]: structuredClone(state) }), set: async value => { writes++; state = structuredClone(value[Presets.KEY]); } } } }, locks: { request: (_, fn) => fn() } });
+    const h = await model(store); h.view.presetSelect.value = '0'; h.view.presetSelect.dispatch('change');
+    // Unchanged reload keeps the saved identity even when fields have local edits.
+    h.view.presetName.value = 'Unsaved name'; h.click('Reload saved connections'); await settle(); assert.equal(h.view.presetSelect.value, '0'); assert.equal(h.view.presetName.value, 'Unsaved name');
+    state.records = [{ ...original, model: 'changed-elsewhere' }]; h.click('Save connection preset'); await settle(); assert.equal(writes, 0); assert.match(h.host.querySelector('.ai-context-status').textContent, /Reload saved connections/);
+    h.click('Reload saved connections'); await settle(); assert.equal(h.view.presetSelect.value, ''); assert.equal(h.field('text').value, 'mock');
+    h.view.presetSelect.value = '0'; h.view.presetSelect.dispatch('change'); assert.equal(h.field('text').value, 'changed-elsewhere');
+    state.records = []; h.click('Delete connection preset'); await settle(); assert.equal(writes, 0);
+    h.click('Reload saved connections'); await settle(); h.view.presetDelete.dispatch('click'); await settle(); assert.equal(writes, 0); assert.equal(state.records.length, 0);
+    assert.equal(h.host.querySelector('.ai-context-question').value, 'Create tasks'); h.view.destroy();
+});

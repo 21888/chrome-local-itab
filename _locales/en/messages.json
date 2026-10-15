@@ -4279,7 +4279,7 @@
     "message": "Connection preset deleted."
   },
   "promptsModelPresetConflict": {
-    "message": "This preset changed in another tab. Close and reopen this dialog before editing it."
+    "message": "This preset changed in another tab. Reload saved connections, then explicitly choose the current connection before editing it."
   },
   "promptsModelPresetError": {
     "message": "Could not save or load presets. Use a unique name, valid endpoint and model ID. No credentials are saved."
@@ -6676,5 +6676,14 @@
   },
   "recoveryReviewTruncated": {
     "message": "Long title or URL text is shortened to 4,000 characters in this review. The configuration file preserves the checked value in full."
+  },
+  "promptsModelPresetReload": {
+    "message": "Reload saved connections"
+  },
+  "promptsModelPresetReloaded": {
+    "message": "Saved connections reloaded. Your current fields and response are unchanged. Choose a connection explicitly to apply it; changed or deleted connections are now detached from this draft."
+  },
+  "promptsModelPresetReloadFailed": {
+    "message": "Could not reload saved connections. The current list and draft are unchanged. Try again."
   }
 }
