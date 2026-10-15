@@ -1435,6 +1435,26 @@ class StorageManager {
                 }
                 onWrite(copy(candidate));
                 await this._local.set(written);
+                if (!this.workspace) {
+                    // Workspace writes already verify their full bundle. The
+                    // compatibility adapter only forwards set(), so require an
+                    // authoritative readback before exposing a saved snapshot.
+                    try {
+                        const keys = [...new Set([...Object.keys(written), 'links', 'layout', this.layoutGenerationKey])];
+                        const readback = await this._local.get(keys);
+                        if (Object.keys(written).some(key => !Object.prototype.hasOwnProperty.call(readback, key) ||
+                            !this.sameShortcutUndoValue(readback[key], written[key]))) {
+                            throw new Error('Layout write did not match its readback.');
+                        }
+                        return this.layoutSnapshot(readback);
+                    } catch (cause) {
+                        // Preserve ambiguous persisted state and its recovery.
+                        // Never roll back or retry an unverified allocation.
+                        const error = new Error('The layout change could not be verified. It may already be saved. Reload this page to check before trying again.');
+                        error.code = 'LAYOUT_UNVERIFIED'; error.mayHaveCommitted = true; error.cause = cause;
+                        throw error;
+                    }
+                }
                 return { ...latest, links, layout: candidate, generation: written[this.layoutGenerationKey] || latest.generation };
             }, true);
         } catch (error) {
