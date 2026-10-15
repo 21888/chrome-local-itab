@@ -910,11 +910,12 @@ class StorageManager {
     restoreReceiptError(code) {
         const messages = {
             RESTORE_UNCERTAIN: 'The import may already have been saved. Its recovery copy is retained. Retry the same file to verify it; do not replace it blindly.',
+            RESTORE_PENDING_CONFLICT: 'The previous import is unverified and the current settings or recovery copy have changed. Import is blocked; the current content and retained recovery copy have not been replaced. Export the current configuration and open Recovery to inspect and export the earlier copy. Reopening Settings or retrying cannot unlock this conflict; this version has no automatic resolution.',
             RESTORE_RETRY_CONFLICT: 'This file was already imported, but settings have since changed. Review the current settings and recovery copy before starting a new import.',
             RESTORE_RECONFIRM: 'The previous import is now verified and its recovery copy is retained. Review the current settings, then confirm the new import again.',
             RESTORE_RECEIPT_INVALID: 'The retained import receipt could not be verified. No replacement was submitted. Review the recovery copy.'
         };
-        const key = { RESTORE_UNCERTAIN: 'restoreUncertain', RESTORE_RETRY_CONFLICT: 'restoreRetryConflict', RESTORE_RECONFIRM: 'restoreReconfirm', RESTORE_RECEIPT_INVALID: 'restoreReceiptInvalid' }[code];
+        const key = { RESTORE_UNCERTAIN: 'restoreUncertain', RESTORE_RETRY_CONFLICT: 'restoreRetryConflict', RESTORE_PENDING_CONFLICT: 'restorePendingConflict', RESTORE_RECONFIRM: 'restoreReconfirm', RESTORE_RECEIPT_INVALID: 'restoreReceiptInvalid' }[code];
         return Object.assign(new Error(this.chromeApi?.i18n?.getMessage?.(key) || messages[code]), { code });
     }
 
@@ -947,7 +948,11 @@ class StorageManager {
     async settleRestoreReceipt(receipt) {
         const raw = await this._local.get(null);
         if (await this.fingerprint(raw[this.restoreReceiptKey] || null) !== await this.fingerprint(receipt)) throw this.restoreReceiptError('RESTORE_RECEIPT_INVALID');
-        await this.verifyRestoreReceipt(raw, receipt);
+        try { await this.verifyRestoreReceipt(raw, receipt); }
+        catch (error) {
+            if (receipt.status === 'pending' && error.code === 'RESTORE_RETRY_CONFLICT') throw this.restoreReceiptError('RESTORE_PENDING_CONFLICT');
+            throw error;
+        }
         if (receipt.status === 'verified') return;
         const verified = { ...receipt, status: 'verified' };
         if (await this._local.set({ [this.restoreReceiptKey]: verified }) === false) throw this.restoreReceiptError('RESTORE_UNCERTAIN');

@@ -6700,5 +6700,8 @@
   },
   "restoreReceiptInvalid": {
     "message": "The retained import receipt could not be verified. No replacement was submitted. Review the recovery copy."
+  },
+  "restorePendingConflict": {
+    "message": "The previous import is unverified and the current settings or recovery copy have changed. Import is blocked; the current content and retained recovery copy have not been replaced. Export the current configuration and open Recovery to inspect and export the earlier copy. Reopening Settings or retrying cannot unlock this conflict; this version has no automatic resolution."
   }
 }

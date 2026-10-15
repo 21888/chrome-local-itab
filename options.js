@@ -1759,10 +1759,25 @@ async function refreshDriveBackupList(interactive = true) {
 
 // A second confirmation is only available after the previous import was
 // verified. Pending/unknown commits can never be bypassed by this UI.
+function showPendingRestoreRecovery(manager, error) {
+    if (error.code !== 'RESTORE_PENDING_CONFLICT') return;
+    const notice = document.getElementById('restore-conflict-notice');
+    if (!notice) return;
+    const message = document.createElement('p'); message.textContent = error.message;
+    const link = document.createElement('a');
+    const workspace = manager.workspace?.id || manager.workspace?.requestedId;
+    link.href = 'recovery.html' + (workspace ? '?workspace=' + encodeURIComponent(workspace) : '');
+    link.target = '_blank'; link.rel = 'noopener';
+    link.textContent = t('recoveryEntry', 'Inspect saved copies (read-only)');
+    // Open inspection separately: never reload/leave this page or clear drafts.
+    notice.replaceChildren(message, link); notice.hidden = false;
+}
+
 async function saveConfirmedRestore(manager, settings) {
     const options = { skipSyncSideEffects: true, skipSyncInitialization: true, confirmedRestore: true };
     try { return await manager.setAll(settings, options); }
     catch (error) {
+        showPendingRestoreRecovery(manager, error);
         if (!error.canStartNewRestore) throw error;
         const proceed = confirm(t('restoreStartNewConfirm', 'This file was already imported and settings have changed since then. Start a new import, replacing the current settings and keeping them as the latest recovery copy?'));
         if (!proceed) throw error;

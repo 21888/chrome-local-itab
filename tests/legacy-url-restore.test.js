@@ -658,8 +658,8 @@ for (const change of ['configuration', 'recovery', 'receipt']) bounded(`pending 
         if (change === 'receipt') values(f)[storage.restoreReceiptKey].target = 'invalid';
         const before = clone(f.raw), count = f.writes.length;
         for (const options of [restoreOptions, { ...restoreOptions, newRestoreOperation: true }]) {
-            await assert.rejects(storage.setAll(restored, options), code('RESTORE_RETRY_CONFLICT', 'RESTORE_RECEIPT_INVALID'));
-            await assert.rejects(storage.setAll({ ...restored, quote: 'Different file' }, options), code('RESTORE_RETRY_CONFLICT', 'RESTORE_RECEIPT_INVALID'));
+            await assert.rejects(storage.setAll(restored, options), code('RESTORE_PENDING_CONFLICT', 'RESTORE_RECEIPT_INVALID'));
+            await assert.rejects(storage.setAll({ ...restored, quote: 'Different file' }, options), code('RESTORE_PENDING_CONFLICT', 'RESTORE_RECEIPT_INVALID'));
         }
         assert.deepEqual(f.raw, before); assert.equal(f.writes.length, count);
     });
@@ -729,7 +729,7 @@ bounded('ordinary successful distinct imports rotate latest recovery without gro
 
 bounded('restore confirmation UI never offers to bypass pending verification; explicit new import can be declined', async () => {
     const source = fs.readFileSync(require.resolve('../options.js'), 'utf8');
-    const start = source.indexOf('async function saveConfirmedRestore('), end = source.indexOf('async function createBeforeRestoreSafetyBackup', start);
+    const start = source.indexOf('function showPendingRestoreRecovery('), end = source.indexOf('async function createBeforeRestoreSafetyBackup', start);
     let prompts = 0, calls = [], proceed = false;
     const context = vm.createContext({ t: (_key, text) => text, confirm: () => { prompts++; return proceed; } });
     vm.runInContext(source.slice(start, end), context);
@@ -743,4 +743,45 @@ bounded('restore confirmation UI never offers to bypass pending verification; ex
     proceed = true; calls = [];
     assert.equal(await context.saveConfirmedRestore(manager, {}), true);
     assert.equal(calls.length, 2); assert.equal(calls[1].newRestoreOperation, true);
+});
+
+
+bounded('pending-conflict guidance distinguishes permanent safety block from same-file verification retry', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(require.resolve(`../_locales/${locale}/messages.json`), 'utf8'));
+        const f = fixture(seed({ schema: 2 }));
+        f.chrome.i18n = { getMessage: key => messages[key]?.message || '' };
+        await withGlobals(f, async () => {
+            const { storage, session } = await boot(f), restored = storage.cloneDefaultConfig();
+            await uncertainImport(f, storage, session, restored);
+            await session.local.set({ quote: 'Changed after uncertain import' });
+            await assert.rejects(storage.setAll(restored, restoreOptions), error => {
+                assert.equal(error.code, 'RESTORE_PENDING_CONFLICT');
+                assert.equal(error.canStartNewRestore, undefined);
+                assert.equal(error.message, messages.restorePendingConflict.message);
+                return true;
+            });
+        });
+    }
+});
+
+
+bounded('pending conflict recovery link keeps the captured workspace and does not navigate away from drafts', async () => {
+    const source = fs.readFileSync(require.resolve('../options.js'), 'utf8');
+    const start = source.indexOf('function showPendingRestoreRecovery('), end = source.indexOf('async function createBeforeRestoreSafetyBackup', start);
+    const { createDocument } = require('./helpers/task-dom-model');
+    const document = createDocument(), notice = document.createElement('section'), draft = document.createElement('input');
+    notice.id = 'restore-conflict-notice'; notice.hidden = true; draft.value = 'Unsaved synthetic form draft';
+    document.body.append(notice, draft);
+    const context = vm.createContext({ document, encodeURIComponent, t: (_key, fallback) => fallback });
+    vm.runInContext(source.slice(start, end), context);
+    const error = Object.assign(Error('Inspect both copies; no automatic unlock.'), { code: 'RESTORE_PENDING_CONFLICT' });
+    const manager = { workspace: { id: 'synthetic_workspace_42', requestedId: 'default' }, setAll: async () => { throw error; } };
+    await assert.rejects(context.saveConfirmedRestore(manager, {}), item => item === error);
+    assert.equal(notice.hidden, false); assert.equal(notice.children[0].textContent, error.message);
+    assert.equal(notice.children[1].href, 'recovery.html?workspace=synthetic_workspace_42');
+    assert.equal(notice.children[1].target, '_blank'); assert.equal(notice.children[1].rel, 'noopener');
+    assert.equal(draft.value, 'Unsaved synthetic form draft');
+    await assert.rejects(context.saveConfirmedRestore(manager, {}));
+    assert.equal(notice.children.length, 2, 'repeated failures replace the notice rather than append duplicate links');
 });

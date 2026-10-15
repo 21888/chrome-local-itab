@@ -115,7 +115,8 @@ test('actual Options import and confirmed storage replacement leave legacy categ
         const legacy = { links: [site('work')], categories: [{ name: 'One' }, { id: '', name: 'Two' }, { id: 'work', name: 'Work' }] };
         const importFile = data => context.importSettings({ name: 'fixture.json', size: 200, text: async () => JSON.stringify(data) });
         await importFile(legacy);
-        assert.equal(feedback.at(-1).status, 'success'); assert.equal(confirmations, 1); assert.equal(writes, 1);
+        assert.equal(feedback.at(-1).status, 'success'); assert.equal(confirmations, 1); assert.equal(writes, 2, 'atomic replacement plus verification receipt');
+        assert.equal(state[manager.restoreReceiptKey].status, 'verified');
         const baseline = copy(state.categories);
         assert.deepEqual(baseline.map(category => category.id), ['cat_import_1', 'cat_import_2', 'work']);
         const edited = baseline.map((category, index) => ({ ...category, name: index ? category.name : 'Edited after import' }));
