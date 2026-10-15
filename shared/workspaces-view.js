@@ -8,7 +8,9 @@
         Create: 'New workspace', CreateTitle: 'Create a workspace', Name: 'Workspace name', NameHint: '1–80 characters. Names can repeat; each workspace has its own identity.',
         CreateHelp: 'Starts with default settings and empty personal modules. Your existing workspaces stay unchanged.',
         Rename: 'Rename', RenameTitle: 'Rename workspace', Duplicate: 'Duplicate', DuplicateTitle: 'Duplicate workspace',
-        DuplicateHelp: 'Copies saved sites, layout, template and personal content. Unsaved drafts are not copied. A copied Focus timer starts ready, with no active session.',
+        DuplicateHelp: 'Copies saved sites, layout, template and personal content. Unsaved drafts are not copied. A copied Focus timer starts ready, with no active session. Retained recovery copies are kept; verified import operation records are not copied.',
+        DuplicateImportPending: 'This workspace has an unverified configuration import and cannot be duplicated yet. Its saved content and recovery copy are unchanged. Review the original import and retained copies first; a copy cannot bypass this protection.',
+        DuplicateImportInvalid: 'This workspace has an unsupported or invalid import record. No copy was created. Keep the original workspace and inspect its saved recovery copies; do not reset it to bypass this protection.',
         ClockChanged: 'The device clock moved backwards. This workspace was not moved to Trash. Review its Focus timer before trying again.',
         Delete: 'Move to Trash', DeleteTitle: 'Move workspace to Trash?', DeleteHelp: 'Saved content is kept in Trash until you restore it. Open tabs cannot save to a deleted workspace. Copy or export unsaved drafts before leaving those tabs. A running Focus timer is paused at deletion; restoring never starts it automatically.',
         Default: 'Default', DefaultHelp: 'Default keeps existing settings and cloud compatibility and cannot be deleted.',
@@ -49,9 +51,10 @@
             el.addEventListener('keydown', event => { if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault(); });
             el.addEventListener('click', event => { if (!el.disabled && !closed) action(event); }); return el;
         };
-        function inspectionLink(parent) {
+        function inspectionLink(parent, workspaceId) {
             const link = create('a', 'spaces-manage', t('InspectRecovery'), parent);
-            link.href = root.chrome?.runtime?.getURL?.('recovery.html') || 'recovery.html';
+            const path = 'recovery.html' + (workspaceId ? '?workspace=' + encodeURIComponent(workspaceId) : '');
+            link.href = root.chrome?.runtime?.getURL?.(path) || path;
             link.target = '_blank'; link.rel = 'noopener'; return link;
         }
         const bar = switcher || create('div', 'workspace-bar', undefined, managerHost);
@@ -282,6 +285,7 @@
             const input = create('input', 'spaces-name-input', undefined, label); input.type = 'text'; input.maxLength = 120; input.value = kind === 'rename' ? item.name : ''; input.autocomplete = 'off';
             const hint = create('p', 'spaces-help', t('NameHint'), d.panel); hint.id = `spaces-name-hint-${dialogNumber}`; input.setAttribute('aria-describedby', hint.id);
             const error = create('p', 'spaces-status', '', d.panel); error.setAttribute('role', 'status');
+            const inspect = kind === 'duplicate' ? inspectionLink(d.panel, item.id) : null; if (inspect) inspect.hidden = true;
             const actions = create('div', 'spaces-actions', undefined, d.panel);
             const cancel = button('Cancel', () => d.close(), actions);
             const submit = button({create:'Create',rename:'Rename',duplicate:'Duplicate'}[kind], save, actions, 'spaces-primary');
@@ -294,7 +298,9 @@
                     await (kind === 'create' ? manager.create(name) : kind === 'rename' ? manager.rename(item.id,name) : manager.duplicate(item.id,name));
                     if (!d.valid()) return;
                     d.executing = false; d.close(); setStatus({create:'Created',rename:'Renamed',duplicate:'Duplicated'}[kind]); await refresh();
-                } catch (_) { if (d.valid()) { error.textContent = t('Error'); await refresh(); } }
+                } catch (failure) { if (d.valid()) { const blocked = ['WORKSPACE_IMPORT_PENDING', 'WORKSPACE_IMPORT_RECEIPT_INVALID'].includes(failure?.code);
+                    error.textContent = t(failure?.code === 'WORKSPACE_IMPORT_PENDING' ? 'DuplicateImportPending' : failure?.code === 'WORKSPACE_IMPORT_RECEIPT_INVALID' ? 'DuplicateImportInvalid' : 'Error');
+                    if (inspect) inspect.hidden = !blocked; await refresh(); } }
                 finally { busy = false; d.executing = false; input.disabled = submit.disabled = cancel.disabled = false; controls(); restoreOperationFocus(d); }
             }
             input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.repeat && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); save(); } });

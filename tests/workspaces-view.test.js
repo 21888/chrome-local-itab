@@ -196,3 +196,17 @@ test('external conflict resolution leaves an invalidated captured tab unavailabl
  assert(m.switcher.querySelector('.spaces-switch').disabled);assert(m.find('New workspace').disabled);assert.equal(m.document.activeElement===draft,true);assert.equal(draft.value,'NEWER UNSAVED DRAFT');
  assert(!m.calls.some(c=>['select','navigate','save','resume-auto','resume'].includes(c[0])));
 });
+
+for (const locale of ['en', 'zh_CN']) for (const code of ['WORKSPACE_IMPORT_PENDING', 'WORKSPACE_IMPORT_RECEIPT_INVALID']) test(`duplicate import guard keeps name draft and offers scoped inspection (${locale}/${code})`, async () => {
+ const m=model({locale});await m.view.ready;
+ m.manager.duplicate=async()=>{throw Object.assign(Error('private internal details'),{code});};
+ m.managerHost.querySelector('[data-workspace-id="work"][data-workspace-action="duplicate"]').dispatch('click');m.input().value='Keep this name';
+ const submit=m.dialog().querySelectorAll('button').find(button=>button.textContent=== (locale==='en'?'Duplicate':'复制'));
+ assert(submit);submit.dispatch('click');await tick();
+ assert(m.dialog());assert.equal(m.input().value,'Keep this name');assert(!m.input().disabled);
+ const notice=m.dialog().querySelector('.spaces-status').textContent;
+ assert(!notice.includes('private internal details'));
+ assert(notice.includes(locale==='en'?(code==='WORKSPACE_IMPORT_PENDING'?'unverified configuration import':'unsupported or invalid import record'):(code==='WORKSPACE_IMPORT_PENDING'?'配置导入尚未核验':'导入记录不受支持或无效')));
+ const link=m.dialog().querySelector('a');assert(!link.hidden);assert.equal(link.href,'chrome-extension://unit/recovery.html?workspace=work');assert.equal(link.target,'_blank');assert.equal(link.rel,'noopener');
+ const cancel=m.dialog().querySelectorAll('button').find(button=>button.textContent===(locale==='en'?'Cancel':'取消'));cancel.dispatch('click');assert(!m.dialog());assert(!m.calls.some(call=>call[0]==='navigate'));
+});

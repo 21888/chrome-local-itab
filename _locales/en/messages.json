@@ -2419,7 +2419,7 @@
     "message": "Duplicate workspace"
   },
   "spacesDuplicateHelp": {
-    "message": "Copies saved sites, layout, template and personal content. Unsaved drafts are not copied. A copied Focus timer starts ready, with no active session."
+    "message": "Copies saved sites, layout, template and personal content. Unsaved drafts are not copied. A copied Focus timer starts ready, with no active session. Retained recovery copies are kept; verified import operation records are not copied."
   },
   "spacesDelete": {
     "message": "Move to Trash"
@@ -6775,5 +6775,11 @@
   },
   "recoveryWarningHistorical": {
     "message": "The retained pre-replacement workspace snapshot could not be validated. Its records are not attributed or shown; other sources remain available."
+  },
+  "spacesDuplicateImportPending": {
+    "message": "This workspace has an unverified configuration import and cannot be duplicated yet. Its saved content and recovery copy are unchanged. Review the original import and retained copies first; a copy cannot bypass this protection."
+  },
+  "spacesDuplicateImportInvalid": {
+    "message": "This workspace has an unsupported or invalid import record. No copy was created. Keep the original workspace and inspect its saved recovery copies; do not reset it to bypass this protection."
   }
 }

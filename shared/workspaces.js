@@ -453,7 +453,21 @@
             return this.transaction(async registry => {
                 check(registry.workspaces.length < 100, 'CAPACITY');
                 const source = registry.workspaces.find(entry => entry.id === id && entry.deletedAt === null); check(source, 'NOT_FOUND');
-                const values = await this.readBundle(source); await this.validateBundle(values); this.resetTimer(values);
+                const values = await this.readBundle(source); await this.validateBundle(values);
+                const receiptKey = '__localItabRestoreReceiptV1';
+                if (own(values, receiptKey)) {
+                    // Operation identity belongs to the source workspace. Never
+                    // duplicate unresolved protection or silently waive it.
+                    const validator = typeof module === 'object' && module.exports ? require('../storage.js').prototype : root.StorageManager?.prototype;
+                    check(typeof validator?.validateRestoreReceipt === 'function', 'VALIDATOR_UNAVAILABLE');
+                    try { validator.validateRestoreReceipt.call({ restoreReceiptError: () => fault('IMPORT_RECEIPT_INVALID') }, values[receiptKey]); }
+                    catch (_) { throw fault('IMPORT_RECEIPT_INVALID'); }
+                    check(values[receiptKey].status === 'verified', 'IMPORT_PENDING');
+                    delete values[receiptKey];
+                }
+                // readBundle returned a detached copy. Retain its exact recovery
+                // objects; neither the source receipt nor source content changes.
+                this.resetTimer(values);
                 const now = this.now(), entry = { id: this.id(), generation: this.id(), name: next, order: Math.max(...registry.workspaces.map(entry => entry.order)) + 1, createdAt: now, updatedAt: now, deletedAt: null };
                 check(!registry.workspaces.some(item => item.id === entry.id), 'CONFLICT');
                 await this.writeBundle(entry, values); registry.workspaces.push(entry); registry.revision++; await this.commit(registry); return copy(entry);

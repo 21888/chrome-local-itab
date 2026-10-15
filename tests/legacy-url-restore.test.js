@@ -854,3 +854,114 @@ bounded('read-only inspection discovers a replaced workspace only through the fi
         assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes); assertNoProvider(f);
     });
 });
+
+for (const changed of [false, true]) bounded(`duplicate refuses source pending import without creating another workspace; changed=${changed}`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await boot(f), incoming = b.storage.cloneDefaultConfig();
+        await uncertainImport(f, b.storage, b.session, incoming);
+        if (changed) await b.session.local.set({ quote: 'Changed after pending import' });
+        const before = clone(f.raw), writes = f.writes.length;
+        await assert.rejects(b.manager.duplicate('default', 'Must not appear'), code('WORKSPACE_IMPORT_PENDING'));
+        assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes); assertNoProvider(f);
+        const reopened = f.manager(); await reopened.ready();
+        await assert.rejects(reopened.duplicate('default', 'Still blocked'), code('WORKSPACE_IMPORT_PENDING'));
+        assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes);
+    });
+});
+
+for (const corrupt of [null, {}, { version: 2, status: 'verified', request: 'a'.repeat(64), target: 'b'.repeat(64), recovery: 'c'.repeat(64) },
+    { version: 1, status: 'unknown-future', request: 'a'.repeat(64), target: 'b'.repeat(64), recovery: 'c'.repeat(64) },
+    { version: 1, status: 'verified', request: 'bad', target: 'b'.repeat(64), recovery: 'c'.repeat(64) },
+    { version: 1, status: 'verified', request: 'a'.repeat(64), target: 'b'.repeat(64), recovery: 'c'.repeat(64), extra: true }]) bounded(`duplicate refuses unsupported import operation identity: ${JSON.stringify(corrupt)}`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await boot(f); await b.session.local.set({ [b.storage.restoreReceiptKey]: corrupt });
+        const before = clone(f.raw), writes = f.writes.length;
+        await assert.rejects(b.manager.duplicate('default', 'Must not appear'), code('WORKSPACE_IMPORT_RECEIPT_INVALID'));
+        assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes); assertNoProvider(f);
+    });
+});
+
+for (const changed of [false, true]) bounded(`verified duplicate preserves evidence but starts a separate import history; changed=${changed}`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await boot(f), incoming = b.storage.cloneDefaultConfig(); incoming.quote = 'Imported source';
+        const old = await b.storage.makeRecovery(seed({ schema: 2 }), 'beforeRestore');
+        old.previousRecovery = await b.storage.makeRecovery(seed({ schema: 1, label: 'Ancestor' }), 'beforeRestore');
+        await b.session.local.set({ [b.storage.restoreRecoveryKey]: old });
+        await b.storage.setAll(incoming, restoreOptions);
+        if (changed) await b.session.local.set({ quote: 'Latest saved edit' });
+        const source = clone(values(f));
+        const entry = await b.manager.duplicate('default', 'Independent duplicate');
+        const cloned = clone(values(f, entry.id));
+        assert.equal(Object.hasOwn(cloned, b.storage.restoreReceiptKey), false);
+        assert.deepEqual(cloned[b.storage.restoreRecoveryKey], source[b.storage.restoreRecoveryKey]);
+        for (const key of Workspaces.CONFIG_KEYS) assert.deepEqual(cloned[key], source[key]);
+        assert.deepEqual(values(f), source, 'source values and operation identity remain exact');
+        const session = b.manager.capture(entry.id); await session.ready(); const storage = storageFor(f, session);
+        assert.equal(await storage.setAll(incoming, restoreOptions), true);
+        assert.equal((await storage.getRecoveryBackup()).data.quote, cloned.quote, 'first import backs up destination current state');
+        assert.equal(values(f, entry.id)[storage.restoreReceiptKey].status, 'verified');
+        assert.deepEqual(values(f), source); assertNoProvider(f);
+    });
+});
+
+bounded('duplicate checks source operation after acquiring lifecycle lock, not from an earlier UI list', async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await boot(f); let release, entered;
+        const gate = new Promise(resolve => { release = resolve; }), ready = new Promise(resolve => { entered = resolve; });
+        const receipt = { version: 1, status: 'pending', request: 'a'.repeat(64), target: 'b'.repeat(64), recovery: 'c'.repeat(64) };
+        const write = b.session.withLock(async () => { entered(); await gate; await b.session.lockedLocal.set({ [b.storage.restoreReceiptKey]: receipt }); });
+        await ready;
+        const duplicate = b.manager.duplicate('default', 'Queued duplicate');
+        release(); await write; const writes = f.writes.length, before = clone(f.raw);
+        await assert.rejects(duplicate, code('WORKSPACE_IMPORT_PENDING'));
+        assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes); assertNoProvider(f);
+    });
+});
+
+bounded('production Duplicate dialog rejects pending source before creation and leaves the user draft open', async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await boot(f), incoming = b.storage.cloneDefaultConfig(); await uncertainImport(f, b.storage, b.session, incoming);
+        const { createDocument } = require('./helpers/task-dom-model'), document = createDocument({ blurUnavailableFocus: true }), create = document.createElement;
+        document.createElement = tag => { const node = create(tag); node.removeAttribute = name => { delete node.attributes[name]; }; return node; };
+        const switcher = document.createElement('section'), host = document.createElement('section'); document.body.append(switcher, host);
+        const window = { document, location: { href: 'chrome-extension://unit/newtab.html' }, chrome: { runtime: { getURL: p => 'chrome-extension://unit/' + p } } };
+        vm.runInNewContext(fs.readFileSync(require.resolve('../shared/dialog-focus.js'), 'utf8'), { window });
+        vm.runInNewContext(fs.readFileSync(require.resolve('../shared/workspaces-view.js'), 'utf8'), { window, URL, Blob, setTimeout });
+        const view = window.LocalItabWorkspacesView.mount({ switcher, managerHost: host, manager: b.manager, session: b.session, lifecycle: { hasUncommittedWork: () => false }, navigate: () => assert.fail('No navigation') });
+        await view.ready;
+        host.querySelector('[data-workspace-id="default"][data-workspace-action="duplicate"]').dispatch('click');
+        const dialog = document.querySelector('.spaces-dialog'), input = document.querySelector('.spaces-name-input'); input.value = 'Keep this duplicate draft';
+        const before = clone(f.raw), writes = f.writes.length;
+        dialog.querySelectorAll('button').find(button => button.textContent === 'Duplicate').dispatch('click');
+        for (let n = 0; n < 100 && input.disabled; n++) await new Promise(resolve => setTimeout(resolve, 2));
+        assert.equal(input.disabled, false); assert.equal(input.value, 'Keep this duplicate draft'); assert(dialog.isConnected);
+        assert(dialog.querySelector('.spaces-status').textContent.includes('unverified configuration import'));
+        assert.equal(dialog.querySelector('a').href, 'chrome-extension://unit/recovery.html?workspace=default');
+        assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes); assertNoProvider(f);
+    });
+});
+
+for (const phase of ['rejected-write', 'committed-readback-failure']) bounded(`failed verified duplication never changes source evidence: ${phase}`, async () => {
+    const f = fixture(seed({ schema: 2 }));
+    await withGlobals(f, async () => {
+        const b = await boot(f); await b.storage.setAll(b.storage.cloneDefaultConfig(), restoreOptions);
+        const original = clone(values(f)), registry = clone(f.raw[Workspaces.REGISTRY_KEY]); let createdKey;
+        f.hooks.set = (written, raw, apply) => {
+            const key = Object.keys(written).find(key => key.startsWith(Workspaces.PREFIX) && !Object.hasOwn(raw, key));
+            if (!key) return DEFER;
+            if (phase === 'rejected-write') throw Error('QUOTA_EXCEEDED synthetic');
+            createdKey = key; apply(written); return undefined;
+        };
+        f.hooks.get = keys => { if (createdKey && keys?.includes(createdKey)) throw Error('Synthetic readback unavailable'); return DEFER; };
+        await assert.rejects(b.manager.duplicate('default', 'Not confirmed'));
+        f.hooks.get = f.hooks.set = null;
+        assert.deepEqual(values(f), original); assert.deepEqual(f.raw[Workspaces.REGISTRY_KEY], registry);
+        if (createdKey) { assert(!Object.hasOwn(f.raw[createdKey].values, b.storage.restoreReceiptKey)); assert.deepEqual(f.raw[createdKey].values[b.storage.restoreRecoveryKey], original[b.storage.restoreRecoveryKey]); }
+        assertNoProvider(f);
+    });
+});
