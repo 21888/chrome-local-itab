@@ -110,3 +110,23 @@ synthetic data, including both interface languages, UTC/positive/negative offset
 cross-date conversion, spring/fall DST, equivalent instant encodings, formatter
 failure and clearing on close/reselection. These are DOM-model checks, not new
 native-browser or real-account verification.
+
+## Return to the Claude settings section
+
+The existing **Back to settings and clear this snapshot** link goes to the fixed
+local destination `options.html#claude-usage-settings`. The existing Settings tab
+router activates Privacy and positions the Claude experiment section. This link
+does not restore the previous page's search, scroll position, or browser-history
+context. Opening Settings or the experiment still does not enable a read.
+
+The link's existing click cleanup remains synchronous: active controller state
+and rendered results are cleared before normal link navigation. Close, pagehide,
+and unload retain their existing cleanup; late permission/organization/usage
+responses cannot repopulate results or start a subsequent read stage. An already
+issued read is not aborted by returning; its existing completion/timeout bounds
+still apply, as described above.
+
+`node --test tests/claude-usage-return.test.js` checks the actual Settings router,
+newer tab/hash/target cancellation of delayed positioning, and the actual
+experiment renderer/controller with synthetic pending completions. These are
+DOM-model regressions, not native-browser navigation or live-account evidence.
