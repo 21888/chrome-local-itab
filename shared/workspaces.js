@@ -11,6 +11,7 @@
     }
 })(typeof window === 'undefined' ? globalThis : window, function (root) {
     'use strict';
+    const closureCodec = () => typeof module === 'object' && module.exports ? require('./import-closure.js') : root.LocalItabImportClosure;
     const IMPORT_CLOSURE_KEY = '__localItabImportClosureV1';
     const REGISTRY_KEY = '__localItabWorkspaceRegistryV1';
     const ACTIVATION_KEY = '__localItabWorkspaceActivationV1';
@@ -300,9 +301,11 @@
                 return { recovered: true, reloadRequired: true };
             }));
         }
-        async verifiedSet(values) {
+        async verifiedSet(values, beforeSubmit = null) {
             check(!own(values, IMPORT_CLOSURE_KEY), 'BOUNDARY');
-            try { check((await this.chrome.storage.local.set(copy(values))) !== false, 'WRITE'); }
+            const detached = copy(values);
+            if (beforeSubmit) await beforeSubmit();
+            try { check((await this.chrome.storage.local.set(detached)) !== false, 'WRITE'); }
             catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('WRITE'); }
             const readback = await this.get(Object.keys(values));
             check(Object.keys(values).every(key => own(readback, key) && same(values[key], readback[key])), 'VERIFY');
@@ -406,10 +409,10 @@
             check(bundle && Object.keys(bundle).length === 4 && ['schemaVersion', 'id', 'generation', 'values'].every(key => own(bundle, key)) && bundle.schemaVersion === 1 && bundle.id === entry.id && bundle.generation === entry.generation, 'BUNDLE_MISSING');
             return validateValues(bundle.values);
         }
-        async writeBundle(entry, values, globals = {}) {
+        async writeBundle(entry, values, globals = {}, beforeSubmit = null) {
             await this.assertRestoreSettled();
             await this.validateBundle(values, globals);
-            await this.verifiedSet({ ...globals, [bundleKey(entry)]: { schemaVersion: 1, id: entry.id, generation: entry.generation, values: copy(values) } });
+            await this.verifiedSet({ ...globals, [bundleKey(entry)]: { schemaVersion: 1, id: entry.id, generation: entry.generation, values: copy(values) } }, beforeSubmit);
         }
         async readSnapshot(registry, keys = null) {
             const bundles = [];
@@ -433,7 +436,7 @@
                 return action(registry);
             });
         }
-        async commit(registry) { await this.assertRestoreSettled(); const checked = validateRegistry(registry); await this.verifiedSet({ [REGISTRY_KEY]: checked }); this._knownRegistry = copy(checked); return copy(checked); }
+        async commit(registry, beforeSubmit = null) { await this.assertRestoreSettled(); const checked = validateRegistry(registry); await this.verifiedSet({ [REGISTRY_KEY]: checked }, beforeSubmit); this._knownRegistry = copy(checked); return copy(checked); }
         async change(id, action, options) {
             return this.transaction(async registry => {
                 const entry = registry.workspaces.find(entry => entry.id === id); check(entry, 'NOT_FOUND');
@@ -450,6 +453,34 @@
             }, options);
         }
         async rename(id, label, options = {}) { const next = name(label); return this.change(id, entry => { check(entry.deletedAt === null, 'DELETED'); entry.name = next; }, options); }
+        async readImportClosure(registry, entry, receipt) {
+            const api = closureCodec(); if (!api) return null;
+            try {
+                const direct = api.copy(await this.chrome.storage.local.get([IMPORT_CLOSURE_KEY, bundleKey(entry)]), { bytes: 32 * 1024 * 1024, depth: 80, nodes: 300000 });
+                if (!own(direct, IMPORT_CLOSURE_KEY)) return null;
+                const original = api.copy(direct[bundleKey(entry)], { bytes: 32 * 1024 * 1024, depth: 80, nodes: 300000 });
+                check(original && original.schemaVersion === 1 && original.id === entry.id && original.generation === entry.generation && Object.keys(original).length === 4, 'IMPORT_PENDING');
+                check(api.same(original.values.__localItabRestoreReceiptV1, receipt), 'IMPORT_PENDING');
+                const saved = await api.validate(direct[IMPORT_CLOSURE_KEY]);
+                return api.matches(saved, { migrationId: registry.migrationId, workspaceId: entry.id, receipt }) ? saved : null;
+            } catch (_) { return null; }
+        }
+        async guardImportClosures(snapshot, closures) {
+            if (!closures?.length) return;
+            const api = closureCodec(); check(api, 'IMPORT_PENDING');
+            const sourceEntries = snapshot.bundles.map(bundle => snapshot.registry.workspaces.find(entry => entry.id === bundle.id));
+            check(sourceEntries.every(Boolean), 'IMPORT_PENDING');
+            const keys = [REGISTRY_KEY, ACTIVATION_KEY, IMPORT_CLOSURE_KEY, ...sourceEntries.map(bundleKey)];
+            const direct = api.copy(await this.chrome.storage.local.get(keys), { bytes: 32 * 1024 * 1024, depth: 80, nodes: 300000 });
+            const registry = validateRegistry(api.copy(direct[REGISTRY_KEY])); this.validateActivation(api.copy(direct[ACTIVATION_KEY]), registry);
+            check(same(registry, snapshot.registry), 'CONFLICT');
+            for (const bundle of snapshot.bundles) {
+                const entry = snapshot.registry.workspaces.find(item => item.id === bundle.id);
+                const original = api.copy(direct[bundleKey(entry)], { bytes: 32 * 1024 * 1024, depth: 80, nodes: 300000 });
+                check(original && original.schemaVersion === 1 && original.id === entry.id && original.generation === entry.generation && Object.keys(original).length === 4 && same(original.values, bundle.values), 'CONFLICT');
+            }
+            check(closures.every(item => api.same(direct[IMPORT_CLOSURE_KEY], item.envelope)), 'IMPORT_PENDING');
+        }
         async duplicate(id, label, options = {}) {
             const next = name(label);
             return this.transaction(async registry => {
@@ -457,6 +488,7 @@
                 const source = registry.workspaces.find(entry => entry.id === id && entry.deletedAt === null); check(source, 'NOT_FOUND');
                 const values = await this.readBundle(source); await this.validateBundle(values);
                 const receiptKey = '__localItabRestoreReceiptV1';
+                const originalValues = copy(values); let closure = null;
                 if (own(values, receiptKey)) {
                     // Operation identity belongs to the source workspace. Never
                     // duplicate unresolved protection or silently waive it.
@@ -464,7 +496,8 @@
                     check(typeof validator?.validateRestoreReceipt === 'function', 'VALIDATOR_UNAVAILABLE');
                     try { validator.validateRestoreReceipt.call({ restoreReceiptError: () => fault('IMPORT_RECEIPT_INVALID') }, values[receiptKey]); }
                     catch (_) { throw fault('IMPORT_RECEIPT_INVALID'); }
-                    check(values[receiptKey].status === 'verified', 'IMPORT_PENDING');
+                    if (values[receiptKey].status === 'pending') closure = await this.readImportClosure(registry, source, values[receiptKey]);
+                    check(values[receiptKey].status === 'verified' || closure, 'IMPORT_PENDING');
                     delete values[receiptKey];
                 }
                 // readBundle returned a detached copy. Retain its exact recovery
@@ -472,7 +505,9 @@
                 this.resetTimer(values);
                 const now = this.now(), entry = { id: this.id(), generation: this.id(), name: next, order: Math.max(...registry.workspaces.map(entry => entry.order)) + 1, createdAt: now, updatedAt: now, deletedAt: null };
                 check(!registry.workspaces.some(item => item.id === entry.id), 'CONFLICT');
-                await this.writeBundle(entry, values); registry.workspaces.push(entry); registry.revision++; await this.commit(registry); return copy(entry);
+                const sourceRegistry = copy(registry);
+                const beforeSubmit = closure ? () => this.guardImportClosures({ registry: sourceRegistry, bundles: [{ id: source.id, generation: source.generation, values: originalValues }] }, [{ envelope: closure }]) : null;
+                await this.writeBundle(entry, values, {}, beforeSubmit); registry.workspaces.push(entry); registry.revision++; await this.commit(registry, beforeSubmit); return copy(entry);
             }, options);
         }
         resetTimer(values) {
@@ -518,13 +553,13 @@
             const seen = new Set();
             for (const bundle of input.bundles) { object(bundle); const entry = incoming.workspaces.find(item => item.id === bundle.id); check(entry && bundle.generation === entry.generation && !seen.has(bundle.id)); seen.add(bundle.id); await this.validateBundle(bundle.values); }
             const prior = await this.readSnapshot(current);
-            await this.verifiedSet({ [RECOVERY_KEY]: { schemaVersion: 1, createdAt: this.now(), snapshot: prior } });
+            await this.verifiedSet({ [RECOVERY_KEY]: { schemaVersion: 1, createdAt: this.now(), snapshot: prior } }, options.beforeSubmit);
             for (const entry of incoming.workspaces) {
                 const values = copy(input.bundles.find(bundle => bundle.id === entry.id).values);
                 const previous = current.workspaces.find(item => item.id === entry.id);
                 const previousValues = prior.bundles.find(bundle => bundle.id === entry.id)?.values;
                 if (previous && previous.deletedAt === entry.deletedAt && same(previousValues, values)) entry.generation = previous.generation;
-                else { entry.generation = this.id(); entry.updatedAt = this.now(); await this.writeBundle(entry, values); }
+                else { entry.generation = this.id(); entry.updatedAt = this.now(); await this.writeBundle(entry, values, {}, options.beforeSubmit); }
             }
             incoming.migrationId = current.migrationId; incoming.revision = current.revision + 1;
             check(same(await this.readSnapshot(await this.registry()), prior), 'CONFLICT');
@@ -537,7 +572,7 @@
                 if (globals.sync?.enabled) await this.verifiedSet({ __localItabSyncIdentityState: {
                     ...(globals.__localItabSyncIdentityState || {}),
                     blocked: { kind: 'restore', reason: 'Default workspace was restored locally. Review compatible cloud data before resuming Sync.' }
-                } });
+                } }, options.beforeSubmit);
                 // A canceled or uncertain restore may leave Sync safely paused,
                 // never activate unchecked data or resume an old cloud copy.
                 check(same(await this.readSnapshot(await this.registry()), prior), 'CONFLICT');
@@ -564,17 +599,17 @@
                 // Prepared/submitted fences block every cooperating writer, even
                 // after reload. No browser-crash atomicity is assumed.
                 try {
-                await this.verifiedSet({ [RESTORE_TRANSACTION_KEY]: marker });
+                await this.verifiedSet({ [RESTORE_TRANSACTION_KEY]: marker }, options.beforeSubmit);
                 const authoritative = await this.get(Object.keys(priorAuthority));
                 check(same(authoritative[REGISTRY_KEY], current) && replacements.every(item => same(authoritative[item.api.KEY] === undefined ? item.api.initial() : authoritative[item.api.KEY], item.prior)), 'CONFLICT');
                 check(same(await this.readSnapshot(current), prior), 'CONFLICT');
                 check(!options.isCurrent || options.isCurrent(), 'CANCELED');
-                await this.verifiedSet({ ...marker.next, [RESTORE_TRANSACTION_KEY]: { ...marker, status: 'submitted' } });
+                await this.verifiedSet({ ...marker.next, [RESTORE_TRANSACTION_KEY]: { ...marker, status: 'submitted' } }, options.beforeSubmit);
                 await this.verifiedSet({ [RESTORE_TRANSACTION_KEY]: { ...marker, status: 'verified' } });
                 this._knownRegistry = copy(incoming); return copy(incoming);
                 } catch (error) { error.pendingRestore = true; throw error; }
             }
-            return this.commit(incoming);
+            return this.commit(incoming, options.beforeSubmit);
         }
     }
     class Session {
@@ -682,7 +717,7 @@
             await this.assertActive();
             return result;
         }
-        async set(input) {
+        async set(input, beforeSubmit = null) {
             await this.manager.assertRestoreSettled();
             const values = object(copy(input)), keys = Object.keys(values); check(keys.every(key => scoped(key) || GLOBAL_KEYS.includes(key)), 'BOUNDARY');
             const entry = await this.assertActive(), scopedValues = Object.fromEntries(Object.entries(values).filter(([key]) => scoped(key)));
@@ -693,8 +728,8 @@
                 // fail a separate provider/privacy write. Submit and verify the
                 // complete local update together, including its recovery copy.
                 const before = await this.manager.readBundle(entry);
-                await this.manager.writeBundle(entry, { ...before, ...scopedValues }, globals);
-            } else if (Object.keys(globals).length) await this.manager.verifiedSet(globals);
+                await this.manager.writeBundle(entry, { ...before, ...scopedValues }, globals, beforeSubmit);
+            } else if (Object.keys(globals).length) await this.manager.verifiedSet(globals, beforeSubmit);
         }
         async remove(keys) {
             await this.manager.assertRestoreSettled();

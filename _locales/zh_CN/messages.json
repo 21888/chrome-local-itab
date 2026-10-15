@@ -962,7 +962,7 @@
     "message": "这会移除有冲突的云端副本并保留本机数据。必须先将可读取的云端副本保存到本机，以便恢复。其他设备仍可能再次上传。继续吗？"
   },
   "layoutRecoveryDescription": {
-    "message": "在为重复网址启用独立位置前，以及最近一次替换设置前，会保留本机恢复副本。重置也会删除这些副本，请先下载。可通过“导入设置”恢复已下载的副本。"
+    "message": "在为重复网址启用独立位置前，以及最近一次替换设置前，会保留本机恢复副本。重置也会删除这些副本，请先下载。可通过“导入设置”恢复已下载的副本。 受保护的本地导入证据会保留，唯一归档名额不会释放。"
   },
   "layoutRecoveryOriginal": {
     "message": "下载升级前备份"
@@ -2554,10 +2554,10 @@
     "message": "云端备份仅用于默认工作区。请打开默认工作区的设置以管理或还原云端备份。"
   },
   "spacesResetConfirm": {
-    "message": "将此工作区的网站、布局和设置恢复默认？任务、笔记、倒计时、专注计时器以及共用的隐私和云端偏好会保留。此操作无法撤销；如需保留副本，请先导出备份。"
+    "message": "将此工作区的网站、布局和设置恢复默认？任务、笔记、倒计时、专注计时器以及共用的隐私和云端偏好会保留。此操作无法撤销；如需保留副本，请先导出备份。 受保护的本地导入证据会保留，唯一归档名额不会释放。"
   },
   "spacesResetScope": {
-    "message": "恢复默认仅影响此工作区的设置。个人模块及共用的设备偏好会保留。"
+    "message": "恢复默认仅影响此工作区的设置。个人模块及共用的设备偏好会保留。 受保护的本地导入证据会保留，唯一归档名额不会释放。"
   },
   "completeBackupWorkspaceHelp": {
     "message": "导出包含所有现有工作区及回收站中可恢复的工作区。不包含设备隐私、同步服务设置、凭据和更新偏好。"
@@ -6702,7 +6702,7 @@
     "message": "无法核验保留的导入记录。未提交新的替换，请检查恢复副本。"
   },
   "restorePendingConflict": {
-    "message": "前次导入尚未核验，当前设置或恢复副本已发生变化。已停止导入，当前内容和保留的恢复副本均未被替换。请先导出当前配置，再打开恢复页检查并导出早先的副本。重开设置或反复导入不会解除此冲突；本版本没有自动解除功能。"
+    "message": "此次待核验导入已不再匹配当前保存状态。可检查本地副本，或单独查看原始恢复副本是否满足保留当前设置决定的条件。未自动更改或解锁任何内容。"
   },
   "recoveryContextAll": {
     "message": "正在显示所有工作区的本地副本，包括归属不明的记录。不会自动选中任何副本。"
@@ -6889,5 +6889,191 @@
   },
   "recoveryImportCurrentRecovery": {
     "message": "本次计算的完整恢复对象指纹"
+  },
+  "importClosureTitle": {
+    "message": "结束未核验的导入"
+  },
+  "importClosureIntro": {
+    "message": "如果待核验导入已不再匹配，可查看能否保留当前已保存的设置，并明确结束该未核验导入。此操作不会保存未提交的草稿、找回缺失数据或核验旧导入。"
+  },
+  "importClosureCapacity": {
+    "message": "整个安装环境的所有工作区共用一个冲突归档名额。决定及其原始证据只保存在本设备。以后出现的其他冲突可能仍会被阻止。重置会保留此归档，不会释放名额。"
+  },
+  "importClosureReview": {
+    "message": "查看保留当前设置的决定"
+  },
+  "importClosureRecheck": {
+    "message": "重新检查已记录的决定（只读）"
+  },
+  "importClosureReading": {
+    "message": "正在检查此工作区及唯一归档名额…"
+  },
+  "importClosureReady": {
+    "message": "请查看下面的已保存工作区。此决定不会更改已保存的设置或打开的草稿。"
+  },
+  "importClosureNormalVerification": {
+    "message": "当前已保存的指纹匹配。请使用原文件进入正常核验流程。仅指纹匹配不能证明数据可恢复。"
+  },
+  "importClosureRecoveryUnavailable": {
+    "message": "无法确认完整的原始恢复副本，因此不能在此结束该导入。可只读检查本地副本。"
+  },
+  "importClosureNoPending": {
+    "message": "此工作区没有符合条件的待核验导入。未记录任何决定。"
+  },
+  "importClosureOccupied": {
+    "message": "整个安装环境的归档名额已被另一项决定占用，无法再归档其他冲突。重置不会释放该名额。"
+  },
+  "importClosureInvalid": {
+    "message": "归档名额已被占用，但无法验证其记录。记录会保留，不能授权任何导入。"
+  },
+  "importClosureUnsupported": {
+    "message": "归档名额使用不支持的版本。记录会保留，不能授权任何导入。"
+  },
+  "importClosureAlreadyClosed": {
+    "message": "该次导入已有保留当前设置的决定。原始回执仍记录为待核验，未写入第二份归档。"
+  },
+  "importClosureHistoryOnly": {
+    "message": "该次导入已在之前结束。归档只保留当时已保存的快照，后续更改未加入其中。未写入第二份归档。"
+  },
+  "importClosureRecorded": {
+    "message": "已记录保留当前设置的决定。原始回执仍为待核验；旧导入并未通过核验，也未开始新的导入。"
+  },
+  "importClosureLiveChanged": {
+    "message": "决定已记录，但之后实时保存状态发生了更改。归档仍是历史证据。请重新检查或查看本地副本后再继续。"
+  },
+  "importClosureUncertain": {
+    "message": "无法确认决定是否记录成功。请勿重复确认；请使用只读的“重新检查已记录的决定”。"
+  },
+  "importClosureEmpty": {
+    "message": "本次读取未确认存在已记录的决定。再次尝试前，必须重新查看并明确确认。"
+  },
+  "importClosureFailed": {
+    "message": "本次查看已失效，或无法安全检查来源，尚未确认任何成功记录的决定。请重新检查已保存的证据，或重新查看。"
+  },
+  "importClosureReviewTitle": {
+    "message": "确认此已保存状态的决定"
+  },
+  "importClosureWorkspace": {
+    "message": "工作区"
+  },
+  "importClosureWorkspaceId": {
+    "message": "工作区 ID"
+  },
+  "importClosureArchiveSize": {
+    "message": "本地归档大小（字节）"
+  },
+  "importClosureConfirmHelp": {
+    "message": "确认后，当前已保存配置及完整原始恢复副本将保留在唯一的本地归档名额中。原始导入回执仍为待核验。打开的草稿会保留且不包含在归档中。此决定不会开始另一次导入或恢复同步。"
+  },
+  "importClosureConfirm": {
+    "message": "保留已保存的设置并结束此次未核验导入"
+  },
+  "importClosureCancel": {
+    "message": "取消查看"
+  },
+  "importClosureCancelled": {
+    "message": "已取消查看，未提交任何决定。"
+  },
+  "importClosureRecheckedActive": {
+    "message": "已确认存在适用于该次导入的有效保留当前设置决定。快照是历史记录，未追加后续修改。原始回执仍记录为待核验。"
+  },
+  "importClosureRecheckedHistorical": {
+    "message": "安装环境的唯一名额中已记录一项有效的历史决定。它不能授权另一项当前导入。"
+  },
+  "restoreClosedReconfirm": {
+    "message": "之前未核验的导入已通过保留已保存设置的决定明确结束。要将所选文件作为一次独立的新导入吗？这会替换当前已保存的设置，并将它们保留为最新恢复副本。唯一名额中的历史归档保持不变，后续其他冲突不能再归档。"
+  },
+  "recoveryClosureTitle": {
+    "message": "已记录的保留当前设置决定 · 此安装环境"
+  },
+  "recoveryClosureIntro": {
+    "message": "此唯一的本地归档独立于当前工作区注册表及筛选条件进行检查，保留明确结束一次未核验导入的历史决定证据。"
+  },
+  "recoveryClosureAbsent": {
+    "message": "本次读取未找到归档。这不能证明此前从未作出过决定。"
+  },
+  "recoveryClosureValid": {
+    "message": "归档已通过完整性检查。这不能核验旧导入，也不能证明其中任一副本可恢复。"
+  },
+  "recoveryClosureInvalid": {
+    "message": "归档名额已被占用，但记录无效。证据会保留，不能授权结束或开始任何导入。"
+  },
+  "recoveryClosureUnsupported": {
+    "message": "归档名额已被不支持的版本占用。证据会保留，不能授权任何导入。"
+  },
+  "recoveryClosureUnavailable": {
+    "message": "无法可靠检查归档，不能据此推断检查成功。"
+  },
+  "recoveryClosureAction": {
+    "message": "已记录的决定"
+  },
+  "recoveryClosureKeepCurrent": {
+    "message": "保留已保存的设置并结束未核验的导入"
+  },
+  "recoveryClosureTime": {
+    "message": "决定时间（本设备时间）"
+  },
+  "recoveryClosureArchiveId": {
+    "message": "归档指纹"
+  },
+  "recoveryClosureLineage": {
+    "message": "原始安装标识"
+  },
+  "recoveryClosureGeneration": {
+    "message": "作出决定时的工作区代次"
+  },
+  "recoveryClosureRelation": {
+    "message": "与当前导入的关系"
+  },
+  "recoveryClosureActive": {
+    "message": "原始的同一次待核验导入仍是当前记录，已有保留当前设置的决定"
+  },
+  "recoveryClosureDifferent": {
+    "message": "当前操作不同；此归档仅是历史证据，不会结束该操作"
+  },
+  "recoveryClosureAbsentOwner": {
+    "message": "当前未列出原始工作区；此归档仍是历史证据"
+  },
+  "recoveryClosureRelationUnknown": {
+    "message": "无法确认当前归属，不据此授予当前操作权限"
+  },
+  "recoveryClosureCapacity": {
+    "message": "整个安装环境共用一个归档名额。重置会保留此证据，不会释放名额。本页面不会记录、重试、删除或撤销决定。"
+  },
+  "recoveryClosureHistorical": {
+    "message": "决定时的历史证据"
+  },
+  "recoveryClosureHistoricalHelp": {
+    "message": "这些设置保存于作出决定之时，并非今天的已保存状态。后续编辑不会追加到此不可变归档。"
+  },
+  "recoverySourceClosureCurrent": {
+    "message": "保留当前设置决定时的已保存配置"
+  },
+  "recoverySourceClosureRecovery": {
+    "message": "保留当前设置决定所保留的原始恢复副本"
+  },
+  "recoveryAttributionClosure": {
+    "message": "归属于已验证的历史决定；不能证明当前仍属于工作区"
+  },
+  "recoveryImportExplicitlyEnded": {
+    "message": "回执仍为待核验；已通过保留当前设置的决定明确结束"
+  },
+  "recoveryImportClosedHelp": {
+    "message": "有效决定适用于该份完整回执，但不会将其标记为已核验、证明可恢复性或改变下方的当前状态比较。开始另一项导入需要在设置中另行确认。"
+  },
+  "recoveryWarningClosureInvalid": {
+    "message": "唯一的导入决定归档无效或版本不受支持。记录仍会保留，不能授权任何当前操作。"
+  },
+  "recoveryWarningClosureUnavailable": {
+    "message": "无法可靠检查唯一的导入决定归档，不能据此推断归档不存在或已通过核验。"
+  },
+  "importClosureExpired": {
+    "message": "本次查看已失效。继续前请重新检查已记录的证据，或重新查看。"
+  },
+  "importClosureArchivedOwner": {
+    "message": "归档工作区：$1（ID：$2）。"
+  },
+  "recoveryClosureCurrentInvestigation": {
+    "message": "此决定时保存的配置仅用于调查，并未作为支持的恢复文件格式保留。仅归档指纹匹配不能使其成为可导入文件。"
   }
 }

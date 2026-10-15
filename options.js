@@ -158,6 +158,7 @@ function queueSettingsWrite(operation) {
 }
 async function replaceSettings(operation) {
     if (settingsReplacementRunning) throw new Error('A settings replacement is already in progress.');
+    window.importClosureView?.cancel();
     settingsReplacementRunning = true;
     settingsReplacementPending = true;
     ++settingsSession;
@@ -364,6 +365,7 @@ function setupSettingsTabs() {
     let navigationVersion = 0;
     const activateTab = (tabId) => {
         if (!tabs.some(tab => tab.dataset.tab === tabId) || !panels.some(panel => panel.dataset.tab === tabId)) return false;
+        window.importClosureView?.cancel();
         navigationVersion++;
         tabs.forEach(btn => {
             const isActive = btn.dataset.tab === tabId;
@@ -646,6 +648,7 @@ async function initializeOptionsPage() {
         setupCategoryManagement(config.categories);
         setupBookmarkImport();
         setupCompleteBackup();
+        setupImportClosure(storageManager);
         const countdownHost = document.getElementById('local-countdown-settings');
         if (countdownHost && window.LocalItabCountdown && !window.localCountdownSettingsView) {
             window.localCountdownSettingsView = window.LocalItabCountdown.mountSettings(countdownHost);
@@ -989,7 +992,7 @@ function setupEventListeners() {
     const resetButton = document.getElementById('reset-settings');
     if (resetButton) {
         resetButton.addEventListener('click', async function() {
-            if (confirm(t('spacesResetConfirm', "Reset this workspace\u2019s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy."))) {
+            if (confirm(t('spacesResetConfirm', "Reset this workspace\u2019s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy. Protected local import evidence is kept and its one-slot capacity is not freed."))) {
                 await resetAllSettings();
             }
         });
@@ -1757,8 +1760,169 @@ async function refreshDriveBackupList(interactive = true) {
     });
 }
 
-// A second confirmation is only available after the previous import was
-// verified. Pending/unknown commits can never be bypassed by this UI.
+// This page owns review lifetime. Core retains exact source bytes and private
+// capabilities; this UI only renders allowlisted metadata, never saved content.
+function setupImportClosure(manager) {
+    const host = document.getElementById('import-closure-controls');
+    if (!host) return null;
+    if (window.importClosureView?.manager === manager) return window.importClosureView;
+    window.importClosureView?.destroy();
+    window.importClosureView = mountImportClosureControls(host, manager);
+    return window.importClosureView;
+}
+function mountImportClosureControls(host, manager) {
+    let epoch = 0, review = null, busy = false, closed = false;
+    const doc = host.ownerDocument;
+    const create = (tag, value, parent = host, className = '') => {
+        const node = doc.createElement(tag); if (value !== undefined) node.textContent = value;
+        if (className) node.className = className; parent.append(node); return node;
+    };
+    const copy = {
+        READY: ['importClosureReady', 'Review the saved workspace below. This decision leaves saved settings and open drafts unchanged.'],
+        NORMAL_VERIFICATION_REQUIRED: ['importClosureNormalVerification', 'The current saved fingerprints match. Use the original file for the normal verification flow. A match alone does not establish recoverability.'],
+        ORIGINAL_RECOVERY_UNAVAILABLE: ['importClosureRecoveryUnavailable', 'The complete original recovery could not be established. This import cannot be ended here. Inspect saved copies without changing them.'],
+        NO_PENDING_IMPORT: ['importClosureNoPending', 'No eligible pending import was found for this workspace. No decision was recorded.'],
+        SLOT_OCCUPIED: ['importClosureOccupied', 'The installation-wide archive slot is occupied by a different decision. Another conflict cannot be archived. Reset does not free this slot.'],
+        SLOT_INVALID: ['importClosureInvalid', 'The archive slot is occupied but could not be validated. It will be preserved and cannot authorize an import.'],
+        SLOT_UNSUPPORTED: ['importClosureUnsupported', 'The archive slot uses an unsupported version. It will be preserved and cannot authorize an import.'],
+        ALREADY_CLOSED: ['importClosureAlreadyClosed', 'This exact import already has a recorded keep-current decision. The original receipt still records pending. No second archive was written.'],
+        ALREADY_CLOSED_HISTORY_ONLY: ['importClosureHistoryOnly', 'This import was ended earlier. The archive contains the earlier saved snapshot; later changes have not been added to it. No second archive was written.'],
+        RECORDED: ['importClosureRecorded', 'The keep-current decision was recorded. The original receipt still records pending; the old import has not been verified. No new import was started.'],
+        RECORDED_LIVE_CHANGED: ['importClosureLiveChanged', 'The decision was recorded, but live saved state changed afterward. The archive remains historical. Recheck or inspect saved copies before continuing.'],
+        UNCERTAIN: ['importClosureUncertain', 'Recording could not be confirmed. Do not repeat confirmation. Use Recheck recorded decision, which only reads saved evidence.'],
+        EMPTY: ['importClosureEmpty', 'No recorded decision was established by this read. A new review and explicit confirmation are required before another attempt.'],
+        INVALID: ['importClosureInvalid', 'The archive slot is occupied but could not be validated. It will be preserved and cannot authorize an import.'],
+        UNSUPPORTED: ['importClosureUnsupported', 'The archive slot uses an unsupported version. It will be preserved and cannot authorize an import.'],
+        FAILED: ['importClosureFailed', 'This review is no longer usable or the source could not be checked safely. No successful decision was established. Recheck saved evidence or start a new review.']
+    };
+    const message = (code, error = false) => {
+        const selected = Object.hasOwn(copy, code) ? copy[code] : copy.FAILED;
+        status.textContent = t(...selected); status.dataset.tone = error ? 'error' : 'normal';
+    };
+    host.replaceChildren();
+    const heading = create('h3', t('importClosureTitle', 'End an unverified import')); heading.id = 'import-closure-title';
+    host.setAttribute('aria-labelledby', heading.id);
+    create('p', t('importClosureIntro', 'If a pending import no longer matches, you can review whether to keep the currently saved settings and explicitly end that unverified import. This does not save open drafts, recover missing data or verify the old import.'), host, 'form-hint');
+    create('p', t('importClosureCapacity', 'Only one conflict can be archived for this entire installation, across all workspaces. The decision and its original evidence stay on this device. A different later conflict may remain blocked. Reset keeps this archive and does not free the slot.'), host, 'form-hint');
+    const actions = create('div', undefined, host, 'data-actions');
+    const status = create('p', '', host, 'form-hint import-closure-status');
+    status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.setAttribute('aria-atomic', 'true'); status.tabIndex = -1;
+    const panel = create('section', undefined, host, 'import-closure-review'); panel.hidden = true;
+    function button(key, fallback, action, parent = actions) {
+        const node = create('button', t(key, fallback), parent, 'btn btn-secondary'); node.type = 'button';
+        node.addEventListener('keydown', event => { if (['Enter', ' ', 'Spacebar'].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault(); });
+        node.addEventListener('click', event => {
+            if (event.detail > 1 || event.repeat || node.disabled || !visible() || !node.getClientRects().length || busy) return;
+            void action();
+        });
+        return node;
+    }
+    const reviewButton = button('importClosureReview', 'Review keep-current decision', beginReview);
+    reviewButton.setAttribute('aria-expanded', 'false'); reviewButton.setAttribute('aria-controls', 'import-closure-review'); panel.id = 'import-closure-review';
+    const recheckButton = button('importClosureRecheck', 'Recheck recorded decision (read-only)', recheck);
+    const link = create('a', t('recoveryEntry', 'Inspect saved copies (read-only)'), actions);
+    const workspace = manager.workspace?.id || manager.workspace?.requestedId;
+    link.href = 'recovery.html' + (workspace ? '?workspace=' + encodeURIComponent(workspace) : ''); link.target = '_blank'; link.rel = 'noopener';
+    function visible() {
+        const tab = host.closest('.tab-panel');
+        return !closed && doc.visibilityState !== 'hidden' && host.isConnected && !host.closest('[hidden], [inert]') &&
+            (!tab || tab.classList.contains('active')) && host.getClientRects().length > 0;
+    }
+    function working(value) { busy = value; reviewButton.disabled = value; recheckButton.disabled = value; host.setAttribute('aria-busy', value ? 'true' : 'false'); }
+    function cancel(repairFocus = false) {
+        epoch++; const previous = review, wasActive = Boolean(review || busy); review = null;
+        try { manager.cancelImportClosure?.(previous); } catch (_) { /* UI retirement never writes. */ }
+        const contained = panel.contains(doc.activeElement); panel.hidden = true; panel.replaceChildren(); reviewButton.setAttribute('aria-expanded', 'false');
+        working(false);
+        if (wasActive) status.textContent = t('importClosureExpired', 'This review is no longer active. Recheck recorded evidence or start a new review before continuing.');
+        if (repairFocus && contained) reviewButton.focus();
+    }
+    const current = request => request === epoch && visible();
+    async function beginReview() {
+        cancel(); const request = epoch; working(true);
+        status.textContent = t('importClosureReading', 'Checking this workspace and the single archive slot…');
+        try {
+            if (typeof manager.reviewImportClosure !== 'function') throw {};
+            const next = await manager.reviewImportClosure({ isCurrent: () => current(request) });
+            if (!current(request)) { try { manager.cancelImportClosure?.(next); } catch (_) {} return; }
+            message(next?.status);
+            if (next?.eligible !== true || next.status !== 'READY') { manager.cancelImportClosure?.(next); return; }
+            if (!next.workspace || !['id', 'generation', 'migrationId'].every(key => typeof next.workspace[key] === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(next.workspace[key])) ||
+                !Number.isSafeInteger(next.bytes) || next.bytes < 0 || next.capacity !== 1) { manager.cancelImportClosure?.(next); message('FAILED', true); return; }
+            review = next;
+            const title = create('h4', t('importClosureReviewTitle', 'Confirm this saved-state decision'), panel); title.tabIndex = -1;
+            const facts = create('dl', undefined, panel, 'import-closure-facts');
+            const fact = (key, fallback, value) => { const pair = create('div', undefined, facts); create('dt', t(key, fallback), pair); create('dd', value, pair); };
+            if (typeof next.workspace.name === 'string' && next.workspace.name.length <= 160) fact('importClosureWorkspace', 'Workspace', next.workspace.name);
+            fact('importClosureWorkspaceId', 'Workspace ID', next.workspace.id);
+            fact('importClosureArchiveSize', 'Local archive size (bytes)', String(next.bytes));
+            create('p', t('importClosureConfirmHelp', 'Confirming preserves the currently saved configuration and complete original recovery in the one local slot. The original import receipt stays pending. Open drafts stay open and are not included. This choice does not start another import or resume Sync.'), panel, 'form-hint');
+            create('p', t('importClosureCapacity', 'Only one conflict can be archived for this entire installation, across all workspaces. The decision and its original evidence stay on this device. A different later conflict may remain blocked. Reset keeps this archive and does not free the slot.'), panel, 'form-hint');
+            const controls = create('div', undefined, panel, 'data-actions');
+            const confirmButton = button('importClosureConfirm', 'Keep saved settings and end this unverified import', () => commit(request, next, confirmButton), controls);
+            button('importClosureCancel', 'Cancel review', () => { cancel(true); status.textContent = t('importClosureCancelled', 'Review cancelled. No decision was submitted.'); }, controls);
+            panel.hidden = false; reviewButton.setAttribute('aria-expanded', 'true'); title.focus({ preventScroll: true });
+        } catch (error) {
+            if (current(request)) message(typeof error?.code === 'string' ? error.code.replace(/^IMPORT_CLOSURE_/, '') : 'FAILED', true);
+        } finally { if (request === epoch) working(false); }
+    }
+    async function commit(request, prepared, confirmButton) {
+        if (!current(request) || prepared !== review || panel.hidden) return;
+        working(true); confirmButton.disabled = true; status.focus();
+        // Hold this identity across the core's lock-time checks, but consume the
+        // UI button immediately. There is no automatic retry after uncertainty.
+        try {
+            const result = await manager.commitImportClosure(prepared, { confirmed: true,
+                isCurrent: () => current(request) && review === prepared && !panel.hidden });
+            if (!current(request)) return;
+            cancel(); message(result?.status, result?.status === 'UNCERTAIN'); status.focus();
+        } catch (error) {
+            if (!current(request)) return;
+            cancel(); message(typeof error?.code === 'string' ? error.code.replace(/^IMPORT_CLOSURE_/, '') : 'FAILED', true); status.focus();
+        } finally { if (request === epoch) working(false); }
+    }
+    async function recheck() {
+        cancel(); const request = epoch; working(true);
+        status.textContent = t('importClosureReading', 'Checking this workspace and the single archive slot…');
+        try {
+            const result = await manager.recheckImportClosure();
+            if (!current(request)) return;
+            if (result?.status === 'RECORDED') {
+                status.textContent = t(result.relation === 'active' ? 'importClosureRecheckedActive' : 'importClosureRecheckedHistorical',
+                    result.relation === 'active' ? 'A valid keep-current decision for this exact import is recorded. Its saved snapshot is historical; later edits have not been added. The original receipt still records pending.' : 'A valid decision is recorded in the installation-wide slot as historical evidence. It does not authorize a different current import.');
+                const owner = result.workspace;
+                if (owner && typeof owner.id === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(owner.id)) {
+                    const name = typeof owner.name === 'string' && owner.name.length <= 160 ? owner.name : owner.id;
+                    status.textContent += ' ' + t('importClosureArchivedOwner', 'Archived workspace: $1 (ID: $2).', [name, owner.id]);
+                }
+                status.dataset.tone = 'normal';
+            } else message(result?.status, ['INVALID', 'UNSUPPORTED'].includes(result?.status));
+        } catch (_) { if (current(request)) message('UNCERTAIN', true); }
+        finally { if (request === epoch) working(false); }
+    }
+    const visibility = () => { if (doc.visibilityState === 'hidden') cancel(); };
+    const pagehide = () => cancel();
+    // Observe the visibility-owning ancestry, not our own review descendants.
+    // A hide/show round trip must not revive an old confirmation capability.
+    const observer = typeof window.MutationObserver === 'function' ? new window.MutationObserver(records => { if (records.length > 0) cancel(); }) : null;
+    for (let node = host; observer && node; node = node.parentElement) observer.observe(node, { attributes: true, attributeFilter: ['hidden', 'inert', 'class', 'style'] });
+    doc.addEventListener('visibilitychange', visibility); window.addEventListener?.('pagehide', pagehide);
+    return { manager, cancel, openReview() {
+        if (closed || busy || doc.visibilityState === 'hidden') return;
+        const tab = host.closest('.tab-panel');
+        if (tab && !tab.classList.contains('active')) {
+            doc.querySelector('.tab-button[data-tab="data"]')?.click();
+            // The navigation already retired the previous review. Drain its
+            // queued ancestor records before creating a new review capability.
+            observer?.takeRecords();
+        }
+        const request = epoch;
+        Promise.resolve().then(() => { if (current(request) && !busy) { host.scrollIntoView?.({ behavior: 'instant', block: 'start' }); void beginReview(); } });
+    }, destroy() { cancel(); closed = true; observer?.disconnect(); doc.removeEventListener?.('visibilitychange', visibility); window.removeEventListener?.('pagehide', pagehide); } };
+}
+
+// A generic Boolean is valid only for a previously verified retry conflict.
+// An explicitly ended pending import needs a separate private capability.
 function showPendingRestoreRecovery(manager, error) {
     if (error.code !== 'RESTORE_PENDING_CONFLICT') return;
     const notice = document.getElementById('restore-conflict-notice');
@@ -1771,17 +1935,48 @@ function showPendingRestoreRecovery(manager, error) {
     link.textContent = t('recoveryEntry', 'Inspect saved copies (read-only)');
     // Open inspection separately: never reload/leave this page or clear drafts.
     notice.replaceChildren(message, link); notice.hidden = false;
+    const closure = typeof setupImportClosure === 'function' ? setupImportClosure(manager) : null;
+    if (closure) {
+        const reviewButton = document.createElement('button'); reviewButton.type = 'button'; reviewButton.className = 'btn btn-secondary';
+        reviewButton.textContent = t('importClosureReview', 'Review keep-current decision');
+        reviewButton.addEventListener('click', event => { if (reviewButton.isConnected && !reviewButton.disabled && !event.repeat && !(event.detail > 1)) closure.openReview(); });
+        notice.append(reviewButton);
+    }
 }
 
+let closedRestoreConfirmationEpoch = 0;
 async function saveConfirmedRestore(manager, settings) {
     const options = { skipSyncSideEffects: true, skipSyncInitialization: true, confirmedRestore: true };
-    try { return await manager.setAll(settings, options); }
-    catch (error) {
-        showPendingRestoreRecovery(manager, error);
-        if (!error.canStartNewRestore) throw error;
-        const proceed = confirm(t('restoreStartNewConfirm', 'This file was already imported and settings have changed since then. Start a new import, replacing the current settings and keeping them as the latest recovery copy?'));
-        if (!proceed) throw error;
-        return manager.setAll(settings, { ...options, newRestoreOperation: true });
+    const request = ++closedRestoreConfirmationEpoch;
+    let retired = false, privateReview = null, ticket = null;
+    const isCurrent = () => !retired && request === closedRestoreConfirmationEpoch &&
+        (typeof document === 'undefined' || document.visibilityState !== 'hidden');
+    const retire = () => { retired = true; try { manager.cancelClosedRestore?.(ticket || privateReview); } catch (_) { /* Local ownership is still retired. */ } };
+    const visibility = () => { if (typeof document !== 'undefined' && document.visibilityState === 'hidden') retire(); };
+    if (typeof window !== 'undefined') window.addEventListener?.('pagehide', retire);
+    if (typeof document !== 'undefined') document.addEventListener?.('visibilitychange', visibility);
+    try {
+        try { return await manager.setAll(settings, options); }
+        catch (error) {
+            showPendingRestoreRecovery(manager, error);
+            if (error.code === 'RESTORE_CLOSED_RECONFIRM') {
+                privateReview = error.closureReview;
+                if (!privateReview || typeof manager.confirmClosedRestore !== 'function' || !isCurrent()) throw error;
+                const proceed = confirm(t('restoreClosedReconfirm', 'The earlier unverified import was explicitly ended by keeping saved settings. Start a separate new import of this selected file? It will replace the currently saved settings and keep them as the latest recovery copy. The one-slot historical archive stays unchanged, and another conflict cannot be archived.'));
+                if (!proceed || !isCurrent()) throw error;
+                ticket = await manager.confirmClosedRestore(privateReview, { confirmed: true, isCurrent });
+                if (!ticket || !isCurrent()) throw error;
+                return await manager.setAll(settings, { ...options, closedRestoreTicket: ticket });
+            }
+            if (!error.canStartNewRestore || error.code !== 'RESTORE_RETRY_CONFLICT') throw error;
+            const proceed = confirm(t('restoreStartNewConfirm', 'This file was already imported and settings have changed since then. Start a new import, replacing the current settings and keeping them as the latest recovery copy?'));
+            if (!proceed || !isCurrent()) throw error;
+            return await manager.setAll(settings, { ...options, newRestoreOperation: true });
+        }
+    } finally {
+        retire();
+        if (typeof window !== 'undefined') window.removeEventListener?.('pagehide', retire);
+        if (typeof document !== 'undefined') document.removeEventListener?.('visibilitychange', visibility);
     }
 }
 

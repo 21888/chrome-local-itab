@@ -27,6 +27,8 @@ test('strict codec hashes exactly like production StorageManager and retains com
 test('strict JSON never invokes or discards accessors, hidden keys, symbols, holes, or forbidden names', () => {
     const bad = [{ a: undefined }, { a: NaN }, { a: -0 }, new Date(), [1,,2], Object.assign([1], { extra: 3 }), JSON.parse('{"__proto__":1}'), Object.defineProperty({}, 'hidden', { value: 1 }), { [Symbol('private')]: 1 }, Object.defineProperty({}, 'getter', { enumerable: true, get() { assert.fail('getter invoked'); } })];
     bad.push(Object.create({ inherited: true }), Object.create(Object.create(null)));
+    const forgedPrototype=Object.assign(Object.create(null), { constructor: Object, inherited: true });bad.push(Object.create(forgedPrototype));
+    const accessorConstructor=Object.create(null);Object.defineProperty(accessorConstructor,'constructor',{value:{get name(){assert.fail('constructor name getter invoked');}}});bad.push(Object.create(accessorConstructor));
     assert.throws(() => C.inventory(Object.defineProperty({}, 'quote', { value: 'hidden' })));
     const cycle = {}; cycle.me = cycle; bad.push(cycle);
     for (const value of bad) assert.throws(() => C.copy(value));

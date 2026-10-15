@@ -1,12 +1,13 @@
 /* Read-only recovery inspection. No managers, migrations, providers or writers. */
 (function (root, factory) {
-    const api = factory(() => typeof module === 'object' && module.exports && typeof require === 'function' ? require('./recovery-file.js') : root.LocalItabRecoveryFile);
+    const api = factory(() => typeof module === 'object' && module.exports && typeof require === 'function' ? require('./recovery-file.js') : root.LocalItabRecoveryFile,
+        () => typeof module === 'object' && module.exports && typeof require === 'function' ? require('./import-closure.js') : root.LocalItabImportClosure);
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.LocalItabRecovery = api;
-})(typeof window === 'undefined' ? globalThis : window, function (getRecoveryFile) {
+})(typeof window === 'undefined' ? globalThis : window, function (getRecoveryFile, getClosure) {
     'use strict';
     const KEYS = Object.freeze({ registry: '__localItabWorkspaceRegistryV1', activation: '__localItabWorkspaceActivationV1',
-        prior: '__localItabWorkspaceRecoveryV1', migration: '__localItabWorkspacePreMigrationV1', restore: '__localItabRestoreRecovery', identity: '__localItabIdentityRecovery' });
+        prior: '__localItabWorkspaceRecoveryV1', migration: '__localItabWorkspacePreMigrationV1', restore: '__localItabRestoreRecovery', identity: '__localItabIdentityRecovery', closure: '__localItabImportClosureV1' });
     const PREFIX = '__localItabWorkspaceV1:';
     const RECEIPT_KEY = '__localItabRestoreReceiptV1';
     // Presence-preserving parity with StorageManager.restoreReceiptState. Sync is deliberately excluded.
@@ -258,7 +259,7 @@
             }
             // Current records retain priority under the shared budget. The one fixed
             // historical snapshot is last; never enumerate orphan storage keys.
-            const keys = [...new Set([...BASE_KEYS.filter(key => key !== KEYS.prior), ...candidates.map(entry => `${PREFIX}${entry.id}:${entry.generation}`), KEYS.prior])];
+            const keys = [...new Set([KEYS.registry, KEYS.activation, KEYS.closure, ...BASE_KEYS.filter(key => ![KEYS.registry, KEYS.activation, KEYS.prior, KEYS.closure].includes(key)), ...candidates.map(entry => `${PREFIX}${entry.id}:${entry.generation}`), KEYS.prior])];
             const first = await read(keys);
             for (const key of [KEYS.registry, KEYS.activation]) check(JSON.stringify(initial.data[key]) === JSON.stringify(first.data[key]) && initial.faults[key] === first.faults[key], 'CHANGED');
             Object.values(first.faults).forEach(code => warnings.add(code));
@@ -366,6 +367,44 @@
                 add(values, { ...source, depth: 0, representation: 'configuration' }, recordedAt, timeKind);
                 if (object(values)) for (const [key, kind] of [[KEYS.restore, 'recovery'], [KEYS.identity, 'identityRecovery']]) if (own(values, key)) await recoveries(values[key], source, kind);
             }
+            // The immutable root archive is independently discoverable even when its
+            // owner is absent from both current registry and the rotating prior snapshot.
+            let closure = { status: 'absent' }, closedImports = imports;
+            if (own(first.faults, KEYS.closure)) { closure = { status: 'unavailable' }; warnings.add('CLOSURE_UNAVAILABLE'); }
+            else if (own(raw, KEYS.closure)) {
+                const archivedStart = entries.length;
+                try {
+                    const api = getClosure(); check(api?.validate && api?.matches, 'UNAVAILABLE');
+                    const envelope = await api.validate(strictInventory(raw[KEYS.closure]), { crypto });
+                    const body = envelope.body, owner = body.owner;
+                    const current = receiptRegistry ? raw[KEYS.registry].workspaces.find(entry => entry.id === owner.workspaceId) : null;
+                    const currentBundle = current ? raw[`${PREFIX}${current.id}:${current.generation}`] : null;
+                    const attributed = current && object(currentBundle) && currentBundle.schemaVersion === 1 && currentBundle.id === current.id &&
+                        currentBundle.generation === current.generation && Object.keys(currentBundle).length === 4 && object(currentBundle.values) &&
+                        copySafety.get(currentBundle)?.own !== false && copySafety.get(currentBundle.values)?.own !== false &&
+                        Object.keys(currentBundle.values).every(key => SCOPED_KEYS.includes(key));
+                    const active = Boolean(attributed && api.matches(envelope, { migrationId: raw[KEYS.registry].migrationId, workspaceId: current.id, receipt: currentBundle?.values?.[RECEIPT_KEY] }));
+                    closure = { status: 'valid', archiveId: envelope.id, owner: { migrationId: owner.migrationId, workspaceId: owner.workspaceId,
+                        originGeneration: owner.generation, name: owner.label }, recordedAt: body.decidedAt, active,
+                        currentRelation: !receiptRegistry ? 'unknown' : !current ? 'absent' : active ? 'sameOperation' : 'differentOperation' };
+                    const source = { kind: 'importClosure', identityStatus: 'historical', historical: true, closureArchiveId: envelope.id,
+                        workspaceId: owner.workspaceId, workspaceName: owner.label, workspaceGeneration: owner.generation,
+                        closureLineage: owner.migrationId, decisionAt: body.decidedAt,
+                        currentRelation: !receiptRegistry || raw[KEYS.registry].migrationId !== owner.migrationId ? 'unknown' : !current ? 'absent' : current.generation === owner.generation ? 'sameGeneration' : 'differentGeneration' };
+                    // A recorded closure checksum is not an old recovery-container
+                    // authorization. Captured current state remains investigation-only.
+                    add(body.current, { ...source, closurePart: 'current', depth: 0, representation: 'configuration' }, body.decidedAt, 'decision', 'verified');
+                    // The original object stays exact and must independently pass the
+                    // existing credential/format/checksum reviewed-file gate.
+                    await recoveries(body.recovery, { ...source, closurePart: 'originalRecovery' }, 'recovery');
+                } catch (error) {
+                    for (const row of entries.splice(archivedStart)) downloads.delete(row.id);
+                    closedImports = imports;
+                    const code = error?.code || '';
+                    closure = { status: /UNSUPPORTED|VERSION/.test(code) ? 'unsupported' : /UNAVAILABLE|SIZE|READ/.test(code) ? 'unavailable' : 'invalid' };
+                    warnings.add(closure.status === 'unavailable' ? 'CLOSURE_UNAVAILABLE' : 'CLOSURE_INVALID');
+                }
+            }
             if (own(raw, KEYS.migration)) {
                 const snapshot = raw[KEYS.migration], valid = object(snapshot) && snapshot.schemaVersion === 1 && token(snapshot.id) && date(snapshot.createdAt) && object(snapshot.values);
                 await sources(object(snapshot) ? snapshot.values : null, { kind: 'preMigration', identityStatus: valid && checkedRegistry && snapshot.id === raw[KEYS.registry].migrationId ? 'verified' : 'unverified' }, date(snapshot?.createdAt) ? snapshot.createdAt : null, date(snapshot?.createdAt) ? 'migration' : 'unknown');
@@ -405,12 +444,14 @@
                     }
                 }
             }
+            if (closure.status === 'valid' && closure.active) closedImports = imports.map(row => row.source.workspaceId === closure.owner.workspaceId && row.source.identityStatus === 'verified'
+                ? freeze({ ...row, closureStatus: 'closed', closureArchiveId: closure.archiveId }) : row);
             // The final pass follows every async digest, including receipt comparisons.
             // A concurrent edit retires the whole result rather than mixing snapshots.
             const second = await read(keys, false);
             check(first.fingerprint === second.fingerprint, 'CHANGED');
             check(epoch === inspectEpoch, 'RECOVERY_STALE');
-            const report = freeze({ inspectedAt, entries, imports, warnings: [...warnings] }); reports.set(report, downloads); activeReport = report; return report;
+            const report = freeze({ inspectedAt, entries, imports: closedImports, closure: freeze(closure), warnings: [...warnings] }); reports.set(report, downloads); activeReport = report; return report;
         }
         function selected(report, id) { const item = reports.get(report)?.get(id); check(item, 'INVALID'); return item; }
         async function reviewRecovery(report, id) {

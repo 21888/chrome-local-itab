@@ -38,7 +38,7 @@ function model(options = {}) {
 }
 
 test('independent page loads only pure codecs, inspector, i18n and UI; CSP blocks networking and all images', () => {
-    assert.deepEqual([...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]), ['i18n.js', 'shared/layout-identity.js', 'shared/dashboard-template-registry.js', 'shared/world-clocks.js', 'shared/stored-shortcut-url.js', 'shared/configuration-codec.js', 'shared/recovery-file.js', 'shared/recovery-inspector.js', 'recovery.js']);
+    assert.deepEqual([...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]), ['i18n.js', 'shared/layout-identity.js', 'shared/dashboard-template-registry.js', 'shared/world-clocks.js', 'shared/stored-shortcut-url.js', 'shared/configuration-codec.js', 'shared/recovery-file.js', 'shared/import-closure.js', 'shared/recovery-inspector.js', 'recovery.js']);
     for (const directive of ["default-src 'none'", "connect-src 'none'", "img-src 'none'", "object-src 'none'", "form-action 'none'", "base-uri 'none'"]) assert(html.includes(directive));
     assert(!/<(?:img|iframe|object|embed)\b/i.test(html));
     assert(!/innerHTML|outerHTML|insertAdjacentHTML|\.getAll\(|\.ready\(|storageManager|LocalItabWorkspaces|\.sync\b|fetch\(/.test(source));

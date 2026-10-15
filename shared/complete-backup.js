@@ -280,16 +280,24 @@
             catch (_) { throw Object.assign(fault('CONFIG_IMPORT_RECEIPT_INVALID'), { workspaceId }); }
             if (receipt.status !== 'verified') throw Object.assign(fault('CONFIG_IMPORT_PENDING'), { workspaceId });
         }
-        assertWorkspaceConfigImportsSettled(snapshot, file, names, targetWorkspaceId) {
-            if (!names.includes('config')) return;
-            // A legacy file replaces only its explicitly chosen destination.
-            // A complete topology replacement also affects removed workspaces;
-            // matching partial configuration archives affect every matching ID.
-            if (file.schemaVersion === 1 && !targetWorkspaceId) return;
+        async assertWorkspaceConfigImportsSettled(snapshot, file, names, targetWorkspaceId) {
+            const closures = [];
+            if (!names.includes('config')) return closures;
+            if (file.schemaVersion === 1 && !targetWorkspaceId) return closures;
             for (const bundle of snapshot.bundles) {
                 if (file.schemaVersion === 1 && bundle.id !== targetWorkspaceId) continue;
-                this.assertConfigImportSettled(bundle.values, bundle.id);
+                const receipt = bundle.values[this.manager.restoreReceiptKey];
+                if (receipt === undefined) continue;
+                try { this.manager.validateRestoreReceipt(receipt); }
+                catch (_) { throw Object.assign(fault('CONFIG_IMPORT_RECEIPT_INVALID'), { workspaceId: bundle.id }); }
+                if (receipt.status === 'verified') continue;
+                const entry = snapshot.registry.workspaces.find(item => item.id === bundle.id);
+                const envelope = await this.workspaces.readImportClosure(snapshot.registry, entry, receipt);
+                if (!envelope) throw Object.assign(fault('CONFIG_IMPORT_PENDING'), { workspaceId: bundle.id });
+                closures.push({ workspaceId: bundle.id, receipt: clone(receipt), archiveId: envelope.id, envelope });
             }
+            await this.workspaces.guardImportClosures(snapshot, closures);
+            return closures;
         }
         workspaceReview(file, names, options) {
             const targetWorkspaceId = options.targetWorkspaceId, scope = scopedSelection(names), hasPrompts = names.includes('prompts'), hasCollections = names.includes('collections');
@@ -335,8 +343,8 @@
                     const signature = value => JSON.stringify({live: value.registry.entries.map(entry => entry.id).sort(), trash: value.trash.map(entry => entry.id).sort()});
                     check(signature(file) === signature(current), 'TOPOLOGY');
                 }
-                this.assertWorkspaceConfigImportsSettled(snapshot, file, names, target?.id);
-                if (!preview.requiresTarget && !preview.requiresPromptTarget && !preview.requiresCollectionTarget) this.tickets.set(preview, { workspace: true, file, names: [...names], snapshot, promptState, nextPrompts, collectionState, nextCollections, targetWorkspaceId: target?.id });
+                const closures = await this.assertWorkspaceConfigImportsSettled(snapshot, file, names, target?.id);
+                if (!preview.requiresTarget && !preview.requiresPromptTarget && !preview.requiresCollectionTarget) this.tickets.set(preview, { workspace: true, file, names: [...names], snapshot, promptState, nextPrompts, collectionState, nextCollections, targetWorkspaceId: target?.id, closures });
                 return preview;
             });
         }
@@ -388,7 +396,8 @@
             return this.workspaces.withSnapshotLock(async tx => {
                 check(isCurrent(), 'CANCELLED');
                 const snapshot = await this.workspaceRead(tx);
-                this.assertWorkspaceConfigImportsSettled(snapshot, ticket.file, ticket.names, ticket.targetWorkspaceId);
+                const closures = await this.assertWorkspaceConfigImportsSettled(snapshot, ticket.file, ticket.names, ticket.targetWorkspaceId);
+                check(same(closures, ticket.closures), 'CONFLICT');
                 check(same(snapshot, ticket.snapshot), 'CONFLICT');
                 if (ticket.promptState) check(same(await this.promptState(tx), ticket.promptState), 'CONFLICT');
                 if (ticket.collectionState) check(same(await this.collectionState(tx), ticket.collectionState), 'CONFLICT');
@@ -403,9 +412,10 @@
                 // lock admission, before overwriting even the recovery slot.
                 if (ticket.names.includes('config')) {
                     const latest = await this.workspaceRead(tx);
-                    this.assertWorkspaceConfigImportsSettled(latest, ticket.file, ticket.names, ticket.targetWorkspaceId);
+                    check(same(await this.assertWorkspaceConfigImportsSettled(latest, ticket.file, ticket.names, ticket.targetWorkspaceId), ticket.closures), 'CONFLICT');
                     check(same(latest, snapshot), 'CONFLICT');
                 }
+                await this.workspaces.guardImportClosures(snapshot, ticket.closures);
                 try {
                     check(await this.backend.write({ [WORKSPACE_RECOVERY_KEY]: recovery }) !== false, 'RECOVERY');
                     check(same(await this.backend.readRecovery(WORKSPACE_RECOVERY_KEY), recovery), 'RECOVERY');
@@ -418,7 +428,7 @@
                 // The workspace service stages+verifies every replacement bundle
                 // before its one registry authority switch. Old generations remain
                 // recoverable; an unacknowledged switch is never retried here.
-                try { await tx.replace(replacement, { isCurrent, blockDefaultSync: ticket.names.includes('config') && (!ticket.targetWorkspaceId || ticket.targetWorkspaceId === 'default'),
+                try { await tx.replace(replacement, { isCurrent, beforeSubmit: ticket.closures.length ? () => this.workspaces.guardImportClosures(snapshot, ticket.closures) : null, blockDefaultSync: ticket.names.includes('config') && (!ticket.targetWorkspaceId || ticket.targetWorkspaceId === 'default'),
                     collectionReplacement: ticket.collectionState ? { api: collections, prior: ticket.collectionState, next: ticket.nextCollections, recoveryKey: WORKSPACE_RECOVERY_KEY, recoveryChecksum: recovery.checksum } : null,
                     promptReplacement: ticket.promptState ? { api: prompts, prior: ticket.promptState, next: ticket.nextPrompts, recoveryKey: WORKSPACE_RECOVERY_KEY, recoveryChecksum: recovery.checksum } : null }); }
                 catch (error) {

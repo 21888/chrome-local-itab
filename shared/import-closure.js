@@ -14,6 +14,15 @@
     const error = code => Object.assign(new Error(`Local import closure: ${code}`), { code: `IMPORT_CLOSURE_${code}` });
     const check = (value, code = 'INVALID') => { if (!value) throw error(code); };
     const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    function plainPrototype(proto) {
+        if (proto === null) return true;
+        if (Object.getPrototypeOf(proto) !== null) return false;
+        const constructor = Object.getOwnPropertyDescriptor(proto, 'constructor');
+        return Boolean(constructor && own(constructor, 'value') && typeof constructor.value === 'function' &&
+            Object.getOwnPropertyDescriptor(constructor.value, 'prototype')?.value === proto &&
+            Function.prototype.toString.call(constructor.value) === 'function Object() { [native code] }');
+    }
+    const isPlainObject = value => object(value) && plainPrototype(Object.getPrototypeOf(value));
     const exact = (value, keys) => object(value) && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
     const token = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(value);
     const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -33,7 +42,7 @@
             if (typeof value === 'number') { check(Number.isFinite(value) && !Object.is(value, -0)); charge(String(value)); return value; }
             check(value && typeof value === 'object' && !seen.has(value));
             const array = Array.isArray(value), proto = Object.getPrototypeOf(value);
-            check(array ? proto === null || (Array.isArray(proto) && Object.getPrototypeOf(Object.getPrototypeOf(proto)) === null) : proto === null || Object.getPrototypeOf(proto) === null && Object.getOwnPropertyDescriptor(proto, 'constructor')?.value?.name === 'Object');
+            check(array ? proto === null || (Array.isArray(proto) && Object.getPrototypeOf(Object.getPrototypeOf(proto)) === null) : plainPrototype(proto));
             const keys = Reflect.ownKeys(value); check(keys.length <= limits.nodes, 'SIZE_LIMIT');
             if (array) check(value.length <= limits.nodes && keys.length === value.length + 1);
             const output = array ? [] : {}; seen.add(value); charge(array ? '[]' : '{}');
@@ -68,6 +77,7 @@
         return value;
     }
     function inventory(raw) {
+        check(isPlainObject(raw));
         const result = {}; for (const key of TARGET_KEYS) if (own(raw, key)) {
             const descriptor = Object.getOwnPropertyDescriptor(raw, key); check(descriptor && descriptor.enumerable && own(descriptor, 'value'));
             put(result, key, descriptor.value);
@@ -76,8 +86,10 @@
     }
     async function validate(value, options = {}) {
         const envelope = copy(value);
+        check(object(envelope));
+        if (own(envelope, 'schemaVersion') && envelope.schemaVersion !== 1) throw error('UNSUPPORTED');
         check(exact(envelope, ['schemaVersion', 'id', 'body']));
-        check(envelope.schemaVersion === 1, 'UNSUPPORTED');
+        check(envelope.schemaVersion === 1);
         check(hash(envelope.id));
         const body = envelope.body;
         check(exact(body, ['action', 'reviewedAt', 'decidedAt', 'owner', 'receipt', 'current', 'recovery', 'receiptDigest', 'currentDigest', 'recoveryDigest']));
@@ -100,6 +112,6 @@
         if (!validated.has(envelope)) return false;
         try { return envelope.body.owner.migrationId === migrationId && envelope.body.owner.workspaceId === workspaceId && same(envelope.body.receipt, original); } catch (_) { return false; }
     }
-    return Object.freeze({ KEY, ACTION, LIMITS, TARGET_KEYS, copy, canonical, same, freeze, digest, inventory, receipt, validate, inspect, matches,
+    return Object.freeze({ KEY, ACTION, LIMITS, TARGET_KEYS, isPlainObject, copy, canonical, same, freeze, digest, inventory, receipt, validate, inspect, matches,
         inspectEnvelope: validate, matchesClosure: matches, error });
 });

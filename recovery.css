@@ -64,3 +64,8 @@ p + p { margin-top: 10px; }
 .recovery-import-digests summary { cursor: pointer; color: var(--recovery-muted); }
 .recovery-import-digests summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
 .recovery-import-digests dd { font-family: ui-monospace, monospace; font-size: .8rem; }
+
+.recovery-closure { margin: 24px 0; padding: 20px; border: 1px solid var(--recovery-line); border-inline-start: 4px solid var(--recovery-warn); border-radius: 8px; background: var(--recovery-surface); }
+.recovery-closure h2 { margin-bottom: 10px; }
+.recovery-closed-import { padding-inline-start: 12px; border-inline-start: 3px solid var(--recovery-warn); font-weight: 650; }
+@media (max-width: 600px) { .recovery-closure { padding: 16px; } }

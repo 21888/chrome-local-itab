@@ -1662,3 +1662,19 @@ textarea:focus-visible,
 .world-clock-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .options-brand-mark { display: block; object-fit: contain; margin: 0 auto 12px; }
+
+/* Explicit local import decision: metadata only; preserve the surrounding draft. */
+.import-closure-controls { margin-block: 16px 24px; padding: 18px; border: 1px solid currentColor; border-radius: 12px; }
+.import-closure-controls h3, .import-closure-review h4 { margin: 0 0 10px; }
+.import-closure-controls .data-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-block: 14px; }
+.import-closure-controls .btn { min-height: 44px; white-space: normal; text-align: start; overflow-wrap: anywhere; }
+.import-closure-controls a { color: inherit; text-decoration: underline; overflow-wrap: anywhere; }
+.import-closure-status { min-height: 1.5em; }
+.import-closure-status[data-tone="error"] { font-weight: 650; }
+.import-closure-review { border-top: 1px solid currentColor; margin-top: 16px; padding-top: 16px; }
+.import-closure-review[hidden] { display: none !important; }
+.import-closure-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.import-closure-facts div { min-width: 0; }
+.import-closure-facts dt { font-size: .85em; }
+.import-closure-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; unicode-bidi: plaintext; }
+@media (max-width: 600px) { .import-closure-facts { grid-template-columns: 1fr; } .import-closure-controls .btn { width: 100%; } }

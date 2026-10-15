@@ -9,6 +9,7 @@ const DashboardTemplates = typeof module !== 'undefined' && module.exports ? req
 const ClockPreferences = typeof module !== 'undefined' && module.exports ? require('./shared/world-clocks.js') : window.WorldClocks;
 // Resolve lazily so non-import consumers need not load the bookmark parser.
 const getStoredURL = () => typeof module !== 'undefined' && module.exports ? require('./shared/stored-shortcut-url.js') : window.LocalItabStoredURL;
+const getImportClosureService = () => typeof module !== 'undefined' && module.exports ? require('./shared/import-closure-service.js') : window.LocalItabImportClosureService;
 const getBookmarkImportPlanner = () => typeof module !== 'undefined' && module.exports ? require('./shared/bookmark-import.js') : window.LocalItabBookmarkImport;
 const BOOKMARK_IMPORT_STORAGE_LIMITS = Object.freeze({ links: 20000, categories: 2000, bytes: 32 * 1024 * 1024, nodes: 250000, depth: 32 });
 
@@ -70,12 +71,31 @@ class StorageManager {
 
     get chromeApi() { return this.workspace?.manager.chrome || (typeof chrome !== 'undefined' ? chrome : null); }
 
-    get local() { return this.workspace?.local || this.chromeApi.storage.local; }
+    get legacyLocal() {
+        const backend = this.chromeApi.storage.local;
+        if (this._legacyLocalBackend !== backend) {
+            const guard = keys => {
+                if ((Array.isArray(keys) ? keys : [keys]).includes(IMPORT_CLOSURE_KEY)) throw Object.assign(new Error('Protected import evidence.'), { code: 'IMPORT_CLOSURE_BOUNDARY' });
+            };
+            this._legacyLocalBackend = backend;
+            this._legacyLocalFacade = Object.freeze({
+                get: keys => backend.get(keys),
+                set: values => { guard(Object.keys(values)); return backend.set(values); },
+                remove: keys => { guard(keys); return backend.remove(keys); },
+                clear: () => { throw Object.assign(new Error('Use configuration reset to retain protected local evidence.'), { code: 'IMPORT_CLOSURE_BOUNDARY' }); },
+                getBytesInUse: keys => backend.getBytesInUse(keys),
+                get QUOTA_BYTES() { return backend.QUOTA_BYTES; }
+            });
+        }
+        return this._legacyLocalFacade;
+    }
+
+    get local() { return this.workspace?.local || this.legacyLocal; }
 
     // Writers in this class are enclosed by withLocalWriteLock. Keeping the
     // already-locked facade separate avoids reentrant locks without relying on
     // a shared boolean that would accidentally admit unrelated async callers.
-    get _local() { return this.workspace?.lockedLocal || this.chromeApi.storage.local; }
+    get _local() { return this.workspace?.lockedLocal || this.legacyLocal; }
 
     onLocalChanged(listener) {
         if (this.workspace) return this.workspace.subscribe(listener);
@@ -375,7 +395,12 @@ class StorageManager {
                 if (Object.keys(values).length) await this._local.set(values);
                 return;
             }
-            if (options.confirmedRestore && await this.reconcileRestoreReceipt(raw, values, options)) return this.layoutSnapshot(raw);
+            let closedRestoreGuard = null;
+            if (options.confirmedRestore) {
+                const reconciled = await this.reconcileRestoreReceipt(raw, values, options);
+                if (reconciled === true) return this.layoutSnapshot(raw);
+                if (reconciled?.admit) closedRestoreGuard = reconciled.guard;
+            }
             const latest = this.layoutSnapshot(raw);
             if (guardedCategories && JSON.stringify(this.validateCategoryBaseline(raw.categories === undefined ? this.defaultConfig.categories : raw.categories)) !==
                 JSON.stringify(this.validateCategoryBaseline(options.expectedCategories))) {
@@ -444,7 +469,8 @@ class StorageManager {
                     recovery: await this.fingerprint(written[this.restoreRecoveryKey])
                 };
                 try {
-                    if (await this._local.set(written) === false) throw this.restoreReceiptError('RESTORE_UNCERTAIN');
+                    const outcome = closedRestoreGuard ? await this.workspace.set(written, closedRestoreGuard) : await this._local.set(written);
+                    if (outcome === false) throw this.restoreReceiptError('RESTORE_UNCERTAIN');
                     await this.settleRestoreReceipt(written[this.restoreReceiptKey]);
                 } catch (error) {
                     // Failure is not evidence that nothing committed. The receipt
@@ -911,15 +937,28 @@ class StorageManager {
         return { reason, payload, providerState: this.validateSyncConfig(raw.sync || this.defaultConfig.sync), checksum: await this.fingerprint(payload) };
     }
 
+    importClosureService() {
+        const api = getImportClosureService();
+        if (!api?.create) throw Object.assign(new Error('Local import closure is unavailable.'), { code: 'IMPORT_CLOSURE_UNAVAILABLE' });
+        return api.create(this);
+    }
+    reviewImportClosure(options) { return this.importClosureService().review(options); }
+    commitImportClosure(review, options) { return this.importClosureService().confirm(review, options); }
+    cancelImportClosure(review) { return this.importClosureService().cancel(review); }
+    recheckImportClosure() { return this.importClosureService().recheck(); }
+    confirmClosedRestore(review, options) { return this.importClosureService().confirmClosedRestore(review, options); }
+    cancelClosedRestore(value) { return this.importClosureService().cancelClosedRestore(value); }
+
     restoreReceiptError(code) {
         const messages = {
+            RESTORE_CLOSED_RECONFIRM: 'This earlier unverified import was explicitly ended while keeping current settings. Review and confirm this file again to start a new import; its local evidence archive will be retained.',
             RESTORE_UNCERTAIN: 'The import may already have been saved. Its recovery copy is retained. Retry the same file to verify it; do not replace it blindly.',
             RESTORE_PENDING_CONFLICT: 'The previous import is unverified and the current settings or recovery copy have changed. Import is blocked; the current content and retained recovery copy have not been replaced. Export the current configuration and open Recovery to inspect and export the earlier copy. Reopening Settings or retrying cannot unlock this conflict; this version has no automatic resolution.',
             RESTORE_RETRY_CONFLICT: 'This file was already imported, but settings have since changed. Review the current settings and recovery copy before starting a new import.',
             RESTORE_RECONFIRM: 'The previous import is now verified and its recovery copy is retained. Review the current settings, then confirm the new import again.',
             RESTORE_RECEIPT_INVALID: 'The retained import receipt could not be verified. No replacement was submitted. Review the recovery copy.'
         };
-        const key = { RESTORE_UNCERTAIN: 'restoreUncertain', RESTORE_RETRY_CONFLICT: 'restoreRetryConflict', RESTORE_PENDING_CONFLICT: 'restorePendingConflict', RESTORE_RECONFIRM: 'restoreReconfirm', RESTORE_RECEIPT_INVALID: 'restoreReceiptInvalid' }[code];
+        const key = { RESTORE_CLOSED_RECONFIRM: 'restoreClosedReconfirm', RESTORE_UNCERTAIN: 'restoreUncertain', RESTORE_RETRY_CONFLICT: 'restoreRetryConflict', RESTORE_PENDING_CONFLICT: 'restorePendingConflict', RESTORE_RECONFIRM: 'restoreReconfirm', RESTORE_RECEIPT_INVALID: 'restoreReceiptInvalid' }[code];
         return Object.assign(new Error(this.chromeApi?.i18n?.getMessage?.(key) || messages[code]), { code });
     }
 
@@ -950,6 +989,7 @@ class StorageManager {
     }
 
     async settleRestoreReceipt(receipt) {
+        if (receipt.status === 'pending' && this.workspace) await this.importClosureService().assertUnclosedReceipt(receipt);
         const raw = await this._local.get(null);
         if (await this.fingerprint(raw[this.restoreReceiptKey] || null) !== await this.fingerprint(receipt)) throw this.restoreReceiptError('RESTORE_RECEIPT_INVALID');
         try { await this.verifyRestoreReceipt(raw, receipt); }
@@ -968,6 +1008,10 @@ class StorageManager {
         const receipt = raw[this.restoreReceiptKey];
         if (receipt === undefined) return false;
         this.validateRestoreReceipt(receipt);
+        if (receipt.status === 'pending' && this.workspace) {
+            const closed = await this.importClosureService().reconcile(raw, values, options);
+            if (closed) return closed;
+        }
         const sameRequest = receipt.request === await this.restoreRequestHash(values);
         if (receipt.status === 'pending') {
             // Even another file cannot replace an unverified transaction. A
@@ -1521,7 +1565,7 @@ class StorageManager {
             return true;
         } catch (error) {
             if (error.code?.startsWith('WORKSPACE_')) throw error;
-            if (error.code?.startsWith('RESTORE_') || error.code?.startsWith('SETTINGS_') || error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
+            if (error.code?.startsWith('IMPORT_CLOSURE_') || error.code?.startsWith('RESTORE_') || error.code?.startsWith('SETTINGS_') || error.code === 'CATEGORIES_CONFLICT' || error.code === 'LINKS_LOCK_UNAVAILABLE' || error.code === 'CLOCK_CONFLICT' || error.code === 'CLOCK_LOCK_UNAVAILABLE') throw error;
             console.error('Storage setAll error:', error);
             
             if (error.message && error.message.includes('QUOTA_EXCEEDED')) {

@@ -962,7 +962,7 @@
     "message": "This removes the conflicting cloud copy and keeps this device. A readable cloud copy must be saved locally for recovery first. Other devices may upload again. Continue?"
   },
   "layoutRecoveryDescription": {
-    "message": "Local recovery copies are kept before independent duplicate placement and before the latest replacement. Export them before Reset, which removes them too. Import a downloaded copy to restore it."
+    "message": "Local recovery copies are kept before independent duplicate placement and before the latest replacement. Export them before Reset, which removes them too. Import a downloaded copy to restore it. Protected local import evidence is kept and its one-slot capacity is not freed."
   },
   "layoutRecoveryOriginal": {
     "message": "Download pre-upgrade backup"
@@ -2554,10 +2554,10 @@
     "message": "Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups."
   },
   "spacesResetConfirm": {
-    "message": "Reset this workspace’s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy."
+    "message": "Reset this workspace’s sites, layout and settings to defaults? Tasks, notes, countdown, Focus and shared privacy/cloud preferences are kept. This cannot be undone. Export a backup first if you need a copy. Protected local import evidence is kept and its one-slot capacity is not freed."
   },
   "spacesResetScope": {
-    "message": "Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept."
+    "message": "Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept. Protected local import evidence is kept and its one-slot capacity is not freed."
   },
   "completeBackupWorkspaceHelp": {
     "message": "Exports include every live workspace and recoverable workspace in Trash. Device privacy, provider settings, credentials and update preferences are excluded."
@@ -6702,7 +6702,7 @@
     "message": "The retained import receipt could not be verified. No replacement was submitted. Review the recovery copy."
   },
   "restorePendingConflict": {
-    "message": "The previous import is unverified and the current settings or recovery copy have changed. Import is blocked; the current content and retained recovery copy have not been replaced. Export the current configuration and open Recovery to inspect and export the earlier copy. Reopening Settings or retrying cannot unlock this conflict; this version has no automatic resolution."
+    "message": "This pending import no longer matches the current saved state. Inspect saved copies, or separately review whether its original recovery supports a keep-current decision. Nothing was automatically changed or unlocked."
   },
   "recoveryContextAll": {
     "message": "Showing saved copies from all workspaces, including unattributed records. No copy is selected automatically."
@@ -6889,5 +6889,191 @@
   },
   "recoveryImportCurrentRecovery": {
     "message": "Computed complete recovery fingerprint"
+  },
+  "importClosureReady": {
+    "message": "Review the saved workspace below. This decision leaves saved settings and open drafts unchanged."
+  },
+  "importClosureNormalVerification": {
+    "message": "The current saved fingerprints match. Use the original file for the normal verification flow. A match alone does not establish recoverability."
+  },
+  "importClosureRecoveryUnavailable": {
+    "message": "The complete original recovery could not be established. This import cannot be ended here. Inspect saved copies without changing them."
+  },
+  "importClosureNoPending": {
+    "message": "No eligible pending import was found for this workspace. No decision was recorded."
+  },
+  "importClosureOccupied": {
+    "message": "The installation-wide archive slot is occupied by a different decision. Another conflict cannot be archived. Reset does not free this slot."
+  },
+  "importClosureInvalid": {
+    "message": "The archive slot is occupied but could not be validated. It will be preserved and cannot authorize an import."
+  },
+  "importClosureUnsupported": {
+    "message": "The archive slot uses an unsupported version. It will be preserved and cannot authorize an import."
+  },
+  "importClosureAlreadyClosed": {
+    "message": "This exact import already has a recorded keep-current decision. The original receipt still records pending. No second archive was written."
+  },
+  "importClosureHistoryOnly": {
+    "message": "This import was ended earlier. The archive contains the earlier saved snapshot; later changes have not been added to it. No second archive was written."
+  },
+  "importClosureRecorded": {
+    "message": "The keep-current decision was recorded. The original receipt still records pending; the old import has not been verified. No new import was started."
+  },
+  "importClosureLiveChanged": {
+    "message": "The decision was recorded, but live saved state changed afterward. The archive remains historical. Recheck or inspect saved copies before continuing."
+  },
+  "importClosureUncertain": {
+    "message": "Recording could not be confirmed. Do not repeat confirmation. Use Recheck recorded decision, which only reads saved evidence."
+  },
+  "importClosureEmpty": {
+    "message": "No recorded decision was established by this read. A new review and explicit confirmation are required before another attempt."
+  },
+  "importClosureFailed": {
+    "message": "This review is no longer usable or the source could not be checked safely. No successful decision was established. Recheck saved evidence or start a new review."
+  },
+  "importClosureTitle": {
+    "message": "End an unverified import"
+  },
+  "importClosureIntro": {
+    "message": "If a pending import no longer matches, you can review whether to keep the currently saved settings and explicitly end that unverified import. This does not save open drafts, recover missing data or verify the old import."
+  },
+  "importClosureCapacity": {
+    "message": "Only one conflict can be archived for this entire installation, across all workspaces. The decision and its original evidence stay on this device. A different later conflict may remain blocked. Reset keeps this archive and does not free the slot."
+  },
+  "importClosureReview": {
+    "message": "Review keep-current decision"
+  },
+  "importClosureRecheck": {
+    "message": "Recheck recorded decision (read-only)"
+  },
+  "importClosureReading": {
+    "message": "Checking this workspace and the single archive slot…"
+  },
+  "importClosureReviewTitle": {
+    "message": "Confirm this saved-state decision"
+  },
+  "importClosureWorkspace": {
+    "message": "Workspace"
+  },
+  "importClosureWorkspaceId": {
+    "message": "Workspace ID"
+  },
+  "importClosureArchiveSize": {
+    "message": "Local archive size (bytes)"
+  },
+  "importClosureConfirmHelp": {
+    "message": "Confirming preserves the currently saved configuration and complete original recovery in the one local slot. The original import receipt stays pending. Open drafts stay open and are not included. This choice does not start another import or resume Sync."
+  },
+  "importClosureConfirm": {
+    "message": "Keep saved settings and end this unverified import"
+  },
+  "importClosureCancel": {
+    "message": "Cancel review"
+  },
+  "importClosureCancelled": {
+    "message": "Review cancelled. No decision was submitted."
+  },
+  "restoreClosedReconfirm": {
+    "message": "The earlier unverified import was explicitly ended by keeping saved settings. Start a separate new import of this selected file? It will replace the currently saved settings and keep them as the latest recovery copy. The one-slot historical archive stays unchanged, and another conflict cannot be archived."
+  },
+  "importClosureRecheckedActive": {
+    "message": "A valid keep-current decision for this exact import is recorded. Its saved snapshot is historical; later edits have not been added. The original receipt still records pending."
+  },
+  "importClosureRecheckedHistorical": {
+    "message": "A valid decision is recorded in the installation-wide slot as historical evidence. It does not authorize a different current import."
+  },
+  "recoveryClosureTitle": {
+    "message": "Recorded keep-current decision · this installation"
+  },
+  "recoveryClosureIntro": {
+    "message": "This single local archive is checked independently of the current workspace registry and workspace filter. It preserves historical evidence of an explicit decision to end one unverified import."
+  },
+  "recoveryClosureAbsent": {
+    "message": "No archive was found in this read. This does not establish that no earlier decision was ever made."
+  },
+  "recoveryClosureValid": {
+    "message": "The recorded archive passed its integrity checks. This does not verify the old import or establish that either saved copy can be restored."
+  },
+  "recoveryClosureInvalid": {
+    "message": "The archive slot is occupied but invalid. Its evidence is preserved; it gives no authority to end or start an import."
+  },
+  "recoveryClosureUnsupported": {
+    "message": "The archive slot is occupied by an unsupported version. Its evidence is preserved and cannot authorize an import."
+  },
+  "recoveryClosureUnavailable": {
+    "message": "The archive could not be inspected reliably. No successful check can be inferred."
+  },
+  "recoveryClosureAction": {
+    "message": "Recorded decision"
+  },
+  "recoveryClosureKeepCurrent": {
+    "message": "Keep the saved settings and end the unverified import"
+  },
+  "recoveryClosureTime": {
+    "message": "Decision time (this device’s time)"
+  },
+  "recoveryClosureArchiveId": {
+    "message": "Archive fingerprint"
+  },
+  "recoveryClosureLineage": {
+    "message": "Original installation lineage"
+  },
+  "recoveryClosureGeneration": {
+    "message": "Workspace generation at the decision"
+  },
+  "recoveryClosureRelation": {
+    "message": "Relation to the current import"
+  },
+  "recoveryClosureActive": {
+    "message": "The exact original pending import is still current; its keep-current decision is recorded"
+  },
+  "recoveryClosureDifferent": {
+    "message": "The current operation differs; this archive is historical and does not close that operation"
+  },
+  "recoveryClosureAbsentOwner": {
+    "message": "The original workspace is not currently listed; this archive remains historical"
+  },
+  "recoveryClosureRelationUnknown": {
+    "message": "Current ownership could not be established; no current authority is inferred"
+  },
+  "recoveryClosureCapacity": {
+    "message": "One archive slot is shared by the entire installation. Reset retains this evidence and does not free capacity. This page never records, retries, removes or retires a decision."
+  },
+  "recoveryClosureHistorical": {
+    "message": "Decision-time historical evidence"
+  },
+  "recoveryClosureHistoricalHelp": {
+    "message": "These settings were saved at the decision time. They are not today’s saved state. Later edits are not appended to this immutable archive."
+  },
+  "recoverySourceClosureCurrent": {
+    "message": "Saved configuration at the keep-current decision"
+  },
+  "recoverySourceClosureRecovery": {
+    "message": "Original recovery retained by the keep-current decision"
+  },
+  "recoveryAttributionClosure": {
+    "message": "Attributed to the validated historical decision; not proof of current membership"
+  },
+  "recoveryImportExplicitlyEnded": {
+    "message": "Still recorded as pending; explicitly ended by a keep-current decision"
+  },
+  "recoveryImportClosedHelp": {
+    "message": "The validated decision applies to this exact receipt. It does not mark it verified, prove recoverability or change the current-state comparisons below. Starting another import requires a separate confirmation in Settings."
+  },
+  "recoveryWarningClosureInvalid": {
+    "message": "The one-slot import decision archive is invalid or unsupported. It remains preserved and cannot authorize any current operation."
+  },
+  "recoveryWarningClosureUnavailable": {
+    "message": "The one-slot import decision archive could not be checked reliably. Its absence or successful validation cannot be inferred."
+  },
+  "importClosureExpired": {
+    "message": "This review is no longer active. Recheck recorded evidence or start a new review before continuing."
+  },
+  "importClosureArchivedOwner": {
+    "message": "Archived workspace: $1 (ID: $2)."
+  },
+  "recoveryClosureCurrentInvestigation": {
+    "message": "The configuration saved at this decision is investigation-only. It was not retained as a supported recovery-file representation. The archive checksum alone cannot make it importable."
   }
 }

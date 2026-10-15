@@ -2,6 +2,35 @@
 (function (root) {
     'use strict';
     const copy = {
+        WarningClosureInvalid: "The one-slot import decision archive is invalid or unsupported. It remains preserved and cannot authorize any current operation.",
+        WarningClosureUnavailable: "The one-slot import decision archive could not be checked reliably. Its absence or successful validation cannot be inferred.",
+        ClosureTitle: "Recorded keep-current decision · this installation",
+        ClosureIntro: "This single local archive is checked independently of the current workspace registry and workspace filter. It preserves historical evidence of an explicit decision to end one unverified import.",
+        ClosureAbsent: "No archive was found in this read. This does not establish that no earlier decision was ever made.",
+        ClosureValid: "The recorded archive passed its integrity checks. This does not verify the old import or establish that either saved copy can be restored.",
+        ClosureInvalid: "The archive slot is occupied but invalid. Its evidence is preserved; it gives no authority to end or start an import.",
+        ClosureUnsupported: "The archive slot is occupied by an unsupported version. Its evidence is preserved and cannot authorize an import.",
+        ClosureUnavailable: "The archive could not be inspected reliably. No successful check can be inferred.",
+        ClosureAction: "Recorded decision",
+        ClosureKeepCurrent: "Keep the saved settings and end the unverified import",
+        ClosureTime: "Decision time (this device’s time)",
+        ClosureArchiveId: "Archive fingerprint",
+        ClosureLineage: "Original installation lineage",
+        ClosureGeneration: "Workspace generation at the decision",
+        ClosureRelation: "Relation to the current import",
+        ClosureActive: "The exact original pending import is still current; its keep-current decision is recorded",
+        ClosureDifferent: "The current operation differs; this archive is historical and does not close that operation",
+        ClosureAbsentOwner: "The original workspace is not currently listed; this archive remains historical",
+        ClosureRelationUnknown: "Current ownership could not be established; no current authority is inferred",
+        ClosureCapacity: "One archive slot is shared by the entire installation. Reset retains this evidence and does not free capacity. This page never records, retries, removes or retires a decision.",
+        ClosureCurrentInvestigation: "The configuration saved at this decision is investigation-only. It was not retained as a supported recovery-file representation. The archive checksum alone cannot make it importable.",
+        ClosureHistorical: "Decision-time historical evidence",
+        ClosureHistoricalHelp: "These settings were saved at the decision time. They are not today’s saved state. Later edits are not appended to this immutable archive.",
+        SourceClosureCurrent: "Saved configuration at the keep-current decision",
+        SourceClosureRecovery: "Original recovery retained by the keep-current decision",
+        AttributionClosure: "Attributed to the validated historical decision; not proof of current membership",
+        ImportExplicitlyEnded: "Still recorded as pending; explicitly ended by a keep-current decision",
+        ImportClosedHelp: "The validated decision applies to this exact receipt. It does not mark it verified, prove recoverability or change the current-state comparisons below. Starting another import requires a separate confirmation in Settings.",
         ImportTitle: "Current workspace import status",
         ImportIntro: "A point-in-time, read-only comparison of recorded import fingerprints. Refresh inspection to recheck. Historical copies below are never treated as current imports.",
         ImportFilter: "The workspace filter also applies to current import status. Show all saved copies includes import status from all validated current workspaces.",
@@ -131,7 +160,7 @@
     const sources = Object.freeze({ preMigration: 'SourcePreMigration', legacy: 'SourceLegacy', workspace: 'SourceWorkspace', historicalWorkspace: 'SourceHistoricalWorkspace',
         beforeCloudReplacement: 'SourceBeforeCloudReplacement', beforeCloudClear: 'SourceBeforeCloudClear',
         identityRecovery: 'SourceIdentityRecovery', recovery: 'SourceRecovery' });
-    const warnings = Object.freeze({ INVALID_SOURCE: 'WarningInvalid', UNKNOWN_FIELDS_OMITTED: 'WarningUnknown',
+    const warnings = Object.freeze({ CLOSURE_INVALID: 'WarningClosureInvalid', CLOSURE_UNAVAILABLE: 'WarningClosureUnavailable', INVALID_SOURCE: 'WarningInvalid', UNKNOWN_FIELDS_OMITTED: 'WarningUnknown',
         INVALID_FIELDS_OMITTED: 'WarningInvalidFields', PRIVATE_FIELDS_OMITTED: 'WarningPrivate', SIZE_LIMIT: 'WarningSize',
         CHAIN_LIMIT: 'WarningChain', REGISTRY_INVALID: 'WarningRegistry', HISTORICAL_INVALID: 'WarningHistorical', BUNDLE_MISSING: 'WarningBundle',
         UNVERIFIED_SOURCE: 'WarningUnverified', CHECKSUM_MISSING: 'WarningChecksumMissing', CHECKSUM_FAILED: 'WarningChecksumFailed',
@@ -213,6 +242,7 @@
             renderContext(report, revision); announce('Ready');
         }, contextPanel);
         contextToggle.hidden = context.kind === 'all'; contextToggle.disabled = true;
+        const closureSection = create('section', 'recovery-closure', undefined, host);
         const importSection = create('section', 'recovery-imports', undefined, host);
         const entries = create('ol', 'recovery-entries', undefined, host);
         function renderContext(snapshot, generation) {
@@ -228,11 +258,41 @@
             expandedText.textContent = showAll && context.kind !== 'all' ? t('ContextExpanded', [String(snapshot.entries.length)]) : '';
             contextToggle.textContent = t(context.kind === 'all' ? 'ContextShowAll' : showAll ? (hasMatch ? 'ContextShowRequested' : 'ContextHideAll') : 'ContextShowAll');
             contextToggle.disabled = false;
+            renderClosure(snapshot);
             renderImports(snapshot);
             entries.replaceChildren();
             const visible = showAll ? snapshot.entries : matching;
             if (!visible.length) create('li', 'recovery-empty', t(showAll ? 'Empty' : 'ContextNoRows'), entries);
             else visible.forEach(entry => renderEntry(entry, snapshot, generation, snapshot.entries.indexOf(entry)));
+        }
+        function renderClosure(snapshot) {
+            closureSection.replaceChildren();
+            const summary = snapshot.closure;
+            // Old inspector fixtures can omit this optional section. Unknown
+            // fields are never serialized or rendered by this metadata view.
+            if (!summary) return;
+            const title = create('h2', '', t('ClosureTitle'), closureSection); title.id = 'recovery-closure-title';
+            closureSection.setAttribute('aria-labelledby', title.id);
+            create('p', 'recovery-help', t('ClosureIntro'), closureSection);
+            const states = { absent: 'ClosureAbsent', valid: 'ClosureValid', invalid: 'ClosureInvalid', unsupported: 'ClosureUnsupported', unavailable: 'ClosureUnavailable' };
+            const state = typeof summary.status === 'string' && own(states, summary.status) ? summary.status : 'unavailable';
+            create('p', 'recovery-help', t(states[state]), closureSection);
+            create('p', 'recovery-help', t('ClosureCapacity'), closureSection);
+            if (state !== 'valid' || typeof summary.archiveId !== 'string' || !/^[a-f0-9]{64}$/.test(summary.archiveId)) return;
+            const facts = create('dl', 'recovery-facts', undefined, closureSection);
+            const fact = (key, value) => { const pair = create('div', '', undefined, facts); create('dt', '', t(key), pair); create('dd', '', value, pair); };
+            fact('ClosureAction', t('ClosureKeepCurrent'));
+            fact('ClosureTime', time(summary.recordedAt));
+            const owner = summary.owner || {};
+            for (const [key, field] of [['WorkspaceId', 'workspaceId'], ['ClosureGeneration', 'originGeneration'], ['ClosureLineage', 'migrationId']]) {
+                if (typeof owner[field] === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(owner[field])) fact(key, owner[field]);
+            }
+            if (typeof owner.name === 'string' && owner.name.length <= 160) fact('Workspace', owner.name);
+            const relations = { sameOperation: 'ClosureActive', differentOperation: 'ClosureDifferent', absent: 'ClosureAbsentOwner', unknown: 'ClosureRelationUnknown' };
+            const relation = own(relations, summary.currentRelation) && (summary.currentRelation !== 'sameOperation' || summary.active === true) ? summary.currentRelation : 'unknown';
+            fact('ClosureRelation', t(relations[relation]));
+            fact('ClosureArchiveId', summary.archiveId);
+            create('p', 'recovery-help', t('ClosureHistoricalHelp'), closureSection);
         }
         function renderImports(snapshot) {
             importSection.replaceChildren();
@@ -260,6 +320,10 @@
                 fact(facts, 'ImportMembership', t(source.deleted ? 'ImportTrash' : 'ImportLive'));
                 const statusKey = typeof summary.status === 'string' && own(statuses, summary.status) ? statuses[summary.status] : 'ImportUnavailable';
                 fact(facts, 'ImportStatus', t(statusKey));
+                if (summary.status === 'pending' && summary.closureStatus === 'closed') {
+                    create('p', 'recovery-help recovery-closed-import', t('ImportExplicitlyEnded'), row);
+                    create('p', 'recovery-help', t('ImportClosedHelp'), row);
+                }
                 create('p', 'recovery-help', t('ImportRecordedHelp'), row);
                 if (!['pending', 'verified'].includes(summary.status) || summary.version !== 1 || !digest(summary.request) ||
                     !digest(summary.target?.expected) || !digest(summary.recovery?.expected)) continue;
@@ -272,7 +336,7 @@
                     fact(facts, key === 'target' ? 'ImportTarget' : 'ImportRecovery', t(comparisons[state]));
                     return state;
                 });
-                create('p', 'recovery-help', t(states.includes('mismatch') ? 'ImportMismatchHelp' : states.every(state => state === 'match') ? 'ImportMatchedHelp' : 'ImportIncompleteHelp'), row);
+                if (summary.closureStatus !== 'closed') create('p', 'recovery-help', t(states.includes('mismatch') ? 'ImportMismatchHelp' : states.every(state => state === 'match') ? 'ImportMatchedHelp' : 'ImportIncompleteHelp'), row);
                 create('p', 'recovery-help', t('ImportFileUnchecked'), row);
                 const disclosure = create('details', 'recovery-import-digests', undefined, row);
                 create('summary', '', t('ImportDigests'), disclosure);
@@ -334,24 +398,27 @@
         function renderEntry(entry, snapshot, generation, index) {
             const source = entry.source || {};
             const row = create('li', 'recovery-entry', undefined, entries);
-            const titleKey = typeof source.kind === 'string' && own(sources, source.kind) ? sources[source.kind] : 'SourceUnknown';
+            const closureSource = typeof source.closureArchiveId === 'string' && /^[a-f0-9]{64}$/.test(source.closureArchiveId) && source.historical === true;
+            const titleKey = closureSource ? (source.closurePart === 'current' ? 'SourceClosureCurrent' : 'SourceClosureRecovery') : typeof source.kind === 'string' && own(sources, source.kind) ? sources[source.kind] : 'SourceUnknown';
             create('h3', 'recovery-entry-title', t(titleKey), row);
             const integrity = ['verified', 'unverified', 'failed'].includes(entry.integrity) ? entry.integrity : 'unverified';
             const badge = create('span', 'recovery-badge', t({ verified: 'Checked', unverified: 'Unverified', failed: 'Failed' }[integrity]), row);
             badge.dataset.integrity = integrity;
             const facts = create('dl', 'recovery-facts', undefined, row);
             const fact = (key, value) => { const pair = create('div', '', undefined, facts); create('dt', '', t(key), pair); create('dd', '', value, pair); };
-            fact(entry.timeKind === 'migration' ? 'MigrationTime' : entry.timeKind === 'backup' ? 'BackupTime' : entry.timeKind === 'snapshot' ? 'SnapshotTime' : 'RecordedAt', time(entry.recordedAt));
+            fact(entry.timeKind === 'decision' ? 'ClosureTime' : entry.timeKind === 'migration' ? 'MigrationTime' : entry.timeKind === 'backup' ? 'BackupTime' : entry.timeKind === 'snapshot' ? 'SnapshotTime' : 'RecordedAt', time(entry.recordedAt));
             fact('SiteCount', Number.isSafeInteger(entry.siteCount) && entry.siteCount >= 0 ? String(entry.siteCount) : t('UnknownCount'));
             if (typeof source.workspaceName === 'string') fact('Workspace', source.workspaceName);
             if (typeof source.workspaceId === 'string') {
                 fact('WorkspaceId', source.workspaceId);
-                fact('Attribution', t(source.identityStatus === 'historical' ? 'AttributionHistorical' : source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
+                fact('Attribution', t(closureSource ? 'AttributionClosure' : source.identityStatus === 'historical' ? 'AttributionHistorical' : source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
             }
             if (source.historical === true) {
-                create('p', 'recovery-help', t('HistoricalOrigin') + '. ' + t('HistoricalHelp'), row);
+                create('p', 'recovery-help', t(closureSource ? 'ClosureHistorical' : 'HistoricalOrigin') + '. ' + t(closureSource ? 'ClosureHistoricalHelp' : 'HistoricalHelp'), row);
+                if (closureSource) fact('ClosureArchiveId', source.closureArchiveId);
                 fact('WorkspaceGeneration', source.workspaceGeneration);
-                if (entry.timeKind !== 'snapshot') fact('SnapshotTime', time(source.snapshotAt));
+                if (closureSource) { if (entry.timeKind !== 'decision') fact('ClosureTime', time(source.decisionAt)); }
+                else if (entry.timeKind !== 'snapshot') fact('SnapshotTime', time(source.snapshotAt));
                 fact('CurrentRelation', t({ sameGeneration: 'RelationSame', differentGeneration: 'RelationDifferent', absent: 'RelationAbsent' }[source.currentRelation] || 'RelationUnknown'));
             }
             if (source.deleted === true) create('p', 'recovery-help', t('Trash'), row);
@@ -374,7 +441,7 @@
             const reviewHost = create('section', 'recovery-preview recovery-file-review', undefined, row);
             reviewHost.hidden = true; reviewHost.id = 'recovery-file-review-' + generation + '-' + index;
             reviewButton.setAttribute('aria-expanded', 'false'); reviewButton.setAttribute('aria-controls', reviewHost.id);
-            if (!canReview) create('p', 'recovery-help', t('ReviewUnavailable'), row);
+            if (!canReview) create('p', 'recovery-help', t(closureSource && source.closurePart === 'current' ? 'ClosureCurrentInvestigation' : 'ReviewUnavailable'), row);
             async function reviewCopy() {
                 if (!valid(snapshot, generation) || !canReview || cooldown) return;
                 retireReview();
@@ -397,13 +464,14 @@
                     detail('ReviewSource', t(titleKey));
                     if (typeof source.workspaceName === 'string') detail('Workspace', source.workspaceName);
                     if (typeof source.workspaceId === 'string') detail('WorkspaceId', source.workspaceId);
-                    detail('Attribution', t(source.identityStatus === 'historical' ? 'AttributionHistorical' : source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
+                    detail('Attribution', t(closureSource ? 'AttributionClosure' : source.identityStatus === 'historical' ? 'AttributionHistorical' : source.identityStatus === 'verified' ? 'AttributionVerified' : 'AttributionUnverified'));
                     detail('Representation', t(source.representation === 'raw' ? 'Raw' : 'Portable'));
                     detail('Depth', String(Number.isSafeInteger(source.depth) && source.depth >= 0 ? source.depth : 0));
                     if (source.historical === true) {
-                        detail('HistoricalOrigin', t('HistoricalHelp'));
+                        detail(closureSource ? 'ClosureHistorical' : 'HistoricalOrigin', t(closureSource ? 'ClosureHistoricalHelp' : 'HistoricalHelp'));
+                        if (closureSource) detail('ClosureArchiveId', source.closureArchiveId);
                         detail('WorkspaceGeneration', source.workspaceGeneration);
-                        detail('SnapshotTime', time(source.snapshotAt));
+                        detail(closureSource ? 'ClosureTime' : 'SnapshotTime', time(closureSource ? source.decisionAt : source.snapshotAt));
                     }
                     detail('ReviewSourceTime', review.timeVerified === true ? time(review.recordedAt) : t('ReviewRawTime'));
                     detail('ReviewGeneratedAt', time(review.generatedAt));
@@ -527,7 +595,7 @@
             retireReview();
             const generation = ++revision;
             const returnFocus = doc.activeElement === refreshButton || doc.activeElement === status;
-            report = null; importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+            report = null; closureSection.replaceChildren(); importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
             contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
             refreshButton.disabled = true; host.setAttribute('aria-busy', 'true'); announce('Loading');
             if (returnFocus) status.focus();
@@ -543,7 +611,7 @@
                 announce(next.entries.length || next.imports?.length ? 'Ready' : 'Empty');
             } catch (error) {
                 if (closed || suspended || generation !== revision) return;
-                report = null; importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+                report = null; closureSection.replaceChildren(); importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
                 contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
                 const code = typeof error?.code === 'string' && own(errors, error.code) ? error.code : null;
                 announce(code ? errors[code] : 'ErrorUnavailable', true);
@@ -557,7 +625,7 @@
         }
         function suspend() {
             retireReview(false);
-            suspended = true; revision++; report = null; importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
+            suspended = true; revision++; report = null; closureSection.replaceChildren(); importSection.replaceChildren(); entries.replaceChildren(); globalWarnings.replaceChildren(); inspectedAt.textContent = '';
             contextToggle.disabled = true; contextText.textContent = ''; expandedText.textContent = '';
             if (timer !== null) root.clearTimeout(timer); timer = null; cooldown = false;
         }

@@ -727,8 +727,9 @@
                                     <div id="complete-backup"></div>
                                 </div>
                                 <div class="setting-group full-width">
+                                    <section id="import-closure-controls" class="import-closure-controls"></section>
                                     <div id="layout-recovery-controls" hidden>
-                                        <p class="form-hint" data-i18n="layoutRecoveryDescription">Local recovery copies are kept before independent duplicate placement and before the latest replacement. Export them before Reset, which removes them too. Import a downloaded copy to restore it.</p>
+                                        <p class="form-hint" data-i18n="layoutRecoveryDescription">Local recovery copies are kept before independent duplicate placement and before the latest replacement. Export them before Reset, which removes them too. Import a downloaded copy to restore it. Protected local import evidence is kept and its one-slot capacity is not freed.</p>
                                         <div class="data-actions">
                                             <button type="button" id="recovery-original" class="btn btn-secondary" data-i18n="layoutRecoveryOriginal">Download pre-upgrade backup</button>
                                             <button type="button" id="recovery-latest" class="btn btn-secondary" data-i18n="layoutRecoveryLatest">Download latest recovery backup</button>
@@ -746,7 +747,7 @@
         </main>
         
         <footer class="options-footer">
-            <p id="workspace-reset-scope" class="spaces-help" data-i18n="spacesResetScope">Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept.</p>
+            <p id="workspace-reset-scope" class="spaces-help" data-i18n="spacesResetScope">Reset affects this workspace’s settings only. Personal modules and shared device preferences are kept. Protected local import evidence is kept and its one-slot capacity is not freed.</p>
             <div class="footer-actions">
                 <button id="save-settings" class="btn btn-primary btn-lg">
                     <span class="btn-icon">💾</span>
@@ -773,8 +774,10 @@
     <script src="shared/local-focus-store.js"></script>
     <script src="shared/local-scratchpad-store.js"></script>
     <script src="shared/local-countdown-store.js"></script>
+    <script src="shared/import-closure.js"></script>
     <script src="shared/workspaces.js"></script>
     <script src="shared/configuration-codec.js"></script>
+    <script src="shared/import-closure-service.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="shared/update-checker.js"></script>
