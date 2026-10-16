@@ -940,6 +940,11 @@ function setupCategoryManagement(categories = []) {
         categorySaveTimeout = setTimeout(() => { if (!window.LocalItabContentLifecycle?.autosavePaused) saveAllSettings(); }, 800);
     };
 
+    // Keep native activation, but do not add for held or IME-owned keys.
+    addBtn.addEventListener('keydown', event => {
+        if ((event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') &&
+            (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+    });
     addBtn.addEventListener('click', () => {
         const newCat = { id: `cat_${Date.now()}`, name: '新分类', icon: '📁' };
         list.appendChild(createItem(newCat));
