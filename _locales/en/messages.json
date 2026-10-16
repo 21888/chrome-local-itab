@@ -2164,7 +2164,7 @@
     "message": "The clocks disagree. Exact remaining time is uncertain. Stop / reset, then start deliberately."
   },
   "focusBrief": {
-    "message": "One timer shared on this device. No sound or background alert."
+    "message": "One timer per workspace, shared across its new-tab pages. No sound or background alert."
   },
   "focusDetails": {
     "message": "How timing works"

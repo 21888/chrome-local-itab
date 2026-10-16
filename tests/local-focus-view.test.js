@@ -93,7 +93,7 @@ test('DOM model: concise timer disclosure and collapsed native details retain co
     assert.equal(summary.tabIndex, 0, 'native summary is keyboard accessible');
     const help = details.querySelector('p');
     for (const text of ['Closing or hiding', 'device clock', 'Clock changes', 'exports and cloud backups', 'Removing the extension']) assert(help.textContent.includes(text));
-    assert(m.host.children.some(node => node.textContent === 'One timer shared on this device. No sound or background alert.'));
+    assert(m.host.children.some(node => node.textContent === 'One timer per workspace, shared across its new-tab pages. No sound or background alert.'));
     const writes = m.h.writes; details.open = true; details.dispatch('toggle');
     assert(help.getClientRects().length); m.view.start.focus(); m.view.start.dispatch('click'); await m.h.flush();
     assert.equal(details.open, true, 'state renders preserve disclosure choice');
