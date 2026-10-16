@@ -110,7 +110,7 @@
         if (!host?.ownerDocument || !store) throw new TypeError('Complete backup needs a host and store.');
         const doc = host.ownerDocument;
         const t = key => { const id = 'completeBackup' + key; const value = root.i18n?.t(id); return value && value !== id ? value : fallback[key]; };
-        let generation = 0, source = null, preview = null, targetWorkspaceId, promptTarget, collectionTarget, interruptedReview = null, phase = '', destroyed = false, pendingLargeFile = null;
+        let generation = 0, source = null, availableModules = null, preview = null, targetWorkspaceId, promptTarget, collectionTarget, interruptedReview = null, phase = '', destroyed = false, pendingLargeFile = null;
         const make = (tag, cls, text, parent) => { const el = doc.createElement(tag); if (cls) el.className = cls; if (text !== undefined) el.textContent = text; parent?.append(el); return el; };
         const shell = make('section', 'complete-backup', undefined, host);
         make('h3', 'section-title', t('Title'), shell);
@@ -159,10 +159,13 @@
         const recoverInterrupted = button('RecoverInterrupted', 'recover-interrupted', shell, true); recoverInterrupted.hidden = true;
         inspectInterrupted.hidden = typeof store.inspectInterruptedRestore !== 'function';
         const current = token => !destroyed && host.isConnected && shell.isConnected && token === generation;
-        const selected = () => MODULES.filter(id => inputs[id].checked && !inputs[id].disabled);
+        // Scope belongs to the checked file, not to temporary control locks.
+        // Export can still cancel an initial read using the visible selections.
+        const selected = () => MODULES.filter(id => inputs[id].checked && (!availableModules || availableModules.includes(id)));
         function controls() {
             const busy = ['applying', 'exporting'].includes(phase);
-            for (const id of MODULES) inputs[id].disabled = busy || Boolean(preview && !preview.modules.includes(id));
+            const unknownScope = phase === 'large' || phase === 'reading' && !availableModules;
+            for (const id of MODULES) inputs[id].disabled = busy || unknownScope || Boolean(availableModules && !availableModules.includes(id));
             exportButton.disabled = choose.disabled = file.disabled = recovery.disabled = busy;
             target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = busy || phase === 'reading';
             inspectInterrupted.disabled = busy; downloadInterrupted.disabled = busy || phase === 'reading'; recoverInterrupted.disabled = busy || !interruptedReview;
@@ -189,8 +192,8 @@
             if (error?.mayHaveCommitted || error?.code === 'UNCONFIRMED') return t('Unconfirmed');
             return t(({CONFIG_IMPORT_PENDING:'ConfigImportPending',CONFIG_IMPORT_RECEIPT_INVALID:'ConfigImportReceiptInvalid',DUPLICATE_KEY:'DuplicateKey',INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
         };
-        function clear() { configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); for (const input of Object.values(inputs)) input.disabled = false; }
-        function abandon() { if (phase === 'applying') return; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
+        function clear() { configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
+        function abandon() { if (phase === 'applying') return; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
         const countText = (value, module) => {
             if (!value || typeof value !== 'object') return '';
             const parts = [];
@@ -214,7 +217,7 @@
                 if (!current(token)) return;
                 const result = await store.review(source, initial ? undefined : selection, { ...(targetWorkspaceId === undefined ? {} : {targetWorkspaceId}), ...(promptTarget === undefined ? {} : {promptTarget}), ...(collectionTarget === undefined ? {} : {collectionTarget}) });
                 if (!current(token)) return;
-                preview = result; phase = result.requiresTarget || result.requiresPromptTarget || result.requiresCollectionTarget ? 'target' : 'ready';
+                availableModules = result.modules; preview = result; phase = result.requiresTarget || result.requiresPromptTarget || result.requiresCollectionTarget ? 'target' : 'ready';
                 if (result.schemaVersion === 1 && Array.isArray(result.destinations)) {
                     destination.hidden = false; target.replaceChildren();
                     const placeholder = make('option', '', t('ChooseTarget'), target); placeholder.value = '';
@@ -254,7 +257,7 @@
         }
         choose.addEventListener('click', () => { if (!current(generation) || choose.disabled) return; file.value = ''; file.click(); });
         async function readFile(chosen, token) {
-            const move = focusOwner(choose); pendingLargeFile = null; source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; clear(); phase = 'reading'; panel.hidden = false; warning.hidden = true; status.textContent = t('Reading'); controls();
+            const move = focusOwner(choose); pendingLargeFile = null; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; clear(); phase = 'reading'; panel.hidden = false; warning.hidden = true; status.textContent = t('Reading'); controls();
             try {
                 let text;
                 try { text = await chosen.text(); } catch (_) { throw {code:'FILE'}; }
@@ -267,7 +270,7 @@
         file.addEventListener('change', () => {
             if (!current(generation) || file.disabled) return;
             const chosen = file.files?.[0]; file.value = ''; if (!chosen) return;
-            const token = ++generation; source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear();
+            const token = ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear();
             if (!Number.isSafeInteger(chosen.size) || chosen.size < 0 || chosen.size > (root.LocalItabCompleteBackup?.LIMITS.bytes || 32 * 1024 * 1024)) {
                 phase = ''; controls(); status.textContent = t('Size'); status.focus(); return;
             }
@@ -299,8 +302,8 @@
                 if (!current(token)) return;
                 await restore(ticket, () => current(token));
                 if (!current(token)) return;
-                source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; phase = ''; clear(); controls(); status.textContent = t('Success'); reloadButton.hidden = false;
-            } catch (error) { if (current(token)) { phase = ''; source = null; clear(); controls(); status.textContent = errorText(error, true); } }
+                source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; phase = ''; clear(); controls(); status.textContent = t('Success'); reloadButton.hidden = false;
+            } catch (error) { if (current(token)) { phase = ''; source = null; availableModules = null; clear(); controls(); status.textContent = errorText(error, true); } }
             finally { move(current(token) ? status : null); }
         });
         async function exportFile(isRecovery) {
@@ -308,7 +311,7 @@
             const ids = selected(); if (!isRecovery && !ids.length) { status.textContent = t('None'); return; }
             const token = ++generation, origin = isRecovery ? recovery : exportButton, move = focusOwner(origin);
             const keepPreview = isRecovery && phase === 'ready';
-            if (!keepPreview) { source = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear(); }
+            if (!keepPreview) { source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear(); }
             phase = 'exporting'; controls(); status.textContent = t('Exporting');
             try {
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -338,7 +341,7 @@
         });
         inspectInterrupted.addEventListener('click', async () => {
             if (!current(generation) || inspectInterrupted.disabled) return;
-            const token = ++generation; source = null; clear(); interruptedReview = null; phase = 'reading'; controls();
+            const token = ++generation; source = null; availableModules = null; clear(); interruptedReview = null; phase = 'reading'; controls();
             try {
                 const report = await store.inspectInterruptedRestore();
                 if (!current(token)) return;
@@ -363,7 +366,7 @@
         reloadButton.addEventListener('click', () => reload());
         controls();
         return { get pending() { return phase === 'applying' || phase === 'exporting'; }, hasUncommittedWork: () => Boolean(source || phase), cancel: abandon,
-            destroy() { if (phase === 'applying') return false; destroyed = true; ++generation; source = null; shell.remove(); return true; } };
+            destroy() { if (phase === 'applying') return false; destroyed = true; ++generation; source = null; availableModules = null; shell.remove(); return true; } };
     }
     function downloadFile(text, name, doc) {
         const url = URL.createObjectURL(new Blob([text], {type:'application/json'}));
