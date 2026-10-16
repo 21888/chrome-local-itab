@@ -50,6 +50,7 @@
             this.t = (name, fallback) => { const value = translate(name, fallback); return value && value !== key(name) ? value : fallback; };
             this.confirm = confirm || (options => this.dialog(options)); this.historyId = null; this.copyGeneration = 0; this.copying = false; this.pendingFocus = null;
             this.pageHide = event => {
+                this.clearPendingFocus();
                 if (!event?.persisted) { this.destroy(); return; }
                 this.controller.invalidateDraftPreview(); this.updateDraftPreview();
                 this.markdownGeneration = (this.markdownGeneration || 0) + 1;
@@ -61,6 +62,7 @@
         destroy() {
             if (this.destroyed) return;
             this.destroyed = true; this.controller.invalidateDraftPreview();
+            this.clearPendingFocus();
             this.detachSearchShortcut?.();
             root.removeEventListener?.('pagehide', this.pageHide);
             root.removeEventListener?.('beforeunload', this.beforeUnload);
@@ -175,9 +177,26 @@
             root.addEventListener?.('beforeunload', this.beforeUnload);
         }
         focusDetail(name) { const target = name ? this.main.querySelector(`[data-prompt-focus="${name}"]`) : this.main.querySelector('.prompt-detail-heading'); target?.focus(); }
+        clearPendingFocus() { this.pendingFocus = null; this.pendingFocusCleanup?.(); }
+        rememberPendingFocus(key) {
+            this.clearPendingFocus(); this.pendingFocus = key;
+            const cancel = () => this.clearPendingFocus();
+            const moved = event => { if (event.target !== this.doc.body && event.target !== this.doc.documentElement) cancel(); };
+            const listeners = [['focusin', moved], ['pointerdown', cancel], ['keydown', cancel], ['visibilitychange', cancel]];
+            for (const [type, listener] of listeners) this.doc.addEventListener(type, listener, true);
+            root.addEventListener?.('blur', cancel);
+            this.pendingFocusCleanup = () => {
+                for (const [type, listener] of listeners) this.doc.removeEventListener(type, listener, true);
+                root.removeEventListener?.('blur', cancel); this.pendingFocusCleanup = null;
+            };
+        }
         announce(message, error = false) { this.status.classList.toggle('error', error); this.status.replaceChildren(this.el('span', '', message)); }
         render(kind = 'render') {
             const c = this.controller;
+            // Saving removes/disables the opener. Only restore its lost focus if
+            // no newer interaction took ownership, including a return to body.
+            const focused = this.doc.activeElement;
+            if (this.pendingFocus && focused !== this.doc.body && focused !== this.doc.documentElement) this.clearPendingFocus();
             const dialogFocus = this.dialogFocus;
             if (dialogFocus && (c.selected !== dialogFocus.selected || c.draft() !== dialogFocus.draft)) dialogFocus.stale = true;
             this.checkModelComparison?.();
@@ -197,8 +216,9 @@
             if (kind === 'list') return;
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             const active = this.doc.activeElement, restore = this.main.contains(active) ? active?.dataset.promptFocus : null;
-            if (restore && c.busy) this.pendingFocus = restore;
-            const desiredFocus = restore || (!c.busy ? this.pendingFocus : null);
+            if (restore && c.busy) this.rememberPendingFocus(restore);
+            const desiredFocus = restore || (!c.busy && !this.destroyed && !this.openDialog &&
+                this.host.isConnected && !this.host.closest('[hidden], [inert]') && !this.doc.hidden ? this.pendingFocus : null);
             const range = restore && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
             this.linkedSections = []; this.main.replaceChildren(); this.main.setAttribute('aria-busy', String(c.busy)); this.previewElements = null; this.editorElements = null; this.draftPreviewElements = null; this.draftPreviewHost = null;
             if (!c.state) this.renderUnavailable();
@@ -213,8 +233,8 @@
                 const target = Array.from(this.main.querySelectorAll('[data-prompt-focus]')).find(node => node.dataset.promptFocus === desiredFocus);
                 if (target && !target.disabled) { target.focus(); if (range) target.setSelectionRange?.(...range); }
                 else if (!c.busy && !c.draft()) this.focusDetail();
-                if (!c.busy) this.pendingFocus = null;
             }
+            if (!c.busy) this.clearPendingFocus();
             this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand);
         }
         renderStatus() {
