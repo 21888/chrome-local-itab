@@ -232,6 +232,10 @@
             const result = {};
             for (const bundle of [...file.workspaces, ...file.trash]) {
                 const counts = this.counts(bundle.modules);
+                // Sum references before the existing presence flags are ORed.
+                // Repeated image values in live workspaces and Trash count separately.
+                if (counts.config) counts.config.localImages = counts.config.dataUrlIcons
+                    + Number(counts.config.hasBackgroundImage === true) + Number(counts.config.hasMoviePoster === true);
                 for (const [name, value] of Object.entries(counts)) {
                     if (!result[name]) result[name] = {};
                     for (const [key, amount] of Object.entries(value)) {

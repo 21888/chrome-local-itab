@@ -198,7 +198,9 @@
             if (!value || typeof value !== 'object') return '';
             const parts = [];
             const add = (key, n) => { if (Number.isSafeInteger(n) && n >= 0) parts.push(`${t(key)}: ${n}`); };
-            add('CountSites', value.shortcuts); add('CountCategories', value.categories); if (Number.isSafeInteger(value.dataUrlIcons)) add('CountImages', value.dataUrlIcons + Number(value.hasBackgroundImage === true) + Number(value.hasMoviePoster === true));
+            add('CountSites', value.shortcuts); add('CountCategories', value.categories);
+            if (Number.isSafeInteger(value.localImages) && value.localImages >= 0) add('CountImages', value.localImages);
+            else if (Number.isSafeInteger(value.dataUrlIcons)) add('CountImages', value.dataUrlIcons + Number(value.hasBackgroundImage === true) + Number(value.hasMoviePoster === true));
             const recordKind = module === 'prompts' ? 'Prompt' : module === 'collections' ? 'Collection' : '';
             for (const key of ['active', 'done', 'removed', 'recovery', 'characters', 'versions']) add('Count' + (['active', 'removed'].includes(key) ? recordKind : '') + titleKey(key), value[key]);
             if (typeof value.enabled === 'boolean') parts.push(`${t('CountEnabled')}: ${t(value.enabled ? 'Yes' : 'No')}`);
