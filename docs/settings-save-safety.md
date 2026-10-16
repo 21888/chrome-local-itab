@@ -168,7 +168,20 @@ without replacing either. Inspect and export the retained copies in Recovery
 before deciding what to keep. Reopening Settings or retrying does not unlock this
 conflict. This version has no automatic resolution for a pending import whose
 settings or recovery copy changed; exporting the copies does not itself unlock
-imports. Keep both exports for a later, controlled resolution. A previously verified import whose settings later
+imports. Keep both exports. The [keep-current decision guide](import-closure-guide.md)
+explains Settings → Data → **Review keep-current decision**: read-only review,
+then separate explicit confirmation to keep saved settings and end the unverified
+import. This requires a valid pending receipt and source, a saved-state fingerprint
+no longer matching that receipt's target, complete original recovery matching the
+receipt, and an empty installation-wide archive slot. Missing, invalid or mismatched
+original recovery and occupied capacity remain blocked. If the saved-state
+fingerprint still matches, use the original file for normal verification instead.
+
+The old receipt stays pending; ending it is neither verification nor proof of
+recoverability. This decision does not save, discard or include open drafts,
+start a new import or resume Sync. Reset does not free the single archive slot.
+
+A previously verified import whose settings later
 changed needs an additional explicit confirmation to import the same file anew.
 Accepting that new-operation confirmation in Settings allows the import and
 keeps the current edits as the latest recovery copy; this verified case is not
@@ -194,7 +207,16 @@ JSON 或云盘配置导入会将本地摘要记录、替换内容和导入前恢
 前一次导入未核验时，不能直接换文件覆盖。核验成功后，先保留现状并提示重新
 检查、确认新导入；如果当前设置或恢复副本不匹配，则停止写入，请先在恢复页
 检查并导出保留内容。此时重开设置或反复导入不会解除保护，本版本没有自动
-解除这种冲突的功能；导出副本本身也不会解锁，请保留两份导出供后续受控处理。
+解除这种冲突的功能；导出副本本身也不会解锁，请保留两份导出。
+[保留当前设置的决定指南（英文）](import-closure-guide.md)说明了设置→数据→
+「查看保留当前设置的决定」：先只读审阅，再单独明确确认保留已保存设置并结束
+此次未核验导入。仅限有效 pending 记录及来源、当前已保存状态摘要已不匹配原目标、
+完整原恢复仍匹配原记录且全安装共用的单一保全槽为空。原恢复缺失、无效、不匹配或
+槽位已占用时继续阻断；当前摘要仍匹配时，应使用原文件进行正常核验。
+
+旧记录仍为 pending，结束导入不等于核验成功或证明可恢复。该决定不保存、丢弃
+或纳入未保存草稿，也不自动开始新导入或恢复同步；重置不会释放保全槽。
+
 已核验的导入之后又修改了设置，要重新导入同一文件时
 需要额外确认。在设置页接受“开始新导入”的确认后即可继续，并将当前修改保留
 为最新恢复副本；这种已核验的情况不会永久阻断。正常新导入仍轮换最新恢复副本，不承诺永久保留全部历史，已有
