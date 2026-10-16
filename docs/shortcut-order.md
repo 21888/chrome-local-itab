@@ -60,3 +60,31 @@ The final 60-file runtime ZIP is 1,262,289 bytes (1,255,027 source bytes), SHA25
 include final light-wide and v2 dark-narrow states. No exhaustive 15-template,
 Chinese native UI, sub-510px native width, screen-reader, IME or cross-platform
 acceptance is implied; their automated checks retain model/static scope.
+
+## Grid drag identity while saving — 2026-10-16
+
+Grid dragging now uses the same guarded order update as the menu commands. The
+visible cards and their index targets stay on the previous list until saving is
+confirmed. Opening or editing a still-visible site therefore targets that site;
+an editor opened during the write keeps its draft and remaps to the saved slot.
+A second drag or deletion waits for the first order update. Dragging still inserts
+at the actual drop index, including across collections, without changing categories.
+
+Failure, unverified-write and competing-change notices retain their existing
+meaning. An uncertain or conflicting write keeps an open draft protected from
+saving to a stale slot. A template refresh during the write still rebuilds and
+retires old controls, using the visible previous snapshot until completion.
+
+Focused synthetic handler/DOM regression checks:
+
+```
+node --unhandled-rejections=strict --test --test-concurrency=1 \
+  tests/shortcut-drag-identity.test.js tests/shortcut-order.test.js \
+  tests/template-refresh-reuse.test.js tests/category-mutations.test.js \
+  tests/shortcut-write-conflicts.test.js tests/shortcut-delete-session.test.js
+```
+
+The new drag suite reproduced three baseline failures, including visible Alpha
+opening Beta during a deferred write, and passes after the fix. These checks do
+not establish native Chrome drag behavior; that acceptance remains unperformed
+for this change. No storage schema, permissions or manifest changes are included.

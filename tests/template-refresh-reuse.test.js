@@ -193,7 +193,7 @@ test('old menu buttons cannot dismiss or activate a fresh session after grouped 
     }
 });
 
-test('grouped refresh retains the native drag source and pending optimistic reorder rebuilds', async () => {
+test('grouped refresh retains the drag source and pending reorder rebuilds the visible old snapshot', async () => {
     const h = page(), c = h.component;
     h.context.setTimeout = fn => { fn(); return 0; };
     const source = h.tile(0), target = h.tile(2);
@@ -213,12 +213,24 @@ test('grouped refresh retains the native drag source and pending optimistic reor
     h.control(0).dispatch('dragstart', { dataTransfer });
     const drop = c.handleDrop({ target, preventDefault() {} });
     assert.equal(c._shortcutWritesPending, 1);
-    assert.deepEqual(Array.from(c.links, link => link.title), ['Social B', 'Work C', 'Work A', 'Orphan']);
+    assert.deepEqual(clone(c.links), links, 'pending drag retains the visible snapshot');
     const build = count(h, 'buildShortcutsFragment');
     switchTemplate(h, 'graphite');
+    // Pending writes must still invalidate reuse and retire the old controls.
     assert.equal(build(), 1); assert.equal(source.isConnected, false);
-    assert.deepEqual(order(h), [1, 2, 0, 3]);
+    assert.deepEqual(order(h), [0, 2, 1, 3]);
+    h.control(0).dispatch('click'); assert.deepEqual(h.opened, [links[0].url]);
+    menuAction(h, 0, 'edit');
+    const input = c.modal.querySelector('#shortcut-title');
+    assert.equal(input.value, 'Work A'); input.value = 'Keep Work A draft';
+    assert.equal(c.modal.querySelector('#save-btn').disabled, true);
     pending.resolve(true); await drop;
+    assert.equal(build(), 2);
+    assert.deepEqual(Array.from(c.links, link => link.title), ['Social B', 'Work C', 'Work A', 'Orphan']);
+    assert.deepEqual(order(h), [1, 2, 0, 3]);
+    assert.equal(c.currentEditIndex, 2); assert.equal(c._modalFocusOrigin.index, 2);
+    assert.equal(input.value, 'Keep Work A draft'); assert.equal(h.document.activeElement, input);
+    assert.equal(c.modal.querySelector('#save-btn').disabled, false);
     assert.equal(writes, 1); assert.equal(c._shortcutWritesPending, 0); assert.equal(c.draggedIndex, null);
     assert.equal(c.canReuseCollections(), true);
 });

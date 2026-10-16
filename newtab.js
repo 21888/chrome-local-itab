@@ -2821,7 +2821,16 @@ class ShortcutsComponent {
 
     async moveShortcut(index, direction) {
         const target = this.getShortcutOrderTarget(index, direction);
-        if (target < 0) return false;
+        return this.moveShortcutToIndex(index, target);
+    }
+
+    // Both keyboard and Grid drag keep visible slots on the old snapshot until
+    // storage confirms the new order. Drag supplies its exact existing drop slot.
+    async moveShortcutToIndex(index, target) {
+        if (!Number.isInteger(index) || !Number.isInteger(target) || index === target ||
+            !this.links[index] || !this.links[target] || !this.layout.autoArrange ||
+            this.layoutController?.modePending || this._shortcutUndoPending || this._pendingDelete ||
+            this._shortcutOrderPending || this._shortcutWritesPending || this._isSaving) return false;
         const previous = this.links.map(link => ({ ...link }));
         const next = previous.map(link => ({ ...link }));
         const moved = next.splice(index, 1)[0];
@@ -4556,29 +4565,10 @@ class ShortcutsComponent {
             return;
         }
         
-        const previousLinks = this.links.map(link => ({ ...link }));
-
-        // --- 核心排序逻辑 ---
-        // 1. 从数组中把被拖拽的元素"拿出来"
-        const itemToMove = this.links.splice(draggedIndex, 1)[0];
-        // 2. 把拿出来的元素插入到目标位置
-        this.links.splice(dropIndex, 0, itemToMove);
-        
         try {
-            // 3. 将重新排序后的数组保存到存储中
-            const saved = await this.saveShortcutLinks(this.links, previousLinks, { type: 'reorder', from: draggedIndex, to: dropIndex });
-            if (!saved) {
-                throw new Error('Storage write returned false');
-            }
-            console.log('Shortcuts reordered and saved successfully.');
-        } catch (error) {
-            const message = this.recoverShortcutWrite(error, previousLinks);
-            console.error('Error saving shortcut order:', error);
-            showErrorMessage(message || 'Failed to save new shortcut order.');
+            return await this.moveShortcutToIndex(draggedIndex, dropIndex);
         } finally {
-            // 4. 重新渲染整个宫格，以确保所有卡片的 data-index 都更新为最新顺序
-            this.updateGrid();
-            this.draggedIndex = null; // 重置拖动状态
+            this.draggedIndex = null;
         }
     }
     /**
