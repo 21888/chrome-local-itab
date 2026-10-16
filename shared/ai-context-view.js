@@ -275,6 +275,9 @@
             if (controller.taskCommand && controller.taskUncertain) {
                 status.textContent = label('UncertainTasks', 'The earlier task add is unconfirmed. Use “Check existing task batch” to check that the complete original batch is still present and unchanged. Missing receipts, changed tasks or unreadable data keep this draft locked. Nothing is written or sent.'); return;
             }
+            if (code === 'ANSWER_TITLE') {
+                status.textContent = label('AnswerTitleInvalid', 'The saved-answer title cannot contain tabs, line breaks or control characters. Edit the title and save again. Your answer and snapshot choice are kept; nothing was written.'); return;
+            }
             if (controller.result?.mode === 'answer' && controller.result.provenance === 'external' && ['CAPACITY', 'SIZE_LIMIT'].includes(code)) {
                 status.textContent = label('ExternalAnswerCapacity', 'The global AI collection is full or has insufficient space. Nothing was written. Your loaded answer, title and pasted draft are kept. Free space in the collection, then save again.'); return;
             }

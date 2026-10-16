@@ -382,9 +382,10 @@
             check(typeof includeContext === 'boolean');
             const manual = this.result.provenance === 'external';
             check(!manual || includeContext === false, 'CONTEXT_UNAVAILABLE');
-            // A manual title must satisfy the existing collection single-line field
+            // Every answer title must satisfy the collection's single-line field
             // before creating an immutable command that cannot be edited on retry.
-            check(!manual || !/[\u0000-\u001f\u007f]/u.test(title), 'LIMIT');
+            // Keep the original title and result intact so the user can repair it.
+            check(!/[\u0000-\u001f\u007f]/u.test(title), 'ANSWER_TITLE');
             const generation = this.generation; this.busy = true;
             try {
                 await this.ensureActive(); this.current(generation);

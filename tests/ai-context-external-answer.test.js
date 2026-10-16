@@ -277,8 +277,13 @@ test('both locales provide all shared external-answer controls, privacy and hone
 });
 test('manual invalid title refuses before command creation and leaves the valid loaded answer repairable', async () => {
     const h = setup(); await load(h); const result = h.controller.result, active = h.calls.active;
-    for (const title of ['', ' \t', 'bad\u0000title', 'tab\ttitle', 'new\nline', 'carriage\rreturn', 'delete\u007f', 'x'.repeat(201), '\ud800']) {
-        await assert.rejects(h.controller.saveAnswer(title), { code: 'LIMIT' }); assert.equal(h.controller.saveCommand, null); assert.equal(h.controller.saveUncertain, false); assert.equal(h.controller.result, result);
+    const invalid = [
+        ['', 'LIMIT'], [' \t', 'LIMIT'], ['x'.repeat(201), 'LIMIT'], ['\ud800', 'LIMIT'],
+        ['bad\u0000title', 'ANSWER_TITLE'], ['tab\ttitle', 'ANSWER_TITLE'], ['new\nline', 'ANSWER_TITLE'],
+        ['carriage\rreturn', 'ANSWER_TITLE'], ['delete\u007f', 'ANSWER_TITLE']
+    ];
+    for (const [title, code] of invalid) {
+        await assert.rejects(h.controller.saveAnswer(title), { code }); assert.equal(h.controller.saveCommand, null); assert.equal(h.controller.saveUncertain, false); assert.equal(h.controller.result, result);
     }
     assert.equal(h.calls.active, active); assert.equal(h.c.writes, 0); await h.controller.saveAnswer('Repaired manual title'); assert.equal(h.c.writes, 1); noExternal(h);
 });

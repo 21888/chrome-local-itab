@@ -4380,6 +4380,9 @@
   "aiContextTaskFormat": {
     "message": "Use exactly {\"tasks\":[\"one task\",\"another task\"]}, with 1–50 single-line tasks and no extra fields."
   },
+  "aiContextAnswerTitleInvalid": {
+    "message": "The saved-answer title cannot contain tabs, line breaks or control characters. Edit the title and save again. Your answer and snapshot choice are kept; nothing was written."
+  },
   "aiContextLimit": {
     "message": "The input is empty, invalid, or too long. Use at most 12 excerpts, 16,000 characters per excerpt and 32,000 characters in the complete request."
   },
