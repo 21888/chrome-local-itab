@@ -326,7 +326,12 @@
             const c = this.controller; if (this.openDialog || c.busy || c.pendingCommand || !c.draft()) return;
             try {
                 const duplicates = c.duplicates(); if ((!c.draft().id || asCopy) && duplicates.length && !(await this.confirm({ title: this.t('Duplicate', 'Similar excerpts already exist'), body: `${this.t('DuplicateBody', 'These exact-text matches are suggestions only. Nothing will be merged. Save a separate item?')}\n\n${duplicates.map(item => `${item.title}${item.deletedAt ? ` (${this.t('Archived', 'Archived')})` : ''}`).join('\n')}`, accept: this.t('SaveSeparate', 'Save separate item') }))) return;
-                await c.save(asCopy);
+                // Metadata controls are replaced and disabled during the save.
+                // Keep their focus on stable feedback, without a late focus return.
+                const focusStatus = c.draft()?.id && this.main.contains(this.doc.activeElement);
+                const saving = c.save(asCopy);
+                if (focusStatus) this.status.focus();
+                await saving;
             } catch (error) { c.error = { code: error.code || 'INVALID' }; c.notify(); }
         }
         async discard() { const c = this.controller; if (c.busy || c.pendingCommand) return; if (!c.dirty() || await this.confirm({ title: this.t('Discard', 'Discard draft'), body: this.t('DiscardBody', 'Discard only this unsaved draft? Saved content is unchanged.'), accept: this.t('Discard', 'Discard draft') })) c.discard(); }
@@ -360,7 +365,7 @@
             top.append(meta);
             top.append(this.el('p', 'prompt-dates', `${this.t('Updated', 'Updated')} ${new Date(record.updatedAt).toLocaleString()} · ${record.history.length}/20 ${this.t('Versions', 'body versions')}`));
             const actions = this.el('div', 'prompt-actions');
-            if (!record.deletedAt) actions.append(this.button('Edit', 'Edit details', () => c.edit()), this.button('Revise', 'Revise excerpt', () => this.revise(record)), this.button('Archive', 'Archive', () => c.action('remove')));
+            if (!record.deletedAt) actions.append(this.button('Edit', 'Edit details', () => { if (c.edit()) this.editor?.fields.title?.focus(); }), this.button('Revise', 'Revise excerpt', () => this.revise(record)), this.button('Archive', 'Archive', () => c.action('remove')));
             else actions.append(this.button('Restore', 'Restore from archive', () => c.action('restore')));
             if (!record.deletedAt && record.promptRef) {
                 const compare = this.button('Compare', 'Compare saved results', () => this.compareSaved(record.id));
