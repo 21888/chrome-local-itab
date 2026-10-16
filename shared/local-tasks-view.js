@@ -311,12 +311,15 @@
             for (const node of [reviewButton, confirm, retry]) node.addEventListener('keydown', event => {
                 if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
             });
-            input.addEventListener('input', () => {
+            const changed = () => {
                 generation++; epoch++; reviewing = false; review = null;
                 if (!retryCommand) { showReview(null); if (!saving) setFeedback(''); }
                 update();
-            });
-            input.addEventListener('compositionstart', () => { composing = true; update(); });
+            };
+            input.addEventListener('input', changed);
+            // A new composition owns the draft before its first input event.
+            // Older reviews/saves must not publish a preview or close its editor.
+            input.addEventListener('compositionstart', () => { composing = true; changed(); });
             input.addEventListener('compositionend', () => { composing = false; update(); });
             input.addEventListener('focusout', () => { composing = false; update(); });
             const actions = el('div', 'tasks-dialog-actions'); actions.append(button('tasksCancel', () => modal.close()), reviewButton, retry, confirm);
@@ -520,7 +523,10 @@
             const feedback = el('p', 'tasks-dialog-feedback'); feedback.setAttribute('role', 'status');
             const latest = el('p', 'tasks-latest'); latest.hidden = true;
             let baseline = task, generation = 0, open = true, failedCommand = null, pending = false, reviewedLatest = null;
-            input.addEventListener('input', () => { generation++; failedCommand = null; });
+            const changed = () => { generation++; failedCommand = null; };
+            input.addEventListener('input', changed);
+            // Match quick-entry ownership even before an IME emits changed text.
+            input.addEventListener('compositionstart', changed);
             const originalClose = modal.close;
             const owns = () => !this.destroyed && open && modal.isOpen && input.isConnected;
             const close = () => {
