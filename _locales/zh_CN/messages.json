@@ -2238,6 +2238,36 @@
   "monthCalendarToday": {
     "message": "今天"
   },
+  "settingsCategoryIcon": {
+    "message": "分类图标"
+  },
+  "settingsCategoryName": {
+    "message": "分类名称"
+  },
+  "settingsCategoryMoveUp": {
+    "message": "上移分类"
+  },
+  "settingsCategoryMoveDown": {
+    "message": "下移分类"
+  },
+  "settingsCategoryDelete": {
+    "message": "删除分类"
+  },
+  "settingsNewCategory": {
+    "message": "新分类"
+  },
+  "settingsSaving": {
+    "message": "正在保存设置..."
+  },
+  "settingsSaved": {
+    "message": "设置已保存。"
+  },
+  "settingsSaveFailed": {
+    "message": "保存设置失败，请重试。"
+  },
+  "settingsSaveErrorPrefix": {
+    "message": "保存设置时出错："
+  },
   "settingsBaselineUnavailable": {
     "message": "无法安全读取设置。当前编辑仍保留在此页，请打开新的设置标签页后再保存。"
   },

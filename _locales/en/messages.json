@@ -2238,6 +2238,36 @@
   "monthCalendarToday": {
     "message": "Today"
   },
+  "settingsCategoryIcon": {
+    "message": "Category icon"
+  },
+  "settingsCategoryName": {
+    "message": "Category name"
+  },
+  "settingsCategoryMoveUp": {
+    "message": "Move category up"
+  },
+  "settingsCategoryMoveDown": {
+    "message": "Move category down"
+  },
+  "settingsCategoryDelete": {
+    "message": "Delete category"
+  },
+  "settingsNewCategory": {
+    "message": "New category"
+  },
+  "settingsSaving": {
+    "message": "Saving settings..."
+  },
+  "settingsSaved": {
+    "message": "Settings saved."
+  },
+  "settingsSaveFailed": {
+    "message": "Failed to save settings. Please try again."
+  },
+  "settingsSaveErrorPrefix": {
+    "message": "Error saving settings:"
+  },
   "settingsBaselineUnavailable": {
     "message": "Settings could not be read safely. Your edits are still here. Open a new Settings tab before saving."
   },

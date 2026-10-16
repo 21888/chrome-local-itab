@@ -471,6 +471,8 @@ The main clock’s complete date, including date order and weekday/month names, 
 
 New default category names follow the CN/EN message catalog actually selected by Chrome, with English fallback for other languages or unavailable messages. Category IDs, icons and order stay the same. Saved or imported names do not change with the interface language, including names matching old defaults and custom categories. Configurations without a category field and explicit resets receive localized defaults; a saved empty category list remains empty.
 
+The Settings category editor’s field labels and action hints, plus the main save status and error prefix, also use the CN/EN catalog with English fallback. Add Category starts with a name in the current interface language; once saved, it stays unchanged just like existing, imported or user-entered names. Specific error details remain intact, along with the existing dedicated conflict and permission notices.
+
 <a id="development"></a>
 
 ## Local development and checks

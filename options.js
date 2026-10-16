@@ -899,23 +899,24 @@ function setupCategoryManagement(categories = []) {
         iconInput.type = 'text';
         iconInput.className = 'form-input cat-icon';
         iconInput.value = cat.icon || '';
-        iconInput.setAttribute('aria-label', 'icon');
+        iconInput.setAttribute('aria-label', t('settingsCategoryIcon', 'Category icon'));
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.className = 'form-input cat-name';
         nameInput.value = cat.name || '';
-        nameInput.setAttribute('aria-label', 'name');
+        nameInput.setAttribute('aria-label', t('settingsCategoryName', 'Category name'));
         const actions = document.createElement('div');
         actions.className = 'category-actions';
         [
-            ['cat-up', '上移', '↑', 'btn btn-secondary btn-sm cat-up'],
-            ['cat-down', '下移', '↓', 'btn btn-secondary btn-sm cat-down'],
-            ['cat-delete', '删除', '✕', 'btn btn-danger btn-sm cat-delete']
-        ].forEach(([, title, text, className]) => {
+            ['settingsCategoryMoveUp', 'Move category up', '↑', 'btn btn-secondary btn-sm cat-up'],
+            ['settingsCategoryMoveDown', 'Move category down', '↓', 'btn btn-secondary btn-sm cat-down'],
+            ['settingsCategoryDelete', 'Delete category', '✕', 'btn btn-danger btn-sm cat-delete']
+        ].forEach(([key, fallback, text, className]) => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = className;
-            button.title = title;
+            button.title = t(key, fallback);
+            button.setAttribute('aria-label', button.title);
             button.textContent = text;
             actions.appendChild(button);
         });
@@ -946,7 +947,7 @@ function setupCategoryManagement(categories = []) {
             (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
     });
     addBtn.addEventListener('click', () => {
-        const newCat = { id: `cat_${Date.now()}`, name: '新分类', icon: '📁' };
+        const newCat = { id: `cat_${Date.now()}`, name: t('settingsNewCategory', 'New category'), icon: '📁' };
         list.appendChild(createItem(newCat));
         scheduleSave();
     });
@@ -2194,7 +2195,7 @@ async function saveAllSettings(includeWorldClocks = false) {
     return queueSettingsWrite(async () => {
         if (session !== settingsSession || settingsReplacementPending) return;
         try {
-            showMessage('Saving settings...', 'info');
+            showMessage(t('settingsSaving', 'Saving settings...'), 'info');
             if (collectError) throw collectError;
             const paths = settingsDirtyPaths(submittedForm);
             // A Save clicked during an upload must not replay its untouched old
@@ -2250,16 +2251,16 @@ async function saveAllSettings(includeWorldClocks = false) {
             if (session !== settingsSession || settingsReplacementPending) return;
             if (success) {
                 // Do not re-render: edits made while saving belong to the user.
-                showMessage('Settings saved.', 'success');
+                showMessage(t('settingsSaved', 'Settings saved.'), 'success');
                 await displayStorageInfo();
             } else {
-                showMessage('Failed to save settings. Please try again.', 'error');
+                showMessage(t('settingsSaveFailed', 'Failed to save settings. Please try again.'), 'error');
             }
         } catch (error) {
             if (session !== settingsSession || settingsReplacementPending) return;
             console.error('Error saving settings:', error);
             const detail = error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : error.code === 'CLOCK_CONFLICT' ? t('worldClockConflict', 'Clock settings changed in another tab or could not be safely compared. Your edits are still here. Review the latest values in a new Settings tab before retrying.') : error.message;
-            showMessage(error.code?.startsWith('SETTINGS_') ? detail : `Error saving settings: ${detail}`, 'error');
+            showMessage(error.code?.startsWith('SETTINGS_') ? detail : `${t('settingsSaveErrorPrefix', 'Error saving settings:')} ${detail}`, 'error');
         }
     }).finally(() => { --worldClockSaves; });
 }
