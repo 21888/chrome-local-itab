@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         refreshPrivacyPermissionHints();
     } catch (error) {
         console.error('Error initializing options page:', error);
-        showErrorMessage('Failed to load settings. Please try refreshing the page.');
+        showErrorMessage(t('settingsLoadFailed', 'Failed to load settings. Please try refreshing the page.'));
     }
 });
 
@@ -1151,7 +1151,7 @@ function setupEventListeners() {
             privacyPermissionPending = false;
             if (!granted) {
                 onlineFavicons.checked = false;
-                showMessage('Online favicon permission was not granted.', 'error');
+                showMessage(t('settingsFaviconPermissionDenied', 'Online favicon permission was not granted.'), 'error');
             }
             onlineFavicons.dataset.permissionMissing = 'false';
             refreshPrivacyPermissionHints();
@@ -2268,11 +2268,11 @@ async function saveAllSettings(includeWorldClocks = false) {
 
 async function resetAllSettings() {
     try {
-        showMessage('Resetting settings...', 'info');
+        showMessage(t('settingsResetting', 'Resetting settings...'), 'info');
         
         // Reset only this workspace; preserve personal modules and shared preferences.
         const cleared = await replaceSettings(() => storageManager.clear());
-        if (!cleared) throw new Error('Settings could not be reset. Please try again.');
+        if (!cleared) throw new Error(t('settingsResetFailed', 'Settings could not be reset. Please try again.'));
         // The confirmed reset discards this configuration draft, even when a
         // separate private-content draft still prevents the automatic reload.
         if (clockFormInitialized) {
@@ -2292,7 +2292,7 @@ async function resetAllSettings() {
         window.LocalItabContentLifecycle.reload();
     } catch (error) {
         console.error('Error resetting settings:', error);
-        showMessage(`Error resetting settings: ${error.message}`, 'error');
+        showMessage(`${t('settingsResetErrorPrefix', 'Error resetting settings:')} ${error.message}`, 'error');
     }
 }
 

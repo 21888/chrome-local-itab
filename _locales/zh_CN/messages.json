@@ -7489,5 +7489,20 @@
   },
   "aiContextCollectionReloaded": {
     "message": "已将最新已保存来源加载到下方列表，均未选中。请重新选择需要的摘录并审阅问题；此处的旧预览仍不可用。"
+  },
+  "settingsLoadFailed": {
+    "message": "加载设置失败，请尝试刷新页面。"
+  },
+  "settingsFaviconPermissionDenied": {
+    "message": "未获得在线网站图标权限。"
+  },
+  "settingsResetting": {
+    "message": "正在重置设置..."
+  },
+  "settingsResetFailed": {
+    "message": "无法重置设置，请重试。"
+  },
+  "settingsResetErrorPrefix": {
+    "message": "重置设置时出错："
   }
 }

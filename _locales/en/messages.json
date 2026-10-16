@@ -7489,5 +7489,20 @@
   },
   "aiContextCollectionReloaded": {
     "message": "Latest saved sources loaded below and left unselected. Select the excerpts you want and review your question again. This earlier preview is still unavailable."
+  },
+  "settingsLoadFailed": {
+    "message": "Failed to load settings. Please try refreshing the page."
+  },
+  "settingsFaviconPermissionDenied": {
+    "message": "Online favicon permission was not granted."
+  },
+  "settingsResetting": {
+    "message": "Resetting settings..."
+  },
+  "settingsResetFailed": {
+    "message": "Settings could not be reset. Please try again."
+  },
+  "settingsResetErrorPrefix": {
+    "message": "Error resetting settings:"
   }
 }
