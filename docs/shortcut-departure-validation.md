@@ -15,7 +15,9 @@ discard behavior. IME Escape retains the composing dialog as before. Dismissing
 a dialog does not release its pending write; success, failure or rejection settles
 that write. Failed dirty drafts remain protected. An old save cannot remove
 protection from a newer dirty dialog, nor make a newer pristine dialog dirty.
-A successful current save closes its editor and releases its guard.
+A successful current save closes its editor and releases its guard only when
+there was no later editing intent. [Edits made while saving](shortcut-save-draft-validation.md)
+remain open against the newly committed baseline.
 
 The deferred-Sync notice's explicit Reload button keeps its existing discard
 confirmation. Accepting that confirmation can also show Chrome's native warning
@@ -39,7 +41,8 @@ leave, forced shutdown or a suppressed warning can still lose an unsaved draft.
 
 取消、×、点击遮罩和普通 Esc 仍会明确丢弃草稿；输入法组字时的 Esc 仍保留对话框。
 关闭编辑器不会解除尚未完成的保存保护；失败后的脏草稿继续受保护。旧保存完成
-不会解除新草稿的保护，也不会让新打开的干净表单被误判为脏。当前保存成功后解除。
+不会解除新草稿的保护，也不会让新打开的干净表单被误判为脏。当前保存成功且没有后续编辑意图时解除；保存等待中继续编辑的草稿会保持打开，
+并以刚提交的值作为新基准。详见[保存期间的草稿归属](shortcut-save-draft-validation.md)。
 
 Sync 延迟刷新提示中的“重新加载”按钮仍先明确确认丢弃；确认后，Chrome 还可能
 显示额外的原生提醒。取消任一提醒均保留草稿，之后键盘刷新仍受保护。保存尚未
@@ -63,7 +66,9 @@ Cancelar, ×, el fondo y Escape normal conservan el descarte explícito existent
 Escape durante la composición IME mantiene el diálogo. Cerrar el editor no libera
 un guardado pendiente. Los borradores modificados siguen protegidos tras un fallo;
 un guardado anterior no desprotege un borrador nuevo ni marca como modificado un
-formulario nuevo intacto. Guardar correctamente el editor actual libera su aviso.
+formulario nuevo intacto. Guardar correctamente libera el aviso si no hubo una
+edición posterior. Los [borradores editados durante el guardado](shortcut-save-draft-validation.md)
+siguen abiertos con los valores enviados como nueva referencia.
 
 El botón Recargar del aviso de Sync aplazado conserva su confirmación de descarte.
 Después de aceptarla, Chrome puede mostrar un segundo aviso nativo. Cancelar

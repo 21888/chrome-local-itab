@@ -2222,6 +2222,7 @@ class ShortcutsComponent {
         this._hasShortcutConflict = false;
         this._modalSession = 0;
         this._shortcutDraftBaseline = null;
+        this._shortcutDraftRevision = 0;
         this._pendingSave = null;
         this._pendingDelete = false;
         this._shortcutUndoReceipt = null;
@@ -3285,6 +3286,13 @@ class ShortcutsComponent {
         // Icon fetch button
         const fetchIconBtn = this.modal.querySelector('#fetch-icon-btn');
         fetchIconBtn.addEventListener('click', () => this.fetchWebsiteIcon());
+        // A later edit owns this opening before an IME emits its first input.
+        // Keep this separate from icon-fetch ownership and preview revisions.
+        const markDraftIntent = () => { this._shortcutDraftRevision = (this._shortcutDraftRevision || 0) + 1; };
+        for (const field of ['title', 'url', 'icon', 'category']) {
+            const input = this.modal.querySelector(`#shortcut-${field}`);
+            for (const event of ['input', 'change', 'compositionstart']) input.addEventListener(event, markDraftIntent);
+        }
         for (const selector of ['#shortcut-title', '#shortcut-url', '#shortcut-icon']) {
             const input = this.modal.querySelector(selector);
             for (const event of ['input', 'change']) {
@@ -3390,6 +3398,9 @@ class ShortcutsComponent {
         if (!unchangedURL) url = normalizeHttpUrl(url);
 
         const saveSession = this._modalSession;
+        const saveModal = this.modal;
+        const saveDraft = this.readShortcutDraft();
+        const saveRevision = this._shortcutDraftRevision || 0;
         const pendingSave = {};
         this._pendingSave = pendingSave;
         this.setSavingState(true);
@@ -3416,12 +3427,23 @@ class ShortcutsComponent {
             if (!saved) {
                 throw new Error('Storage write returned false');
             }
-            const ownsFocus = this._modalSession === saveSession && this.modal.contains?.(document.activeElement);
+            const sameEditor = this._modalSession === saveSession && this.modal === saveModal;
+            const newerDraft = sameEditor && ((this._shortcutDraftRevision || 0) !== saveRevision ||
+                this.readShortcutDraft().some((value, index) => value !== saveDraft[index]));
+            const ownsFocus = sameEditor && !newerDraft && this.modal.contains?.(document.activeElement);
             const focusIntent = ownsFocus ? (editIndex >= 0
                 ? { key: this.getShortcutFocusKey(shortcut), index: editIndex, action: ['more', 'edit'].includes(this._modalFocusOrigin?.action) ? this._modalFocusOrigin.action : 'launch' }
                 : { action: 'add' }) : null;
             this.links = saved.links || nextLinks;
-            if (this._modalSession === saveSession) this.hideModal();
+            if (sameEditor) {
+                if (newerDraft) {
+                    // The committed snapshot is the next edit's target/CAS base.
+                    // In particular, continuing an Add must not add it twice.
+                    this.currentEditIndex = editIndex >= 0 ? editIndex : previousLinks.length;
+                    this._shortcutDraftBaseline = { session: saveSession, modal: this.modal, values: saveDraft };
+                    this.modal.querySelector('.modal-title').textContent = window.i18n?.t('editShortcut') || 'Edit Shortcut';
+                } else this.hideModal();
+            }
             this.updateGrid(focusIntent);
 
             // Warm favicon cache after the UI is done saving so it never blocks the modal.

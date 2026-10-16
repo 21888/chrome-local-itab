@@ -2,7 +2,9 @@
 
 Application-triggered configuration reloads now wait while an Add/Edit dialog is
 open or a shortcut save is pending. Empty Add and unchanged Edit dialogs are also
-preserved. Cancel or completion of the current save releases the guard. A closed
+preserved. Cancel or completion of the current save without later editing intent
+releases the guard. [A draft edited while saving](shortcut-save-draft-validation.md)
+stays open after that save commits, so its automatic reload guard remains. A closed
 editor's pending write still blocks reload; an older save completion cannot
 release a newer open editor. Explicit discard asks its existing custom confirmation once and is unavailable
 while a write is pending. The later departure guard can additionally request a
