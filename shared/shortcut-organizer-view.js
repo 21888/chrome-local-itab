@@ -125,16 +125,22 @@
             (list.querySelector('[data-source="true"]') || select).scrollIntoView?.({ block: 'nearest' });
             (query ? search : select).focus();
         }
-        function renderReview() {
+        function renderReview(retryUnavailable = false) {
             selectionRevision++;
             body.replaceChildren(); status.textContent = t('organizerReviewTitle');
             const destinationName = snapshot.categories.find(category => category.id === request.destination).name;
             body.append(el('p', `${t('organizerDestination')}: ${destinationName} (${request.destination})`), el('p', `${t('organizerSelected')}: ${request.indices.length}`));
             const list = el('ol', undefined, 'organizer-list');
             for (const index of request.indices) { const link = snapshot.links[index], item = el('li'); item.append(el('strong', `${index + 1}. ${link.title}`), el('span', link.url, 'organizer-url'), el('span', `${link.category} → ${destinationName}`)); list.append(item); }
-            body.append(list, button('organizerCancel', close));
+            const cancel = button('organizerCancel', close);
+            body.append(list, cancel);
             if (!submitted) body.append(button('organizerBack', () => { request = null; renderSelection(); }));
-            const submit = button(submitted ? 'organizerRetry' : 'organizerSubmit', save); body.append(submit); submit.focus();
+            const submit = button(submitted ? 'organizerRetry' : 'organizerSubmit', save);
+            submit.disabled = retryUnavailable;
+            body.append(submit);
+            // Never focus a retry that will immediately become disabled: native
+            // focus would fall to body, outside this dialog's Escape/Tab handler.
+            (retryUnavailable ? cancel : submit).focus();
         }
         async function save() {
             if (busy || !request || root.LocalItabContentLifecycle?.departing) return;
@@ -144,11 +150,8 @@
                 busy = false; const count = request.indices.length; close();
                 const result = el('span', `${t('organizerSaved')}: ${count}`); result.setAttribute('role', 'status'); host.append(result);
             } catch (error) {
-                busy = false; renderReview();
+                busy = false; renderReview(error.code !== 'ORGANIZER_FAILED' && error.code !== 'ORGANIZER_UNVERIFIED');
                 status.textContent = t(error.code === 'ORGANIZER_LAYOUT_PENDING' ? 'organizerLayout' : error.code === 'ORGANIZER_FAILED' ? 'organizerFailed' : error.code === 'ORGANIZER_UNVERIFIED' ? 'organizerUnverified' : 'organizerChanged');
-                if (error.code !== 'ORGANIZER_FAILED' && error.code !== 'ORGANIZER_UNVERIFIED') {
-                    const buttons = body.querySelectorAll('button'); buttons[buttons.length - 1].disabled = true;
-                }
             }
         }
         return { open, close, get pending() { return busy; }, hasUncommittedWork: () => Boolean(overlay || busy), destroy() { if (!busy) { close(); opener.remove(); } } };

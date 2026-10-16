@@ -50,3 +50,94 @@ test('failed layout flush blocks review reads and preserves retry intent',async(
 test('pending write retains focus inside dialog after disabling its controls',async()=>{
     const h=model(),pending=deferred();h.write=pending;await h.review();h.button('Move reviewed sites').focus();h.click('Move reviewed sites');const panel=h.document.querySelector('.organizer-panel');assert.equal(h.document.activeElement,panel);const event=panel.dispatch('keydown',{key:'Tab'});assert.equal(event.prevented,true);pending.resolve();await tick();
 });
+
+for (const code of ['ORGANIZER_CONFLICT', 'WORKSPACE_INVALIDATED', 'WORKSPACE_SWITCH_PENDING', 'WORKSPACE_STALE', 'ORGANIZER_LAYOUT_PENDING', undefined]) {
+    test(`non-retryable ${code || 'unexpected'} move failure keeps keyboard focus on Cancel`, async () => {
+        const h = model(), pending = deferred();
+        let calls = 0;
+        h.component.moveReviewedShortcuts = async () => {
+            calls++;
+            await pending.promise;
+            throw Object.assign(new Error('Move unavailable'), { code });
+        };
+        const opener = h.button('Organize saved sites'); opener.focus();
+        await h.review(); h.click('Move reviewed sites');
+        assert.equal(h.document.activeElement, h.document.querySelector('.organizer-panel'));
+        pending.resolve(); await tick();
+        const retry = h.button('Retry reviewed move'), cancel = h.button('Cancel');
+        assert.equal(retry.disabled, true);
+        assert.equal(Boolean(cancel.disabled), false);
+        assert.equal(h.document.activeElement === cancel, true, 'Cancel must own focus before keyboard input');
+        // Send keyboard input from the current focus, never the old submit.
+        const tab = h.document.activeElement.dispatch('keydown', { key: 'Tab' });
+        assert.equal(tab.prevented, true); assert.equal(h.document.activeElement, cancel);
+        h.click('Retry reviewed move'); assert.equal(calls, 1);
+        const escape = h.document.activeElement.dispatch('keydown', { key: 'Escape' });
+        assert.equal(escape.prevented, true); assert.equal(h.view.hasUncommittedWork(), false);
+        assert.equal(h.document.activeElement, opener);
+        await h.view.open();
+        assert.equal(h.document.querySelector('select').value, '');
+        assert.equal(h.document.querySelectorAll('input').some(input => input.type === 'checkbox' && input.checked), false);
+        assert.equal(h.button('Review move').disabled, true); assert.equal(h.button('Retry reviewed move'), undefined);
+        h.click('Cancel'); assert.equal(h.document.activeElement, opener);
+    });
+}
+
+for (const code of ['ORGANIZER_FAILED', 'ORGANIZER_UNVERIFIED']) {
+    test(`retryable ${code} keeps the enabled retry focused and the same reviewed request`, async () => {
+        const h = model(), pending = deferred();
+        let calls = 0, originalRequest;
+        h.component.moveReviewedShortcuts = async request => {
+            calls++;
+            if (!originalRequest) originalRequest = request;
+            else assert.equal(request, originalRequest);
+            if (calls === 1) { await pending.promise; throw Object.assign(new Error('Retry available'), { code }); }
+        };
+        const opener = h.button('Organize saved sites'); opener.focus();
+        await h.review(); h.click('Move reviewed sites'); pending.resolve(); await tick();
+        const retry = h.button('Retry reviewed move');
+        assert.equal(Boolean(retry.disabled), false); assert.equal(h.document.activeElement, retry);
+        assert.equal(h.button('Back'), undefined);
+        h.click('Retry reviewed move'); await tick();
+        assert.equal(calls, 2); assert.equal(h.view.hasUncommittedWork(), false);
+        assert.equal(h.document.activeElement, opener);
+    });
+}
+
+test('a real stale storage snapshot returns keyboard control to Cancel and a fresh review can succeed', async () => {
+    const StorageManager = require('../storage.js');
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const h = model(), manager = new StorageManager();
+    const state = {
+        links: ['work', 'orphan'].map(category => ({ title: 'Twin', url: 'https://example.com/twin', icon: '★', category })),
+        categories: clone(h.snapshot.categories), layout: { positions: {} }
+    };
+    let writes = 0;
+    manager._syncInitialized = true;
+    manager.withLocalWriteLock = work => Promise.resolve().then(work);
+    manager.scheduleShortcutUndoSync = async () => {};
+    Object.defineProperty(manager, '_local', { value: {
+        async get() { return clone(state); },
+        async set(values) { writes++; Object.assign(state, clone(values)); }
+    } });
+    h.context.storageManager = manager;
+    h.component.moveReviewedShortcuts = request => manager.moveShortcutsToCategory(request);
+    const opener = h.button('Organize saved sites'); opener.focus();
+    await h.review();
+    // Another tab can rename the destination after this review was captured.
+    state.categories[1].name = 'Renamed destination';
+    const changed = clone(state);
+    h.click('Move reviewed sites'); await tick();
+    assert.equal(writes, 0); assert.deepEqual(state, changed);
+    assert.match(h.document.querySelector('[role="status"]').textContent, /changed/);
+    assert.equal(h.document.activeElement === h.button('Cancel'), true, 'The real conflict must focus Cancel');
+    assert.equal(h.button('Retry reviewed move').disabled, true);
+    h.document.activeElement.dispatch('keydown', { key: 'Escape' });
+    assert.equal(h.document.activeElement, opener);
+    await h.review();
+    assert.equal(h.document.activeElement, h.button('Move reviewed sites'));
+    h.click('Move reviewed sites'); await tick();
+    const moved = clone(changed); moved.links[1].category = 'personal';
+    assert.equal(writes, 1); assert.deepEqual(state, moved);
+    assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.document.activeElement, opener);
+});
