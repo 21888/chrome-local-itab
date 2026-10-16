@@ -42,6 +42,7 @@
             // current saved state was read or its write acknowledgement verified.
             this.comparisonReadGeneration = null;
             this.collectionReviews = new WeakSet();
+            this.bodyReviewGeneration = 0; this.bodyReviews = new WeakMap();
             this.interactionGeneration = 0; this.pendingCommand = null; this.pendingInspection = false; this.disposed = false; this.refreshQueued = false;
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
@@ -243,14 +244,31 @@
             } catch (error) { this.error = { code: error.code || 'INVALID', scope: 'review' }; this.notify(); return false; }
         }
         async reviewBody(body, versionId) {
-            if (this.busy || this.pendingCommand) return null;
+            if (this.disposed || this.busy || this.pendingCommand || this.pendingReadGeneration === this.readGeneration) return null;
             const record = this.record(); if (!record || record.deletedAt || this.draft()) return null;
+            const context = { record, state: this.state, generation: ++this.bodyReviewGeneration,
+                readGeneration: this.readGeneration, interactionGeneration: this.interactionGeneration };
             try {
-                return await (versionId ? this.store.reviewVersionRestore({ id: record.id, version: record.version, versionId }) : this.store.reviewRevision({ id: record.id, version: record.version, body }));
-            } catch (error) { this.error = { code: error.code || 'READ', scope: 'review' }; this.notify(); return null; }
+                const plan = await (versionId ? this.store.reviewVersionRestore({ id: record.id, version: record.version, versionId }) : this.store.reviewRevision({ id: record.id, version: record.version, body }));
+                if (!this.bodyReviewCurrent(context)) return null;
+                this.bodyReviews.set(plan, context); return plan;
+            } catch (error) {
+                if (this.bodyReviewCurrent(context)) { this.error = { code: error.code || 'READ', scope: 'review' }; this.notify(); }
+                return null;
+            }
+        }
+        invalidateBodyReview() { this.bodyReviewGeneration++; }
+        bodyReviewCurrent(context) {
+            // Even A -> B -> A and an unchanged refresh require a fresh review.
+            // A stored plan is usable only in the exact UI context that read it.
+            return Boolean(context) && !this.disposed && !this.busy && !this.pendingCommand && !this.draft() &&
+                context.generation === this.bodyReviewGeneration && context.interactionGeneration === this.interactionGeneration &&
+                context.readGeneration === this.readGeneration && this.pendingReadGeneration !== this.readGeneration &&
+                context.state === this.state && context.record === this.record() && !context.record.deletedAt;
         }
         async acceptRevision(plan) {
-            if (this.busy || this.pendingCommand || !plan) return false;
+            if (!this.bodyReviewCurrent(this.bodyReviews.get(plan))) return false;
+            this.bodyReviews.delete(plan);
             return this.execute({ command: this.store.request('revise', plan), recordId: plan.id, action: 'revise' });
         }
         async save(asCopy = false) {

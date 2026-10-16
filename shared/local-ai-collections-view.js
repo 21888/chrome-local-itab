@@ -6,10 +6,11 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller;
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
-            this.proposals = new Map(); this.revisionDraft = null; this.openDialog = false; this.detailGeneration = 0; this.copyGeneration = 0;
-            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            this.proposals = new Map(); this.revisionDraft = null; this.revisionContext = null; this.openDialog = false; this.detailGeneration = 0; this.copyGeneration = 0;
+            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } if (this.revisionContext && !this.revisionContext.current()) this.cancelRevision(); this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
             this.pageHide = event => {
                 if (!event?.persisted) { this.destroy(); return; }
+                this.cancelRevision();
                 this.detailGeneration++;
                 this.answerReader?.destroy(); this.answerReader = null;
                 this.closeImport?.();
@@ -28,6 +29,7 @@
         destroy() {
             if (this.destroyed) return;
             this.destroyed = true;
+            this.cancelRevision();
             this.answerReader?.destroy(); this.answerReader = null;
             this.closeImport?.();
             this.detailGeneration++;
@@ -151,6 +153,7 @@
             if (this.importButton) this.importButton.disabled = !this.controller.replacementReady() || this.revisionDraft !== null || this.proposals.size > 0;
         }
         render() {
+            if (this.revisionContext && !this.revisionContext.submitted) this.cancelRevision();
             this.closeHistoricalPrompt?.();
             this.closeHistoricalPrompt = null;
             this.updateHistoricalPrompt = null;
@@ -583,20 +586,42 @@
                 if (isCurrent()) status.textContent = feedback(target?.blocked || ['CopyBlocked', 'Copy was blocked. Select the excerpt text to copy it manually.']);
             } finally { this.copying = false; if (!this.destroyed) this.refreshCopyState(); }
         }
+        cancelRevision() {
+            const context = this.revisionContext;
+            this.revisionContext = null; this.revisionDraft = null;
+            this.controller.invalidateBodyReview();
+            context?.closeDialog?.();
+        }
         async revise(record, historic) {
-            if (this.openDialog || this.controller.busy || this.controller.pendingCommand || this.revisionDraft !== null) return;
+            const c = this.controller;
+            if (this.destroyed || c.disposed || !this.host.isConnected || this.openDialog || c.busy || c.pendingCommand || c.draft() ||
+                this.revisionDraft !== null || !record || c.record() !== record || record.deletedAt || c.pendingReadGeneration === c.readGeneration) return;
+            const context = { state: c.state, readGeneration: c.readGeneration, interactionGeneration: c.interactionGeneration,
+                detailGeneration: this.detailGeneration, submitted: false };
+            context.current = () => this.revisionContext === context && !this.destroyed && !c.disposed && this.host.isConnected &&
+                c.selected === record.id && (context.submitted || (!c.busy && !c.pendingCommand && !c.draft() &&
+                c.record() === record && c.state === context.state && c.readGeneration === context.readGeneration &&
+                c.pendingReadGeneration !== c.readGeneration && c.interactionGeneration === context.interactionGeneration && this.detailGeneration === context.detailGeneration));
             let body = historic?.body ?? this.proposals.get(record.id) ?? record.body;
+            this.revisionContext = context;
             this.revisionDraft = body; this.proposals.set(record.id, body);
             try {
                 if (!historic) {
-                    const accepted = await this.dialog({ title: this.t('Revise', 'Revise excerpt'), body: this.t('RevisionHelp', 'Enter proposed text. The saved excerpt stays unchanged until you review and accept a new version.'), accept: this.t('Review', 'Review change'), editor: body, onInput: value => { body = value; this.revisionDraft = value; this.proposals.set(record.id, value); } });
-                    if (!accepted) return;
+                    const accepted = await this.dialog({ title: this.t('Revise', 'Revise excerpt'), body: this.t('RevisionHelp', 'Enter proposed text. The saved excerpt stays unchanged until you review and accept a new version.'), accept: this.t('Review', 'Review change'), editor: body, revisionContext: context, onInput: value => { if (!context.current()) return; body = value; this.revisionDraft = value; this.proposals.set(record.id, value); } });
+                    if (!context.current() || !accepted) return;
                 }
                 if (body === record.body) { this.proposals.delete(record.id); this.status.textContent = this.t('Unchanged', 'The excerpt is unchanged.'); return; }
-                if (this.controller.record()?.version !== record.version) { this.controller.error = { code: 'CONFLICT' }; this.controller.notify(); return; }
-                const plan = await this.controller.reviewBody(body, historic?.id); if (!plan) return;
-                if (await this.dialog({ title: this.t('ReviewRevision', 'Review excerpt revision'), body: this.t('RevisionConfirm', 'Accepting creates a new body version. All earlier versions remain. Annotations and source details are unchanged.'), accept: this.t('AcceptRevision', 'Accept new body version'), comparison: { before: record.body, after: plan.body } })) { if (await this.controller.acceptRevision(plan)) this.proposals.delete(record.id); }
-            } finally { this.revisionDraft = null; this.render(); }
+                const plan = await c.reviewBody(body, historic?.id); if (!context.current() || !plan) return;
+                const accepted = await this.dialog({ title: this.t('ReviewRevision', 'Review excerpt revision'), body: this.t('RevisionConfirm', 'Accepting creates a new body version. All earlier versions remain. Annotations and source details are unchanged.'), accept: this.t('AcceptRevision', 'Accept new body version'), comparison: { before: record.body, after: plan.body }, revisionContext: context });
+                if (!context.current() || !accepted) return;
+                // The confirmed write keeps the existing receipt/retry lifecycle.
+                // Its own notifications can replace the saved record; navigation
+                // or page departure still releases this view's ownership.
+                context.submitted = true;
+                if (await c.acceptRevision(plan) && context.current() && this.proposals.get(record.id) === body) this.proposals.delete(record.id);
+            } finally {
+                if (this.revisionContext === context) { const current = context.current(); this.cancelRevision(); if (current) this.render(); }
+            }
         }
         importFile() {
             const c = this.controller;
@@ -733,7 +758,7 @@
                 this.exportingMarkdown = false;
             }
         }
-        dialog({ title, body, accept, editor, onInput, comparison, checkbox, markdownPreview, sourceCheckbox, sourceValue, markdownCurrent }) {
+        dialog({ title, body, accept, editor, onInput, comparison, checkbox, markdownPreview, sourceCheckbox, sourceValue, markdownCurrent, revisionContext }) {
             if (this.openDialog) return Promise.resolve(false);
             return new Promise(resolve => {
                 const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', `prompt-dialog${comparison || editor !== undefined ? ' collection-review-dialog' : ''}`); overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'collection-dialog-title'); box.setAttribute('aria-describedby', 'collection-dialog-body');
@@ -748,8 +773,9 @@
                     input.addEventListener('change', () => { sourceCheckbox(input.checked); source.hidden = !input.checked; });
                     label.append(input, this.el('span', '', this.t('MarkdownSource', 'Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information.'))); box.append(label, source);
                 }
-                const actions = this.el('div', 'prompt-actions'); let close;
-                const finish = answer => { if (!this.openDialog) return; this.openDialog = false; if (markdownPreview !== undefined) this.cancelMarkdownDialog = null; close?.(markdownPreview === undefined || !markdownCurrent || markdownCurrent()); overlay.remove(); resolve(answer); };
+                const actions = this.el('div', 'prompt-actions'); let close, closed = false;
+                const finish = answer => { if (closed) return; closed = true; this.openDialog = false; if (markdownPreview !== undefined) this.cancelMarkdownDialog = null; if (revisionContext) revisionContext.closeDialog = null; const current = !revisionContext || revisionContext.current(); close?.(current && (markdownPreview === undefined || !markdownCurrent || markdownCurrent())); overlay.remove(); resolve(answer && current); };
+                if (revisionContext) revisionContext.closeDialog = () => finish(false);
                 if (markdownPreview !== undefined) this.cancelMarkdownDialog = () => finish(false);
                 const cancel = this.button('Cancel', 'Cancel', () => finish(false)), proceed = this.el('button', 'prompt-primary', accept); proceed.type = 'button'; proceed.addEventListener('click', () => finish(true)); actions.append(cancel, proceed); box.append(actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true; // A long export review must open at its scope/privacy introduction.
                 // Keep the static heading out of the normal sequential Tab order.

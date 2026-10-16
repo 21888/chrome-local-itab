@@ -63,6 +63,7 @@ async function seed(h, { source = true } = {}) {
         c.edit(); c.update('notes', savedNotes); c.update('tool', 'Local model label');
         c.update('sourceUrl', source ? sourceUrl : ''); c.update('tagsText', 'tag-one, 中文');
         assert.equal(await c.save(), true);
+        await api.settle(c);
         const plan = await c.reviewBody(savedBody); assert.ok(plan); assert.equal(await c.acceptRevision(plan), true);
     }
     await api.settle(c);

@@ -23,7 +23,7 @@ for (const omitSourceUrls of [false, true]) test(`downloaded collection JSON par
     const body = '  <script>"literal"</script>\r\n中文 🧪 {{topic}}\\path\t  ';
     const notes = '  My notes\r\n中文 🧪 <b>literal</b>  ';
     await add(c, 'Original', body);
-    c.edit(); c.update('sourceUrl', 'https://example.com/private'); c.update('notes', notes); await c.save();
+    c.edit(); c.update('sourceUrl', 'https://example.com/private'); c.update('notes', notes); await c.save(); await settle(c);
     const plan = await c.reviewBody(`${body}\r\nRevision`); assert.equal(await c.acceptRevision(plan), true);
     const source = await h.store.export();
     await h.store.mutate(h.store.request('replace', await h.store.review(source)));
@@ -75,7 +75,7 @@ test('capture keeps exact text and separates annotations; drafts never write bef
 });
 test('metadata saves cannot revise body; explicit preview and acceptance append history', async () => {
     const h = setup(), c = h.controller; await c.start(); await add(c); c.edit(); c.update('body', 'new text'); assert.equal(await c.save(), false); assert.equal(c.error.code, 'REVIEW_REQUIRED'); c.discard();
-    const plan = await c.reviewBody('new text'); assert.notEqual(c.record().body, 'new text'); assert.equal(await c.acceptRevision(plan), true); assert.equal(c.record().body, 'new text'); assert.equal(c.record().history.length, 2); c.dispose();
+    await settle(c); const plan = await c.reviewBody('new text'); assert.notEqual(c.record().body, 'new text'); assert.equal(await c.acceptRevision(plan), true); assert.equal(c.record().body, 'new text'); assert.equal(c.record().history.length, 2); c.dispose();
 });
 test('archiving and restore retain body history and unresolved references', async () => {
     const h = setup(), c = h.controller; await c.start(); await add(c); c.edit(); c.update('promptId', 'prompt_0001'); c.update('bodyVersionId', 'version_0001'); await c.save(); const ref = c.record().promptRef;
@@ -114,7 +114,7 @@ test('bootstrap requires fenced backend; no fetch, HTML parsing, providers, remo
 });
 test('revision begun before a cross-tab change refuses stale comparison and preserves proposal', async () => {
     const h = await mount(), c = h.controller; const record = await add(c); h.view.dialog = async options => { options.onInput('proposed'); await h.store.mutate(h.store.request('edit', { id: record.id, version: record.version, notes: 'other tab' })); await tick(); return true; };
-    await h.view.revise(record); assert.equal(c.error.code, 'CONFLICT'); assert.equal(c.record().body, record.body); assert.equal(h.view.proposals.get(record.id), 'proposed'); c.dispose();
+    await h.view.revise(record); assert.equal(c.error, null, 'the superseded review cannot publish stale feedback'); assert.equal(c.record().body, record.body); assert.equal(h.view.proposals.get(record.id), 'proposed'); c.dispose();
 });
 test('a kept revision can be resumed and explicitly accepted without dropping original history', async () => {
     const h = await mount(), c = h.controller; const record = await add(c); h.view.proposals.set(record.id, 'kept text'); h.view.dialog = async () => true; await h.view.revise(record); assert.equal(c.record().body, 'kept text'); assert.equal(c.record().history[0].body, record.body); assert.equal(h.view.proposals.size, 0); c.dispose();

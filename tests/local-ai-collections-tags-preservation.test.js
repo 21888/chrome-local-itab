@@ -26,8 +26,8 @@ test('imported delimiter-bearing tags survive repeated metadata edits, export an
         assert.deepEqual(c.record().history, original.history);
         assert.equal(c.record().currentVersionId, original.currentVersionId);
     }
-    assert.equal(await c.acceptRevision(await c.reviewBody('New excerpt')), true);
-    assert.equal(await c.acceptRevision(await c.reviewBody(null, original.currentVersionId)), true);
+    await tick(); assert.equal(await c.acceptRevision(await c.reviewBody('New excerpt')), true);
+    await tick(); assert.equal(await c.acceptRevision(await c.reviewBody(null, original.currentVersionId)), true);
     assert.deepEqual(c.record().tags, tags);
     assert.equal(c.record().body, original.body);
     assert.equal(c.record().history.length, 3);
