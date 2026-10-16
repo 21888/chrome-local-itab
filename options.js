@@ -5,6 +5,8 @@ const PRIVACY_PERMISSION_ORIGINS = {
 };
 let driveBackupSnapshots = [];
 let driveActionInProgress = false;
+// Field state and per-computer drafts live only for this page and DOM input.
+const driveDeviceNameFields = new WeakMap();
 let cloudReplacementInProgress = false;
 
 // A category baseline belongs to this form, never to a later storage read.
@@ -1387,6 +1389,45 @@ function setDriveActionsDisabled(disabled) {
     });
 }
 
+function renderDriveDeviceName(input, deviceId, savedName) {
+    if (!input) return;
+    let field = driveDeviceNameFields.get(input);
+    if (!field) {
+        field = { deviceId, baseline: savedName, drafts: new Map() };
+        driveDeviceNameFields.set(input, field);
+        if (document.activeElement !== input) input.value = savedName;
+        return;
+    }
+    // Capture against the field's own target, never the freshly rendered selector.
+    if (input.value === field.baseline) field.drafts.delete(field.deviceId);
+    else field.drafts.set(field.deviceId, input.value);
+    if (field.deviceId !== deviceId) {
+        input.value = field.drafts.has(deviceId) ? field.drafts.get(deviceId) : savedName;
+        field.deviceId = deviceId;
+        field.baseline = savedName;
+    } else if (!field.drafts.has(deviceId) && document.activeElement !== input) {
+        input.value = savedName;
+        field.baseline = savedName;
+    }
+    if (input.value === savedName) {
+        field.baseline = savedName;
+        field.drafts.delete(deviceId);
+    }
+}
+
+function acknowledgeDriveDeviceName(input, deviceId, submittedValue) {
+    const field = input && driveDeviceNameFields.get(input);
+    if (!field) return;
+    if (field.deviceId !== deviceId) {
+        if (field.drafts.get(deviceId) === submittedValue) field.drafts.delete(deviceId);
+        return;
+    }
+    if (input.value !== submittedValue) return;
+    // Only the exact completed submission is clean; later edits remain drafts.
+    field.baseline = input.value;
+    field.drafts.delete(deviceId);
+}
+
 async function renderDriveBackupPanel(snapshots = null) {
     const manager = getDriveBackupManager();
     const statusElement = document.getElementById('drive-backup-status');
@@ -1410,9 +1451,10 @@ async function renderDriveBackupPanel(snapshots = null) {
     const availability = getDriveAvailability(manager);
     const apiReady = availability.apiAvailable === true;
     const oauthReady = apiReady && availability.oauthConfigured !== false;
-    let state = null;
+    let state = null, stateRead = false;
     try {
-        state = availability.storageAvailable ? await manager.getState() : manager.normalizeState({});
+        if (availability.storageAvailable) { state = await manager.getState(); stateRead = true; }
+        else state = manager.normalizeState({});
     } catch (_) {
         state = manager.normalizeState({});
     }
@@ -1421,7 +1463,8 @@ async function renderDriveBackupPanel(snapshots = null) {
         ? state.knownDevices
         : [{ id: state.deviceId, name: state.deviceName }];
 
-    if (deviceSelect && document.activeElement !== deviceSelect) {
+    // A generated fallback profile cannot establish a new draft owner.
+    if (stateRead && deviceSelect && document.activeElement !== deviceSelect) {
         const options = knownDevices.map(profile => {
             const option = document.createElement('option');
             option.value = profile.id;
@@ -1432,13 +1475,11 @@ async function renderDriveBackupPanel(snapshots = null) {
         deviceSelect.value = state.deviceId;
     }
 
-    if (nameInput && document.activeElement !== nameInput) {
-        nameInput.value = state.deviceName || t('driveDevicePlaceholder', '家里的电脑');
-    }
+    if (stateRead) renderDriveDeviceName(nameInput, state.deviceId, state.deviceName || t('driveDevicePlaceholder', '家里的电脑'));
 
     const rows = [];
-    const statusClass = (!apiReady || !oauthReady) ? 'is-error' : (connected ? 'is-on' : 'is-off');
-    rows.push(createStatusRow(t('syncStatus', '状态'), getDriveAvailabilityLabel(availability, state), statusClass));
+    const statusClass = (!apiReady || !oauthReady || !stateRead) ? 'is-error' : (connected ? 'is-on' : 'is-off');
+    rows.push(createStatusRow(t('syncStatus', '状态'), stateRead ? getDriveAvailabilityLabel(availability, state) : t('driveStatusStorageUnavailable', 'Storage unavailable'), statusClass));
     rows.push(createStatusRow(t('driveActiveComputer', '当前备份电脑'), state.deviceName || t('driveUnknownDevice', '未知设备')));
     rows.push(createStatusRow(t('driveLatestBackup', '最近备份'), formatDateTime(state.lastBackupAt)));
     rows.push(createStatusRow(t('driveLatestRestore', '最近恢复'), formatDateTime(state.lastRestoreAt)));
@@ -1464,9 +1505,9 @@ async function renderDriveBackupPanel(snapshots = null) {
     if (connect) connect.disabled = !apiReady || !oauthReady;
     if (backup) backup.disabled = !apiReady || !oauthReady || !connected;
     if (refresh) refresh.disabled = !apiReady || !oauthReady || !connected;
-    if (rename) rename.disabled = !availability.storageAvailable;
-    if (addDevice) addDevice.disabled = !availability.storageAvailable;
-    if (deviceSelect) deviceSelect.disabled = !availability.storageAvailable;
+    if (rename) rename.disabled = !availability.storageAvailable || !stateRead;
+    if (addDevice) addDevice.disabled = !availability.storageAvailable || !stateRead;
+    if (deviceSelect) deviceSelect.disabled = !availability.storageAvailable || !stateRead;
 
     if (Array.isArray(snapshots)) {
         driveBackupSnapshots = snapshots;
@@ -1634,7 +1675,9 @@ function setupDriveBackupEventListeners() {
     if (addDevice) {
         addDevice.addEventListener('click', async () => {
             const input = document.getElementById('drive-device-name');
-            const name = input?.value?.trim() || '';
+            const submittedValue = input?.value || '';
+            const submittedDeviceId = input && driveDeviceNameFields.get(input)?.deviceId;
+            const name = submittedValue.trim();
             if (!name) {
                 showMessage(t('driveDeviceNameRequired', '请先输入电脑名称。'), 'error');
                 return;
@@ -1642,6 +1685,7 @@ function setupDriveBackupEventListeners() {
 
             await runDriveAction(t('driveAddingDevice', '正在添加电脑...'), async () => {
                 const state = await manager.addDevice(name);
+                acknowledgeDriveDeviceName(input, submittedDeviceId, submittedValue);
                 await renderDriveBackupPanel(driveBackupSnapshots);
                 const message = state?.deviceCreated === false
                     ? t('driveDeviceSelected', '已切换电脑，后续备份会使用这个电脑名称。')
@@ -1654,7 +1698,9 @@ function setupDriveBackupEventListeners() {
     if (rename) {
         rename.addEventListener('click', async () => {
             const input = document.getElementById('drive-device-name');
-            const name = input?.value?.trim() || '';
+            const submittedValue = input?.value || '';
+            const submittedDeviceId = input && driveDeviceNameFields.get(input)?.deviceId;
+            const name = submittedValue.trim();
             if (!name) {
                 showMessage(t('driveDeviceNameRequired', '请先输入电脑名称。'), 'error');
                 return;
@@ -1662,6 +1708,7 @@ function setupDriveBackupEventListeners() {
 
             await runDriveAction(t('driveRenaming', '正在保存电脑名称...'), async () => {
                 await manager.renameDevice(name);
+                acknowledgeDriveDeviceName(input, submittedDeviceId, submittedValue);
                 await renderDriveBackupPanel();
                 showMessage(t('driveRenamed', '电脑名称已保存，后续备份将使用新名称。'), 'success');
             }, { keepButtons: true });
