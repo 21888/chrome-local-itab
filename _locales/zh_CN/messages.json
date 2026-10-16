@@ -1,4 +1,94 @@
 {
+  "settingsTransferExportLabel": {
+    "message": "导出"
+  },
+  "settingsTransferImportLabel": {
+    "message": "导入"
+  },
+  "settingsTransferFileSizeLabel": {
+    "message": "文件大小："
+  },
+  "settingsTransferItemsLabel": {
+    "message": "项"
+  },
+  "settingsExportPreparing": {
+    "message": "正在准备导出…"
+  },
+  "settingsExportLargeConfirm": {
+    "message": "导出文件较大（$SIZE$ KB），可能包含较多图片。是否继续？",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsExportCancelled": {
+    "message": "已取消导出"
+  },
+  "settingsExportFailed": {
+    "message": "导出失败"
+  },
+  "settingsExportQuotaExceeded": {
+    "message": "导出失败：存储配额已超出"
+  },
+  "settingsExportMemoryInsufficient": {
+    "message": "导出失败：内存不足（请尝试移除较大的图片）"
+  },
+  "settingsExportFailedPrefix": {
+    "message": "导出失败："
+  },
+  "settingsImportNoFile": {
+    "message": "未选择要导入的文件"
+  },
+  "settingsImportJSONRequired": {
+    "message": "请选择有效的 JSON 文件"
+  },
+  "settingsImportProcessingPrefix": {
+    "message": "正在处理文件："
+  },
+  "settingsImportReplacePreview": {
+    "message": "导入将替换所有设置，包含："
+  },
+  "settingsImportShortcutsPreview": {
+    "message": "• $COUNT$ 个快捷方式",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsImportHotTopicsPreview": {
+    "message": "• $COUNT$ 条热榜条目",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsImportBackgroundPreview": {
+    "message": "• 背景图片"
+  },
+  "settingsImportMoviePreview": {
+    "message": "• 电影海报"
+  },
+  "settingsImportCancelled": {
+    "message": "已取消导入"
+  },
+  "settingsImportSucceeded": {
+    "message": "设置已导入，正在重新加载页面…"
+  },
+  "settingsImportFailed": {
+    "message": "导入失败"
+  },
+  "settingsImportFailedPrefix": {
+    "message": "导入失败："
+  },
+  "settingsImportStorageInsufficient": {
+    "message": "导入失败：存储空间不足"
+  },
+  "settingsImportFormatUnrecognized": {
+    "message": "导入失败：无法识别文件格式"
+  },
   "settingsCategoryNameRequired": {
     "message": "请填写每个分类的名称，或使用该行的删除（✕）按钮。设置尚未保存，你的编辑仍保留在当前页面。"
   },

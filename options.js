@@ -2499,7 +2499,7 @@ function requestBackupFileDownload(blob, filename) {
 
 async function exportSettings() {
     try {
-        showImportExportFeedback('export', 'info', 'Preparing export...');
+        showImportExportFeedback('export', 'info', t('settingsExportPreparing', 'Preparing export...'));
         
         const config = await storageManager.getAllForBackup();
         const exportData = storageManager.buildManualExportPayload(config);
@@ -2511,9 +2511,9 @@ async function exportSettings() {
         // Validate export size
         const exportSizeKB = dataBlob.size / 1024;
         if (exportSizeKB > 5000) { // 5MB warning
-            const proceed = confirm(`Export file is large (${exportSizeKB.toFixed(1)} KB). This may be due to images. Continue?`);
+            const proceed = confirm(t('settingsExportLargeConfirm', 'Export file is large ($1 KB). This may be due to images. Continue?', [exportSizeKB.toFixed(1)]));
             if (!proceed) {
-                showImportExportFeedback('export', 'info', 'Export cancelled by user');
+                showImportExportFeedback('export', 'info', t('settingsExportCancelled', 'Export cancelled by user'));
                 return;
             }
         }
@@ -2532,13 +2532,13 @@ async function exportSettings() {
         console.error('Error exporting settings:', error);
         
         // Provide specific error messages
-        let errorMessage = 'Export failed';
+        let errorMessage = t('settingsExportFailed', 'Export failed');
         if (error.message.includes('quota')) {
-            errorMessage = 'Export failed: Storage quota exceeded';
+            errorMessage = t('settingsExportQuotaExceeded', 'Export failed: Storage quota exceeded');
         } else if (error.message.includes('memory')) {
-            errorMessage = 'Export failed: Not enough memory (try removing large images)';
+            errorMessage = t('settingsExportMemoryInsufficient', 'Export failed: Not enough memory (try removing large images)');
         } else {
-            errorMessage = `Export failed: ${error.message}`;
+            errorMessage = `${t('settingsExportFailedPrefix', 'Export failed:')} ${error.message}`;
         }
         
         showImportExportFeedback('export', 'error', errorMessage);
@@ -2548,11 +2548,11 @@ async function exportSettings() {
 async function importSettings(file) {
     try {
         if (!file) {
-            showImportExportFeedback('import', 'error', 'No file selected for import');
+            showImportExportFeedback('import', 'error', t('settingsImportNoFile', 'No file selected for import'));
             return;
         }
         if (!file.name.toLowerCase().endsWith('.json')) {
-            showImportExportFeedback('import', 'error', 'Please select a valid JSON file');
+            showImportExportFeedback('import', 'error', t('settingsImportJSONRequired', 'Please select a valid JSON file'));
             return;
         }
 
@@ -2569,7 +2569,7 @@ async function importSettings(file) {
             }
         }
 
-        showImportExportFeedback('import', 'info', `Processing file: ${file.name}`, { fileSize: file.size });
+        showImportExportFeedback('import', 'info', `${t('settingsImportProcessingPrefix', 'Processing file:')} ${file.name}`, { fileSize: file.size });
         
         const text = await file.text();
         let importData;
@@ -2597,15 +2597,15 @@ async function importSettings(file) {
         };
         
         // Show preview of what will be imported
-        let previewMessage = `Import will replace all settings with:\n`;
-        previewMessage += `• ${importCounts.shortcuts} shortcuts\n`;
-        previewMessage += `• ${importCounts.hotTopics} hot topics\n`;
-        if (importCounts.hasBackgroundImage) previewMessage += `• Background image\n`;
-        if (importCounts.hasMoviePoster) previewMessage += `• Movie poster\n`;
+        let previewMessage = `${t('settingsImportReplacePreview', 'Import will replace all settings with:')}\n`;
+        previewMessage += `${t('settingsImportShortcutsPreview', '• $1 shortcuts', [importCounts.shortcuts])}\n`;
+        previewMessage += `${t('settingsImportHotTopicsPreview', '• $1 hot topics', [importCounts.hotTopics])}\n`;
+        if (importCounts.hasBackgroundImage) previewMessage += `${t('settingsImportBackgroundPreview', '• Background image')}\n`;
+        if (importCounts.hasMoviePoster) previewMessage += `${t('settingsImportMoviePreview', '• Movie poster')}\n`;
         previewMessage += `\n${t('restoreRecoveryConfirm', 'A local recovery backup will be kept before replacing settings. Continue?')}`;
         
         if (!confirm(previewMessage)) {
-            showImportExportFeedback('import', 'info', 'Import cancelled by user');
+            showImportExportFeedback('import', 'info', t('settingsImportCancelled', 'Import cancelled by user'));
             return;
         }
         
@@ -2617,7 +2617,7 @@ async function importSettings(file) {
                 recordCount: importCounts.shortcuts + importCounts.hotTopics + (importCounts.hasBackgroundImage ? 1 : 0) + (importCounts.hasMoviePoster ? 1 : 0)
             };
             
-            showImportExportFeedback('import', 'success', 'Settings imported. Reloading page...', details);
+            showImportExportFeedback('import', 'success', t('settingsImportSucceeded', 'Settings imported. Reloading page...'), details);
             
             // Reload page after short delay
             setTimeout(() => {
@@ -2631,15 +2631,15 @@ async function importSettings(file) {
         console.error('Error importing settings:', error);
         
         // Provide specific error messages
-        let errorMessage = 'Import failed';
+        let errorMessage = t('settingsImportFailed', 'Import failed');
         if (error.message.includes('JSON')) {
-            errorMessage = `Import failed: ${error.message}`;
+            errorMessage = `${t('settingsImportFailedPrefix', 'Import failed:')} ${error.message}`;
         } else if (error.message.includes('quota')) {
-            errorMessage = 'Import failed: Not enough storage space';
+            errorMessage = t('settingsImportStorageInsufficient', 'Import failed: Not enough storage space');
         } else if (error.message.includes('Invalid settings')) {
-            errorMessage = 'Import failed: File format not recognized';
+            errorMessage = t('settingsImportFormatUnrecognized', 'Import failed: File format not recognized');
         } else {
-            errorMessage = `Import failed: ${error.message}`;
+            errorMessage = `${t('settingsImportFailedPrefix', 'Import failed:')} ${error.message}`;
         }
         
         showImportExportFeedback('import', 'error', errorMessage);
@@ -3274,14 +3274,14 @@ function validateImportData(importData) {
  */
 function showImportExportFeedback(operation, status, message, details = null) {
     const timestamp = new Date().toLocaleTimeString();
-    let fullMessage = `[${timestamp}] ${operation.toUpperCase()}: ${message}`;
+    let fullMessage = `[${timestamp}] ${operation === 'import' ? t('settingsTransferImportLabel', 'IMPORT') : operation === 'export' ? t('settingsTransferExportLabel', 'EXPORT') : operation.toUpperCase()}: ${message}`;
     
     if (details) {
         if (details.fileSize) {
-            fullMessage += ` (File size: ${(details.fileSize / 1024).toFixed(1)} KB)`;
+            fullMessage += ` (${t('settingsTransferFileSizeLabel', 'File size:')} ${(details.fileSize / 1024).toFixed(1)} KB)`;
         }
         if (details.recordCount) {
-            fullMessage += ` (${details.recordCount} items)`;
+            fullMessage += ` (${details.recordCount} ${t('settingsTransferItemsLabel', 'items')})`;
         }
     }
     

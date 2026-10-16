@@ -1,4 +1,94 @@
 {
+  "settingsTransferExportLabel": {
+    "message": "EXPORT"
+  },
+  "settingsTransferImportLabel": {
+    "message": "IMPORT"
+  },
+  "settingsTransferFileSizeLabel": {
+    "message": "File size:"
+  },
+  "settingsTransferItemsLabel": {
+    "message": "items"
+  },
+  "settingsExportPreparing": {
+    "message": "Preparing export..."
+  },
+  "settingsExportLargeConfirm": {
+    "message": "Export file is large ($SIZE$ KB). This may be due to images. Continue?",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsExportCancelled": {
+    "message": "Export cancelled by user"
+  },
+  "settingsExportFailed": {
+    "message": "Export failed"
+  },
+  "settingsExportQuotaExceeded": {
+    "message": "Export failed: Storage quota exceeded"
+  },
+  "settingsExportMemoryInsufficient": {
+    "message": "Export failed: Not enough memory (try removing large images)"
+  },
+  "settingsExportFailedPrefix": {
+    "message": "Export failed:"
+  },
+  "settingsImportNoFile": {
+    "message": "No file selected for import"
+  },
+  "settingsImportJSONRequired": {
+    "message": "Please select a valid JSON file"
+  },
+  "settingsImportProcessingPrefix": {
+    "message": "Processing file:"
+  },
+  "settingsImportReplacePreview": {
+    "message": "Import will replace all settings with:"
+  },
+  "settingsImportShortcutsPreview": {
+    "message": "• $COUNT$ shortcuts",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsImportHotTopicsPreview": {
+    "message": "• $COUNT$ hot topics",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "settingsImportBackgroundPreview": {
+    "message": "• Background image"
+  },
+  "settingsImportMoviePreview": {
+    "message": "• Movie poster"
+  },
+  "settingsImportCancelled": {
+    "message": "Import cancelled by user"
+  },
+  "settingsImportSucceeded": {
+    "message": "Settings imported. Reloading page..."
+  },
+  "settingsImportFailed": {
+    "message": "Import failed"
+  },
+  "settingsImportFailedPrefix": {
+    "message": "Import failed:"
+  },
+  "settingsImportStorageInsufficient": {
+    "message": "Import failed: Not enough storage space"
+  },
+  "settingsImportFormatUnrecognized": {
+    "message": "Import failed: File format not recognized"
+  },
   "settingsCategoryNameRequired": {
     "message": "Enter a name for every category, or use its Delete (✕) button. Settings have not been saved; your edits are still here."
   },

@@ -475,6 +475,8 @@ The Settings category editor’s field labels and action hints, plus the main sa
 
 The Settings background-image selection prompt, format/size hint, Remove button, upload feedback and removal confirmation also use the CN/EN catalog with English fallback when messages are unavailable. Images are still read, decoded and saved locally with the existing format and size limits; filenames and image contents are never translated. Raw error details and the existing dedicated decode-failure and settings-conflict notices stay intact.
 
+Settings JSON import/export preparation, file processing, replacement previews, cancellation, success and existing error branches now use the CN/EN catalog with English fallback. Feedback operation, file-size and item labels follow the same language. Filenames and raw diagnostic details remain intact, so some underlying details may still be English. Size warnings, recovery copies, import receipts, identity protection and download-request semantics stay unchanged; a download request does not establish that the file was saved. See the [Settings JSON transfer localization checks](docs/settings-transfer-localization-validation.md).
+
 <a id="development"></a>
 
 ## Local development and checks
