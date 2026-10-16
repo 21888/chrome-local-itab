@@ -3295,6 +3295,9 @@ class ShortcutsComponent {
         }
         for (const selector of ['#shortcut-title', '#shortcut-url', '#shortcut-icon']) {
             const input = this.modal.querySelector(selector);
+            // Existing-text composition can begin without changing the value
+            // or emitting input. Its URL/icon intent already supersedes Fetch.
+            if (selector !== '#shortcut-title') input.addEventListener('compositionstart', () => this.cancelIconRequest());
             for (const event of ['input', 'change']) {
                 input.addEventListener(event, () => {
                     if (selector !== '#shortcut-title') this.cancelIconRequest();

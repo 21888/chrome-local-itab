@@ -35,7 +35,8 @@ problem.
 
 This changes only UI completion ownership. It adds no persistence format, storage
 protocol, permissions, automatic icon lookup, network behavior or unload-time
-writes. Icon-request composition ownership is a separate concern and is unchanged.
+writes. Icon-request composition ownership is a separate concern; its later
+correction is documented in [icon composition validation](shortcut-icon-composition-validation.md).
 
 ## Focused verification
 
