@@ -473,6 +473,8 @@ New default category names follow the CN/EN message catalog actually selected by
 
 The Settings category editor’s field labels and action hints, plus the main save status and error prefix, also use the CN/EN catalog with English fallback. Add Category starts with a name in the current interface language; once saved, it stays unchanged just like existing, imported or user-entered names. Specific error details remain intact, along with the existing dedicated conflict and permission notices.
 
+The Settings background-image selection prompt, format/size hint, Remove button, upload feedback and removal confirmation also use the CN/EN catalog with English fallback when messages are unavailable. Images are still read, decoded and saved locally with the existing format and size limits; filenames and image contents are never translated. Raw error details and the existing dedicated decode-failure and settings-conflict notices stay intact.
+
 <a id="development"></a>
 
 ## Local development and checks

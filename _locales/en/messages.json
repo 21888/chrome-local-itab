@@ -2283,6 +2283,39 @@
   "settingsImageSaveConflict": {
     "message": "The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again."
   },
+  "settingsBackgroundImageSelect": {
+    "message": "Click to select image or drag & drop"
+  },
+  "settingsBackgroundImageHint": {
+    "message": "JPEG, PNG, GIF, WebP (max 5MB)"
+  },
+  "settingsBackgroundImageRemove": {
+    "message": "Remove Image"
+  },
+  "settingsBackgroundImageTypeInvalid": {
+    "message": "Please select a valid image file (JPEG, PNG, GIF, or WebP)"
+  },
+  "settingsBackgroundImageTooLarge": {
+    "message": "Image file is too large. Please select an image smaller than 5MB."
+  },
+  "settingsBackgroundImageUploading": {
+    "message": "Uploading background image..."
+  },
+  "settingsBackgroundImageUploaded": {
+    "message": "Background image uploaded."
+  },
+  "settingsBackgroundImageUploadErrorPrefix": {
+    "message": "Error uploading image:"
+  },
+  "settingsBackgroundImageRemoveConfirm": {
+    "message": "Are you sure you want to remove the background image?"
+  },
+  "settingsBackgroundImageRemoved": {
+    "message": "Background image removed."
+  },
+  "settingsBackgroundImageRemoveErrorPrefix": {
+    "message": "Error removing background image:"
+  },
   "settingsBackgroundImageInvalid": {
     "message": "This file could not be decoded as an image and was not saved. Choose another JPEG, PNG, GIF, or WebP file."
   },

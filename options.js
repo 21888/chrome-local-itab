@@ -635,6 +635,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (window.i18n) {
             window.i18n.localizeDocument(document);
         }
+        localizeBackgroundImageControls();
         if (settingsTabs && window.LocalItabSettingsSearch) {
             window.LocalItabSettingsSearch.mount(document.getElementById('settings-search'), settingsTabs);
         }
@@ -2651,6 +2652,19 @@ async function importSettings(file) {
     }
 }
 
+// Keep these background controls readable when a catalog entry is unavailable.
+// Run after ordinary DOM localization and before the Settings search index mounts.
+function localizeBackgroundImageControls() {
+    for (const [selector, key, fallback] of [
+        ['#bg-upload-area .upload-text', 'settingsBackgroundImageSelect', 'Click to select image or drag & drop'],
+        ['#bg-upload-area .upload-hint', 'settingsBackgroundImageHint', 'JPEG, PNG, GIF, WebP (max 5MB)'],
+        ['#remove-bg-image', 'settingsBackgroundImageRemove', 'Remove Image']
+    ]) {
+        const element = document.querySelector(selector);
+        if (element) element.textContent = t(key, fallback);
+    }
+}
+
 async function handleBackgroundImageUpload(file) {
     // Invalid selections and picker cancellation are not new background intents.
     // They must not take ownership from an image write already in progress.
@@ -2661,12 +2675,12 @@ async function handleBackgroundImageUpload(file) {
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
         clearBackgroundImageInput();
-        showMessage('Please select a valid image file (JPEG, PNG, GIF, or WebP)', 'error');
+        showMessage(t('settingsBackgroundImageTypeInvalid', 'Please select a valid image file (JPEG, PNG, GIF, or WebP)'), 'error');
         return;
     }
     if (file.size > 5 * 1024 * 1024) {
         clearBackgroundImageInput();
-        showMessage('Image file is too large. Please select an image smaller than 5MB.', 'error');
+        showMessage(t('settingsBackgroundImageTooLarge', 'Image file is too large. Please select an image smaller than 5MB.'), 'error');
         return;
     }
     return queueBackgroundTask(async (isCurrent, canPresent, submittedControls) => {
@@ -2674,7 +2688,7 @@ async function handleBackgroundImageUpload(file) {
             if (!isCurrent()) return;
             requireSettingsBaseline();
             if (!isCurrent()) return;
-            showMessage('Uploading background image...', 'info');
+            showMessage(t('settingsBackgroundImageUploading', 'Uploading background image...'), 'info');
             const dataURL = await fileToDataURL(file);
             if (!isCurrent()) return;
             // MIME and base64 syntax alone do not establish a usable image.
@@ -2686,11 +2700,11 @@ async function handleBackgroundImageUpload(file) {
             await commitBackground({ type: 'image', value: dataURL });
             publishCommittedBackground({ type: 'image', value: dataURL }, canPresent, submittedControls);
             if (!isCurrent()) return;
-            showMessage('Background image uploaded.', 'success');
+            showMessage(t('settingsBackgroundImageUploaded', 'Background image uploaded.'), 'success');
         } catch (error) {
             console.error('Error uploading background image:', error);
             if (isCurrent()) {
-                showMessage(error.code === 'BACKGROUND_IMAGE_INVALID' ? t('settingsBackgroundImageInvalid', 'This file could not be decoded as an image and was not saved. Choose another JPEG, PNG, GIF, or WebP file.') : error.code?.startsWith('SETTINGS_') ? t('settingsImageSaveConflict', 'The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again.') : `Error uploading image: ${error.message}`, 'error');
+                showMessage(error.code === 'BACKGROUND_IMAGE_INVALID' ? t('settingsBackgroundImageInvalid', 'This file could not be decoded as an image and was not saved. Choose another JPEG, PNG, GIF, or WebP file.') : error.code?.startsWith('SETTINGS_') ? t('settingsImageSaveConflict', 'The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again.') : `${t('settingsBackgroundImageUploadErrorPrefix', 'Error uploading image:')} ${error.message}`, 'error');
             }
         } finally {
             if (isCurrent()) clearBackgroundImageInput();
@@ -3021,7 +3035,7 @@ function applyCommittedBackground(background) {
  * Remove background image and revert to gradient
  */
 async function removeBackgroundImage() {
-    if (!confirm('Are you sure you want to remove the background image?')) return;
+    if (!confirm(t('settingsBackgroundImageRemoveConfirm', 'Are you sure you want to remove the background image?'))) return;
     return queueBackgroundTask(async (isCurrent, canPresent, submittedControls) => {
         try {
             if (!isCurrent()) return;
@@ -3030,11 +3044,11 @@ async function removeBackgroundImage() {
             await commitBackground({ type: 'gradient', value: '' });
             publishCommittedBackground({ type: 'gradient', value: '' }, canPresent, submittedControls);
             if (!isCurrent()) return;
-            showMessage('Background image removed.', 'success');
+            showMessage(t('settingsBackgroundImageRemoved', 'Background image removed.'), 'success');
         } catch (error) {
             console.error('Error removing background image:', error);
             if (isCurrent()) {
-                showMessage(error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : `Error removing background image: ${error.message}`, 'error');
+                showMessage(error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : `${t('settingsBackgroundImageRemoveErrorPrefix', 'Error removing background image:')} ${error.message}`, 'error');
             }
         } finally {
             if (isCurrent()) clearBackgroundImageInput();
