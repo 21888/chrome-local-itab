@@ -10,18 +10,19 @@ const waitFor = async (predicate) => {
     assert(predicate(), 'expected backup UI state settled');
 };
 const modules = ['config','tasks','scratchpad','countdown','focus'];
-function model(locale) {
+function model(locale, options = {}) {
     const document = createDocument({blurUnavailableFocus:true}); const host = document.createElement('div'); document.body.append(host);
     const calls = {reviews:[],restores:[],exports:[],downloads:[]};
     const store = {
         async review(text, selected = modules) { calls.reviews.push([text, selected]); return {modules,selected,incoming:{config:{shortcuts:5,categories:2,dataUrlIcons:1},tasks:{active:2,done:3,removed:1,recovery:4},scratchpad:{characters:15},focus:{enabled:true,durations:{focus:25,break:5}}},current:{}}; },
         async restore(preview) { calls.restores.push(preview); },
-        async export(selected) { calls.exports.push(selected); return 'JSON'; }, async recovery() { return 'RECOVERY'; }
+        async export(selected) { calls.exports.push(selected); return 'JSON'; }, async recovery() { return 'RECOVERY'; },
+        ...options.store
     };
     const window = {LocalItabCompleteBackup:{LIMITS:{bytes:32*1024*1024}}};
     if (locale) { const catalog = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`)); window.i18n = {t:key=>catalog[key]?.message || key}; }
     vm.runInNewContext(source,{window,setTimeout,URL,Blob});
-    const view = window.LocalItabCompleteBackupView.mount(host,{store,restore:p=>store.restore(p),download:async (...args)=>calls.downloads.push(args),reload:()=>{calls.reloads=(calls.reloads||0)+1;}});
+    const view = window.LocalItabCompleteBackupView.mount(host,{store,restore:p=>store.restore(p),download:async (...args)=>{calls.downloads.push(args);if(options.download)await options.download(...args);},reload:()=>{calls.reloads=(calls.reloads||0)+1;}});
     const get = cls => host.querySelector('.complete-backup-'+cls);
     const file=get('file'); file.click=()=>{};
     const select = (text='saved', options={}) => { get('choose').focus(); file.files=[{size:text.length,text:async()=>text,...options}]; file.dispatch('change'); };
@@ -111,4 +112,148 @@ for (const locale of ['en', 'zh_CN']) test(`duplicate JSON keys show a specific 
     assert.equal(m.get('apply').disabled, true);
     assert.equal(m.calls.restores.length, 0);
     assert.equal(m.document.activeElement === m.get('status'), true);
+});
+
+for (const outcome of ['success', 'read failure', 'download failure']) test(`interrupted-copy download ${outcome} retains a ready restore review`, async () => {
+    const m = model(undefined, {store: {async exportInterruptedCandidates() {
+        if (outcome === 'read failure') throw {code: 'RECOVERY'};
+        return 'INTERRUPTED COPIES';
+    }}, download: async () => { if (outcome === 'download failure') throw {code: 'FILE'}; }});
+    m.select('reviewed file'); await waitFor(() => !m.get('apply').disabled);
+    const rows = [...m.get('counts').children];
+    const reviewCount = m.calls.reviews.length;
+    m.get('download-interrupted').dispatch('click');
+    await waitFor(() => !m.get('download-interrupted').disabled);
+    assert.equal(m.get('preview').hidden, false);
+    assert.equal(m.get('apply').disabled, false, 'read-only recovery download must not strand the reviewed replacement');
+    assert.deepEqual(m.get('counts').children, rows);
+    assert.equal(m.calls.reviews.length, reviewCount);
+    assert.equal(m.calls.restores.length, 0);
+    if (outcome === 'success') assert.match(m.get('status').textContent, /Download requested/);
+    else assert.match(m.get('status').textContent, outcome === 'read failure' ? /recovery copy/ : /Could not read the local file/);
+    m.get('apply').dispatch('click');
+    await waitFor(() => m.calls.restores.length === 1);
+});
+
+test('interrupted-copy download blocks repeat actions but keeps later focus and allows a fresh retry', async () => {
+    const wait = deferred(); let exports = 0;
+    const m = model(undefined, {store: {async exportInterruptedCandidates() { exports++; return wait.promise; }}});
+    m.select(); await waitFor(() => !m.get('apply').disabled);
+    m.get('download-interrupted').dispatch('click'); m.get('download-interrupted').dispatch('click');
+    m.get('apply').dispatch('click');
+    assert.equal(exports, 1); assert.equal(m.calls.restores.length, 0);
+    assert.equal(m.host.querySelector('.complete-backup').getAttribute('aria-busy'), 'true');
+    const outside = m.document.createElement('textarea'); outside.value = 'Synthetic newer draft'; m.document.body.append(outside); outside.focus();
+    wait.resolve('COPIES'); await waitFor(() => !m.get('download-interrupted').disabled);
+    assert.equal(m.document.activeElement, outside); assert.equal(outside.value, 'Synthetic newer draft');
+    assert.equal(m.get('apply').disabled, false);
+    m.get('download-interrupted').dispatch('click'); await waitFor(() => !m.get('download-interrupted').disabled);
+    assert.equal(exports, 2); assert.equal(m.calls.downloads.length, 2); assert.equal(m.calls.restores.length, 0);
+});
+
+for (const transition of ['cancel', 'new file', 'new selection', 'destroy']) test(`interrupted-copy download cannot revive an old review after ${transition}`, async () => {
+    const wait = deferred();
+    const m = model(undefined, {store: {exportInterruptedCandidates: () => wait.promise}});
+    m.select('old'); await waitFor(() => !m.get('apply').disabled);
+    const oldRows = [...m.get('counts').children];
+    m.get('download-interrupted').dispatch('click');
+    if (transition === 'destroy') m.view.destroy();
+    else m.get('cancel').dispatch('click');
+    if (transition === 'new file' || transition === 'new selection') {
+        m.select('new'); await waitFor(() => !m.get('apply').disabled);
+        if (transition === 'new selection') {
+            const focus = m.host.querySelector('[data-module="focus"]'); focus.checked = false; focus.dispatch('change');
+            await waitFor(() => !m.get('apply').disabled);
+        }
+    }
+    const status = m.get('status')?.textContent, focused = m.document.activeElement;
+    wait.resolve('OLD COPIES'); await flush();
+    assert.equal(m.calls.downloads.length, 0); assert.equal(m.calls.restores.length, 0); assert.equal(m.document.activeElement, focused);
+    if (transition === 'destroy') { assert.equal(m.host.children.length, 0); return; }
+    assert.equal(m.get('status').textContent, status);
+    if (transition === 'cancel') { assert.equal(m.get('preview').hidden, true); assert.equal(m.get('apply').disabled, true); }
+    else {
+        assert.equal(m.get('apply').disabled, false); assert.notDeepEqual(m.get('counts').children, oldRows);
+        assert.equal(m.calls.reviews.at(-1)[0], 'new');
+        if (transition === 'new selection') assert.equal(m.calls.reviews.at(-1)[1].includes('focus'), false);
+    }
+});
+
+test('interrupted-copy download never bypasses an unchosen global destination', async () => {
+    const m = model(undefined, {store: {async exportInterruptedCandidates() { return 'COPIES'; },
+        async review(text, selected = [...modules, 'prompts'], options = {}) { return {modules: [...modules, 'prompts'], selected, incoming: {}, current: {}, requiresPromptTarget: !options.promptTarget, prompts: {conflicts: []}}; }}});
+    m.select(); await waitFor(() => !m.get('prompt-destination').hidden);
+    m.get('download-interrupted').dispatch('click'); await waitFor(() => !m.get('download-interrupted').disabled);
+    assert.equal(m.get('apply').disabled, true); assert.equal(m.get('prompt-target').value, ''); assert.equal(m.get('prompt-target').disabled, false);
+    m.get('apply').dispatch('click'); assert.equal(m.calls.restores.length, 0);
+    m.get('prompt-target').value = 'global-library'; m.get('prompt-target').dispatch('change');
+    await waitFor(() => !m.get('apply').disabled);
+});
+
+for (const kind of ['file', 'review']) test(`interrupted-copy download cannot retire an in-progress ${kind} read`, async () => {
+    const wait = deferred(); let exports = 0;
+    const m = model(undefined, {store: {async exportInterruptedCandidates() { exports++; return 'COPIES'; }}});
+    if (kind === 'review') { const review = m.store.review; m.store.review = async (...args) => { await wait.promise; return review(...args); }; }
+    m.select('reading', kind === 'file' ? {text: () => wait.promise} : {});
+    assert.equal(m.get('download-interrupted').disabled, true);
+    m.get('download-interrupted').dispatch('click'); assert.equal(exports, 0);
+    wait.resolve('reading'); await waitFor(() => !m.get('apply').disabled);
+    assert.equal(m.calls.reviews.length, 1); assert.equal(m.get('download-interrupted').disabled, false);
+});
+
+test('interrupted-copy download preserves the large-file confirmation without reading or authorizing it', async () => {
+    const wait = deferred(); let reads = 0;
+    const m = model(undefined, {store: {exportInterruptedCandidates: () => wait.promise}});
+    m.select('large', {size: 11 * 1024 * 1024, text: async () => { reads++; return 'large'; }});
+    m.get('download-interrupted').dispatch('click');
+    assert.equal(m.get('large').disabled, true); m.get('large').dispatch('click');
+    assert.equal(reads, 0); assert.equal(m.get('apply').disabled, true);
+    wait.resolve('COPIES'); await waitFor(() => !m.get('download-interrupted').disabled);
+    assert.equal(m.get('large').hidden, false); assert.equal(m.get('large').disabled, false); assert.equal(reads, 0);
+    assert.equal(m.get('apply').disabled, true); assert.equal(m.calls.restores.length, 0);
+    assert.match(m.get('status').textContent, /Download requested.*larger than 10 MiB/);
+    m.get('large').dispatch('click'); await waitFor(() => !m.get('apply').disabled); assert.equal(reads, 1);
+});
+
+for (const prior of ['empty', 'uncertain restore']) test(`interrupted-copy download does not create a ready ticket after ${prior}`, async () => {
+    const m = model(undefined, {store: {async exportInterruptedCandidates() { return 'COPIES'; }}});
+    if (prior === 'uncertain restore') {
+        m.select(); await waitFor(() => !m.get('apply').disabled);
+        m.store.restore = async () => { throw {code: 'UNCONFIRMED', mayHaveCommitted: true}; };
+        m.get('apply').dispatch('click'); await waitFor(() => /Some data may have changed/.test(m.get('status').textContent));
+    }
+    m.get('download-interrupted').dispatch('click'); await waitFor(() => !m.get('download-interrupted').disabled);
+    assert.equal(m.get('apply').disabled, true); assert.equal(m.get('preview').hidden, true); assert.equal(m.get('reload').hidden, true);
+});
+
+test('interrupted-copy download cannot bypass an affected active Focus session', async () => {
+    const m = model(undefined, {store: {async exportInterruptedCandidates() { return 'COPIES'; }}});
+    const review = m.store.review;
+    m.store.review = async (...args) => ({...await review(...args), current: {focus: {activeSession: true}}});
+    m.select(); await waitFor(() => /interrupted Focus session/.test(m.get('status').textContent));
+    m.get('download-interrupted').dispatch('click'); await waitFor(() => !m.get('download-interrupted').disabled);
+    assert.equal(m.get('apply').disabled, true); m.get('apply').dispatch('click'); assert.equal(m.calls.restores.length, 0);
+});
+
+test('cancelled large-file recovery download cannot resurrect permission to read', async () => {
+    const wait = deferred(); let reads = 0;
+    const m = model(undefined, {store: {exportInterruptedCandidates: () => wait.promise}});
+    m.select('large', {size: 11 * 1024 * 1024, text: async () => { reads++; return 'large'; }});
+    m.get('download-interrupted').dispatch('click'); m.get('cancel').dispatch('click');
+    wait.resolve('OLD COPIES'); await flush();
+    m.get('large').dispatch('click'); assert.equal(reads, 0); assert.equal(m.calls.downloads.length, 0);
+    assert.equal(m.get('preview').hidden, true); assert.equal(m.get('apply').disabled, true);
+});
+
+test('completion of an already requested download cannot overwrite a newer file review', async () => {
+    const wait = deferred();
+    const m = model(undefined, {store: {async exportInterruptedCandidates() { return 'COPIES'; }}, download: () => wait.promise});
+    m.select('old'); await waitFor(() => !m.get('apply').disabled);
+    m.get('download-interrupted').dispatch('click'); await waitFor(() => m.calls.downloads.length === 1);
+    m.get('cancel').dispatch('click'); m.select('new'); await waitFor(() => !m.get('apply').disabled);
+    const status = m.get('status').textContent, rows = [...m.get('counts').children];
+    wait.resolve(); await flush();
+    assert.equal(m.get('status').textContent, status); assert.deepEqual(m.get('counts').children, rows);
+    assert.equal(m.get('apply').disabled, false); assert.equal(m.calls.reviews.at(-1)[0], 'new');
+    assert.equal(m.calls.downloads.length, 1); assert.equal(m.calls.restores.length, 0);
 });

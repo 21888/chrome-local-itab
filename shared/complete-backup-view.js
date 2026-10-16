@@ -165,7 +165,8 @@
             for (const id of MODULES) inputs[id].disabled = busy || Boolean(preview && !preview.modules.includes(id));
             exportButton.disabled = choose.disabled = file.disabled = recovery.disabled = busy;
             target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = busy || phase === 'reading';
-            inspectInterrupted.disabled = downloadInterrupted.disabled = busy; recoverInterrupted.disabled = busy || !interruptedReview;
+            inspectInterrupted.disabled = busy; downloadInterrupted.disabled = busy || phase === 'reading'; recoverInterrupted.disabled = busy || !interruptedReview;
+            largeButton.disabled = busy;
             apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
             cancel.disabled = phase === 'applying';
             shell.setAttribute('aria-busy', String(['reading', 'applying', 'exporting'].includes(phase)));
@@ -277,7 +278,7 @@
             readFile(chosen, token);
         });
         largeButton.addEventListener('click', () => {
-            if (!current(generation) || phase !== 'large' || !pendingLargeFile) return;
+            if (!current(generation) || largeButton.disabled || phase !== 'large' || !pendingLargeFile) return;
             const chosen = pendingLargeFile; readFile(chosen, ++generation);
         });
         for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (!current(generation) || input.disabled || !source) return; review(++generation, input); });
@@ -323,10 +324,17 @@
         exportButton.addEventListener('click', () => exportFile(false)); recovery.addEventListener('click', () => exportFile(true));
         downloadInterrupted.addEventListener('click', async () => {
             if (!current(generation) || downloadInterrupted.disabled) return;
+            // A read-only recovery download must not strand an existing review.
+            // Only settled reviews can resume; the token still owns cancellation.
+            const reviewPhase = preview && ['ready', 'target'].includes(phase) ? phase :
+                phase === 'large' && pendingLargeFile ? 'large' : '';
             const token = ++generation; phase = 'exporting'; controls(); status.textContent = t('Exporting');
             try { const text = await store.exportInterruptedCandidates(); if (!current(token)) return; await download(text, 'local-itab-interrupted-copies', doc); if (current(token)) status.textContent = t('Download'); }
             catch (error) { if (current(token)) status.textContent = errorText(error); }
-            finally { if (current(token)) { phase = ''; controls(); } }
+            finally { if (current(token)) {
+                phase = reviewPhase; controls();
+                if (phase === 'large') status.textContent += ' ' + t('LargeConfirm');
+            } }
         });
         inspectInterrupted.addEventListener('click', async () => {
             if (!current(generation) || inspectInterrupted.disabled) return;
