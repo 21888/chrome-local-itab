@@ -6326,7 +6326,7 @@
     "message": "Check this exact saved body, source attribution and version before selecting it. Only this excerpt is included, never its historical question/source snapshot or annotations. Nothing is sent, copied or saved. Displayed line breaks are normalized; the original CRLF/CR text is retained until you edit it."
   },
   "aiContextCollectionUnavailable": {
-    "message": "This exact saved version is unavailable or could not be verified. Close this panel, refresh the collection and start again from its current saved detail."
+    "message": "This exact saved version is unavailable or could not be verified. Load the latest saved sources below, select the excerpts you want and review your question again. This preview stays unchanged and cannot be reused."
   },
   "aiContextCollectionLoading": {
     "message": "Verifying this exact saved excerpt locally…"
@@ -7291,5 +7291,17 @@
   },
   "aiContextManualRemove": {
     "message": "Remove temporary excerpt"
+  },
+  "aiContextCollectionReload": {
+    "message": "Load latest saved sources"
+  },
+  "aiContextCollectionReloadHelp": {
+    "message": "Read the latest saved sources into the list below, leaving them unselected. Replacing saved-source selections and edits requires confirmation. Your question, manual excerpts and previous response are kept. This preview is not refreshed. Nothing is sent or saved."
+  },
+  "aiContextSourceReloadLoading": {
+    "message": "Reading the latest saved sources…"
+  },
+  "aiContextCollectionReloaded": {
+    "message": "Latest saved sources loaded below and left unselected. Select the excerpts you want and review your question again. This earlier preview is still unavailable."
   }
 }

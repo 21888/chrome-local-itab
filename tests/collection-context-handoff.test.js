@@ -527,3 +527,154 @@ test('actual read-only collection workspace supports temporary manual sources wi
     assert.equal(JSON.stringify(h.raw), before); quiet(h);
     h.click('Cancel / clear draft'); assert.equal(h.q('.ai-context-manual-sources').querySelectorAll('.ai-context-source').length, 0); assert.equal(JSON.stringify(h.raw), before); quiet(h);
 });
+
+async function changeSavedSource(h, action = 'revise') {
+    await h.run(`(async () => {
+        const r = (await seedStore.read()).records[0];
+        if ('${action}' === 'archive') await seedStore.mutate(seedStore.request('remove', { id: r.id, version: r.version }));
+        else if ('${action}' === 'metadata') await seedStore.mutate(seedStore.request('edit', { id: r.id, version: r.version, title: 'SYNTHETIC newer title' }));
+        else { const plan = await seedStore.reviewRevision({ id: r.id, version: r.version, body: 'SYNTHETIC newer saved body' }); await seedStore.mutate(seedStore.request('revise', plan)); }
+    })()`);
+    await settle(); h.writes.length = 0;
+}
+
+test('stale collection preview exposes the existing safe reload without reviving its exact-version handoff', async () => {
+    const h = await page(); await h.open();
+    const recovery = h.q('.ai-context-collection-recovery'), reload = h.q('.ai-context-collection-reload');
+    assert.equal(recovery.hidden, true); assert.equal(reload.disabled, true);
+    let reads = 0; h.setReadHook(() => reads++); reload.dispatch('click'); await settle(); assert.equal(reads, 0); h.setReadHook(null);
+    h.click('Use this excerpt'); await settle();
+    h.input('.ai-context-question', 'SYNTHETIC retained question');
+    h.input('.ai-context-endpoint', 'https://synthetic.example/v1/chat/completions'); h.input('.ai-context-model', 'synthetic');
+    h.q('.ai-context-external-tasks').open = true; h.input('.ai-context-external-input', 'SYNTHETIC previous answer'); h.click('Load answer for review'); await settle();
+    h.input('.ai-context-savetitle', 'SYNTHETIC saved title'); h.input('.ai-context-external-input', 'SYNTHETIC pasted draft');
+    h.q('.ai-context-manual').open = true;
+    h.input('.ai-context-manualtitle', 'SYNTHETIC temporary title'); h.input('.ai-context-manualbody', 'SYNTHETIC temporary text'); h.click('Add temporary excerpt'); await settle();
+    const manual = h.q('.ai-context-manual-sources').querySelector('.ai-context-source');
+    manual.querySelector('input').checked = true; manual.querySelector('input').dispatch('change');
+    manual.querySelector('textarea').value = 'SYNTHETIC edited temporary text'; manual.querySelector('textarea').dispatch('input');
+    h.input('.ai-context-manualtitle', 'SYNTHETIC unadded title'); h.input('.ai-context-manualbody', 'SYNTHETIC unadded body');
+    h.input('.ai-context-source-search', 'no matching synthetic title');
+    h.click('Review prompt locally'); await settle();
+    const result = h.window.contextController.result, preview = h.q('.ai-context-collection-text').textContent, info = h.q('.ai-context-collection-info').textContent;
+    await changeSavedSource(h);
+    assert.equal(recovery.hidden, false); assert.equal(reload.disabled, false); assert.equal(h.q('.ai-context-source-help').open, false);
+    const before = JSON.stringify(h.raw); reload.focus(); reload.dispatch('click'); await settle();
+    assert.equal(h.confirmations.length, 1); assert.match(h.confirmations[0], /hidden and unselected saved excerpts/);
+    assert.equal(h.q('.ai-context-saved-sources').querySelector('.ai-context-source').querySelector('textarea').value, 'SYNTHETIC newer saved body');
+    assert.equal(h.q('.ai-context-saved-sources').querySelector('.ai-context-source').querySelector('input').checked, false);
+    assert.equal(h.q('.ai-context-manual-sources').querySelector('.ai-context-source'), manual); assert.equal(manual.querySelector('input').checked, true);
+    assert.equal(manual.querySelector('textarea').value, 'SYNTHETIC edited temporary text');
+    for (const [selector, value] of [['.ai-context-question', 'SYNTHETIC retained question'], ['.ai-context-savetitle', 'SYNTHETIC saved title'],
+        ['.ai-context-manualtitle', 'SYNTHETIC unadded title'], ['.ai-context-manualbody', 'SYNTHETIC unadded body'],
+        ['.ai-context-external-input', 'SYNTHETIC pasted draft'], ['.ai-context-endpoint', 'https://synthetic.example/v1/chat/completions'],
+        ['.ai-context-model', 'synthetic'], ['.ai-context-source-search', 'no matching synthetic title']]) assert.equal(h.q(selector).value, value);
+    assert.equal(h.window.contextController.result, result); assert.equal(h.window.contextController.localReview, null);
+    assert.equal(h.q('.ai-context-collection-text').textContent, preview); assert.equal(h.q('.ai-context-collection-info').textContent, info);
+    assert.equal(h.button('Use this excerpt').disabled, true);
+    assert.match(h.q('.ai-context-collection-reload-status').textContent, /left unselected.*Select the excerpts.*earlier preview is still unavailable/);
+    assert.equal(h.document.activeElement, h.q('.ai-context-source-count')); assert.match(h.q('.ai-context-source-count').textContent, /Showing: 0/);
+    h.button('Use this excerpt').dispatch('click'); await settle(); assert.equal(checks(h).length, 1, 'only the retained manual source remains selected');
+    assert.equal(JSON.stringify(h.raw), before); quiet(h);
+});
+
+for (const action of ['metadata', 'archive']) test(`stale preview reload handles ${action} without guessing or selecting a replacement`, async () => {
+    const h = await page(); await h.open(); const preview = h.q('.ai-context-collection-text').textContent;
+    await changeSavedSource(h, action); h.click('Load latest saved sources'); await settle();
+    const rows = h.q('.ai-context-saved-sources').querySelectorAll('.ai-context-source');
+    assert.equal(rows.length, action === 'archive' ? 0 : 1); assert.equal(checks(h).length, 0); assert.equal(h.confirmations.length, 0);
+    if (action === 'metadata') assert.match(rows[0].querySelector('span').textContent, /SYNTHETIC newer title$/);
+    assert.equal(h.q('.ai-context-collection-text').textContent, preview); assert.equal(h.button('Use this excerpt').disabled, true); quiet(h);
+});
+
+test('cancelled stale-preview reload keeps the edited hidden source, local review, status and focus without reads', async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    const row = checks(h)[0], editor = row.querySelector('textarea'); editor.value = 'SYNTHETIC retained outgoing edit'; editor.dispatch('input');
+    h.input('.ai-context-question', 'SYNTHETIC retained question'); h.input('.ai-context-source-search', 'no match'); h.click('Review prompt locally'); await settle();
+    await changeSavedSource(h); const review = h.window.contextController.localReview, status = h.q('.ai-context-status').textContent;
+    let reads = 0; h.setReadHook(() => reads++); h.setConfirm(false);
+    const reload = h.q('.ai-context-collection-reload'); reload.focus(); reload.dispatch('click'); await settle();
+    assert.equal(reads, 0); assert.equal(checks(h)[0], row); assert.equal(editor.value, 'SYNTHETIC retained outgoing edit');
+    assert.equal(h.window.contextController.localReview, review); assert.equal(h.q('.ai-context-status').textContent, status);
+    assert.equal(h.q('.ai-context-collection-reload-status').textContent, ''); assert.equal(h.document.activeElement, reload); quiet(h);
+});
+
+for (const newerFocus of [false, true]) test(`failed stale-preview reload preserves the full draft and ${newerFocus ? 'newer' : 'local'} focus; an explicit retry can recover`, async () => {
+    const h = await page(); await h.open(); h.click('Use this excerpt'); await settle();
+    const row = checks(h)[0], editor = row.querySelector('textarea'); editor.value = 'SYNTHETIC retained outgoing edit'; editor.dispatch('input');
+    h.input('.ai-context-question', 'SYNTHETIC retained question'); h.click('Review prompt locally'); await settle(); await changeSavedSource(h);
+    const review = h.window.contextController.localReview, gate = deferred(); let held = false;
+    h.setReadHook(async keys => { if (!held && keys.includes('__localItabAICollectionsV1')) { held = true; await gate.promise; throw Error('Synthetic failed reload'); } });
+    const reload = h.q('.ai-context-collection-reload'), feedback = h.q('.ai-context-collection-reload-status');
+    reload.focus(); reload.dispatch('click'); await settle(); assert.equal(held, true); assert.equal(reload.disabled, true);
+    assert.equal(h.document.activeElement, feedback); assert.match(feedback.textContent, /Reading the latest/);
+    const external = h.document.createElement('button'); h.document.body.append(external); if (newerFocus) external.focus();
+    gate.resolve(); await settle();
+    assert.equal(checks(h)[0], row); assert.equal(editor.value, 'SYNTHETIC retained outgoing edit'); assert.equal(h.window.contextController.localReview, review);
+    assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC retained question'); assert.equal(reload.disabled, false);
+    assert.match(feedback.textContent, /Could not load.*unchanged/); assert.equal(h.document.activeElement, newerFocus ? external : feedback); quiet(h);
+    h.setReadHook(null); reload.focus(); reload.dispatch('click'); await settle();
+    assert.equal(checks(h).length, 0); assert.equal(h.button('Use this excerpt').disabled, true);
+    assert.match(feedback.textContent, /Latest saved sources loaded/); assert.equal(h.document.activeElement, h.q('.ai-context-source-count')); quiet(h);
+});
+
+for (const change of ['hide-show', 'close', 'draft', 'newer focus']) test(`pending stale-preview reload cannot override ${change}; repeated clicks start no second read`, async () => {
+    const h = await page(); await h.open(); await changeSavedSource(h);
+    const row = h.q('.ai-context-saved-sources').querySelector('.ai-context-source'), gate = deferred(); let reads = 0;
+    h.setReadHook(async keys => { if (keys.includes('__localItabAICollectionsV1') && ++reads === 1) await gate.promise; });
+    const reload = h.q('.ai-context-collection-reload'), feedback = h.q('.ai-context-collection-reload-status');
+    reload.focus(); reload.dispatch('click'); await settle(); assert.equal(reads, 1);
+    reload.dispatch('click'); await settle(); assert.equal(reads, 1);
+    let external;
+    if (change === 'hide-show') { h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')({}); h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')({}); }
+    if (change === 'close') h.window.aiContextView.destroy();
+    if (change === 'draft') h.input('.ai-context-question', 'SYNTHETIC newer draft');
+    if (change === 'newer focus') { external = h.document.createElement('button'); h.document.body.append(external); external.focus(); }
+    gate.resolve(); await settle();
+    assert.equal(feedback.textContent.includes('Reading the latest'), false);
+    if (change === 'newer focus') { assert.match(feedback.textContent, /Latest saved sources loaded/); assert.equal(h.document.activeElement, external); }
+    else {
+        assert.doesNotMatch(feedback.textContent, /Latest saved sources loaded/);
+        if (change === 'close') { assert.equal(h.q('.ai-context-dialog'), null); assert.equal(reload.disabled, true); }
+        else { assert.equal(h.q('.ai-context-saved-sources').querySelector('.ai-context-source'), row); if (change === 'draft') assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC newer draft'); }
+    }
+    assert.equal(checks(h).length, 0); quiet(h);
+});
+
+for (const blocker of ['busy', 'saveCommand', 'taskCommand', 'clear', 'hidden']) test(`stale-preview recovery rechecks ${blocker} even with an old enabled button`, async () => {
+    const h = await page(); await h.open(); await changeSavedSource(h);
+    const reload = h.q('.ai-context-collection-reload'); assert.equal(reload.disabled, false);
+    if (blocker === 'clear') h.click('Cancel / clear');
+    else if (blocker === 'hidden') h.document.visibilityState = 'hidden';
+    else h.window.contextController[blocker] = true;
+    let reads = 0; h.setReadHook(() => reads++); reload.dispatch('click'); await settle();
+    assert.equal(reads, 0); assert.equal(h.confirmations.length, 0); assert.equal(checks(h).length, 0); quiet(h);
+});
+
+test('stale-preview recovery copy is localized and never promises to restore its old preview', () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        for (const key of ['CollectionReload', 'CollectionReloadHelp', 'CollectionReloaded', 'SourceReloadLoading']) assert(messages[`aiContext${key}`]?.message);
+        assert.match(messages.aiContextCollectionUnavailable.message, locale === 'en' ? /preview stays unchanged and cannot be reused/ : /旧预览保持不变，不能再次使用/);
+        assert.match(messages.aiContextCollectionReloaded.message, locale === 'en' ? /left unselected/ : /均未选中/);
+    }
+});
+
+test('failed initial source read can recover in the same question without fabricating an exact preview', async () => {
+    const h = await page(); h.setReadHook(keys => { if (keys.includes('__localItabAICollectionsV1')) throw Error('Synthetic initial read failure'); });
+    await h.open(); assert.equal(h.q('.ai-context-collection-recovery').hidden, false);
+    assert.equal(h.q('.ai-context-collection-text').textContent, ''); assert.equal(h.q('.ai-context-saved-sources').children.length, 0);
+    h.input('.ai-context-question', 'SYNTHETIC retain initial question'); h.setReadHook(null); h.click('Load latest saved sources'); await settle();
+    assert.equal(h.q('.ai-context-saved-sources').children.length, 1); assert.equal(checks(h).length, 0);
+    assert.equal(h.q('.ai-context-collection-text').textContent, ''); assert.equal(h.button('Use this excerpt').disabled, true);
+    assert.equal(h.q('.ai-context-question').value, 'SYNTHETIC retain initial question'); quiet(h);
+});
+
+test('another saved-source notification clears earlier reload feedback and leaves a fresh explicit recovery available', async () => {
+    const h = await page(); await h.open(); await changeSavedSource(h); h.click('Load latest saved sources'); await settle();
+    assert.match(h.q('.ai-context-collection-reload-status').textContent, /Latest saved sources loaded/);
+    const row = h.q('.ai-context-saved-sources').querySelector('.ai-context-source');
+    await changeSavedSource(h, 'metadata');
+    assert.equal(h.q('.ai-context-collection-reload-status').textContent, ''); assert.equal(h.q('.ai-context-collection-reload').disabled, false);
+    assert.equal(h.q('.ai-context-saved-sources').querySelector('.ai-context-source'), row); assert.equal(checks(h).length, 0); quiet(h);
+});

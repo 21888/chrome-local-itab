@@ -528,6 +528,8 @@ Settings → Privacy → Version & updates shows the installed version and offer
 
 Before updating, use the shortcuts in that section to reach the existing settings and Countdown export sections without leaving Settings, saving drafts or downloading files. Tasks and Scratchpad still export from their new-tab cards; the exact paths are listed alongside the shortcuts. Saved Focus preferences can migrate through complete local backup; timer sessions cannot.
 
+**Unavailable saved-source previews:** the collection-to-question flow now offers **Load latest saved sources** beside an invalid preview. Reloaded saved sources are left unselected for a fresh review; the earlier preview stays unchanged and unavailable. Questions, manual excerpts and previous answers are kept. Existing saved-source selections or edits require confirmation, and cancellation/read failure preserves them. [Recovery behavior and verification limits](docs/ai-context-source-recovery.md).
+
 ## License
 
 The existing project documentation identifies the license as MIT. A separate `LICENSE` file is not currently included in the repository.

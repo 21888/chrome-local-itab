@@ -529,6 +529,8 @@ Ajustes → Privacidad → Versión y actualizaciones muestra la versión instal
 Antes de actualizar, los accesos de esta sección llevan a los apartados existentes de exportación de ajustes y de cuenta atrás sin salir de Ajustes, guardar borradores ni descargar archivos. Las tareas y el bloc de notas se exportan desde sus tarjetas de nueva pestaña; se indican las rutas exactas. Las preferencias guardadas de concentración se migran con la copia local completa; las sesiones no se pueden migrar.
 
 
+**Vista previa de origen no disponible:** al continuar una pregunta desde la colección, la vista previa inválida ofrece cargar las fuentes guardadas más recientes. Las fuentes recargadas quedan sin seleccionar para revisarlas de nuevo; la vista previa anterior no cambia ni vuelve a habilitarse. Se conservan la pregunta, los fragmentos temporales y la respuesta anterior. Reemplazar selecciones o ediciones de fuentes guardadas requiere confirmación; cancelar o fallar la lectura las conserva. [Comportamiento y límites de verificación](docs/ai-context-source-recovery.md).
+
 ## Licencia
 
 La documentación existente identifica la licencia como MIT. El repositorio todavía no incluye un archivo `LICENSE` independiente.

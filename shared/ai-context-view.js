@@ -17,9 +17,17 @@
         const collectionText = el('pre', 'ai-context-collection-text'); collectionText.tabIndex = 0;
         const collectionStatus = el('p', 'ai-context-collection-status'); collectionStatus.tabIndex = -1; collectionStatus.setAttribute('role', 'status');
         const collectionApply = button('CollectionApply', 'Use this excerpt for this question', () => void applyCollection());
+        const collectionRecovery = el('div', 'ai-context-collection-recovery'); collectionRecovery.hidden = true;
+        const collectionReload = button('CollectionReload', 'Load latest saved sources', () => void loadSourceRows(true, true));
+        collectionReload.className = 'ai-context-collection-reload';
+        const collectionReloadHelp = el('p', '', label('CollectionReloadHelp', 'Read the latest saved sources into the list below, leaving them unselected. Replacing saved-source selections and edits requires confirmation. Your question, manual excerpts and previous response are kept. This preview is not refreshed. Nothing is sent or saved.'));
+        collectionReloadHelp.id = 'ai-context-collection-reload-help'; collectionReload.setAttribute('aria-describedby', collectionReloadHelp.id);
+        const collectionReloadStatus = el('p', 'ai-context-collection-reload-status'); collectionReloadStatus.tabIndex = -1;
+        collectionReloadStatus.setAttribute('role', 'status'); collectionReloadStatus.setAttribute('aria-live', 'polite');
+        collectionRecovery.append(collectionReload, collectionReloadHelp, collectionReloadStatus);
         collectionPanel.append(el('h3', '', label('CollectionReview', 'Review the selected saved excerpt')),
             el('p', '', label('CollectionHelp', 'Check this exact saved body, source attribution and version before selecting it. Only this excerpt is included, never its historical question/source snapshot or annotations. Nothing is sent, copied or saved. Displayed line breaks are normalized; the original CRLF/CR text is retained until you edit it.')),
-            collectionInfo, collectionText, collectionApply, collectionStatus);
+            collectionInfo, collectionText, collectionApply, collectionStatus, collectionRecovery);
         sourcesPane.append(collectionPanel);
         let collectionTicket = null, collectionUsed = false, collectionEpoch = 0, collectionInvalidated = false, collectionSubscription = null, sourcesLoaded = false;
 
@@ -126,7 +134,7 @@
         batchActions.append(selectVisible, deselectVisible, clearSelection);
         const batchHelp = el('p', 'ai-context-source-batch-help'); batchHelp.id = 'ai-context-source-batch-help';
         selectVisible.setAttribute('aria-describedby', batchHelp.id); deselectVisible.setAttribute('aria-describedby', batchHelp.id); clearSelection.setAttribute('aria-describedby', batchHelp.id);
-        const searchCount = el('p', 'ai-context-source-count'); searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
+        const searchCount = el('p', 'ai-context-source-count'); searchCount.tabIndex = -1; searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
         const searchHelp = el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.'));
@@ -997,15 +1005,23 @@
                 return state;
             });
         }
-        async function loadSourceRows(reload) {
-            if (selectionBlocked()) return;
+        async function loadSourceRows(reload, fromCollection = false) {
+            if (selectionBlocked() || (fromCollection && !canReloadCollection())) return;
             // Confirm only replaced saved rows; preserve manual rows and their exact DOM.
             const draftCurrent = captureDraft(), epoch = manualEpoch;
             if (reload && sourceRows.some(row => row.source.scope !== 'manual' && (row.check.checked || sourceText(row) !== row.source.text)) &&
                 !root.confirm?.(label('SourceReloadConfirm', 'Reload saved sources? On success, saved-source selections and edits will be cleared, including hidden and unselected saved excerpts. Manual temporary excerpts, their selections and edits, unadded text, your question, connection, filters, answer title and previous response with its original snapshot will be kept.'))) return;
-            if (selectionBlocked() || !draftCurrent()) return;
+            if (selectionBlocked() || !draftCurrent() || (fromCollection && !canReloadCollection())) return;
             const generation = controller.generation;
             const current = () => !disposed && !controller.closed && epoch === manualEpoch && draftCurrent() && doc.visibilityState !== 'hidden';
+            const recoveryEpoch = collectionEpoch, ownedFocus = fromCollection && doc.activeElement === collectionReload;
+            const loading = label('SourceReloadLoading', 'Reading the latest saved sources…');
+            let loaded = false;
+            if (fromCollection) {
+                collectionReloadStatus.textContent = loading;
+                // Move before disabling: native browsers may otherwise blur to body.
+                if (ownedFocus) collectionReloadStatus.focus();
+            }
             pending = true; update();
             try {
                 const values = await controller.loadSources();
@@ -1018,13 +1034,33 @@
                 if (reload) controller.edit();
                 savedSourceList.replaceChildren(...nextRows.map(row => row.node));
                 sourceRows = [...nextRows, ...sourceRows.filter(row => row.source.scope === 'manual')]; sourcesLoaded = true;
+                loaded = true;
                 if (reload) {
                     reviewText.hidden = taskList.hidden = true;
                     status.textContent = label('SourceReloaded', 'Saved sources reloaded and left unselected. Manual temporary excerpts and their selections and edits are kept. Review the exact request again before sending; the previous response still belongs to its original request.');
+                    if (fromCollection) collectionReloadStatus.textContent = label('CollectionReloaded', 'Latest saved sources loaded below and left unselected. Select the excerpts you want and review your question again. This earlier preview is still unavailable.');
                 } else status.textContent = label('Choose', 'Select only the sources you want to send. You can edit or remove each selected excerpt.');
             } catch (_) {
-                if (current()) status.textContent = label('SourceReloadError', 'Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace.');
-            } finally { pending = false; if (!disposed) update(); }
+                if (current()) {
+                    status.textContent = label('SourceReloadError', 'Could not load saved sources. The current sources, excerpt edits and reviews are unchanged. Try Reload saved sources again after checking this workspace.');
+                    if (fromCollection) collectionReloadStatus.textContent = status.textContent;
+                }
+            } finally {
+                pending = false;
+                if (fromCollection && collectionReloadStatus.textContent === loading) collectionReloadStatus.textContent = '';
+                if (!disposed) {
+                    update();
+                    // Only the initiating control owns this focus. Keep newer focus,
+                    // preserved filters and every selection under the user's control.
+                    if (loaded && ownedFocus && recoveryEpoch === collectionEpoch && canReloadCollection() &&
+                        doc.activeElement === collectionReloadStatus) searchCount.focus();
+                }
+            }
+        }
+        function canReloadCollection() {
+            return collectionInvalidated && !selectionBlocked() && !collectionPanel.hidden &&
+                collectionPanel.isConnected && !collectionPanel.closest('[hidden], [inert]') &&
+                doc.visibilityState !== 'hidden' && Boolean(collectionPanel.getClientRects().length);
         }
         function collectionSelection() {
             const source = collectionTicket?.source;
@@ -1036,14 +1072,16 @@
         function updateCollectionSelection() {
             // A native browser may blur this button as soon as it is disabled.
             // Only that button's current focus belongs to this status update.
-            const ownedFocus = doc.activeElement === collectionApply;
+            const ownedFocus = doc.activeElement === collectionApply, reloadOwnedFocus = doc.activeElement === collectionReload;
             const { row, exact } = collectionSelection();
             collectionApply.textContent = collectionUsed
                 ? label('CollectionApplyAgain', 'Use this excerpt again')
                 : label('CollectionApply', 'Use this excerpt for this question');
             collectionApply.disabled = selectionBlocked() || !collectionTicket || collectionInvalidated || exact;
+            collectionRecovery.hidden = !collectionInvalidated;
+            collectionReload.disabled = !canReloadCollection();
             if (collectionPanel.hidden) return;
-            const unavailable = label('CollectionUnavailable', 'This exact saved version is unavailable or could not be verified. Close this panel, refresh the collection and start again from its current saved detail.');
+            const unavailable = label('CollectionUnavailable', 'This exact saved version is unavailable or could not be verified. Load the latest saved sources below, select the excerpts you want and review your question again. This preview stays unchanged and cannot be reused.');
             if (!collectionTicket) { if (collectionInvalidated) collectionStatus.textContent = unavailable; }
             else {
                 const current = exact
@@ -1057,11 +1095,13 @@
                     ? ` ${label('CollectionReuseReady', 'Choose Use this excerpt again to recheck and select the same saved version.')}` : '');
             }
             if (ownedFocus && collectionApply.disabled && collectionPanel.isConnected && doc.visibilityState !== 'hidden') collectionStatus.focus();
+            if (reloadOwnedFocus && collectionReload.disabled && collectionPanel.isConnected && doc.visibilityState !== 'hidden') collectionStatus.focus();
         }
         function collectionUnavailable() {
             // Keep the reviewed snapshot and current outgoing draft distinct.
             // Invalidation never selects, clears or substitutes a source row.
             collectionInvalidated = true;
+            collectionReloadStatus.textContent = '';
             updateCollectionSelection();
         }
         async function reviewCollection() {
@@ -1139,7 +1179,7 @@
                 localReview === controller.localReview && partial === controller.partial && taskSelection === controller.taskSelection && taskReview === controller.taskReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = collectionReload.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); update(); } return; }
             if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }

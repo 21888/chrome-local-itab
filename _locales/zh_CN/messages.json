@@ -6326,7 +6326,7 @@
     "message": "请先核对这条已保存摘录的正文、来源标注和版本，再将其选入本次问题。仅使用摘录正文，不带入历史问题/来源快照或批注。不会发送、复制或保存任何内容。预览统一显示换行；实际编辑前仍保留原始 CRLF/CR 正文。"
   },
   "aiContextCollectionUnavailable": {
-    "message": "此确切保存版本已不可用或无法核验。请关闭面板、刷新收藏，再从当前保存的详情重新开始。"
+    "message": "此确切保存版本已不可用或无法核验。可在下方加载最新已保存来源，重新选择需要的摘录并审阅问题。此处的旧预览保持不变，不能再次使用。"
   },
   "aiContextCollectionLoading": {
     "message": "正在本地核验这条确切保存的摘录…"
@@ -7291,5 +7291,17 @@
   },
   "aiContextManualRemove": {
     "message": "移除临时摘录"
+  },
+  "aiContextCollectionReload": {
+    "message": "加载最新已保存来源"
+  },
+  "aiContextCollectionReloadHelp": {
+    "message": "将最新已保存来源读入下方列表，默认均不选中。替换已保存来源的勾选和摘录编辑前会征求确认。问题、手动临时摘录和先前回答均保留，此处的旧预览不会刷新。不会发送或保存任何内容。"
+  },
+  "aiContextSourceReloadLoading": {
+    "message": "正在读取最新已保存来源…"
+  },
+  "aiContextCollectionReloaded": {
+    "message": "已将最新已保存来源加载到下方列表，均未选中。请重新选择需要的摘录并审阅问题；此处的旧预览仍不可用。"
   }
 }
