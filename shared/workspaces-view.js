@@ -280,6 +280,8 @@
         function showName(kind, item) {
             const title = {create:'CreateTitle',rename:'RenameTitle',duplicate:'DuplicateTitle'}[kind];
             const d = makeDialog(title); if (!d) return;
+            // A list refresh can replace the opener while this draft stays open.
+            d.onClose = () => restoreOperationFocus(d);
             if (kind !== 'rename') create('p', 'spaces-help', t(kind === 'create' ? 'CreateHelp' : 'DuplicateHelp'), d.panel);
             const label = create('label', 'spaces-field', t('Name'), d.panel);
             const input = create('input', 'spaces-name-input', undefined, label); input.type = 'text'; input.maxLength = 120; input.value = kind === 'rename' ? item.name : ''; input.autocomplete = 'off';

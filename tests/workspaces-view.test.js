@@ -210,3 +210,85 @@ for (const locale of ['en', 'zh_CN']) for (const code of ['WORKSPACE_IMPORT_PEND
  const link=m.dialog().querySelector('a');assert(!link.hidden);assert.equal(link.href,'chrome-extension://unit/recovery.html?workspace=work');assert.equal(link.target,'_blank');assert.equal(link.rel,'noopener');
  const cancel=m.dialog().querySelectorAll('button').find(button=>button.textContent===(locale==='en'?'Cancel':'取消'));cancel.dispatch('click');assert(!m.dialog());assert(!m.calls.some(call=>call[0]==='navigate'));
 });
+
+for (const kind of ['create', 'rename', 'duplicate']) for (const dismiss of ['Cancel', 'Escape']) test(`${kind} name draft survives list refresh and ${dismiss} returns to the current opener`, async () => {
+ const m=model();await m.view.ready;
+ const opener=()=>kind==='create'?m.find('New workspace'):m.managerHost.querySelector(`[data-workspace-id="work"][data-workspace-action="${kind}"]`);
+ const original=opener();original.focus();original.dispatch('click');
+ const input=m.input(),staleSubmit=m.find({create:'New workspace',rename:'Rename',duplicate:'Duplicate'}[kind],m.dialog());
+ input.value='Synthetic unsaved name';input.focus();
+ m.registry.workspaces[1].name='Updated elsewhere';m.registry.workspaces[1].order=-1;await m.view.refresh();
+ assert.equal(m.input(),input);assert.equal(input.value,'Synthetic unsaved name');assert.equal(m.document.activeElement,input);
+ const current=opener();if(kind!=='create')assert.notEqual(current,original);
+ if(dismiss==='Cancel')m.find('Cancel',m.dialog()).dispatch('click');else input.dispatch('keydown',{key:'Escape'});
+ assert(!m.dialog());assert.equal(m.document.activeElement===current,true,'dismissal must return focus to the same action in the refreshed list');
+ staleSubmit.dispatch('click');input.dispatch('keydown',{key:'Enter'});await tick();
+ assert.equal(m.calls.length,0,'dismissed controls cannot submit the old draft');
+ current.dispatch('click');assert.equal(m.input().value,kind==='rename'?'Updated elsewhere':'');
+});
+
+for (const kind of ['rename', 'duplicate']) test(`${kind} cancellation falls back safely when its current row action is gone`, async () => {
+ const m=model();await m.view.ready;
+ const origin=m.managerHost.querySelector(`[data-workspace-id="work"][data-workspace-action="${kind}"]`);
+ origin.focus();origin.dispatch('click');m.input().value='Synthetic draft';
+ m.registry.workspaces[1].deletedAt=123;await m.view.refresh();
+ m.find('Cancel',m.dialog()).dispatch('click');
+ assert(!m.dialog());assert.equal(m.document.activeElement,m.find('New workspace'));assert.equal(m.calls.length,0);
+});
+
+for (const kind of ['rename', 'duplicate']) for (const mode of ['hidden', 'destroyed', 'newer focus']) test(`${kind} dismissal after list refresh respects ${mode}`, async () => {
+ const m=model();await m.view.ready;
+ const origin=m.managerHost.querySelector(`[data-workspace-id="work"][data-workspace-action="${kind}"]`);
+ origin.focus();origin.dispatch('click');const cancel=m.find('Cancel',m.dialog());
+ await m.view.refresh();
+ const newer=m.document.createElement('textarea');newer.value='Synthetic newer draft';m.document.body.append(newer);
+ if(mode==='hidden')m.document.hidden=true;
+ else if(mode==='newer focus')newer.focus();
+ if(mode==='destroyed')m.view.destroy();else cancel.dispatch('click');
+ assert(!m.dialog());assert.equal(m.document.activeElement,mode==='newer focus'?newer:m.document.body);
+ newer.focus();cancel.dispatch('click');assert.equal(m.document.activeElement,newer,'a second close cannot reclaim focus');
+ assert.equal(newer.value,'Synthetic newer draft');assert.equal(m.calls.length,0);
+});
+
+for (const kind of ['create', 'rename', 'duplicate']) test(`${kind} pending name write handles IME and double activation, then preserves a failed draft for retry`, async () => {
+ const m=model();await m.view.ready;
+ const origin=kind==='create'?m.find('New workspace'):m.managerHost.querySelector(`[data-workspace-id="work"][data-workspace-action="${kind}"]`);
+ origin.focus();origin.dispatch('click');const input=m.input(),dialog=m.dialog(),submit=m.find({create:'New workspace',rename:'Rename',duplicate:'Duplicate'}[kind],dialog);
+ input.value='Synthetic attempted name';input.dispatch('compositionstart');
+ input.dispatch('keydown',{key:'Enter',isComposing:true});input.dispatch('keydown',{key:'Enter',keyCode:229});input.dispatch('keydown',{key:'Enter',repeat:true});input.dispatch('keydown',{key:'Escape'});
+ assert.equal(m.dialog(),dialog);assert.equal(m.calls.length,0);input.dispatch('compositionend');
+ const wait=deferred(),original=m.manager[kind],attempts=[];
+ m.manager[kind]=async(...args)=>{attempts.push(args);if(attempts.length===1){await wait.promise;throw Error('Private synthetic failure');}return original(...args);};
+ input.dispatch('keydown',{key:'Enter'});submit.dispatch('click');submit.dispatch('click');dialog.dispatch('keydown',{key:'Escape'});
+ assert.equal(attempts.length,1);assert.equal(m.dialog(),dialog);assert(input.disabled);assert(submit.disabled);
+ await m.view.refresh();assert.equal(input.value,'Synthetic attempted name');
+ wait.resolve();await tick();
+ assert.equal(m.dialog(),dialog);assert.equal(input.value,'Synthetic attempted name');assert(!input.disabled);assert(!submit.disabled);assert.equal(m.document.activeElement,input);
+ assert.match(dialog.querySelector('.spaces-status').textContent,/Your draft is still here/);assert(!dialog.querySelector('.spaces-status').textContent.includes('Private synthetic failure'));
+ input.value='Synthetic corrected name';input.dispatch('keydown',{key:'Enter'});await tick();
+ assert(!m.dialog());assert.deepEqual(attempts,[kind==='create'?['Synthetic attempted name']:['work','Synthetic attempted name'],kind==='create'?['Synthetic corrected name']:['work','Synthetic corrected name']]);
+ assert.equal(m.document.activeElement,kind==='create'?origin:m.managerHost.querySelector(`[data-workspace-id="work"][data-workspace-action="${kind}"]`));
+ assert(!m.calls.some(call=>['select','navigate'].includes(call[0])));
+});
+
+for (const kind of ['create', 'rename', 'duplicate']) test(`${kind} late list read after cancellation preserves the next name draft and focus`, async () => {
+ const m=model();await m.view.ready;
+ const opener=()=>kind==='create'?m.find('New workspace'):m.managerHost.querySelector(`[data-workspace-id="work"][data-workspace-action="${kind}"]`);
+ opener().focus();opener().dispatch('click');m.input().value='Synthetic cancelled draft';
+ const late=deferred();m.manager.list=()=>late.promise;const reading=m.view.refresh();
+ m.find('Cancel',m.dialog()).dispatch('click');opener().dispatch('click');const newer=m.input();newer.value='Synthetic current draft';newer.focus();
+ late.resolve(clone(m.registry));await reading;
+ assert.equal(m.input(),newer);assert.equal(newer.value,'Synthetic current draft');assert.equal(m.document.activeElement,newer);assert.equal(m.calls.length,0);
+});
+
+for (const kind of ['create', 'rename', 'duplicate']) for (const outcome of ['success', 'failure']) test(`${kind} late ${outcome} write completion after destruction leaves newer focus alone`, async () => {
+ const m=model();await m.view.ready;
+ const origin=kind==='create'?m.find('New workspace'):m.managerHost.querySelector(`[data-workspace-id="work"][data-workspace-action="${kind}"]`);
+ origin.focus();origin.dispatch('click');m.input().value='Synthetic submitted name';
+ const wait=deferred();let attempts=0;m.manager[kind]=async()=>{attempts++;await wait.promise;if(outcome==='failure')throw Error('Synthetic write failure');};
+ m.input().dispatch('keydown',{key:'Enter'});m.view.destroy();
+ const newer=m.document.createElement('textarea');newer.value='Synthetic unrelated draft';m.document.body.append(newer);newer.focus();
+ const status=m.managerHost.querySelector('.spaces-status'),before=status.textContent;
+ wait.resolve();await tick();
+ assert.equal(attempts,1);assert(!m.dialog());assert.equal(status.textContent,before);assert.equal(m.document.activeElement,newer);assert.equal(newer.value,'Synthetic unrelated draft');assert(!m.view.pending);
+});

@@ -38,4 +38,6 @@ The previous “recommended workspace” control is now called **Recommended mod
 
 Automated ownership/DOM-model coverage lives in `tests/workspaces-view.test.js` and `tests/workspace-lifecycle.test.js`. It covers repeated submission, pending writes, validation, IME Enter, stale controls, focus restoration, Trash, deleted/restored sessions, private text export, dirty decisions, failed selection, and typing during delayed selection. Existing Settings keyboard/search fixtures cover the seventh tab and the new public-label search destination.
 
+Name-dialog coverage also checks drafts during list refreshes, Cancel/Escape returning to the same workspace action after its row is rebuilt or reordered, and a safe fallback when that action disappears. Delayed reads/writes, failed-save retries, repeated dismissal, hidden/destroyed views and newer focused fields are exercised without changing workspace storage protocols.
+
 Native validation must still check actual layout, keyboard focus painting, browser history, real extension storage events, narrow widths/zoom, and the latest integrated backup schema. No browser QA is claimed by these model tests.
