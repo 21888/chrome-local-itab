@@ -85,7 +85,11 @@
             this.status = el('p', 'countdown-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             this.hideButton = button('countdownHide', () => run(() => controller.setEnabled(false)));
             this.edit = el('a', 'countdown-button', t('countdownEdit'));
-            this.edit.href = root.chrome?.runtime?.getURL ? root.chrome.runtime.getURL('options.html#countdown-settings') : 'options.html#countdown-settings';
+            // Dashboard startup captures this tab's session before mounting cards.
+            const workspaceId = root.LocalItabWorkspaces?.session?.id;
+            const settingsPath = 'options.html' + (workspaceId ? '?workspace=' + encodeURIComponent(workspaceId) : '') + '#countdown-settings';
+            this.edit.href = root.LocalItabWorkspacesView?.settingsUrl?.(workspaceId, 'countdown-settings') ||
+                root.chrome?.runtime?.getURL?.(settingsPath) || settingsPath;
             this.edit.target = '_blank'; this.edit.rel = 'noopener';
             this.exportButton = button('countdownExport', () => exportText(controller.state, this.status));
             this.retry = button('countdownRetry', () => run(() => controller.retry()));

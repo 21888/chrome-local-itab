@@ -18,7 +18,7 @@ function model({ raw: initial, failRead: initiallyFail = false, settings = false
     };
     const api = { ...storeApi, Controller };
     const window = {
-        LocalItabCountdown: api, Blob, TextDecoder, i18n: translate ? { t: translate } : undefined,
+        LocalItabCountdown: api, LocalItabWorkspaces: { session: { id: 'default' } }, Blob, TextDecoder, i18n: translate ? { t: translate } : undefined,
         URL: { createObjectURL(blob) { blobs.push(blob); return 'blob:test'; }, revokeObjectURL() {} },
         chrome: { runtime: { getURL(path) { return `chrome-extension://test/${path}`; } } },
         confirm(message) { confirms.push(message); return approve; },
@@ -30,6 +30,7 @@ function model({ raw: initial, failRead: initiallyFail = false, settings = false
     };
     const create = document.createElement; document.createElement = tag => { const node = create(tag); node.click = () => node.dispatch('click'); return node; };
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-countdown-view'), 'utf8'), { window, document });
+    vm.runInNewContext(fs.readFileSync(require.resolve('../shared/workspaces-view'), 'utf8'), { window, document });
     const parent = document.createElement('div'), host = document.createElement(settings ? 'div' : 'article'); document.body.append(parent); parent.append(host);
     const controller = new Controller(new api.Store(backend));
     const visibility = [], view = settings ? api.mountSettings(host, { controller }) : api.mount(host, { controller, now: () => currentDate, onVisibility: visible => visibility.push(visible) });
@@ -101,7 +102,7 @@ test('DOM model: one bounded timer stops while hidden/pagehidden, refreshes on r
 
 test('DOM model: dashboard Hide preserves data, exports saved plaintext and Edit targets its Settings section', async () => {
     const m = model({ raw: configured() }); await m.flush();
-    assert.equal(m.view.edit.tagName, 'A'); assert.equal(m.view.edit.href, 'chrome-extension://test/options.html#countdown-settings'); assert.equal(m.view.edit.rel, 'noopener');
+    assert.equal(m.view.edit.tagName, 'A'); assert.equal(m.view.edit.href, 'chrome-extension://test/options.html?workspace=default#countdown-settings'); assert.equal(m.view.edit.rel, 'noopener');
     m.view.exportButton.dispatch('click'); assert.equal(await m.blobs[0].text(), 'Launch\n2026-10-11\n'); assert.equal(m.blobs[0].type, 'text/plain;charset=utf-8');
     m.view.hideButton.dispatch('click'); await m.flush(); assert(m.host.hidden); assert.equal(m.raw.enabled, false);
     assert.equal(m.raw.title, 'Launch'); assert.equal(m.raw.targetDate, '2026-10-11'); assert.equal(m.tickCount(), 0); m.view.destroy();
