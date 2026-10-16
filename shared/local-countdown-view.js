@@ -152,15 +152,15 @@
             dateLabel.append(this.date);
             this.enabled = el('input'); this.enabled.type = 'checkbox';
             const enableLabel = el('label', 'countdown-enable-label'); enableLabel.append(this.enabled, el('span', '', t('countdownEnable')));
-            this.status = el('p', 'countdown-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
+            this.status = el('p', 'countdown-status'); this.status.tabIndex = -1; this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             const inputs = el('div', 'countdown-fields'); inputs.append(titleLabel, dateLabel);
-            this.saveButton = button('countdownSave', () => run(() => controller.save()));
-            this.cancelButton = button('countdownCancel', () => this.loadSaved());
-            this.retry = button('countdownRetry', () => run(() => controller.retry()));
-            this.useSaved = button('countdownUseSaved', () => this.loadSaved());
+            this.saveButton = button('countdownSave', () => this.runAction(this.saveButton, () => controller.save()));
+            this.cancelButton = button('countdownCancel', () => this.loadSaved(this.cancelButton));
+            this.retry = button('countdownRetry', () => this.runAction(this.retry, () => controller.retry()));
+            this.useSaved = button('countdownUseSaved', () => this.loadSaved(this.useSaved));
             this.replace = button('countdownReplace', () => {
                 if (controller.pending || controller.composing || controller.readError || !controller.conflict) return;
-                if (root.confirm(t('countdownReplaceConfirm'))) run(() => controller.replaceWithDraft());
+                if (root.confirm(t('countdownReplaceConfirm'))) this.runAction(this.replace, () => controller.replaceWithDraft());
             });
             this.exportButton = button('countdownExport', () => this.exportText());
             this.importButton = button('countdownImport', () => this.chooseImport());
@@ -238,11 +238,23 @@
             // Import never saves, changes visibility, or bypasses existing conflict handling.
             this.controller.setDraft({ title: fields.title, targetDate: fields.targetDate }); this.title.focus();
         }
-        loadSaved() {
+        runAction(origin, action) {
+            const visible = node => node?.isConnected && this.host.contains(node) && !node.closest('[inert]') &&
+                node.getClientRects().length && !['hidden', 'collapse'].includes(root.getComputedStyle?.(node)?.visibility);
+            const owned = !this.closed && !document.hidden && document.visibilityState !== 'hidden' &&
+                visible(origin) && !origin.disabled && document.activeElement === origin;
+            // Let the real synchronous busy/error render finish first. Only repair
+            // the initiating control's lost focus; never reclaim it after an await.
+            run(action);
+            if (owned && !this.closed && !document.hidden && document.visibilityState !== 'hidden' &&
+                origin.isConnected && this.host.contains(origin) && document.activeElement === document.body &&
+                (origin.disabled || !origin.getClientRects().length) && visible(this.status)) this.status.focus();
+        }
+        loadSaved(origin) {
             const c = this.controller;
             if (c.pending || c.composing) return;
             if (c.dirty() && !root.confirm(t('countdownDiscardConfirm'))) return;
-            run(() => c.useSaved());
+            this.runAction(origin, () => c.useSaved());
         }
         exportText() {
             const draft = this.controller.composing ? { ...this.controller.draft, title: this.title.value, targetDate: this.date.value } : this.controller.draft;
