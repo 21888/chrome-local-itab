@@ -31,6 +31,9 @@
             this.version = 0;
             this.pending = 0;
             this.refreshVersion = 0;
+            // Raw Settings inputs have not submitted a layout intent yet.
+            this.inputDrafts = new Map();
+            this.inputExpectations = {};
             // In-memory read fence only; BigInt never wraps or enters saved data.
             this.shortcutMutationEpoch = 0n;
             this.queue = Promise.resolve();
@@ -41,9 +44,11 @@
             this.render(this.confirmed, this.invalidated ? 'reload' : '');
         }
 
+        hasUncommittedWork() { return Boolean(this.inputDrafts.size || this.failedChange || this.pending || this.timer); }
+
         get modePending() { return this.invalidated || this.externalHold > 0 || this.identityPending || Object.keys(this.patch).length > 0; }
 
-        change(patch = {}, positions = {}, { debounce = false, identityPositions = {} } = {}) {
+        change(patch = {}, positions = {}, { debounce = false, identityPositions = {}, inputBaseline = null } = {}) {
             if (this.externalHold > 0 || this.identityPending) return Promise.resolve(false);
             if (this.invalidated) { this.render(this.confirmed, 'reload'); return Promise.resolve(false); }
             const links = clone(this.getLinks ? this.getLinks() : this.links);
@@ -54,6 +59,11 @@
                 return Promise.resolve(false);
             }
             if (!hasIntent) this.intentLinks = links;
+            for (const field of ['columns', 'gridSize']) {
+                if (!(field in patch)) continue;
+                if (inputBaseline) this.inputExpectations[field] = clone(inputBaseline);
+                else delete this.inputExpectations[field];
+            }
             // Inputs are copied before yielding: callers can keep dragging safely.
             this.failedChange = null;
             this.patch = { ...this.patch, ...clone(patch) };
@@ -96,10 +106,28 @@
                 if (version !== this.version) return false;
                 let snapshot;
                 try {
-                    snapshot = await this.storage.applyLayoutPatch(patch, positions, {
-                        layout: clone(this.confirmed), generation: this.generation, links: intentLinks
-                    }, candidate => { this.writing = clone(candidate); }, identityPositions);
+                    const expected = { layout: clone(this.confirmed), generation: this.generation, links: intentLinks };
+                    for (const field of ['columns', 'gridSize']) {
+                        const baseline = field in patch && this.inputExpectations[field];
+                        if (!baseline) continue;
+                        if (baseline.generation !== expected.generation || !same(baseline.links, expected.links)) {
+                            const error = new Error('Page data changed. Reload before arranging shortcuts.');
+                            error.code = 'LAYOUT_CONTEXT_CHANGED'; throw error;
+                        }
+                        expected.layout[field] = baseline.value;
+                    }
+                    snapshot = await this.storage.applyLayoutPatch(patch, positions, expected,
+                        candidate => { this.writing = clone(candidate); }, identityPositions);
                 } finally { this.writing = null; }
+                // Advance later typing only for this page's successful write to
+                // the same field. An unrelated mode save must not bless a newer
+                // external numeric value as an existing draft's baseline.
+                for (const field of ['columns', 'gridSize']) {
+                    if (!(field in patch)) continue;
+                    for (const baseline of [this.inputExpectations[field], this.inputDrafts.get(field)?.baseline]) {
+                        if (baseline) Object.assign(baseline, { value: snapshot.layout[field], generation: snapshot.generation, links: clone(snapshot.links) });
+                    }
+                }
                 this.confirmed = clone(snapshot.layout);
                 this.generation = snapshot.generation;
                 this.links = clone(snapshot.links);
@@ -256,29 +284,62 @@
         retry.hidden = true;
         retry.addEventListener('click', () => onRetry ? onRetry() : controller.retry());
         host.append(label, status, retry);
+        const inputs = [['columns', columns], ['gridSize', gridSize]];
+        let renderedState = '';
+        const renderStatus = state => {
+            status.textContent = state === 'saving' ? translate('layoutSaving', 'Saving…') :
+                state === 'conflict' ? (controller.inputDrafts.size
+                    ? translate('layoutInputConflict', 'Layout changed in another page. Your input is kept. Open a new Settings tab to review the saved numbers before retrying.')
+                    : translate('layoutChangedElsewhere', 'Layout changed in another page. Review it, then retry your change.')) :
+                    state === 'reload' ? translate('layoutContextChanged', 'Page data changed or could not be read safely. Reload before arranging shortcuts.') :
+                        state === 'unavailable' ? translate('layoutSavingUnavailable', 'Safe layout saving is unavailable. Update Chrome and reload this page.') :
+                            state === 'error' ? translate('layoutSaveFailed', 'Could not save layout. Please try again.') :
+                                controller.inputDrafts.size ? translate('layoutInputUnsaved', 'Unsaved layout input. Finish editing the number to save.') :
+                                    state === 'saved' ? translate('layoutSaved', 'Saved') : '';
+        };
         controller.render = (value, state) => {
+            renderedState = state;
             select.value = mode(value);
             select.disabled = state === 'reload' || controller.identityPending || controller.externalHold > 0;
             retry.hidden = !['error', 'conflict', 'reload', 'unavailable'].includes(state);
             retry.textContent = state === 'reload' ? translate('layoutReload', 'Reload page') : translate('layoutRetry', 'Retry save');
             host.setAttribute('aria-busy', String(state === 'saving'));
             host.dataset.saveState = state;
-            status.textContent = state === 'saving' ? translate('layoutSaving', 'Saving…') :
-                state === 'saved' ? translate('layoutSaved', 'Saved') :
-                    state === 'conflict' ? translate('layoutChangedElsewhere', 'Layout changed in another page. Review it, then retry your change.') :
-                        state === 'reload' ? translate('layoutContextChanged', 'Page data changed or could not be read safely. Reload before arranging shortcuts.') :
-                            state === 'unavailable' ? translate('layoutSavingUnavailable', 'Safe layout saving is unavailable. Update Chrome and reload this page.') :
-                                state === 'error' ? translate('layoutSaveFailed', 'Could not save layout. Please try again.') : '';
-            if (columns) { columns.value = value.columns; columns.disabled = state === 'reload' || mode(value) !== 'grid'; }
-            if (gridSize) { gridSize.value = value.gridSize; gridSize.disabled = state === 'reload' || mode(value) !== 'snap'; }
+            for (const [field, input] of inputs) {
+                if (!input) continue;
+                const draft = controller.inputDrafts.get(field);
+                // Only a submitted draft acknowledged by this successful render
+                // becomes clean. Later input creates a new, unsubmitted owner.
+                if (state === 'saved' && draft?.submittedValue === value[field]) controller.inputDrafts.delete(field);
+                if (!controller.inputDrafts.has(field)) input.value = value[field];
+                input.disabled = state === 'reload' || mode(value) !== (field === 'columns' ? 'grid' : 'snap');
+            }
+            renderStatus(state);
         };
         controller.render(controller.confirmed, controller.invalidated ? 'reload' : '');
         select.addEventListener('change', () => onSelect ? onSelect(select.value) : controller.select(select.value));
-        for (const [field, input] of [['columns', columns], ['gridSize', gridSize]]) {
+        for (const [field, input] of inputs) {
+            input?.addEventListener('input', () => {
+                if (input.disabled || controller.invalidated) return;
+                if (!controller.pending && input.value === String(controller.confirmed[field])) controller.inputDrafts.delete(field);
+                else controller.inputDrafts.set(field, { raw: input.value, baseline: controller.inputDrafts.get(field)?.baseline ||
+                    { value: controller.confirmed[field], generation: controller.generation, links: clone(controller.links) } });
+                renderStatus(renderedState);
+            });
             input?.addEventListener('change', () => {
+                // A delayed blur after an external invalidation/mode change must
+                // never submit this field to another layout context.
+                if (input.disabled || controller.invalidated) return;
                 const value = Number(input.value);
-                if (!input.value.trim() || !Number.isFinite(value)) { controller.render(controller.confirmed, 'error'); return; }
-                controller.change({ [field]: value });
+                if (!input.value.trim() || !Number.isFinite(value)) {
+                    controller.inputDrafts.delete(field);
+                    controller.render(controller.confirmed, 'error');
+                        return;
+                }
+                const baseline = controller.inputDrafts.get(field)?.baseline || { value: controller.confirmed[field], generation: controller.generation, links: clone(controller.links) };
+                const draft = { raw: input.value, baseline, submittedValue: controller.storage.validateLayoutConfig({ ...controller.confirmed, [field]: value })[field] };
+                controller.inputDrafts.set(field, draft);
+                controller.change({ [field]: value }, {}, { inputBaseline: baseline });
             });
         }
         global.addEventListener?.('pagehide', () => controller.flush());

@@ -1051,6 +1051,12 @@
   "layoutChangedElsewhere": {
     "message": "布局已在其他页面中更改。请查看最新布局，再重试你的更改。"
   },
+  "layoutInputConflict": {
+    "message": "其他页面已修改布局，当前输入仍保留。请先打开新的设置标签页查看已保存的数字，再重试。"
+  },
+  "layoutInputUnsaved": {
+    "message": "布局输入尚未保存，请完成数字编辑后保存。"
+  },
   "layoutContextChanged": {
     "message": "页面数据已更改或无法安全读取。请重新加载后再调整布局。"
   },

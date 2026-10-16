@@ -1051,6 +1051,12 @@
   "layoutChangedElsewhere": {
     "message": "Layout changed in another page. Review it, then retry your change."
   },
+  "layoutInputConflict": {
+    "message": "Layout changed in another page. Your input is kept. Open a new Settings tab to review the saved numbers before retrying."
+  },
+  "layoutInputUnsaved": {
+    "message": "Unsaved layout input. Finish editing the number to save."
+  },
   "layoutContextChanged": {
     "message": "Page data changed or could not be read safely. Reload before arranging shortcuts."
   },
