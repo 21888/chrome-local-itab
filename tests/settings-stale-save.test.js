@@ -72,6 +72,7 @@ function fixture(initial) {
             location: {hash: '', reload() { reloads++; }}, LocalItabContentLifecycle: {reload() { reloads++; }}};
         const context = vm.createContext({window, document, chrome: global.chrome, storageManager: storage,
             navigator: global.navigator, crypto: webcrypto, URL, TextEncoder, Blob, console: {log() {}, warn() {}, error() {}},
+            Image: class { async decode() {} }, // Synthetic image bytes; native codecs are not exercised here.
             confirm: () => true, setTimeout(fn) { timers.set(++timerId, fn); return timerId; }, clearTimeout(id) { timers.delete(id); }});
         vm.runInContext(layoutSource, context);
         vm.runInContext(optionsSource, context);

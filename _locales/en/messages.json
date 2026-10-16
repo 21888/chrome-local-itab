@@ -2250,6 +2250,9 @@
   "settingsImageSaveConflict": {
     "message": "The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again."
   },
+  "settingsBackgroundImageInvalid": {
+    "message": "This file could not be decoded as an image and was not saved. Choose another JPEG, PNG, GIF, or WebP file."
+  },
   "settingsBackgroundColorInvalid": {
     "message": "Enter a valid background color, such as #112233, before saving."
   },

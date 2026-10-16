@@ -2663,6 +2663,12 @@ async function handleBackgroundImageUpload(file) {
             showMessage('Uploading background image...', 'info');
             const dataURL = await fileToDataURL(file);
             if (!isCurrent()) return;
+            // MIME and base64 syntax alone do not establish a usable image.
+            // Decode locally before this candidate can replace a saved background.
+            const image = new Image(); image.src = dataURL;
+            try { await image.decode(); }
+            catch (_) { throw Object.assign(new Error(), { code: 'BACKGROUND_IMAGE_INVALID' }); }
+            if (!isCurrent()) return;
             await commitBackground({ type: 'image', value: dataURL });
             publishCommittedBackground({ type: 'image', value: dataURL }, canPresent, submittedControls);
             if (!isCurrent()) return;
@@ -2670,7 +2676,7 @@ async function handleBackgroundImageUpload(file) {
         } catch (error) {
             console.error('Error uploading background image:', error);
             if (isCurrent()) {
-                showMessage(error.code?.startsWith('SETTINGS_') ? t('settingsImageSaveConflict', 'The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again.') : `Error uploading image: ${error.message}`, 'error');
+                showMessage(error.code === 'BACKGROUND_IMAGE_INVALID' ? t('settingsBackgroundImageInvalid', 'This file could not be decoded as an image and was not saved. Choose another JPEG, PNG, GIF, or WebP file.') : error.code?.startsWith('SETTINGS_') ? t('settingsImageSaveConflict', 'The image was not saved because settings changed or could not be safely compared. Keep this page for any other edits, open a new Settings tab, and choose the image again.') : `Error uploading image: ${error.message}`, 'error');
             }
         } finally {
             if (isCurrent()) clearBackgroundImageInput();

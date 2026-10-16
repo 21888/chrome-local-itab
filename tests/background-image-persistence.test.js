@@ -14,6 +14,7 @@ function createHarness() {
     const context = {
         document: { addEventListener() {}, getElementById(id) { return fields.get(id) || null; } },
         window: {}, console: { error() {}, log() {}, warn() {} },
+        Image: class { async decode() {} }, // Decoder timing/failures have dedicated event-path regressions.
         confirm() { return state.allowRemove; },
         chrome: { storage: { local: { async get() {
             if (state.readError) throw new Error('storage read unavailable');

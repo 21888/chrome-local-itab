@@ -2250,6 +2250,9 @@
   "settingsImageSaveConflict": {
     "message": "设置已更改或无法安全核对，图片未保存。请保留此页中的其他编辑，打开新的设置标签页并重新选择图片。"
   },
+  "settingsBackgroundImageInvalid": {
+    "message": "此文件无法解码为图片，未保存。请选择其他 JPEG、PNG、GIF 或 WebP 图片。"
+  },
   "settingsBackgroundColorInvalid": {
     "message": "请先输入有效的背景颜色，例如 #112233，再保存。"
   },
