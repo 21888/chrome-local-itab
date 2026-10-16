@@ -1,4 +1,7 @@
 {
+  "settingsCategoryNameRequired": {
+    "message": "Enter a name for every category, or use its Delete (✕) button. Settings have not been saved; your edits are still here."
+  },
   "promptsModelCopyAnswer": {
     "message": "Copy full answer"
   },

@@ -1,4 +1,7 @@
 {
+  "settingsCategoryNameRequired": {
+    "message": "请填写每个分类的名称，或使用该行的删除（✕）按钮。设置尚未保存，你的编辑仍保留在当前页面。"
+  },
   "promptsModelCopyAnswer": {
     "message": "复制完整回答"
   },

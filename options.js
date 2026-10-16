@@ -2175,7 +2175,15 @@ async function saveAllSettings(includeWorldClocks = false) {
     const submittedBackgroundControls = backgroundFormSnapshot();
     const backgroundDirtyAtSubmission = backgroundFormBaseline !== null && submittedBackgroundControls !== backgroundFormBaseline;
     let submittedForm, collectError;
-    try { requireSettingsBaseline(); submittedForm = collectFormData(false); }
+    try {
+        requireSettingsBaseline();
+        // A cleared name is an unfinished rename, not a request to delete its
+        // category. Capture validation now, alongside this queued submission.
+        if (Array.from(document.querySelectorAll('#category-manage-list .cat-name')).some(input => !input.value.trim())) {
+            throw new Error(t('settingsCategoryNameRequired', 'Enter a name for every category, or use its Delete (✕) button. Settings have not been saved; your edits are still here.'));
+        }
+        submittedForm = collectFormData(false);
+    }
     catch (error) { collectError = error; }
     ++worldClockSaves;
     return queueSettingsWrite(async () => {
