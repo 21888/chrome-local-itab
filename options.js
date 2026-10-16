@@ -97,8 +97,16 @@ function setupWorldClocks() {
         }
     };
     add.addEventListener('click', append);
+    add.addEventListener('keydown', event => {
+        if ((event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') &&
+            (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+    });
     for (const input of [zone, label]) input.addEventListener('keydown', event => {
-        if (event.key === 'Enter' && !event.isComposing) { event.preventDefault(); append(); }
+        // Candidate confirmation belongs to the IME, including its final 229
+        // event. Held Enter must not validate the newly cleared input again.
+        if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+        event.preventDefault();
+        if (!event.repeat) append();
     });
     document.getElementById('world-clock-save').addEventListener('click', () => saveAllSettings(true));
     window.worldClockSettingsView = {hasUncommittedWork: worldClockHasUncommittedWork,

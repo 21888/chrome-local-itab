@@ -132,6 +132,96 @@ test('clock action keys suppress repeat and composition without replacing native
     }
     assert.deepEqual(draft(h), removed); assert.equal(h.writes.length, 0);
 });
+test('clock Add: composing, consumed and repeated Enter preserve both raw inputs and focus', () => {
+    for (const id of ['world-clock-zone', 'world-clock-label']) {
+        for (const fields of [{isComposing: true}, {keyCode: 229}, {repeat: true}, {defaultPrevented: true}]) {
+            const h = harness();
+            h.get('world-clock-zone').value = 'Asia/Shanghai';
+            h.get('world-clock-label').value = '家里';
+            h.get('world-clock-error').textContent = '';
+            const input = h.get(id); input.focus();
+            const event = input.dispatch('keydown', {key: 'Enter', ...fields});
+            assert.deepEqual(draft(h), [], `${id}: ${JSON.stringify(fields)} must not add a clock`);
+            assert.equal(h.get('world-clock-zone').value, 'Asia/Shanghai');
+            assert.equal(h.get('world-clock-label').value, '家里');
+            assert.equal(h.get('world-clock-error').textContent, '');
+            assert.equal(h.document.activeElement, input);
+            if (fields.isComposing || fields.keyCode === 229) assert(!event.prevented, 'the IME still owns its candidate-confirmation key');
+            assert.equal(h.writes.length, 0); assert(h.window.worldClockSettingsView.hasUncommittedWork());
+        }
+    }
+});
+test('clock Add: held Enter after adding cannot report a new empty-zone error', () => {
+    for (const id of ['world-clock-zone', 'world-clock-label']) {
+        const h = harness();
+        h.get('world-clock-zone').value = 'UTC'; h.get('world-clock-label').value = 'Meeting'; h.get(id).focus();
+        assert(h.get(id).dispatch('keydown', {key: 'Enter'}).prevented);
+        assert.deepEqual(draft(h), [{timeZone: 'UTC', label: 'Meeting'}]);
+        assert.equal(h.document.activeElement, h.get('world-clock-zone'));
+        const held = h.document.activeElement.dispatch('keydown', {key: 'Enter', repeat: true});
+        assert(held.prevented);
+        assert.equal(h.get('world-clock-error').textContent, '');
+        assert.equal(h.get('world-clock-zone').getAttribute('aria-invalid'), undefined);
+        assert.deepEqual(draft(h), [{timeZone: 'UTC', label: 'Meeting'}]); assert.equal(h.writes.length, 0);
+    }
+});
+test('clock Add: button activation keys suppress repeat and composition without replacing native activation', () => {
+    for (const key of ['Enter', ' ', 'Spacebar']) for (const fields of [{repeat: true}, {isComposing: true}, {keyCode: 229}]) {
+        const h = harness(); h.get('world-clock-zone').value = 'UTC'; h.get('world-clock-label').value = 'Draft';
+        const add = h.get('world-clock-add'); add.focus();
+        const event = add.dispatch('keydown', {key, ...fields});
+        // Enter activates on keydown; Space needs an uncancelled keydown to
+        // arm the button before its keyup can activate it.
+        const release = key === 'Enter' ? null : add.dispatch('keyup', {key, ...fields});
+        if (!event.prevented && !release?.prevented) add.dispatch('click');
+        assert(event.prevented);
+        assert.deepEqual(draft(h), []); assert.equal(h.get('world-clock-label').value, 'Draft');
+        assert.equal(h.document.activeElement, add); assert.equal(h.writes.length, 0);
+    }
+});
+test('clock Add: ordinary input Enter and native button activation still add an explicitly saved draft', async () => {
+    for (const locale of ['en', 'zh_CN']) for (const route of ['world-clock-zone', 'world-clock-label', 'Enter', ' ', 'Spacebar', 'click']) {
+        const h = harness([], locale), add = h.get('world-clock-add');
+        h.get('world-clock-zone').value = 'UTC'; h.get('world-clock-label').value = '会议 <local>';
+        const target = route.startsWith('world-clock-') ? h.get(route) : add; target.focus();
+        assert(!target.dispatch('keydown', {key: 'Tab', repeat: true}).prevented);
+        assert(!target.dispatch('keydown', {key: 'Escape'}).prevented);
+        if (target !== add) assert(target.dispatch('keydown', {key: 'Enter'}).prevented);
+        else if (route === 'click') add.dispatch('click');
+        else {
+            const event = add.dispatch('keydown', {key: route});
+            assert(!event.prevented, 'ordinary button activation remains native');
+            if (route !== 'Enter') {
+                assert.deepEqual(draft(h), [], 'Space does not add until keyup');
+                assert(!add.dispatch('keyup', {key: route}).prevented);
+            }
+            add.dispatch('click');
+        }
+        assert.deepEqual(draft(h), [{timeZone: 'UTC', label: '会议 <local>'}]);
+        assert.equal(h.get('world-clock-zone').value, ''); assert.equal(h.get('world-clock-label').value, '');
+        assert.equal(h.document.activeElement, h.get('world-clock-zone')); assert.equal(h.get('world-clock-error').textContent, '');
+        assert.equal(h.writes.length, 0); assert(h.window.worldClockSettingsView.hasUncommittedWork());
+        await h.context.saveAllSettings(true);
+        assert.deepEqual(h.saved.worldClocks, draft(h)); assert(!h.window.worldClockSettingsView.hasUncommittedWork());
+    }
+});
+test('clock Add: ignored keys retain newer unadded input through an older Save completion', async () => {
+    const h = harness(); h.add('UTC', 'Submitted');
+    const entered = deferred(), resume = deferred(); h.pause = {entered, resume};
+    const saving = h.context.saveAllSettings(true); await entered.promise;
+    h.get('world-clock-zone').value = 'Asia/Shanghai'; h.get('world-clock-label').value = '新草稿';
+    const label = h.get('world-clock-label'); label.focus();
+    label.dispatch('keydown', {key: 'Enter', keyCode: 229});
+    label.dispatch('keydown', {key: 'Enter', repeat: true});
+    resume.resolve(); await saving;
+    assert.deepEqual(h.saved.worldClocks, [{timeZone: 'UTC', label: 'Submitted'}]);
+    assert.deepEqual(draft(h), h.saved.worldClocks);
+    assert.equal(h.get('world-clock-zone').value, 'Asia/Shanghai'); assert.equal(label.value, '新草稿');
+    assert.equal(h.document.activeElement, label); assert(h.window.worldClockSettingsView.hasUncommittedWork());
+    label.dispatch('keydown', {key: 'Enter'}); assert.equal(draft(h).length, 2);
+    await h.context.saveAllSettings(true);
+    assert.deepEqual(h.saved.worldClocks, draft(h)); assert(!h.window.worldClockSettingsView.hasUncommittedWork());
+});
 test('delayed explicit save retains newer reordered draft, focus and baseline-only autosaves', async () => {
     const h = harness(entries); action(h, 1, 'up').dispatch('click'); const submitted = draft(h);
     const entered = deferred(), resume = deferred(); h.pause = {entered, resume};
