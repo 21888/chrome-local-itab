@@ -2193,6 +2193,15 @@
   "focusDraftRetained": {
     "message": "尚未保存的分钟数会保留在此页面。该时段准备就绪后，可继续编辑。"
   },
+  "focusWorkspaceUnavailable": {
+    "message": "此标签页的计时器已不可用"
+  },
+  "focusWorkspaceReopen": {
+    "message": "请重新打开工作区，读取已保存的计时器。尚未保存的分钟数会保留在此页面。"
+  },
+  "focusWorkspaceError": {
+    "message": "此前的计时器操作尚未确认。请重新打开工作区，查看已保存的状态。"
+  },
   "focusConflict": {
     "message": "另一个页面已更改计时器。当前显示最新保存的状态，请重新选择。"
   },

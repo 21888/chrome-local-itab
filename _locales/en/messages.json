@@ -2193,6 +2193,15 @@
   "focusDraftRetained": {
     "message": "Your unsaved minutes are kept on this page. Finish editing when that interval is ready."
   },
+  "focusWorkspaceUnavailable": {
+    "message": "Timer unavailable in this tab"
+  },
+  "focusWorkspaceReopen": {
+    "message": "Reopen the workspace to read its saved timer. Any unsaved minutes remain on this page."
+  },
+  "focusWorkspaceError": {
+    "message": "The previous timer operation could not be confirmed. Reopen the workspace to check its saved state."
+  },
   "focusConflict": {
     "message": "Another page changed this timer. The latest saved state is shown; choose again."
   },

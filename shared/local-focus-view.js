@@ -17,6 +17,9 @@
         focusEnable: 'Show Focus timer on the new tab page', focusEnableHelp: 'Optional and device-local. Hiding it keeps the current session and deadline.',
         focusLoading: 'Loading local timer…', focusSaving: 'Saving timer…', focusError: 'Could not confirm the timer change. Read the latest state before trying again.',
         focusDraftRetained: 'Your unsaved minutes are kept on this page. Finish editing when that interval is ready.', focusSaveMinutes: 'Save minutes',
+        focusWorkspaceUnavailable: 'Timer unavailable in this tab',
+        focusWorkspaceReopen: 'Reopen the workspace to read its saved timer. Any unsaved minutes remain on this page.',
+        focusWorkspaceError: 'The previous timer operation could not be confirmed. Reopen the workspace to check its saved state.',
         focusConflict: 'Another page changed this timer. The latest saved state is shown; choose again.', focusRetry: 'Read latest state', focusInvalidMinutes: 'Enter whole minutes from 1 to 180.'
     };
     function t(key) { const translated = root.i18n?.t(key); return translated && translated !== key ? translated : fallback[key] || key; }
@@ -49,7 +52,7 @@
         update() {
             if (this.closed || this.suspended || this.yielded) return;
             const view = this.view, state = view.controller.snapshot();
-            if (this.workspace !== root.LocalItabWorkspaces?.session?.id || root.LocalItabContentLifecycle?.departing ||
+            if (view.isWorkspaceRetired() || this.workspace !== root.LocalItabWorkspaces?.session?.id || root.LocalItabContentLifecycle?.departing ||
                 view.closed || !view.host.isConnected) { this.restore(); this.destroy(); return; }
             if (!state?.enabled || state.session.status !== 'running' || view.controller.error) { this.restore(); return; }
             const phase = t(state.session.phase === 'focus' ? 'focusWork' : 'focusBreak');
@@ -67,12 +70,18 @@
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {} } = {}) {
             this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.timeout = null; this.closed = false; this.lastStatus = null; this.durationDrafts = new Map(); this.minutesPhase = null; this.durationInputPhase = null; this.temporaryFocus = null;
+            // Pin the View to the same Session as its timer backend. An equal
+            // workspace id is not ownership of a restored/replaced Session.
+            this.workspaceSession = controller.store?.backend?.workspace || root.LocalItabWorkspaces?.session;
+            this.workspaceIdentity = { id: this.workspaceSession?.id, generation: this.workspaceSession?.generation };
+            this.workspaceRetired = false;
             host.classList.add('local-focus-card'); host.setAttribute('aria-label', t('focusTitle')); host.hidden = true;
             const header = el('header', 'focus-header'); header.append(el('h2', '', t('focusTitle')), el('span', 'focus-local', t('focusLocal')));
             this.focusViewButton = button('focusViewEnter', () => this.temporaryFocus ? this.exitTemporaryFocus() : this.enterTemporaryFocus());
             this.focusViewButton.setAttribute('aria-pressed', 'false'); this.focusViewButton.title = t('focusViewHelp');
             header.append(this.focusViewButton);
             this.focusViewNotice = el('p', 'focus-feedback'); this.focusViewNotice.setAttribute('role', 'status'); this.focusViewNotice.hidden = true;
+            this.workspaceNotice = el('p', 'focus-feedback'); this.workspaceNotice.setAttribute('role', 'status'); this.workspaceNotice.hidden = true;
             this.phase = el('select'); this.phase.setAttribute('aria-label', t('focusPhase'));
             for (const [value, key] of [['focus', 'focusWork'], ['break', 'focusBreak']]) { const option = el('option', '', t(key)); option.value = value; this.phase.append(option); }
             this.phase.addEventListener('change', () => this.run('phase', this.phase.value));
@@ -90,11 +99,14 @@
             });
             this.reset = button('focusReset', () => this.run('reset'));
             const controls = el('div', 'focus-controls'); controls.append(this.start, this.reset);
-            this.feedback = el('p', 'focus-feedback'); this.feedback.setAttribute('role', 'status'); this.retry = button('focusRetry', () => controller.refresh().catch(() => {}));
+            this.feedback = el('p', 'focus-feedback'); this.feedback.setAttribute('role', 'status'); this.retry = button('focusRetry', () => {
+                if (this.closed || this.isWorkspaceRetired()) { this.render(); return; }
+                controller.refresh().catch(() => {});
+            });
             const details = el('details', 'focus-help');
             details.append(el('summary', '', t('focusDetails')), el('p', '', t('focusHelp')), el('p', '', t('focusTitleHelp')));
-            host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.status, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
-            this.visibility = () => { this.cancelTick(); if (!document.hidden) { controller.tick(); controller.refresh().catch(() => {}); } this.render(); };
+            host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.status, this.workspaceNotice, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
+            this.visibility = () => { this.cancelTick(); if (this.closed) return; if (!document.hidden && !this.isWorkspaceRetired()) { controller.tick(); controller.refresh().catch(() => {}); } this.render(); };
             document.addEventListener('visibilitychange', this.visibility);
             // Window bubbling lets nested dialogs, menus and disclosures own Escape first.
             this.focusViewKey = event => {
@@ -110,12 +122,27 @@
             this.focusViewPageHide = () => this.exitTemporaryFocus(false);
             root.addEventListener?.('keydown', this.focusViewKey);
             root.addEventListener?.('pagehide', this.focusViewPageHide);
-            this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
+            this.workspaceChanged = () => this.render();
+            this.unsubscribeWorkspace = this.workspaceSession?.manager?.subscribe(this.workspaceChanged);
+            root.addEventListener?.('pageshow', this.workspaceChanged);
+            this.unsubscribe = controller.subscribe(() => this.render()); this.render();
+            if (!this.isWorkspaceRetired()) controller.refresh().catch(() => {});
+        }
+        isWorkspaceRetired() {
+            const session = this.workspaceSession;
+            if (!session || this.workspaceRetired) return this.workspaceRetired;
+            const identity = this.workspaceIdentity;
+            this.workspaceRetired = Boolean(session.invalidated || session !== root.LocalItabWorkspaces?.session ||
+                (identity.id && identity.id !== session.id) || (identity.generation && identity.generation !== session.generation));
+            // Capture may still be settling when mounted. A first identity is
+            // allowed; once retired this View never adopts any newer identity.
+            if (!this.workspaceRetired && !identity.id && session.id) this.workspaceIdentity = { id: session.id, generation: session.generation };
+            return this.workspaceRetired;
         }
         attachDocumentTitle() {
             // Called only after newtab's final static-shell localization. Options
             // and standalone component hosts never opt in implicitly.
-            if (this.closed || this.titlePresentation || !this.host.isConnected || !this.host.closest('#dashboard')) return false;
+            if (this.closed || this.isWorkspaceRetired() || this.titlePresentation || !this.host.isConnected || !this.host.closest('#dashboard')) return false;
             const node = document.querySelector('title[data-i18n="newTabTitle"]');
             const expected = root.i18n?.t('newTabTitle') || 'New Tab';
             if (!node || document.querySelector('title') !== node || document.title !== expected) return false;
@@ -128,7 +155,7 @@
         }
         enterTemporaryFocus() {
             const state = this.controller.snapshot();
-            if (this.closed || this.temporaryFocus || !this.host.isConnected || this.host.hidden ||
+            if (this.closed || this.isWorkspaceRetired() || this.temporaryFocus || !this.host.isConnected || this.host.hidden ||
                 !this.host.closest('#dashboard') || root.dashboardHiddenState || document.body.classList.contains('dashboard-hidden') ||
                 !state?.enabled || !['ready', 'running', 'paused'].includes(state.session.status)) return false;
             if (this.hasUncommittedWork() || root.localScratchpadView?.hasUncommittedWork() ||
@@ -161,7 +188,7 @@
             const state = this.controller.snapshot();
             // A refresh may disable or repurpose the input before its native
             // change event. Never apply that event to another phase or run.
-            if (this.closed || this.minutes.disabled || this.controller.pending || !state ||
+            if (this.closed || this.isWorkspaceRetired() || this.minutes.disabled || this.controller.pending || !state ||
                 state.session.status !== 'ready' || this.minutesPhase !== state.session.phase) return false;
             if (this.minutes.value === String(state.durations[this.minutesPhase])) this.durationDrafts.delete(this.minutesPhase);
             else this.durationDrafts.set(this.minutesPhase, this.minutes.value);
@@ -178,6 +205,7 @@
             this.run('duration', value, explicit ? this.saveMinutes : null);
         }
         run(kind, value, focusSource = this.start) {
+            if (this.closed || this.isWorkspaceRetired()) { this.render(); return Promise.resolve(); }
             // Native disabled buttons lose focus. Restore only this user-owned
             // primary action (or explicit Save → Start), never a completion,
             // blur autosave, remote update or newer intent.
@@ -194,7 +222,7 @@
                 root.addEventListener?.('blur', cancel);
             }
             return this.controller.action(kind, value).then(saved => {
-                if (ownsFocus && this.focusIntent === token && !this.closed && !document.hidden &&
+                if (ownsFocus && this.focusIntent === token && !this.closed && !this.isWorkspaceRetired() && !document.hidden &&
                     !this.host.hidden && this.host.isConnected && !this.start.disabled &&
                     this.controller.snapshot()?.revision === saved.revision &&
                     (document.activeElement === document.body || document.activeElement === this.start)) {
@@ -215,6 +243,22 @@
         cancelTick() { if (this.timeout !== null) { root.clearTimeout(this.timeout); this.timeout = null; } }
         render() {
             if (this.closed) return;
+            if (this.isWorkspaceRetired()) {
+                this.cancelTick(); this.focusIntent = null; this.exitTemporaryFocus(false); this.titlePresentation?.destroy();
+                this.focusViewNotice.hidden = true;
+                const visible = this.controller.snapshot()?.enabled !== false;
+                this.host.hidden = !visible;
+                if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
+                this.remaining.textContent = '—:—'; this.status.textContent = t('focusWorkspaceUnavailable');
+                this.workspaceNotice.textContent = t('focusWorkspaceReopen'); this.workspaceNotice.hidden = false;
+                for (const control of [this.start, this.reset, this.phase, this.minutes, this.saveMinutes, this.retry, this.focusViewButton]) control.disabled = true;
+                this.saveMinutes.hidden = !this.durationDrafts.has(this.minutesPhase);
+                // Keep drafts and pending/uncertain-write evidence. Presentation
+                // retirement neither refreshes nor mutates the timer or Session.
+                this.feedback.textContent = this.controller.error ? t('focusWorkspaceError') : this.controller.pending ? t('focusSaving') : '';
+                this.retry.hidden = !this.controller.error;
+                return;
+            }
             this.titlePresentation?.update();
             this.cancelTick(); const state = this.controller.snapshot(), pending = Boolean(this.controller.pending);
             if (!state) { this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
@@ -254,11 +298,15 @@
             this.feedback.textContent = this.controller.error ? t(this.controller.error.code === 'CONFLICT' ? 'focusConflict' : 'focusError') : pending ? t('focusSaving') : hiddenDraft ? t('focusDraftRetained') : '';
             this.retry.hidden = !this.controller.error; this.retry.disabled = pending;
             if (!document.hidden && state.enabled && s.status === 'running') {
-                const revision = state.revision; this.timeout = root.setTimeout(() => { this.timeout = null; this.controller.tick(revision); }, 250);
+                const revision = state.revision, timeout = root.setTimeout(() => {
+                    if (this.closed || this.timeout !== timeout) return;
+                    this.timeout = null;
+                    if (this.isWorkspaceRetired()) this.render(); else this.controller.tick(revision);
+                }, 250); this.timeout = timeout;
             }
         }
         hasUncommittedWork() { return this.durationDrafts.size > 0 || this.controller.hasUncommittedWork(); }
-        destroy() { this.titlePresentation?.destroy(); this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); this.closed = true; this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
+        destroy() { this.titlePresentation?.destroy(); this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); root.removeEventListener?.('pageshow', this.workspaceChanged); this.closed = true; this.unsubscribeWorkspace?.(); this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
         host.classList.add('local-focus-settings'); const label = el('label', 'focus-enable-label'), input = el('input'); input.type = 'checkbox'; input.disabled = true;
