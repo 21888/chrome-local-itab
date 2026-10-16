@@ -4906,7 +4906,40 @@ class CategoryNavigation {
         count.setAttribute('aria-hidden', 'true');
         btn.append(icon, name, count);
         btn.addEventListener('click', () => this.selectCategory(cat.id));
+        btn.addEventListener('keydown', event => this.handleNavKeydown(event, btn));
         return btn;
+    }
+
+    handleNavKeydown(event, button) {
+        if (event.defaultPrevented || event.target !== button || document.activeElement !== button ||
+            event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing || event.keyCode === 229 ||
+            !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+        const list = document.getElementById('category-list');
+        if (!list?.isConnected || button.parentElement !== list) return;
+
+        // Read the live flex axis: templates and responsive widths can change
+        // it without rebuilding these native buttons. Orthogonal arrows scroll.
+        const style = window.getComputedStyle(list);
+        const vertical = style.flexDirection.startsWith('column');
+        let step = 0;
+        if (event.key === (vertical ? 'ArrowDown' : 'ArrowRight')) step = 1;
+        else if (event.key === (vertical ? 'ArrowUp' : 'ArrowLeft')) step = -1;
+        else if (event.key !== 'Home' && event.key !== 'End') return;
+        if (style.flexDirection.endsWith('reverse')) step *= -1;
+        if (!vertical && style.direction === 'rtl') step *= -1;
+
+        const items = Array.from(list.children).filter(item => item.classList.contains('category-item') &&
+            !item.disabled && !item.closest('[hidden], [inert]') && item.getClientRects().length &&
+            window.getComputedStyle(item).visibility === 'visible');
+        const index = items.indexOf(button);
+        if (index < 0) return;
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 :
+            (index + step + items.length) % items.length;
+        event.preventDefault();
+        event.stopPropagation();
+        // Browsing categories is focus-only. Enter/Space/click keep the existing
+        // explicit selection path, and Tab still reaches every native control.
+        items[next].focus();
     }
 
     updateCounts(links = []) {
