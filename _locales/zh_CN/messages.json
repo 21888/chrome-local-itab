@@ -1905,6 +1905,24 @@
   "syncClearConfirm": {
     "message": "清除 Chrome 同步中的云端副本？本机设置会保留。"
   },
+  "settingsTopicAdded": {
+    "message": "热榜条目已添加。"
+  },
+  "settingsTopicEditTitle": {
+    "message": "编辑热榜标题："
+  },
+  "settingsTopicEditScore": {
+    "message": "编辑热榜分数："
+  },
+  "settingsTopicUpdated": {
+    "message": "热榜条目已更新。"
+  },
+  "settingsTopicDeleteConfirm": {
+    "message": "确定要删除这条热榜条目吗？"
+  },
+  "settingsTopicDeleted": {
+    "message": "热榜条目已删除。"
+  },
   "topicTitleRequired": {
     "message": "请输入热榜标题"
   },

@@ -3165,24 +3165,24 @@ function addHotTopic(tabType, title, score) {
     if (!title.trim()) {
         showMessage(t('topicTitleRequired', 'Please enter a topic title'), 'error'); return false;
     }
-    return persistHotTopicDraft(tabType, [...collectHotTopicsFromList(tabType), {t: title.trim(), s: score || 0}], 'Topic added.');
+    return persistHotTopicDraft(tabType, [...collectHotTopicsFromList(tabType), {t: title.trim(), s: score || 0}], t('settingsTopicAdded', 'Topic added.'));
 }
 function editHotTopic(tabType, index) {
     const topics = collectHotTopicsFromList(tabType), topic = topics[index];
     if (!topic || settingsReplacementPending) return false;
-    const newTitle = prompt('Edit topic title:', topic.t);
+    const newTitle = prompt(t('settingsTopicEditTitle', 'Edit topic title:'), topic.t);
     if (newTitle === null || !newTitle.trim()) return false;
-    const newScore = prompt('Edit topic score:', topic.s);
+    const newScore = prompt(t('settingsTopicEditScore', 'Edit topic score:'), topic.s);
     topic.t = newTitle.trim();
     if (newScore !== null && !isNaN(parseInt(newScore))) topic.s = parseInt(newScore);
-    return persistHotTopicDraft(tabType, topics, 'Topic updated.');
+    return persistHotTopicDraft(tabType, topics, t('settingsTopicUpdated', 'Topic updated.'));
 }
 function deleteHotTopic(tabType, index) {
-    if (settingsReplacementPending || !confirm('Are you sure you want to delete this topic?')) return false;
+    if (settingsReplacementPending || !confirm(t('settingsTopicDeleteConfirm', 'Are you sure you want to delete this topic?'))) return false;
     const topics = collectHotTopicsFromList(tabType);
     if (!topics[index]) return false;
     topics.splice(index, 1);
-    return persistHotTopicDraft(tabType, topics, 'Topic deleted.');
+    return persistHotTopicDraft(tabType, topics, t('settingsTopicDeleted', 'Topic deleted.'));
 }
 
 /**

@@ -1905,6 +1905,24 @@
   "syncClearConfirm": {
     "message": "Clear the cloud copy from Chrome Sync? Local settings will stay on this device."
   },
+  "settingsTopicAdded": {
+    "message": "Topic added."
+  },
+  "settingsTopicEditTitle": {
+    "message": "Edit topic title:"
+  },
+  "settingsTopicEditScore": {
+    "message": "Edit topic score:"
+  },
+  "settingsTopicUpdated": {
+    "message": "Topic updated."
+  },
+  "settingsTopicDeleteConfirm": {
+    "message": "Are you sure you want to delete this topic?"
+  },
+  "settingsTopicDeleted": {
+    "message": "Topic deleted."
+  },
   "topicTitleRequired": {
     "message": "Please enter a topic title"
   },
