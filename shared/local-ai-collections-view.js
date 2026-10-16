@@ -169,8 +169,19 @@
             else if (['replace', 'recover'].includes(c.notice)) this.status.textContent = this.t('ImportSaved', 'Global collection replacement was verified. Use Import / recover JSON to review and restore a retained snapshot.');
             else if (c.busy) this.status.textContent = this.t('Saving', 'Saving locally…'); else if (c.notice) this.status.textContent = c.notice === 'reconciled' ? this.t('OutcomeVerified', 'The original save was committed. Showing the latest saved state, which may include later changes.') : this.t('Saved', 'Saved locally.');
             if (c.pendingCommand) {
-                if (!c.pendingInspection) { const retry = this.button('Retry', 'Check / retry the same save', () => c.retry()); retry.disabled = c.busy; this.status.append(retry); }
-                const verify = this.button('InspectSave', 'Check saved outcome (read-only)', () => c.verify()); verify.disabled = c.busy; this.status.append(verify);
+                const check = (method, button) => {
+                    const pending = c.pendingCommand;
+                    const focusStatus = !this.destroyed && this.doc.visibilityState !== 'hidden' && this.doc.activeElement === button &&
+                        pending?.action === 'save' && pending.command.kind === 'edit' && pending.draftKey === pending.command.id &&
+                        c.drafts.get(pending.draftKey)?.id === pending.command.id;
+                    const checking = c[method]();
+                    // The synchronous busy render removes the button and makes status visible.
+                    // Only recover its lost focus; never restore focus after an await.
+                    if (focusStatus && c.busy && this.doc.activeElement === this.doc.body) this.status.focus();
+                    return checking;
+                };
+                if (!c.pendingInspection) { const retry = this.button('Retry', 'Check / retry the same save', () => check('retry', retry)); retry.disabled = c.busy; this.status.append(retry); }
+                const verify = this.button('InspectSave', 'Check saved outcome (read-only)', () => check('verify', verify)); verify.disabled = c.busy; this.status.append(verify);
             }
             const readerRecord = c.record();
             if (this.answerReader && (c.draft() || !readerRecord || readerRecord.id !== this.readerId || readerRecord.body !== this.readerBody)) {

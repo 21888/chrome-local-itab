@@ -70,20 +70,74 @@ also cover imported delimiter-bearing tag preservation, annotation search,
 conflict copies and read-only receipt reconciliation. Full Node/Python suites,
 packaging and release checks are separate integration work.
 
-## Deliberately unchanged focus paths and limits
+## Metadata outcome-check follow-up
 
-The shared **Check / retry the same save** and **Check saved outcome (read-only)**
-callbacks are unchanged. A separate bounded probe of metadata operations with
-`pendingCommand.action === 'save'`, `command.kind === 'edit'` and the original
-record's `draftKey` reproduces those status buttons being removed during their
-own pending render, with focus falling to body. Both operations retain the
-same draft/command while pending, correctly confirm the original edit, clear
-the draft on success and add zero writes. The regression above checks that a
-newer search focus survives an exact retry; it does not claim those shared
-buttons now retain their own focus. This remains a separate focus follow-up,
-not a reason to change the receipt or body-review protocols here.
+The separate pending-button follow-up is based on
+`0510ff752fe7c006e989f921c76133a9f767d566` (tree
+`810a7642a9df636b312afa319446c3685c1883bd`, manifest 1.1.155).
+Actual **Check / retry the same save** and **Check saved outcome (read-only)**
+button clicks reproduced the same focused-node removal: the synchronous busy
+render replaced the button and left focus on the document body. The existing
+Store still confirmed the exact original metadata operation without another
+write, so no data or recovery change was needed.
+
+A view-local callback now recovers only the clicked metadata button's lost
+focus to the existing status region. It checks the pending action is `save`,
+the command kind is `edit`, and its original `draftKey` and retained draft ID
+match the command ID. This uses the operation's draft, even if the user has
+selected another record while awaiting the earlier outcome. It does not treat
+add, save-as-copy, body revision, archive, restore or import operations as
+metadata edits.
+
+The callback starts the original controller method exactly once before
+focusing. The synchronous busy render has then made the status visible, which
+matters for `.prompt-status:empty`. It moves focus only if the clicked button
+owned it and removal left focus on body; a newer synchronous focus choice is
+also respected. There is no post-await focus restoration, so subsequent search,
+filter, body, pagehide, hidden-page or disposal focus stays with its newer owner.
+The retry/inspection command, admission, acknowledgement and write behavior are
+unchanged; no controller, Store or body-review code was edited.
+
+The final `tests/collection-metadata-retry-focus.test.js` has **37 failures and
+12 passes** on the frozen follow-up baseline and **49 passes** with this change.
+All 37 baseline failures concern the missing synchronous status focus. The
+checks exercise real rendered buttons, a real Store, synthetic records, a
+commit-then-throw uncertain write and deferred exact retry/inspection:
+
+- English and Chinese pending and confirmed feedback, read errors, retained
+  field values and immutable operation identity; status is visible and busy
+  when focused and is never focused again on completion
+- Exact retry and read-only verification add zero writes; missing receipt proof
+  retains the draft, and a later saved edit forces read-only verification
+  without overwriting that later edit
+- Newer search, type, tool, tag and archived-filter focus; hidden/pagehide,
+  disposal, host removal and body focus; unfocused clicks and synchronous new
+  search focus; duplicate busy requests are refused
+- Selection away and back to the original draft, checking while another record
+  is selected, successful reopening, discard cancellation and explicit discard
+- Existing non-metadata add, save-as-copy, revision and archive callbacks retain
+  their previous focus behavior; body history and explicit review regressions
+  remain covered by the separate revision lifecycle suite
+
+The seven explicitly selected related files pass **245/245**, without skips:
+
+```sh
+node --unhandled-rejections=strict --max-old-space-size=512 --test --test-concurrency=1 \
+  tests/collection-metadata-retry-focus.test.js \
+  tests/collection-metadata-focus.test.js \
+  tests/collection-revision-lifecycle.test.js \
+  tests/local-ai-collections-ui.test.js \
+  tests/local-ai-collections-tags-preservation.test.js \
+  tests/local-ai-collections-tag-filter.test.js \
+  tests/local-ai-collections-outcome.test.js
+```
+
+JavaScript syntax checks and `git diff --check` pass. Full Node/Python suites,
+packaging and release checks remain separate integration work.
+
+## Validation limits
 
 These are Node/DOM-model checks, not native Chrome, native IME, native keyboard,
 visual, screen-reader, clipboard or installed-browser cross-tab acceptance.
 No browser was launched, provider called, screenshot uploaded, user device used
-or release published for this bounded change.
+or release published for these bounded changes.
