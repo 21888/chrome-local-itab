@@ -1,4 +1,22 @@
 {
+  "promptsModelCopyAnswer": {
+    "message": "复制完整回答"
+  },
+  "promptsModelAnswerCopied": {
+    "message": "已复制完整回答。"
+  },
+  "promptsModelAnswerCopyBlocked": {
+    "message": "复制被阻止。请选中回答原文并手动复制。"
+  },
+  "promptsCompareCopyAnswer": {
+    "message": "复制完整回答"
+  },
+  "promptsCompareAnswerCopied": {
+    "message": "已复制完整回答。"
+  },
+  "promptsCompareAnswerCopyBlocked": {
+    "message": "复制被阻止。请选中回答原文并手动复制。"
+  },
   "templatePreviewActive": {
     "message": "正在用你的内容临时预览。应用后保存到本地；已启用的 Chrome 同步按既有设置继续。取消会放弃预览。"
   },

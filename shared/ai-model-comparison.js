@@ -17,7 +17,7 @@
         const prompt = el('textarea', 'prompt-readonly'); prompt.value = trial ? trial.source.body : preview.text; prompt.readOnly = true; prompt.rows = 6; prompt.setAttribute('aria-label', trial ? t('TrialTemplate', 'Original saved template before test values') : t('Prompt', 'Same completed prompt for all targets'));
         const status = el('p', 'prompt-help'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
         const grid = el('div', 'ai-compare-grid'), actions = el('div', 'prompt-actions');
-        let closed = false, stale = false, loading = true, sending = false, batch = null, presets = [], generation = 0, cleanup, reviewedValues = null;
+        let closed = false, stale = false, loading = true, sending = false, batch = null, presets = [], generation = 0, copyEpoch = 0, copyFocusTarget = null, cleanup, reviewedValues = null;
         const targets = [], variables = [];
         const difference = el('section', 'ai-compare-difference'); difference.hidden = true;
         difference.setAttribute('aria-label', t('DiffTitle', 'Original text differences'));
@@ -60,7 +60,41 @@
         });
         compareText.setAttribute('aria-expanded', 'false'); compareText.setAttribute('aria-controls', difference.id);
         compareText.hidden = Boolean(trial);
-        function refreshCopyState() { targets.forEach(target => target.answerReader?.refreshCopyState()); }
+        function responseCopyReady(target) {
+            return !closed && !stale && !view.destroyed && !view.doc.hidden && view.doc.visibilityState !== 'hidden' &&
+                !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') &&
+                !target.running && typeof target.response?.text === 'string' && Boolean(target.response.text.trim()) && target.responseGeneration === generation &&
+                target.responseRequest === target.reviewed && sourceCurrent() &&
+                (!trial || reviewedValues === JSON.stringify(variables.map(({ input }) => input.value)));
+        }
+        function clearCopyFeedback() { copyEpoch++; targets.forEach(target => { target.copyStatus.textContent = ''; }); }
+        function refreshCopyState() {
+            targets.forEach(target => {
+                const focused = view.doc.activeElement === target.copy, ready = responseCopyReady(target);
+                target.copy.disabled = Boolean(view.copying) || !ready;
+                if (!ready) target.copyStatus.textContent = '';
+                if (focused && target.copy.disabled && !closed && !view.doc.hidden && !overlay.hidden && overlay.isConnected) (ready ? target.copyStatus : status).focus();
+                target.answerReader?.refreshCopyState();
+            });
+        }
+        async function copyAnswer(target) {
+            if (view.copying || !responseCopyReady(target)) return;
+            const snapshot = target.response, epoch = copyEpoch;
+            const current = () => responseCopyReady(target) && target.response === snapshot && epoch === copyEpoch;
+            view.copying = true; target.copyStatus.textContent = ''; refreshCopyState(); view.updateCopyEligibility?.();
+            try {
+                // Copy only this completed target's immutable original. The peer
+                // may still be running; both columns share the actual write lock.
+                const clipboard = view.clipboard ?? root.navigator?.clipboard;
+                if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
+                await clipboard.writeText(snapshot.text);
+                if (current()) target.copyStatus.textContent = t('AnswerCopied', 'Full answer copied.');
+            } catch (_) {
+                if (current()) target.copyStatus.textContent = t('AnswerCopyBlocked', 'Copy was blocked. Select the original answer text and copy it manually.');
+            } finally {
+                view.copying = false; view.refreshModelCopy?.(); view.updateCopyEligibility?.();
+            }
+        }
         const variableFields = el('div', 'ai-model-fields');
         if (trial) for (const name of root.LocalItabPrompts.previewTemplate(trial.source.body).variables) {
             const label = el('label', 'ai-model-field', `${t('TrialValue', 'Temporary test value')}: ${name}`), input = el('textarea');
@@ -137,10 +171,20 @@
             target.answerReader.node.setAttribute('aria-label', target.output.getAttribute('aria-label'));
             target.readerHost.append(target.answerReader.node); target.readerHost.hidden = false; target.output.hidden = true;
         }
-        function visibilityChanged() { if (view.doc.hidden) { targets.forEach(releaseReader); clearDifference(); } update(); }
+        function visibilityChanged() {
+            if (view.doc.hidden || view.doc.visibilityState === 'hidden') {
+                copyFocusTarget ||= targets.find(target => view.doc.activeElement === target.copy) || null;
+                clearCopyFeedback(); targets.forEach(releaseReader); clearDifference();
+            }
+            update();
+            if (!view.doc.hidden && view.doc.visibilityState !== 'hidden' && copyFocusTarget) {
+                const target = copyFocusTarget; copyFocusTarget = null;
+                if (!closed && !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') && view.doc.activeElement === view.doc.body) (responseCopyReady(target) && !view.copying ? target.copy : status).focus();
+            }
+        }
         function invalidate(message, permanent = false) {
             const focused = view.doc.activeElement;
-            generation++; clearDifference(); batch = null; reviewedValues = null; stale ||= permanent;
+            generation++; clearCopyFeedback(); clearDifference(); batch = null; reviewedValues = null; stale ||= permanent;
             for (const target of targets) { releaseReader(target); target.retryReady = false; if (!trial && !permanent) target.heading.textContent = `${t('Target', 'Target')} ${targets.indexOf(target) + 1}`; if (trial) { target.response = null; target.output.value = ''; target.output.hidden = true; target.attempted = false; target.message.textContent = ''; target.reviewText.textContent = ''; } target.aborter?.abort(); target.key.value = ''; target.reviewed = null; target.reviewText.hidden = true; }
             if (message) status.textContent = message;
             update(focused);
@@ -174,6 +218,8 @@
             const readerHost = el('div'); readerHost.hidden = true;
             const message = el('p', 'prompt-help'); message.setAttribute('role', 'status'); message.setAttribute('aria-live', 'polite');
             const target = { readerHost, answerReader: null, select, key, reviewText, output, message, heading, reviewed: null, response: null, running: false, attempted: false, saving: false, saved: false, uncertain: false, permissionPending: false, command: null, retryReady: false, snapshot: null };
+            target.copyStatus = el('p', 'prompt-help'); target.copyStatus.tabIndex = -1; target.copyStatus.setAttribute('role', 'status'); target.copyStatus.setAttribute('aria-live', 'polite');
+            target.copy = button('CopyAnswer', 'Copy full answer', () => copyAnswer(target));
             target.allow = button('Allow', 'Allow this endpoint', async () => {
                 if (!checkSource() || target.allow.disabled || !target.reviewed) return;
                 const snapshot = target.reviewed, token = generation; target.permissionPending = true; update();
@@ -230,9 +276,11 @@
                 finally { target.saving = false; if (!closed) update(); }
             });
             if (trial) { target.save.hidden = true; target.allow.hidden = index === 1; output.setAttribute('aria-label', index === 0 ? t('TrialOriginal', 'Original saved template answer') : t('TrialProposal', 'Unsaved proposal answer')); }
+            target.copy.setAttribute('aria-label', `${t('CopyAnswer', 'Copy full answer')}: ${output.getAttribute('aria-label')}`);
             select.addEventListener('change', () => { if (!select.disabled && checkSource()) invalidate(t('ReviewAgain', 'Connections changed. Review both targets again before sending.')); });
             const buttons = el('div', 'prompt-actions'); buttons.append(target.allow, target.stop, target.save, target.retryReview, target.retrySend);
-            panel.append(heading, selectLabel, keyLabel, reviewText, buttons, message, output, readerHost); grid.append(panel); targets.push(target);
+            const resultActions = el('div', 'prompt-actions'); resultActions.append(target.copy);
+            panel.append(heading, selectLabel, keyLabel, reviewText, buttons, message, output, readerHost, resultActions, target.copyStatus); grid.append(panel); targets.push(target);
         }
         const review = button('Review', 'Review comparison requests', () => {
             if (!checkSource() || review.disabled) return;
@@ -318,7 +366,7 @@
         function finish() {
             if (closed || saving()) return;
             if ((sending || targets.some(target => target.response && !target.saved)) && !root.confirm(t('Discard', 'Stop pending requests and discard unsaved comparison results?'))) return;
-            closed = true; generation++; clearDifference();
+            closed = true; generation++; clearCopyFeedback(); clearDifference();
             targets.forEach(target => { releaseReader(target); target.aborter?.abort(); target.key.value = ''; target.response = target.responseRequest = target.reviewed = target.command = target.snapshot = null; target.output.value = ''; if (trial) target.reviewText.textContent = ''; });
             batch = null; reviewedValues = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged); root.chrome?.storage?.onChanged?.removeListener(storageChanged);

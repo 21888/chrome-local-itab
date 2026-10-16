@@ -1141,3 +1141,133 @@ test('preset reload visibility round trip rejects late list and retained selecti
     gate.resolve({ records: [] }); await tick(); assert.equal(h.ui.presetSelect.children.length, 2); assert.equal(h.ui.presetSelect.value, '0');
     assert.equal(h.runs + h.writes + h.grants, 0); await click(h.ui.close); h.h.controller.dispose();
 });
+
+for (const reader of ['reading', 'original', 'unavailable', 'budget-fallback']) test(`full answer copy: ${reader} preserves exact original text without copying request metadata`, async () => {
+    const copies = [], text = reader === 'budget-fallback' ? '#'.repeat(600) + '\r\nSynthetic ending  \r' : '# Synthetic 🧪\r\n\r\n```js\r\n  let value = "中文";  \r\n```\rLast  \n';
+    const h = await mount({ safeReader: reader !== 'unavailable', normalizeTextareas: true, clipboard: { writeText(value) { copies.push(value); return Promise.resolve(); } }, run: async () => ({ text, model: 'fixture-model', origin: 'https://synthetic.test' }) });
+    assert.equal(h.ui.copy.disabled, true); await click(h.ui.copy); assert.equal(copies.length, 0);
+    await click(h.ui.review); await click(h.ui.copy); assert.equal(copies.length, 0);
+    await click(h.ui.send); assert.equal(h.ui.copy.disabled, false);
+    if (reader === 'original') await click(h.ui.readerHost.querySelectorAll('button')[1]);
+    const message = h.ui.status.textContent, parses = h.readerParses;
+    h.ui.copy.focus(); h.ui.copy.dispatch('click');
+    assert.deepEqual(copies, [text]); assert.equal(h.doc.activeElement, h.ui.copyStatus);
+    assert.equal(h.ui.copyStatus.getAttribute('role'), 'status'); assert.equal(h.ui.copyStatus.getAttribute('aria-live'), 'polite');
+    await tick(); assert.equal(h.ui.copyStatus.textContent, 'Full answer copied.');
+    assert.equal(h.ui.output.value, text.replace(/\r\n?/g, '\n')); assert.equal(h.ui.status.textContent, message);
+    assert.equal(h.readerParses, parses); assert.equal(h.runs, 1); assert.equal(h.writes, 0); assert.equal(h.grants, 0);
+    await click(h.ui.save); assert.equal(h.command.body, text); await click(h.ui.copy); assert.deepEqual(copies, [text, text]);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('full answer copy: synchronous shared lock blocks code and duplicate copies, completion never moves newer focus', async () => {
+    const pending = deferred(), copies = [];
+    const h = await mount({ safeReader: true, clipboard: { writeText(text) { copies.push(text); return copies.length === 1 ? pending.promise : Promise.resolve(); } }, run: async () => ({ text: 'Before\n\n```\ncode\n```\nAfter' }) });
+    await click(h.ui.review); await click(h.ui.send);
+    const code = h.ui.readerHost.querySelector('.answer-reader-copy-code');
+    h.ui.copy.focus(); h.ui.copy.dispatch('click');
+    assert.equal(h.view.copying, true); assert.equal(h.ui.copy.disabled, true); assert.equal(code.disabled, true);
+    code.dispatch('click'); h.ui.copy.dispatch('click'); assert.equal(copies.length, 1);
+    h.ui.close.focus(); pending.resolve(); await tick();
+    assert.equal(h.doc.activeElement, h.ui.close); assert.equal(h.ui.copy.disabled, false); assert.equal(code.disabled, false);
+    await click(code); assert.deepEqual(copies, ['Before\n\n```\ncode\n```\nAfter', 'code']);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const failure of ['missing', 'throw', 'reject']) test(`full answer copy: ${failure} clipboard reports failure independently and allows explicit retry`, async () => {
+    let copies = 0;
+    const clipboard = failure === 'missing' ? undefined : { writeText() { copies++; if (failure === 'throw') throw Error('private failure'); return Promise.reject(Error('private failure')); } };
+    const h = await mount({ clipboard }); await click(h.ui.review); await click(h.ui.send);
+    const message = h.ui.status.textContent; await click(h.ui.copy);
+    assert.equal(h.ui.copyStatus.textContent, 'Copy was blocked. Select the original answer text and copy it manually.');
+    assert.equal(h.ui.status.textContent, message); assert.equal(h.view.copying, false); assert.equal(h.ui.copy.disabled, false);
+    assert.equal(copies, failure === 'missing' ? 0 : 1); assert.equal(h.runs, 1); assert.equal(h.writes, 0);
+    h.view.clipboard = { writeText() { copies++; return Promise.resolve(); } }; await click(h.ui.copy);
+    assert.equal(h.ui.copyStatus.textContent, 'Full answer copied.'); await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const action of ['hide', 'pagehide', 'close', 'source', 'dispose', 'overlay', 'inert', 'detach']) test(`full answer copy: ${action} retires feedback but keeps the shared write locked until settlement`, async () => {
+    const pending = deferred(); let copies = 0;
+    const h = await mount({ clipboard: { writeText() { copies++; return pending.promise; } } });
+    await click(h.ui.review); await click(h.ui.send); h.ui.copy.dispatch('click'); assert.equal(copies, 1);
+    if (action === 'hide') { h.doc.hidden = true; h.doc.listeners.get('visibilitychange')(); h.doc.hidden = false; h.doc.listeners.get('visibilitychange')(); }
+    if (action === 'pagehide') h.events.get('pagehide')();
+    if (action === 'close') await click(h.ui.close);
+    if (action === 'source') { h.h.controller.excerptEpoch++; h.view.checkModelRun(); }
+    if (action === 'dispose') h.h.controller.dispose();
+    if (action === 'overlay') h.ui.overlay.hidden = true;
+    if (action === 'inert') h.ui.overlay.inert = true;
+    if (action === 'detach') h.ui.overlay.remove();
+    const feedback = h.ui.copyStatus.textContent, message = h.ui.status.textContent;
+    assert.equal(h.view.copying, true); h.ui.copy.dispatch('click'); assert.equal(copies, 1);
+    pending.resolve(); await tick(); assert.equal(h.view.copying, false);
+    assert.equal(h.ui.copyStatus.textContent, feedback); assert.equal(h.ui.status.textContent, message);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const outcome of ['stop', 'failure', 'complete']) test(`full answer copy: streaming ${outcome} never exposes a partial or old answer`, async () => {
+    const provider = deferred(), copies = []; let options;
+    const h = await mount({ clipboard: { writeText(text) { copies.push(text); return Promise.resolve(); } }, run: (_, args) => { options = args; return provider.promise; } });
+    await enableStream(h); await click(h.ui.send); options.onText('partial synthetic answer');
+    assert.equal(h.ui.copy.disabled, true); await click(h.ui.copy); assert.equal(copies.length, 0);
+    if (outcome === 'stop') await click(h.ui.cancel);
+    if (outcome === 'failure') provider.resolve(Promise.reject({ code: 'INCOMPLETE' })); else provider.resolve({ text: 'Final synthetic answer\r\n  ' });
+    await tick(); await click(h.ui.copy);
+    assert.deepEqual(copies, outcome === 'complete' ? ['Final synthetic answer\r\n  '] : []);
+    assert.equal(h.ui.copy.disabled, outcome !== 'complete'); await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('full answer copy: real transport rejects blank response while preserving meaningful surrounding whitespace', async () => {
+    for (const text of ['', ' \r\n\t ', '  Synthetic answer\r\n\t ']) {
+        const copies = [], h = await mount({ clipboard: { writeText(value) { copies.push(value); return Promise.resolve(); } }, run: (request, options) => Client.run(request, { ...options, fetcher: async () => new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: text } }] }), { headers: { 'Content-Type': 'application/json' } }) }) });
+        await click(h.ui.review); await click(h.ui.send); await click(h.ui.copy);
+        assert.deepEqual(copies, text.trim() ? [text] : []); assert.equal(h.ui.copy.disabled, !text.trim());
+        await click(h.ui.close); h.h.controller.dispose();
+    }
+});
+
+test('full answer copy: stale source disables focused copy without losing the dialog keyboard scope', async () => {
+    const h = await mount(); await click(h.ui.review); await click(h.ui.send);
+    h.ui.copy.focus(); h.h.controller.excerptEpoch++; h.view.checkModelRun();
+    assert.equal(h.ui.copy.disabled, true); assert.equal(h.doc.activeElement, h.ui.status);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('full answer copy: an editable refinement proposal does not acquire a completed-answer action', async () => {
+    const h = await mount({ mode: 'refine', run: async () => ({ text: 'Improved synthetic proposal' }) });
+    h.ui.instruction.value = 'Improve'; await click(h.ui.review); await click(h.ui.send);
+    assert.equal(h.ui.copy, null); assert.equal(h.ui.copyStatus.isConnected, false); assert.equal(h.ui.output.readOnly, false);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const locale of ['en', 'zh_CN']) test(`full answer copy: ${locale} action and feedback are localized`, async () => {
+    const h = await mount({ locale, clipboard: { writeText: async () => {} } });
+    await click(h.ui.review); await click(h.ui.send); await click(h.ui.copy);
+    assert.equal(h.ui.copy.textContent, locale === 'en' ? 'Copy full answer' : '复制完整回答');
+    assert.equal(h.ui.copyStatus.textContent, locale === 'en' ? 'Full answer copied.' : '已复制完整回答。');
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('full answer copy: old model clipboard write keeps a reopened comparison locked and cannot announce there', async () => {
+    const pending = deferred(), copies = [];
+    const h = await mount({ safeReader: true, clipboard: { writeText(text) { copies.push(text); return copies.length === 1 ? pending.promise : Promise.resolve(); } }, run: async request => ({ text: `Answer for ${request.model}` }) });
+    await click(h.ui.review); await click(h.ui.send); h.ui.copy.dispatch('click'); await click(h.ui.close);
+    const next = h.root.LocalItabAIModelComparison.open({ view: h.view, presetStore: { read: async () => ({ records: [{ name: 'Synthetic', url: 'https://synthetic.test/v1/chat/completions', model: 'new-model' }] }) } });
+    await tick(); next.targets[0].select.value = '0'; next.targets[0].select.dispatch('change'); await click(next.review); await click(next.send);
+    const target = next.targets[0]; assert.equal(target.copy.disabled, true); target.copy.dispatch('click'); assert.equal(copies.length, 1);
+    next.close.focus(); pending.resolve(); await tick(); assert.equal(target.copy.disabled, false); assert.equal(h.doc.activeElement, next.close);
+    assert.equal(h.ui.copyStatus.textContent, ''); assert.equal(target.copyStatus.textContent, '');
+    await click(target.copy); assert.deepEqual(copies, ['Answer for fixture-model', 'Answer for new-model']);
+    await click(next.close); h.h.controller.dispose();
+});
+
+for (const newerFocus of [false, true]) test(`full answer copy: visibility return ${newerFocus ? 'preserves newer focus' : 'restores a blurred copy button'} without replaying feedback`, async () => {
+    const h = await mount({ clipboard: { writeText: async () => {} } }); await click(h.ui.review); await click(h.ui.send); await click(h.ui.copy);
+    h.ui.copy.focus(); h.doc.hidden = true; h.doc.listeners.get('visibilitychange')();
+    // A hidden document may ignore a focus request; model that final browser state.
+    h.doc.activeElement = h.doc.body; h.doc.hidden = false;
+    if (newerFocus) h.ui.close.focus();
+    h.doc.listeners.get('visibilitychange')();
+    assert.equal(h.doc.activeElement, newerFocus ? h.ui.close : h.ui.copy); assert.equal(h.ui.copyStatus.textContent, '');
+    await click(h.ui.close); h.h.controller.dispose();
+});

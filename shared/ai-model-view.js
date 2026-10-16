@@ -34,8 +34,42 @@
         const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
         const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', refining ? t('RefineAfter', 'Proposed template draft (editable; not saved)') : t('Response', 'Model response'));
         const readerHost = el('div'); readerHost.hidden = true;
-        let answerReader = null;
-        function refreshCopyState() { answerReader?.refreshCopyState(); }
+        let answerReader = null, copyEpoch = 0, copyFocusPending = false;
+        const copyStatus = el('p', 'prompt-help'); copyStatus.tabIndex = -1; copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
+        function responseCopyReady() {
+            return !refining && !closed && !suspended && !busy && !view.destroyed && !c.disposed &&
+                !view.doc.hidden && view.doc.visibilityState !== 'hidden' && !overlay.hidden && overlay.isConnected &&
+                !overlay.closest('[hidden], [inert]') && typeof response?.text === 'string' && Boolean(response.text.trim()) && readerSourceCurrent();
+        }
+        function clearCopyFeedback() { copyEpoch++; copyStatus.textContent = ''; }
+        function refreshCopyState() {
+            if (copy) {
+                const focused = view.doc.activeElement === copy, ready = responseCopyReady();
+                copy.disabled = Boolean(view.copying) || !ready;
+                if (!ready) copyStatus.textContent = '';
+                if (focused && copy.disabled && !closed && !view.doc.hidden && !overlay.hidden && overlay.isConnected) (ready ? copyStatus : status).focus();
+            }
+            answerReader?.refreshCopyState();
+        }
+        async function copyAnswer() {
+            if (view.copying || !responseCopyReady()) return;
+            const snapshot = response, epoch = copyEpoch;
+            const current = () => responseCopyReady() && response === snapshot && epoch === copyEpoch;
+            view.copying = true; copyStatus.textContent = ''; refreshCopyState(); view.updateCopyEligibility?.();
+            try {
+                // Preserve the exact provider string, including Markdown and CRLF.
+                // Start on this user activation; never queue a copy behind another.
+                const clipboard = view.clipboard ?? root.navigator?.clipboard;
+                if (!clipboard?.writeText) throw new Error('Clipboard unavailable');
+                await clipboard.writeText(snapshot.text);
+                if (current()) copyStatus.textContent = t('AnswerCopied', 'Full answer copied.');
+            } catch (_) {
+                if (current()) copyStatus.textContent = t('AnswerCopyBlocked', 'Copy was blocked. Select the original answer text and copy it manually.');
+            } finally {
+                // A closed dialog does not end an already-started clipboard write.
+                view.copying = false; view.refreshModelCopy?.(); view.updateCopyEligibility?.();
+            }
+        }
         function releaseReader() {
             answerReader?.destroy(); answerReader = null; readerHost.hidden = true;
             if (!refining) output.hidden = !output.value;
@@ -80,8 +114,15 @@
             readerHost.append(answerReader.node); readerHost.hidden = false; output.hidden = true;
         }
         function visibilityChanged() {
-            if (view.doc.hidden || view.doc.visibilityState === 'hidden') { presetReloadEpoch++; releaseReader(); clearDifference(); }
+            if (view.doc.hidden || view.doc.visibilityState === 'hidden') {
+                copyFocusPending ||= Boolean(copy && view.doc.activeElement === copy);
+                presetReloadEpoch++; clearCopyFeedback(); releaseReader(); clearDifference();
+            }
             update();
+            if (!view.doc.hidden && view.doc.visibilityState !== 'hidden' && copyFocusPending) {
+                copyFocusPending = false;
+                if (!closed && !overlay.hidden && overlay.isConnected && !overlay.closest('[hidden], [inert]') && view.doc.activeElement === view.doc.body) (responseCopyReady() && !view.copying ? copy : status).focus();
+            }
             if (!view.doc.hidden && differenceFocusPending) {
                 differenceFocusPending = false;
                 if (!closed && !trialUI && overlay.isConnected && !overlay.hidden && !overlay.closest('[hidden], [inert]') && view.doc.activeElement === view.doc.body) status.focus();
@@ -225,7 +266,7 @@
             if (!sourceCurrent()) { suspend(); return; }
             output.value = partialText; output.hidden = !partialText; partialLabel.hidden = !partialText;
         }
-        function checkSource() { if (c.disposed || (answerReader && !readerSourceCurrent())) releaseReader(); if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); updateDifference(); }
+        function checkSource() { if (c.disposed || !readerSourceCurrent()) { clearCopyFeedback(); releaseReader(); } if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); updateDifference(); refreshCopyState(); }
         function invalidateConnection() { key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); }
         function renderPresets() {
             presetSelect.replaceChildren();
@@ -304,7 +345,7 @@
         function finish() {
             if (saving || closed || trialUI) return;
             if ((busy || (response && !saved)) && !root.confirm(t('Discard', 'Stop this request and discard any unsaved response?'))) return;
-            closed = true; clearDifference(); releaseReader(); stopRequest(); key.value = ''; response = reviewed = command = null; proposalDisplay = null;
+            closed = true; clearCopyFeedback(); clearDifference(); releaseReader(); stopRequest(); key.value = ''; response = reviewed = command = null; proposalDisplay = null;
             root.removeEventListener('beforeunload', guard); root.removeEventListener('pagehide', hide); view.doc.removeEventListener('visibilitychange', visibilityChanged);
             cleanup?.(); overlay.remove(); view.openDialog = false; view.cancelModelDialog = null; view.checkModelRun = null;
             if (view.refreshModelCopy === refreshCopyState) view.refreshModelCopy = null;
@@ -313,7 +354,7 @@
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
             const focused = view.doc.activeElement;
-            presetReloadEpoch++; suspended = true; clearDifference(); releaseReader(); stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
+            presetReloadEpoch++; suspended = true; clearCopyFeedback(); clearDifference(); releaseReader(); stopRequest(); key.value = ''; reviewed = null; reviewText.hidden = true;
             if (reviewedStream) { response = null; partialText = ''; output.value = ''; output.hidden = true; partialLabel.hidden = true; status.textContent = t('StreamStale', 'The prompt source changed or this dialog was interrupted. Review again before sending.'); }
             if (refining) { response = null; proposalDisplay = null; output.value = ''; output.hidden = true; proposalLabel.hidden = true; originalDetails.hidden = true; originalOutput.value = ''; }
             update(focused);
@@ -389,6 +430,7 @@
             }
             finally { releaseRequest(request); }
         });
+        const copy = refining ? null : button('CopyAnswer', 'Copy full answer', copyAnswer);
         const cancel = button('Stop', 'Stop request', () => {
             if (closed || !busy) return;
             stopRequest(); status.textContent = failure('CANCELLED');
@@ -464,15 +506,15 @@
         if (streaming) streaming.addEventListener('change', () => { if (!streaming.disabled) invalidateConnection(); });
         if (instruction) instruction.addEventListener('input', () => { prompt.value = ''; invalidateConnection(); });
         for (const input of [url, model]) input.addEventListener('input', invalidateConnection);
-        actions.append(review, allow, send, cancel); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
-        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); if (compareText) { const diffActions = el('div', 'prompt-actions'); diffActions.append(compareText); box.append(diffActions, difference); } box.append(resultActions); overlay.append(box); view.doc.body.append(overlay);
+        actions.append(review, allow, send, cancel); if (copy) resultActions.append(copy); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
+        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); if (compareText) { const diffActions = el('div', 'prompt-actions'); diffActions.append(compareText); box.append(diffActions, difference); } box.append(resultActions); if (copy) box.append(copyStatus); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.cancelModelDialog = hide; view.checkModelRun = checkSource; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged);
         view.refreshModelCopy = refreshCopyState;
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
-        return { readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, presetReload, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
+        return { copy, copyStatus, readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, presetReload, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);

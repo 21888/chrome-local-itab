@@ -679,3 +679,117 @@ test('source invalidation keeps keyboard focus inside the dialog after removing 
     h.ui.difference.querySelector('pre').focus(); h.h.controller.excerptEpoch++; h.ui.checkSource();
     assert.equal(h.view.doc.activeElement, h.ui.status); assert.equal(h.ui.difference.hidden, true); await h.done();
 });
+
+for (const safeReader of [false, true]) test(`full answer copy: comparison original strings and per-column feedback survive ${safeReader ? 'Reading' : 'literal'} display`, async () => {
+    const copies = [], answers = { 'model-a': '# First\r\n\r\n```\r\n  A 🧪  \r\n```\r', 'model-b': '  B 中文\r\n\t\n' };
+    const h = await mount({ safeReader, clipboard: { writeText(text) { copies.push(text); return Promise.resolve(); } }, run: async input => ({ text: answers[input.model], model: input.model, origin: input.origin }) });
+    const [a, b] = h.ui.targets;
+    assert.equal(a.copy.disabled, true); assert.equal(b.copy.disabled, true); await click(a.copy); assert.equal(copies.length, 0);
+    h.selectBoth(); await click(h.ui.review); await click(a.copy); assert.equal(copies.length, 0);
+    await click(h.ui.send); assert.equal(a.copy.disabled, false); assert.equal(b.copy.disabled, false);
+    const messages = h.ui.targets.map(target => target.message.textContent), parses = h.readerParses;
+    assert.match(a.copy.getAttribute('aria-label'), /Model response 1/); assert.match(b.copy.getAttribute('aria-label'), /Model response 2/);
+    a.copy.focus(); a.copy.dispatch('click'); assert.deepEqual(copies, [answers['model-a']]); assert.equal(h.view.doc.activeElement, a.copyStatus);
+    await tick(); assert.equal(a.copyStatus.textContent, 'Full answer copied.'); assert.equal(b.copyStatus.textContent, '');
+    if (safeReader) await click(b.readerHost.querySelectorAll('button')[1]);
+    await click(b.copy); assert.deepEqual(copies, [answers['model-a'], answers['model-b']]);
+    assert.equal(b.copyStatus.getAttribute('role'), 'status'); assert.equal(b.copyStatus.getAttribute('aria-live'), 'polite');
+    assert.deepEqual(h.ui.targets.map(target => target.message.textContent), messages); assert.equal(h.readerParses, parses);
+    assert.equal(h.runs.length, 2); assert.equal(h.grants.length, 0); assert.equal(h.writes.length, 0);
+    await click(a.save); await click(b.save); assert.deepEqual(h.writes.map(write => write.body), [answers['model-a'], answers['model-b']]);
+    await h.done();
+});
+
+test('full answer copy: comparison completed peer stays available during pending, failed and retried target', async () => {
+    const provider = deferred(), copies = []; let attempts = 0;
+    const h = await mount({ clipboard: { writeText(text) { copies.push(text); return Promise.resolve(); } }, run: input => input.model === 'model-a' ? Promise.resolve({ text: 'Completed A' }) : ++attempts === 1 ? provider.promise : Promise.resolve({ text: 'Retried B' }) });
+    h.selectBoth(); await click(h.ui.review); await click(h.ui.send); const [a, b] = h.ui.targets;
+    assert.equal(a.copy.disabled, false); assert.equal(b.copy.disabled, true);
+    await click(a.copy); await click(b.copy); assert.deepEqual(copies, ['Completed A']);
+    await click(b.stop); provider.resolve({ text: 'Late old B' }); await tick();
+    await click(b.copy); assert.deepEqual(copies, ['Completed A']);
+    await click(b.retryReview); await click(b.retrySend); await click(b.copy); await click(a.copy);
+    assert.deepEqual(copies, ['Completed A', 'Retried B', 'Completed A']); assert.equal(h.runs.length, 3); assert.equal(h.writes.length, 0);
+    await h.done();
+});
+
+test('full answer copy: comparison full/code actions share one synchronous lock across both columns', async () => {
+    const pending = deferred(), copies = [];
+    const h = await mount({ safeReader: true, clipboard: { writeText(text) { copies.push(text); return copies.length <= 2 ? pending.promise : Promise.resolve(); } }, run: async input => ({ text: `# ${input.model}\n\n\`\`\`\n${input.model}\n\`\`\`` }) });
+    h.selectBoth(); await click(h.ui.review); await click(h.ui.send); const [a, b] = h.ui.targets;
+    const codeButtons = h.ui.targets.map(target => target.readerHost.querySelector('.answer-reader-copy-code'));
+    a.copy.dispatch('click'); assert.equal(h.view.copying, true); assert.equal(a.copy.disabled, true); assert.equal(b.copy.disabled, true);
+    assert(codeButtons.every(button => button.disabled)); b.copy.dispatch('click'); codeButtons.forEach(button => button.dispatch('click')); assert.equal(copies.length, 1);
+    h.ui.close.focus(); pending.resolve(); await tick(); assert.equal(h.view.doc.activeElement, h.ui.close);
+    assert.equal(a.copy.disabled, false); assert.equal(b.copy.disabled, false); assert(codeButtons.every(button => !button.disabled));
+    codeButtons[1].dispatch('click'); a.copy.dispatch('click'); assert.equal(copies.length, 2); await tick();
+    await click(b.copy); assert.deepEqual(copies, [a.response.text, 'model-b', b.response.text]); await h.done();
+});
+
+for (const action of ['hide', 'pagehide', 'source', 'snapshot', 'dispose', 'close', 'workspace', 'preset', 'overlay', 'inert', 'detach']) test(`full answer copy: comparison ${action} prevents stale success or failure`, async () => {
+    const pending = deferred(); let copies = 0;
+    const h = await mount({ clipboard: { writeText() { copies++; return pending.promise; } } });
+    h.selectBoth(); await click(h.ui.review); await click(h.ui.send); const [a, b] = h.ui.targets;
+    a.copy.dispatch('click'); assert.equal(copies, 1);
+    if (action === 'hide') { h.view.doc.hidden = true; h.view.doc.listeners.get('visibilitychange')(); h.view.doc.hidden = false; h.view.doc.listeners.get('visibilitychange')(); }
+    if (action === 'pagehide') h.events.get('pagehide')();
+    if (action === 'source') { h.h.controller.excerptEpoch++; h.ui.checkSource(); }
+    if (action === 'snapshot') a.response = { ...a.response };
+    if (action === 'dispose') h.h.controller.dispose();
+    if (action === 'close') await click(h.ui.close);
+    if (action === 'workspace') h.change({ __localItabCombinedRestoreV1: {} });
+    if (action === 'preset') h.change({ __localItabAIModelPresetsV1: {} });
+    if (action === 'overlay') h.ui.overlay.hidden = true;
+    if (action === 'inert') h.ui.overlay.inert = true;
+    if (action === 'detach') h.ui.overlay.remove();
+    const feedback = h.ui.targets.map(target => target.copyStatus.textContent), messages = h.ui.targets.map(target => target.message.textContent);
+    assert.equal(h.view.copying, true); a.copy.dispatch('click'); b.copy.dispatch('click'); assert.equal(copies, 1);
+    pending.resolve(Promise.reject(Error('private clipboard failure'))); await tick();
+    assert.equal(h.view.copying, false); assert.deepEqual(h.ui.targets.map(target => target.copyStatus.textContent), feedback);
+    assert.deepEqual(h.ui.targets.map(target => target.message.textContent), messages); await h.done();
+});
+
+for (const failure of ['missing', 'throw', 'reject']) test(`full answer copy: comparison ${failure} only reports on originating column and permits manual retry`, async () => {
+    let copies = 0;
+    const clipboard = failure === 'missing' ? undefined : { writeText() { copies++; if (failure === 'throw') throw Error('private failure'); return Promise.reject(Error('private failure')); } };
+    const h = await mount({ clipboard }); h.selectBoth(); await click(h.ui.review); await click(h.ui.send);
+    const [a, b] = h.ui.targets, messages = h.ui.targets.map(target => target.message.textContent);
+    await click(b.copy); assert.equal(a.copyStatus.textContent, '');
+    assert.equal(b.copyStatus.textContent, 'Copy was blocked. Select the original answer text and copy it manually.');
+    assert.equal(a.copy.disabled, false); assert.equal(b.copy.disabled, false); assert.equal(h.view.copying, false);
+    assert.equal(copies, failure === 'missing' ? 0 : 1); assert.deepEqual(h.ui.targets.map(target => target.message.textContent), messages);
+    h.view.clipboard = { writeText: async () => {} }; await click(b.copy); assert.equal(b.copyStatus.textContent, 'Full answer copied.');
+    assert.equal(h.runs.length, 2); assert.equal(h.writes.length, 0); await h.done();
+});
+
+test('full answer copy: trial copies completed answers without saving or accepting a proposal and edits retire old targets', async () => {
+    const copies = [], trial = { source: Object.freeze({ body: 'Original {{topic}}' }), proposal: 'Revised {{topic}}', current: () => true, onClose() {} };
+    const h = await mount({ trial, clipboard: { writeText(text) { copies.push(text); return Promise.resolve(); } }, run: async request => ({ text: `Answer: ${request.prompt}` }) });
+    h.ui.variables[0].input.value = 'Synthetic'; await click(h.ui.review); await click(h.ui.send); const [a, b] = h.ui.targets;
+    assert.match(a.copy.getAttribute('aria-label'), /Original saved template answer/); assert.match(b.copy.getAttribute('aria-label'), /Unsaved proposal answer/);
+    await click(a.copy); await click(b.copy); assert.deepEqual(copies, ['Answer: Original Synthetic', 'Answer: Revised Synthetic']);
+    assert.equal(h.writes.length, 0); assert.equal(a.save.hidden, true); assert.equal(b.save.hidden, true);
+    h.ui.variables[0].input.value = 'Changed'; h.ui.variables[0].input.dispatch('input');
+    assert.equal(a.copy.disabled, true); assert.equal(b.copy.disabled, true); assert.equal(a.copyStatus.textContent, '');
+    await click(a.copy); await click(b.copy); assert.equal(copies.length, 2); await h.done();
+});
+
+test('full answer copy: empty, denied and failed comparison targets never become copyable', async () => {
+    const copies = [];
+    for (const code of ['EMPTY', 'INCOMPLETE', 'NETWORK', 'PERMISSION']) {
+        const h = await mount({ clipboard: { writeText(text) { copies.push(text); return Promise.resolve(); } }, contains: async () => code !== 'PERMISSION', run: async () => { throw { code }; } });
+        h.selectBoth(); await click(h.ui.review); await click(h.ui.send);
+        for (const target of h.ui.targets) { assert.equal(target.copy.disabled, true); await click(target.copy); }
+        await h.done();
+    }
+    assert.deepEqual(copies, []);
+});
+
+for (const newerFocus of [false, true]) test(`full answer copy: comparison visibility return ${newerFocus ? 'keeps newer focus' : 'restores the exact target copy button'}`, async () => {
+    const h = await mount({ clipboard: { writeText: async () => {} } }); h.selectBoth(); await click(h.ui.review); await click(h.ui.send);
+    const target = h.ui.targets[1]; await click(target.copy); target.copy.focus();
+    h.view.doc.hidden = true; h.view.doc.listeners.get('visibilitychange')(); h.view.doc.activeElement = h.view.doc.body; h.view.doc.hidden = false;
+    if (newerFocus) h.ui.close.focus();
+    h.view.doc.listeners.get('visibilitychange')();
+    assert.equal(h.view.doc.activeElement, newerFocus ? h.ui.close : target.copy); assert.equal(target.copyStatus.textContent, ''); await h.done();
+});

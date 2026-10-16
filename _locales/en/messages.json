@@ -1,4 +1,22 @@
 {
+  "promptsModelCopyAnswer": {
+    "message": "Copy full answer"
+  },
+  "promptsModelAnswerCopied": {
+    "message": "Full answer copied."
+  },
+  "promptsModelAnswerCopyBlocked": {
+    "message": "Copy was blocked. Select the original answer text and copy it manually."
+  },
+  "promptsCompareCopyAnswer": {
+    "message": "Copy full answer"
+  },
+  "promptsCompareAnswerCopied": {
+    "message": "Full answer copied."
+  },
+  "promptsCompareAnswerCopyBlocked": {
+    "message": "Copy was blocked. Select the original answer text and copy it manually."
+  },
   "templatePreviewActive": {
     "message": "Temporary preview with your content. Apply saves locally; enabled Chrome Sync follows its existing settings. Cancel discards the preview."
   },
