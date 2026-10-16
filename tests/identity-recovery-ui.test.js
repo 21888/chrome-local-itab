@@ -43,7 +43,7 @@ const watchdog = setTimeout(() => { console.error('Identity model did not settle
     pending.resolve(preview); await first; assert.equal(calls.length, 2, 'repeat activation owns only one replacement');
     storageManager.pullFromSync = async value => { if (!value) { pulls++; return { applied: false, status }; } throw new Error('Recovery write failed'); };
     await context.replaceLocalFromCloud(); assert.equal(reloads, 2, 'failure never reloads as success'); assert(messages.some(m => m.type === 'error' && m.message.includes('Recovery write failed')));
-    await context.downloadRecoveryBackup('latest'); assert.equal(downloads, 1); assert(messages.some(m => m.type === 'success'));
+    await context.downloadRecoveryBackup('latest'); assert.equal(downloads, 1); assert.equal(messages.at(-1).type, 'info'); assert.match(messages.at(-1).message, /download requested.*cannot verify completion/);
     storageManager.getRecoveryBackup = async () => { throw new Error('Integrity check failed'); };
     await context.downloadRecoveryBackup('original'); assert.equal(downloads, 1, 'corrupt recovery is not exported');
     context.setupCloudSyncChangeListener(); assert.equal(events.length, 1);

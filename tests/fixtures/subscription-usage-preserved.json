@@ -1,5 +1,4 @@
 {
-  "options.js": "f0928b85e18ebf7496154f946ed09fd4c61360230e6a942e6bb9c579f4390570",
   "shared/navigation-sites.js": "6949241b3ba9973e67a6d23a42e5da6cdc5987411c6eb9434f7dc20c73abd097",
   "shared/claude-usage-snapshot.js": "eda889dede4b36a82a6f0dc9c85769a2e3376cd1d95127f776cb3c68bb81bc54",
   "claude-usage-experiment.js": "92fd556a4a480c6843d0bd67d40afb697426e4bd5fb180bdd09bf2ebf5647365",
@@ -22,5 +21,9 @@
     "optional_permissions": [
       "scripting"
     ]
+  },
+  "optionsPrivacySurface": {
+    "origins": "f8de67d282d3d99d36cace543405afbf53317bcd17a72ba6c7a179cbe6ea2943",
+    "permissionHelpers": "1ecad3866d23f819067c03e570614a3075ddc30f8b035958026fbe359629b403"
   }
 }

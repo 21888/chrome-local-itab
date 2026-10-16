@@ -1019,10 +1019,13 @@
     "message": "Download latest recovery backup"
   },
   "recoveryDownloaded": {
-    "message": "Recovery backup downloaded. Use Import Settings to review and restore it."
+    "message": "Recovery backup download requested. Confirm the file was saved in your browser’s downloads; this page cannot verify completion. Use Import Settings to review and restore the saved file."
+  },
+  "settingsExportRequested": {
+    "message": "Settings download requested. Confirm the file was saved in your browser’s downloads; this page cannot verify completion."
   },
   "identityExported": {
-    "message": "Settings exported in schema 2. Import with an updated version that supports independent positions."
+    "message": "Settings download requested in schema 2. Confirm the file was saved in your browser’s downloads; this page cannot verify completion. Import with an updated version that supports independent positions."
   },
   "restoreRecoveryConfirm": {
     "message": "A local recovery backup will be kept before replacing settings. Continue?"
@@ -1600,7 +1603,7 @@
     "message": "Downloading Google Drive backup..."
   },
   "driveBackupJsonDownloaded": {
-    "message": "Backup JSON downloaded."
+    "message": "Backup JSON download requested. Confirm the file was saved in your browser’s downloads; this page cannot verify completion."
   },
   "driveDeleteConfirm": {
     "message": "Delete this Google Drive backup permanently?"
@@ -6690,7 +6693,7 @@
     "message": "Workspace unavailable. Saving is paused while the older-tab conflict is reviewed."
   },
   "storedURLExported": {
-    "message": "Settings exported with original URL spelling and layout relationships. Import this file only with a version that supports stored URL identity backups."
+    "message": "Settings download requested with original URL spelling and layout relationships. Confirm the file was saved in your browser’s downloads; this page cannot verify completion. Import only with a version that supports stored URL identity backups."
   },
   "syncStoredURLPaused": {
     "message": "Sync transfers are paused to preserve older URL spelling and layout relationships. Your saved copies and enabled preference are unchanged. Cloud preview is still available; use a current-version manual or Drive backup instead of Sync for these records."

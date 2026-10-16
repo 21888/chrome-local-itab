@@ -2037,15 +2037,8 @@ async function downloadDriveSnapshot(snapshot) {
         const payload = await manager.downloadSnapshotPayload(snapshot.id, { interactive: true });
         const dataStr = JSON.stringify(payload, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = snapshot.name || `local-itab-backup-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        showMessage(t('driveBackupJsonDownloaded', '备份 JSON 已下载。'), 'success');
+        requestBackupFileDownload(blob, snapshot.name || `local-itab-backup-${new Date().toISOString().slice(0, 10)}.json`);
+        showMessage(t('driveBackupJsonDownloaded', 'Backup JSON download requested. Confirm the file was saved in your browser’s downloads; this page cannot verify completion.'), 'info');
     });
 }
 
@@ -2363,6 +2356,29 @@ function collectFormData(validateSearch = true) {
     return settings;
 }
 
+// Requesting a browser download does not establish that the file was saved.
+function requestBackupFileDownload(blob, filename) {
+    let url, link, requested = false;
+    try {
+        url = URL.createObjectURL(blob);
+        link = document.createElement('a');
+        link.href = url; link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        requested = true;
+    } finally {
+        try { link?.remove(); }
+        finally {
+            if (url) {
+                // Give the browser time to consume a successfully requested URL.
+                // Synchronous preparation/trigger failures can release it now.
+                if (requested) setTimeout(() => URL.revokeObjectURL(url), 60000);
+                else URL.revokeObjectURL(url);
+            }
+        }
+    }
+}
+
 async function exportSettings() {
     try {
         showImportExportFeedback('export', 'info', 'Preparing export...');
@@ -2384,27 +2400,15 @@ async function exportSettings() {
             }
         }
         
-        // Create download link
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `local-itab-settings-${new Date().toISOString().split('T')[0]}.json`;
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up
-        URL.revokeObjectURL(url);
-        
-        // Success feedback with details
+        requestBackupFileDownload(dataBlob, `local-itab-settings-${new Date().toISOString().split('T')[0]}.json`);
+
+        // The browser owns download completion, cancellation and later failures.
         const details = {
             fileSize: dataBlob.size,
             recordCount: itemCounts.shortcuts + itemCounts.hotTopics + (itemCounts.hasBackgroundImage ? 1 : 0) + (itemCounts.hasMoviePoster ? 1 : 0)
         };
         
-        showImportExportFeedback('export', 'success', exportData.version === '2.0' ? t('storedURLExported', 'Settings exported with original URL spelling and layout relationships. Import this file only with a version that supports stored URL identity backups.') : exportData.schemaVersion === 2 ? t('identityExported', 'Settings exported in schema 2. Import with an updated version that supports independent positions.') : 'Settings exported.', details);
+        showImportExportFeedback('export', 'info', exportData.version === '2.0' ? t('storedURLExported', 'Settings download requested with original URL spelling and layout relationships. Confirm the file was saved in your browser’s downloads; this page cannot verify completion. Import only with a version that supports stored URL identity backups.') : exportData.schemaVersion === 2 ? t('identityExported', 'Settings download requested in schema 2. Confirm the file was saved in your browser’s downloads; this page cannot verify completion. Import with an updated version that supports independent positions.') : t('settingsExportRequested', 'Settings download requested. Confirm the file was saved in your browser’s downloads; this page cannot verify completion.'), details);
         
     } catch (error) {
         console.error('Error exporting settings:', error);
@@ -2661,11 +2665,9 @@ async function renderRecoveryControls() {
 async function downloadRecoveryBackup(kind) {
     try {
         const payload = await storageManager.getRecoveryBackup(kind);
-        const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
-        const link = document.createElement('a');
-        link.href = url; link.download = `local-itab-recovery-${kind}-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
-        showMessage(t('recoveryDownloaded', 'Recovery backup downloaded. Use Import Settings to review and restore it.'), 'success');
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        requestBackupFileDownload(blob, `local-itab-recovery-${kind}-${new Date().toISOString().slice(0, 10)}.json`);
+        showMessage(t('recoveryDownloaded', 'Recovery backup download requested. Confirm the file was saved in your browser’s downloads; this page cannot verify completion. Use Import Settings to review and restore the saved file.'), 'info');
     } catch (error) { showMessage(error.message, 'error'); }
 }
 

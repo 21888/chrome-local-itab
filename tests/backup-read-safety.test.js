@@ -34,7 +34,7 @@ function harness(saved = {}) {
         URL: { createObjectURL(blob) { state.blobs.push(blob); return 'blob:synthetic'; }, revokeObjectURL() {} },
         document: {
             addEventListener() {}, getElementById() { return null; },
-            createElement() { return { click() { state.clicks++; } }; },
+            createElement() { return { click() { state.clicks++; }, remove() {} }; },
             body: { appendChild() {}, removeChild() {} }
         },
         window: {}, console: { log() {}, warn() {}, error() {} }, confirm: () => true, setTimeout() {}
@@ -49,7 +49,8 @@ function harness(saved = {}) {
 
 async function successfulBackups(h) {
     await h.context.exportSettings();
-    assert.equal(h.state.feedback.at(-1).status, 'success');
+    assert.equal(h.state.feedback.at(-1).status, 'info');
+    assert.match(h.state.feedback.at(-1).message, /download requested.*cannot verify completion/);
     assert.equal(h.state.clicks, 1);
     const manual = JSON.parse(await h.state.blobs[0].text());
     const draft = await h.drive.createSnapshotDraft();

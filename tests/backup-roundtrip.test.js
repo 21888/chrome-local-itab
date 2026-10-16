@@ -26,7 +26,7 @@ function createHarness(config) {
         document: {
             addEventListener() {},
             getElementById(id) { return id === 'import-settings' ? input : null; },
-            createElement() { return { click() {} }; },
+            createElement() { return { click() {}, remove() {} }; },
             body: { appendChild() {}, removeChild() {} }
         },
         window: { location: { reload() { state.reloads++; } } },
@@ -66,7 +66,8 @@ function createHarness(config) {
         config.sync = { enabled: true, lastSync: 'backup-device-marker', lastError: '', includeLargeAssets: false };
         const h = createHarness(config);
         await h.context.exportSettings();
-        assert.equal(h.state.feedback.at(-1).status, 'success');
+        assert.equal(h.state.feedback.at(-1).status, 'info');
+        assert.match(h.state.feedback.at(-1).message, /download requested.*cannot verify completion/);
         assert.equal(h.state.blobs.length, 1);
         const blob = h.state.blobs[0];
         assert(blob.size > 10 * MiB, 'real export must reproduce the old import cutoff');
