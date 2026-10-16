@@ -112,6 +112,48 @@ test('Close, collapse and Escape retire focused first admission without a late f
     }
 });
 
+test('IME and already-handled Escape preserve the preview and a newer module draft', async () => {
+    for (const language of ['en', 'zh_CN']) for (const fields of [
+        { isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }
+    ]) {
+        const h = fixture({ language }); await h.controller.previewTemplate('folio');
+        h.draft.value = 'A newer module draft / 正在输入'; h.draft.focus();
+        const preview = h.controller.preview;
+        const event = { key: 'Escape', target: h.draft, defaultPrevented: false,
+            preventDefault() { this.defaultPrevented = true; }, ...fields };
+        h.event('keydown', event); await h.settle();
+        assert.equal(h.details.open, true, JSON.stringify(fields));
+        assert.equal(h.controller.preview === preview, true);
+        assert.equal(h.document.documentElement.dataset.dashboardTemplate, 'folio');
+        assert.equal(h.document.activeElement === h.draft, true);
+        assert.equal(h.document.body.contains(h.draft), true);
+        assert.equal(h.draft.value, 'A newer module draft / 正在输入');
+        assert.equal(event.defaultPrevented, fields.defaultPrevented === true);
+        assert.equal(h.writes.length, 0); assert.equal(h.ends, 0);
+        h.event('keydown', { key: 'Escape', target: h.draft, preventDefault() {} }); await h.settle();
+        assert.equal(h.details.open, false); assert.equal(h.controller.preview, null);
+        assert.equal(h.document.activeElement === h.host.querySelector('summary'), true);
+    }
+});
+
+test('a gallery Escape bubbles to the window without starting a second restoration', async () => {
+    const h = fixture(); await h.controller.previewTemplate('folio');
+    const choice = h.host.querySelector('[data-template-choice="folio"]'); choice.focus();
+    let cancellations = 0;
+    const cancel = h.controller.cancelTemplatePreview.bind(h.controller);
+    h.controller.cancelTemplatePreview = (...args) => { cancellations++; return cancel(...args); };
+    // The DOM model bubbles through the gallery. Continue the same event at the
+    // window listener, as a native keydown does unless propagation is stopped.
+    const event = choice.dispatch('keydown', { key: 'Escape', defaultPrevented: false,
+        preventDefault() { this.defaultPrevented = true; } });
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(h.details.open, false);
+    h.event('keydown', event); await h.settle();
+    assert.equal(cancellations, 1);
+    assert.equal(h.document.activeElement === h.host.querySelector('summary'), true);
+    assert.equal(h.controller.preview, null); assert.equal(h.writes.length, 0);
+});
+
 test('failed first admission returns owned notice focus to summary without reclaiming newer focus', async () => {
     for (const moved of [false, true]) {
         const h = fixture(), read = holdRead(h), get = h.hooks.get;

@@ -326,7 +326,10 @@
             global.addEventListener?.('pagehide', () => void controller.cancelTemplatePreview({ close: true }));
             global.addEventListener?.('pageshow', () => { if (controller.closed) { controller.closed = false; void controller.refresh(); } });
             global.addEventListener?.('keydown', event => {
-                if (event.key === 'Escape' && controller.previewGuard) {
+                // An inner control or IME owns its Escape before this window
+                // listener. The gallery's own handler also prevents default.
+                if (event.key === 'Escape' && !event.defaultPrevented && !event.isComposing &&
+                    event.keyCode !== 229 && controller.previewGuard) {
                     event.preventDefault(); gallery?.close();
                 }
             });

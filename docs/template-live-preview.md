@@ -12,9 +12,9 @@ A changed source, replaced configuration, workspace departure or pagehide retire
 
 ### Verification scope
 
-`node --test tests/template-live-preview.test.js` covers 26 synthetic cases: repeated browsing/Cancel, fresh saved-view restoration, explicit and duplicate Apply, queued-source races, settings invalidation, disclosure/Close/Escape, pagehide and stale callbacks, read/write failures, current-session fencing, Settings parity, Free coordinate preservation, cached icons, pending edits and late Grid-to-Free reconciliation. Existing appearance, customization, layout, icon-session and lifecycle tests provide focused regression coverage. These are source/store/DOM-model tests; native Chromium layout, focus, scroll and extension behavior must be validated separately. No browser result is claimed here.
+`node --test tests/template-live-preview.test.js` covers 28 synthetic cases: repeated browsing/Cancel, fresh saved-view restoration, explicit and duplicate Apply, queued-source races, settings invalidation, disclosure/Close/Escape, pagehide and stale callbacks, read/write failures, current-session fencing, Settings parity, Free coordinate preservation, cached icons, pending edits and late Grid-to-Free reconciliation. Existing appearance, customization, layout, icon-session and lifecycle tests provide focused regression coverage. These are source/store/DOM-model tests; native Chromium layout, focus, scroll and extension behavior must be validated separately. No browser result is claimed here.
 
-The keyboard cases model focus loss when controls are disabled or hidden. First admission moves a focused template choice to the existing status notice before disabling it; subsequent choices keep focus, and delayed reads never reclaim focus moved to an input or the summary. Apply's exact submitted appearance event no longer clears its confirmed local-save status. Differing color, customization, adjacent appearance revision, settings-generation and other-source events still invalidate the pending preview, even with the same template. English and Chinese status text is checked; native keyboard navigation and screen-reader announcements are not modeled.
+The keyboard cases model focus loss when controls are disabled or hidden. First admission moves a focused template choice to the existing status notice before disabling it; subsequent choices keep focus, and delayed reads never reclaim focus moved to an input or the summary. Apply's exact submitted appearance event no longer clears its confirmed local-save status. Differing color, customization, adjacent appearance revision, settings-generation and other-source events still invalidate the pending preview, even with the same template. Escape already handled by a nested control or marked as IME composition does not close the gallery or move focus out of another module's draft; a gallery-handled Escape is not handled again at the window. English and Chinese status text is checked; native keyboard navigation and screen-reader announcements are not modeled.
 
 ## 中文
 
@@ -28,6 +28,6 @@ The keyboard cases model focus loss when controls are disabled or hidden. First 
 
 ### 验证边界
 
-测试包含 26 个合成存储与 DOM 模型用例，覆盖连续试看和取消、最新保存值恢复、明确及重复应用、等锁并发、设置替换、关闭与 Esc、pagehide 和晚回调、读写失败、会话失效、设置页原行为、自由布局坐标保真、缓存图标、待完成编辑和晚到的网格转自由布局。另运行相关既有聚焦回归。它们不等于原生 Chromium 的布局、焦点、滚动或扩展实测；浏览器验证需单独完成，本文件不声称已通过浏览器实测。
+测试包含 28 个合成存储与 DOM 模型用例，覆盖连续试看和取消、最新保存值恢复、明确及重复应用、等锁并发、设置替换、关闭与 Esc、pagehide 和晚回调、读写失败、会话失效、设置页原行为、自由布局坐标保真、缓存图标、待完成编辑和晚到的网格转自由布局。另运行相关既有聚焦回归。它们不等于原生 Chromium 的布局、焦点、滚动或扩展实测；浏览器验证需单独完成，本文件不声称已通过浏览器实测。
 
-键盘用例模拟控件被禁用或隐藏后的失焦。首次读取前，图库将当前模板按钮拥有的焦点转交既有状态提示；后续选择保持按钮焦点，晚到读取不会抢回已移到输入框或图库标题的焦点。应用自身精确提交的外观事件不再清空已确认的本地保存提示。即便模板相同，明暗、自定义、相邻外观版本、设置代次或其他来源事件仍使待完成预览失效。已检查中英文状态文案；模型不覆盖原生键盘导航和读屏播报。
+键盘用例模拟控件被禁用或隐藏后的失焦。首次读取前，图库将当前模板按钮拥有的焦点转交既有状态提示；后续选择保持按钮焦点，晚到读取不会抢回已移到输入框或图库标题的焦点。应用自身精确提交的外观事件不再清空已确认的本地保存提示。即便模板相同，明暗、自定义、相邻外观版本、设置代次或其他来源事件仍使待完成预览失效。已被内层控件处理或标记为输入法组合输入的 Esc 不会关闭图库，也不会把焦点从其他模块草稿拉走；图库已处理的 Esc 不会在窗口层再次处理。已检查中英文状态文案；模型不覆盖原生键盘导航和读屏播报。
