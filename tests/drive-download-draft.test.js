@@ -20,8 +20,8 @@ async function harness() {
         knownDevices: [{ id: 'home', name: 'Saved home' }, { id: 'work', name: 'Saved work' }] };
     const snapshot = { id: 'synthetic-snapshot', name: 'synthetic-backup.json', deviceId: 'home', size: 24 };
     const calls = { downloads: 0, clicks: 0, errors: [], renames: [], additions: [], selections: [], reads: 0,
-        payloadGate: null, panelGate: null, renameGate: null, addGate: null, failRead: false,
-        failClick: false, failRename: false, failAdd: false, failPanelRead: false, fallbacks: 0,
+        payloadGate: null, panelGate: null, renameGate: null, addGate: null, selectGate: null, failRead: false,
+        failClick: false, failRename: false, failAdd: false, failSelect: false, failPanelRead: false, fallbacks: 0,
         listings: 0, uploads: 0, messages: [], timers: [] };
     const manager = {
         getAvailabilityStatus: () => ({ apiAvailable: true, oauthConfigured: true, storageAvailable: true }),
@@ -39,7 +39,8 @@ async function harness() {
         async addDevice(name) { calls.additions.push(name); if (calls.addGate) await calls.addGate.promise;
             if (calls.failAdd) throw new Error('Synthetic add failed'); saved.deviceId = 'new'; saved.deviceName = name.trim();
             saved.knownDevices.push({ id: 'new', name: saved.deviceName }); return { deviceCreated: true }; },
-        async selectDevice(id) { calls.selections.push(id); saved.deviceId = id;
+        async selectDevice(id) { calls.selections.push(id); if (calls.selectGate) await calls.selectGate.promise;
+            if (calls.failSelect) throw new Error('Synthetic selection failed'); saved.deviceId = id;
             saved.deviceName = saved.knownDevices.find(item => item.id === id).name; },
         async listSnapshots() { calls.listings++; return [structuredClone(snapshot)]; },
         async createSnapshotDraft() { return { sizeBytes: 24 }; },
@@ -288,4 +289,161 @@ for (const value of ['', '   ']) test(`switching back restores an exact blank dr
     h.get('device-select').value = 'home'; await h.event('device-select', 'change');
     assert.equal(h.get('device-name').value, value);
     assert.deepEqual(h.calls.renames, []); assert.deepEqual(h.calls.additions, []);
+});
+
+
+for (const action of ['rename', 'add', 'select']) test(`${action} owns the displayed target until completion and rejects programmatic selection changes`, async () => {
+    const h = await harness(), gate = deferred();
+    h.calls[action + 'Gate'] = gate;
+    h.get('device-name').value = 'Submitted name';
+    if (action === 'select') h.get('device-select').value = 'work';
+    const pending = h.event(action === 'select' ? 'device-select' : action + '-device', action === 'select' ? 'change' : 'click');
+    for (const id of ['device-select', 'rename-device', 'add-device', 'refresh-list', 'backup-now']) {
+        assert.equal(h.get(id).disabled, true, `${id} must be disabled while ${action} is pending`);
+    }
+    assert.notEqual(h.get('device-name').disabled, true, 'typing a later draft remains possible');
+    assert.equal(h.get('device-select').value, 'home', 'a pending choice does not impersonate an acknowledged target');
+    h.get('device-select').value = 'work';
+    await h.event('device-select', 'change');
+    assert.equal(h.get('device-select').value, 'home', 'rejected input restores the acknowledged target');
+    assert.deepEqual(h.calls.selections, action === 'select' ? ['work'] : []);
+    gate.resolve(); await pending;
+    const expected = action === 'add' ? 'new' : action === 'select' ? 'work' : 'home';
+    assert.equal(h.saved.deviceId, expected); assert.equal(h.get('device-select').value, expected);
+    assert.equal(h.get('device-select').disabled, false); assert.equal(h.get('rename-device').disabled, false);
+    h.get('device-name').value = 'Correct target'; await h.event('rename-device');
+    assert.equal(h.saved.knownDevices.find(item => item.id === expected).name, 'Correct target');
+    for (const item of h.saved.knownDevices.filter(item => item.id !== expected)) {
+        assert.notEqual(item.name, 'Correct target');
+    }
+});
+
+for (const fail of [false, true]) test(`completed rename restores its trigger focus after ${fail ? 'failure' : 'success'}`, async () => {
+    const h = await harness(); h.get('device-name').value = 'Submitted'; h.calls.failRename = fail;
+    const trigger = h.get('rename-device'); await h.event('rename-device');
+    assert.equal(h.document.activeElement, trigger);
+    assert.equal(trigger.disabled, false); assert.equal(h.get('device-select').value, h.saved.deviceId);
+    assert.equal(h.get('device-name').value, fail ? 'Submitted' : h.saved.deviceName);
+});
+
+test('completion leaves focus and newer typing with the user', async () => {
+    const h = await harness(); h.calls.renameGate = deferred(); h.get('device-name').value = 'Submitted';
+    const pending = h.event('rename-device'); h.get('device-name').focus(); h.get('device-name').value = 'Later typing';
+    h.calls.renameGate.resolve(); await pending;
+    assert.equal(h.document.activeElement, h.get('device-name')); assert.equal(h.get('device-name').value, 'Later typing');
+});
+
+for (const fail of [false, true]) test(`an obsolete ${fail ? 'failed' : 'successful'} panel read cannot roll back a completed target selection`, async () => {
+    const h = await harness(), gate = deferred(), manager = h.context.window.driveBackupManager;
+    const original = manager.getState, captured = structuredClone(h.saved); let first = true;
+    manager.getState = async () => {
+        if (first) { first = false; await gate.promise; if (fail) throw new Error('Obsolete read'); return captured; }
+        return original();
+    };
+    h.get('device-name').value = 'Preserved home draft';
+    const stale = h.context.renderDriveBackupPanel([{id: 'obsolete-snapshot', deviceId: 'home'}]);
+    h.get('device-select').value = 'work'; await h.event('device-select', 'change');
+    h.document.body.focus(); gate.resolve(); await stale;
+    assert.equal(h.get('device-select').value, 'work'); assert.equal(h.get('device-select').disabled, false);
+    assert.equal(h.get('device-name').value, 'Saved work');
+    assert.equal(h.get('backup-history').querySelector('[data-file-id="obsolete-snapshot"]'), null);
+    h.get('device-select').value = 'home'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-name').value, 'Preserved home draft');
+});
+
+test('panel refresh during an action never enables fresh snapshot buttons or the selector', async () => {
+    const h = await harness(); h.calls.renameGate = deferred(); h.get('device-name').value = 'Submitted';
+    const pending = h.event('rename-device'); await h.context.renderDriveBackupPanel();
+    assert.equal(h.get('device-select').disabled, true);
+    for (const button of h.get('backup-history').querySelectorAll('[data-drive-action]')) assert.equal(button.disabled, true);
+    h.calls.renameGate.resolve(); await pending;
+    for (const button of h.get('backup-history').querySelectorAll('[data-drive-action]')) assert.equal(button.disabled, false);
+});
+
+test('final panel read retains the action lock until its controls and target are ready', async () => {
+    const h = await harness(), manager = h.context.window.driveBackupManager, gate = deferred();
+    const original = manager.getState; let reads = 0;
+    manager.getState = async () => { if (++reads === 2) await gate.promise; return original(); };
+    h.get('device-name').value = 'Submitted'; const pending = h.event('rename-device');
+    const deadline = Date.now() + 2000;
+    while (reads < 2 && Date.now() < deadline) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads, 2, 'completion is waiting for its final panel read');
+    assert.equal(h.get('device-select').disabled, true);
+    h.get('device-select').value = 'work'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-select').value, 'home'); assert.deepEqual(h.calls.selections, []);
+    gate.resolve(); await pending;
+    assert.equal(h.get('device-select').value, h.saved.deviceId); assert.equal(h.get('device-select').disabled, false);
+});
+
+
+test('a failed selection restores the actual target, its draft and selector focus', async () => {
+    const h = await harness(); h.calls.failSelect = true; h.get('device-name').value = 'Home draft';
+    h.get('device-select').value = 'work'; await h.event('device-select', 'change');
+    assert.equal(h.saved.deviceId, 'home'); assert.equal(h.get('device-select').value, 'home');
+    assert.equal(h.get('device-name').value, 'Home draft'); assert.equal(h.document.activeElement, h.get('device-select'));
+    assert.equal(h.calls.messages.at(-1).status, 'error');
+});
+
+test('workspace preflight is already locked and cannot retarget a pending selection', async () => {
+    const h = await harness(), gate = deferred();
+    h.context.storageManager.workspace = { id: 'default' };
+    h.context.storageManager.isDefaultWorkspace = async () => gate.promise;
+    h.get('device-select').value = 'work'; const pending = h.event('device-select', 'change');
+    assert.equal(h.get('device-select').disabled, true); assert.equal(h.get('device-select').value, 'home');
+    h.get('device-select').value = 'home'; await h.event('device-select', 'change');
+    assert.deepEqual(h.calls.selections, []);
+    gate.resolve(true); await pending;
+    assert.deepEqual(h.calls.selections, ['work']); assert.equal(h.get('device-select').value, 'work');
+});
+
+test('a declined workspace preflight restores its own controls without executing the action', async () => {
+    const h = await harness(); h.context.storageManager.workspace = { id: 'other' };
+    h.context.storageManager.isDefaultWorkspace = async () => false;
+    h.get('device-name').value = 'Unsubmitted'; await h.event('rename-device');
+    assert.deepEqual(h.calls.renames, []); assert.equal(h.get('device-name').value, 'Unsubmitted');
+    assert.equal(h.get('device-select').disabled, true); assert.equal(h.get('rename-device').disabled, true);
+    assert.equal(h.calls.messages.at(-1).status, 'info');
+});
+
+test('a failed final profile read remains unavailable after the busy lock is released', async () => {
+    const h = await harness(); h.calls.failPanelRead = true; h.get('device-name').value = 'Submitted';
+    await h.event('rename-device');
+    for (const id of ['device-select', 'rename-device', 'add-device']) assert.equal(h.get(id).disabled, true);
+    assert.equal(h.get('device-name').value, 'Submitted'); assert.equal(h.saved.deviceId, 'home');
+    h.get('device-select').value = 'work'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-select').value, 'home'); assert.deepEqual(h.calls.selections, []);
+    h.calls.failPanelRead = false; await h.context.renderDriveBackupPanel();
+    assert.equal(h.get('device-select').disabled, false);
+});
+
+
+for (const fail of [false, true]) test(`a superseded final read keeps target actions locked until the latest ${fail ? 'failed' : 'successful'} read settles`, async () => {
+    const h = await harness(), manager = h.context.window.driveBackupManager;
+    const original = manager.getState, first = deferred(), latest = deferred(); let reads = 0;
+    h.calls.payloadGate = deferred(); h.get('device-name').value = 'Home-only draft';
+    const downloading = h.download(); let finished = false; downloading.then(() => { finished = true; });
+    manager.getState = async () => {
+        const call = ++reads;
+        if (call === 1) await first.promise;
+        if (call === 2) { await latest.promise; if (fail) throw new Error('Latest read unavailable'); }
+        return original();
+    };
+    h.saved.deviceId = 'work'; h.saved.deviceName = 'Saved work'; h.calls.payloadGate.resolve();
+    const deadline = Date.now() + 2000;
+    while (reads < 1 && Date.now() < deadline) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads, 1);
+    const newer = h.context.renderDriveBackupPanel(); assert.equal(reads, 2);
+    first.resolve(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(finished, false, 'the action waits for its replacement renderer');
+    assert.equal(h.get('device-select').disabled, true); assert.equal(h.get('rename-device').disabled, true);
+    await h.event('rename-device'); assert.deepEqual(h.calls.renames, [], 'programmatic Rename is still rejected');
+    latest.resolve(); await Promise.all([newer, downloading]);
+    assert.equal(h.get('device-select').disabled, fail); assert.equal(h.get('rename-device').disabled, fail);
+    if (fail) await h.context.renderDriveBackupPanel();
+    assert.equal(h.get('device-select').value, 'work'); assert.equal(h.get('device-name').value, 'Saved work');
+    h.get('device-name').value = 'Explicit work rename'; await h.event('rename-device');
+    assert.equal(h.saved.knownDevices.find(item => item.id === 'work').name, 'Explicit work rename');
+    assert.equal(h.saved.knownDevices.find(item => item.id === 'home').name, 'Saved home');
+    h.get('device-select').value = 'home'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-name').value, 'Home-only draft');
 });

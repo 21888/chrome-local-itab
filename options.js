@@ -5,6 +5,9 @@ const PRIVACY_PERMISSION_ORIGINS = {
 };
 let driveBackupSnapshots = [];
 let driveActionInProgress = false;
+let drivePanelRenderVersion = 0;
+let drivePanelRenderPending = Promise.resolve();
+let drivePanelState = null;
 // Field state and per-computer drafts live only for this page and DOM input.
 const driveDeviceNameFields = new WeakMap();
 let cloudReplacementInProgress = false;
@@ -1389,6 +1392,26 @@ function setDriveActionsDisabled(disabled) {
     });
 }
 
+function renderDriveActionControls() {
+    if (!drivePanelState) { setDriveActionsDisabled(true); return; }
+    const { apiReady, oauthReady, stateRead, connected, storageAvailable } = drivePanelState;
+    const disabled = {
+        'drive-connect': !apiReady || !oauthReady,
+        'drive-backup-now': !apiReady || !oauthReady || !connected,
+        'drive-refresh-list': !apiReady || !oauthReady || !connected,
+        'drive-rename-device': !storageAvailable || !stateRead,
+        'drive-add-device': !storageAvailable || !stateRead,
+        'drive-device-select': !storageAvailable || !stateRead
+    };
+    for (const [id, unavailable] of Object.entries(disabled)) {
+        const control = document.getElementById(id);
+        if (control) control.disabled = driveActionInProgress || unavailable;
+    }
+    document.querySelectorAll('[data-drive-action]').forEach(button => {
+        button.disabled = driveActionInProgress || !apiReady || !oauthReady || !connected;
+    });
+}
+
 function renderDriveDeviceName(input, deviceId, savedName) {
     if (!input) return;
     let field = driveDeviceNameFields.get(input);
@@ -1428,7 +1451,13 @@ function acknowledgeDriveDeviceName(input, deviceId, submittedValue) {
     field.drafts.delete(deviceId);
 }
 
-async function renderDriveBackupPanel(snapshots = null) {
+function renderDriveBackupPanel(snapshots = null) {
+    const request = ++drivePanelRenderVersion;
+    drivePanelRenderPending = renderDriveBackupPanelState(snapshots, request);
+    return drivePanelRenderPending;
+}
+
+async function renderDriveBackupPanelState(snapshots, request) {
     const manager = getDriveBackupManager();
     const statusElement = document.getElementById('drive-backup-status');
     const historyElement = document.getElementById('drive-backup-history');
@@ -1440,13 +1469,15 @@ async function renderDriveBackupPanel(snapshots = null) {
         if (statusElement) {
             statusElement.replaceChildren(createStatusRow(t('syncStatus', '状态'), t('driveStatusUnavailable', '不可用'), 'is-error'));
         }
-        setDriveActionsDisabled(true);
+        drivePanelState = null; renderDriveActionControls();
         return;
     }
 
-    if (storageManager.workspace && !(await storageManager.isDefaultWorkspace())) {
+    const defaultWorkspace = !storageManager.workspace || await storageManager.isDefaultWorkspace();
+    if (request !== drivePanelRenderVersion) return;
+    if (!defaultWorkspace) {
         if (statusElement) statusElement.replaceChildren(createStatusRow(t('syncStatus', 'Status'), t('spacesProviderDefault', 'Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups.')));
-        historyElement?.replaceChildren(); setDriveActionsDisabled(true); return;
+        historyElement?.replaceChildren(); drivePanelState = null; renderDriveActionControls(); return;
     }
     const availability = getDriveAvailability(manager);
     const apiReady = availability.apiAvailable === true;
@@ -1458,13 +1489,14 @@ async function renderDriveBackupPanel(snapshots = null) {
     } catch (_) {
         state = manager.normalizeState({});
     }
+    if (request !== drivePanelRenderVersion) return;
     const connected = !!state.connectedAt;
     const knownDevices = Array.isArray(state.knownDevices) && state.knownDevices.length
         ? state.knownDevices
         : [{ id: state.deviceId, name: state.deviceName }];
 
     // A generated fallback profile cannot establish a new draft owner.
-    if (stateRead && deviceSelect && document.activeElement !== deviceSelect) {
+    if (stateRead && deviceSelect) {
         const options = knownDevices.map(profile => {
             const option = document.createElement('option');
             option.value = profile.id;
@@ -1497,17 +1529,8 @@ async function renderDriveBackupPanel(snapshots = null) {
     }
     if (statusElement) statusElement.replaceChildren(...rows);
 
-    const connect = document.getElementById('drive-connect');
-    const backup = document.getElementById('drive-backup-now');
-    const refresh = document.getElementById('drive-refresh-list');
-    const rename = document.getElementById('drive-rename-device');
-    const addDevice = document.getElementById('drive-add-device');
-    if (connect) connect.disabled = !apiReady || !oauthReady;
-    if (backup) backup.disabled = !apiReady || !oauthReady || !connected;
-    if (refresh) refresh.disabled = !apiReady || !oauthReady || !connected;
-    if (rename) rename.disabled = !availability.storageAvailable || !stateRead;
-    if (addDevice) addDevice.disabled = !availability.storageAvailable || !stateRead;
-    if (deviceSelect) deviceSelect.disabled = !availability.storageAvailable || !stateRead;
+    drivePanelState = { apiReady, oauthReady, stateRead, connected,
+        storageAvailable: availability.storageAvailable, deviceId: stateRead ? state.deviceId : drivePanelState?.deviceId };
 
     if (Array.isArray(snapshots)) {
         driveBackupSnapshots = snapshots;
@@ -1518,6 +1541,7 @@ async function renderDriveBackupPanel(snapshots = null) {
         knownDevices,
         activeDeviceId: state.deviceId
     });
+    renderDriveActionControls();
 }
 
 function renderDriveBackupHistory(snapshots, options = {}) {
@@ -1664,11 +1688,18 @@ function setupDriveBackupEventListeners() {
 
     if (deviceSelect) {
         deviceSelect.addEventListener('change', async () => {
+            if (driveActionInProgress || deviceSelect.disabled) {
+                // Rejected/programmatic changes cannot imply a different target.
+                if (drivePanelState?.deviceId) deviceSelect.value = drivePanelState.deviceId;
+                return;
+            }
+            const requestedDeviceId = deviceSelect.value;
+            if (drivePanelState?.deviceId) deviceSelect.value = drivePanelState.deviceId;
             await runDriveAction(t('driveSelectingDevice', '正在切换电脑...'), async () => {
-                await manager.selectDevice(deviceSelect.value);
+                await manager.selectDevice(requestedDeviceId);
                 await renderDriveBackupPanel(driveBackupSnapshots);
                 showMessage(t('driveDeviceSelected', '已切换电脑，后续备份会使用这个电脑名称。'), 'success');
-            }, { keepButtons: true });
+            });
         });
     }
 
@@ -1691,7 +1722,7 @@ function setupDriveBackupEventListeners() {
                     ? t('driveDeviceSelected', '已切换电脑，后续备份会使用这个电脑名称。')
                     : t('driveDeviceAdded', '电脑已添加，后续备份会归到这个名称下。');
                 showMessage(message, 'success');
-            }, { keepButtons: true });
+            });
         });
     }
 
@@ -1711,7 +1742,7 @@ function setupDriveBackupEventListeners() {
                 acknowledgeDriveDeviceName(input, submittedDeviceId, submittedValue);
                 await renderDriveBackupPanel();
                 showMessage(t('driveRenamed', '电脑名称已保存，后续备份将使用新名称。'), 'success');
-            }, { keepButtons: true });
+            });
         });
     }
 
@@ -1772,8 +1803,7 @@ function setupDriveBackupEventListeners() {
     }
 }
 
-async function runDriveAction(workingMessage, action, options = {}) {
-    if (storageManager.workspace && !(await storageManager.isDefaultWorkspace())) { showMessage(t('spacesProviderDefault', 'Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups.'), 'info'); return; }
+async function runDriveAction(workingMessage, action) {
     const manager = getDriveBackupManager();
     if (!manager) return;
     if (driveActionInProgress) {
@@ -1781,10 +1811,13 @@ async function runDriveAction(workingMessage, action, options = {}) {
         return;
     }
 
+    const trigger = document.activeElement;
     driveActionInProgress = true;
+    ++drivePanelRenderVersion; // Retire reads started before this target mutation.
+    setDriveActionsDisabled(true);
     try {
+        if (storageManager.workspace && !(await storageManager.isDefaultWorkspace())) { showMessage(t('spacesProviderDefault', 'Cloud backups apply to Default only. Open Settings in Default to manage or restore cloud backups.'), 'info'); return; }
         showMessage(workingMessage, 'info');
-        if (!options.keepButtons) setDriveActionsDisabled(true);
         await action();
     } catch (error) {
         console.error('Google Drive backup error:', error);
@@ -1792,8 +1825,23 @@ async function runDriveAction(workingMessage, action, options = {}) {
         showMessage(t('driveFailed', 'Google 云盘备份失败：$1', error.message), 'error');
         await renderDriveBackupPanel();
     } finally {
-        driveActionInProgress = false;
-        if (!options.keepButtons) await renderDriveBackupPanel();
+        try {
+            await renderDriveBackupPanel();
+            // A newer read may retire this final refresh. Keep the target locked
+            // until the renderer that now owns the panel has also settled.
+            let pending;
+            do { pending = drivePanelRenderPending; await pending; }
+            while (pending !== drivePanelRenderPending);
+        } catch (error) {
+            drivePanelState = null;
+            throw error;
+        } finally {
+            driveActionInProgress = false;
+            renderDriveActionControls();
+            // Restore only focus lost to our temporary lock, never newer typing.
+            if (trigger?.isConnected && !trigger.disabled &&
+                [document.body, document.documentElement].includes(document.activeElement)) trigger.focus?.();
+        }
     }
 }
 
