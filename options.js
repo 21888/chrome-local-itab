@@ -1045,12 +1045,27 @@ function setupEventListeners() {
             if ((event.key === 'Enter' || event.key === ' ') && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
         });
         importButton.addEventListener('click', function(event) {
-            if (event.detail > 1 || event.repeat || event.isComposing) return;
+            if (event.detail > 1 || event.repeat || event.isComposing || importButton.disabled || settingsImportSaving) return;
+            retireSettingsImportPreparation();
+            importInput.value = '';
             importInput.click();
         });
-        
+        importInput.addEventListener('click', event => {
+            if (settingsImportSaving) { event.preventDefault(); return; }
+            retireSettingsImportPreparation();
+            importInput.value = '';
+        });
+        importInput.addEventListener('cancel', () => {
+            if (settingsImportSaving) return;
+            retireSettingsImportPreparation();
+            importInput.value = '';
+        });
         importInput.addEventListener('change', async function(event) {
             await importSettings(event.target.files[0]);
+        });
+        window.addEventListener?.('pagehide', retireSettingsImportPreparation);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') retireSettingsImportPreparation();
         });
     }
 
@@ -2569,8 +2584,21 @@ async function exportSettings() {
     }
 }
 
+// Only unconfirmed file preparation can be superseded. Once confirmed, the
+// existing restore owns its result, including an uncertain submitted write.
+let settingsImportPreparation = null;
+let settingsImportSaving = false;
+function retireSettingsImportPreparation() { settingsImportPreparation = null; }
 async function importSettings(file) {
+    if (settingsImportSaving) return;
+    const input = document.getElementById('import-settings');
+    const request = {input};
+    settingsImportPreparation = request;
+    const ownsPreparation = () => settingsImportPreparation === request &&
+        document.visibilityState !== 'hidden' && document.getElementById('import-settings') === input && input?.isConnected !== false;
+    let confirmed = false, controls = [];
     try {
+        if (!ownsPreparation()) return;
         if (!file) {
             showImportExportFeedback('import', 'error', t('settingsImportNoFile', 'No file selected for import'));
             return;
@@ -2587,6 +2615,7 @@ async function importSettings(file) {
             const size = (file.size / 1024 / 1024).toFixed(1);
             const proceed = confirm(t('largeLocalImportConfirm',
                 'This backup is $1 MiB. Reading a large file can use substantial memory and may make this tab unresponsive. Continue reading it?', [size]));
+            if (!ownsPreparation()) return;
             if (!proceed) {
                 showImportExportFeedback('import', 'info', t('localImportReadCancelled', 'Import cancelled before reading the file.'));
                 return;
@@ -2596,6 +2625,7 @@ async function importSettings(file) {
         showImportExportFeedback('import', 'info', `${t('settingsImportProcessingPrefix', 'Processing file:')} ${file.name}`, { fileSize: file.size });
         
         const text = await file.text();
+        if (!ownsPreparation()) return;
         let importData;
         
         try {
@@ -2606,6 +2636,7 @@ async function importSettings(file) {
         
         // Validate import data structure
         const providerState = await storageManager.getLocalProviderState();
+        if (!ownsPreparation()) return;
         const validatedSettings = storageManager.prepareRestoredConfig(importData, providerState);
         
         if (!validatedSettings) {
@@ -2628,12 +2659,21 @@ async function importSettings(file) {
         if (importCounts.hasMoviePoster) previewMessage += `${t('settingsImportMoviePreview', '• Movie poster')}\n`;
         previewMessage += `\n${t('restoreRecoveryConfirm', 'A local recovery backup will be kept before replacing settings. Continue?')}`;
         
-        if (!confirm(previewMessage)) {
+        const proceed = confirm(previewMessage);
+        if (!ownsPreparation()) return;
+        if (!proceed) {
             showImportExportFeedback('import', 'info', t('settingsImportCancelled', 'Import cancelled by user'));
             return;
         }
         
-        // Save validated settings
+        // Do not retire a confirmed restore on picker/page events. Block only
+        // competing file imports while its original result is still pending.
+        confirmed = true;
+        settingsImportPreparation = null;
+        settingsImportSaving = true;
+        controls = [document.getElementById('import-settings-btn'), input].filter(Boolean)
+            .map(node => ({node, disabled: node.disabled}));
+        for (const {node} of controls) node.disabled = true;
         const success = await replaceSettings(() => saveConfirmedRestore(storageManager, validatedSettings));
         
         if (success) {
@@ -2652,6 +2692,7 @@ async function importSettings(file) {
         }
         
     } catch (error) {
+        if (!confirmed && !ownsPreparation()) return;
         console.error('Error importing settings:', error);
         
         // Provide specific error messages
@@ -2668,10 +2709,12 @@ async function importSettings(file) {
         
         showImportExportFeedback('import', 'error', errorMessage);
     } finally {
-        // Clear the file input
-        const importInput = document.getElementById('import-settings');
-        if (importInput) {
-            importInput.value = '';
+        // An obsolete read must never clear a later selection/replacement input.
+        if ((confirmed || ownsPreparation()) && input && document.getElementById('import-settings') === input) input.value = '';
+        if (settingsImportPreparation === request) settingsImportPreparation = null;
+        if (confirmed) {
+            settingsImportSaving = false;
+            for (const {node, disabled} of controls) node.disabled = disabled;
         }
     }
 }

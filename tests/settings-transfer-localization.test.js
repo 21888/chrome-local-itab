@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const {createDocument, deferred} = require('./helpers/task-dom-model');
-const {fixture, withGlobals, storageFor, seed, DEFER, clone} = require('./helpers/complete-import-receipt-fixture');
+const {fixture, withGlobals, storageFor, seed, DEFER, clone, boot, values, Workspaces} = require('./helpers/complete-import-receipt-fixture');
 
 // Memory-only integration: actual Options DOM-ready, bound transfer buttons,
 // i18n, feedback/toasts, StorageManager validation/recovery/receipt and reload
@@ -88,7 +88,7 @@ function initial() {
     for (const key of ['__localItabPersonalTasksV1', '__localItabFocusV1', '__localItabScratchpadV1', '__localItabCountdownV1', '__syntheticGlobalAILibrary']) raw[key] = {synthetic: key};
     return raw;
 }
-async function page(f, {locale = 'en', api = 'normal', missingKey} = {}) {
+async function page(f, {locale = 'en', api = 'normal', missingKey, session = null} = {}) {
     const document = createDocument(), timers = new Map(), events = new Map();
     const state = {feedback: [], confirms: [], decisions: [], blobs: [], clicks: [], revoked: [], errors: [],
         reads: 0, pickers: 0, reloads: 0, downloadFailure: null, confirmHook: null};
@@ -115,7 +115,10 @@ async function page(f, {locale = 'en', api = 'normal', missingKey} = {}) {
         }
         document.body.append(node);
     }
-    field('import-settings').click = () => { state.pickers++; };
+    field('import-settings').click = () => {
+        const event = field('import-settings').dispatch('click');
+        if (!event.prevented && !field('import-settings').disabled) state.pickers++;
+    };
     const create = document.createElement.bind(document);
     document.createElement = tag => {
         if (tag === 'a' && state.downloadFailure === 'create') throw new Error(literal);
@@ -137,7 +140,7 @@ async function page(f, {locale = 'en', api = 'normal', missingKey} = {}) {
     };
     if (api === 'absent') delete f.chrome.i18n;
     f.chrome.storage.sync.getBytesInUse = async () => 0;
-    const storage = storageFor(f);
+    const storage = storageFor(f, session);
     const context = vm.createContext({document, storageManager: storage, chrome: f.chrome, Blob,
         URL: class extends URL {
             static createObjectURL(blob) {
@@ -155,7 +158,8 @@ async function page(f, {locale = 'en', api = 'normal', missingKey} = {}) {
             return state.decisions.length ? state.decisions.shift() : true;
         },
         setTimeout(fn, delay) { timers.set(++timerId, {fn, delay}); return timerId; }, clearTimeout(id) { timers.delete(id); },
-        addEventListener(type, fn) { events.set(type, fn); }, removeEventListener(type) { events.delete(type); },
+        addEventListener(type, fn) { if (!events.has(type)) events.set(type, new Set()); events.get(type).add(fn); },
+        removeEventListener(type, fn) { events.get(type)?.delete(fn); },
         location: {reload() { state.reloads++; }}
     });
     context.window = context;
@@ -178,6 +182,7 @@ async function page(f, {locale = 'en', api = 'normal', missingKey} = {}) {
         }};
     };
     return {f, storage, context, state, timers, document, field, fire, file,
+        emit(type) { for (const listener of [...(events.get(type) || [])]) listener({type}); },
         async export() { await fire('export-settings', 'click'); },
         async import(file) { field('import-settings').files = file ? [file] : []; field('import-settings').value = inputValue; await fire('import-settings', 'change'); },
         runTimers(delay) { for (const [id, timer] of [...timers]) if (timer.delay === delay) { timers.delete(id); timer.fn(); } },
@@ -493,4 +498,151 @@ for (const [locale, api] of [['en', 'normal'], ['zh_CN', 'normal'], ['fr-FR', 'n
     });
 }
 
+});
+
+
+// Selection regressions run the same bound Options controls with a real captured
+// workspace Session, StorageManager, recovery copy, receipt and reload guard.
+function selectionCheck(name, action) {
+    test('selection ownership: ' + name, {timeout: 10000}, async () => {
+        const raw = initial();
+        for (const name of ['local-tasks', 'local-scratchpad', 'local-focus', 'local-countdown']) {
+            const Store = require('../shared/' + name + '-store'); raw[Store.KEY] = Store.initial();
+            if (name === 'local-scratchpad') raw[Store.KEY] = Store.validate({...raw[Store.KEY], enabled: true, revision: 1, content: 'Synthetic retained note 中文'});
+        }
+        const f = fixture(raw);
+        await withGlobals(f, async () => {
+            const {session} = await boot(f); f.writes.length = 0;
+            const p = await page(f, {session}); await action(p, session);
+            assert.deepEqual(f.providers, []);
+        });
+    });
+}
+function selectedPayload(p, label) {
+    const data = incoming(p, {assets: false}); data.data.quote = 'Synthetic selected ' + label;
+    data.data.links[0].title = 'Synthetic site ' + label;
+    return data;
+}
+async function waitingSelection(p, stage, error = false) {
+    const gate = {entered: deferred(), resume: deferred()}, payload = selectedPayload(p, 'A');
+    if (stage === 'provider') {
+        const original = p.storage.getLocalProviderState.bind(p.storage); let first = true;
+        p.storage.getLocalProviderState = async () => {
+            if (first) { first = false; gate.entered.resolve(); await gate.resume.promise; if (error) throw Error('Synthetic old provider failure'); }
+            return original();
+        };
+    }
+    const pending = p.import(p.file(payload, {name: 'synthetic-A.json',
+        ...(stage === 'text' ? {gate, error: error ? 'Synthetic old text failure' : null} : {})}));
+    await gate.entered.promise; return {pending, gate};
+}
+selectionCheck('late A after verified B cannot reconfirm, replace B or create another reload', async (p, session) => {
+    const before = clone(values(p.f)), personal = await session.local.get(Workspaces.PERSONAL_KEYS);
+    const a = await waitingSelection(p, 'text'), b = selectedPayload(p, 'B');
+    await p.import(p.file(b, {name: 'synthetic-B.json'}));
+    assert.equal(p.state.confirms.length, 1); assert.equal(values(p.f).quote, b.data.quote);
+    assert.equal(values(p.f)[p.storage.restoreReceiptKey].status, 'verified');
+    const saved = clone(p.f.raw), feedback = clone(p.state.feedback), writes = p.f.writes.length;
+    a.gate.resume.resolve(); await a.pending;
+    assert.equal(p.state.confirms.length, 1); assert.deepEqual(p.f.raw, saved);
+    assert.deepEqual(p.state.feedback, feedback); assert.equal(p.f.writes.length, writes);
+    assert.equal(values(p.f)[p.storage.restoreRecoveryKey].payload.data.quote, before.quote);
+    const reopened = p.f.manager().capture(session.id); await reopened.ready();
+    assert.equal((await storageFor(p.f, reopened).getAll()).quote, b.data.quote);
+    assert.deepEqual(await reopened.local.get(Workspaces.PERSONAL_KEYS), personal);
+    assert.equal(p.timerCount(1500), 1); p.runTimers(1500); assert.equal(p.state.reloads, 1);
+});
+for (const stage of ['text', 'provider']) for (const error of [false, true]) {
+    selectionCheck(`obsolete ${stage} ${error ? 'rejection' : 'success'} cannot disturb newer pending input or feedback`, async p => {
+        const a = await waitingSelection(p, stage, error), gate = {entered: deferred(), resume: deferred()};
+        const b = p.import(p.file(selectedPayload(p, 'B'), {name: 'synthetic-B.json', gate})); await gate.entered.promise;
+        const feedback = clone(p.state.feedback), errors = p.state.errors.length;
+        p.field('import-settings').value = 'C:\\synthetic\\B.json';
+        a.gate.resume.resolve(); await a.pending;
+        assert.equal(p.field('import-settings').value, 'C:\\synthetic\\B.json');
+        assert.deepEqual(p.state.feedback, feedback); assert.equal(p.state.errors.length, errors);
+        assert.equal(p.state.confirms.length, 0); assert.equal(p.f.writes.length, 0);
+        p.state.decisions = [false]; gate.resume.resolve(); await b;
+        assert.equal(p.state.confirms.length, 1); assert.equal(p.f.writes.length, 0);
+        assert.equal(p.field('import-settings').value, '');
+    });
+}
+for (const action of ['picker', 'input-click', 'cancel', 'empty', 'invalid', 'hidden', 'pagehide', 'replaced-input']) {
+    selectionCheck(`${action} retires old preparation even without a successful new selection`, async p => {
+        const a = await waitingSelection(p, 'text');
+        if (action === 'picker') { await p.fire('import-settings-btn', 'click', {detail: 1}); assert.equal(p.state.pickers, 1); }
+        if (action === 'input-click') p.field('import-settings').dispatch('click');
+        if (action === 'cancel') p.field('import-settings').dispatch('cancel');
+        if (action === 'empty') await p.import();
+        if (action === 'invalid') await p.import(p.file('{}', {name: 'synthetic.txt'}));
+        if (action === 'hidden') { p.document.visibilityState = 'hidden'; await p.document.listeners.get('visibilitychange')?.(); p.document.visibilityState = 'visible'; }
+        if (action === 'pagehide') p.emit('pagehide');
+        if (action === 'replaced-input') {
+            const old = p.field('import-settings'), replacement = p.document.createElement('input');
+            replacement.id = old.id; replacement.value = 'Synthetic replacement value'; old.replaceWith(replacement);
+        }
+        const feedback = clone(p.state.feedback), input = p.field('import-settings').value;
+        a.gate.resume.resolve(); await a.pending;
+        assert.equal(p.state.confirms.length, 0); assert.equal(p.f.writes.length, 0);
+        assert.deepEqual(p.state.feedback, feedback); assert.equal(p.field('import-settings').value, input);
+        assert.equal(p.timerCount(1500), 0);
+        if (action === 'picker') {
+            p.field('import-settings').dispatch('cancel');
+            await p.fire('import-settings-btn', 'click', {detail: 1});
+            p.state.decisions = [false];
+            await p.import(p.file(selectedPayload(p, 'A'), {name: 'synthetic-A.json'}));
+            assert.equal(p.state.confirms.length, 1); assert.equal(p.f.writes.length, 0);
+        }
+    });
+}
+for (const uncertain of [false, true]) selectionCheck(`confirmed ${uncertain ? 'unverified' : 'verified'} write survives lifecycle events and blocks only competing import controls`, async (p, session) => {
+    const payload = selectedPayload(p, 'confirmed'), before = clone(values(p.f));
+    const entered = deferred(), resume = deferred(); let submitted = false;
+    const bundle = Workspaces.bundleKey(p.f.raw[Workspaces.REGISTRY_KEY].workspaces.find(entry => entry.id === session.id));
+    p.f.hooks.set = async written => {
+        if (!submitted && written[bundle]?.values[p.storage.restoreReceiptKey]?.status === 'pending') {
+            submitted = true; p.f.apply(written); entered.resolve(); await resume.promise; return;
+        }
+        return DEFER;
+    };
+    p.f.hooks.get = keys => { if (uncertain && submitted && keys?.includes(bundle)) throw Error('Synthetic confirmed readback unavailable'); return DEFER; };
+    const pending = p.import(p.file(payload)); await entered.promise;
+    assert.equal(p.field('import-settings-btn').disabled, true); assert.equal(p.field('import-settings').disabled, true);
+    assert.equal(values(p.f)[p.storage.restoreReceiptKey].status, 'pending');
+    const reads = p.state.reads, feedback = clone(p.state.feedback);
+    await p.fire('import-settings-btn', 'click', {detail: 1}); await p.fire('import-settings', 'cancel');
+    await p.import(p.file(selectedPayload(p, 'ignored')));
+    assert.equal(p.state.pickers, 0); assert.equal(p.state.reads, reads); assert.deepEqual(p.state.feedback, feedback);
+    p.document.visibilityState = 'hidden'; await p.document.listeners.get('visibilitychange')?.(); p.emit('pagehide');
+    resume.resolve(); await pending; p.f.hooks.get = p.f.hooks.set = null;
+    assert.equal(p.state.confirms.length, 1); assert.equal(values(p.f).quote, payload.data.quote);
+    assert.equal(values(p.f)[p.storage.restoreRecoveryKey].payload.data.quote, before.quote);
+    assert.notEqual(p.field('import-settings-btn').disabled, true); assert.notEqual(p.field('import-settings').disabled, true);
+    assert.equal(values(p.f)[p.storage.restoreReceiptKey].status, uncertain ? 'pending' : 'verified');
+    assert.equal(last(p).status, uncertain ? 'error' : 'success'); assert.equal(p.timerCount(1500), uncertain ? 0 : 1);
+    if (uncertain) {
+        const evidence = clone(values(p.f)[p.storage.restoreRecoveryKey]);
+        p.document.visibilityState = 'visible'; await p.import(p.file(payload));
+        assert.equal(values(p.f)[p.storage.restoreReceiptKey].status, 'verified');
+        assert.deepEqual(values(p.f)[p.storage.restoreRecoveryKey], evidence);
+    } else { p.document.visibilityState = 'visible'; p.runTimers(1500); assert.equal(p.state.reloads, 1); }
+});
+
+for (const stage of ['read-warning', 'replacement']) selectionCheck(`${stage} confirmation cannot revive a departed preparation`, async p => {
+    const before = clone(p.f.raw);
+    p.state.confirmHook = () => p.emit('pagehide');
+    await p.import(p.file(selectedPayload(p, 'A'), {size: stage === 'read-warning' ? 11 * MiB : 100}));
+    assert.equal(p.state.confirms.length, 1); assert.equal(p.f.writes.length, 0); assert.deepEqual(p.f.raw, before);
+    assert.equal(p.timerCount(1500), 0); assert(!p.state.feedback.some(item => item.status === 'success'));
+    assert.equal(p.state.reads, stage === 'read-warning' ? 0 : 1);
+});
+selectionCheck('confirmed completion restores each control’s original disabled state', async p => {
+    p.state.confirmHook = () => {
+        p.field('import-settings-btn').disabled = true;
+        p.field('import-settings').disabled = false;
+    };
+    await p.import(p.file(selectedPayload(p, 'A')));
+    assert.equal(last(p).status, 'success');
+    assert.equal(p.field('import-settings-btn').disabled, true); assert.equal(p.field('import-settings').disabled, false);
+    await p.fire('import-settings-btn', 'click', {detail: 1}); assert.equal(p.state.pickers, 0);
 });
