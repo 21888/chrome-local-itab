@@ -8,9 +8,11 @@
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
             this.listSort = 'updated';
             this.proposals = new Map(); this.reusedDrafts = new WeakSet(); this.revisionDraft = null; this.revisionContext = null; this.openDialog = false; this.detailGeneration = 0; this.copyGeneration = 0;
-            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } if (this.revisionContext && !this.revisionContext.current()) this.cancelRevision(); this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.updateReuseDraft?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            controller.onChange = kind => { this.updateResultsMarkdown?.(); if (kind === 'dispose') { this.destroy(); return; } if (this.revisionContext && !this.revisionContext.current()) this.cancelRevision(); this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.updateReuseDraft?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            this.changeOwner = controller.onChange;
             this.pageHide = event => {
                 if (!event?.persisted) { this.destroy(); return; }
+                this.invalidateResultsMarkdown();
                 this.cancelRevision();
                 this.detailGeneration++;
                 this.updatePromptNavigation?.();
@@ -22,7 +24,7 @@
                 this.closeComparison?.();
             };
             this.pageShow = event => { if (event?.persisted && !this.destroyed && !controller.disposed) this.render(); };
-            this.visibilityChange = () => { if (this.doc.visibilityState === 'hidden') this.copyGeneration++; this.updateReuseDraft?.(); this.refreshCopyState(); };
+            this.visibilityChange = () => { this.updateResultsMarkdown(); if (this.doc.visibilityState === 'hidden') this.copyGeneration++; this.updateReuseDraft?.(); this.refreshCopyState(); };
             this.doc.addEventListener('visibilitychange', this.visibilityChange);
             root.addEventListener?.('pagehide', this.pageHide);
             root.addEventListener?.('pageshow', this.pageShow);
@@ -31,6 +33,7 @@
         destroy() {
             if (this.destroyed) return;
             this.destroyed = true;
+            this.invalidateResultsMarkdown();
             this.cancelRevision();
             this.answerReader?.destroy(); this.answerReader = null;
             this.closeImport?.();
@@ -140,7 +143,9 @@
                 c.filter({});
             });
             sortLabel.append(this.el('span', '', this.t('Sort', 'Sort this page')), sort); sidebar.append(sortLabel);
-            this.draftList = this.el('div', 'prompt-draft-list'); this.listCount = this.el('p', 'prompt-list-heading'); this.list = this.el('div', 'prompt-list'); sidebar.append(this.draftList, this.listCount, this.list);
+            this.draftList = this.el('div', 'prompt-draft-list'); this.listCount = this.el('p', 'prompt-list-heading'); this.list = this.el('div', 'prompt-list');
+            this.resultMarkdownButton = this.button('ResultsMarkdown', 'Export filtered results as Markdown', () => this.exportResultsMarkdown());
+            sidebar.append(this.draftList, this.listCount, this.resultMarkdownButton, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'collection-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.paragraph('Scope', 'Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model.'), this.paragraph('Limits', 'Limits: 200 items including archived · 32,000 characters per excerpt · 20 body versions per item · 2 MiB total. Capacity errors keep your draft; no text or history is silently removed.'), this.paragraph('Privacy', 'Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text.'));
             this.shell.append(brand, header, this.captureStatus, this.status, layout, footer); this.host.append(this.shell);
@@ -153,6 +158,11 @@
             root.addEventListener?.('beforeunload', this.beforeUnload);
         }
         async leave(href) { if (this.controller.busy || this.controller.pendingCommand) return; if (await this.confirm({ title: this.t('Leave', 'Leave this page?'), body: this.t('LeaveBody', 'Unsaved drafts live only in this tab and will be lost.'), accept: this.t('Leave', 'Leave this page?') })) root.location.assign(href); }
+        sortedResults() {
+            const results = [...this.controller.results()];
+            if (this.listSort === 'saved') results.sort((a, b) => a.record.createdAt.localeCompare(b.record.createdAt) || a.record.id.localeCompare(b.record.id));
+            return results;
+        }
         renderList() {
             const c = this.controller; this.search.value = c.filters.query;
             this.sortSelect.value = this.listSort;
@@ -169,10 +179,10 @@
             this.draftList.replaceChildren();
             for (const [id, draft] of c.drafts) { const button = this.button('Draft', 'Draft', () => c.select(id), 'prompt-draft-card'); button.textContent = `${this.t('Draft', 'Draft')} · ${draft.input.title || this.t('Untitled', 'Untitled')}`; button.disabled = c.busy; this.draftList.append(button); }
             this.list.replaceChildren(); let results = []; try {
-                results = [...c.results()];
-                if (this.listSort === 'saved') results.sort((a, b) => a.record.createdAt.localeCompare(b.record.createdAt) || a.record.id.localeCompare(b.record.id));
+                results = this.sortedResults();
             } catch (_) { this.list.append(this.paragraph('QueryLong', 'Search is too long. Use up to 500 characters.')); }
             this.listCount.textContent = `${results.length} ${this.t('Items', 'items')}`;
+            this.resultMarkdownCount = results.length; this.updateResultsMarkdown();
             for (const { record, snippet, snippetField } of results) {
                 const card = this.el('button', 'prompt-card'); card.type = 'button'; card.disabled = c.busy; card.setAttribute('aria-current', String(c.selected === record.id));
                 card.append(this.el('span', 'prompt-card-title', record.title));
@@ -185,6 +195,7 @@
             if (this.importButton) this.importButton.disabled = !this.controller.replacementReady() || this.revisionDraft !== null || this.proposals.size > 0;
         }
         render() {
+            this.invalidateResultsMarkdown();
             if (this.revisionContext && !this.revisionContext.submitted) this.cancelRevision();
             this.closeHistoricalPrompt?.();
             this.closeHistoricalPrompt = null;
@@ -940,6 +951,76 @@
                 // Store.export() already serializes the backup; download those JSON bytes directly.
                 const data = await this.controller.store.export({ omitSourceUrls: omit }); const blob = new root.Blob([data], { type: 'application/json' }); const url = root.URL.createObjectURL(blob); const a = this.el('a'); a.href = url; a.download = 'local-itab-ai-collection.json'; this.doc.body.append(a); a.click(); a.remove(); root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
             } catch (_) { this.status.textContent = this.t('ExportFailed', 'Export could not be created. Saved content is unchanged.'); }
+        }
+        resultsMarkdownReady() {
+            const c = this.controller, button = this.resultMarkdownButton;
+            if (this.destroyed || !c.comparisonReady() || c.onChange !== this.changeOwner || this.revisionContext ||
+                !button?.isConnected || !this.host.contains(this.shell) || !this.shell.contains(button) ||
+                this.doc.visibilityState === 'hidden' || button.closest('[hidden], [aria-hidden="true"]') || !button.getClientRects().length) return false;
+            // The owned review deliberately makes the host inert. Visibility and
+            // attachment must still be checked while that modal owns focus.
+            for (let node = button; node; node = node.parentElement) {
+                const style = root.getComputedStyle?.(node) || node.style;
+                if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return false;
+            }
+            return true;
+        }
+        invalidateResultsMarkdown() {
+            const context = this.resultMarkdownContext;
+            if (!context || context.invalid) return;
+            context.invalid = true;
+            this.cancelMarkdownDialog?.();
+        }
+        updateResultsMarkdown() {
+            const context = this.resultMarkdownContext;
+            if (context && !context.current()) this.invalidateResultsMarkdown();
+            if (this.resultMarkdownButton) this.resultMarkdownButton.disabled = !this.resultMarkdownCount || !this.resultsMarkdownReady();
+        }
+        async exportResultsMarkdown() {
+            const c = this.controller, button = this.resultMarkdownButton;
+            if (this.exportingMarkdown || this.openDialog || button?.disabled || !this.resultsMarkdownReady() ||
+                button.closest('[inert]') || this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
+            const state = c.state, readGeneration = c.readGeneration, interaction = c.interactionGeneration,
+                filters = JSON.stringify(c.filters), sort = this.listSort;
+            const context = { invalid: false };
+            context.current = () => !context.invalid && this.resultMarkdownContext === context && this.resultsMarkdownReady() &&
+                c.state === state && c.readGeneration === readGeneration && c.interactionGeneration === interaction &&
+                JSON.stringify(c.filters) === filters && this.listSort === sort;
+            this.resultMarkdownContext = context; this.exportingMarkdown = true; this.updateResultsMarkdown();
+            let url, anchor;
+            try {
+                // results() supplies validated saved-record copies, never editor
+                // drafts or proposed bodies. Reuse the list's complete ordering.
+                const results = this.sortedResults();
+                if (!results.length || !context.current()) return;
+                const scope = c.filters.mode === 'trash' ? this.t('Archived', 'Archived') : this.t('Active', 'Saved');
+                const order = sort === 'saved' ? this.t('SortSaved', 'Earliest saved') : this.t('SortUpdated', 'Recently updated');
+                // Serialize once and download those exact reviewed bytes. The
+                // existing serializer never reads sourceUrl without explicit opt-in.
+                const data = `# Saved collection results\n\nItems: ${results.length}\nScope: ${c.filters.mode === 'trash' ? 'Archived' : 'Saved'}\nOrder: ${sort === 'saved' ? 'Earliest saved' : 'Recently updated'}\n\n` +
+                    results.map(({ record }) => root.LocalItabAIMarkdown.serialize('collection', record)).join('\n');
+                const filterSummary = [['Search', 'Search', c.filters.query], ['type', 'Type', c.filters.type], ['tool', 'Tool', c.filters.tool], ['tag', 'Tag', c.filters.tag]]
+                    .map(([key, fallback, value]) => `${this.t(key, fallback)}: ${value || this.t('All', 'All')}`).join('\n');
+                const accepted = await this.dialog({
+                    title: this.t('ResultsMarkdownReview', 'Review filtered-results Markdown'),
+                    body: `${results.length} ${this.t('Items', 'items')} · ${scope} · ${order}\n${filterSummary}\n\n${this.t('ResultsMarkdownWarning', 'This unencrypted copy includes every matching saved item, beyond the visible list. Only current saved fields are included, even while editing a draft. Source URLs, context snapshots, history, recovery copies, linked prompt bodies and unsaved work are excluded. Text and notes may still contain private information. This is not a recovery backup. Review the full output before downloading.')}`,
+                    accept: this.t('MarkdownDownload', 'Download Markdown'), markdownPreview: data, markdownCurrent: context.current
+                });
+                if (!accepted || !context.current()) return;
+                const blob = new root.Blob([data], { type: 'text/markdown;charset=utf-8' });
+                url = root.URL.createObjectURL(blob); anchor = this.el('a');
+                anchor.href = url; anchor.download = 'local-itab-collection-results.md'; this.doc.body.append(anchor);
+                if (!context.current()) return;
+                anchor.click();
+                if (context.current()) this.status.textContent = this.t('MarkdownRequested', 'Download requested.');
+            } catch (_) {
+                if (context.current()) this.status.textContent = this.t('MarkdownFailed', 'Markdown export could not be requested. Saved content is unchanged.');
+            } finally {
+                try { anchor?.remove(); } catch (_) { /* Best-effort DOM cleanup. */ }
+                try { if (url) root.URL.revokeObjectURL(url); } catch (_) { /* No delayed retry or download. */ }
+                if (this.resultMarkdownContext === context) this.resultMarkdownContext = null;
+                this.exportingMarkdown = false; this.updateResultsMarkdown();
+            }
         }
         async exportMarkdown() {
             const c = this.controller;

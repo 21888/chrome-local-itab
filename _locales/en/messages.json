@@ -6396,6 +6396,15 @@
   "collectionsSortSaved": {
     "message": "Earliest saved"
   },
+  "collectionsResultsMarkdown": {
+    "message": "Export filtered results as Markdown"
+  },
+  "collectionsResultsMarkdownReview": {
+    "message": "Review filtered-results Markdown"
+  },
+  "collectionsResultsMarkdownWarning": {
+    "message": "This unencrypted copy includes every matching saved item, beyond the visible list. Only current saved fields are included, even while editing a draft. Source URLs, context snapshots, history, recovery copies, linked prompt bodies and unsaved work are excluded. Text and notes may still contain private information. This is not a recovery backup. Review the full output before downloading."
+  },
   "collectionsAnnotationMatch": {
     "message": "Matched saved annotations"
   },

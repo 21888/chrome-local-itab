@@ -6396,6 +6396,15 @@
   "collectionsSortSaved": {
     "message": "最早保存"
   },
+  "collectionsResultsMarkdown": {
+    "message": "将筛选结果导出为 Markdown 合集"
+  },
+  "collectionsResultsMarkdownReview": {
+    "message": "审阅筛选结果 Markdown 合集"
+  },
+  "collectionsResultsMarkdownWarning": {
+    "message": "这份未加密副本包含所有匹配的已保存条目，不限于屏幕可见列表。即使正在编辑草稿，也仅包含当前已保存字段。始终排除来源网址、上下文快照、历史、恢复副本、关联提示词正文和未保存内容。正文和注释仍可能包含私人信息，并未脱敏。这不是恢复备份。下载前请审阅完整输出。"
+  },
   "collectionsAnnotationMatch": {
     "message": "匹配已保存批注"
   },
