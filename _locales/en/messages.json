@@ -2737,7 +2737,7 @@
     "message": "Focus preferences"
   },
   "completeBackupExport": {
-    "message": "Export selected modules"
+    "message": "Prepare export summary"
   },
   "completeBackupChoose": {
     "message": "Choose local backup JSON"
@@ -7903,5 +7903,62 @@
   },
   "promptsModelStreamSourceRetry": {
     "message": "Retry source check"
+  },
+  "completeBackupExportReview": {
+    "message": "Review this saved backup"
+  },
+  "completeBackupExportSnapshot": {
+    "message": "This is the saved snapshot at the generation time below. Later saved edits are not added automatically. No download has been requested yet."
+  },
+  "completeBackupExportReady": {
+    "message": "Summary ready. Review it, then choose Download this backup."
+  },
+  "completeBackupExportTime": {
+    "message": "Snapshot generated (UTC)"
+  },
+  "completeBackupExportBytes": {
+    "message": "Exact JSON size (UTF-8 bytes)"
+  },
+  "completeBackupExportLive": {
+    "message": "Live workspace identities in this file"
+  },
+  "completeBackupExportTrash": {
+    "message": "Trash workspace identities in this file"
+  },
+  "completeBackupExportGlobalOnly": {
+    "message": "No workspace module contents are included. The file still contains workspace identity metadata. Each selected global library is included once."
+  },
+  "completeBackupExportCountScope": {
+    "message": "Workspace statistics include live workspaces and Trash. Local images count saved references, including repeats. Each selected global library is counted once."
+  },
+  "completeBackupExportAnyEnabled": {
+    "message": "Enabled in at least one workspace"
+  },
+  "completeBackupExportDownload": {
+    "message": "Download this backup"
+  },
+  "completeBackupExportCancel": {
+    "message": "Cancel prepared export"
+  },
+  "completeBackupExportCancelled": {
+    "message": "Prepared export cancelled. No download was requested; saved data and drafts were not changed."
+  },
+  "completeBackupExportExpired": {
+    "message": "The prepared export is no longer available. Prepare a new summary for the current selection."
+  },
+  "completeBackupExportSubmitting": {
+    "message": "Requesting this download. This step cannot be withdrawn here; check your browser’s downloads."
+  },
+  "completeBackupExportDownloadError": {
+    "message": "The download request could not be verified. Check your browser’s downloads before preparing another copy; no automatic retry was made."
+  },
+  "completeBackupExportLegacy": {
+    "message": "Single-workspace contents: 1. Live/Trash identities are not recorded in this older format."
+  },
+  "completeBackupExportSingleCountScope": {
+    "message": "Statistics describe this single-workspace file. Local images count saved references, including repeats."
+  },
+  "completeBackupExportPreparing": {
+    "message": "Preparing a saved snapshot for review… No download has been requested."
   }
 }

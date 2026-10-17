@@ -2,6 +2,7 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm');
 const {createDocument, deferred} = require('./helpers/task-dom-model');
+const {fixture, Backup, Prompts, Collections} = require('./helpers/complete-backup-acceptance');
 const source = fs.readFileSync('shared/complete-backup-view.js', 'utf8');
 const flush = async () => { await new Promise(resolve => setTimeout(resolve, 10)); };
 const waitFor = async (predicate) => {
@@ -13,13 +14,15 @@ const modules = ['config','tasks','scratchpad','countdown','focus'];
 function model(locale, options = {}) {
     const document = createDocument({blurUnavailableFocus:true}); const host = document.createElement('div'); document.body.append(host);
     const calls = {reviews:[],restores:[],exports:[],downloads:[]};
+    const exportStore = fixture().store;
     const store = {
+        manager:exportStore.manager, counts:exportStore.counts.bind(exportStore), workspaceCounts:exportStore.workspaceCounts.bind(exportStore),
         async review(text, selected = modules) { calls.reviews.push([text, selected]); return {modules,selected,incoming:{config:{shortcuts:5,categories:2,dataUrlIcons:1},tasks:{active:2,done:3,removed:1,recovery:4},scratchpad:{characters:15},focus:{enabled:true,durations:{focus:25,break:5}}},current:{}}; },
         async restore(preview) { calls.restores.push(preview); },
-        async export(selected) { calls.exports.push(selected); return 'JSON'; }, async recovery() { return 'RECOVERY'; },
+        async export(selected) { calls.exports.push(selected); return exportStore.export(selected); }, async recovery() { return 'RECOVERY'; },
         ...options.store
     };
-    const window = {LocalItabCompleteBackup:{LIMITS:{bytes:32*1024*1024}}};
+    const window = {LocalItabCompleteBackup:Backup, LocalItabPrompts:Prompts, LocalItabAICollections:Collections};
     if (locale) { const catalog = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`)); window.i18n = {t:key=>catalog[key]?.message || key}; }
     vm.runInNewContext(source,{window,setTimeout,URL,Blob});
     const view = window.LocalItabCompleteBackupView.mount(host,{store,restore:p=>store.restore(p),download:async (...args)=>{calls.downloads.push(args);if(options.download)await options.download(...args);},reload:()=>{calls.reloads=(calls.reloads||0)+1;}});
@@ -28,8 +31,8 @@ function model(locale, options = {}) {
     const select = (text='saved', options={}) => { get('choose').focus(); file.files=[{size:text.length,text:async()=>text,...options}]; file.dispatch('change'); };
     return {document,host,store,view,calls,get,file,select};
 }
-test('saved module export requests download without asserting completion; no automatic restore or reload',async()=>{
-    const m=model();m.get('export').dispatch('click');await waitFor(()=>/Download requested/.test(m.get('status').textContent));assert.equal(m.calls.exports.length,1);assert.equal(m.calls.downloads.length,1);assert.match(m.get('status').textContent,/Download requested.*completion cannot be verified/);assert.equal(m.calls.restores.length,0);assert(!m.calls.reloads);
+test('saved module export prepares a summary before explicit download; no completion claim, automatic restore or reload',async()=>{
+    const m=model();m.get('export').dispatch('click');await waitFor(()=>!m.get('download-export').disabled);assert.equal(m.calls.downloads.length,0);m.get('download-export').dispatch('click');await waitFor(()=>/Download requested/.test(m.get('status').textContent));assert.equal(m.calls.exports.length,1);assert.equal(m.calls.downloads.length,1);assert.match(m.get('status').textContent,/Download requested.*completion cannot be verified/);assert.equal(m.calls.restores.length,0);assert(!m.calls.reloads);
 });
 test('preview shows selected module counts and destructive Focus consequence before one explicit apply',async()=>{
     const m=model();m.select();await waitFor(()=>!m.get('apply').disabled);assert.equal(m.calls.restores.length,0);assert.equal(m.get('preview').hidden,false);assert.match(m.get('warning').textContent,/blocked while an affected workspace has a running, paused or interrupted/);assert(m.host.querySelectorAll('li').some(li=>li.children.some(n=>n.textContent?.includes('Saved history copies: 4'))));

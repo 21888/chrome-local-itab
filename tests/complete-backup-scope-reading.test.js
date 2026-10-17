@@ -7,6 +7,7 @@ const fs = require('node:fs'), vm = require('node:vm');
 const {createDocument, deferred} = require('./helpers/task-dom-model');
 const {Backup, clone, fixture, withGlobals, seed, boot, values, uncertainImport} = require('./helpers/complete-import-receipt-fixture');
 const Scratchpad = require('../shared/local-scratchpad-store');
+const Prompts = require('../shared/local-prompts-store'), Collections = require('../shared/local-ai-collections-store');
 const tick = () => new Promise(resolve => setTimeout(resolve, 10));
 async function until(predicate) {
     const deadline = Date.now() + 3000;
@@ -21,7 +22,7 @@ function mount(b) {
         const original = b.store[method].bind(b.store);
         b.store[method] = (...args) => { calls[key].push(args); return original(...args); };
     }
-    const window = {LocalItabCompleteBackup: {...Backup, Store: class { constructor() { return b.store; } }},
+    const window = {LocalItabPrompts:Prompts, LocalItabAICollections:Collections, LocalItabCompleteBackup: {...Backup, Store: class { constructor() { return b.store; } }},
         location: {reload() { calls.reloads++; }} };
     const ctx = {window, document, storageManager: b.storage, setTimeout, clearTimeout, URL, Blob, console};
     vm.createContext(ctx);
@@ -116,7 +117,8 @@ for (const stage of ['file text', 'first review', 'large prompt']) test(`ordinar
     for (const module of Backup.MODULES) if (module !== 'scratchpad') assert(ui.toggle(module));
     const before = clone(f.raw), writes = f.writes.length, exports = ui.calls.exports.length;
     const p = await pending(ui, b, text, stage); locked(ui);
-    ui.get('export').dispatch('click'); await until(() => ui.calls.downloads.length === 1 && !ui.view.pending);
+    ui.get('export').dispatch('click'); await until(() => !ui.get('download-export').disabled);
+    assert.equal(ui.calls.downloads.length, 0); ui.get('download-export').dispatch('click'); await until(() => ui.calls.downloads.length === 1 && !ui.view.pending);
     assert.equal(ui.calls.exports.length, exports + 1); assert.deepEqual(Array.from(ui.calls.exports.at(-1)[0]), ['scratchpad']);
     const exported = Backup.parse(ui.calls.downloads[0][0], b.storage);
     assert.deepEqual(Object.keys(exported.workspaces[0].modules), ['scratchpad']);
@@ -152,7 +154,8 @@ for (const failure of ['file read', 'initial review', 'oversize']) test(`${failu
     const reviews = ui.calls.reviews.length; assert(ui.toggle('config')); await tick();
     assert.equal(ui.calls.reviews.length, reviews + Number(failure === 'initial review'), 'only a read source can be explicitly retried; no ticket is invented');
     assert(ui.get('apply').disabled);
-    ui.get('export').dispatch('click'); await until(() => ui.calls.downloads.length === 1 && !ui.view.pending);
+    ui.get('export').dispatch('click'); await until(() => !ui.get('download-export').disabled);
+    assert.equal(ui.calls.downloads.length, 0); ui.get('download-export').dispatch('click'); await until(() => ui.calls.downloads.length === 1 && !ui.view.pending);
     assert.deepEqual(Array.from(ui.calls.exports.at(-1)[0]), Backup.MODULES.filter(module => module !== 'config')); unchanged(f, before, writes);
 }));
 
@@ -256,7 +259,8 @@ test('ordinary export captures known selected modules once and keeps all mutatin
     locked(ui); assert.equal(ui.toggle('scratchpad'), false); assert.equal(ui.toggle('config', 'Space'), false);
     assert(ui.get('apply').disabled); assert(ui.get('export').disabled); assert(ui.get('file').disabled);
     ui.get('apply').dispatch('click'); assert.equal(ui.calls.restores.length, 0);
-    wait.resolve(); await until(() => !ui.view.pending && ui.calls.downloads.length === 1);
+    wait.resolve(); await until(() => !ui.get('download-export').disabled);
+    assert.equal(ui.calls.downloads.length, 0); ui.get('download-export').dispatch('click'); await until(() => !ui.view.pending && ui.calls.downloads.length === 1);
     assert.equal(entered, 1); assert.deepEqual(Array.from(ui.calls.exports.at(-1)[0]), ['scratchpad']);
     available(ui, Backup.MODULES); unchanged(f, before, writes);
 }));

@@ -290,6 +290,8 @@ Settings saves only changed fields and keeps conflicting drafts for review. The 
 
 Settings → Data can export seven selected saved modules: configuration (including sites and local images), Tasks and history, Scratchpad, Countdown, Focus preferences and both global prompt and AI collection libraries (schema 4 with collections; schema 3 with prompts but no collections; schema 2 with workspace modules only). Review modules and confirm each selected global destination before replacement; unselected modules remain unchanged. A recovery snapshot containing all workspace modules and only the selected global libraries is retained before restore, with no automatic page reload. Unsaved drafts and live timer sessions are excluded; unfinished Focus sessions block restoring Focus preferences. Chrome Sync and Drive scope is unchanged. [Guide, limits and recovery](docs/complete-backup.en.md).
 
+Choose **Prepare export summary** first to check the selected modules, generation time, exact UTF-8 byte size and saved counts. Then **Download this backup** requests that exact saved snapshot; later edits are not added. The summary does not display private contents. Check the browser’s downloads yourself; completion cannot be verified here.
+
 ## Search and website management
 
 Shortcut and task editors keep the dialog and draft when Escape is used during IME composition. Ordinary Escape after composition still closes the dialog. [Behavior and verification scope](docs/dialog-ime-validation.md#english).

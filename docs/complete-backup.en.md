@@ -14,6 +14,18 @@ The first five modules belong to each workspace; the two global libraries occur 
 
 Finish saving first. This does not save open drafts for you. Unsaved settings, task edits, Scratchpad drafts, Countdown edits and calculator input are excluded. Separate Settings JSON, Tasks JSON, Scratchpad TXT, Countdown TXT and bookmark HTML exports remain available. Chrome Sync, Google Drive and configuration-only recovery do not gain personal content.
 
+## Review an export before downloading
+
+Choose **Prepare export summary** after saving the data you need. Preparation reads the selected saved modules once and does not download or write them. Review the module names, exact snapshot generation time, JSON UTF-8 byte count, live/Trash workspace identity counts and existing module statistics. The summary shows only counts and saved preference statistics, without workspace names, site URLs, titles, note bodies, prompt bodies or collection content. The live status announces readiness without speaking private content.
+
+Workspace counts include Trash and count repeated local-image references separately. “Enabled in at least one workspace” is an OR across workspaces, not a claim that every workspace is enabled. Cross-workspace Focus durations and Countdown titles/dates are not invented or listed. A schema-1 file has one workspace’s module contents and does not record live/Trash identities; its summary says so and counts Countdown title characters without showing the title or date. Each selected global library is counted once, with its active/archived records, saved body versions and recovery copies. Global-only files still contain workspace identity metadata but no workspace module contents; the summary states that distinction.
+
+Choose **Download this backup** to request the exact UTF-8 JSON string used for the summary. It is the saved snapshot at the displayed generation time: later saves are not silently reread or mixed into it. To include newer changes, prepare a new summary. A ready summary is temporary, unencrypted page-local state; it is cleared when the selection changes, another file is selected, preparation is cancelled, the view is destroyed or its host/page leaves. It is not a restore review or authorization to replace data.
+
+Preparation can be cancelled without downloading or changing saved data or drafts. An empty selection cannot prepare a file. The ordinary download button is single-use for that snapshot; while its request is pending, duplicate actions, cancellation and destruction cannot pretend to withdraw it. Once the request settles, the temporary bytes and lock are released, even if the host left. Success means only that a download was requested. On an error, inspect the browser’s downloads before preparing another copy; no automatic retry occurs. Existing pre-restore and interrupted-restore copy downloads retain their separate behavior.
+
+The existing 32 MiB limit and large-image pause risk still apply. Summary validation is local and may briefly pause the page for a large file. No new network calls, permissions, sync, providers or telemetry are involved.
+
 ## Workspaces and reviewed destinations
 
 Workspace-aware backups include all live workspaces and recoverable Trash. Selecting all five workspace modules can replace the workspace list, names, order and Trash. A partial workspace restore requires matching live/Trash identities and cannot create, rename, delete or resurrect workspaces. Global-only restoration does not replace workspace contents.
@@ -34,7 +46,7 @@ The buttons share the module checkboxes' locks while the first file check, a lar
 
 ## Export and restore
 
-1. Select modules and choose **Export selected modules**. A download request is not proof that a file was saved. Check the browser’s download list and open the destination folder before removing the old installation.
+1. Select modules, choose **Prepare export summary**, review it, then choose **Download this backup**. Check the browser’s downloads and saved file before removing the old environment; this page cannot verify download completion.
 2. On the destination, export existing saved data and finish or separately preserve all drafts. Choose the complete JSON file (up to 32 MiB). The file is read locally. Large image files may briefly pause the page during bounded validation.
 3. Review the selected modules, incoming/current counts and replacement scope. Changing selection creates a fresh preview. Selected current records are replaced rather than merged; global recovery histories are retained/imported. Only selected modules are replaced. Unselected modules and provider/authentication settings stay unchanged.
 4. Focus restoration is blocked while the destination has a running, paused or interrupted session. Deselect Focus or stop/reset that session using the existing timer controls, then preview again. No timer is silently stopped.

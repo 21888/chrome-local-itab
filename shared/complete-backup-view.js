@@ -66,7 +66,26 @@
     "Scratchpad": "Scratchpad",
     "Countdown": "Countdown",
     "Focus": "Focus preferences",
-    "Export": "Export selected modules",
+    "Export": "Prepare export summary",
+    "ExportPreparing": "Preparing a saved snapshot for review… No download has been requested.",
+    "ExportReview": "Review this saved backup",
+    "ExportSnapshot": "This is the saved snapshot at the generation time below. Later saved edits are not added automatically. No download has been requested yet.",
+    "ExportReady": "Summary ready. Review it, then choose Download this backup.",
+    "ExportTime": "Snapshot generated (UTC)",
+    "ExportBytes": "Exact JSON size (UTF-8 bytes)",
+    "ExportLive": "Live workspace identities in this file",
+    "ExportTrash": "Trash workspace identities in this file",
+    "ExportGlobalOnly": "No workspace module contents are included. The file still contains workspace identity metadata. Each selected global library is included once.",
+    "ExportCountScope": "Workspace statistics include live workspaces and Trash. Local images count saved references, including repeats. Each selected global library is counted once.",
+    "ExportLegacy": "Single-workspace contents: 1. Live/Trash identities are not recorded in this older format.",
+    "ExportSingleCountScope": "Statistics describe this single-workspace file. Local images count saved references, including repeats.",
+    "ExportAnyEnabled": "Enabled in at least one workspace",
+    "ExportDownload": "Download this backup",
+    "ExportCancel": "Cancel prepared export",
+    "ExportCancelled": "Prepared export cancelled. No download was requested; saved data and drafts were not changed.",
+    "ExportExpired": "The prepared export is no longer available. Prepare a new summary for the current selection.",
+    "ExportSubmitting": "Requesting this download. This step cannot be withdrawn here; check your browser’s downloads.",
+    "ExportDownloadError": "The download request could not be verified. Check your browser’s downloads before preparing another copy; no automatic retry was made.",
     "Choose": "Choose local backup JSON",
     "Recovery": "Download pre-restore recovery copy",
     "RecoveryHelp": "A verified local recovery copy is saved before replacement. Download it, then choose that JSON file here to review and restore. Starting a later confirmed restore may replace this snapshot, even if the target replacement does not finish.",
@@ -124,7 +143,7 @@
         if (!host?.ownerDocument || !store) throw new TypeError('Complete backup needs a host and store.');
         const doc = host.ownerDocument;
         const t = key => { const id = 'completeBackup' + key; const value = root.i18n?.t(id); return value && value !== id ? value : fallback[key]; };
-        let generation = 0, source = null, availableModules = null, preview = null, targetWorkspaceId, promptTarget, collectionTarget, interruptedReview = null, phase = '', destroyed = false, pendingLargeFile = null;
+        let generation = 0, source = null, availableModules = null, preview = null, targetWorkspaceId, promptTarget, collectionTarget, interruptedReview = null, phase = '', destroyed = false, pendingLargeFile = null, exportSnapshot = null, exportWatching = false, downloadDeparted = false;
         const make = (tag, cls, text, parent) => { const el = doc.createElement(tag); if (cls) el.className = cls; if (text !== undefined) el.textContent = text; parent?.append(el); return el; };
         const shell = make('section', 'complete-backup', undefined, host);
         make('h3', 'section-title', t('Title'), shell);
@@ -142,6 +161,14 @@
         const actions = make('div', 'complete-backup-actions', undefined, shell);
         const exportButton = button('Export', 'export'), choose = button('Choose', 'choose');
         const file = make('input', 'complete-backup-file', undefined, shell); file.type = 'file'; file.accept = '.json,application/json'; file.hidden = true;
+        const exportPanel = make('section', 'complete-backup-export-summary', undefined, shell); exportPanel.hidden = true;
+        const exportHeading = make('h4', '', t('ExportReview'), exportPanel); exportHeading.tabIndex = -1;
+        const exportNotice = make('p', 'form-hint', '', exportPanel);
+        const exportMeta = make('p', 'complete-backup-export-meta', '', exportPanel);
+        const exportScope = make('p', 'form-hint complete-backup-export-scope', '', exportPanel);
+        const exportCounts = make('ul', 'complete-backup-export-counts', undefined, exportPanel);
+        const exportActions = make('div', 'complete-backup-actions', undefined, exportPanel);
+        const downloadExport = button('ExportDownload', 'download-export', exportActions), cancelExport = button('ExportCancel', 'cancel-export', exportActions);
         const panel = make('section', 'complete-backup-preview', undefined, shell); panel.hidden = true;
         make('h4', '', t('Review'), panel);
         const summary = make('p', '', t('Scope'), panel); summary.tabIndex = -1;
@@ -177,12 +204,25 @@
         const interruptedSummary = make('p', 'form-hint complete-backup-interrupted-summary', '', shell); interruptedSummary.hidden = true;
         const recoverInterrupted = button('RecoverInterrupted', 'recover-interrupted', shell, true); recoverInterrupted.hidden = true;
         inspectInterrupted.hidden = typeof store.inspectInterruptedRestore !== 'function';
-        const current = token => !destroyed && host.isConnected && shell.isConnected && token === generation;
+        // Observe only the ordinary export's lifetime. Removed-and-reattached
+        // old nodes must not revive it, even before the observer callback runs.
+        const exportObserver = root.MutationObserver ? new root.MutationObserver(records => checkExportDeparture(records)) : null;
+        function checkExportDeparture(records = exportObserver?.takeRecords() || []) {
+            if (!exportWatching && phase !== 'downloading') return;
+            if (!host.isConnected || !shell.isConnected || records.some(record => Array.from(record.removedNodes).some(node => node === shell || node.contains?.(host) || node.contains?.(shell)))) expireExport();
+        }
+        function expireExport() {
+            if (phase === 'downloading') { downloadDeparted = true; exportObserver?.disconnect(); return; }
+            if (!exportWatching) return;
+            ++generation; phase = ''; clearExport(); controls(); status.textContent = t('ExportExpired');
+        }
+        root.addEventListener?.('pagehide', expireExport);
+        const current = token => { checkExportDeparture(); return !destroyed && !downloadDeparted && host.isConnected && shell.isConnected && token === generation; };
         // Scope belongs to the checked file, not to temporary control locks.
         // Export can still cancel an initial read using the visible selections.
         const selected = () => MODULES.filter(id => inputs[id].checked && (!availableModules || availableModules.includes(id)));
         function controls() {
-            const busy = ['applying', 'exporting'].includes(phase);
+            const busy = ['applying', 'exporting', 'downloading'].includes(phase);
             const unknownScope = phase === 'large' || phase === 'reading' && !availableModules;
             for (const id of MODULES) inputs[id].disabled = busy || unknownScope || Boolean(availableModules && !availableModules.includes(id));
             selectAll.disabled = clearSelection.disabled = busy || unknownScope;
@@ -191,8 +231,9 @@
             inspectInterrupted.disabled = busy; downloadInterrupted.disabled = busy || phase === 'reading'; recoverInterrupted.disabled = busy || !interruptedReview;
             largeButton.disabled = busy;
             apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
-            cancel.disabled = phase === 'applying';
-            shell.setAttribute('aria-busy', String(['reading', 'applying', 'exporting'].includes(phase)));
+            cancel.disabled = cancelExport.disabled = ['applying', 'downloading'].includes(phase);
+            downloadExport.disabled = phase !== 'export-ready' || !exportSnapshot;
+            shell.setAttribute('aria-busy', String(['reading', 'applying', 'exporting', 'downloading'].includes(phase)));
         }
         // Only move focus if the initiating control still owns it after async work.
         function focusOwner(origin) {
@@ -247,8 +288,9 @@
             if (!Object.values(groups).some(items => items.length)) make('p', 'form-hint complete-backup-workspace-impact-unchanged', t('WorkspaceImpactUnchanged'), workspaceImpactContent);
             workspaceImpact.hidden = false;
         }
-        function clear() { clearWorkspaceImpact(); configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
-        function abandon() { if (phase === 'applying') return; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
+        function clearExport() { exportSnapshot = null; exportWatching = false; downloadDeparted = false; exportObserver?.disconnect(); exportPanel.hidden = true; exportMeta.textContent = exportScope.textContent = ''; exportCounts.replaceChildren(); }
+        function clear() { clearExport(); clearWorkspaceImpact(); configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
+        function abandon() { if (!current(generation) || ['applying', 'downloading'].includes(phase)) return; const ordinaryExport = exportWatching; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t(ordinaryExport ? 'ExportCancelled' : 'Cancelled'); (ordinaryExport ? exportButton : choose).focus(); }
         const countText = (value, module) => {
             if (!value || typeof value !== 'object') return '';
             const parts = [];
@@ -349,17 +391,18 @@
                 if (availableModules && !availableModules.includes(id) || inputs[id].checked === checked) continue;
                 inputs[id].checked = checked; changed = true;
             }
+            if (changed && exportWatching) expireExport();
             if (changed && source) review(++generation, origin);
         }
         selectAll.addEventListener('click', () => selectModules(true, selectAll));
         clearSelection.addEventListener('click', () => selectModules(false, clearSelection));
-        for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (!current(generation) || input.disabled || !source) return; review(++generation, input); });
+        for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (!current(generation) || input.disabled) return; if (exportWatching) expireExport(); if (source) review(++generation, input); });
         target.addEventListener('change', () => { if (!current(generation) || target.disabled || !source) return; targetWorkspaceId = target.value || undefined; review(++generation, target); });
         promptTargetSelect.addEventListener('change', () => { if (!current(generation) || promptTargetSelect.disabled || !source) return; promptTarget = promptTargetSelect.value || undefined; review(++generation, promptTargetSelect); });
         collectionTargetSelect.addEventListener('change', () => { if (!current(generation) || collectionTargetSelect.disabled || !source) return; collectionTarget = collectionTargetSelect.value || undefined; review(++generation, collectionTargetSelect); });
-        cancel.addEventListener('click', abandon);
+        cancel.addEventListener('click', abandon); cancelExport.addEventListener('click', abandon);
         shell.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && phase !== 'applying' && (source !== null || ['reading', 'large'].includes(phase))) { event.preventDefault(); abandon(); }
+            if (event.key === 'Escape' && !event.repeat && !event.isComposing && event.keyCode !== 229 && !['applying', 'downloading'].includes(phase) && (source !== null || exportWatching || ['reading', 'large'].includes(phase))) { event.preventDefault(); abandon(); }
             if (['Enter', ' ', 'Spacebar'].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
         });
         apply.addEventListener('click', async () => {
@@ -375,29 +418,89 @@
             } catch (error) { if (current(token)) { phase = ''; source = null; availableModules = null; clear(); controls(); status.textContent = errorText(error, true); } }
             finally { move(current(token) ? status : null); }
         });
+        function exportDetails(text, ids) {
+            // Pure parsing of the exact exported bytes: no review ticket, extra
+            // storage reads, current-state merge or retained parsed archive.
+            const file = root.LocalItabCompleteBackup.parse(text, store.manager);
+            const names = file.schemaVersion >= 2 ? file.modules : Object.keys(file.modules);
+            if (names.length !== ids.length || ids.some(id => !names.includes(id))) throw {code:'INVALID'};
+            const totals = file.schemaVersion >= 2 ? store.workspaceCounts(file) : store.counts(file.modules);
+            if (names.includes('prompts')) totals.prompts = root.LocalItabPrompts.counts({...file.globals.prompts.content, recovery:file.globals.prompts.recovery});
+            if (names.includes('collections')) {
+                const state = root.LocalItabAICollections.initial();
+                Object.assign(state, file.globals.collections.content, {recovery:file.globals.collections.recovery});
+                totals.collections = root.LocalItabAICollections.counts(state);
+            }
+            return {exportedAt:file.exportedAt, bytes:new Blob([text]).size, legacy:file.schemaVersion === 1,
+                live:file.schemaVersion >= 2 ? file.workspaces.length : 1, trash:file.schemaVersion >= 2 ? file.trash.length : 0,
+                globalOnly:!names.some(id => !['prompts', 'collections'].includes(id)),
+                rows:ids.map(id => {
+                    const value = totals[id];
+                    // Do not retain countdown title/date or render private data.
+                    let label = countText(value && {...value, targetDate:undefined}, id);
+                    if (file.schemaVersion >= 2 && typeof value?.enabled === 'boolean') label = label.replace(t('CountEnabled') + ':', t('ExportAnyEnabled') + ':');
+                    return [id, label];
+                })};
+        }
+        downloadExport.addEventListener('click', async () => {
+            if (!current(generation) || downloadExport.disabled || phase !== 'export-ready' || !exportSnapshot) return;
+            const snapshot = exportSnapshot, ids = selected();
+            if (snapshot.token !== generation || ids.length !== snapshot.ids.length || ids.some((id, index) => id !== snapshot.ids[index])) { expireExport(); return; }
+            // Consume before invoking download. Once submitted it cannot be
+            // cancelled, retried or re-entered through this prepared snapshot.
+            exportSnapshot = null; exportWatching = false; downloadDeparted = false;
+            const token = ++generation, move = focusOwner(downloadExport);
+            phase = 'downloading'; controls(); exportNotice.textContent = status.textContent = t('ExportSubmitting');
+            try { await download(snapshot.text, 'local-itab-complete', doc); if (current(token)) status.textContent = t('Download'); }
+            catch (_) { if (current(token)) status.textContent = t('ExportDownloadError'); }
+            finally {
+                const visible = current(token);
+                // A submitted request owns its lock until it settles, even if
+                // its host left. Release locally without reviving stale feedback.
+                if (!destroyed && token === generation) { phase = ''; clearExport(); controls(); if (!visible) status.textContent = ''; }
+                move(visible ? status : null);
+            }
+        });
         async function exportFile(isRecovery) {
-            if (!current(generation) || ['applying', 'exporting'].includes(phase)) return;
+            if (!current(generation) || ['applying', 'exporting', 'downloading'].includes(phase)) return;
             const ids = selected(); if (!isRecovery && !ids.length) { status.textContent = t('None'); return; }
             const token = ++generation, origin = isRecovery ? recovery : exportButton, move = focusOwner(origin);
             // A read-only recovery download retains settled destination choices
             // without refreshing the review or granting a missing destination.
             const reviewPhase = isRecovery && preview && ['ready', 'target'].includes(phase) ? phase : '';
             if (!reviewPhase) { source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear(); }
-            phase = 'exporting'; controls(); status.textContent = t('Exporting');
+            if (!isRecovery) {
+                interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true;
+                exportWatching = true; exportObserver?.observe(doc.documentElement, {childList:true, subtree:true});
+                exportPanel.hidden = false; exportNotice.textContent = t('ExportPreparing');
+            }
+            phase = 'exporting'; controls(); status.textContent = t(isRecovery ? 'Exporting' : 'ExportPreparing');
             try {
                 await new Promise(resolve => setTimeout(resolve, 0));
                 if (!current(token)) return;
                 const text = await (isRecovery ? store.recovery() : store.export(ids));
                 if (!current(token)) return;
-                if (typeof text !== 'string') throw {code: 'NO_RECOVERY'};
+                if (typeof text !== 'string') throw {code: isRecovery ? 'NO_RECOVERY' : 'INVALID'};
+                if (!isRecovery) {
+                    const details = exportDetails(text, ids);
+                    exportSnapshot = {text, ids: [...ids], token};
+                    exportMeta.textContent = `${t('ExportTime')}: ${details.exportedAt}. ${t('ExportBytes')}: ${details.bytes}. ` + (details.legacy ? t('ExportLegacy') : `${t('ExportLive')}: ${details.live}. ${t('ExportTrash')}: ${details.trash}.`);
+                    exportScope.textContent = t(details.legacy ? 'ExportSingleCountScope' : details.globalOnly ? 'ExportGlobalOnly' : 'ExportCountScope');
+                    for (const [id, value] of details.rows) {
+                        const row = make('li', '', undefined, exportCounts); row.dataset.module = id;
+                        make('strong', '', t(titleKey(id)), row); make('span', '', value, row);
+                    }
+                    phase = 'export-ready'; controls(); exportNotice.textContent = t('ExportSnapshot'); status.textContent = t('ExportReady'); move(exportHeading); return;
+                }
                 await download(text, isRecovery ? 'local-itab-pre-restore' : 'local-itab-complete', doc);
                 if (current(token)) status.textContent = t('Download');
-            } catch (error) { if (current(token)) status.textContent = isRecovery ? t('NoRecovery') : errorText(error); }
-            finally { if (current(token)) { phase = reviewPhase; controls(); } move(current(token) ? status : null); }
+            } catch (error) { if (current(token)) { if (!isRecovery) clearExport(); status.textContent = isRecovery ? t('NoRecovery') : error?.code === 'WORKSPACE_READ' ? t('Read') : errorText(error); } }
+            finally { if (current(token)) { if (phase !== 'export-ready') phase = reviewPhase; controls(); } move(current(token) ? status : null); }
         }
         exportButton.addEventListener('click', () => exportFile(false)); recovery.addEventListener('click', () => exportFile(true));
         downloadInterrupted.addEventListener('click', async () => {
             if (!current(generation) || downloadInterrupted.disabled) return;
+            if (exportWatching) clearExport();
             // A read-only recovery download must not strand an existing review.
             // Only settled reviews can resume; the token still owns cancellation.
             const reviewPhase = preview && ['ready', 'target'].includes(phase) ? phase :
@@ -436,8 +539,8 @@
         });
         reloadButton.addEventListener('click', () => reload());
         controls();
-        return { get pending() { return phase === 'applying' || phase === 'exporting'; }, hasUncommittedWork: () => Boolean(source || phase), cancel: abandon,
-            destroy() { if (phase === 'applying') return false; destroyed = true; ++generation; source = null; availableModules = null; clearWorkspaceImpact(); shell.remove(); return true; } };
+        return { get pending() { return ['applying', 'exporting', 'downloading'].includes(phase); }, hasUncommittedWork: () => Boolean(source || phase), cancel: abandon,
+            destroy() { if (['applying', 'downloading'].includes(phase)) return false; destroyed = true; ++generation; source = null; availableModules = null; clearExport(); root.removeEventListener?.('pagehide', expireExport); clearWorkspaceImpact(); shell.remove(); return true; } };
     }
     function downloadFile(text, name, doc) {
         const url = URL.createObjectURL(new Blob([text], {type:'application/json'}));

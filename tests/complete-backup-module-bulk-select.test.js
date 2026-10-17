@@ -23,6 +23,7 @@ test('module fieldset offers native Select all available and Clear selection but
 
 const {deferred} = require('./helpers/task-dom-model');
 const {Backup, clone, fixture, withGlobals, seed, boot} = require('./helpers/complete-import-receipt-fixture');
+const {fixture: exportFixture, Prompts, Collections} = require('./helpers/complete-backup-acceptance');
 const MODULES = [...Backup.MODULES], SCOPED = [...Backup.SCOPED_MODULES];
 const tick = () => new Promise(resolve => setTimeout(resolve, 10));
 async function until(predicate) {
@@ -43,11 +44,12 @@ function mount(t, {modules = SCOPED, store: supplied, locale} = {}) {
     const document = createDocument({blurUnavailableFocus: true, aggregateTextContent: true});
     const host = document.createElement('div'); document.body.append(host);
     const catalog = locale ? JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`)) : null;
-    const window = {LocalItabCompleteBackup: Backup, i18n: {t: key => catalog?.[key]?.message || key}};
+    const window = {LocalItabCompleteBackup: Backup, LocalItabPrompts:Prompts, LocalItabAICollections:Collections, i18n: {t: key => catalog?.[key]?.message || key}};
     vm.runInNewContext(fs.readFileSync('shared/complete-backup-view.js', 'utf8'), {window, setTimeout, clearTimeout, URL, Blob});
+    const exportStore = exportFixture().store;
     const backend = supplied || {async review(text, selection = modules, options) { return result(modules, selection, options); },
-        async export() { return 'SYNTHETIC EXPORT'; }, async restore() {}, async recovery() { return 'SYNTHETIC RECOVERY'; }};
-    const calls = {reviews: [], results: [], exports: [], restores: [], recoveries: [], downloads: []}, store = {};
+        async export(ids) { return exportStore.export(ids); }, async restore() {}, async recovery() { return 'SYNTHETIC RECOVERY'; }};
+    const calls = {reviews: [], results: [], exports: [], restores: [], recoveries: [], downloads: []}, store = {manager:backend.manager || exportStore.manager, counts:(backend.counts || exportStore.counts).bind(backend.counts ? backend : exportStore), workspaceCounts:(backend.workspaceCounts || exportStore.workspaceCounts).bind(backend.workspaceCounts ? backend : exportStore)};
     for (const [method, key] of [['review', 'reviews'], ['export', 'exports'], ['restore', 'restores'], ['recovery', 'recoveries']]) {
         if (typeof backend[method] === 'function') store[method] = async (...args) => {
             calls[key].push(args); const value = await backend[method](...args);
@@ -247,13 +249,14 @@ test('read failure releases bulk controls without retaining source or the previo
 for (const operation of ['export', 'apply']) test(`${operation} locks both bulk buttons until the existing operation finishes`, async t => {
     const m = mount(t), wait = deferred(); let entered = false;
     if (operation === 'apply') { await ready(m); m.backend.restore = async () => { entered = true; await wait.promise; }; }
-    else m.backend.export = async () => { entered = true; await wait.promise; return 'SYNTHETIC EXPORT'; };
+    else { const original = m.backend.export; m.backend.export = async ids => { entered = true; await wait.promise; return original(ids); }; }
     m.click(operation); await until(() => entered); bulkEnabled(m, false);
     const checks = m.checked(), count = m.calls.reviews.length;
     assert.equal(m.click('clear-selection'), false); m.get('clear-selection').dispatch('click'); m.get('select-all').dispatch('click');
     assert.deepEqual(m.checked(), checks); assert.equal(m.calls.reviews.length, count);
     wait.resolve(); await settled(m); bulkEnabled(m, true);
     assert.equal(m.calls.restores.length, Number(operation === 'apply')); assert.equal(m.calls.exports.length, Number(operation === 'export'));
+    if (operation === 'export') { assert(!m.get('export-summary').hidden); assert(!m.get('download-export').disabled); assert.equal(m.calls.downloads.length, 0); }
 });
 
 test('detached host rejects old bulk controls without changing checks or calling the Store', async t => {

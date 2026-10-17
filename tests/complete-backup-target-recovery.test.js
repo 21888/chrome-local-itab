@@ -185,7 +185,10 @@ for (const transition of ['cancel', 'new file', 'destroy']) {
 test('ordinary Export still cancels a pending target and exports only its narrowed scope', () => run(async (f, b, ui) => {
     await narrowedTarget(f, b, ui); const before = clone(f.raw), writes = f.writes.length;
     ui.get('export').dispatch('click'); await until(() => !ui.view.pending);
-    assert(ui.get('preview').hidden); assert(ui.get('apply').disabled); assert.equal(ui.view.hasUncommittedWork(), false);
+    assert(ui.get('preview').hidden); assert(ui.get('apply').disabled); assert.equal(ui.view.hasUncommittedWork(), true);
+    assert.equal(ui.calls.downloads.length, 0); assert(!ui.get('download-export').disabled);
+    ui.get('download-export').dispatch('click'); await until(() => !ui.view.pending);
+    assert.equal(ui.view.hasUncommittedWork(), false);
     const data = Backup.parse(ui.calls.downloads[0][0], b.storage);
     assert.deepEqual(data.modules, ['scratchpad']); assert.equal(ui.calls.restores.length, 0); unchanged(f, before, writes);
 }));

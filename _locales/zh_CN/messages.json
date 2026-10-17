@@ -2737,7 +2737,7 @@
     "message": "专注偏好"
   },
   "completeBackupExport": {
-    "message": "导出所选模块"
+    "message": "准备导出摘要"
   },
   "completeBackupChoose": {
     "message": "选择本地备份 JSON"
@@ -7903,5 +7903,62 @@
   },
   "promptsModelStreamSourceRetry": {
     "message": "重新核对来源"
+  },
+  "completeBackupExportReview": {
+    "message": "核对这份已保存备份"
+  },
+  "completeBackupExportSnapshot": {
+    "message": "这是下列生成时间的已保存快照。后续保存的编辑不会自动加入。尚未请求下载。"
+  },
+  "completeBackupExportReady": {
+    "message": "摘要已准备好。核对后，再选择“下载这份备份”。"
+  },
+  "completeBackupExportTime": {
+    "message": "快照生成时间（UTC）"
+  },
+  "completeBackupExportBytes": {
+    "message": "JSON 精确大小（UTF-8 字节）"
+  },
+  "completeBackupExportLive": {
+    "message": "文件中的正常工作区身份数"
+  },
+  "completeBackupExportTrash": {
+    "message": "文件中的回收站工作区身份数"
+  },
+  "completeBackupExportGlobalOnly": {
+    "message": "未包含工作区模块内容。文件仍含工作区身份元数据；每个所选全局库仅包含一次。"
+  },
+  "completeBackupExportCountScope": {
+    "message": "工作区统计包含正常工作区和回收站。本地图片按已保存引用计数，重复引用分别计入；每个所选全局库只统计一次。"
+  },
+  "completeBackupExportAnyEnabled": {
+    "message": "至少一个工作区已启用"
+  },
+  "completeBackupExportDownload": {
+    "message": "下载这份备份"
+  },
+  "completeBackupExportCancel": {
+    "message": "取消本次导出准备"
+  },
+  "completeBackupExportCancelled": {
+    "message": "导出准备已取消，未请求下载；已保存数据和草稿未改变。"
+  },
+  "completeBackupExportExpired": {
+    "message": "先前准备的导出已失效，请为当前选择重新准备摘要。"
+  },
+  "completeBackupExportSubmitting": {
+    "message": "正在提交本次下载请求。此步骤无法在这里撤回，请检查浏览器下载列表。"
+  },
+  "completeBackupExportDownloadError": {
+    "message": "无法核验本次下载请求。重新准备副本前，请检查浏览器下载列表；未自动重试。"
+  },
+  "completeBackupExportLegacy": {
+    "message": "单工作区模块内容：1 份。此旧格式未记录正常／回收站身份元数据。"
+  },
+  "completeBackupExportSingleCountScope": {
+    "message": "统计描述此单工作区文件。本地图片按已保存引用计数，重复引用分别计入。"
+  },
+  "completeBackupExportPreparing": {
+    "message": "正在准备可核对的已保存快照，尚未请求下载。"
   }
 }
