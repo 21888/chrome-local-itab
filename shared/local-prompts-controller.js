@@ -170,6 +170,22 @@
             this.drafts.set('new', draft); this.selected = 'new'; this.excerptEpoch++;
             this.error = null; this.notice = ''; this.notify(); return true;
         }
+        historyDraftSourceCurrent(source) {
+            if (!source || !this.starterReady() || this.selected !== source.promptId || this.draft()) return false;
+            const record = this.record(source.promptId);
+            return Boolean(record && !record.deletedAt && record.version === source.recordVersion &&
+                record.history.some(version => version.id === source.versionId && version.body === source.body));
+        }
+        createFromHistory(source) {
+            // Validate the reviewed tuple against loaded state; opening performs no I/O.
+            if (!this.historyDraftSourceCurrent(source) || this.dirty('new')) return false;
+            const record = this.record(source.promptId), draft = this.makeDraft();
+            // Keep the new-draft Proxy and empty baseline. Metadata is current, not historical.
+            draft.input = { ...fields(record), body: source.body };
+            draft.originalTags = [...record.tags];
+            this.invalidateDraftPreview(); this.drafts.set('new', draft); this.selected = 'new'; this.excerptEpoch++;
+            this.error = null; this.notice = ''; this.notify(); return true;
+        }
         draft() { return this.drafts.get(this.selected); }
         dirty(id = this.selected) {
             const draft = this.drafts.get(id);

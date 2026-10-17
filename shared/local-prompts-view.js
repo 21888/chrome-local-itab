@@ -206,7 +206,7 @@
             if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
             if (kind === 'draftPreview') { this.renderDraftPreview(); return; }
             if (kind === 'draftPreviewValues') { this.updateDraftPreview(); return; }
-            if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); return; }
+            if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); this.historyDraftActions?.update(); return; }
             if (kind === 'preview') {
                 // Even an edit back to the original text supersedes pending feedback.
                 this.copyGeneration++; this.updatePreview(); return;
@@ -220,6 +220,7 @@
             const desiredFocus = restore || (!c.busy && !this.destroyed && !this.openDialog &&
                 this.host.isConnected && !this.host.closest('[hidden], [inert]') && !this.doc.hidden ? this.pendingFocus : null);
             const range = restore && typeof active.selectionStart === 'number' ? [active.selectionStart, active.selectionEnd] : null;
+            this.historyDraftActions = null;
             this.linkedSections = []; this.main.replaceChildren(); this.main.setAttribute('aria-busy', String(c.busy)); this.previewElements = null; this.editorElements = null; this.draftPreviewElements = null; this.draftPreviewHost = null;
             if (!c.state) this.renderUnavailable();
             else if (c.draft()) this.renderEditor();
@@ -789,19 +790,43 @@
                 if (c.selected !== record.id) return; await c.action('restoreVersion', versionId, record.version); this.focusDetail();
             });
             let selectedVersion;
+            const recordId = record.id, recordVersion = record.version;
+            const source = () => ({ promptId: recordId, recordVersion, versionId: selectedVersion?.id, body: selectedVersion?.body });
+            const panelCurrent = () => !this.destroyed && !this.openDialog && this.historyDraftActions?.panel === details &&
+                details.isConnected && this.main.contains(details) && !this.host.closest('[hidden], [inert]') &&
+                c.selected === recordId;
+            const current = () => panelCurrent() && selectedVersion?.id === this.historyId && c.historyDraftSourceCurrent(source());
+            const draftHelp = this.el('p', 'prompt-help', this.t('HistoryDraftHelp', 'Create an unsaved, independent draft from the selected exact body. Title, category, tags, tool note and favorite come from the currently saved prompt. Save explicitly to add a new prompt with one body version.'));
+            draftHelp.id = 'prompt-history-draft-help';
+            const newDraft = this.focusKey(this.button('HistoryNewDraft', 'New draft from this body version', () => {
+                if (current() && c.createFromHistory(source())) this.focusDetail('title');
+            }), 'history-new-draft');
+            newDraft.setAttribute('aria-describedby', draftHelp.id);
+            const existingHelp = this.el('p', 'prompt-help', this.t('HistoryDraftExisting', 'Your existing new draft is kept. Continue it, or save or explicitly discard it before creating a draft from this body version.'));
+            const continueDraft = this.focusKey(this.button('HistoryContinueDraft', 'Continue existing draft', () => {
+                if (current() && c.dirty('new') && c.create()) this.focusDetail('title');
+            }), 'history-continue-draft');
+            const updateDraftActions = () => {
+                const ready = c.historyDraftSourceCurrent(source()), existing = c.dirty('new');
+                newDraft.disabled = !ready || existing;
+                existingHelp.hidden = !existing; continueDraft.hidden = !existing; continueDraft.disabled = !ready || !existing;
+            };
+            this.historyDraftActions = { panel: details, update: updateDraftActions };
             const use = this.button('UseVersion', 'Use this version', () => {
                 if (selectedVersion && c.useVersion(selectedVersion.id, selectedVersion.body, record.id)) this.focusDetail('preview');
             });
             const linked = this.linkedSection(record.id, record.currentVersionId);
             const linkedEntry = this.linkedSections[this.linkedSections.length - 1];
-            const paint = version => { selectedVersion = version; use.disabled = c.busy || Boolean(c.pendingCommand) || c.pendingReadGeneration !== null || c.linkedPromptUnavailable || Boolean(record.deletedAt); linkedEntry.versionId = version.id; this.paintLinkedResults(linkedEntry); this.historyId = version.id; body.textContent = version.body; caption.textContent = `${this.t('VersionSaved', 'Body saved')} ${this.date(version.createdAt)}`; restore.disabled = c.busy || Boolean(c.pendingCommand) || Boolean(record.deletedAt) || version.id === record.currentVersionId;
+            const paint = version => { selectedVersion = { id: version.id, body: version.body }; use.disabled = c.busy || Boolean(c.pendingCommand) || c.pendingReadGeneration !== null || c.linkedPromptUnavailable || Boolean(record.deletedAt); linkedEntry.versionId = version.id; this.paintLinkedResults(linkedEntry); this.historyId = version.id; body.textContent = version.body; caption.textContent = `${this.t('VersionSaved', 'Body saved')} ${this.date(version.createdAt)}`; restore.disabled = c.busy || Boolean(c.pendingCommand) || Boolean(record.deletedAt) || version.id === record.currentVersionId;
+                updateDraftActions();
                 for (const button of list.children) button.setAttribute('aria-pressed', String(button.dataset.versionId === version.id)); };
             for (const [index, version] of [...record.history].entries()) {
-                const button = this.el('button', '', `v${index + 1}${version.id === record.currentVersionId ? ` · ${this.t('Current', 'current')}` : ''}`); button.type = 'button'; button.dataset.versionId = version.id; button.addEventListener('click', () => paint(version)); list.append(button);
+                const button = this.el('button', '', `v${index + 1}${version.id === record.currentVersionId ? ` · ${this.t('Current', 'current')}` : ''}`); button.type = 'button'; button.dataset.versionId = version.id; button.addEventListener('click', () => { if (panelCurrent()) paint(version); }); list.append(button);
             }
             details.append(list, caption, body, linked, this.el('div', 'prompt-section')); details.lastElementChild?.append(use, restore);
             // append directly when running the small synthetic DOM model as well.
             if (!restore.parentElement) details.append(use, restore);
+            details.append(draftHelp, newDraft, existingHelp, continueDraft);
             paint(record.history.find(version => version.id === this.historyId) || record.history[record.history.length - 1]);
             this.renderComparison(record, details); this.main.append(details);
         }

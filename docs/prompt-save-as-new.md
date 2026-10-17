@@ -10,6 +10,11 @@ remain in their original in-memory session; they are never substituted into the
 saved template. Unchanged templates can be copied. Normal Save and Ctrl/⌘ + S
 continue to edit the original. Required fields gate both buttons.
 
+The normal history panel also offers [New draft from this body version](prompt-history-draft.md).
+That action opens a separate unsaved editor using the selected exact saved body
+and current saved metadata. It is separate from copying an existing editor draft
+and from the existing history-limit restore recovery.
+
 ## Interrupted-save safety
 
 - Repeated activation while busy is blocked. Definitive first-attempt validation

@@ -3501,6 +3501,18 @@
   "promptsHistory": {
     "message": "Body version history"
   },
+  "promptsHistoryNewDraft": {
+    "message": "New draft from this body version"
+  },
+  "promptsHistoryDraftHelp": {
+    "message": "Create an unsaved, independent draft from the selected exact body. Title, category, tags, tool note and favorite come from the currently saved prompt. Save explicitly to add a new prompt with one body version."
+  },
+  "promptsHistoryDraftExisting": {
+    "message": "Your existing new draft is kept. Continue it, or save or explicitly discard it before creating a draft from this body version."
+  },
+  "promptsHistoryContinueDraft": {
+    "message": "Continue existing draft"
+  },
   "promptsHistoryHelp": {
     "message": "Only saved body changes create versions. Restoring keeps later history and creates a new version."
   },

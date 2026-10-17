@@ -8,6 +8,8 @@
 
 其他标签页更新正文时，已输入值或明确选中的旧版本不会自动替换。原始版本被移除、归档或被完整备份以相同 ID 的不同正文替换时，旧值不会套入新模板；无效来源暂停复制和摘录填入，需明确返回当前版本或重新读取。记录消失时保留临时值并显示重新读取入口。读取期间暂时禁用预览输入与复制；重新读取成功后恢复。
 
+历史面板中的「从此正文版本新建草稿」会将当前选中的原正文复制到独立的未保存草稿，标题、分类、标签、工具备注和收藏来自当前已保存提示词。它不切换预览，也不修改原条目；明确保存后才新增独立提示词。已有新草稿会保留，并提供「继续已有草稿」。详见 [历史正文新建草稿](prompt-history-draft.md)。
+
 ## Bounds and validation
 
 - At most 100 cached exact-body sessions per page. Empty inactive sessions may be reclaimed; typed values and literal choices are never silently evicted.

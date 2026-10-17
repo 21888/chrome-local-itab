@@ -3501,6 +3501,18 @@
   "promptsHistory": {
     "message": "正文版本历史"
   },
+  "promptsHistoryNewDraft": {
+    "message": "从此正文版本新建草稿"
+  },
+  "promptsHistoryDraftHelp": {
+    "message": "将当前选中的确切正文复制到独立的未保存草稿。标题、分类、标签、工具备注和收藏来自当前已保存提示词。明确保存后才会新增提示词，仅含一个正文版本。"
+  },
+  "promptsHistoryDraftExisting": {
+    "message": "已保留现有的新建草稿。请继续编辑、保存或明确放弃该草稿，再从此正文版本新建草稿。"
+  },
+  "promptsHistoryContinueDraft": {
+    "message": "继续已有草稿"
+  },
   "promptsHistoryHelp": {
     "message": "只有保存正文修改才会生成版本。恢复会生成新版本，并保留后续历史。"
   },
