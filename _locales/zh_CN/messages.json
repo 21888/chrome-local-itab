@@ -2637,6 +2637,18 @@
   "calculatorRecentClear": {
     "message": "清空最近计算"
   },
+  "calculatorRecentCopyAction": {
+    "message": "复制计算记录"
+  },
+  "calculatorRecentCopying": {
+    "message": "正在复制计算记录…"
+  },
+  "calculatorRecentCopySuccess": {
+    "message": "已复制这条计算记录。"
+  },
+  "calculatorRecentCopyFailure": {
+    "message": "无法复制这条计算记录。请选中原始表达式和结果，手动复制。"
+  },
   "calculatorEditExpression": {
     "message": "编辑表达式"
   },

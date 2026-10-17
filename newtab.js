@@ -822,6 +822,10 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     calculatorRecentClear.disabled = true;
     calculatorRecent.append(calculatorRecentSummary, calculatorRecentNote, calculatorRecentEmpty, calculatorRecentList, calculatorRecentClear);
     let recentCalculations = [];
+    const recentCopyFeedback = new Set();
+    const clearRecentCopyFeedback = () => {
+        for (const receipt of [...recentCopyFeedback]) receipt.cancel();
+    };
     let calculatorResult = null;
     const clearCopyStatus = () => {
         calculatorCopyStatus.textContent = '';
@@ -831,13 +835,12 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     const invalidateCalculatorCopy = () => {
         const attempt = calculatorCopyAttempt;
         if (attempt?.owner !== searchOwner) return;
-        attempt.valid = false;
-        attempt.cleanup();
-        clearCopyStatus();
+        attempt.cancel();
         // Keep the shared lock until the issued write settles; only its UI is stale.
     };
     const clearCalculatorOutput = () => {
         invalidateCalculatorCopy();
+        clearRecentCopyFeedback();
         calculatorResult = null;
         clearCopyStatus();
         calculatorValue.value = '';
@@ -875,7 +878,11 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     let searchConfigPending = 0;
     let selectionRequest = 0;
     let customComposing = false;
-    const refreshCopyControl = () => calculatorCopy.setAttribute('aria-disabled', String(Boolean(calculatorCopyAttempt)));
+    const refreshCopyControl = () => {
+        const locked = String(Boolean(calculatorCopyAttempt));
+        calculatorCopy.setAttribute('aria-disabled', locked);
+        for (const record of recentCalculations) record.copyView?.control.setAttribute('aria-disabled', locked);
+    };
     const searchOwner = {
         clearResult: clearCalculatorOutput,
         refreshCopyControl,
@@ -911,16 +918,17 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     calculatorCopy.addEventListener('keydown', event => {
         if (['Enter', ' '].includes(event.key) && (event.repeat || composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
     });
-    calculatorCopy.addEventListener('click', async event => {
-        const result = calculatorResult;
-        if (event.detail > 1 || calculatorCopyAttempt || !resultCurrent(result)) return;
-        const attempt = { owner: searchOwner, valid: true };
+    const executeCalculatorCopy = async ({ text, isCurrent, invalidating, status, messages, clear, retainFeedback = false }) => {
+        const attempt = { owner: searchOwner, valid: true, settled: false, status };
         calculatorCopyAttempt = attempt;
-        const cancel = invalidateCalculatorCopy;
-        // Ancestor changes invalidate even a hide/detach followed by an immediate return.
-        const invalidating = records => records.some(record => record.type === 'attributes'
-            ? record.target.contains(calculatorCopy)
-            : Array.from(record.removedNodes || []).some(node => node === calculatorCopy || node.contains?.(calculatorCopy)));
+        const cancel = () => {
+            if (!attempt.valid) return;
+            attempt.valid = false;
+            attempt.cleanup();
+            clear();
+            recentCopyFeedback.delete(attempt);
+        };
+        attempt.cancel = cancel;
         const observer = window.MutationObserver ? new window.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
         attempt.cleanup = () => {
             observer?.disconnect();
@@ -930,35 +938,58 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
         };
         const current = () => {
             if (observer && invalidating(observer.takeRecords())) cancel();
-            return attempt.valid && calculatorCopyAttempt === attempt && resultCurrent(result);
+            return attempt.valid && (attempt.settled || calculatorCopyAttempt === attempt) && isCurrent();
         };
+        if (retainFeedback) recentCopyFeedback.add(attempt);
         document.addEventListener('visibilitychange', cancel, true);
         window.addEventListener?.('blur', cancel);
         window.addEventListener?.('pagehide', cancel);
         observer?.observe(document.documentElement, { subtree: true, childList: true, attributes: true,
-            attributeFilter: ['hidden', 'inert', 'aria-hidden', 'style', 'class', 'open'] });
-        calculatorCopyStatus.textContent = calculatorText('calculatorCopying', 'Copying result…');
-        calculatorCopyStatus.hidden = false;
-        calculatorCopyStatus.classList.remove('is-error');
+            characterData: retainFeedback,
+            attributeFilter: ['hidden', 'inert', 'aria-hidden', 'style', 'class', 'open', 'disabled', 'readonly'] });
+        status.textContent = calculatorText(...messages.pending);
+        status.hidden = false;
+        status.classList.remove('is-error');
         refreshCopyControl();
         try {
             // Call synchronously in this explicit activation; never await storage or permission.
             const clipboard = window.navigator?.clipboard;
-            if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
-            await clipboard.writeText(result.value);
-            if (current()) calculatorCopyStatus.textContent = calculatorText('calculatorCopySuccess', 'Result copied.');
+            const writeText = clipboard?.writeText;
+            if (typeof writeText !== 'function') throw new Error('Clipboard unavailable');
+            if (!current()) return;
+            await writeText.call(clipboard, text);
+            if (current()) status.textContent = calculatorText(...messages.success);
         } catch (_) {
             if (current()) {
-                calculatorCopyStatus.textContent = calculatorText('calculatorCopyFailure', 'Could not copy. Select the result and press Ctrl/Cmd+C to copy it manually.');
-                calculatorCopyStatus.classList.add('is-error');
+                status.textContent = calculatorText(...messages.failure);
+                status.classList.add('is-error');
             }
         } finally {
             if (!current()) cancel();
-            attempt.cleanup();
+            // Recent receipts remain guarded until their row/edit/fold/departure changes.
+            // They describe this past action, never the live clipboard contents.
+            if (!retainFeedback || !attempt.valid) attempt.cleanup();
+            attempt.settled = true;
             if (calculatorCopyAttempt === attempt) calculatorCopyAttempt = null;
             // A replacement owner becomes available without receiving the old receipt.
             window.localCalculatorView?.refreshCopyControl?.();
         }
+    };
+    calculatorCopy.addEventListener('click', event => {
+        const result = calculatorResult;
+        if (event.detail > 1 || calculatorCopyAttempt || !resultCurrent(result)) return;
+        executeCalculatorCopy({
+            text: result.value, isCurrent: () => resultCurrent(result), status: calculatorCopyStatus, clear: clearCopyStatus,
+            // Ancestor changes invalidate even a hide/detach followed by an immediate return.
+            invalidating: records => records.some(record => record.type === 'attributes'
+                ? record.target.contains(calculatorCopy)
+                : Array.from(record.removedNodes || []).some(node => node === calculatorCopy || node.contains?.(calculatorCopy))),
+            messages: {
+                pending: ['calculatorCopying', 'Copying result…'],
+                success: ['calculatorCopySuccess', 'Result copied.'],
+                failure: ['calculatorCopyFailure', 'Could not copy. Select the result and press Ctrl/Cmd+C to copy it manually.']
+            }
+        });
     });
     calculatorUseResult.addEventListener('keydown', event => {
         if (['Enter', ' '].includes(event.key) && (event.repeat || composing || customComposing || event.isComposing || event.keyCode === 229)) event.preventDefault();
@@ -1022,7 +1053,53 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
             }
         });
     };
+    const bindRecentCopyAction = (record, row, expression, value, control, status) => {
+        const view = { row, expression, value, control, status };
+        record.copyView = view;
+        const clear = () => {
+            status.textContent = '';
+            status.hidden = true;
+            status.classList.remove('is-error');
+        };
+        clear();
+        control.addEventListener('keydown', guardRecentKey);
+        control.addEventListener('click', event => {
+            const draft = input.value, revision = editRevision, operation = submissionRevision;
+            const rawExpression = expression.textContent, rawValue = value.textContent;
+            const current = () => recentCalculations.includes(record) && record.copyView === view &&
+                document.getElementById('search-container') === container &&
+                [container, form, input, row, expression, value, control, status].every(node => node.ownerDocument === document) &&
+                row.parentElement === calculatorRecentList && calculatorRecentList.parentElement === calculatorRecent &&
+                calculatorRecent.parentElement === form && form.parentElement === container && input.parentElement === form &&
+                control.parentElement === row && expression.parentElement === row && value.parentElement === row && status.parentElement === row &&
+                expression.textContent === rawExpression && rawExpression === record.expression &&
+                value.textContent === rawValue && rawValue === record.value &&
+                input.value === draft && editRevision === revision && submissionRevision === operation &&
+                recentControlAvailable(control) && recentControlAvailable(expression) && recentControlAvailable(value) &&
+                recentControlAvailable(input) && !input.readOnly;
+            if (event.detail > 1 || recentActivationBlocked(event) || calculatorCopyAttempt || !current()) return;
+            for (const receipt of [...recentCopyFeedback]) if (receipt.status === status) receipt.cancel();
+            const origins = [container, form, input, calculatorRecent, calculatorRecentList, row, expression, value, control, status];
+            const sourceContains = node => expression.contains(node) || value.contains(node);
+            executeCalculatorCopy({
+                text: `${record.expression}\n${record.value}`, isCurrent: current, status, clear, retainFeedback: true,
+                invalidating: records => records.some(change => change.type === 'attributes'
+                    ? origins.some(node => change.target.contains?.(node)) && change.target !== status
+                    : sourceContains(change.target) || Array.from(change.removedNodes || []).some(removed =>
+                        origins.some(node => removed === node || removed.contains?.(node)))),
+                messages: {
+                    pending: ['calculatorRecentCopying', 'Copying calculation…'],
+                    success: ['calculatorRecentCopySuccess', 'Calculation copied.'],
+                    failure: ['calculatorRecentCopyFailure', 'Could not copy this calculation. Select the original expression and result to copy them manually.']
+                }
+            });
+        });
+    };
+    calculatorRecent.addEventListener('toggle', () => {
+        if (!calculatorRecent.open) clearRecentCopyFeedback();
+    });
     const renderRecentCalculations = () => {
+        clearRecentCopyFeedback();
         calculatorRecentList.replaceChildren(...recentCalculations.map(record => {
             const row = document.createElement('li');
             row.className = 'search-calculator-recent-item';
@@ -1042,11 +1119,22 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
             edit.type = 'button';
             edit.textContent = calculatorText('calculatorEditExpression', 'Edit expression');
             bindRecentDraftAction(record, row, edit, 'editControl', record.expression);
-            row.append(expression, value, use, edit);
+            const copy = document.createElement('button');
+            copy.className = 'search-calculator-recent-copy';
+            copy.type = 'button';
+            copy.textContent = calculatorText('calculatorRecentCopyAction', 'Copy calculation');
+            const status = document.createElement('div');
+            status.className = 'search-calculator-recent-copy-status';
+            status.setAttribute('role', 'status');
+            status.setAttribute('aria-live', 'polite');
+            status.setAttribute('aria-atomic', 'true');
+            bindRecentCopyAction(record, row, expression, value, copy, status);
+            row.append(expression, value, use, edit, copy, status);
             return row;
         }));
         calculatorRecentEmpty.hidden = recentCalculations.length > 0;
         calculatorRecentClear.disabled = recentCalculations.length === 0;
+        refreshCopyControl();
     };
     calculatorRecentClear.addEventListener('keydown', guardRecentKey);
     calculatorRecentClear.addEventListener('click', event => {

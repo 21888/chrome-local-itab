@@ -2637,6 +2637,18 @@
   "calculatorRecentClear": {
     "message": "Clear recent calculations"
   },
+  "calculatorRecentCopyAction": {
+    "message": "Copy calculation"
+  },
+  "calculatorRecentCopying": {
+    "message": "Copying calculation…"
+  },
+  "calculatorRecentCopySuccess": {
+    "message": "Calculation copied."
+  },
+  "calculatorRecentCopyFailure": {
+    "message": "Could not copy this calculation. Select the original expression and result to copy them manually."
+  },
   "calculatorEditExpression": {
     "message": "Edit expression"
   },
