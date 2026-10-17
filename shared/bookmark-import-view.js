@@ -1,6 +1,7 @@
 (function (root) {
     'use strict';
     const MAX_BYTES = 10 * 1024 * 1024;
+    const SITE_PAGE_SIZE = 50;
     let nextId = 0;
     const messages = {
         en: {
@@ -10,6 +11,8 @@
             review: 'Review bookmark import', reading: 'Reading and checking the local file…', ready: 'Review the counts, folder mapping and privacy settings before applying.',
             encountered: 'Bookmarks in file', added: 'New sites', skipped: 'Skipped bookmarks', categories: 'New categories',
             reasons: 'Why bookmarks were skipped', mapping: 'Source folder → new category', root: 'Top-level bookmarks',
+            sites: 'Sites to be added ({total})', sitesPrivacy: 'URLs may contain private parameters. Expand this list only when you want to review them.',
+            sitesRange: 'Showing {start}–{end} of {total}', sitesPrevious: 'Previous 50', sitesNext: 'Next 50', siteCategory: 'Category',
             duplicate_url: 'Already saved or repeated URL', invalid_url: 'Unsupported or invalid URL', invalid_title: 'Invalid title', duplicate_href_attribute: 'Ambiguous duplicate HREF attribute',
             noneSkipped: 'No bookmarks skipped.', noNew: 'No new sites to import. Nothing will be changed.',
             privacy: 'Privacy settings at preview time', sync: 'Chrome Sync', icons: 'Online site icons', on: 'On', off: 'Off', unknown: 'Unknown',
@@ -33,6 +36,8 @@
             review: '预览书签导入', reading: '正在读取并检查本地文件…', ready: '请核对数量、文件夹对应关系及隐私设置，再确认添加。',
             encountered: '文件中的书签', added: '新增网站', skipped: '跳过的书签', categories: '新增分类',
             reasons: '跳过原因', mapping: '原文件夹 → 新分类', root: '顶层书签',
+            sites: '将新增的网站（{total}）', sitesPrivacy: '网址可能含有私人参数，请在需要核对时展开清单。',
+            sitesRange: '第 {start}–{end} 条 / 共 {total} 条', sitesPrevious: '上一页（50 条）', sitesNext: '下一页（50 条）', siteCategory: '目标分类',
             duplicate_url: '已保存或重复的网址', invalid_url: '不支持或无效的网址', invalid_title: '无效的标题', duplicate_href_attribute: '存在多个 HREF 属性，网址不明确',
             noneSkipped: '没有跳过的书签。', noNew: '没有可新增的网站，不会更改任何内容。',
             privacy: '预览时的隐私设置', sync: 'Chrome 同步', icons: '在线网站图标', on: '已开启', off: '已关闭', unknown: '未知',
@@ -67,7 +72,7 @@
     function mount(host, { prepare, apply } = {}) {
         if (!host?.ownerDocument || typeof prepare !== 'function' || typeof apply !== 'function') throw new TypeError('Bookmark import requires a host, prepare and apply.');
         const doc = host.ownerDocument, t = translator(doc), prefix = `bookmark-import-${++nextId}`;
-        let generation = 0, prepared = null, pending = null, phase = '', destroyed = false, stopFocus = null;
+        let generation = 0, prepared = null, pending = null, phase = '', destroyed = false, stopFocus = null, siteReview = null;
         const make = (tag, className, text, parent) => {
             const node = doc.createElement(tag); if (className) node.className = className;
             if (text !== undefined) node.textContent = text; if (parent) parent.append(node); return node;
@@ -90,6 +95,7 @@
         const mappingHeading = make('h5', '', t('mapping'), details); mappingHeading.id = `${prefix}-mapping`;
         const mapping = make('ul', 'bookmark-import-mapping', undefined, details);
         mapping.setAttribute('aria-labelledby', mappingHeading.id); mapping.tabIndex = -1;
+        const sites = make('div', 'bookmark-import-sites', undefined, details);
         const privacy = make('div', 'bookmark-import-privacy', undefined, details);
         make('h5', '', t('privacy'), privacy);
         const settings = make('p', '', '', privacy); make('p', '', t('disclosure'), privacy);
@@ -106,10 +112,97 @@
             applyButton.disabled = phase !== 'ready' || !prepared || prepared.plan.preview.addedBookmarks === 0;
             cancel.disabled = phase === 'applying';
             shell.setAttribute('aria-busy', String(phase === 'reading' || phase === 'applying'));
+            siteControls();
         }
         function clearPreview() {
+            clearSites();
             prepared = null; panel.hidden = true; details.hidden = true;
             counts.replaceChildren(); reasons.replaceChildren(); mapping.replaceChildren(); settings.textContent = ''; summary.textContent = '';
+        }
+        const format = (key, values) => t(key).replace(/\{(total|start|end)\}/g, (_, key) => String(values[key]));
+        const canReviewSites = state => siteReview === state && current(state.token) && phase === 'ready' &&
+            prepared && state.toggle.isConnected && state.region.isConnected;
+        function siteControls() {
+            if (!siteReview) return;
+            const state = siteReview, enabled = canReviewSites(state);
+            state.toggle.disabled = !enabled || !state.links.length;
+            state.previous.disabled = !enabled || !state.expanded || state.page === 0;
+            state.next.disabled = !enabled || !state.expanded || (state.page + 1) * SITE_PAGE_SIZE >= state.links.length;
+        }
+        function clearSites() {
+            if (siteReview) {
+                // Detached controls may still have queued events. Drop their data as well as their DOM.
+                siteReview.links = null; siteReview.categoryNames = null; siteReview.page = 0; siteReview.expanded = false;
+                siteReview.list.replaceChildren(); siteReview.range.textContent = '';
+                siteReview.toggle.setAttribute('aria-expanded', 'false'); siteReview.region.hidden = true;
+                siteReview.toggle.disabled = siteReview.previous.disabled = siteReview.next.disabled = true;
+            }
+            siteReview = null; sites.replaceChildren();
+        }
+        function renderSitePage(state) {
+            if (!canReviewSites(state) || !state.expanded) return;
+            const start = state.page * SITE_PAGE_SIZE, end = Math.min(start + SITE_PAGE_SIZE, state.links.length);
+            state.list.replaceChildren(); state.list.start = start + 1; state.list.scrollTop = 0;
+            for (let index = start; index < end; index++) {
+                const link = state.links[index], row = make('li', 'bookmark-import-site', undefined, state.list);
+                make('strong', 'bookmark-import-site-title', link.title, row);
+                make('p', 'bookmark-import-site-url', link.url, row);
+                make('p', 'bookmark-import-site-category', `${t('siteCategory')}: ${state.categoryNames.get(link.category)}`, row);
+            }
+            // Only this bounded page description is live; imported titles and URLs never are.
+            state.range.textContent = format('sitesRange', { start: start + 1, end, total: state.links.length });
+            siteControls();
+        }
+        function toggleSites(state, event) {
+            if (!canReviewSites(state) || state.toggle.disabled || event.isComposing) return;
+            state.expanded = !state.expanded; state.page = 0;
+            state.toggle.setAttribute('aria-expanded', String(state.expanded)); state.region.hidden = !state.expanded;
+            if (state.expanded) renderSitePage(state);
+            else { state.list.replaceChildren(); state.range.textContent = ''; siteControls(); }
+        }
+        function turnSitePage(state, step, event) {
+            if (!canReviewSites(state) || !state.expanded || event.isComposing) return;
+            const origin = step < 0 ? state.previous : state.next;
+            if (origin.disabled) return;
+            const ownedFocus = doc.activeElement === origin;
+            state.page += step; renderSitePage(state);
+            // Disabling a boundary button can drop native focus to body. Move only our own focus.
+            if (ownedFocus && origin.disabled && !doc.hidden && [origin, doc.body].includes(doc.activeElement)) {
+                (state.previous.disabled ? state.next : state.previous).focus();
+            }
+        }
+        function showSites(value, token) {
+            const additions = value.plan.additions, preview = value.plan.preview;
+            if (!additions || !Array.isArray(additions.links) || !Array.isArray(additions.categories) ||
+                additions.links.length !== preview.addedBookmarks || additions.links.length > 2000 ||
+                additions.categories.length !== preview.newCategories || additions.categories.length > 200) {
+                throw Object.assign(new Error('Invalid bookmark additions'), { code: 'INVALID_PREVIEW' });
+            }
+            const categoryNames = new Map();
+            for (const category of additions.categories) {
+                if (!category || typeof category.id !== 'string' || !category.id || categoryNames.has(category.id) || typeof category.name !== 'string') {
+                    throw Object.assign(new Error('Invalid bookmark category'), { code: 'INVALID_PREVIEW' });
+                }
+                categoryNames.set(category.id, category.name);
+            }
+            if (additions.links.some(link => !link || typeof link.title !== 'string' || typeof link.url !== 'string' || !categoryNames.has(link.category))) {
+                throw Object.assign(new Error('Invalid bookmark site'), { code: 'INVALID_PREVIEW' });
+            }
+            const toggle = button(format('sites', { total: additions.links.length }), 'btn-secondary bookmark-import-sites-toggle', sites);
+            toggle.id = `${prefix}-sites-toggle`; toggle.setAttribute('aria-expanded', 'false');
+            const hint = make('p', 'form-hint', t('sitesPrivacy'), sites); hint.id = `${prefix}-sites-hint`; toggle.setAttribute('aria-describedby', hint.id);
+            const region = make('div', 'bookmark-import-sites-region', undefined, sites); region.id = `${prefix}-sites-region`; region.hidden = true;
+            region.setAttribute('role', 'region'); region.setAttribute('aria-labelledby', toggle.id); toggle.setAttribute('aria-controls', region.id);
+            const list = make('ol', 'bookmark-import-sites-list', undefined, region); list.tabIndex = 0;
+            const pager = make('div', 'bookmark-import-sites-pager', undefined, region);
+            const previous = button(t('sitesPrevious'), 'btn-secondary bookmark-import-sites-previous', pager);
+            const range = make('p', 'bookmark-import-sites-range', '', pager); range.setAttribute('role', 'status'); range.setAttribute('aria-live', 'polite'); range.setAttribute('aria-atomic', 'true');
+            const next = button(t('sitesNext'), 'btn-secondary bookmark-import-sites-next', pager);
+            const state = { token, links: additions.links, categoryNames, page: 0, expanded: false, toggle, region, list, previous, range, next };
+            siteReview = state;
+            toggle.addEventListener('click', toggleSites.bind(null, state));
+            previous.addEventListener('click', turnSitePage.bind(null, state, -1));
+            next.addEventListener('click', turnSitePage.bind(null, state, 1));
         }
         function focusTracking(origin) {
             stopFocus?.();
@@ -143,11 +236,12 @@
             if (code.endsWith('_LIMIT')) return t('limit');
             return t('invalid');
         }
-        function showPreview(value) {
+        function showPreview(value, token) {
             const preview = value?.plan?.preview;
             const fields = [['encounteredBookmarks', 'encountered'], ['addedBookmarks', 'added'], ['skippedBookmarks', 'skipped'], ['newCategories', 'categories']];
             if (!preview || fields.some(([key]) => !Number.isSafeInteger(preview[key]) || preview[key] < 0) ||
                 !Array.isArray(preview.folderMapping) || preview.folderMapping.length > 200) throw Object.assign(new Error('Invalid bookmark preview'), { code: 'INVALID_PREVIEW' });
+            showSites(value, token);
             for (const [key, label] of fields) make('li', '', `${t(label)}: ${preview[key]}`, counts);
             for (const key of ['duplicate_url', 'invalid_url', 'invalid_title', 'duplicate_href_attribute']) {
                 const count = preview.skippedReasons?.[key];
@@ -190,7 +284,7 @@
                 if (!current(token)) return;
                 const value = await prepare(text);
                 if (!current(token)) return;
-                showPreview(value); prepared = value; phase = 'ready'; status.textContent = t(value.plan.preview.addedBookmarks ? 'ready' : 'noNew');
+                showPreview(value, token); prepared = value; phase = 'ready'; status.textContent = t(value.plan.preview.addedBookmarks ? 'ready' : 'noNew');
                 controls(); focus.move(summary);
             }).catch(error => {
                 if (!current(token)) return;
@@ -243,7 +337,7 @@
         return {
             get pending() { return pending; }, hasUncommittedWork: () => Boolean(pending || prepared),
             close: () => cancelReview(),
-            destroy() { if (destroyed) return; destroyed = true; generation++; stopFocus?.(); prepared = null; if (phase !== 'applying') pending = null; shell.remove(); }
+            destroy() { if (destroyed) return; destroyed = true; generation++; stopFocus?.(); clearPreview(); if (phase !== 'applying') pending = null; shell.remove(); }
         };
     }
     root.LocalItabBookmarkImportView = Object.freeze({ mount });

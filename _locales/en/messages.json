@@ -1,4 +1,22 @@
 {
+  "bookmarkImportSites": {
+    "message": "Sites to be added ({total})"
+  },
+  "bookmarkImportSitesPrivacy": {
+    "message": "URLs may contain private parameters. Expand this list only when you want to review them."
+  },
+  "bookmarkImportSitesRange": {
+    "message": "Showing {start}–{end} of {total}"
+  },
+  "bookmarkImportSitesPrevious": {
+    "message": "Previous 50"
+  },
+  "bookmarkImportSitesNext": {
+    "message": "Next 50"
+  },
+  "bookmarkImportSiteCategory": {
+    "message": "Category"
+  },
   "settingsTransferExportLabel": {
     "message": "EXPORT"
   },

@@ -1,4 +1,22 @@
 {
+  "bookmarkImportSites": {
+    "message": "将新增的网站（{total}）"
+  },
+  "bookmarkImportSitesPrivacy": {
+    "message": "网址可能含有私人参数，请在需要核对时展开清单。"
+  },
+  "bookmarkImportSitesRange": {
+    "message": "第 {start}–{end} 条 / 共 {total} 条"
+  },
+  "bookmarkImportSitesPrevious": {
+    "message": "上一页（50 条）"
+  },
+  "bookmarkImportSitesNext": {
+    "message": "下一页（50 条）"
+  },
+  "bookmarkImportSiteCategory": {
+    "message": "目标分类"
+  },
   "settingsTransferExportLabel": {
     "message": "导出"
   },

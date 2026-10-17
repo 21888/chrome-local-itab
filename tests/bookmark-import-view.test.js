@@ -9,11 +9,14 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 const fixture = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><DT><H3>Research &amp; notes</H3><DL><DT><A HREF="https://example.com">Example</A></DL></DL>';
 const failure = code => Object.assign(new Error('Do not expose private error text'), { code });
 function preview(overrides = {}) {
-    return { snapshot: { privacy: { syncEnabled: false, onlineFavicons: false } }, plan: { preview: {
+    const data = {
         encounteredBookmarks: 3, addedBookmarks: 1, skippedBookmarks: 2, newCategories: 1,
         skippedReasons: { duplicate_url: 1, invalid_url: 1 },
         folderMapping: [{ sourceNodeId: 'f1', sourcePath: 'Research', categoryName: 'Research (2)' }], ...overrides
-    } } };
+    };
+    const categories = Array.from({ length: Number.isSafeInteger(data.newCategories) && data.newCategories > 0 ? data.newCategories : 0 }, (_, index) => ({ id: `import_${index}`, name: data.folderMapping[index]?.categoryName || `Category ${index}`, icon: '📁' }));
+    const links = Array.from({ length: Number.isSafeInteger(data.addedBookmarks) && data.addedBookmarks > 0 ? data.addedBookmarks : 0 }, (_, index) => ({ title: `Site ${index}`, url: `https://example.com/${index}`, category: categories[index % categories.length]?.id, icon: '🔗' }));
+    return { snapshot: { privacy: { syncEnabled: false, onlineFavicons: false } }, plan: { additions: { links, categories }, preview: data } };
 }
 function model({ lang = 'en', i18n, chrome } = {}) {
     const document = createDocument(); document.documentElement.lang = lang;
@@ -23,7 +26,7 @@ function model({ lang = 'en', i18n, chrome } = {}) {
     const forbidden = () => { throw Error('Forbidden network or HTML parsing'); };
     vm.runInNewContext(source, { window, fetch: forbidden, DOMParser: forbidden, XMLHttpRequest: forbidden, Image: forbidden });
     const view = window.LocalItabBookmarkImportView.mount(host, { prepare: text => fake.prepare(text), apply: value => fake.apply(value) });
-    const [choose, apply, cancel] = host.querySelectorAll('button');
+    const [choose, apply, cancel] = ['choose', 'apply', 'cancel'].map(name => host.querySelector(`.bookmark-import-${name}`));
     for (const node of [choose, apply, cancel]) {
         const dispatch = node.dispatch.bind(node);
         node.dispatch = (type, fields) => { if (type === 'click' && !node.disabled) node.focus(); return dispatch(type, fields); };

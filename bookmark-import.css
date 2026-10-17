@@ -65,3 +65,20 @@
 @media (prefers-reduced-motion: reduce) {
     .bookmark-import .btn { transition: none; }
 }
+.bookmark-import-sites { margin: 8px 0 20px; min-width: 0; }
+.bookmark-import-sites-toggle { max-width: 100%; }
+.bookmark-import-sites-list {
+    max-height: 360px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline-start: 28px;
+    margin: 12px 0;
+    line-height: 1.5;
+}
+.bookmark-import-site { padding: 10px 6px; border-bottom: 1px solid var(--card-border); }
+.bookmark-import-site-title { display: block; }
+.bookmark-import-site .bookmark-import-site-url { margin: 4px 0; }
+.bookmark-import-site .bookmark-import-site-category { margin: 4px 0 0; color: var(--text-secondary); font-size: 0.875rem; }
+.bookmark-import-sites-pager { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.bookmark-import-sites-pager .bookmark-import-sites-range { margin: 0; font-variant-numeric: tabular-nums; }
+.bookmark-import-sites-list:focus-visible { outline: 2px solid var(--text-accent, currentColor); outline-offset: 4px; }
