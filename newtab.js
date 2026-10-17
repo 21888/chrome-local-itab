@@ -1680,6 +1680,7 @@ class ClockComponent {
             details: make('details', 'month-calendar-interval'), summary: make('summary'),
             fields: make('div', 'month-calendar-interval-fields'), hint: make('p', 'month-calendar-interval-hint'),
             start: make('input'), startText: make('span'), end: make('input'), endText: make('span'),
+            startToday: make('button'), endToday: make('button'),
             calculate: make('button'), swap: make('button'), copy: make('button'), error: make('div', 'month-calendar-error'),
             result: make('div', 'month-calendar-interval-result'),
             copyStatus: make('div', 'month-calendar-interval-result'),
@@ -1699,14 +1700,19 @@ class ClockComponent {
         interval.copyStatus.setAttribute('aria-atomic', 'true');
         interval.copyStatus.textContent = '';
         interval.copyStatus.hidden = true;
-        for (const [field, labelText] of [[interval.start, interval.startText], [interval.end, interval.endText]]) {
+        for (const [field, labelText, todayButton] of [
+            [interval.start, interval.startText, interval.startToday], [interval.end, interval.endText, interval.endToday]
+        ]) {
+            const endpoint = make('div', 'month-calendar-interval-endpoint');
             const label = make('label');
             field.type = 'text';
             field.autocomplete = 'off';
             field.placeholder = 'YYYY-MM-DD';
             field.setAttribute('aria-describedby', `${interval.hint.id} ${interval.error.id}`);
             label.append(labelText, field);
-            interval.fields.append(label);
+            todayButton.type = 'button';
+            endpoint.append(label, todayButton);
+            interval.fields.append(endpoint);
         }
         interval.calculate.type = 'button';
         interval.swap.type = 'button';
@@ -1814,6 +1820,26 @@ class ClockComponent {
             interval.resultValue = null;
             this.updateMonthCalendarInterval();
         });
+        for (const [button, field] of [[interval.startToday, interval.start], [interval.endToday, interval.end]]) {
+            button.addEventListener('click', event => {
+                if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                    composing() || !this.isMonthCalendarIntervalActive(view, [button, interval.start, interval.end])) return;
+                let today;
+                try {
+                    // Capture local Gregorian components on each activation, never the
+                    // browsed month, an open-time snapshot or a UTC ISO date.
+                    const { year, month, day } = window.MonthCalendar.localTuple(new Date());
+                    if (!Number.isInteger(year) || year < 1 || year > 9999) return;
+                    today = `${String(year).padStart(4, '0')}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                } catch (_) { return; } // An invalid device clock leaves the draft intact.
+                field.value = today;
+                this.invalidateMonthCalendarIntervalCopy();
+                interval.invalid = false;
+                interval.resultValue = null;
+                this.updateMonthCalendarInterval();
+            });
+            guardActivation(button, intervalActive);
+        }
         interval.copy.addEventListener('click', event => this.copyMonthCalendarInterval(view, event));
         for (const [field, state] of [[interval.start, interval.startState], [interval.end, interval.endState]]) {
             bindDraftField(field, state, intervalActive, calculate);
@@ -2079,6 +2105,8 @@ class ClockComponent {
             view.interval.summary.textContent = this.worldClockText('monthCalendarInterval', 'Date interval');
             view.interval.startText.textContent = this.worldClockText('monthCalendarIntervalStart', 'Start date');
             view.interval.endText.textContent = this.worldClockText('monthCalendarIntervalEnd', 'End date');
+            view.interval.startToday.textContent = this.worldClockText('monthCalendarIntervalStartToday', 'Use today for start');
+            view.interval.endToday.textContent = this.worldClockText('monthCalendarIntervalEndToday', 'Use today for end');
             view.interval.calculate.textContent = this.worldClockText('monthCalendarIntervalCalculate', 'Calculate');
             view.interval.swap.textContent = this.worldClockText('monthCalendarIntervalSwap', 'Swap dates');
             view.interval.hint.textContent = this.worldClockText('monthCalendarIntervalHint',

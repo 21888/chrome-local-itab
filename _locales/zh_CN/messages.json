@@ -2754,6 +2754,12 @@
   "monthCalendarIntervalEnd": {
     "message": "结束日期"
   },
+  "monthCalendarIntervalStartToday": {
+    "message": "开始日期用今天"
+  },
+  "monthCalendarIntervalEndToday": {
+    "message": "结束日期用今天"
+  },
   "monthCalendarIntervalCalculate": {
     "message": "计算"
   },

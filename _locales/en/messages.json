@@ -2754,6 +2754,12 @@
   "monthCalendarIntervalEnd": {
     "message": "End date"
   },
+  "monthCalendarIntervalStartToday": {
+    "message": "Use today for start"
+  },
+  "monthCalendarIntervalEndToday": {
+    "message": "Use today for end"
+  },
   "monthCalendarIntervalCalculate": {
     "message": "Calculate"
   },

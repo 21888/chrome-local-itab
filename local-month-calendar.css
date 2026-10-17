@@ -18,6 +18,9 @@
 .month-calendar-interval > summary { cursor: pointer; color: var(--text-secondary); overflow-wrap: anywhere; }
 .month-calendar-interval-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 6px; margin-bottom: 8px; }
 .month-calendar-interval-fields label { flex: 1 1 100%; }
+.month-calendar-interval-endpoint { display: flex; flex: 1 1 100%; flex-wrap: wrap; align-items: end; gap: 6px; min-width: 0; }
+.month-calendar-interval-endpoint label { flex: 1 1 7rem; }
+.month-calendar-interval-endpoint button { box-sizing: border-box; max-width: 100%; }
 .month-calendar-interval-hint { margin: 6px 0; color: var(--text-secondary); overflow-wrap: anywhere; }
 .month-calendar-interval-result { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .month-calendar table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 2px; text-align: center; font-variant-numeric: tabular-nums; }

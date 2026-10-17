@@ -452,3 +452,255 @@ test('Swap dates keeps stable controls and drafts across ticks/language changes,
     assert.equal(escape.prevented, true); assert.equal(h.document.activeElement, h.view.summary); assert.equal(h.x.start.value, ''); assert.equal(h.x.end.value, '');
     clean(h, true);
 });
+
+// Endpoint-today coverage is synthetic. Local getter values deliberately differ
+// from the UTC instant; this does not change a real device clock or time zone.
+function todayControl(h, endpoint) {
+    const button = h.x[`${endpoint}Today`];
+    assert(button, `Date interval needs an explicit ${endpoint} Today button`);
+    return button;
+}
+function modeledLocalClock(h, initial) {
+    const BaseDate = h.context.Date;
+    let components = initial, captures = 0;
+    h.context.Date = class extends BaseDate {
+        constructor(...args) { super(...args); if (!args.length) { this.localComponents = [...components]; captures++; } }
+        getFullYear() { return this.localComponents ? this.localComponents[0] : super.getFullYear(); }
+        getMonth() { return this.localComponents ? this.localComponents[1] : super.getMonth(); }
+        getDate() { return this.localComponents ? this.localComponents[2] : super.getDate(); }
+        toISOString() { if (this.localComponents) throw Error('Today must not use a UTC ISO date'); return super.toISOString(); }
+    };
+    return { at(next) { components = next; }, get captures() { return captures; } };
+}
+function intervalSnapshot(h, x = h.x) {
+    return { start: x.start.value, end: x.end.value, invalid: x.invalid, result: x.resultValue,
+        rendered: x.renderedResult, error: x.error.textContent, errorHidden: x.error.hidden,
+        text: x.result.textContent, copyText: x.copyStatus.textContent, copyHidden: x.copyStatus.hidden,
+        copyDisabled: x.copy.getAttribute('aria-disabled'), calculations: h.calculations };
+}
+
+test('endpoint Today buttons have distinct localized names, separate labels and no render-time action', () => {
+    for (const locale of ['en', 'zh_CN', null]) {
+        const h = mount({ locale }); h.open(); h.tick();
+        for (const endpoint of ['start', 'end']) {
+            const button = todayControl(h, endpoint), field = h.x[endpoint];
+            assert.equal(button.tagName, 'BUTTON'); assert.equal(button.type, 'button'); assert.equal(button.tabIndex, 0);
+            assert.equal(button.textContent, locale === 'zh_CN'
+                ? endpoint === 'start' ? '开始日期用今天' : '结束日期用今天'
+                : `Use today for ${endpoint}`);
+            assert.equal(button.closest('label'), null, 'button is not a second labelable child');
+            assert.equal(field.parentElement.tagName, 'LABEL'); assert.equal(field.parentElement.parentElement, button.parentElement);
+            assert(button.parentElement.classList.contains('month-calendar-interval-endpoint'));
+            assert.equal(button.parentElement.parentElement, h.x.fields); assert.equal(field.value, ''); assert.notEqual(button.disabled, true);
+        }
+        assert.notEqual(h.x.startToday.textContent, h.x.endToday.textContent);
+        assert.equal(h.calculations, 0); assert.deepEqual(h.calls, []); assert.equal(h.observers.size, 0); clean(h);
+    }
+    const css = read('local-month-calendar.css');
+    assert.match(css, /\.month-calendar-interval-endpoint \{[^}]*flex: 1 1 100%;[^}]*flex-wrap: wrap;[^}]*min-width: 0;/);
+    assert.match(css, /\.month-calendar-interval-endpoint label \{ flex: 1 1 7rem; \}/);
+    assert.match(css, /\.month-calendar-interval-endpoint button \{ box-sizing: border-box; max-width: 100%; \}/);
+});
+
+test('endpoint Today uses fresh local components at each action rather than UTC, browsed month or open time', () => {
+    const h = mount(); h.open(); h.view.year.value = '0099'; h.view.month.value = '11'; h.view.jump.dispatch('click');
+    const month = h.clock.calendarMonth, rows = h.view.body.children;
+    h.at('2026-10-18T00:30:00Z'); const time = modeledLocalClock(h, [2026, 9, 17]);
+    todayControl(h, 'start').dispatch('click'); assert.equal(h.x.start.value, '2026-10-17'); assert.equal(h.x.end.value, '');
+    assert.equal(time.captures, 1);
+    time.at([2026, 9, 18]); todayControl(h, 'end').dispatch('click');
+    assert.equal(h.x.start.value, '2026-10-17'); assert.equal(h.x.end.value, '2026-10-18'); assert.equal(time.captures, 2);
+    time.at([2026, 9, 19]); h.x.startToday.dispatch('click');
+    assert.equal(h.x.start.value, '2026-10-19'); assert.equal(h.x.end.value, '2026-10-18'); assert.equal(time.captures, 3);
+    assert.equal(h.clock.calendarMonth, month); assert.equal(h.view.body.children, rows);
+    assert.equal(h.view.year.value, '0099'); assert.equal(h.view.month.value, '11');
+    assert.equal(h.calculations, 0); assert.deepEqual(h.calls, []); assertClearedInterval(h); clean(h);
+});
+
+test('endpoint Today zero-pads leap dates and every supported early-year or upper boundary without year-1900 coercion', () => {
+    const cases = [[1, 0, 1, '0001-01-01'], [4, 1, 29, '0004-02-29'], [99, 11, 31, '0099-12-31'],
+        [100, 0, 1, '0100-01-01'], [1900, 2, 1, '1900-03-01'], [2000, 1, 29, '2000-02-29'],
+        [2024, 1, 29, '2024-02-29'], [9999, 11, 31, '9999-12-31']];
+    for (const endpoint of ['start', 'end']) {
+        const h = mount(); h.open(); const time = modeledLocalClock(h, cases[0]);
+        for (const [year, month, day, expected] of cases) {
+            time.at([year, month, day]); todayControl(h, endpoint).dispatch('click');
+            assert.equal(h.x[endpoint].value, expected); assert(h.window.MonthCalendar.parseDateDraft(expected));
+            assert.equal(h.x[endpoint === 'start' ? 'end' : 'start'].value, ''); assertClearedInterval(h);
+        }
+        assert.equal(h.calculations, 0); clean(h);
+    }
+});
+
+test('invalid or out-of-range device clocks leave both drafts, validation and existing result/feedback untouched', async () => {
+    for (const endpoint of ['start', 'end']) for (const invalidState of [false, true]) {
+        const h = mount(); h.calculate(...(invalidState ? ['1900-02-29', ''] : ['2024-02-28', '2024-02-29']));
+        if (!invalidState) { h.x.copy.dispatch('click'); await settle(); }
+        const button = todayControl(h, endpoint), time = modeledLocalClock(h, [2026, 9, 17]);
+        button.focus(); const before = intervalSnapshot(h), observerCount = h.observers.size;
+        for (const year of [0, -1, 10000, 275760, NaN, Infinity, 2026.5]) {
+            time.at([year, 0, 1]); assert.doesNotThrow(() => button.dispatch('click'));
+            assert.deepEqual(intervalSnapshot(h), before); assert.equal(h.observers.size, observerCount); assert.equal(h.document.activeElement, button);
+        }
+        h.at('not a valid date'); time.at([2026, 9, 17]); assert.doesNotThrow(() => button.dispatch('click'));
+        assert.deepEqual(intervalSnapshot(h), before); assert.equal(h.observers.size, observerCount); assert.equal(h.document.activeElement, button);
+        h.at('2026-10-17T12:00:00Z'); button.dispatch('click'); assert.equal(h.x[endpoint].value, '2026-10-17'); assertClearedInterval(h); clean(h);
+    }
+});
+
+test('endpoint Today edits only its target and preserves arbitrary peer bytes, non-target caret, and month drafts', () => {
+    for (const endpoint of ['start', 'end']) for (const raw of ['', '1900-02-29', ' \t2024-1-1\r\n ', '２０２４-01-01', '<b>raw</b>']) {
+        const h = mount(); h.calculate(); const button = todayControl(h, endpoint), peer = h.x[endpoint === 'start' ? 'end' : 'start'];
+        peer.value = raw; h.view.year.value = ' 0099\r\n'; h.view.month.value = '3'; h.view.jump.dispatch('click');
+        const month = h.clock.calendarMonth, rows = h.view.body.children, caption = h.view.caption.textContent,
+            error = h.view.error.textContent, announcement = h.view.announcement.textContent, calculations = h.calculations;
+        peer.selectionStart = 1; peer.selectionEnd = 3; peer.selectionDirection = 'backward'; peer.focus();
+        let peerWrites = 0;
+        Object.defineProperty(peer, 'value', { configurable: true, get() { return raw; }, set() { peerWrites++; } });
+        modeledLocalClock(h, [2024, 1, 29]); button.dispatch('click');
+        assert.equal(h.x[endpoint].value, '2024-02-29'); assert.equal(peer.value, raw); assert.equal(peerWrites, 0);
+        assert.equal(h.document.activeElement, peer); assert.deepEqual([peer.selectionStart, peer.selectionEnd, peer.selectionDirection], [1, 3, 'backward']);
+        assert.equal(h.clock.calendarMonth, month); assert.equal(h.view.body.children, rows); assert.equal(h.view.caption.textContent, caption);
+        assert.equal(h.view.year.value, ' 0099\r\n'); assert.equal(h.view.month.value, '3'); assert.equal(h.view.error.textContent, error);
+        assert.equal(h.view.error.hidden, false); assert.equal(h.view.year.getAttribute('aria-invalid'), 'true'); assert.equal(h.view.announcement.textContent, announcement);
+        assert.equal(h.calculations, calculations); assertClearedInterval(h);
+        Object.defineProperty(peer, 'value', { configurable: true, writable: true, value: raw }); clean(h);
+    }
+});
+
+test('endpoint Today clears invalid feedback without parsing the untouched peer or calculating automatically', () => {
+    for (const endpoint of ['start', 'end']) {
+        const h = mount(); h.calculate('1900-02-29', ' bad\r\n'); const button = todayControl(h, endpoint), calculations = h.calculations;
+        const calendar = h.window.MonthCalendar, forbidden = () => { throw Error('Filling today must not parse drafts or calculate'); };
+        h.window.MonthCalendar = { ...calendar, parseDateDraft: forbidden, parseMonthDraft: forbidden, dateInterval: forbidden };
+        modeledLocalClock(h, [2024, 1, 29]); button.dispatch('click'); assert.equal(h.x[endpoint].value, '2024-02-29');
+        assert.equal(h.x[endpoint === 'start' ? 'end' : 'start'].value, endpoint === 'start' ? ' bad\r\n' : '1900-02-29');
+        assert.equal(h.calculations, calculations); assertClearedInterval(h); h.window.MonthCalendar = calendar; clean(h);
+    }
+});
+
+test('endpoint Today ignores handled, repeated, composing and double-click continuation with native fresh-key behavior', () => {
+    for (const endpoint of ['start', 'end']) {
+        const h = mount(); h.calculate(); const button = todayControl(h, endpoint), before = intervalSnapshot(h);
+        const time = modeledLocalClock(h, [2024, 1, 29]);
+        for (const flags of [{ defaultPrevented: true }, { detail: 2 }, { detail: 3 }, { repeat: true }, { isComposing: true }, { keyCode: 229 }]) {
+            button.dispatch('click', flags); assert.deepEqual(intervalSnapshot(h), before); assert.equal(time.captures, 0);
+        }
+        for (const key of ['Enter', ' ']) {
+            for (const flags of [{ repeat: true }, { isComposing: true }, { keyCode: 229 }]) assert.equal(button.dispatch('keydown', { key, ...flags }).prevented, true);
+            assert.equal(button.dispatch('keydown', { key }).prevented, false, 'fresh activation remains native');
+            assert.deepEqual(intervalSnapshot(h), before);
+        }
+        assert.equal(button.dispatch('keydown', { key: 'c', ctrlKey: true }).prevented, false);
+        button.focus(); button.dispatch('click', { detail: 1 }); assert.equal(h.x[endpoint].value, '2024-02-29');
+        time.at([2024, 2, 1]); button.dispatch('click', { detail: 2 }); assert.equal(h.x[endpoint].value, '2024-02-29'); assert.equal(time.captures, 1);
+        button.dispatch('click', { detail: 1 }); assert.equal(h.x[endpoint].value, '2024-03-01'); assert.equal(time.captures, 2);
+        assert.equal(h.document.activeElement, button); assert.equal(h.calculations, 1); clean(h);
+    }
+});
+
+test('endpoint Today leaves all state untouched during either date-field or year-field composition', () => {
+    for (const endpoint of ['start', 'end']) for (const name of ['year', 'start', 'end']) {
+        const h = mount(); h.calculate(); const button = todayControl(h, endpoint), field = name === 'year' ? h.view.year : h.x[name];
+        const before = intervalSnapshot(h), time = modeledLocalClock(h, [2024, 1, 29]); field.dispatch('compositionstart');
+        for (const key of ['Enter', ' ']) assert.equal(button.dispatch('keydown', { key }).prevented, true);
+        button.dispatch('click'); assert.deepEqual(intervalSnapshot(h), before); assert.equal(time.captures, 0);
+        field.dispatch('compositionend'); field.dispatch('keyup', { key: 'Enter' }); button.dispatch('click');
+        assert.equal(h.x[endpoint].value, '2024-02-29'); assert.equal(time.captures, 1); assertClearedInterval(h); clean(h);
+    }
+});
+
+test('endpoint Today requires current owner, open visible calendar and both usable endpoint fields', () => {
+    const unavailable = [h => { h.x.details.open = false; }, h => { h.view.details.open = false; }, h => { h.clock.enabled = false; },
+        h => { h.document.hidden = true; }, h => { h.document.visibilityState = 'hidden'; }, h => { h.window.LocalItabContentLifecycle.departing = true; },
+        h => { h.document.body.classList.add('dashboard-hidden'); }, h => h.host.remove(), h => { h.host.hidden = true; },
+        h => { h.host.inert = true; }, h => h.host.setAttribute('aria-hidden', 'true'), h => { h.host.style.display = 'none'; },
+        h => { h.host.style.visibility = 'hidden'; }, h => { h.host.style.visibility = 'collapse'; },
+        h => { h.x.fields.hidden = true; }, h => { h.view.panel.inert = true; }];
+    for (const key of ['button', 'start', 'end']) for (const change of [node => { node.hidden = true; }, node => { node.disabled = true; },
+        node => { node.inert = true; }, node => node.setAttribute('aria-hidden', 'true'), node => { node.style.display = 'none'; },
+        node => { node.style.visibility = 'hidden'; }, node => { node.style.visibility = 'collapse'; }, node => node.remove(),
+        node => { node.getClientRects = () => []; }]) unavailable.push((h, button) => change(key === 'button' ? button : h.x[key]));
+    unavailable.push((h, button) => { button.parentElement.hidden = true; });
+    unavailable.push((h, button) => { button.remove(); h.view.panel.append(button); });
+    unavailable.push(h => { const field = h.x.end; field.remove(); h.view.panel.append(field); });
+    for (const endpoint of ['start', 'end']) for (const change of unavailable) {
+        const h = mount(); h.calculate(); const button = todayControl(h, endpoint), time = modeledLocalClock(h, [2024, 1, 29]);
+        change(h, button); const before = intervalSnapshot(h), focus = h.document.activeElement;
+        button.dispatch('click'); assert.deepEqual(intervalSnapshot(h), before); assert.equal(time.captures, 0);
+        assert.equal(h.document.activeElement, focus); assert.deepEqual(h.calls, []); clean(h);
+    }
+});
+
+test('endpoint Today rejects connected superseded views and old clock owners', () => {
+    for (const endpoint of ['start', 'end']) for (const replace of [h => h.rebuild(), h => h.remount()]) {
+        const h = mount(); h.calculate(); const old = h.x, button = todayControl(h, endpoint);
+        replace(h); h.calculate('0001-01-01', '0099-12-31'); const before = intervalSnapshot(h), oldBefore = intervalSnapshot(h, old);
+        const time = modeledLocalClock(h, [2024, 1, 29]); assert.equal(button.isConnected, true); button.dispatch('click');
+        assert.deepEqual(intervalSnapshot(h), before); assert.deepEqual(intervalSnapshot(h, old), oldBefore); assert.equal(time.captures, 0);
+        todayControl(h, endpoint).dispatch('click'); assert.equal(h.x[endpoint].value, '2024-02-29'); assert.equal(time.captures, 1); assertClearedInterval(h); clean(h);
+    }
+});
+
+test('endpoint Today retires pending copy feedback but retains the issued-write lock until actual success or failure', async () => {
+    for (const endpoint of ['start', 'end']) for (const rejected of [false, true]) {
+        const wait = deferred(), calls = [], h = mount({ clipboard: { writeText(text) { calls.push(text); return wait.promise; } } });
+        const original = h.calculate(); h.x.copy.dispatch('click'); const button = todayControl(h, endpoint); button.focus();
+        modeledLocalClock(h, [2024, 2, 1]); button.dispatch('click'); assertClearedInterval(h); assert.equal(h.observers.size, 0);
+        assert.equal(h.document.activeElement, button); assert.equal(h.calculations, 1); h.x.copy.dispatch('click'); assert.equal(calls.length, 1);
+        h.x.calculate.dispatch('click'); const fresh = h.x.result.textContent; assert.notEqual(fresh, original);
+        assert.equal(h.x.copy.getAttribute('aria-disabled'), 'true'); h.x.copy.dispatch('click'); assert.equal(calls.length, 1);
+        if (rejected) wait.reject(Error('late denial')); else wait.resolve(); await settle(); h.flush();
+        assert.equal(h.x.copyStatus.textContent, ''); assert.equal(h.x.copyStatus.hidden, true); assert.equal(h.document.activeElement, button);
+        assert.equal(h.x.copy.getAttribute('aria-disabled'), 'false'); assert.equal(h.x.result.textContent, fresh);
+        h.x.copy.dispatch('click'); await settle(); assert.deepEqual(calls, [original, fresh]); clean(h);
+    }
+});
+
+test('same-value endpoint Today clears settled success or failure and still requires explicit recalculation', async () => {
+    for (const endpoint of ['start', 'end']) for (const rejected of [false, true]) {
+        const calls = [], h = mount({ clipboard: { writeText(text) { calls.push(text); return rejected ? Promise.reject(Error('denied')) : Promise.resolve(); } } });
+        const original = h.calculate('2024-02-29', '2024-02-29'); h.x.copy.dispatch('click'); await settle();
+        assert.equal(h.x.copyStatus.hidden, false); assert.equal(h.observers.size, 1);
+        modeledLocalClock(h, [2024, 1, 29]); todayControl(h, endpoint).dispatch('click'); assertClearedInterval(h); assert.equal(h.observers.size, 0);
+        assert.equal(h.x.start.value, '2024-02-29'); assert.equal(h.x.end.value, '2024-02-29'); assert.equal(h.calculations, 1);
+        h.x.copy.dispatch('click'); assert.deepEqual(calls, [original]); h.x.calculate.dispatch('click'); h.x.copy.dispatch('click'); await settle();
+        assert.deepEqual(calls, [original, original]); assert.equal(h.calculations, 2); clean(h);
+    }
+});
+
+test('endpoint Today cannot unlock an unresolved copy through same-date refill, rebuild or owner replacement', async () => {
+    for (const replace of [h => h.rebuild(), h => h.remount()]) {
+        const wait = deferred(), calls = [], h = mount({ clipboard: { writeText(text) { calls.push(text); return wait.promise; } } });
+        const original = h.calculate('2024-02-29', '2024-02-29'); h.x.copy.dispatch('click'); modeledLocalClock(h, [2024, 1, 29]); const old = h.x;
+        todayControl(h, 'start').dispatch('click'); todayControl(h, 'end').dispatch('click'); h.x.calculate.dispatch('click');
+        assert.equal(h.x.result.textContent, original); h.x.copy.dispatch('click'); assert.equal(calls.length, 1);
+        replace(h); h.calculate(); old.startToday.dispatch('click'); old.endToday.dispatch('click');
+        h.x.copy.dispatch('click'); old.copy.dispatch('click'); assert.equal(calls.length, 1);
+        wait.resolve(); await settle(); assert.equal(old.copyStatus.textContent, ''); assert.equal(h.x.copyStatus.textContent, '');
+        assert.equal(h.x.copy.getAttribute('aria-disabled'), 'false'); h.x.copy.dispatch('click'); await settle(); assert.equal(calls.length, 2); clean(h);
+    }
+});
+
+test('endpoint Today remains stable across ticks/locales with no focus theft, extra timer, global keys or I/O', () => {
+    for (const endpoint of ['start', 'end']) {
+        const h = mount(); h.clock.start(); h.calculate(); const button = todayControl(h, endpoint), start = h.x.start, end = h.x.end;
+        const other = h.view.year; other.value = '0099'; h.view.month.value = '11'; other.selectionStart = 1; other.selectionEnd = 2; other.focus();
+        const month = h.clock.calendarMonth; modeledLocalClock(h, [2024, 1, 29]); button.dispatch('click');
+        assert.equal(h.document.activeElement, other); assert.deepEqual([other.selectionStart, other.selectionEnd], [1, 2]); assertClearedInterval(h);
+        const drafts = [start.value, end.value];
+        for (const locale of ['zh_CN', 'en', null]) {
+            h.locale(locale); h.tick(); h.clock.updateConfig({ hour12: true });
+            assert.equal(todayControl(h, endpoint), button); assert.equal(h.x.start, start); assert.equal(h.x.end, end);
+            assert.equal(button.textContent, locale === 'zh_CN' ? endpoint === 'start' ? '开始日期用今天' : '结束日期用今天' : `Use today for ${endpoint}`);
+            assert.deepEqual([start.value, end.value], drafts); assert.equal(h.clock.calendarMonth, month);
+            assert.equal(h.view.year.value, '0099'); assert.equal(h.view.month.value, '11'); assert.equal(h.document.activeElement, other);
+            assert.deepEqual([other.selectionStart, other.selectionEnd], [1, 2]);
+        }
+        assert.equal(h.calculations, 1); assert.equal(h.timerCreations, 1); assert.equal(h.timers.size, 1); assert.deepEqual(h.calls, []);
+        assert.equal(h.context.shouldToggleFromEvent({ target: button }), false); assert.equal(h.document.listeners.has('keydown'), false); assert.equal(h.events.has('keydown'), false);
+        button.focus(); const escape = button.dispatch('keydown', { key: 'Escape' });
+        assert.equal(escape.prevented, true); assert.equal(h.document.activeElement, h.view.summary); assert.equal(start.value, ''); assert.equal(end.value, '');
+        clean(h, true);
+    }
+});
