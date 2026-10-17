@@ -6,8 +6,14 @@ const { createDocument, deferred } = require('./helpers/task-dom-model');
 const api = require('../shared/ai-context'), Tasks = require('../shared/local-tasks-store'), Collections = require('../shared/local-ai-collections-store');
 const settle = async () => { await new Promise(resolve => setImmediate(resolve)); await new Promise(resolve => setImmediate(resolve)); };
 function backend() { let raw; return { reads: 0, writes: 0, lock: fn => fn(), async read() { this.reads++; return structuredClone(raw); }, async write(value) { this.writes++; raw = structuredClone(value); }, subscribe: () => () => {} }; }
-async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false, clipboard, t, frames, safeReader = false } = {}) {
+async function model(presetStore, { populate = true, sources, blurUnavailableFocus = false, clipboard, t, frames, safeReader = false, normalizeTextareas = false } = {}) {
     const document = createDocument({ blurUnavailableFocus }), host = document.createElement('main'); document.body.append(host);
+    if (normalizeTextareas) {
+        const create = document.createElement;
+        document.createElement = tag => { const node = create(tag); if (tag === 'textarea') {
+            let value = ''; Object.defineProperty(node, 'value', { get: () => value, set: next => { value = String(next).replace(/\r\n?/g, '\n'); } });
+        } return node; };
+    }
     const confirmations = []; let confirmResult = true;
     const events = new Map(), window = { document, confirm: message => { confirmations.push(message); return confirmResult; }, addEventListener: (type, fn) => events.set(type, fn), removeEventListener: type => events.delete(type) };
     if (frames) { window.requestAnimationFrame = frames.request; window.cancelAnimationFrame = frames.cancel; }
@@ -22,7 +28,7 @@ async function model(presetStore, { populate = true, sources, blurUnavailableFoc
     if (safeReader) { const Marked = require('../vendor/marked/marked.umd.js'); window.marked = { Lexer: class extends Marked.Lexer { lex(source) { readerParses++; return super.lex(source); } } }; vm.runInNewContext(fs.readFileSync('shared/safe-answer-reader.js', 'utf8'), { window }); }
     vm.runInNewContext(fs.readFileSync('shared/ai-context-view.js', 'utf8'), { window });
     const view = window.LocalItabAIContextView.mount(host, { controller, presetStore, clipboard, t }); await view.ready;
-    const field = type => type === 'text' ? host.querySelector('.ai-context-model') : host.querySelectorAll('input').find(node => node.type === type);
+    const field = type => type === 'checkbox' ? host.querySelector('.ai-context-source')?.querySelector('input') : type === 'text' ? host.querySelector('.ai-context-model') : host.querySelectorAll('input').find(node => node.type === type);
     const byText = text => host.querySelectorAll('button').find(node => node.textContent.startsWith(text));
     const click = text => { const node = byText(text); assert(node); assert.equal(Boolean(node.disabled), false, `${text} enabled`); node.dispatch('click'); return node; };
     const input = (node, value) => { node.value = value; node.dispatch('input'); };
@@ -1878,6 +1884,132 @@ test('clear source filters is bilingual, guarded after hide or teardown, and wor
         assert.equal(h.field('search').value, ''); assert.equal(visibleRows(h).length, 0); assert.equal(reset.disabled, true);
         h.input(search, 'kept after close'); h.view.destroy(); reset.dispatch('click');
         assert.equal(search.value, 'kept after close'); assert.equal(reset.disabled, true);
+        assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+    }
+});
+
+const excerptSearch = h => h.host.querySelector('.ai-context-source-search-excerpts');
+function searchExcerpts(h, checked = true) { const option = excerptSearch(h); assert(option, 'explicit opt-in excerpt search exists'); option.checked = checked; option.dispatch('change'); }
+
+test('loaded excerpt search defaults to titles and opt-in matches only current loaded title or body literally', async () => {
+    const raw = 'Body-only 中文 [a.*] <img src=x>\r\nSecond line\rFinal';
+    const h = await model(undefined, { populate: false, normalizeTextareas: true, sources: [
+        { id: 'collection:private-id', label: 'Plain title', text: raw, scope: 'library', sourceUrl: 'https://not-searched.example' },
+        { id: 'scratchpad:current', label: 'TITLE-only', text: 'Unrelated body', scope: 'workspace' }
+    ] });
+    const rows = sourceRows(h), search = h.field('search'); assert.equal(excerptSearch(h)?.checked, false);
+    h.input(search, '中文'); assert.deepEqual(visibleRows(h), []);
+    searchExcerpts(h); assert.deepEqual(visibleRows(h), [rows[0]]);
+    for (const query of ['  bOdY-ONLY 中文  ', '[a.*]', '<IMG SRC=X>', 'Second line']) {
+        h.input(search, query); assert.deepEqual(visibleRows(h), [rows[0]]);
+    }
+    h.input(search, 'title-only'); assert.deepEqual(visibleRows(h), [rows[1]]);
+    for (const query of ['private-id', 'not-searched.example', 'Global collection', '^Body']) { h.input(search, query); assert.deepEqual(visibleRows(h), []); }
+    assert.equal(h.host.querySelectorAll('img').length, 0); assert.equal(h.view.hasUncommittedWork(), false);
+    h.input(search, '中文'); choose(rows[0]); h.input(questionField(h), 'Explain'); h.click('Review prompt locally'); await settle();
+    assert.equal(rows[0].querySelector('textarea').value, raw.replace(/\r\n?/g, '\n'));
+    assert.equal(h.controller.localReview.packed.sources[0].text, raw); assert.deepEqual(sourceRows(h), rows);
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+});
+
+test('loaded excerpt search follows genuine outgoing edits and restore with existing hidden-row focus rules', async () => {
+    const h = await model(undefined, { blurUnavailableFocus: true, sources: [
+        { id: 'collection:a', label: 'First', text: 'Original needle', scope: 'library' },
+        { id: 'collection:b', label: 'Second', text: 'Original needle', scope: 'library' }
+    ] });
+    const rows = sourceRows(h), editor = rows[0].querySelector('textarea'); choose(rows[0]);
+    searchExcerpts(h); h.input(h.field('search'), 'needle'); h.click('Review exact'); await settle();
+    editor.focus(); h.input(editor, 'Changed-only 中文');
+    assert.equal(h.controller.reviewed, null); assert.equal(rows[0].hidden, true); assert.equal(rows[0].querySelector('input').checked, true);
+    assert.equal(h.document.activeElement, rows[1].querySelector('input'));
+    h.input(h.field('search'), 'Changed-only'); assert.deepEqual(visibleRows(h), [rows[0]]);
+    h.click('Review prompt locally'); await settle(); assert.equal(h.controller.localReview.packed.sources[0].text, 'Changed-only 中文');
+    rows[0].querySelector('button').focus(); rows[0].querySelector('button').dispatch('click');
+    assert.equal(rows[0].hidden, true); assert.equal(h.document.activeElement, h.byText('Show selected only'));
+    h.input(h.field('search'), 'needle'); assert.deepEqual(visibleRows(h), rows); assert.equal(editor.value, 'Original needle');
+    searchExcerpts(h, false); assert.deepEqual(visibleRows(h), []); h.view.destroy();
+});
+
+test('loaded excerpt search intersects manual saved scope and selected-only with hidden selection batch limits', async () => {
+    const sources = Array.from({ length: 12 }, (_, i) => ({ id: `collection:${i}`, label: `Saved ${i}`, text: i === 11 ? 'shared-body' : 'hidden-body', scope: 'library' }));
+    const h = await model(undefined, { sources });
+    h.input(h.host.querySelector('.ai-context-manualtitle'), 'Manual title'); h.input(h.host.querySelector('.ai-context-manualbody'), 'shared-body 中文'); h.click('Add temporary excerpt'); await settle();
+    const rows = sourceRows(h); rows.slice(0, 11).forEach(row => choose(row));
+    searchExcerpts(h); h.input(h.field('search'), 'shared-body'); assert.deepEqual(visibleRows(h), rows.slice(11));
+    assert.equal(h.byText('Select visible').disabled, true); h.byText('Select visible').dispatch('click'); assert.equal(rows[11].querySelector('input').checked, false);
+    setScope(h, 'manual'); assert.deepEqual(visibleRows(h), [rows[12]]); h.click('Select visible');
+    assert.match(sourceCount(h), /Selected: 12.*Selected but hidden: 11/);
+    h.click('Show selected only'); setScope(h, 'library'); assert.deepEqual(visibleRows(h), []);
+    setScope(h, 'all'); assert.deepEqual(visibleRows(h), [rows[12]]); h.click('Deselect visible');
+    assert.equal(rows[12].querySelector('input').checked, false); assert.equal(rows.slice(0, 11).every(row => row.querySelector('input').checked), true);
+    h.click('Show selected only'); assert.equal(h.byText('Select visible').disabled, true);
+    choose(rows[10], false); h.click('Select visible'); assert.equal(rows.filter(row => row.querySelector('input').checked).length, 12);
+    assert.deepEqual(sourceRows(h), rows); assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+});
+
+test('loaded excerpt search preserves local and API reviews with no controller storage permission or transport work', async () => {
+    for (const reviewAction of ['Review prompt locally', 'Review exact']) {
+        const h = await model(undefined, { sources: syntheticSources(2) }), rows = sourceRows(h); choose(rows[0]); h.click(reviewAction); await settle();
+        const reviewed = h.controller.reviewed, local = h.controller.localReview, generation = h.controller.generation;
+        const before = { budget: h.host.querySelector('.ai-context-budget').textContent, review: h.host.querySelector('.ai-context-review').textContent,
+            local: h.host.querySelector('.ai-context-local-prompt').value, reads: h.b.reads + h.c.reads, writes: h.b.writes + h.c.writes };
+        for (const name of ['readSources', 'loadSources', 'inspectInput', 'edit', 'review', 'reviewLocal', 'send', 'allow']) h.controller[name] = () => { throw Error(`excerpt search called ${name}`); };
+        h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('excerpt search checked permission'); };
+        h.input(h.field('search'), 'Body-only needle 1'); searchExcerpts(h); assert.deepEqual(visibleRows(h), [rows[1]]);
+        searchExcerpts(h, false); searchExcerpts(h); h.click('Show selected only'); setScope(h, 'manual'); h.click('Clear source filters');
+        assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.localReview, local); assert.equal(h.controller.generation, generation);
+        assert.equal(h.host.querySelector('.ai-context-budget').textContent, before.budget); assert.equal(h.host.querySelector('.ai-context-review').textContent, before.review);
+        assert.equal(h.host.querySelector('.ai-context-local-prompt').value, before.local); assert.equal(rows[0].querySelector('input').checked, true);
+        assert.equal(h.b.reads + h.c.reads, before.reads); assert.equal(h.b.writes + h.c.writes, before.writes); assert.equal(h.calls.length, 0); h.view.destroy();
+    }
+});
+
+test('loaded excerpt search stays view-only during transport and retains completed result snapshot consent', async () => {
+    const h = await model(undefined, { sources: syntheticSources(2) }), rows = sourceRows(h), gate = deferred(); choose(rows[0]); h.setReply(gate.promise); await send(h, 'answer');
+    const reviewed = h.controller.reviewed, generation = h.controller.generation;
+    assert.equal(Boolean(excerptSearch(h)?.disabled), false); searchExcerpts(h); h.input(h.field('search'), 'Body-only needle 1');
+    assert.deepEqual(visibleRows(h), [rows[1]]); assert.equal(h.controller.busy, true); assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, generation);
+    assert.equal(rows[1].querySelector('input').disabled, true); assert.equal(h.byText('Select visible').disabled, true);
+    gate.resolve('Completed synthetic answer'); await settle();
+    const result = h.controller.result, section = h.host.querySelector('.ai-context-save-context'), include = section.querySelector('input');
+    include.checked = true; include.dispatch('change'); const snapshot = section.querySelector('pre').textContent;
+    searchExcerpts(h, false); searchExcerpts(h); h.click('Clear source filters');
+    assert.equal(h.controller.result, result); assert.equal(h.controller.reviewed, reviewed); assert.equal(include.checked, true); assert.equal(section.querySelector('pre').textContent, snapshot);
+    assert.equal(h.calls.length, 1); assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+});
+
+test('loaded excerpt search resets deliberately, captures view changes and rejects stale pending reload', async () => {
+    const h = await model(undefined, { populate: false, sources: syntheticSources(2) }), rows = sourceRows(h), gate = deferred();
+    const original = h.view.captureDraft(); searchExcerpts(h); assert.equal(original(), false); assert.equal(h.view.hasUncommittedWork(), false);
+    assert.equal(h.byText('Clear source filters').disabled, false); h.input(h.field('search'), 'Body-only'); setScope(h, 'library'); h.click('Show selected only'); h.click('Clear source search');
+    assert.equal(excerptSearch(h).checked, true); assert.equal(scopeFilter(h).value, 'library'); assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true');
+    h.click('Clear source filters'); assert.equal(excerptSearch(h).checked, false); assert.equal(h.byText('Clear source filters').disabled, true);
+    searchExcerpts(h); h.click('Cancel / clear'); assert.equal(excerptSearch(h).checked, false);
+    h.controller.readSources = () => gate.promise; h.click('Reload saved sources'); await settle();
+    assert.equal(h.view.pending, true); searchExcerpts(h); gate.resolve([{ id: 'collection:new', label: 'Replacement', text: 'New body', scope: 'library' }]); await settle();
+    assert.deepEqual(sourceRows(h), rows); assert.equal(excerptSearch(h).checked, true); assert.equal(h.view.pending, false);
+    assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+});
+
+test('loaded excerpt search has bilingual mode labels help empty states and hide close guards', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        const h = await model(undefined, { populate: false, sources: [], t: (key, fallback) => messages[key]?.message || fallback });
+        const option = excerptSearch(h); assert(option); assert.equal(option.type, 'checkbox'); assert.equal(option.parentElement.tagName, 'LABEL');
+        assert.equal(option.parentElement.querySelector('span').textContent, messages.aiContextSourceSearchIncludeExcerpts.message);
+        const caption = h.field('search').parentElement.querySelector('span'), help = h.document.getElementById(option.getAttribute('aria-describedby'));
+        assert.equal(caption.textContent, messages.aiContextSourceSearch.message); assert.equal(help.textContent, messages.aiContextSourceSearchHelp.message);
+        searchExcerpts(h); h.input(h.field('search'), 'not found');
+        assert.equal(caption.textContent, messages.aiContextSourceSearchExcerpts.message); assert.equal(help.textContent, messages.aiContextSourceSearchExcerptsHelp.message);
+        assert.equal(h.byText(messages.aiContextSourceSearchClearExcerpts.message).disabled, false);
+        assert.equal(h.host.querySelector('.ai-context-source-empty').textContent, messages.aiContextSourceExcerptSearchEmpty.message);
+        setScope(h, 'manual'); assert.equal(h.host.querySelector('.ai-context-source-empty').textContent, messages.aiContextSourceExcerptScopeEmpty.message);
+        setScope(h, 'all'); h.click(messages.aiContextSourceSelectedOnly.message); assert.equal(h.host.querySelector('.ai-context-source-empty').textContent, messages.aiContextSourceExcerptSelectedEmpty.message);
+        h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')(); assert.equal(option.disabled, true);
+        searchExcerpts(h, false); assert.equal(option.checked, true); assert.equal(caption.textContent, messages.aiContextSourceSearchExcerpts.message);
+        h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')(); assert.equal(option.disabled, false);
+        searchExcerpts(h, false); assert.equal(caption.textContent, messages.aiContextSourceSearch.message);
+        h.controller.close(); searchExcerpts(h); assert.equal(option.checked, false); h.view.destroy(); option.checked = true; option.dispatch('change'); assert.equal(option.checked, false); assert.equal(option.disabled, true);
         assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
     }
 });

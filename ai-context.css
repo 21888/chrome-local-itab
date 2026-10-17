@@ -49,8 +49,8 @@
     .ai-context-sources { max-height: 22rem; overflow: auto; }
 }
 
-.ai-context-stream-option { display: flex; align-items: flex-start; gap: .4rem; }
-.ai-context-stream-option input { flex: none; }
+.ai-context-stream-option,.ai-context-source-search-option { display: flex; align-items: flex-start; gap: .4rem; }
+.ai-context-stream-option input,.ai-context-source-search-option input { flex: none; }
 .ai-context-partial { margin-block: 1rem; padding: .75rem; border: 1px dashed var(--border-color, #aaa); border-radius: .6rem; }
 .ai-context-partial-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; }
 .ai-context-local-mode,.ai-context-partial-status { font-weight: 600; }

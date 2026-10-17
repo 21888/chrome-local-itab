@@ -5691,6 +5691,27 @@
   "aiContextSourceSearch": {
     "message": "Search loaded source titles"
   },
+  "aiContextSourceSearchIncludeExcerpts": {
+    "message": "Also search current excerpt text"
+  },
+  "aiContextSourceSearchExcerpts": {
+    "message": "Search loaded titles and current excerpts"
+  },
+  "aiContextSourceSearchClearExcerpts": {
+    "message": "Clear source search"
+  },
+  "aiContextSourceSearchExcerptsHelp": {
+    "message": "Searches only titles and current outgoing text of already-loaded saved and manual excerpts, including your edits. Matching is local and literal; no sources are loaded or sent. Hidden selections stay selected and remain included in review and sending."
+  },
+  "aiContextSourceExcerptScopeEmpty": {
+    "message": "No loaded titles or current excerpts match these filters. Change the scope, search or selected-only view. Hidden selections remain included in review and sending."
+  },
+  "aiContextSourceExcerptSelectedEmpty": {
+    "message": "No selected titles or current excerpts match this view. Clear the source search or turn off Show selected only to see more loaded sources."
+  },
+  "aiContextSourceExcerptSearchEmpty": {
+    "message": "No loaded titles or current excerpts match. Clear the source search to show all loaded sources."
+  },
   "aiContextSourceSearchClear": {
     "message": "Clear title search"
   },
@@ -5698,7 +5719,7 @@
     "message": "Clear source filters"
   },
   "aiContextSourceFiltersClearHelp": {
-    "message": "Show all already-loaded sources by clearing title, scope and selected-only filters. Selections, excerpt edits and reviewed requests stay unchanged; no sources are reloaded."
+    "message": "Show all already-loaded sources by clearing the query, scope and selected-only filters and returning to title-only search. Selections, excerpt edits and reviewed requests stay unchanged; no sources are reloaded."
   },
   "aiContextSourceSearchEmpty": {
     "message": "No loaded source titles match. Clear the search to show all loaded sources."
@@ -5773,7 +5794,7 @@
     "message": "Selection after adding visible sources"
   },
   "aiContextSourceBatchOver": {
-    "message": "Too many sources: narrow the title search or deselect sources first. Nothing will be partially selected."
+    "message": "Too many sources: narrow the search or deselect sources first. Nothing will be partially selected."
   },
   "aiContextSourceBatchHelp": {
     "message": "Changing selections requires a new review. Deselect visible keeps hidden selections. Clear all includes hidden selections and keeps your question, filters and edited excerpts. Character limits still apply; nothing is sent or saved."
@@ -5803,7 +5824,7 @@
     "message": "Global collection"
   },
   "aiContextSourceScopeHelp": {
-    "message": "Filters only sources already loaded in this panel, together with title search and selected-only view. This does not load other workspaces or change what is selected for sending."
+    "message": "Filters only sources already loaded in this panel, together with text search and selected-only view. This does not load other workspaces or change what is selected for sending."
   },
   "aiContextSourceScopeEmpty": {
     "message": "No loaded sources match these filters. Change the scope, title search or selected-only view. Hidden selections remain included in review and sending."

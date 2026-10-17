@@ -110,16 +110,20 @@
         const presetActions = el('div', 'ai-context-actions'); connection.append(presetActions);
         let presets = [], selectedPreset = null, presetPending = false, presetAvailable = false, presetReloadEpoch = 0;
         const scopeNote = el('p', 'ai-context-scope', label('Scope', 'AI collections are global saved excerpts. The saved note belongs to this workspace. Manual temporary excerpts are unverified text you explicitly add for this session. Unsaved notes, browser history and other workspaces are never included.'));
-        const searchLabel = el('label', 'ai-context-field', label('SourceSearch', 'Search loaded source titles'));
+        const searchLabel = el('label', 'ai-context-field'), searchCaption = el('span'); searchLabel.append(searchCaption);
         const sourceSearch = el('input', 'ai-context-source-search'); sourceSearch.type = 'search';
         sourceSearch.autocomplete = 'off'; sourceSearch.spellcheck = false; searchLabel.append(sourceSearch);
+        const excerptSearchLabel = el('label', 'ai-context-source-search-option'), excerptSearch = el('input', 'ai-context-source-search-excerpts');
+        excerptSearch.type = 'checkbox'; excerptSearch.checked = false;
+        excerptSearchLabel.append(excerptSearch, el('span', '', label('SourceSearchIncludeExcerpts', 'Also search current excerpt text')));
+        let searchExcerptText = false;
         const scopeLabel = el('label', 'ai-context-field', label('SourceScope', 'Filter loaded source scope'));
         const sourceScope = el('select', 'ai-context-source-scope');
         for (const [value, name, fallback] of [['all', 'SourceScopeAll', 'All sources'], ['workspace', 'SourceScopeWorkspace', 'Current workspace note'], ['library', 'SourceScopeLibrary', 'Global collection'], ['manual', 'SourceScopeManual', 'Manual temporary excerpts (unverified)']]) {
             const option = el('option', '', label(name, fallback)); option.value = value; sourceScope.append(option);
         }
         sourceScope.value = 'all'; scopeLabel.append(sourceScope);
-        const scopeHelp = el('p', 'ai-context-source-scope-help', label('SourceScopeHelp', 'Filters only sources already loaded in this panel, together with title search and selected-only view. This does not load other workspaces or change what is selected for sending.'));
+        const scopeHelp = el('p', 'ai-context-source-scope-help', label('SourceScopeHelp', 'Filters only sources already loaded in this panel, together with text search and selected-only view. This does not load other workspaces or change what is selected for sending.'));
         scopeHelp.id = 'ai-context-source-scope-help'; sourceScope.setAttribute('aria-describedby', scopeHelp.id);
         const searchActions = el('div', 'ai-context-actions');
         const clearSearch = button('SourceSearchClear', 'Clear title search', () => { sourceSearch.value = ''; sourceSearch.focus(); filterSources(); });
@@ -129,11 +133,11 @@
         const clearFilters = button('SourceFiltersClear', 'Clear source filters', () => {
             if (disposed || controller.closed || !box.isConnected || doc.visibilityState === 'hidden' || clearFilters.disabled) return;
             // Visibility only: keep every selected/edited excerpt and exact request intact.
-            sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false;
+            sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; searchExcerptText = false;
             sourceSearch.focus(); filterSources();
         });
         clearFilters.className = 'ai-context-source-filter-reset';
-        const clearFiltersHelp = el('p', '', label('SourceFiltersClearHelp', 'Show all already-loaded sources by clearing title, scope and selected-only filters. Selections, excerpt edits and reviewed requests stay unchanged; no sources are reloaded.'));
+        const clearFiltersHelp = el('p', '', label('SourceFiltersClearHelp', 'Show all already-loaded sources by clearing the query, scope and selected-only filters and returning to title-only search. Selections, excerpt edits and reviewed requests stay unchanged; no sources are reloaded.'));
         clearFiltersHelp.id = 'ai-context-source-filter-reset-help'; clearFilters.setAttribute('aria-describedby', clearFiltersHelp.id);
         searchActions.append(clearSearch, showSelected, clearFilters);
         const batchActions = el('div', 'ai-context-actions');
@@ -146,7 +150,8 @@
         const searchCount = el('p', 'ai-context-source-count'); searchCount.tabIndex = -1; searchCount.setAttribute('role', 'status'); searchCount.setAttribute('aria-live', 'polite');
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
-        const searchHelp = el('p', 'ai-context-source-search-help', label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.'));
+        const searchHelp = el('p', 'ai-context-source-search-help'); searchHelp.id = 'ai-context-source-search-help';
+        sourceSearch.setAttribute('aria-describedby', searchHelp.id); excerptSearch.setAttribute('aria-describedby', searchHelp.id);
         const reloadActions = el('div', 'ai-context-actions');
         const reloadSources = button('SourceReload', 'Reload saved sources', () => loadSourceRows(true));
         reloadSources.className = 'ai-context-source-reload';
@@ -171,7 +176,7 @@
         sourceList.append(savedSourceList, manualSourceList);
         const sourceHelp = el('details', 'ai-context-source-help');
         sourceHelp.append(summary('SourceHelpHeading', 'Source scope, limits and reload'), scopeNote, scopeHelp, searchHelp, clearFiltersHelp, batchHelp, reloadActions, reloadHelp);
-        sourcesPane.append(manualPanel, searchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
+        sourcesPane.append(manualPanel, searchLabel, excerptSearchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         questionPane.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
         let sourceRows = [];
@@ -297,12 +302,22 @@
         const selectedSources = () => sourceRows.filter(row => row.check.checked).map(row => ({ ...row.source, text: sourceText(row) }));
         // Session-only visibility: never rebuild rows or change the outgoing selection.
         function matchesSourceView(row) {
-            return row.searchTitle.includes(sourceSearch.value.trim().toLowerCase()) &&
+            const query = sourceSearch.value.trim().toLowerCase();
+            return (row.searchTitle.includes(query) || (searchExcerptText && sourceText(row).toLowerCase().includes(query))) &&
                 (sourceScope.value === 'all' || row.source.scope === sourceScope.value) &&
                 (!selectedOnly || row.check.checked);
         }
+        function sourceViewBlocked() {
+            return disposed || controller.closed || !box.isConnected || doc.visibilityState === 'hidden';
+        }
         function filterSources() {
             const query = sourceSearch.value.trim().toLowerCase();
+            excerptSearch.checked = searchExcerptText; excerptSearch.disabled = sourceViewBlocked();
+            searchCaption.textContent = searchExcerptText ? label('SourceSearchExcerpts', 'Search loaded titles and current excerpts') : label('SourceSearch', 'Search loaded source titles');
+            clearSearch.textContent = searchExcerptText ? label('SourceSearchClearExcerpts', 'Clear source search') : label('SourceSearchClear', 'Clear title search');
+            searchHelp.textContent = searchExcerptText
+                ? label('SourceSearchExcerptsHelp', 'Searches only titles and current outgoing text of already-loaded saved and manual excerpts, including your edits. Matching is local and literal; no sources are loaded or sent. Hidden selections stay selected and remain included in review and sending.')
+                : label('SourceSearchHelp', 'Searches only loaded titles in this panel. Hidden selections stay selected and are still included in review and sending.');
             // Capture focus before hiding a row: browsers may move it to body immediately.
             const batchFocused = doc.activeElement;
             const focusedIndex = sourceRows.findIndex(row => row.node.contains(doc.activeElement));
@@ -322,10 +337,10 @@
             searchCount.textContent = `${label('SourceSearchShowing', 'Showing')}: ${visible} / ${sourceRows.length} · ${label('SourceSearchSelected', 'Selected')}: ${selected} · ${label('SourceSearchHidden', 'Selected but hidden')}: ${hiddenSelected}`;
             showSelected.setAttribute('aria-pressed', String(selectedOnly));
             searchEmpty.textContent = sourceScope.value !== 'all'
-                ? label('SourceScopeEmpty', 'No loaded sources match these filters. Change the scope, title search or selected-only view. Hidden selections remain included in review and sending.')
+                ? searchExcerptText ? label('SourceExcerptScopeEmpty', 'No loaded titles or current excerpts match these filters. Change the scope, search or selected-only view. Hidden selections remain included in review and sending.') : label('SourceScopeEmpty', 'No loaded sources match these filters. Change the scope, title search or selected-only view. Hidden selections remain included in review and sending.')
                 : selectedOnly
-                ? label('SourceSelectedEmpty', 'No selected sources match this view. Clear the title search or turn off Show selected only to see more loaded sources.')
-                : label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.');
+                ? searchExcerptText ? label('SourceExcerptSelectedEmpty', 'No selected titles or current excerpts match this view. Clear the source search or turn off Show selected only to see more loaded sources.') : label('SourceSelectedEmpty', 'No selected sources match this view. Clear the title search or turn off Show selected only to see more loaded sources.')
+                : searchExcerptText ? label('SourceExcerptSearchEmpty', 'No loaded titles or current excerpts match. Clear the source search to show all loaded sources.') : label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.');
             searchEmpty.hidden = (!query && !selectedOnly && sourceScope.value === 'all') || visible > 0;
             if (focusedIndex >= 0 && sourceRows[focusedIndex].node.hidden) {
                 const available = row => !row.node.hidden && !row.check.disabled;
@@ -334,7 +349,7 @@
             }
             clearSearch.disabled = !sourceSearch.value;
             clearFilters.disabled = disposed || controller.closed || doc.visibilityState === 'hidden' ||
-                (!sourceSearch.value && sourceScope.value === 'all' && !selectedOnly);
+                (!sourceSearch.value && sourceScope.value === 'all' && !selectedOnly && !searchExcerptText);
             const count = sourceRows.filter(row => !row.node.hidden && !row.check.checked).length;
             const blocked = selectionBlocked();
             selectVisible.textContent = `${label('SourceSelectVisible', 'Select visible unselected sources')} (${count})`;
@@ -343,10 +358,14 @@
             selectVisible.disabled = blocked || !count || selected + count > 12;
             deselectVisible.disabled = blocked || selected === hiddenSelected;
             clearSelection.disabled = blocked || !selected;
-            batchHelp.textContent = `${label('SourceBatchTotal', 'Selection after adding visible sources')}: ${selected + count} / 12. ${selected + count > 12 ? label('SourceBatchOver', 'Too many sources: narrow the title search or deselect sources first. Nothing will be partially selected.') + ' ' : ''}${label('SourceBatchHelp', 'Changing selections requires a new review. Deselect visible keeps hidden selections. Clear all includes hidden selections and keeps your question, filters and edited excerpts. Character limits still apply; nothing is sent or saved.')}`;
+            batchHelp.textContent = `${label('SourceBatchTotal', 'Selection after adding visible sources')}: ${selected + count} / 12. ${selected + count > 12 ? label('SourceBatchOver', 'Too many sources: narrow the search or deselect sources first. Nothing will be partially selected.') + ' ' : ''}${label('SourceBatchHelp', 'Changing selections requires a new review. Deselect visible keeps hidden selections. Clear all includes hidden selections and keeps your question, filters and edited excerpts. Character limits still apply; nothing is sent or saved.')}`;
             // Capture the button before disabling it: native browsers may blur immediately.
             if ((batchFocused === selectVisible || batchFocused === deselectVisible || batchFocused === clearSelection) && batchFocused.disabled) showSelected.focus();
         }
+        excerptSearch.addEventListener('change', () => {
+            if (sourceViewBlocked()) { excerptSearch.checked = searchExcerptText; return; }
+            searchExcerptText = excerptSearch.checked; filterSources();
+        });
         sourceSearch.addEventListener('input', filterSources);
         sourceScope.addEventListener('change', filterSources);
         function updateBudget() {
@@ -965,7 +984,7 @@
             manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualEpoch++;
             for (const row of sourceRows.filter(item => item.source.scope === 'manual')) row.node.remove();
             sourceRows = sourceRows.filter(row => row.source.scope !== 'manual');
-            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; row.rawText = row.source.text; } collectionTicket = null; collectionUsed = false; collectionPanel.hidden = true; sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; update(); });
+            for (const row of sourceRows) { row.check.checked = false; row.input.hidden = true; row.input.value = row.source.text; row.rawText = row.source.text; } collectionTicket = null; collectionUsed = false; collectionPanel.hidden = true; sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; searchExcerptText = false; update(); });
         const actions = el('div', 'ai-context-actions'); actions.append(review, allow, send, stop);
         const results = el('div', 'ai-context-actions'); results.append(copy, save, verifySave, reviewTasks, confirm, verifyTasks);
         answerTitle.addEventListener('input', () => { titleEdited = true; });
@@ -1170,7 +1189,7 @@
                 // but a newer message arriving during the read keeps its ownership.
                 if (status.textContent === previousStatus) status.textContent = label('SourceBatchChanged', 'Selection changed. Review the exact request again before sending.');
                 // Reveal the explicit selection, rather than leaving it hidden by an older filter.
-                sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false;
+                sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false; searchExcerptText = false;
             } catch (_) { if (!disposed) collectionUnavailable(); }
             finally { pending = false; if (!disposed) { update(); if (applied) question.focus(); } }
         }
@@ -1184,7 +1203,7 @@
         function captureDraft() {
             // A confirmation cannot authorize discarding edits made while the host awaits readiness.
             const signature = () => JSON.stringify([controls.map(input => [input.value, input.checked]), mode.value, stream.checked,
-                sourceRows.map(row => [row.source.id, row.input.value, row.rawText, row.check.checked]), sourceSearch.value, sourceScope.value, selectedOnly,
+                sourceRows.map(row => [row.source.id, row.input.value, row.rawText, row.check.checked]), sourceSearch.value, sourceScope.value, selectedOnly, searchExcerptText,
                 answerTitle.value, output.value, externalInput.value, externalEpoch, manualTitle.value, manualBody.value, manualEpoch, includeContext.checked, promptPicker.hidden, promptSelect.value, promptSearch.value,
                 promptRows.map(row => [row.name, row.input.value]), promptPreview.textContent, promptEpoch, collectionEpoch]);
             const before = signature(), generation = controller.generation, result = controller.result, reviewed = controller.reviewed, localReview = controller.localReview;
@@ -1193,7 +1212,7 @@
                 localReview === controller.localReview && partial === controller.partial && taskSelection === controller.taskSelection && taskReview === controller.taskReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; clearFilters.disabled = selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = collectionReload.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; excerptSearch.disabled = clearFilters.disabled = selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = collectionReload.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); update(); } return; }
             if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }

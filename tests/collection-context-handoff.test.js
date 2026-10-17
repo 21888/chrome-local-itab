@@ -678,3 +678,22 @@ test('another saved-source notification clears earlier reload feedback and leave
     assert.equal(h.q('.ai-context-collection-reload-status').textContent, ''); assert.equal(h.q('.ai-context-collection-reload').disabled, false);
     assert.equal(h.q('.ai-context-saved-sources').querySelector('.ai-context-source'), row); assert.equal(checks(h).length, 0); quiet(h);
 });
+
+test('loaded excerpt search preserves raw collection text and explicit apply reveals the default view', async () => {
+    const h = await page(); await h.open(); const option = h.q('.ai-context-source-search-excerpts'); assert(option);
+    option.checked = true; option.dispatch('change'); h.input('.ai-context-source-search', 'second');
+    assert.equal(h.q('.ai-context-source').hidden, false);
+    h.input('.ai-context-source-search', 'no matching body'); assert.equal(h.q('.ai-context-source').hidden, true);
+    h.click('Use this excerpt'); await settle();
+    assert.equal(option.checked, false); assert.equal(h.q('.ai-context-source-search').value, ''); assert.equal(checks(h).length, 1); assert.equal(checks(h)[0].hidden, false);
+    h.input('.ai-context-question', 'Explain'); h.click('Review prompt locally'); await settle();
+    assert.equal(h.window.contextController.localReview.packed.sources[0].text, h.record.body); quiet(h);
+});
+
+test('loaded excerpt search change prevents confirmed host replacement while readiness is pending', async () => {
+    const h = await page(); await h.open(); h.input('.ai-context-question', 'Original question');
+    const dialog = h.q('.ai-context-dialog'), gate = deferred(); h.window.LocalItabWorkspaces.session.readyExisting = () => gate.promise;
+    const opening = h.window.LocalItabAIContextEntry.openCollection(h.reference());
+    const option = h.q('.ai-context-source-search-excerpts'); assert(option); option.checked = true; option.dispatch('change'); gate.resolve();
+    assert.equal(await opening, false); assert.equal(h.q('.ai-context-dialog'), dialog); assert.equal(option.checked, true); assert.equal(h.q('.ai-context-question').value, 'Original question'); quiet(h);
+});

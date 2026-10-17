@@ -5691,6 +5691,27 @@
   "aiContextSourceSearch": {
     "message": "搜索已加载的资料标题"
   },
+  "aiContextSourceSearchIncludeExcerpts": {
+    "message": "同时搜索当前摘录正文"
+  },
+  "aiContextSourceSearchExcerpts": {
+    "message": "搜索已加载的标题和当前摘录正文"
+  },
+  "aiContextSourceSearchClearExcerpts": {
+    "message": "清除来源搜索"
+  },
+  "aiContextSourceSearchExcerptsHelp": {
+    "message": "仅搜索已加载的已保存来源和手动摘录的标题及当前将用于请求的正文，包括你的编辑。按字面在本地匹配，不加载或发送来源。隐藏的勾选仍保留，并参与审阅和发送。"
+  },
+  "aiContextSourceExcerptScopeEmpty": {
+    "message": "没有已加载的标题或当前摘录正文符合这些筛选条件。可调整范围、搜索或「只看已选」；隐藏的勾选仍参与审阅和发送。"
+  },
+  "aiContextSourceExcerptSelectedEmpty": {
+    "message": "当前视图中没有匹配的已选标题或摘录正文。清除来源搜索或关闭「只看已选」可查看其他已加载来源。"
+  },
+  "aiContextSourceExcerptSearchEmpty": {
+    "message": "没有已加载的标题或当前摘录正文匹配。清除来源搜索可显示所有已加载来源。"
+  },
   "aiContextSourceSearchClear": {
     "message": "清除标题搜索"
   },
@@ -5698,7 +5719,7 @@
     "message": "清除来源筛选"
   },
   "aiContextSourceFiltersClearHelp": {
-    "message": "清除标题、来源范围和仅看已选筛选，显示全部已加载资料。勾选、摘录编辑和已审阅请求保持不变，不会重新加载资料。"
+    "message": "清除关键词、范围和「只看已选」筛选，并恢复只搜标题，显示所有已加载来源。保留勾选、摘录编辑和已审阅请求，不重新加载来源。"
   },
   "aiContextSourceSearchEmpty": {
     "message": "没有匹配的已加载资料标题。清除搜索可显示全部已加载资料。"
@@ -5773,7 +5794,7 @@
     "message": "加入可见未选项后的选择总数"
   },
   "aiContextSourceBatchOver": {
-    "message": "数量超限：请缩小标题搜索范围或先取消部分选择，不会只选前 12 项。"
+    "message": "来源过多：请缩小搜索范围或先取消部分勾选。不会只选择其中一部分。"
   },
   "aiContextSourceBatchHelp": {
     "message": "更改选择后需要重新检查。取消可见已选会保留隐藏的选择；清空全部包含隐藏的选择，并保留问题、筛选和已编辑的摘录。字符上限仍适用；不会发送或保存任何内容。"
@@ -5803,7 +5824,7 @@
     "message": "全局收藏"
   },
   "aiContextSourceScopeHelp": {
-    "message": "仅筛选本面板已加载的来源，并与标题搜索、仅显示已选条件同时生效。不会加载其他工作区，也不会改变已选发送内容。"
+    "message": "仅筛选面板中已加载的来源，与文字搜索和「只看已选」共同生效。不会加载其他工作区，也不改变将发送的勾选。"
   },
   "aiContextSourceScopeEmpty": {
     "message": "没有已加载来源符合这些筛选条件。请调整范围、标题搜索或仅显示已选条件。隐藏的已选来源仍会纳入检查和发送。"
