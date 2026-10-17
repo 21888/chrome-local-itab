@@ -333,7 +333,7 @@ Usa **Añadir varias tareas** para pegar una tarea por línea no vacía, revisar
 
 Activa la tarjeta opcional en Ajustes. Está oculta de forma predeterminada y propone 25 minutos de concentración y 5 de descanso. Antes de iniciar, cada fase admite entre 1 y 180 minutos enteros. Iniciar, pausar/reanudar y detener/restablecer son acciones manuales; elegir la siguiente fase no la inicia.
 
-Todas las páginas abiertas de la extensión comparten una sesión local del dispositivo. Ocultar la tarjeta conserva la sesión. Restablecer solo los ajustes conserva su estado exacto; cambiar de plantilla o importar la configuración no la inicia ni la reemplaza. Las exportaciones de configuración, Chrome Sync y las copias de Drive excluyen el temporizador. No tiene asociación con tareas, historial, sonido, solicitudes de red ni notificaciones del sistema y no requiere nuevos permisos.
+Cada espacio de trabajo tiene su propia sesión local del dispositivo, compartida entre sus páginas de nueva pestaña. Ocultar la tarjeta conserva la sesión. Restablecer solo los ajustes conserva su estado exacto; cambiar de plantilla o importar la configuración no la inicia ni la reemplaza. Las exportaciones de configuración, Chrome Sync y las copias de Drive excluyen el temporizador. No tiene asociación con tareas, historial, sonido, solicitudes de red ni notificaciones del sistema y no requiere nuevos permisos.
 
 <details>
 <summary>Límites de tiempo y recuperación</summary>
