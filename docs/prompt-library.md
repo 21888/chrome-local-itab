@@ -15,7 +15,8 @@
    `\{{名称}}` 保留字面括号；也可以选择按原文使用整个模板。
 4. 先填写变量并查看完成版预览，再点击复制到自己选择的工具。未填写的变量
    会阻止完成版复制；确实要留空时点击「使用空值」。复制失败可选中文本手动
-   复制。没有后台剪贴板读取。
+   复制。缺值时可点击「定位首个未填写变量」，跳到当前模板中首个尚未填写的字段。
+   已填写或明确选择空值的字段会跳过；此按钮不复制、不保存。没有后台剪贴板读取。
 5. 修改正文并保存会保留历史版本。元数据修改不新建正文版本；恢复历史正文
    会生成新版本，并保留后续历史。
 6. 编辑已有提示词时，可随时点击「将草稿另存为新提示词」。这会复制编辑器中的
@@ -47,6 +48,10 @@
 Open **Prompt library** from the new-tab header. Create a titled prompt, optionally
 add tags/category/tool notes/favorite, then explicitly save it. Search saved text,
 fill `{{variables}}`, review the completed text and copy it into your chosen tool.
+When values are missing, choose **Go to first unfilled variable** beside the preview
+to focus the first remaining field in template order. Filled and explicitly empty
+values are skipped. This works for current, historical and unsaved-draft previews;
+it does not copy or save. See [missing-variable navigation](prompt-missing-variable-focus.md).
 Local saving, search and preview do not call a model. Optional model workflows send only after explicit destination/content review and Send; granting access alone never sends anything.
 
 One global library serves every workspace. Drafts and variable values remain only

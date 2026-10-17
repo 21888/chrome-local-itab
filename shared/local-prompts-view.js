@@ -206,7 +206,7 @@
             if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
             if (kind === 'draftPreview') { this.renderDraftPreview(); return; }
             if (kind === 'draftPreviewValues') { this.updateDraftPreview(); return; }
-            if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); this.historyDraftActions?.update(); return; }
+            if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); if (this.draftPreviewElements) this.updateMissingVariableButton(this.draftPreviewElements, true); this.historyDraftActions?.update(); return; }
             if (kind === 'preview') {
                 // Even an edit back to the original text supersedes pending feedback.
                 this.copyGeneration++; this.updatePreview(); return;
@@ -427,7 +427,7 @@
             });
             literalWrap.append(literal, this.el('span', '', this.t('Literal', 'Use the template literally (do not replace variables)')));
             host.append(literalWrap, this.el('p', 'prompt-help', this.t('DraftLiteralHelp', 'Literal mode keeps every character, including backslashes and {{braces}}. Turn it off to restore your temporary variable values. This choice is not saved.')));
-            const variables = this.el('div', 'prompt-variables');
+            const variables = this.el('div', 'prompt-variables'), variableInputs = new Map();
             for (const name of session.result?.variables || []) {
                 const field = this.field(name, `draft-variable-${name}`, session.values[name] || '', { multiline: true,
                     help: this.t('DraftVariableHelp', 'Not filled yet? Type a value, or choose Use empty value.'),
@@ -442,14 +442,60 @@
                     if (!this.destroyed && field.input.isConnected && host === this.draftPreviewHost && host.isConnected && !session.literal && c.draftPreviewCurrent(session)) void this.chooseExcerpt(name, field.input, true);
                 }, 'prompt-empty-value');
                 choose.setAttribute('aria-label', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); this.focusKey(choose, `draft-excerpt-${name}`);
-                field.wrap.append(empty, choose); variables.append(field.wrap);
+                variableInputs.set(name, field.input); field.wrap.append(empty, choose); variables.append(field.wrap);
             }
             const preview = this.el('textarea', 'prompt-preview'); preview.readOnly = true;
             preview.setAttribute('aria-label', this.t('DraftPreviewText', 'Unsaved draft preview')); this.focusKey(preview, 'draft-preview-text');
             const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
             const copy = this.button('DraftPreviewCopy', 'Copy unsaved preview', () => void this.copyDraftPreview()); this.focusKey(copy, 'draft-preview-copy');
-            host.append(variables, preview, status, copy);
-            this.draftPreviewElements = { host, session, literal, variables, preview, status, copy }; this.updateDraftPreview();
+            const ui = { host, session, literal, variables, variableInputs, preview, status, copy };
+            ui.locateMissing = this.missingVariableButton(ui, true);
+            host.append(variables, preview, status, ui.locateMissing, copy);
+            this.draftPreviewElements = ui; this.updateDraftPreview();
+        }
+        missingVariableTarget(ui, draft = false) {
+            const c = this.controller;
+            if (!ui || this.destroyed || c.disposed || c.busy || c.pendingCommand || c.pendingReadGeneration !== null ||
+                !c.state || c.linkedPromptUnavailable || c.error?.scope === 'read' ||
+                !this.host.isConnected || !ui.host.isConnected || !this.host.contains(ui.host) || !this.main.contains(ui.host)) return null;
+            if (draft) {
+                if (this.draftPreviewElements !== ui || this.draftPreviewHost !== ui.host || !c.draftPreviewCurrent(ui.session)) return null;
+            } else {
+                const record = c.record();
+                if (this.previewElements !== ui || !c.sessionReady() || c.session() !== ui.session ||
+                    record?.id !== ui.recordId || record.version !== ui.recordVersion ||
+                    ui.session.versionId !== ui.versionId || ui.session.body !== ui.body || c.error?.scope === 'preview') return null;
+            }
+            const result = draft ? c.draftPreviewResult() : c.preview();
+            if (ui.session.literal || result?.error || !result?.missing.length) return null;
+            // Map keys are exact template names, including __proto__, Unicode and
+            // punctuation. Recompute missing values at activation, never from labels.
+            const input = ui.variableInputs.get(result.missing[0]);
+            return input && ui.variables.contains(input) && ui.host.contains(input) && input.isConnected ? input : null;
+        }
+        missingVariableButton(ui, draft = false) {
+            const button = this.button('LocateMissingVariable', 'Go to first unfilled variable', event => {
+                if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat ||
+                    event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || this.doc.hidden || this.openDialog ||
+                    button.disabled || ui.locateMissing !== button || !button.isConnected || !ui.host.contains(button) ||
+                    button.closest('[hidden], [inert]') || !button.getClientRects().length ||
+                    Array.from(this.doc.querySelectorAll('[role="dialog"][aria-modal="true"], dialog[open]')).some(dialog =>
+                        !dialog.closest('[hidden], [inert]') && dialog.getClientRects().length)) return;
+                const input = this.missingVariableTarget(ui, draft);
+                if (input && !input.disabled && !input.closest('[hidden], [inert]') && input.getClientRects().length) input.focus();
+            });
+            // Keep native Enter/Space activation; do not synthesize clicks or move
+            // focus on input/composition updates, cancelled keys or key repeats.
+            button.addEventListener('keydown', event => {
+                if ((event.key === 'Enter' || event.key === ' ') && (event.isComposing || event.keyCode === 229 || event.repeat)) event.preventDefault();
+            });
+            return button;
+        }
+        updateMissingVariableButton(ui, draft = false) {
+            // Visibility and modal state are checked only on activation, so a
+            // background render cannot leave this action hidden on returning.
+            const available = Boolean(this.missingVariableTarget(ui, draft));
+            ui.locateMissing.hidden = !available; ui.locateMissing.disabled = !available;
         }
         updateDraftPreview() {
             const c = this.controller, ui = this.draftPreviewElements;
@@ -460,6 +506,7 @@
             ui.literal.checked = ui.session.literal; ui.literal.disabled = !c.draftPreviewCurrent(ui.session);
             ui.variables.hidden = ui.session.literal;
             for (const control of ui.variables.querySelectorAll('textarea, button')) control.disabled = ui.session.literal || !c.draftPreviewCurrent(ui.session);
+            this.updateMissingVariableButton(ui, true);
             ui.status.textContent = result?.error ? this.errorText(result.error) : !result ? this.t('DraftPreviewExpired', 'Temporary preview cleared. Preview the draft again.') : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('DraftPreviewReady', 'Ready to copy. Nothing has been saved or sent.');
         }
         async copyDraftPreview() {
@@ -552,12 +599,12 @@
             }
             const literalWrap = this.el('label', 'prompt-check'), literal = this.el('input'); literal.type = 'checkbox'; literal.checked = c.session(record).literal;
             literal.addEventListener('change', () => { c.setLiteral(literal.checked); literal.checked = c.session(record).literal; }); literalWrap.append(literal, this.el('span', '', this.t('Literal', 'Use the template literally (do not replace variables)'))); section.append(literalWrap);
-            const variables = this.el('div', 'prompt-variables');
+            const variables = this.el('div', 'prompt-variables'), variableInputs = new Map();
             for (const name of c.variables(record)) {
                 const entry = this.el('div', 'prompt-variable'), field = this.field(name, `variable-${name}`, c.session(record).values[name] || '', { multiline: true, change: value => { if (!c.setVariable(name, value)) field.input.value = c.session(record).values[name] || ''; } });
                 const empty = this.button('EmptyValue', 'Use empty value', () => { c.setVariable(name, ''); field.input.value = c.session(record).values[name] || ''; }, 'prompt-empty-value'); empty.setAttribute('aria-label', `${this.t('EmptyValue', 'Use empty value')}: ${name}`); const choose = this.button('ExcerptChoose', 'Choose saved excerpt', () => void this.chooseExcerpt(name, field.input), 'prompt-empty-value');
                 choose.setAttribute('aria-label', `${this.t('ExcerptChoose', 'Choose saved excerpt')}: ${name}`); this.focusKey(choose, `excerpt-${name}`);
-                entry.append(field.wrap, empty, choose); variables.append(entry);
+                variableInputs.set(name, field.input); entry.append(field.wrap, empty, choose); variables.append(entry);
             }
             section.append(variables);
             const previewSection = this.el('div', 'prompt-section'), heading = this.el('div', 'prompt-section-heading');
@@ -574,7 +621,10 @@
             const run = root.LocalItabAIModelView ? this.button('ModelTitle', 'Run with your model', () => root.LocalItabAIModelView.open({ view: this, collectionStore: this.modelCollectionStore })) : null;
             if (run) actions.append(run);
             if (root.LocalItabAIPromptRefinement && root.LocalItabAIModelView) actions.append(this.button('ModelRefineTitle', 'Refine saved prompt', () => root.LocalItabAIModelView.open({ view: this, mode: 'refine' })));
-            this.previewElements = { literal, variables, preview, status, copy, run, compare }; this.updatePreview();
+            const ui = { host: section, session, recordId: record.id, recordVersion: record.version, versionId: session.versionId, body: session.body,
+                literal, variables, variableInputs, preview, status, copy, run, compare };
+            ui.locateMissing = this.missingVariableButton(ui); actions.append(ui.locateMissing);
+            this.previewElements = ui; this.updatePreview();
             this.main.append(this.linkedSection(record.id, c.session(record).versionId, true));
         }
         async chooseExcerpt(name, input, draft = false) {
@@ -737,7 +787,7 @@
             ui.literal.checked = c.session().literal; ui.variables.hidden = ui.literal.checked;
             ui.literal.disabled = !c.sessionReady();
             for (const control of ui.variables.querySelectorAll('input, textarea, button')) control.disabled = !c.sessionReady();
-            ui.preview.value = result.text; this.updateCopyEligibility(result);
+            ui.preview.value = result.text; this.updateCopyEligibility(result); this.updateMissingVariableButton(ui);
             ui.status.textContent = c.error?.scope === 'preview' ? this.errorText(c.error.code) : result.error ? this.errorText(result.error) : result.missing.length ? `${this.t('MissingValues', 'Fill these variables before copying:')} ${result.missing.join(', ')}` : this.t('PreviewReady', 'Ready to copy. Your saved template will not change.');
         }
         updateCopyEligibility(result = this.controller.preview()) {

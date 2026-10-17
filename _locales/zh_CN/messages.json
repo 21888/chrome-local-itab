@@ -3543,6 +3543,9 @@
   "promptsSelectPreview": {
     "message": "选中文本"
   },
+  "promptsLocateMissingVariable": {
+    "message": "定位首个未填写变量"
+  },
   "promptsMissingValues": {
     "message": "复制前请填写以下变量："
   },
