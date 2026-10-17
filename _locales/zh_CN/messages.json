@@ -1240,6 +1240,18 @@
   "tasksTextLimit": {
     "message": "纯文本 · 最多 1,000 个字符"
   },
+  "tasksRecoveryPreview": {
+    "message": "这份本地副本的内容"
+  },
+  "tasksRecoveryPreviewHelp": {
+    "message": "以下是所选副本将用于替换当前列表的待办与「下一件事」置顶项。已移除的待办仍保持已移除；「移除前」表示之后恢复单条待办时会回到的状态。"
+  },
+  "tasksRecoveryRemovedFrom": {
+    "message": "移除前：{state}"
+  },
+  "tasksRecoveryEmpty": {
+    "message": "这份副本没有待办。"
+  },
   "tasksRestoreTitle": {
     "message": "恢复这份此前的本地副本？"
   },

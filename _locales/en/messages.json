@@ -1240,6 +1240,18 @@
   "tasksTextLimit": {
     "message": "Plain text · 1,000 characters maximum"
   },
+  "tasksRecoveryPreview": {
+    "message": "Contents of this local copy"
+  },
+  "tasksRecoveryPreviewHelp": {
+    "message": "These tasks and the Next up pin from the selected copy will replace the current list. Removed tasks stay removed; Removed from shows the state used when restoring an individual task."
+  },
+  "tasksRecoveryRemovedFrom": {
+    "message": "Removed from: {state}"
+  },
+  "tasksRecoveryEmpty": {
+    "message": "This copy contains no tasks."
+  },
   "tasksRestoreTitle": {
     "message": "Restore this previous local copy?"
   },

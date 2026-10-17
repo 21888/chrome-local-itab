@@ -20,7 +20,7 @@ function model(options = {}) {
     const store = new tasks.Store(b), controller = new Controller(store);
     const document = createDocument({ blurUnavailableFocus: options.blurUnavailableFocus }), host = document.createElement('article'), search = document.createElement('input');
     document.body.append(search, host); search.focus();
-    const api = { ...tasks, Controller }, window = { LocalItabTasks: api };
+    const api = { ...tasks, Controller }, window = { LocalItabTasks: api, i18n: options.i18n };
     const context = vm.createContext({ window, document, crypto: webcrypto, setTimeout: options.setTimeout || setTimeout, URL: options.URL || URL, Blob, console });
     const dialogPath = path.resolve(__dirname, '../shared/dialog-focus.js');
     vm.runInContext(fs.readFileSync(fs.existsSync(dialogPath) ? dialogPath : path.resolve(__dirname, '../source-model/shared/dialog-focus.js'), 'utf8'), context);
@@ -633,4 +633,141 @@ test('DOM model: flagged final input after blur retains a fenced omitted-end can
     h.view.input.dispatch('input', { isComposing: false }); h.view.input.focus(); h.view.add(); await settle();
     assert.equal(h.controller.state.records.length, 1); assert.equal(h.controller.state.records[0].text, '最终草稿');
     assert.equal(h.view.hasUncommittedWork(), false); h.view.destroy();
+});
+
+async function recoveryPreviewFixture(h) {
+    await settle(); const empty = await h.store.export();
+    const duplicate = '  第一行 🧭\r\n第二行 <img src=x onerror=alert(1)>\r末行  ';
+    for (const text of [duplicate, '<script>literal & completed</script>', 'removed while active', duplicate, 'removed after completion']) {
+        await h.store.mutate(h.store.request('add', { text }));
+    }
+    const act = async (index, kind) => {
+        const task = (await h.store.read()).records[index];
+        await h.store.mutate(h.store.request(kind, { id: task.id, version: task.version, ...(kind === 'pin' ? { expectedPin: null } : {}) }));
+    };
+    await act(1, 'complete'); await act(2, 'remove'); await act(4, 'complete'); await act(4, 'remove'); await act(3, 'pin');
+    await h.store.mutate(h.store.request('replace', await h.store.review(empty)));
+    await seed(h, 'current list only'); return structuredClone(h.b.raw().recovery[0]);
+}
+const recoveryPreviewTexts = panel => panel.querySelectorAll('.tasks-recovery-text').map(node => node.textContent);
+
+test('recovery preview: collapsed read-only original order, exact text, states and pin; toggling and cancelling do no I/O', async t => {
+    const h = model(); t.after(() => h.view.destroy()); const copy = await recoveryPreviewFixture(h);
+    const task = h.controller.state.records[0]; await h.view.perform(h.store.request('complete', { id: task.id, version: task.version }));
+    const undo = h.view.undo; setInput(h.view.input, 'new quick-entry draft');
+    const before = structuredClone(h.b.raw()), read = h.store.read.bind(h.store), write = h.b.write;
+    let reads = 0, writes = 0; h.store.read = () => { reads++; return read(); }; h.b.write = value => { writes++; return write(value); };
+    await h.view.reviewRecovery(copy.id);
+    const panel = modal(h), preview = panel.querySelector('.tasks-recovery-preview'); assert(preview, 'selected recovery copy needs a text preview');
+    assert.equal(preview.tagName, 'DETAILS'); assert.equal(preview.open, false);
+    assert.equal(preview.querySelector('summary').textContent, 'Contents of this local copy');
+    assert.match(preview.querySelector('.tasks-help').textContent, /selected copy.*replace the current list/);
+    assert.deepEqual(recoveryPreviewTexts(panel), copy.content.records.map(record => record.text));
+    assert.equal(preview.querySelectorAll('li').length, 5);
+    assert.deepEqual(preview.querySelectorAll('.tasks-recovery-state').map(node => node.textContent), [
+        'Active', 'Completed', 'Removed · Removed from: Active', 'Active · Next up', 'Removed · Removed from: Completed'
+    ]);
+    assert.equal(preview.querySelectorAll('button, input, textarea, a, [data-task-id], img, script').length, 0);
+    assert(preview.querySelectorAll('.tasks-recovery-text').every(node => node.children.length === 0));
+    assert(!recoveryPreviewTexts(panel).includes('current list only'));
+    const summary = preview.querySelector('summary'), confirmLoop = button(panel, 'Replace tasks');
+    assert.equal(summary.getAttribute('tabindex'), '0');
+    confirmLoop.focus(); assert.equal(confirmLoop.dispatch('keydown', { key: 'Tab' }).prevented, true); assert.equal(h.document.activeElement, summary);
+    assert.equal(summary.dispatch('keydown', { key: 'Tab', shiftKey: true }).prevented, true); assert.equal(h.document.activeElement, confirmLoop);
+    preview.open = true; preview.dispatch('toggle'); preview.open = false; preview.dispatch('toggle');
+    const confirm = button(panel, 'Replace tasks'); click(panel, 'Cancel'); confirm.dispatch('click'); await settle();
+    assert.equal(modal(h), null); assert.equal(reads, 1); assert.equal(writes, 0); assert.deepEqual(h.b.raw(), before);
+    assert.equal(h.view.input.value, 'new quick-entry draft'); assert.equal(h.view.undo, undo); assert.equal(h.view.undoButton.hidden, false);
+    assert.equal(h.document.activeElement, h.search);
+});
+
+test('recovery preview: identical counts still distinguish complete saved texts and preserve long content', async t => {
+    const h = model(); t.after(() => h.view.destroy()); await settle(); const empty = await h.store.export();
+    const first = '甲'.repeat(998) + ' 🧭', second = '乙'.repeat(998) + ' 🧭';
+    await seed(h, first); await h.store.mutate(h.store.request('replace', await h.store.review(empty)));
+    await seed(h, second); await h.store.mutate(h.store.request('replace', await h.store.review(empty))); await settle();
+    const before = structuredClone(h.b.raw()), [one, two] = before.recovery;
+    assert.deepEqual(tasks.counts(one.content), tasks.counts(two.content));
+    await h.view.reviewRecovery(one.id); assert.deepEqual(recoveryPreviewTexts(modal(h)), [first]); click(modal(h), 'Cancel');
+    await h.view.reviewRecovery(two.id); assert.deepEqual(recoveryPreviewTexts(modal(h)), [second]); click(modal(h), 'Cancel');
+    assert.deepEqual(h.b.raw(), before);
+});
+
+test('recovery preview: same-read immutable snapshot retains original revision after another page consumes the source', async t => {
+    const h = model({ blurUnavailableFocus: true }); t.after(() => h.view.destroy()); const copy = await recoveryPreviewFixture(h);
+    const snapshot = await h.store.read(), revision = snapshot.revision, read = h.store.read.bind(h.store);
+    h.store.read = async () => snapshot; await h.view.reviewRecovery(copy.id); h.store.read = read;
+    const preview = modal(h).querySelector('.tasks-recovery-preview'); assert(preview);
+    // Another page restores this copy, so the old id is no longer available.
+    await h.store.mutate(h.store.request('recover', { id: copy.id, revision })); await settle();
+    const before = structuredClone(h.b.raw()); assert(!before.recovery.some(item => item.id === copy.id));
+    // A producer retaining its read result cannot rewrite the reviewed command.
+    snapshot.revision = before.revision; snapshot.recovery[0].content.records[0].text = 'mutated read result'; snapshot.recovery[0].content.pinnedId = null;
+    preview.open = true; preview.dispatch('toggle'); assert.deepEqual(recoveryPreviewTexts(modal(h)), copy.content.records.map(record => record.text));
+    const run = h.controller.run.bind(h.controller), commands = []; h.controller.run = command => { commands.push(command); return run(command); };
+    const confirm = button(modal(h), 'Replace tasks'); confirm.focus(); activeEditKey(h, 'Enter'); await settle();
+    assert.equal(commands.length, 1); assert.equal(commands[0].revision, revision); assert.equal(commands[0].id, copy.id);
+    assert.equal(h.controller.error.code, 'CONFLICT'); assert.equal(confirm.hidden, true); assert.deepEqual(h.b.raw(), before);
+    assert.deepEqual(recoveryPreviewTexts(modal(h)), copy.content.records.map(record => record.text));
+    assert.equal(h.document.activeElement, button(modal(h), 'Cancel')); activeEditKey(h, 'Escape'); assert.equal(modal(h), null);
+});
+
+test('recovery preview: late reads cannot revive closed reviews, replace newer dialogs or outlive destroy', async t => {
+    const h = model(); t.after(() => h.view.destroy()); const copy = await recoveryPreviewFixture(h), read = h.store.read.bind(h.store);
+    const wait = deferred(); h.store.read = () => { h.store.read = read; return wait.promise; };
+    const older = h.view.reviewRecovery(copy.id); await h.view.reviewRecovery(copy.id);
+    assert(modal(h).querySelector('.tasks-recovery-preview')); click(modal(h), 'Cancel');
+    wait.resolve(await read()); await older; assert.equal(modal(h), null);
+    const editing = deferred(); h.store.read = () => { h.store.read = read; return editing.promise; };
+    const pending = h.view.reviewRecovery(copy.id); h.view.edit(h.controller.state.records[0]); const input = editor(h); setInput(input, 'newer editor');
+    editing.resolve(await read()); await pending; assert.equal(editor(h), input); assert.equal(modal(h).querySelector('.tasks-recovery-preview'), null);
+    assert.equal(input.value, 'newer editor'); click(modal(h), 'Cancel');
+    const dying = deferred(); h.store.read = () => { h.store.read = read; return dying.promise; };
+    const last = h.view.reviewRecovery(copy.id), before = structuredClone(h.b.raw()); h.view.destroy(); dying.resolve(before); await last;
+    assert.equal(modal(h), null); assert.equal(h.view.pendingReview, false); assert.deepEqual(h.b.raw(), before);
+});
+
+test('recovery preview: full eight-copy uncertain restore retries the exact command and retains the previous current list', async t => {
+    const h = model({ blurUnavailableFocus: true }); t.after(() => h.view.destroy()); const copy = await recoveryPreviewFixture(h);
+    const source = await h.store.export();
+    for (let i = 1; i < tasks.LIMITS.recovery; i++) await h.store.mutate(h.store.request('replace', await h.store.review(source)));
+    await settle(); const before = structuredClone(h.b.raw()); assert.equal(before.recovery.length, 8);
+    await h.view.reviewRecovery(copy.id); assert.deepEqual(recoveryPreviewTexts(modal(h)), copy.content.records.map(record => record.text));
+    const run = h.controller.run.bind(h.controller), commands = []; h.controller.run = command => { commands.push(command); return run(command); };
+    const write = h.b.write; let writes = 0; h.b.write = async value => { writes++; await write(value); throw new Error('synthetic uncertain save'); };
+    const confirm = button(modal(h), 'Replace tasks'); confirm.focus(); activeEditKey(h, 'Enter'); await settle();
+    assert.equal(h.controller.error.code, 'WRITE'); assert.equal(writes, 1); assert.equal(h.document.activeElement, button(modal(h), 'Cancel'));
+    assert.deepEqual(recoveryPreviewTexts(modal(h)), copy.content.records.map(record => record.text));
+    const saved = structuredClone(h.b.raw()); h.b.write = async value => { writes++; return write(value); };
+    confirm.focus(); activeEditKey(h, 'Enter'); await settle();
+    assert.equal(modal(h), null); assert.equal(commands.length, 2); assert.equal(commands[0], commands[1]); assert.equal(writes, 1);
+    assert.deepEqual(h.b.raw(), saved); assert.equal(saved.recovery.length, 8);
+    assert.deepEqual(saved.recovery.slice(0, -1), before.recovery.filter(item => item.id !== copy.id));
+    assert.deepEqual(saved.recovery.at(-1).content, { records: before.records, pinnedId: before.pinnedId });
+    const withoutVersion = ({ version, ...record }) => record;
+    assert.deepEqual(saved.records.map(withoutVersion), copy.content.records.map(withoutVersion)); assert.equal(saved.pinnedId, copy.content.pinnedId);
+    assert(saved.records.every((record, i) => record.version !== copy.content.records[i].version));
+});
+
+test('recovery preview: empty local copies are explicit and file-import review stays unchanged', async t => {
+    const h = model(); t.after(() => h.view.destroy()); await settle();
+    const empty = await h.store.export(); await h.store.mutate(h.store.request('replace', await h.store.review(empty))); await settle();
+    await h.view.reviewRecovery(h.b.raw().recovery[0].id);
+    const preview = modal(h).querySelector('.tasks-recovery-preview'); assert(preview); assert.equal(preview.querySelector('ol'), null);
+    assert.equal(preview.querySelector('.tasks-empty').textContent, 'This copy contains no tasks.'); click(modal(h), 'Cancel');
+    const before = structuredClone(h.b.raw()); await openTaskReplacement(h, await h.store.export());
+    assert.equal(modal(h).querySelector('.tasks-recovery-preview'), null); assert.equal(modal(h).querySelector('h2').textContent, 'Replace local tasks?');
+    assert.equal(modal(h).querySelectorAll('button').length, 2); click(modal(h), 'Cancel'); assert.deepEqual(h.b.raw(), before);
+});
+
+test('recovery preview: Chinese catalog labels describe snapshot states and removed-from semantics', async t => {
+    const messages = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../_locales/zh_CN/messages.json'), 'utf8'));
+    const h = model({ i18n: { t: key => messages[key]?.message || key } }); t.after(() => h.view.destroy()); const copy = await recoveryPreviewFixture(h);
+    await h.view.reviewRecovery(copy.id); const preview = modal(h).querySelector('.tasks-recovery-preview'); assert(preview);
+    assert.equal(preview.querySelector('summary').textContent, '这份本地副本的内容');
+    assert.deepEqual(preview.querySelectorAll('.tasks-recovery-state').map(node => node.textContent), [
+        '未完成', '已完成', '已移除 · 移除前：未完成', '未完成 · 下一件事', '已移除 · 移除前：已完成'
+    ]);
+    assert.match(preview.querySelector('.tasks-help').textContent, /已移除.*保持已移除/);
+    assert.deepEqual(recoveryPreviewTexts(modal(h)), copy.content.records.map(record => record.text));
 });

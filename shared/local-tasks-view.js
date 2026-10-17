@@ -22,6 +22,8 @@
         tasksLoading: 'Loading local tasks…', tasksDraftRemains: 'Last task saved. Your current draft is not saved yet.', tasksReady: 'Local tasks ready', tasksSaving: 'Saving on this device…', tasksSaved: 'Saved on this device', tasksRetry: 'Retry',
         tasksCancel: 'Cancel', tasksSave: 'Save task', tasksEditTitle: 'Edit task', tasksReviewTitle: 'Replace local tasks?', tasksReplace: 'Replace tasks',
         tasksReviewHelp: 'This replaces the current task list and pin on this device. A previous local copy is kept below Task data, except when a full archive is imported into an empty list with no previous copies. All imported copies are kept. Settings and cloud backups stay unchanged.',
+        tasksRecoveryPreview: 'Contents of this local copy', tasksRecoveryPreviewHelp: 'These tasks and the Next up pin from the selected copy will replace the current list. Removed tasks stay removed; Removed from shows the state used when restoring an individual task.',
+        tasksRecoveryRemovedFrom: 'Removed from: {state}', tasksRecoveryEmpty: 'This copy contains no tasks.',
         tasksCurrent: 'Current', tasksIncoming: 'Replacement', tasksActive: 'Active', tasksDone: 'Completed', tasksDeleted: 'Removed', tasksRecoveryCount: 'Previous copies',
         tasksConflict: 'This task list changed in another page. Your draft is still here. Review the latest version before retrying.', tasksLatest: 'Latest saved task', tasksOverwrite: 'Replace latest with my edit',
         tasksEnable: 'Show Tasks on the new tab page', tasksEnableHelp: 'Optional and device-local. Hiding the card keeps its tasks.',
@@ -892,11 +894,33 @@
                 // Retire only feedback that predates this valid preview. A file
                 // operation may have reported a newer error while the read waited.
                 if (this.localError === previousError) { this.localError = null; this.render(); }
-                this.reviewReplacement({ current: api.counts(state), incoming: api.counts(copy.content) },
-                    () => this.controller.store.request('recover', { id, revision: state.revision }), 'tasksRestoreTitle');
+                // Capture the same successful read for both review and confirmation.
+                // Later page updates (or a retained read result) cannot rewrite it.
+                const revision = state.revision;
+                const recoveryPreview = Object.freeze({ pinnedId: copy.content.pinnedId,
+                    records: Object.freeze(copy.content.records.map(task => Object.freeze({ ...task }))) });
+                this.reviewReplacement({ current: api.counts(state), incoming: api.counts(recoveryPreview), recoveryPreview },
+                    () => this.controller.store.request('recover', { id, revision }), 'tasksRestoreTitle');
             } catch (error) {
                 if (!this.destroyed && generation === this.reviewGeneration) { this.localError = error; this.render(); }
             } finally { if (generation === this.reviewGeneration) { this.pendingReview = false; this.refreshCopyControls(); } }
+        }
+        recoveryPreview(content) {
+            const details = el('details', 'tasks-recovery-preview'), summary = el('summary', '', t('tasksRecoveryPreview'));
+            // Include native disclosure in the shared modal's keyboard focus loop.
+            summary.setAttribute('tabindex', '0');
+            details.append(summary, el('p', 'tasks-help', t('tasksRecoveryPreviewHelp')));
+            if (!content.records.length) { details.append(el('p', 'tasks-empty', t('tasksRecoveryEmpty'))); return details; }
+            const list = el('ol', 'tasks-recovery-list');
+            list.setAttribute('tabindex', '0'); list.setAttribute('aria-label', t('tasksRecoveryPreview'));
+            for (const task of content.records) {
+                const row = el('li'), labels = [t({ active: 'tasksActive', done: 'tasksDone', removed: 'tasksDeleted' }[task.state])];
+                if (task.state === 'removed') labels.push(t('tasksRecoveryRemovedFrom').replace('{state}', t(task.removedFrom === 'done' ? 'tasksDone' : 'tasksActive')));
+                if (task.id === content.pinnedId) labels.push(t('tasksNext'));
+                // These are read-only snapshot rows, never live task action rows.
+                row.append(el('span', 'tasks-recovery-state', labels.join(' · ')), el('div', 'tasks-recovery-text', task.text)); list.append(row);
+            }
+            details.append(list); return details;
         }
         reviewReplacement(review, makeCommand, title = 'tasksReviewTitle') {
             let command = null;
@@ -916,7 +940,9 @@
             }, 'tasks-primary');
             const actions = el('div', 'tasks-dialog-actions'); actions.append(cancel, confirm);
             modal.panel.append(el('p', 'tasks-help', t('tasksReviewHelp')), el('p', '', `${t('tasksCurrent')}: ${summarize(review.current)}`),
-                el('p', '', `${t('tasksIncoming')}: ${summarize(review.incoming)}`), feedback, actions); modal.open(cancel);
+                el('p', '', `${t('tasksIncoming')}: ${summarize(review.incoming)}`));
+            if (review.recoveryPreview) modal.panel.append(this.recoveryPreview(review.recoveryPreview));
+            modal.panel.append(feedback, actions); modal.open(cancel);
         }
         destroy() { this.destroyed = true; this.invalidateCopy(); this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
     }

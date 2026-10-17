@@ -100,3 +100,11 @@
 .tasks-row-copy-status.is-error { color: var(--template-error); }
 
 .tasks-visible-copy { margin: 0 0 10px; }
+
+/* Recovery-only snapshots have no live task actions or editable controls. */
+.tasks-recovery-preview { border-top: 1px solid var(--template-border); padding-top: 10px; }
+.tasks-recovery-preview > summary { cursor: pointer; color: var(--template-text); font-size: 13px; padding: 3px 0; }
+.tasks-recovery-list { max-height: 28vh; overflow-y: auto; margin: 0; padding-inline-start: 2.5em; }
+.tasks-recovery-list li { padding: 8px 4px; border-top: 1px solid var(--template-border); }
+.tasks-recovery-state { color: var(--template-muted); font-size: 11px; }
+.tasks-recovery-text { white-space: pre-wrap; overflow-wrap: anywhere; }
