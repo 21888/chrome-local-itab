@@ -3543,6 +3543,15 @@
   "collectionsDraft": {
     "message": "草稿"
   },
+  "collectionsReuseDraft": {
+    "message": "以此摘录新建草稿"
+  },
+  "collectionsReuseDraftScope": {
+    "message": "此未保存草稿沿用当前摘录、详情和精确提示词关联，不复制正文历史、历史问题或来源快照。请在下方核对或移除提示词关联；缺失版本不会改用最新版。"
+  },
+  "collectionsReuseDraftExisting": {
+    "message": "请先完成或放弃已有的新收藏草稿，其内容未被改动。"
+  },
   "collectionsDraftScope": {
     "message": "草稿保存前仅保留在此标签页。切换记录会保留草稿，关闭页面则不会。"
   },

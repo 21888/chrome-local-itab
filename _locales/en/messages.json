@@ -3543,6 +3543,15 @@
   "collectionsDraft": {
     "message": "Draft"
   },
+  "collectionsReuseDraft": {
+    "message": "New draft from this excerpt"
+  },
+  "collectionsReuseDraftScope": {
+    "message": "This unsaved draft uses the current excerpt, details and exact prompt link. Body history, historical questions and source snapshots are not copied. Review or remove the prompt link below; a missing version is never replaced with the latest."
+  },
+  "collectionsReuseDraftExisting": {
+    "message": "Finish or discard the existing new-item draft first. It has not been changed."
+  },
   "collectionsDraftScope": {
     "message": "Drafts stay in this tab until you save. Switching items keeps them; closing this page does not."
   },

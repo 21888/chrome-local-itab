@@ -6,8 +6,8 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller;
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
-            this.proposals = new Map(); this.revisionDraft = null; this.revisionContext = null; this.openDialog = false; this.detailGeneration = 0; this.copyGeneration = 0;
-            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } if (this.revisionContext && !this.revisionContext.current()) this.cancelRevision(); this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
+            this.proposals = new Map(); this.reusedDrafts = new WeakSet(); this.revisionDraft = null; this.revisionContext = null; this.openDialog = false; this.detailGeneration = 0; this.copyGeneration = 0;
+            controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } if (this.revisionContext && !this.revisionContext.current()) this.cancelRevision(); this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.updateReuseDraft?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
             this.pageHide = event => {
                 if (!event?.persisted) { this.destroy(); return; }
                 this.cancelRevision();
@@ -20,7 +20,7 @@
                 this.closeComparison?.();
             };
             this.pageShow = event => { if (event?.persisted && !this.destroyed && !controller.disposed) this.render(); };
-            this.visibilityChange = () => { if (this.doc.visibilityState === 'hidden') this.copyGeneration++; this.refreshCopyState(); };
+            this.visibilityChange = () => { if (this.doc.visibilityState === 'hidden') this.copyGeneration++; this.updateReuseDraft?.(); this.refreshCopyState(); };
             this.doc.addEventListener('visibilitychange', this.visibilityChange);
             root.addEventListener?.('pagehide', this.pageHide);
             root.addEventListener?.('pageshow', this.pageShow);
@@ -159,6 +159,7 @@
             this.updateHistoricalPrompt = null;
             this.refreshHistoricalCopyState = null;
             this.detailGeneration++;
+            this.updateReuseDraft = null;
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             this.renderCaptureStatus();
             const c = this.controller;
@@ -240,6 +241,7 @@
         renderEditor(draft) {
             const c = this.controller, form = this.el('form'); this.main.append(this.el('h2', '', this.t(draft.id ? 'Edit' : 'New', draft.id ? 'Edit details' : 'Save an excerpt')));
             this.main.append(this.paragraph('DraftScope', 'Drafts stay in this tab until you save. Switching items keeps them; closing this page does not.'));
+            if (this.reusedDrafts.has(draft)) this.main.append(this.paragraph('ReuseDraftScope', 'This unsaved draft uses the current excerpt, details and exact prompt link. Body history, historical questions and source snapshots are not copied. Review or remove the prompt link below; a missing version is never replaced with the latest.'));
             if (draft.conflict) { const box = this.el('div', 'prompt-conflict'); box.append(this.paragraph('ConflictError', 'Saved data changed in another tab. Your draft is kept. Review the latest version or save your draft as a new item.'), this.button('SaveCopy', 'Save draft as new item', () => this.save(true))); const latest = c.record(); if (latest) box.append(this.el('pre', 'prompt-readonly', `${latest.title}\n\n${latest.body}\n\n${latest.notes}`)); this.main.append(box); }
             this.editor = { fields: {} };
             if (draft.exactResult) form.append(this.paragraph('ResultDraftReview', 'Review the exact linked prompt version below, then add your title and result text. This new draft is unsaved; only Save locally keeps it.'));
@@ -353,6 +355,63 @@
                 this.host.isConnected && this.doc.visibilityState !== 'hidden' && c.comparisonReady() && !c.draft() &&
                 record && !record.deletedAt && record.id === reference.id && record.version === reference.version && record.currentVersionId === reference.currentVersionId);
         }
+        reuseDraftButton(record) {
+            const c = this.controller, state = c.state, generation = this.detailGeneration, readGeneration = c.readGeneration;
+            const reference = { id: record.id, version: record.version, currentVersionId: record.currentVersionId };
+            const button = this.el('button', '', this.t('ReuseDraft', 'New draft from this excerpt')); button.type = 'button';
+            let composing = false;
+            const visible = node => {
+                if (!node?.isConnected || node.closest('[hidden], [inert], [aria-hidden="true"]') || !node.getClientRects().length) return false;
+                for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+                    if (ancestor !== node && ancestor.tagName === 'DETAILS' && !ancestor.open) {
+                        const summary = Array.from(ancestor.children).find(child => child.tagName === 'SUMMARY');
+                        if (!summary?.contains(node)) return false;
+                    }
+                    const style = root.getComputedStyle?.(ancestor) || ancestor.style;
+                    if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return false;
+                }
+                return true;
+            };
+            const available = () => !this.destroyed && !c.disposed && this.detailGeneration === generation &&
+                c.state === state && c.readGeneration === readGeneration && c.comparisonReady() && !c.draft() &&
+                c.selected === reference.id && c.record() === record && !record.deletedAt &&
+                record.version === reference.version && record.currentVersionId === reference.currentVersionId &&
+                !this.openDialog && !this.comparison && !this.exportingMarkdown && this.revisionDraft === null &&
+                this.doc.visibilityState !== 'hidden' && visible(this.main) &&
+                !this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]');
+            const current = () => available() && this.main.contains(button) && visible(button);
+            this.updateReuseDraft = () => { button.disabled = !available(); };
+            this.updateReuseDraft();
+            button.addEventListener('compositionstart', () => { composing = true; });
+            button.addEventListener('compositionend', () => { composing = false; });
+            button.addEventListener('focusout', () => { composing = false; });
+            button.addEventListener('keydown', event => {
+                if (['Enter', ' '].includes(event.key) && (composing || event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+            });
+            button.addEventListener('click', event => {
+                if (button.disabled || composing || event.repeat || event.isComposing || event.keyCode === 229 || !current()) return;
+                const focusEditor = this.doc.activeElement === button, existing = c.drafts.has('new');
+                const draft = existing ? c.drafts.get('new') : c.makeDraft(record);
+                if (!existing) {
+                    // Only editable values and originalTags cross this boundary.
+                    // An empty baseline makes even an unchanged copy unsaved work.
+                    delete draft.id; delete draft.version; draft.baseline = {};
+                    this.reusedDrafts.add(draft); c.drafts.set('new', draft);
+                }
+                c.select('new');
+                const owned = () => !this.destroyed && !c.disposed && c.selected === 'new' && c.draft() === draft &&
+                    !c.busy && !c.pendingCommand && !this.openDialog && !this.comparison && !this.exportingMarkdown &&
+                    this.doc.visibilityState !== 'hidden' && visible(this.main) &&
+                    !this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]');
+                if (!owned()) return;
+                if (existing) this.status.textContent = this.t('ReuseDraftExisting', 'Finish or discard the existing new-item draft first. It has not been changed.');
+                const title = this.editor?.fields.title;
+                // Selection renders synchronously. Restore only the removed
+                // action's focus, never focus chosen by a newer interaction.
+                if (focusEditor && this.doc.activeElement === this.doc.body && owned() && visible(title) && this.main.contains(title)) title.focus();
+            });
+            return button;
+        }
         renderDetail(record) {
             if (this.proposals.has(record.id)) {
                 const note = this.el('div', 'prompt-conflict'); note.append(this.paragraph('ProposalKept', 'A proposed excerpt is kept in this tab. Resume its review or discard it.'), this.button('ResumeRevision', 'Resume revision', () => this.revise(record)), this.button('ProposalAsNew', 'Use proposed text in a new draft', () => this.proposalAsNew(record)), this.button('DiscardProposal', 'Discard proposed text', async () => { if (await this.confirm({ title: this.t('DiscardProposal', 'Discard proposed text'), body: this.t('DiscardBody', 'Discard only this unsaved draft? Saved content is unchanged.'), accept: this.t('Discard', 'Discard draft') })) { this.proposals.delete(record.id); this.render(); } })); this.main.append(note);
@@ -378,6 +437,7 @@
             const actions = this.el('div', 'prompt-actions');
             if (!record.deletedAt) actions.append(this.button('Edit', 'Edit details', () => { if (c.edit()) this.editor?.fields.title?.focus(); }), this.button('Revise', 'Revise excerpt', () => this.revise(record)), this.button('Archive', 'Archive', () => c.action('remove')));
             else actions.append(this.button('Restore', 'Restore from archive', () => c.action('restore')));
+            if (!record.deletedAt) actions.append(this.reuseDraftButton(record));
             if (!record.deletedAt && record.promptRef) {
                 const compare = this.button('Compare', 'Compare saved results', () => this.compareSaved(record.id));
                 compare.disabled = !c.comparisonReady(); actions.append(compare);
