@@ -340,6 +340,18 @@
   "worldClockCompareReference": {
     "message": "Preview · Local: $1, $2 · $3 min from start"
   },
+  "worldClockCopyAction": {
+    "message": "Copy comparison"
+  },
+  "worldClockCopying": {
+    "message": "Copying comparison…"
+  },
+  "worldClockCopySuccess": {
+    "message": "Comparison copied."
+  },
+  "worldClockCopyFailure": {
+    "message": "Could not copy. Select the comparison text and press Ctrl/Cmd+C to copy it manually."
+  },
   "worldClockPreviousDay": {
     "message": "Previous day"
   },

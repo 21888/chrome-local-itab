@@ -184,7 +184,13 @@ test('ticks change text only, preserve the card nodes, and never create a live t
     const heading = h.host.children[0], list = h.host.children[1], row = h.clock.worldClockRows[0];
     assert.equal(row.label.textContent, '<img src=x onerror=alert(1)>');
     assert.equal(h.host.querySelectorAll('img').length, 0);
-    assert.equal(h.host.querySelectorAll('[aria-live], [role="status"], [role="timer"]').length, 0);
+    const copyStatus = h.clock.worldClockComparisonView.copyStatus;
+    assert.deepEqual(h.host.querySelectorAll('[aria-live], [role="status"], [role="timer"]'), [copyStatus]);
+    assert.equal(list.querySelectorAll('[aria-live], [role="status"], [role="timer"]').length, 0);
+    assert.equal(copyStatus.hidden, true);
+    assert.equal(copyStatus.getAttribute('aria-live'), 'polite');
+    assert.equal(h.clock.worldClockComparisonView.reference.getAttribute('aria-live'), undefined);
+    assert.equal(copyStatus.textContent, '');
     assert.equal(row.label.innerHTML, undefined);
     h.at('2026-10-10T00:31:15Z');
     h.tick();
@@ -192,6 +198,8 @@ test('ticks change text only, preserve the card nodes, and never create a live t
     assert.equal(h.host.children[1], list);
     assert.equal(h.clock.worldClockRows[0], row);
     assert.equal(row.time.textContent, '09:31');
+    assert.equal(copyStatus.hidden, true);
+    assert.equal(copyStatus.textContent, '', 'live clock ticks never announce copy feedback');
     assert.equal(h.timers.size, 1);
 });
 

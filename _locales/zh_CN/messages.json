@@ -340,6 +340,18 @@
   "worldClockCompareReference": {
     "message": "预览 · 本地：$1，$2 · 相对开始时间 $3 分钟"
   },
+  "worldClockCopyAction": {
+    "message": "复制比较摘要"
+  },
+  "worldClockCopying": {
+    "message": "正在复制比较摘要…"
+  },
+  "worldClockCopySuccess": {
+    "message": "已复制比较摘要。"
+  },
+  "worldClockCopyFailure": {
+    "message": "无法复制。请选中比较文本，按 Ctrl/Cmd+C 手动复制。"
+  },
   "worldClockPreviousDay": {
     "message": "前一天"
   },

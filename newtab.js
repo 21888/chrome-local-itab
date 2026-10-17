@@ -1331,6 +1331,9 @@ function renderMovieCard(movie, visible) {
 
 // One dashboard clock owns all local/world time rendering and its single timer.
 let clockComponentInstance = null;
+// A comparison write outlives its card/clock owner until the system promise settles.
+let worldClockCopyAttempt = null;
+let worldClockCopyOwner = null;
 let clockPreferenceRefresh = null;
 function normalizeDashboardClockPreferences(value) {
     const valid = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -1421,6 +1424,8 @@ class ClockComponent {
         this.worldClockRows = [];
         this.worldClockComparison = null;
         this.worldClockComparisonView = null;
+        worldClockCopyOwner?.invalidateWorldClockCopy();
+        worldClockCopyOwner = this;
         this.renderWorldClocks();
         this.createMonthCalendar();
         this._visBound = false;
@@ -1730,11 +1735,12 @@ class ClockComponent {
 
     // The optional card shares this clock's timer and visibility lifecycle.
     renderWorldClocks() {
+        this.invalidateWorldClockCopy();
         const entries = window.WorldClocks?.safe(this.config.worldClocks) || [];
         this.worldClockRows = [];
         if (!this.worldClocksElement) return;
         const oldView = this.worldClockComparisonView;
-        const focusKey = oldView && ['toggle', 'range'].find(key => oldView[key] === document.activeElement);
+        const focusKey = oldView && ['toggle', 'range', 'copy'].find(key => oldView[key] === document.activeElement);
         this.worldClocksElement.replaceChildren();
         if (!entries.length) {
             this.worldClockComparison = null;
@@ -1767,7 +1773,9 @@ class ClockComponent {
             this.worldClocksElement.append(heading, list);
             this.createWorldClockComparison();
             this.updateWorldClocks(new Date());
-            if (focusKey) this.worldClockComparisonView[focusKey].focus();
+            if (focusKey && (document.activeElement === document.body || document.activeElement === oldView[focusKey])) {
+                this.worldClockComparisonView[focusKey].focus();
+            }
         }
         if (window.localItabModuleVisibility) {
             applyModuleVisibility(window.localItabModuleVisibility);
@@ -1808,17 +1816,34 @@ class ClockComponent {
             const reference = document.createElement('p');
             reference.id = 'world-clock-comparison-reference';
             range.setAttribute('aria-describedby', reference.id);
-            panel.append(label, range, reference);
+            const copy = document.createElement('button');
+            copy.type = 'button';
+            copy.className = 'world-clock-comparison-copy';
+            const copyStatus = document.createElement('p');
+            copyStatus.className = 'world-clock-comparison-copy-status';
+            copyStatus.setAttribute('role', 'status');
+            copyStatus.setAttribute('aria-live', 'polite');
+            copyStatus.setAttribute('aria-atomic', 'true');
+            copyStatus.textContent = '';
+            copyStatus.hidden = true;
+            panel.append(label, range, reference, copy, copyStatus);
             controls.append(toggle, panel);
-            const view = { controls, toggle, panel, label, range, reference };
+            const view = { controls, toggle, panel, label, range, reference, copy, copyStatus };
             this.worldClockComparisonView = view;
+            copy.addEventListener('keydown', event => {
+                if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+            });
+            copy.addEventListener('click', event => this.copyWorldClockComparison(view, event));
             toggle.addEventListener('click', () => {
                 if (this.worldClockComparisonView !== view || !controls.isConnected || !this.enabled) return;
+                this.invalidateWorldClockCopy();
                 this.worldClockComparison = this.worldClockComparison ? null : { anchor: Date.now(), minutes: 0 };
                 this.updateWorldClocks(new Date());
             });
             range.addEventListener('input', () => {
                 if (this.worldClockComparisonView !== view || !controls.isConnected || !this.enabled || !this.worldClockComparison) return;
+                // Every edit retires the receipt, even an invalid/same-value/ABA edit.
+                this.invalidateWorldClockCopy();
                 const minutes = Number(range.value);
                 if (!Number.isFinite(minutes)) return;
                 this.worldClockComparison.minutes = Math.max(-1440, Math.min(1440, Math.round(minutes / 15) * 15));
@@ -1826,6 +1851,104 @@ class ClockComponent {
             });
         }
         this.worldClocksElement.append(this.worldClockComparisonView.controls);
+        this.refreshWorldClockCopyControl();
+    }
+
+    refreshWorldClockCopyControl() {
+        this.worldClockComparisonView?.copy.setAttribute('aria-disabled', String(Boolean(worldClockCopyAttempt)));
+    }
+
+    invalidateWorldClockCopy() {
+        const attempt = worldClockCopyAttempt;
+        if (attempt?.owner === this) {
+            attempt.valid = false;
+            attempt.cleanup();
+            // Only the UI is cancelled. Never release an unresolved system write.
+        }
+        const status = this.worldClockComparisonView?.copyStatus;
+        if (status) {
+            status.textContent = '';
+            status.hidden = true;
+            status.classList.remove('is-error');
+        }
+    }
+
+    worldClockComparisonSummary(view) {
+        if (!view || !this.worldClockRows.length) return null;
+        const lines = this.worldClockRows.map(({ label, time, day }) => [label.textContent, time.textContent, day.textContent]);
+        if (typeof view.reference.textContent !== 'string' || !view.reference.textContent.length ||
+            lines.some(parts => parts.some(text => typeof text !== 'string' || !text.length))) return null;
+        // Exactly the rendered text and order: no new instant, formatting or normalization.
+        return [view.reference.textContent, ...lines.map(parts => parts.join(' · '))].join('\n');
+    }
+
+    isWorldClockCopyCurrent(view, text) {
+        if (worldClockCopyOwner !== this || this.worldClockComparisonView !== view || !this.worldClockComparison ||
+            !this.enabled || document.hidden || document.visibilityState === 'hidden' ||
+            window.LocalItabContentLifecycle?.departing || document.body.classList.contains('dashboard-hidden') ||
+            !this.worldClocksElement?.contains(view.copy) || this.worldClockComparisonSummary(view) !== text || text === null) return false;
+        const nodes = [view.copy, view.reference, ...this.worldClockRows.flatMap(row => [row.label, row.time, row.day])];
+        return nodes.every(element => {
+            if (!element.isConnected || !this.worldClocksElement.contains(element) || !element.getClientRects().length) return false;
+            for (let node = element; node; node = node.parentElement) {
+                const style = window.getComputedStyle?.(node);
+                if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true' ||
+                    style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                    (node.tagName === 'DETAILS' && !node.open)) return false;
+            }
+            return true;
+        });
+    }
+
+    async copyWorldClockComparison(view, event) {
+        const text = this.worldClockComparisonSummary(view);
+        if (event.defaultPrevented || event.detail > 1 || worldClockCopyAttempt || !this.isWorldClockCopyCurrent(view, text)) return;
+        const attempt = { owner: this, valid: true };
+        worldClockCopyAttempt = attempt;
+        const cancel = () => this.invalidateWorldClockCopy();
+        const nodes = [view.copy, view.reference, ...this.worldClockRows.flatMap(row => [row.label, row.time, row.day])];
+        // Remember transient hide/detach/text changes, even when restored before settlement.
+        const invalidating = records => records.some(record => record.type === 'attributes'
+            ? nodes.some(node => record.target.contains(node))
+            : nodes.some(node => record.target === node || record.target.parentElement === node ||
+                Array.from(record.removedNodes || []).some(removed => removed === node || removed.contains?.(node))));
+        const observer = window.MutationObserver ? new window.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
+        attempt.cleanup = () => {
+            observer?.disconnect();
+            document.removeEventListener('visibilitychange', cancel, true);
+            window.removeEventListener?.('blur', cancel);
+            window.removeEventListener?.('pagehide', cancel);
+        };
+        const current = () => {
+            if (observer && invalidating(observer.takeRecords())) cancel();
+            return attempt.valid && worldClockCopyAttempt === attempt && this.isWorldClockCopyCurrent(view, text);
+        };
+        document.addEventListener('visibilitychange', cancel, true);
+        window.addEventListener?.('blur', cancel);
+        window.addEventListener?.('pagehide', cancel);
+        observer?.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true,
+            attributeFilter: ['hidden', 'inert', 'aria-hidden', 'style', 'class', 'open'] });
+        view.copyStatus.textContent = this.worldClockText('worldClockCopying', 'Copying comparison…');
+        view.copyStatus.hidden = false;
+        view.copyStatus.classList.remove('is-error');
+        this.refreshWorldClockCopyControl();
+        try {
+            // Synchronous call in this explicit activation; never read clipboard or permissions.
+            const clipboard = window.navigator?.clipboard;
+            if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+            await clipboard.writeText(text);
+            if (current()) view.copyStatus.textContent = this.worldClockText('worldClockCopySuccess', 'Comparison copied.');
+        } catch (_) {
+            if (current()) {
+                view.copyStatus.textContent = this.worldClockText('worldClockCopyFailure', 'Could not copy. Select the comparison text and press Ctrl/Cmd+C to copy it manually.');
+                view.copyStatus.classList.add('is-error');
+            }
+        } finally {
+            if (!current()) cancel();
+            attempt.cleanup();
+            if (worldClockCopyAttempt === attempt) worldClockCopyAttempt = null;
+            worldClockCopyOwner?.refreshWorldClockCopyControl();
+        }
     }
 
     updateWorldClocks(now) {
@@ -1834,10 +1957,21 @@ class ClockComponent {
         // crossing DST preserves the actual instant shared by every zone.
         const instant = comparison ? new Date(comparison.anchor + comparison.minutes * 60000) : now;
         const view = this.worldClockComparisonView;
+        const previousSummary = this.worldClockComparisonSummary(view);
+        // Conditional DOM writes keep an unchanged fixed preview quiet on live ticks.
+        const displayText = (node, text) => { if (node.textContent !== text) node.textContent = text; };
         if (view) {
+            const copyLabel = this.worldClockText('worldClockCopyAction', 'Copy comparison');
+            const copyLocale = [this.getDateLocale(), navigator.language, copyLabel,
+                this.worldClockText('worldClockCopying', 'Copying comparison…'),
+                this.worldClockText('worldClockCopySuccess', 'Comparison copied.'),
+                this.worldClockText('worldClockCopyFailure', 'Could not copy. Select the comparison text and press Ctrl/Cmd+C to copy it manually.')].join('\n');
+            if (view.copyLocale !== copyLocale) this.invalidateWorldClockCopy();
+            view.copyLocale = copyLocale;
+            displayText(view.copy, copyLabel);
             view.toggle.textContent = comparison ? this.worldClockText('worldClockBackToNow', 'Back to now') : this.worldClockText('worldClockCompare', 'Compare times');
             view.toggle.setAttribute('aria-expanded', String(Boolean(comparison)));
-            view.panel.hidden = !comparison;
+            if (view.panel.hidden !== !comparison) view.panel.hidden = !comparison;
             view.label.textContent = this.worldClockText('worldClockCompareOffset', 'Time comparison: −24 to +24 hours (15-minute steps)');
             view.range.value = String(comparison?.minutes || 0);
             if (comparison) {
@@ -1848,19 +1982,20 @@ class ClockComponent {
                 });
                 const offset = `${comparison.minutes >= 0 ? '+' : ''}${comparison.minutes}`;
                 const reference = this.worldClockText('worldClockCompareReference', `Preview · Local: ${date}, ${time} · ${offset} min from start`, [date, time, offset]);
-                view.reference.textContent = reference;
+                displayText(view.reference, reference);
                 view.range.setAttribute('aria-valuetext', reference);
             }
         }
         for (const { entry, label, time, day } of this.worldClockRows) {
             // Match the main clock's time locale and resolve the device zone anew.
             const formatted = window.WorldClocks.format(entry, instant, this.config, navigator.language || undefined);
-            label.textContent = formatted.label;
-            time.textContent = formatted.time;
+            displayText(label, formatted.label);
+            if (time.textContent !== formatted.time) time.textContent = formatted.time;
             const difference = formatted.dayDifference;
             const relative = { '-1': ['worldClockPreviousDay', 'Previous day'], '0': ['worldClockSameDay', 'Same day'], '1': ['worldClockNextDay', 'Next day'] };
-            day.textContent = comparison && relative[difference] ? this.worldClockText(...relative[difference]) : this.worldClockDayLabel(difference);
+            displayText(day, comparison && relative[difference] ? this.worldClockText(...relative[difference]) : this.worldClockDayLabel(difference));
         }
+        if (previousSummary !== this.worldClockComparisonSummary(view)) this.invalidateWorldClockCopy();
     }
 
     /**
@@ -1957,6 +2092,7 @@ class ClockComponent {
      * @param {Object} newConfig - New clock configuration
      */
     setEnabled(enabled) {
+        if (!enabled) this.invalidateWorldClockCopy();
         this.enabled = enabled;
         if (enabled) this.resume();
         else {

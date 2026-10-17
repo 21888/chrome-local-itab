@@ -3717,6 +3717,10 @@ textarea:focus-visible,
 .world-clock-comparison button { max-width: 100%; padding: 6px 10px; border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit; font: inherit; white-space: normal; cursor: pointer; }
 .world-clock-comparison button:focus-visible, .world-clock-comparison input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .world-clock-comparison [hidden] { display: none !important; }
+.world-clock-comparison-copy { margin-top: 10px; }
+.world-clock-comparison button[aria-disabled="true"] { opacity: 0.6; cursor: wait; }
+.world-clock-comparison .world-clock-comparison-copy-status { margin-top: 8px; user-select: text; }
+.world-clock-comparison-copy-status.is-error { color: var(--template-error, #e16a6a); }
 .world-clock-comparison label { display: block; margin-top: 10px; line-height: 1.5; }
 .world-clock-comparison input[type="range"] { display: block; width: 100%; min-width: 0; margin: 8px 0; accent-color: var(--template-accent); }
 .world-clock-comparison p { margin: 0; color: var(--template-muted); line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
