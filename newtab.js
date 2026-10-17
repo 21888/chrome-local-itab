@@ -1578,15 +1578,46 @@ class ClockComponent {
         announcement.setAttribute('role', 'status');
         announcement.setAttribute('aria-live', 'polite');
         announcement.setAttribute('aria-atomic', 'true');
-        panel.append(controls, editor, error, table, announcement);
+        const interval = {
+            details: make('details', 'month-calendar-interval'), summary: make('summary'),
+            fields: make('div', 'month-calendar-interval-fields'), hint: make('p', 'month-calendar-interval-hint'),
+            start: make('input'), startText: make('span'), end: make('input'), endText: make('span'),
+            calculate: make('button'), error: make('div', 'month-calendar-error'),
+            result: make('div', 'month-calendar-interval-result'),
+            startState: { composing: false, compositionEnter: false },
+            endState: { composing: false, compositionEnter: false }, invalid: false, resultValue: null
+        };
+        interval.hint.id = 'month-calendar-interval-hint';
+        interval.error.id = 'month-calendar-interval-error';
+        interval.error.setAttribute('role', 'alert');
+        interval.error.hidden = true;
+        interval.result.setAttribute('role', 'status');
+        interval.result.setAttribute('aria-live', 'polite');
+        interval.result.setAttribute('aria-atomic', 'true');
+        interval.result.textContent = '';
+        for (const [field, labelText] of [[interval.start, interval.startText], [interval.end, interval.endText]]) {
+            const label = make('label');
+            field.type = 'text';
+            field.autocomplete = 'off';
+            field.placeholder = 'YYYY-MM-DD';
+            field.setAttribute('aria-describedby', `${interval.hint.id} ${interval.error.id}`);
+            label.append(labelText, field);
+            interval.fields.append(label);
+        }
+        interval.calculate.type = 'button';
+        interval.fields.append(interval.calculate);
+        interval.details.append(interval.summary, interval.hint, interval.fields, interval.error, interval.result);
+        panel.append(controls, editor, error, table, announcement, interval.details);
         details.append(summary, panel);
         this.dateElement.parentElement.append(details);
         const view = { details, summary, panel, previous, today, next, caption, head, body, announcement,
-            year, yearText, month, monthText, monthOptions, jump, error, composing: false, compositionEnter: false };
+            year, yearText, month, monthText, monthOptions, jump, error, interval, composing: false, compositionEnter: false };
         this.monthCalendar = view;
         const active = source => this.monthCalendar === view && this.isMonthCalendarActive(source);
-        details.addEventListener('toggle', () => {
-            if (this.monthCalendar !== view || !details.isConnected) return;
+        const intervalActive = source => interval.details.open && interval.details.contains(source) && active(source);
+        const composing = () => view.composing || interval.startState.composing || interval.endState.composing;
+        details.addEventListener('toggle', event => {
+            if (event.target !== details || this.monthCalendar !== view || !details.isConnected) return;
             if (!details.open) { this.closeMonthCalendar(); return; }
             if (!active(summary)) { this.closeMonthCalendar(); return; }
             // Native toggle events may coalesce. Reinitialize the draft on every
@@ -1594,6 +1625,7 @@ class ClockComponent {
             const now = new Date();
             this.calendarMonth = window.MonthCalendar.localTuple(now);
             this.syncMonthCalendarDraft();
+            this.clearMonthCalendarInterval();
             this.updateMonthCalendar(now);
         });
         const navigate = (delta, source) => {
@@ -1614,7 +1646,7 @@ class ClockComponent {
         next.addEventListener('click', () => navigate(1, next));
         today.addEventListener('click', () => navigate(0, today));
         const showDraft = source => {
-            if (!active(source) || view.composing) return;
+            if (!active(source) || composing()) return;
             const target = window.MonthCalendar.parseMonthDraft(year.value, month.value);
             this.setMonthCalendarError(!target);
             if (!target) return;
@@ -1623,39 +1655,73 @@ class ClockComponent {
             announcement.textContent = caption.textContent;
         };
         jump.addEventListener('click', () => showDraft(jump));
-        year.addEventListener('compositionstart', () => {
-            if (!active(year)) return;
-            view.composing = true;
-            view.compositionEnter = false;
-        });
-        // Releases also run after hiding/closing so an interrupted IME session
-        // cannot leave a sticky composing flag in a later visible session.
-        year.addEventListener('compositionend', () => { view.composing = false; });
-        year.addEventListener('blur', () => { view.composing = false; view.compositionEnter = false; });
-        // Key release ends a completion-key sequence, including engines that
-        // report the release before compositionend. Held Enter is guarded below.
-        year.addEventListener('keyup', () => { view.compositionEnter = false; });
-        year.addEventListener('keydown', event => {
-            if (!active(year) || event.defaultPrevented) return;
-            if (view.composing || event.isComposing || event.keyCode === 229) {
-                if (event.key === 'Enter' || event.code === 'Enter' || event.code === 'NumpadEnter' ||
-                    event.keyCode === 13) view.compositionEnter = true;
-                return;
-            }
-            if (event.key !== 'Enter') { view.compositionEnter = false; return; }
-            if (view.compositionEnter || event.repeat) return;
-            event.preventDefault();
-            showDraft(year);
-        });
-        jump.addEventListener('keydown', event => {
-            if (!active(jump)) return;
+        // Shared keyboard convention, with independent state for each draft field.
+        const bindDraftField = (field, state, isActive, submit) => {
+            field.addEventListener('compositionstart', () => {
+                if (!isActive(field)) return;
+                state.composing = true;
+                state.compositionEnter = false;
+            });
+            // Releases also clear old state after hiding, closing or replacement.
+            field.addEventListener('compositionend', () => { state.composing = false; });
+            field.addEventListener('blur', () => { state.composing = false; state.compositionEnter = false; });
+            field.addEventListener('keyup', () => { state.compositionEnter = false; });
+            field.addEventListener('keydown', event => {
+                if (!isActive(field) || event.defaultPrevented) return;
+                if (composing() || event.isComposing || event.keyCode === 229) {
+                    if (event.key === 'Enter' || event.code === 'Enter' || event.code === 'NumpadEnter' ||
+                        event.keyCode === 13) state.compositionEnter = true;
+                    return;
+                }
+                if (event.key !== 'Enter') { state.compositionEnter = false; return; }
+                if (state.compositionEnter || event.repeat) return;
+                event.preventDefault();
+                submit(field);
+            });
+        };
+        const guardActivation = (button, isActive) => button.addEventListener('keydown', event => {
+            if (!isActive(button)) return;
             if ((event.key === 'Enter' || event.key === ' ') &&
-                (event.repeat || view.composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                (event.repeat || composing() || event.isComposing || event.keyCode === 229)) event.preventDefault();
+        });
+        bindDraftField(year, view, active, showDraft);
+        guardActivation(jump, active);
+        const calculate = source => {
+            if (!intervalActive(source) || composing() ||
+                !intervalActive(interval.start) || !intervalActive(interval.end)) return;
+            const days = window.MonthCalendar.dateInterval(interval.start.value, interval.end.value);
+            interval.invalid = days === null;
+            interval.resultValue = days === null ? null : { start: interval.start.value, end: interval.end.value, days };
+            this.updateMonthCalendarInterval();
+        };
+        interval.calculate.addEventListener('click', () => calculate(interval.calculate));
+        for (const [field, state] of [[interval.start, interval.startState], [interval.end, interval.endState]]) {
+            bindDraftField(field, state, intervalActive, calculate);
+            const edited = () => {
+                if (!intervalActive(field)) return;
+                interval.invalid = false;
+                interval.resultValue = null;
+                this.updateMonthCalendarInterval();
+            };
+            field.addEventListener('input', edited);
+            field.addEventListener('change', edited);
+        }
+        guardActivation(interval.calculate, intervalActive);
+        guardActivation(interval.summary, active);
+        interval.details.addEventListener('toggle', event => {
+            if (event.target !== interval.details || this.monthCalendar !== view || !details.isConnected) return;
+            // Folding this tool retains its draft/result within the open calendar.
+            if (!interval.details.open) {
+                for (const state of [interval.startState, interval.endState]) {
+                    state.composing = false;
+                    state.compositionEnter = false;
+                }
+            }
         });
         details.addEventListener('keydown', event => {
             // A select owns Escape for its native popup; do not steal it.
             if (event.key !== 'Escape' || event.target === month || event.defaultPrevented ||
-                view.composing || event.isComposing || event.keyCode === 229 ||
+                composing() || event.isComposing || event.keyCode === 229 ||
                 !active(event.target)) return;
             event.preventDefault();
             event.stopPropagation();
@@ -1694,12 +1760,43 @@ class ClockComponent {
         this.setMonthCalendarError(false);
     }
 
+    clearMonthCalendarInterval() {
+        const interval = this.monthCalendar.interval;
+        interval.details.open = false;
+        interval.start.value = '';
+        interval.end.value = '';
+        interval.invalid = false;
+        interval.resultValue = null;
+        for (const state of [interval.startState, interval.endState]) {
+            state.composing = false;
+            state.compositionEnter = false;
+        }
+        this.updateMonthCalendarInterval();
+    }
+
+    updateMonthCalendarInterval() {
+        const interval = this.monthCalendar.interval;
+        interval.error.hidden = !interval.invalid;
+        interval.error.textContent = interval.invalid ? this.worldClockText('monthCalendarIntervalInvalid',
+            'Enter two valid dates as YYYY-MM-DD using digits 0–9, with years 0001–9999.') : '';
+        for (const field of [interval.start, interval.end]) {
+            field.setAttribute('aria-invalid', String(interval.invalid && !window.MonthCalendar.parseDateDraft(field.value)));
+        }
+        const value = interval.resultValue;
+        const unit = value && Math.abs(value.days) === 1
+            ? this.worldClockText('monthCalendarIntervalDay', 'calendar day')
+            : this.worldClockText('monthCalendarIntervalDays', 'calendar days');
+        interval.result.textContent = value
+            ? `${value.start} → ${value.end}: ${value.days > 0 ? '+' : ''}${value.days} ${unit}` : '';
+    }
+
     closeMonthCalendar() {
         if (!this.monthCalendar) return;
         this.monthCalendar.details.open = false;
         this.monthCalendar.announcement.textContent = '';
         this.calendarMonth = null;
         this.syncMonthCalendarDraft();
+        this.clearMonthCalendarInterval();
     }
 
     updateMonthCalendar(now) {
@@ -1714,6 +1811,13 @@ class ClockComponent {
             view.yearText.textContent = this.worldClockText('monthCalendarYear', 'Year');
             view.monthText.textContent = this.worldClockText('monthCalendarMonth', 'Month');
             view.jump.textContent = this.worldClockText('monthCalendarView', 'View');
+            view.interval.summary.textContent = this.worldClockText('monthCalendarInterval', 'Date interval');
+            view.interval.startText.textContent = this.worldClockText('monthCalendarIntervalStart', 'Start date');
+            view.interval.endText.textContent = this.worldClockText('monthCalendarIntervalEnd', 'End date');
+            view.interval.calculate.textContent = this.worldClockText('monthCalendarIntervalCalculate', 'Calculate');
+            view.interval.hint.textContent = this.worldClockText('monthCalendarIntervalHint',
+                'YYYY-MM-DD. End minus start in calendar days: same date 0, next date +1. Not hours, workdays or an inclusive count.');
+            this.updateMonthCalendarInterval();
             const monthNames = new Intl.DateTimeFormat(locale, { calendar: 'gregory', timeZone: 'UTC', month: 'long' });
             view.monthOptions.forEach((option, index) => {
                 option.textContent = monthNames.format(window.MonthCalendar.utcDate(2000, index));

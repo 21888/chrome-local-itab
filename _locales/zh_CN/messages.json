@@ -2613,6 +2613,30 @@
   "monthCalendarInvalid": {
     "message": "请输入 1–4 位数字（0–9）、范围为 1–9999 的年份，并选择月份。"
   },
+  "monthCalendarInterval": {
+    "message": "日期间隔"
+  },
+  "monthCalendarIntervalStart": {
+    "message": "开始日期"
+  },
+  "monthCalendarIntervalEnd": {
+    "message": "结束日期"
+  },
+  "monthCalendarIntervalCalculate": {
+    "message": "计算"
+  },
+  "monthCalendarIntervalHint": {
+    "message": "格式 YYYY-MM-DD。计算结束减开始的自然日差：同日 0，相邻次日 +1。不是经过小时、工作日或含首尾的计数。"
+  },
+  "monthCalendarIntervalInvalid": {
+    "message": "请以 YYYY-MM-DD 输入两个有效日期，使用数字 0–9，年份为 0001–9999。"
+  },
+  "monthCalendarIntervalDay": {
+    "message": "个自然日"
+  },
+  "monthCalendarIntervalDays": {
+    "message": "个自然日"
+  },
   "settingsCategoryIcon": {
     "message": "分类图标"
   },

@@ -426,3 +426,230 @@ test('already handled year Enter does not jump or display validation errors', ()
         assert.equal(view.error.hidden, true); assert.equal(view.announcement.textContent || '', '');
     }
 });
+
+// Synthetic DOM/event-model coverage only; not native layout, IME or accessibility acceptance.
+test('date interval starts collapsed with independent stable ISO text drafts and explicit calculation', () => {
+    const h = model(); h.open(); const { view, clock } = h;
+    const interval = view.interval;
+    assert(interval, 'calendar has an independent date interval tool');
+    assert.equal(interval.details.open, false); assert.equal(interval.summary.textContent, 'Date interval');
+    assert.equal(interval.details.parentElement, view.panel);
+    interval.details.open = true; interval.details.dispatch('toggle');
+    assert.equal(view.details.open, true); assert.equal(clock.calendarMonth.month, 9);
+    for (const field of [interval.start, interval.end]) {
+        assert.equal(field.type, 'text'); assert.equal(field.value, '');
+        assert.equal(field.getAttribute('maxlength'), undefined);
+    }
+    interval.start.value = '2000-02-28'; interval.end.value = '2000-03-01';
+    interval.start.dispatch('input'); interval.end.dispatch('input');
+    assert.equal(interval.result.textContent, '');
+    interval.calculate.focus(); interval.calculate.dispatch('click');
+    assert.equal(interval.result.textContent, '2000-02-28 → 2000-03-01: +2 calendar days');
+    assert.equal(interval.result.getAttribute('role'), 'status');
+    assert.equal(h.document.activeElement, interval.calculate);
+    assert.equal(clock.calendarMonth.month, 9); assert.equal(clock.calendarMonth.year, 2026);
+    interval.end.value = '2000-02-27'; interval.end.dispatch('input');
+    assert.equal(interval.result.textContent, '');
+    interval.end.dispatch('keydown', { key: 'Enter' });
+    assert.equal(interval.result.textContent, '2000-02-28 → 2000-02-27: -1 calendar day');
+    interval.end.value = '2000-02-28'; interval.end.dispatch('input'); interval.calculate.dispatch('click');
+    assert.equal(interval.result.textContent, '2000-02-28 → 2000-02-28: 0 calendar days');
+});
+
+test('interval rejects invalid raw drafts locally without truncation, month changes or focus movement', () => {
+    const h = model(); h.open(); const { view, clock } = h; const x = view.interval;
+    x.details.open = true; x.details.dispatch('toggle');
+    x.end.value = '2024-03-01'; x.start.focus();
+    const current = clock.calendarMonth, rows = view.body.children;
+    for (const invalid of ['', '2024-2-29', '1900-02-29', '0000-01-01', '10000-01-01', '２０２４-01-01', '2024-01-01\n', '<img src=x onerror=alert(1)>']) {
+        x.start.value = invalid; x.start.dispatch('input'); x.calculate.dispatch('click');
+        assert.equal(x.start.value, invalid); assert.equal(x.end.value, '2024-03-01');
+        assert.equal(x.error.hidden, false); assert.match(x.error.textContent, /YYYY-MM-DD/);
+        assert.equal(x.error.getAttribute('role'), 'alert');
+        assert(x.start.getAttribute('aria-describedby').includes(x.error.id));
+        assert.equal(x.start.getAttribute('aria-invalid'), 'true'); assert.equal(x.end.getAttribute('aria-invalid'), 'false');
+        assert.equal(x.result.textContent, ''); assert.equal(clock.calendarMonth, current);
+        assert.equal(view.body.children, rows); assert.equal(h.document.activeElement, x.start);
+    }
+    x.start.value = '0001-01-01'; x.end.value = ''; x.calculate.dispatch('click');
+    assert.equal(x.start.getAttribute('aria-invalid'), 'false'); assert.equal(x.end.getAttribute('aria-invalid'), 'true');
+    x.end.value = '0001-01-02'; x.end.dispatch('input');
+    assert.equal(x.error.hidden, true); assert.equal(x.result.textContent, '');
+    x.calculate.dispatch('click'); assert.equal(x.result.textContent, '0001-01-01 → 0001-01-02: +1 calendar day');
+    x.start.dispatch('input'); assert.equal(x.result.textContent, '', 'even an unchanged-value input retires the result');
+});
+
+test('month navigation, jumping, ticks, midnight, language and config never write date drafts or move their caret', () => {
+    const h = model(); h.open(); const { view, clock } = h; const x = view.interval;
+    x.details.open = true; x.details.dispatch('toggle');
+    x.start.value = '0099-12-31'; x.end.value = '0100-01-01'; x.calculate.dispatch('click'); x.start.focus();
+    x.start.selectionStart = 2; x.start.selectionEnd = 4;
+    const fields = [x.start, x.end], result = x.resultValue;
+    for (const field of fields) {
+        const value = field.value;
+        Object.defineProperty(field, 'value', { get: () => value, set() { throw new Error('navigation/passive refresh wrote a date draft'); } });
+    }
+    for (const button of [view.next, view.previous, view.today]) button.dispatch('click');
+    view.year.value = '1900'; view.month.value = '1'; view.jump.dispatch('click');
+    assert.equal(clock.calendarMonth.year, 1900); assert.equal(clock.calendarMonth.month, 1);
+    for (let i = 0; i < 5; i++) h.tick();
+    h.at(2026, 9, 10, 0, 1); h.tick();
+    clock.updateConfig({ hour12: true, showSeconds: false });
+    h.locale('zh_CN'); h.tick();
+    h.document.hidden = true; h.tick(); h.document.hidden = false; h.tick();
+    assert.equal(x.start, fields[0]); assert.equal(x.end, fields[1]); assert.equal(x.resultValue, result);
+    assert.equal(x.start.value, '0099-12-31'); assert.equal(x.end.value, '0100-01-01');
+    assert.equal(x.start.selectionStart, 2); assert.equal(x.start.selectionEnd, 4); assert.equal(h.document.activeElement, x.start);
+    assert.equal(x.result.textContent, '0099-12-31 → 0100-01-01: +1 个自然日');
+    assert.equal(x.summary.textContent, '日期间隔'); assert.equal(x.calculate.textContent, '计算');
+    assert.equal(clock.calendarMonth.year, 1900); assert.equal(clock.calendarMonth.month, 1);
+    assert.equal(h.intervalCreations, 1); assert.equal(h.timers.size, 1);
+});
+
+test('interval errors and labels relocalize with EN fallback, preserving raw drafts and an empty result', () => {
+    const h = model(); h.open(); const { view } = h; const x = view.interval;
+    x.details.open = true; x.start.value = '1900-02-29'; x.calculate.dispatch('click');
+    h.locale('zh_CN'); h.tick();
+    assert.equal(x.start.value, '1900-02-29'); assert.equal(x.end.value, ''); assert.equal(x.error.hidden, false);
+    assert.match(x.error.textContent, /YYYY-MM-DD 输入两个有效日期/); assert.match(x.hint.textContent, /不是经过小时、工作日或含首尾/);
+    assert.equal(x.startText.textContent, '开始日期'); assert.equal(x.endText.textContent, '结束日期');
+    h.context.window.i18n.t = key => key; h.clock.calendarLabelsSet = false; h.tick();
+    assert.equal(x.summary.textContent, 'Date interval'); assert.equal(x.calculate.textContent, 'Calculate');
+    assert.equal(x.startText.textContent, 'Start date'); assert.equal(x.endText.textContent, 'End date');
+    assert.match(x.error.textContent, /0001–9999/); assert.match(x.hint.textContent, /Not hours, workdays or an inclusive count/);
+    assert.equal(x.result.textContent, '');
+});
+
+test('folding interval retains drafts/result but makes stale input, calculate and Escape inert; nested toggle never resets month', () => {
+    const h = model(); h.open(); const { view, clock } = h; const x = view.interval;
+    view.next.dispatch('click'); const current = clock.calendarMonth;
+    x.details.open = true; x.details.dispatch('toggle');
+    assert.equal(clock.calendarMonth, current);
+    x.start.value = '2024-01-01'; x.end.value = '2024-02-01'; x.calculate.dispatch('click');
+    const result = x.result.textContent;
+    x.start.dispatch('compositionstart'); x.start.dispatch('keydown', { key: 'Enter', isComposing: true });
+    x.details.open = false; x.details.dispatch('toggle');
+    assert.equal(clock.calendarMonth, current); assert.equal(view.details.open, true);
+    assert.equal(x.startState.composing, false); assert.equal(x.startState.compositionEnter, false);
+    for (const type of ['input', 'change', 'keyup', 'compositionend']) x.start.dispatch(type, { key: 'Enter' });
+    x.calculate.dispatch('click'); x.start.dispatch('keydown', { key: 'Enter' });
+    x.end.dispatch('keydown', { key: 'Escape' });
+    assert.equal(x.result.textContent, result); assert.equal(x.start.value, '2024-01-01'); assert.equal(x.end.value, '2024-02-01');
+    assert.equal(view.details.open, true); assert.notEqual(h.document.activeElement, view.summary);
+    x.details.open = true; x.details.dispatch('toggle');
+    assert.equal(clock.calendarMonth, current); assert.equal(x.result.textContent, result);
+    x.end.focus(); x.end.dispatch('keydown', { key: 'Escape' });
+    assert.equal(view.details.open, false); assert.equal(h.document.activeElement, view.summary);
+    assert.equal(x.start.value, ''); assert.equal(x.end.value, ''); assert.equal(x.result.textContent, ''); assert.equal(x.details.open, false);
+});
+
+test('date fields share IME convention but not completion state and reject held/handled submission', () => {
+    for (const fieldName of ['start', 'end']) {
+        const h = model(); h.open(); const { view } = h; const x = view.interval;
+        x.details.open = true; x.start.value = '2000-02-28'; x.end.value = '2000-03-01';
+        const field = x[fieldName], state = x[`${fieldName}State`]; field.focus();
+        field.dispatch('compositionstart');
+        for (const fields of [{ key: 'Enter' }, { key: 'Escape' }, { key: 'Enter', isComposing: true }, { key: 'Unidentified', code: 'Enter', keyCode: 229 }]) {
+            const event = field.dispatch('keydown', fields);
+            assert.equal(event.prevented, false); assert.equal(event.stopped, false); assert.equal(view.details.open, true);
+        }
+        x.calculate.dispatch('click'); assert.equal(x.result.textContent, '');
+        field.dispatch('compositionend');
+        assert.equal(field.dispatch('keydown', { key: 'Enter' }).prevented, false);
+        assert.equal(x.result.textContent, '');
+        field.dispatch('keyup', { key: 'Enter' });
+        for (const fields of [{ key: 'Enter', repeat: true }, { key: 'Enter', defaultPrevented: true }]) {
+            assert.equal(field.dispatch('keydown', fields).prevented, false); assert.equal(x.result.textContent, '');
+        }
+        assert.equal(field.dispatch('keydown', { key: 'Enter' }).prevented, true);
+        assert.equal(x.result.textContent, '2000-02-28 → 2000-03-01: +2 calendar days');
+        assert.equal(h.document.activeElement, field); assert.equal(state.composing, false);
+        x.start.dispatch('input'); field.dispatch('keydown', { key: 'Enter', isComposing: true });
+        const other = x[fieldName === 'start' ? 'end' : 'start'];
+        other.dispatch('keydown', { key: 'Enter' }); assert.notEqual(x.result.textContent, '', 'completion state is per field');
+        for (const button of [x.calculate, x.summary]) {
+            for (const fields of [{ key: 'Enter', repeat: true }, { key: ' ', repeat: true }, { key: 'Enter', isComposing: true }, { key: ' ', keyCode: 229 }]) {
+                assert.equal(button.dispatch('keydown', fields).prevented, true);
+            }
+            assert.equal(button.dispatch('keydown', { key: 'Enter' }).prevented, false);
+        }
+    }
+});
+
+test('mouse IME completion, release-before-end and interrupted composition permit the next fresh date Enter', () => {
+    for (const finish of [field => field.dispatch('compositionend'),
+        field => { field.dispatch('keydown', { key: 'Process', keyCode: 229 }); field.dispatch('compositionend'); },
+        field => { field.dispatch('keydown', { key: 'Enter', isComposing: true }); field.dispatch('keyup', { key: 'Enter' }); field.dispatch('compositionend'); },
+        field => { field.dispatch('keydown', { key: 'Enter', isComposing: true }); field.dispatch('blur'); }]) {
+        const h = model(); h.open(); const x = h.view.interval;
+        x.details.open = true; x.start.value = '9999-12-30'; x.end.value = '9999-12-31';
+        x.start.dispatch('compositionstart'); finish(x.start);
+        assert.equal(x.start.dispatch('keydown', { key: 'Enter' }).prevented, true);
+        assert.equal(x.result.textContent, '9999-12-30 → 9999-12-31: +1 calendar day');
+    }
+});
+
+test('close, same-month reopen and clock/dashboard hiding clear interval drafts/errors/results and IME state without focusing', () => {
+    for (const endSession of [h => h.close(), h => h.clock.setEnabled(false), h => h.context.applyDashboardHiddenState(true),
+        h => { h.view.panel.hidden = true; h.tick(); }, h => { h.host.hidden = true; h.tick(); }]) {
+        const h = model(); h.open(); const x = h.view.interval;
+        x.details.open = true; x.start.value = '2024-01-01'; x.end.value = '2024-01-02'; x.calculate.dispatch('click');
+        x.start.value = 'bad'; x.start.dispatch('input'); x.calculate.dispatch('click'); x.start.focus();
+        x.start.dispatch('compositionstart'); x.start.dispatch('keydown', { key: 'Enter', isComposing: true });
+        endSession(h);
+        assert.equal(x.details.open, false); assert.equal(x.start.value, ''); assert.equal(x.end.value, '');
+        assert.equal(x.error.hidden, true); assert.equal(x.error.textContent, ''); assert.equal(x.result.textContent, '');
+        assert.equal(x.startState.composing, false); assert.equal(x.startState.compositionEnter, false);
+        assert.equal(x.endState.composing, false); assert.equal(x.endState.compositionEnter, false);
+        assert.notEqual(h.document.activeElement, h.view.summary);
+    }
+    const h = model(); h.open(); const x = h.view.interval, rows = h.view.body.children;
+    for (let i = 0; i < 3; i++) {
+        x.details.open = true; x.start.value = '0001-01-01'; x.end.value = '9999-12-31'; x.calculate.dispatch('click');
+        h.close(); h.open();
+        assert.equal(x.details.open, false); assert.equal(x.start.value, ''); assert.equal(x.end.value, '');
+        assert.equal(x.result.textContent, ''); assert.equal(h.view.body.children, rows);
+    }
+    // A browser can coalesce a rapid close/open into only the final open toggle.
+    x.details.open = true; x.start.value = 'stale'; h.open();
+    assert.equal(x.start.value, ''); assert.equal(x.details.open, false);
+});
+
+test('inactive, hidden, disabled, detached and superseded interval controls cannot calculate, clear results or steal focus', () => {
+    for (const deactivate of [h => h.close(), h => h.clock.setEnabled(false), h => h.host.remove(),
+        h => { h.host.hidden = true; }, h => { h.host.style.display = 'none'; }, h => { h.host.inert = true; },
+        h => { h.host.setAttribute('aria-hidden', 'true'); }, h => { h.host.style.visibility = 'hidden'; },
+        h => { h.host.style.visibility = 'collapse'; }, h => { h.document.hidden = true; },
+        h => { h.view.panel.hidden = true; }, h => { h.document.body.classList.add('dashboard-hidden'); },
+        h => { h.view.interval.details.open = false; }, h => { h.view.interval.fields.hidden = true; },
+        h => { h.view.interval.start.disabled = true; h.view.interval.end.disabled = true; h.view.interval.calculate.disabled = true; },
+        h => h.clock.createMonthCalendar()]) {
+        const h = model(); h.open(); const { view, clock } = h; const x = view.interval;
+        x.details.open = true; x.start.value = '2024-01-01'; x.end.value = '2024-02-01'; x.calculate.dispatch('click');
+        deactivate(h); const result = x.result.textContent, error = x.error.textContent, current = clock.calendarMonth;
+        const focused = h.document.activeElement;
+        x.start.dispatch('input'); x.end.dispatch('change'); x.calculate.dispatch('click');
+        x.start.dispatch('keydown', { key: 'Enter' }); x.end.dispatch('keydown', { key: 'Escape' });
+        x.start.dispatch('compositionstart'); x.start.dispatch('keyup', { key: 'Enter' }); x.start.dispatch('compositionend');
+        assert.equal(x.result.textContent, result); assert.equal(x.error.textContent, error);
+        assert.equal(clock.calendarMonth, current); assert.equal(h.document.activeElement, focused);
+    }
+});
+
+test('a hidden or disabled endpoint rejects even a visible calculate button and interval stays within existing no-I/O clock lifecycle', () => {
+    for (const property of ['hidden', 'disabled']) {
+        const h = model(); h.open(); const x = h.view.interval;
+        x.details.open = true; x.start.value = '2000-01-01'; x.end.value = '2000-01-02'; x.start[property] = true;
+        x.calculate.dispatch('click'); x.end.dispatch('keydown', { key: 'Enter' }); assert.equal(x.result.textContent, '');
+        assert.equal(h.intervalCreations, 1); assert.equal(h.timers.size, 1);
+        assert.equal(h.document.listeners.has('keydown'), false); assert.equal(h.listeners.has('keydown'), false);
+    }
+    const css = read('local-month-calendar.css');
+    assert.match(css, /\.month-calendar-interval-fields label \{ flex: 1 1 100%; \}/);
+    assert.match(css, /\.month-calendar-interval-result \{ overflow-wrap: anywhere;/);
+    const source = read('newtab.js').split('    createMonthCalendar() {')[1].split('    // The optional card shares')[0];
+    assert.doesNotMatch(source, /\b(?:setTimeout|setInterval|fetch|XMLHttpRequest|localStorage|chrome\.storage)\s*[.(]/);
+    for (const nodeName of ['summary', 'start', 'end', 'calculate', 'result', 'hint']) {
+        const h = model(); h.open(); assert.equal(h.context.shouldToggleFromEvent({ target: h.view.interval[nodeName] }), false);
+    }
+});

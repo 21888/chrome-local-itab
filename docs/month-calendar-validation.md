@@ -2,7 +2,7 @@
 
 ## Scope
 
-An initially collapsed native `details` date viewer beneath the main clock date. It belongs to the existing ClockComponent singleton. No storage keys, configuration fields, permissions, network, calendar events, reminders, date selection, independent timer or card were introduced.
+An initially collapsed native `details` date viewer beneath the main clock date. It belongs to the existing ClockComponent singleton. No storage keys, configuration fields, permissions, network, calendar events, reminders, interactive grid date selection, independent timer or card were introduced.
 
 The pure helper uses Gregorian UTC date-only arithmetic with `setUTCFullYear`; the today tuple comes from local Date fields. Navigation is month-based (day 1) and bounded to January 1 through December 9999. Out-of-month cells are blank. Locale week data is feature-detected (`getWeekInfo` / `weekInfo`, firstDay 1–7); fallback is Sunday for English and Monday for Simplified Chinese and unknown/other locales.
 
@@ -35,6 +35,43 @@ but does not evaluate CSS layout or a native select popup.
 No new native-browser run or screenshot was made for this editor. The captures
 and browser observations below precede the editor and do not establish its
 layout, native IME/select behavior or screen-reader announcement behavior.
+
+## Date interval — source and synthetic model coverage, 2026-10-17
+
+A second, initially collapsed `details` at the bottom of the existing calendar
+contains two text inputs, an explicit Calculate button, a format/semantics hint,
+a local alert and a visible polite status. Inputs intentionally do not use a
+native date picker. The helper accepts only complete ASCII `YYYY-MM-DD`, years
+0001–9999, and round-trips UTC Gregorian components through the existing
+`utcDate` helper. The signed difference is end minus start at UTC midnights;
+no local millisecond arithmetic, rounding, business-day or inclusive counting is
+used. Original dates remain visible in the result.
+
+Focused automated checks cover:
+
+- Strict invalid/empty/raw drafts, 0001/0004/0099/0100/9999, 1900 versus 2000 leap
+  rules, same/forward/reversed dates and the entire supported range.
+- DST and fractional-offset zones (New York, Lord Howe, Kathmandu and Chatham),
+  plus the Samoa civil-date skip, with the same date-only results in UTC.
+- Explicit button/fresh Enter calculation, immediately retired results on edits,
+  stable nodes/caret and independent drafts across month navigation/jumps, Today,
+  ticks, midnight, config and language changes; EN/ZH and missing-key fallback.
+- Nested toggle target ownership, folding only the interval retaining drafts and
+  results, main-calendar close/reopen and clock/dashboard hiding clearing them,
+  same-month/coalesced reopen, and inactive/hidden/inert/disabled/detached/old
+  controls rejecting calculation and hidden focus.
+- Independent per-field IME state, completion-key continuation, release before
+  compositionend, mouse-completed and interrupted composition, handled/held
+  Enter, existing native-select keys and the calendar Escape convention.
+- Zero network/storage/new timers in the existing blocked-I/O model, existing
+  calendar/clock/world-clock/dashboard regressions and narrow wrapping CSS source.
+
+The nine focused test files passed 161 tests with a 512 MiB Node heap and serial
+file execution. This is a focused pass, not a full-project/scale pass. The model
+simulates events and visibility; it does not establish native event ordering,
+actual IME behavior, CSS geometry or screen-reader announcements. No new native
+browser run or screenshot was made for date interval. The older captures below
+predate both the month jump editor and this tool.
 
 ## Native browser acceptance — 2026-10-09
 

@@ -387,12 +387,12 @@ Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive 
 
 ### Local month calendar
 
-Open **Calendar** beneath the clock date to browse months locally. **Previous / Next / Today** change the view; enter a year and select a month, then choose **View** to jump directly; dates are read-only, with no events or reminders. It works offline, does not save the browsed month and has no calendar state to back up or sync. [Calendar guide](docs/month-calendar.en.md) · [Validation scope](docs/month-calendar-validation.md).
+Open **Calendar** beneath the clock date to browse months locally. **Previous / Next / Today** change the view; enter a year and select a month, then choose **View** to jump directly. **Date interval** at the bottom calculates a signed calendar-day difference from two complete ISO dates. Grid dates are read-only, with no events or reminders. It works offline, does not save the browsed month and has no calendar state to back up or sync. [Calendar guide](docs/month-calendar.en.md) · [Validation scope](docs/month-calendar-validation.md).
 
 <details>
 <summary>Calendar captures and dimensions</summary>
 
-The light wide capture uses Simplified Chinese; the dark narrow capture uses English.
+The light wide capture uses Simplified Chinese; the dark narrow capture uses English. These historical captures predate the year/month editor and date interval tool; they do not establish native acceptance of either addition.
 
 ![Simplified Chinese month calendar in a real light wide window, with the localized date](docs/screenshots/month-calendar/calendar-light-wide.png)
 

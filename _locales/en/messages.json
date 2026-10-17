@@ -2613,6 +2613,30 @@
   "monthCalendarInvalid": {
     "message": "Enter a year from 1 to 9999 using 1–4 digits (0–9), and choose a month."
   },
+  "monthCalendarInterval": {
+    "message": "Date interval"
+  },
+  "monthCalendarIntervalStart": {
+    "message": "Start date"
+  },
+  "monthCalendarIntervalEnd": {
+    "message": "End date"
+  },
+  "monthCalendarIntervalCalculate": {
+    "message": "Calculate"
+  },
+  "monthCalendarIntervalHint": {
+    "message": "YYYY-MM-DD. End minus start in calendar days: same date 0, next date +1. Not hours, workdays or an inclusive count."
+  },
+  "monthCalendarIntervalInvalid": {
+    "message": "Enter two valid dates as YYYY-MM-DD using digits 0–9, with years 0001–9999."
+  },
+  "monthCalendarIntervalDay": {
+    "message": "calendar day"
+  },
+  "monthCalendarIntervalDays": {
+    "message": "calendar days"
+  },
   "settingsCategoryIcon": {
     "message": "Category icon"
   },

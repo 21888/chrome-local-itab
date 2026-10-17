@@ -32,6 +32,23 @@
         return date;
     }
 
+    function parseDateDraft(text) {
+        // Require the entire ISO date, including zero-padded ASCII components.
+        if (typeof text !== 'string' || text.length !== 10 || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(text)) return null;
+        const year = Number(text.slice(0, 4)), month = Number(text.slice(5, 7)) - 1, day = Number(text.slice(8, 10));
+        if (year < 1 || month < 0 || month > 11 || day < 1 || day > 31) return null;
+        const date = utcDate(year, month, day);
+        return date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day
+            ? { year, month, day } : null;
+    }
+
+    function dateInterval(startText, endText) {
+        const start = parseDateDraft(startText), end = parseDateDraft(endText);
+        if (!start || !end) return null;
+        // Both endpoints are Gregorian UTC midnights, never local timestamps.
+        return (utcDate(end.year, end.month, end.day) - utcDate(start.year, start.month, start.day)) / 86400000;
+    }
+
     function localTuple(date) {
         if (!Number.isFinite(Date.prototype.getTime.call(date))) {
             throw new RangeError('Calendar date must be valid');
@@ -101,5 +118,5 @@
         };
     }
 
-    return Object.freeze({ parseMonthDraft, utcDate, localTuple, shift, firstDayOfWeek, month });
+    return Object.freeze({ parseMonthDraft, parseDateDraft, dateInterval, utcDate, localTuple, shift, firstDayOfWeek, month });
 });
