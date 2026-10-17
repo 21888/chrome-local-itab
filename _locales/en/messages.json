@@ -2196,6 +2196,15 @@
   "focusNextWork": {
     "message": "Choose focus"
   },
+  "focusProgress": {
+    "message": "This interval’s progress"
+  },
+  "focusElapsed": {
+    "message": "Elapsed"
+  },
+  "focusIntervalTotal": {
+    "message": "This interval"
+  },
   "focusRemaining": {
     "message": "Remaining time"
   },

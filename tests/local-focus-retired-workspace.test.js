@@ -72,6 +72,9 @@ async function model({ locale } = {}) {
     };
 }
 function retired(m) {
+    assert.equal(m.view.progressGroup.hidden, true, 'retirement hides stage progress');
+    for (const attribute of ['value', 'max', 'aria-label', 'aria-valuetext']) assert.equal(m.view.progress.getAttribute(attribute), undefined);
+    assert.equal(m.view.progressText.textContent, '');
     assert.equal(m.view.temporaryFocus, null, 'registry notification exits temporary focus immediately');
     assert.equal(m.document.body.classList.contains('temporary-focus-view'), false);
     assert.equal(m.document.title, m.originalTitle);

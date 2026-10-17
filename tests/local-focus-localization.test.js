@@ -58,6 +58,13 @@ for (const [locale, mode] of [['en', 'normal'], ['zh_CN', 'normal'],
             const before = m.h.state;
             await m.h.flush();
             assert.equal(m.card.hidden, false);
+            const progress = m.card.querySelector('progress'), messages = catalogs[mode === 'normal' ? locale : 'en'];
+            const progressText = `${messages.focusElapsed.message} 0:00 / ${messages.focusIntervalTotal.message} 25:00`;
+            assert.equal(progress.getAttribute('aria-label'), messages.focusProgress.message);
+            assert.equal(progress.getAttribute('aria-valuetext'), progressText);
+            assert.equal(m.card.querySelector('.focus-progress-text').textContent, progressText);
+            assert.equal(progress.value, 0); assert.equal(progress.max, 1500);
+
             assert.equal(m.card.querySelector('.focus-help').textContent, text.brief);
             const details = m.card.querySelector('details'), help = details.querySelector('p');
             assert.equal(details.open, false);

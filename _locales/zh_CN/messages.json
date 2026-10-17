@@ -2196,6 +2196,15 @@
   "focusNextWork": {
     "message": "选择专注"
   },
+  "focusProgress": {
+    "message": "本阶段进度"
+  },
+  "focusElapsed": {
+    "message": "已用"
+  },
+  "focusIntervalTotal": {
+    "message": "本阶段"
+  },
   "focusRemaining": {
     "message": "剩余时间"
   },

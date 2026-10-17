@@ -341,6 +341,8 @@ Use **Add multiple tasks** to paste one task per nonblank line, inspect a number
 
 Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.
 
+Below the remaining time, interval progress shows elapsed time against the saved interval duration. Unsaved minutes do not change its total. Pausing freezes progress; completion stays full until an explicit reset or next-interval choice. Read failures, uncertain timing and an unavailable workspace hide progress while keeping the existing guidance. [Progress behavior and validation scope](docs/focus-stage-progress-validation.md).
+
 Each workspace has its own device-local session, shared across that workspace's new-tab pages. Hiding the card keeps that session. Settings-only reset preserves its exact state; templates and configuration imports do not start or replace it. Configuration exports, Chrome Sync and Drive backups exclude the timer. It has no task association, history, sound, network requests or system notifications and needs no new permission.
 
 <details>

@@ -35,6 +35,7 @@ function createDocument({ blurUnavailableFocus = false, aggregateTextContent = f
         contains(element) { return element === this || this.children.some(child => child.contains(element)); }
         setAttribute(name, value) { this.attributes[name] = value; if (name === 'tabindex') this.tabIndex = Number(value); }
         getAttribute(name) { return this.attributes[name]; }
+        removeAttribute(name) { delete this.attributes[name]; }
         matches(selector) {
             return selector.split(',').some(raw => {
                 const parts = raw.trim().split(/\s+/); const current = parts.pop();

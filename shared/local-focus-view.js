@@ -8,6 +8,7 @@
         focusViewHelp: 'Hide other modules on this page until you exit or the interval ends. Your saved layout stays the same.',
         focusViewBlocked: 'Finish or save open edits and close other panels before entering focus view.',
         focusTitle: 'Focus timer', focusLocal: 'On this device', focusPhase: 'Interval', focusWork: 'Focus', focusBreak: 'Break',
+        focusProgress: 'This interval’s progress', focusElapsed: 'Elapsed', focusIntervalTotal: 'This interval',
         focusMinutes: 'Minutes (1–180)', focusStart: 'Start', focusPause: 'Pause', focusResume: 'Resume', focusReset: 'Stop / reset',
         focusNextBreak: 'Choose break', focusNextWork: 'Choose focus', focusRemaining: 'Remaining time', focusReady: 'Ready to start',
         focusRunning: 'Running', focusPaused: 'Paused', focusCompleted: 'Interval complete. Choose your next interval when ready.',
@@ -91,6 +92,9 @@
             this.saveMinutes = button('focusSaveMinutes', () => { if (!this.saveMinutes.hidden && !this.saveMinutes.disabled) this.commitDurationDraft(true); });
             minuteLabel.append(this.minutes); const inputs = el('div', 'focus-inputs'); inputs.append(this.phase, minuteLabel, this.saveMinutes);
             this.remaining = el('div', 'focus-remaining'); this.remaining.setAttribute('role', 'timer'); this.remaining.setAttribute('aria-live', 'off'); this.remaining.setAttribute('aria-label', t('focusRemaining'));
+            this.progressGroup = el('div', 'focus-progress-group'); this.progressGroup.hidden = true;
+            this.progress = el('progress', 'focus-progress'); this.progressText = el('p', 'focus-progress-text');
+            this.progressGroup.append(this.progress, this.progressText);
             this.status = el('p', 'focus-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             this.start = button('focusStart', () => {
                 const state = this.controller.snapshot(); if (!state || this.controller.pending || this.start.disabled) return; const status = state.session.status;
@@ -105,7 +109,7 @@
             });
             const details = el('details', 'focus-help');
             details.append(el('summary', '', t('focusDetails')), el('p', '', t('focusHelp')), el('p', '', t('focusTitleHelp')));
-            host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.status, this.workspaceNotice, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
+            host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.progressGroup, this.status, this.workspaceNotice, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
             this.visibility = () => { this.cancelTick(); if (this.closed) return; if (!document.hidden && !this.isWorkspaceRetired()) { controller.tick(); controller.refresh().catch(() => {}); } this.render(); };
             document.addEventListener('visibilitychange', this.visibility);
             // Window bubbling lets nested dialogs, menus and disclosures own Escape first.
@@ -240,11 +244,33 @@
                 }
             });
         }
+        clearProgress() {
+            this.progressGroup.hidden = true;
+            for (const attribute of ['value', 'max', 'aria-label', 'aria-valuetext']) this.progress.removeAttribute(attribute);
+            this.progress.textContent = ''; this.progressText.textContent = '';
+        }
+        renderProgress(state) {
+            const session = state?.session, minutes = state?.durations?.[session?.phase];
+            const totalSeconds = minutes * 60, remainingMs = session?.remainingMs;
+            if (this.controller.error || !['focus', 'break'].includes(session?.phase) ||
+                !['ready', 'running', 'paused', 'completed'].includes(session?.status) ||
+                !Number.isInteger(minutes) || minutes < 1 || minutes > 180 ||
+                !Number.isFinite(remainingMs) || remainingMs < 0 || remainingMs > totalSeconds * 1000 ||
+                (session.status === 'ready' && remainingMs !== totalSeconds * 1000) ||
+                (session.status === 'completed' && remainingMs !== 0)) { this.clearProgress(); return; }
+            // Use the same committed snapshot and whole-second boundary as the
+            // countdown. A final partial second is never shown as fully elapsed.
+            const remainingSeconds = Math.ceil(remainingMs / 1000), elapsedSeconds = totalSeconds - remainingSeconds;
+            const text = `${t('focusElapsed')} ${api.formatRemaining(elapsedSeconds * 1000)} / ${t('focusIntervalTotal')} ${api.formatRemaining(totalSeconds * 1000)}`;
+            this.progress.max = totalSeconds; this.progress.value = elapsedSeconds;
+            this.progress.setAttribute('aria-label', t('focusProgress')); this.progress.setAttribute('aria-valuetext', text);
+            this.progressText.textContent = text; this.progressGroup.hidden = false;
+        }
         cancelTick() { if (this.timeout !== null) { root.clearTimeout(this.timeout); this.timeout = null; } }
         render() {
             if (this.closed) return;
             if (this.isWorkspaceRetired()) {
-                this.cancelTick(); this.focusIntent = null; this.exitTemporaryFocus(false); this.titlePresentation?.destroy();
+                this.clearProgress(); this.cancelTick(); this.focusIntent = null; this.exitTemporaryFocus(false); this.titlePresentation?.destroy();
                 this.focusViewNotice.hidden = true;
                 const visible = this.controller.snapshot()?.enabled !== false;
                 this.host.hidden = !visible;
@@ -261,6 +287,7 @@
             }
             this.titlePresentation?.update();
             this.cancelTick(); const state = this.controller.snapshot(), pending = Boolean(this.controller.pending);
+            this.renderProgress(state);
             if (!state) { this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
             const s = state.session;
             if (this.temporaryFocus) {
@@ -306,7 +333,7 @@
             }
         }
         hasUncommittedWork() { return this.durationDrafts.size > 0 || this.controller.hasUncommittedWork(); }
-        destroy() { this.titlePresentation?.destroy(); this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); root.removeEventListener?.('pageshow', this.workspaceChanged); this.closed = true; this.unsubscribeWorkspace?.(); this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
+        destroy() { this.clearProgress(); this.titlePresentation?.destroy(); this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); root.removeEventListener?.('pageshow', this.workspaceChanged); this.closed = true; this.unsubscribeWorkspace?.(); this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
         host.classList.add('local-focus-settings'); const label = el('label', 'focus-enable-label'), input = el('input'); input.type = 'checkbox'; input.disabled = true;
