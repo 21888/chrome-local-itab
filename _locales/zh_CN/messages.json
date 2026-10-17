@@ -3027,6 +3027,42 @@
   "completeBackupMatchingScope": {
     "message": "已选择的模块会在所有匹配的工作区（包括回收站）中替换。工作区名称、顺序和现有／回收站状态保持不变。"
   },
+  "completeBackupWorkspaceImpact": {
+    "message": "工作空间名称与去向"
+  },
+  "completeBackupWorkspaceImpactHelp": {
+    "message": "此处仅显示已验证预览中的名称及正常／回收站成员状态，不代表恢复成功，也不会处理或解除中断恢复。确认替换时仍会重新核对已保存数据。"
+  },
+  "completeBackupWorkspaceImpactAdded": {
+    "message": "备份带入"
+  },
+  "completeBackupWorkspaceImpactRemoved": {
+    "message": "恢复后不再保留于当前列表与回收站"
+  },
+  "completeBackupWorkspaceImpactChanged": {
+    "message": "名称或状态变化"
+  },
+  "completeBackupWorkspaceImpactUnchanged": {
+    "message": "名称与正常／回收站状态无变化；所选模块内容仍会替换。"
+  },
+  "completeBackupWorkspaceImpactId": {
+    "message": "稳定工作空间 ID"
+  },
+  "completeBackupWorkspaceImpactCurrent": {
+    "message": "当前名称／状态"
+  },
+  "completeBackupWorkspaceImpactAfter": {
+    "message": "恢复后名称／状态"
+  },
+  "completeBackupWorkspaceImpactLive": {
+    "message": "正常"
+  },
+  "completeBackupWorkspaceImpactTrash": {
+    "message": "回收站"
+  },
+  "completeBackupWorkspaceImpactAbsent": {
+    "message": "不存在"
+  },
   "completeBackupWorkspaceNames": {
     "message": "备份中的工作区"
   },

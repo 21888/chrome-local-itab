@@ -38,6 +38,18 @@
     "SingleScope": "Only selected modules in this destination will be replaced:",
     "AllScope": "This replaces the live workspace list and Trash with the backup. Workspaces absent from the file will leave the current list. A complete recovery copy is saved first.",
     "MatchingScope": "Selected modules are replaced across every matching workspace, including Trash. Workspace names, order and live/Trash status stay unchanged.",
+    "WorkspaceImpact": "Workspace names and destinations",
+    "WorkspaceImpactHelp": "This shows only names and live/Trash membership from the verified preview. It is not a restore result or an interrupted-restore recovery action. Saved data will be checked again when you confirm replacement.",
+    "WorkspaceImpactAdded": "Brought in from backup",
+    "WorkspaceImpactRemoved": "No longer retained in the current workspace list or Trash after restore",
+    "WorkspaceImpactChanged": "Name or status changes",
+    "WorkspaceImpactUnchanged": "No changes to names or live/Trash status; selected module contents will still be replaced.",
+    "WorkspaceImpactId": "Stable workspace ID",
+    "WorkspaceImpactCurrent": "Current name / status",
+    "WorkspaceImpactAfter": "Name / status after restore",
+    "WorkspaceImpactLive": "Live",
+    "WorkspaceImpactTrash": "Trash",
+    "WorkspaceImpactAbsent": "Not present",
     "WorkspaceNames": "Incoming workspaces",
     "CurrentWorkspaces": "Currently saved workspaces",
     "TrashCount": "Recoverable workspaces in Trash",
@@ -144,6 +156,10 @@
         const collectionSummary = make('p', 'complete-backup-collection-summary', '', panel); collectionSummary.hidden = true;
         const workspaceSummary = make('p', 'complete-backup-workspaces', '', panel); workspaceSummary.hidden = true;
         const counts = make('ul', 'complete-backup-counts', undefined, panel);
+        const workspaceImpact = make('details', 'complete-backup-workspace-impact', undefined, panel); workspaceImpact.hidden = true;
+        make('summary', '', t('WorkspaceImpact'), workspaceImpact);
+        make('p', 'form-hint', t('WorkspaceImpactHelp'), workspaceImpact);
+        const workspaceImpactContent = make('div', 'complete-backup-workspace-impact-content', undefined, workspaceImpact);
         const warning = make('p', 'complete-backup-warning', t('FocusWarning'), panel);
         const confirmActions = make('div', 'complete-backup-actions', undefined, panel);
         const largeButton = button('Continue', 'large', confirmActions); largeButton.hidden = true;
@@ -192,7 +208,42 @@
             if (error?.mayHaveCommitted || error?.code === 'UNCONFIRMED') return t('Unconfirmed');
             return t(({CONFIG_IMPORT_PENDING:'ConfigImportPending',CONFIG_IMPORT_RECEIPT_INVALID:'ConfigImportReceiptInvalid',DUPLICATE_KEY:'DuplicateKey',INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
         };
-        function clear() { configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
+        function clearWorkspaceImpact() { workspaceImpact.hidden = true; workspaceImpact.open = false; workspaceImpactContent.replaceChildren(); }
+        function renderWorkspaceImpact(result) {
+            const spaces = result.workspaces;
+            if (!(result.schemaVersion >= 2) || spaces?.scope !== 'all' || !['current', 'currentTrash', 'incoming', 'incomingTrash'].every(key => Array.isArray(spaces[key]))) return;
+            // The validated preview bounds each side to 100 identities. Keep its
+            // list order (current live/Trash, then incoming-only live/Trash) and
+            // compare complete stable IDs; equal names do not imply identity.
+            const identities = new Map();
+            for (const [key, side, state] of [['current', 'before', 'Live'], ['currentTrash', 'before', 'Trash'], ['incoming', 'after', 'Live'], ['incomingTrash', 'after', 'Trash']]) {
+                for (const item of spaces[key]) {
+                    if (!identities.has(item.id)) identities.set(item.id, {id: item.id});
+                    identities.get(item.id)[side] = {name: item.name, state};
+                }
+            }
+            const groups = {added: [], removed: [], changed: []};
+            for (const item of identities.values()) {
+                if (!item.before) groups.added.push(item);
+                else if (!item.after) groups.removed.push(item);
+                else if (item.before.name !== item.after.name || item.before.state !== item.after.state) groups.changed.push(item);
+            }
+            const describe = item => item ? `${item.name} (${t('WorkspaceImpact' + item.state)})` : t('WorkspaceImpactAbsent');
+            for (const [kind, items] of Object.entries(groups)) {
+                const section = make('section', '', undefined, workspaceImpactContent); section.dataset.impactGroup = kind;
+                make('h5', '', `${t('WorkspaceImpact' + titleKey(kind))}: ${items.length}`, section);
+                const list = make('ul', 'complete-backup-counts', undefined, section);
+                for (const item of items) {
+                    const row = make('li', '', undefined, list);
+                    make('strong', '', `${t('WorkspaceImpactId')}: ${item.id}`, row);
+                    make('span', '', `${t('WorkspaceImpactCurrent')}: ${describe(item.before)}`, row);
+                    make('span', '', `${t('WorkspaceImpactAfter')}: ${describe(item.after)}`, row);
+                }
+            }
+            if (!Object.values(groups).some(items => items.length)) make('p', 'form-hint complete-backup-workspace-impact-unchanged', t('WorkspaceImpactUnchanged'), workspaceImpactContent);
+            workspaceImpact.hidden = false;
+        }
+        function clear() { clearWorkspaceImpact(); configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
         function abandon() { if (phase === 'applying') return; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t('Cancelled'); choose.focus(); }
         const countText = (value, module) => {
             if (!value || typeof value !== 'object') return '';
@@ -231,6 +282,7 @@
                     summary.textContent = t(spaces.scope === 'global-only' ? 'GlobalOnlyScope' : spaces.scope === 'all' ? 'AllScope' : 'MatchingScope');
                     workspaceSummary.textContent = `${t('WorkspaceNames')}: ${spaces.incoming.map(item => item.name).join(', ')}. ${t('TrashCount')}: ${spaces.incomingTrashCount}${spaces.incomingTrash?.length ? ` (${spaces.incomingTrash.map(item => item.name).join(', ')})` : ''}. ${t('CurrentWorkspaces')}: ${spaces.current.map(item => item.name).join(', ')}. ${t('TrashCount')}: ${spaces.currentTrashCount}${spaces.currentTrash?.length ? ` (${spaces.currentTrash.map(item => item.name).join(', ')})` : ''}.`;
                 }
+                renderWorkspaceImpact(result);
                 if (result.prompts && result.selected.includes('prompts')) {
                     promptDestination.hidden = promptSummary.hidden = false; promptTargetSelect.replaceChildren();
                     const placeholder = make('option', '', t('ChoosePromptTarget'), promptTargetSelect); placeholder.value = '';
@@ -370,7 +422,7 @@
         reloadButton.addEventListener('click', () => reload());
         controls();
         return { get pending() { return phase === 'applying' || phase === 'exporting'; }, hasUncommittedWork: () => Boolean(source || phase), cancel: abandon,
-            destroy() { if (phase === 'applying') return false; destroyed = true; ++generation; source = null; availableModules = null; shell.remove(); return true; } };
+            destroy() { if (phase === 'applying') return false; destroyed = true; ++generation; source = null; availableModules = null; clearWorkspaceImpact(); shell.remove(); return true; } };
     }
     function downloadFile(text, name, doc) {
         const url = URL.createObjectURL(new Blob([text], {type:'application/json'}));

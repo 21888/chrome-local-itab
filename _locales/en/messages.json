@@ -3027,6 +3027,42 @@
   "completeBackupMatchingScope": {
     "message": "Selected modules are replaced across every matching workspace, including Trash. Workspace names, order and live/Trash status stay unchanged."
   },
+  "completeBackupWorkspaceImpact": {
+    "message": "Workspace names and destinations"
+  },
+  "completeBackupWorkspaceImpactHelp": {
+    "message": "This shows only names and live/Trash membership from the verified preview. It is not a restore result or an interrupted-restore recovery action. Saved data will be checked again when you confirm replacement."
+  },
+  "completeBackupWorkspaceImpactAdded": {
+    "message": "Brought in from backup"
+  },
+  "completeBackupWorkspaceImpactRemoved": {
+    "message": "No longer retained in the current workspace list or Trash after restore"
+  },
+  "completeBackupWorkspaceImpactChanged": {
+    "message": "Name or status changes"
+  },
+  "completeBackupWorkspaceImpactUnchanged": {
+    "message": "No changes to names or live/Trash status; selected module contents will still be replaced."
+  },
+  "completeBackupWorkspaceImpactId": {
+    "message": "Stable workspace ID"
+  },
+  "completeBackupWorkspaceImpactCurrent": {
+    "message": "Current name / status"
+  },
+  "completeBackupWorkspaceImpactAfter": {
+    "message": "Name / status after restore"
+  },
+  "completeBackupWorkspaceImpactLive": {
+    "message": "Live"
+  },
+  "completeBackupWorkspaceImpactTrash": {
+    "message": "Trash"
+  },
+  "completeBackupWorkspaceImpactAbsent": {
+    "message": "Not present"
+  },
   "completeBackupWorkspaceNames": {
     "message": "Incoming workspaces"
   },
