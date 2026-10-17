@@ -679,6 +679,24 @@
   "scratchpadExport": {
     "message": "Export text"
   },
+  "scratchpadCopyText": {
+    "message": "Copy current text"
+  },
+  "scratchpadCopying": {
+    "message": "Copying current text…"
+  },
+  "scratchpadCopySuccess": {
+    "message": "Current text copied."
+  },
+  "scratchpadCopyFailure": {
+    "message": "Could not copy. Select the text to copy it manually, or export a text copy."
+  },
+  "scratchpadCopyEmpty": {
+    "message": "There is no text to copy. Your clipboard was not changed."
+  },
+  "scratchpadCopyInvalid": {
+    "message": "This draft contains incomplete Unicode characters. Correct them before copying. Your clipboard was not changed."
+  },
   "scratchpadDetails": {
     "message": "Storage and backups"
   },

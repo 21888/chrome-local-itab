@@ -20,6 +20,10 @@
         scratchpadImportReading: 'Reading local text file…',
         scratchpadImportError: 'Could not read this file. Choose one UTF-8 .txt file, up to 32,000 Unicode characters and 128 KiB. Scratchpad was not changed.',
         scratchpadExport: 'Export text', scratchpadDetails: 'Storage and backups',
+        scratchpadCopyText: 'Copy current text', scratchpadCopying: 'Copying current text…',
+        scratchpadCopySuccess: 'Current text copied.', scratchpadCopyFailure: 'Could not copy. Select the text to copy it manually, or export a text copy.',
+        scratchpadCopyEmpty: 'There is no text to copy. Your clipboard was not changed.',
+        scratchpadCopyInvalid: 'This draft contains incomplete Unicode characters. Correct them before copying. Your clipboard was not changed.',
         scratchpadSavedPreview: 'Latest saved text', scratchpadSettingsConflict: 'Scratchpad changed on another page. Read the latest saved state before changing visibility.', scratchpadReadLatest: 'Read latest saved state',
         scratchpadLimits: 'Up to 32,000 Unicode characters and 128 KiB of UTF-8 text. Longer drafts stay here until shortened; export a copy before leaving.',
         scratchpadTooLong: 'This draft is too long to save. It is still here. Shorten it or export a text copy before leaving.',
@@ -48,12 +52,13 @@
         return t(controller.hasUncommittedWork() ? 'scratchpadUnsaved' : 'scratchpadSaved');
     }
     class View {
-        constructor(host, { controller = new api.Controller(), onVisibility = () => {} } = {}) {
+        constructor(host, { controller = new api.Controller(), onVisibility = () => {}, clipboard = root.navigator?.clipboard } = {}) {
             this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.closed = false;
+            this.clipboard = clipboard; this.copyAttempt = null; this.copyReceipt = null;
             host.classList.add('local-scratchpad-card'); host.setAttribute('aria-label', t('scratchpadTitle')); host.hidden = true;
             const header = el('header', 'scratchpad-header'); header.append(el('h2', '', t('scratchpadTitle')), el('span', 'scratchpad-local', t('scratchpadLocal')));
             this.textarea = el('textarea', 'scratchpad-text'); this.textarea.setAttribute('aria-label', t('scratchpadLabel')); this.textarea.spellcheck = false; this.textarea.setAttribute('autocomplete', 'off');
-            this.textarea.addEventListener('input', () => { this.resetFindResult(); if (controller.loaded) controller.setDraft(this.textarea.value); });
+            this.textarea.addEventListener('input', () => { this.invalidateCopy(); this.resetFindResult(); if (controller.loaded) controller.setDraft(this.textarea.value); });
             this.textarea.addEventListener('compositionstart', () => { this.findHeldEnter = null; controller.setComposing(true); });
             this.textarea.addEventListener('compositionend', () => { if (controller.loaded) controller.setDraft(this.textarea.value); controller.setComposing(false); });
             this.savedPreview = el('textarea', 'scratchpad-text scratchpad-saved-preview'); this.savedPreview.readOnly = true; this.savedPreview.spellcheck = false; this.savedPreview.setAttribute('aria-label', t('scratchpadSavedPreview'));
@@ -63,6 +68,9 @@
             this.useSaved = button('scratchpadUseSaved', () => run(() => controller.useSaved()));
             this.replace = button('scratchpadReplace', () => run(() => controller.replaceWithDraft()));
             this.exportButton = button('scratchpadExport', () => this.exportText());
+            this.copyButton = button('scratchpadCopyText', event => run(() => this.copyText(event)));
+            this.copyStatus = el('p', 'scratchpad-help'); this.copyStatus.hidden = true;
+            this.copyStatus.setAttribute('role', 'status'); this.copyStatus.setAttribute('aria-live', 'polite'); this.copyStatus.setAttribute('aria-atomic', 'true');
             this.importButton = button('scratchpadImport', () => this.chooseImport());
             this.findButton = button('scratchpadFind', event => {
                 if (!this.canFind(this.findButton, event)) return;
@@ -129,10 +137,13 @@
             const importControls = el('div', 'scratchpad-controls'); importControls.append(this.importApply, this.importCancel);
             this.importPanel.append(appendLabel, this.importInfo, this.importPreview, el('p', 'scratchpad-help', t('scratchpadImportHelp')), importControls);
             this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
-            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.importButton, this.findButton);
+            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.copyButton, this.importButton, this.findButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
-            host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.importFile, this.importPanel, this.findPanel, details);
+            host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details);
+            this.copyCompositionStart = () => { this.invalidateCopy(); this.refreshCopyControl(); };
+            this.copyCompositionEnd = () => this.refreshCopyControl();
+            host.addEventListener('compositionstart', this.copyCompositionStart); host.addEventListener('compositionend', this.copyCompositionEnd);
             this.beforeUnload = event => { if (root.LocalItabContentLifecycle?.departing || !this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
             root.addEventListener?.('beforeunload', this.beforeUnload);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
@@ -160,6 +171,8 @@
             this.replace.disabled = Boolean(c.pending || c.composing || c.readError);
             this.exportButton.disabled = !c.loaded && !c.draft;
             this.renderFind();
+            if (this.copyReceipt && !this.copyCurrent(this.copyReceipt)) this.invalidateCopy();
+            this.refreshCopyControl();
         }
         findVisible(node) {
             return !this.closed && !this.controller.closed && this.host.isConnected && node?.isConnected && this.host.contains(node) &&
@@ -315,6 +328,79 @@
             this.controller.setDraft(text); this.textarea.focus();
             run(() => this.controller.save());
         }
+        canCopy(event) {
+            const c = this.controller, workspace = c.store?.backend?.workspace, session = root.LocalItabWorkspaces?.session;
+            if (!c.loaded || c.composing || this.findComposing || event?.isComposing || event?.keyCode === 229 ||
+                this.copyButton.disabled || document.hidden || document.visibilityState === 'hidden' ||
+                root.LocalItabContentLifecycle?.departing || workspace?.invalidated || workspace?._suspended ||
+                (workspace && session && workspace !== session) || !this.findVisible(this.copyButton) || !this.findVisible(this.textarea)) return false;
+            for (let node = this.copyButton.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS' && !node.open) return false;
+            return true;
+        }
+        refreshCopyControl() {
+            // Keep the native focused button in place; every click rechecks readiness.
+            this.copyButton.setAttribute('aria-disabled', String(Boolean(this.copyAttempt) || !this.canCopy()));
+        }
+        invalidateCopy() {
+            const receipt = this.copyReceipt;
+            if (!receipt) return;
+            receipt.valid = false; receipt.cleanup?.(); this.copyReceipt = null;
+            this.copyStatus.textContent = ''; this.copyStatus.hidden = true;
+            // A system write already sent cannot be cancelled. Its single-flight
+            // lock stays held until settlement, even after its feedback expires.
+            this.refreshCopyControl();
+        }
+        copyCurrent(receipt) {
+            if (this.copyReceipt !== receipt || !receipt.valid) return false;
+            receipt.drain?.();
+            const c = this.controller, workspace = c.store?.backend?.workspace;
+            return receipt.valid && this.copyReceipt === receipt && this.canCopy() && c.generation === receipt.generation &&
+                c.draft === receipt.draft && this.textarea.value === receipt.editorText && workspace === receipt.workspace &&
+                workspace?.id === receipt.workspaceId && workspace?.generation === receipt.workspaceGeneration &&
+                root.LocalItabWorkspaces?.session === receipt.session;
+        }
+        async copyText(event) {
+            if (this.copyAttempt || !this.canCopy(event)) return;
+            this.invalidateCopy();
+            const c = this.controller, workspace = c.store?.backend?.workspace;
+            const receipt = { valid: true, draft: c.draft, generation: c.generation, editorText: this.textarea.value,
+                workspace, workspaceId: workspace?.id, workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session };
+            this.copyReceipt = receipt;
+            const cancel = () => { if (this.copyReceipt === receipt) this.invalidateCopy(); };
+            // Record brief hide/show or detach/reattach cycles, even when the DOM
+            // looks unchanged again by the time the clipboard promise settles.
+            const invalidating = records => records.some(record => record.type === 'attributes' ?
+                record.target.contains(this.copyButton) || record.target.contains(this.textarea) :
+                Array.from(record.removedNodes || []).some(node => node === this.copyButton || node === this.textarea ||
+                    node.contains?.(this.copyButton) || node.contains?.(this.textarea)));
+            const observer = root.MutationObserver ? new root.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
+            receipt.drain = () => { if (observer && invalidating(observer.takeRecords())) cancel(); };
+            receipt.cleanup = () => {
+                observer?.disconnect(); document.removeEventListener('visibilitychange', cancel, true);
+                root.removeEventListener?.('blur', cancel); root.removeEventListener?.('pagehide', cancel);
+            };
+            document.addEventListener('visibilitychange', cancel, true);
+            root.addEventListener?.('blur', cancel); root.addEventListener?.('pagehide', cancel);
+            observer?.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'aria-hidden', 'style', 'class', 'open'] });
+            this.copyStatus.hidden = false;
+            if (!receipt.draft) { this.copyStatus.textContent = t('scratchpadCopyEmpty'); return; }
+            if (!api.isUnicode(receipt.draft)) { this.copyStatus.textContent = t('scratchpadCopyInvalid'); return; }
+            this.copyAttempt = receipt; this.copyStatus.textContent = t('scratchpadCopying'); this.refreshCopyControl();
+            try {
+                // Copy the exact controller draft, not the conflict preview or
+                // textarea's CRLF-normalized value. No awaited work precedes this
+                // user-activated system call; saving is a separate operation.
+                if (!this.clipboard?.writeText) throw new Error('Clipboard unavailable');
+                await this.clipboard.writeText(receipt.draft);
+                if (this.copyCurrent(receipt)) this.copyStatus.textContent = t('scratchpadCopySuccess');
+            } catch (_) {
+                if (this.copyCurrent(receipt)) this.copyStatus.textContent = t('scratchpadCopyFailure');
+            } finally {
+                if (!this.copyCurrent(receipt)) this.invalidateCopy();
+                if (this.copyAttempt === receipt) this.copyAttempt = null;
+                if (!this.closed) this.refreshCopyControl();
+            }
+        }
         exportText() {
             // Export the current visible draft, including unsaved/conflicted text.
             let url, link;
@@ -329,7 +415,8 @@
         }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
         destroy() {
-            this.closeFind(); this.cancelImport(); this.closed = true;
+            this.invalidateCopy(); this.closeFind(); this.cancelImport(); this.closed = true;
+            this.host.removeEventListener('compositionstart', this.copyCompositionStart); this.host.removeEventListener('compositionend', this.copyCompositionEnd);
             this.host.removeEventListener('keyup', this.findKeyup); this.host.removeEventListener('pointerdown', this.findPointerdown); this.host.removeEventListener('keydown', this.findKeydown);
             document.removeEventListener('visibilitychange', this.findVisibilityChange);
             root.removeEventListener?.('beforeunload', this.beforeUnload); this.unsubscribe(); this.controller.destroy();

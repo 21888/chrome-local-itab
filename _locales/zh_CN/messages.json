@@ -679,6 +679,24 @@
   "scratchpadExport": {
     "message": "导出文本"
   },
+  "scratchpadCopyText": {
+    "message": "复制当前全文"
+  },
+  "scratchpadCopying": {
+    "message": "正在复制当前全文…"
+  },
+  "scratchpadCopySuccess": {
+    "message": "已复制当前全文。"
+  },
+  "scratchpadCopyFailure": {
+    "message": "无法复制。请选中文字后手动复制，或导出文本副本。"
+  },
+  "scratchpadCopyEmpty": {
+    "message": "当前没有可复制的文字，剪贴板未改变。"
+  },
+  "scratchpadCopyInvalid": {
+    "message": "草稿含有不完整的 Unicode 字符，请修正后再复制。剪贴板未改变。"
+  },
   "scratchpadDetails": {
     "message": "存储与备份"
   },
