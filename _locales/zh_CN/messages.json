@@ -6393,6 +6393,15 @@
   "aiContextCopyBlocked": {
     "message": "复制受阻。请选中回答文字手动复制。"
   },
+  "promptsSort": {
+    "message": "本页排序"
+  },
+  "promptsSortDefault": {
+    "message": "默认顺序"
+  },
+  "promptsSortTitle": {
+    "message": "标题升序"
+  },
   "promptsTagFilter": {
     "message": "标签"
   },

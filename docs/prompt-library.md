@@ -24,6 +24,8 @@
    原提示词及完整历史保持不变。它不复制临时变量值或当前选中的历史预览；
    未修改的模板也可以另存。新建编辑器只提供普通保存，避免重复操作。
 
+提示词库侧栏的「本页排序」默认保持收藏优先、最近更新的既有顺序；「标题升序」对当前搜索、分类、精确标签及全部/收藏/回收站范围内的全部匹配项排序，不再将收藏置顶。按页面中英文语言进行不区分大小写、数字自然顺序比较，等价标题以 ID 稳定排列；中文具体顺序可能随浏览器排序数据变化。选择仅在本页保留：清除筛选和刷新已保存数据保留排序，重新加载页面恢复默认。排序不保存数据，保留当前详情、草稿、变量和展开的历史。详见 [标题排序与验证范围](prompt-title-sort-validation.md#中文)。
+
 草稿、变量和预览只存在当前标签页的内存中。浏览库内其他条目时会保留，离开
 页面前有提示；仍应主动保存草稿，不能依赖浏览器一定弹出离开警告。变量不会
 自动进入正文、历史或备份。另一标签页保存引起冲突时，本页保留草稿，并提供
@@ -53,6 +55,8 @@ to focus the first remaining field in template order. Filled and explicitly empt
 values are skipped. This works for current, historical and unsaved-draft previews;
 it does not copy or save. See [missing-variable navigation](prompt-missing-variable-focus.md).
 Local saving, search and preview do not call a model. Optional model workflows send only after explicit destination/content review and Send; granting access alone never sends anything.
+
+The sidebar’s **Sort this page** keeps the existing favorite-first, recently updated order by default. **Title ascending** sorts all currently matched saved titles with case-insensitive, natural-number ordering in the page’s English/Chinese locale; equivalent titles use record ID as a stable tie-breaker. Favorites are not pinned in title mode. Clearing filters and refreshing saved data retain the choice; reloading the page resets it. Sorting only redraws the result cards and count, preserving details, drafts, variable sessions and expanded history without writing a preference. Browser collation data may affect exact Chinese order. See [title ordering and verification](prompt-title-sort-validation.md).
 
 One global library serves every workspace. Drafts and variable values remain only
 in the current tab; navigation within the library keeps them, but leaving can

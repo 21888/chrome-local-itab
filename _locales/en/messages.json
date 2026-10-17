@@ -6393,6 +6393,15 @@
   "aiContextCopyBlocked": {
     "message": "Copy was blocked. Select the response text to copy it manually."
   },
+  "promptsSort": {
+    "message": "Sort this page"
+  },
+  "promptsSortDefault": {
+    "message": "Default order"
+  },
+  "promptsSortTitle": {
+    "message": "Title ascending"
+  },
   "promptsTagFilter": {
     "message": "Tag"
   },

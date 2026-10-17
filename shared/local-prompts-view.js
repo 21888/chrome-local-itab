@@ -48,6 +48,7 @@
         constructor({ host, controller, translate = (name, fallback) => root.i18n?.t(key(name)) || fallback, clipboard = root.navigator?.clipboard, confirm } = {}) {
             this.host = host; this.doc = host.ownerDocument; this.controller = controller; this.clipboard = clipboard;
             this.t = (name, fallback) => { const value = translate(name, fallback); return value && value !== key(name) ? value : fallback; };
+            this.listSort = 'default';
             this.confirm = confirm || (options => this.dialog(options)); this.historyId = null; this.copyGeneration = 0; this.copying = false; this.pendingFocus = null;
             this.pageHide = event => {
                 this.clearPendingFocus();
@@ -58,6 +59,7 @@
             };
             root.addEventListener?.('pagehide', this.pageHide);
             this.build(); this.attachSearchShortcut(); controller.onChange = kind => kind === 'dispose' ? this.destroy() : this.render(kind);
+            this.changeOwner = controller.onChange;
         }
         destroy() {
             if (this.destroyed) return;
@@ -143,6 +145,31 @@
             this.category = this.el('select'); this.category.id = 'prompt-category-filter'; this.category.addEventListener('change', () => c.filter({ category: this.category.value })); filter.append(categoryLabel, this.category);
             const tagFilter = this.el('div', 'prompt-filter'), tagLabel = this.el('label', '', this.t('TagFilter', 'Tag')); tagLabel.htmlFor = 'prompt-tag-filter';
             this.tag = this.el('select'); this.tag.id = 'prompt-tag-filter'; this.tag.addEventListener('change', () => c.filter({ tag: this.tag.value })); tagFilter.append(tagLabel, this.tag);
+            const sortFilter = this.el('div', 'prompt-filter'), sortLabel = this.el('label', '', this.t('Sort', 'Sort this page'));
+            sortLabel.setAttribute('for', 'prompt-sort');
+            const sort = this.el('select'); this.sortSelect = sort; sort.id = 'prompt-sort';
+            for (const [value, name, fallback] of [['default', 'SortDefault', 'Default order'], ['title', 'SortTitle', 'Title ascending']]) {
+                const option = this.el('option', '', this.t(name, fallback)); option.value = value; sort.append(option);
+            }
+            sort.value = this.listSort;
+            sort.addEventListener('change', event => {
+                const value = sort.value; sort.value = this.listSort;
+                if (event.target !== sort || !['default', 'title'].includes(value) || value === this.listSort || sort.disabled ||
+                    this.destroyed || c.disposed || !c.state || c.busy || c.pendingCommand || this.openDialog ||
+                    this.doc.hidden || this.doc.visibilityState === 'hidden' || c.onChange !== this.changeOwner ||
+                    this.sortSelect !== sort || sort.parentElement !== sortFilter || sortFilter.parentElement !== sidebar ||
+                    !this.shell.contains(sort) || !this.host.contains(this.shell) || !sort.isConnected ||
+                    sort.closest('[hidden], [inert], [aria-hidden="true"]') || !sort.getClientRects().length ||
+                    this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
+                for (let node = sort; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node) || node.style;
+                    if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return;
+                }
+                this.listSort = value; sort.value = value;
+                // Sort is view state: leave filters, detail DOM and pending work alone.
+                this.renderResults();
+            });
+            sortFilter.append(sortLabel, sort);
             this.draftList = this.el('div', 'prompt-draft-list');
             const listHeading = this.el('div', 'prompt-list-heading'); this.count = this.el('span');
             this.clearButton = this.button('ClearFilters', 'Clear filters', () => {
@@ -154,7 +181,7 @@
                 c.filter({ query: '', mode: 'all', category: '', tag: '' });
             }, 'prompt-clear'); listHeading.append(this.count, this.clearButton);
             this.list = this.el('div', 'prompt-list'); this.list.setAttribute('aria-label', this.t('Results', 'Saved prompts'));
-            sidebar.append(search, nav, filter, tagFilter, this.draftList, listHeading, this.list);
+            sidebar.append(search, nav, filter, tagFilter, sortFilter, this.draftList, listHeading, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'prompt-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.el('p', '', this.t('Scope', 'One library across all workspaces. Saved on this device; copying is always your choice.')),
                 this.el('p', '', this.t('Privacy', 'This is not an encrypted vault. Device access and unencrypted backups can expose saved text. Do not store passwords or API keys.')));
@@ -260,8 +287,21 @@
                 if (id === c.selected) button.setAttribute('aria-current', 'true'); this.draftList.append(button);
             }
         }
+        sortedResults() {
+            const results = [...this.controller.results()];
+            if (this.listSort === 'title') {
+                // Use the page's supported UI language, never the host's default locale.
+                const language = /^zh(?:[-_]|$)/i.test(this.doc.documentElement.lang || '') ? 'zh-CN' : 'en';
+                const collator = new Intl.Collator(language, { sensitivity: 'base', numeric: true });
+                results.sort((a, b) => collator.compare(a.record.title, b.record.title) ||
+                    (a.record.id < b.record.id ? -1 : a.record.id > b.record.id ? 1 : 0));
+            }
+            return results;
+        }
         renderList() {
             const c = this.controller; this.search.value = c.filters.query;
+            this.sortSelect.value = this.listSort;
+            this.sortSelect.disabled = !c.state || c.busy || Boolean(c.pendingCommand);
             for (const [mode, button] of Object.entries(this.nav)) button.setAttribute('aria-pressed', String(c.filters.mode === mode));
             const categories = [...new Set((c.state?.records || []).filter(record => (record.deletedAt !== null) === (c.filters.mode === 'trash')).map(record => record.category).filter(Boolean))].sort();
             if (c.filters.category && !categories.includes(c.filters.category)) categories.push(c.filters.category);
@@ -278,9 +318,12 @@
             for (const tag of tags) { const option = this.el('option', '', tag); option.value = tag; this.tag.append(option); }
             this.tag.value = c.filters.tag;
             for (const button of this.main.querySelectorAll('[data-prompt-tag]')) button.setAttribute('aria-pressed', String(button.dataset.promptTag === c.filters.tag));
-            this.renderDrafts(); this.list.replaceChildren();
-            const results = c.results(); this.count.textContent = `${results.length} ${this.t('PromptCount', 'prompts')}`;
+            this.renderDrafts(); this.renderResults();
             this.clearButton.hidden = !c.filters.query && c.filters.mode === 'all' && !c.filters.category && !c.filters.tag;
+        }
+        renderResults() {
+            const c = this.controller, results = this.sortedResults(); this.list.replaceChildren();
+            this.count.textContent = `${results.length} ${this.t('PromptCount', 'prompts')}`;
             for (const { record, snippet } of results) {
                 const button = this.el('button', 'prompt-card'); button.type = 'button'; button.disabled = c.busy;
                 button.setAttribute('aria-current', String(record.id === c.selected));
