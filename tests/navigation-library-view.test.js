@@ -1626,3 +1626,188 @@ test('local AI cards render bilingual scoped pricing and exact filters without s
   h.view.close();assert.equal(JSON.stringify(h.snapshot),before);assert.equal(h.calls,0);
  }
 });
+
+// Native details activation/layout is not emulated here: setting .open models
+// the browser result, and toggle probes cover queued events without a browser.
+const reviewDetails=h=>h.document.querySelector('.navigation-library-review').querySelectorAll('.navigation-library-review-details');
+const reviewConfirm=h=>h.document.querySelector('.navigation-library-batch-confirm');
+const startReview=h=>h.document.querySelector('.navigation-library-batch-review').dispatch('click');
+function toggleReview(details,open) { details.open=open;details.dispatch('toggle'); }
+
+test('review details expose visible and filter-hidden selected sites without changing the frozen confirmation', async () => {
+ for(const locale of ['en','zh-CN']) {
+  const h=model({locale}),writer=batchWriter(h),lang=locale==='en'?'en':'zh';let external=0;
+  h.context.open=h.context.fetch=()=>{external++;throw new Error('Review must stay offline');};
+  const catalogBefore=JSON.stringify(h.context.LocalItabNavigationSites);await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');
+  const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');
+  enterNewName(h,'Unused synthetic draft');h.document.querySelector('.navigation-library-use-existing').dispatch('click');
+  h.search('chatgpt');h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='ai').dispatch('click');
+  const filters=h.document.querySelectorAll('.navigation-library-filters select');
+  for(const [index,value] of [[0,'chat'],[1,'US'],[2,'OpenAI'],[3,'freemium']]) {filters[index].value=value;filters[index].dispatch('change');}
+  savedControl(h,'new').dispatch('click');h.document.querySelector('.navigation-library-selected-only').dispatch('click');
+  startReview(h);const review=h.document.querySelector('.navigation-library-review'),details=reviewDetails(h),confirm=reviewConfirm(h),card=cards(h)[0];
+  const before=JSON.stringify(h.snapshot),readCount=h.reads,criteria=filters.map(node=>node.value);
+  assert.equal(details.length,2,'each reviewed site needs its own disclosure, including filtered-out selections');
+  assert(details.every(node=>node.tagName==='DETAILS'&&!node.open));
+  assert.equal(h.document.activeElement,confirm);assert.equal(cards(h).length,1);assert.equal(card.dataset.site,'chatgpt');
+  const dict=JSON.parse(fs.readFileSync(`_locales/${locale==='en'?'en':'zh_CN'}/messages.json`));
+  for(const [index,id] of ['chatgpt','github'].entries()) {
+   const site=h.context.LocalItabNavigationSites.find(site=>site.id===id),detail=details[index],row=detail.parentElement;
+   assert.equal(row.querySelector('strong').textContent,site.name);assert.equal(row.querySelector('.navigation-library-review-identity span').textContent,site.url);
+   assert.equal(detail.querySelector('summary').textContent,dict.navigationLibrarySource.message);
+   assert.equal(detail.querySelector('summary').getAttribute('aria-label'),`${dict.navigationLibrarySource.message}: ${site.name}`);
+   assert.equal(detail.querySelector('summary').getAttribute('tabindex'),'0');
+   assert.equal(detail.querySelectorAll('button, input, select').length,0,'review metadata cannot apply filters or edit state');
+   const copy=textTree(detail);assert(copy.includes(site.description[lang]));assert(copy.includes(site.company));assert(copy.includes(site.country));
+   assert(copy.includes(site.pricingNote[lang]));assert(copy.includes(site.verifiedOn));
+   const values=detail.querySelectorAll('dd');
+   const tagLabels=site.tags.map(tag=>{const key=`navigationTag${tag.split(/[-_]/).map(part=>part[0].toUpperCase()+part.slice(1)).join('')}`;return dict[key]?.message||tag.replace(/[-_]/g,' ');});
+   assert.equal(values[0].textContent,Array.from(tagLabels).join(' · '));
+   assert.equal(values[1].textContent,Array.from(site.categories,id=>h.context.LocalItabNavigationCatalog.categories.find(category=>category.id===id)?.[lang]||id).join(' · '));
+   assert.deepEqual(detail.querySelectorAll('a').map(link=>link.href),Array.from(site.sources));
+   for(const link of detail.querySelectorAll('a')){assert.equal(link.target,'_blank');assert.equal(link.rel,'noopener noreferrer');}
+   toggleReview(detail,true);assert.equal(details[1-index].open,index===1);toggleReview(detail,false);toggleReview(detail,true);
+  }
+  assert.equal(reviewConfirm(h),confirm);assert.equal(cards(h)[0],card,'native disclosure must not render results');assert.equal(review.hidden,false);
+  assert.equal(h.document.querySelector('input').value,'chatgpt');assert.deepEqual(filters.map(node=>node.value),criteria);
+  assert.equal(target.value,'personal');assert.equal(newName(h).value,'Unused synthetic draft');assert.match(selectionCount(h),/^2 \/ 20/);
+  assert.equal(h.document.querySelector('.navigation-library-selected-only').getAttribute('aria-pressed'),'true');
+  assert.equal(h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='ai').getAttribute('aria-pressed'),'true');
+  assert.equal(savedControl(h,'new').getAttribute('aria-pressed'),'true');assert.equal(h.reads,readCount);assert.equal(writer.calls,0);assert.equal(external,0);
+  assert.equal(JSON.stringify(h.snapshot),before);assert.equal(JSON.stringify(h.context.LocalItabNavigationSites),catalogBefore);
+  const expected=h.context.LocalItabNavigationSites.filter(site=>['chatgpt','github'].includes(site.id)).map(site=>({name:site.name,url:site.url,icon:site.icon}));
+  h.snapshot.state.links.push({url:'https://synthetic-later.example/'});
+  h.context.LocalItabNavigationSites.find(site=>site.id==='chatgpt').name='Synthetic later name';
+  confirm.dispatch('click');confirm.dispatch('click');await tick();
+  assert.equal(writer.calls,1);assert.equal(writer.request.destination,'personal');assert.deepEqual(JSON.parse(JSON.stringify(writer.request.sites)),JSON.parse(JSON.stringify(expected)));
+  assert.equal(writer.request.baseline.links.length,0);assert(Object.isFrozen(writer.request.sites));assert(Object.isFrozen(writer.request.sites[0]));assert(Object.isFrozen(writer.request.baseline));
+ }
+});
+
+test('review details show unknown metadata and fallback English without changing source-review caveats',async()=>{
+ for(const locale of ['en','zh-CN','fallback']) {
+  const h=model({locale:locale==='zh-CN'?locale:'en'});if(locale==='fallback')h.context.i18n.t=key=>key;
+  await h.view.open();pickSite(h,'luma-dream-machine');h.search('no-match-synthetic');startReview(h);
+  const detail=reviewDetails(h)[0],site=h.context.LocalItabNavigationSites.find(site=>site.id==='luma-dream-machine');
+  assert(textTree(detail).includes(site.pricingNote[locale==='zh-CN'?'zh':'en']));
+  assert.match(textTree(detail),locale==='zh-CN'?/未知/:/Unknown/);
+  assert.match(textTree(detail),locale==='zh-CN'?/来源查阅日期/:/Source reviewed/);
+  const footer=textTree(h.document.querySelector('.navigation-library-footer'));
+  assert.match(footer,locale==='zh-CN'?/日期记录来源查阅时间，不保证当前费用或可用性/:/date records source review, not a guarantee of current pricing or availability/);
+  assert.equal(h.calls,0);
+ }
+});
+
+test('review details single new-category confirmation remains the same normalized frozen request',async()=>{
+ for(const locale of ['en','zh-CN']) {
+  const h=model({locale}),writer=newCategoryWriter(h);await h.view.open();pickSite(h,'github');enterNewName(h,'  Cafe\u0301  ');h.search('chatgpt');h.firstAdd().dispatch('click');
+  const details=reviewDetails(h);assert.equal(details.length,1);assert.equal(details[0].open,false);assert.equal(removeControls(h).length,0);
+  assert(details[0].parentElement.parentElement.classList.contains('navigation-library-review-list'));
+  const confirm=reviewConfirm(h),card=cards(h)[0];toggleReview(details[0],true);toggleReview(details[0],false);
+  assert.equal(reviewConfirm(h),confirm);assert.equal(cards(h)[0],card);assert.equal(newName(h).value,'  Cafe\u0301  ');assert.equal(writer.calls,0);
+  h.snapshot.state.links.push({url:'https://later.example/'});confirm.dispatch('click');confirm.dispatch('click');await tick();
+  assert.equal(writer.calls,1);assert.equal(writer.request.site.name,'ChatGPT');assert.equal(writer.request.sites,undefined);
+  assert.equal(writer.request.destination,undefined);assert.equal(writer.request.newCategory.name,'Café');assert.equal(writer.request.confirmedNewCategory,true);
+  assert.equal(writer.request.baseline.links.length,0);assert(Object.isFrozen(writer.request.site));assert(Object.isFrozen(writer.request.newCategory));assert.match(selectionCount(h),/^1 \/ 20/);
+ }
+});
+
+test('review details retain only current remaining native open state on removal with adjacent focus and final exit',async()=>{
+ for(const newCategory of [false,true]) {
+  const h=model();await h.view.open();for(const id of ['chatgpt','github','figma'])pickSite(h,id);if(newCategory)enterNewName(h,'Synthetic research');h.search('no-match-synthetic');startReview(h);
+  const oldDetails=reviewDetails(h),oldConfirm=reviewConfirm(h),oldRemove=removeControls(h)[0];
+  oldDetails.forEach(detail=>{detail.open=true;});oldDetails[1].open=false; // No toggle event delivered yet.
+  const oldNames=oldDetails.map(detail=>detail.parentElement.querySelector('strong').textContent);
+  oldRemove.dispatch('click');assert.equal(reviewDetails(h).length,2);assert.deepEqual(reviewDetails(h).map(node=>node.open),[false,true]);
+  assert.deepEqual(reviewDetails(h).map(node=>node.parentElement.querySelector('strong').textContent),oldNames.slice(1));
+  assert.equal(h.document.activeElement,removeControls(h)[0]);oldConfirm.dispatch('click');oldRemove.dispatch('click');assert.equal(h.calls,0);assert.match(selectionCount(h),/^2 \/ 20/);
+  oldDetails.forEach(detail=>toggleReview(detail,!detail.open));assert.deepEqual(reviewDetails(h).map(node=>node.open),[false,true]);
+  removeControls(h)[1].dispatch('click');assert.equal(h.document.activeElement,removeControls(h)[0]);assert.equal(reviewDetails(h)[0].open,false);
+  removeControls(h)[0].dispatch('click');assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);assert.equal(h.document.activeElement,h.document.querySelector('input'));
+  assert.match(selectionCount(h),/^0 \/ 20/);assert.equal(h.document.querySelector('input').value,'no-match-synthetic');assert.equal(h.calls,0);
+  if(newCategory)assert.equal(newName(h).value,'Synthetic research');
+ }
+});
+
+test('review details retirement resets disclosure state and late reattached toggles cannot affect new confirmation',async()=>{
+ for(const retire of ['back','search','category','target','draft','close']) {
+  const h=model(),writer=batchWriter(h);await h.view.open();pickSite(h,'chatgpt');startReview(h);const old=reviewDetails(h)[0],oldConfirm=reviewConfirm(h);toggleReview(old,true);
+  if(retire==='back')h.document.querySelector('.navigation-library-review-cancel').dispatch('click');
+  if(retire==='search')h.search('chatgpt');
+  if(retire==='category')h.document.querySelectorAll('.navigation-library-category').find(node=>node.dataset.category==='ai').dispatch('click');
+  if(retire==='target'){const target=h.document.querySelector('.navigation-library-destination select');target.value='personal';target.dispatch('change');}
+  if(retire==='draft'){enterNewName(h,'Synthetic draft');h.document.querySelector('.navigation-library-use-existing').dispatch('click');}
+  if(retire==='close'){h.view.close();await h.view.open();pickSite(h,'chatgpt');}
+  startReview(h);const current=reviewDetails(h)[0],confirm=reviewConfirm(h);assert.notEqual(current,old);assert.equal(current.open,false);
+  old.remove();h.document.querySelector('.navigation-library-panel').append(old);toggleReview(old,false);toggleReview(old,true);oldConfirm.dispatch('click');
+  assert.equal(current.open,false);assert.equal(reviewConfirm(h),confirm);assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);assert.equal(writer.calls,0);
+  toggleReview(current,true);confirm.dispatch('click');await tick();assert.equal(writer.calls,1);assert.equal(writer.request.sites.length,1);
+ }
+});
+
+test('review details open state is independent of browsing card disclosures',async()=>{
+ const h=model();await h.view.open();pickSite(h,'chatgpt');pickSite(h,'github');h.search('chatgpt');
+ const card=cards(h)[0],browse=card.querySelector('details');browse.open=true;startReview(h);assert(reviewDetails(h).every(node=>!node.open));
+ toggleReview(reviewDetails(h)[1],true);h.document.querySelector('.navigation-library-review-cancel').dispatch('click');
+ assert.equal(cards(h)[0],card);assert.equal(browse.open,true);h.search('github');assert.equal(cards(h)[0].querySelector('details').open,false);
+ h.search('chatgpt');assert.equal(cards(h)[0].querySelector('details').open,true);startReview(h);assert(reviewDetails(h).every(node=>!node.open));assert.equal(h.calls,0);
+});
+
+test('review details preserve pending, retryable-failure and uncertain-save fences without extra requests',async()=>{
+ for(const code of ['CATALOG_FAILED','CATALOG_UNVERIFIED']) {
+  const h=model(),pending=deferred(),requests=[];h.component.addCatalogShortcut=async request=>{requests.push(request);await pending.promise;throw Object.assign(new Error(),{code});};
+  await h.view.open();pickSite(h,'chatgpt');startReview(h);const detail=reviewDetails(h)[0],confirm=reviewConfirm(h),remove=removeControls(h)[0];toggleReview(detail,true);confirm.dispatch('click');
+  const request=requests[0],frozen=JSON.stringify(request);toggleReview(detail,false);toggleReview(detail,true);confirm.dispatch('click');remove.dispatch('click');
+  assert.equal(requests.length,1);assert.equal(requests[0],request);assert.equal(JSON.stringify(request),frozen);assert.equal(h.view.close(),false);assert.equal(h.context.LocalItabContentLifecycle.pending(),true);
+  assert.equal(confirm.disabled,true);assert.equal(remove.disabled,true);assert.match(selectionCount(h),/^1 \/ 20/);
+  pending.resolve();await tick();assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);toggleReview(detail,false);confirm.dispatch('click');assert.equal(requests.length,1);
+  startReview(h);
+  if(code==='CATALOG_FAILED') {assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);assert.equal(reviewDetails(h)[0].open,false);assert.notEqual(reviewConfirm(h),confirm);}
+  else {assert.equal(h.document.querySelector('.navigation-library-review').hidden,true);assert.equal(h.document.querySelector('.navigation-library-batch-review').disabled,true);}
+  assert.equal(requests.length,1);assert.equal(h.view.close(),true);
+ }
+});
+
+test('review details never release layout invalidation, pending component work or workspace departure protections',async()=>{
+ for(const block of ['invalidated','failedChange','pending','component','departure']) {
+  const h=model(),writer=batchWriter(h);await h.view.open();pickSite(h,'chatgpt');startReview(h);const detail=reviewDetails(h)[0],confirm=reviewConfirm(h);
+  if(block==='component')h.component._pendingSave=true;else if(block==='departure')h.context.LocalItabContentLifecycle.allowDeparture();
+  else h.component.layoutController[block]=true;
+  toggleReview(detail,true);toggleReview(detail,false);confirm.dispatch('click');removeControls(h)[0].dispatch('click');await tick();
+  assert.equal(writer.calls,0);assert.equal(reviewConfirm(h),confirm);assert.match(selectionCount(h),/^1 \/ 20/);
+  if(block==='component')assert.equal(h.component._pendingSave,true);else if(block==='departure')assert.equal(h.context.LocalItabContentLifecycle.departing,true);else assert.equal(h.component.layoutController[block],true);
+ }
+});
+
+test('review details native summaries retain focus semantics without activation handlers or repeated/composing saves',async()=>{
+ const h=model(),writer=batchWriter(h);await h.view.open();pickSite(h,'chatgpt');h.search('no-match-synthetic');startReview(h);const detail=reviewDetails(h)[0],summary=detail.querySelector('summary'),confirm=reviewConfirm(h);
+ assert.equal(summary.tagName,'SUMMARY');assert.equal(detail.children[0],summary);assert.equal(summary.tabIndex,0);assert.equal(summary.getAttribute('role'),undefined);
+ assert.equal(summary.listeners.size,0);assert.equal(detail.listeners.size,0,'no queued toggle closure can mutate a confirmation');
+ summary.focus();assert.equal(h.document.activeElement,summary);
+ assert.equal(summary.dispatch('keydown',{key:'Enter'}).prevented,false);assert.equal(summary.dispatch('keydown',{key:' '}).prevented,false);
+ assert.equal(summary.dispatch('keydown',{key:'Enter',repeat:true}).prevented,true,'existing dialog repeat guard remains active');
+ summary.dispatch('keydown',{key:' ',repeat:true});summary.dispatch('keydown',{key:'Escape',isComposing:true});summary.dispatch('keydown',{key:'Escape',keyCode:229});
+ toggleReview(detail,true);assert.equal(h.document.activeElement,summary);assert.equal(reviewConfirm(h),confirm);
+ for(const fields of [{detail:2},{repeat:true},{isComposing:true},{keyCode:229}])confirm.dispatch('click',fields);
+ assert.equal(writer.calls,0);assert.equal(h.document.querySelector('.navigation-library-review').hidden,false);
+ const link=detail.querySelector('a');reflectNativeLinks(h.document);assert(link.getClientRects().length);link.focus();assert.equal(h.document.activeElement,link);
+ toggleReview(detail,false);summary.focus();assert.equal(h.document.activeElement,summary);assert.equal(summary.dispatch('keydown',{key:'Tab'}).prevented,false,'confirmation controls follow the disclosure');
+ summary.dispatch('keydown',{key:'Escape'});assert.equal(h.document.querySelector('.navigation-library-overlay'),null);assert.equal(writer.calls,0);
+});
+
+test('review details keep hostile text and long URLs literal, with scoped single-column narrow-screen CSS',async()=>{
+ const h=model(),original=h.context.LocalItabNavigationSites[0],name='<img src=x onerror=alert(1)>',text='<script>synthetic & literal</script>',url=`https://synthetic.example/${'long-path-'.repeat(150)}`;
+ h.context.LocalItabNavigationSites=[{...original,name,url,description:{en:text,zh:text},company:text,pricingNote:{en:text,zh:text},tags:['synthetic-long-use'],sources:[url]}];
+ await h.view.open();pickSite(h,original.id);startReview(h);const detail=reviewDetails(h)[0],row=detail.parentElement;
+ assert.equal(row.querySelector('strong').textContent,name);assert.equal(row.querySelector('.navigation-library-review-identity span').textContent,url);
+ assert.equal(detail.querySelector('summary').getAttribute('aria-label'),`Sources & details: ${name}`);
+ assert(textTree(detail).includes(text));assert.equal(h.document.querySelectorAll('img, script, iframe').length,0);assert.equal(detail.querySelector('a').href,url);
+ assert.equal(h.calls,0);assert.equal(row.parentElement.className,'navigation-library-review-list');
+ const css=fs.readFileSync('navigation-library.css','utf8');
+ assert.match(css,/\.navigation-library-review \.navigation-library-review-list\s*\{[^}]*columns:\s*1/);
+ assert.match(css,/\.navigation-library-review-identity\s*\{[^}]*min-width:\s*0[^}]*overflow-wrap:\s*anywhere/);
+ assert.match(css,/\.navigation-library-review-details\s*\{[^}]*min-width:\s*0[^}]*max-width:\s*100%[^}]*font-size:\s*12px/);
+ assert.match(css,/@media \(max-width: 520px\) \{ \.navigation-library-review-heading \{ flex-wrap: wrap;[^}]*\}\.navigation-library-review-identity \{ flex-basis: 100%;/);
+ assert.match(css,/\.navigation-library-details\s*\{[^}]*overflow-wrap:\s*anywhere/);
+ assert.match(css,/\.navigation-library-panel :focus-visible[^}]*outline:\s*3px solid/);
+});

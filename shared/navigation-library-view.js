@@ -512,10 +512,10 @@
             batchClear.disabled = batchClear.dataset.unavailable === 'true';
             refreshResultSelection();
         }
-        function reviewSelection() {
-            reviewSites(root.LocalItabNavigationSites.filter(site => selected.has(site.id)), true);
+        function reviewSelection(openDetails) {
+            reviewSites(root.LocalItabNavigationSites.filter(site => selected.has(site.id)), true, openDetails);
         }
-        function reviewSites(sites, batch) {
+        function reviewSites(sites, batch, openDetails = new Set()) {
             if (externalWorkPending()) { status.textContent = t(component.layoutController?.invalidated ? 'refreshReload' : 'layout'); setControls(); return; }
             if (busy || writing || isComposing() || blocked || !sites.length || (!newCategoryMode && !validDestination())) return;
             const name = newCategoryMode ? validatedName() : null;
@@ -526,24 +526,28 @@
             reviewPanel.replaceChildren();
             const target = newCategoryMode ? `${t('willCreate')}: ${name}` : `${t('destination')}: ${destinationLabels.get(currentDestination) || currentDestination}`;
             reviewPanel.append(el('h3', t('reviewTitle')), el('p', `${sites.length} ${t('selected')} · ${target}`));
-            const list = el('ul');
-            if (batch) list.className = 'navigation-library-review-list';
+            const list = el('ul', undefined, 'navigation-library-review-list');
+            const reviewDetails = new Map();
             sites.forEach((site, index) => {
-                const row = el('li', batch ? undefined : `${site.name} · ${site.url}`);
+                const row = el('li'), heading = el('div', undefined, 'navigation-library-review-heading');
+                const identity = el('div', undefined, 'navigation-library-review-identity');
+                identity.append(el('strong', site.name), el('span', site.url)); heading.append(identity);
                 if (batch) {
-                    row.append(el('span', `${site.name} · ${site.url}`));
                     const remove = button(t('removeSelection'), () => {
                         if (reviewed !== confirmation || !selected.has(site.id)) return;
                         if (selectionUnavailable()) {
                             if (externalWorkPending()) status.textContent = t(component.layoutController?.invalidated ? 'refreshReload' : 'layout');
                             return;
                         }
+                        // Snapshot native state synchronously; queued toggle events must not
+                        // affect a later confirmation or the separate browsing disclosures.
+                        const retainedDetails = new Set([...reviewDetails].filter(([, node]) => node.open).map(([id]) => id));
                         selected.delete(site.id);
                         // Refresh cards/counts and retire every closure from the old review.
                         // Rebuilding the review creates a new immutable confirmation.
                         renderResults();
                         if (!selected.size) { search.focus(); return; }
-                        reviewSelection();
+                        reviewSelection(retainedDetails);
                         const controls = reviewPanel.querySelectorAll('.navigation-library-review-remove');
                         controls[Math.min(index, controls.length - 1)]?.focus();
                     }, 'navigation-library-review-remove');
@@ -551,9 +555,25 @@
                     remove.addEventListener('keydown', event => {
                         if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
                     });
-                    row.append(remove);
+                    heading.append(remove);
                 }
-                list.append(row);
+                row.append(heading);
+                const details = el('details', undefined, 'navigation-library-details navigation-library-review-details');
+                details.open = openDetails.has(site.id); reviewDetails.set(site.id, details);
+                const summary = el('summary', t('source')); summary.setAttribute('tabindex', '0'); summary.setAttribute('aria-label', `${t('source')}: ${site.name}`); details.append(summary);
+                details.append(el('p', api.localized(site.description, language())));
+                const metadata = el('dl', undefined, 'navigation-library-metadata');
+                // Review uses are read-only text, not the browsing card's filter actions.
+                metadata.append(el('dt', t('allUses')), el('dd', site.tags.map(tagLabel).join(' · ')),
+                    el('dt', t('categories')), el('dd', site.categories.map(id => api.categories.find(category => category.id === id)?.[language()] || id).join(' · ')));
+                details.append(metadata);
+                details.append(el('p', `${t('company')}: ${site.company === 'unknown' ? t('unknown') : site.company}`));
+                details.append(el('p', `${t('country')}: ${countryLabel(site.country)}`));
+                details.append(el('p', `${t('pricing')}: ${t(site.pricing)}${site.pricingNote ? ` · ${api.localized(site.pricingNote, language())}` : ''}`));
+                details.append(el('p', `${t('checked')}: ${site.verifiedOn}`));
+                details.append(el('p', t('sources'), 'navigation-library-detail-label'));
+                site.sources.forEach((source, index) => { const link = el('a', `${index + 1}. ${new URL(source).hostname}`); link.href = source; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(link); });
+                row.append(details); list.append(row);
             });
             reviewPanel.append(list);
             if (snapshot.privacy) reviewPanel.append(el('p', `${t('sync')}: ${t(snapshot.privacy.syncEnabled ? 'on' : 'off')} · ${t('icons')}: ${t(snapshot.privacy.onlineFavicons ? 'on' : 'off')}`));

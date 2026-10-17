@@ -22,6 +22,30 @@ After a successful addition in **Not added**, that card disappears and the count
 
 在「未添加」中成功添加后，卡片移出列表、数量同步更新，顶部保留成功提示；键盘焦点移到邻近卡片，没有结果时移到空结果提示。关闭后重新打开会读取最新数据并重置筛选。也可点击「刷新保存状态」明确读取新的保存位置和分类并保留浏览状态；其他页面变更使布局状态失效时，刷新仅供查看，添加网站或调整布局前必须重新加载整个页面。刷新不会解除不确定保存锁。
 
+## Review sources in the final list / 复核名单中的来源与详情
+
+In **Review selected**, every selected site has a separate, initially collapsed **Sources & details** disclosure, including sites hidden by any current filter. A single-site **Create category and add** review has the same disclosure. The site name and full destination URL remain visible above it; batch rows keep their existing **Remove from selection** action.
+
+Expand a row to read its built-in description, complete uses, catalog categories, operator and location, existing pricing label and note, source-review date, and evidence links. Uses in the final review are plain text: they do not filter results. This reads the same bundled catalog record as the browsing card; it does not fetch or reverify metadata. Evidence links open only when explicitly clicked, in a new tab with `noopener noreferrer`. The source date records the earlier source review and does not guarantee current pricing or availability; the existing catalog disclosure still applies.
+
+Opening and closing details neither rebuilds the result cards nor changes the frozen confirmation, search, filters, selected sites, destination or unfinished new-category name. Only **Confirm and add** or **Create category and add** saves. Removing a batch row creates the usual reduced confirmation, preserves the remaining rows' live open/closed state, and focuses the adjacent remove action; removing the last row returns to search. Returning to browsing, changing filters or destination, editing the category draft, or closing and reopening starts the next review collapsed. Review and browsing-card open states are separate.
+
+Existing save protections still apply during pending writes, known failures, uncertain results, external layout changes and workspace departure. Reading details cannot unlock a blocked save or retry it. Each native `summary` has an accessible label containing its site name. Native `details`/`summary` controls preserve their normal keyboard activation, and the dialog's existing focus, IME and repeated-action guards remain in place.
+
+「检查所选」的复核名单里，每个网站都有独立、默认收起的「来源与详情」，包含所有被筛选隐藏的所选网站；单个网站的新分类确认也提供相同详情。名称和完整目标网址始终可见，批量名单保留原有「移出所选」操作。
+
+展开后可查看内置简介、完整用途、目录分类、运营方及所在地、现有定价标签与说明、来源查阅日期及证据链接。这里的用途是只读文字，不会触发筛选；资料与浏览卡片使用同一条内置记录，不联网更新或核验。只有主动点击来源链接才会以新标签页打开，并保留 `noopener noreferrer`。日期代表此前的来源查阅，不保证当前费用或可用性，目录原有说明继续适用。
+
+展开或收起不重建结果卡片，不改变已冻结的确认、搜索、筛选、所选网站、目标分类或新分类名称草稿；仍须明确点击「确认并添加」或「创建分类并添加」才保存。移除一项会生成减少后的新确认，保留其余项当前的展开状态，并将焦点移到相邻移除按钮；移除最后一项后回到搜索。返回浏览、更改筛选或目标、编辑分类草稿、关闭再打开后，下次复核均默认收起。复核与浏览卡片的展开状态互相独立。
+
+保存等待、失败、不确定结果、外部布局变更及离开工作空间的原有保护继续生效，查看详情不会解锁或重试保存。每项 `summary` 的无障碍标签包含当前网站名，采用原生 `details`/`summary` 键盘语义，保留对话框现有焦点、输入法和重复操作保护。
+
+### Verification scope / 验证范围
+
+The change is checked with synthetic DOM ownership/state tests, existing view/storage integration regressions and static CSS assertions. Coverage includes English/Chinese, visible and hidden selections, single new-category review, unchanged frozen saves, removal focus/open-state retention, stale reattached nodes, pending/failure/conflict fences, plain-text rendering, very long URLs and narrow-screen layout rules. Synthetic `.open` changes model the native result; they do not emulate browser keyboard activation, text wrapping, focus painting, assistive-technology output or visual zoom. This is not a real-Chrome, narrow-screen visual or 200% zoom acceptance claim. No new catalog facts, network checks, permissions or storage protocol are introduced.
+
+通过合成 DOM 状态与归属测试、既有视图/存储集成回归及静态 CSS 检查覆盖中英文、可见与隐藏选择、单条新分类复核、冻结请求、移除焦点与展开状态、旧节点复接、保存及冲突保护、纯文本、超长网址和窄屏布局规则。合成 `.open` 变更仅模拟原生展开结果，不模拟浏览器键盘默认行为、真实换行、焦点绘制、辅助技术读出或视觉缩放；不代表真 Chrome、窄屏视觉或 200% 缩放验收。没有新增目录事实、联网核验、权限或存储协议。
+
 ## Privacy and saving
 
 Browsing, searching and filtering are offline. There are no analytics, new permissions, remote catalog downloads or remotely executed code. Adding a link uses existing Sync and online-icon settings, displayed in the library, and rechecks both before saving.

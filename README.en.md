@@ -306,6 +306,8 @@ Choose **Discover sites** in the new-tab shortcut area to browse 149 built-in si
 
 Select sites individually or use **Select current results**, keeping up to 20 selected sites. Choose an existing destination category or enter a new category name, then choose **Review selected**. Check the complete list and destination, then choose **Confirm and add** for an existing category or **Create category and add (N)** for a new one. Sites hidden by filters stay selected, and review includes the whole selection. **Deselect current results (N)** only deselects currently visible results, keeping hidden selections, filters, the destination and any new-category draft; it does not save shortcuts.
 
+Expand **Sources & details** on any review row to inspect its description, all uses, categories, operator, existing pricing notes and source-review date, including sites hidden by filters. Uses here are read-only text; expanding or collapsing does not change filters, selections or the pending confirmation. Removing one site keeps the remaining rows’ open state; returning to browsing or starting a new review resets it. [Review details and verification limits](docs/navigation-library.md#review-sources-in-the-final-list--复核名单中的来源与详情)
+
 Browsing, searching and filtering are offline, and no site is added automatically. Adding uses and rechecks your existing Sync and online-icon settings. Opening a website or source link needs a network connection. [Site library and privacy](docs/navigation-library.md)
 
 ### Find saved sites
