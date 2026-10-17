@@ -65,7 +65,13 @@ for (const [locale, mode] of [['en', 'normal'], ['zh_CN', 'normal'],
             assert.equal(m.card.querySelector('.focus-progress-text').textContent, progressText);
             assert.equal(progress.value, 0); assert.equal(progress.max, 1500);
 
-            assert.equal(m.card.querySelector('.focus-help').textContent, text.brief);
+            // Expected-end and disclosure containers share this style; the brief is its own paragraph.
+            const briefs = m.card.querySelectorAll('p.focus-help');
+            assert.equal(briefs.length, 1, 'retain exactly one brief paragraph');
+            const brief = briefs[0];
+            assert.equal(brief.parentElement, m.card, 'retain the brief outside disclosure and expected-end containers');
+            assert(brief.getClientRects().length, 'keep the brief visible without opening the disclosure');
+            assert.equal(brief.textContent, text.brief);
             const details = m.card.querySelector('details'), help = details.querySelector('p');
             assert.equal(details.open, false);
             assert.equal(help.getClientRects().length, 0);
