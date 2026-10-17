@@ -2292,6 +2292,12 @@
   "focusIntervalTotal": {
     "message": "本阶段"
   },
+  "focusExpectedEnd": {
+    "message": "预计结束（设备本地时间）"
+  },
+  "focusExpectedEndHelp": {
+    "message": "按设备时钟估计，暂停后重新计算；无后台提醒"
+  },
   "focusRemaining": {
     "message": "剩余时间"
   },

@@ -9,6 +9,8 @@
         focusViewBlocked: 'Finish or save open edits and close other panels before entering focus view.',
         focusTitle: 'Focus timer', focusLocal: 'On this device', focusPhase: 'Interval', focusWork: 'Focus', focusBreak: 'Break',
         focusProgress: 'This interval’s progress', focusElapsed: 'Elapsed', focusIntervalTotal: 'This interval',
+        focusExpectedEnd: 'Expected end (device local time)',
+        focusExpectedEndHelp: 'Estimated using the device clock; recalculated after a pause. No background alert.',
         focusMinutes: 'Minutes (1–180)', focusStart: 'Start', focusPause: 'Pause', focusResume: 'Resume', focusReset: 'Stop / reset',
         focusNextBreak: 'Choose break', focusNextWork: 'Choose focus', focusRemaining: 'Remaining time', focusReady: 'Ready to start',
         focusRunning: 'Running', focusPaused: 'Paused', focusCompleted: 'Interval complete. Choose your next interval when ready.',
@@ -95,6 +97,9 @@
             this.progressGroup = el('div', 'focus-progress-group'); this.progressGroup.hidden = true;
             this.progress = el('progress', 'focus-progress'); this.progressText = el('p', 'focus-progress-text');
             this.progressGroup.append(this.progress, this.progressText);
+            this.expectedEndGroup = el('div', 'focus-help'); this.expectedEndGroup.hidden = true;
+            this.expectedEnd = el('p', 'focus-progress-text', ''); this.expectedEndHelp = el('p', 'focus-progress-text', '');
+            this.expectedEndGroup.append(this.expectedEnd, this.expectedEndHelp);
             this.status = el('p', 'focus-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             this.start = button('focusStart', () => {
                 const state = this.controller.snapshot(); if (!state || this.controller.pending || this.start.disabled) return; const status = state.session.status;
@@ -109,7 +114,7 @@
             });
             const details = el('details', 'focus-help');
             details.append(el('summary', '', t('focusDetails')), el('p', '', t('focusHelp')), el('p', '', t('focusTitleHelp')));
-            host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.progressGroup, this.status, this.workspaceNotice, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
+            host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.progressGroup, this.expectedEndGroup, this.status, this.workspaceNotice, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
             this.visibility = () => { this.cancelTick(); if (this.closed) return; if (!document.hidden && !this.isWorkspaceRetired()) { controller.tick(); controller.refresh().catch(() => {}); } this.render(); };
             document.addEventListener('visibilitychange', this.visibility);
             // Window bubbling lets nested dialogs, menus and disclosures own Escape first.
@@ -249,6 +254,37 @@
             for (const attribute of ['value', 'max', 'aria-label', 'aria-valuetext']) this.progress.removeAttribute(attribute);
             this.progress.textContent = ''; this.progressText.textContent = '';
         }
+        clearExpectedEnd() {
+            this.expectedEndGroup.hidden = true;
+            this.expectedEnd.textContent = ''; this.expectedEndHelp.textContent = '';
+        }
+        renderExpectedEnd(state) {
+            const session = state?.session, minutes = state?.durations?.[session?.phase];
+            if (this.closed || document.hidden || state?.enabled !== true || !this.host.isConnected ||
+                this.host.parentElement?.closest('[hidden]') || root.dashboardHiddenState || document.body.classList.contains('dashboard-hidden') ||
+                root.LocalItabContentLifecycle?.departing || this.controller.pending || this.controller.error ||
+                session?.status !== 'running' || typeof session.id !== 'string' || !/^[a-zA-Z0-9_-]{8,100}$/.test(session.id) || !['focus', 'break'].includes(session.phase) ||
+                !Number.isInteger(minutes) || minutes < 1 || minutes > 180 ||
+                !Number.isSafeInteger(session.startedAt) || session.startedAt < 0 || !Number.isSafeInteger(session.deadline) ||
+                session.deadline <= session.startedAt || session.deadline - session.startedAt > minutes * 60000 ||
+                !Number.isFinite(session.remainingMs) || session.remainingMs <= 0 || session.remainingMs > session.deadline - session.startedAt) {
+                this.clearExpectedEnd(); return;
+            }
+            try {
+                if (!this.host.getClientRects().length || ['hidden', 'collapse'].includes(root.getComputedStyle?.(this.host)?.visibility)) {
+                    this.clearExpectedEnd(); return;
+                }
+                // Format the same confirmed snapshot as the remaining digits.
+                // Recreate the formatter so device time-zone changes are not cached.
+                const deadline = new Date(session.deadline);
+                if (!Number.isFinite(deadline.getTime())) { this.clearExpectedEnd(); return; }
+                const formatted = new Intl.DateTimeFormat(document.documentElement.lang || 'en', {
+                    year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'longOffset'
+                }).format(deadline);
+                this.expectedEnd.textContent = `${t('focusExpectedEnd')}: ${formatted}`;
+                this.expectedEndHelp.textContent = t('focusExpectedEndHelp'); this.expectedEndGroup.hidden = false;
+            } catch (_) { this.clearExpectedEnd(); }
+        }
         renderProgress(state) {
             const session = state?.session, minutes = state?.durations?.[session?.phase];
             const totalSeconds = minutes * 60, remainingMs = session?.remainingMs;
@@ -270,7 +306,7 @@
         render() {
             if (this.closed) return;
             if (this.isWorkspaceRetired()) {
-                this.clearProgress(); this.cancelTick(); this.focusIntent = null; this.exitTemporaryFocus(false); this.titlePresentation?.destroy();
+                this.clearProgress(); this.clearExpectedEnd(); this.cancelTick(); this.focusIntent = null; this.exitTemporaryFocus(false); this.titlePresentation?.destroy();
                 this.focusViewNotice.hidden = true;
                 const visible = this.controller.snapshot()?.enabled !== false;
                 this.host.hidden = !visible;
@@ -288,7 +324,7 @@
             this.titlePresentation?.update();
             this.cancelTick(); const state = this.controller.snapshot(), pending = Boolean(this.controller.pending);
             this.renderProgress(state);
-            if (!state) { this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
+            if (!state) { this.clearExpectedEnd(); this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
             const s = state.session;
             if (this.temporaryFocus) {
                 if (!state.enabled || !this.host.isConnected || root.dashboardHiddenState || document.body.classList.contains('dashboard-hidden') ||
@@ -300,6 +336,7 @@
             this.focusViewButton.disabled = !this.temporaryFocus && (pending || !['ready', 'running', 'paused'].includes(s.status));
             this.host.hidden = !state.enabled; if (this.host.hidden) this.focusIntent = null;
             if (this.visible !== state.enabled) { this.visible = state.enabled; this.onVisibility(state.enabled); }
+            this.renderExpectedEnd(state);
             this.phase.value = s.phase; this.phase.disabled = pending || !['ready', 'completed'].includes(s.status);
             for (const [phase, value] of this.durationDrafts) {
                 // A submitted value confirmed in saved state is clean even
@@ -333,7 +370,7 @@
             }
         }
         hasUncommittedWork() { return this.durationDrafts.size > 0 || this.controller.hasUncommittedWork(); }
-        destroy() { this.clearProgress(); this.titlePresentation?.destroy(); this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); root.removeEventListener?.('pageshow', this.workspaceChanged); this.closed = true; this.unsubscribeWorkspace?.(); this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
+        destroy() { this.clearProgress(); this.clearExpectedEnd(); this.titlePresentation?.destroy(); this.exitTemporaryFocus(false); root.removeEventListener?.('keydown', this.focusViewKey); root.removeEventListener?.('pagehide', this.focusViewPageHide); root.removeEventListener?.('pageshow', this.workspaceChanged); this.closed = true; this.unsubscribeWorkspace?.(); this.durationDrafts.clear(); this.cancelTick(); this.unsubscribe(); document.removeEventListener('visibilitychange', this.visibility); this.controller.destroy(); }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
         host.classList.add('local-focus-settings'); const label = el('label', 'focus-enable-label'), input = el('input'); input.type = 'checkbox'; input.disabled = true;
