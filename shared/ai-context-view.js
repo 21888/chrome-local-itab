@@ -113,6 +113,9 @@
         const searchLabel = el('label', 'ai-context-field'), searchCaption = el('span'); searchLabel.append(searchCaption);
         const sourceSearch = el('input', 'ai-context-source-search'); sourceSearch.type = 'search';
         sourceSearch.autocomplete = 'off'; sourceSearch.spellcheck = false; searchLabel.append(sourceSearch);
+        sourceSearch.setAttribute('aria-keyshortcuts', '/');
+        const sourceSearchShortcut = el('p', 'ai-context-source-search-shortcut', label('SourceSearchShortcut', 'Press / to search sources when not editing text.'));
+        sourceSearchShortcut.id = 'ai-context-source-search-shortcut';
         const excerptSearchLabel = el('label', 'ai-context-source-search-option'), excerptSearch = el('input', 'ai-context-source-search-excerpts');
         excerptSearch.type = 'checkbox'; excerptSearch.checked = false;
         excerptSearchLabel.append(excerptSearch, el('span', '', label('SourceSearchIncludeExcerpts', 'Also search current excerpt text')));
@@ -151,7 +154,7 @@
         const searchEmpty = el('p', 'ai-context-source-empty', label('SourceSearchEmpty', 'No loaded source titles match. Clear the search to show all loaded sources.'));
         searchEmpty.hidden = true;
         const searchHelp = el('p', 'ai-context-source-search-help'); searchHelp.id = 'ai-context-source-search-help';
-        sourceSearch.setAttribute('aria-describedby', searchHelp.id); excerptSearch.setAttribute('aria-describedby', searchHelp.id);
+        sourceSearch.setAttribute('aria-describedby', `${searchHelp.id} ${sourceSearchShortcut.id}`); excerptSearch.setAttribute('aria-describedby', searchHelp.id);
         const reloadActions = el('div', 'ai-context-actions');
         const reloadSources = button('SourceReload', 'Reload saved sources', () => loadSourceRows(true));
         reloadSources.className = 'ai-context-source-reload';
@@ -176,7 +179,7 @@
         sourceList.append(savedSourceList, manualSourceList);
         const sourceHelp = el('details', 'ai-context-source-help');
         sourceHelp.append(summary('SourceHelpHeading', 'Source scope, limits and reload'), scopeNote, scopeHelp, searchHelp, clearFiltersHelp, batchHelp, reloadActions, reloadHelp);
-        sourcesPane.append(manualPanel, searchLabel, excerptSearchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
+        sourcesPane.append(manualPanel, searchLabel, sourceSearchShortcut, excerptSearchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         questionPane.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
         let sourceRows = [];
@@ -272,6 +275,7 @@
 
         const initialAnswerTitle = answerTitle.value;
         let disposed = false, pending = false, titleEdited = false, copying = false, copyGeneration = 0;
+        let sourceShortcutComposing = null, detachSourceShortcut = () => {};
         const copyStatus = el('p', 'ai-context-copy-status'); copyStatus.tabIndex = -1; copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
         const error = code => {
             if (code === 'EXTERNAL_ANSWER_FORMAT') {
@@ -996,6 +1000,57 @@
         resultPane.append(contextSave, taskSelection, taskList, results, copyStatus);
         questionPane.append(localActions, localPanel, externalPanel, connection, status, partialPanel, resultPane);
         workbench.append(sourcesPane, questionPane); box.append(workbench); host.append(box);
+        // Stay local to this opening, including its initial Close button. The
+        // collection page's document shortcut observes preventDefault afterward.
+        const shortcutOwner = host.closest('.ai-context-dialog') || box;
+        const shortcutSession = root.LocalItabWorkspaces?.session;
+        const shortcutUnavailable = node => {
+            if (!node?.isConnected || node.closest?.('[hidden], [inert], [aria-hidden="true"]') || !node.getClientRects?.().length) return true;
+            for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+                if (ancestor !== node && ancestor.tagName === 'DETAILS' && !ancestor.open) {
+                    const summary = Array.from(ancestor.children).find(child => child.tagName === 'SUMMARY');
+                    if (!summary?.contains(node)) return true;
+                }
+                const style = root.getComputedStyle?.(ancestor) || ancestor.style;
+                if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return true;
+            }
+            return false;
+        };
+        const shortcutEditable = element => {
+            for (let node = element; node; node = node.parentElement) {
+                if (/^(INPUT|TEXTAREA|SELECT)$/i.test(node.tagName) || node.isContentEditable ||
+                    (node.getAttribute?.('contenteditable') != null && node.getAttribute('contenteditable') !== 'false')) return true;
+            }
+            return false;
+        };
+        const sourceShortcutStart = event => { sourceShortcutComposing = event.target; };
+        const sourceShortcutEnd = event => { if (sourceShortcutComposing === event.target) sourceShortcutComposing = null; };
+        const sourceShortcut = event => {
+            if (sourceShortcutComposing && (shortcutUnavailable(sourceShortcutComposing) || !sourceShortcutComposing.contains(doc.activeElement))) sourceShortcutComposing = null;
+            if (event.key !== '/' || event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 || sourceShortcutComposing ||
+                event.ctrlKey || event.metaKey || event.altKey || event.getModifierState?.('AltGraph') ||
+                disposed || controller.closed || root.LocalItabContentLifecycle?.departing || doc.hidden || doc.visibilityState === 'hidden' ||
+                (shortcutSession && (shortcutSession.invalidated || root.LocalItabWorkspaces?.session !== shortcutSession)) ||
+                !promptPicker.hidden || sourceSearch.disabled || !shortcutOwner.contains(box) || !box.contains(sourceSearch) ||
+                !shortcutOwner.contains(event.target) || !shortcutOwner.contains(doc.activeElement) ||
+                shortcutUnavailable(sourceSearch) || shortcutUnavailable(event.target) || shortcutUnavailable(doc.activeElement) ||
+                doc.designMode?.toLowerCase() === 'on' || shortcutEditable(doc.activeElement) ||
+                (event.composedPath?.() || [event.target]).some(shortcutEditable)) return;
+            // Our own modal ancestors are expected. Only another live modal can
+            // cover this panel; hidden or inert dialogs must not disable it.
+            if (Array.from(doc.querySelectorAll('[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"], dialog[open]'))
+                .some(node => !node.contains(box) && !shortcutUnavailable(node))) return;
+            sourceSearch.focus();
+            if (doc.activeElement !== sourceSearch) return;
+            event.preventDefault();
+            sourceSearch.select();
+        };
+        const sourceShortcutListeners = [['keydown', sourceShortcut], ['compositionstart', sourceShortcutStart], ['compositionend', sourceShortcutEnd], ['focusout', sourceShortcutEnd]];
+        for (const [type, listener] of sourceShortcutListeners) shortcutOwner.addEventListener(type, listener);
+        detachSourceShortcut = () => {
+            for (const [type, listener] of sourceShortcutListeners) shortcutOwner.removeEventListener(type, listener);
+            sourceShortcutComposing = null;
+        };
         for (const input of [url, model, question, mode, stream]) input.addEventListener(input === mode || input === stream ? 'change' : 'input', () => { if (input === question) appliedPromptQuestion = null; if (input === url || input === model || input === mode || input === stream) key.value = ''; if (input === mode) stream.checked = false; invalidate(); });
         output.addEventListener('input', () => {
             // Answer previews are read-only. Synthetic input events must not change
@@ -1212,9 +1267,10 @@
                 localReview === controller.localReview && partial === controller.partial && taskSelection === controller.taskSelection && taskReview === controller.taskReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; excerptSearch.disabled = clearFilters.disabled = selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = collectionReload.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; detachSourceShortcut(); manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; excerptSearch.disabled = clearFilters.disabled = selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = collectionReload.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); update(); } return; }
+            sourceShortcutComposing = null;
             if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
             manualEpoch++; externalEpoch++; presetReloadEpoch++; closePrompts(); key.value = ''; controller.stop(); if (!disposed) update();
         }

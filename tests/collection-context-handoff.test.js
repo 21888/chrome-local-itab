@@ -697,3 +697,31 @@ test('loaded excerpt search change prevents confirmed host replacement while rea
     const option = h.q('.ai-context-source-search-excerpts'); assert(option); option.checked = true; option.dispatch('change'); gate.resolve();
     assert.equal(await opening, false); assert.equal(h.q('.ai-context-dialog'), dialog); assert.equal(option.checked, true); assert.equal(h.q('.ai-context-question').value, 'Original question'); quiet(h);
 });
+
+test('source slash: real collection host yields to the local Q&A dialog and restores library shortcut after close', async () => {
+    const h = await page(), library = h.window.localCollectionsView, opener = h.button('Continue asking');
+    let librarySelections = 0; library.search.select = () => { librarySelections++; };
+    const key = (fields = {}, target = h.document.activeElement) => {
+        // This local adapter models the browser's final document bubbling and
+        // defaultPrevented flag; shared task-dom-model is deliberately unchanged.
+        const event = target.dispatch('keydown', { key: '/', defaultPrevented: false,
+            preventDefault() { this.defaultPrevented = this.prevented = true; }, ...fields });
+        if (!event.stopped) h.document.listeners.get('keydown')?.(event);
+        return event;
+    };
+    opener.focus(); await h.open();
+    const panel = h.q('.ai-context-dialog'), search = h.q('.ai-context-source-search'), close = h.q('.ai-context-close');
+    let sourceSelections = 0; search.select = () => { sourceSelections++; };
+    search.value = 'Existing query'; search.dispatch('input'); close.focus();
+    const current = h.window.aiContextView; assert.equal(key().defaultPrevented, true);
+    assert.equal(h.document.activeElement, search); assert.equal(sourceSelections, 1); assert.equal(librarySelections, 0);
+    assert.equal(search.value, 'Existing query'); assert.equal(h.window.aiContextView, current); quiet(h);
+    const question = h.q('.ai-context-question'); question.focus();
+    assert.equal(key().defaultPrevented, false); assert.equal(h.document.activeElement, question); assert.equal(librarySelections, 0);
+    h.setConfirm(false); key({ key: 'Escape' }); assert.equal(panel.isConnected, true);
+    close.focus(); assert.equal(key().defaultPrevented, true); assert.equal(librarySelections, 0);
+    h.setConfirm(true); key({ key: 'Escape' }); assert.equal(panel.isConnected, false); assert.equal(h.document.activeElement, opener);
+    assert.equal(key().defaultPrevented, true); assert.equal(h.document.activeElement, library.search); assert.equal(librarySelections, 1);
+    assert.equal(sourceSelections, 2); quiet(h);
+    h.emit('pagehide');
+});

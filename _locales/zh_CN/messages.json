@@ -5691,6 +5691,9 @@
   "aiContextSourceSearch": {
     "message": "搜索已加载的资料标题"
   },
+  "aiContextSourceSearchShortcut": {
+    "message": "未编辑文字时，按 / 搜索来源。"
+  },
   "aiContextSourceSearchIncludeExcerpts": {
     "message": "同时搜索当前摘录正文"
   },

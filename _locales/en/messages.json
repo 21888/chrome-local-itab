@@ -5691,6 +5691,9 @@
   "aiContextSourceSearch": {
     "message": "Search loaded source titles"
   },
+  "aiContextSourceSearchShortcut": {
+    "message": "Press / to search sources when not editing text."
+  },
   "aiContextSourceSearchIncludeExcerpts": {
     "message": "Also search current excerpt text"
   },
