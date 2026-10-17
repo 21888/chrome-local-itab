@@ -2,7 +2,7 @@
 
 ## Scope
 
-**Copy comparison / 复制比较摘要** is an explicit button inside the existing Compare times panel. It copies the already-rendered local reference as the first line, then each current row in display order as `label · time · relative day`. It does not recalculate a time or change the comparison anchor/slider. Whitespace, Unicode labels, displayed 12/24-hour format, seconds and language are retained exactly. The row's day is relative to the displayed local reference date; no per-row absolute date or IANA identifier is added. This text is not a calendar invitation.
+**Copy comparison / 复制比较摘要** is an explicit button inside the existing Compare times panel. The original copy-control feature copied the already-rendered local reference as the first line, then each row as `label · time · relative day`; those rows did not yet show absolute dates. The later [per-row comparison-date feature](world-clock-comparison-dates-validation.md) extends the displayed rows to `label · time · relative day · YYYY-MM-DD`, which the unchanged copy path now exports verbatim. It does not recalculate a time/date or change the comparison anchor/slider. Whitespace, Unicode labels, displayed 12/24-hour format, seconds and language are retained exactly. Relative days still refer to the displayed local reference date. No IANA identifier or calendar invitation is created. The new per-row dates have model coverage only, with no new native layout, clipboard or assistive-technology acceptance.
 
 Only explicit button activation calls `navigator.clipboard.writeText`. Missing API, synchronous throw and rejected promises leave the displayed text available and show a local manual-selection/Ctrl/Cmd+C hint. No clipboard read, permission query, legacy `execCommand`, storage, network call, new permission or extra timer is used. The main clock and Calendar retain their existing lifecycle.
 
@@ -38,7 +38,7 @@ NODE_OPTIONS=--max-old-space-size=512 node --test --test-concurrency=1 \
   tests/local-calculator-copy-result.test.js
 ```
 
-The new entry was first run against the unchanged runtime and failed because the explicit copy button did not exist. The first expanded run had 59 passes and 3 failures: the new date-line expectation was corrected to `-2 days` instead of Previous day; the existing card assertion was limited to permit only the independent copy status; and the existing direct-assignment source regex was retained, with time updates expressed as a conditional direct assignment. Timezone rules and the non-live clock/reference behavior were unchanged. Raw command/source/hash/exit evidence is retained outside the runtime/repository.
+For the original copy-control feature, the new entry was first run against the then-unchanged runtime and failed because the explicit copy button did not exist. The first expanded run had 59 passes and 3 failures: the new date-line expectation was corrected to `-2 days` instead of Previous day; the existing card assertion was limited to permit only the independent copy status; and the existing direct-assignment source regex was retained, with time updates expressed as a conditional direct assignment. Timezone rules and the non-live clock/reference behavior were unchanged. Raw command/source/hash/exit evidence is retained outside the runtime/repository.
 
 ## Native verification boundary
 

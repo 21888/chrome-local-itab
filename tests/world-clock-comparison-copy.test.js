@@ -16,7 +16,7 @@ function mount({ worldClocks = [tokyo, newYork], locale = 'en', config = {}, cli
     const document = createDocument({ blurUnavailableFocus: true });
     document.hidden = false;
     const events = new Map(), observers = new Set(), calls = [], io = [], timers = new Map();
-    let nextTimer = 0, timerCreations = 0, stamp = Date.parse(now), dateReads = 0, formats = 0;
+    let nextTimer = 0, timerCreations = 0, stamp = Date.parse(now), dateReads = 0, formats = 0, calendarDates = 0;
     let messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
     const forbidden = () => { io.push('forbidden'); throw new Error('Unexpected I/O'); };
     const queue = record => { for (const observer of observers) observer.records.push(record); };
@@ -66,13 +66,16 @@ function mount({ worldClocks = [tokyo, newYork], locale = 'en', config = {}, cli
     for (const file of ['shared/world-clocks.js', 'shared/local-content-lifecycle.js']) vm.runInContext(fs.readFileSync(file, 'utf8'), context);
     if (calendar) vm.runInContext(fs.readFileSync('shared/month-calendar.js', 'utf8'), context);
     const realWorldClocks = window.WorldClocks;
-    window.WorldClocks = { ...realWorldClocks, format(...args) { formats++; return realWorldClocks.format(...args); } };
+    window.WorldClocks = { ...realWorldClocks,
+        format(...args) { formats++; return realWorldClocks.format(...args); },
+        calendarDate(...args) { calendarDates++; return realWorldClocks.calendarDate(...args); }
+    };
     vm.runInContext(source + '\nthis.ClockComponent = ClockComponent;', context);
     context.applyModuleVisibility({ clock: true, search: false, shortcuts: false, weather: false, hot: false, movie: false });
     let clock = new context.ClockComponent({ hour12: false, showSeconds: false, worldClocks, ...config });
     const h = { document, window, context, host, main, cards, time, date, calls, io, events, observers, timers,
         get clock() { return clock; }, get view() { return clock.worldClockComparisonView; },
-        get messages() { return messages; }, get dateReads() { return dateReads; }, get formats() { return formats; }, get timerCreations() { return timerCreations; },
+        get messages() { return messages; }, get dateReads() { return dateReads; }, get formats() { return formats; }, get calendarDates() { return calendarDates; }, get timerCreations() { return timerCreations; },
         compare(minutes = 0) { if (!clock.worldClockComparison) this.view.toggle.dispatch('click'); this.view.range.value = String(minutes); this.view.range.dispatch('input'); return this.view; },
         summary() { return [this.view.reference.textContent, ...clock.worldClockRows.map(row => [row.label.textContent, row.time.textContent, row.day.textContent].join(' · '))].join('\n'); },
         at(iso) { stamp = Date.parse(iso); }, tick() { for (const fn of [...timers.values()]) fn(); },
@@ -115,10 +118,10 @@ test('explicit activation copies rendered order and Unicode text exactly, withou
         // Copy is deliberately a rendered-text export, including any exact Unicode spacing.
         h.clock.worldClockRows[1].label.textContent = '  家人 👩🏽‍💻 e\u0301\u00a0 ';
         h.clock.worldClockRows[1].time.textContent = '06:30\u202fAM';
-        const expected = h.summary(), reads = h.dateReads, formats = h.formats, comparison = { ...h.clock.worldClockComparison };
+        const expected = h.summary(), reads = h.dateReads, formats = h.formats, calendarDates = h.calendarDates, comparison = { ...h.clock.worldClockComparison };
         h.view.copy.focus(); h.view.copy.dispatch('click');
         assert.equal(h.calls.length, 1, 'write starts synchronously from the explicit button click');
-        assert.equal(h.calls[0], expected); assert.equal(h.dateReads, reads); assert.equal(h.formats, formats);
+        assert.equal(h.calls[0], expected); assert.equal(h.dateReads, reads); assert.equal(h.formats, formats); assert.equal(h.calendarDates, calendarDates);
         assert.equal(h.view.copyStatus.textContent, h.messages.worldClockCopying?.message || 'Copying comparison…');
         await settle();
         assert.equal(h.view.copyStatus.textContent, h.messages.worldClockCopySuccess?.message || 'Comparison copied.');
@@ -140,8 +143,8 @@ test('real Intl formatting survives 12/24 hours, seconds, DST and previous/next/
         assert.equal(summary.split('\n').length, options.clocks.length + 1);
         const instant = new Date(Date.parse(options.now) + options.minutes * 60000);
         for (const row of h.clock.worldClockRows) assert.equal(row.time.textContent, h.window.WorldClocks.format(row.entry, instant, h.clock.config, 'en-US').time);
-        if (options.zone === 'Pacific/Pago_Pago') assert.equal(h.clock.worldClockRows[0].day.textContent, '+2 days');
-        if (options.zone === 'Pacific/Kiritimati') assert.equal(h.clock.worldClockRows[0].day.textContent, '-2 天');
+        if (options.zone === 'Pacific/Pago_Pago') assert.equal(h.clock.worldClockRows[0].day.textContent, '+2 days · 2026-10-11');
+        if (options.zone === 'Pacific/Kiritimati') assert.equal(h.clock.worldClockRows[0].day.textContent, '-2 天 · 2026-10-09');
         h.view.copy.dispatch('click'); await settle(); assert.deepEqual(h.calls, [summary]);
         assert.equal(h.summary(), summary); clean(h);
     });
@@ -283,15 +286,15 @@ test('transient hide/restore and detach/return invalidate delivered or queued mu
 });
 
 test('display text changes, including ABA and character-data mutation, invalidate only the old receipt', async () => {
-    for (const direct of ['new text', 'ABA text', 'characterData', 'device zone']) {
+    for (const direct of ['new text', 'ABA text', 'date text', 'date ABA', 'characterData', 'device zone']) {
         const wait = deferred(), h = mount({ clipboard: { writeText() { return wait.promise; } } });
-        h.compare(); h.view.copy.dispatch('click'); const label = h.clock.worldClockRows[0].label;
+        h.compare(); h.view.copy.dispatch('click'); const label = direct.startsWith('date') ? h.clock.worldClockRows[0].day : h.clock.worldClockRows[0].label;
         if (direct === 'device zone') {
             await inTimeZone('Pacific/Kiritimati', () => h.clock.updateDisplay());
         } else if (direct === 'characterData') {
             h.mutations([{ type: 'characterData', target: { parentElement: label } }], true);
         } else {
-            const before = label.textContent; label.textContent = 'Changed'; if (direct === 'ABA text') label.textContent = before;
+            const before = label.textContent; label.textContent = 'Changed'; if (direct === 'ABA text' || direct === 'date ABA') label.textContent = before;
         }
         wait.resolve(); await settle(); assert.equal(h.view.copyStatus.hidden, true); assert.equal(h.view.copyStatus.textContent, ''); clean(h);
     }
@@ -344,3 +347,18 @@ test('copy and cancellation leave the real calendar month, draft, announcements 
     assert.equal(calendar.announcement.textContent, announcement); assert.equal(h.document.activeElement, calendar.year);
     assert.equal(h.summary(), summary); assert.equal(h.timerCreations, 1); assert.equal(h.timers.size, 1); clean(h, true);
 });
+
+test('copy includes each displayed full date verbatim without calling time or date helpers at activation', async () => inTimeZone('UTC', async () => {
+    const h = mount({ now: '2026-12-31T15:00:00Z' }); h.compare();
+    const expected = `${h.view.reference.textContent}\nTokyo · 00:00 · Next day · 2027-01-01\nNew York · 10:00 · Same day · 2026-12-31`;
+    assert.equal(h.summary(), expected);
+    const reads = h.dateReads, formats = h.formats, dates = h.calendarDates;
+    assert(dates > 0, 'render uses the target-zone calendarDate helper');
+    h.view.copy.dispatch('click');
+    assert.deepEqual(h.calls, [expected]); assert.equal(h.dateReads, reads); assert.equal(h.formats, formats); assert.equal(h.calendarDates, dates);
+    await settle(); clean(h);
+    // Even an altered date is exported from visible text, never silently recalculated at click time.
+    h.clock.worldClockRows[0].day.textContent = 'Next day · 2032-02-29';
+    const visible = h.summary(); h.view.copy.dispatch('click'); await settle();
+    assert.equal(h.calls[1], visible); assert.equal(h.dateReads, reads); assert.equal(h.formats, formats); assert.equal(h.calendarDates, dates); clean(h);
+}));

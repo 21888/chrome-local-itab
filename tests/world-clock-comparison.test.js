@@ -128,7 +128,10 @@ test('DST spring gaps and fall repeats use shared elapsed instants, including fr
         h.clock.start(); compare(h, 60);
         const preview = new Date(Date.parse(now) + 3600000);
         assert.equal(reading(h), expected);
-        for (let i=0;i<3;i++) assert.equal(reading(h,i), h.window.WorldClocks.format(h.clock.worldClockRows[i].entry, preview, h.clock.config, 'en-US').time);
+        for (let i=0;i<3;i++) {
+            assert.equal(reading(h,i), h.window.WorldClocks.format(h.clock.worldClockRows[i].entry, preview, h.clock.config, 'en-US').time);
+            assert.equal(h.clock.worldClockRows[i].day.textContent, `Same day · ${now.split('T')[0]}`);
+        }
         assert.match(h.clock.worldClockComparisonView.reference.textContent, now.includes('03-08') ? /EDT/ : /EST/);
     }
 }));
@@ -136,12 +139,12 @@ test('DST spring gaps and fall repeats use shared elapsed instants, including fr
 test('preview day labels compare to the preview local calendar date, including two-day separation', () => inTimeZone('Pacific/Honolulu', () => {
     const h = model({now:'2026-10-10T09:30:00Z',worldClocks:[{timeZone:'Pacific/Kiritimati', label:''},newYork]});
     h.clock.start(); compare(h, 30);
-    assert.equal(h.clock.worldClockRows[0].day.textContent,'Next day');
-    assert.equal(h.clock.worldClockRows[1].day.textContent,'Same day');
+    assert.equal(h.clock.worldClockRows[0].day.textContent,'Next day · 2026-10-11');
+    assert.equal(h.clock.worldClockRows[1].day.textContent,'Same day · 2026-10-10');
     // UTC+14 and UTC-11 are 25 hours apart and may be two calendar dates apart.
     inTimeZone('Pacific/Pago_Pago', () => {
         h.at('2026-10-10T10:30:00Z'); h.clock.worldClockComparisonView.toggle.dispatch('click'); compare(h);
-        assert.equal(h.clock.worldClockRows[0].day.textContent,'+2 days');
+        assert.equal(h.clock.worldClockRows[0].day.textContent,'+2 days · 2026-10-11');
     });
 }));
 
@@ -171,4 +174,47 @@ test('retired or detached controls cannot resurrect or alter another comparison'
     assert.deepEqual({...h.clock.worldClockComparison},state);
     h.clock.setEnabled(true); current.controls.remove(); current.toggle.dispatch('click'); current.range.dispatch('input');
     assert.deepEqual({...h.clock.worldClockComparison},state);
+});
+
+
+test('comparison rows show their own full date across year end and return to relative-only live days', () => inTimeZone('UTC', () => {
+    const h = model({ now: '2026-12-31T15:00:00Z', worldClocks: [tokyo, newYork] });
+    h.clock.start(); const view = compare(h);
+    assert.equal(h.clock.worldClockRows[0].day.textContent, 'Next day · 2027-01-01');
+    assert.equal(h.clock.worldClockRows[1].day.textContent, 'Same day · 2026-12-31');
+    const frozen = h.clock.worldClockRows.map(row => row.day.textContent);
+    h.at('2027-01-02T08:00:00Z'); h.tick();
+    assert.deepEqual(h.clock.worldClockRows.map(row => row.day.textContent), frozen);
+    view.toggle.dispatch('click');
+    assert.equal(h.clock.worldClockRows[0].day.textContent, 'Today');
+    assert.equal(h.clock.worldClockRows[1].day.textContent, 'Today');
+}));
+
+test('comparison dates stay ASCII Gregorian in both catalogs and all clock formats, including leap-day rollover', () => inTimeZone('UTC', () => {
+    for (const locale of ['en', 'zh_CN']) for (const hour12 of [false, true]) for (const showSeconds of [false, true]) {
+        const h = model({ locale, now: '2024-02-29T18:15:05Z', worldClocks: [{ timeZone: 'Asia/Kolkata', label: 'India' }], config: { hour12, showSeconds } });
+        const row = h.clock.worldClockRows[0]; compare(h, 15);
+        assert.equal(row.day.textContent, `${locale === 'en' ? 'Next day' : '后一天'} · 2024-03-01`);
+        assert.equal(row.time.textContent, hour12 ? (showSeconds ? '12:00:05 AM' : '12:00 AM') : (showSeconds ? '00:00:05' : '00:00'));
+        // Device time locale/calendar extensions do not alter the row's fixed date format.
+        h.context.navigator.language = 'th-TH-u-ca-buddhist-nu-thai'; h.clock.updateDisplay();
+        assert.equal(row.day.textContent, `${locale === 'en' ? 'Next day' : '后一天'} · 2024-03-01`);
+    }
+}));
+
+test('comparison dates follow the same shifted instant across two-day date-line differences', () => {
+    for (const [device, zone, label, expected] of [
+        ['Etc/GMT+12', 'Pacific/Kiritimati', '+2 days', '2027-01-01'],
+        ['Pacific/Kiritimati', 'Etc/GMT+12', '-2 days', '2026-12-30']
+    ]) inTimeZone(device, () => {
+        const h = model({ now: '2026-12-31T10:15:00Z', worldClocks: [{ timeZone: zone }] });
+        compare(h, 15); assert.equal(h.clock.worldClockRows[0].day.textContent, `${label} · ${expected}`);
+    });
+});
+
+test('live clocks do not call the comparison-only calendarDate helper', () => {
+    const h = model({ worldClocks: [tokyo] }); h.clock.start();
+    h.window.WorldClocks = { ...h.window.WorldClocks, calendarDate() { throw new Error('Live clocks must keep their existing relative-only display'); } };
+    h.at('2026-10-11T00:30:15Z'); h.tick();
+    assert.doesNotMatch(h.clock.worldClockRows[0].day.textContent, /\d{4}-\d{2}-\d{2}/);
 });

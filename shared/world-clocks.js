@@ -84,6 +84,14 @@
         return midnight.getTime() / DAY_MS;
     }
 
+    function calendarDate(entry, date) {
+        const normalized = normalizeEntry(entry);
+        if (!Number.isFinite(Date.prototype.getTime.call(date))) throw new RangeError('World clock date must be valid');
+        // Encode the target zone's Gregorian calendar day, not the instant's UTC date.
+        // Splitting at T preserves ISO extended years, including BCE and years above 9999.
+        return new Date(calendarOrdinal(date, normalized.timeZone) * DAY_MS).toISOString().split('T')[0];
+    }
+
     function format(entry, date, preferences = {}, locale, deviceTimeZone) {
         const normalized = normalizeEntry(entry);
         if (!Number.isFinite(Date.prototype.getTime.call(date))) throw new RangeError('World clock date must be valid');
@@ -105,5 +113,5 @@
         };
     }
 
-    return Object.freeze({ MAX_CLOCKS, MAX_LABEL_LENGTH, normalize, safe, format });
+    return Object.freeze({ MAX_CLOCKS, MAX_LABEL_LENGTH, normalize, safe, format, calendarDate });
 });

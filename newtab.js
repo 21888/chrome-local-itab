@@ -1993,7 +1993,8 @@ class ClockComponent {
             if (time.textContent !== formatted.time) time.textContent = formatted.time;
             const difference = formatted.dayDifference;
             const relative = { '-1': ['worldClockPreviousDay', 'Previous day'], '0': ['worldClockSameDay', 'Same day'], '1': ['worldClockNextDay', 'Next day'] };
-            displayText(day, comparison && relative[difference] ? this.worldClockText(...relative[difference]) : this.worldClockDayLabel(difference));
+            const dayLabel = comparison && relative[difference] ? this.worldClockText(...relative[difference]) : this.worldClockDayLabel(difference);
+            displayText(day, comparison ? `${dayLabel} · ${window.WorldClocks.calendarDate(entry, instant)}` : dayLabel);
         }
         if (previousSummary !== this.worldClockComparisonSummary(view)) this.invalidateWorldClockCopy();
     }

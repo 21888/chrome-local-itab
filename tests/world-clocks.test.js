@@ -59,6 +59,7 @@ test('world clocks expose the same browser API without dependencies or I/O', () 
     vm.createContext(context);
     vm.runInContext(source, context);
     assert.equal(typeof context.window.WorldClocks.normalize, 'function');
+    assert.equal(context.window.WorldClocks.calendarDate({ timeZone: 'Asia/Tokyo' }, new Date('2026-12-31T15:00:00Z')), '2027-01-01');
     assert.equal(context.window.WorldClocks.MAX_CLOCKS, 4);
     assert.equal(context.window.WorldClocks.format({ timeZone: 'UTC' }, new Date('2026-01-01T12:34:56Z'), { hour12: false }, 'en-GB', 'UTC').time, '12:34');
     assert(!/\b(?:require|fetch|XMLHttpRequest|localStorage|chrome|document|navigator|geolocation|sendBeacon)\s*[.(]/.test(source));
@@ -160,10 +161,59 @@ test('world clock formatter caching reuses instances and evicts old locale varia
     const display = locale => api.format({ timeZone: 'UTC' }, date, { hour12: false }, locale, 'UTC');
     display('en-GB');
     const firstCount = constructions;
-    for (let index = 0; index < 20; index++) assert.equal(display('en-GB').time, '12:00');
+    for (let index = 0; index < 20; index++) {
+        assert.equal(display('en-GB').time, '12:00');
+        assert.equal(api.calendarDate({ timeZone: 'UTC' }, date), '2026-01-01');
+    }
     assert.equal(constructions, firstCount);
     for (let index = 0; index < 80; index++) display(`en-US-x-clock${index}`);
     const beforeRevisit = constructions;
     assert.equal(display('en-GB').time, '12:00');
     assert(constructions > beforeRevisit, 'old locale formatter is evicted from the bounded cache');
+});
+
+test('calendarDate returns target-zone Gregorian dates across year/leap boundaries, the date line and fractional offsets', () => {
+    const cases = [
+        ['Asia/Tokyo', '2026-12-31T14:59:59Z', '2026-12-31'],
+        ['Asia/Tokyo', '2026-12-31T15:00:00Z', '2027-01-01'],
+        ['America/Los_Angeles', '2027-01-01T00:00:00Z', '2026-12-31'],
+        ['Asia/Kolkata', '2024-02-29T18:29:59Z', '2024-02-29'],
+        ['Asia/Kolkata', '2024-02-29T18:30:00Z', '2024-03-01'],
+        ['Pacific/Kiritimati', '2026-12-31T10:30:00Z', '2027-01-01'],
+        ['Etc/GMT+12', '2026-12-31T10:30:00Z', '2026-12-30'],
+        ['Asia/Kathmandu', '2026-12-31T18:14:59Z', '2026-12-31'],
+        ['Asia/Kathmandu', '2026-12-31T18:15:00Z', '2027-01-01'],
+        ['Pacific/Chatham', '2026-01-01T10:14:59Z', '2026-01-01'],
+        ['Pacific/Chatham', '2026-01-01T10:15:00Z', '2026-01-02'],
+        ['Pacific/Chatham', '2026-07-01T11:15:00Z', '2026-07-02'],
+        ['America/New_York', '2026-03-08T06:59:59Z', '2026-03-08'],
+        ['America/New_York', '2026-03-08T07:00:00Z', '2026-03-08'],
+        ['America/New_York', '2026-11-01T05:59:59Z', '2026-11-01'],
+        ['America/New_York', '2026-11-01T06:00:00Z', '2026-11-01'],
+        ['America/New_York', '2026-03-09T03:30:00Z', '2026-03-08'],
+        ['America/New_York', '2026-11-02T04:30:00Z', '2026-11-01']
+    ];
+    for (const [timeZone, instant, expected] of cases) {
+        const date = new Date(instant), before = date.getTime();
+        assert.equal(WorldClocks.calendarDate({ timeZone }, date), expected, `${timeZone} at ${instant}`);
+        assert.equal(date.getTime(), before, 'input instant is unchanged');
+    }
+});
+
+test('calendarDate preserves astronomical years, ISO extended years and input validation without changing format shape', () => {
+    for (const [zone, instant, expected] of [
+        ['UTC', '0000-02-29T12:00:00Z', '0000-02-29'],
+        ['UTC', '0001-01-01T12:00:00Z', '0001-01-01'],
+        ['UTC', '0099-12-31T12:00:00Z', '0099-12-31'],
+        ['Etc/GMT-12', '0099-12-31T18:00:00Z', '0100-01-01'],
+        ['Etc/GMT+12', '0000-01-01T06:00:00Z', '-000001-12-31'],
+        ['UTC', '-000001-06-15T12:00:00Z', '-000001-06-15'],
+        ['Etc/GMT-12', '9999-12-31T18:00:00Z', '+010000-01-01'],
+        ['UTC', '+012345-06-15T12:00:00Z', '+012345-06-15']
+    ]) assert.equal(WorldClocks.calendarDate({ timeZone: zone }, new Date(instant)), expected);
+    assert.throws(() => WorldClocks.calendarDate({ timeZone: 'UTC' }, new Date(NaN)), RangeError);
+    assert.throws(() => WorldClocks.calendarDate({ timeZone: 'UTC' }, '2026-01-01'), TypeError);
+    assert.throws(() => WorldClocks.calendarDate({ timeZone: 'Mars/Olympus_Mons' }, new Date()), RangeError);
+    assert.throws(() => WorldClocks.calendarDate({ timeZone: 'UTC', label: '\n' }, new Date()), TypeError);
+    assert.deepEqual(Object.keys(WorldClocks.format({ timeZone: 'UTC' }, new Date('2026-01-01T12:00:00Z'))), ['label', 'time', 'dayDifference']);
 });
