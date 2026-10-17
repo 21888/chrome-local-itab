@@ -353,6 +353,8 @@ Use **Actions → Move to list start** to bring an active task into the first po
 
 Use **Add multiple tasks** to paste one task per nonblank line, inspect a numbered preview and confirm the entire batch together. Spaces, bullet prefixes and duplicate lines stay intact; ordinary Add still supports Shift+Enter inside one task. Preview/cancel writes nothing. Limits stay at 500 total records (including completed/removed), 1,000 Unicode characters per task and a 2 MiB collection/file budget. A failed validation adds no tasks; uncertain saves retry the same batch safely. [Batch validation and screenshots](docs/tasks-batch-capture-validation.md).
 
+Choose **Select tasks to complete** to select from the active rows currently displayed. Review the full numbered originals, count and pin effect, then explicitly confirm the batch. Failed validation writes nothing; an unconfirmed save retries only the original command. The page keeps one Undo slot shared with the latest completion/removal: batch Undo reopens every member together, stops if any member changed, and never restores the old pin. Completion does not free the 500-record capacity. [Batch completion and validation limits](docs/tasks-batch-completion-validation.md).
+
 ### Local focus timer
 
 Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.

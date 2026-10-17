@@ -1072,6 +1072,54 @@
   "tasksEmpty": {
     "message": "清爽的清单，想起一件事时随手记下。"
   },
+  "tasksCompleteBatch": {
+    "message": "选择并完成待办"
+  },
+  "tasksCompleteHelp": {
+    "message": "从打开此窗口时实际显示的未完成待办中选择，初始不选。先预览完整原文，再确认一次完成所选项目。已完成项目仍计入 500 条记录上限。"
+  },
+  "tasksCompleteSelectAll": {
+    "message": "选择当前列表全部"
+  },
+  "tasksCompleteClear": {
+    "message": "取消全部选择"
+  },
+  "tasksCompleteSelected": {
+    "message": "已选择：{count} / {total} 项"
+  },
+  "tasksCompleteReview": {
+    "message": "预览所选待办"
+  },
+  "tasksCompleteConfirm": {
+    "message": "确认完成这 {count} 项"
+  },
+  "tasksCompleteRetry": {
+    "message": "重试完成原来的 {count} 项"
+  },
+  "tasksCompleteClearsPin": {
+    "message": "所选项目包含“下一件事”，完成后会清除此置顶。"
+  },
+  "tasksCompleteKeepsPin": {
+    "message": "“下一件事”保持不变。"
+  },
+  "tasksCompleteReady": {
+    "message": "确认后将一次保存并完成编号列表中的全部待办。若任何已预览待办或列表已变更，整批停止，不会只完成部分。"
+  },
+  "tasksCompleteChanged": {
+    "message": "待办列表已变更，请重新预览。若所选待办已变更，请关闭窗口，从最新列表重新选择。"
+  },
+  "tasksCompleteUncertain": {
+    "message": "整批保存结果尚未确认。请明确重试这份编号列表，不会假定部分项目已成功。"
+  },
+  "tasksCompleteSaved": {
+    "message": "原来预览的待办已完成。继续操作前，请重新预览当前选择。"
+  },
+  "tasksCompleteUndoHelp": {
+    "message": "保存完整确认后，本页的一次撤销可重新打开整批待办。任一成员已变更时，整批撤销停止；不会恢复旧置顶。"
+  },
+  "tasksUndoCompleteBatch": {
+    "message": "撤销这 {count} 项完成"
+  },
   "tasksComplete": {
     "message": "完成"
   },

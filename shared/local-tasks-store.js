@@ -118,6 +118,33 @@
         });
         next.records.push(...records);
     }
+    function batchTargets(values, withResults = false) {
+        check(Array.isArray(values) && values.length > 0 && values.length <= LIMITS.records);
+        const seen = new Set();
+        return values.map(value => {
+            object(value, withResults ? ['id', 'version', 'nextVersion'] : ['id', 'version']);
+            check(token(value.id) && token(value.version) && !seen.has(value.id)); seen.add(value.id);
+            if (withResults) check(token(value.nextVersion) && value.nextVersion !== value.version);
+            return { ...value };
+        });
+    }
+    function transitionBatch(next, command) {
+        const completing = command.kind === 'completeBatch';
+        if (completing) check(next.revision === command.revision, 'CONFLICT');
+        const targets = batchTargets(command.targets, true); check(date(command.updatedAt));
+        // Validate every member before changing the private snapshot. No loop of
+        // single-record saves, replacement, partial completion or partial Undo.
+        const records = targets.map(target => {
+            const task = next.records.find(record => record.id === target.id);
+            check(task && task.version === target.version && task.state === (completing ? 'active' : 'done'), 'CONFLICT');
+            return task;
+        });
+        records.forEach((task, index) => {
+            task.state = completing ? 'done' : 'active'; task.version = targets[index].nextVersion; task.updatedAt = command.updatedAt;
+            if (completing && next.pinnedId === task.id) next.pinnedId = null;
+        });
+        return records;
+    }
     function finish(next, operationId) {
         next.revision += 1;
         next.receipts = [...next.receipts, operationId].slice(-128);
@@ -155,6 +182,10 @@
         subscribe(listener) { return this.backend.subscribe(listener); }
         request(kind, values = {}) {
             const operationId = this.id();
+            if (kind === 'completeBatch' || kind === 'reopenBatch') {
+                const targets = Object.freeze(batchTargets(values.targets).map(target => Object.freeze({ ...target, nextVersion: this.id() })));
+                return Object.freeze({ kind, operationId, targets, updatedAt: this.now(), ...(kind === 'completeBatch' ? { revision: values.revision } : {}) });
+            }
             if (kind !== 'addBatch') return { ...values, kind, operationId };
             // Capture identities before the lock and retain this exact command for
             // retries. Mutating the editor's array cannot change a reviewed batch.
@@ -183,6 +214,13 @@
                     // An acknowledged older operation is not proof its result still exists.
                     // After any later mutation, keep the editor/draft and require review.
                     check(current.receipts.at(-1) === command.operationId, 'CONFLICT');
+                    if (command.kind === 'completeBatch' || command.kind === 'reopenBatch') {
+                        const targets = batchTargets(command.targets, true), state = command.kind === 'completeBatch' ? 'done' : 'active';
+                        // IDs in a receipt do not prove all members were persisted.
+                        // Retried batch results must still match every fixed result.
+                        check(targets.every(target => current.records.some(task => task.id === target.id && task.version === target.nextVersion &&
+                            task.state === state && task.updatedAt === command.updatedAt)), 'CONFLICT');
+                    }
                     return current;
                 }
                 // Optional reviewed-command precondition, synchronous and inside the existing write fence.
@@ -211,6 +249,7 @@
                         state: 'active', removedFrom: null, createdAt: now, updatedAt: now }); break;
                 }
                 case 'addBatch': appendBatch(next, command); break;
+                case 'completeBatch': case 'reopenBatch': transitionBatch(next, command); break;
                 case 'edit': {
                     const task = find(); check(task.state !== 'removed', 'CONFLICT'); text(command.text);
                     task.text = command.text; touch(task); break;
@@ -303,6 +342,22 @@
             const file = parseBackup(source); const current = await this.read();
             // Build no replacement until explicit confirmation. Snapshot is a checked precondition.
             return { source, revision: current.revision, incoming: counts({ ...file.content, recovery: file.recovery }), current: counts(current) };
+        }
+        async reviewCompletion(selected) {
+            // Capture identities before waiting for the lock. Selection controls
+            // cannot rewrite this read-only review or its eventual command.
+            const targets = batchTargets(selected);
+            return this.backend.lock(async () => {
+                const current = await this.readRaw(), next = clone(current);
+                const command = this.request('completeBatch', { targets, revision: current.revision });
+                const records = Object.freeze(targets.map(target => {
+                    const task = current.records.find(record => record.id === target.id && record.version === target.version && record.state === 'active');
+                    check(task, 'CONFLICT'); return Object.freeze({ ...task });
+                }));
+                transitionBatch(next, command); finish(next, command.operationId);
+                return Object.freeze({ records, count: records.length, revision: current.revision,
+                    clearsPin: records.some(task => task.id === current.pinnedId), command });
+            });
         }
         async reviewBatch(source) {
             const texts = parseBatch(source), command = this.request('addBatch', { texts });
