@@ -622,11 +622,14 @@
             } finally { if (generation === this.reviewGeneration) this.pendingReview = false; }
         }
         async reviewRecovery(id) {
-            const generation = ++this.reviewGeneration; this.pendingReview = true;
+            const generation = ++this.reviewGeneration, previousError = this.localError; this.pendingReview = true;
             try {
                 const state = await this.controller.store.read(), copy = state.recovery.find(item => item.id === id);
                 if (this.destroyed || generation !== this.reviewGeneration || this.dialogs.size) return;
                 if (!copy) throw api.fault('CONFLICT');
+                // Retire only feedback that predates this valid preview. A file
+                // operation may have reported a newer error while the read waited.
+                if (this.localError === previousError) { this.localError = null; this.render(); }
                 this.reviewReplacement({ current: api.counts(state), incoming: api.counts(copy.content) },
                     () => this.controller.store.request('recover', { id, revision: state.revision }), 'tasksRestoreTitle');
             } catch (error) {

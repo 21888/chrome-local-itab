@@ -429,6 +429,114 @@ test('keyboard recovery write failure keeps Cancel and retry restores without dr
     assert.ok(h.b.raw().receipts.includes(retry)); h.view.destroy();
 });
 
+async function invalidImportBeforeRecovery(h) {
+    await settle();
+    // Seed through the real Store, leaving this page's status at Ready rather
+    // than borrowing Saved from an unrelated controller action.
+    await h.store.mutate(h.store.request('add', { text: 'synthetic current task' }));
+    const original = await h.store.export();
+    const added = await h.store.mutate(h.store.request('add', { text: 'synthetic recoverable task' }));
+    const task = added.records.at(-1);
+    await h.store.mutate(h.store.request('pin', { id: task.id, version: task.version, expectedPin: null }));
+    await h.store.mutate(h.store.request('replace', await h.store.review(original))); await settle();
+    const before = structuredClone(h.b.raw());
+    let writes = 0; const write = h.b.write;
+    h.b.write = value => { writes++; return write(value); };
+    h.view.fileInput.files = [{ size: 2, text: async () => '{}' }]; await h.view.importFile();
+    assert.equal(h.view.localError.code, 'INVALID'); assert.match(h.view.status.textContent, /Nothing was replaced/);
+    assert.deepEqual(h.b.raw(), before); assert.equal(writes, 0);
+    return { before, copy: before.recovery[0], writes: () => writes };
+}
+
+test('recovery feedback: invalid import then confirmed restore shows Saved and retains recovery semantics', async t => {
+    const h = model(); t.after(() => h.view.destroy()); const { before, copy, writes } = await invalidImportBeforeRecovery(h);
+    await h.view.reviewRecovery(copy.id);
+    assert.deepEqual(h.b.raw(), before); assert.equal(writes(), 0);
+    click(modal(h), 'Replace tasks'); await settle();
+    assert.equal(modal(h), null); assert.equal(writes(), 1);
+    const after = h.b.raw(), withoutVersion = ({ version, ...record }) => record;
+    assert.deepEqual(after.records.map(withoutVersion), copy.content.records.map(withoutVersion));
+    assert(after.records.every((record, i) => record.version !== copy.content.records[i].version));
+    assert.equal(after.pinnedId, copy.content.pinnedId); assert.equal(after.recovery.length, 1);
+    assert.deepEqual(after.recovery[0].content, { records: before.records, pinnedId: before.pinnedId });
+    assert.equal(h.controller.status, 'saved'); assert.equal(h.controller.error, null);
+    assert.equal(h.view.status.textContent, 'Saved on this device'); assert.equal(h.view.feedback.classList.contains('is-error'), false);
+});
+
+test('recovery feedback: cancelling a Ready-state preview clears stale file feedback without writing or changing status', async t => {
+    const h = model(); t.after(() => h.view.destroy()); const { before, copy, writes } = await invalidImportBeforeRecovery(h);
+    await h.view.reviewRecovery(copy.id); click(modal(h), 'Cancel');
+    assert.equal(modal(h), null); assert.equal(writes(), 0); assert.deepEqual(h.b.raw(), before);
+    assert.equal(h.controller.status, 'ready'); assert.equal(h.view.status.textContent, 'Local tasks ready');
+    assert.equal(h.view.localError, null); assert.equal(h.view.hasUncommittedWork(), false);
+});
+
+for (const failure of ['READ', 'CONFLICT']) test(`recovery feedback: failed ${failure} preview replaces the old invalid-import error`, async t => {
+    const h = model(); t.after(() => h.view.destroy()); const { before, copy, writes } = await invalidImportBeforeRecovery(h);
+    h.b.failRead = failure === 'READ';
+    await h.view.reviewRecovery(failure === 'CONFLICT' ? 'missing_copy' : copy.id);
+    assert.equal(modal(h), null); assert.equal(h.view.localError.code, failure);
+    assert.match(h.view.status.textContent, failure === 'READ' ? /Could not read local tasks/ : /changed in another page/);
+    assert.equal(h.view.feedback.classList.contains('is-error'), true); assert.equal(writes(), 0); assert.deepEqual(h.b.raw(), before);
+});
+
+for (const failure of ['WRITE', 'CONFLICT']) test(`recovery feedback: confirmation ${failure} stays visible after an invalid import`, async t => {
+    const h = model(); t.after(() => h.view.destroy()); const { copy, writes } = await invalidImportBeforeRecovery(h);
+    await h.view.reviewRecovery(copy.id);
+    if (failure === 'CONFLICT') await h.store.mutate(h.store.request('add', { text: 'synthetic newer task' }));
+    else h.b.fail = true;
+    const before = structuredClone(h.b.raw()), writesBefore = writes();
+    click(modal(h), 'Replace tasks'); await settle();
+    const expected = failure === 'WRITE' ? /Could not confirm the save/ : /changed in another page/;
+    assert.equal(h.controller.error.code, failure); assert.match(h.view.status.textContent, expected);
+    assert.match(modal(h).querySelector('.tasks-dialog-feedback').textContent, expected); assert.deepEqual(h.b.raw(), before);
+    assert.equal(writes(), writesBefore + (failure === 'WRITE' ? 1 : 0));
+    if (failure === 'CONFLICT') assert.equal(button(modal(h), 'Replace tasks').hidden, true);
+    else {
+        const operationId = h.controller.retryCommand.operationId; h.b.fail = false;
+        click(modal(h), 'Replace tasks'); await settle();
+        assert.equal(modal(h), null); assert.equal(h.b.raw().receipts.at(-1), operationId);
+        assert.equal(h.view.status.textContent, 'Saved on this device');
+    }
+});
+
+test('recovery feedback: late preview and save preserve a newer export error', async t => {
+    const h = model({ URL: { createObjectURL() { throw new Error('Synthetic download failure'); } } });
+    t.after(() => h.view.destroy()); const { copy } = await invalidImportBeforeRecovery(h);
+    await h.view.export(); const previous = h.view.localError; assert.equal(previous.code, 'FILE');
+    const wait = deferred(), read = h.store.read.bind(h.store);
+    h.store.read = () => { h.store.read = read; return wait.promise.then(read); };
+    const reviewing = h.view.reviewRecovery(copy.id);
+    await h.view.export(); const newer = h.view.localError; assert.equal(newer.code, 'FILE'); assert.notEqual(newer, previous);
+    wait.resolve(); await reviewing;
+    assert(modal(h)); assert.equal(h.view.localError, newer); assert.match(h.view.status.textContent, /download the task file/);
+    // Let an export requested before confirmation finish while the write is
+    // pending, without waiting for a read behind that write's storage lock.
+    const exporting = deferred(), source = await h.store.export(); h.store.export = () => exporting.promise;
+    const downloading = h.view.export(), saving = deferred(); h.b.delay = saving.promise; click(modal(h), 'Replace tasks');
+    exporting.resolve(source); await downloading; const newest = h.view.localError; assert.notEqual(newest, newer);
+    saving.resolve(); await settle();
+    assert.equal(modal(h), null); assert.equal(h.controller.status, 'saved'); assert.equal(h.view.localError, newest);
+    assert.match(h.view.status.textContent, /download the task file/); assert.equal(h.view.feedback.classList.contains('is-error'), true);
+});
+
+test('recovery feedback: preview cancellation and restore keep quick draft and Undo ownership', async t => {
+    const h = model(); t.after(() => h.view.destroy()); const { copy } = await invalidImportBeforeRecovery(h);
+    const task = h.controller.state.records[0];
+    await h.view.perform(h.store.request('complete', { id: task.id, version: task.version }));
+    const undo = h.view.undo; assert(undo); setInput(h.view.input, 'synthetic unsaved draft');
+    h.view.fileInput.files = [{ size: 2, text: async () => '{}' }]; await h.view.importFile();
+    const before = structuredClone(h.b.raw());
+    await h.view.reviewRecovery(copy.id); click(modal(h), 'Cancel');
+    assert.equal(h.view.input.value, 'synthetic unsaved draft'); assert.equal(h.view.undo, undo);
+    assert.equal(h.view.undoButton.hidden, false); assert.deepEqual(h.b.raw(), before);
+    await h.view.reviewRecovery(copy.id); click(modal(h), 'Replace tasks'); await settle();
+    assert.equal(h.view.input.value, 'synthetic unsaved draft'); assert.equal(h.view.undo, undo);
+    assert.equal(h.view.undoButton.hidden, true, 'the previous Undo cannot act on regenerated task versions');
+    assert.equal(h.view.status.textContent, 'Last task saved. Your current draft is not saved yet.');
+    assert.equal(h.view.hasUncommittedWork(), true);
+});
+
 for (const route of ['Enter', 'Add', 'submit', 'direct']) {
     test(`DOM model: quick-entry composition guards ${route} until compositionend`, async () => {
         const h = model(); await settle(); h.view.input.focus();
