@@ -12,6 +12,16 @@ Editing, IME composition, a refreshed/changed saved state, a load error or closi
 
 No new storage keys, permissions, network calls, file watching or import history are used. Keep your TXT backup somewhere safe; it can contain private text.
 
+## Copy selected text
+
+Select text in the main editor, then choose **Copy selected text**, beside **Copy current text**. The copied string is exactly the editor's current UTF-16 selection slice: leading/trailing spaces, tabs, BOM, emoji, combining marks, multiple lines and literal markup stay intact. Native textareas normalize CRLF and CR to LF, so selection offsets and copied line endings follow that DOM value. Full-text copying continues to use the original controller draft.
+
+An empty, invalid, out-of-range or split-surrogate selection leaves the clipboard unchanged and shows guidance. Only the selected slice must contain complete Unicode: malformed text outside it and a selection exceeding save limits do not prevent copying. A previously loaded retained draft remains eligible while saving, after a read/save failure, in a conflict or beyond save limits. Copying does not save, normalize or edit the note, resolve conflicts, change Find/import state, or programmatically move focus, caret or selection direction.
+
+The two copy buttons share this view's single pending system write and dedicated status. Selection changes, edits, hidden/detached/replaced controls, a newer mount or an unavailable workspace retire stale selection feedback. An already-issued write may still finish; invalidating feedback does not unlock it early. Failure leaves the original selection available and offers explicit retry. There is no clipboard read, permission pre-query, legacy fallback or automatic retry. The operating system and other software may retain or sync clipboard contents.
+
+[Selection-copy model evidence and native limits](scratchpad-copy-selection-validation.md). This feature has not been checked against an actual OS clipboard, native browser activation/keyboard/IME, narrow-screen layout or assistive technology.
+
 ## Copy the current full text
 
 Choose **Copy current text** to send the main editor's entire current draft to the system clipboard, including unsaved, saving, conflicted, save-failed and over-limit text. It uses the controller's original draft, including CRLF, whitespace, BOMs, emoji and literal markup; it does not copy the separate latest-saved preview or import preview, truncate text, save it or resolve a conflict. Empty text leaves the clipboard unchanged. Incomplete Unicode characters must be corrected before copying. A loaded retained draft remains copyable after a read failure, even when editing is read-only.

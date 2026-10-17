@@ -388,6 +388,8 @@ Enable Scratchpad under Settings → Module Visibility for plain-text notes, lin
 
 **Find selected text** fills the query field with the current editor’s exact, complete single-line selection, without automatically finding or counting matches. [Selection entry and validation scope](docs/scratchpad-find-selection-validation.md). Find text selects exact, case-sensitive matches in the current editor, including unsaved and over-limit drafts. Successful Previous/Next/Enter navigation shows “Match n of m” and any wrap notice; overlapping matches count. It does not edit or save text. [Find guide](docs/local-scratchpad.en.md#find-text-in-this-editor) · [Model validation and native limits](docs/scratchpad-match-position-validation.md).
 
+**Copy selected text** copies exactly the current nonempty selection from the main editor, including line breaks and spaces. It uses the textarea's displayed LF line endings; **Copy current text** still copies the complete original controller draft, including CRLF. Both work with loaded unsaved, read-only retained, conflicted and over-limit drafts, without saving or changing the selection. Only the selected slice needs complete Unicode. The two buttons share one in-flight clipboard write per view; after a denial, select the original text or explicitly retry. [Selection-copy checks and native limits](docs/scratchpad-copy-selection-validation.md).
+
 Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Before uninstalling or clearing browser data, include saved Scratchpad text in a complete local backup or export text separately; unsaved/conflicted drafts still need export from their original tabs. [Scope and validation](docs/local-scratchpad-validation.md).
 
 <details>

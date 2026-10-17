@@ -784,6 +784,21 @@
   "scratchpadCopyEmpty": {
     "message": "当前没有可复制的文字，剪贴板未改变。"
   },
+  "scratchpadCopySelection": {
+    "message": "复制选中文本"
+  },
+  "scratchpadCopySelectionCopying": {
+    "message": "正在复制选中文本…"
+  },
+  "scratchpadCopySelectionSuccess": {
+    "message": "已复制选中文本。"
+  },
+  "scratchpadCopySelectionFailure": {
+    "message": "无法复制选中文本。选区仍保留，请再次点击“复制选中文本”重试，或手动复制。"
+  },
+  "scratchpadCopySelectionHelp": {
+    "message": "请先在主编辑区选中包含完整 Unicode 字符的非空文本，再点击“复制选中文本”。剪贴板未更改。"
+  },
   "scratchpadCopyInvalid": {
     "message": "草稿含有不完整的 Unicode 字符，请修正后再复制。剪贴板未改变。"
   },

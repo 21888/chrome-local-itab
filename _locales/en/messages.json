@@ -784,6 +784,21 @@
   "scratchpadCopyEmpty": {
     "message": "There is no text to copy. Your clipboard was not changed."
   },
+  "scratchpadCopySelection": {
+    "message": "Copy selected text"
+  },
+  "scratchpadCopySelectionCopying": {
+    "message": "Copying selected text…"
+  },
+  "scratchpadCopySelectionSuccess": {
+    "message": "Selected text copied."
+  },
+  "scratchpadCopySelectionFailure": {
+    "message": "Could not copy selected text. Your selection is still here. Choose Copy selected text to retry, or copy it manually."
+  },
+  "scratchpadCopySelectionHelp": {
+    "message": "Select nonempty text with complete Unicode characters in the main editor, then choose Copy selected text. Your clipboard was not changed."
+  },
   "scratchpadCopyInvalid": {
     "message": "This draft contains incomplete Unicode characters. Correct them before copying. Your clipboard was not changed."
   },
