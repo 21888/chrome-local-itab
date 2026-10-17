@@ -130,7 +130,12 @@
     }
     function transitionBatch(next, command) {
         const completing = command.kind === 'completeBatch';
-        if (completing) check(next.revision === command.revision, 'CONFLICT');
+        // Reviewed reopening fences the complete list; page-local completion Undo
+        // omits revision so unrelated edits and newer pins remain compatible.
+        if (completing || Object.hasOwn(command, 'revision')) {
+            check(Number.isSafeInteger(command.revision) && command.revision >= 0);
+            check(next.revision === command.revision, 'CONFLICT');
+        }
         const targets = batchTargets(command.targets, true); check(date(command.updatedAt));
         // Validate every member before changing the private snapshot. No loop of
         // single-record saves, replacement, partial completion or partial Undo.
@@ -183,8 +188,10 @@
         request(kind, values = {}) {
             const operationId = this.id();
             if (kind === 'completeBatch' || kind === 'reopenBatch') {
+                const reviewed = kind === 'completeBatch' || Object.hasOwn(values, 'revision');
+                if (reviewed) check(Number.isSafeInteger(values.revision) && values.revision >= 0);
                 const targets = Object.freeze(batchTargets(values.targets).map(target => Object.freeze({ ...target, nextVersion: this.id() })));
-                return Object.freeze({ kind, operationId, targets, updatedAt: this.now(), ...(kind === 'completeBatch' ? { revision: values.revision } : {}) });
+                return Object.freeze({ kind, operationId, targets, updatedAt: this.now(), ...(reviewed ? { revision: values.revision } : {}) });
             }
             if (kind !== 'addBatch') return { ...values, kind, operationId };
             // Capture identities before the lock and retain this exact command for
@@ -343,20 +350,24 @@
             // Build no replacement until explicit confirmation. Snapshot is a checked precondition.
             return { source, revision: current.revision, incoming: counts({ ...file.content, recovery: file.recovery }), current: counts(current) };
         }
-        async reviewCompletion(selected) {
+        reviewCompletion(selected) { return this.reviewTransition('completeBatch', selected); }
+        reviewReopening(selected) { return this.reviewTransition('reopenBatch', selected); }
+        async reviewTransition(kind, selected) {
+            check(kind === 'completeBatch' || kind === 'reopenBatch');
+            const completing = kind === 'completeBatch';
             // Capture identities before waiting for the lock. Selection controls
             // cannot rewrite this read-only review or its eventual command.
             const targets = batchTargets(selected);
             return this.backend.lock(async () => {
                 const current = await this.readRaw(), next = clone(current);
-                const command = this.request('completeBatch', { targets, revision: current.revision });
+                const command = this.request(kind, { targets, revision: current.revision });
                 const records = Object.freeze(targets.map(target => {
-                    const task = current.records.find(record => record.id === target.id && record.version === target.version && record.state === 'active');
+                    const task = current.records.find(record => record.id === target.id && record.version === target.version && record.state === (completing ? 'active' : 'done'));
                     check(task, 'CONFLICT'); return Object.freeze({ ...task });
                 }));
                 transitionBatch(next, command); finish(next, command.operationId);
                 return Object.freeze({ records, count: records.length, revision: current.revision,
-                    clearsPin: records.some(task => task.id === current.pinnedId), command });
+                    clearsPin: completing && records.some(task => task.id === current.pinnedId), command });
             });
         }
         async reviewBatch(source) {

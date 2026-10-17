@@ -8194,5 +8194,47 @@
   },
   "spacesOpenNewTabHelp": {
     "message": "另开工作空间，保留本页和草稿，不改变普通新标签页默认使用的工作空间。"
+  },
+  "tasksReopenBatch": {
+    "message": "选择并重新打开已完成待办"
+  },
+  "tasksReopenHelp": {
+    "message": "从打开窗口时实际显示的已完成待办中选择，初始不勾选。先核对完整原文，再一起重新打开所选项目。"
+  },
+  "tasksReopenSelectAll": {
+    "message": "全选列表中的待办"
+  },
+  "tasksReopenClear": {
+    "message": "清空选择"
+  },
+  "tasksReopenSelected": {
+    "message": "已选：{count} / {total}"
+  },
+  "tasksReopenReview": {
+    "message": "预览所选待办"
+  },
+  "tasksReopenConfirm": {
+    "message": "确认重新打开这 {count} 项"
+  },
+  "tasksReopenRetry": {
+    "message": "重试重新打开这 {count} 项"
+  },
+  "tasksReopenKeepsPin": {
+    "message": "下一件事保持不变。重新打开的待办保留原有列表位置。"
+  },
+  "tasksReopenReady": {
+    "message": "确认后将一次保存，重新打开编号列表中的全部待办。如果任一所选待办或列表已变化，整批都不会重新打开。"
+  },
+  "tasksReopenChanged": {
+    "message": "待办列表已变化，请重新预览选择。如果所选待办已变化，请关闭窗口后从最新列表重新选择。"
+  },
+  "tasksReopenUncertain": {
+    "message": "整批保存结果尚未确认。请明确重试这份原始编号选择，不会假定部分成功。"
+  },
+  "tasksReopenSaved": {
+    "message": "已重新打开预览中的待办。再次确认前，请重新预览当前选择。"
+  },
+  "tasksReopenHistoryHelp": {
+    "message": "重新打开会保留原文及记录总数，不恢复旧置顶，也不新增撤销操作。"
   }
 }

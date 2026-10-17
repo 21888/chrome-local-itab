@@ -108,3 +108,5 @@
 .tasks-recovery-list li { padding: 8px 4px; border-top: 1px solid var(--template-border); }
 .tasks-recovery-state { color: var(--template-muted); font-size: 11px; }
 .tasks-recovery-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.tasks-reopen-batch { margin: 8px 0; }

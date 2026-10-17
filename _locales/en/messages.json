@@ -8194,5 +8194,47 @@
   },
   "spacesOpenNewTabHelp": {
     "message": "Open a workspace separately while keeping this page and its drafts. This does not change the workspace used for ordinary new tabs."
+  },
+  "tasksReopenBatch": {
+    "message": "Select completed tasks to reopen"
+  },
+  "tasksReopenHelp": {
+    "message": "Choose from the completed tasks displayed when this window opened. Nothing is selected initially. Review the exact originals before reopening the selection together."
+  },
+  "tasksReopenSelectAll": {
+    "message": "Select all listed tasks"
+  },
+  "tasksReopenClear": {
+    "message": "Clear selection"
+  },
+  "tasksReopenSelected": {
+    "message": "Selected: {count} of {total}"
+  },
+  "tasksReopenReview": {
+    "message": "Review selected tasks"
+  },
+  "tasksReopenConfirm": {
+    "message": "Confirm reopening of {count} tasks"
+  },
+  "tasksReopenRetry": {
+    "message": "Retry reopening of these {count} tasks"
+  },
+  "tasksReopenKeepsPin": {
+    "message": "Next up will stay unchanged. Reopened tasks keep their stored list positions."
+  },
+  "tasksReopenReady": {
+    "message": "Confirm to reopen every numbered task in one save. If any reviewed task or the list has changed, none will be reopened."
+  },
+  "tasksReopenChanged": {
+    "message": "The task list changed. Review the selection again. If a selected task changed, close this window and select from the latest list."
+  },
+  "tasksReopenUncertain": {
+    "message": "The entire save is unconfirmed. Retry this exact numbered selection; no partial success is assumed."
+  },
+  "tasksReopenSaved": {
+    "message": "The reviewed tasks were reopened. Review your current selection before confirming anything else."
+  },
+  "tasksReopenHistoryHelp": {
+    "message": "Reopening keeps the original text and record count. It does not restore an old pin or create a new Undo action."
   }
 }

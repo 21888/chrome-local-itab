@@ -18,6 +18,20 @@
         tasksCompleteUncertain: 'The entire save is unconfirmed. Retry this exact numbered selection; no partial success is assumed.',
         tasksCompleteSaved: 'The reviewed tasks were completed. Review your current selection before confirming anything else.',
         tasksCompleteUndoHelp: 'After a confirmed save, one page-local Undo can reopen this whole selection. If any member has changed, the whole Undo stops. Undo does not restore the old pin.',
+        tasksReopenBatch: "Select completed tasks to reopen",
+        tasksReopenHelp: "Choose from the completed tasks displayed when this window opened. Nothing is selected initially. Review the exact originals before reopening the selection together.",
+        tasksReopenSelectAll: "Select all listed tasks",
+        tasksReopenClear: "Clear selection",
+        tasksReopenSelected: "Selected: {count} of {total}",
+        tasksReopenReview: "Review selected tasks",
+        tasksReopenConfirm: "Confirm reopening of {count} tasks",
+        tasksReopenRetry: "Retry reopening of these {count} tasks",
+        tasksReopenKeepsPin: "Next up will stay unchanged. Reopened tasks keep their stored list positions.",
+        tasksReopenReady: "Confirm to reopen every numbered task in one save. If any reviewed task or the list has changed, none will be reopened.",
+        tasksReopenChanged: "The task list changed. Review the selection again. If a selected task changed, close this window and select from the latest list.",
+        tasksReopenUncertain: "The entire save is unconfirmed. Retry this exact numbered selection; no partial success is assumed.",
+        tasksReopenSaved: "The reviewed tasks were reopened. Review your current selection before confirming anything else.",
+        tasksReopenHistoryHelp: "Reopening keeps the original text and record count. It does not restore an old pin or create a new Undo action.",
         tasksUndoCompleteBatch: 'Undo completion of these {count} tasks',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
@@ -142,6 +156,10 @@
             this.completeBatchButton = button('tasksCompleteBatch', () => this.completeBatch(), 'tasks-complete-batch');
             const copyVisibleRow = el('div', 'tasks-visible-copy'); copyVisibleRow.append(this.copyVisibleButton, this.completeBatchButton, this.copyVisibleStatus);
             this.completed = this.section('tasksCompleted'); this.removed = this.section('tasksRemoved');
+            this.visibleCompletedTasks = [];
+            this.reopenBatchButton = button('tasksReopenBatch', () => this.reopenBatch(), 'tasks-reopen-batch');
+            this.completed.box.replaceChildren(this.completed.summary, this.reopenBatchButton, this.completed.list);
+            this.completed.box.addEventListener('toggle', () => this.refreshCopyControls());
             this.data = el('details', 'tasks-data'); this.data.append(el('summary', '', t('tasksData')), el('p', 'tasks-help', t('tasksHelp')));
             const fileRow = el('div', 'tasks-data-actions');
             this.fileInput = el('input'); this.fileInput.type = 'file'; this.fileInput.accept = '.json,application/json'; this.fileInput.hidden = true;
@@ -353,16 +371,21 @@
             modal.panel.append(input, hint, count, preview, feedback, actions);
             unsubscribe = this.controller.subscribe(update); modal.open(input); update(); this.render();
         }
-        completeBatch() {
-            const source = this.visibleTasks, origin = this.completeBatchButton;
-            if (!this.copyVisibleCurrent(source, origin)) return;
+        completeBatch() { return this.transitionBatch(false); }
+        reopenBatch() { return this.transitionBatch(true); }
+        transitionBatch(reopening) {
+            const source = reopening ? this.visibleCompletedTasks : this.visibleTasks;
+            const origin = reopening ? this.reopenBatchButton : this.completeBatchButton;
+            if (!(reopening ? this.completedVisibleCurrent(source, origin) : this.copyVisibleCurrent(source, origin))) return;
+            const message = suffix => t(`tasks${reopening ? 'Reopen' : 'Complete'}${suffix}`);
+            const css = suffix => `tasks-${reopening ? 'reopen' : 'complete'}-${suffix}`;
             const records = Object.freeze(source.map(task => Object.freeze({ ...task })));
             const workspace = this.controller.store.backend?.workspace;
             let unsubscribe = () => {}, epoch = 0, generation = 0, reviewing = false, saving = false;
             let review = null, attempt = null, retryCommand = null, focusDeparted = false;
             const moved = event => { focusDeparted = !modal.panel.contains(event.target); };
             const departed = () => { focusDeparted = true; };
-            const modal = this.createDialog(t('tasksCompleteBatch'), () => {
+            const modal = this.createDialog(message('Batch'), () => {
                 epoch++; unsubscribe();
                 document.removeEventListener('focusin', moved, true); document.removeEventListener('visibilitychange', departed, true);
                 root.removeEventListener?.('blur', departed); root.removeEventListener?.('pagehide', departed);
@@ -385,17 +408,21 @@
                     (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
                 originalClose(false);
                 if (!restore || this.destroyed || this.dialogs.size || document.activeElement !== document.body) return;
-                const visible = node => node?.isConnected && !node.disabled && !node.closest('[hidden], [inert]') && node.getClientRects().length;
+                const visible = node => {
+                    if (!node?.isConnected || node.disabled || node.closest('[hidden], [inert]') || !node.getClientRects().length) return false;
+                    for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
+                    return true;
+                };
                 if (visible(origin)) origin.focus(); else if (visible(this.input)) this.input.focus();
             };
             const selected = new Set(), choices = [];
-            const selection = el('ol', 'tasks-batch-list tasks-complete-selection');
+            const selection = el('ol', `tasks-batch-list ${css('selection')}`);
             const count = el('p', 'tasks-help'); count.setAttribute('role', 'status'); count.setAttribute('aria-live', 'polite');
-            const preview = el('section', 'tasks-batch-preview tasks-complete-preview'); preview.hidden = true;
+            const preview = el('section', `tasks-batch-preview ${css('preview')}`); preview.hidden = true;
             const title = el('h3'), list = el('ol', 'tasks-batch-list'), pin = el('p', 'tasks-help'); preview.append(title, list, pin);
             const feedback = el('p', 'tasks-dialog-feedback tasks-batch-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
             const setFeedback = (text, error = false) => { feedback.textContent = text; feedback.classList.toggle('is-error', error); };
-            const cancel = button('tasksCancel', () => modal.close(), 'tasks-complete-cancel');
+            const cancel = button('tasksCancel', () => modal.close(), css('cancel'));
             const setControl = (node, disabled, hidden = false) => {
                 if (!owns()) return;
                 if (document.activeElement === node && (disabled || hidden)) cancel.focus();
@@ -404,22 +431,22 @@
             const showReview = value => {
                 preview.hidden = !value; title.textContent = value ? `${t('tasksBatchPreview')} (${value.count})` : '';
                 list.replaceChildren(...(value ? value.records.map(task => el('li', '', task.text)) : []));
-                pin.textContent = value ? t(value.clearsPin ? 'tasksCompleteClearsPin' : 'tasksCompleteKeepsPin') : '';
+                pin.textContent = value ? (reopening ? message('KeepsPin') : t(value.clearsPin ? 'tasksCompleteClearsPin' : 'tasksCompleteKeepsPin')) : '';
             };
             const update = () => {
                 if (!owns()) return;
-                count.textContent = t('tasksCompleteSelected').replace('{count}', selected.size).replace('{total}', records.length);
+                count.textContent = message('Selected').replace('{count}', selected.size).replace('{total}', records.length);
                 if (review && !saving && !retryCommand && this.controller.state?.revision > review.revision) {
-                    epoch++; review = null; showReview(null); setFeedback(t('tasksCompleteChanged'));
+                    epoch++; review = null; showReview(null); setFeedback(message('Changed'));
                 }
                 const blocked = saving || !!this.controller.pending || !available();
                 for (const checkbox of choices) setControl(checkbox, blocked);
                 setControl(all, blocked); setControl(clear, blocked || !selected.size);
                 setControl(reviewButton, blocked || reviewing || !!retryCommand || !selected.size);
                 setControl(confirm, blocked || !review, !review || !!retryCommand);
-                confirm.textContent = t('tasksCompleteConfirm').replace('{count}', review?.count ?? 0);
+                confirm.textContent = message('Confirm').replace('{count}', review?.count ?? 0);
                 setControl(retry, blocked, !retryCommand);
-                retry.textContent = t('tasksCompleteRetry').replace('{count}', retryCommand?.targets.length ?? 0);
+                retry.textContent = message('Retry').replace('{count}', retryCommand?.targets.length ?? 0);
                 if (!available()) { review = null; showReview(null); setControl(confirm, true, true); setFeedback(t('tasksErrorUnavailable'), true); }
             };
             const changed = () => {
@@ -428,7 +455,7 @@
                 update();
             };
             for (const task of records) {
-                const row = el('li'), label = el('label'), checkbox = el('input', 'tasks-complete-checkbox'); checkbox.type = 'checkbox'; checkbox.checked = false;
+                const row = el('li'), label = el('label'), checkbox = el('input', css('checkbox')); checkbox.type = 'checkbox'; checkbox.checked = false;
                 checkbox.addEventListener('change', () => {
                     if (!owns() || !available() || saving || this.controller.pending) { checkbox.checked = selected.has(task.id); return; }
                     if (checkbox.checked) selected.add(task.id); else selected.delete(task.id); changed();
@@ -439,18 +466,18 @@
                 if (!owns() || !available() || saving || this.controller.pending) return;
                 selected.clear(); records.forEach((task, index) => { choices[index].checked = value; if (value) selected.add(task.id); }); changed();
             };
-            const all = button('tasksCompleteSelectAll', () => select(true), 'tasks-complete-select-all');
-            const clear = button('tasksCompleteClear', () => select(false), 'tasks-complete-clear');
+            const all = button(`tasks${reopening ? 'Reopen' : 'Complete'}SelectAll`, () => select(true), css('select-all'));
+            const clear = button(`tasks${reopening ? 'Reopen' : 'Complete'}Clear`, () => select(false), css('clear'));
             const prepare = async () => {
                 if (!owns() || !available() || saving || this.controller.pending || retryCommand || !selected.size) return;
                 const ticket = ++epoch, submittedGeneration = generation;
                 const targets = records.filter(task => selected.has(task.id)).map(({ id, version }) => ({ id, version }));
                 reviewing = true; review = null; showReview(null); setFeedback(t('tasksLoading')); update();
                 try {
-                    const value = await this.controller.store.reviewCompletion(targets);
+                    const value = await this.controller.store[reopening ? 'reviewReopening' : 'reviewCompletion'](targets);
                     if (!owns() || !available() || ticket !== epoch || generation !== submittedGeneration) return;
-                    if (this.controller.state?.revision > value.revision) { setFeedback(t('tasksCompleteChanged')); return; }
-                    review = value; showReview(value); setFeedback(t('tasksCompleteReady'));
+                    if (this.controller.state?.revision > value.revision) { setFeedback(message('Changed')); return; }
+                    review = value; showReview(value); setFeedback(message('Ready'));
                 } catch (error) { if (owns() && ticket === epoch) setFeedback(errorText(error), true); }
                 finally { if (owns() && ticket === epoch) { reviewing = false; update(); } }
             };
@@ -469,13 +496,13 @@
                     retryCommand = null; attempt = null; review = null; showReview(null);
                     if (available() && generation === submitted.generation && this.controller.state?.revision === state.revision &&
                         this.controller.state?.receipts.at(-1) === command.operationId) modal.close();
-                    else setFeedback(t('tasksCompleteSaved'));
+                    else setFeedback(message('Saved'));
                 }, error => {
                     if (!owns()) return;
                     review = null;
                     if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
                         retryCommand = command; showReview(submitted.review);
-                        setFeedback(`${errorText(error)} ${t('tasksCompleteUncertain')}`, true);
+                        setFeedback(`${errorText(error)} ${message('Uncertain')}`, true);
                     } else {
                         retryCommand = null; attempt = null; showReview(null);
                         this.controller.dismissRetry(command.operationId); setFeedback(errorText(error), true);
@@ -483,15 +510,15 @@
                 });
                 saving = false; if (owns()) update();
             };
-            const reviewButton = button('tasksCompleteReview', prepare, 'tasks-complete-review');
-            const confirm = button('tasksCompleteConfirm', event => { if (!(event.detail > 1)) submit(); }, 'tasks-primary tasks-complete-confirm');
-            const retry = button('tasksCompleteRetry', event => { if (!(event.detail > 1)) submit(true); }, 'tasks-primary tasks-complete-retry');
+            const reviewButton = button(`tasks${reopening ? 'Reopen' : 'Complete'}Review`, prepare, css('review'));
+            const confirm = button(`tasks${reopening ? 'Reopen' : 'Complete'}Confirm`, event => { if (!(event.detail > 1)) submit(); }, `tasks-primary ${css('confirm')}`);
+            const retry = button(`tasks${reopening ? 'Reopen' : 'Complete'}Retry`, event => { if (!(event.detail > 1)) submit(true); }, `tasks-primary ${css('retry')}`);
             for (const node of [reviewButton, confirm, retry]) node.addEventListener('keydown', event => {
                 if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
             });
             const selectionActions = el('div', 'tasks-dialog-actions'); selectionActions.append(all, clear);
             const actions = el('div', 'tasks-dialog-actions'); actions.append(cancel, reviewButton, retry, confirm);
-            modal.panel.append(el('p', 'tasks-help', t('tasksCompleteHelp')), el('p', 'tasks-help', t('tasksCompleteUndoHelp')), selectionActions, selection, count, preview, feedback, actions);
+            modal.panel.append(el('p', 'tasks-help', message('Help')), el('p', 'tasks-help', reopening ? message('HistoryHelp') : message('UndoHelp')), selectionActions, selection, count, preview, feedback, actions);
             unsubscribe = this.controller.subscribe(update); modal.open(all);
             document.addEventListener('focusin', moved, true); document.addEventListener('visibilitychange', departed, true);
             root.addEventListener?.('blur', departed); root.addEventListener?.('pagehide', departed);
@@ -576,6 +603,16 @@
                 return task.state === 'active' && expected[index].id === task.id && title && this.copyCurrent(task, item, title, item);
             });
         }
+        completedVisibleCurrent(snapshot, origin) {
+            if (!this.completed.box.open || !snapshot.length || this.visibleCompletedTasks !== snapshot || !this.copyOriginCurrent(origin) ||
+                this.renderedFilter !== this.filterQuery || this.renderedRevision !== this.controller.state.revision) return false;
+            const expected = this.controller.state.records.filter(task => task.state === 'done' && task.text.toLowerCase().includes(this.filterQuery));
+            const rows = Array.from(this.completed.list.children);
+            return expected.length === snapshot.length && rows.length === snapshot.length && snapshot.every((task, index) => {
+                const item = rows[index], title = item.querySelector('.tasks-text');
+                return task.state === 'done' && expected[index].id === task.id && title && this.copyCurrent(task, item, title, item);
+            });
+        }
         copyVisibleTasks() {
             const snapshot = this.visibleTasks, origin = this.copyVisibleButton;
             return this.copyText(snapshot.map((task, index) => `${index + 1}. ${task.text}`).join('\n'), origin, this.copyVisibleStatus,
@@ -590,6 +627,7 @@
             this.copyVisibleButton.setAttribute('aria-disabled', String(disabled || this.copyVisibleButton.disabled));
             // Match existing focus-preserving row actions while unavailable.
             this.completeBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.visibleTasks.length));
+            this.reopenBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.completed.box.open || !this.visibleCompletedTasks.length));
             this.host.querySelectorAll('.tasks-reuse-text').forEach(node => node.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError)));
         }
         invalidateCopy() {
@@ -886,6 +924,7 @@
                     const records = state.records.filter(task => task.state === (section === this.completed ? 'done' : 'removed') && matches(task));
                     section.summary.textContent = `${t(section.key)} (${records.length})`; section.box.hidden = !records.length;
                     section.list.replaceChildren(...records.map(task => this.row(task, -1, ids)));
+                    if (section === this.completed) this.visibleCompletedTasks = records.map(({ id, version, text, state }) => ({ id, version, text, state }));
                 }
                 if (revisionChanged) {
                     this.copies.replaceChildren();

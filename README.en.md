@@ -357,6 +357,8 @@ Use **Add multiple tasks** to paste one task per nonblank line, inspect a number
 
 Choose **Select tasks to complete** to select from the active rows currently displayed. Review the full numbered originals, count and pin effect, then explicitly confirm the batch. Failed validation writes nothing; an unconfirmed save retries only the original command. The page keeps one Undo slot shared with the latest completion/removal: batch Undo reopens every member together, stops if any member changed, and never restores the old pin. Completion does not free the 500-record capacity. [Batch completion and validation limits](docs/tasks-batch-completion-validation.md).
 
+Open **Completed** and choose **Select completed tasks to reopen** to select from the completed rows currently displayed. Review the exact numbered originals, then explicitly reopen the selection in one all-or-nothing save. The list position, text and Next up pin are preserved; this adds no Undo/redo slot. Unconfirmed saves retain the original batch for explicit retry. [Batch reopening and validation limits](docs/tasks-batch-reopening-validation.md).
+
 ### Local focus timer
 
 Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.
