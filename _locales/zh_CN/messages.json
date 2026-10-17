@@ -766,6 +766,15 @@
   "scratchpadFind": {
     "message": "查找文字"
   },
+  "scratchpadFindSelection": {
+    "message": "用选中文字查找"
+  },
+  "scratchpadFindSelectionHelp": {
+    "message": "请先在编辑区选择完整的单行文字。这里只填入查找框；点“下一处”或“上一处”才会定位匹配。"
+  },
+  "scratchpadFindSelectionFailed": {
+    "message": "无法使用此选区，请重新选择文字后再试。"
+  },
   "scratchpadFindLabel": {
     "message": "要查找的文字"
   },

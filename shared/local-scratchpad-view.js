@@ -30,6 +30,9 @@
         scratchpadInvalidText: 'This draft contains invalid Unicode text and cannot be saved or exported exactly. Your text is still here. Correct it before saving or exporting.',
         scratchpadExportError: 'Could not export a text copy. Your draft is still here.',
         scratchpadFind: 'Find text', scratchpadFindLabel: 'Text to find',
+        scratchpadFindSelection: 'Find selected text',
+        scratchpadFindSelectionHelp: 'Select complete, single-line text in the editor first. This only fills the find field; use Next or Previous to find matches.',
+        scratchpadFindSelectionFailed: 'Could not use the selection. Select text and try again.',
         scratchpadFindHelp: 'Case-sensitive, exact single-line text in this editor only. Spaces count. Enter selects the next match.',
         scratchpadFindPrevious: 'Previous match', scratchpadFindNext: 'Next match', scratchpadFindClose: 'Close find',
         scratchpadFindSelected: 'Match {current} of {total}.', scratchpadFindWrappedNext: 'Wrapped to the beginning. Match {current} of {total}.',
@@ -79,6 +82,8 @@
                 try { this.findInput.focus(); } catch (_) {}
             });
             this.findButton.setAttribute('aria-expanded', 'false');
+            this.findSelectionButton = button('scratchpadFindSelection', event => this.findSelectedText(event));
+            this.findSelectionButton.title = t('scratchpadFindSelectionHelp');
             this.findPanel = el('section', 'scratchpad-find'); this.findPanel.hidden = true;
             this.findPanel.setAttribute('aria-label', t('scratchpadFind'));
             this.findInput = el('input', 'scratchpad-find-input'); this.findInput.type = 'text';
@@ -137,7 +142,7 @@
             const importControls = el('div', 'scratchpad-controls'); importControls.append(this.importApply, this.importCancel);
             this.importPanel.append(appendLabel, this.importInfo, this.importPreview, el('p', 'scratchpad-help', t('scratchpadImportHelp')), importControls);
             this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
-            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.copyButton, this.importButton, this.findButton);
+            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.copyButton, this.importButton, this.findButton, this.findSelectionButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
             host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details);
@@ -195,11 +200,35 @@
             if (!this.findVisible(this.textarea)) this.closeFind();
             const match = this.findResult;
             if (match && (match.query !== this.findInput.value || match.text !== this.textarea.value)) this.resetFindResult();
-            this.findButton.disabled = !this.controller.loaded;
+            this.findButton.disabled = this.findSelectionButton.disabled = !this.controller.loaded;
             // Visibility/IME are checked at action time; disabling for a hidden
             // tab could strand controls after it returns without a new render.
             const disabled = !this.findInput.value || !this.controller.loaded || this.findPanel.hidden;
             this.findPrevious.disabled = this.findNext.disabled = disabled;
+        }
+        findSelectedText(event) {
+            if (!this.canFind(this.findSelectionButton, event)) return;
+            // Read the main DOM editor at activation, including after its blur.
+            // Selection offsets are UTF-16; only the selected text needs to be
+            // complete Unicode. The save limit does not limit this local query.
+            const text = this.textarea.value, start = this.textarea.selectionStart, end = this.textarea.selectionEnd;
+            const query = Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start && end <= text.length ? text.slice(start, end) : '';
+            this.findHeldEnter = null; this.resetFindResult();
+            this.findPanel.hidden = false; this.findButton.setAttribute('aria-expanded', 'true'); this.renderFind();
+            if (!query || /[\r\n]/.test(query) || !api.isUnicode(query)) {
+                this.findStatus.textContent = t('scratchpadFindSelectionHelp'); return;
+            }
+            const previousQuery = this.findInput.value;
+            try { this.findInput.focus(); } catch (_) {}
+            // Focus can synchronously change the draft, query, selection or view.
+            // Never overwrite those newer changes with the activation snapshot.
+            if (!this.canFind(this.findSelectionButton) || !this.canFind(this.findInput) ||
+                this.textarea.value !== text || this.textarea.selectionStart !== start || this.textarea.selectionEnd !== end ||
+                this.findInput.value !== previousQuery) return;
+            if (document.activeElement !== this.findInput) {
+                this.findStatus.textContent = t('scratchpadFindSelectionFailed'); return;
+            }
+            this.findInput.value = query; this.renderFind();
         }
         findEnter(direction, source, event) {
             if (event.key !== 'Enter' || !this.canFind(source, event)) return;

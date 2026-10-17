@@ -464,3 +464,225 @@ test('Scratchpad match position: English, Chinese and fallback templates fill th
         m.view.destroy();
     }
 });
+
+test('Scratchpad selected find: explicit adjacent native entry prefills exact text without navigation', () => {
+    const m = model('prefix 中文 😀 e\u0301 .*[x] suffix');
+    assert(m.view.findSelectionButton, 'an explicit Find selected text entry is required');
+    const entry = m.view.findSelectionButton, siblings = entry.parentElement.children;
+    assert.equal(entry.tagName, 'BUTTON'); assert.equal(entry.type, 'button');
+    assert.equal(entry.textContent, 'Find selected text');
+    assert.equal(siblings.indexOf(entry), siblings.indexOf(m.view.findButton) + 1);
+    m.view.textarea.selectionStart = 7; m.view.textarea.selectionEnd = 22;
+    m.view.textarea.selectionDirection = 'backward';
+    entry.focus(); entry.dispatch('click');
+    assert.equal(m.view.findInput.value, m.view.textarea.value.slice(7, 22));
+    assert(!m.view.findPanel.hidden); assert.equal(m.document.activeElement, m.view.findInput);
+    assert.equal(m.view.findButton.getAttribute('aria-expanded'), 'true');
+    assert.equal(m.view.findStatus.textContent, ''); assert.equal(m.view.findResult, null);
+    assert.deepEqual(m.range(), [7, 22]); assert.equal(m.view.textarea.selectionDirection, 'backward');
+    assert.equal(m.controller.draft, 'prefix 中文 😀 e\u0301 .*[x] suffix'); assert.deepEqual(m.effects, []);
+    m.view.destroy();
+});
+
+test('Scratchpad selected find: literal forward and backward selections are copied without scanning or global selection', () => {
+    for (const [text, start, end, direction] of [
+        [' Aa aA ', 1, 3, 'forward'], [' 中😀e\u0301.*[x] ', 0, 12, 'backward'],
+        ['    ', 1, 3, 'forward'], ['é e\u0301', 2, 4, 'backward']
+    ]) {
+        const m = model(text); m.window.getSelection = m.document.getSelection = () => { throw Error('not a page selection'); };
+        m.view.savedPreview.value = 'wrong selection'; m.view.savedPreview.selectionStart = 0; m.view.savedPreview.selectionEnd = 5;
+        m.view.textarea.selectionStart = start; m.view.textarea.selectionEnd = end; m.view.textarea.selectionDirection = direction;
+        const strings = m.view.findText.constructor('return String.prototype')(), indexOf = strings.indexOf, lastIndexOf = strings.lastIndexOf;
+        let scans = 0;
+        strings.indexOf = function (...args) { scans++; return indexOf.apply(this, args); };
+        strings.lastIndexOf = function (...args) { scans++; return lastIndexOf.apply(this, args); };
+        try {
+            // Normal Find stays independent of the editor's selection.
+            m.open(); assert.equal(m.view.findInput.value, '');
+            m.query('old query'); m.view.findSelectionButton.focus(); m.view.textarea.dispatch('blur');
+            m.view.findSelectionButton.dispatch('click');
+            assert.equal(m.view.findInput.value, text.slice(start, end)); assert.equal(scans, 0);
+            assert.deepEqual(m.range(), [start, end]); assert.equal(m.view.textarea.selectionDirection, direction);
+            assert.equal(m.view.textarea.value, text); assert.equal(m.controller.draft, text); assert.deepEqual(m.effects, []);
+        } finally { strings.indexOf = indexOf; strings.lastIndexOf = lastIndexOf; m.view.destroy(); }
+    }
+});
+
+test('Scratchpad selected find: replacement clears old results and held Enter; later navigation retains overlap counts and wrapping', () => {
+    const m = model('aaaa'); m.open(); m.query('a');
+    m.view.findInput.dispatch('keydown', { key: 'Enter' }); assert(m.view.findHeldEnter);
+    m.view.textarea.selectionStart = 1; m.view.textarea.selectionEnd = 3;
+    m.effects.length = 0; m.view.findSelectionButton.dispatch('click');
+    assert.equal(m.view.findInput.value, 'aa'); assert.equal(m.view.findHeldEnter, null);
+    assert.equal(m.view.findResult, null); assert.equal(m.view.findStatus.textContent, ''); assert.deepEqual(m.effects, []);
+    for (const [control, range, feedback] of [
+        ['findPrevious', [2, 4], 'Match 3 of 3.'], ['findNext', [0, 2], 'Wrapped to the beginning. Match 1 of 3.']
+    ]) {
+        m.view[control].dispatch('click'); assert.deepEqual(m.range(), range); assert.equal(m.view.findStatus.textContent, feedback);
+    }
+    m.view.findInput.focus(); assert(m.view.findInput.dispatch('keydown', { key: 'Enter' }).prevented);
+    assert.deepEqual(m.range(), [1, 3]); assert.equal(m.view.findStatus.textContent, 'Match 2 of 3.');
+    m.view.findButton.dispatch('click'); m.open(); assert.equal(m.view.findInput.value, '');
+    // An empty current selection must not reuse the last successful one.
+    m.view.textarea.selectionStart = m.view.textarea.selectionEnd = 2;
+    m.view.findSelectionButton.dispatch('click'); assert.equal(m.view.findInput.value, '');
+    assert.match(m.view.findStatus.textContent, /Select complete, single-line text/); m.view.destroy();
+});
+
+test('Scratchpad selected find: empty, invalid ranges, line breaks and partial surrogate selections preserve the query with guidance', () => {
+    for (const [text, start, end] of [
+        ['text', 2, 2], ['text', -1, 2], ['text', 0, 5], ['text', 3, 1], ['text', 0.5, 2], ['text', undefined, 2],
+        ['a\r\nb', 0, 4], ['a\nb', 0, 3], ['a\rb', 0, 3], ['😀', 0, 1], ['😀', 1, 2]
+    ]) {
+        const m = model(text); m.open(); m.query('keep this query');
+        m.view.textarea.selectionStart = start; m.view.textarea.selectionEnd = end;
+        m.view.findSelectionButton.focus(); m.view.findSelectionButton.dispatch('click');
+        assert.equal(m.view.findInput.value, 'keep this query'); assert(!m.view.findPanel.hidden);
+        assert.match(m.view.findStatus.textContent, /Select complete, single-line text/);
+        assert.equal(m.view.findStatus.children.length, 0); assert.equal(m.document.activeElement, m.view.findSelectionButton);
+        assert.deepEqual(m.range(), [start, end]); assert.equal(m.controller.draft, text); assert.deepEqual(m.effects, []); m.view.destroy();
+    }
+});
+
+test('Scratchpad selected find: DOM line endings and complete over-limit selections do not rewrite or validate the saved draft', () => {
+    const m = model('first\r\n中文😀\r\nlast');
+    m.view.textarea.value = 'first\n中文😀\nlast'; m.view.textarea.selectionStart = 6; m.view.textarea.selectionEnd = 10;
+    m.view.render = () => { throw Error('selection prefill must not rerender the editor'); };
+    m.view.findSelectionButton.dispatch('click'); assert.equal(m.view.findInput.value, '中文😀');
+    assert.equal(m.controller.draft, 'first\r\n中文😀\r\nlast'); assert.deepEqual(m.effects, []);
+    const long = '中'.repeat(32001) + '😀'; m.view.textarea.value = long;
+    m.view.textarea.selectionStart = 0; m.view.textarea.selectionEnd = long.length;
+    m.view.findSelectionButton.dispatch('click'); assert.equal(m.view.findInput.value, long);
+    assert.deepEqual(m.range(), [0, long.length]); assert.equal(m.controller.draft, 'first\r\n中文😀\r\nlast');
+    assert.deepEqual(m.effects, []); m.view.destroy();
+});
+
+test('Scratchpad selected find: native Enter and Space activation only prefill; held Enter at the actual new focus never searches', () => {
+    for (const key of ['Enter', ' ']) {
+        const m = model('one one'); m.view.textarea.selectionStart = 0; m.view.textarea.selectionEnd = 3;
+        const entry = m.view.findSelectionButton; entry.focus();
+        assert(!entry.dispatch('keydown', { key, repeat: false }).prevented);
+        if (key === ' ') entry.dispatch('keyup', { key });
+        // Model the native button's one default click, not a custom shortcut.
+        entry.dispatch('click', { detail: 0 }); assert.equal(m.document.activeElement, m.view.findInput);
+        assert.equal(m.view.findInput.value, 'one'); assert.equal(m.view.findStatus.textContent, ''); assert.deepEqual(m.effects, []);
+        const active = m.document.activeElement;
+        assert(active.dispatch('keydown', { key: 'Enter', repeat: true }).prevented);
+        assert(active.dispatch('keydown', { key: 'Enter', repeat: true }).prevented);
+        assert.equal(m.view.findResult, null); assert.deepEqual(m.effects, []); assert.deepEqual(m.range(), [0, 3]);
+        active.dispatch('keyup', { key: 'Enter' }); active.dispatch('keydown', { key: 'Enter', repeat: false });
+        assert.equal(m.view.findStatus.textContent, 'Match 1 of 2.'); assert.deepEqual(m.effects, ['focus', ['selection', 0, 3]]);
+        m.view.destroy();
+    }
+});
+
+test('Scratchpad selected find: activation inherits visible, loaded, IME and instance ownership guards', () => {
+    for (const block of ['hidden page', 'hidden host', 'inert', 'detached', 'unloaded', 'editor IME', 'find IME', 'event IME', 'legacy IME', 'closed']) {
+        const m = model('one'); m.open(); m.query('keep'); m.view.textarea.selectionStart = 0; m.view.textarea.selectionEnd = 3;
+        let event = {};
+        if (block === 'hidden page') m.document.hidden = true;
+        if (block === 'hidden host') m.host.hidden = true;
+        if (block === 'inert') m.host.inert = true;
+        if (block === 'detached') m.view.findSelectionButton.remove();
+        if (block === 'unloaded') m.controller.loaded = false;
+        if (block === 'editor IME') m.controller.composing = true;
+        if (block === 'find IME') m.view.findComposing = true;
+        if (block === 'event IME') event = { isComposing: true };
+        if (block === 'legacy IME') event = { keyCode: 229 };
+        if (block === 'closed') m.controller.closed = true;
+        m.view.findSelectionButton.dispatch('click', event);
+        assert.equal(m.view.findInput.value, 'keep', block); assert.deepEqual(m.effects, [], block); m.view.destroy();
+    }
+    const m = model('one'); m.view.destroy();
+    const next = new m.window.LocalItabScratchpad.View(m.host, { controller: { ...m.controller, closed: false } });
+    next.findButton.dispatch('click'); next.findInput.value = 'new instance';
+    m.view.textarea.selectionStart = 0; m.view.textarea.selectionEnd = 3; m.view.findSelectionButton.dispatch('click');
+    assert.equal(next.findInput.value, 'new instance'); assert.equal(m.document.activeElement, next.findInput); next.destroy();
+});
+
+test('Scratchpad selected find: synchronous focus changes never overwrite newer input or use a stale editor selection', () => {
+    for (const change of ['query', 'text', 'selection', 'hidden', 'detached', 'destroyed', 'focus throws', 'focus ignored']) {
+        const m = model('one one'); m.open(); m.query('old query');
+        m.view.textarea.selectionStart = 0; m.view.textarea.selectionEnd = 3; m.view.findSelectionButton.focus();
+        const focus = m.view.findInput.focus.bind(m.view.findInput);
+        m.view.findInput.focus = () => {
+            if (change === 'focus throws') throw Error('synthetic focus error');
+            if (change === 'focus ignored') return;
+            focus();
+            if (change === 'query') { m.view.findInput.value = 'new user query'; m.view.findInput.dispatch('input'); }
+            if (change === 'text') m.view.textarea.value = 'new draft';
+            if (change === 'selection') m.view.textarea.selectionEnd = 2;
+            if (change === 'hidden') m.host.hidden = true;
+            if (change === 'detached') m.host.remove();
+            if (change === 'destroyed') m.view.destroy();
+        };
+        m.view.findSelectionButton.dispatch('click');
+        assert.equal(m.view.findInput.value, change === 'query' ? 'new user query' : change === 'destroyed' ? '' : 'old query', change);
+        assert.equal(m.view.findResult, null, change); assert.equal(m.controller.draft, 'one one', change); assert.deepEqual(m.effects, [], change);
+        if (change.startsWith('focus ')) assert.match(m.view.findStatus.textContent, /Could not use the selection/);
+        else assert.equal(m.view.findStatus.textContent, '', change);
+        m.view.destroy();
+    }
+});
+
+test('Scratchpad selected find: real Store and Controller preserve failed, conflicted, read-only and over-limit drafts with zero extra I/O', async t => {
+    const { Controller } = require('../shared/local-scratchpad-controller');
+    let raw = { ...storeApi.initial(), enabled: true, content: 'saved baseline' }, reads = 0, writes = 0, failRead = false, failWrite = false;
+    const backend = {
+        lock: fn => Promise.resolve().then(fn),
+        async read() { reads++; if (failRead) throw Error('synthetic read error'); return structuredClone(raw); },
+        async write(value) { writes++; if (failWrite) throw Error('synthetic write error'); raw = structuredClone(value); },
+        subscribe() { return () => {}; }
+    };
+    const document = createDocument(), effects = [];
+    const window = { LocalItabScratchpad: { ...storeApi }, addEventListener() {}, removeEventListener() {},
+        fetch() { effects.push('network'); throw Error('no network'); } };
+    vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-scratchpad-view'), 'utf8'), { window, document });
+    const host = document.createElement('article'); document.body.append(host);
+    const controller = new Controller(new storeApi.Store(backend), { delay: 60000 });
+    const view = new window.LocalItabScratchpad.View(host, { controller, clipboard: {
+        readText() { effects.push('clipboard read'); }, writeText() { effects.push('clipboard write'); }
+    } });
+    t.after(() => view.destroy()); await new Promise(resolve => setImmediate(resolve)); assert(controller.loaded);
+    view.textarea.setSelectionRange = () => effects.push('selection');
+    for (const mode of ['unsaved', 'save failure', 'conflict', 'read-only', 'over-limit']) {
+        if (mode === 'unsaved') { controller.setDraft('local\r\n中文😀 draft'); controller.cancelTimer(); }
+        if (mode === 'save failure') { failWrite = true; await assert.rejects(controller.save(), { code: 'WRITE' }); failWrite = false; }
+        if (mode === 'conflict') { raw = { ...raw, revision: raw.revision + 1, content: 'remote preview' }; await controller.refresh(); assert(controller.conflict); }
+        if (mode === 'read-only') { failRead = true; await assert.rejects(controller.refresh(), { code: 'READ' }); assert(view.textarea.readOnly); }
+        if (mode === 'over-limit') {
+            failRead = false; await controller.useSaved(); controller.setDraft('中'.repeat(32001)); controller.cancelTimer();
+            await assert.rejects(controller.save(), { code: 'TEXT_LIMIT' });
+        }
+        view.textarea.value = controller.draft.replace(/\r\n?/g, '\n');
+        view.textarea.selectionStart = mode === 'over-limit' ? 0 : 6;
+        view.textarea.selectionEnd = mode === 'over-limit' ? 32001 : 10;
+        view.importPreview.textContent = 'unrelated import preview'; view.importPanel.hidden = false;
+        const before = { reads, writes, state: controller.state, draft: controller.draft, generation: controller.generation,
+            pending: controller.pending, error: controller.error, conflict: controller.conflict, dirty: controller.dirty(),
+            work: controller.hasUncommittedWork(), timer: controller.timer, status: view.status.textContent, savedPreview: view.savedPreview.value };
+        view.findSelectionButton.dispatch('click');
+        assert.equal(view.findInput.value, mode === 'over-limit' ? '中'.repeat(32001) : '中文😀', mode);
+        assert.equal(reads, before.reads, mode); assert.equal(writes, before.writes, mode);
+        for (const key of ['state', 'draft', 'generation', 'pending', 'error', 'conflict', 'timer']) assert.equal(controller[key], before[key], mode + ': ' + key);
+        assert.equal(controller.dirty(), before.dirty); assert.equal(controller.hasUncommittedWork(), before.work);
+        assert.equal(view.status.textContent, before.status); assert.equal(view.savedPreview.value, before.savedPreview);
+        assert.equal(view.importPreview.textContent, 'unrelated import preview'); assert(!view.importPanel.hidden);
+        assert.equal(view.findStatus.textContent, ''); assert.deepEqual(effects, []);
+        assert.equal(view.textarea.selectionStart, mode === 'over-limit' ? 0 : 6); assert.equal(view.textarea.selectionEnd, mode === 'over-limit' ? 32001 : 10);
+    }
+});
+
+test('Scratchpad selected find: English, Chinese and fallback labels and invalid-selection help remain plain text', () => {
+    for (const locale of ['en', 'zh_CN', 'fallback']) {
+        const m = model('one'); m.view.destroy();
+        const catalog = locale === 'fallback' ? {} : JSON.parse(fs.readFileSync(require.resolve(`../_locales/${locale}/messages.json`), 'utf8'));
+        m.window.i18n = { t: key => catalog[key]?.message || key };
+        const view = new m.window.LocalItabScratchpad.View(m.host, { controller: { ...m.controller, closed: false } });
+        assert.equal(view.findSelectionButton.textContent, locale === 'zh_CN' ? '用选中文字查找' : 'Find selected text');
+        view.textarea.selectionStart = view.textarea.selectionEnd = 0; view.findSelectionButton.dispatch('click');
+        assert.equal(view.findStatus.textContent, view.findSelectionButton.title);
+        assert.match(view.findStatus.textContent, locale === 'zh_CN' ? /请先在编辑区选择完整的单行文字/ : /Select complete, single-line text/);
+        assert.equal(view.findStatus.children.length, 0); assert.equal(view.findStatus.getAttribute('aria-live'), 'polite'); view.destroy();
+    }
+});

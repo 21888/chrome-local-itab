@@ -372,7 +372,7 @@ AI 上下文回答区可明确点击“复制回答”或“复制任务 JSON”
 
 在设置的“模块显示”中开启便签，可随手记录文字、网址或片段。默认关闭；停止输入后自动保存在本设备。多标签页发生冲突时保留草稿，让你明确选择使用已保存内容或替换它。支持导出当前草稿为 TXT，也可选择一个 UTF-8 TXT 文件预览，再明确确认替换已保存的便笺。导入前需完成保存并解决冲突；最多 32,000 个 Unicode 字符、128 KiB，取消不会写入。[文本导入、限制与恢复说明](docs/local-scratchpad.zh-CN.md)。
 
-“查找文字”在当前编辑区按区分大小写的原文定位，包括未保存和超限草稿。“上一处”“下一处”或 Enter 定位成功后显示“第n处/共m处”及绕回提示，重叠匹配也计数，不编辑或保存文本。[查找说明](docs/local-scratchpad.zh-CN.md#在本页便笺中查找文字) · [模型验证与原生边界](docs/scratchpad-match-position-validation.md)。
+“用选中文字查找”把当前编辑区选中的完整单行文字原样填入查找框，只预填、不自动定位或计数。[选区入口与验收范围](docs/scratchpad-find-selection-validation.md)。“查找文字”在当前编辑区按区分大小写的原文定位，包括未保存和超限草稿。“上一处”“下一处”或 Enter 定位成功后显示“第n处/共m处”及绕回提示，重叠匹配也计数，不编辑或保存文本。[查找说明](docs/local-scratchpad.zh-CN.md#在本页便笺中查找文字) · [模型验证与原生边界](docs/scratchpad-match-position-validation.md)。
 
 便签不进入配置导出、Chrome Sync 或 Google Drive 备份。卸载扩展或清理浏览器数据前，请在完整本地备份中包含已保存的便笺，或单独导出文本；未保存/冲突草稿仍需从原标签页导出。[功能边界与验收记录](docs/local-scratchpad-validation.md)。
 

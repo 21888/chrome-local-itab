@@ -766,6 +766,15 @@
   "scratchpadFind": {
     "message": "Find text"
   },
+  "scratchpadFindSelection": {
+    "message": "Find selected text"
+  },
+  "scratchpadFindSelectionHelp": {
+    "message": "Select complete, single-line text in the editor first. This only fills the find field; use Next or Previous to find matches."
+  },
+  "scratchpadFindSelectionFailed": {
+    "message": "Could not use the selection. Select text and try again."
+  },
   "scratchpadFindLabel": {
     "message": "Text to find"
   },
