@@ -16,7 +16,19 @@ keeps its ordered snapshot until reopened.
 
 ## Tabs and drafts
 
-An open tab stays attached to the workspace it loaded, even if another tab switches. New tabs use the last selected workspace. Settings opened from a dashboard stay attached to that dashboard’s workspace, and ordinary reloads preserve the workspace in the URL.
+An open tab stays attached to the workspace it loaded, even if another tab switches. Ordinary new tabs use the last selected workspace. Settings opened from a dashboard stay attached to that dashboard’s workspace, and ordinary reloads preserve the workspace in the URL.
+
+
+The switch picker also offers **Open in new tab** beside each active space,
+including the current one. This native exact-ID homepage link leaves the original
+page and drafts in place, without invoking selection, save/departure handling or
+Focus controls. It does not change `lastUsedId`; ordinary new tabs keep their
+existing default. The destination still uses normal startup, reads and Focus
+initialization. Known deleted/replaced targets and failed/conflicting lists revoke
+old actions, even if later refreshed; close and reopen to review them again.
+The new page rejects a target deleted after activation without fallback. This is
+not an atomic cross-tab promise or proof that a browser opened the link.
+[Feature validation and native-check limits](workspace-picker-new-tab-validation.md).
 
 Switching waits for pending actions. Unsaved drafts or open reviews require an explicit choice:
 

@@ -8062,5 +8062,11 @@
   },
   "completeBackupExportPreparing": {
     "message": "Preparing a saved snapshot for review… No download has been requested."
+  },
+  "spacesOpenNewTab": {
+    "message": "Open in new tab"
+  },
+  "spacesOpenNewTabHelp": {
+    "message": "Open a workspace separately while keeping this page and its drafts. This does not change the workspace used for ordinary new tabs."
   }
 }

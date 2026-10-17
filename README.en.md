@@ -433,7 +433,7 @@ Actual Countdown card in light and dark appearance, with English controls:
 
 ### Independent workspaces
 
-Keep sites, categories, layouts, appearance, Tasks, Scratchpad, Countdown and Focus state separate for work, study or personal use. Create, rename, duplicate and recover spaces from Trash. Existing tabs stay pinned; switching handles drafts explicitly. Migration preserves original data in Default, and complete archives include live and trashed spaces. Chrome Sync / Drive retain their original Default-only configuration scope. These are not account or security boundaries. [Usage and recovery guide](docs/workspaces.en.md).
+Keep sites, categories, layouts, appearance, Tasks, Scratchpad, Countdown and Focus state separate for work, study or personal use. Create, rename, duplicate and recover spaces from Trash. Existing tabs stay pinned; switching handles drafts explicitly. Migration preserves original data in Default, and complete archives include live and trashed spaces. Chrome Sync / Drive retain their original Default-only configuration scope. In the switch dialog, **Open in new tab** opens the exact space separately, including the current space, keeping this page and its drafts. It does not change the workspace used by ordinary new tabs. These are not account or security boundaries. [Usage and recovery guide](docs/workspaces.en.md).
 
 The recommendations below only choose module visibility; they are separate from independent data workspaces.
 

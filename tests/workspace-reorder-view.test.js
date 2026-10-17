@@ -165,7 +165,7 @@ for (const loss of ['new-focus', 'new-focus-then-body', 'pointer', 'keyboard', '
 test('workspace reorder: an open picker keeps its ordered snapshot and reopening uses the new order', async () => {
     const m = model(); await m.view.ready;
     const open = () => m.switcher.querySelector('.spaces-switch').dispatch('click');
-    const ids = () => m.document.querySelector('.spaces-picker').children.map(button => button.dataset.workspaceId);
+    const ids = () => m.document.querySelectorAll('.spaces-picker .spaces-button').map(button => button.dataset.workspaceId);
     const close = () => m.document.querySelector('.spaces-dialog').querySelectorAll('button').find(button => button.textContent === 'Close').dispatch('click');
     open(); assert.deepEqual(ids(), ['default', 'a', 'b']);
     const input = m.document.querySelector('.spaces-picker-search'); input.value = 'Twin'; input.dispatch('input');

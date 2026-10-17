@@ -8062,5 +8062,11 @@
   },
   "completeBackupExportPreparing": {
     "message": "正在准备可核对的已保存快照，尚未请求下载。"
+  },
+  "spacesOpenNewTab": {
+    "message": "在新标签页打开"
+  },
+  "spacesOpenNewTabHelp": {
+    "message": "另开工作空间，保留本页和草稿，不改变普通新标签页默认使用的工作空间。"
   }
 }

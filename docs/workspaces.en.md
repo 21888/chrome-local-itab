@@ -8,16 +8,34 @@ people using the same browser profile can still access its workspaces.
 
 Use the new-tab workspace bar or Settings → Workspaces to create, rename,
 duplicate, move to Trash and restore. Open pages stay pinned to their original
-workspace; switching elsewhere does not retarget them. New tabs use the most
-recently selected workspace.
+workspace; switching elsewhere does not retarget them. Ordinary new tabs use the
+most recently selected workspace.
 
 The switch dialog searches the displayed names in its already-loaded active list
 at opening. Matching is a literal substring, ignoring case and query-edge spaces;
 IDs and Trash are excluded. Clear restores the original order, including separate
-same-named spaces and the disabled current space. Refreshes elsewhere leave this
+same-named spaces and the current space, whose in-tab button is disabled. Refreshes elsewhere leave this
 snapshot and your input intact; reopening starts with an empty query and the latest
 loaded list. Typing, clearing or pressing Enter never switches automatically.
-Click a result to use the same pending-save and unsaved-draft checks below.
+Click a workspace name button to use the same pending-save and unsaved-draft checks below.
+
+
+Each result also has **Open in new tab**, including the current workspace. This
+native link opens the exact ID at `newtab.html?workspace=…`, without carrying over
+the current page's other query or hash. It leaves this page and its unsaved drafts
+in place; the entry does not select the workspace, save drafts, pause autosave,
+wait for pending operations or control Focus. The last-selected workspace used by
+ordinary new tabs stays unchanged. The destination still performs normal startup,
+reads and Focus initialization; running time continues normally.
+
+Filtering/repainting and closing revoke old links. A known deletion or generation
+change disables that target in the opening snapshot; a failed list read or conflict
+disables all its old actions. A later refresh does not revive them: close and
+reopen to review the current list. A deletion after activation is checked by the
+new page and fails without falling back to another workspace. This is not an
+atomic cross-tab guarantee. Native keyboard/middle-click behavior is delegated to
+the browser; the page never reports that a tab definitely opened.
+[Automated scope and remaining native checks](workspace-picker-new-tab-validation.md).
 
 In Settings → Workspaces, **Move up / Move down** swaps one neighboring active
 workspace at a time, skipping Trash. Default can move too. The first/last

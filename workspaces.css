@@ -39,7 +39,10 @@
 .spaces-picker-tools > .spaces-button { min-height: 46px; }
 .spaces-picker-count { margin: 10px 0; }
 .spaces-picker { display: grid; gap: 10px; margin: 20px 0; }
-.spaces-picker .spaces-button { min-height: 52px; }
+.spaces-picker .spaces-button { min-height: 52px; min-width: 0; }
+.spaces-picker-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; min-width: 0; }
+.spaces-picker-newtab { min-width: 0; overflow-wrap: anywhere; display: flex; align-items: center; min-height: 42px; box-sizing: border-box; padding: 8px 0; }
+.spaces-picker-newtab[aria-disabled="true"] { color: var(--template-muted, #58675e); cursor: not-allowed; text-decoration: none; }
 .spaces-primary { background: var(--template-accent, #426e59); color: var(--template-accent-ink, #fff); border-color: var(--template-accent, #426e59); }
 .spaces-primary:hover:not(:disabled) { background: var(--template-accent, #426e59); filter: brightness(.94); }
 .spaces-danger:not(:disabled) { color: #fff; background: #a52823; border-color: #a52823; }
@@ -48,7 +51,7 @@
 :root[data-color-mode="dark"] .spaces-danger:hover:not(:disabled) { color: #ffd8d2; background: #823129; border-color: #b4695f; }
 .spaces-button:focus-visible, .workspace-bar :focus-visible, #workspace-manager :focus-visible, .spaces-overlay :focus-visible { outline: 3px solid var(--template-focus, #246bd1); outline-offset: 3px; }
 @media (max-width: 620px) { .workspace-bar { padding: 12px; gap: 10px; margin-bottom: 16px; } .spaces-pinned { flex-basis: 100%; } .spaces-switch { flex: 1 1 100%; } .spaces-row { padding: 14px; } .spaces-row .spaces-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .spaces-dialog .spaces-actions { display: grid; grid-template-columns: minmax(0, 1fr); } .spaces-dialog .spaces-actions .spaces-button { width: 100%; } }
-@media (max-width: 420px) { .spaces-picker-tools { grid-template-columns: minmax(0, 1fr); } .spaces-picker-tools > .spaces-button { justify-self: start; } }
+@media (max-width: 420px) { .spaces-picker-tools { grid-template-columns: minmax(0, 1fr); } .spaces-picker-tools > .spaces-button { justify-self: start; } .spaces-picker-row { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .spaces-button { transition: none; } }
 
 /* The switcher remains reachable in every template and quote-only mode. */

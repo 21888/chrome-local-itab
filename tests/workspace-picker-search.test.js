@@ -61,7 +61,7 @@ function model({ locale = 'en', entries, saveMode = 'success' } = {}) {
     const view = window.LocalItabWorkspacesView.mount({ switcher, manager, session, lifecycle, navigate: id => record('navigate', id) });
     const dialog = () => document.querySelector('.spaces-dialog');
     const input = () => dialog()?.querySelector('.spaces-picker-search');
-    const results = () => dialog()?.querySelector('.spaces-picker').children || [];
+    const results = () => dialog()?.querySelectorAll('.spaces-picker .spaces-button') || [];
     const find = key => dialog()?.querySelectorAll('button').find(button => button.textContent === catalog[`spaces${key}`]?.message);
     const open = () => { const opener = switcher.querySelector('.spaces-switch'); opener.focus(); opener.dispatch('click'); return input(); };
     const search = value => { const field = input(); field.value = value; field.dispatch('input'); };

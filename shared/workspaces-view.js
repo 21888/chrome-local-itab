@@ -35,7 +35,7 @@
         LegacyReview: 'Review recovery choice', LegacyReviewTitle: 'Review both saved copies', LegacyKeep: 'Keep current workspaces and retain older-tab copy', LegacyReviewHelp: 'Close every older Local iTab tab before continuing. This keeps the current workspaces active and preserves the older-tab copy separately. It does not merge or delete either copy.', LegacyCurrent: 'Current workspaces', LegacyOlder: 'Older-tab copy', LegacyDetected: 'Conflict detected', LegacySites: 'Sites', LegacyTasks: 'Tasks', LegacyNotes: 'Scratchpad characters', LegacySpaces: 'Workspaces', LegacyTrash: 'In Trash', LegacyChanged: 'Saved copies changed during review. Review again before choosing a recovery action.', LegacyReviewAgain: 'Review again', LegacyResolved: 'Current workspaces are kept and the older-tab copy is retained. This old page still cannot save. Copy or export its drafts, then explicitly reopen a workspace.',
         LegacyDownload: 'Download both saved copies', LegacyRequested: 'Recovery download requested. It contains both saved workspace copies, without account credentials or cloud-provider settings. Check your downloads before making recovery changes.', LegacyExportFailed: 'Could not export both saved copies. They remain on this device. Keep this page open and retry after closing older tabs.',
         ProviderScope: 'Chrome Sync and Google Drive manage Default only. Other workspaces are protected and use complete local backups.', OpenDefault: 'Open Default workspace',
-        Open: 'Open', Available: 'Available workspaces', SavedOnly: 'Operations here use saved content. Open drafts stay in their original tabs.',
+        Open: 'Open', OpenNewTab: 'Open in new tab', OpenNewTabHelp: 'Open a workspace separately while keeping this page and its drafts. This does not change the workspace used for ordinary new tabs.', Available: 'Available workspaces', SavedOnly: 'Operations here use saved content. Open drafts stay in their original tabs.',
         MoveUp: 'Move up', MoveDown: 'Move down', Moved: 'Workspace order saved.', MoveError: 'Could not confirm the new order. Review the refreshed list before moving again.',
         SearchName: 'Search workspace names', ClearSearch: 'Clear search', SearchCount: '{count} of {total} workspaces', SearchEmpty: 'No workspaces match this name.'
     };
@@ -97,6 +97,7 @@
         function current() { return registry?.workspaces.find(item => item.id === session.id); }
         function setStatus(key) { status.textContent = t(key); }
         function controls() {
+            modal?.reconcilePicker?.();
             switchButton.disabled = busy || !registry || !session.id || legacyConflict || Boolean(loadError);
             if (createButton) createButton.disabled = busy || !registry || !session.id || legacyConflict || Boolean(loadError);
             if (retry) retry.disabled = busy;
@@ -289,8 +290,8 @@
             // Keep this opening's displayed names, identities and order stable.
             // Filtering does not reload the registry or touch page drafts.
             const snapshot = registry.workspaces.filter(w => !w.deletedAt).sort((a,b) => a.order - b.order)
-                .map(item => ({ id: item.id, name: item.name, current: item.id === session.id && !invalid }));
-            create('p', 'spaces-help', t('Pinned'), d.panel);
+                .map(item => ({ id: item.id, generation: item.generation, name: item.name, current: item.id === session.id && !invalid, revoked: false }));
+            create('p', 'spaces-help', t('OpenNewTabHelp'), d.panel);
             const tools = create('div', 'spaces-picker-tools', undefined, d.panel);
             const label = create('label', 'spaces-field spaces-picker-label', t('SearchName'), tools);
             const input = create('input', 'spaces-picker-search', undefined, label); input.type = 'search'; input.autocomplete = 'off'; input.spellcheck = false;
@@ -305,11 +306,24 @@
             const empty = create('p', 'spaces-empty', t('SearchEmpty'), d.panel);
             const close = button('Close', () => { if (usable(close)) d.close(); }, d.panel);
             let composing = false, resultRevision = 0;
+            const rows = new Set();
             const owns = node => d.valid() && node.isConnected && d.panel.contains(node);
             function usable(node) {
                 return owns(node) && !busy && !d.executing && !doc.hidden && !node.disabled &&
                     d.overlay.classList.contains('active') && !node.closest('[hidden], [inert], [aria-hidden="true"]') && node.getClientRects().length > 0;
             }
+            // Revocation is sticky for this opening, even after a later restore or
+            // successful refresh. Also remove old hrefs: native context menus
+            // need the same boundary as click/auxclick handlers.
+            d.reconcilePicker = (next = registry, failed = false) => {
+                for (const item of snapshot) {
+                    const latest = next?.workspaces?.find(candidate => candidate.id === item.id);
+                    if (failed || legacyConflict || loadError || !latest || latest.deletedAt !== null || latest.generation !== item.generation) item.revoked = true;
+                }
+                for (const row of rows) if (row.item.revoked) row.retire();
+            };
+            const retireRows = () => { for (const row of rows) row.retire(); rows.clear(); };
+            d.onClose = retireRows;
             function renderResults() {
                 const query = input.value.trim().toLowerCase();
                 const matches = snapshot.filter(item => item.name.toLowerCase().includes(query));
@@ -317,18 +331,45 @@
                 // Removing a focused result, or disabling Clear, must not leave
                 // keyboard focus outside the shared dialog focus trap.
                 if (options.contains(doc.activeElement) || (doc.activeElement === clear && !input.value)) input.focus();
-                options.replaceChildren();
+                retireRows(); options.replaceChildren();
                 for (const item of matches) {
+                    const row = create('div', 'spaces-picker-row', undefined, options);
+                    row.setAttribute('role', 'group'); row.setAttribute('aria-label', item.name);
+                    let retired = false, linkComposing = false;
+                    const owned = node => !retired && revision === resultRevision && owns(node) && node.parentElement === row && row.parentElement === options;
                     const b = button('Open', event => {
-                        if (composing || event.isComposing || event.keyCode === 229 || !usable(b) || revision !== resultRevision || b.parentElement !== options) return;
+                        if (composing || event.isComposing || event.keyCode === 229 || event.repeat || event.defaultPrevented || item.revoked || !usable(b) || !owned(b)) return;
                         d.close(); requestSwitch(item.id);
-                    }, options);
+                    }, row);
                     b.addEventListener('keydown', event => {
-                        if (['Enter', ' '].includes(event.key) && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                        if (['Enter', ' '].includes(event.key) && (composing || event.isComposing || event.keyCode === 229 || item.revoked || !owned(b))) event.preventDefault();
                     });
                     b.dataset.workspaceId = item.id;
                     b.textContent = item.name + (item.current ? ` · ${t('Loaded')}` : '');
                     b.disabled = item.current;
+                    const link = create('a', 'spaces-manage spaces-picker-newtab', t('OpenNewTab'), row);
+                    const path = 'newtab.html?workspace=' + encodeURIComponent(item.id);
+                    link.setAttribute('href', root.chrome?.runtime?.getURL?.(path) || path);
+                    link.target = '_blank'; link.rel = 'noopener'; link.tabIndex = 0;
+                    link.dataset.workspaceId = item.id;
+                    link.setAttribute('aria-label', `${t('OpenNewTab')}: ${item.name}`);
+                    const retire = () => {
+                        if (d.valid() && !doc.hidden && row.contains(doc.activeElement) && usable(input)) input.focus();
+                        retired = true; b.disabled = true; link.removeAttribute('href'); link.setAttribute('aria-disabled', 'true'); link.tabIndex = -1;
+                    };
+                    rows.add({ item, retire });
+                    function guard(event) {
+                        if (!owned(link) || item.revoked) retire();
+                        if (retired || composing || linkComposing || event.isComposing || event.keyCode === 229 || event.repeat || event.defaultPrevented ||
+                            legacyConflict || loadError || !usable(link) || link.getAttribute('aria-disabled') === 'true') event.preventDefault();
+                        // Valid native actions keep their default behavior. No
+                        // switch, save, Focus control or window.open is invoked.
+                    }
+                    for (const type of ['click', 'auxclick', 'contextmenu']) link.addEventListener(type, guard);
+                    link.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) guard(event); });
+                    link.addEventListener('compositionstart', () => { if (owned(link)) linkComposing = true; });
+                    for (const type of ['compositionend', 'focusout']) link.addEventListener(type, () => { linkComposing = false; });
+                    if (item.revoked) retire();
                 }
                 count.textContent = t('SearchCount').replace('{count}', String(matches.length)).replace('{total}', String(snapshot.length));
                 empty.hidden = matches.length !== 0; clear.disabled = !input.value;
@@ -491,7 +532,7 @@
                 await download(lines.join('\n'), 'local-itab-workspace-page-text.txt', 'text/plain;charset=utf-8'); setStatus('ExportRequested');
             } catch (_) { setStatus('ExportFailed'); }
         }
-        const unsubscribe = manager.subscribe(event => { reportLegacyConflict(event?.error); refresh(); });
+        const unsubscribe = manager.subscribe(event => { modal?.reconcilePicker?.(event?.workspaces ? event : registry, Boolean(event?.error)); reportLegacyConflict(event?.error); refresh(); });
         controls(); setStatus('Loading');
         const ready = session.ready().then(() => refresh()).then(() => { if (!closed && registry && !loadError && !legacyConflict) status.textContent = ''; }).catch(error => { if (!reportLegacyConflict(error)) reportLoadError(error); return refresh(); });
         return {ready, refresh, requestSwitch, get pending() { return busy; }, hasUncommittedWork: () => Boolean(modal || busy),
