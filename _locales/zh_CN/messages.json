@@ -997,6 +997,24 @@
   "tasksCopyFailure": {
     "message": "未能复制。可选中待办原文手动复制。"
   },
+  "tasksReuseText": {
+    "message": "用原文新建"
+  },
+  "tasksReuseHelp": {
+    "message": "这是独立草稿，可先编辑，再点击“添加”新建一条未完成待办。原任务保持不变；换行仍属于同一项。"
+  },
+  "tasksReuseRetry": {
+    "message": "重试上次添加"
+  },
+  "tasksReuseUncertain": {
+    "message": "上次添加结果尚未确认。请先重试下方原文，再添加当前草稿。"
+  },
+  "tasksReusePrevious": {
+    "message": "上次待添加原文"
+  },
+  "tasksReuseDraftRemains": {
+    "message": "上次待办已保存。当前草稿仍在；只有想再新建一条时，才点击“添加”。"
+  },
   "tasksEdit": {
     "message": "编辑"
   },

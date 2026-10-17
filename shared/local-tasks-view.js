@@ -11,6 +11,9 @@
         tasksBatchRetry: 'Retry previous add', tasksBatchUncertain: 'The previous batch could not be confirmed. Retry that same batch safely before reviewing this draft.', tasksBatchDraftRemains: 'The previous batch was saved. Your current draft is still here; review it before adding anything else.',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
+        tasksReuseText: 'New task from text', tasksReuseHelp: 'Edit this independent draft, then choose Add to create one new active task. The original task stays unchanged. Line breaks stay within one task.',
+        tasksReuseRetry: 'Retry previous add', tasksReuseUncertain: 'The previous add could not be confirmed. Retry its exact text below before adding the current draft.',
+        tasksReusePrevious: 'Previous text to add', tasksReuseDraftRemains: 'The previous task was saved. Your current draft is still here; choose Add only when you want another task.',
         tasksMoveFirst: 'Move to list start', tasksMoveFirstHelp: 'Moves this task to the start of the list without changing Next up.',
         tasksActions: 'Actions', tasksUp: 'Move up', tasksDown: 'Move down', tasksMore: 'Show all tasks', tasksLess: 'Show fewer', tasksCompleted: 'Completed', tasksRemoved: 'Removed',
         tasksData: 'Task data', tasksHelp: 'Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks.',
@@ -397,6 +400,7 @@
             const disabled = !!this.copyAttempt || !this.copyReady();
             // Keep the focused native button in place; the click guard enforces this state.
             this.host.querySelectorAll('.tasks-copy-text').forEach(node => node.setAttribute('aria-disabled', String(disabled)));
+            this.host.querySelectorAll('.tasks-reuse-text').forEach(node => node.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError)));
         }
         invalidateCopy() {
             const attempt = this.copyAttempt;
@@ -441,6 +445,137 @@
                 if (!this.destroyed) this.refreshCopyControls();
             }
         }
+        reuseTask(task, item, title, origin) {
+            if (this.localError || !this.copyCurrent(task, item, title, origin)) return;
+            const sourceText = task.text, workspace = this.controller.store.backend?.workspace;
+            let unsubscribe = () => {}, generation = 0, edited = false, composing = false, compositionEpoch = 0;
+            let saving = false, attempt = null, retryCommand = null, focusDeparted = false;
+            const moved = event => { focusDeparted = !modal.panel.contains(event.target); };
+            const departed = () => { focusDeparted = true; };
+            const modal = this.createDialog(t('tasksReuseText'), () => {
+                compositionEpoch++; unsubscribe();
+                document.removeEventListener('focusin', moved, true);
+                document.removeEventListener('visibilitychange', departed, true);
+                root.removeEventListener?.('blur', departed); root.removeEventListener?.('pagehide', departed);
+                if (this.reuseSession === modal) this.reuseSession = null;
+                if (attempt) this.controller.dismissRetry(attempt.command.operationId); this.render();
+            });
+            if (!modal) return;
+            this.reuseSession = modal;
+            const input = el('textarea', 'tasks-editor tasks-reuse-editor'); input.rows = 4; input.value = sourceText;
+            input.setAttribute('aria-label', t('tasksReuseText'));
+            const hint = el('p', 'tasks-help', `${t('tasksReuseHelp')} ${t('tasksTextLimit')}`);
+            hint.id = `tasks-reuse-help-${crypto.randomUUID()}`; input.setAttribute('aria-describedby', hint.id);
+            const previous = el('section', 'tasks-reuse-previous'); previous.hidden = true;
+            const previousText = el('p', 'tasks-latest'); previous.append(el('h3', '', t('tasksReusePrevious')), previousText);
+            const feedback = el('p', 'tasks-dialog-feedback tasks-batch-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+            const setFeedback = (text, error = false) => { feedback.textContent = text; feedback.classList.toggle('is-error', error); };
+            const owns = () => !this.destroyed && modal.isOpen && this.reuseSession === modal && input.isConnected;
+            const available = () => !this.controller.closed && !!this.controller.state &&
+                !root.LocalItabContentLifecycle?.departing && this.controller.store.backend?.workspace === workspace &&
+                !workspace?.invalidated && !workspace?._suspended;
+            // Native textarea.value normalizes CRLF/CR to LF. Until an actual
+            // input event, submit the saved snapshot, including its original breaks.
+            const currentText = () => edited ? input.value : sourceText;
+            const originalClose = modal.close;
+            modal.close = () => {
+                const restore = owns() && !focusDeparted && available() && !document.hidden && document.visibilityState !== 'hidden' &&
+                    (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
+                originalClose(false);
+                if (!restore || this.destroyed || this.dialogs.size || document.activeElement !== document.body) return;
+                const current = Array.from(this.host.querySelectorAll('[data-task-id]')).find(node => node.dataset.taskId === task.id);
+                const target = current?.querySelector('.tasks-reuse-text');
+                const visible = node => {
+                    if (!node?.isConnected || node.disabled || node.closest('[hidden], [inert]') || !node.getClientRects().length ||
+                        ['hidden', 'collapse'].includes(root.getComputedStyle?.(node).visibility)) return false;
+                    for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
+                    return true;
+                };
+                if (visible(target)) target.focus(); else if (visible(this.input)) this.input.focus();
+            };
+            const setControl = (node, disabled, hidden = false) => {
+                if (document.activeElement === node && (disabled || hidden)) input.focus();
+                node.disabled = disabled; node.hidden = hidden;
+            };
+            const update = () => {
+                if (!owns()) return;
+                const blocked = saving || !!this.controller.pending || composing || !available();
+                setControl(add, blocked || !!retryCommand);
+                setControl(retry, blocked, !retryCommand);
+                previous.hidden = !retryCommand;
+                previousText.textContent = retryCommand ? retryCommand.text : '';
+                if (!available()) setFeedback(t('tasksErrorUnavailable'), true);
+            };
+            const submit = async (retryPrevious = false) => {
+                if (!owns() || !available() || saving || this.controller.pending || composing) return;
+                if (retryPrevious) { if (!retryCommand) return; }
+                else {
+                    if (retryCommand) return;
+                    attempt = { command: this.controller.store.request('add', { text: currentText() }), generation, text: currentText() };
+                }
+                const submitted = attempt, command = submitted.command;
+                saving = true; this.reuseOperationId = command.operationId; setFeedback(t('tasksSaving')); update();
+                try {
+                    const state = await this.controller.run(command);
+                    if (!owns()) return;
+                    retryCommand = null; attempt = null;
+                    // Only this opening's unchanged draft and current confirmed
+                    // receipt may close. A new IME, ABA edit or later state owns itself.
+                    if (available() && !composing && generation === submitted.generation && currentText() === submitted.text &&
+                        this.controller.state?.revision === state.revision && !this.controller.pending &&
+                        (!this.controller.retryCommand || this.controller.retryCommand.operationId === command.operationId) &&
+                        state.receipts.at(-1) === command.operationId) modal.close();
+                    else setFeedback(t('tasksReuseDraftRemains'));
+                } catch (error) {
+                    if (!owns()) { this.controller.dismissRetry(command.operationId); return; }
+                    if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
+                        // Input changes never abandon an uncertain operation or
+                        // change its text. Retry is a separate explicit action.
+                        retryCommand = command; setFeedback(`${errorText(error)} ${t('tasksReuseUncertain')}`, true);
+                    } else {
+                        retryCommand = null; attempt = null;
+                        this.controller.dismissRetry(command.operationId); setFeedback(errorText(error), true);
+                    }
+                } finally {
+                    saving = false;
+                    if (!owns()) this.controller.dismissRetry(command.operationId);
+                    if (this.reuseOperationId === command.operationId) this.reuseOperationId = null;
+                    if (owns()) update();
+                    if (!this.destroyed) this.render();
+                }
+            };
+            const add = button('tasksAdd', event => { if (!(event.detail > 1)) submit(); }, 'tasks-primary');
+            const retry = button('tasksReuseRetry', event => { if (!(event.detail > 1)) submit(true); }, 'tasks-primary');
+            for (const node of [add, retry]) node.addEventListener('keydown', event => {
+                if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229 || composing)) event.preventDefault();
+            });
+            const changed = event => {
+                generation++; edited = true;
+                if (event.isComposing) { composing = true; compositionEpoch++; }
+                if (!saving && !retryCommand) setFeedback(''); update();
+            };
+            const blur = () => {
+                if (!composing) return;
+                const epoch = compositionEpoch;
+                // Blur can precede the final IME input. Release a cancelled
+                // composition next turn if compositionend never arrives.
+                setTimeout(() => {
+                    if (!owns() || epoch !== compositionEpoch || document.activeElement === input) return;
+                    compositionEpoch++; composing = false; update();
+                }, 0);
+            };
+            input.addEventListener('input', event => { changed(event); if (composing && document.activeElement !== input) blur(); });
+            input.addEventListener('compositionstart', () => { generation++; compositionEpoch++; composing = true; update(); });
+            input.addEventListener('compositionend', () => { compositionEpoch++; composing = false; update(); });
+            input.addEventListener('focusout', blur);
+            const actions = el('div', 'tasks-dialog-actions'); actions.append(button('tasksCancel', () => modal.close()), retry, add);
+            modal.panel.append(input, hint, previous, feedback, actions);
+            unsubscribe = this.controller.subscribe(update); modal.open(input);
+            document.addEventListener('focusin', moved, true);
+            document.addEventListener('visibilitychange', departed, true);
+            root.addEventListener?.('blur', departed); root.addEventListener?.('pagehide', departed);
+            update(); this.render();
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
             const top = el('div', 'tasks-row-main');
@@ -459,7 +594,9 @@
             copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
             const saved = { id: task.id, version: task.version, text: task.text, state: task.state };
             const copy = button('tasksCopyText', () => this.copyTask(saved, item, title, copy, copyStatus), 'tasks-copy-text');
-            actions.append(copy);
+            const reuse = button('tasksReuseText', event => { if (!(event.detail > 1)) this.reuseTask(saved, item, title, reuse); }, 'tasks-reuse-text');
+            reuse.addEventListener('keydown', event => { if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault(); });
+            actions.append(copy, reuse);
             if (task.state === 'removed') actions.append(button('tasksRestore', () => run('restore')));
             else {
                 if (task.state === 'active') {
@@ -520,7 +657,9 @@
                 this.controller.retryCommand.operationId === this.retryEffectOperationId;
             const ownsPendingBatch = busy && this.controller.retryCommand?.kind === 'addBatch' &&
                 this.controller.retryCommand.operationId === this.batchOperationId;
-            const visible = this.alwaysVisible || state?.enabled === true || showReadError || this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
+            const ownsPendingReuse = busy && this.controller.retryCommand?.kind === 'add' &&
+                this.controller.retryCommand.operationId === this.reuseOperationId;
+            const visible = this.alwaysVisible || state?.enabled === true || showReadError || !!this.reuseSession || ownsPendingReuse || this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
             this.host.hidden = !visible;
             this.onVisibility(visible);
             this.addButton.disabled = busy || !state || this.quickEntryComposing; this.batchButton.disabled = busy || !state;

@@ -1,5 +1,7 @@
 # Local Tasks validation — 2026-10-08
 
+These dated checks are historical evidence for their named features and source versions. They do not validate the later **New task from text** editor. Its 2026-10-17 model-only scope is recorded in [reuse draft validation](tasks-reuse-draft-validation.md); no new native browser or screenshot check is claimed.
+
 ## Automated checks
 
 - Full repository run: `node --test tests/*.test.js` — 49 passing tests, no failures or skips. This includes the preexisting regression scripts and the integrated Tasks reset/privacy tests.
@@ -9,7 +11,7 @@
 - Read-back verification accepts changed object property order, while rejecting changed values, reordered arrays and invalid schema fields. The property-order test reproduced a real Chrome false-error bug before its repair.
 - Page-listener and DOM models cover reload deferral during task drafts, editor/import review and pending writes; they do not claim native browser or assistive-technology coverage.
 
-## Bounded native check
+## Historical bounded native check
 
 Performed using an unpacked extension in a disposable Chrome for Testing 155 profile, with synthetic task content and no live provider accounts.
 

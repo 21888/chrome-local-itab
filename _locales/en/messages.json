@@ -997,6 +997,24 @@
   "tasksCopyFailure": {
     "message": "Could not copy. Select the task text to copy it manually."
   },
+  "tasksReuseText": {
+    "message": "New task from text"
+  },
+  "tasksReuseHelp": {
+    "message": "Edit this independent draft, then choose Add to create one new active task. The original task stays unchanged. Line breaks stay within one task."
+  },
+  "tasksReuseRetry": {
+    "message": "Retry previous add"
+  },
+  "tasksReuseUncertain": {
+    "message": "The previous add could not be confirmed. Retry its exact text below before adding the current draft."
+  },
+  "tasksReusePrevious": {
+    "message": "Previous text to add"
+  },
+  "tasksReuseDraftRemains": {
+    "message": "The previous task was saved. Your current draft is still here; choose Add only when you want another task."
+  },
   "tasksEdit": {
     "message": "Edit"
   },
