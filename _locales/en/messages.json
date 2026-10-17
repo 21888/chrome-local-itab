@@ -2397,6 +2397,9 @@
   "calculatorCopyResult": {
     "message": "Result · select and press Ctrl/Cmd+C to copy"
   },
+  "calculatorUseResult": {
+    "message": "Use result"
+  },
   "calculatorCopyAction": {
     "message": "Copy result"
   },

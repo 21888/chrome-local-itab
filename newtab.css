@@ -3664,6 +3664,7 @@ textarea:focus-visible,
 }
 .search-calculator-result[hidden], .search-calculator-copy-status[hidden] { display: none; }
 .search-calculator-result .search-calculator-output { flex: 1 1 220px; }
+.search-calculator-use-result,
 .search-calculator-copy {
     max-width: 100%;
     margin: 4px 8px;
@@ -3678,6 +3679,7 @@ textarea:focus-visible,
     cursor: pointer;
 }
 .search-calculator-copy[aria-disabled="true"] { opacity: 0.65; cursor: wait; }
+.search-calculator-use-result:focus-visible,
 .search-calculator-copy:focus-visible { outline: 3px solid var(--template-focus); outline-offset: 2px; }
 .search-calculator-copy-status { flex: 1 1 100%; margin: 0 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .search-calculator-copy-status.is-error { color: var(--template-error, #b42318); }

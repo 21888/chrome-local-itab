@@ -791,12 +791,16 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     calculatorCopy.className = 'search-calculator-copy';
     calculatorCopy.type = 'button';
     calculatorCopy.textContent = calculatorText('calculatorCopyAction', 'Copy result');
+    const calculatorUseResult = document.createElement('button');
+    calculatorUseResult.className = 'search-calculator-use-result';
+    calculatorUseResult.type = 'button';
+    calculatorUseResult.textContent = calculatorText('calculatorUseResult', 'Use result');
     const calculatorCopyStatus = document.createElement('div');
     calculatorCopyStatus.className = 'search-calculator-copy-status';
     calculatorCopyStatus.setAttribute('role', 'status');
     calculatorCopyStatus.setAttribute('aria-live', 'polite');
     calculatorCopyStatus.setAttribute('aria-atomic', 'true');
-    calculatorResultRow.append(calculatorOutput, calculatorCopy, calculatorCopyStatus);
+    calculatorResultRow.append(calculatorOutput, calculatorCopy, calculatorUseResult, calculatorCopyStatus);
     let calculatorResult = null;
     const clearCopyStatus = () => {
         calculatorCopyStatus.textContent = '';
@@ -868,14 +872,14 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
         clearCalculatorOutput();
         clearSearchStatus();
     };
-    const copyResultCurrent = result => {
+    const resultCurrent = (result, control = calculatorCopy) => {
         if (!result || calculatorResult !== result || window.localCalculatorView !== searchOwner ||
             input.value !== result.expression || editRevision !== result.editRevision ||
             submissionRevision !== result.submissionRevision || calculatorValue.value !== result.value ||
-            !input.isConnected || !calculatorCopy.isConnected || !container.contains(calculatorCopy) ||
+            !input.isConnected || !control.isConnected || !container.contains(control) ||
             calculatorOutput.hidden || composing || document.hidden || document.visibilityState === 'hidden' ||
-            window.LocalItabContentLifecycle?.departing || !calculatorCopy.getClientRects().length) return false;
-        for (let node = calculatorCopy; node; node = node.parentElement) {
+            window.LocalItabContentLifecycle?.departing || !control.getClientRects().length) return false;
+        for (let node = control; node; node = node.parentElement) {
             const style = window.getComputedStyle?.(node);
             if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true' ||
                 style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
@@ -888,7 +892,7 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     });
     calculatorCopy.addEventListener('click', async event => {
         const result = calculatorResult;
-        if (event.detail > 1 || calculatorCopyAttempt || !copyResultCurrent(result)) return;
+        if (event.detail > 1 || calculatorCopyAttempt || !resultCurrent(result)) return;
         const attempt = { owner: searchOwner, valid: true };
         calculatorCopyAttempt = attempt;
         const cancel = invalidateCalculatorCopy;
@@ -905,7 +909,7 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
         };
         const current = () => {
             if (observer && invalidating(observer.takeRecords())) cancel();
-            return attempt.valid && calculatorCopyAttempt === attempt && copyResultCurrent(result);
+            return attempt.valid && calculatorCopyAttempt === attempt && resultCurrent(result);
         };
         document.addEventListener('visibilitychange', cancel, true);
         window.addEventListener?.('blur', cancel);
@@ -933,6 +937,27 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
             if (calculatorCopyAttempt === attempt) calculatorCopyAttempt = null;
             // A replacement owner becomes available without receiving the old receipt.
             window.localCalculatorView?.refreshCopyControl?.();
+        }
+    });
+    calculatorUseResult.addEventListener('keydown', event => {
+        if (['Enter', ' '].includes(event.key) && (event.repeat || composing || customComposing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+    });
+    calculatorUseResult.addEventListener('click', event => {
+        const result = calculatorResult;
+        const current = () => !customComposing && !input.disabled && !input.readOnly &&
+            resultCurrent(result, calculatorUseResult) && resultCurrent(result, input);
+        if (event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 || !current()) return;
+        // Focus can synchronously edit, submit or remount. Recheck before replacing a draft.
+        input.focus();
+        if (document.activeElement !== input || !current()) return;
+        const value = `=${result.value}`;
+        input.value = value;
+        markSearchEdited();
+        const revision = editRevision, operation = submissionRevision;
+        updateCalculatorHint();
+        if (input.isConnected && window.localCalculatorView === searchOwner && document.activeElement === input &&
+            input.value === value && editRevision === revision && submissionRevision === operation) {
+            input.setSelectionRange(value.length, value.length);
         }
     });
     const openSearch = url => {

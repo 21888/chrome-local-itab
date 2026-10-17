@@ -2397,6 +2397,9 @@
   "calculatorCopyResult": {
     "message": "结果 · 选中后按 Ctrl/Cmd+C 复制"
   },
+  "calculatorUseResult": {
+    "message": "用结果继续计算"
+  },
   "calculatorCopyAction": {
     "message": "复制结果"
   },

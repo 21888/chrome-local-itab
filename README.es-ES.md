@@ -310,6 +310,8 @@ Después de eliminar un acceso directo, **Undo delete** permite deshacer la últ
 
 Empieza la búsqueda con `=` y pulsa Enter o Calcular, por ejemplo `=(12 + 3) / 2` → `7.5`. Admite decimales, signos unarios `+`/`-`, `+ - * /` y paréntesis. Las expresiones, resultados y errores permanecen en esta pestaña: sin búsquedas, historial ni almacenamiento, incluso sin configurar la URL del buscador personalizado. Quita `=` para volver a buscar. Al editar se borra el resultado anterior.
 
+Tras un cálculo correcto, “Use result” reemplaza la búsqueda por `=` seguido del resultado completo y sitúa el cursor al final. Añade `+`, `-`, `*` o `/` y envía explícitamente el siguiente cálculo. Se borran el resultado anterior y el aviso de copia, sin calcular, buscar, copiar ni guardar automáticamente. El texto sigue siendo un borrador sin guardar en esta pestaña. [Alcance de la validación](docs/calculator-continue-result-validation.md).
+
 Tras calcular, usa Tab para llegar al campo de resultado de solo lectura y seleccionar el valor exacto; pulsa Ctrl/Cmd+C para copiarlo con el navegador. El cálculo mantiene el foco en la expresión; editar o iniciar composición IME borra el campo. El resultado puede mostrarse en notación científica y pegarse en otro cálculo, por ejemplo `=1e-7 * 2`.
 
 <details>
