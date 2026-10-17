@@ -2640,6 +2640,12 @@
   "completeBackupModules": {
     "message": "Modules to include"
   },
+  "completeBackupSelectAll": {
+    "message": "Select all available modules"
+  },
+  "completeBackupClearSelection": {
+    "message": "Clear selection"
+  },
   "completeBackupConfig": {
     "message": "Configuration, sites and local images"
   },

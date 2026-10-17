@@ -59,6 +59,8 @@
     "SavedOnly": "Only saved data is included. Save drafts first. Unsaved edits, open reviews, calculator input and running or paused Focus sessions are not migrated.",
     "Privacy": "The JSON file can contain private notes, task history, URLs and images. Keep it private. This backup stays local; it does not add these modules to Chrome Sync or Google Drive.",
     "Modules": "Modules to include",
+    "SelectAll": "Select all available modules",
+    "ClearSelection": "Clear selection",
     "Config": "Configuration, sites and local images",
     "Tasks": "Tasks and saved history",
     "Scratchpad": "Scratchpad",
@@ -129,6 +131,8 @@
         for (const key of ['Help', 'WorkspaceHelp', 'SyncSafety', 'PromptHelp', 'CollectionHelp', 'SavedOnly', 'Privacy', 'LargeFile']) make('p', 'form-hint', t(key), shell);
         const choices = make('fieldset', 'complete-backup-modules', undefined, shell);
         make('legend', '', t('Modules'), choices);
+        const button = (key, name, parent = actions, danger = false) => { const el = make('button', `btn ${danger ? 'btn-danger' : 'btn-secondary'} complete-backup-${name}`, t(key), parent); el.type = 'button'; return el; };
+        const selectAll = button('SelectAll', 'select-all', choices), clearSelection = button('ClearSelection', 'clear-selection', choices);
         const inputs = {};
         for (const id of MODULES) {
             const label = make('label', 'complete-backup-module', undefined, choices);
@@ -136,7 +140,6 @@
             make('span', '', t(titleKey(id)), label);
         }
         const actions = make('div', 'complete-backup-actions', undefined, shell);
-        const button = (key, name, parent = actions, danger = false) => { const el = make('button', `btn ${danger ? 'btn-danger' : 'btn-secondary'} complete-backup-${name}`, t(key), parent); el.type = 'button'; return el; };
         const exportButton = button('Export', 'export'), choose = button('Choose', 'choose');
         const file = make('input', 'complete-backup-file', undefined, shell); file.type = 'file'; file.accept = '.json,application/json'; file.hidden = true;
         const panel = make('section', 'complete-backup-preview', undefined, shell); panel.hidden = true;
@@ -182,6 +185,7 @@
             const busy = ['applying', 'exporting'].includes(phase);
             const unknownScope = phase === 'large' || phase === 'reading' && !availableModules;
             for (const id of MODULES) inputs[id].disabled = busy || unknownScope || Boolean(availableModules && !availableModules.includes(id));
+            selectAll.disabled = clearSelection.disabled = busy || unknownScope;
             exportButton.disabled = choose.disabled = file.disabled = recovery.disabled = busy;
             target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = busy || phase === 'reading';
             inspectInterrupted.disabled = busy; downloadInterrupted.disabled = busy || phase === 'reading'; recoverInterrupted.disabled = busy || !interruptedReview;
@@ -338,6 +342,17 @@
             if (!current(generation) || largeButton.disabled || phase !== 'large' || !pendingLargeFile) return;
             const chosen = pendingLargeFile; readFile(chosen, ++generation);
         });
+        function selectModules(checked, origin) {
+            if (!current(generation) || origin.disabled) return;
+            let changed = false;
+            for (const id of MODULES) {
+                if (availableModules && !availableModules.includes(id) || inputs[id].checked === checked) continue;
+                inputs[id].checked = checked; changed = true;
+            }
+            if (changed && source) review(++generation, origin);
+        }
+        selectAll.addEventListener('click', () => selectModules(true, selectAll));
+        clearSelection.addEventListener('click', () => selectModules(false, clearSelection));
         for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (!current(generation) || input.disabled || !source) return; review(++generation, input); });
         target.addEventListener('change', () => { if (!current(generation) || target.disabled || !source) return; targetWorkspaceId = target.value || undefined; review(++generation, target); });
         promptTargetSelect.addEventListener('change', () => { if (!current(generation) || promptTargetSelect.disabled || !source) return; promptTarget = promptTargetSelect.value || undefined; review(++generation, promptTargetSelect); });

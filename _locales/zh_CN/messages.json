@@ -2640,6 +2640,12 @@
   "completeBackupModules": {
     "message": "包含的模块"
   },
+  "completeBackupSelectAll": {
+    "message": "全选可用模块"
+  },
+  "completeBackupClearSelection": {
+    "message": "全部取消"
+  },
   "completeBackupConfig": {
     "message": "配置、网站及本地图片"
   },

@@ -24,6 +24,14 @@ This list describes only the verified preview’s names and membership. It does 
 
 A schema-1 file requires explicitly choosing a live destination workspace in the preview; it cannot target Trash. Other workspaces remain unchanged. When selected, prompts and collections each require confirming their separate global destination. Review matching-ID conflicts before replacement. Exact prompt and body-version IDs are preserved; restoring collections without the matching prompts can leave unresolved links. Never substitute a similarly named prompt.
 
+## Selecting modules together
+
+Use **Clear selection** to uncheck the available modules, then check a single module such as Scratchpad. **Select all available modules** checks all seven modules before a file is loaded; after a file is checked, it selects only the modules included in that file. Missing modules remain disabled. These buttons only change the selection; they do not export or restore automatically. An empty selection cannot be exported or applied.
+
+Changing a loaded file's selection clears the old preview and workspace-impact list and requests one fresh review. Clearing all modules keeps the file and its known module list for later reselection, without running an empty Store review. Existing explicit destinations for that same file are retained. Selecting everything does not choose a workspace or either global-library destination for you: all required destinations must still be selected explicitly, and replacement still needs its separate confirmation. Selecting all five workspace modules restores the full-workspace scope and its names/status impact list, so review that wider replacement carefully.
+
+The buttons share the module checkboxes' locks while the first file check, a large-file confirmation, export or replacement is pending. Once the file's modules are known, you can change selection during a fresh review; older results cannot overwrite the newer choice. Repeating an already-complete selection or clear leaves the current review and feedback alone. Focus-session, unsaved-draft, configuration-import and recovery protections still apply.
+
 ## Export and restore
 
 1. Select modules and choose **Export selected modules**. A download request is not proof that a file was saved. Check the browser’s download list and open the destination folder before removing the old installation.
