@@ -1,5 +1,77 @@
 # Complete-backup workspace names and destinations
 
+## Independent group navigation, 2026-10-17
+
+This small reading-navigation update starts from commit
+`942b0ac064eba3862799e86e4978a4fd590ee292`, tree
+`950c6dc02d61608a45ec0dbf6140163ec0eb374e`. It does not change impact
+calculation. The outer disclosure still starts closed. Opening it exposes all
+three group names and exact counts before any individual workspace rows.
+Each nonempty group is a separate native `details`/`summary`, initially closed;
+there is no shared `name` attribute or exclusive-accordion behavior. Empty
+groups remain labeled `section`/`h5` elements showing 0, without an empty
+disclosure or list. All full names, IDs, row ordering and exclusive grouping
+remain intact. In the bounded 100-incoming/100-current fixture, removed rows
+can be opened without expanding the 100 added rows.
+
+The existing clear function now also closes the group disclosures before
+removing them. File/module/destination changes, failures, Cancel, stale results
+and destruction keep the same ownership and invalidation paths. A settled
+read-only recovery download retains the same review/ticket and each group's
+current open state, including when a recovery copy is missing or download
+submission fails. Only a later explicit Apply uses that retained ticket.
+
+The existing first-child label/count assertions were retained and strengthened
+with `details`/`summary` versus static `section`/`h5` assertions. Existing 200-ID,
+identity/order, combined-change, literal-text, zero-change warning, schema and
+scope exclusions remain. The shared DOM helper was read and left unchanged.
+The review's existing `h4` headings remain unchanged. New CSS only adds group
+spacing, wrapping and label weight/cursor, preserving native summary markers
+and the existing focus outline.
+
+The initial two-test run against the original View failed at the absent group
+disclosure and its empty list; the same two tests passed after implementation.
+This establishes a navigation change, not two newly discovered product bugs.
+The final focused run passed **176/176** across the following ten entries,
+including **47/47** workspace-impact cases:
+
+```sh
+NODE_OPTIONS=--max-old-space-size=512 node --test --test-reporter=tap --test-concurrency=1 \
+  tests/complete-backup-workspace-impact.test.js \
+  tests/complete-backup-view.test.js \
+  tests/complete-backup-scope-reading.test.js \
+  tests/complete-backup-module-bulk-select.test.js \
+  tests/complete-backup-target-recovery.test.js \
+  tests/complete-backup-download-review.test.js \
+  tests/complete-backup-prompts-view.test.js \
+  tests/complete-backup-collections-view.test.js \
+  tests/complete-backup-contrast.test.js \
+  tests/dialog-details-focus.test.js
+```
+
+Retained local evidence SHA-256:
+
+- Original View: `6d67ec149d7cd6503c554889f3c1800c6f17cdd107f68d8a81f401ff77738fe2`
+- Initial two-test red log: `7aab09aa42018b0924ee09ce4ffc3c2706cbb51707e5aee4a212cc9a9e837256`
+- Initial two-test green log: `c81fde1554d042258246749e8a058bf5478597baf933bdcdd87a21ab56c8c7c9`
+- Final focused log: `4753b4f91f0d7b8577d6c237adac86455718be7ffbd27ae83fba948eeca45192`
+- Final View: `c87c9a1b93c7c3ebcbd7abe3cf7ffacbdb07042d88c778f7882713273e886590`
+- Final workspace-impact test: `32510ea7d0ca7a112f805ed52374abcde2ba47c37d9292b0d50051ca96349083`
+
+The tests use synthetic DOM and bounded RAM Store fixtures. Their visibility,
+focus and non-interception assertions do not establish actual Chrome
+Enter/Space activation, layout, screen-reader behavior, downloads or installed
+extension upgrades. No native-browser screenshots or browser acceptance are
+claimed. No full/scale suite, release, push, CWS submission, provider call,
+user-device access, paid service or permission change was performed. Store,
+codec, registry, migrations, helpers, workflow and manifest 1.1.155 are unchanged.
+Existing incident/release restrictions are unaffected.
+
+## Original disclosure validation (historical)
+
+The following records the initial disclosure implementation and its original
+baseline, checks and retained evidence; it predates the group-navigation update.
+
 This is a view-only disclosure in the existing JSON restore review. It appears
 only when a verified preview has `schemaVersion >= 2`, workspace scope `all`, and
 all four current/incoming live/Trash arrays. A `Map` joins full stable IDs, never

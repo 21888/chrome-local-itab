@@ -39,7 +39,7 @@
     "AllScope": "This replaces the live workspace list and Trash with the backup. Workspaces absent from the file will leave the current list. A complete recovery copy is saved first.",
     "MatchingScope": "Selected modules are replaced across every matching workspace, including Trash. Workspace names, order and live/Trash status stay unchanged.",
     "WorkspaceImpact": "Workspace names and destinations",
-    "WorkspaceImpactHelp": "This shows only names and live/Trash membership from the verified preview. It is not a restore result or an interrupted-restore recovery action. Saved data will be checked again when you confirm replacement.",
+    "WorkspaceImpactHelp": "Expand a nonempty group to review its full workspace names and IDs. This shows only names and live/Trash membership from the verified preview. It is not a restore result or an interrupted-restore recovery action. Saved data will be checked again when you confirm replacement.",
     "WorkspaceImpactAdded": "Brought in from backup",
     "WorkspaceImpactRemoved": "No longer retained in the current workspace list or Trash after restore",
     "WorkspaceImpactChanged": "Name or status changes",
@@ -253,7 +253,11 @@
             if (error?.mayHaveCommitted || error?.code === 'UNCONFIRMED') return t('Unconfirmed');
             return t(({CONFIG_IMPORT_PENDING:'ConfigImportPending',CONFIG_IMPORT_RECEIPT_INVALID:'ConfigImportReceiptInvalid',DUPLICATE_KEY:'DuplicateKey',INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
         };
-        function clearWorkspaceImpact() { workspaceImpact.hidden = true; workspaceImpact.open = false; workspaceImpactContent.replaceChildren(); }
+        function clearWorkspaceImpact() {
+            workspaceImpact.hidden = true; workspaceImpact.open = false;
+            for (const group of workspaceImpactContent.querySelectorAll('details')) group.open = false;
+            workspaceImpactContent.replaceChildren();
+        }
         function renderWorkspaceImpact(result) {
             const spaces = result.workspaces;
             if (!(result.schemaVersion >= 2) || spaces?.scope !== 'all' || !['current', 'currentTrash', 'incoming', 'incomingTrash'].every(key => Array.isArray(spaces[key]))) return;
@@ -275,8 +279,9 @@
             }
             const describe = item => item ? `${item.name} (${t('WorkspaceImpact' + item.state)})` : t('WorkspaceImpactAbsent');
             for (const [kind, items] of Object.entries(groups)) {
-                const section = make('section', '', undefined, workspaceImpactContent); section.dataset.impactGroup = kind;
-                make('h5', '', `${t('WorkspaceImpact' + titleKey(kind))}: ${items.length}`, section);
+                const section = make(items.length ? 'details' : 'section', 'complete-backup-workspace-impact-group', undefined, workspaceImpactContent); section.dataset.impactGroup = kind;
+                make(items.length ? 'summary' : 'h5', '', `${t('WorkspaceImpact' + titleKey(kind))}: ${items.length}`, section);
+                if (!items.length) continue;
                 const list = make('ul', 'complete-backup-counts', undefined, section);
                 for (const item of items) {
                     const row = make('li', '', undefined, list);

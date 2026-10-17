@@ -25,7 +25,7 @@ function sample() {
         incomingTrashCount: 3, currentTrashCount: 2
     }};
 }
-function mount({locale = 'en', store: supplied, result = sample()} = {}) {
+function mount({locale = 'en', store: supplied, result = sample(), download} = {}) {
     const document = createDocument({blurUnavailableFocus: true, aggregateTextContent: true});
     const host = document.createElement('div'); document.body.append(host);
     // Missing UI catalogs use the production English fallback, not a claimed third locale.
@@ -42,7 +42,7 @@ function mount({locale = 'en', store: supplied, result = sample()} = {}) {
     for (const [method, key] of [['review', 'review'], ['restore', 'restore'], ['export', 'export'], ['recovery', 'recovery'], ['inspectInterruptedRestore', 'inspect'], ['exportInterruptedCandidates', 'interrupted']]) {
         if (typeof original[method] === 'function') store[method] = (...args) => { calls[key].push(args); return original[method](...args); };
     }
-    const view = window.LocalItabCompleteBackupView.mount(host, {store, download: async (...args) => calls.downloads.push(args), reload: () => assert.fail('no automatic reload')});
+    const view = window.LocalItabCompleteBackupView.mount(host, {store, download: async (...args) => { calls.downloads.push(args); if (download) await download(...args); }, reload: () => assert.fail('no automatic reload')});
     const get = name => host.querySelector('.complete-backup-' + name);
     const select = (text = 'synthetic', chosen = {}) => {
         get('choose').focus(); get('file').files = [{size: Buffer.byteLength(text), text: async () => text, ...chosen}]; get('file').dispatch('change');
@@ -57,17 +57,30 @@ function ids(m, kind) { return rows(m, kind).map(row => row.children[0].textCont
 function counts(m, expected) {
     for (const [kind, count] of Object.entries(expected)) {
         const key = {added: 'WorkspaceImpactAdded', removed: 'WorkspaceImpactRemoved', changed: 'WorkspaceImpactChanged'}[kind];
-        assert.equal(group(m, kind).children[0].textContent, `${m.t(key)}: ${count}`);
+        const item = group(m, kind), label = item.children[0];
+        // Keep the existing full label/count contract at the first child. The
+        // nonempty group's label is now the native disclosure activation target.
+        assert.equal(label.textContent, `${m.t(key)}: ${count}`);
+        assert.equal(item.tagName, count ? 'DETAILS' : 'SECTION');
+        assert.equal(label.tagName, count ? 'SUMMARY' : 'H5');
         assert.equal(rows(m, kind).length, count);
+        if (!count) assert.equal(item.querySelectorAll('details,summary,ul').length, 0);
     }
 }
 function rowText(m, kind, id) {
     const row = rows(m, kind).find(row => row.children[0].textContent === `${m.t('WorkspaceImpactId')}: ${id}`);
     assert(row, 'full stable identity has a row: ' + id); return row.children.map(child => child.textContent);
 }
-function cleared(node) {
+function openAllGroups(m) {
+    const node = impact(m); node.open = true;
+    const groups = node.querySelectorAll('details');
+    for (const item of groups) item.open = true;
+    return groups;
+}
+function cleared(node, oldGroups = []) {
     assert.equal(node.hidden, true); assert.equal(node.open, false);
     assert.equal(node.querySelector('.complete-backup-workspace-impact-content').children.length, 0, 'old names/statuses removed synchronously');
+    for (const item of oldGroups) { assert.equal(item.open, false); assert.equal(item.isConnected, false); }
 }
 async function ready(m, text) { m.select(text); await until(() => !m.get('apply').disabled); return impact(m); }
 
@@ -90,9 +103,44 @@ for (const locale of ['en', 'zh_CN', 'missing-catalog']) test(`names and destina
         assert.equal(row[1], `${m.t('WorkspaceImpactCurrent')}: ${kind === 'added' ? m.t('WorkspaceImpactAbsent') : present}`);
         assert.equal(row[2], `${m.t('WorkspaceImpactAfter')}: ${kind === 'removed' ? m.t('WorkspaceImpactAbsent') : present}`);
     }
+    for (const item of node.querySelectorAll('details')) assert.equal(item.open, false);
     assert.equal(node.querySelectorAll('li').length, 8, 'combined rename and status change occurs once');
     assert.equal(m.calls.review.length, 1); assert.equal(m.calls.restore.length, 0);
     assert.equal(m.get('counts').children.length, 5, 'the original module counts remain the primary list');
+});
+
+test('group navigation exposes three counts before any rows and opens nonempty groups independently', async t => {
+    const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m);
+    node.open = true;
+    const groups = ['added', 'removed', 'changed'].map(kind => group(m, kind));
+    for (const item of groups) {
+        assert.equal(item.tagName, 'DETAILS'); assert.equal(item.open, false);
+        assert.equal(item.children[0].tagName, 'SUMMARY');
+        assert.equal(item.children[0].getClientRects().length, 1, 'group label and count are available before rows');
+        assert.equal(item.querySelector('li').getClientRects().length, 0, 'rows begin collapsed');
+    }
+    counts(m, {added: 2, removed: 2, changed: 4});
+    groups[1].open = true;
+    assert.equal(groups[1].querySelector('li').getClientRects().length, 1);
+    assert.equal(groups[0].open, false); assert.equal(groups[2].open, false);
+    groups[2].open = true; groups[1].open = false;
+    assert.equal(groups[2].open, true, 'collapsing one group does not collapse another');
+    assert.equal(m.calls.review.length, 1); assert.equal(m.calls.restore.length, 0);
+});
+
+test('zero-count groups are labeled static sections without empty disclosure controls or lists', async t => {
+    const result = sample(), spaces = result.workspaces;
+    spaces.incoming = copy(spaces.current); spaces.incomingTrash = copy(spaces.currentTrash);
+    const m = mount({result}); t.after(() => m.view.destroy()); const node = await ready(m); node.open = true;
+    counts(m, {added: 0, removed: 0, changed: 0});
+    for (const kind of ['added', 'removed', 'changed']) {
+        const item = group(m, kind);
+        assert.equal(item.tagName, 'SECTION'); assert.equal(item.children[0].tagName, 'H5');
+        assert.equal(item.children[0].getClientRects().length, 1);
+        assert.equal(item.querySelectorAll('details,summary,ul').length, 0);
+    }
+    assert.equal(node.querySelectorAll('details').length, 0);
+    assert.equal(m.get('workspace-impact-unchanged').textContent, m.t('WorkspaceImpactUnchanged'));
 });
 
 for (const kind of ['identical', 'order and last-used only']) test(`${kind} previews do not claim contents/order are unchanged`, async t => {
@@ -134,6 +182,12 @@ test('all 200 union identities are shown without merging equal names or truncati
     counts(m, {added: 100, removed: 100, changed: 0});
     assert.equal(new Set([...ids(m, 'added'), ...ids(m, 'removed')]).size, 200);
     assert.equal(ids(m, 'added').at(-1), 'new_trash_049'); assert.equal(ids(m, 'removed').at(-1), 'old_trash_049');
+    impact(m).open = true;
+    for (const kind of ['added', 'removed', 'changed']) assert.equal(group(m, kind).children[0].getClientRects().length, 1);
+    assert.equal(rows(m, 'added')[0].getClientRects().length, 0);
+    group(m, 'removed').open = true;
+    assert.equal(rows(m, 'removed').at(-1).getClientRects().length, 1, 'last removed identity is reachable without opening added rows');
+    assert.equal(group(m, 'added').open, false);
 });
 
 test('prototype-like IDs, HTML and Unicode names remain full text with no executable children', async t => {
@@ -157,11 +211,23 @@ test('expanding and collapsing is native markup with no new Store call, write or
     for (const open of [true, false, true, false]) { node.open = open; node.dispatch('toggle'); assert.equal(m.document.activeElement, summary); }
     assert.equal(JSON.stringify(m.calls), before); assert.equal(node.listeners.size, 0); assert.equal(summary.listeners.size, 0);
     assert.equal(summary.getAttribute('role'), undefined); assert.equal(summary.getAttribute('tabindex'), undefined);
+    node.open = true;
+    const feedback = m.get('status').textContent;
+    for (const item of node.querySelectorAll('details')) {
+        const label = item.children[0]; label.focus(); assert.equal(m.document.activeElement, label);
+        for (const key of ['Enter', ' ']) assert.equal(label.dispatch('keydown', {key}).prevented, false);
+        for (const open of [true, false, true, false]) { item.open = open; item.dispatch('toggle'); assert.equal(m.document.activeElement, label); }
+        assert.equal(item.listeners.size, 0); assert.equal(label.listeners.size, 0);
+        for (const attribute of ['role', 'tabindex', 'aria-live']) assert.equal(label.getAttribute(attribute), undefined);
+        assert.equal(item.getAttribute('name'), undefined, 'groups do not form an exclusive accordion');
+    }
+    assert.equal(JSON.stringify(m.calls), before); assert.equal(m.get('status').textContent, feedback);
+    assert.equal(node.querySelectorAll('[aria-live]').length, 0, 'private names and IDs are outside live regions');
 });
 
 for (const action of ['module change', 'empty selection', 'new file', 'large file', 'Cancel', 'Escape', 'export', 'inspect interrupted', 'destroy']) {
     test(`${action} synchronously removes and collapses the prior details`, async t => {
-        const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m); node.open = true;
+        const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m), oldGroups = openAllGroups(m);
         const wait = deferred(); const oldReview = m.store.review; m.store.review = () => wait.promise;
         if (action === 'module change' || action === 'empty selection') {
             if (action === 'empty selection') for (const input of m.host.querySelectorAll('[data-module]')) input.checked = false;
@@ -174,28 +240,29 @@ for (const action of ['module change', 'empty selection', 'new file', 'large fil
         else if (action === 'export') m.get('export').dispatch('click');
         else if (action === 'inspect interrupted') m.get('inspect-interrupted').dispatch('click');
         else assert.equal(m.view.destroy(), true);
-        cleared(node); assert.equal(m.calls.restore.length, 0);
+        cleared(node, oldGroups); assert.equal(m.calls.restore.length, 0);
         if (action !== 'destroy') m.view.cancel();
-        wait.resolve(sample()); await tick(); cleared(node); m.store.review = oldReview;
+        wait.resolve(sample()); await tick(); cleared(node, oldGroups); m.store.review = oldReview;
     });
 }
 
 for (const failure of ['read', 'review', 'oversize', 'apply']) test(`${failure} failure cannot retain old names or open state`, async t => {
-    const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m); node.open = true;
+    const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m), oldGroups = openAllGroups(m);
     if (failure === 'apply') { m.store.restore = async () => { throw {code: 'CONFLICT'}; }; m.get('apply').dispatch('click'); }
     else if (failure === 'review') { m.store.review = async () => { throw {code: 'READ'}; }; m.select('bad'); }
     else m.select('bad', failure === 'oversize' ? {size: 33 * 1024 * 1024} : {text: async () => { throw Error('synthetic'); }});
-    await until(() => m.get('preview').hidden); cleared(node); assert.equal(m.get('apply').disabled, true);
+    await until(() => m.get('preview').hidden); cleared(node, oldGroups); assert.equal(m.get('apply').disabled, true);
 });
 
 test('switching all to matching and back uses fresh collapsed details with the original review arguments', async t => {
-    const m = mount(); t.after(() => m.view.destroy()); let node = await ready(m); node.open = true;
+    const m = mount(); t.after(() => m.view.destroy()); let node = await ready(m); const oldGroups = openAllGroups(m);
     const original = m.store.review;
     m.store.review = async (...args) => { const result = await original(...args); result.workspaces.scope = args[1].length === 5 ? 'all' : 'matching'; return result; };
-    const focus = m.host.querySelector('[data-module="focus"]'); focus.checked = false; focus.dispatch('change'); cleared(node);
+    const focus = m.host.querySelector('[data-module="focus"]'); focus.checked = false; focus.dispatch('change'); cleared(node, oldGroups);
     await until(() => !m.get('apply').disabled); cleared(node);
     focus.checked = true; focus.dispatch('change'); await until(() => !m.get('apply').disabled);
     node = impact(m); assert.equal(node.open, false); assert.equal(node.hidden, false);
+    for (const item of node.querySelectorAll('details')) { assert.equal(item.open, false); assert(!oldGroups.includes(item)); }
     assert.deepEqual(m.calls.review.map(args => [args[0], args[1] ? Array.from(args[1]) : undefined, Object.keys(args[2])]), [
         ['synthetic', undefined, []], ['synthetic', modules.slice(0, 4), []], ['synthetic', modules, []]
     ]);
@@ -204,10 +271,10 @@ test('switching all to matching and back uses fresh collapsed details with the o
 
 for (const stage of ['file', 'review']) for (const action of ['Cancel', 'new file', 'destroy']) {
     test(`stale ${stage} resolution cannot revive details after ${action}`, async t => {
-        const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m); node.open = true;
+        const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m), oldGroups = openAllGroups(m);
         const wait = deferred(), original = m.store.review; let entered = false;
         if (stage === 'review') m.store.review = () => { entered = true; return wait.promise; };
-        m.select('stale', stage === 'file' ? {text: () => wait.promise} : {}); cleared(node);
+        m.select('stale', stage === 'file' ? {text: () => wait.promise} : {}); cleared(node, oldGroups);
         if (stage === 'review') await until(() => entered);
         if (action === 'Cancel') m.get('cancel').dispatch('click');
         else if (action === 'destroy') m.view.destroy();
@@ -215,13 +282,13 @@ for (const stage of ['file', 'review']) for (const action of ['Cancel', 'new fil
         const before = node.textContent, outside = m.document.createElement('input'); m.document.body.append(outside); outside.focus();
         wait.resolve(stage === 'file' ? 'STALE FILE' : sample()); await tick();
         assert.equal(node.textContent, before); assert.equal(m.document.activeElement, outside);
-        if (action !== 'new file') cleared(node); else { assert.equal(node.hidden, false); assert.equal(node.open, false); }
+        if (action !== 'new file') cleared(node, oldGroups); else { assert.equal(node.hidden, false); assert.equal(node.open, false); for (const item of node.querySelectorAll('details')) assert.equal(item.open, false); }
         assert.equal(m.calls.restore.length, 0);
     });
 }
 
 test('out-of-order scope reviews cannot revive old all-scope names after a newer matching result', async t => {
-    const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m); node.open = true;
+    const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m), oldGroups = openAllGroups(m);
     const wait = deferred(); let entered = false, turn = 0;
     m.store.review = async (_text, selected) => {
         const result = sample(); result.selected = selected;
@@ -230,16 +297,44 @@ test('out-of-order scope reviews cannot revive old all-scope names after a newer
     };
     const focus = m.host.querySelector('[data-module="focus"]'); focus.checked = false; focus.dispatch('change'); await until(() => entered);
     const tasks = m.host.querySelector('[data-module="tasks"]'); tasks.checked = false; tasks.dispatch('change');
-    await until(() => !m.get('apply').disabled); cleared(node); wait.resolve(sample()); await tick(); cleared(node);
+    await until(() => !m.get('apply').disabled); cleared(node, oldGroups); wait.resolve(sample()); await tick(); cleared(node, oldGroups);
     assert.deepEqual(Array.from(m.host.querySelectorAll('[data-module]').filter(input => input.checked).map(input => input.dataset.module)), ['config', 'scratchpad', 'countdown']);
 });
 
-test('settled recovery download keeps the exact review without another review or implicit restore', async t => {
-    const m = mount(); t.after(() => m.view.destroy()); const node = await ready(m); node.open = true;
-    const before = node.textContent, firstReview = m.calls.review[0]; m.get('recovery').dispatch('click'); await until(() => !m.view.pending);
+for (const outcome of ['success', 'missing recovery', 'download failure']) test(`settled recovery ${outcome} keeps the exact review, ticket and mixed group state`, async t => {
+    const ticket = sample();
+    const store = {async review() { return ticket; }, async restore() {}, async recovery() {
+        if (outcome === 'missing recovery') throw {code: 'NO_RECOVERY'};
+        return 'SYNTHETIC RECOVERY';
+    }};
+    const m = mount({store, download: outcome === 'download failure' ? async () => { throw Error('Synthetic download failure'); } : undefined});
+    t.after(() => m.view.destroy()); const node = await ready(m); node.open = true;
+    group(m, 'removed').open = true; group(m, 'changed').open = true;
+    const retained = ['added', 'removed', 'changed'].map(kind => group(m, kind));
+    const before = node.textContent, firstReview = m.calls.review[0];
+    m.get('recovery').dispatch('click'); await until(() => !m.view.pending);
     assert.equal(node.textContent, before); assert.equal(node.open, true); assert.equal(m.calls.review.length, 1); assert.equal(m.calls.review[0], firstReview);
-    assert.equal(m.calls.restore.length, 0); assert.equal(m.calls.downloads.length, 1); assert.equal(m.get('apply').disabled, false);
+    assert.equal(m.calls.restore.length, 0); assert.equal(m.calls.downloads.length, outcome === 'missing recovery' ? 0 : 1); assert.equal(m.get('apply').disabled, false);
+    retained.forEach((item, index) => { assert.equal(group(m, ['added', 'removed', 'changed'][index]), item); assert.equal(item.open, index !== 0); });
+    m.get('apply').dispatch('click'); await until(() => !m.view.pending);
+    assert.equal(m.calls.restore.length, 1); assert.equal(m.calls.restore[0][0], ticket);
+    cleared(node, retained);
 });
+
+for (const [target, value, field] of [['prompt-target', 'global-library', 'promptTarget'], ['collection-target', 'global-collections', 'collectionTarget']]) {
+    test(`${target} change clears opened groups and late target review cannot revive them after Cancel`, async t => {
+        const result = sample(); result.schemaVersion = 4; result.modules = result.selected = [...modules, 'prompts', 'collections'];
+        result.prompts = result.collections = {conflicts: []};
+        const m = mount({result}); t.after(() => m.view.destroy()); const node = await ready(m), oldGroups = openAllGroups(m);
+        const wait = deferred(); let args;
+        m.store.review = (...received) => { args = received; return wait.promise; };
+        const control = m.get(target); assert.equal(control.getClientRects().length, 1); assert.equal(control.disabled, false);
+        control.value = value; control.dispatch('change'); cleared(node, oldGroups);
+        await until(() => args); assert.equal(args[2][field], value);
+        m.get('cancel').dispatch('click'); wait.resolve(result); await tick(); cleared(node, oldGroups);
+        assert.equal(m.calls.restore.length, 0);
+    });
+}
 
 function topology(f, rows) {
     const old = copy(f.raw[Workspaces.REGISTRY_KEY].workspaces[0]), values = copy(f.values('default'));

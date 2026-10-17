@@ -12,6 +12,9 @@
 .complete-backup-counts, .complete-backup-export-counts { list-style: none; padding: 0; display: grid; gap: 14px; font-variant-numeric: tabular-nums; }
 .complete-backup-counts li, .complete-backup-export-counts li { display: grid; gap: 4px; overflow-wrap: anywhere; }
 .complete-backup-counts span, .complete-backup-export-counts span { color: var(--text-secondary); font-size: .9rem; }
+.complete-backup-workspace-impact-group { margin: 12px 0; }
+.complete-backup-workspace-impact-group > summary, .complete-backup-workspace-impact-group > h5 { margin: 0; font-size: inherit; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.complete-backup-workspace-impact-group > summary { cursor: pointer; }
 .complete-backup-warning { font-weight: 600; padding: 12px; border-inline-start: 3px solid var(--text-accent, currentColor); }
 .complete-backup :focus-visible, .complete-backup [tabindex="-1"]:focus { outline: 2px solid var(--text-accent, currentColor); outline-offset: 4px; }
 .complete-backup-reload { margin: 0 10px 14px 0; }

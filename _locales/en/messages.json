@@ -3136,7 +3136,7 @@
     "message": "Workspace names and destinations"
   },
   "completeBackupWorkspaceImpactHelp": {
-    "message": "This shows only names and live/Trash membership from the verified preview. It is not a restore result or an interrupted-restore recovery action. Saved data will be checked again when you confirm replacement."
+    "message": "Expand a nonempty group to review its full workspace names and IDs. This shows only names and live/Trash membership from the verified preview. It is not a restore result or an interrupted-restore recovery action. Saved data will be checked again when you confirm replacement."
   },
   "completeBackupWorkspaceImpactAdded": {
     "message": "Brought in from backup"

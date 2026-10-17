@@ -3136,7 +3136,7 @@
     "message": "工作空间名称与去向"
   },
   "completeBackupWorkspaceImpactHelp": {
-    "message": "此处仅显示已验证预览中的名称及正常／回收站成员状态，不代表恢复成功，也不会处理或解除中断恢复。确认替换时仍会重新核对已保存数据。"
+    "message": "可分别展开非空分组，查看完整工作空间名称及 ID。此处仅显示已验证预览中的名称及正常／回收站成员状态，不代表恢复成功，也不会处理或解除中断恢复。确认替换时仍会重新核对已保存数据。"
   },
   "completeBackupWorkspaceImpactAdded": {
     "message": "备份带入"
