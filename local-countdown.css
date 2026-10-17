@@ -6,11 +6,12 @@
 .countdown-header h2 { margin: 0; font-size: 18px; color: inherit; }
 .countdown-local, .countdown-help, .countdown-date { color: var(--template-muted); font-size: 12px; line-height: 1.6; }
 .countdown-event { margin: 0 0 4px; font-size: 18px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.local-countdown-card .countdown-date { user-select: text; font-variant-numeric: tabular-nums; }
 .countdown-remaining { margin: 14px 0 18px; font-size: clamp(24px, 3vw, 38px); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.3; }
 .countdown-input, .countdown-button { box-sizing: border-box; max-width: 100%; min-width: 0; border: 1px solid var(--template-border); border-radius: 7px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; }
 .countdown-button { display: inline-flex; justify-content: center; align-items: center; min-height: 36px; padding: 7px 10px; font-size: 13px; line-height: 1.5; cursor: pointer; text-decoration: none; text-align: center; overflow-wrap: anywhere; }
-.countdown-button:hover:not(:disabled) { border-color: var(--template-accent); }
-.local-countdown-card :disabled, .local-countdown-settings :disabled { opacity: .55; cursor: default; }
+.countdown-button:hover:not(:disabled):not([aria-disabled="true"]) { border-color: var(--template-accent); }
+.local-countdown-card [aria-disabled="true"], .local-countdown-card :disabled, .local-countdown-settings :disabled { opacity: .55; cursor: default; }
 .local-countdown-card :focus-visible, .local-countdown-settings :focus-visible { outline: 2px solid var(--template-focus); outline-offset: 3px; }
 .countdown-status { margin: 10px 0; font-size: 13px; line-height: 1.6; }
 .countdown-status:empty { display: none; }

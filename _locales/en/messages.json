@@ -571,6 +571,18 @@
   "countdownEdit": {
     "message": "Edit"
   },
+  "countdownCopyDate": {
+    "message": "Copy date"
+  },
+  "countdownCopying": {
+    "message": "Copying date…"
+  },
+  "countdownCopySuccess": {
+    "message": "Date copied."
+  },
+  "countdownCopyFailure": {
+    "message": "Could not copy. Try Copy date again, or select the date to copy it manually."
+  },
   "countdownExport": {
     "message": "Export text"
   },

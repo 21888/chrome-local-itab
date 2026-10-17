@@ -1,6 +1,9 @@
 (function (root) {
     'use strict';
     const api = root.LocalItabCountdown;
+    // An issued system write outlives its card. Keep the lock across remounts.
+    let copyFlight = null;
+    const copyOwners = new WeakMap(), copyViews = new Set();
     const fallback = {
         countdownTitle: 'Countdown', countdownLocal: 'On this device',
         countdownEventLabel: 'Milestone title (up to 80 characters)', countdownDateLabel: 'Target date (YYYY-MM-DD)',
@@ -26,6 +29,8 @@
         countdownUnconfigured: 'Add a title and target date before showing Countdown.',
         countdownRetry: 'Retry', countdownUseSaved: 'Load saved', countdownReplace: 'Replace with my draft',
         countdownSave: 'Save', countdownCancel: 'Cancel', countdownHide: 'Hide', countdownEdit: 'Edit',
+        countdownCopyDate: 'Copy date', countdownCopying: 'Copying date…', countdownCopySuccess: 'Date copied.',
+        countdownCopyFailure: 'Could not copy. Try Copy date again, or select the date to copy it manually.',
         countdownImport: 'Import text', countdownImportPreview: 'Countdown text preview',
         countdownImportApply: 'Use title and date in draft', countdownImportCancel: 'Cancel import',
         countdownImportReading: 'Reading text…',
@@ -82,6 +87,11 @@
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, now = () => new Date() } = {}) {
             this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.now = now;
             this.closed = false; this.suspended = false; this.timeout = null;
+            const previous = copyOwners.get(host);
+            if (previous) { previous.invalidateCopy(); previous.cancelTick(); previous.copyObserver?.disconnect(); copyViews.delete(previous); }
+            copyOwners.set(host, this); copyViews.add(this);
+            this.copyWorkspace = controller.store?.backend?.workspace; this.copyWorkspaceId = this.copyWorkspace?.id;
+            this.copySession = root.LocalItabWorkspaces?.session; this.copySessionId = this.copySession?.id;
             host.classList.add('local-countdown-card'); host.setAttribute('aria-label', t('countdownTitle')); host.hidden = true;
             const header = el('header', 'countdown-header'); header.append(el('h2', '', t('countdownTitle')), el('span', 'countdown-local', t('countdownLocal')));
             this.title = el('h3', 'countdown-event'); this.date = el('time', 'countdown-date');
@@ -89,7 +99,10 @@
             // Calendar-day updates are deliberately not a live region.
             this.remaining.setAttribute('aria-live', 'off');
             this.status = el('p', 'countdown-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
-            this.hideButton = button('countdownHide', () => run(() => controller.setEnabled(false)));
+            this.hideButton = button('countdownHide', () => { this.invalidateCopy(); run(() => controller.setEnabled(false)); });
+            this.copyButton = button('countdownCopyDate', event => this.copyDate(event));
+            this.copyStatus = el('p', 'countdown-status countdown-copy-status', '');
+            this.copyStatus.setAttribute('role', 'status'); this.copyStatus.setAttribute('aria-live', 'polite');
             this.edit = el('a', 'countdown-button', t('countdownEdit'));
             // Dashboard startup captures this tab's session before mounting cards.
             const workspaceId = root.LocalItabWorkspaces?.session?.id;
@@ -100,10 +113,15 @@
             this.exportButton = button('countdownExport', () => exportText(controller.state, this.status));
             this.retry = button('countdownRetry', () => run(() => controller.retry()));
             this.useSaved = button('countdownUseSaved', () => run(() => controller.useSaved()));
-            const controls = el('div', 'countdown-controls'); controls.append(this.edit, this.hideButton, this.exportButton, this.retry, this.useSaved);
-            host.replaceChildren(header, this.title, this.date, this.remaining, controls, this.status);
-            this.visibility = () => { if (!this.closed) this.render(); };
-            this.pagehide = () => { this.suspended = true; this.cancelTick(); };
+            const controls = el('div', 'countdown-controls'); controls.append(this.edit, this.copyButton, this.hideButton, this.exportButton, this.retry, this.useSaved);
+            host.replaceChildren(header, this.title, this.date, this.remaining, controls, this.copyStatus, this.status);
+            this.visibility = () => {
+                if (document.hidden || document.visibilityState === 'hidden') this.invalidateCopy();
+                if (!this.closed) this.render();
+            };
+            this.pagehide = () => { this.suspended = true; this.invalidateCopy(); this.refreshCopyControl(); this.cancelTick(); };
+            this.copyBlur = () => this.invalidateCopy();
+            root.addEventListener?.('blur', this.copyBlur);
             this.pageshow = () => { this.suspended = false; this.render(); };
             document.addEventListener('visibilitychange', this.visibility);
             root.addEventListener?.('focus', this.visibility); root.addEventListener?.('pagehide', this.pagehide); root.addEventListener?.('pageshow', this.pageshow);
@@ -113,11 +131,15 @@
                 this.observer = new root.MutationObserver(this.visibility);
                 for (let node = host.parentElement; node; node = node.parentElement) this.observer.observe(node, { attributes: true, attributeFilter: ['hidden', 'style', 'class'] });
             }
+            if (root.MutationObserver) {
+                this.copyObserver = new root.MutationObserver(records => this.checkCopyMutations(records));
+                this.copyObserver.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open'] });
+            }
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
         }
         cancelTick() { if (this.timeout !== null) { root.clearTimeout(this.timeout); this.timeout = null; } }
         render() {
-            if (this.closed) return;
+            if (this.closed || copyOwners.get(this.host) !== this) return;
             this.cancelTick();
             const c = this.controller, state = c.state;
             let days;
@@ -131,7 +153,8 @@
             // Keep its recovery controls reachable without inventing a day count.
             const hasDays = Number.isInteger(days);
             const visible = recoveringHide || (hasDays && Boolean(state?.enabled));
-            this.host.hidden = !visible;
+            // Do not enqueue an unchanged hidden attribute on each calendar tick.
+            if (this.host.hidden !== !visible) this.host.hidden = !visible;
             if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
             setText(this.title, state?.title || ''); setText(this.date, state?.targetDate || ''); this.date.dateTime = state?.targetDate || '';
             setText(this.remaining, visible && hasDays ? daysText(days) : '');
@@ -141,12 +164,93 @@
             this.exportButton.disabled = !state?.title || !state?.targetDate;
             this.retry.hidden = !canRetry(c); this.retry.disabled = Boolean(c.pending);
             this.useSaved.hidden = !c.conflict; this.useSaved.disabled = Boolean(c.pending);
+            this.copySnapshot = null;
+            try {
+                api.validate(state);
+                this.copySnapshot = { state, ...state };
+            } catch (_) {}
+            if (this.copyReceipt && !this.copyCurrent(this.copyReceipt)) this.invalidateCopy();
+            this.refreshCopyControl();
             if (visible && hasDays && state.enabled && !document.hidden && !this.suspended && this.host.getClientRects().length) {
                 this.timeout = root.setTimeout(() => { this.timeout = null; this.render(); }, 60000);
             }
         }
+        canCopyDate(event) {
+            const c = this.controller, snapshot = this.copySnapshot, state = c.state;
+            const workspace = c.store?.backend?.workspace, session = root.LocalItabWorkspaces?.session;
+            if (this.closed || this.suspended || copyOwners.get(this.host) !== this || c.closed || !c.loaded ||
+                c.pending || c.error || c.readError || c.conflict || c.composing || event?.isComposing || event?.keyCode === 229 ||
+                ['loading', 'saving', 'error'].includes(c.status) || !snapshot || state !== snapshot.state || !state.enabled ||
+                ['schemaVersion', 'revision', 'title', 'targetDate', 'enabled'].some(key => state[key] !== snapshot[key]) ||
+                document.hidden || document.visibilityState === 'hidden' || root.LocalItabContentLifecycle?.departing ||
+                workspace !== this.copyWorkspace || workspace?.id !== this.copyWorkspaceId || workspace?.invalidated || workspace?._suspended ||
+                session !== this.copySession || session?.id !== this.copySessionId || session?.invalidated || session?._suspended ||
+                (workspace && session && workspace !== session)) return false;
+            for (const node of [this.host, this.copyButton, this.date, this.title, this.copyStatus]) {
+                if (node.ownerDocument !== document || !node.isConnected || !this.host.contains(node) || node.closest('[hidden], [inert]')) return false;
+                // An empty status is intentionally display:none; the date and native button must be visible.
+                if (node !== this.copyStatus && (!node.getClientRects().length || ['hidden', 'collapse'].includes(root.getComputedStyle?.(node)?.visibility))) return false;
+                for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
+            }
+            return this.date.textContent === snapshot.targetDate && this.date.dateTime === snapshot.targetDate && this.title.textContent === snapshot.title;
+        }
+        refreshCopyControl() {
+            if (!this.closed && copyOwners.get(this.host) === this && this.host.contains(this.copyButton)) {
+                // aria-disabled preserves native button focus; the click guard enforces it.
+                this.copyButton.setAttribute('aria-disabled', String(Boolean(copyFlight) || !this.canCopyDate()));
+            }
+        }
+        invalidateCopy() {
+            if (this.copyReceipt) this.copyReceipt.valid = false;
+            this.copyReceipt = null;
+            if (this.copyStatus) { setText(this.copyStatus, ''); this.copyStatus.classList.remove('countdown-error'); }
+            // Never unlock an already invoked system clipboard write here.
+        }
+        checkCopyMutations(records = []) {
+            const targets = [this.host, this.copyButton, this.date, this.title];
+            const invalid = records.some(record => record.type === 'attributes'
+                ? targets.some(node => record.target === node || record.target.contains?.(node))
+                : record.target === this.date || record.target === this.title ||
+                    Array.from(record.removedNodes || []).some(removed => targets.some(node => removed === node || removed.contains?.(node))));
+            if (invalid) { this.invalidateCopy(); this.refreshCopyControl(); }
+        }
+        copyCurrent(receipt) {
+            return receipt.valid && this.copyReceipt === receipt && receipt.state === this.controller.state &&
+                receipt.readGeneration === this.controller.readGeneration &&
+                ['schemaVersion', 'revision', 'title', 'targetDate', 'enabled'].every(key => this.controller.state[key] === receipt[key]) && this.canCopyDate();
+        }
+        async copyDate(event) {
+            this.checkCopyMutations(this.copyObserver?.takeRecords?.() || []);
+            if (copyFlight || !this.canCopyDate(event)) return;
+            const receipt = { ...this.copySnapshot, valid: true, readGeneration: this.controller.readGeneration };
+            this.copyReceipt = receipt;
+            const flight = { receipt }; copyFlight = flight;
+            setText(this.copyStatus, t('countdownCopying')); this.copyStatus.classList.remove('countdown-error');
+            for (const view of copyViews) view.refreshCopyControl();
+            const current = () => {
+                this.checkCopyMutations(this.copyObserver?.takeRecords?.() || []);
+                return this.copyCurrent(receipt);
+            };
+            try {
+                // Synchronous user-gesture call. No storage read, permission query or fallback write.
+                const clipboard = root.navigator?.clipboard;
+                if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+                await clipboard.writeText(receipt.targetDate);
+                if (current()) setText(this.copyStatus, t('countdownCopySuccess'));
+            } catch (_) {
+                if (current()) { setText(this.copyStatus, t('countdownCopyFailure')); this.copyStatus.classList.add('countdown-error'); }
+            } finally {
+                if (!current()) this.invalidateCopy();
+                if (copyFlight === flight) copyFlight = null;
+                // Only present owners receive the unlock, including a replacement card.
+                for (const view of copyViews) view.refreshCopyControl();
+            }
+        }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
         destroy() {
+            this.invalidateCopy(); copyViews.delete(this); this.copyObserver?.disconnect();
+            if (copyOwners.get(this.host) === this) copyOwners.delete(this.host);
+            root.removeEventListener?.('blur', this.copyBlur);
             this.closed = true; this.cancelTick(); this.observer?.disconnect(); this.unsubscribe(); this.controller.destroy();
             document.removeEventListener('visibilitychange', this.visibility); root.removeEventListener?.('focus', this.visibility);
             root.removeEventListener?.('pagehide', this.pagehide); root.removeEventListener?.('pageshow', this.pageshow);

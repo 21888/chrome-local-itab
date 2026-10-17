@@ -416,6 +416,8 @@ Use **Copy comparison** to copy the currently displayed local reference and orde
 
 Name one milestone and see local calendar days left, Today, or days ago. Hidden by default, saved only on this device, with explicit Save/Cancel and text export. [Usage and privacy](docs/local-countdown.en.md).
 
+Choose **Copy date** on the card to copy exactly the displayed saved `YYYY-MM-DD`, without the title or day count. Settings drafts stay unchanged. If copying fails, try again or select the date manually. This uses the already loaded saved version; it does not read storage again, add extension permissions, or separately query/request clipboard permissions. An issued system write can still finish after leaving, but its stale card feedback is discarded. Your operating system or other software may sync clipboard content. [Copy-date checks and native-test limits](docs/countdown-copy-date-validation.md).
+
 <details>
 <summary>Countdown captures</summary>
 

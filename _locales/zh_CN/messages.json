@@ -571,6 +571,18 @@
   "countdownEdit": {
     "message": "编辑"
   },
+  "countdownCopyDate": {
+    "message": "复制日期"
+  },
+  "countdownCopying": {
+    "message": "正在复制日期…"
+  },
+  "countdownCopySuccess": {
+    "message": "已复制日期。"
+  },
+  "countdownCopyFailure": {
+    "message": "未能复制。请再次选择“复制日期”，或选中日期手动复制。"
+  },
   "countdownExport": {
     "message": "导出文本"
   },
