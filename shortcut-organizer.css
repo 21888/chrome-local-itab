@@ -20,3 +20,5 @@
 .organizer-search-row button { margin: 0; }
 .organizer-search-help { font-size: .85rem; opacity: .8; }
 .organizer-count { overflow-wrap: anywhere; }
+.organizer-match-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.organizer-match-actions button { max-width: 100%; margin: 0; overflow-wrap: anywhere; }

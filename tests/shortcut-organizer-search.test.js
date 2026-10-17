@@ -45,7 +45,7 @@ function model({ size = 8, locale } = {}) {
     const checks = () => document.querySelectorAll('input').filter(node => node.type === 'checkbox');
     const visible = () => document.querySelectorAll('.organizer-row strong').map(node => Number(node.textContent.split('.')[0]) - 1);
     const selected = () => checks().filter(node => node.checked).map(node => Number(node.parentElement.querySelector('strong').textContent.split('.')[0]) - 1);
-    return { document, context, view, snapshot, original, byText, search, checks, visible, selected,
+    return { document, context, component, view, snapshot, original, byText, search, checks, visible, selected,
         get reads() { return reads; }, get writes() { return writes; }, get networks() { return networks; }, get savedRequest() { return savedRequest; },
         set pendingRead(value) { pendingRead = value; }, set pendingWrite(value) { pendingWrite = value; },
         click(text, fields = {}) { byText(text).dispatch('click', { detail: 1, ...fields }); },
@@ -192,4 +192,165 @@ test('large synthetic lists preserve every occurrence, order and selected identi
     h.query('not-found'); assert.deepEqual(h.visible(), []); h.click('Clear search'); assert.deepEqual(h.visible(), originalOrder); assert.deepEqual(h.selected(), [4998, 4999]);
     h.click('Review move'); assert.equal(h.document.querySelectorAll('li').length, 2); h.click('Cancel');
     assert.equal(h.reads, 1); assert.equal(h.writes, 0); assert.equal(h.networks, 0); assert.deepEqual(h.snapshot, h.original);
+});
+
+test('current-match actions select only eligible visible occurrences and clear them without losing hidden selections', async () => {
+    const h = model(); await h.view.open(); h.target('later'); h.check(2); h.query('[draft]*?');
+    const selectMatches = h.byText('Select current matches (2)');
+    assert(selectMatches, 'Offer the two currently matching, unselected saved occurrences');
+    assert.equal(selectMatches.type, 'button'); assert.equal(selectMatches.disabled, false);
+    assert.equal(h.byText('Deselect current matches (0)').disabled, true);
+    h.click('Select current matches (2)');
+    assert.deepEqual(h.selected(), [0, 1]);
+    assert.equal(h.count(), 'Matching sites: 2 / 8 · Selected sites: 3 · Hidden selected sites: 1');
+    assert.equal(h.byText('Select current matches (0)').disabled, true);
+    h.click('Deselect current matches (2)');
+    assert.deepEqual(h.selected(), []); assert.match(h.count(), /Selected sites: 1 · Hidden selected sites: 1$/);
+    assert.equal(h.byText('Deselect current matches (0)').disabled, true);
+    h.click('Review move'); assert.deepEqual(h.document.querySelectorAll('li strong').map(node => node.textContent), ['3. 中文资料 Ｆｕｌｌ Cafe\u0301 🚀']);
+    assert.equal(h.reads, 1); assert.equal(h.writes, 0); assert.equal(h.networks, 0); assert.deepEqual(h.snapshot, h.original);
+});
+
+test('current-match counts follow individual changes and destination changes, including hidden newly ineligible records', async () => {
+    const h = model(); await h.view.open(); h.target('later');
+    assert.equal(h.byText('Select current matches (7)').disabled, false);
+    h.click('Select current matches (7)'); assert.deepEqual(h.selected(), [0, 1, 6, 2, 7, 3, 5]);
+    assert.equal(h.checks().find(node => node.disabled).checked, false);
+    h.query('[draft]*?'); h.check(0, false);
+    assert.equal(h.byText('Select current matches (1)').disabled, false); assert.equal(h.byText('Deselect current matches (1)').disabled, false);
+    h.click('Select current matches (1)'); h.query('orphan.example'); h.target('work-hidden-id');
+    assert.equal(h.search().value, 'orphan.example'); assert.match(h.count(), /Selected sites: 4 · Hidden selected sites: 3$/);
+    h.click('Deselect current matches (1)'); assert.match(h.count(), /Selected sites: 3 · Hidden selected sites: 3$/);
+    h.click('Clear search'); assert.deepEqual(h.selected(), [7, 3, 5]);
+    assert.equal(h.byText('Select current matches (2)').disabled, false);
+    h.click('Select current matches (2)'); assert.deepEqual(h.selected(), [2, 7, 3, 5, 4]);
+    assert.equal(h.byText('Select current matches (0)').disabled, true);
+    h.click('Review move'); assert.deepEqual(h.document.querySelectorAll('li strong').map(node => Number(node.textContent.split('.')[0]) - 1), [2, 3, 4, 5, 7]);
+    assert.equal(h.writes, 0); assert.deepEqual(h.snapshot, h.original);
+});
+
+test('current-match selection without a destination follows individual checkbox semantics and has no twenty-record cap', async () => {
+    const h = model({ size: 24 }); await h.view.open(); const order = h.visible();
+    h.click('Select current matches (24)'); assert.deepEqual(h.selected(), order); assert.equal(h.byText('Review move').disabled, true);
+    h.click('Select current matches (0)'); assert.equal(h.selected().length, 24);
+    h.target('later'); assert.equal(h.selected().length, 23); assert.equal(h.checks().find(node => node.disabled).checked, false);
+    assert.equal(h.byText('Deselect current matches (23)').disabled, false);
+    h.click('Review move'); assert.equal(h.document.querySelectorAll('li').length, 23); h.click('Back');
+    assert.equal(h.document.querySelector('select').value, 'later'); assert.deepEqual(h.visible(), order);
+    h.click('Deselect current matches (23)'); h.click('Deselect current matches (0)');
+    assert.deepEqual(h.selected(), []); assert.equal(h.byText('Select current matches (23)').disabled, false);
+    assert.equal(h.reads, 1); assert.equal(h.writes, 0); assert.equal(h.networks, 0); assert.deepEqual(h.snapshot, h.original);
+});
+
+test('current-match empty and unmatched actions show localized zero counts, native disabled states and live selection feedback', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        const select = n => `${messages.organizerSelectMatches.message} (${n})`, deselect = n => `${messages.organizerDeselectMatches.message} (${n})`;
+        const empty = model({ size: 0, locale }); await empty.view.open();
+        assert.equal(empty.byText(select(0)).disabled, true); assert.equal(empty.byText(deselect(0)).disabled, true);
+        assert.equal(empty.byText(select(0)).type, 'button'); assert.equal(empty.byText(deselect(0)).type, 'button');
+        empty.click(select(0)); empty.click(deselect(0)); assert.equal(empty.writes, 0);
+        const h = model({ locale }); await h.view.open(); h.target('later'); h.query('orphan.example'); h.click(select(1)); h.query('no-results');
+        assert.equal(h.byText(select(0)).disabled, true); assert.equal(h.byText(deselect(0)).disabled, true);
+        assert.equal(h.count(), `${messages.organizerMatches.message}: 0 / 8 · ${messages.organizerSelected.message}: 1 · ${messages.organizerHiddenSelected.message}: 1`);
+        const count = h.document.querySelector('.organizer-count');
+        assert.equal(count.getAttribute('role'), 'status'); assert.equal(count.getAttribute('aria-live'), 'polite'); assert.equal(count.getAttribute('aria-atomic'), 'true');
+        h.click(select(0)); h.click(deselect(0)); h.click(messages.organizerReview.message);
+        assert.equal(h.document.querySelectorAll('li').length, 1); assert.equal(h.writes, 0);
+    }
+});
+
+test('current-match changes preserve search and row nodes and keep keyboard focus in the dialog before disabling an action', async () => {
+    const h = model(); const opener = h.byText('Organize saved sites'); opener.focus(); await h.view.open(); h.target('later'); h.query('Alpha');
+    const search = h.search(), rows = h.checks(), select = h.byText('Select current matches (3)'), deselect = h.byText('Deselect current matches (0)');
+    search.focus(); search.selectionStart = 1; search.selectionEnd = 3;
+    h.click('Select current matches (3)');
+    assert.equal(h.document.activeElement, search); assert.equal(h.search(), search); assert.deepEqual(h.checks(), rows);
+    assert.equal(search.selectionStart, 1); assert.equal(search.selectionEnd, 3);
+    deselect.focus(); h.click('Deselect current matches (3)');
+    assert.equal(h.document.activeElement, select); assert.equal(deselect.disabled, true); assert.equal(select.disabled, false);
+    select.dispatch('click', { detail: 0 });
+    assert.equal(h.document.activeElement, deselect); assert.equal(select.disabled, true); assert.equal(deselect.disabled, false);
+    const tab = h.document.activeElement.dispatch('keydown', { key: 'Tab' });
+    assert.equal(tab.prevented, false); assert.equal(h.document.querySelector('.organizer-panel').contains(h.document.activeElement), true);
+    const escape = h.document.activeElement.dispatch('keydown', { key: 'Escape' });
+    assert.equal(escape.prevented, true); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.document.activeElement, opener);
+    assert.equal(h.writes, 0); assert.equal(h.networks, 0);
+});
+
+test('current-match actions reject repeated and composing clicks, defer IME changes, and use only the committed visible list', async () => {
+    const h = model(); await h.view.open(); h.target('later'); h.query('Alpha');
+    const select = h.byText('Select current matches (3)'), deselect = h.byText('Deselect current matches (0)'), search = h.search();
+    for (const fields of [{ repeat: true }, { detail: 2 }, { isComposing: true }, { keyCode: 229 }]) select.dispatch('click', fields);
+    assert.deepEqual(h.selected(), []);
+    search.focus(); search.dispatch('compositionstart'); h.query('中文', { isComposing: false });
+    select.dispatch('click'); deselect.dispatch('click'); assert.deepEqual(h.visible(), [0, 1, 6]); assert.deepEqual(h.selected(), []);
+    assert.equal(h.search(), search); assert.equal(h.document.activeElement, search);
+    search.dispatch('compositionend'); assert.deepEqual(h.visible(), [2]); assert.equal(h.byText('Select current matches (1)'), select);
+    select.dispatch('click', { detail: 0 }); assert.deepEqual(h.selected(), [2]);
+    for (const fields of [{ repeat: true }, { detail: 2 }, { isComposing: true }, { keyCode: 229 }]) deselect.dispatch('click', fields);
+    assert.deepEqual(h.selected(), [2]);
+    search.dispatch('compositionstart'); h.query('Alpha'); deselect.dispatch('click'); assert.deepEqual(h.selected(), [2]);
+    search.dispatch('focusout'); assert.deepEqual(h.visible(), [0, 1, 6]);
+    assert.equal(h.byText('Deselect current matches (0)').disabled, true); deselect.dispatch('click');
+    assert.match(h.count(), /Selected sites: 1 · Hidden selected sites: 1$/); assert.equal(h.writes, 0); assert.equal(h.reads, 1);
+});
+
+test('current-match Review Back restores query and exact choices while detached and reattached older controls stay fenced', async () => {
+    const h = model(); await h.view.open(); h.target('later'); h.check(2); h.query('[draft]*?');
+    const oldSelect = h.byText('Select current matches (2)'), oldDeselect = h.byText('Deselect current matches (0)');
+    h.click('Select current matches (2)'); h.check(0, false); h.click('Review move');
+    oldSelect.dispatch('click'); oldDeselect.dispatch('click'); h.click('Back');
+    assert.equal(h.search().value, '[draft]*?'); assert.equal(h.document.querySelector('select').value, 'later'); assert.deepEqual(h.selected(), [1]);
+    assert.match(h.count(), /Selected sites: 2 · Hidden selected sites: 1$/);
+    // Force stale nodes back into the live body: the view revision must still fence them.
+    const body = h.document.querySelector('.organizer-match-actions').parentElement;
+    body.append(oldSelect, oldDeselect); oldSelect.disabled = oldDeselect.disabled = false;
+    oldSelect.dispatch('click'); oldDeselect.dispatch('click'); assert.deepEqual(h.selected(), [1]);
+    assert.match(h.count(), /Selected sites: 2 · Hidden selected sites: 1$/);
+    h.click('Review move'); assert.deepEqual(h.document.querySelectorAll('li strong').map(node => Number(node.textContent.split('.')[0]) - 1), [1, 2]);
+    h.click('Back'); h.click('Cancel'); await h.view.open(); h.target('later'); h.query('中文');
+    h.document.querySelector('.organizer-match-actions').parentElement.append(oldSelect, oldDeselect);
+    oldSelect.dispatch('click'); oldDeselect.dispatch('click');
+    assert.equal(h.search().value, '中文'); assert.match(h.count(), /Selected sites: 0 · Hidden selected sites: 0$/);
+    assert.equal(h.writes, 0); assert.equal(h.networks, 0); assert.deepEqual(h.snapshot, h.original);
+});
+
+test('current-match controls cannot alter a pending reviewed request or a departing selection', async () => {
+    const h = model(); await h.view.open(); h.target('later'); h.check(1); h.query('Alpha');
+    const select = h.byText('Select current matches (2)'), deselect = h.byText('Deselect current matches (1)'), before = h.count();
+    h.context.LocalItabContentLifecycle.departing = true; select.dispatch('click'); deselect.dispatch('click');
+    assert.equal(h.count(), before); assert.deepEqual(h.selected(), [1]); h.context.LocalItabContentLifecycle.departing = false;
+    const body = select.parentElement.parentElement; h.click('Review move');
+    const pending = deferred(); h.pendingWrite = pending; h.click('Move reviewed sites');
+    body.append(select, deselect); select.disabled = deselect.disabled = false; select.dispatch('click'); deselect.dispatch('click');
+    assert.equal(h.view.pending, true); assert.equal(h.view.close(), false); assert.deepEqual(Array.from(h.savedRequest.indices), [1]);
+    assert.equal(h.savedRequest.destination, 'later'); assert.equal(h.writes, 1);
+    assert.equal(h.document.activeElement, h.document.querySelector('.organizer-panel'));
+    pending.resolve(); await tick(); assert.equal(h.view.hasUncommittedWork(), false); assert.deepEqual(h.snapshot, h.original);
+});
+
+test('current-match reviewed selection uses one original storage transaction and changes only the chosen category fields', async () => {
+    const StorageManager = require('../storage.js');
+    const h = model(), manager = new StorageManager(), state = clone(h.original.state);
+    for (const link of state.links) link.icon = '★';
+    state.layout.positions['all|https://duplicate.example/path?q=1'] = { x: 12, y: 24 };
+    state.extraModule = { revision: 4, notes: ['synthetic preserved value'] };
+    const original = clone(state); let reads = 0, writes = 0; const writtenKeys = [];
+    manager._syncInitialized = true; manager.withLocalWriteLock = work => Promise.resolve().then(work); manager.scheduleShortcutUndoSync = async () => {};
+    Object.defineProperty(manager, '_local', { value: {
+        async get() { reads++; return clone(state); },
+        async set(values) { writes++; writtenKeys.push(Object.keys(values)); Object.assign(state, clone(values)); }
+    } });
+    h.context.storageManager = manager;
+    h.component.moveReviewedShortcuts = request => manager.moveShortcutsToCategory(request);
+    await h.view.open(); const initialReads = reads; h.target('later'); h.check(2); h.query('Alpha');
+    h.click('Select current matches (3)'); h.check(0, false); h.query('orphan-分类');
+    h.click('Select current matches (1)'); h.check(7, false); h.query('no-results');
+    assert.equal(reads, initialReads); assert.equal(writes, 0); assert.deepEqual(state, original);
+    h.click('Review move'); assert.deepEqual(h.document.querySelectorAll('li strong').map(node => Number(node.textContent.split('.')[0]) - 1), [1, 2, 6]);
+    h.click('Move reviewed sites'); h.click('Move reviewed sites'); await tick();
+    const expected = clone(original); for (const index of [1, 2, 6]) expected.links[index].category = 'later';
+    assert.deepEqual(state, expected); assert.equal(writes, 1); assert.deepEqual(writtenKeys, [['links']]);
+    assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.networks, 0);
 });

@@ -4156,7 +4156,7 @@
     "message": "选择目标分类"
   },
   "organizerHelp": {
-    "message": "逐条选择网站。无法选择已经属于目标分类的网站。不会删除任何分类。"
+    "message": "逐条选择网站或选择当前匹配项。无法选择已经属于目标分类的网站。不会删除任何分类。"
   },
   "organizerRetry": {
     "message": "重试已确认的移动"
@@ -4187,6 +4187,12 @@
   },
   "organizerClearSearch": {
     "message": "清除搜索"
+  },
+  "organizerSelectMatches": {
+    "message": "选择当前匹配项"
+  },
+  "organizerDeselectMatches": {
+    "message": "取消当前匹配项选择"
   },
   "organizerSearchHelp": {
     "message": "搜索仅筛选当前列表。预览移动会包含全部已选网站，包括被搜索隐藏的条目。"

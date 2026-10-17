@@ -4156,7 +4156,7 @@
     "message": "Choose a destination"
   },
   "organizerHelp": {
-    "message": "Select individual records. Sites already in the destination cannot be selected. No categories are removed."
+    "message": "Select individual records or current matches. Sites already in the destination cannot be selected. No categories are removed."
   },
   "organizerRetry": {
     "message": "Retry reviewed move"
@@ -4187,6 +4187,12 @@
   },
   "organizerClearSearch": {
     "message": "Clear search"
+  },
+  "organizerSelectMatches": {
+    "message": "Select current matches"
+  },
+  "organizerDeselectMatches": {
+    "message": "Deselect current matches"
   },
   "organizerSearchHelp": {
     "message": "Search only filters this list. Review includes all selected sites, even hidden ones."

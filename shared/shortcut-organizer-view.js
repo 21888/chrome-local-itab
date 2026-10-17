@@ -6,8 +6,9 @@
         organizerChoose: 'Choose a destination', organizerReview: 'Review move', organizerCancel: 'Cancel', organizerBack: 'Back',
         organizerSubmit: 'Move reviewed sites', organizerRetry: 'Retry reviewed move', organizerPending: 'Checking and saving…',
         organizerOrphan: 'Category no longer listed', organizerSelected: 'Selected sites', organizerReviewTitle: 'Review exact sites and destination',
-        organizerHelp: 'Select individual records. Sites already in the destination cannot be selected. No categories are removed.',
+        organizerHelp: 'Select individual records or current matches. Sites already in the destination cannot be selected. No categories are removed.',
         organizerSearch: 'Search saved sites', organizerSearchPlaceholder: 'Title, URL or source category', organizerClearSearch: 'Clear search',
+        organizerSelectMatches: 'Select current matches', organizerDeselectMatches: 'Deselect current matches',
         organizerSearchHelp: 'Search only filters this list. Review includes all selected sites, even hidden ones.',
         organizerMatches: 'Matching sites', organizerHiddenSelected: 'Hidden selected sites', organizerNoMatches: 'No saved sites match this search.',
         organizerEmpty: 'No saved sites.', organizerError: 'Could not read saved sites. Close and try again.',
@@ -71,21 +72,47 @@
             });
             searchLabel.append(search); searchRow.append(searchLabel, clear); body.append(searchRow, el('p', t('organizerSearchHelp'), 'organizer-search-help'));
             const count = el('p', undefined, 'organizer-count'); count.setAttribute('role', 'status'); count.setAttribute('aria-live', 'polite'); count.setAttribute('aria-atomic', 'true'); body.append(count);
+            const matchActions = el('div', undefined, 'organizer-match-actions');
+            const selectMatches = button('organizerSelectMatches', () => selectVisible(true, selectMatches));
+            const deselectMatches = button('organizerDeselectMatches', () => selectVisible(false, deselectMatches));
+            matchActions.append(selectMatches, deselectMatches); body.append(matchActions);
             const list = el('div', undefined, 'organizer-list'); body.append(list);
             const review = button('organizerReview', () => {
                 if (!current(review) || composing) return;
                 try { request = api.plan(snapshot, [...selected], destination); renderReview(); } catch (_) {}
             });
-            let visible = new Set();
+            let visible = new Set(), visibleChecks = new Map();
             const update = () => {
-                let hiddenSelected = 0;
+                let hiddenSelected = 0, selectable = 0, visibleSelected = 0;
                 for (const index of selected) if (!visible.has(index)) hiddenSelected++;
+                for (const index of visible) {
+                    if (selected.has(index)) visibleSelected++;
+                    else if (snapshot.links[index].category !== destination) selectable++;
+                }
                 count.textContent = `${t('organizerMatches')}: ${visible.size} / ${snapshot.links.length} · ${t('organizerSelected')}: ${selected.size} · ${t('organizerHiddenSelected')}: ${hiddenSelected}`;
+                selectMatches.textContent = `${t('organizerSelectMatches')} (${selectable})`;
+                deselectMatches.textContent = `${t('organizerDeselectMatches')} (${visibleSelected})`;
+                // A native button loses focus when disabled. Hand off only its own
+                // focus before disabling it; typing in the search field stays put.
+                if ((!selectable && document.activeElement === selectMatches) || (!visibleSelected && document.activeElement === deselectMatches)) {
+                    const next = selectable ? selectMatches : visibleSelected ? deselectMatches : search;
+                    next.disabled = false; next.focus();
+                }
+                selectMatches.disabled = !selectable; deselectMatches.disabled = !visibleSelected;
                 review.disabled = !destination || !selected.size;
                 clear.disabled = !query;
             };
+            function selectVisible(checked, control) {
+                if (!current(control) || composing) return;
+                for (const index of visible) {
+                    if (!checked) selected.delete(index);
+                    else if (snapshot.links[index].category !== destination) selected.add(index);
+                    visibleChecks.get(index).checked = selected.has(index);
+                }
+                update();
+            }
             function renderRows() {
-                list.replaceChildren(); visible = new Set();
+                list.replaceChildren(); visible = new Set(); visibleChecks = new Map();
                 const needle = fold(query);
                 for (const group of groups) {
                     const rows = !needle || group.searchName.includes(needle) ? group.rows :
@@ -95,6 +122,7 @@
                     for (const { index, link } of rows) {
                         visible.add(index);
                         const row = el('label', undefined, 'organizer-row'), check = el('input'); check.type = 'checkbox'; check.checked = selected.has(index); check.disabled = link.category === destination;
+                        visibleChecks.set(index, check);
                         check.addEventListener('change', () => {
                             if (!current(check) || check.disabled || link.category === destination) return;
                             check.checked ? selected.add(index) : selected.delete(index); update();
