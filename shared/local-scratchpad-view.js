@@ -3,6 +3,7 @@
     const api = root.LocalItabScratchpad;
     // Ownership only; clipboard single-flight remains local to each View.
     const selectionOwners = new WeakMap();
+    const savedOwners = new WeakMap();
     const fallback = {
         scratchpadTitle: 'Scratchpad', scratchpadLocal: 'On this device',
         scratchpadLabel: 'Scratchpad text', scratchpadEnable: 'Show Scratchpad on the new tab page',
@@ -30,6 +31,12 @@
         scratchpadCopySelectionSuccess: 'Selected text copied.',
         scratchpadCopySelectionFailure: 'Could not copy selected text. Your selection is still here. Choose Copy selected text to retry, or copy it manually.',
         scratchpadCopySelectionHelp: 'Select nonempty text with complete Unicode characters in the main editor, then choose Copy selected text. Your clipboard was not changed.',
+        scratchpadCopySaved: 'Copy saved text', scratchpadCopySavedCopying: 'Copying saved text…',
+        scratchpadCopySavedSuccess: 'Saved text copied.',
+        scratchpadCopySavedFailure: 'Could not copy saved text. Both versions are still here. Choose Copy saved text to retry, or copy the saved preview manually.',
+        scratchpadCopySavedEmpty: 'The saved text is empty. Your clipboard was not changed.',
+        scratchpadCopySavedInvalid: 'The saved text contains incomplete Unicode characters. Your clipboard was not changed.',
+        scratchpadCopySavedHelp: 'Copy the “Latest saved text” preview shown above without replacing either version.',
         scratchpadSavedPreview: 'Latest saved text', scratchpadSettingsConflict: 'Scratchpad changed on another page. Read the latest saved state before changing visibility.', scratchpadReadLatest: 'Read latest saved state',
         scratchpadLines: 'Lines: {count}',
         scratchpadLimits: 'Up to 32,000 Unicode characters and 128 KiB of UTF-8 text. Longer drafts stay here until shortened; export a copy before leaving.',
@@ -68,7 +75,7 @@
             host.classList.add('local-scratchpad-card'); host.setAttribute('aria-label', t('scratchpadTitle')); host.hidden = true;
             const header = el('header', 'scratchpad-header'); header.append(el('h2', '', t('scratchpadTitle')), el('span', 'scratchpad-local', t('scratchpadLocal')));
             this.textarea = el('textarea', 'scratchpad-text'); this.textarea.setAttribute('aria-label', t('scratchpadLabel')); this.textarea.spellcheck = false; this.textarea.setAttribute('autocomplete', 'off');
-            this.textarea.addEventListener('input', () => { this.invalidateCopy(); this.resetFindResult(); if (controller.loaded) controller.setDraft(this.textarea.value); });
+            this.textarea.addEventListener('input', () => { if (!this.copyReceipt?.saved) this.invalidateCopy(); this.resetFindResult(); if (controller.loaded) controller.setDraft(this.textarea.value); });
             this.textarea.addEventListener('compositionstart', () => { this.findHeldEnter = null; controller.setComposing(true); });
             this.textarea.addEventListener('compositionend', () => { if (controller.loaded) controller.setDraft(this.textarea.value); controller.setComposing(false); });
             this.savedPreview = el('textarea', 'scratchpad-text scratchpad-saved-preview'); this.savedPreview.readOnly = true; this.savedPreview.spellcheck = false; this.savedPreview.setAttribute('aria-label', t('scratchpadSavedPreview'));
@@ -91,6 +98,18 @@
             copySelectionButton.addEventListener('keyup', clearCopySelectionKey);
             copySelectionButton.addEventListener('blur', clearCopySelectionKey);
             copySelectionButton.addEventListener('pointerdown', clearCopySelectionKey);
+            const copySavedButton = this.copySavedButton = button('scratchpadCopySaved', event => run(() => this.copySavedText(event, savedOwner)));
+            copySavedButton.title = t('scratchpadCopySavedHelp');
+            copySavedButton.addEventListener('keydown', event => {
+                if (!['Enter', ' '].includes(event.key)) return;
+                if (event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 ||
+                    this.copySavedKey?.key === event.key) { event.preventDefault(); return; }
+                this.copySavedKey = { key: event.key, used: false };
+            });
+            const clearCopySavedKey = () => { this.copySavedKey = null; };
+            copySavedButton.addEventListener('keyup', clearCopySavedKey);
+            copySavedButton.addEventListener('blur', clearCopySavedKey);
+            copySavedButton.addEventListener('pointerdown', clearCopySavedKey);
             this.copyStatus = el('p', 'scratchpad-help'); this.copyStatus.hidden = true;
             this.copyStatus.setAttribute('role', 'status'); this.copyStatus.setAttribute('aria-live', 'polite'); this.copyStatus.setAttribute('aria-atomic', 'true');
             this.importButton = button('scratchpadImport', () => this.chooseImport());
@@ -161,7 +180,7 @@
             const importControls = el('div', 'scratchpad-controls'); importControls.append(this.importApply, this.importCancel);
             this.importPanel.append(appendLabel, this.importInfo, this.importPreview, el('p', 'scratchpad-help', t('scratchpadImportHelp')), importControls);
             this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
-            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.copyButton, this.copySelectionButton, this.importButton, this.findButton, this.findSelectionButton);
+            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.copySavedButton, this.exportButton, this.copyButton, this.copySelectionButton, this.importButton, this.findButton, this.findSelectionButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
             host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details);
@@ -173,7 +192,16 @@
             selectionOwners.set(host, selectionOwner);
             previousSelectionOwner?.invalidate();
             selectionOwner.invalidate = () => this.invalidateSelectionCopy();
-            this.copyCompositionStart = () => { this.copySelectionKey = null; this.invalidateCopy(); this.refreshCopyControl(); };
+            const store = controller.store, backend = store?.backend, workspace = backend?.workspace;
+            const chain = []; for (let node = host; node; node = node.parentElement) chain.push(node);
+            const savedOwner = this.copySavedOwner = { host, controller, store, backend, workspace,
+                workspaceId: workspace?.id, workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session,
+                preview: this.savedPreview, label: this.savedLabel, origin: copySavedButton, controls, status: this.copyStatus,
+                labelText: this.savedLabel.textContent, buttonText: copySavedButton.textContent, document, chain, valid: true };
+            const previousSavedOwner = savedOwners.get(host);
+            savedOwners.set(host, savedOwner); previousSavedOwner?.invalidate();
+            savedOwner.invalidate = () => { savedOwner.valid = false; if (this.copyReceipt?.saved) this.invalidateCopy(); };
+            this.copyCompositionStart = () => { this.copySelectionKey = null; this.copySavedKey = null; this.invalidateCopy(); this.refreshCopyControl(); };
             this.copyCompositionEnd = () => this.refreshCopyControl();
             host.addEventListener('compositionstart', this.copyCompositionStart); host.addEventListener('compositionend', this.copyCompositionEnd);
             this.beforeUnload = event => { if (root.LocalItabContentLifecycle?.departing || !this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
@@ -182,6 +210,8 @@
         }
         render() {
             if (this.closed) return;
+            // Check the displayed saved snapshot before a render can overwrite it.
+            if (this.copyReceipt?.saved && !this.copyCurrent(this.copyReceipt)) this.invalidateCopy();
             const c = this.controller;
             if (this.importSession && !this.importCurrent(this.importSession)) this.cancelImport();
             this.importButton.disabled = !this.canImport();
@@ -189,7 +219,7 @@
             this.host.hidden = !visible;
             if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
             this.textarea.readOnly = !c.loaded || c.readError;
-            this.savedPreview.hidden = this.savedLabel.hidden = !c.conflict;
+            this.savedPreview.hidden = this.savedLabel.hidden = this.copySavedButton.hidden = !c.conflict;
             if (this.savedPreview.value !== (c.state?.content || '')) this.savedPreview.value = c.state?.content || '';
             // Do not replace the DOM value during IME composition or on each
             // keystroke: that would reset the caret and the native undo stack.
@@ -417,13 +447,14 @@
             this.copyButton.setAttribute('aria-disabled', String(Boolean(this.copyAttempt) || !this.canCopy()));
             this.copySelectionButton.setAttribute('aria-disabled', String(Boolean(this.copyAttempt) ||
                 !this.selectionOwned(this.copySelectionOwner) || !this.canCopyFrom(this.copySelectionButton)));
+            this.copySavedButton.setAttribute('aria-disabled', String(Boolean(this.copyAttempt) || !this.canCopySaved(this.copySavedOwner)));
         }
         invalidateSelectionCopy() { if (this.copyReceipt?.selection) this.invalidateCopy(); }
         invalidateCopy() {
             const receipt = this.copyReceipt;
             if (!receipt) return;
             receipt.valid = false; receipt.cleanup?.(); this.copyReceipt = null;
-            const status = receipt.selection ? receipt.owner.status : this.copyStatus;
+            const status = receipt.selection || receipt.saved ? receipt.owner.status : this.copyStatus;
             status.textContent = ''; status.hidden = true;
             // A system write already sent cannot be cancelled. Its single-flight
             // lock stays held until settlement, even after its feedback expires.
@@ -433,6 +464,7 @@
             try {
                 if (this.copyReceipt !== receipt || !receipt.valid) return false;
                 receipt.drain?.();
+                if (receipt.saved) return this.savedCopyCurrent(receipt);
                 const c = this.controller, workspace = c.store?.backend?.workspace;
                 if (!this.canCopyFrom(receipt.origin)) return false;
                 if (receipt.selection && (!this.selectionOwned(receipt.owner) ||
@@ -447,6 +479,143 @@
                     workspace?.generation === receipt.workspaceGeneration && root.LocalItabWorkspaces?.session === receipt.session &&
                     (!receipt.selection || this.selectionOwned(receipt.owner)) && this.canCopyFrom(receipt.origin);
             } catch (_) { return false; }
+        }
+        savedContext(owner) {
+            if (!owner?.valid || owner !== this.copySavedOwner || savedOwners.get(owner.host) !== owner) return false;
+            const c = owner.controller, workspace = owner.backend?.workspace;
+            // A View belongs to its construction-time workspace. A later render
+            // cannot authorize an old card against a replacement session/store.
+            if (c !== this.controller || c.store !== owner.store || owner.store?.backend !== owner.backend ||
+                workspace !== owner.workspace || workspace?.id !== owner.workspaceId || workspace?.generation !== owner.workspaceGeneration ||
+                root.LocalItabWorkspaces?.session !== owner.session || (workspace && owner.session !== workspace)) {
+                owner.valid = false; return false;
+            }
+            return owner.host === this.host && owner.preview === this.savedPreview && owner.label === this.savedLabel &&
+                owner.origin === this.copySavedButton && owner.status === this.copyStatus && owner.document === document;
+        }
+        savedOwned(owner) {
+            return this.savedContext(owner) &&
+                [owner.host, owner.preview, owner.label, owner.origin, owner.controls, owner.status].every(node => node.ownerDocument === document) &&
+                owner.preview.parentElement === owner.host && owner.label.parentElement === owner.host && owner.status.parentElement === owner.host &&
+                owner.origin.parentElement === owner.controls && owner.controls.parentElement === owner.host &&
+                owner.chain.every((node, index) => node.ownerDocument === document && (node.parentElement || null) === (owner.chain[index + 1] || null));
+        }
+        savedAvailable(owner, event) {
+            // Controller/context eligibility only: no layout or ancestry reads.
+            // Document visibility is checked again after the visual checks.
+            if (!this.savedContext(owner)) return false;
+            const c = owner.controller, workspace = owner.workspace;
+            return !(this.closed || c.closed || !c.loaded || !c.conflict || c.pending || c.pendingWrite || c.readError ||
+                (c.error && !['CONFLICT', 'TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT'].includes(c.error.code)) ||
+                c.composing || this.findComposing || event?.isComposing || event?.keyCode === 229 || event?.defaultPrevented || event?.repeat ||
+                document.hidden || document.visibilityState === 'hidden' || root.LocalItabContentLifecycle?.departing ||
+                workspace?.invalidated || workspace?._suspended);
+        }
+        canCopySaved(owner, event) {
+            try {
+                if (!this.savedOwned(owner) || !this.savedAvailable(owner, event)) return false;
+                for (const source of [owner.preview, owner.label, owner.origin, owner.controls]) {
+                    if (source.disabled || !this.findVisible(source)) return false;
+                    for (let node = source; node; node = node.parentElement) {
+                        if (node.tagName === 'DETAILS' && !node.open) return false;
+                        const style = root.getComputedStyle?.(node);
+                        if (style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility)) return false;
+                    }
+                }
+                return this.savedOwned(owner);
+            } catch (_) { return false; }
+        }
+        savedState(owner) {
+            // Store returns plain, validated data. Do not invoke a stale or
+            // malformed state's accessors while deriving clipboard content.
+            const state = Object.getOwnPropertyDescriptor(owner.controller, 'state')?.value;
+            if (!state || typeof state !== 'object' || Array.isArray(state)) return null;
+            const fields = Object.getOwnPropertyDescriptors(state);
+            if (!['schemaVersion', 'revision', 'content', 'enabled'].every(key => fields[key] && Object.hasOwn(fields[key], 'value')) || fields.schemaVersion.value !== 1) return null;
+            const revision = fields.revision.value, content = fields.content.value, enabled = fields.enabled.value;
+            if (!Number.isSafeInteger(revision) || revision < 0 || typeof content !== 'string' || typeof enabled !== 'boolean') return null;
+            return { revision, content, enabled };
+        }
+        savedSnapshot(owner) {
+            const state = this.savedState(owner);
+            if (!state) return null;
+            const display = owner.preview.value;
+            if (typeof display !== 'string' || (display !== state.content && display !== state.content.replace(/\r\n?/g, '\n'))) return null;
+            if (owner.label.textContent !== owner.labelText || owner.origin.textContent !== owner.buttonText) return null;
+            return { ...state, display };
+        }
+        savedCopyCurrent(receipt) {
+            const owner = receipt.owner;
+            if (!this.canCopySaved(owner)) return false;
+            const snapshot = this.savedSnapshot(owner);
+            if (!snapshot || !receipt.snapshot || !['revision', 'content', 'enabled', 'display'].every(key => snapshot[key] === receipt.snapshot[key]) ||
+                !this.canCopySaved(owner)) return false;
+            // Recheck data after the last DOM/currentness getter can reenter.
+            // Same revision/content refreshes may create a new state object.
+            if (!this.savedAvailable(owner)) return false;
+            const latest = this.savedState(owner);
+            return receipt.valid && this.copyReceipt === receipt && latest &&
+                ['revision', 'content', 'enabled'].every(key => latest[key] === receipt.snapshot[key]);
+        }
+        copySavedText(event, owner = this.copySavedOwner) { return this.executeSavedCopy(event, owner); }
+        async executeSavedCopy(event, owner) {
+            if (this.copyAttempt || event?.defaultPrevented || event?.detail > 1 || event?.repeat || this.copySavedKey?.used ||
+                !owner || (event?.currentTarget && event.currentTarget !== owner.origin) ||
+                (event?.target && !owner.origin.contains(event.target))) return;
+            const receipt = { valid: true, saved: true, owner, origin: owner.origin };
+            // Reserve before any DOM/state/clipboard getter can reenter another
+            // copy route. Invalidating feedback never releases an issued write.
+            this.copyAttempt = receipt;
+            const cancel = () => { if (this.copyReceipt === receipt) this.invalidateCopy(); };
+            try {
+                if (this.copyReceipt && !this.copyCurrent(this.copyReceipt)) this.invalidateCopy();
+                if (!this.canCopySaved(owner, event)) return;
+                this.invalidateCopy(); this.copyReceipt = receipt;
+                if (this.copySavedKey) this.copySavedKey.used = true;
+                const sources = [owner.origin, owner.preview, owner.label, owner.controls, owner.status, ...owner.chain];
+                const displays = [owner.origin, owner.preview, owner.label];
+                const attributes = new Set([owner.origin, owner.preview, owner.label, owner.controls, ...owner.chain]);
+                const invalidating = records => records.some(record => record.type === 'attributes' ? attributes.has(record.target) :
+                    displays.some(node => node === record.target || node.contains?.(record.target)) ||
+                    Array.from(record.removedNodes || []).some(node => sources.some(source => node === source || node.contains?.(source))));
+                const observer = root.MutationObserver ? new root.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
+                receipt.drain = () => { if (observer && invalidating(observer.takeRecords())) cancel(); };
+                receipt.cleanup = () => {
+                    observer?.disconnect(); document.removeEventListener('visibilitychange', cancel, true);
+                    root.removeEventListener?.('blur', cancel); root.removeEventListener?.('pagehide', cancel);
+                    owner.preview.removeEventListener('input', cancel); owner.preview.removeEventListener('change', cancel);
+                };
+                const attributeFilter = ['hidden', 'inert', 'aria-hidden', 'style', 'class', 'open', 'disabled'];
+                // Observe only original source nodes and their ancestor chain.
+                // The status's own hidden/text updates must not cancel itself.
+                for (const node of [...owner.chain, owner.controls]) observer?.observe(node, { childList: true, attributes: true, attributeFilter });
+                for (const node of displays) observer?.observe(node, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter });
+                document.addEventListener('visibilitychange', cancel, true);
+                root.addEventListener?.('blur', cancel); root.addEventListener?.('pagehide', cancel);
+                owner.preview.addEventListener('input', cancel); owner.preview.addEventListener('change', cancel);
+                receipt.snapshot = this.savedSnapshot(owner);
+                if (!this.copyCurrent(receipt)) { cancel(); return; }
+                const payload = receipt.snapshot.content, status = owner.status;
+                status.hidden = false;
+                if (!payload) { status.textContent = t('scratchpadCopySavedEmpty'); return; }
+                if (!api.isUnicode(payload)) { status.textContent = t('scratchpadCopySavedInvalid'); return; }
+                status.textContent = t('scratchpadCopySavedCopying'); this.refreshCopyControl();
+                const clipboard = this.clipboard, writeText = clipboard?.writeText;
+                if (!this.copyCurrent(receipt)) { cancel(); return; }
+                if (typeof writeText !== 'function') throw new Error('Clipboard unavailable');
+                // Keep raw saved CRLF/CR. The DOM preview may display LF, but it
+                // is only a currentness check and never the clipboard payload.
+                const result = writeText.call(clipboard, payload);
+                if (!this.copyCurrent(receipt)) cancel();
+                await result;
+                if (this.copyCurrent(receipt)) status.textContent = t('scratchpadCopySavedSuccess');
+            } catch (_) {
+                if (this.copyCurrent(receipt)) owner.status.textContent = t('scratchpadCopySavedFailure');
+            } finally {
+                if (!this.copyCurrent(receipt)) cancel();
+                if (this.copyAttempt === receipt) this.copyAttempt = null;
+                if (!this.closed) this.refreshCopyControl();
+            }
         }
         copyText(event, origin = this.copyButton) { return this.executeCopy(event, origin); }
         copySelectedText(event, owner = this.copySelectionOwner) {
@@ -546,6 +715,8 @@
         }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
         destroy() {
+            this.copySavedOwner.valid = false;
+            if (savedOwners.get(this.host) === this.copySavedOwner) savedOwners.delete(this.host);
             this.copySelectionOwner.valid = false;
             if (selectionOwners.get(this.host) === this.copySelectionOwner) selectionOwners.delete(this.host);
             this.invalidateCopy(); this.closeFind(); this.cancelImport(); this.closed = true;

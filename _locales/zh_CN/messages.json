@@ -808,6 +808,27 @@
   "scratchpadDetails": {
     "message": "存储与备份"
   },
+  "scratchpadCopySaved": {
+    "message": "复制已保存文本"
+  },
+  "scratchpadCopySavedCopying": {
+    "message": "正在复制已保存文本…"
+  },
+  "scratchpadCopySavedSuccess": {
+    "message": "已复制保存的文本。"
+  },
+  "scratchpadCopySavedFailure": {
+    "message": "无法复制已保存文本。两个版本仍保留，请再次点击“复制已保存文本”重试，或手动复制已保存预览。"
+  },
+  "scratchpadCopySavedEmpty": {
+    "message": "已保存文本为空。剪贴板未更改。"
+  },
+  "scratchpadCopySavedInvalid": {
+    "message": "已保存文本包含不完整的 Unicode 字符。剪贴板未更改。"
+  },
+  "scratchpadCopySavedHelp": {
+    "message": "复制上方“最新保存的文本”预览，不替换任何版本。"
+  },
   "scratchpadSavedPreview": {
     "message": "最新保存的文本"
   },

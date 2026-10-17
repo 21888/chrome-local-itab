@@ -808,6 +808,27 @@
   "scratchpadDetails": {
     "message": "Storage and backups"
   },
+  "scratchpadCopySaved": {
+    "message": "Copy saved text"
+  },
+  "scratchpadCopySavedCopying": {
+    "message": "Copying saved text…"
+  },
+  "scratchpadCopySavedSuccess": {
+    "message": "Saved text copied."
+  },
+  "scratchpadCopySavedFailure": {
+    "message": "Could not copy saved text. Both versions are still here. Choose Copy saved text to retry, or copy the saved preview manually."
+  },
+  "scratchpadCopySavedEmpty": {
+    "message": "The saved text is empty. Your clipboard was not changed."
+  },
+  "scratchpadCopySavedInvalid": {
+    "message": "The saved text contains incomplete Unicode characters. Your clipboard was not changed."
+  },
+  "scratchpadCopySavedHelp": {
+    "message": "Copy the “Latest saved text” preview shown above without replacing either version."
+  },
   "scratchpadSavedPreview": {
     "message": "Latest saved text"
   },
