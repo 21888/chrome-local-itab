@@ -2664,6 +2664,9 @@
   "calculatorRecentClear": {
     "message": "清空最近计算"
   },
+  "calculatorRecentRemove": {
+    "message": "移除这条计算"
+  },
   "calculatorRecentCopyAction": {
     "message": "复制计算记录"
   },

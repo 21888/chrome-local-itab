@@ -2664,6 +2664,9 @@
   "calculatorRecentClear": {
     "message": "Clear recent calculations"
   },
+  "calculatorRecentRemove": {
+    "message": "Remove calculation"
+  },
   "calculatorRecentCopyAction": {
     "message": "Copy calculation"
   },

@@ -1053,6 +1053,44 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
             }
         });
     };
+    const bindRecentRemoveAction = (record, row, expression, value, control) => {
+        const rawExpression = expression.textContent, rawValue = value.textContent;
+        const ownerCurrent = () => window.localCalculatorView === searchOwner &&
+            document.getElementById('search-container') === container &&
+            [container, form, input, calculatorRecent, calculatorRecentList].every(node => node.ownerDocument === document) &&
+            calculatorRecentList.parentElement === calculatorRecent && calculatorRecent.parentElement === form &&
+            form.parentElement === container && input.parentElement === form;
+        const view = { control, current: () => recentCalculations.includes(record) && record.removeView === view &&
+            ownerCurrent() && [row, expression, value, control].every(node => node.ownerDocument === document) &&
+            row.parentElement === calculatorRecentList && control.parentElement === row &&
+            expression.parentElement === row && value.parentElement === row &&
+            expression.textContent === rawExpression && rawExpression === record.expression &&
+            value.textContent === rawValue && rawValue === record.value &&
+            recentControlAvailable(control) && recentControlAvailable(expression) && recentControlAvailable(value) };
+        record.removeView = view;
+        control.addEventListener('keydown', guardRecentKey);
+        control.addEventListener('click', event => {
+            if (event.detail > 1 || recentActivationBlocked(event) || !view.current()) return;
+            const index = recentCalculations.indexOf(record), focused = document.activeElement === control;
+            const draft = input.value, revision = editRevision, operation = submissionRevision;
+            // Identity, not expression/value equality: deliberate duplicates are distinct records.
+            const remaining = recentCalculations.filter(entry => entry !== record);
+            recentCalculations = remaining;
+            renderRecentCalculations();
+            if (!focused) return;
+            const next = remaining[index] || remaining[index - 1], nextView = next?.removeView;
+            const target = nextView?.control || calculatorRecentSummary;
+            const current = () => recentCalculations === remaining && ownerCurrent() &&
+                input.value === draft && editRevision === revision && submissionRevision === operation &&
+                (next ? next.removeView === nextView && nextView.current() :
+                    !remaining.length && calculatorRecentSummary.ownerDocument === document &&
+                    calculatorRecentSummary.parentElement === calculatorRecent && recentControlAvailable(calculatorRecentSummary));
+            // Redraw can synchronously focus elsewhere or remount. Never reclaim that focus.
+            if (!current() || ![control, document.body].includes(document.activeElement)) return;
+            // Final side effect: focus listeners may edit, remove again or remount; do not write afterward.
+            target.focus();
+        });
+    };
     const bindRecentCopyAction = (record, row, expression, value, control, status) => {
         const view = { row, expression, value, control, status };
         record.copyView = view;
@@ -1129,7 +1167,12 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
             status.setAttribute('aria-live', 'polite');
             status.setAttribute('aria-atomic', 'true');
             bindRecentCopyAction(record, row, expression, value, copy, status);
-            row.append(expression, value, use, edit, copy, status);
+            const remove = document.createElement('button');
+            remove.className = 'search-calculator-recent-remove';
+            remove.type = 'button';
+            remove.textContent = calculatorText('calculatorRecentRemove', 'Remove calculation');
+            bindRecentRemoveAction(record, row, expression, value, remove);
+            row.append(expression, value, use, edit, copy, remove, status);
             return row;
         }));
         calculatorRecentEmpty.hidden = recentCalculations.length > 0;

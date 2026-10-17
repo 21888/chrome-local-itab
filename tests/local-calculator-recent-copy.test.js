@@ -77,7 +77,8 @@ test('recent copy has its own native button and live status in EN, Chinese and m
         h.calculate(); h.expand(); const { row, copy, status } = source(h);
         assert.equal(copy.tagName, 'BUTTON'); assert.equal(copy.type, 'button'); assert.equal(copy.tabIndex, 0);
         assert.equal(copy.textContent, h.messages.calculatorRecentCopyAction.message);
-        assert.equal(copy.parentElement, row); assert.equal(row.querySelectorAll('button').length, 3);
+        // The original three row actions remain; Remove calculation adds one native button.
+        assert.equal(copy.parentElement, row); assert.equal(row.querySelectorAll('button').length, 4);
         assert.equal(status.getAttribute('role'), 'status'); assert.equal(status.getAttribute('aria-live'), 'polite'); assert.equal(status.getAttribute('aria-atomic'), 'true');
         assertNoFeedback(status); assert.equal(h.feedback.hidden, true); assert.notEqual(status, h.feedback);
         copy.focus(); copy.dispatch('click'); assert.equal(status.textContent, h.messages.calculatorRecentCopying.message);
