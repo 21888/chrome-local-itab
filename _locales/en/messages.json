@@ -5694,6 +5694,12 @@
   "aiContextSourceSearchClear": {
     "message": "Clear title search"
   },
+  "aiContextSourceFiltersClear": {
+    "message": "Clear source filters"
+  },
+  "aiContextSourceFiltersClearHelp": {
+    "message": "Show all already-loaded sources by clearing title, scope and selected-only filters. Selections, excerpt edits and reviewed requests stay unchanged; no sources are reloaded."
+  },
   "aiContextSourceSearchEmpty": {
     "message": "No loaded source titles match. Clear the search to show all loaded sources."
   },

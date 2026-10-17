@@ -5694,6 +5694,12 @@
   "aiContextSourceSearchClear": {
     "message": "清除标题搜索"
   },
+  "aiContextSourceFiltersClear": {
+    "message": "清除来源筛选"
+  },
+  "aiContextSourceFiltersClearHelp": {
+    "message": "清除标题、来源范围和仅看已选筛选，显示全部已加载资料。勾选、摘录编辑和已审阅请求保持不变，不会重新加载资料。"
+  },
   "aiContextSourceSearchEmpty": {
     "message": "没有匹配的已加载资料标题。清除搜索可显示全部已加载资料。"
   },

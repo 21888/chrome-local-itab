@@ -1787,3 +1787,97 @@ test('preset reload recovers cross-tab conflicts without restoring deletions or 
     h.click('Reload saved connections'); await settle(); h.view.presetDelete.dispatch('click'); await settle(); assert.equal(writes, 0); assert.equal(state.records.length, 0);
     assert.equal(h.host.querySelector('.ai-context-question').value, 'Create tasks'); h.view.destroy();
 });
+
+test('clear source filters resets each view filter and combined empty views without selecting or dirtying a draft', async () => {
+    const h = await model(undefined, { populate: false, sources: mixedSources(25), blurUnavailableFocus: true });
+    const rows = sourceRows(h), reset = h.byText('Clear source filters'), search = h.field('search');
+    assert(reset, 'dedicated view-only filter reset exists');
+    assert.equal(reset.tagName, 'BUTTON'); assert.equal(reset.type, 'button'); assert.equal(reset.disabled, true);
+    for (const apply of [() => h.input(search, '   '), () => setScope(h, 'workspace'), () => h.click('Show selected only'), () => {
+        h.input(search, 'no match'); setScope(h, 'manual'); h.click('Show selected only');
+    }]) {
+        apply(); assert.equal(reset.disabled, false); reset.focus(); h.click('Clear source filters');
+        assert.equal(search.value, ''); assert.equal(scopeFilter(h).value, 'all');
+        assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'false');
+        assert.deepEqual(visibleRows(h), rows); assert.deepEqual(sourceRows(h), rows);
+        assert.equal(h.host.querySelector('.ai-context-source-empty').hidden, true);
+        assert.equal(reset.disabled, true); assert.equal(h.document.activeElement, search);
+        assert.equal(h.view.hasUncommittedWork(), false); assert.equal(unloadEvent(h).prevented, false);
+        assert(rows.every(row => !row.querySelector('input').checked));
+        // A retained disabled handler is inert, including focus.
+        scopeFilter(h).focus(); reset.dispatch('click'); assert.equal(h.document.activeElement, scopeFilter(h));
+    }
+    h.input(search, 'title'); setScope(h, 'workspace'); h.click('Show selected only'); h.click('Clear title search');
+    assert.equal(scopeFilter(h).value, 'workspace'); assert.equal(h.byText('Show selected only').getAttribute('aria-pressed'), 'true');
+    assert.equal(reset.disabled, false); assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+});
+
+test('clear source filters preserves hidden edits, mixed sources and exact local or API review without I/O', async () => {
+    for (const reviewAction of ['Review prompt locally', 'Review exact']) {
+        const sources = mixedSources(25); sources[24].text = 'Saved original\r\nsecond line\rfinal';
+        const h = await model(undefined, { sources });
+        h.input(h.host.querySelector('.ai-context-manualtitle'), 'Temporary source');
+        h.input(h.host.querySelector('.ai-context-manualbody'), 'Manual original\r\nsecond line');
+        h.click('Add temporary excerpt'); await settle();
+        const rows = sourceRows(h); assert.equal(rows.length, 26);
+        choose(rows[0]); choose(rows[24]); choose(rows[25]); h.input(rows[0].querySelector('textarea'), 'Exact unsent edit\n中文');
+        h.click(reviewAction); await settle();
+        assert(reviewAction === 'Review exact' ? h.controller.reviewed : h.controller.localReview);
+        const reviewed = h.controller.reviewed, localReview = h.controller.localReview, generation = h.controller.generation;
+        const preview = h.host.querySelector('.ai-context-review'), local = h.host.querySelector('.ai-context-local-prompt');
+        const before = { preview: preview.textContent, local: local.value, budget: h.host.querySelector('.ai-context-budget').textContent,
+            reads: h.b.reads + h.c.reads, writes: h.b.writes + h.c.writes, question: h.host.querySelector('.ai-context-question').value };
+        h.input(h.field('search'), 'no match'); setScope(h, 'manual'); h.click('Show selected only');
+        const captured = h.view.captureDraft();
+        for (const name of ['readSources', 'loadSources', 'inspectInput', 'edit', 'review', 'reviewLocal', 'send', 'allow']) h.controller[name] = () => { throw Error(`filter reset called ${name}`); };
+        h.controller.permissions.request = h.controller.permissions.contains = () => { throw Error('filter reset checked permission'); };
+        h.click('Clear source filters');
+        assert.equal(captured(), false, 'view changes still retire a pending host draft snapshot');
+        assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.localReview, localReview); assert.equal(h.controller.generation, generation);
+        assert.equal(preview.textContent, before.preview); assert.equal(local.value, before.local);
+        assert.equal(h.host.querySelector('.ai-context-budget').textContent, before.budget);
+        assert.equal(h.host.querySelector('.ai-context-question').value, before.question);
+        assert.deepEqual(sourceRows(h), rows); assert.deepEqual(rows.filter(row => row.querySelector('input').checked), [rows[0], rows[24], rows[25]]);
+        const packed = (reviewed || localReview).packed;
+        assert.equal(packed.sources[1].text, 'Saved original\r\nsecond line\rfinal');
+        assert.equal(packed.sources[2].text, 'Manual original\r\nsecond line');
+        assert.equal(rows[0].querySelector('textarea').value, 'Exact unsent edit\n中文');
+        assert.equal(h.b.reads + h.c.reads, before.reads); assert.equal(h.b.writes + h.c.writes, before.writes); assert.equal(h.calls.length, 0); h.view.destroy();
+    }
+});
+
+test('clear source filters remains view-only during transport and preserves the completed answer snapshot', async () => {
+    const h = await model(undefined, { sources: mixedSources(25) }), rows = sourceRows(h), gate = deferred();
+    choose(rows[0]); h.setReply(gate.promise); await send(h, 'answer');
+    const reviewed = h.controller.reviewed, generation = h.controller.generation;
+    h.input(h.field('search'), 'no match'); setScope(h, 'workspace'); h.click('Show selected only');
+    h.click('Clear source filters');
+    assert.equal(h.controller.busy, true); assert.equal(h.controller.reviewed, reviewed); assert.equal(h.controller.generation, generation);
+    assert.equal(rows[0].querySelector('input').disabled, true); assert.equal(h.calls.length, 1);
+    gate.resolve('Completed synthetic answer'); await settle();
+    const result = h.controller.result, section = h.host.querySelector('.ai-context-save-context'), include = section.querySelector('input');
+    include.checked = true; include.dispatch('change'); const snapshot = section.querySelector('pre').textContent;
+    setScope(h, 'manual'); h.click('Show selected only'); h.click('Clear source filters');
+    assert.equal(h.controller.result, result); assert.equal(h.controller.reviewed, reviewed); assert.equal(include.checked, true);
+    assert.equal(section.querySelector('pre').textContent, snapshot); assert.equal(h.calls.length, 1);
+    assert.equal(h.b.writes + h.c.writes, 0); h.view.destroy();
+});
+
+test('clear source filters is bilingual, guarded after hide or teardown, and works with no loaded sources', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const messages = JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`, 'utf8'));
+        const h = await model(undefined, { populate: false, sources: [], t: (key, fallback) => messages[key]?.message || fallback });
+        const reset = h.host.querySelector('.ai-context-source-filter-reset'), search = h.field('search'); assert(reset);
+        assert.equal(reset.textContent, messages.aiContextSourceFiltersClear.message);
+        const help = h.document.getElementById(reset.getAttribute('aria-describedby'));
+        assert.equal(help.textContent, messages.aiContextSourceFiltersClearHelp.message);
+        h.input(h.field('search'), 'unmatched'); assert.equal(reset.disabled, false);
+        h.document.visibilityState = 'hidden'; h.document.listeners.get('visibilitychange')();
+        reset.dispatch('click'); assert.equal(h.field('search').value, 'unmatched'); assert.equal(reset.disabled, true);
+        h.document.visibilityState = 'visible'; h.document.listeners.get('visibilitychange')(); reset.dispatch('click');
+        assert.equal(h.field('search').value, ''); assert.equal(visibleRows(h).length, 0); assert.equal(reset.disabled, true);
+        h.input(search, 'kept after close'); h.view.destroy(); reset.dispatch('click');
+        assert.equal(search.value, 'kept after close'); assert.equal(reset.disabled, true);
+        assert.equal(h.calls.length, 0); assert.equal(h.b.writes + h.c.writes, 0);
+    }
+});

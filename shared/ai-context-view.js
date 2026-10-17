@@ -126,7 +126,16 @@
         let selectedOnly = false;
         const showSelected = button('SourceSelectedOnly', 'Show selected only', () => { selectedOnly = !selectedOnly; filterSources(); });
         showSelected.className = 'ai-context-selected-only'; showSelected.setAttribute('aria-pressed', 'false');
-        searchActions.append(clearSearch, showSelected);
+        const clearFilters = button('SourceFiltersClear', 'Clear source filters', () => {
+            if (disposed || controller.closed || !box.isConnected || doc.visibilityState === 'hidden' || clearFilters.disabled) return;
+            // Visibility only: keep every selected/edited excerpt and exact request intact.
+            sourceSearch.value = ''; sourceScope.value = 'all'; selectedOnly = false;
+            sourceSearch.focus(); filterSources();
+        });
+        clearFilters.className = 'ai-context-source-filter-reset';
+        const clearFiltersHelp = el('p', '', label('SourceFiltersClearHelp', 'Show all already-loaded sources by clearing title, scope and selected-only filters. Selections, excerpt edits and reviewed requests stay unchanged; no sources are reloaded.'));
+        clearFiltersHelp.id = 'ai-context-source-filter-reset-help'; clearFilters.setAttribute('aria-describedby', clearFiltersHelp.id);
+        searchActions.append(clearSearch, showSelected, clearFilters);
         const batchActions = el('div', 'ai-context-actions');
         const selectVisible = button('SourceSelectVisible', 'Select visible unselected sources', () => changeSelection('add'));
         const deselectVisible = button('SourceDeselectVisible', 'Deselect visible selected sources', () => changeSelection('visible'));
@@ -161,7 +170,7 @@
         const savedSourceList = el('div', 'ai-context-saved-sources'), manualSourceList = el('div', 'ai-context-manual-sources');
         sourceList.append(savedSourceList, manualSourceList);
         const sourceHelp = el('details', 'ai-context-source-help');
-        sourceHelp.append(summary('SourceHelpHeading', 'Source scope, limits and reload'), scopeNote, scopeHelp, searchHelp, batchHelp, reloadActions, reloadHelp);
+        sourceHelp.append(summary('SourceHelpHeading', 'Source scope, limits and reload'), scopeNote, scopeHelp, searchHelp, clearFiltersHelp, batchHelp, reloadActions, reloadHelp);
         sourcesPane.append(manualPanel, searchLabel, scopeLabel, searchActions, searchCount, batchActions, searchEmpty, sourceList, sourceHelp);
         const budget = el('p', 'ai-context-budget'); budget.setAttribute('role', 'status'); budget.setAttribute('aria-live', 'polite');
         questionPane.append(budget, el('p', 'ai-context-budget-help', label('BudgetHelp', 'Local character limits use UTF-16; some emoji count as 2. These are not token, cost or provider quotas. The total includes instructions, labels and JSON escaping. No automatic shortening or deselection.')));
@@ -324,6 +333,8 @@
                 (next?.check || showSelected).focus();
             }
             clearSearch.disabled = !sourceSearch.value;
+            clearFilters.disabled = disposed || controller.closed || doc.visibilityState === 'hidden' ||
+                (!sourceSearch.value && sourceScope.value === 'all' && !selectedOnly);
             const count = sourceRows.filter(row => !row.node.hidden && !row.check.checked).length;
             const blocked = selectionBlocked();
             selectVisible.textContent = `${label('SourceSelectVisible', 'Select visible unselected sources')} (${count})`;
@@ -1182,7 +1193,7 @@
                 localReview === controller.localReview && partial === controller.partial && taskSelection === controller.taskSelection && taskReview === controller.taskReview && before === signature();
         }
         function guard(event) { if (hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } }
-        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = collectionReload.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
+        function destroy() { if (disposed) return; manualEpoch++; manualTitle.value = manualBody.value = ''; manualStatus.textContent = ''; manualAdd.disabled = true; for (const row of sourceRows.filter(item => item.source.scope === 'manual')) { row.input.value = ''; row.rawText = null; row.node.remove(); } sourceRows = sourceRows.filter(row => row.source.scope !== 'manual'); collectionEpoch++; const subscription = collectionSubscription; collectionSubscription = null; try { subscription?.unsubscribe?.(); } catch (_) {} collectionTicket = null; closePrompts(); appliedPromptQuestion = null; disposed = true; answerReader?.destroy(); answerReader = null; readerResult = null; cancelPartialFrame(); localCopy = null; localText.value = ''; output.value = ''; externalInput.value = ''; externalEpoch++; loadExternal.disabled = true; copyLocal.disabled = reviewLocal.disabled = true; copy.disabled = true; clearFilters.disabled = selectVisible.disabled = deselectVisible.disabled = clearSelection.disabled = reloadSources.disabled = collectionReload.disabled = true; for (const row of sourceRows) row.restore.disabled = true; key.value = ''; controller.close(); root.removeEventListener('pagehide', destroy); root.removeEventListener('beforeunload', guard); doc.removeEventListener('visibilitychange', onVisibility); box.remove(); }
         function onVisibility() {
             if (doc.visibilityState !== 'hidden') { if (!disposed) { renderTaskSelection(pending || controller.busy || presetPending || Boolean(controller.taskCommand || controller.saveCommand)); update(); } return; }
             if (collectionRequest && !collectionPanel.hidden) { collectionInvalidated = true; collectionEpoch++; collectionUnavailable(); }
