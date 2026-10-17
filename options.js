@@ -298,6 +298,7 @@ function completeBackupHasDrafts() {
         Boolean(window.localFocusSettingsView?.controller.pending) ||
         Boolean(window.localTasksSettingsController?.pending) ||
         Boolean(window.bookmarkImportView?.hasUncommittedWork()) ||
+        Boolean(window.bookmarkExportView?.hasUncommittedWork()) ||
         Boolean(window.workspacePresetsView?.hasUncommittedWork()) ||
         bookmarkImportPending || driveActionInProgress || cloudReplacementInProgress;
 }
@@ -3401,36 +3402,187 @@ function setupAutoSave() {
 // Separate from full settings JSON export; confirmation happens before storage access.
 function setupBookmarkExport() {
     const button = document.getElementById('export-bookmarks-html');
-    if (!button || button.dataset.bookmarkExportBound) return;
+    const panel = document.getElementById('bookmark-export-preview');
+    if (!button || !panel || button.dataset.bookmarkExportBound) return;
     button.dataset.bookmarkExportBound = 'true';
-    let busy = false;
-    button.addEventListener('click', async () => {
-        if (busy) return;
-        busy = true;
-        button.disabled = true;
+    const api = window.LocalItabBookmarkExport;
+    let epoch = 0, busy = false, closed = false, owner = null, prepared = null, saved = null;
+    const create = (tag, id, text, parent = panel) => {
+        const node = document.createElement(tag); if (id) node.id = id;
+        if (text !== undefined) node.textContent = text; parent.append(node); return node;
+    };
+    panel.setAttribute('role', 'group'); panel.setAttribute('aria-labelledby', 'bookmark-export-title');
+    const title = create('h3', 'bookmark-export-title', t('bookmarkExportPreviewTitle', 'Review bookmark export')); title.tabIndex = -1;
+    const label = create('label', null, t('bookmarkExportChooseScope', 'Export scope'));
+    label.setAttribute('for', 'bookmark-export-category');
+    const select = create('select', 'bookmark-export-category'); select.className = 'form-select';
+    const counts = create('p', 'bookmark-export-counts'); counts.setAttribute('role', 'status'); counts.setAttribute('aria-live', 'polite');
+    const privacy = create('p', 'bookmark-export-privacy', t('bookmarkExportPreviewPrivacy', 'This file includes full URLs, including private query parameters and fragments. Review the counts and scope before downloading. Keep the file private.'));
+    privacy.className = 'form-hint'; select.setAttribute('aria-describedby', 'bookmark-export-counts bookmark-export-privacy');
+    const controls = create('div'); controls.className = 'data-actions';
+    const download = create('button', 'bookmark-export-download', t('bookmarkExportDownloadReviewed', 'Download reviewed scope'), controls);
+    const cancelButton = create('button', 'bookmark-export-cancel', t('bookmarkExportCancelPreview', 'Cancel preview'), controls);
+    for (const control of [download, cancelButton]) { control.type = 'button'; control.className = 'btn btn-secondary'; }
+    button.setAttribute('aria-controls', panel.id); button.setAttribute('aria-expanded', 'false');
+    function visible() {
+        const tab = button.closest('.tab-panel');
+        return !closed && document.visibilityState !== 'hidden' && button.isConnected && panel.isConnected &&
+            document.getElementById(button.id) === button && document.getElementById(panel.id) === panel &&
+            !button.closest('[hidden], [inert]') && (!tab || tab.classList.contains('active')) && button.getClientRects().length > 0;
+    }
+    function captureOwner() {
+        const workspace = storageManager.workspace || null;
+        const session = window.LocalItabWorkspaces?.session || null;
+        return {workspace, id: workspace?.id, generation: workspace?.generation,
+            session, sessionId: session?.id, sessionGeneration: session?.generation, settings: settingsSession};
+    }
+    function ownsWorkspace() {
+        return owner && owner.settings === settingsSession && !settingsReplacementPending && !settingsReplacementRunning &&
+            !window.LocalItabContentLifecycle?.departing && (storageManager.workspace || null) === owner.workspace &&
+            (window.LocalItabWorkspaces?.session || null) === owner.session &&
+            (!owner.workspace || (owner.id && owner.generation && !owner.workspace.invalidated && !owner.workspace._suspended &&
+                owner.workspace.id === owner.id && owner.workspace.generation === owner.generation)) &&
+            (!owner.session || (owner.sessionId && owner.sessionGeneration && !owner.session.invalidated && !owner.session._suspended &&
+                owner.session.id === owner.sessionId && owner.session.generation === owner.sessionGeneration));
+    }
+    function working(value) {
+        busy = value; button.disabled = value || Boolean(owner); select.disabled = value || !saved;
+        download.disabled = value || !prepared; panel.setAttribute('aria-busy', value ? 'true' : 'false');
+    }
+    function retire(repairFocus = false) {
+        const contained = panel.contains(document.activeElement);
+        ++epoch; owner = null; prepared = null; saved = null;
+        panel.hidden = true; select.replaceChildren(); select.value = '-1'; counts.textContent = '';
+        button.setAttribute('aria-expanded', 'false'); working(false);
+        // Only our own hiding follows the last ownership check. Old permissions
+        // are already gone; draining here cannot revive any cancelled preview.
+        observer?.takeRecords();
+        if (repairFocus && contained && visible()) button.focus();
+    }
+    function invalidating(records) {
+        // Appearance refresh paints these bounded custom properties on <html>.
+        // They do not hide this review or alter its exported fields. Keep every
+        // other style/class change conservative, including hide/show history.
+        const withoutAppearance = style => String(style || '').split(';').map(part => part.trim())
+            .filter(part => part && !/^--custom-(background|card-(padding|gap|radius|opacity|columns))\s*:/.test(part)).join(';');
+        return records.some(record => {
+            if (record.type === 'attributes') {
+                if (record.attributeName === 'style' && record.target === document.documentElement &&
+                    withoutAppearance(record.oldValue) === withoutAppearance(record.target.getAttribute('style'))) return false;
+                return true;
+            }
+            return record.type === 'childList' && Array.from(record.removedNodes).some(node =>
+                node === button || node === panel || node.contains?.(button) || node.contains?.(panel));
+        });
+    }
+    function current(request) {
+        if (request !== epoch) return false;
+        if (invalidating(observer?.takeRecords() || []) || !visible() || !ownsWorkspace() || panel.hidden ||
+            panel.closest('[hidden], [inert]') || panel.getClientRects().length === 0) { retire(); return false; }
+        return true;
+    }
+    function scope() {
+        if (select.value === '-1') return {kind: 'all'};
+        if (!/^(0|[1-9][0-9]*)$/.test(select.value)) throw new Error();
+        const category = saved.categories[Number(select.value)];
+        if (!category) throw new Error();
+        return {kind: 'category', id: category.id};
+    }
+    function showCounts() {
+        counts.textContent = t('bookmarkExportPreviewCounts', 'Sites: $1 · Folders: $2', [prepared.siteCount, prepared.folderCount]);
+    }
+    const failed = () => showMessage(t('bookmarkExportFailed', 'No bookmark export completed. Saved data could not be read or is unsupported or too large. Check your saved shortcuts and try again.'), 'error');
+    const expired = () => showMessage(t('bookmarkExportPreviewExpired', 'Saved bookmarks or this workspace changed, or could not be checked. Nothing was downloaded. Open a new export preview and review it again.'), 'error');
+    async function open() {
+        if (busy || owner || !visible() || window.LocalItabContentLifecycle?.departing) return;
+        retire(); busy = true;
+        try {
+            if (!confirm(t('bookmarkExportConfirm', 'Read saved shortcut titles, full URLs and category names to preview a local HTML export? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private.'))) { retire(); return; }
+        } catch (_) { retire(); failed(); return; }
+        owner = captureOwner(); const request = epoch; working(true);
+        panel.hidden = false; button.setAttribute('aria-expanded', 'true'); observer?.takeRecords();
+        counts.textContent = t('bookmarkExportPreviewReading', 'Reading saved bookmarks…'); title.focus();
+        try {
+            if (!current(request)) return;
+            const config = await storageManager.getAllForBackup();
+            if (!current(request)) return;
+            prepared = api.prepare(config); saved = prepared.snapshot;
+            const all = create('option', null, t('bookmarkExportAllCategories', 'All saved categories and sites'), select); all.value = '-1';
+            const names = new Map();
+            for (const category of saved.categories) names.set(category.name, (names.get(category.name) || 0) + 1);
+            saved.categories.forEach((category, index) => {
+                const name = names.get(category.name) > 1
+                    ? t('bookmarkExportCategoryIdentity', '$1 (ID: $2)', [category.name, category.id]) : category.name;
+                const option = create('option', null, name, select); option.value = String(index);
+            });
+            select.value = '-1'; showCounts(); working(false); select.focus();
+        } catch (_) { if (current(request)) { retire(true); failed(); } }
+        finally { if (request === epoch) working(false); }
+    }
+    function changeScope() {
+        if (!saved || !current(epoch)) return;
+        // A newer selection retires an older in-flight verification, even if a
+        // stale/programmatic change event reaches the disabled select.
+        ++epoch;
+        try { prepared = api.prepare(saved, scope()); showCounts(); working(false); }
+        catch (_) { retire(true); failed(); }
+    }
+    async function downloadReviewed() {
+        if (busy || !prepared || !current(epoch)) return;
+        const request = epoch, reviewed = prepared, selection = select.value;
+        // A value change without a change event is not an approved scope.
+        try {
+            const selected = scope();
+            if (selected.kind !== reviewed.scope.kind || selected.id !== reviewed.scope.id) { retire(true); expired(); return; }
+        } catch (_) { retire(true); expired(); return; }
+        // Native disabling can move focus to body. Keep an owned keyboard
+        // action on the still-enabled Cancel control; do not steal outside focus.
+        if (document.activeElement === download || document.activeElement === select) cancelButton.focus();
+        working(true);
         let url = null, anchor = null;
         try {
-            if (!confirm(t('bookmarkExportConfirm', 'Download saved shortcut titles, full URLs and category names as a local HTML file? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private.'))) return;
             const config = await storageManager.getAllForBackup();
-            const html = window.LocalItabBookmarkExport.serialize(config);
-            url = URL.createObjectURL(new Blob([html], {type: 'text/html;charset=utf-8'}));
-            anchor = document.createElement('a');
-            anchor.href = url;
-            anchor.download = 'local-itab-bookmarks.html';
+            if (!current(request) || reviewed !== prepared) return;
+            if (select.value !== selection || !api.matches(reviewed, config)) { retire(true); expired(); return; }
+            url = URL.createObjectURL(new Blob([reviewed.html], {type: 'text/html;charset=utf-8'}));
+            anchor = document.createElement('a'); anchor.href = url; anchor.download = 'local-itab-bookmarks.html';
             document.body.appendChild(anchor);
+            if (!current(request) || reviewed !== prepared || select.value !== selection) return;
             anchor.click();
-            // Allow the browser to consume the URL before releasing it.
+            // Allow the browser to consume the reviewed HTML before releasing it.
             const completedURL = url;
-            setTimeout(() => URL.revokeObjectURL(completedURL), 1000);
-            url = null;
-            showMessage(t('bookmarkExportStarted', 'Bookmark HTML download requested.'), 'success');
-        } catch (_) {
-            showMessage(t('bookmarkExportFailed', 'No bookmark export completed. Saved data could not be read or is unsupported or too large. Check your saved shortcuts and try again.'), 'error');
-        } finally {
-            if (anchor) anchor.remove();
-            if (url) URL.revokeObjectURL(url);
-            busy = false;
-            button.disabled = false;
+            setTimeout(() => URL.revokeObjectURL(completedURL), 1000); url = null;
+            retire(true); showMessage(t('bookmarkExportStarted', 'Bookmark HTML download requested.'), 'success');
+        } catch (_) { if (request === epoch) { retire(true); expired(); } }
+        finally {
+            if (anchor) anchor.remove(); if (url) URL.revokeObjectURL(url);
+            if (request === epoch) working(false);
         }
+    }
+    button.addEventListener('click', open); select.addEventListener('change', changeScope);
+    download.addEventListener('click', downloadReviewed); cancelButton.addEventListener('click', () => retire(true));
+    panel.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !event.isComposing) { event.preventDefault(); event.stopPropagation(); retire(true); }
     });
+    for (const control of [button, download, cancelButton]) control.addEventListener('keydown', event => {
+        if ((event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') &&
+            (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+    });
+    const visibility = () => { if (document.visibilityState === 'hidden') retire(); };
+    const pagehide = () => retire();
+    // Attribute history and ancestor removals revoke a hide/show or detach/reinsert
+    // round trip. Unrelated DOM additions (including our download anchor) do not.
+    const observer = typeof window.MutationObserver === 'function'
+        ? new window.MutationObserver(records => { if (invalidating(records)) retire(); }) : null;
+    for (let node = button; observer && node; node = node.parentElement)
+        observer.observe(node, {attributes: true, attributeOldValue: true, attributeFilter: ['hidden', 'inert', 'class', 'style'], childList: true});
+    observer?.observe(panel, {attributes: true, attributeOldValue: true, attributeFilter: ['hidden', 'inert', 'class', 'style']});
+    document.addEventListener('visibilitychange', visibility); window.addEventListener?.('pagehide', pagehide);
+    const unsubscribe = storageManager.workspace?.manager?.subscribe(() => { if (owner && !ownsWorkspace()) retire(); });
+    window.bookmarkExportView = {cancel: retire, get pending() { return busy; },
+        hasUncommittedWork() { return Boolean(owner || busy || prepared); }, destroy() {
+            retire(); closed = true; observer?.disconnect(); unsubscribe?.();
+            document.removeEventListener?.('visibilitychange', visibility); window.removeEventListener?.('pagehide', pagehide);
+        }};
+    working(false);
 }

@@ -2443,7 +2443,37 @@
     "message": "Local file of saved shortcut titles, full URLs and category folders only. URLs may contain private query parameters. Unsaved edits, icons, settings and private local tools are excluded. Keep the file private."
   },
   "bookmarkExportConfirm": {
-    "message": "Download saved shortcut titles, full URLs and category names as a local HTML file? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private."
+    "message": "Read saved shortcut titles, full URLs and category names to preview a local HTML export? URLs may contain private query parameters. Unsaved edits, icons, settings, Tasks, Focus, Scratchpad and Countdown are excluded. Keep this file private."
+  },
+  "bookmarkExportPreviewTitle": {
+    "message": "Review bookmark export"
+  },
+  "bookmarkExportChooseScope": {
+    "message": "Export scope"
+  },
+  "bookmarkExportPreviewPrivacy": {
+    "message": "This file includes full URLs, including private query parameters and fragments. Review the counts and scope before downloading. Keep the file private."
+  },
+  "bookmarkExportDownloadReviewed": {
+    "message": "Download reviewed scope"
+  },
+  "bookmarkExportCancelPreview": {
+    "message": "Cancel preview"
+  },
+  "bookmarkExportPreviewCounts": {
+    "message": "Sites: $1 · Folders: $2"
+  },
+  "bookmarkExportPreviewExpired": {
+    "message": "Saved bookmarks or this workspace changed, or could not be checked. Nothing was downloaded. Open a new export preview and review it again."
+  },
+  "bookmarkExportPreviewReading": {
+    "message": "Reading saved bookmarks…"
+  },
+  "bookmarkExportAllCategories": {
+    "message": "All saved categories and sites"
+  },
+  "bookmarkExportCategoryIdentity": {
+    "message": "$1 (ID: $2)"
   },
   "bookmarkExportStarted": {
     "message": "Bookmark HTML download requested."

@@ -1678,3 +1678,15 @@ textarea:focus-visible,
 .import-closure-facts dt { font-size: .85em; }
 .import-closure-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; unicode-bidi: plaintext; }
 @media (max-width: 600px) { .import-closure-facts { grid-template-columns: 1fr; } .import-closure-controls .btn { width: 100%; } }
+
+/* Saved-only bookmark export review; no website list or editable configuration. */
+.bookmark-export-preview { margin-block: 16px 24px; padding: 18px; border: 1px solid var(--glass-border); border-radius: 12px; min-width: 0; }
+.bookmark-export-preview[hidden] { display: none !important; }
+.bookmark-export-preview h3 { margin: 0 0 12px; }
+.bookmark-export-preview label { display: block; margin-bottom: 8px; }
+.bookmark-export-preview select { width: 100%; min-width: 0; max-width: 100%; }
+.bookmark-export-preview p { overflow-wrap: anywhere; }
+.bookmark-export-preview .data-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.bookmark-export-preview .btn { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.bookmark-export-preview :focus-visible { outline: 2px solid var(--text-accent); outline-offset: 4px; }
+@media (max-width: 600px) { .bookmark-export-preview .btn { width: 100%; } }

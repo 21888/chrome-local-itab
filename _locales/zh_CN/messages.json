@@ -2443,7 +2443,37 @@
     "message": "本地文件仅包含已保存的快捷方式标题、完整网址和分类文件夹。网址可能含有私密查询参数。不包含未保存的修改、图标、设置和本地私人小工具。请妥善保管文件。"
   },
   "bookmarkExportConfirm": {
-    "message": "将已保存的快捷方式标题、完整网址和分类名称下载为本地 HTML 文件？网址可能含有私密查询参数。不包含未保存的修改、图标、设置、任务、专注计时器、便签和倒计时。请妥善保管此文件。"
+    "message": "读取已保存的网站标题、完整网址和分类名称，预览本地 HTML 导出范围吗？网址可能包含私人查询参数。不包含未保存编辑、图标、设置、待办、专注、便笺和倒计时。请妥善保管文件。"
+  },
+  "bookmarkExportPreviewTitle": {
+    "message": "预览书签导出"
+  },
+  "bookmarkExportChooseScope": {
+    "message": "导出范围"
+  },
+  "bookmarkExportPreviewPrivacy": {
+    "message": "文件包含完整网址，包括私人查询参数和片段。下载前请核对范围与数量，并妥善保管文件。"
+  },
+  "bookmarkExportDownloadReviewed": {
+    "message": "下载已预览范围"
+  },
+  "bookmarkExportCancelPreview": {
+    "message": "取消预览"
+  },
+  "bookmarkExportPreviewCounts": {
+    "message": "$1 个网站 · $2 个文件夹"
+  },
+  "bookmarkExportPreviewExpired": {
+    "message": "已保存的书签或当前工作区已更改，或无法完成核对。未下载任何文件。请重新打开导出预览并核对。"
+  },
+  "bookmarkExportPreviewReading": {
+    "message": "正在读取已保存的书签…"
+  },
+  "bookmarkExportAllCategories": {
+    "message": "全部已保存分类和网站"
+  },
+  "bookmarkExportCategoryIdentity": {
+    "message": "$1（ID：$2）"
   },
   "bookmarkExportStarted": {
     "message": "已请求下载书签 HTML 文件。"

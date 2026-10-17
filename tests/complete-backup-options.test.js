@@ -10,7 +10,7 @@ function model(){
     return {ctx,window,calls,options};
 }
 test('Settings complete restore preserves drafts and never nests confirmation or reload',async()=>{
-    for(const view of ['localScratchpadSettingsView','localCountdownSettingsView','localFocusSettingsView']){
+    for(const view of ['localScratchpadSettingsView','localCountdownSettingsView','localFocusSettingsView','bookmarkExportView']){
         const m=model(),draft={private:'still here'};m.window[view]={draft,hasUncommittedWork:()=>true};await assert.rejects(m.options.restore({},()=>true),e=>e.code==='DIRTY');assert.equal(m.calls.length,0);assert.equal(m.window[view].draft,draft);
     }
     const m=model();vm.runInContext('settingsHasUncommittedWork=()=>true;',m.ctx);await assert.rejects(m.options.restore({},()=>true),e=>e.code==='DIRTY');assert.equal(m.calls.length,0);

@@ -72,5 +72,41 @@
         append('</DL><p>\n');
         return chunks.join('');
     }
-    return Object.freeze({LIMITS, serialize});
+    // Copy only export fields, before filtering. Neither a caller mutation nor
+    // an unrelated Settings edit may silently change the reviewed download.
+    function snapshot(config) {
+        if (!config || !Array.isArray(config.links) || !Array.isArray(config.categories)
+            || config.links.length > LIMITS.links || config.categories.length > LIMITS.categories) fail();
+        const categories = config.categories.map(category => {
+            if (!category || typeof category !== 'object') fail();
+            return Object.freeze({id: checked(category.id, LIMITS.id), name: checked(category.name, LIMITS.text)});
+        });
+        const links = config.links.map(link => {
+            if (!link || typeof link !== 'object') fail();
+            return Object.freeze({title: checked(link.title, LIMITS.text), url: checked(link.url, LIMITS.url),
+                category: checked(link.category, LIMITS.id)});
+        });
+        return Object.freeze({categories: Object.freeze(categories), links: Object.freeze(links)});
+    }
+    function prepare(config, scope = {kind: 'all'}) {
+        const saved = snapshot(config);
+        // Preserve every existing validation, including the full HTML byte
+        // budget. A small selected folder cannot hide invalid/excess source data.
+        const allHTML = serialize(saved);
+        if (!scope || !['all', 'category'].includes(scope.kind)) fail();
+        let selected = saved, selection = {kind: 'all'};
+        if (scope.kind === 'category') {
+            const category = saved.categories.find(item => item.id === scope.id);
+            if (!category) fail();
+            selection = {kind: 'category', id: category.id};
+            selected = {categories: [category], links: saved.links.filter(link => link.category === category.id)};
+        }
+        return Object.freeze({snapshot: saved, scope: Object.freeze(selection),
+            html: scope.kind === 'all' ? allHTML : serialize(selected),
+            siteCount: selected.links.length, folderCount: selected.categories.length});
+    }
+    function matches(prepared, config) {
+        return JSON.stringify(prepared.snapshot) === JSON.stringify(snapshot(config));
+    }
+    return Object.freeze({LIMITS, serialize, prepare, matches});
 });

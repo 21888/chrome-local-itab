@@ -1,8 +1,12 @@
 # Local browser-bookmark HTML export
 
 In **Settings → Data**, select **Export bookmarks HTML** and review the privacy
-confirmation. Cancelling happens before the saved configuration is read or a file
-is created. The download is a local UTF-8 Netscape bookmark HTML file named
+confirmation. Cancelling that prompt happens before the saved configuration is read
+or a file is created. After confirming, review the site/folder counts and choose
+**All saved categories and sites** (the default) or one existing category. Then select
+**Download reviewed scope**. The preview creates no file; **Cancel preview** closes
+it without downloading. Every new preview resets to All, without saving a preference.
+The download is a local UTF-8 Netscape bookmark HTML file named
 `local-itab-bookmarks.html`. No additional permission or network request is added.
 The browser decides where downloads are saved; the success notice means a download
 was requested, not that the browser or disk confirmed completion.
@@ -28,6 +32,38 @@ filter invalid stored entries. This feature does **not** promise byte-for-byte r
 storage fidelity. The pure serializer preserves supported strings it receives and
 rejects an unsupported snapshot rather than dropping or truncating its entries.
 Read failures do not export fallback defaults. Feedback never includes saved values.
+
+## Scope preview and saved-state check
+
+- All includes every category and saved site, including root-level orphan membership.
+  A single-category export includes exactly that existing folder and all its sites.
+  An empty category is a valid zero-site, one-folder export. There is no separate
+  synthetic “uncategorized” option.
+- Selection uses category identity, not its label. Same-name categories display
+  their IDs in the selector so they can be distinguished. A real category ID of
+  `all` is an ordinary category and cannot collide with the All option. IDs remain
+  excluded from the generated HTML.
+- The entire normalized source is validated before scoping, including all existing
+  count, field, duplicate-ID, URL and HTML-byte limits. Selecting an empty/small folder
+  cannot bypass an unsupported or oversized source elsewhere.
+- The preview owns an independent in-memory copy of only ordered category IDs/names
+  and shortcut titles/URLs/category memberships, plus its already generated HTML.
+  It never reads unsaved form inputs or saves Settings.
+- Download reads saved configuration again and compares all ordered export fields,
+  including records outside the selected category. A changed value/order, read
+  failure or replaced/invalid workspace ends the old preview. Open a new preview
+  and review it again; there is no silent refresh, scope fallback or automatic retry.
+  Unrelated saved fields such as appearance or icons do not change the comparison.
+- Cancel, hiding/leaving the Data section or page, removing its host, destroying
+  the view or leaving its workspace retires the review and any late read completion.
+  Choosing another scope also retires an in-flight verification for the old scope.
+- Open previews participate in the existing reload, complete-restore and workspace
+  draft guards. “Save drafts” never downloads an export. Close or finish this preview
+  before proceeding; an explicitly discarded/departing review cannot later download.
+
+The final browser request uses the exact reviewed HTML, fixed filename/MIME and
+existing delayed object-URL cleanup. This is a best-effort saved-state recheck, not
+an atomic lock across future storage edits and the browser's download machinery.
 
 ## Bounds and compatibility
 
@@ -60,8 +96,12 @@ and empty folders, orphan membership, escaping, Unicode, private-field exclusion
 URL rejection, malformed values, limits and ordinary parser fixtures.
 `tests/bookmark-export-options.test.js` runs the actual bound options click handler
 with a controlled DOM/storage/download model: cancellation before reads, saved-only
-source, privacy prompt, MIME/filename, repeated and overlapping clicks, read/serializer
-failure, download failure, URL cleanup, retry and shipped locale/script wiring.
+source, privacy prompt, scope/count preview, explicit second action, ordered saved-state
+rechecks, late cancellation and lifecycle/workspace fences, MIME/filename, repeated and
+overlapping clicks, read/serializer failure, download failure, URL cleanup, retry and
+EN/ZH/fallback locale/script wiring. `tests/bookmark-export-scope.test.js` adds small
+pure scope/snapshot fixtures. See [scope-preview validation](bookmark-export-scope-validation.md)
+for the bounded commands and remaining acceptance gates.
 
 The automated checks do not operate a browser, clipboard, cloud service or production
 store. Actual native acceptance is recorded separately below.
@@ -69,14 +109,22 @@ store. Actual native acceptance is recorded separately below.
 
 ## 中文使用说明
 
-在「设置 → 数据」点击「导出书签 HTML」，阅读提示后确认。取消不会读取配置或
-创建下载文件。生成的 `local-itab-bookmarks.html` 可用于浏览器书签交换；它只包含
+在「设置 → 数据」点击「导出书签 HTML」，阅读提示后确认。在该提示取消不会读取配置或
+创建下载文件。确认后先查看网站和文件夹数量，选择「全部已保存分类和网站」（默认）或
+一个现有分类，再点击「下载已预览范围」。预览本身不会创建文件，可随时取消；每次重新
+打开均恢复「全部」，不保存选择偏好。生成的 `local-itab-bookmarks.html` 可用于浏览器书签交换；它只包含
 已保存的网站标题、完整网址和分类文件夹，不包含未保存编辑、图标、布局、其他设置，
 也不包含待办、专注计时、便笺或倒计时内容。网址可能带有私人查询参数，请妥善保管文件。
 
 导出按分类 ID 分组，保留分类顺序、同组网站顺序、重复网址、同名分类和空分类；
 没有匹配分类的网站放在根目录。读取失败或序列化数据超出支持范围时，整次导出会失败，
-不会用默认配置替代成功结果。浏览器提示下载开始，不代表磁盘保存已经完成。
+不会用默认配置替代成功结果。同名分类在选项中附带 ID 区分；单分类导出只保留该文件夹
+及其中网站，空分类也可导出。筛选前会校验完整来源，不能用小范围绕过全量限制。
+
+下载前会再次读取并核对所有有序导出字段，包括未选择分类中的内容。相关内容或工作区
+发生变化、读取失败时，旧预览失效，需要重新打开并核对；无关外观字段不参与内容比对。
+取消、隐藏、离开页面或切换工作区后，迟到的读取结果不会触发下载。预览只使用已保存
+内容，不保存表单；「保存草稿」也不会自动下载。浏览器提示下载开始，不代表磁盘保存已经完成。
 
 上限为 20,000 个网站、2,000 个分类、32 MiB UTF-8 HTML；标题、分类名和分类 ID
 最多 256 个 Unicode 码点，网址最多 4,096 个 UTF-16 编码单元。网址仅支持严格校验的
@@ -87,7 +135,16 @@ HTTP/HTTPS，不支持含用户名密码等不安全格式。超过限制不会�
 完全一致。迁移完整主页配置请使用 JSON 设置备份，并按照迁移说明另存私人模块内容。
 
 
-## Actual Chrome download and import (2026-10-09)
+## Historical Chrome download and import (2026-10-09, previous one-step export)
+
+This preserved native evidence covers the earlier one-step **all-bookmarks** export
+only. It does **not** validate the new two-stage scope preview, its controls, keyboard
+or screen-reader behavior, or its asynchronous cancellation/recheck flow. Those new
+flows currently have bounded model tests only; native Chrome acceptance is still pending.
+
+以下保留的是 2026-10-09 旧版「一步全量导出」的原生记录，不代表新增范围预览已通过
+原生 Chrome 验收。新增两阶段流程目前仅完成有限自动化模型验证。
+
 
 A normal-sandbox official Chrome for Testing 155.0.8059.39 Linux profile imported
 an ordinary synthetic Settings JSON containing four shortcuts and three categories.

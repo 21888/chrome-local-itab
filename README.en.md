@@ -270,7 +270,7 @@ In the AI context panel, explicitly choose **Copy answer** or **Copy task JSON**
 
 ### New tab and everyday tools
 
-- **Browser bookmark export**: In Settings → Data, export saved site titles, full URLs and category folders to a local HTML file. Review the privacy confirmation first; unsaved edits, icons, settings and local tools are excluded. [Scope and limits](docs/bookmark-export.md).
+- **Browser bookmark export**: In Settings → Data, export saved site titles, full URLs and category folders to a local HTML file. After the privacy confirmation, preview All or one existing category with site/folder counts, then explicitly download that reviewed scope. Saved-state changes require a new preview; unsaved edits, icons, settings and local tools are excluded. [Scope and limits](docs/bookmark-export.md).
 
 - **Search and go**: Use Google, Bing, DuckDuckGo, or a custom search URL, or open a website directly. Use `%s` for the search term in a custom template, such as `https://example.com/search?q=%s`.
 - **Organized shortcuts**: Add, edit, and delete saved websites; filter by category; choose Grid (default, with drag reordering), Free placement (no snapping), or Manual · snap to grid using the Placement selector on the dashboard or in Settings. Switching keeps saved positions. The context menu includes shortcut actions and an option to open every website in a category. Focus a category and use horizontal Left/Right or vertical Up/Down, plus Home/End, to browse; Enter/Space applies the filter. [Category keyboard guide](docs/category-keyboard-validation.md).
