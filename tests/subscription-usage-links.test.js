@@ -46,6 +46,12 @@ test('guide does not change Claude permission flow, catalog, manifest, or instal
  delete expected.optionsPrivacySurface;
  assert.doesNotMatch(optionsSource,/subscription[-_]?usage|claude[-_]?usage|(?:help\.openai|chatgpt|grok|claude)\.com|claude\.ai/i);
  assert.doesNotMatch(optionsSource,/\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|chrome\s*(?:\?\.)?\.?(?:cookies|scripting)|window\.open\s*\(|\bimport\s*\(/);
+ // Bookmark scope review appends isolated styles after the original 42,422
+ // bytes. Keep that entire historical CSS byte-for-byte as well as checking
+ // the reviewed current file below; no permission or guide guard is removed.
+ const originalCss=fs.readFileSync('options.css').subarray(0,42422);
+ assert.equal(crypto.createHash('sha256').update(originalCss).digest('hex'),
+  '2729c1d1465a5dd01fe39e659c431bb9510616b7025ca467d917ea8f1b377428','original Options CSS prefix');
  for(const [file,hash] of Object.entries(expected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),hash,file);
  assert.match(html,/<a\b[^>]*id="claude-usage-open"[^>]*href="claude-usage-experiment.html"/);
  const script=fs.readFileSync('shared/settings-search.js','utf8');

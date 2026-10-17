@@ -96,3 +96,21 @@ The Chrome download/import evidence dated 2026-10-09 in the main export guide is
 preserved historical evidence for the earlier one-step all-bookmarks flow. It does
 not establish native acceptance of these new controls, accessibility, keyboard,
 asynchronous recheck/cancellation behavior or browser/disk download completion.
+
+## Exact-source CI baseline compatibility follow-up
+
+The first exact-source CI run for this feature, `39018755104` on
+`d9dd39dc0a2fe0d96294b190ccf1dfb48315e495`, completed the original full Node
+suite with 6,332 passes and one failure out of 6,333 tests. The sole failure was
+the subscription-guide test's historical whole-file `options.css` SHA256.
+Python and the CI packaging step did not run after that failed Node command.
+
+The feature appended 913 bytes of styles scoped to `.bookmark-export-preview`.
+All 42,422 original CSS bytes remain identical, with historical SHA256
+`2729c1d1465a5dd01fe39e659c431bb9510616b7025ca467d917ea8f1b377428`.
+The compatibility fix retains that original-prefix hash as an additional assertion
+and updates the existing whole-file fixture to the independently reviewed current
+CSS hash. It changes no runtime file, permission guard, network assertion, capacity
+test or workflow. The original failed CI and finite reproduction are retained;
+a later exact-source CI result must be checked separately rather than treating the
+first run as successful.
