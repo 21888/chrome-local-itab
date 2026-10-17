@@ -11,6 +11,14 @@ let drivePanelState = null;
 // Field state and per-computer drafts live only for this page and DOM input.
 const driveDeviceNameFields = new WeakMap();
 let cloudReplacementInProgress = false;
+// Explicit Sync actions can wait outside the workspace Session's write queue.
+// Count the entire UI operation, including preflight and final status reads.
+let manualSyncActionsPending = 0;
+async function runManualSyncAction(operation) {
+    ++manualSyncActionsPending;
+    try { return await operation(); }
+    finally { --manualSyncActionsPending; }
+}
 
 // A category baseline belongs to this form, never to a later storage read.
 let clockBaseline = null;
@@ -147,7 +155,7 @@ function advanceSettingsBaseline(settings, paths, submittedForm) {
     }
 }
 function settingsHasUncommittedWork() {
-    if (driveActionInProgress || driveDeviceNameHasDrafts()) return true;
+    if (manualSyncActionsPending > 0 || driveActionInProgress || driveDeviceNameHasDrafts()) return true;
     if (settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending) return true;
     if (settingsReplacementPending || !settingsFormBaseline) return false;
     try { return settingsDirtyPaths(collectFormData(false)).length > 0 ||
@@ -874,7 +882,7 @@ async function populateFormFields(config) {
     window.settingsFormView = {hasUncommittedWork: settingsHasUncommittedWork,
         saveDrafts: () => saveAllSettings(true), flush: () => settingsSaveQueue,
         pauseAutosave() { clearTimeout(categorySaveTimeout); },
-        get pending() { return driveActionInProgress || settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending; }};
+        get pending() { return manualSyncActionsPending > 0 || driveActionInProgress || settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending; }};
 }
 
 async function populateSyncControls(syncConfig) {
@@ -1059,7 +1067,7 @@ function setupEventListeners() {
     const onlineFavicons = document.getElementById('privacy-online-favicons');
 
     if (syncToggle) {
-        syncToggle.addEventListener('change', async () => {
+        syncToggle.addEventListener('change', () => runManualSyncAction(async () => {
             try {
                 syncToggle.disabled = true;
                 if (syncToggle.checked) {
@@ -1084,11 +1092,11 @@ function setupEventListeners() {
                 const status = await storageManager.getSyncStatus();
                 syncToggle.disabled = !status.available;
             }
-        });
+        }));
     }
 
     if (syncUpload) {
-        syncUpload.addEventListener('click', async () => {
+        syncUpload.addEventListener('click', () => runManualSyncAction(async () => {
             try {
                 showMessage(t('syncUploadStart', '正在上传设置到 Chrome 同步...'), 'info');
                 const status = await storageManager.pushToSync();
@@ -1099,11 +1107,11 @@ function setupEventListeners() {
                 showMessage(t('syncUploadFailed', '上传失败：$1', syncErrorMessage(error)), 'error');
                 await renderSyncStatus();
             }
-        });
+        }));
     }
 
     if (syncDownload) {
-        syncDownload.addEventListener('click', async () => {
+        syncDownload.addEventListener('click', () => runManualSyncAction(async () => {
             try {
                 showMessage(t('syncDownloadStart', '正在从 Chrome 同步下载设置...'), 'info');
                 const result = await storageManager.pullFromSync();
@@ -1119,11 +1127,11 @@ function setupEventListeners() {
                 showMessage(t('syncDownloadFailed', '下载失败：$1', syncErrorMessage(error)), 'error');
                 await renderSyncStatus();
             }
-        });
+        }));
     }
 
     if (syncClear) {
-        syncClear.addEventListener('click', async () => {
+        syncClear.addEventListener('click', () => runManualSyncAction(async () => {
             const current = await storageManager.getSyncStatus();
             if (!confirm(current.compatibilityBlocked ? t('syncBlockedClearConfirm', 'This removes the conflicting cloud copy and keeps this device. A readable cloud copy must be saved locally for recovery first. Other devices may upload again. Continue?') : t('syncClearConfirm', '清除 Chrome 同步中的云端副本？本机设置会保留。'))) return;
             try {
@@ -1138,7 +1146,7 @@ function setupEventListeners() {
                 showMessage(t('syncClearFailed', '清除失败：$1', error.message), 'error');
                 await renderSyncStatus();
             }
-        });
+        }));
     }
 
 
@@ -2829,15 +2837,20 @@ async function replaceLocalFromCloud() {
     cloudReplacementInProgress = true;
     const button = document.getElementById('sync-replace-local');
     if (button) button.disabled = true;
-    try {
-        const expectedRemote = await storageManager.previewCloudReplacement();
-        if (!confirm(t('syncReplaceLocalConfirm', 'Replace this device with the current cloud copy ($1 shortcuts)? Independent positions missing from that copy will be removed. A recovery backup of this device must be saved locally first. Other devices may overwrite the cloud again; update them before continuing.', String(expectedRemote.shortcuts)))) return;
-        await replaceSettings(() => storageManager.pullFromSync({ confirmedReplacement: true, expectedRemote }));
-        window.LocalItabContentLifecycle.reload();
-    } catch (error) {
-        showMessage(t('syncDownloadFailed', 'Download failed: $1', syncErrorMessage(error)), 'error');
-        await renderSyncStatus();
-    } finally { cloudReplacementInProgress = false; if (button) button.disabled = false; }
+    const replaced = await runManualSyncAction(async () => {
+        try {
+            const expectedRemote = await storageManager.previewCloudReplacement();
+            if (!confirm(t('syncReplaceLocalConfirm', 'Replace this device with the current cloud copy ($1 shortcuts)? Independent positions missing from that copy will be removed. A recovery backup of this device must be saved locally first. Other devices may overwrite the cloud again; update them before continuing.', String(expectedRemote.shortcuts)))) return;
+            await replaceSettings(() => storageManager.pullFromSync({ confirmedReplacement: true, expectedRemote }));
+            return true;
+        } catch (error) {
+            showMessage(t('syncDownloadFailed', 'Download failed: $1', syncErrorMessage(error)), 'error');
+            await renderSyncStatus();
+        } finally { cloudReplacementInProgress = false; if (button) button.disabled = false; }
+    });
+    // Our own completed action must not block its successful restore reload.
+    // The lifecycle still protects every other pending action or open draft.
+    if (replaced) window.LocalItabContentLifecycle.reload();
 }
 
 async function renderSyncStatus(status = null) {
