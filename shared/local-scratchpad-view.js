@@ -28,8 +28,8 @@
         scratchpadFind: 'Find text', scratchpadFindLabel: 'Text to find',
         scratchpadFindHelp: 'Case-sensitive, exact single-line text in this editor only. Spaces count. Enter selects the next match.',
         scratchpadFindPrevious: 'Previous match', scratchpadFindNext: 'Next match', scratchpadFindClose: 'Close find',
-        scratchpadFindSelected: 'Match selected.', scratchpadFindWrappedNext: 'Wrapped to the beginning. Match selected.',
-        scratchpadFindWrappedPrevious: 'Wrapped to the end. Match selected.', scratchpadFindNoMatch: 'No matching text in this editor.',
+        scratchpadFindSelected: 'Match {current} of {total}.', scratchpadFindWrappedNext: 'Wrapped to the beginning. Match {current} of {total}.',
+        scratchpadFindWrappedPrevious: 'Wrapped to the end. Match {current} of {total}.', scratchpadFindNoMatch: 'No matching text in this editor.',
         scratchpadFindInvalid: 'Enter complete Unicode characters to find text.',
         scratchpadFindFailed: 'Could not select the matching text. Try again.'
     };
@@ -107,6 +107,8 @@
                 // non-repeat key retires the old ownership token locally.
                 if (!event.repeat && this.findHeldEnter !== event) this.findHeldEnter = null;
             };
+            this.findVisibilityChange = () => { if (document.hidden) { this.findHeldEnter = null; this.resetFindResult(); } };
+            document.addEventListener('visibilitychange', this.findVisibilityChange);
             host.addEventListener('keyup', this.findKeyup); host.addEventListener('pointerdown', this.findPointerdown); host.addEventListener('keydown', this.findKeydown);
             this.findPanel.addEventListener('keydown', event => {
                 if (event.key !== 'Escape' || !this.canFind(event.target, event)) return;
@@ -212,6 +214,12 @@
             if (start < 0 && previous) { wrapped = true; start = direction > 0 ? text.indexOf(query) : text.lastIndexOf(query); }
             this.resetFindResult(); this.findResult = { query, text };
             if (start < 0) { this.findStatus.textContent = t('scratchpadFindNoMatch'); return; }
+            // Count the same literal, overlapping matches in this snapshot,
+            // retaining only counters rather than a list or background index.
+            let current = 0, total = 0;
+            for (let offset = text.indexOf(query); offset >= 0; offset = text.indexOf(query, offset + 1)) {
+                total++; if (offset === start) current = total;
+            }
             const end = start + query.length;
             try {
                 this.textarea.focus();
@@ -221,8 +229,9 @@
                 this.textarea.setSelectionRange(start, end);
                 if (!this.canFind(this.findInput) || this.findInput.value !== query || this.textarea.value !== text ||
                     this.textarea.selectionStart !== start || this.textarea.selectionEnd !== end) throw new Error('selection failed');
-                this.findResult = { query, text, start, end };
-                this.findStatus.textContent = t(wrapped ? (direction > 0 ? 'scratchpadFindWrappedNext' : 'scratchpadFindWrappedPrevious') : 'scratchpadFindSelected');
+                this.findResult = { query, text, start, end, current, total };
+                this.findStatus.textContent = t(wrapped ? (direction > 0 ? 'scratchpadFindWrappedNext' : 'scratchpadFindWrappedPrevious') : 'scratchpadFindSelected')
+                    .replace('{current}', String(current)).replace('{total}', String(total));
                 return true;
             } catch (_) {
                 if (!this.findVisible(this.findInput)) this.closeFind();
@@ -322,6 +331,7 @@
         destroy() {
             this.closeFind(); this.cancelImport(); this.closed = true;
             this.host.removeEventListener('keyup', this.findKeyup); this.host.removeEventListener('pointerdown', this.findPointerdown); this.host.removeEventListener('keydown', this.findKeydown);
+            document.removeEventListener('visibilitychange', this.findVisibilityChange);
             root.removeEventListener?.('beforeunload', this.beforeUnload); this.unsubscribe(); this.controller.destroy();
         }
     }

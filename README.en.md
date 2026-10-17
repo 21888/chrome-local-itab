@@ -360,6 +360,8 @@ While a page is active, elapsed time is checked against a monotonic clock. After
 
 Enable Scratchpad under Settings → Module Visibility for plain-text notes, links or snippets. It is off by default and autosaves on this device after typing pauses. Conflicting tabs keep your draft and offer an explicit choice between the saved text and your version. Export the current draft as TXT, or select one UTF-8 TXT file to preview and explicitly replace the saved note. Import requires a settled note and accepts up to 32,000 Unicode characters / 128 KiB; Cancel writes nothing. [Text import, limits and recovery](docs/local-scratchpad.en.md).
 
+Find text selects exact, case-sensitive matches in the current editor, including unsaved and over-limit drafts. Successful Previous/Next/Enter navigation shows “Match n of m” and any wrap notice; overlapping matches count. It does not edit or save text. [Find guide](docs/local-scratchpad.en.md#find-text-in-this-editor) · [Model validation and native limits](docs/scratchpad-match-position-validation.md).
+
 Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive backups. Before uninstalling or clearing browser data, include saved Scratchpad text in a complete local backup or export text separately; unsaved/conflicted drafts still need export from their original tabs. [Scope and validation](docs/local-scratchpad-validation.md).
 
 <details>

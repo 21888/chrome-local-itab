@@ -713,13 +713,13 @@
     "message": "关闭查找"
   },
   "scratchpadFindSelected": {
-    "message": "已选中匹配文字。"
+    "message": "第{current}处/共{total}处。"
   },
   "scratchpadFindWrappedNext": {
-    "message": "已回到开头，选中匹配文字。"
+    "message": "已回到开头。第{current}处/共{total}处。"
   },
   "scratchpadFindWrappedPrevious": {
-    "message": "已回到末尾，选中匹配文字。"
+    "message": "已回到末尾。第{current}处/共{total}处。"
   },
   "scratchpadFindNoMatch": {
     "message": "本页编辑区没有匹配文字。"

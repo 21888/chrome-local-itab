@@ -713,13 +713,13 @@
     "message": "Close find"
   },
   "scratchpadFindSelected": {
-    "message": "Match selected."
+    "message": "Match {current} of {total}."
   },
   "scratchpadFindWrappedNext": {
-    "message": "Wrapped to the beginning. Match selected."
+    "message": "Wrapped to the beginning. Match {current} of {total}."
   },
   "scratchpadFindWrappedPrevious": {
-    "message": "Wrapped to the end. Match selected."
+    "message": "Wrapped to the end. Match {current} of {total}."
   },
   "scratchpadFindNoMatch": {
     "message": "No matching text in this editor."
