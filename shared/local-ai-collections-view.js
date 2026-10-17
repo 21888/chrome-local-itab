@@ -6,6 +6,7 @@
             this.host = host; this.doc = host.ownerDocument; this.controller = controller;
             this.t = translate || ((key, fallback) => { const value = root.i18n?.t(`collections${key}`); return value && value !== `collections${key}` ? value : fallback; });
             this.clipboard = clipboard; this.confirm = confirm || (options => this.dialog(options));
+            this.listSort = 'updated';
             this.proposals = new Map(); this.reusedDrafts = new WeakSet(); this.revisionDraft = null; this.revisionContext = null; this.openDialog = false; this.detailGeneration = 0; this.copyGeneration = 0;
             controller.onChange = kind => { if (kind === 'dispose') { this.destroy(); return; } if (this.revisionContext && !this.revisionContext.current()) this.cancelRevision(); this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.updateReuseDraft?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
             this.pageHide = event => {
@@ -115,6 +116,30 @@
                 const wrap = this.el('label', 'prompt-field'); const select = this.el('select'); select.addEventListener('change', () => c.filter({ [name]: select.value })); wrap.append(this.el('span', '', this.t(name, label)), select); sidebar.append(wrap); this.filters[name] = select;
             }
             this.clearFilters = this.button('ClearFilters', 'Clear filters', () => c.clearFilters()); sidebar.append(this.clearFilters);
+            const sortLabel = this.el('label', 'prompt-field'), sort = this.el('select'), owner = c.onChange;
+            this.sortSelect = sort;
+            for (const [value, key, fallback] of [['updated', 'SortUpdated', 'Recently updated'], ['saved', 'SortSaved', 'Earliest saved']]) {
+                const option = this.el('option', '', this.t(key, fallback)); option.value = value; sort.append(option);
+            }
+            sort.value = this.listSort;
+            sort.addEventListener('change', () => {
+                const value = sort.value; sort.value = this.listSort;
+                if (!['updated', 'saved'].includes(value) || value === this.listSort || sort.disabled ||
+                    this.destroyed || c.disposed || !c.state || c.busy || c.pendingCommand || this.openDialog ||
+                    this.revisionContext || this.revisionDraft !== null || this.doc.visibilityState === 'hidden' ||
+                    this.sortSelect !== sort || c.onChange !== owner || !this.shell.contains(sort) || !this.host.contains(this.shell) ||
+                    !sort.isConnected || sort.closest('[hidden], [inert], [aria-hidden="true"]') || !sort.getClientRects().length ||
+                    this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]')) return;
+                for (let node = sort; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node) || node.style;
+                    if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return;
+                }
+                this.listSort = value; sort.value = value;
+                // A list-only user interaction fences late capture handoffs.
+                // Do not invalidate an active body review just to record this token.
+                c.filter({});
+            });
+            sortLabel.append(this.el('span', '', this.t('Sort', 'Sort this page')), sort); sidebar.append(sortLabel);
             this.draftList = this.el('div', 'prompt-draft-list'); this.listCount = this.el('p', 'prompt-list-heading'); this.list = this.el('div', 'prompt-list'); sidebar.append(this.draftList, this.listCount, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'collection-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.paragraph('Scope', 'Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model.'), this.paragraph('Limits', 'Limits: 200 items including archived · 32,000 characters per excerpt · 20 body versions per item · 2 MiB total. Capacity errors keep your draft; no text or history is silently removed.'), this.paragraph('Privacy', 'Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text.'));
@@ -130,6 +155,8 @@
         async leave(href) { if (this.controller.busy || this.controller.pendingCommand) return; if (await this.confirm({ title: this.t('Leave', 'Leave this page?'), body: this.t('LeaveBody', 'Unsaved drafts live only in this tab and will be lost.'), accept: this.t('Leave', 'Leave this page?') })) root.location.assign(href); }
         renderList() {
             const c = this.controller; this.search.value = c.filters.query;
+            this.sortSelect.value = this.listSort;
+            this.sortSelect.disabled = !c.state || c.busy || Boolean(c.pendingCommand);
             for (const button of this.main.querySelectorAll('[data-collection-tag]')) button.setAttribute('aria-pressed', String(c.filters.tag === button.dataset.collectionTag));
             for (const [mode, node] of Object.entries(this.nav)) node.setAttribute('aria-pressed', String(c.filters.mode === mode));
             for (const [name, select] of Object.entries(this.filters)) {
@@ -141,7 +168,10 @@
             this.clearFilters.disabled = !['query', 'type', 'tool', 'tag'].some(key => Boolean(c.filters[key]));
             this.draftList.replaceChildren();
             for (const [id, draft] of c.drafts) { const button = this.button('Draft', 'Draft', () => c.select(id), 'prompt-draft-card'); button.textContent = `${this.t('Draft', 'Draft')} · ${draft.input.title || this.t('Untitled', 'Untitled')}`; button.disabled = c.busy; this.draftList.append(button); }
-            this.list.replaceChildren(); let results = []; try { results = c.results(); } catch (_) { this.list.append(this.paragraph('QueryLong', 'Search is too long. Use up to 500 characters.')); }
+            this.list.replaceChildren(); let results = []; try {
+                results = [...c.results()];
+                if (this.listSort === 'saved') results.sort((a, b) => a.record.createdAt.localeCompare(b.record.createdAt) || a.record.id.localeCompare(b.record.id));
+            } catch (_) { this.list.append(this.paragraph('QueryLong', 'Search is too long. Use up to 500 characters.')); }
             this.listCount.textContent = `${results.length} ${this.t('Items', 'items')}`;
             for (const { record, snippet, snippetField } of results) {
                 const card = this.el('button', 'prompt-card'); card.type = 'button'; card.disabled = c.busy; card.setAttribute('aria-current', String(c.selected === record.id));

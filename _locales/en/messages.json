@@ -6339,6 +6339,15 @@
   "collectionsClearFilters": {
     "message": "Clear filters"
   },
+  "collectionsSort": {
+    "message": "Sort this page"
+  },
+  "collectionsSortUpdated": {
+    "message": "Recently updated"
+  },
+  "collectionsSortSaved": {
+    "message": "Earliest saved"
+  },
   "collectionsAnnotationMatch": {
     "message": "Matched saved annotations"
   },

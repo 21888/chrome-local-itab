@@ -6339,6 +6339,15 @@
   "collectionsClearFilters": {
     "message": "清除筛选"
   },
+  "collectionsSort": {
+    "message": "本页排序"
+  },
+  "collectionsSortUpdated": {
+    "message": "最近更新"
+  },
+  "collectionsSortSaved": {
+    "message": "最早保存"
+  },
   "collectionsAnnotationMatch": {
     "message": "匹配已保存批注"
   },
