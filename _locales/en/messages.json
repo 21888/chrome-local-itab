@@ -664,6 +664,42 @@
   "scratchpadExportError": {
     "message": "Could not export a text copy. Your draft is still here."
   },
+  "scratchpadFind": {
+    "message": "Find text"
+  },
+  "scratchpadFindLabel": {
+    "message": "Text to find"
+  },
+  "scratchpadFindHelp": {
+    "message": "Case-sensitive, exact single-line text in this editor only. Spaces count. Enter selects the next match."
+  },
+  "scratchpadFindPrevious": {
+    "message": "Previous match"
+  },
+  "scratchpadFindNext": {
+    "message": "Next match"
+  },
+  "scratchpadFindClose": {
+    "message": "Close find"
+  },
+  "scratchpadFindSelected": {
+    "message": "Match selected."
+  },
+  "scratchpadFindWrappedNext": {
+    "message": "Wrapped to the beginning. Match selected."
+  },
+  "scratchpadFindWrappedPrevious": {
+    "message": "Wrapped to the end. Match selected."
+  },
+  "scratchpadFindNoMatch": {
+    "message": "No matching text in this editor."
+  },
+  "scratchpadFindInvalid": {
+    "message": "Enter complete Unicode characters to find text."
+  },
+  "scratchpadFindFailed": {
+    "message": "Could not select the matching text. Try again."
+  },
   "shortcutUndoNotice": {
     "message": "Shortcut deleted. Undo is available only on this page until refresh; later changes may make it unavailable."
   },

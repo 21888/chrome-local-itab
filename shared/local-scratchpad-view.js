@@ -24,7 +24,14 @@
         scratchpadLimits: 'Up to 32,000 Unicode characters and 128 KiB of UTF-8 text. Longer drafts stay here until shortened; export a copy before leaving.',
         scratchpadTooLong: 'This draft is too long to save. It is still here. Shorten it or export a text copy before leaving.',
         scratchpadInvalidText: 'This draft contains invalid Unicode text and cannot be saved or exported exactly. Your text is still here. Correct it before saving or exporting.',
-        scratchpadExportError: 'Could not export a text copy. Your draft is still here.'
+        scratchpadExportError: 'Could not export a text copy. Your draft is still here.',
+        scratchpadFind: 'Find text', scratchpadFindLabel: 'Text to find',
+        scratchpadFindHelp: 'Case-sensitive, exact single-line text in this editor only. Spaces count. Enter selects the next match.',
+        scratchpadFindPrevious: 'Previous match', scratchpadFindNext: 'Next match', scratchpadFindClose: 'Close find',
+        scratchpadFindSelected: 'Match selected.', scratchpadFindWrappedNext: 'Wrapped to the beginning. Match selected.',
+        scratchpadFindWrappedPrevious: 'Wrapped to the end. Match selected.', scratchpadFindNoMatch: 'No matching text in this editor.',
+        scratchpadFindInvalid: 'Enter complete Unicode characters to find text.',
+        scratchpadFindFailed: 'Could not select the matching text. Try again.'
     };
     function t(key) { const translated = root.i18n?.t(key); return translated && translated !== key ? translated : fallback[key] || key; }
     function el(tag, cls, text) { const node = document.createElement(tag); if (cls) node.className = cls; if (text !== undefined) node.textContent = text; return node; }
@@ -46,8 +53,8 @@
             host.classList.add('local-scratchpad-card'); host.setAttribute('aria-label', t('scratchpadTitle')); host.hidden = true;
             const header = el('header', 'scratchpad-header'); header.append(el('h2', '', t('scratchpadTitle')), el('span', 'scratchpad-local', t('scratchpadLocal')));
             this.textarea = el('textarea', 'scratchpad-text'); this.textarea.setAttribute('aria-label', t('scratchpadLabel')); this.textarea.spellcheck = false; this.textarea.setAttribute('autocomplete', 'off');
-            this.textarea.addEventListener('input', () => { if (controller.loaded) controller.setDraft(this.textarea.value); });
-            this.textarea.addEventListener('compositionstart', () => controller.setComposing(true));
+            this.textarea.addEventListener('input', () => { this.resetFindResult(); if (controller.loaded) controller.setDraft(this.textarea.value); });
+            this.textarea.addEventListener('compositionstart', () => { this.findHeldEnter = null; controller.setComposing(true); });
             this.textarea.addEventListener('compositionend', () => { if (controller.loaded) controller.setDraft(this.textarea.value); controller.setComposing(false); });
             this.savedPreview = el('textarea', 'scratchpad-text scratchpad-saved-preview'); this.savedPreview.readOnly = true; this.savedPreview.spellcheck = false; this.savedPreview.setAttribute('aria-label', t('scratchpadSavedPreview'));
             this.savedLabel = el('p', 'scratchpad-help', t('scratchpadSavedPreview'));
@@ -57,6 +64,54 @@
             this.replace = button('scratchpadReplace', () => run(() => controller.replaceWithDraft()));
             this.exportButton = button('scratchpadExport', () => this.exportText());
             this.importButton = button('scratchpadImport', () => this.chooseImport());
+            this.findButton = button('scratchpadFind', event => {
+                if (!this.canFind(this.findButton, event)) return;
+                if (!this.findPanel.hidden) { this.closeFind(true); return; }
+                this.findPanel.hidden = false; this.findButton.setAttribute('aria-expanded', 'true'); this.renderFind();
+                try { this.findInput.focus(); } catch (_) {}
+            });
+            this.findButton.setAttribute('aria-expanded', 'false');
+            this.findPanel = el('section', 'scratchpad-find'); this.findPanel.hidden = true;
+            this.findPanel.setAttribute('aria-label', t('scratchpadFind'));
+            this.findInput = el('input', 'scratchpad-find-input'); this.findInput.type = 'text';
+            this.findInput.spellcheck = false; this.findInput.setAttribute('autocomplete', 'off');
+            const findLabel = el('label', 'scratchpad-find-label'); findLabel.append(el('span', '', t('scratchpadFindLabel')), this.findInput);
+            this.findPrevious = button('scratchpadFindPrevious', event => this.findText(-1, this.findPrevious, event));
+            this.findNext = button('scratchpadFindNext', event => this.findText(1, this.findNext, event));
+            this.findClose = button('scratchpadFindClose', event => { if (this.canFind(this.findClose, event)) this.closeFind(true); });
+            this.findStatus = el('p', 'scratchpad-help scratchpad-find-status');
+            this.findStatus.setAttribute('role', 'status'); this.findStatus.setAttribute('aria-live', 'polite'); this.findStatus.setAttribute('aria-atomic', 'true');
+            const findControls = el('div', 'scratchpad-controls'); findControls.append(this.findPrevious, this.findNext, this.findClose);
+            this.findPanel.append(findLabel, el('p', 'scratchpad-help', t('scratchpadFindHelp')), findControls, this.findStatus);
+            this.findInput.addEventListener('input', () => { this.resetFindResult(); this.renderFind(); });
+            this.findInput.addEventListener('compositionstart', () => { if (this.canFind(this.findInput)) { this.findComposing = true; this.resetFindResult(); this.renderFind(); } });
+            // Finish this input's IME bookkeeping even if the tab/card became
+            // hidden. Neither completion nor blur selects text or edits a draft.
+            const finishFindComposition = () => { if (!this.closed) { this.findComposing = false; this.renderFind(); } };
+            this.findInput.addEventListener('compositionend', finishFindComposition);
+            this.findInput.addEventListener('focusout', finishFindComposition);
+            this.findInput.addEventListener('keydown', event => this.findEnter(1, this.findInput, event));
+            this.findPrevious.addEventListener('keydown', event => this.findEnter(-1, this.findPrevious, event));
+            this.findNext.addEventListener('keydown', event => this.findEnter(1, this.findNext, event));
+            // A held Find Enter follows focus into the editor. Suppress only
+            // repeats from that successful navigation, never a fresh edit key.
+            this.textarea.addEventListener('keydown', event => {
+                if (this.findHeldEnter && event.key === 'Enter' && event.repeat && this.canFind(this.findInput, event)) event.preventDefault();
+                else this.findHeldEnter = null;
+            });
+            this.textarea.addEventListener('blur', () => { this.findHeldEnter = null; });
+            this.findKeyup = () => { this.findHeldEnter = null; };
+            this.findPointerdown = () => { this.findHeldEnter = null; };
+            this.findKeydown = event => {
+                // Preserve the same successful event as it bubbles; every new
+                // non-repeat key retires the old ownership token locally.
+                if (!event.repeat && this.findHeldEnter !== event) this.findHeldEnter = null;
+            };
+            host.addEventListener('keyup', this.findKeyup); host.addEventListener('pointerdown', this.findPointerdown); host.addEventListener('keydown', this.findKeydown);
+            this.findPanel.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || !this.canFind(event.target, event)) return;
+                event.preventDefault(); this.closeFind(true);
+            });
             this.importFile = el('input'); this.importFile.type = 'file'; this.importFile.accept = '.txt,text/plain'; this.importFile.hidden = true;
             this.importFile.addEventListener('change', () => run(() => this.readImport()));
             this.importFile.addEventListener('cancel', () => this.cancelImport(true));
@@ -72,10 +127,10 @@
             const importControls = el('div', 'scratchpad-controls'); importControls.append(this.importApply, this.importCancel);
             this.importPanel.append(appendLabel, this.importInfo, this.importPreview, el('p', 'scratchpad-help', t('scratchpadImportHelp')), importControls);
             this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
-            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.importButton);
+            const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.exportButton, this.importButton, this.findButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
-            host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.importFile, this.importPanel, details);
+            host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.importFile, this.importPanel, this.findPanel, details);
             this.beforeUnload = event => { if (root.LocalItabContentLifecycle?.departing || !this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
             root.addEventListener?.('beforeunload', this.beforeUnload);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
@@ -102,6 +157,77 @@
             this.useSaved.disabled = Boolean(c.pending || c.composing);
             this.replace.disabled = Boolean(c.pending || c.composing || c.readError);
             this.exportButton.disabled = !c.loaded && !c.draft;
+            this.renderFind();
+        }
+        findVisible(node) {
+            return !this.closed && !this.controller.closed && this.host.isConnected && node?.isConnected && this.host.contains(node) &&
+                !node.closest('[hidden], [inert], [aria-hidden="true"]') && node.getClientRects().length > 0 &&
+                !['hidden', 'collapse'].includes(root.getComputedStyle?.(node)?.visibility);
+        }
+        canFind(node, event) {
+            return this.controller.loaded && !document.hidden && !this.controller.composing && !this.findComposing &&
+                !event?.isComposing && event?.keyCode !== 229 && !node?.disabled && this.findVisible(node) && this.findVisible(this.textarea);
+        }
+        resetFindResult() { this.findResult = null; if (this.findStatus) this.findStatus.textContent = ''; }
+        closeFind(focus = false) {
+            const restore = focus && this.findPanel.contains(document.activeElement);
+            this.findHeldEnter = null; this.findComposing = false; this.findInput.value = ''; this.resetFindResult();
+            this.findPanel.hidden = true; this.findButton.setAttribute('aria-expanded', 'false');
+            this.findPrevious.disabled = this.findNext.disabled = true;
+            if (restore && this.canFind(this.findButton)) { try { this.findButton.focus(); } catch (_) {} }
+        }
+        renderFind() {
+            if (!this.findVisible(this.textarea)) this.closeFind();
+            const match = this.findResult;
+            if (match && (match.query !== this.findInput.value || match.text !== this.textarea.value)) this.resetFindResult();
+            this.findButton.disabled = !this.controller.loaded;
+            // Visibility/IME are checked at action time; disabling for a hidden
+            // tab could strand controls after it returns without a new render.
+            const disabled = !this.findInput.value || !this.controller.loaded || this.findPanel.hidden;
+            this.findPrevious.disabled = this.findNext.disabled = disabled;
+        }
+        findEnter(direction, source, event) {
+            if (event.key !== 'Enter' || !this.canFind(source, event)) return;
+            // Also prevent native button activation, including key repeats, so
+            // one keyboard gesture cannot run both keydown and default click.
+            event.preventDefault();
+            if (!event.repeat && this.findText(direction, source, event)) this.findHeldEnter = event;
+        }
+        findText(direction, source, event) {
+            this.findHeldEnter = null;
+            if (!this.findVisible(this.textarea)) { this.closeFind(); return; }
+            if (!this.canFind(source, event) || !this.canFind(this.findInput)) return;
+            // Read the actual editor each time: native textareas normalize CRLF,
+            // and unsaved/conflicted/over-limit drafts are all searchable as-is.
+            const query = this.findInput.value, text = this.textarea.value;
+            if (!query) { this.resetFindResult(); return; }
+            if (!api.isUnicode(query)) { this.resetFindResult(); this.findResult = { query, text }; this.findStatus.textContent = t('scratchpadFindInvalid'); return; }
+            let previous = this.findResult;
+            if (previous && (previous.query !== query || previous.text !== text || !Number.isInteger(previous.start))) previous = null;
+            let start, wrapped = false;
+            if (direction > 0) start = text.indexOf(query, previous ? previous.start + 1 : 0);
+            // lastIndexOf(query, -1) still checks offset zero; explicitly stop
+            // before zero so Previous can wrap and overlapping matches work.
+            else start = previous ? (previous.start > 0 ? text.lastIndexOf(query, previous.start - 1) : -1) : text.lastIndexOf(query);
+            if (start < 0 && previous) { wrapped = true; start = direction > 0 ? text.indexOf(query) : text.lastIndexOf(query); }
+            this.resetFindResult(); this.findResult = { query, text };
+            if (start < 0) { this.findStatus.textContent = t('scratchpadFindNoMatch'); return; }
+            const end = start + query.length;
+            try {
+                this.textarea.focus();
+                // Focus handlers may hide/detach the card or change its text.
+                if (document.activeElement !== this.textarea || !this.canFind(this.findInput) ||
+                    this.findInput.value !== query || this.textarea.value !== text) throw new Error('stale find');
+                this.textarea.setSelectionRange(start, end);
+                if (!this.canFind(this.findInput) || this.findInput.value !== query || this.textarea.value !== text ||
+                    this.textarea.selectionStart !== start || this.textarea.selectionEnd !== end) throw new Error('selection failed');
+                this.findResult = { query, text, start, end };
+                this.findStatus.textContent = t(wrapped ? (direction > 0 ? 'scratchpadFindWrappedNext' : 'scratchpadFindWrappedPrevious') : 'scratchpadFindSelected');
+                return true;
+            } catch (_) {
+                if (!this.findVisible(this.findInput)) this.closeFind();
+                else this.findStatus.textContent = t('scratchpadFindFailed');
+            }
         }
         canImport() {
             const c = this.controller;
@@ -193,7 +319,11 @@
             } catch (_) { link?.remove(); if (url) root.URL.revokeObjectURL(url); this.status.textContent = t('scratchpadExportError'); }
         }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
-        destroy() { this.cancelImport(); this.closed = true; root.removeEventListener?.('beforeunload', this.beforeUnload); this.unsubscribe(); this.controller.destroy(); }
+        destroy() {
+            this.closeFind(); this.cancelImport(); this.closed = true;
+            this.host.removeEventListener('keyup', this.findKeyup); this.host.removeEventListener('pointerdown', this.findPointerdown); this.host.removeEventListener('keydown', this.findKeydown);
+            root.removeEventListener?.('beforeunload', this.beforeUnload); this.unsubscribe(); this.controller.destroy();
+        }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
         host.classList.add('local-scratchpad-settings');

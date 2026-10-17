@@ -664,6 +664,42 @@
   "scratchpadExportError": {
     "message": "无法导出文本副本。草稿仍保留在此页面。"
   },
+  "scratchpadFind": {
+    "message": "查找文字"
+  },
+  "scratchpadFindLabel": {
+    "message": "要查找的文字"
+  },
+  "scratchpadFindHelp": {
+    "message": "输入单行原文，仅查找本页编辑区。区分大小写，空格参与匹配。按 Enter 选择下一处。"
+  },
+  "scratchpadFindPrevious": {
+    "message": "上一处"
+  },
+  "scratchpadFindNext": {
+    "message": "下一处"
+  },
+  "scratchpadFindClose": {
+    "message": "关闭查找"
+  },
+  "scratchpadFindSelected": {
+    "message": "已选中匹配文字。"
+  },
+  "scratchpadFindWrappedNext": {
+    "message": "已回到开头，选中匹配文字。"
+  },
+  "scratchpadFindWrappedPrevious": {
+    "message": "已回到末尾，选中匹配文字。"
+  },
+  "scratchpadFindNoMatch": {
+    "message": "本页编辑区没有匹配文字。"
+  },
+  "scratchpadFindInvalid": {
+    "message": "请输入完整的 Unicode 字符后再查找。"
+  },
+  "scratchpadFindFailed": {
+    "message": "未能选中匹配文字，请重试。"
+  },
   "shortcutUndoNotice": {
     "message": "快捷方式已删除。仅当前页面刷新前可撤销，后续修改可能使撤销失效。"
   },
