@@ -207,6 +207,86 @@ test('DOM model: conflicted Hide stays recoverable after another page disables t
     m.view.useSaved.dispatch('click'); await m.flush(); assert(m.host.hidden); assert(!m.view.hasUncommittedWork()); m.view.destroy();
 });
 
+async function clearCountdownFromOtherPage(m) {
+    const other = new Controller(new m.api.Store(m.backend));
+    try {
+        await other.init();
+        other.setDraft({ enabled: false, title: '', targetDate: '' });
+        await other.save(); await m.flush();
+    } finally { other.destroy(); }
+}
+
+test('DOM model: failed Hide remains reachable after another controller clears Countdown, through Retry and Load saved', async () => {
+    const m = model({ raw: configured() }); await m.flush();
+    try {
+        m.writeFail(true); m.view.hideButton.dispatch('click'); await m.flush();
+        assert.equal(m.controller.error.code, 'WRITE'); assert.equal(m.writes, 0);
+        const attempt = m.controller.lastAttempt, draft = { ...m.controller.draft };
+        assert.equal(attempt.kind, 'visibility'); assert.equal(attempt.value, false); assert.equal(attempt.baseline.enabled, true);
+        m.writeFail(false); await clearCountdownFromOtherPage(m);
+        assert.deepEqual(m.raw, { ...storeApi.initial(), revision: 2 });
+        assert.deepEqual(m.controller.state, m.raw); assert.deepEqual(m.controller.draft, draft);
+        assert.equal(m.controller.lastAttempt, attempt); assert.equal(m.controller.error.code, 'WRITE');
+        assert(m.controller.conflict); assert(m.view.hasUncommittedWork());
+        assert(!m.host.hidden, 'the unresolved Hide owns a visible recovery surface even without a saved date');
+        assert(m.view.retry.getClientRects().length); assert(m.view.useSaved.getClientRects().length);
+        assert.equal(m.view.title.textContent, ''); assert.equal(m.view.date.textContent, ''); assert.equal(m.view.date.dateTime, '');
+        assert.equal(m.view.remaining.textContent, ''); assert.equal(m.tickCount(), 0); assert(m.view.exportButton.disabled);
+        assert.match(m.view.status.textContent, /Load saved before choosing Hide/);
+        let mutations = 0; const mutate = m.controller.store.mutate.bind(m.controller.store);
+        m.controller.store.mutate = command => { mutations++; return mutate(command); };
+        let release = pauseReads(m);
+        m.view.retry.focus(); assert.equal(m.document.activeElement, m.view.retry); m.view.retry.dispatch('click');
+        assert(m.controller.pending); assert(!m.host.hidden); assert(m.view.retry.disabled); assert(m.view.useSaved.disabled);
+        release(); await m.flush();
+        assert.equal(m.controller.error.code, 'CONFLICT'); assert(m.controller.conflict); assert.equal(m.controller.lastAttempt, attempt);
+        assert.deepEqual(m.controller.draft, draft); assert(!m.host.hidden); assert(m.view.retry.hidden); assert.equal(m.writes, 1); assert.equal(mutations, 0);
+        release = pauseReads(m);
+        m.view.useSaved.focus(); assert.equal(m.document.activeElement, m.view.useSaved); m.view.useSaved.dispatch('click');
+        assert(m.controller.pending); assert(!m.host.hidden); assert(m.view.useSaved.disabled);
+        release(); await m.flush();
+        assert(m.host.hidden); assert(!m.view.hasUncommittedWork()); assert.equal(m.controller.lastAttempt, null);
+        assert.deepEqual(m.controller.draft, { enabled: false, title: '', targetDate: '' });
+        assert.equal(m.writes, 1); assert.equal(mutations, 0); assert.equal(m.tickCount(), 0); assert.deepEqual(m.visibility, [false, true, false]);
+    } finally { m.view.destroy(); }
+});
+
+test('DOM model: cleared Countdown keeps an owned Hide recovery surface after Load saved fails to read', async () => {
+    const m = model({ raw: configured() }); await m.flush();
+    try {
+        m.writeFail(true); m.view.hideButton.dispatch('click'); await m.flush();
+        const attempt = m.controller.lastAttempt;
+        m.writeFail(false); await clearCountdownFromOtherPage(m);
+        assert(m.view.useSaved.getClientRects().length, 'Load saved must be reachable through its ancestors');
+        m.readFail(true); m.view.useSaved.dispatch('click'); await m.flush();
+        assert.equal(m.controller.error.code, 'READ'); assert(m.controller.readError); assert.equal(m.controller.lastAttempt, attempt);
+        assert(!m.host.hidden); assert(m.view.retry.getClientRects().length); assert(m.view.useSaved.getClientRects().length);
+        assert.match(m.view.status.textContent, /Could not load/); assert.equal(m.view.remaining.textContent, ''); assert.equal(m.tickCount(), 0);
+        m.readFail(false); m.view.useSaved.focus(); assert.equal(m.document.activeElement, m.view.useSaved);
+        m.view.useSaved.dispatch('click'); await m.flush();
+        assert(m.host.hidden); assert(!m.view.hasUncommittedWork()); assert.equal(m.controller.lastAttempt, null);
+        assert.deepEqual(m.raw, { ...storeApi.initial(), revision: 2 }); assert.equal(m.writes, 1);
+    } finally { m.view.destroy(); }
+});
+
+test('DOM model: empty or clean remotely cleared Countdown stays hidden during background read errors and pending Retry', async () => {
+    for (const remoteClear of [false, true]) {
+        const m = model({ raw: remoteClear ? configured() : undefined }); await m.flush();
+        try {
+            if (remoteClear) await clearCountdownFromOtherPage(m);
+            assert(m.host.hidden); assert.equal(m.controller.lastAttempt, null);
+            m.readFail(true); await assert.rejects(m.controller.refresh(), { code: 'READ' });
+            assert(m.controller.readError); assert(m.host.hidden); assert.equal(m.tickCount(), 0);
+            m.fire('focus'); m.document.listeners.get('visibilitychange')(); assert(m.host.hidden);
+            m.readFail(false); const release = pauseReads(m), retry = m.controller.retry();
+            assert(m.controller.pending); assert(m.host.hidden);
+            release(); await retry;
+            assert(m.host.hidden); assert.equal(m.tickCount(), 0); assert.equal(m.controller.lastAttempt, null);
+            assert.equal(m.writes, Number(remoteClear));
+        } finally { m.view.destroy(); }
+    }
+});
+
 test('DOM model: committed Hide with failed acknowledgement remains recoverable until Retry verifies it', async () => {
     const m = model({ raw: configured() }); await m.flush(); const originalWrite = m.backend.write;
     m.backend.write = async value => { await originalWrite(value); throw Error('acknowledgement lost'); };

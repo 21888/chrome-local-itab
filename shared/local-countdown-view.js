@@ -121,18 +121,21 @@
             const attempt = c.lastAttempt;
             const recoveringHide = attempt?.kind === 'visibility' && attempt.value === false &&
                 attempt.baseline?.enabled === true && Boolean(c.pending || c.error || c.readError || c.conflict);
-            const visible = Number.isInteger(days) && Boolean(state.enabled || recoveringHide);
+            // Another page may clear the saved title/date while this Hide is unresolved.
+            // Keep its recovery controls reachable without inventing a day count.
+            const hasDays = Number.isInteger(days);
+            const visible = recoveringHide || (hasDays && Boolean(state?.enabled));
             this.host.hidden = !visible;
             if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
             setText(this.title, state?.title || ''); setText(this.date, state?.targetDate || ''); this.date.dateTime = state?.targetDate || '';
-            setText(this.remaining, visible ? daysText(days) : '');
+            setText(this.remaining, visible && hasDays ? daysText(days) : '');
             setText(this.status, c.conflict && !c.readError ? t('countdownCardConflict') : c.error || c.readError || c.pending ? statusText(c) : '');
             this.status.classList.toggle('countdown-error', Boolean(c.error || c.readError || c.conflict));
             this.hideButton.disabled = !c.loaded || Boolean(c.pending || c.readError || c.conflict || c.error);
             this.exportButton.disabled = !state?.title || !state?.targetDate;
             this.retry.hidden = !canRetry(c); this.retry.disabled = Boolean(c.pending);
             this.useSaved.hidden = !c.conflict; this.useSaved.disabled = Boolean(c.pending);
-            if (visible && state.enabled && !document.hidden && !this.suspended && this.host.getClientRects().length) {
+            if (visible && hasDays && state.enabled && !document.hidden && !this.suspended && this.host.getClientRects().length) {
                 this.timeout = root.setTimeout(() => { this.timeout = null; this.render(); }, 60000);
             }
         }
