@@ -355,6 +355,15 @@
   "worldClockCompareOffset": {
     "message": "时间比较：前后 24 小时（每步 15 分钟）"
   },
+  "worldClockPrevious24": {
+    "message": "前移 24 小时"
+  },
+  "worldClockNext24": {
+    "message": "后移 24 小时"
+  },
+  "worldClockStepHelp": {
+    "message": "每次移动实际经过的 24 小时，保留滑块偏移；夏令时可能改变当地钟面时间。导航限于公历 0001–9999 年，边缘日期留作安全余量。"
+  },
   "worldClockCompareReference": {
     "message": "预览 · 本地：$1，$2 · 相对开始时间 $3 分钟"
   },

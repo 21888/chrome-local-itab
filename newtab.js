@@ -1765,7 +1765,7 @@ class ClockComponent {
         this.worldClockRows = [];
         if (!this.worldClocksElement) return;
         const oldView = this.worldClockComparisonView;
-        const focusKey = oldView && ['toggle', 'range', 'copy'].find(key => oldView[key] === document.activeElement);
+        const focusKey = oldView && ['toggle', 'previous24', 'next24', 'range', 'copy'].find(key => oldView[key] === document.activeElement);
         this.worldClocksElement.replaceChildren();
         if (!entries.length) {
             this.worldClockComparison = null;
@@ -1830,6 +1830,17 @@ class ClockComponent {
             toggle.setAttribute('aria-controls', 'world-clock-comparison-panel');
             const panel = document.createElement('div');
             panel.id = 'world-clock-comparison-panel';
+            const navigation = document.createElement('div');
+            navigation.className = 'world-clock-comparison-navigation';
+            const previous24 = document.createElement('button');
+            const next24 = document.createElement('button');
+            const stepHelp = document.createElement('p');
+            stepHelp.id = 'world-clock-comparison-step-help';
+            for (const button of [previous24, next24]) {
+                button.type = 'button';
+                button.setAttribute('aria-describedby', `${stepHelp.id} world-clock-comparison-reference`);
+            }
+            navigation.append(previous24, next24);
             const label = document.createElement('label');
             label.htmlFor = 'world-clock-comparison-range';
             const range = document.createElement('input');
@@ -1851,10 +1862,33 @@ class ClockComponent {
             copyStatus.setAttribute('aria-atomic', 'true');
             copyStatus.textContent = '';
             copyStatus.hidden = true;
-            panel.append(label, range, reference, copy, copyStatus);
+            panel.append(navigation, stepHelp, label, range, reference, copy, copyStatus);
             controls.append(toggle, panel);
-            const view = { controls, toggle, panel, label, range, reference, copy, copyStatus };
+            const view = { controls, toggle, panel, label, range, reference, copy, copyStatus,
+                previous24, next24, stepHelp, stepComposing: false };
             this.worldClockComparisonView = view;
+            for (const [button, direction] of [[previous24, -1], [next24, 1]]) {
+                button.addEventListener('compositionstart', () => {
+                    if (this.isWorldClockStepCurrent(view, button)) view.stepComposing = true;
+                });
+                button.addEventListener('compositionend', () => { view.stepComposing = false; });
+                button.addEventListener('blur', () => { view.stepComposing = false; });
+                button.addEventListener('keydown', event => {
+                    if (!this.isWorldClockStepCurrent(view, button)) return;
+                    if (['Enter', ' '].includes(event.key) &&
+                        (event.repeat || view.stepComposing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                });
+                button.addEventListener('click', event => {
+                    if (event.defaultPrevented || event.detail > 1 || event.repeat || view.stepComposing ||
+                        event.isComposing || event.keyCode === 229 || !this.isWorldClockStepCurrent(view, button)) return;
+                    const shiftMinutes = this.worldClockStepCandidate(direction);
+                    if (shiftMinutes === null) return;
+                    // Even an ABA step retires old feedback, without unlocking a system write.
+                    this.invalidateWorldClockCopy();
+                    this.worldClockComparison.shiftMinutes = shiftMinutes;
+                    this.updateWorldClocks();
+                });
+            }
             copy.addEventListener('keydown', event => {
                 if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
             });
@@ -1862,7 +1896,8 @@ class ClockComponent {
             toggle.addEventListener('click', () => {
                 if (this.worldClockComparisonView !== view || !controls.isConnected || !this.enabled) return;
                 this.invalidateWorldClockCopy();
-                this.worldClockComparison = this.worldClockComparison ? null : { anchor: Date.now(), minutes: 0 };
+                this.worldClockComparison = this.worldClockComparison ? null : { anchor: Date.now(), minutes: 0, shiftMinutes: 0 };
+                view.stepComposing = false;
                 this.updateWorldClocks(new Date());
             });
             range.addEventListener('input', () => {
@@ -1877,6 +1912,43 @@ class ClockComponent {
         }
         this.worldClocksElement.append(this.worldClockComparisonView.controls);
         this.refreshWorldClockCopyControl();
+    }
+
+    worldClockStepCandidate(direction) {
+        const comparison = this.worldClockComparison;
+        if (!comparison || ![-1, 1].includes(direction) || !Number.isSafeInteger(comparison.anchor) ||
+            !Number.isSafeInteger(comparison.minutes) || Math.abs(comparison.minutes) > 1440 || comparison.minutes % 15 ||
+            !Number.isSafeInteger(comparison.shiftMinutes) || comparison.shiftMinutes % 1440) return null;
+        const shiftMinutes = comparison.shiftMinutes + direction * 1440;
+        const totalMinutes = shiftMinutes + comparison.minutes;
+        const elapsed = shiftMinutes * 60000;
+        const base = comparison.anchor + elapsed;
+        const totalElapsed = totalMinutes * 60000;
+        const instant = comparison.anchor + totalElapsed;
+        if (![shiftMinutes, totalMinutes, elapsed, totalElapsed, base, instant].every(Number.isSafeInteger) ||
+            !Number.isFinite(new Date(instant).getTime())) return null;
+        // Keep the entire ±24h slider window plus a full day for any IANA zone
+        // inside Gregorian years 0001–9999, even after a device/configured-zone change.
+        // Conservative UTC base edges avoid BCE/extended-year reference ambiguity
+        // and the shared civil-midnight helper's Date-range overflow.
+        if (base < Date.parse('0001-01-03T00:00:00.000Z') ||
+            base > Date.parse('9999-12-29T23:59:59.999Z')) return null;
+        return shiftMinutes;
+    }
+
+    isWorldClockStepCurrent(view, button) {
+        if (worldClockCopyOwner !== this || this.worldClockComparisonView !== view || !this.worldClockComparison ||
+            !this.enabled || document.hidden || document.visibilityState === 'hidden' ||
+            window.LocalItabContentLifecycle?.departing || document.body.classList.contains('dashboard-hidden') ||
+            !this.worldClocksElement?.contains(button) || !view.panel.contains(button) || button.disabled ||
+            button.getAttribute('aria-disabled') === 'true' || !button.isConnected || !button.getClientRects().length) return false;
+        for (let node = button; node; node = node.parentElement) {
+            const style = window.getComputedStyle?.(node);
+            if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true' ||
+                style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                (node.tagName === 'DETAILS' && !node.open)) return false;
+        }
+        return true;
     }
 
     refreshWorldClockCopyControl() {
@@ -1980,7 +2052,8 @@ class ClockComponent {
         const comparison = this.worldClockComparison;
         // Elapsed minutes from one captured instant, never wall-clock setters:
         // crossing DST preserves the actual instant shared by every zone.
-        const instant = comparison ? new Date(comparison.anchor + comparison.minutes * 60000) : now;
+        const totalMinutes = comparison ? comparison.minutes + comparison.shiftMinutes : 0;
+        const instant = comparison ? new Date(comparison.anchor + totalMinutes * 60000) : now;
         const view = this.worldClockComparisonView;
         const previousSummary = this.worldClockComparisonSummary(view);
         // Conditional DOM writes keep an unchanged fixed preview quiet on live ticks.
@@ -1999,13 +2072,22 @@ class ClockComponent {
             if (view.panel.hidden !== !comparison) view.panel.hidden = !comparison;
             view.label.textContent = this.worldClockText('worldClockCompareOffset', 'Time comparison: −24 to +24 hours (15-minute steps)');
             view.range.value = String(comparison?.minutes || 0);
+            displayText(view.previous24, this.worldClockText('worldClockPrevious24', 'Back 24 hours'));
+            displayText(view.next24, this.worldClockText('worldClockNext24', 'Forward 24 hours'));
+            displayText(view.stepHelp, this.worldClockText('worldClockStepHelp',
+                'Each step is 24 elapsed hours and keeps the slider offset. Daylight saving may change the local hour. Navigation stays within years 0001–9999, with edge dates reserved.'));
+            for (const [button, direction] of [[view.previous24, -1], [view.next24, 1]]) {
+                // aria-disabled keeps the invoking control focused at a navigation edge.
+                const disabled = String(this.worldClockStepCandidate(direction) === null);
+                if (button.getAttribute('aria-disabled') !== disabled) button.setAttribute('aria-disabled', disabled);
+            }
             if (comparison) {
                 const date = instant.toLocaleDateString(this.getDateLocale(), { year: 'numeric', month: 'short', day: 'numeric' });
                 const time = instant.toLocaleTimeString(navigator.language || undefined, {
                     hour: '2-digit', minute: '2-digit', ...(this.config.showSeconds ? { second: '2-digit' } : {}),
                     hour12: this.config.hour12, timeZoneName: 'short'
                 });
-                const offset = `${comparison.minutes >= 0 ? '+' : ''}${comparison.minutes}`;
+                const offset = `${totalMinutes >= 0 ? '+' : ''}${totalMinutes}`;
                 const reference = this.worldClockText('worldClockCompareReference', `Preview · Local: ${date}, ${time} · ${offset} min from start`, [date, time, offset]);
                 displayText(view.reference, reference);
                 view.range.setAttribute('aria-valuetext', reference);

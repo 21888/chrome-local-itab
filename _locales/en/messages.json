@@ -355,6 +355,15 @@
   "worldClockCompareOffset": {
     "message": "Time comparison: −24 to +24 hours (15-minute steps)"
   },
+  "worldClockPrevious24": {
+    "message": "Back 24 hours"
+  },
+  "worldClockNext24": {
+    "message": "Forward 24 hours"
+  },
+  "worldClockStepHelp": {
+    "message": "Each step is 24 elapsed hours and keeps the slider offset. Daylight saving may change the local hour. Navigation stays within years 0001–9999, with edge dates reserved."
+  },
   "worldClockCompareReference": {
     "message": "Preview · Local: $1, $2 · $3 min from start"
   },

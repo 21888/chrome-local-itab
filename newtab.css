@@ -3742,3 +3742,7 @@ textarea:focus-visible,
 }
 
 #shortcut-modal .modal { max-height: calc(100dvh - 32px); overflow-y: auto; }
+
+/* Elapsed-day comparison navigation wraps inside narrow cards. */
+.world-clock-comparison-navigation { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 8px; }
+.world-clock-comparison-navigation button[aria-disabled="true"] { cursor: default; }
