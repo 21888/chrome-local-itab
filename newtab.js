@@ -1406,6 +1406,34 @@ class ClockComponent {
                 event.preventDefault();
             }
         });
+        // Keep editable controls outside the navigation activation guard so
+        // composition and the select's native keyboard behavior stay intact.
+        const editor = make('div', 'month-calendar-editor');
+        const yearLabel = make('label');
+        const yearText = make('span');
+        const year = make('input');
+        year.type = 'text';
+        year.inputMode = 'numeric';
+        year.autocomplete = 'off';
+        const monthLabel = make('label');
+        const monthText = make('span');
+        const month = make('select');
+        const monthOptions = Array.from({ length: 12 }, (_, index) => {
+            const option = make('option');
+            option.value = String(index);
+            month.append(option);
+            return option;
+        });
+        const jump = make('button');
+        jump.type = 'button';
+        const error = make('div', 'month-calendar-error');
+        error.id = 'month-calendar-error';
+        error.setAttribute('role', 'alert');
+        error.hidden = true;
+        for (const field of [year, month]) field.setAttribute('aria-describedby', error.id);
+        yearLabel.append(yearText, year);
+        monthLabel.append(monthText, month);
+        editor.append(yearLabel, monthLabel, jump);
         const table = make('table');
         const caption = make('caption');
         const head = make('thead');
@@ -1415,31 +1443,32 @@ class ClockComponent {
         announcement.setAttribute('role', 'status');
         announcement.setAttribute('aria-live', 'polite');
         announcement.setAttribute('aria-atomic', 'true');
-        panel.append(controls, table, announcement);
+        panel.append(controls, editor, error, table, announcement);
         details.append(summary, panel);
         this.dateElement.parentElement.append(details);
-        this.monthCalendar = { details, summary, previous, today, next, caption, head, body, announcement };
+        const view = { details, summary, panel, previous, today, next, caption, head, body, announcement,
+            year, yearText, month, monthText, monthOptions, jump, error, composing: false, compositionEnter: false };
+        this.monthCalendar = view;
+        const active = source => this.monthCalendar === view && this.isMonthCalendarActive(source);
         details.addEventListener('toggle', () => {
-            if (!details.isConnected) return;
-            if (!details.open) {
-                this.calendarMonth = null;
-                announcement.textContent = '';
-                return;
-            }
-            if (!this.enabled) { details.open = false; return; }
-            // Native toggle events may coalesce. Only opening resets the view;
-            // ticks and config refreshes never dispatch or depend on this event.
+            if (this.monthCalendar !== view || !details.isConnected) return;
+            if (!details.open) { this.closeMonthCalendar(); return; }
+            if (!active(summary)) { this.closeMonthCalendar(); return; }
+            // Native toggle events may coalesce. Reinitialize the draft on every
+            // opening, even when the table's same-month render key is unchanged.
             const now = new Date();
             this.calendarMonth = window.MonthCalendar.localTuple(now);
+            this.syncMonthCalendarDraft();
             this.updateMonthCalendar(now);
         });
         const navigate = (delta, source) => {
-            if (!this.enabled || !details.open || !details.isConnected) return;
+            if (!active(source)) return;
             const ownedFocus = document.activeElement === source;
             const now = new Date();
             const current = this.calendarMonth || window.MonthCalendar.localTuple(now);
             this.calendarMonth = delta === 0 ? window.MonthCalendar.localTuple(now)
                 : window.MonthCalendar.shift(current.year, current.month, delta);
+            this.syncMonthCalendarDraft();
             this.updateMonthCalendar(now);
             announcement.textContent = caption.textContent;
             // At the supported year edges, the invoking control becomes disabled.
@@ -1449,13 +1478,85 @@ class ClockComponent {
         previous.addEventListener('click', () => navigate(-1, previous));
         next.addEventListener('click', () => navigate(1, next));
         today.addEventListener('click', () => navigate(0, today));
+        const showDraft = source => {
+            if (!active(source) || view.composing) return;
+            const target = window.MonthCalendar.parseMonthDraft(year.value, month.value);
+            this.setMonthCalendarError(!target);
+            if (!target) return;
+            this.calendarMonth = target;
+            this.updateMonthCalendar(new Date());
+            announcement.textContent = caption.textContent;
+        };
+        jump.addEventListener('click', () => showDraft(jump));
+        year.addEventListener('compositionstart', () => {
+            if (!active(year)) return;
+            view.composing = true;
+            view.compositionEnter = false;
+        });
+        // Releases also run after hiding/closing so an interrupted IME session
+        // cannot leave a sticky composing flag in a later visible session.
+        year.addEventListener('compositionend', () => { view.composing = false; });
+        year.addEventListener('blur', () => { view.composing = false; view.compositionEnter = false; });
+        // Key release ends a completion-key sequence, including engines that
+        // report the release before compositionend. Held Enter is guarded below.
+        year.addEventListener('keyup', () => { view.compositionEnter = false; });
+        year.addEventListener('keydown', event => {
+            if (!active(year) || event.defaultPrevented) return;
+            if (view.composing || event.isComposing || event.keyCode === 229) {
+                if (event.key === 'Enter' || event.code === 'Enter' || event.code === 'NumpadEnter' ||
+                    event.keyCode === 13) view.compositionEnter = true;
+                return;
+            }
+            if (event.key !== 'Enter') { view.compositionEnter = false; return; }
+            if (view.compositionEnter || event.repeat) return;
+            event.preventDefault();
+            showDraft(year);
+        });
+        jump.addEventListener('keydown', event => {
+            if (!active(jump)) return;
+            if ((event.key === 'Enter' || event.key === ' ') &&
+                (event.repeat || view.composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+        });
         details.addEventListener('keydown', event => {
-            if (event.key !== 'Escape' || !details.open || !details.isConnected) return;
+            // A select owns Escape for its native popup; do not steal it.
+            if (event.key !== 'Escape' || event.target === month || event.defaultPrevented ||
+                view.composing || event.isComposing || event.keyCode === 229 ||
+                !active(event.target)) return;
             event.preventDefault();
             event.stopPropagation();
             this.closeMonthCalendar();
-            if (this.enabled && summary.getClientRects().length) summary.focus();
+            if (this.enabled && this.isMonthCalendarVisible(summary)) summary.focus();
         });
+    }
+
+    isMonthCalendarVisible(node) {
+        return Boolean(node?.isConnected && !node.closest('[hidden], [inert], [aria-hidden="true"]') &&
+            node.getClientRects().length && !['hidden', 'collapse'].includes(window.getComputedStyle?.(node)?.visibility));
+    }
+
+    isMonthCalendarActive(source) {
+        const view = this.monthCalendar;
+        return Boolean(view && this.enabled && !document.hidden && view.details.open && view.details.isConnected &&
+            view.details.contains(source) && !source.disabled && !document.body.classList.contains('dashboard-hidden') &&
+            this.isMonthCalendarVisible(view.panel) && this.isMonthCalendarVisible(source));
+    }
+
+    setMonthCalendarError(invalid) {
+        const view = this.monthCalendar;
+        view.error.hidden = !invalid;
+        view.error.textContent = invalid ? this.worldClockText('monthCalendarInvalid',
+            'Enter a year from 1 to 9999 using 1–4 digits (0–9), and choose a month.') : '';
+        view.year.setAttribute('aria-invalid', String(invalid && !window.MonthCalendar.parseMonthDraft(view.year.value, '0')));
+        view.month.setAttribute('aria-invalid', String(invalid && !window.MonthCalendar.parseMonthDraft('1', view.month.value)));
+    }
+
+    syncMonthCalendarDraft() {
+        const view = this.monthCalendar;
+        view.year.value = this.calendarMonth ? String(this.calendarMonth.year) : '';
+        view.month.value = this.calendarMonth ? String(this.calendarMonth.month) : '';
+        view.composing = false;
+        view.compositionEnter = false;
+        this.setMonthCalendarError(false);
     }
 
     closeMonthCalendar() {
@@ -1463,6 +1564,7 @@ class ClockComponent {
         this.monthCalendar.details.open = false;
         this.monthCalendar.announcement.textContent = '';
         this.calendarMonth = null;
+        this.syncMonthCalendarDraft();
     }
 
     updateMonthCalendar(now) {
@@ -1474,10 +1576,19 @@ class ClockComponent {
             view.previous.textContent = this.worldClockText('monthCalendarPrevious', 'Previous');
             view.next.textContent = this.worldClockText('monthCalendarNext', 'Next');
             view.today.textContent = this.worldClockText('monthCalendarToday', 'Today');
+            view.yearText.textContent = this.worldClockText('monthCalendarYear', 'Year');
+            view.monthText.textContent = this.worldClockText('monthCalendarMonth', 'Month');
+            view.jump.textContent = this.worldClockText('monthCalendarView', 'View');
+            const monthNames = new Intl.DateTimeFormat(locale, { calendar: 'gregory', timeZone: 'UTC', month: 'long' });
+            view.monthOptions.forEach((option, index) => {
+                option.textContent = monthNames.format(window.MonthCalendar.utcDate(2000, index));
+            });
+            this.setMonthCalendarError(!view.error.hidden);
             this.calendarLabelLocale = locale;
             this.calendarLabelsSet = true;
         }
-        if (!this.enabled || !view.details.open) return;
+        if (!this.enabled || !view.details.open || document.hidden) return;
+        if (!this.isMonthCalendarActive(view.summary)) { this.closeMonthCalendar(); return; }
         const today = window.MonthCalendar.localTuple(now);
         const current = this.calendarMonth || today;
         this.calendarMonth = current;

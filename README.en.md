@@ -369,7 +369,7 @@ Scratchpad is excluded from configuration exports, Chrome Sync and Google Drive 
 
 ### Local month calendar
 
-Open **Calendar** beneath the clock date to browse months locally. **Previous / Next / Today** change the view; dates are read-only, with no events or reminders. It works offline, does not save the browsed month and has no calendar state to back up or sync. [Calendar guide](docs/month-calendar.en.md) · [Validation scope](docs/month-calendar-validation.md).
+Open **Calendar** beneath the clock date to browse months locally. **Previous / Next / Today** change the view; enter a year and select a month, then choose **View** to jump directly; dates are read-only, with no events or reminders. It works offline, does not save the browsed month and has no calendar state to back up or sync. [Calendar guide](docs/month-calendar.en.md) · [Validation scope](docs/month-calendar-validation.md).
 
 <details>
 <summary>Calendar captures and dimensions</summary>

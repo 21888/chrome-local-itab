@@ -2406,6 +2406,18 @@
   "monthCalendarToday": {
     "message": "今天"
   },
+  "monthCalendarYear": {
+    "message": "年份"
+  },
+  "monthCalendarMonth": {
+    "message": "月份"
+  },
+  "monthCalendarView": {
+    "message": "查看"
+  },
+  "monthCalendarInvalid": {
+    "message": "请输入 1–4 位数字（0–9）、范围为 1–9999 的年份，并选择月份。"
+  },
   "settingsCategoryIcon": {
     "message": "分类图标"
   },

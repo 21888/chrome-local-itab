@@ -12,6 +12,18 @@
         }
     }
 
+    function parseMonthDraft(yearText, monthText) {
+        // Do not trim, truncate or coerce user text: even a trailing newline,
+        // exponent or non-ASCII digit must remain an invalid editable draft.
+        if (typeof yearText !== 'string' || yearText.length < 1 || yearText.length > 4 ||
+            /[^0-9]/.test(yearText) || Number(yearText) < 1 ||
+            typeof monthText !== 'string') return null;
+        const monthIndex = Number(monthText);
+        if (!Number.isInteger(monthIndex) || monthIndex < 0 || monthIndex > 11 ||
+            String(monthIndex) !== monthText) return null;
+        return { year: Number(yearText), month: monthIndex };
+    }
+
     function utcDate(year, monthIndex, day = 1) {
         // Date.UTC/new Date(year, ...) reinterpret years 0–99 as 1900–1999.
         // UTC calendar arithmetic also avoids 23/25-hour local days at DST.
@@ -89,5 +101,5 @@
         };
     }
 
-    return Object.freeze({ utcDate, localTuple, shift, firstDayOfWeek, month });
+    return Object.freeze({ parseMonthDraft, utcDate, localTuple, shift, firstDayOfWeek, month });
 });

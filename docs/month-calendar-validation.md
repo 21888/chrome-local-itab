@@ -14,6 +14,28 @@ The pure helper uses Gregorian UTC date-only arithmetic with `setUTCFullYear`; t
 - Actual table caption, full weekday accessible labels with `scope=col`, plain noninteractive day cells, `aria-current=date` only on today, explicit-navigation-only polite status.
 - Explicit runtime inventory and HTML script/CSS order. Full project verification: 491 Node tests and 19 Python packaging tests pass; all JavaScript syntax checks pass and 15 JSON files parse. Runtime ZIP inventory is 60 files.
 
+## Explicit year/month jump — source and model coverage, 2026-10-17
+
+A separate editor row contains a text year field with numeric input mode, twelve
+localized fixed-value month options and a View button. Only View or a fresh,
+unhandled, non-composing Enter in the year field commits a jump. The year parser
+accepts 1–4 ASCII digits, values 1–9999 including leading zeros; neither field is
+trimmed, partially parsed or truncated. Invalid drafts remain editable with a
+localized error. Native select keys, including Escape, are not intercepted.
+
+The two focused test files cover strict parsing, early years 1/4/99/100,
+Gregorian 1900/2000 leap rules and 9999 bounds; explicit-only jumps, stable focus,
+editor nodes/options and caret across ticks, midnight/config/locale updates;
+explicit navigation draft synchronization; same-month reopen; localized errors;
+IME Enter continuation, mouse-completed composition, key release before
+compositionend, handled events, hidden/detached/superseded controls and cleanup.
+The model blocks storage, network and extra timers. It models visibility guards
+but does not evaluate CSS layout or a native select popup.
+
+No new native-browser run or screenshot was made for this editor. The captures
+and browser observations below precede the editor and do not establish its
+layout, native IME/select behavior or screen-reader announcement behavior.
+
 ## Native browser acceptance — 2026-10-09
 
 Official normal-sandbox Chrome for Testing 155.0.8059.39 on cloud Linux loaded

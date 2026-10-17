@@ -2406,6 +2406,18 @@
   "monthCalendarToday": {
     "message": "Today"
   },
+  "monthCalendarYear": {
+    "message": "Year"
+  },
+  "monthCalendarMonth": {
+    "message": "Month"
+  },
+  "monthCalendarView": {
+    "message": "View"
+  },
+  "monthCalendarInvalid": {
+    "message": "Enter a year from 1 to 9999 using 1–4 digits (0–9), and choose a month."
+  },
   "settingsCategoryIcon": {
     "message": "Category icon"
   },

@@ -213,3 +213,22 @@ for (const timezone of ['UTC', 'America/New_York', 'Australia/Sydney', 'Asia/Kat
         assert.equal(result.status, 0, result.stderr || result.stdout);
     });
 }
+
+test('month draft parser accepts only one to four ASCII year digits and a fixed month value', () => {
+    for (const [text, year] of [['1', 1], ['0001', 1], ['4', 4], ['0004', 4], ['0099', 99], ['99', 99], ['0100', 100], ['100', 100], ['1900', 1900], ['2000', 2000], ['9999', 9999]]) {
+        for (let month = 0; month < 12; month++) {
+            assert.deepEqual(MonthCalendar.parseMonthDraft(text, String(month)), { year, month });
+            assert.equal(MonthCalendar.utcDate(year, month).getUTCFullYear(), year);
+        }
+    }
+    assert.equal(browserApi(Intl.Locale).parseMonthDraft('0099', '11').year, 99);
+});
+
+test('month draft parser rejects coercion, whitespace, out-of-range and partial numeric text', () => {
+    for (const year of ['', '0', '0000', '10000', '00001', '-1', '+1', '1.0', '1e2', '1a', ' 1', '1 ', '1\n', '1\r', '1\u2028', '1\u2029', '１２', '١٢', null, undefined, 2026, NaN, {}, ['2026'], Symbol('year')]) {
+        assert.equal(MonthCalendar.parseMonthDraft(year, '0'), null, String(year));
+    }
+    for (const month of ['', '00', '01', '-1', '+1', '12', '1.0', '1e0', ' 1', '1 ', '1\n', '1\r', '1\u2028', '1\u2029', '１', null, undefined, 0, NaN, {}, ['1'], Symbol('month')]) {
+        assert.equal(MonthCalendar.parseMonthDraft('2026', month), null, String(month));
+    }
+});
