@@ -36,6 +36,7 @@
         LegacyDownload: 'Download both saved copies', LegacyRequested: 'Recovery download requested. It contains both saved workspace copies, without account credentials or cloud-provider settings. Check your downloads before making recovery changes.', LegacyExportFailed: 'Could not export both saved copies. They remain on this device. Keep this page open and retry after closing older tabs.',
         ProviderScope: 'Chrome Sync and Google Drive manage Default only. Other workspaces are protected and use complete local backups.', OpenDefault: 'Open Default workspace',
         Open: 'Open', Available: 'Available workspaces', SavedOnly: 'Operations here use saved content. Open drafts stay in their original tabs.',
+        MoveUp: 'Move up', MoveDown: 'Move down', Moved: 'Workspace order saved.', MoveError: 'Could not confirm the new order. Review the refreshed list before moving again.',
         SearchName: 'Search workspace names', ClearSearch: 'Clear search', SearchCount: '{count} of {total} workspaces', SearchEmpty: 'No workspaces match this name.'
     };
     const t = key => { const value = root.i18n?.t('spaces' + key); return value && value !== 'spaces' + key ? value : copy[key] || key; };
@@ -127,7 +128,9 @@
                 const focused = doc.activeElement;
                 const focusId = focused?.dataset?.workspaceId, focusAction = focused?.dataset?.workspaceAction;
                 list.replaceChildren(); trash.replaceChildren();
-                for (const item of [...registry.workspaces].sort((a,b) => a.order - b.order)) {
+                const ordered = [...registry.workspaces].sort((a,b) => a.order - b.order);
+                const active = ordered.filter(item => item.deletedAt === null), renderedRevision = registry.revision;
+                for (const item of ordered) {
                     const row = create('li', 'spaces-row', undefined, item.deletedAt ? trash : list);
                     const title = create('div', 'spaces-row-title', undefined, row);
                     create('strong', 'spaces-name', item.name, title);
@@ -141,6 +144,21 @@
                         if (item.id === session.id && !invalid) { open.dataset.fixedDisabled = 'true'; open.disabled = true; }
                         add('Rename', 'rename', () => showName('rename', item));
                         add('Duplicate', 'duplicate', () => showName('duplicate', item));
+                        for (const direction of ['up', 'down']) {
+                            let composing = false;
+                            const move = add(direction === 'up' ? 'MoveUp' : 'MoveDown', 'move-' + direction, event => {
+                                if (composing || event.isComposing || event.keyCode === 229 || event.repeat || !moveUsable(move)) return;
+                                moveWorkspace(move, item.id, direction, renderedRevision);
+                            });
+                            const boundary = direction === 'up' ? active[0] : active.at(-1);
+                            if (item === boundary) { move.dataset.fixedDisabled = 'true'; move.disabled = true; }
+                            move.addEventListener('compositionstart', () => { composing = true; });
+                            move.addEventListener('compositionend', () => { composing = false; });
+                            move.addEventListener('focusout', () => { composing = false; });
+                            move.addEventListener('keydown', event => {
+                                if (['Enter', ' '].includes(event.key) && (composing || event.isComposing || event.keyCode === 229 || event.repeat)) event.preventDefault();
+                            });
+                        }
                         const remove = add('Delete', 'delete', () => showDelete(item)); remove.classList.add('spaces-danger');
                         if (item.id === registry.defaultId) { remove.dataset.fixedDisabled = 'true'; remove.disabled = true; remove.title = t('DefaultHelp'); create('small', 'spaces-help', t('DefaultHelp'), title); }
                     }
@@ -367,6 +385,42 @@
                 catch (failure) { if (d.valid()) { error.textContent = t(failure?.code === 'WORKSPACE_CLOCK' ? 'ClockChanged' : 'Error'); await refresh(); } }
                 finally { busy = false; d.executing = false; cancel.disabled = confirm.disabled = false; controls(); restoreOperationFocus(d); }
             }, actions, 'spaces-danger'); d.open(cancel);
+        }
+        function moveUsable(node) {
+            return !closed && !busy && !modal && !legacyConflict && !loadError && !doc.hidden &&
+                ![...doc.querySelectorAll('[aria-modal="true"]')].some(dialog => !dialog.closest('[hidden], [inert], [aria-hidden="true"]') && dialog.getClientRects().length > 0) &&
+                node.isConnected && list?.contains(node) && !node.disabled &&
+                !node.closest('[hidden], [inert], [aria-hidden="true"]') && node.getClientRects().length > 0;
+        }
+        async function moveWorkspace(origin, id, direction, expectedRevision) {
+            // Relative moves are never retried: even failed readback may follow a
+            // successful write. Refresh and let the user review the current order.
+            let ownsFocus = doc.activeElement === origin;
+            const relinquish = () => { ownsFocus = false; };
+            const focusChanged = event => { if (event.target !== origin && event.target !== doc.body) relinquish(); };
+            const visibilityChanged = () => { if (doc.hidden) relinquish(); };
+            doc.addEventListener('focusin', focusChanged);
+            doc.addEventListener('pointerdown', relinquish, true);
+            doc.addEventListener('keydown', relinquish, true);
+            doc.addEventListener('visibilitychange', visibilityChanged);
+            root.addEventListener?.('blur', relinquish);
+            busy = true; controls(); setStatus('Saving');
+            try { await manager.move(id, direction, { expectedRevision }); if (!closed) { setStatus('Moved'); await refresh(); } }
+            catch (_) { if (!closed) { setStatus('MoveError'); await refresh(); } }
+            finally {
+                busy = false; controls();
+                doc.removeEventListener('focusin', focusChanged);
+                doc.removeEventListener('pointerdown', relinquish, true);
+                doc.removeEventListener('keydown', relinquish, true);
+                doc.removeEventListener('visibilitychange', visibilityChanged);
+                root.removeEventListener?.('blur', relinquish);
+                if (ownsFocus && !closed && !doc.hidden && !modal && doc.activeElement === doc.body) {
+                    const rowControls = [...list.querySelectorAll('button')].filter(node => node.dataset.workspaceId === id);
+                    const target = rowControls.find(node => node.dataset.workspaceAction === 'move-' + direction && moveUsable(node)) ||
+                        rowControls.find(node => node.dataset.workspaceAction?.startsWith('move-') && moveUsable(node)) || rowControls.find(moveUsable);
+                    target?.focus();
+                }
+            }
         }
         async function runMutation(action, success) {
             if (busy || closed) return;

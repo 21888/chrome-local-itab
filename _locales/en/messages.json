@@ -3006,6 +3006,18 @@
   "spacesAvailable": {
     "message": "Available workspaces"
   },
+  "spacesMoveUp": {
+    "message": "Move up"
+  },
+  "spacesMoveDown": {
+    "message": "Move down"
+  },
+  "spacesMoved": {
+    "message": "Workspace order saved."
+  },
+  "spacesMoveError": {
+    "message": "Could not confirm the new order. Review the refreshed list before moving again."
+  },
   "spacesSearchName": {
     "message": "Search workspace names"
   },

@@ -453,6 +453,22 @@
             }, options);
         }
         async rename(id, label, options = {}) { const next = name(label); return this.change(id, entry => { check(entry.deletedAt === null, 'DELETED'); entry.name = next; }, options); }
+        async move(id, direction, options = {}) {
+            check(token(id)); check(direction === 'up' || direction === 'down');
+            return this.transaction(async registry => {
+                const entry = registry.workspaces.find(item => item.id === id); check(entry, 'NOT_FOUND');
+                check(entry.deletedAt === null, 'DELETED');
+                const active = registry.workspaces.filter(item => item.deletedAt === null).sort((a, b) => a.order - b.order);
+                const neighbor = active[active.indexOf(entry) + (direction === 'up' ? -1 : 1)];
+                // Keep sparse slots and Trash intact. A boundary is a true no-op.
+                if (!neighbor) return copy(entry);
+                [entry.order, neighbor.order] = [neighbor.order, entry.order];
+                const now = this.now(); entry.updatedAt = neighbor.updatedAt = now;
+                registry.revision++;
+                await this.commit(registry, () => { check(!this._legacyConflict, 'LEGACY_CONFLICT'); });
+                return copy(entry);
+            }, options);
+        }
         async readImportClosure(registry, entry, receipt) {
             const api = closureCodec(); if (!api) return null;
             try {

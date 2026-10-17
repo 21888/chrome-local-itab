@@ -19,6 +19,13 @@ snapshot and your input intact; reopening starts with an empty query and the lat
 loaded list. Typing, clearing or pressing Enter never switches automatically.
 Click a result to use the same pending-save and unsaved-draft checks below.
 
+In Settings → Workspaces, **Move up / Move down** swaps one neighboring active
+workspace at a time, skipping Trash. Default can move too. The first/last
+boundaries are disabled. Reordering does not switch workspaces, save drafts or
+change Focus. A concurrent list change or unconfirmed save stops the move and
+refreshes the list; review its current order before moving again. An already-open
+switch dialog keeps its snapshot until you close and reopen it.
+
 Switching waits for pending saves. Dirty pages offer Stay, Save and switch, or an
 explicit Discard. Failed/conflicted saves preserve the draft and stop navigation.
 Duplication copies saved contents only, never a page draft or running timer.

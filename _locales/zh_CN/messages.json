@@ -3006,6 +3006,18 @@
   "spacesAvailable": {
     "message": "可用工作区"
   },
+  "spacesMoveUp": {
+    "message": "上移"
+  },
+  "spacesMoveDown": {
+    "message": "下移"
+  },
+  "spacesMoved": {
+    "message": "工作空间顺序已保存。"
+  },
+  "spacesMoveError": {
+    "message": "无法确认新顺序。请查看刷新后的列表，再决定是否移动。"
+  },
   "spacesSearchName": {
     "message": "搜索工作区名称"
   },

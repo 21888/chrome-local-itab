@@ -4,6 +4,16 @@ Use the **Current workspace** control at the top of a new tab to switch. Use **S
 
 Each workspace has its own saved sites and categories, layout, visual template, task history, Scratchpad, Countdown, and Focus timer. Creating a workspace starts with default settings and empty personal modules. Duplicating copies saved content; it does not include unsaved page drafts or a running Focus session.
 
+## List order
+
+Settings → Workspaces offers **Move up** and **Move down** on active rows,
+including Default. Each action swaps the neighboring active workspace's position,
+skipping Trash without changing its saved slot. Boundary buttons are disabled.
+Sorting never opens a different workspace, saves a draft or changes Focus.
+Concurrent changes and unconfirmed writes require reviewing the refreshed list;
+a relative move is never retried automatically. A switch dialog already open
+keeps its ordered snapshot until reopened.
+
 ## Tabs and drafts
 
 An open tab stays attached to the workspace it loaded, even if another tab switches. New tabs use the last selected workspace. Settings opened from a dashboard stay attached to that dashboard’s workspace, and ordinary reloads preserve the workspace in the URL.
