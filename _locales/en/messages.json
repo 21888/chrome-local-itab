@@ -1,4 +1,19 @@
 {
+  "bookmarkImportSitesFilter": {
+    "message": "Filter review list"
+  },
+  "bookmarkImportSitesClear": {
+    "message": "Clear filter"
+  },
+  "bookmarkImportSitesScope": {
+    "message": "Only filters this review list; all {total} sites in this import plan will still be added."
+  },
+  "bookmarkImportSitesMatches": {
+    "message": "Matches {matched} / New sites {total}"
+  },
+  "bookmarkImportSitesEmpty": {
+    "message": "No sites match this filter."
+  },
   "bookmarkImportSites": {
     "message": "Sites to be added ({total})"
   },

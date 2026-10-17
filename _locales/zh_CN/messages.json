@@ -1,4 +1,19 @@
 {
+  "bookmarkImportSitesFilter": {
+    "message": "筛选核对清单"
+  },
+  "bookmarkImportSitesClear": {
+    "message": "清空筛选"
+  },
+  "bookmarkImportSitesScope": {
+    "message": "仅筛选核对清单；仍会添加本次计划全部 {total} 个网站。"
+  },
+  "bookmarkImportSitesMatches": {
+    "message": "匹配 {matched} / 本次新增 {total}"
+  },
+  "bookmarkImportSitesEmpty": {
+    "message": "没有匹配的网站。"
+  },
   "bookmarkImportSites": {
     "message": "将新增的网站（{total}）"
   },

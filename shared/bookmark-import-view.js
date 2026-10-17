@@ -12,6 +12,9 @@
             encountered: 'Bookmarks in file', added: 'New sites', skipped: 'Skipped bookmarks', categories: 'New categories',
             reasons: 'Why bookmarks were skipped', mapping: 'Source folder → new category', root: 'Top-level bookmarks',
             sites: 'Sites to be added ({total})', sitesPrivacy: 'URLs may contain private parameters. Expand this list only when you want to review them.',
+            sitesFilter: 'Filter review list', sitesClear: 'Clear filter',
+            sitesScope: 'Only filters this review list; all {total} sites in this import plan will still be added.',
+            sitesMatches: 'Matches {matched} / New sites {total}', sitesEmpty: 'No sites match this filter.',
             sitesRange: 'Showing {start}–{end} of {total}', sitesPrevious: 'Previous 50', sitesNext: 'Next 50', siteCategory: 'Category',
             duplicate_url: 'Already saved or repeated URL', invalid_url: 'Unsupported or invalid URL', invalid_title: 'Invalid title', duplicate_href_attribute: 'Ambiguous duplicate HREF attribute',
             noneSkipped: 'No bookmarks skipped.', noNew: 'No new sites to import. Nothing will be changed.',
@@ -37,6 +40,9 @@
             encountered: '文件中的书签', added: '新增网站', skipped: '跳过的书签', categories: '新增分类',
             reasons: '跳过原因', mapping: '原文件夹 → 新分类', root: '顶层书签',
             sites: '将新增的网站（{total}）', sitesPrivacy: '网址可能含有私人参数，请在需要核对时展开清单。',
+            sitesFilter: '筛选核对清单', sitesClear: '清空筛选',
+            sitesScope: '仅筛选核对清单；仍会添加本次计划全部 {total} 个网站。',
+            sitesMatches: '匹配 {matched} / 本次新增 {total}', sitesEmpty: '没有匹配的网站。',
             sitesRange: '第 {start}–{end} 条 / 共 {total} 条', sitesPrevious: '上一页（50 条）', sitesNext: '下一页（50 条）', siteCategory: '目标分类',
             duplicate_url: '已保存或重复的网址', invalid_url: '不支持或无效的网址', invalid_title: '无效的标题', duplicate_href_attribute: '存在多个 HREF 属性，网址不明确',
             noneSkipped: '没有跳过的书签。', noNew: '没有可新增的网站，不会更改任何内容。',
@@ -119,49 +125,69 @@
             prepared = null; panel.hidden = true; details.hidden = true;
             counts.replaceChildren(); reasons.replaceChildren(); mapping.replaceChildren(); settings.textContent = ''; summary.textContent = '';
         }
-        const format = (key, values) => t(key).replace(/\{(total|start|end)\}/g, (_, key) => String(values[key]));
-        const canReviewSites = state => siteReview === state && current(state.token) && phase === 'ready' &&
+        const format = (key, values) => t(key).replace(/\{(total|start|end|matched)\}/g, (_, key) => String(values[key]));
+        const canUseSites = state => siteReview === state && current(state.token) && phase === 'ready' &&
             prepared && state.toggle.isConnected && state.region.isConnected;
+        const canReviewSites = state => canUseSites(state) && state.expanded;
         function siteControls() {
             if (!siteReview) return;
-            const state = siteReview, enabled = canReviewSites(state);
+            const state = siteReview, enabled = canUseSites(state), reviewing = canReviewSites(state);
             state.toggle.disabled = !enabled || !state.links.length;
-            state.previous.disabled = !enabled || !state.expanded || state.page === 0;
-            state.next.disabled = !enabled || !state.expanded || (state.page + 1) * SITE_PAGE_SIZE >= state.links.length;
+            state.filter.disabled = state.clear.disabled = !reviewing;
+            state.previous.disabled = !reviewing || state.page === 0;
+            state.next.disabled = !reviewing || (state.page + 1) * SITE_PAGE_SIZE >= state.matches.length;
         }
         function clearSites() {
             if (siteReview) {
                 // Detached controls may still have queued events. Drop their data as well as their DOM.
-                siteReview.links = null; siteReview.categoryNames = null; siteReview.page = 0; siteReview.expanded = false;
-                siteReview.list.replaceChildren(); siteReview.range.textContent = '';
+                resetSiteFilter(siteReview);
+                siteReview.links = null; siteReview.categoryNames = null; siteReview.expanded = false;
                 siteReview.toggle.setAttribute('aria-expanded', 'false'); siteReview.region.hidden = true;
-                siteReview.toggle.disabled = siteReview.previous.disabled = siteReview.next.disabled = true;
+                siteReview.toggle.disabled = siteReview.previous.disabled = siteReview.next.disabled =
+                    siteReview.filter.disabled = siteReview.clear.disabled = true;
             }
             siteReview = null; sites.replaceChildren();
         }
+        function resetSiteFilter(state) {
+            state.query = ''; state.filter.value = ''; state.matches = []; state.composing = false; state.page = 0;
+            state.list.replaceChildren(); state.range.textContent = ''; state.matchCount.textContent = ''; state.empty.hidden = true;
+        }
+        function filterSites(state, event) {
+            if (!canReviewSites(state) || !state.filter.isConnected || !state.region.contains(state.filter) ||
+                state.composing || event?.isComposing) return;
+            state.query = state.filter.value.trim().toLowerCase(); state.page = 0; state.matches = [];
+            // Keep only indexes in temporary view state; never alter the prepared import plan.
+            state.links.forEach((link, index) => {
+                if (!state.query || [link.title, link.url, state.categoryNames.get(link.category)]
+                    .some(value => value.toLowerCase().includes(state.query))) state.matches.push(index);
+            });
+            renderSitePage(state);
+        }
         function renderSitePage(state) {
-            if (!canReviewSites(state) || !state.expanded) return;
-            const start = state.page * SITE_PAGE_SIZE, end = Math.min(start + SITE_PAGE_SIZE, state.links.length);
+            if (!canReviewSites(state)) return;
+            const total = state.matches.length, start = state.page * SITE_PAGE_SIZE, end = Math.min(start + SITE_PAGE_SIZE, total);
             state.list.replaceChildren(); state.list.start = start + 1; state.list.scrollTop = 0;
             for (let index = start; index < end; index++) {
-                const link = state.links[index], row = make('li', 'bookmark-import-site', undefined, state.list);
+                const link = state.links[state.matches[index]], row = make('li', 'bookmark-import-site', undefined, state.list);
                 make('strong', 'bookmark-import-site-title', link.title, row);
                 make('p', 'bookmark-import-site-url', link.url, row);
                 make('p', 'bookmark-import-site-category', `${t('siteCategory')}: ${state.categoryNames.get(link.category)}`, row);
             }
-            // Only this bounded page description is live; imported titles and URLs never are.
-            state.range.textContent = format('sitesRange', { start: start + 1, end, total: state.links.length });
+            // Only numeric page/match descriptions are live; queries, imported titles and URLs never are.
+            state.range.textContent = format('sitesRange', { start: total ? start + 1 : 0, end, total });
+            state.matchCount.textContent = format('sitesMatches', { matched: total, total: state.links.length });
+            state.empty.hidden = total !== 0;
             siteControls();
         }
         function toggleSites(state, event) {
-            if (!canReviewSites(state) || state.toggle.disabled || event.isComposing) return;
-            state.expanded = !state.expanded; state.page = 0;
+            if (!canUseSites(state) || state.toggle.disabled || event.isComposing) return;
+            state.expanded = !state.expanded; resetSiteFilter(state);
             state.toggle.setAttribute('aria-expanded', String(state.expanded)); state.region.hidden = !state.expanded;
-            if (state.expanded) renderSitePage(state);
-            else { state.list.replaceChildren(); state.range.textContent = ''; siteControls(); }
+            if (state.expanded) filterSites(state);
+            else siteControls();
         }
         function turnSitePage(state, step, event) {
-            if (!canReviewSites(state) || !state.expanded || event.isComposing) return;
+            if (!canReviewSites(state) || event.isComposing) return;
             const origin = step < 0 ? state.previous : state.next;
             if (origin.disabled) return;
             const ownedFocus = doc.activeElement === origin;
@@ -193,13 +219,40 @@
             const hint = make('p', 'form-hint', t('sitesPrivacy'), sites); hint.id = `${prefix}-sites-hint`; toggle.setAttribute('aria-describedby', hint.id);
             const region = make('div', 'bookmark-import-sites-region', undefined, sites); region.id = `${prefix}-sites-region`; region.hidden = true;
             region.setAttribute('role', 'region'); region.setAttribute('aria-labelledby', toggle.id); toggle.setAttribute('aria-controls', region.id);
+            const label = make('label', 'form-label', t('sitesFilter'), region);
+            const filter = make('input', 'form-input bookmark-import-sites-filter', undefined, region);
+            filter.type = 'text'; filter.id = `${prefix}-sites-filter`; filter.autocomplete = 'off'; filter.spellcheck = false;
+            label.setAttribute('for', filter.id);
+            const scope = make('p', 'form-hint bookmark-import-sites-scope', format('sitesScope', { total: additions.links.length }), region);
+            scope.id = `${prefix}-sites-scope`; filter.setAttribute('aria-describedby', scope.id);
+            const clear = button(t('sitesClear'), 'btn-secondary bookmark-import-sites-clear', region);
+            const matchCount = make('p', 'bookmark-import-sites-matches', '', region);
+            matchCount.setAttribute('role', 'status'); matchCount.setAttribute('aria-live', 'polite'); matchCount.setAttribute('aria-atomic', 'true');
+            const empty = make('p', 'form-hint bookmark-import-sites-empty', t('sitesEmpty'), region); empty.hidden = true;
             const list = make('ol', 'bookmark-import-sites-list', undefined, region); list.tabIndex = 0;
             const pager = make('div', 'bookmark-import-sites-pager', undefined, region);
             const previous = button(t('sitesPrevious'), 'btn-secondary bookmark-import-sites-previous', pager);
             const range = make('p', 'bookmark-import-sites-range', '', pager); range.setAttribute('role', 'status'); range.setAttribute('aria-live', 'polite'); range.setAttribute('aria-atomic', 'true');
             const next = button(t('sitesNext'), 'btn-secondary bookmark-import-sites-next', pager);
-            const state = { token, links: additions.links, categoryNames, page: 0, expanded: false, toggle, region, list, previous, range, next };
+            const state = { token, links: additions.links, categoryNames, page: 0, expanded: false, query: '', matches: [], composing: false,
+                toggle, region, filter, clear, matchCount, empty, list, previous, range, next };
             siteReview = state;
+            filter.addEventListener('keydown', event => {
+                if (event.key !== 'Enter') return;
+                // Preserve native IME candidate confirmation; plain Enter is never an import action.
+                event.stopPropagation();
+                if (!state.composing && !event.isComposing && event.keyCode !== 229) event.preventDefault();
+            });
+            filter.addEventListener('input', filterSites.bind(null, state));
+            filter.addEventListener('compositionstart', () => { if (canReviewSites(state) && filter.isConnected && region.contains(filter)) state.composing = true; });
+            filter.addEventListener('compositionend', event => {
+                if (!canReviewSites(state) || !filter.isConnected || !region.contains(filter)) return;
+                state.composing = false; filterSites(state, event);
+            });
+            clear.addEventListener('click', event => {
+                if (!canReviewSites(state) || !clear.isConnected || !region.contains(clear) || state.composing || event.isComposing) return;
+                filter.value = ''; filterSites(state, event);
+            });
             toggle.addEventListener('click', toggleSites.bind(null, state));
             previous.addEventListener('click', turnSitePage.bind(null, state, -1));
             next.addEventListener('click', turnSitePage.bind(null, state, 1));
@@ -327,7 +380,7 @@
         cancel.addEventListener('click', () => cancelReview());
         shell.addEventListener('keydown', event => {
             if (event.isComposing || event.keyCode === 229) return;
-            if (event.repeat && ['Enter', ' '].includes(event.key)) { event.preventDefault(); return; }
+            if (event.repeat && ['Enter', ' '].includes(event.key) && event.target.closest?.('button')) { event.preventDefault(); return; }
             if (event.key === 'Escape' && !panel.hidden) {
                 event.preventDefault(); event.stopPropagation();
                 if (phase !== 'applying') cancelReview();

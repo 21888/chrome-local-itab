@@ -312,7 +312,7 @@ Use the local shortcut finder to search saved titles, addresses and categories i
 
 ### Import browser bookmarks
 
-Preview and add bookmarks from a local Chrome, Edge or Firefox HTML export without replacing your saved dashboard. Review duplicate skips, folder mapping and currently enabled Sync/icon settings before Apply. Optionally expand the read-only added-sites list to inspect exact titles, full URLs and target categories, 50 per page; it starts collapsed because URLs may contain private parameters. [Bookmark import guide](docs/bookmark-import.en.md).
+Preview and add bookmarks from a local Chrome, Edge or Firefox HTML export without replacing your saved dashboard. Review duplicate skips, folder mapping and currently enabled Sync/icon settings before Apply. Optionally expand the read-only added-sites list to inspect exact titles, full URLs and target categories, 50 per page, with a local text filter. Filtering only changes the review list; Apply still adds every site in the current plan. The list starts collapsed because URLs may contain private parameters. [Bookmark import guide](docs/bookmark-import.en.md).
 
 After deleting a shortcut, **Undo delete** restores the latest deletion on the same page. Refreshing clears it; later changes may prevent undo. [Scope and safety details](docs/shortcut-undo.md).
 
