@@ -22,7 +22,7 @@ async function harness() {
     const calls = { downloads: 0, clicks: 0, errors: [], renames: [], additions: [], selections: [], reads: 0,
         payloadGate: null, panelGate: null, renameGate: null, addGate: null, selectGate: null, failRead: false,
         failClick: false, failRename: false, failAdd: false, failSelect: false, failPanelRead: false, fallbacks: 0,
-        listings: 0, uploads: 0, messages: [], timers: [] };
+        listings: 0, uploads: 0, uploadGate: null, failUpload: false, messages: [], timers: [] };
     const manager = {
         getAvailabilityStatus: () => ({ apiAvailable: true, oauthConfigured: true, storageAvailable: true }),
         async getState() { calls.reads++; if (calls.panelGate) await calls.panelGate.promise;
@@ -44,7 +44,8 @@ async function harness() {
             saved.deviceName = saved.knownDevices.find(item => item.id === id).name; },
         async listSnapshots() { calls.listings++; return [structuredClone(snapshot)]; },
         async createSnapshotDraft() { return { sizeBytes: 24 }; },
-        async uploadSnapshotDraft() { calls.uploads++; return {}; },
+        async uploadSnapshotDraft() { calls.uploads++; if (calls.uploadGate) await calls.uploadGate.promise;
+            if (calls.failUpload) throw new Error('Synthetic upload failed'); return {}; },
         maximumSizeBytes: 1000, warningSizeBytes: 500
     };
     const create = document.createElement.bind(document);
@@ -446,4 +447,193 @@ for (const fail of [false, true]) test(`a superseded final read keeps target act
     assert.equal(h.saved.knownDevices.find(item => item.id === 'home').name, 'Saved home');
     h.get('device-select').value = 'home'; await h.event('device-select', 'change');
     assert.equal(h.get('device-name').value, 'Home-only draft');
+});
+
+// The actual Settings owner, ContentLifecycle and WorkspacesView share this
+// page. Only provider/storage I/O and navigation are synthetic; no Drive handlers
+// or draft decisions are replaced. Native warning UI remains browser-owned.
+async function departureHarness() {
+    const h = await harness(), {context, document} = h, window = context.window;
+    const StorageManager = require('../storage.js');
+    const storage = context.storageManager = new StorageManager();
+    const config = storage.cloneDefaultConfig();
+    config.categories = []; config.hot = { tab: 'baidu', baidu: [], weibo: [], zhihu: [] };
+    config._settingsBaseline = storage.settingsSnapshot(config);
+    config._clockBaseline = structuredClone(config.clock);
+    const writes = [], events = {}, calls = [];
+    storage.setAll = async (values, options) => { writes.push({values: structuredClone(values), options: structuredClone(options)}); return true; };
+    context.displayStorageInfo = async () => {};
+    context.clearTimeout = () => {};
+    document.body.prepend = (...nodes) => document.body.append(...nodes);
+    const create = document.createElement.bind(document);
+    document.createElement = tag => { const element = create(tag); element.removeAttribute = name => { delete element.attributes[name]; }; return element; };
+    for (const [id, tag] of Object.entries({'hour12-format': 'input', 'show-seconds': 'input', 'quote-text': 'input',
+        'category-manage-list': 'div', 'add-category': 'button'})) {
+        const element = document.createElement(tag); element.id = id; document.body.append(element);
+    }
+    await context.populateFormFields(config);
+    context.setupCategoryManagement(config.categories);
+    window.document = document;
+    window.addEventListener = (type, fn) => { events[type] = fn; };
+    window.location = {href: 'chrome-extension://synthetic/options.html?workspace=default', reload: () => calls.push(['reload'])};
+    window.confirm = () => { calls.push(['confirm']); return false; };
+    for (const file of ['shared/local-content-lifecycle.js', 'shared/dialog-focus.js', 'shared/workspaces-view.js']) {
+        vm.runInNewContext(fs.readFileSync(file, 'utf8'), {window, document, setTimeout, URL, Blob});
+    }
+    const registry = {schemaVersion: 1, defaultId: 'default', lastUsedId: 'default', revision: 0, workspaces: [
+        {id: 'default', name: 'Default', order: 0, generation: 'g0', deletedAt: null},
+        {id: 'work', name: 'Work', order: 1, generation: 'g1', deletedAt: null}]};
+    const session = {id: 'default', generation: 'g0', ready: async () => ({id: 'default', generation: 'g0'}),
+        flush: async () => calls.push(['flush']), suspendWrites: () => calls.push(['suspend']), resumeWrites: () => calls.push(['resume'])};
+    storage.workspace = session; storage.isDefaultWorkspace = async () => true;
+    const manager = {list: async () => structuredClone(registry), subscribe: () => () => {},
+        select: async id => { calls.push(['select', id]); registry.lastUsedId = id; }};
+    const switcher = document.createElement('section'), managerHost = document.createElement('section');
+    document.body.append(switcher, managerHost);
+    const lifecycle = window.LocalItabContentLifecycle;
+    window.workspacesView = window.LocalItabWorkspacesView.mount({switcher, managerHost, manager, session, lifecycle,
+        navigate: id => calls.push(['navigate', id])});
+    await window.workspacesView.ready;
+    const dialog = () => document.querySelector('.spaces-dialog');
+    const find = text => document.querySelectorAll('button').find(button => button.textContent === text);
+    const open = () => managerHost.querySelector('[data-workspace-id="work"][data-workspace-action="open"]').dispatch('click');
+    const warns = () => { let prevented = false; const event = {preventDefault() { prevented = true; }};
+        events.beforeunload(event); return prevented && event.returnValue === ''; };
+    const selected = () => calls.some(call => ['select', 'navigate'].includes(call[0]));
+    assert.equal(window.settingsFormView.hasUncommittedWork(), false, 'ordinary Settings begins clean');
+    assert.equal(lifecycle.hasUncommittedWork(), false, 'all content owners begin clean');
+    return {...h, window, lifecycle, writes, departureCalls: calls, dialog, find, open, warns, selected};
+}
+async function until(check, message) {
+    const deadline = Date.now() + 2000;
+    while (!check() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+    assert(check(), message);
+}
+const tick = () => new Promise(resolve => setTimeout(resolve, 40));
+
+for (const failedLatestRead of [false, true]) test(`Drive departure waits through upload and the latest ${failedLatestRead ? 'failed' : 'successful'} final panel refresh`, async () => {
+    const h = await departureHarness(), final = deferred(), latest = deferred();
+    const manager = h.window.driveBackupManager, original = manager.getState; let reads = 0;
+    manager.getState = async () => {
+        const read = ++reads;
+        if (read === 2) await final.promise;
+        if (read === 3) { await latest.promise; if (failedLatestRead) throw new Error('Synthetic latest panel unavailable'); }
+        return original();
+    };
+    h.calls.uploadGate = deferred();
+    const action = h.event('backup-now');
+    try {
+        await until(() => h.calls.uploads === 1, 'upload entered');
+        assert.equal(h.window.settingsFormView.pending, true);
+        assert.equal(h.lifecycle.pending(), true);
+        assert.equal(h.warns(), true, 'pending Drive alone participates in beforeunload');
+        assert.equal(h.lifecycle.reload(), false);
+        h.document.getElementById('local-content-reload-notice').querySelector('button').dispatch('click');
+        assert.deepEqual(h.departureCalls, [], 'pending reload does not confirm or navigate');
+        h.open(); await tick();
+        assert.equal(h.selected(), false); assert.equal(h.dialog(), null);
+        h.calls.uploadGate.resolve(); await until(() => reads === 2, 'final panel read entered');
+        const newer = h.context.renderDriveBackupPanel();
+        await until(() => reads === 3, 'newer panel read entered');
+        final.resolve(); await tick();
+        assert.equal(h.lifecycle.pending(), true); assert.equal(h.selected(), false);
+        latest.resolve(); await Promise.all([action, newer]);
+        await until(() => h.departureCalls.some(call => call[0] === 'navigate'), 'clean switch completes after settled latest refresh');
+        assert.equal(h.lifecycle.pending(), false); assert.equal(h.window.settingsFormView.hasUncommittedWork(), false);
+        assert.equal(h.lifecycle.departing, true); h.noNameWrites();
+    } finally { h.calls.uploadGate.resolve(); final.resolve(); latest.resolve(); await action; }
+});
+
+for (const fail of [false, true]) test(`Drive departure retains the name and offers the original choices after ${fail ? 'failed' : 'successful'} backup settles`, async () => {
+    const h = await departureHarness(); h.get('device-name').value = 'Unsubmitted synthetic home';
+    h.calls.uploadGate = deferred(); h.calls.failUpload = fail;
+    const action = h.event('backup-now');
+    try {
+        await until(() => h.calls.uploads === 1, 'upload entered');
+        h.open(); await tick(); assert.equal(h.selected(), false); assert.equal(h.dialog(), null);
+        h.calls.uploadGate.resolve(); await action;
+        await until(() => h.dialog(), 'remaining name draft needs a choice');
+        assert.equal(h.lifecycle.pending(), false); assert.equal(h.window.settingsFormView.pending, false);
+        assert.equal(h.lifecycle.hasUncommittedWork(), true); assert.equal(h.lifecycle.departing, false);
+        assert.equal(h.get('device-name').value, 'Unsubmitted synthetic home');
+        for (const label of ['Stay here', 'Save and switch', 'Discard drafts and switch']) assert(h.find(label));
+        h.find('Stay here').dispatch('click');
+        assert.equal(h.dialog(), null); assert.equal(h.selected(), false); assert.equal(h.warns(), true);
+        h.noNameWrites(); assert.equal(h.saved.deviceName, 'Saved home');
+    } finally { h.calls.uploadGate.resolve(); await action; }
+});
+
+test('Drive departure reads exact name drafts, ignores obsolete current cache, and protects hidden same-name computers', async () => {
+    const h = await departureHarness();
+    for (const value of ['', '   ', ' Saved home ', 'Saved home']) {
+        h.get('device-name').value = value;
+        assert.equal(h.lifecycle.hasUncommittedWork(), value !== 'Saved home');
+        assert.equal(h.warns(), value !== 'Saved home');
+    }
+    h.get('device-name').value = 'Home draft'; await h.context.renderDriveBackupPanel();
+    h.get('device-name').value = 'Saved home';
+    assert.equal(h.lifecycle.hasUncommittedWork(), false, 'current input supersedes its cached old draft');
+    h.saved.knownDevices[1].name = 'Saved home';
+    h.get('device-name').value = ''; h.get('device-select').value = 'work'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-name').value, 'Saved home');
+    assert.equal(h.lifecycle.hasUncommittedWork(), true, 'hidden blank home draft survives duplicate saved names');
+    await h.event('rename-device');
+    assert.equal(h.lifecycle.hasUncommittedWork(), true, 'saving work does not consume hidden home draft');
+    h.get('device-select').value = 'home'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-name').value, '');
+    h.get('device-name').value = 'Saved home'; assert.equal(h.lifecycle.hasUncommittedWork(), false);
+});
+
+test('Drive departure Save and switch saves ordinary edits without implicitly renaming or adding a computer', async () => {
+    const h = await departureHarness(); h.get('device-name').value = 'Explicit action still needed';
+    h.document.getElementById('quote-text').value = 'Synthetic ordinary Settings edit';
+    h.open(); await until(() => h.dialog(), 'Drive draft decision opens');
+    h.find('Save and switch').dispatch('click');
+    await until(() => h.dialog()?.textContent.includes('Some edits need attention'), 'unsubmitted name refuses departure after ordinary Save');
+    assert.equal(h.selected(), false); assert.equal(h.lifecycle.departing, false); h.noNameWrites();
+    assert.equal(h.get('device-name').value, 'Explicit action still needed');
+    assert.equal(h.writes.length, 1); assert.deepEqual(h.writes[0].values, {quote: 'Synthetic ordinary Settings edit'});
+    h.find('Discard drafts and switch').dispatch('click');
+    await until(() => h.departureCalls.some(call => call[0] === 'navigate'), 'explicit discard can depart');
+    assert.equal(h.lifecycle.departing, true); assert.equal(h.writes.length, 1); h.noNameWrites();
+});
+
+for (const action of ['rename-device', 'add-device']) test(`Drive departure is clean after explicit ${action} acknowledges the exact submission`, async () => {
+    const h = await departureHarness(); h.get('device-name').value = '  Explicit synthetic computer  ';
+    assert.equal(h.lifecycle.hasUncommittedWork(), true);
+    await h.event(action);
+    assert.equal(h.get('device-name').value, 'Explicit synthetic computer');
+    assert.equal(h.lifecycle.hasUncommittedWork(), false); assert.equal(h.warns(), false);
+});
+
+for (const focused of [false, true]) test(`Drive departure protects the old saved name retyped during Rename (focused: ${focused})`, async () => {
+    const h = await departureHarness(); h.calls.renameGate = deferred(); h.get('device-name').value = 'Submitted synthetic name';
+    const action = h.event('rename-device');
+    h.get('device-name').focus(); h.get('device-name').value = 'Saved home';
+    if (!focused) h.document.body.focus();
+    h.calls.renameGate.resolve(); await action;
+    assert.equal(h.saved.deviceName, 'Submitted synthetic name');
+    assert.equal(h.get('device-name').value, 'Saved home', 'the later input is not the completed submission');
+    assert.equal(h.lifecycle.hasUncommittedWork(), true); assert.equal(h.warns(), true);
+    await h.context.renderDriveBackupPanel(); assert.equal(h.get('device-name').value, 'Saved home');
+});
+
+for (const newerValue of ['Saved home', 'Newer home name']) test(`Drive departure distinguishes original-profile input during Add: ${newerValue}`, async () => {
+    const h = await departureHarness(); h.calls.addGate = deferred(); h.get('device-name').value = 'New computer';
+    const action = h.event('add-device'); h.get('device-name').value = newerValue;
+    h.calls.addGate.resolve(); await action;
+    assert.equal(h.get('device-name').value, 'New computer');
+    assert.equal(h.lifecycle.hasUncommittedWork(), newerValue !== 'Saved home');
+    h.get('device-select').value = 'home'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-name').value, newerValue);
+});
+
+test('Drive departure protects names before Settings initialization and after replacement requests reload', async () => {
+    const h = await departureHarness(); h.get('device-name').value = '';
+    await h.context.replaceSettings(async () => true);
+    assert.equal(h.window.settingsFormView.hasUncommittedWork(), true);
+    assert.equal(h.lifecycle.reload(), false); assert.equal(h.warns(), true);
+    assert.equal(h.departureCalls.some(call => call[0] === 'reload'), false);
+    const uninitialized = await harness(); uninitialized.get('device-name').value = 'Draft before Settings baseline';
+    assert.equal(uninitialized.context.settingsHasUncommittedWork(), true);
 });

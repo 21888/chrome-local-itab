@@ -147,6 +147,7 @@ function advanceSettingsBaseline(settings, paths, submittedForm) {
     }
 }
 function settingsHasUncommittedWork() {
+    if (driveActionInProgress || driveDeviceNameHasDrafts()) return true;
     if (settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending) return true;
     if (settingsReplacementPending || !settingsFormBaseline) return false;
     try { return settingsDirtyPaths(collectFormData(false)).length > 0 ||
@@ -873,7 +874,7 @@ async function populateFormFields(config) {
     window.settingsFormView = {hasUncommittedWork: settingsHasUncommittedWork,
         saveDrafts: () => saveAllSettings(true), flush: () => settingsSaveQueue,
         pauseAutosave() { clearTimeout(categorySaveTimeout); },
-        get pending() { return settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending; }};
+        get pending() { return driveActionInProgress || settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending; }};
 }
 
 async function populateSyncControls(syncConfig) {
@@ -1427,6 +1428,16 @@ function renderDriveActionControls() {
     });
 }
 
+function driveDeviceNameHasDrafts() {
+    const input = document.getElementById('drive-device-name');
+    if (!input) return false;
+    const field = driveDeviceNameFields.get(input);
+    if (!field) return Boolean(input.value);
+    // The live value supersedes this computer's cached draft, including when
+    // edited back to its baseline. Other computers still own their exact drafts.
+    return input.value !== field.baseline || [...field.drafts.keys()].some(id => id !== field.deviceId);
+}
+
 function renderDriveDeviceName(input, deviceId, savedName) {
     if (!input) return;
     let field = driveDeviceNameFields.get(input);
@@ -1453,14 +1464,19 @@ function renderDriveDeviceName(input, deviceId, savedName) {
     }
 }
 
-function acknowledgeDriveDeviceName(input, deviceId, submittedValue) {
+function acknowledgeDriveDeviceName(input, deviceId, submittedValue, renamedValue) {
     const field = input && driveDeviceNameFields.get(input);
     if (!field) return;
     if (field.deviceId !== deviceId) {
         if (field.drafts.get(deviceId) === submittedValue) field.drafts.delete(deviceId);
         return;
     }
-    if (input.value !== submittedValue) return;
+    if (input.value !== submittedValue) {
+        // Rename changed this profile's saved value. Retyping the old name
+        // during the write is now a draft too. Add leaves the old profile alone.
+        if (renamedValue !== undefined) field.baseline = renamedValue;
+        return;
+    }
     // Only the exact completed submission is clean; later edits remain drafts.
     field.baseline = input.value;
     field.drafts.delete(deviceId);
@@ -1753,8 +1769,8 @@ function setupDriveBackupEventListeners() {
             }
 
             await runDriveAction(t('driveRenaming', '正在保存电脑名称...'), async () => {
-                await manager.renameDevice(name);
-                acknowledgeDriveDeviceName(input, submittedDeviceId, submittedValue);
+                const state = await manager.renameDevice(name);
+                acknowledgeDriveDeviceName(input, submittedDeviceId, submittedValue, state?.deviceName ?? name);
                 await renderDriveBackupPanel();
                 showMessage(t('driveRenamed', '电脑名称已保存，后续备份将使用新名称。'), 'success');
             });
