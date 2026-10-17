@@ -7531,5 +7531,14 @@
   },
   "promptsModelSourceReviewAgain": {
     "message": "已保存提示词的关联版本已恢复可用。请重新检查请求后，再允许访问或发送。"
+  },
+  "promptsModelStreamSourceReading": {
+    "message": "正在核对提示词来源。完整回答会保留在这里，请等待读取完成后再保存或重试同一次保存。"
+  },
+  "promptsModelStreamSourceReadFailed": {
+    "message": "暂时无法核对提示词来源。完整回答会保留在这里，请点击下方“重新核对来源”，成功后再保存或重试同一次保存。"
+  },
+  "promptsModelStreamSourceRetry": {
+    "message": "重新核对来源"
   }
 }

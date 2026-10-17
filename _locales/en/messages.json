@@ -7531,5 +7531,14 @@
   },
   "promptsModelSourceReviewAgain": {
     "message": "The saved prompt reference is available again. Review the request again before allowing access or sending."
+  },
+  "promptsModelStreamSourceReading": {
+    "message": "Checking the prompt source. Your completed response is kept here. Wait before saving or retrying the same save."
+  },
+  "promptsModelStreamSourceReadFailed": {
+    "message": "Could not verify the prompt source. Your completed response is kept here. Retry the source check below before saving or retrying the same save."
+  },
+  "promptsModelStreamSourceRetry": {
+    "message": "Retry source check"
   }
 }

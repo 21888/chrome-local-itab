@@ -228,6 +228,8 @@
         function update(focused = view.doc.activeElement) {
             const reference = sourceReferenceState();
             updateSourceNotice(reference);
+            sourceRetry.hidden = saved || suspended || completedStreamSourceState() !== 'unreadable';
+            sourceRetry.disabled = !canRetrySource();
             let valid = !refining;
             if (refining) {
                 try { valid = Boolean(response && refinement.current(c, template) && refinement.validateProposal(template, response.text)); } catch (_) {}
@@ -244,7 +246,7 @@
             if (trialButton) trialButton.disabled = busy || saving || presetPending || saved || suspended || Boolean(command) || !valid;
             review.disabled = busy || saving || permissionPending || presetPending || reference !== 'ready'; allow.disabled = busy || saving || permissionPending || presetPending || reference !== 'ready' || !reviewed; send.disabled = busy || saving || permissionPending || presetPending || reference !== 'ready' || !reviewed || Boolean(response);
             if (instruction) instruction.disabled = busy || saving || Boolean(response);
-            cancel.disabled = !busy; save.disabled = busy || saving || presetPending || !response || saved || (refining && (suspended || (!valid && !command))); close.disabled = saving;
+            cancel.disabled = !busy; save.disabled = busy || saving || presetPending || !response || saved || completedStreamSourceState() !== 'ready' || (refining && (suspended || (!valid && !command))); close.disabled = saving;
             url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
             presetSelect.disabled = presetName.disabled = presetSave.disabled = !presetAvailable || busy || saving || permissionPending || presetPending || Boolean(response);
             presetReload.disabled = !presetStore || presetPending || closed || c.disposed || busy || saving || permissionPending || command || trialUI || view.doc.visibilityState === 'hidden' || suspended;
@@ -271,7 +273,11 @@
         }
         function updateSourceNotice(reference) {
             const sent = Boolean(response || (busy && dispatchedRequest === aborter));
-            const message = saved || !checksSourceReference() ? '' : reference === 'missing' ? sent
+            const completedStream = completedStreamSourceState();
+            const message = reviewedStream && response ? saved || suspended ? '' : completedStream === 'loading'
+                ? t('StreamSourceReading', 'Checking the prompt source. Your completed response is kept here. Wait before saving or retrying the same save.')
+                : completedStream === 'unreadable' ? t('StreamSourceReadFailed', 'Could not verify the prompt source. Your completed response is kept here. Retry the source check below before saving or retrying the same save.') : ''
+                : saved || !checksSourceReference() ? '' : reference === 'missing' ? sent
                 ? t('SourceMissingSent', 'The saved prompt or linked version is no longer available. This request was already sent; any response is kept here, but saving may fail. Select the response text to copy it manually.')
                 : t('SourceMissing', 'The saved prompt or linked version is no longer available. Close this dialog and open an available saved prompt before sending.')
                 : !sent && reference === 'loading' ? t('SourceReading', 'Checking the saved prompt reference. Wait for it to load before reviewing or sending.')
@@ -294,6 +300,23 @@
             return c.sessionReady() && c.record()?.id === source.promptId && c.session() === session &&
                 c.sessionSourceCurrent() && c.preview()?.text === preview.text;
         }
+        function completedStreamSourceState() {
+            if (!reviewedStream || !response) return 'ready';
+            // Only a completed answer may outlive a temporarily unavailable read.
+            // Local source/session changes remain definitive, even during that read;
+            // active transport and partial-output checks keep their stricter fence.
+            if (c.disposed || c.busy || c.pendingCommand || c.draft() || c.selected !== source.promptId ||
+                (c.state && (c.record()?.version !== source.version || c.session() !== session || !c.sessionSourceCurrent() || c.preview()?.text !== preview.text))) return 'stale';
+            if (c.pendingReadGeneration !== null || !c.state) return 'loading';
+            if (c.linkedPromptUnavailable || c.error?.scope === 'read') return 'unreadable';
+            return sourceCurrent() ? 'ready' : 'stale';
+        }
+        function canRetrySource() {
+            return !closed && !suspended && !saved && !saving && !busy && !permissionPending &&
+                !view.destroyed && !c.disposed && !view.doc.hidden && view.doc.visibilityState !== 'hidden' &&
+                overlay.isConnected && !overlay.hidden && !overlay.closest('[hidden], [inert]') &&
+                completedStreamSourceState() === 'unreadable';
+        }
         function readerSourceCurrent() { return sourceCurrent() && c.record()?.version === source.version && c.excerptEpoch === source.epoch; }
         function clearPaint() { if (paintTimer !== null) clearTimeout(paintTimer); paintTimer = null; }
         function paintPartial() {
@@ -305,8 +328,9 @@
         function checkSource() {
             if (closed) return;
             if (c.disposed || !readerSourceCurrent()) { clearCopyFeedback(); releaseReader(); }
-            if (reviewedStream && !suspended && !sourceCurrent()) suspend();
+            if (reviewedStream && !suspended && (response ? completedStreamSourceState() === 'stale' : !sourceCurrent())) suspend();
             if (checksSourceReference()) { retireMissingReference(); update(); }
+            else if (reviewedStream && response) update();
             else { updateDifference(); refreshCopyState(); }
         }
         function invalidateConnection() { key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); }
@@ -474,6 +498,12 @@
             }
             finally { releaseRequest(request); }
         });
+        const sourceRetry = button('StreamSourceRetry', 'Retry source check', () => {
+            if (!canRetrySource()) return;
+            // The controller owns read generations/errors. Its subscription only
+            // updates eligibility; this explicit read never sends or saves.
+            void c.refresh();
+        });
         const copy = refining ? null : button('CopyAnswer', 'Copy full answer', copyAnswer);
         const cancel = button('Stop', 'Stop request', () => {
             if (closed || !busy) return;
@@ -481,7 +511,10 @@
         });
         const save = button(refining ? 'RefineAccept' : 'Save', refining ? 'Accept as new prompt version' : 'Save response to AI collection', async () => {
             if (c.disposed || trialUI || busy || !response || saving || presetPending || saved || closed || (refining && suspended)) return;
-            if (reviewedStream && !sourceCurrent()) { suspend(); return; }
+            if (reviewedStream && completedStreamSourceState() !== 'ready') {
+                if (completedStreamSourceState() === 'stale') suspend(); else update();
+                return;
+            }
             saving = true; update();
             try {
                 if (refining) {
@@ -551,14 +584,14 @@
         if (instruction) instruction.addEventListener('input', () => { prompt.value = ''; invalidateConnection(); });
         for (const input of [url, model]) input.addEventListener('input', invalidateConnection);
         actions.append(review, allow, send, cancel); if (copy) resultActions.append(copy); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
-        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status, sourceStatus); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); if (compareText) { const diffActions = el('div', 'prompt-actions'); diffActions.append(compareText); box.append(diffActions, difference); } box.append(resultActions); if (copy) box.append(copyStatus); overlay.append(box); view.doc.body.append(overlay);
+        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status, sourceStatus, sourceRetry); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); if (compareText) { const diffActions = el('div', 'prompt-actions'); diffActions.append(compareText); box.append(diffActions, difference); } box.append(resultActions); if (copy) box.append(copyStatus); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.cancelModelDialog = hide; view.checkModelRun = checkSource; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged);
         view.refreshModelCopy = refreshCopyState;
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
-        return { copy, copyStatus, readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, presetReload, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, sourceStatus, overlay };
+        return { copy, copyStatus, readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, presetReload, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, sourceStatus, sourceRetry, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);
