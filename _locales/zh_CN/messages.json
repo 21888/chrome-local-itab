@@ -382,6 +382,24 @@
   "worldClockCompareReference": {
     "message": "预览 · 本地：$1，$2 · 相对开始时间 $3 分钟"
   },
+  "worldClockLocalInput": {
+    "message": "设备本地日期和时间"
+  },
+  "worldClockLocalPreview": {
+    "message": "预览"
+  },
+  "worldClockLocalHelp": {
+    "message": "输入设备时区 $1 的日期和时间，点击“预览”重置比较基准。秒可省略（按 00 处理）。跳过的本地时间不可用；重复时间采用较早的一次。边缘日期保留安全余量。"
+  },
+  "worldClockLocalInvalid": {
+    "message": "请输入比较范围内的有效本地日期和时间。跳过的时间和预留的边缘日期无法预览。"
+  },
+  "worldClockLocalZoneChanged": {
+    "message": "设备时区已变化，草稿已保留。请再次修改日期或时间，以新设备时区解释，再点击“预览”。"
+  },
+  "worldClockLocalReference": {
+    "message": "预览 · 本地：$1，$2 · $3 · 相对当前比较基准 $4 分钟"
+  },
   "worldClockCopyAction": {
     "message": "复制比较摘要"
   },

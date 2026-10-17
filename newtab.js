@@ -1539,6 +1539,7 @@ class ClockComponent {
         this.worldClockComparison = null;
         this.worldClockComparisonView = null;
         worldClockCopyOwner?.invalidateWorldClockCopy();
+        worldClockCopyOwner?.clearWorldClockLocalDraft();
         worldClockCopyOwner = this;
         this.renderWorldClocks();
         this.createMonthCalendar();
@@ -1958,9 +1959,10 @@ class ClockComponent {
         this.worldClockRows = [];
         if (!this.worldClocksElement) return;
         const oldView = this.worldClockComparisonView;
-        const focusKey = oldView && ['toggle', 'previous24', 'next24', 'range', 'copy'].find(key => oldView[key] === document.activeElement);
+        const focusKey = oldView && ['toggle', 'previous24', 'next24', 'range', 'copy', 'localInput', 'preview'].find(key => oldView[key] === document.activeElement);
         this.worldClocksElement.replaceChildren();
         if (!entries.length) {
+            this.clearWorldClockLocalDraft();
             this.worldClockComparison = null;
             this.worldClockComparisonView = null;
         }
@@ -2023,6 +2025,25 @@ class ClockComponent {
             toggle.setAttribute('aria-controls', 'world-clock-comparison-panel');
             const panel = document.createElement('div');
             panel.id = 'world-clock-comparison-panel';
+            const localLabel = document.createElement('label');
+            const localInput = document.createElement('input');
+            localInput.id = 'world-clock-local-input';
+            localInput.type = 'datetime-local';
+            localInput.step = '1';
+            localInput.autocomplete = 'off';
+            localLabel.htmlFor = localInput.id;
+            const preview = document.createElement('button');
+            preview.type = 'button';
+            const localControls = document.createElement('div');
+            localControls.className = 'world-clock-comparison-navigation';
+            localControls.append(localInput, preview);
+            const localHelp = document.createElement('p');
+            localHelp.id = 'world-clock-local-help';
+            const localError = document.createElement('p');
+            localError.id = 'world-clock-local-error';
+            localError.className = 'world-clock-comparison-copy-status is-error';
+            localError.hidden = true;
+            for (const field of [localInput, preview]) field.setAttribute('aria-describedby', `${localHelp.id} ${localError.id}`);
             const navigation = document.createElement('div');
             navigation.className = 'world-clock-comparison-navigation';
             const previous24 = document.createElement('button');
@@ -2055,11 +2076,67 @@ class ClockComponent {
             copyStatus.setAttribute('aria-atomic', 'true');
             copyStatus.textContent = '';
             copyStatus.hidden = true;
-            panel.append(navigation, stepHelp, label, range, reference, copy, copyStatus);
+            panel.append(localLabel, localControls, localHelp, localError, navigation, stepHelp, label, range, reference, copy, copyStatus);
             controls.append(toggle, panel);
             const view = { controls, toggle, panel, label, range, reference, copy, copyStatus,
-                previous24, next24, stepHelp, stepComposing: false };
+                previous24, next24, stepHelp, stepComposing: false,
+                localLabel, localInput, preview, localHelp, localError, localDraft: null, previewComposing: false };
             this.worldClockComparisonView = view;
+            localInput.addEventListener('input', () => {
+                if (!this.isWorldClockStepCurrent(view, localInput)) return;
+                this.invalidateWorldClockCopy();
+                const draft = view.localDraft;
+                const zone = window.WorldClocks.deviceTimeZone();
+                const justChanged = draft.seenZone !== zone;
+                this.syncWorldClockLocalDraft();
+                // A zone-change warning must be seen before a different edit can
+                // acknowledge the new interpretation. An ABA zone change stays blocked.
+                if (!justChanged && draft.zoneChanged && localInput.value !== draft.blockedValue) {
+                    draft.zoneChanged = false;
+                    draft.zone = zone;
+                }
+                draft.dirty = true;
+                draft.error = draft.zoneChanged ? 'zone' : null;
+                this.updateWorldClockLocalLabels();
+            });
+            localInput.addEventListener('compositionstart', () => {
+                if (!this.isWorldClockStepCurrent(view, localInput)) return;
+                view.localDraft.composing = true;
+                view.localDraft.compositionEnter = false;
+            });
+            localInput.addEventListener('compositionend', () => { if (view.localDraft) view.localDraft.composing = false; });
+            localInput.addEventListener('blur', () => {
+                if (view.localDraft) { view.localDraft.composing = false; view.localDraft.compositionEnter = false; }
+            });
+            localInput.addEventListener('keyup', () => { if (view.localDraft) view.localDraft.compositionEnter = false; });
+            localInput.addEventListener('keydown', event => {
+                if (!this.isWorldClockStepCurrent(view, localInput) || event.defaultPrevented) return;
+                const draft = view.localDraft;
+                if (draft.composing || event.isComposing || event.keyCode === 229) {
+                    if (event.key === 'Enter' || event.code === 'Enter' || event.code === 'NumpadEnter' || event.keyCode === 13) {
+                        draft.compositionEnter = true;
+                    }
+                    return;
+                }
+                if (event.key !== 'Enter') { draft.compositionEnter = false; return; }
+                if (draft.compositionEnter || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+                event.preventDefault();
+                this.previewWorldClockLocalTime(view, localInput);
+            });
+            preview.addEventListener('compositionstart', () => {
+                if (this.isWorldClockStepCurrent(view, preview)) view.previewComposing = true;
+            });
+            preview.addEventListener('compositionend', () => { view.previewComposing = false; });
+            preview.addEventListener('blur', () => { view.previewComposing = false; });
+            preview.addEventListener('keydown', event => {
+                if (!this.isWorldClockStepCurrent(view, preview)) return;
+                if (['Enter', ' '].includes(event.key) &&
+                    (event.repeat || view.previewComposing || view.localDraft?.composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+            });
+            preview.addEventListener('click', event => {
+                if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229) return;
+                this.previewWorldClockLocalTime(view, preview);
+            });
             for (const [button, direction] of [[previous24, -1], [next24, 1]]) {
                 button.addEventListener('compositionstart', () => {
                     if (this.isWorldClockStepCurrent(view, button)) view.stepComposing = true;
@@ -2091,6 +2168,7 @@ class ClockComponent {
                 this.invalidateWorldClockCopy();
                 this.worldClockComparison = this.worldClockComparison ? null : { anchor: Date.now(), minutes: 0, shiftMinutes: 0 };
                 view.stepComposing = false;
+                this.clearWorldClockLocalDraft();
                 this.updateWorldClocks(new Date());
             });
             range.addEventListener('input', () => {
@@ -2105,6 +2183,87 @@ class ClockComponent {
         }
         this.worldClocksElement.append(this.worldClockComparisonView.controls);
         this.refreshWorldClockCopyControl();
+    }
+
+    clearWorldClockLocalDraft() {
+        const view = this.worldClockComparisonView;
+        if (!view) return;
+        view.localDraft = null;
+        view.previewComposing = false;
+        if (this.worldClockComparison) delete this.worldClockComparison.localEntry;
+        view.localInput.value = '';
+        view.localError.textContent = '';
+        view.localError.hidden = true;
+        view.localInput.setAttribute('aria-invalid', 'false');
+    }
+
+    syncWorldClockLocalDraft(instant) {
+        const view = this.worldClockComparisonView;
+        if (!view || !this.worldClockComparison) return;
+        const zone = window.WorldClocks.deviceTimeZone();
+        const draft = view.localDraft ||= { zone, seenZone: zone, dirty: false, error: null,
+            composing: false, compositionEnter: false, zoneChanged: false };
+        if (draft.seenZone !== zone) {
+            if (draft.dirty || draft.composing || document.activeElement === view.localInput) {
+                draft.zoneChanged = true;
+                draft.blockedValue = view.localInput.value;
+                draft.error = 'zone';
+            } else draft.zone = zone;
+            draft.seenZone = zone;
+        }
+        if (instant && !draft.dirty && !draft.composing && !draft.zoneChanged && document.activeElement !== view.localInput) {
+            const value = window.WorldClocks.localDateTimeValue(instant);
+            if (view.localInput.value !== value) view.localInput.value = value;
+        }
+    }
+
+    updateWorldClockLocalLabels() {
+        const view = this.worldClockComparisonView;
+        if (!view) return;
+        const display = (node, text) => { if (node.textContent !== text) node.textContent = text; };
+        display(view.localLabel, this.worldClockText('worldClockLocalInput', 'Device-local date and time'));
+        display(view.preview, this.worldClockText('worldClockLocalPreview', 'Preview'));
+        const zone = view.localDraft?.seenZone || window.WorldClocks.deviceTimeZone();
+        display(view.localHelp, this.worldClockText('worldClockLocalHelp',
+            `Enter a time in device zone ${zone}, then Preview to reset the comparison base. Seconds are optional (00 if omitted). Skipped local times are rejected; repeated times use the earlier occurrence. Edge dates are reserved.`, [zone]));
+        const error = view.localDraft?.error;
+        const message = error === 'zone'
+            ? this.worldClockText('worldClockLocalZoneChanged', 'The device time zone changed. Your draft is kept. Edit the date or time again to use the new device zone, then Preview.')
+            : this.worldClockText('worldClockLocalInvalid', 'Enter a valid local date and time within the comparison range. Skipped times and reserved edge dates cannot be previewed.');
+        display(view.localError, error ? message : '');
+        if (view.localError.hidden !== !error) view.localError.hidden = !error;
+        view.localInput.setAttribute('aria-invalid', String(Boolean(error)));
+    }
+
+    previewWorldClockLocalTime(view, source) {
+        if (!this.isWorldClockStepCurrent(view, source) || !this.isWorldClockStepCurrent(view, view.localInput) ||
+            !this.isWorldClockStepCurrent(view, view.preview) || view.previewComposing || view.localDraft?.composing || view.localDraft?.compositionEnter) return;
+        this.invalidateWorldClockCopy();
+        const changedBeforeSubmit = view.localDraft?.seenZone !== window.WorldClocks.deviceTimeZone();
+        this.syncWorldClockLocalDraft();
+        const draft = view.localDraft;
+        // A click can precede the next tick/focus refresh. Even a clean, unfocused
+        // field still contains the old zone's wall time: never reinterpret it.
+        if (changedBeforeSubmit) {
+            draft.zoneChanged = true;
+            draft.blockedValue = view.localInput.value;
+            draft.error = 'zone';
+        }
+        if (draft.zoneChanged) { this.updateWorldClockLocalLabels(); return; }
+        const date = window.WorldClocks.parseLocalDateTime(view.localInput.value);
+        const anchor = date?.getTime();
+        if (!Number.isSafeInteger(anchor) || anchor < Date.parse('0001-01-03T00:00:00.000Z') ||
+            anchor > Date.parse('9999-12-29T23:59:59.999Z')) {
+            draft.dirty = true;
+            draft.error = 'invalid';
+            this.updateWorldClockLocalLabels();
+            return;
+        }
+        this.worldClockComparison = { anchor, minutes: 0, shiftMinutes: 0, localEntry: true };
+        draft.dirty = false;
+        draft.error = null;
+        draft.zone = draft.seenZone;
+        this.updateWorldClocks();
     }
 
     worldClockStepCandidate(direction) {
@@ -2274,6 +2433,8 @@ class ClockComponent {
                 const disabled = String(this.worldClockStepCandidate(direction) === null);
                 if (button.getAttribute('aria-disabled') !== disabled) button.setAttribute('aria-disabled', disabled);
             }
+            this.syncWorldClockLocalDraft(instant);
+            this.updateWorldClockLocalLabels();
             if (comparison) {
                 const date = instant.toLocaleDateString(this.getDateLocale(), { year: 'numeric', month: 'short', day: 'numeric' });
                 const time = instant.toLocaleTimeString(navigator.language || undefined, {
@@ -2281,7 +2442,13 @@ class ClockComponent {
                     hour12: this.config.hour12, timeZoneName: 'short'
                 });
                 const offset = `${totalMinutes >= 0 ? '+' : ''}${totalMinutes}`;
-                const reference = this.worldClockText('worldClockCompareReference', `Preview · Local: ${date}, ${time} · ${offset} min from start`, [date, time, offset]);
+                let reference = this.worldClockText('worldClockCompareReference', `Preview · Local: ${date}, ${time} · ${offset} min from start`, [date, time, offset]);
+                if (comparison.localEntry) {
+                    const zone = window.WorldClocks.localZoneDescription(instant);
+                    const identity = `${zone.timeZone} · ${zone.offset}`;
+                    reference = this.worldClockText('worldClockLocalReference',
+                        `Preview · Local: ${date}, ${time} · ${identity} · ${offset} min from current comparison base`, [date, time, identity, offset]);
+                }
                 displayText(view.reference, reference);
                 view.range.setAttribute('aria-valuetext', reference);
             }

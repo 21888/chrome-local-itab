@@ -3759,3 +3759,6 @@ textarea:focus-visible,
 .search-calculator-recent button:disabled { opacity: 0.6; cursor: default; }
 .search-calculator-recent-summary:focus-visible, .search-calculator-recent button:focus-visible { outline: 3px solid var(--template-focus); outline-offset: 2px; }
 .search-calculator-recent [hidden] { display: none; }
+
+/* Local-time entry reuses the comparison wrapping controls. */
+.world-clock-comparison input[type="datetime-local"] { box-sizing: border-box; flex: 1 1 12rem; width: 100%; min-width: 0; max-width: 100%; padding: 6px; border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit; font: inherit; }

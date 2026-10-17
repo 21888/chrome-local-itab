@@ -382,6 +382,24 @@
   "worldClockCompareReference": {
     "message": "Preview · Local: $1, $2 · $3 min from start"
   },
+  "worldClockLocalInput": {
+    "message": "Device-local date and time"
+  },
+  "worldClockLocalPreview": {
+    "message": "Preview"
+  },
+  "worldClockLocalHelp": {
+    "message": "Enter a time in device zone $1, then Preview to reset the comparison base. Seconds are optional (00 if omitted). Skipped local times are rejected; repeated times use the earlier occurrence. Edge dates are reserved."
+  },
+  "worldClockLocalInvalid": {
+    "message": "Enter a valid local date and time within the comparison range. Skipped times and reserved edge dates cannot be previewed."
+  },
+  "worldClockLocalZoneChanged": {
+    "message": "The device time zone changed. Your draft is kept. Edit the date or time again to use the new device zone, then Preview."
+  },
+  "worldClockLocalReference": {
+    "message": "Preview · Local: $1, $2 · $3 · $4 min from current comparison base"
+  },
   "worldClockCopyAction": {
     "message": "Copy comparison"
   },

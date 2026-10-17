@@ -113,5 +113,61 @@
         };
     }
 
-    return Object.freeze({ MAX_CLOCKS, MAX_LABEL_LENGTH, normalize, safe, format, calendarDate });
+    // datetime-local has no offset. Parse only the supported Gregorian shape,
+    // then verify every local field: native Date otherwise normalizes invalid
+    // dates and DST gaps. Its specified disambiguation selects the earlier fold.
+    function parseLocalDateTime(value) {
+        if (typeof value !== 'string') return null;
+        const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(value);
+        if (!match || match[0] !== value) return null;
+        const [year, month, day, hour, minute, second] = match.slice(1).map(part => Number(part || 0));
+        if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31 ||
+            hour > 23 || minute > 59 || second > 59) return null;
+        // The ISO local string avoids the numeric constructor's 1900 offset for
+        // years 00–99, and never treats valueAsNumber as a UTC instant.
+        const date = new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6] || '00'}`);
+        return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day &&
+            date.getHours() === hour && date.getMinutes() === minute && date.getSeconds() === second &&
+            date.getMilliseconds() === 0 ? date : null;
+    }
+
+    function localDateTimeValue(date) {
+        const year = date.getFullYear();
+        if (!Number.isFinite(date.getTime()) || year < 1 || year > 9999) return '';
+        const pad = value => String(value).padStart(2, '0');
+        return `${String(year).padStart(4, '0')}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+            `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function deviceTimeZone() {
+        // Resolve anew so a device-zone change is observed on the existing tick.
+        return new Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
+
+    function localZoneDescription(date) {
+        const timeZone = deviceTimeZone();
+        let offset;
+        try {
+            const formatter = remember(formatterCache, `offset:${timeZone}`, () => new Intl.DateTimeFormat('en', {
+                timeZone, timeZoneName: 'longOffset'
+            }));
+            offset = formatter.formatToParts(date).find(part => part.type === 'timeZoneName')?.value;
+        } catch (_) { /* Older Intl implementations may not support longOffset. */ }
+        if (offset === 'GMT') offset = 'GMT+00:00';
+        if (!/^GMT[+-]\d{2}:\d{2}(?::\d{2})?$/.test(offset || '')) {
+            // Compute from the actual local fields, including historical seconds.
+            // getTimezoneOffset() would lose sub-minute offsets in those zones.
+            const localAsUTC = new Date(0);
+            localAsUTC.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+            localAsUTC.setUTCHours(date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds());
+            const seconds = (localAsUTC.getTime() - date.getTime()) / 1000;
+            const absolute = Math.abs(seconds), pad = value => String(value).padStart(2, '0');
+            offset = `GMT${seconds < 0 ? '-' : '+'}${pad(Math.floor(absolute / 3600))}:${pad(Math.floor(absolute % 3600 / 60))}` +
+                (absolute % 60 ? `:${pad(absolute % 60)}` : '');
+        }
+        return { timeZone, offset };
+    }
+
+    return Object.freeze({ MAX_CLOCKS, MAX_LABEL_LENGTH, normalize, safe, format, calendarDate,
+        parseLocalDateTime, localDateTimeValue, deviceTimeZone, localZoneDescription });
 });
