@@ -98,3 +98,5 @@
 
 .tasks-row-copy-status { color: var(--template-muted); font-size: 12px; line-height: 1.55; margin: 8px 0 0; }
 .tasks-row-copy-status.is-error { color: var(--template-error); }
+
+.tasks-visible-copy { margin: 0 0 10px; }

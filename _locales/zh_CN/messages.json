@@ -1030,6 +1030,18 @@
   "tasksCopyFailure": {
     "message": "未能复制。可选中待办原文手动复制。"
   },
+  "tasksCopyVisible": {
+    "message": "复制当前显示的待办（{count}）"
+  },
+  "tasksCopyVisiblePending": {
+    "message": "正在复制当前显示的待办…"
+  },
+  "tasksCopyVisibleSuccess": {
+    "message": "已复制当时显示的待办。"
+  },
+  "tasksCopyVisibleFailure": {
+    "message": "未能复制。可选中当前显示的待办原文手动复制。"
+  },
   "tasksReuseText": {
     "message": "用原文新建"
   },

@@ -11,6 +11,7 @@
         tasksBatchRetry: 'Retry previous add', tasksBatchUncertain: 'The previous batch could not be confirmed. Retry that same batch safely before reviewing this draft.', tasksBatchDraftRemains: 'The previous batch was saved. Your current draft is still here; review it before adding anything else.',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
+        tasksCopyVisible: 'Copy visible tasks ({count})', tasksCopyVisiblePending: 'Copying visible tasks…', tasksCopyVisibleSuccess: 'Visible tasks copied.', tasksCopyVisibleFailure: 'Could not copy. Select the visible task text to copy it manually.',
         tasksReuseText: 'New task from text', tasksReuseHelp: 'Edit this independent draft, then choose Add to create one new active task. The original task stays unchanged. Line breaks stay within one task.',
         tasksReuseRetry: 'Retry previous add', tasksReuseUncertain: 'The previous add could not be confirmed. Retry its exact text below before adding the current draft.',
         tasksReusePrevious: 'Previous text to add', tasksReuseDraftRemains: 'The previous task was saved. Your current draft is still here; choose Add only when you want another task.',
@@ -123,6 +124,10 @@
             this.batchButton = button('tasksBatch', () => this.addBatch(), 'tasks-batch-entry');
             const batchRow = el('div', 'tasks-batch-row'); batchRow.append(this.batchButton);
             this.list = el('ul', 'tasks-list'); this.more = button('tasksMore', () => { this.expanded = !this.expanded; this.renderedRevision = null; this.render(); });
+            this.visibleTasks = []; this.copyVisibleButton = button('tasksCopyVisible', () => this.copyVisibleTasks(), 'tasks-copy-visible');
+            this.copyVisibleStatus = el('p', 'tasks-row-copy-status tasks-visible-copy-status'); this.copyVisibleStatus.hidden = true;
+            this.copyVisibleStatus.setAttribute('role', 'status'); this.copyVisibleStatus.setAttribute('aria-live', 'polite');
+            const copyVisibleRow = el('div', 'tasks-visible-copy'); copyVisibleRow.append(this.copyVisibleButton, this.copyVisibleStatus);
             this.completed = this.section('tasksCompleted'); this.removed = this.section('tasksRemoved');
             this.data = el('details', 'tasks-data'); this.data.append(el('summary', '', t('tasksData')), el('p', 'tasks-help', t('tasksHelp')));
             const fileRow = el('div', 'tasks-data-actions');
@@ -139,7 +144,7 @@
             });
             this.undoButton = button('tasksUndo', () => this.undoLast());
             this.feedback.append(this.status, this.retry, this.undoButton);
-            host.replaceChildren(header, this.next, this.form, batchRow, this.filter, this.filterStatus, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
+            host.replaceChildren(header, this.next, this.form, batchRow, this.filter, this.filterStatus, copyVisibleRow, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
@@ -386,20 +391,43 @@
                 !['loading', 'saving', 'error'].includes(c.status) && !this.dialogs.size && !this.pendingReview &&
                 !root.LocalItabContentLifecycle?.departing && !workspace?.invalidated && !workspace?._suspended;
         }
-        copyCurrent(task, item, title, origin) {
+        copyOriginCurrent(origin) {
             if (!this.copyReady() || !origin.isConnected || !this.host.contains(origin) ||
-                !item.contains(origin) || item.dataset.taskId !== task.id || title.textContent !== task.text ||
                 document.hidden || document.visibilityState === 'hidden' || origin.closest('[hidden], [inert]') ||
-                !origin.getClientRects().length || ['hidden', 'collapse'].includes(root.getComputedStyle?.(origin).visibility) || this.renderedRevision !== this.controller.state.revision) return false;
+                !origin.getClientRects().length || ['hidden', 'collapse'].includes(root.getComputedStyle?.(origin).visibility)) return false;
             // Closed details descendants can still report layout boxes in Chromium.
             for (let node = origin.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS' && !node.open) return false;
+            return true;
+        }
+        copyCurrent(task, item, title, origin) {
+            if (!this.copyOriginCurrent(origin) || !item.contains(origin) || item.dataset.taskId !== task.id ||
+                title.textContent !== task.text || this.renderedRevision !== this.controller.state.revision) return false;
             const current = this.controller.state.records.find(record => record.id === task.id);
             return current?.version === task.version && current.text === task.text && current.state === task.state;
+        }
+        copyVisibleCurrent(snapshot, origin) {
+            if (!snapshot.length || this.visibleTasks !== snapshot || !this.copyOriginCurrent(origin) ||
+                this.renderedFilter !== this.filterQuery || this.renderedRevision !== this.controller.state.revision) return false;
+            const matched = this.controller.state.records.filter(task => task.state === 'active' && task.text.toLowerCase().includes(this.filterQuery));
+            const expected = this.filterQuery || this.expanded ? matched : matched.slice(0, 4);
+            const rows = Array.from(this.list.children);
+            return expected.length === snapshot.length && rows.length === snapshot.length && snapshot.every((task, index) => {
+                const item = rows[index], title = item.querySelector('.tasks-text');
+                return task.state === 'active' && expected[index].id === task.id && title && this.copyCurrent(task, item, title, item);
+            });
+        }
+        copyVisibleTasks() {
+            const snapshot = this.visibleTasks, origin = this.copyVisibleButton;
+            return this.copyText(snapshot.map((task, index) => `${index + 1}. ${task.text}`).join('\n'), origin, this.copyVisibleStatus,
+                () => this.copyVisibleCurrent(snapshot, origin), ['tasksCopyVisiblePending', 'tasksCopyVisibleSuccess', 'tasksCopyVisibleFailure'], this.list);
         }
         refreshCopyControls() {
             const disabled = !!this.copyAttempt || !this.copyReady();
             // Keep the focused native button in place; the click guard enforces this state.
             this.host.querySelectorAll('.tasks-copy-text').forEach(node => node.setAttribute('aria-disabled', String(disabled)));
+            this.copyVisibleButton.textContent = t('tasksCopyVisible').replace('{count}', this.visibleTasks.length);
+            this.copyVisibleButton.disabled = !this.visibleTasks.length;
+            this.copyVisibleButton.setAttribute('aria-disabled', String(disabled || this.copyVisibleButton.disabled));
             this.host.querySelectorAll('.tasks-reuse-text').forEach(node => node.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError)));
         }
         invalidateCopy() {
@@ -409,14 +437,19 @@
             attempt.status.textContent = ''; attempt.status.hidden = true;
             // Do not release the lock: an already invoked system write cannot be cancelled.
         }
-        async copyTask(task, item, title, origin, status) {
-            if (this.copyAttempt || !this.copyCurrent(task, item, title, origin)) return;
+        copyTask(task, item, title, origin, status) {
+            return this.copyText(task.text, origin, status, () => this.copyCurrent(task, item, title, origin));
+        }
+        async copyText(text, origin, status, isCurrent, messages = ['tasksCopying', 'tasksCopySuccess', 'tasksCopyFailure'], content = null) {
+            if (this.copyAttempt || !isCurrent()) return;
             const state = this.controller.state, workspace = this.controller.store.backend?.workspace;
             const attempt = { valid: true, status }; this.copyAttempt = attempt;
             const cancel = () => this.invalidateCopy();
             // Remember even a brief hide/detach/closed menu before the promise settles.
-            const invalidating = records => records.some(record => record.type === 'attributes' ? record.target.contains(origin) :
-                Array.from(record.removedNodes || []).some(node => node === origin || node.contains?.(origin)));
+            const targets = content ? [origin, content] : [origin];
+            const invalidating = records => records.some(record => content?.contains(record.target) || (record.type === 'attributes'
+                ? targets.some(target => record.target.contains(target))
+                : Array.from(record.removedNodes || []).some(node => targets.some(target => node === target || node.contains?.(target)))));
             const observer = root.MutationObserver ? new root.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
             attempt.cleanup = () => {
                 observer?.disconnect(); document.removeEventListener('visibilitychange', cancel, true);
@@ -425,19 +458,19 @@
             const current = () => {
                 if (observer && invalidating(observer.takeRecords())) cancel();
                 return attempt.valid && this.copyAttempt === attempt && this.controller.state === state &&
-                    this.controller.store.backend?.workspace === workspace && this.copyCurrent(task, item, title, origin);
+                    this.controller.store.backend?.workspace === workspace && isCurrent();
             };
             document.addEventListener('visibilitychange', cancel, true);
             root.addEventListener?.('blur', cancel); root.addEventListener?.('pagehide', cancel);
-            observer?.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open'] });
-            status.textContent = t('tasksCopying'); status.hidden = false; status.classList.remove('is-error'); this.refreshCopyControls();
+            observer?.observe(document.documentElement, { subtree: true, childList: true, characterData: !!content, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open'] });
+            status.textContent = t(messages[0]); status.hidden = false; status.classList.remove('is-error'); this.refreshCopyControls();
             try {
                 // No awaited storage/permission work before this user-activated call.
                 if (!this.clipboard?.writeText) throw new Error('Clipboard unavailable');
-                await this.clipboard.writeText(task.text);
-                if (current()) status.textContent = t('tasksCopySuccess');
+                await this.clipboard.writeText(text);
+                if (current()) status.textContent = t(messages[1]);
             } catch (_) {
-                if (current()) { status.textContent = t('tasksCopyFailure'); status.classList.add('is-error'); }
+                if (current()) { status.textContent = t(messages[2]); status.classList.add('is-error'); }
             } finally {
                 if (!current()) cancel();
                 attempt.cleanup();
@@ -680,6 +713,7 @@
                 const count = state.records.filter(matches).length;
                 this.filterStatus.hidden = !filtering;
                 this.filterStatus.textContent = filtering ? (count ? `${t('tasksFilterMatches')}: ${count}` : t('tasksFilterEmpty')) : '';
+                this.visibleTasks = visible.map(({ id, version, text, state }) => ({ id, version, text, state }));
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
                 if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
                 this.more.hidden = filtering || active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));
