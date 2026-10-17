@@ -2745,6 +2745,9 @@
   "monthCalendarIntervalCalculate": {
     "message": "Calculate"
   },
+  "monthCalendarIntervalSwap": {
+    "message": "Swap dates"
+  },
   "monthCalendarIntervalCopy": {
     "message": "Copy result"
   },

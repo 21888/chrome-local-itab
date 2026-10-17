@@ -1680,7 +1680,7 @@ class ClockComponent {
             details: make('details', 'month-calendar-interval'), summary: make('summary'),
             fields: make('div', 'month-calendar-interval-fields'), hint: make('p', 'month-calendar-interval-hint'),
             start: make('input'), startText: make('span'), end: make('input'), endText: make('span'),
-            calculate: make('button'), copy: make('button'), error: make('div', 'month-calendar-error'),
+            calculate: make('button'), swap: make('button'), copy: make('button'), error: make('div', 'month-calendar-error'),
             result: make('div', 'month-calendar-interval-result'),
             copyStatus: make('div', 'month-calendar-interval-result'),
             startState: { composing: false, compositionEnter: false },
@@ -1709,8 +1709,9 @@ class ClockComponent {
             interval.fields.append(label);
         }
         interval.calculate.type = 'button';
+        interval.swap.type = 'button';
         interval.copy.type = 'button';
-        interval.fields.append(interval.calculate, interval.copy);
+        interval.fields.append(interval.calculate, interval.swap, interval.copy);
         interval.details.append(interval.summary, interval.hint, interval.fields, interval.error, interval.result, interval.copyStatus);
         panel.append(controls, editor, error, table, announcement, interval.details);
         details.append(summary, panel);
@@ -1801,6 +1802,18 @@ class ClockComponent {
             this.updateMonthCalendarInterval();
         };
         interval.calculate.addEventListener('click', () => calculate(interval.calculate));
+        interval.swap.addEventListener('click', event => {
+            if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                composing() || !this.isMonthCalendarIntervalActive(view, [interval.swap, interval.start, interval.end])) return;
+            // Treat this as a draft edit: exchange exact raw text, never parse or calculate.
+            const start = interval.start.value;
+            interval.start.value = interval.end.value;
+            interval.end.value = start;
+            this.invalidateMonthCalendarIntervalCopy();
+            interval.invalid = false;
+            interval.resultValue = null;
+            this.updateMonthCalendarInterval();
+        });
         interval.copy.addEventListener('click', event => this.copyMonthCalendarInterval(view, event));
         for (const [field, state] of [[interval.start, interval.startState], [interval.end, interval.endState]]) {
             bindDraftField(field, state, intervalActive, calculate);
@@ -1815,6 +1828,7 @@ class ClockComponent {
             field.addEventListener('change', edited);
         }
         guardActivation(interval.calculate, intervalActive);
+        guardActivation(interval.swap, intervalActive);
         guardActivation(interval.copy, intervalActive);
         guardActivation(interval.summary, active);
         interval.details.addEventListener('toggle', event => {
@@ -1942,18 +1956,13 @@ class ClockComponent {
         }
     }
 
-    isMonthCalendarIntervalCopyCurrent(view, rendered, labels = view.interval.copyLabels) {
-        const interval = view.interval, value = interval.resultValue;
-        if (monthCalendarIntervalCopyOwner !== this || this.monthCalendar !== view || !rendered ||
-            interval.renderedResult !== rendered || value !== rendered.value || interval.invalid ||
-            value.start !== rendered.start || value.end !== rendered.end || value.days !== rendered.days ||
-            interval.start.value !== rendered.start || interval.end.value !== rendered.end ||
-            interval.result.textContent !== rendered.text || !rendered.text ||
-            labels !== this.monthCalendarIntervalCopyLabels().join('\n') ||
+    isMonthCalendarIntervalActive(view, elements) {
+        if (monthCalendarIntervalCopyOwner !== this || this.monthCalendar !== view ||
             !this.enabled || document.hidden || document.visibilityState === 'hidden' ||
             window.LocalItabContentLifecycle?.departing || document.body.classList.contains('dashboard-hidden')) return false;
-        return [interval.copy, interval.start, interval.end, interval.result].every(element => {
-            if (!element.isConnected || !view.details.contains(element) || element.disabled || !element.getClientRects().length) return false;
+        return elements.every(element => {
+            if (!element.isConnected || !view.details.contains(element) || !view.interval.details.contains(element) ||
+                element.disabled || !element.getClientRects().length) return false;
             for (let node = element; node; node = node.parentElement) {
                 const style = window.getComputedStyle?.(node);
                 if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true' ||
@@ -1962,6 +1971,16 @@ class ClockComponent {
             }
             return true;
         });
+    }
+
+    isMonthCalendarIntervalCopyCurrent(view, rendered, labels = view.interval.copyLabels) {
+        const interval = view.interval, value = interval.resultValue;
+        if (!rendered || interval.renderedResult !== rendered || value !== rendered.value || interval.invalid ||
+            value.start !== rendered.start || value.end !== rendered.end || value.days !== rendered.days ||
+            interval.start.value !== rendered.start || interval.end.value !== rendered.end ||
+            interval.result.textContent !== rendered.text || !rendered.text ||
+            labels !== this.monthCalendarIntervalCopyLabels().join('\n')) return false;
+        return this.isMonthCalendarIntervalActive(view, [interval.copy, interval.start, interval.end, interval.result]);
     }
 
     async copyMonthCalendarInterval(view, event) {
@@ -2061,6 +2080,7 @@ class ClockComponent {
             view.interval.startText.textContent = this.worldClockText('monthCalendarIntervalStart', 'Start date');
             view.interval.endText.textContent = this.worldClockText('monthCalendarIntervalEnd', 'End date');
             view.interval.calculate.textContent = this.worldClockText('monthCalendarIntervalCalculate', 'Calculate');
+            view.interval.swap.textContent = this.worldClockText('monthCalendarIntervalSwap', 'Swap dates');
             view.interval.hint.textContent = this.worldClockText('monthCalendarIntervalHint',
                 'YYYY-MM-DD. End minus start in calendar days: same date 0, next date +1. Not hours, workdays or an inclusive count.');
             this.updateMonthCalendarInterval();

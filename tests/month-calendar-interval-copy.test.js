@@ -276,3 +276,179 @@ test('clipboard getter reentry cannot substitute unverified result text into the
         assert.equal(h.x.result.textContent, 'Uncalculated replacement text'); assert.equal(h.x.copyStatus.textContent, ''); clean(h);
     }
 });
+
+// Swap-draft regressions reuse the same bounded calendar/clipboard model.
+function swapControl(h) { assert(h.x.swap, 'Date interval needs an explicit Swap dates button'); return h.x.swap; }
+function assertClearedInterval(h) {
+    assert.equal(h.x.invalid, false); assert.equal(h.x.resultValue, null); assert.equal(h.x.renderedResult, null);
+    assert.equal(h.x.error.hidden, true); assert.equal(h.x.error.textContent, ''); assert.equal(h.x.result.textContent, '');
+    assert.equal(h.x.start.getAttribute('aria-invalid'), 'false'); assert.equal(h.x.end.getAttribute('aria-invalid'), 'false');
+    assert.equal(h.x.copyStatus.hidden, true); assert.equal(h.x.copyStatus.textContent, '');
+    assert.equal(h.x.copyStatus.classList.contains('is-error'), false); assert.equal(h.x.copy.getAttribute('aria-disabled'), 'true');
+}
+
+test('Swap dates is an explicit localized native button with EN fallback and no render-time action', () => {
+    for (const locale of ['en', 'zh_CN', null]) {
+        const h = mount({ locale }), swap = swapControl(h); h.open(); h.tick();
+        assert.equal(swap.tagName, 'BUTTON'); assert.equal(swap.type, 'button'); assert.equal(swap.tabIndex, 0);
+        assert.equal(swap.textContent, locale === 'zh_CN' ? '交换日期' : 'Swap dates'); assert.notEqual(swap.disabled, true);
+        assert.equal(swap.parentElement, h.x.fields); assert.equal(h.x.start.value, ''); assert.equal(h.x.end.value, '');
+        assert.equal(h.calculations, 0); assert.deepEqual(h.calls, []); assert.equal(h.observers.size, 0); clean(h);
+    }
+});
+
+test('Swap dates exchanges exact raw valid, invalid, empty, whitespace and Unicode strings without parsing', () => {
+    for (const [start, end] of [['0001-01-01', '9999-12-31'], ['0099-12-31', '0100-01-01'], ['2000-02-29', '2000-02-29'],
+        ['', ''], ['', '1900-02-29'], ['2024-01-01 ', ' 2024-02-29'], [' \t ', '\t'],
+        ['２０２４-01-01', '2024-1-1'], ['10000-01-01', '<img src=x onerror=alert(1)>']]) {
+        const h = mount(); h.open(); const swap = swapControl(h); h.x.start.value = start; h.x.end.value = end;
+        const forbidden = () => { throw Error('Swapping raw drafts must not parse or calculate'); };
+        const calendar = h.window.MonthCalendar;
+        h.window.MonthCalendar = { ...calendar, parseDateDraft: forbidden, parseMonthDraft: forbidden, dateInterval: forbidden };
+        swap.focus(); swap.dispatch('click');
+        assert.equal(h.x.start.value, end); assert.equal(h.x.end.value, start); assert.equal(h.document.activeElement, swap);
+        assert.equal(h.calculations, 0); assert.deepEqual(h.calls, []); assertClearedInterval(h);
+        // Cleanup syncs the unrelated month editor, so restore its parser first.
+        h.window.MonthCalendar = calendar; clean(h);
+    }
+});
+
+test('Swap dates clears successful or invalid interval state while preserving the month, its invalid draft and focus', () => {
+    for (const [start, end] of [['2024-02-28', '2024-02-29'], ['2024-02-29', '2024-02-29'], ['1900-02-29', '']]) {
+        const h = mount(); h.calculate(start, end); const swap = swapControl(h);
+        h.view.year.value = '10000'; h.view.month.value = '3'; h.view.jump.dispatch('click');
+        const month = h.clock.calendarMonth, rows = h.view.body.children, caption = h.view.caption.textContent,
+            monthError = h.view.error.textContent, announcement = h.view.announcement.textContent, calculations = h.calculations;
+        assert.equal(h.view.error.hidden, false); swap.focus(); swap.dispatch('click');
+        assert.equal(h.x.start.value, end); assert.equal(h.x.end.value, start); assertClearedInterval(h);
+        assert.equal(h.clock.calendarMonth, month); assert.equal(h.view.body.children, rows); assert.equal(h.view.caption.textContent, caption);
+        assert.equal(h.view.year.value, '10000'); assert.equal(h.view.month.value, '3'); assert.equal(h.view.error.textContent, monthError);
+        assert.equal(h.view.error.hidden, false); assert.equal(h.view.year.getAttribute('aria-invalid'), 'true');
+        assert.equal(h.view.announcement.textContent, announcement); assert.equal(h.calculations, calculations); assert.equal(h.document.activeElement, swap); clean(h);
+    }
+});
+
+test('Swap dates requires a fresh explicit calculation before any reversed result can be copied', async () => {
+    const h = mount(); h.calculate('2000-02-28', '2000-03-01'); const swap = swapControl(h), calculations = h.calculations;
+    swap.dispatch('click'); h.x.copy.dispatch('click'); await settle();
+    assertClearedInterval(h); assert.equal(h.calculations, calculations); assert.deepEqual(h.calls, []);
+    h.x.calculate.dispatch('click'); assert.equal(h.calculations, calculations + 1);
+    assert.equal(h.x.result.textContent, '2000-03-01 → 2000-02-28: -2 calendar days');
+    h.x.copy.dispatch('click'); await settle(); assert.deepEqual(h.calls, [h.x.result.textContent]); clean(h);
+});
+
+test('Swap dates ignores handled, repeated, composing and double-click activation but allows a later deliberate reverse', () => {
+    const h = mount(); h.calculate(); const swap = swapControl(h), oldResult = h.x.resultValue;
+    for (const flags of [{ defaultPrevented: true }, { detail: 2 }, { detail: 3 }, { repeat: true }, { isComposing: true }, { keyCode: 229 }]) {
+        swap.dispatch('click', flags); assert.equal(h.x.start.value, '2024-02-28'); assert.equal(h.x.end.value, '2024-02-29');
+        assert.equal(h.x.resultValue, oldResult);
+    }
+    for (const key of ['Enter', ' ']) {
+        for (const flags of [{ repeat: true }, { isComposing: true }, { keyCode: 229 }]) {
+            assert.equal(swap.dispatch('keydown', { key, ...flags }).prevented, true);
+            assert.equal(h.x.resultValue, oldResult, 'keydown guard does not itself activate');
+        }
+        assert.equal(swap.dispatch('keydown', { key }).prevented, false, 'fresh activation stays native');
+    }
+    assert.equal(swap.dispatch('keydown', { key: 'c', ctrlKey: true }).prevented, false);
+    swap.dispatch('click', { detail: 1 }); assert.equal(h.x.start.value, '2024-02-29'); assert.equal(h.x.end.value, '2024-02-28');
+    swap.dispatch('click', { detail: 2 }); assert.equal(h.x.start.value, '2024-02-29');
+    swap.dispatch('click', { detail: 1 }); assert.equal(h.x.start.value, '2024-02-28'); assert.equal(h.x.end.value, '2024-02-29');
+    assert.equal(h.calculations, 1); clean(h);
+});
+
+test('Swap dates leaves drafts and result untouched during either date or year IME composition', () => {
+    for (const name of ['year', 'start', 'end']) {
+        const h = mount(); h.calculate(); const swap = swapControl(h), field = name === 'year' ? h.view.year : h.x[name], result = h.x.resultValue;
+        field.dispatch('compositionstart');
+        for (const key of ['Enter', ' ']) assert.equal(swap.dispatch('keydown', { key }).prevented, true);
+        swap.dispatch('click'); assert.equal(h.x.start.value, '2024-02-28'); assert.equal(h.x.end.value, '2024-02-29');
+        assert.equal(h.x.resultValue, result); field.dispatch('compositionend'); field.dispatch('keyup', { key: 'Enter' });
+        swap.dispatch('click'); assert.equal(h.x.start.value, '2024-02-29'); assert.equal(h.x.end.value, '2024-02-28'); assertClearedInterval(h); clean(h);
+    }
+});
+
+test('Swap dates requires the visible open active calendar and both usable fields', () => {
+    const unavailable = [h => { h.x.details.open = false; }, h => { h.view.details.open = false; }, h => { h.clock.enabled = false; },
+        h => { h.document.hidden = true; }, h => { h.document.visibilityState = 'hidden'; }, h => { h.window.LocalItabContentLifecycle.departing = true; },
+        h => { h.document.body.classList.add('dashboard-hidden'); }, h => h.host.remove(), h => { h.host.hidden = true; },
+        h => { h.host.inert = true; }, h => h.host.setAttribute('aria-hidden', 'true'), h => { h.host.style.display = 'none'; },
+        h => { h.host.style.visibility = 'hidden'; }, h => { h.host.style.visibility = 'collapse'; }];
+    for (const key of ['swap', 'start', 'end']) for (const change of [node => { node.hidden = true; }, node => { node.disabled = true; },
+        node => { node.inert = true; }, node => node.setAttribute('aria-hidden', 'true'), node => { node.style.display = 'none'; },
+        node => { node.style.visibility = 'hidden'; }, node => node.remove()]) unavailable.push(h => change(h.x[key]));
+    unavailable.push(h => { const field = h.x.end; field.remove(); h.view.panel.append(field); });
+    for (const change of unavailable) {
+        const h = mount(); h.calculate(); const swap = swapControl(h), result = h.x.resultValue, text = h.x.result.textContent;
+        change(h); swap.dispatch('click');
+        assert.equal(h.x.start.value, '2024-02-28'); assert.equal(h.x.end.value, '2024-02-29');
+        assert.equal(h.x.resultValue, result); assert.equal(h.x.result.textContent, text); assert.equal(h.calculations, 1); assert.deepEqual(h.calls, []); clean(h);
+    }
+});
+
+test('Swap dates rejects superseded calendar views and old clock owners even while their old controls remain connected', () => {
+    for (const replace of [h => h.rebuild(), h => h.remount()]) {
+        const h = mount(); h.calculate(); const old = h.x, swap = swapControl(h), result = old.resultValue;
+        replace(h); h.calculate('0001-01-01', '0099-12-31'); const currentResult = h.x.resultValue;
+        assert.equal(swap.isConnected, true); swap.dispatch('click');
+        assert.equal(old.start.value, '2024-02-28'); assert.equal(old.end.value, '2024-02-29'); assert.equal(old.resultValue, result);
+        assert.equal(h.x.start.value, '0001-01-01'); assert.equal(h.x.end.value, '0099-12-31'); assert.equal(h.x.resultValue, currentResult);
+        h.x.swap.dispatch('click'); assert.equal(h.x.start.value, '0099-12-31'); assert.equal(h.x.end.value, '0001-01-01'); assertClearedInterval(h); clean(h);
+    }
+});
+
+test('Swap dates retires pending copy feedback without releasing its issued-write lock or reviving late success/failure', async () => {
+    for (const rejected of [false, true]) {
+        const wait = deferred(), calls = [], h = mount({ clipboard: { writeText(text) { calls.push(text); return wait.promise; } } });
+        const original = h.calculate(); control(h).dispatch('click'); const swap = swapControl(h); swap.focus();
+        assert.equal(calls.length, 1); swap.dispatch('click'); assertClearedInterval(h); assert.equal(h.observers.size, 0);
+        assert.equal(h.document.activeElement, swap); h.x.copy.dispatch('click'); assert.equal(calls.length, 1);
+        h.x.calculate.dispatch('click'); const reversed = h.x.result.textContent; assert.notEqual(reversed, original);
+        assert.equal(h.x.copy.getAttribute('aria-disabled'), 'true'); h.x.copy.dispatch('click'); assert.equal(calls.length, 1);
+        if (rejected) wait.reject(Error('late denial')); else wait.resolve(); await settle(); h.flush();
+        assert.equal(h.x.copyStatus.textContent, ''); assert.equal(h.x.copyStatus.hidden, true); assert.equal(h.document.activeElement, swap);
+        assert.equal(h.x.copy.getAttribute('aria-disabled'), 'false'); assert.equal(h.x.result.textContent, reversed);
+        h.x.copy.dispatch('click'); await settle(); assert.deepEqual(calls, [original, reversed]); clean(h);
+    }
+});
+
+test('Swap dates clears settled success/failure feedback and identical-value swaps still retire the result', async () => {
+    for (const rejected of [false, true]) {
+        const h = mount({ clipboard: { writeText() { return rejected ? Promise.reject(Error('denied')) : Promise.resolve(); } } });
+        h.calculate('2024-02-29', '2024-02-29'); control(h).dispatch('click'); await settle();
+        assert.equal(h.x.copyStatus.hidden, false); assert.equal(h.observers.size, 1);
+        swapControl(h).dispatch('click'); assertClearedInterval(h); assert.equal(h.observers.size, 0);
+        assert.equal(h.x.start.value, '2024-02-29'); assert.equal(h.x.end.value, '2024-02-29'); assert.equal(h.calculations, 1); clean(h);
+    }
+});
+
+test('Swap dates cannot unlock an unresolved copy through swap-back, view rebuild or clock replacement', async () => {
+    for (const replace of [h => h.rebuild(), h => h.remount()]) {
+        const wait = deferred(), calls = [], h = mount({ clipboard: { writeText(text) { calls.push(text); return wait.promise; } } });
+        const original = h.calculate(); control(h).dispatch('click'); const old = h.x;
+        swapControl(h).dispatch('click'); h.x.swap.dispatch('click'); h.x.calculate.dispatch('click');
+        assert.equal(h.x.result.textContent, original); h.x.copy.dispatch('click'); assert.equal(calls.length, 1);
+        replace(h); h.calculate(); old.swap.dispatch('click'); h.x.copy.dispatch('click'); old.copy.dispatch('click'); assert.equal(calls.length, 1);
+        wait.resolve(); await settle(); assert.equal(old.copyStatus.textContent, ''); assert.equal(h.x.copyStatus.textContent, '');
+        assert.equal(h.x.copy.getAttribute('aria-disabled'), 'false'); h.x.copy.dispatch('click'); await settle(); assert.equal(calls.length, 2); clean(h);
+    }
+});
+
+test('Swap dates keeps stable controls and drafts across ticks/language changes, adds no I/O or timer and never steals focus', () => {
+    const h = mount(); h.clock.start(); h.calculate(); const swap = swapControl(h), start = h.x.start, end = h.x.end;
+    const other = h.document.createElement('input'); h.document.body.append(other); other.focus();
+    swap.dispatch('click'); assert.equal(h.document.activeElement, other); assertClearedInterval(h);
+    h.view.year.value = '0099'; h.view.month.value = '11'; const month = h.clock.calendarMonth;
+    for (const locale of ['zh_CN', 'en']) {
+        h.locale(locale); h.tick(); h.clock.updateConfig({ hour12: true });
+        assert.equal(h.x.swap, swap); assert.equal(h.x.start, start); assert.equal(h.x.end, end);
+        assert.equal(swap.textContent, locale === 'zh_CN' ? '交换日期' : 'Swap dates');
+        assert.equal(start.value, '2024-02-29'); assert.equal(end.value, '2024-02-28'); assert.equal(h.clock.calendarMonth, month);
+        assert.equal(h.view.year.value, '0099'); assert.equal(h.view.month.value, '11'); assert.equal(h.document.activeElement, other);
+    }
+    assert.equal(h.calculations, 1); assert.equal(h.timerCreations, 1); assert.equal(h.timers.size, 1); assert.deepEqual(h.calls, []);
+    assert.equal(h.context.shouldToggleFromEvent({ target: swap }), false); assert.equal(h.document.listeners.has('keydown'), false); assert.equal(h.events.has('keydown'), false);
+    swap.focus(); const escape = swap.dispatch('keydown', { key: 'Escape' });
+    assert.equal(escape.prevented, true); assert.equal(h.document.activeElement, h.view.summary); assert.equal(h.x.start.value, ''); assert.equal(h.x.end.value, '');
+    clean(h, true);
+});

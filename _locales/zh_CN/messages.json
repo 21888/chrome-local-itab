@@ -2745,6 +2745,9 @@
   "monthCalendarIntervalCalculate": {
     "message": "计算"
   },
+  "monthCalendarIntervalSwap": {
+    "message": "交换日期"
+  },
   "monthCalendarIntervalCopy": {
     "message": "复制结果"
   },
