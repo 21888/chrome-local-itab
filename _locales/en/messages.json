@@ -3873,6 +3873,12 @@
   "completeBackupCollectionConflicts": {
     "message": "Matching collection IDs whose saved content differs"
   },
+  "collectionsOpenPromptCurrent": {
+    "message": "Open current details in prompt library (new tab)"
+  },
+  "collectionsOpenPromptCurrentHelp": {
+    "message": "Opens this prompt’s current saved details in a new tab. The exact historical version linked here and this excerpt stay unchanged; no version is selected for use."
+  },
   "collectionsPromptLinkHeading": {
     "message": "Exact prompt link"
   },

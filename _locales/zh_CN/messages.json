@@ -3873,6 +3873,12 @@
   "completeBackupCollectionConflicts": {
     "message": "标识相同但保存内容不同的收藏"
   },
+  "collectionsOpenPromptCurrent": {
+    "message": "在提示词库打开当前详情（新标签页）"
+  },
+  "collectionsOpenPromptCurrentHelp": {
+    "message": "在新标签页打开此提示词当前已保存的详情。本页关联的精确历史版本与收藏正文保持不变；不会选择任何版本用于使用。"
+  },
   "collectionsPromptLinkHeading": {
     "message": "精确提示词链接"
   },

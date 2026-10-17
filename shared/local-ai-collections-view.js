@@ -12,6 +12,7 @@
                 if (!event?.persisted) { this.destroy(); return; }
                 this.cancelRevision();
                 this.detailGeneration++;
+                this.updatePromptNavigation?.();
                 this.answerReader?.destroy(); this.answerReader = null;
                 this.closeImport?.();
                 this.closeHistoricalPrompt?.();
@@ -33,6 +34,7 @@
             this.answerReader?.destroy(); this.answerReader = null;
             this.closeImport?.();
             this.detailGeneration++;
+            this.updatePromptNavigation?.();
             this.closeHistoricalPrompt?.();
             this.detachSearchShortcut?.();
             this.doc.removeEventListener('visibilitychange', this.visibilityChange);
@@ -159,6 +161,7 @@
             this.updateHistoricalPrompt = null;
             this.refreshHistoricalCopyState = null;
             this.detailGeneration++;
+            this.updatePromptNavigation = null;
             this.updateReuseDraft = null;
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
             this.renderCaptureStatus();
@@ -277,7 +280,8 @@
             box.append(this.el('h3', '', this.t('PromptLinkHeading', 'Exact prompt link')),
                 this.paragraph('PromptLinkHelp', 'Choose a local prompt and an immutable body version. Apply changes only the draft; Save locally keeps the link. Links never follow the latest version.'));
             const linked = this.el('div'), sourceStatus = this.el('p', 'prompt-help'); sourceStatus.setAttribute('role', 'status'); box.append(sourceStatus, linked);
-            this.promptPanel = { box, linked, sourceStatus, editable };
+            this.promptPanel = { box, linked, sourceStatus, editable, record: c.record(), state: c.state,
+                generation: this.detailGeneration, readGeneration: c.readGeneration };
             if (editable) {
                 for (const [name, key, fallback] of [['prompt', 'PromptPickerLabel', 'Local prompt'], ['version', 'PromptVersionLabel', 'Exact body version']]) {
                     const label = this.el('label', 'prompt-field'), select = this.el('select');
@@ -310,11 +314,51 @@
             }
             return result;
         }
+        renderPromptNavigation(panel) {
+            this.updatePromptNavigation = null;
+            if (panel.editable) return;
+            const c = this.controller, record = panel.record, ref = record?.promptRef;
+            const promptState = c.promptState, promptGeneration = c.promptGeneration;
+            const promptId = ref?.promptId, bodyVersionId = ref?.bodyVersionId, version = record?.version, currentVersionId = record?.currentVersionId;
+            const href = root.LocalItabAISearch?.href('prompt', promptId);
+            // Resolution also includes archived/recovery copies. Navigation must
+            // instead prove that this exact version belongs to an active record.
+            const available = () => !this.destroyed && !c.disposed && c.comparisonReady() && !c.draft() &&
+                this.promptPanel === panel && this.detailGeneration === panel.generation &&
+                c.state === panel.state && c.readGeneration === panel.readGeneration && c.record() === record &&
+                record && !record.deletedAt && record.version === version && record.currentVersionId === currentVersionId && record.promptRef?.promptId === promptId && record.promptRef?.bodyVersionId === bodyVersionId &&
+                c.promptState === promptState && c.promptGeneration === promptGeneration && !c.promptLoading && !c.promptError &&
+                promptState?.records.some(prompt => prompt.id === promptId && !prompt.deletedAt && prompt.history.some(version => version.id === bodyVersionId));
+            const interactive = () => available() && !this.openDialog && !this.comparison && !this.exportingMarkdown && this.revisionDraft === null &&
+                this.doc.visibilityState !== 'hidden' && !this.doc.querySelector('[role="dialog"][aria-modal="true"], dialog[open]');
+            if (!href || !available()) return;
+            const visible = node => {
+                if (!node.isConnected || node.closest('[hidden], [inert], [aria-hidden="true"]') || !node.getClientRects().length) return false;
+                for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+                    const style = root.getComputedStyle?.(ancestor) || ancestor.style;
+                    if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse') return false;
+                }
+                return true;
+            };
+            const navigation = this.el('div'), link = this.el('a', 'prompt-link collection-open-prompt', this.t('OpenPromptCurrent', 'Open current details in prompt library (new tab)'));
+            link.href = href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+            const current = () => interactive() && this.main.contains(panel.box) && panel.linked.contains(navigation) && navigation.contains(link) && visible(link);
+            const guard = event => { if (!current()) event.preventDefault(); };
+            link.addEventListener('click', guard); link.addEventListener('auxclick', guard);
+            navigation.append(link, this.paragraph('OpenPromptCurrentHelp', 'Opens this prompt’s current saved details in a new tab. The exact historical version linked here and this excerpt stay unchanged; no version is selected for use.'));
+            panel.linked.append(navigation);
+            this.updatePromptNavigation = () => {
+                navigation.hidden = !available() || this.doc.visibilityState === 'hidden';
+                if (navigation.hidden) link.removeAttribute('href'); else link.href = href;
+            };
+            this.updatePromptNavigation();
+        }
         updatePromptPanel() {
             const p = this.promptPanel, c = this.controller; if (!p) return;
             const input = c.draft()?.input, ref = input ? (input.promptId || input.bodyVersionId ? { promptId: input.promptId, bodyVersionId: input.bodyVersionId } : null) : c.record()?.promptRef;
             p.sourceStatus.textContent = c.promptLoading ? this.t('PromptLoading', 'Reading local prompts…') : c.promptError || !c.promptState ? this.t('PromptReadError', 'Local prompts could not be read. Any existing exact link is kept. Refresh to retry.') : !c.promptOptions().length ? this.t('PromptEmpty', 'No local prompt versions are available.') : '';
             this.promptResult(p.linked, ref);
+            this.renderPromptNavigation(p);
             if (!p.editable || !c.draft()) return;
             const candidate = c.draft().promptCandidate || { promptId: '', bodyVersionId: '' }, options = c.promptOptions();
             const populate = (select, items, value, key, fallback) => {
@@ -629,6 +673,7 @@
                 record.body === this.readerBody && this.host.isConnected && this.doc.visibilityState !== 'hidden';
         }
         refreshCopyState() {
+            this.updatePromptNavigation?.();
             if (this.continueContextButton?.isConnected) this.continueContextButton.disabled = !this.canContinueContext(this.controller.record() || {});
             if (this.copyExcerptButton?.isConnected) {
                 const focused = this.doc.activeElement === this.copyExcerptButton;
