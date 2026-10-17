@@ -12,6 +12,14 @@ Editing, IME composition, a refreshed/changed saved state, a load error or closi
 
 No new storage keys, permissions, network calls, file watching or import history are used. Keep your TXT backup somewhere safe; it can contain private text.
 
+## Current editor line count
+
+**Lines: N** appears beside the existing Unicode-character quota. An empty string is 0 lines; any nonempty text, including spaces or tabs alone, is at least 1. CRLF is one line break; bare CR and LF each start another line. A final line break adds an empty last line, and consecutive empty lines are kept. Visual soft wrapping, tabs, Unicode NEL/LS/PS and zero-width spaces are not CR/LF line breaks.
+
+Both numbers use the same current main-textarea snapshot at the existing render, including loaded, unsaved, retained read-only, saving, save-failed, conflicted, over-limit and composing text. Saved-conflict and import previews are excluded. Native textareas normalize CRLF/CR to LF, so the displayed value takes precedence over the controller's original line endings; the counter itself does not normalize, trim or truncate anything. The 32,000-character save limit is unchanged. This is read-only ordinary text, without a new live region on every keystroke; it does not change save errors, Retry, Find, copy or import feedback, caret, focus or scroll, and adds no timer or background index.
+
+[Line-count model validation and native limits](scratchpad-line-count-validation.md). Native Chrome rendering, narrow-screen wrapping, actual undo/IME and assistive-technology reading remain unverified for this addition.
+
 ## Copy selected text
 
 Select text in the main editor, then choose **Copy selected text**, beside **Copy current text**. The copied string is exactly the editor's current UTF-16 selection slice: leading/trailing spaces, tabs, BOM, emoji, combining marks, multiple lines and literal markup stay intact. Native textareas normalize CRLF and CR to LF, so selection offsets and copied line endings follow that DOM value. Full-text copying continues to use the original controller draft.

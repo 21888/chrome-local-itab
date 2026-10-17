@@ -709,6 +709,9 @@
   "worldClockBaselineUnavailable": {
     "message": "无法安全读取时钟设置。请重新加载设置后再保存。"
   },
+  "scratchpadLines": {
+    "message": "行数：{count}"
+  },
   "scratchpadLimits": {
     "message": "最多保存 32,000 个 Unicode 字符和 128 KiB 的 UTF-8 文本。超长草稿会保留在此页面，缩短后才能保存；请在离开前导出副本。"
   },

@@ -393,6 +393,8 @@ AI 上下文回答区可明确点击“复制回答”或“复制任务 JSON”
 
 “用选中文字查找”把当前编辑区选中的完整单行文字原样填入查找框，只预填、不自动定位或计数。[选区入口与验收范围](docs/scratchpad-find-selection-validation.md)。“查找文字”在当前编辑区按区分大小写的原文定位，包括未保存和超限草稿。“上一处”“下一处”或 Enter 定位成功后显示“第n处/共m处”及绕回提示，重叠匹配也计数，不编辑或保存文本。[查找说明](docs/local-scratchpad.zh-CN.md#在本页便笺中查找文字) · [模型验证与原生边界](docs/scratchpad-match-position-validation.md)。
 
+编辑区字符配额旁显示“行数：N”。空文本为 0 行；CRLF 算一次换行，CR/LF 及末尾空行参与计数，视觉软换行不计。两项统计均取当前编辑区文本，包括未保存或超限草稿。[行数规则与验证范围](docs/scratchpad-line-count-validation.md)。
+
 “复制选中文本”原样复制主编辑区当前的非空选区，包含换行和空白。选区使用 textarea 显示的 LF 换行；“复制当前全文”仍复制控制器保留的完整原始草稿及 CRLF。已加载的未保存、读取失败后只读、冲突和超限草稿均可复制，不保存、不更改选区；只有被选中的片段需要完整 Unicode。两个按钮共用本视图一个在途剪贴板写入，失败后可手动复制原选区或明确再次点击重试。[选区复制检查与原生限制](docs/scratchpad-copy-selection-validation.md)。
 
 便签不进入配置导出、Chrome Sync 或 Google Drive 备份。卸载扩展或清理浏览器数据前，请在完整本地备份中包含已保存的便笺，或单独导出文本；未保存/冲突草稿仍需从原标签页导出。[功能边界与验收记录](docs/local-scratchpad-validation.md)。

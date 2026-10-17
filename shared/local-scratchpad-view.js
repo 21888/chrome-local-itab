@@ -31,6 +31,7 @@
         scratchpadCopySelectionFailure: 'Could not copy selected text. Your selection is still here. Choose Copy selected text to retry, or copy it manually.',
         scratchpadCopySelectionHelp: 'Select nonempty text with complete Unicode characters in the main editor, then choose Copy selected text. Your clipboard was not changed.',
         scratchpadSavedPreview: 'Latest saved text', scratchpadSettingsConflict: 'Scratchpad changed on another page. Read the latest saved state before changing visibility.', scratchpadReadLatest: 'Read latest saved state',
+        scratchpadLines: 'Lines: {count}',
         scratchpadLimits: 'Up to 32,000 Unicode characters and 128 KiB of UTF-8 text. Longer drafts stay here until shortened; export a copy before leaving.',
         scratchpadTooLong: 'This draft is too long to save. It is still here. Shorten it or export a text copy before leaving.',
         scratchpadInvalidText: 'This draft contains invalid Unicode text and cannot be saved or exported exactly. Your text is still here. Correct it before saving or exporting.',
@@ -193,7 +194,16 @@
             // Do not replace the DOM value during IME composition or on each
             // keystroke: that would reset the caret and the native undo stack.
             if (!c.composing && this.textarea.value !== c.draft) this.textarea.value = c.draft;
-            this.count.textContent = `${Array.from(this.textarea.value || '').length.toLocaleString()} / 32,000`;
+            // Count the same current DOM snapshot for both metrics. CRLF is one
+            // break; a final CR/LF leaves an empty line. Soft wrapping is not a break.
+            const editorText = this.textarea.value || '';
+            let characterCount = 0, lineCount = editorText ? 1 : 0, previousCharacter = '';
+            for (const character of editorText) {
+                characterCount++;
+                if (character === '\r' || (character === '\n' && previousCharacter !== '\r')) lineCount++;
+                previousCharacter = character;
+            }
+            this.count.textContent = `${characterCount.toLocaleString()} / 32,000 · ${t('scratchpadLines').replace('{count}', lineCount.toLocaleString())}`;
             const text = statusText(c); if (this.status.textContent !== text) this.status.textContent = text;
             this.status.classList.toggle('scratchpad-error', Boolean(c.error || c.conflict));
             this.retry.hidden = (!c.error || Boolean(c.conflict)) && !c.readError || (c.loaded && ['TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT'].includes(c.error?.code)); this.retry.disabled = Boolean(c.pending);
