@@ -1207,6 +1207,18 @@
   "tasksCopyCompletedFailure": {
     "message": "未能复制。可选中当前显示的已完成待办原文手动复制。"
   },
+  "tasksCopyRemoved": {
+    "message": "复制可见已移除任务（{count}）"
+  },
+  "tasksCopyRemovedPending": {
+    "message": "正在复制可见已移除任务…"
+  },
+  "tasksCopyRemovedSuccess": {
+    "message": "已复制当时可见的已移除任务。"
+  },
+  "tasksCopyRemovedFailure": {
+    "message": "未能复制。可选中可见已移除任务原文手动复制。"
+  },
   "tasksReuseText": {
     "message": "用原文新建"
   },

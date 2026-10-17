@@ -37,6 +37,7 @@
         tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
         tasksCopyVisible: 'Copy visible tasks ({count})', tasksCopyVisiblePending: 'Copying visible tasks…', tasksCopyVisibleSuccess: 'Visible tasks copied.', tasksCopyVisibleFailure: 'Could not copy. Select the visible task text to copy it manually.',
         tasksCopyCompleted: 'Copy visible completed tasks ({count})', tasksCopyCompletedPending: 'Copying visible completed tasks…', tasksCopyCompletedSuccess: 'Visible completed tasks copied.', tasksCopyCompletedFailure: 'Could not copy. Select the visible completed task text to copy it manually.',
+        tasksCopyRemoved: 'Copy visible removed tasks ({count})', tasksCopyRemovedPending: 'Copying visible removed tasks…', tasksCopyRemovedSuccess: 'Visible removed tasks copied.', tasksCopyRemovedFailure: 'Could not copy. Select the visible removed task text to copy it manually.',
         tasksReuseText: 'New task from text', tasksReuseHelp: 'Edit this independent draft, then choose Add to create one new active task. The original task stays unchanged. Line breaks stay within one task.',
         tasksReuseRetry: 'Retry previous add', tasksReuseUncertain: 'The previous add could not be confirmed. Retry its exact text below before adding the current draft.',
         tasksReusePrevious: 'Previous text to add', tasksReuseDraftRemains: 'The previous task was saved. Your current draft is still here; choose Add only when you want another task.',
@@ -168,6 +169,26 @@
             const copyCompletedRow = el('div', 'tasks-visible-copy tasks-completed-copy'); copyCompletedRow.append(this.copyCompletedButton, this.reopenBatchButton, this.copyCompletedStatus);
             this.completed.box.replaceChildren(this.completed.summary, copyCompletedRow, this.completed.list);
             this.completed.box.addEventListener('toggle', () => this.refreshCopyControls());
+            this.visibleRemovedTasks = [];
+            const copyRemoved = button('tasksCopyRemoved', event => {
+                if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229) return;
+                this.copyRemovedTasks(copyRemoved);
+            }, 'tasks-copy-removed');
+            this.copyRemovedButton = copyRemoved;
+            copyRemoved.addEventListener('keydown', event => {
+                if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+            });
+            this.copyRemovedStatus = el('p', 'tasks-row-copy-status tasks-removed-copy-status'); this.copyRemovedStatus.hidden = true;
+            this.copyRemovedStatus.setAttribute('role', 'status'); this.copyRemovedStatus.setAttribute('aria-live', 'polite');
+            const copyRemovedRow = el('div', 'tasks-visible-copy tasks-removed-copy'); copyRemovedRow.append(copyRemoved, this.copyRemovedStatus);
+            this.removed.box.replaceChildren(this.removed.summary, copyRemovedRow, this.removed.list);
+            // Keep the original control and source ownership, independently of mutable view properties.
+            this.removedCopyOwner = { section: this.removed, box: this.removed.box, summary: this.removed.summary,
+                list: this.removed.list, controls: copyRemovedRow, origin: copyRemoved, status: this.copyRemovedStatus };
+            this.removed.box.addEventListener('toggle', () => {
+                if (!this.removed.box.open && this.copyAttempt?.status === this.copyRemovedStatus) this.invalidateCopy();
+                this.refreshCopyControls();
+            });
             this.data = el('details', 'tasks-data'); this.data.append(el('summary', '', t('tasksData')), el('p', 'tasks-help', t('tasksHelp')));
             const fileRow = el('div', 'tasks-data-actions');
             this.fileInput = el('input'); this.fileInput.type = 'file'; this.fileInput.accept = '.json,application/json'; this.fileInput.hidden = true;
@@ -621,6 +642,25 @@
                 return task.state === 'done' && expected[index].id === task.id && title && this.copyCurrent(task, item, title, item);
             });
         }
+        removedVisibleCurrent(snapshot, origin, source) {
+            const owner = this.removedCopyOwner;
+            if (!source || source !== this.removedCopySource || !snapshot.length || this.visibleRemovedTasks !== snapshot ||
+                this.removed !== owner.section || this.removed.box !== owner.box || this.removed.summary !== owner.summary || this.removed.list !== owner.list ||
+                this.copyRemovedButton !== owner.origin || origin !== owner.origin || origin.disabled || this.copyRemovedStatus !== owner.status || !owner.box.open ||
+                [owner.box, owner.summary, owner.controls, origin, owner.status, owner.list].some(node => node.ownerDocument !== document) ||
+                owner.box.parentElement !== this.host || owner.summary.parentElement !== owner.box || owner.controls.parentElement !== owner.box ||
+                origin.parentElement !== owner.controls || owner.status.parentElement !== owner.controls || owner.list.parentElement !== owner.box ||
+                !this.copyOriginCurrent(origin) || !this.copyOriginCurrent(owner.list) ||
+                this.renderedFilter !== this.filterQuery || this.renderedRevision !== this.controller.state.revision) return false;
+            const expected = this.controller.state.records.filter(task => task.state === 'removed' && task.text.toLowerCase().includes(this.filterQuery));
+            const rows = Array.from(owner.list.children);
+            return expected.length === snapshot.length && rows.length === snapshot.length && snapshot.every((task, index) => {
+                const item = rows[index], title = item.querySelector('.tasks-text');
+                return item === source.rows[index] && title === source.titles[index] && item.parentElement === owner.list && item.ownerDocument === document && title?.ownerDocument === document &&
+                    task.state === 'removed' && expected[index].id === task.id && expected[index].removedFrom === task.removedFrom &&
+                    title && this.copyOriginCurrent(title) && this.copyCurrent(task, item, title, item);
+            });
+        }
         copyVisibleTasks() {
             const snapshot = this.visibleTasks, origin = this.copyVisibleButton;
             return this.copyText(snapshot.map((task, index) => `${index + 1}. ${task.text}`).join('\n'), origin, this.copyVisibleStatus,
@@ -630,6 +670,11 @@
             const snapshot = this.visibleCompletedTasks, origin = this.copyCompletedButton;
             return this.copyText(snapshot.map((task, index) => `${index + 1}. ${task.text}`).join('\n'), origin, this.copyCompletedStatus,
                 () => this.completedVisibleCurrent(snapshot, origin), ['tasksCopyCompletedPending', 'tasksCopyCompletedSuccess', 'tasksCopyCompletedFailure'], this.completed.list);
+        }
+        copyRemovedTasks(origin) {
+            const snapshot = this.visibleRemovedTasks, source = this.removedCopySource;
+            return this.copyText(snapshot.map((task, index) => `${index + 1}. ${task.text}`).join('\n'), origin, this.copyRemovedStatus,
+                () => this.removedVisibleCurrent(snapshot, origin, source), ['tasksCopyRemovedPending', 'tasksCopyRemovedSuccess', 'tasksCopyRemovedFailure'], this.removedCopyOwner.list);
         }
         refreshCopyControls() {
             const disabled = !!this.copyAttempt || !this.copyReady();
@@ -641,6 +686,9 @@
             this.copyCompletedButton.textContent = t('tasksCopyCompleted').replace('{count}', this.visibleCompletedTasks.length);
             this.copyCompletedButton.disabled = !this.visibleCompletedTasks.length;
             this.copyCompletedButton.setAttribute('aria-disabled', String(disabled || !this.completed.box.open || this.copyCompletedButton.disabled));
+            this.copyRemovedButton.textContent = t('tasksCopyRemoved').replace('{count}', this.visibleRemovedTasks.length);
+            this.copyRemovedButton.disabled = !this.visibleRemovedTasks.length;
+            this.copyRemovedButton.setAttribute('aria-disabled', String(disabled || !this.removed.box.open || this.copyRemovedButton.disabled));
             // Match existing focus-preserving row actions while unavailable.
             this.completeBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.visibleTasks.length));
             this.reopenBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.completed.box.open || !this.visibleCompletedTasks.length));
@@ -941,6 +989,10 @@
                     section.summary.textContent = `${t(section.key)} (${records.length})`; section.box.hidden = !records.length;
                     section.list.replaceChildren(...records.map(task => this.row(task, -1, ids)));
                     if (section === this.completed) this.visibleCompletedTasks = records.map(({ id, version, text, state }) => ({ id, version, text, state }));
+                    else {
+                        this.visibleRemovedTasks = records.map(({ id, version, text, state, removedFrom }) => ({ id, version, text, state, removedFrom }));
+                        this.removedCopySource = { rows: Array.from(section.list.children), titles: Array.from(section.list.children, item => item.querySelector('.tasks-text')) };
+                    }
                 }
                 if (revisionChanged) {
                     this.copies.replaceChildren();

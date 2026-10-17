@@ -1207,6 +1207,18 @@
   "tasksCopyCompletedFailure": {
     "message": "Could not copy. Select the visible completed task text to copy it manually."
   },
+  "tasksCopyRemoved": {
+    "message": "Copy visible removed tasks ({count})"
+  },
+  "tasksCopyRemovedPending": {
+    "message": "Copying visible removed tasks…"
+  },
+  "tasksCopyRemovedSuccess": {
+    "message": "Visible removed tasks copied."
+  },
+  "tasksCopyRemovedFailure": {
+    "message": "Could not copy. Select the visible removed task text to copy it manually."
+  },
   "tasksReuseText": {
     "message": "New task from text"
   },

@@ -363,6 +363,8 @@ Open **Completed** and choose **Select completed tasks to reopen** to select fro
 
 Inside the expanded **Completed** section, **Copy visible completed tasks (N)** copies only those displayed completed rows, in order, as numbered exact saved text. Filtering changes that scope; active/removed rows, drafts and metadata stay out. It shares the existing per-view clipboard lock, writes no task data and keeps separate feedback. [Completed-copy checks and native limits](docs/tasks-copy-completed-validation.md).
 
+Inside expanded **Removed**, **Copy visible removed tasks (N)** copies the current filtered removed rows in saved order, including items removed from Active or Completed. Each exact saved original receives only a numbered prefix and an inter-item newline. Other states, drafts and metadata are excluded; zero matches disables the action. It shares the existing per-view clipboard lock and has separate feedback. [Removed-copy checks and native limits](docs/tasks-copy-removed-validation.md).
+
 ### Local focus timer
 
 Enable the optional Focus timer in Settings. It starts hidden, with 25-minute focus and 5-minute break defaults; each phase accepts whole minutes from 1 to 180 while ready. Start, Pause/Resume and Stop/reset are explicit. Choosing the next phase never starts it automatically.

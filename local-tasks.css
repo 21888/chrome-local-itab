@@ -100,9 +100,9 @@
 .tasks-row-copy-status.is-error { color: var(--template-error); }
 
 .tasks-visible-copy { margin: 0 0 10px; }
-.tasks-completed-copy { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.tasks-completed-copy, .tasks-removed-copy { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .tasks-completed-copy .tasks-reopen-batch { margin: 0; }
-.tasks-completed-copy-status { flex-basis: 100%; margin-top: 0; }
+.tasks-completed-copy-status, .tasks-removed-copy-status { flex-basis: 100%; margin-top: 0; }
 
 /* Recovery-only snapshots have no live task actions or editable controls. */
 .tasks-recovery-preview { border-top: 1px solid var(--template-border); padding-top: 10px; }
