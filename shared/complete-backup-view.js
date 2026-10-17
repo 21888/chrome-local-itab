@@ -312,8 +312,10 @@
             if (!current(generation) || ['applying', 'exporting'].includes(phase)) return;
             const ids = selected(); if (!isRecovery && !ids.length) { status.textContent = t('None'); return; }
             const token = ++generation, origin = isRecovery ? recovery : exportButton, move = focusOwner(origin);
-            const keepPreview = isRecovery && phase === 'ready';
-            if (!keepPreview) { source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear(); }
+            // A read-only recovery download retains settled destination choices
+            // without refreshing the review or granting a missing destination.
+            const reviewPhase = isRecovery && preview && ['ready', 'target'].includes(phase) ? phase : '';
+            if (!reviewPhase) { source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear(); }
             phase = 'exporting'; controls(); status.textContent = t('Exporting');
             try {
                 await new Promise(resolve => setTimeout(resolve, 0));
@@ -324,7 +326,7 @@
                 await download(text, isRecovery ? 'local-itab-pre-restore' : 'local-itab-complete', doc);
                 if (current(token)) status.textContent = t('Download');
             } catch (error) { if (current(token)) status.textContent = isRecovery ? t('NoRecovery') : errorText(error); }
-            finally { if (current(token)) { phase = keepPreview ? 'ready' : ''; controls(); } move(current(token) ? status : null); }
+            finally { if (current(token)) { phase = reviewPhase; controls(); } move(current(token) ? status : null); }
         }
         exportButton.addEventListener('click', () => exportFile(false)); recovery.addEventListener('click', () => exportFile(true));
         downloadInterrupted.addEventListener('click', async () => {
