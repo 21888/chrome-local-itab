@@ -8335,5 +8335,53 @@
   },
   "tasksReopenHistoryHelp": {
     "message": "重新打开会保留原文及记录总数，不恢复旧置顶，也不新增撤销操作。"
+  },
+  "tasksRestoreBatch": {
+    "message": "选择并恢复已移除待办"
+  },
+  "tasksRestoreHelp": {
+    "message": "从当前显示的已移除待办中选择，初始不勾选。先核对每项完整原文及恢复去向，再明确确认。"
+  },
+  "tasksRestoreSelectAll": {
+    "message": "全选列表中的待办"
+  },
+  "tasksRestoreClear": {
+    "message": "清空选择"
+  },
+  "tasksRestoreSelected": {
+    "message": "已选 {count} / {total} 项"
+  },
+  "tasksRestoreReview": {
+    "message": "预览所选待办"
+  },
+  "tasksRestoreConfirm": {
+    "message": "确认恢复这 {count} 项"
+  },
+  "tasksRestoreRetry": {
+    "message": "重试恢复原先这 {count} 项"
+  },
+  "tasksRestoreToActive": {
+    "message": "恢复到：未完成"
+  },
+  "tasksRestoreToDone": {
+    "message": "恢复到：已完成"
+  },
+  "tasksRestoreKeepsPin": {
+    "message": "下一件事保持不变。每项待办回到各自原来的状态及列表位置。"
+  },
+  "tasksRestoreReady": {
+    "message": "明确确认后，一次保存将全部编号待办恢复到各自显示的去向。任一预览项目或列表已变，整批均不恢复。"
+  },
+  "tasksRestoreChanged": {
+    "message": "当前显示的列表已变。若原项目仍有效，请重新预览；否则关闭窗口，从最新列表重新选择。"
+  },
+  "tasksRestoreUncertain": {
+    "message": "整批保存结果尚未确认。请明确重试原编号选择及原恢复去向，不假定部分成功。"
+  },
+  "tasksRestoreSaved": {
+    "message": "已恢复所预览的待办。继续操作前，请重新预览当前选择。"
+  },
+  "tasksRestoreHistoryHelp": {
+    "message": "恢复保留完整原文，不释放 500 条记录容量，不恢复旧置顶，也不新增撤销或重做。"
   }
 }

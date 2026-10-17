@@ -32,6 +32,22 @@
         tasksReopenUncertain: "The entire save is unconfirmed. Retry this exact numbered selection; no partial success is assumed.",
         tasksReopenSaved: "The reviewed tasks were reopened. Review your current selection before confirming anything else.",
         tasksReopenHistoryHelp: "Reopening keeps the original text and record count. It does not restore an old pin or create a new Undo action.",
+        "tasksRestoreBatch": "Select removed tasks to restore",
+        "tasksRestoreHelp": "Choose from the removed tasks currently displayed. Nothing is selected initially. Review every exact original and its restoration destination before confirming.",
+        "tasksRestoreSelectAll": "Select all listed tasks",
+        "tasksRestoreClear": "Clear selection",
+        "tasksRestoreSelected": "Selected: {count} of {total}",
+        "tasksRestoreReview": "Review selected tasks",
+        "tasksRestoreConfirm": "Confirm restoration of {count} tasks",
+        "tasksRestoreRetry": "Retry restoration of these {count} tasks",
+        "tasksRestoreToActive": "Restore to: Active",
+        "tasksRestoreToDone": "Restore to: Completed",
+        "tasksRestoreKeepsPin": "Next up will stay unchanged. Each task returns to its original state and stored list position.",
+        "tasksRestoreReady": "Confirm to restore every numbered task to its shown destination in one save. If any reviewed task or the list changed, none will be restored.",
+        "tasksRestoreChanged": "The displayed list changed. Review again if these originals are still current, or close and select from the latest list.",
+        "tasksRestoreUncertain": "The entire save is unconfirmed. Retry this exact numbered selection and its original destinations; no partial success is assumed.",
+        "tasksRestoreSaved": "The reviewed tasks were restored. Review your current selection before confirming anything else.",
+        "tasksRestoreHistoryHelp": "Restoration keeps all original text and the 500-record capacity unchanged. It does not restore an old pin or add an Undo/redo action.",
         tasksUndoCompleteBatch: 'Undo completion of these {count} tasks',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
@@ -181,11 +197,25 @@
             });
             this.copyRemovedStatus = el('p', 'tasks-row-copy-status tasks-removed-copy-status'); this.copyRemovedStatus.hidden = true;
             this.copyRemovedStatus.setAttribute('role', 'status'); this.copyRemovedStatus.setAttribute('aria-live', 'polite');
-            const copyRemovedRow = el('div', 'tasks-visible-copy tasks-removed-copy'); copyRemovedRow.append(copyRemoved, this.copyRemovedStatus);
+            const restoreRemoved = button('tasksRestoreBatch', event => {
+                if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                    event.target !== restoreRemoved || (event.currentTarget && event.currentTarget !== restoreRemoved)) return;
+                this.restoreBatch(restoreRemoved);
+            }, 'tasks-restore-batch');
+            this.restoreBatchButton = restoreRemoved;
+            restoreRemoved.addEventListener('keydown', event => {
+                if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+            });
+            const copyRemovedRow = el('div', 'tasks-visible-copy tasks-removed-copy'); copyRemovedRow.append(copyRemoved, restoreRemoved, this.copyRemovedStatus);
             this.removed.box.replaceChildren(this.removed.summary, copyRemovedRow, this.removed.list);
             // Keep the original control and source ownership, independently of mutable view properties.
             this.removedCopyOwner = { section: this.removed, box: this.removed.box, summary: this.removed.summary,
                 list: this.removed.list, controls: copyRemovedRow, origin: copyRemoved, status: this.copyRemovedStatus };
+            this.removedRestoreOwner = { section: this.removed, box: this.removed.box, summary: this.removed.summary,
+                list: this.removed.list, controls: copyRemovedRow, origin: restoreRemoved, host: this.host,
+                controller: this.controller, store: this.controller.store, valid: true,
+                workspace: this.controller.store.backend?.workspace, workspaceId: this.controller.store.backend?.workspace?.id,
+                workspaceGeneration: this.controller.store.backend?.workspace?.generation, session: root.LocalItabWorkspaces?.session };
             this.removed.box.addEventListener('toggle', () => {
                 if (!this.removed.box.open && this.copyAttempt?.status === this.copyRemovedStatus) this.invalidateCopy();
                 this.refreshCopyControls();
@@ -258,6 +288,9 @@
         async retryLast() {
             if (this.controller.pending || this.destroyed) return;
             const command = this.controller.retryCommand;
+            if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
+                !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
+                document.hidden || document.visibilityState === 'hidden')) return;
             if (command?.kind === 'completePinned' && command.operationId === this.retryEffectOperationId) {
                 return this.performPinned(command, this.retry);
             }
@@ -554,6 +587,304 @@
             root.addEventListener?.('blur', departed); root.addEventListener?.('pagehide', departed);
             update(); this.render();
         }
+        restorationNodeVisible(node, modal = null) {
+            if (!node?.isConnected || node.ownerDocument !== document || !node.getClientRects().length) return false;
+            for (let current = node; current; current = current.parentElement) {
+                const style = root.getComputedStyle?.(current);
+                const background = this.restorationBackground;
+                const ownedInert = modal && this.restorationSession === modal && background?.modal === modal &&
+                    background.node === current && background.initialInert === false && current.inert === true;
+                if (current.ownerDocument !== document || current.hidden || (current.inert && !ownedInert) || current.disabled ||
+                    current.getAttribute('aria-hidden') === 'true' || current.style.display === 'none' ||
+                    ['hidden', 'collapse'].includes(current.style.visibility) || style?.display === 'none' ||
+                    ['hidden', 'collapse'].includes(style?.visibility) || (current.tagName === 'DETAILS' && !current.open)) return false;
+            }
+            return true;
+        }
+        restorationWorkspaceCurrent(source) {
+            const owner = this.removedRestoreOwner, workspace = source?.workspace;
+            return !!source && this.controller === owner.controller && this.controller.store === owner.store &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                source.session === owner.session && owner.store.backend?.workspace === workspace && workspace?.id === source.workspaceId &&
+                workspace?.generation === source.workspaceGeneration && root.LocalItabWorkspaces?.session === source.session &&
+                source.session === workspace && !workspace?.invalidated && !workspace?._suspended;
+        }
+        captureRemovedRestoration() {
+            const previous = this.removedRestoreSource;
+            previous?.drain?.(); previous?.observer?.disconnect();
+            if (previous) previous.valid = false;
+            const owner = this.removedRestoreOwner, workspace = this.controller.store.backend?.workspace;
+            // Set this render's own availability before observing its source.
+            // Later external disable/re-enable mutations still invalidate it.
+            if (owner.origin.disabled !== !this.visibleRemovedTasks.length) owner.origin.disabled = !this.visibleRemovedTasks.length;
+            const rows = Array.from(owner.list.children), titles = rows.map(item => item.querySelector('.tasks-text'));
+            const fixed = [owner.host, owner.box, owner.summary, owner.controls, owner.origin, owner.list];
+            const chain = fixed.map(node => [node, node.parentElement]);
+            for (let node = owner.host.parentElement; node; node = node.parentElement) chain.push([node, node.parentElement]);
+            for (const node of [...rows, ...titles]) {
+                chain.push([node, node.parentElement]);
+                if (titles.includes(node)) chain.push([node.parentElement, node.parentElement.parentElement]);
+            }
+            const source = { valid: true, rows, titles, chain, snapshot: this.visibleRemovedTasks,
+                revision: this.renderedRevision, filter: this.filterQuery, workspace, workspaceId: workspace?.id,
+                workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session };
+            const inspect = mutations => {
+                let changed = false;
+                for (const mutation of mutations) {
+                    const background = this.restorationBackground;
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'inert' && mutation.target === background?.node &&
+                        typeof background.expected === 'boolean' && mutation.target.inert === background.expected &&
+                        (background.expected ? mutation.oldValue === null : mutation.oldValue != null)) {
+                        background.expected = null; continue;
+                    }
+                    const dialogOwner = this.restorationDialogOwner;
+                    if (dialogOwner?.opened && !dialogOwner.closing &&
+                        (Array.from(mutation.removedNodes || []).some(node => node === dialogOwner.panel || node.contains?.(dialogOwner.panel)) ||
+                            (mutation.type === 'attributes' && (mutation.target === dialogOwner.panel || mutation.target.contains?.(dialogOwner.panel))))) dialogOwner.valid = false;
+                    const removed = Array.from(mutation.removedNodes || []);
+                    if (removed.some(node => fixed.some(target => node === target || node.contains?.(target)))) owner.valid = false;
+                    if (removed.some(node => chain.some(([target]) => node === target || node.contains?.(target))) ||
+                        ((mutation.type === 'childList' || mutation.type === 'characterData') && titles.some(title => title === mutation.target || title.contains(mutation.target))) ||
+                        (mutation.type === 'attributes' && mutation.attributeName !== 'open' &&
+                            [owner.origin, owner.list, ...titles].some(node => mutation.target === node || mutation.target.contains?.(node))) ||
+                        (mutation.type === 'attributes' && mutation.attributeName === 'open' && source.changed && mutation.target === owner.box)) changed = true;
+                }
+                if (changed) source.valid = false;
+                return changed;
+            };
+            source.observer = root.MutationObserver ? new root.MutationObserver(mutations => {
+                if (inspect(mutations)) source.changed?.();
+            }) : null;
+            source.drain = () => { if (source.observer) inspect(source.observer.takeRecords()); };
+            source.observer?.observe(document.documentElement, { subtree: true, childList: true, characterData: true,
+                attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open', 'aria-hidden', 'disabled'], attributeOldValue: true });
+            this.removedRestoreSource = source;
+            previous?.changed?.();
+        }
+        removedRestorationCurrent(source, origin, modal = null) {
+            source?.drain?.();
+            const owner = this.removedRestoreOwner, state = this.controller.state;
+            if (!source || !source.valid || !owner.valid || source !== this.removedRestoreSource || !source.snapshot.length ||
+                this.destroyed || this.controller.closed || !state || this.controller.pending || this.controller.error || this.localError ||
+                this.controller.retryCommand || ['loading', 'saving', 'error'].includes(this.controller.status) ||
+                this.filterComposing || this.pendingReview || root.LocalItabContentLifecycle?.departing ||
+                document.hidden || document.visibilityState === 'hidden' || !this.restorationWorkspaceCurrent(source) ||
+                (modal ? this.restorationSession !== modal || !modal.isOpen || this.dialogs.size !== 1 ||
+                    (this.restorationBackground?.modal === modal && this.restorationBackground.node.inert !== true) : this.dialogs.size > 0) ||
+                this.host !== owner.host || this.removed !== owner.section || this.removed.box !== owner.box ||
+                this.removed.summary !== owner.summary || this.removed.list !== owner.list || this.restoreBatchButton !== owner.origin || origin !== owner.origin ||
+                owner.box.parentElement !== owner.host || owner.summary.parentElement !== owner.box || owner.controls.parentElement !== owner.box ||
+                origin.parentElement !== owner.controls || owner.list.parentElement !== owner.box ||
+                origin.disabled || origin.getAttribute('disabled') != null || (!modal && origin.getAttribute('aria-disabled') === 'true') ||
+                source.chain.some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent) ||
+                ![origin, owner.summary, owner.list].every(node => this.restorationNodeVisible(node, modal)) ||
+                this.visibleRemovedTasks !== source.snapshot || this.renderedRevision !== state.revision || source.revision !== state.revision ||
+                this.renderedFilter !== this.filterQuery || source.filter !== this.filterQuery || this.filterInput.value.trim().toLowerCase() !== this.filterQuery) return false;
+            const expected = state.records.filter(task => task.state === 'removed' && task.text.toLowerCase().includes(this.filterQuery));
+            const rows = Array.from(owner.list.children);
+            return expected.length === source.snapshot.length && rows.length === expected.length && source.snapshot.every((task, index) => {
+                const row = rows[index], title = source.titles[index], current = expected[index];
+                return row === source.rows[index] && row.dataset.taskId === task.id && row.querySelector('.tasks-text') === title &&
+                    title.textContent === task.text && !title.children.length && this.restorationNodeVisible(title, modal) &&
+                    task.state === 'removed' && current.id === task.id && current.version === task.version &&
+                    current.text === task.text && current.state === task.state && current.removedFrom === task.removedFrom;
+            });
+        }
+        restoreBatch(origin = this.restoreBatchButton) {
+            let source = this.removedRestoreSource;
+            const initialSource = source;
+            if (!this.removedRestorationCurrent(source, origin)) return;
+            const message = suffix => t(`tasksRestore${suffix}`);
+            const css = suffix => `tasks-restore-${suffix}`;
+            const records = Object.freeze(source.snapshot.map(task => Object.freeze({ ...task })));
+            const workspace = this.controller.store.backend?.workspace;
+            let unsubscribe = () => {}, epoch = 0, generation = 0, reviewing = false, saving = false;
+            let review = null, attempt = null, retryCommand = null, focusDeparted = false, composing = false;
+            const moved = event => { focusDeparted = !modal.panel.contains(event.target); };
+            const departed = () => { focusDeparted = true; };
+            const modal = this.createDialog(message('Batch'), () => {
+                epoch++; unsubscribe(); source.changed = null;
+                document.removeEventListener('focusin', moved, true); document.removeEventListener('visibilitychange', departed, true);
+                root.removeEventListener?.('blur', departed); root.removeEventListener?.('pagehide', departed);
+                if (this.restorationSession === modal) this.restorationSession = null;
+                // Closing cannot cancel a sent write. Keep any uncertain original
+                // command reachable through the card's explicit Retry.
+                this.render();
+            });
+            if (!modal) return;
+            this.restorationSession = modal;
+            const dialogOwner = { panel: modal.panel, overlay: modal.panel.parentElement, valid: true, opened: false, closing: false };
+            this.restorationDialogOwner = dialogOwner;
+            const owns = () => !this.destroyed && modal.isOpen && this.restorationSession === modal && modal.panel.isConnected && this.host.isConnected;
+            const available = () => {
+                this.removedRestoreSource?.drain?.();
+                return dialogOwner.valid && this.removedRestoreOwner.valid && this.host === this.removedRestoreOwner.host &&
+                modal.panel.parentElement === dialogOwner.overlay && dialogOwner.overlay.parentElement === document.body && !this.controller.closed && !!this.controller.state && !document.hidden && document.visibilityState !== 'hidden' &&
+                !modal.panel.closest('[hidden], [inert]') && !!modal.panel.getClientRects().length &&
+                !['hidden', 'collapse'].includes(root.getComputedStyle?.(modal.panel).visibility) &&
+                !root.LocalItabContentLifecycle?.departing && this.controller.store.backend?.workspace === workspace &&
+                !workspace?.invalidated && !workspace?._suspended && this.restorationWorkspaceCurrent(source) &&
+                modal.panel.ownerDocument === document;
+            };
+            const originalClose = modal.close;
+            modal.close = () => {
+                const restore = owns() && !focusDeparted && available() && !document.hidden && document.visibilityState !== 'hidden' &&
+                    (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
+                this.removedRestoreSource?.drain?.();
+                const background = this.restorationBackground;
+                if (background?.modal === modal) background.expected = background.initialInert;
+                dialogOwner.closing = true; originalClose(false);
+                this.removedRestoreSource?.drain?.();
+                if (background?.modal === modal) { background.expected = null; if (this.restorationBackground === background) this.restorationBackground = null; }
+                if (!restore || this.destroyed || this.dialogs.size || document.activeElement !== document.body) return;
+                const visible = node => {
+                    if (!this.restorationNodeVisible(node) || node.disabled) return false;
+                    for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
+                    return true;
+                };
+                if (this.removedRestoreOwner.valid && this.restoreBatchButton === origin && visible(origin)) origin.focus(); else if (visible(this.input)) this.input.focus();
+            };
+            const selected = new Set(), choices = [];
+            const selection = el('ol', `tasks-batch-list ${css('selection')}`);
+            const count = el('p', 'tasks-help'); count.setAttribute('role', 'status'); count.setAttribute('aria-live', 'polite');
+            const preview = el('section', `tasks-batch-preview ${css('preview')}`); preview.hidden = true;
+            const title = el('h3'), list = el('ol', 'tasks-batch-list'), pin = el('p', 'tasks-help'); preview.append(title, list, pin);
+            const feedback = el('p', 'tasks-dialog-feedback tasks-batch-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+            const setFeedback = (text, error = false) => { feedback.textContent = text; feedback.classList.toggle('is-error', error); };
+            const cancel = button('tasksCancel', () => modal.close(), css('cancel'));
+            const setControl = (node, disabled, hidden = false) => {
+                if (!owns()) return;
+                if (document.activeElement === node && (disabled || hidden)) cancel.focus();
+                node.disabled = disabled; node.hidden = hidden;
+            };
+            const showReview = value => {
+                preview.hidden = !value; title.textContent = value ? `${t('tasksBatchPreview')} (${value.count})` : '';
+                list.replaceChildren(...(value ? value.records.map(task => {
+                    const row = el('li'); row.append(el('span', 'tasks-recovery-text', task.text),
+                        el('p', 'tasks-help tasks-restore-destination', message(task.removedFrom === 'active' ? 'ToActive' : 'ToDone'))); return row;
+                }) : []));
+                pin.textContent = value ? message('KeepsPin') : '';
+            };
+            const update = () => {
+                if (!owns()) return;
+                count.textContent = message('Selected').replace('{count}', selected.size).replace('{total}', records.length);
+                if (review && !saving && !retryCommand && (this.controller.state?.revision !== review.revision || !sourceCurrent())) {
+                    epoch++; review = null; showReview(null); setFeedback(message('Changed'));
+                }
+                const blocked = saving || !!this.controller.pending || !available() || composing;
+                for (const checkbox of choices) setControl(checkbox, blocked);
+                setControl(all, blocked); setControl(clear, blocked || !selected.size);
+                setControl(reviewButton, blocked || reviewing || !!retryCommand || !selected.size || !sourceCurrent());
+                setControl(confirm, blocked || !review, !review || !!retryCommand);
+                confirm.textContent = message('Confirm').replace('{count}', review?.count ?? 0);
+                setControl(retry, blocked, !retryCommand);
+                retry.textContent = message('Retry').replace('{count}', retryCommand?.targets.length ?? 0);
+                if (!available()) { review = null; if (!retryCommand && !saving) showReview(null); setControl(confirm, true, true); setFeedback(t('tasksErrorUnavailable'), true); }
+            };
+            const changed = () => {
+                generation++; epoch++; reviewing = false; review = null;
+                if (!retryCommand) { showReview(null); if (!saving) setFeedback(''); }
+                update();
+            };
+            for (const task of records) {
+                const row = el('li'), label = el('label'), checkbox = el('input', css('checkbox')); checkbox.type = 'checkbox'; checkbox.checked = false;
+                checkbox.addEventListener('change', event => {
+                    if (!owns() || !available() || composing || saving || this.controller.pending) { checkbox.checked = selected.has(task.id); return; }
+                    if (event.isComposing || event.keyCode === 229) { checkbox.checked = selected.has(task.id); return; }
+                    if (checkbox.checked) selected.add(task.id); else selected.delete(task.id); changed();
+                });
+                choices.push(checkbox); label.append(checkbox, el('span', 'tasks-recovery-text', task.text));
+                label.append(el('p', 'tasks-help tasks-restore-destination', message(task.removedFrom === 'active' ? 'ToActive' : 'ToDone'))); row.append(label); selection.append(row);
+            }
+            const select = value => {
+                if (!owns() || !available() || composing || saving || this.controller.pending) return;
+                selected.clear(); records.forEach((task, index) => { choices[index].checked = value; if (value) selected.add(task.id); }); changed();
+            };
+            const all = button('tasksRestoreSelectAll', event => { if (activation(event)) select(true); }, css('select-all'));
+            const clear = button('tasksRestoreClear', event => { if (activation(event)) select(false); }, css('clear'));
+            const prepare = async () => {
+                if (!owns() || !available() || composing || saving || this.controller.pending || retryCommand || !selected.size) return;
+                if (reviewing || !sourceCurrent()) { setFeedback(message('Changed')); return; }
+                const ticket = ++epoch, submittedGeneration = generation;
+                const targets = records.filter(task => selected.has(task.id)).map(({ id, version, removedFrom }) => ({ id, version, removedFrom }));
+                reviewing = true; review = null; showReview(null); setFeedback(t('tasksLoading')); update();
+                try {
+                    const value = await this.controller.store.reviewRestoration(targets);
+                    if (!owns() || !available() || ticket !== epoch || generation !== submittedGeneration) return;
+                    if ((this.controller.state?.revision !== value.revision || !sourceCurrent())) { setFeedback(message('Changed')); return; }
+                    review = value; showReview(value); setFeedback(message('Ready'));
+                } catch (error) { if (owns() && ticket === epoch) setFeedback(errorText(error), true); }
+                finally { if (owns() && ticket === epoch) { reviewing = false; update(); } }
+            };
+            const submit = async (retryPrevious = false) => {
+                if (!owns() || !available() || composing || saving || this.controller.pending) return;
+                if (retryPrevious) { if (!retryCommand) return; }
+                else {
+                    if (!review || retryCommand) return;
+                    if ((this.controller.state?.revision !== review.revision || !sourceCurrent())) { update(); return; }
+                    attempt = Object.freeze({ command: review.command, review, generation });
+                    this.restorationAttempt = Object.freeze({ command: review.command, review, source });
+                }
+                const submitted = attempt, command = submitted.command;
+                saving = true; setFeedback(t('tasksSaving')); update();
+                await this.perform(command, state => {
+                    if (this.restorationAttempt?.command === command) this.restorationAttempt = null;
+                    if (!owns()) return;
+                    retryCommand = null; attempt = null; review = null; showReview(null);
+                    if (available() && generation === submitted.generation && this.controller.state?.revision === state.revision &&
+                        this.controller.state?.receipts.at(-1) === command.operationId) modal.close();
+                    else setFeedback(message('Saved'));
+                }, error => {
+                    if (!owns()) return;
+                    review = null;
+                    if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
+                        retryCommand = command; showReview(submitted.review);
+                        setFeedback(`${errorText(error)} ${message('Uncertain')}`, true);
+                    } else {
+                        retryCommand = null; attempt = null; showReview(null);
+                        if (this.restorationAttempt?.command === command) this.restorationAttempt = null;
+                        this.controller.dismissRetry(command.operationId); setFeedback(errorText(error), true);
+                    }
+                });
+                saving = false; if (owns()) update();
+            };
+            const reviewButton = button('tasksRestoreReview', event => { if (activation(event)) prepare(); }, css('review'));
+            const confirm = button('tasksRestoreConfirm', event => { if (activation(event)) submit(); }, `tasks-primary ${css('confirm')}`);
+            const retry = button('tasksRestoreRetry', event => { if (activation(event)) submit(true); }, `tasks-primary ${css('retry')}`);
+            for (const node of [all, clear, reviewButton, confirm, retry]) node.addEventListener('keydown', event => {
+                if ((event.repeat || event.isComposing || event.keyCode === 229) && ['Enter', ' '].includes(event.key)) event.preventDefault();
+            });
+            const selectionActions = el('div', 'tasks-dialog-actions'); selectionActions.append(all, clear);
+            const actions = el('div', 'tasks-dialog-actions'); actions.append(cancel, reviewButton, retry, confirm);
+            modal.panel.append(el('p', 'tasks-help', message('Help')), el('p', 'tasks-help', message('HistoryHelp')), selectionActions, selection, count, preview, feedback, actions);
+            modal.panel.addEventListener('compositionstart', () => { composing = true; changed(); });
+            modal.panel.addEventListener('compositionend', () => { composing = false; update(); });
+            const sourceCurrent = () => {
+                const latest = this.removedRestoreSource;
+                // Unrelated writes may replace DOM rows without changing these
+                // originals. Require an explicit new review, never substitute text,
+                // destinations, membership, order, filter or workspace ownership.
+                if (source !== latest && latest?.valid && latest.filter === initialSource.filter &&
+                    this.restorationWorkspaceCurrent(initialSource) && latest.snapshot.length === records.length &&
+                    records.every((task, index) => ['id', 'version', 'text', 'state', 'removedFrom'].every(key => latest.snapshot[index][key] === task[key]))) {
+                    const notify = source.changed; source.changed = null; source = latest; source.changed = notify;
+                }
+                return this.removedRestorationCurrent(source, origin, modal);
+            };
+            const activation = event => !event.defaultPrevented && !(event.detail > 1) && !event.repeat && !event.isComposing && event.keyCode !== 229;
+            source.changed = () => { if (owns() && !saving && !retryCommand) { epoch++; reviewing = false; review = null; showReview(null); setFeedback(message('Changed')); update(); } };
+            unsubscribe = this.controller.subscribe(update);
+            source.drain();
+            const backgroundNode = Array.from(document.body.children).find(node => node.contains(this.host));
+            if (root.LocalItabDialog && backgroundNode && !backgroundNode.inert) {
+                this.restorationBackground = { modal, node: backgroundNode, initialInert: false, expected: true };
+            }
+            modal.open(all); source.drain(); dialogOwner.opened = true;
+            if (this.restorationBackground?.modal === modal) this.restorationBackground.expected = null;
+            document.addEventListener('focusin', moved, true); document.addEventListener('visibilitychange', departed, true);
+            root.addEventListener?.('blur', departed); root.addEventListener?.('pagehide', departed);
+            update(); this.render();
+        }
         renderNext(task) {
             // Keep an unchanged action mounted through filtering and unrelated row updates.
             if (this.nextTask?.id === task?.id && this.nextTask?.version === task?.version && this.next.children.length) return;
@@ -693,6 +1024,8 @@
             // Match existing focus-preserving row actions while unavailable.
             this.completeBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.visibleTasks.length));
             this.reopenBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.completed.box.open || !this.visibleCompletedTasks.length));
+            if (this.restoreBatchButton.disabled !== !this.visibleRemovedTasks.length) this.restoreBatchButton.disabled = !this.visibleRemovedTasks.length;
+            this.restoreBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError || !!this.controller.retryCommand || !this.removed.box.open || this.restoreBatchButton.disabled));
             this.host.querySelectorAll('.tasks-reuse-text').forEach(node => node.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError)));
         }
         invalidateCopy() {
@@ -1019,10 +1352,10 @@
                 this.controller.retryCommand.operationId === this.batchOperationId;
             const ownsPendingReuse = busy && this.controller.retryCommand?.kind === 'add' &&
                 this.controller.retryCommand.operationId === this.reuseOperationId;
-            const ownsCompletionAttempt = ['completeBatch', 'reopenBatch'].includes(this.controller.retryCommand?.kind) &&
+            const ownsCompletionAttempt = ['completeBatch', 'reopenBatch', 'restoreBatch'].includes(this.controller.retryCommand?.kind) &&
                 this.controller.retryCommand.operationId === this.retryEffectOperationId &&
                 (busy || ['READ', 'WRITE', 'VERIFY'].includes(this.controller.error?.code));
-            const visible = !!this.completionSession || ownsCompletionAttempt || this.alwaysVisible || state?.enabled === true || showReadError || !!this.reuseSession || ownsPendingReuse || this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
+            const visible = !!this.completionSession || !!this.restorationSession || ownsCompletionAttempt || this.alwaysVisible || state?.enabled === true || showReadError || !!this.reuseSession || ownsPendingReuse || this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
             this.host.hidden = !visible;
             this.onVisibility(visible);
             this.addButton.disabled = busy || !state || this.quickEntryComposing; this.batchButton.disabled = busy || !state;
@@ -1058,6 +1391,7 @@
                     else {
                         this.visibleRemovedTasks = records.map(({ id, version, text, state, removedFrom }) => ({ id, version, text, state, removedFrom }));
                         this.removedCopySource = { rows: Array.from(section.list.children), titles: Array.from(section.list.children, item => item.querySelector('.tasks-text')) };
+                        this.captureRemovedRestoration();
                     }
                 }
                 if (revisionChanged) {
@@ -1296,7 +1630,7 @@
             if (review.recoveryPreview) modal.panel.append(this.recoveryPreview(review.recoveryPreview));
             modal.panel.append(feedback, actions); modal.open(cancel);
         }
-        destroy() { this.destroyed = true; this.invalidateCopy(); this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
+        destroy() { this.destroyed = true; this.removedRestoreSource?.observer?.disconnect(); this.invalidateCopy(); this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
     }
     function mount(host, options) {
         if (host.localTasksView) return host.localTasksView;

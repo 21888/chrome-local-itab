@@ -128,6 +128,34 @@
             return { ...value };
         });
     }
+    // Restoration has its own strict target contract. Do not broaden the old
+    // completion/reopening targets: revision-free completion Undo stays unchanged.
+    function restorationTargets(values, withResults = false) {
+        check(Array.isArray(values) && values.length > 0 && values.length <= LIMITS.records);
+        const seen = new Set();
+        return values.map(value => {
+            object(value, withResults ? ['id', 'version', 'removedFrom', 'nextVersion'] : ['id', 'version', 'removedFrom']);
+            check(token(value.id) && token(value.version) && !seen.has(value.id)); seen.add(value.id);
+            check(value.removedFrom === 'active' || value.removedFrom === 'done');
+            if (withResults) check(token(value.nextVersion) && value.nextVersion !== value.version);
+            return { ...value };
+        });
+    }
+    function restoreBatch(next, command) {
+        check(Number.isSafeInteger(command.revision) && command.revision >= 0);
+        check(next.revision === command.revision, 'CONFLICT');
+        const targets = restorationTargets(command.targets, true); check(date(command.updatedAt));
+        const records = targets.map(target => {
+            const task = next.records.find(record => record.id === target.id);
+            check(task && task.version === target.version && task.state === 'removed' && task.removedFrom === target.removedFrom, 'CONFLICT');
+            return task;
+        });
+        records.forEach((task, index) => {
+            task.state = targets[index].removedFrom; task.removedFrom = null;
+            task.version = targets[index].nextVersion; task.updatedAt = command.updatedAt;
+        });
+        return records;
+    }
     function transitionBatch(next, command) {
         const completing = command.kind === 'completeBatch';
         // Reviewed reopening fences the complete list; page-local completion Undo
@@ -187,6 +215,11 @@
         subscribe(listener) { return this.backend.subscribe(listener); }
         request(kind, values = {}) {
             const operationId = this.id();
+            if (kind === 'restoreBatch') {
+                check(Number.isSafeInteger(values.revision) && values.revision >= 0);
+                const targets = Object.freeze(restorationTargets(values.targets).map(target => Object.freeze({ ...target, nextVersion: this.id() })));
+                return Object.freeze({ kind, operationId, revision: values.revision, targets, updatedAt: this.now() });
+            }
             if (kind === 'completeBatch' || kind === 'reopenBatch') {
                 const reviewed = kind === 'completeBatch' || Object.hasOwn(values, 'revision');
                 if (reviewed) check(Number.isSafeInteger(values.revision) && values.revision >= 0);
@@ -221,6 +254,12 @@
                     // An acknowledged older operation is not proof its result still exists.
                     // After any later mutation, keep the editor/draft and require review.
                     check(current.receipts.at(-1) === command.operationId, 'CONFLICT');
+                    if (command.kind === 'restoreBatch') {
+                        check(Number.isSafeInteger(command.revision) && command.revision >= 0);
+                        const targets = restorationTargets(command.targets, true); check(date(command.updatedAt));
+                        check(targets.every(target => current.records.some(task => task.id === target.id && task.version === target.nextVersion &&
+                            task.state === target.removedFrom && task.removedFrom === null && task.updatedAt === command.updatedAt)), 'CONFLICT');
+                    }
                     if (command.kind === 'completeBatch' || command.kind === 'reopenBatch') {
                         const targets = batchTargets(command.targets, true), state = command.kind === 'completeBatch' ? 'done' : 'active';
                         // IDs in a receipt do not prove all members were persisted.
@@ -256,6 +295,7 @@
                         state: 'active', removedFrom: null, createdAt: now, updatedAt: now }); break;
                 }
                 case 'addBatch': appendBatch(next, command); break;
+                case 'restoreBatch': restoreBatch(next, command); break;
                 case 'completeBatch': case 'reopenBatch': transitionBatch(next, command); break;
                 case 'edit': {
                     const task = find(); check(task.state !== 'removed', 'CONFLICT'); text(command.text);
@@ -360,6 +400,22 @@
             const file = parseBackup(source); const current = await this.read();
             // Build no replacement until explicit confirmation. Snapshot is a checked precondition.
             return { source, revision: current.revision, incoming: counts({ ...file.content, recovery: file.recovery }), current: counts(current) };
+        }
+        async reviewRestoration(selected) {
+            // Capture the exact identities and destinations synchronously before
+            // waiting for storage. No selection mutation can substitute a target.
+            const targets = restorationTargets(selected);
+            return this.backend.lock(async () => {
+                const current = await this.readRaw(), next = clone(current);
+                const command = this.request('restoreBatch', { targets, revision: current.revision });
+                const records = Object.freeze(targets.map(target => {
+                    const task = current.records.find(record => record.id === target.id && record.version === target.version &&
+                        record.state === 'removed' && record.removedFrom === target.removedFrom);
+                    check(task, 'CONFLICT'); return Object.freeze({ ...task });
+                }));
+                restoreBatch(next, command); finish(next, command.operationId);
+                return Object.freeze({ records, count: records.length, revision: current.revision, clearsPin: false, command });
+            });
         }
         reviewCompletion(selected) { return this.reviewTransition('completeBatch', selected); }
         reviewReopening(selected) { return this.reviewTransition('reopenBatch', selected); }

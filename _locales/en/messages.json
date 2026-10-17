@@ -8335,5 +8335,53 @@
   },
   "tasksReopenHistoryHelp": {
     "message": "Reopening keeps the original text and record count. It does not restore an old pin or create a new Undo action."
+  },
+  "tasksRestoreBatch": {
+    "message": "Select removed tasks to restore"
+  },
+  "tasksRestoreHelp": {
+    "message": "Choose from the removed tasks currently displayed. Nothing is selected initially. Review every exact original and its restoration destination before confirming."
+  },
+  "tasksRestoreSelectAll": {
+    "message": "Select all listed tasks"
+  },
+  "tasksRestoreClear": {
+    "message": "Clear selection"
+  },
+  "tasksRestoreSelected": {
+    "message": "Selected: {count} of {total}"
+  },
+  "tasksRestoreReview": {
+    "message": "Review selected tasks"
+  },
+  "tasksRestoreConfirm": {
+    "message": "Confirm restoration of {count} tasks"
+  },
+  "tasksRestoreRetry": {
+    "message": "Retry restoration of these {count} tasks"
+  },
+  "tasksRestoreToActive": {
+    "message": "Restore to: Active"
+  },
+  "tasksRestoreToDone": {
+    "message": "Restore to: Completed"
+  },
+  "tasksRestoreKeepsPin": {
+    "message": "Next up will stay unchanged. Each task returns to its original state and stored list position."
+  },
+  "tasksRestoreReady": {
+    "message": "Confirm to restore every numbered task to its shown destination in one save. If any reviewed task or the list changed, none will be restored."
+  },
+  "tasksRestoreChanged": {
+    "message": "The displayed list changed. Review again if these originals are still current, or close and select from the latest list."
+  },
+  "tasksRestoreUncertain": {
+    "message": "The entire save is unconfirmed. Retry this exact numbered selection and its original destinations; no partial success is assumed."
+  },
+  "tasksRestoreSaved": {
+    "message": "The reviewed tasks were restored. Review your current selection before confirming anything else."
+  },
+  "tasksRestoreHistoryHelp": {
+    "message": "Restoration keeps all original text and the 500-record capacity unchanged. It does not restore an old pin or add an Undo/redo action."
   }
 }
