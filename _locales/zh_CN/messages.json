@@ -4335,6 +4335,24 @@
   "collectionsCompare": {
     "message": "对比已保存结果"
   },
+  "collectionsHistoryCompare": {
+    "message": "并排阅读两个已保存正文版本"
+  },
+  "collectionsHistoryCompareScope": {
+    "message": "并排阅读同一收藏的两个已保存正文版本。这不是逐行增删对比，也不评价质量。不包含草稿、拟修订正文或恢复快照，不恢复、不保存，也不发送给模型。"
+  },
+  "collectionsHistoryCompareFirst": {
+    "message": "左侧已保存正文版本"
+  },
+  "collectionsHistoryCompareSecond": {
+    "message": "右侧已保存正文版本"
+  },
+  "collectionsHistoryCompareSame": {
+    "message": "两侧选择的是同一个已保存版本。"
+  },
+  "collectionsHistoryCompareDifferent": {
+    "message": "这两个已保存正文并非完全相同。"
+  },
   "collectionsManualCompare": {
     "message": "手动对照任意收藏摘录"
   },

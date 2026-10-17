@@ -4335,6 +4335,24 @@
   "collectionsCompare": {
     "message": "Compare saved results"
   },
+  "collectionsHistoryCompare": {
+    "message": "Read two saved body versions"
+  },
+  "collectionsHistoryCompareScope": {
+    "message": "Read two saved body versions of this excerpt side by side. This is not a line-by-line diff or a quality judgment. Drafts, proposals and recovery snapshots are excluded. Nothing is restored, saved or sent to a model."
+  },
+  "collectionsHistoryCompareFirst": {
+    "message": "Left saved body version"
+  },
+  "collectionsHistoryCompareSecond": {
+    "message": "Right saved body version"
+  },
+  "collectionsHistoryCompareSame": {
+    "message": "The same saved version is selected on both sides."
+  },
+  "collectionsHistoryCompareDifferent": {
+    "message": "These saved bodies are not exactly identical."
+  },
   "collectionsManualCompare": {
     "message": "Compare any saved excerpts"
   },

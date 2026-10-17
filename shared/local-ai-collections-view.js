@@ -161,6 +161,7 @@
             this.updateHistoricalPrompt = null;
             this.refreshHistoricalCopyState = null;
             this.detailGeneration++;
+            this.updateComparison?.();
             this.updatePromptNavigation = null;
             this.updateReuseDraft = null;
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
@@ -537,6 +538,11 @@
             }
             if (record.promptRef) this.buildPromptPanel(this.main, false);
             const history = this.el('details', 'prompt-history'); history.append(this.el('summary', '', this.t('History', 'Excerpt version history')));
+            if (!record.deletedAt && record.history.length >= 2) {
+                const origin = { record, version: record.version, state: c.state, readGeneration: c.readGeneration, detailGeneration: generation };
+                const compare = this.button('HistoryCompare', 'Read two saved body versions', () => this.compareHistory(origin));
+                compare.disabled = !c.comparisonReady(); history.append(compare);
+            }
             record.history.slice().reverse().forEach((version, index) => { const item = this.el('section', 'prompt-section'); item.append(this.el('h3', '', `${new Date(version.createdAt).toLocaleString()}${index === 0 ? ` · ${this.t('Current', 'Current')}` : ''}`), this.el('pre', 'prompt-readonly', version.body)); if (index !== 0 && !record.deletedAt) { const restore = this.button('ReviewRestore', 'Review restoring this text', () => this.revise(record, version)); restore.disabled = c.busy || Boolean(c.pendingCommand); item.append(restore); } history.append(item); }); this.main.append(history);
         }
         renderHistoricalPrompt(section, record) {
@@ -578,6 +584,71 @@
             this.updateHistoricalPrompt = () => { if (!current()) close(); else this.refreshHistoricalCopyState(); };
             this.refreshHistoricalCopyState();
             section.append(open, panel);
+        }
+        compareHistory(origin) {
+            const c = this.controller, source = origin?.record;
+            const sourceCurrent = () => Boolean(source) && !this.destroyed && this.host.isConnected && this.doc.visibilityState !== 'hidden' &&
+                c.comparisonReady() && !c.draft() && c.selected === source.id && c.record() === source && !source.deletedAt &&
+                source.version === origin.version && c.state === origin.state && c.readGeneration === origin.readGeneration && this.detailGeneration === origin.detailGeneration;
+            if (this.openDialog || !sourceCurrent() || source.history.length < 2) return;
+            // Keep original saved strings, never drafts, proposals or recovery versions.
+            const versions = source.history.map((version, index) => ({ ...version, label: `${index + 1} · ${new Date(version.createdAt).toLocaleString()}${version.id === source.currentVersionId ? ` · ${this.t('Current', 'Current')}` : ''} · ${version.id}` }));
+            const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', 'prompt-dialog collection-comparison-dialog');
+            overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+            box.setAttribute('aria-labelledby', 'collection-history-comparison-title'); box.setAttribute('aria-describedby', 'collection-history-comparison-scope');
+            const heading = this.el('h2', '', this.t('HistoryCompare', 'Read two saved body versions')); heading.id = 'collection-history-comparison-title';
+            const scope = this.paragraph('HistoryCompareScope', 'Read two saved body versions of this excerpt side by side. This is not a line-by-line diff or a quality judgment. Drafts, proposals and recovery snapshots are excluded. Nothing is restored, saved or sent to a model.'); scope.id = 'collection-history-comparison-scope';
+            const bodies = this.el('div', 'collection-comparison-grid'), controls = this.el('div', 'collection-comparison-grid');
+            const status = this.el('p', 'prompt-help'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+            const sides = [['HistoryCompareFirst', 'Left saved body version'], ['HistoryCompareSecond', 'Right saved body version']];
+            const selected = versions.slice(-2).map(version => version.id), selectors = [];
+            let stale = false, closed = false, cleanup;
+            const current = () => !closed && sourceCurrent() && overlay.isConnected && selected.every(id => {
+                const snapshot = versions.find(version => version.id === id), saved = source.history.find(version => version.id === id);
+                return snapshot && saved && saved.body === snapshot.body;
+            });
+            const finish = () => {
+                if (this.closeComparison !== finish) return;
+                const restore = !stale && current() && (overlay.contains(this.doc.activeElement) || this.doc.activeElement === this.doc.body);
+                closed = true; bodies.replaceChildren(); selectors.forEach(select => { select.disabled = true; });
+                this.updateComparison = null; this.closeComparison = null; this.openDialog = false;
+                cleanup?.(restore); overlay.remove(); this.refreshCopyState();
+                if (!this.destroyed && this.doc.visibilityState !== 'hidden' && this.doc.activeElement === this.doc.body) this.main.focus();
+            };
+            const close = this.button('CompareClose', 'Close comparison', finish);
+            const update = () => {
+                if (this.closeComparison !== finish || closed || stale || current()) return;
+                stale = true; bodies.replaceChildren(); selectors.forEach(select => { select.disabled = true; });
+                status.textContent = this.t('CompareStale', 'Saved data changed or could not be verified. This comparison has been cleared. Close it, refresh saved data if needed, then reopen to choose again.');
+                if (overlay.contains(this.doc.activeElement) || this.doc.activeElement === this.doc.body) close.focus();
+            };
+            const renderBodies = () => {
+                bodies.replaceChildren();
+                for (const [index, id] of selected.entries()) {
+                    const version = versions.find(item => item.id === id), section = this.el('section');
+                    section.append(this.el('h3', '', this.t(...sides[index])), this.el('p', 'prompt-help collection-url', version.label));
+                    const body = this.el('pre', 'prompt-readonly', version.body.replace(/\r\n?/g, '\n')); body.tabIndex = 0;
+                    section.append(body); bodies.append(section);
+                }
+                status.textContent = selected[0] === selected[1] ? this.t('HistoryCompareSame', 'The same saved version is selected on both sides.') :
+                    versions.find(item => item.id === selected[0]).body === versions.find(item => item.id === selected[1]).body ?
+                        this.t('CompareEqual', 'These saved bodies are exactly identical.') : this.t('HistoryCompareDifferent', 'These saved bodies are not exactly identical.');
+            };
+            for (const [index, side] of sides.entries()) {
+                const label = this.el('label', 'prompt-field'), select = this.el('select');
+                label.append(this.el('span', '', this.t(...side)), select); controls.append(label); selectors.push(select);
+                for (const version of versions) { const option = this.el('option', '', version.label); option.value = version.id; select.append(option); }
+                select.value = selected[index];
+                select.addEventListener('change', () => {
+                    if (this.closeComparison !== finish || closed || stale) return;
+                    selected[index] = select.value; update(); if (!stale && current()) renderBodies();
+                });
+            }
+            renderBodies(); box.append(heading, scope, this.el('p', 'collection-url', `${source.title} · ${source.id}`),
+                this.paragraph('CompareLineBreaks', 'Displayed line breaks are normalized to LF so every line remains visible. Saved originals and exact-equality checks keep their original CRLF, CR or LF; visually identical text may still differ.'), controls, status, bodies, close);
+            overlay.append(box); this.doc.body.append(overlay);
+            this.openDialog = true; this.closeComparison = finish; this.updateComparison = update;
+            cleanup = root.LocalItabDialog.open(overlay, selectors[0], finish);
         }
         compareSaved(sourceId, scope = 'prompt') {
             const c = this.controller, source = c.record(sourceId);
