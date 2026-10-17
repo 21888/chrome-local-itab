@@ -2745,6 +2745,18 @@
   "monthCalendarIntervalCalculate": {
     "message": "计算"
   },
+  "monthCalendarIntervalCopy": {
+    "message": "复制结果"
+  },
+  "monthCalendarIntervalCopying": {
+    "message": "正在复制结果…"
+  },
+  "monthCalendarIntervalCopySuccess": {
+    "message": "已复制结果。"
+  },
+  "monthCalendarIntervalCopyFailure": {
+    "message": "未能复制。请选中结果文本并按 Ctrl/Cmd+C 手动复制。"
+  },
   "monthCalendarIntervalHint": {
     "message": "格式 YYYY-MM-DD。计算结束减开始的自然日差：同日 0，相邻次日 +1。不是经过小时、工作日或含首尾的计数。"
   },

@@ -1448,6 +1448,9 @@ let clockComponentInstance = null;
 // A comparison write outlives its card/clock owner until the system promise settles.
 let worldClockCopyAttempt = null;
 let worldClockCopyOwner = null;
+// This independent date-result write also outlives view/clock replacement.
+let monthCalendarIntervalCopyAttempt = null;
+let monthCalendarIntervalCopyOwner = null;
 let clockPreferenceRefresh = null;
 function normalizeDashboardClockPreferences(value) {
     const valid = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -1541,6 +1544,8 @@ class ClockComponent {
         worldClockCopyOwner?.invalidateWorldClockCopy();
         worldClockCopyOwner?.clearWorldClockLocalDraft();
         worldClockCopyOwner = this;
+        monthCalendarIntervalCopyOwner?.invalidateMonthCalendarIntervalCopy();
+        monthCalendarIntervalCopyOwner = this;
         this.renderWorldClocks();
         this.createMonthCalendar();
         this._visBound = false;
@@ -1610,6 +1615,9 @@ class ClockComponent {
 
     // The date viewer belongs to this singleton and shares its existing tick.
     createMonthCalendar() {
+        this.invalidateMonthCalendarIntervalCopy();
+        this.calendarLabelsSet = false;
+        this.calendarRenderKey = null;
         if (!window.MonthCalendar || !this.dateElement?.parentElement) return;
         const make = (tag, className) => {
             const node = document.createElement(tag);
@@ -1672,8 +1680,9 @@ class ClockComponent {
             details: make('details', 'month-calendar-interval'), summary: make('summary'),
             fields: make('div', 'month-calendar-interval-fields'), hint: make('p', 'month-calendar-interval-hint'),
             start: make('input'), startText: make('span'), end: make('input'), endText: make('span'),
-            calculate: make('button'), error: make('div', 'month-calendar-error'),
+            calculate: make('button'), copy: make('button'), error: make('div', 'month-calendar-error'),
             result: make('div', 'month-calendar-interval-result'),
+            copyStatus: make('div', 'month-calendar-interval-result'),
             startState: { composing: false, compositionEnter: false },
             endState: { composing: false, compositionEnter: false }, invalid: false, resultValue: null
         };
@@ -1685,6 +1694,11 @@ class ClockComponent {
         interval.result.setAttribute('aria-live', 'polite');
         interval.result.setAttribute('aria-atomic', 'true');
         interval.result.textContent = '';
+        interval.copyStatus.setAttribute('role', 'status');
+        interval.copyStatus.setAttribute('aria-live', 'polite');
+        interval.copyStatus.setAttribute('aria-atomic', 'true');
+        interval.copyStatus.textContent = '';
+        interval.copyStatus.hidden = true;
         for (const [field, labelText] of [[interval.start, interval.startText], [interval.end, interval.endText]]) {
             const label = make('label');
             field.type = 'text';
@@ -1695,8 +1709,9 @@ class ClockComponent {
             interval.fields.append(label);
         }
         interval.calculate.type = 'button';
-        interval.fields.append(interval.calculate);
-        interval.details.append(interval.summary, interval.hint, interval.fields, interval.error, interval.result);
+        interval.copy.type = 'button';
+        interval.fields.append(interval.calculate, interval.copy);
+        interval.details.append(interval.summary, interval.hint, interval.fields, interval.error, interval.result, interval.copyStatus);
         panel.append(controls, editor, error, table, announcement, interval.details);
         details.append(summary, panel);
         this.dateElement.parentElement.append(details);
@@ -1779,16 +1794,19 @@ class ClockComponent {
         const calculate = source => {
             if (!intervalActive(source) || composing() ||
                 !intervalActive(interval.start) || !intervalActive(interval.end)) return;
+            this.invalidateMonthCalendarIntervalCopy();
             const days = window.MonthCalendar.dateInterval(interval.start.value, interval.end.value);
             interval.invalid = days === null;
             interval.resultValue = days === null ? null : { start: interval.start.value, end: interval.end.value, days };
             this.updateMonthCalendarInterval();
         };
         interval.calculate.addEventListener('click', () => calculate(interval.calculate));
+        interval.copy.addEventListener('click', event => this.copyMonthCalendarInterval(view, event));
         for (const [field, state] of [[interval.start, interval.startState], [interval.end, interval.endState]]) {
             bindDraftField(field, state, intervalActive, calculate);
             const edited = () => {
                 if (!intervalActive(field)) return;
+                this.invalidateMonthCalendarIntervalCopy();
                 interval.invalid = false;
                 interval.resultValue = null;
                 this.updateMonthCalendarInterval();
@@ -1797,11 +1815,13 @@ class ClockComponent {
             field.addEventListener('change', edited);
         }
         guardActivation(interval.calculate, intervalActive);
+        guardActivation(interval.copy, intervalActive);
         guardActivation(interval.summary, active);
         interval.details.addEventListener('toggle', event => {
             if (event.target !== interval.details || this.monthCalendar !== view || !details.isConnected) return;
             // Folding this tool retains its draft/result within the open calendar.
             if (!interval.details.open) {
+                this.invalidateMonthCalendarIntervalCopy();
                 for (const state of [interval.startState, interval.endState]) {
                     state.composing = false;
                     state.compositionEnter = false;
@@ -1851,6 +1871,7 @@ class ClockComponent {
     }
 
     clearMonthCalendarInterval() {
+        this.invalidateMonthCalendarIntervalCopy();
         const interval = this.monthCalendar.interval;
         interval.details.open = false;
         interval.start.value = '';
@@ -1876,8 +1897,131 @@ class ClockComponent {
         const unit = value && Math.abs(value.days) === 1
             ? this.worldClockText('monthCalendarIntervalDay', 'calendar day')
             : this.worldClockText('monthCalendarIntervalDays', 'calendar days');
-        interval.result.textContent = value
-            ? `${value.start} → ${value.end}: ${value.days > 0 ? '+' : ''}${value.days} ${unit}` : '';
+        const text = value ? `${value.start} → ${value.end}: ${value.days > 0 ? '+' : ''}${value.days} ${unit}` : '';
+        const rendered = interval.renderedResult;
+        if (!rendered || rendered.value !== value || rendered.text !== text || rendered.start !== value?.start ||
+            rendered.end !== value?.end || rendered.days !== value?.days) {
+            this.invalidateMonthCalendarIntervalCopy();
+            interval.renderedResult = value ? { value, start: value.start, end: value.end, days: value.days, text } : null;
+        }
+        // A passive tick/navigation must not invalidate an unchanged copy receipt.
+        if (interval.result.textContent !== text) interval.result.textContent = text;
+        this.refreshMonthCalendarIntervalCopyControl();
+    }
+
+    monthCalendarIntervalCopyLabels() {
+        return [this.getDateLocale(), navigator.language,
+            this.worldClockText('monthCalendarIntervalDay', 'calendar day'),
+            this.worldClockText('monthCalendarIntervalDays', 'calendar days'),
+            this.worldClockText('monthCalendarIntervalCopy', 'Copy result'),
+            this.worldClockText('monthCalendarIntervalCopying', 'Copying result…'),
+            this.worldClockText('monthCalendarIntervalCopySuccess', 'Result copied.'),
+            this.worldClockText('monthCalendarIntervalCopyFailure', 'Could not copy. Select the result text and press Ctrl/Cmd+C to copy it manually.')];
+    }
+
+    refreshMonthCalendarIntervalCopyControl() {
+        const view = this.monthCalendar;
+        if (!view) return;
+        const disabled = String(Boolean(monthCalendarIntervalCopyAttempt) || !this.isMonthCalendarIntervalCopyCurrent(view, view.interval.renderedResult));
+        if (view.interval.copy.getAttribute('aria-disabled') !== disabled) view.interval.copy.setAttribute('aria-disabled', disabled);
+    }
+
+    invalidateMonthCalendarIntervalCopy() {
+        const receipt = this.monthCalendarIntervalCopyReceipt;
+        if (receipt) {
+            receipt.valid = false;
+            receipt.cleanup();
+            this.monthCalendarIntervalCopyReceipt = null;
+            // A dispatched system write cannot be cancelled; only its settlement unlocks.
+        }
+        const status = this.monthCalendar?.interval.copyStatus;
+        if (status) {
+            if (status.textContent !== '') status.textContent = '';
+            if (!status.hidden) status.hidden = true;
+            status.classList.remove('is-error');
+        }
+    }
+
+    isMonthCalendarIntervalCopyCurrent(view, rendered, labels = view.interval.copyLabels) {
+        const interval = view.interval, value = interval.resultValue;
+        if (monthCalendarIntervalCopyOwner !== this || this.monthCalendar !== view || !rendered ||
+            interval.renderedResult !== rendered || value !== rendered.value || interval.invalid ||
+            value.start !== rendered.start || value.end !== rendered.end || value.days !== rendered.days ||
+            interval.start.value !== rendered.start || interval.end.value !== rendered.end ||
+            interval.result.textContent !== rendered.text || !rendered.text ||
+            labels !== this.monthCalendarIntervalCopyLabels().join('\n') ||
+            !this.enabled || document.hidden || document.visibilityState === 'hidden' ||
+            window.LocalItabContentLifecycle?.departing || document.body.classList.contains('dashboard-hidden')) return false;
+        return [interval.copy, interval.start, interval.end, interval.result].every(element => {
+            if (!element.isConnected || !view.details.contains(element) || element.disabled || !element.getClientRects().length) return false;
+            for (let node = element; node; node = node.parentElement) {
+                const style = window.getComputedStyle?.(node);
+                if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true' ||
+                    style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                    (node.tagName === 'DETAILS' && !node.open)) return false;
+            }
+            return true;
+        });
+    }
+
+    async copyMonthCalendarInterval(view, event) {
+        const interval = view.interval, rendered = interval.renderedResult, text = rendered?.text;
+        if (event.defaultPrevented || event.detail > 1 || event.isComposing || event.keyCode === 229 ||
+            view.composing || interval.startState.composing || interval.endState.composing ||
+            monthCalendarIntervalCopyAttempt || !this.isMonthCalendarIntervalCopyCurrent(view, rendered)) return;
+        this.invalidateMonthCalendarIntervalCopy();
+        const receipt = { valid: true, labels: interval.copyLabels };
+        monthCalendarIntervalCopyAttempt = receipt;
+        this.monthCalendarIntervalCopyReceipt = receipt;
+        const cancel = () => {
+            if (this.monthCalendarIntervalCopyReceipt === receipt) this.invalidateMonthCalendarIntervalCopy();
+            else { receipt.valid = false; receipt.cleanup(); }
+        };
+        const nodes = [interval.copy, interval.start, interval.end, interval.result];
+        const invalidating = records => records.some(record => record.type === 'attributes'
+            ? nodes.some(node => record.target.contains(node))
+            : nodes.some(node => record.target === node || node.contains(record.target) ||
+                Array.from(record.removedNodes || []).some(removed => removed === node || removed.contains?.(node))));
+        const observer = window.MutationObserver ? new window.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
+        receipt.cleanup = () => {
+            observer?.disconnect();
+            document.removeEventListener('visibilitychange', cancel, true);
+            window.removeEventListener?.('blur', cancel);
+            window.removeEventListener?.('pagehide', cancel);
+        };
+        const current = () => {
+            if (observer && invalidating(observer.takeRecords())) cancel();
+            return receipt.valid && this.monthCalendarIntervalCopyReceipt === receipt && rendered.text === text &&
+                this.isMonthCalendarIntervalCopyCurrent(view, rendered, receipt.labels);
+        };
+        document.addEventListener('visibilitychange', cancel, true);
+        window.addEventListener?.('blur', cancel);
+        window.addEventListener?.('pagehide', cancel);
+        observer?.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true,
+            attributeFilter: ['hidden', 'inert', 'aria-hidden', 'style', 'class', 'open', 'disabled', 'value'] });
+        interval.copyStatus.textContent = this.worldClockText('monthCalendarIntervalCopying', 'Copying result…');
+        interval.copyStatus.hidden = false;
+        interval.copyStatus.classList.remove('is-error');
+        this.refreshMonthCalendarIntervalCopyControl();
+        try {
+            // Synchronous in this explicit activation: exact visible result, no recalculation/read/permission query.
+            const clipboard = window.navigator?.clipboard;
+            if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
+            await clipboard.writeText(text);
+            if (current()) interval.copyStatus.textContent = this.worldClockText('monthCalendarIntervalCopySuccess', 'Result copied.');
+        } catch (_) {
+            if (current()) {
+                interval.copyStatus.textContent = this.worldClockText('monthCalendarIntervalCopyFailure',
+                    'Could not copy. Select the result text and press Ctrl/Cmd+C to copy it manually.');
+                interval.copyStatus.classList.add('is-error');
+            }
+        } finally {
+            if (!current()) cancel();
+            if (monthCalendarIntervalCopyAttempt === receipt) monthCalendarIntervalCopyAttempt = null;
+            monthCalendarIntervalCopyOwner?.refreshMonthCalendarIntervalCopyControl();
+            // While valid feedback remains visible, retain exactly one guard session
+            // so a settled receipt cannot return after transient hiding or replacement.
+        }
     }
 
     closeMonthCalendar() {
@@ -1893,6 +2037,18 @@ class ClockComponent {
         const view = this.monthCalendar;
         if (!view || !view.details.isConnected) return;
         const locale = this.getDateLocale();
+        const copyLabels = this.monthCalendarIntervalCopyLabels();
+        if (view.interval.copyLabels !== copyLabels.join('\n')) {
+            this.invalidateMonthCalendarIntervalCopy();
+            view.interval.copyLabels = copyLabels.join('\n');
+            if (view.interval.copy.textContent !== copyLabels[4]) view.interval.copy.textContent = copyLabels[4];
+            this.updateMonthCalendarInterval();
+        }
+        const receipt = this.monthCalendarIntervalCopyReceipt;
+        if (receipt && !this.isMonthCalendarIntervalCopyCurrent(view, view.interval.renderedResult, receipt.labels)) {
+            this.invalidateMonthCalendarIntervalCopy();
+        }
+        this.refreshMonthCalendarIntervalCopyControl();
         if (this.calendarLabelLocale !== locale || !this.calendarLabelsSet) {
             view.summary.textContent = this.worldClockText('monthCalendar', 'Calendar');
             view.previous.textContent = this.worldClockText('monthCalendarPrevious', 'Previous');

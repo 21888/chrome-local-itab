@@ -2745,6 +2745,18 @@
   "monthCalendarIntervalCalculate": {
     "message": "Calculate"
   },
+  "monthCalendarIntervalCopy": {
+    "message": "Copy result"
+  },
+  "monthCalendarIntervalCopying": {
+    "message": "Copying result…"
+  },
+  "monthCalendarIntervalCopySuccess": {
+    "message": "Result copied."
+  },
+  "monthCalendarIntervalCopyFailure": {
+    "message": "Could not copy. Select the result text and press Ctrl/Cmd+C to copy it manually."
+  },
   "monthCalendarIntervalHint": {
     "message": "YYYY-MM-DD. End minus start in calendar days: same date 0, next date +1. Not hours, workdays or an inclusive count."
   },
