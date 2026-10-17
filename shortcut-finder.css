@@ -25,3 +25,11 @@
 /* Keep native filter pickers within narrow and zoomed dialogs. */
 .finder-category, .finder-match-mode { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
 .finder-workspace { font-weight: 600; overflow-wrap: anywhere; }
+
+/* Keep URL copying separate from the primary open-site action. */
+.finder-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; align-items: start; min-width: 0; }
+.finder-row .finder-result { min-width: 0; box-sizing: border-box; }
+.finder-copy-url[aria-disabled="true"] { opacity: .6; cursor: default; }
+.finder-copy-status { grid-column: 1 / -1; color: var(--template-muted); font-size: 12px; line-height: 1.5; }
+.finder-copy-status:empty { display: none; }
+@media (max-width: 420px) { .finder-row { grid-template-columns: minmax(0, 1fr); } .finder-copy-url { justify-self: start; } }

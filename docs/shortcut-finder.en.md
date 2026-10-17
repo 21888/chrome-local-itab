@@ -16,6 +16,16 @@ An explicit result activation briefly reserves a blank tab while checking the la
 
 Opening a selected website is normal navigation and can use the network. Typing, result paging and dismissal use no external provider, history lookup, clipboard access or stored query. Applied settings refreshes defer reloading while this panel or its validation is active, just as they preserve unfinished task work.
 
+## Copy a saved URL
+
+Each result has a separate **Copy URL** button. Click it, or use Tab to reach it and press Enter/Space. Up/Down still visits only the main open-site results. Copy writes exactly the saved URL, including a schemeless address, Unicode, percent escapes, query order and fragment. It adds no title, category or workspace name and does not normalize the address. Invalid addresses and embedded usernames/passwords cannot be copied.
+
+Copy uses the already-loaded result and a synchronous identity check; it does not reserve/open a tab, read storage again, fetch a site, read the clipboard or request permissions. There is no automatic copy or legacy fallback. A missing API or failed write shows a retryable message; the displayed URL can also be selected manually. Copy feedback is separate from opening-site feedback.
+
+Only one Finder clipboard write can be in progress, including across filtering, closing/reopening and host rebuilds. A write already handed to the browser cannot be cancelled. New searches, paging, filters, scope changes, composition, refresh, dismissal and page/DOM lifecycle changes retire its old feedback; a late completion does not move focus or announce success in a newer panel. After leaving/returning to the page or an ownership/visibility change, a local hint asks you to change the search or close/reopen before using copy again. No new copy begins until any earlier system write actually settles.
+
+These controls have deterministic DOM-model coverage. Native system clipboard behavior, assistive-technology announcements and narrow-screen appearance have not yet been verified for this addition.
+
 ## Explicit All workspaces scope
 
 Choose **Workspaces → All workspaces** to search saved sites in every active workspace on this device, including Default. Results show their workspace name; category choices are labeled **Workspace · Category**. Identical titles, URLs, category IDs and copied shortcut IDs in different workspaces stay separate. Opening a result opens only that site in a new tab; it does not switch workspaces, mark a workspace used, change Tasks or alter an open editor. No icons or previews are fetched.

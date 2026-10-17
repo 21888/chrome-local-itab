@@ -964,6 +964,27 @@
   "finderShowing": {
     "message": "Showing"
   },
+  "finderCopyURL": {
+    "message": "Copy URL"
+  },
+  "finderCopyPending": {
+    "message": "Copying URL…"
+  },
+  "finderCopySuccess": {
+    "message": "URL copied."
+  },
+  "finderCopyError": {
+    "message": "Could not copy the URL. Try again."
+  },
+  "finderCopyUnavailable": {
+    "message": "Copying is unavailable in this browser. You can select the displayed URL."
+  },
+  "finderCopyRefresh": {
+    "message": "Copy controls need refreshing. Change the search or close and reopen this panel."
+  },
+  "finderCopyStale": {
+    "message": "This result changed. Search again to copy its URL."
+  },
   "finderChanged": {
     "message": "This saved site changed or is no longer available. Results refreshed; choose again."
   },

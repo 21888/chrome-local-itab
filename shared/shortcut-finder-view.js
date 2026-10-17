@@ -15,6 +15,9 @@
         finderEmpty: 'No saved sites yet.', finderNone: 'No matching saved sites.', finderClose: 'Close', finderClear: 'Clear',
         finderPrevious: 'Previous results', finderNext: 'Next results', finderResults: 'Results', finderShowing: 'Showing',
         finderPending: 'Checking the latest saved site…', finderReadError: 'Could not verify the saved site. Nothing was opened. Try again.', finderBlocked: 'Could not open a new tab. Allow this page to open tabs and try again.',
+        finderCopyURL: 'Copy URL', finderCopyPending: 'Copying URL…', finderCopySuccess: 'URL copied.', finderCopyError: 'Could not copy the URL. Try again.',
+        finderCopyRefresh: 'Copy controls need refreshing. Change the search or close and reopen this panel.',
+        finderCopyUnavailable: 'Copying is unavailable in this browser. You can select the displayed URL.', finderCopyStale: 'This result changed. Search again to copy its URL.',
         finderChanged: 'This saved site changed or is no longer available. Results refreshed; choose again.', finderUnsafe: 'Unsupported address', finderCatalogMatch: 'Built-in use/alias match'
     };
     const t = key => { const value = root.i18n?.t(key); return value && value !== key ? value : fallback[key]; };
@@ -26,10 +29,17 @@
     function button(text, action, className = 'finder-button') {
         const node = el('button', className, text); node.type = 'button'; node.addEventListener('click', action); return node;
     }
+    // Finder-only write ownership survives host destroy/remount. No clipboard
+    // contents are retained here; observers receive only the busy state.
+    let copyPending = null;
+    const copyObservers = new Set();
+    const notifyCopyPending = () => { for (const observer of copyObservers) observer(); };
     function mount(host, options) {
         const controller = new api.Controller(options);
         let preparation = null, preparationEpoch = 0;
-        let overlay = null, input, categorySelect, matchSelect, matchHint, list, status, alert, previous, next, cleanup, composing = false, compositionTarget = null;
+        let copyEpoch = 0, renderEpoch = 0, destroyed = false, pageHidden = false;
+        const copyControls = new Set();
+        let overlay = null, input, categorySelect, matchSelect, matchHint, list, status, alert, copyNotice, previous, next, cleanup, composing = false, compositionTarget = null;
         const opener = button(t('finderOpen'), open);
         opener.classList.add('finder-opener'); opener.setAttribute('aria-haspopup', 'dialog');
         const shortcutEnabled = options.shortcutEnabled !== false;
@@ -57,7 +67,7 @@
             event.preventDefault();
             open();
         }
-        const compositionStart = event => { compositionTarget = event.target; };
+        const compositionStart = event => { compositionTarget = event.target; invalidateCopyReceipt(); };
         const compositionEnd = () => { compositionTarget = null; };
         const compositionFocus = event => {
             if (compositionTarget && !compositionTarget.contains(event.target)) compositionTarget = null;
@@ -66,14 +76,112 @@
         document.body.addEventListener('compositionstart', compositionStart);
         document.body.addEventListener('compositionend', compositionEnd);
         document.body.addEventListener('focusin', compositionFocus);
+        // Clipboard completion owns only its original receipt. The system write
+        // cannot be cancelled: keep its lock even when that receipt is retired.
+        function invalidateCopyReceipt() {
+            copyEpoch++;
+            for (const node of list?.querySelectorAll('.finder-copy-status') || []) node.textContent = '';
+        }
+        function shown(node) {
+            if (!node?.isConnected || !node.getClientRects().length) return false;
+            const style = root.getComputedStyle?.(node);
+            if (style?.visibility === 'hidden' || style?.visibility === 'collapse') return false;
+            for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement) {
+                if (ancestor.tagName !== 'DETAILS' || ancestor.open) continue;
+                const summary = Array.from(ancestor.children).find(child => child.tagName === 'SUMMARY');
+                if (!summary?.contains(node)) return false;
+            }
+            return true;
+        }
+        const visible = () => !destroyed && !pageHidden && shown(host) &&
+            !host.closest('[hidden], [aria-hidden="true"]') && !document.hidden && document.visibilityState !== 'hidden';
+        function retireCopyControls() {
+            renderEpoch++; invalidateCopyReceipt(); updateCopyPending();
+            // One fixed hint, with no URL or previous write result.
+            if (overlay && copyNotice) copyNotice.textContent = t('finderCopyRefresh');
+        }
+        // Observe only this view's owner chains and current result subtree.
+        // Drain queued records before activation to catch same-task DOM ABA.
+        const ownershipChanged = records => {
+            if (!overlay) return;
+            const containsCopy = node => [...copyControls].some(control => node?.contains?.(control));
+            const owns = node => node?.contains?.(host) || node?.contains?.(overlay) || containsCopy(node);
+            if (records.some(record => record.type === 'childList' ? Array.from(record.removedNodes).some(owns) :
+                owns(record.target) && (record.attributeName !== 'inert' || record.target?.contains?.(overlay) || containsCopy(record.target)))) retireCopyControls();
+        };
+        const copyObserver = root.MutationObserver ? new root.MutationObserver(ownershipChanged) : null;
+        const watchCopyOwners = () => {
+            copyObserver?.disconnect();
+            for (let ancestor = host; ancestor; ancestor = ancestor.parentElement) copyObserver?.observe(ancestor, {
+                childList: true, attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'style', 'class', 'inert', 'open']
+            });
+            if (overlay) copyObserver?.observe(overlay, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'style', 'class', 'inert', 'open'] });
+        };
+        watchCopyOwners();
+        const copyVisibilityChanged = () => { retireCopyControls(); };
+        const copyPageHide = () => { pageHidden = true; retireCopyControls(); };
+        const copyPageShow = () => { pageHidden = false; retireCopyControls(); };
+        document.addEventListener('visibilitychange', copyVisibilityChanged);
+        root.addEventListener?.('pagehide', copyPageHide);
+        root.addEventListener?.('pageshow', copyPageShow);
+        function updateCopyPending() {
+            if (!overlay || destroyed) return;
+            for (const node of list.querySelectorAll('.finder-copy-url')) node.setAttribute('aria-disabled', String(Boolean(copyPending) || node.disabled || node.dataset.finderCopyEpoch !== String(renderEpoch)));
+        }
+        copyObservers.add(updateCopyPending);
+        function makeCopyControl(row, item) {
+            const ownedOverlay = overlay, ownedList = list, generation = renderEpoch;
+            const feedback = el('span', 'finder-copy-status'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
+            const current = () => { ownershipChanged(copyObserver?.takeRecords() || []); return overlay === ownedOverlay && list === ownedList && generation === renderEpoch &&
+                visible() && shown(overlay) && overlay.getAttribute('aria-hidden') !== 'true' &&
+                copyControls.has(copy) && item.parentElement === list && copy.parentElement === item && shown(copy) &&
+                !copy.closest('[hidden], [aria-hidden="true"], [inert]'); };
+            const copy = button(t('finderCopyURL'), event => {
+                if (!current() || copy.disabled || copyPending || composing || compositionTarget || event.defaultPrevented ||
+                    event.isComposing || event.keyCode === 229 || event.repeat) return;
+                const receipt = ++copyEpoch;
+                // Only consult the already-loaded snapshot. Do not activate,
+                // reserve a tab, reread storage, or use a normalized destination.
+                let record;
+                try {
+                    const links = options.getSnapshot()?.links || [];
+                    record = links.includes(row.token.reference) && controller.resolve(row.token, links);
+                } catch (_) { /* A changed/unavailable loaded snapshot is stale. */ }
+                if (!record || record.url !== row.url || !root.LocalItabStoredURL?.destinationForSavedURL(row.url)) {
+                    feedback.textContent = t('finderCopyStale'); return;
+                }
+                const request = {};
+                copyPending = request; notifyCopyPending();
+                feedback.textContent = t('finderCopyPending');
+                const finish = key => {
+                    if (copyPending === request) copyPending = null;
+                    notifyCopyPending(); // Unlock only; a late receipt never claims new UI or focus.
+                    if (current() && copyEpoch === receipt) feedback.textContent = t(key);
+                };
+                try {
+                    const clipboard = root.navigator?.clipboard;
+                    if (typeof clipboard?.writeText !== 'function') { finish('finderCopyUnavailable'); return; }
+                    // Must start directly in the explicit native click's activation stack.
+                    Promise.resolve(clipboard.writeText(row.url)).then(() => finish('finderCopySuccess'), () => finish('finderCopyError'));
+                } catch (_) { finish('finderCopyError'); }
+            }, 'finder-button finder-copy-url');
+            copy.dataset.finderCopyEpoch = String(generation);
+            copy.disabled = !root.LocalItabStoredURL?.destinationForSavedURL(row.url);
+            copy.setAttribute('aria-label', `${t('finderCopyURL')}: ${row.title}`);
+            copyControls.add(copy); item.append(copy, feedback);
+        }
         function close() {
             if (!overlay) return;
-            const old = overlay; overlay = null; cleanup?.(); cleanup = null; old.remove();
+            invalidateCopyReceipt(); renderEpoch++; copyControls.clear();
+            copyObserver?.disconnect();
+            const old = overlay; overlay = null; if (!destroyed) watchCopyOwners(); cleanup?.(); cleanup = null; old.remove();
             preparationEpoch++; options.setScope?.('current');
             controller.clear(); composing = false; compositionTarget = null;
         }
         function render(page = 0) {
             if (!overlay) return;
+            invalidateCopyReceipt(); renderEpoch++; copyControls.clear();
+            copyNotice.textContent = ''; watchCopyOwners();
             if (preparation) {
                 list.replaceChildren(); previous.hidden = next.hidden = true;
                 status.textContent = t(preparation === 'loading' ? 'finderPending' : options.getScope?.() === 'all' ? 'finderAllUnavailable' : 'finderReadError');
@@ -100,7 +208,7 @@
             status.textContent = !result.saved ? t('finderEmpty') : !result.query.trim() && !result.category ? t('finderHint') : !result.total ? t('finderNone') :
                 `${t('finderResults')}: ${result.total} · ${t('finderShowing')}: ${result.start + 1}–${result.start + result.rows.length}`;
             for (const row of result.rows) {
-                const item = el('li');
+                const item = el('li', 'finder-row');
                 const control = button('', async event => {
                     // Browser-generated Enter/Space clicks have detail=0; a composing key must never launch.
                     if (composing || event.isComposing) return;
@@ -120,16 +228,16 @@
                 control.append(el('span', 'finder-title', row.title), el('span', 'finder-meta', `${row.category} · ${row.domain || t('finderUnsafe')}`), el('span', 'finder-url', row.url));
                 if (row.workspace) control.append(el('span', 'finder-meta finder-workspace', row.workspace));
                 if (row.catalogMatches?.length) control.append(el('span', 'finder-meta finder-catalog-match', `${t('finderCatalogMatch')}: ${row.catalogMatches.join(' · ')}`));
-                item.append(control); list.append(item);
+                item.append(control); makeCopyControl(row, item); list.append(item);
             }
             previous.hidden = !result.hasPrevious; next.hidden = !result.hasNext;
-            updatePending();
+            updatePending(); updateCopyPending(); copyObserver?.takeRecords();
             if (hadResultFocus || (focused === next && next.hidden) || (focused === previous && previous.hidden)) input.focus({ preventScroll: true });
         }
         function updatePending() {
             if (!overlay || preparation) return;
             list.setAttribute('aria-busy', String(Boolean(controller.pending)));
-            for (const control of list.querySelectorAll('button')) {
+            for (const control of list.querySelectorAll('.finder-result')) {
                 const disabled = Boolean(controller.pending) || control.dataset.finderUnsafe === 'true';
                 // Chrome blurs a disabled active button to the body, outside this
                 // dialog's Escape/Tab handlers. Transfer only its owned focus
@@ -200,6 +308,7 @@
             categorySelect.setAttribute('aria-describedby', categoryHint.id);
             status = el('p', 'finder-meta'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
             alert = el('p', 'finder-alert'); alert.setAttribute('role', 'status');
+            copyNotice = el('p', 'finder-copy-notice finder-meta'); copyNotice.setAttribute('role', 'status');
             list = el('ul', 'finder-list');
             previous = button(t('finderPrevious'), () => render(controller.page - 1));
             next = button(t('finderNext'), () => render(controller.page + 1));
@@ -208,12 +317,12 @@
             const pages = el('div', 'finder-actions'); pages.append(previous, next);
             panel.append(heading, scope);
             if (workspaceSelect) panel.append(workspaceLabel, workspaceSelect, workspaceHint);
-            panel.append(label, input, matchLabel, matchSelect, matchHint, categoryLabel, categorySelect, categoryHint, actions, status, alert, list, pages); overlay.append(panel); document.body.append(overlay);
+            panel.append(label, input, matchLabel, matchSelect, matchHint, categoryLabel, categorySelect, categoryHint, actions, status, alert, copyNotice, list, pages); overlay.append(panel); document.body.append(overlay);
             matchSelect.addEventListener('change', filterChanged);
             categorySelect.addEventListener('change', filterChanged);
-            input.addEventListener('input', () => { alert.textContent = ''; if (!composing) filterChanged(); });
+            input.addEventListener('input', () => { invalidateCopyReceipt(); alert.textContent = ''; if (!composing) filterChanged(); });
             input.addEventListener('compositionstart', () => {
-                composing = true; controller.cancelPending();
+                invalidateCopyReceipt(); composing = true; controller.cancelPending();
                 if (options.getScope?.() === 'all' && preparation === 'loading') preparationEpoch++;
                 updatePending();
             });
@@ -224,24 +333,31 @@
                     if (event.target !== input && ['Enter', ' '].includes(event.key)) event.preventDefault();
                     event.stopImmediatePropagation(); return;
                 }
+                if (event.target.closest?.('.finder-copy-url') && (event.defaultPrevented || event.repeat) && ['Enter', ' '].includes(event.key)) { event.preventDefault(); return; }
                 if (event.key === 'Enter' && event.repeat) { event.preventDefault(); return; }
                 // Results use native buttons, not a synthetic Enter/Space handler.
                 if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !['ArrowDown', 'ArrowUp'].includes(event.key)) return;
-                const controls = Array.from(list.querySelectorAll('button')).filter(node => !node.disabled);
+                const controls = Array.from(list.querySelectorAll('.finder-result')).filter(node => !node.disabled);
                 const index = controls.indexOf(event.target);
                 if ((event.target !== input && index < 0) || !controls.length) return;
                 event.preventDefault();
                 const target = event.target === input ? (event.key === 'ArrowDown' ? 0 : controls.length - 1) : (index + (event.key === 'ArrowDown' ? 1 : -1) + controls.length) % controls.length;
                 controls[target].focus();
             });
-            prepare(); cleanup = root.LocalItabDialog.open(overlay, input, close);
+            prepare(); cleanup = root.LocalItabDialog.open(overlay, input, close); copyObserver?.takeRecords();
         }
         const unsubscribe = options.subscribe?.(() => {
             if (!overlay) return;
+            invalidateCopyReceipt();
             if (options.getScope?.() === 'all') prepare();
             else if (!composing) render(controller.page);
         });
-        return { get pending() { return Boolean(controller.pending); }, hasUncommittedWork: () => Boolean(overlay), refresh: () => { if (overlay && !composing) render(controller.page); }, close, destroy() {
+        return { get pending() { return Boolean(controller.pending); }, hasUncommittedWork: () => Boolean(overlay), refresh: () => { invalidateCopyReceipt(); if (overlay && !composing) render(controller.page); }, close, destroy() {
+            destroyed = true; invalidateCopyReceipt(); renderEpoch++;
+            copyObservers.delete(updateCopyPending); copyObserver?.disconnect();
+            document.removeEventListener('visibilitychange', copyVisibilityChanged);
+            root.removeEventListener?.('pagehide', copyPageHide);
+            root.removeEventListener?.('pageshow', copyPageShow);
             document.body.removeEventListener('keydown', handleShortcut);
             document.body.removeEventListener('compositionstart', compositionStart);
             document.body.removeEventListener('compositionend', compositionEnd);

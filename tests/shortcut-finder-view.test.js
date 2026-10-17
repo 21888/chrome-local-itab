@@ -41,7 +41,7 @@ test('stale result does not launch another index; no interpolation; IME defers r
 });
 test('source contract: local-only reads, text-safe rendering, no document-level keys, native result activation', () => {
     const source = ['shared/shortcut-finder.js', 'shared/shortcut-finder-view.js'].map(file => fs.readFileSync(path.join(base, file), 'utf8')).join('\n');
-    for (const pattern of [/fetch\s*\(/, /XMLHttpRequest/, /chrome\.(history|tabs|bookmarks)/, /localStorage/, /\.storage\./, /innerHTML/, /buildSearchUrl/, /navigator\.clipboard/, /document\.addEventListener/]) assert.doesNotMatch(source, pattern);
+    for (const pattern of [/fetch\s*\(/, /XMLHttpRequest/, /chrome\.(history|tabs|bookmarks)/, /localStorage/, /\.storage\./, /innerHTML/, /buildSearchUrl/, /clipboard\s*\.\s*read(?:Text)?\s*\(/, /permissions\s*\.\s*(query|request)\s*\(/, /execCommand\s*\(/, /document\.addEventListener\s*\(\s*['"]key/]) assert.doesNotMatch(source, pattern);
     assert.match(source, /textContent/); assert.match(source, /event\.repeat/); assert.match(source, /stopImmediatePropagation/);
 });
 test('host adapter observes only local links/categories and never mutates active component/editor', () => {

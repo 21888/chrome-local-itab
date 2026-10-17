@@ -1,18 +1,25 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
 const { fixture, W, F, clone, id } = require('./helpers/finder-workspaces-fixture');
-const { createDocument, deferred } = require('./helpers/finder-dom-model');
+const { createDocument, deferred } = require('./helpers/finder-copy-dom-model');
 const tick = () => new Promise(setImmediate);
 async function setup(locale = 'en', { hideSourceOnReserve = false } = {}) {
     const f = await fixture(), document = createDocument({ blurUnavailableFocus: true }), host = document.createElement('header'); document.body.append(host);
-    const currentReads = [], currentSubscribers = new Set(), tabs = [], navigated = [], sourceListeners = new Map();
+    const currentReads = [], currentSubscribers = new Set(), tabs = [], navigated = [], sourceListeners = new Map(), sourceListenerGroups = new Map();
     const messages = JSON.parse(fs.readFileSync(path.join(__dirname, '../_locales', locale, 'messages.json')));
     const component = { links: [{ title: 'Unsaved tile edit', url: 'https://unsaved.test/' }], categories: [], layout: { x: 47, y: 81 }, draft: 'Unsaved draft',
         openShortcutRecord(record, tab) { assert.deepEqual(Object.keys(record), ['url']); assert.deepEqual(f.calls.held, [...F.LOCKS]); tab.location.replace(record.url); return true; } };
     const untouched = JSON.stringify(component);
-    const context = { window: null, document, URL, TextEncoder, setTimeout, clearTimeout,
-        addEventListener(type, listener) { sourceListeners.set(type, listener); },
-        removeEventListener(type, listener) { if (sourceListeners.get(type) === listener) sourceListeners.delete(type); },
+    const context = { window: null, document, MutationObserver: document.MutationObserver, URL, TextEncoder, setTimeout, clearTimeout,
+        addEventListener(type, listener) {
+            if (!sourceListenerGroups.has(type)) sourceListenerGroups.set(type, new Set());
+            sourceListenerGroups.get(type).add(listener);
+            sourceListeners.set(type, () => { for (const callback of [...sourceListenerGroups.get(type) || []]) callback(); });
+        },
+        removeEventListener(type, listener) {
+            sourceListenerGroups.get(type)?.delete(listener);
+            if (!sourceListenerGroups.get(type)?.size) { sourceListenerGroups.delete(type); sourceListeners.delete(type); }
+        },
         navigator: { locks: f.locks }, chrome: f.chrome,
         LocalItabWorkspaces: W, LocalItabPrompts: require('../shared/local-prompts-store'), LocalItabAICollections: require('../shared/local-ai-collections-store'),
         i18n: { t: key => messages[key]?.message || key },
@@ -37,17 +44,17 @@ async function setup(locale = 'en', { hideSourceOnReserve = false } = {}) {
     const scope = value => { const select = document.querySelector('.finder-workspace-scope'); select.value = value; select.dispatch('change'); };
     const query = value => { const input = document.querySelector('input'); input.value = value; input.dispatch('input'); };
     const status = () => document.querySelectorAll('.finder-meta').find(item => item.getAttribute('role') === 'status')?.textContent;
-    return { ...f, document, host, view, sourceListeners, currentReads, currentSubscribers, tabs, navigated, component, untouched, context, open, scope, query, status };
+    return { ...f, document, host, view, sourceListeners, sourceListenerGroups, currentReads, currentSubscribers, tabs, navigated, component, untouched, context, open, scope, query, status };
 }
 test('actual host/view Current default adds zero All native reads, byte calls, locks or subscriptions; close/reopen starts Current', async () => {
     const f = await setup(); await f.open(); f.query('Synthetic');
     assert.equal(f.document.querySelectorAll('.finder-result').length, 1); assert.equal(f.document.querySelector('.finder-workspace-scope').value, 'current');
-    assert.equal(f.currentReads.length, 1); assert.equal(f.currentSubscribers.size, 1); assert.equal(f.sourceListeners.size, 0);
+    assert.equal(f.currentReads.length, 1); assert.equal(f.currentSubscribers.size, 1); assert.deepEqual([...f.sourceListenerGroups.keys()].sort(), ['pagehide', 'pageshow']); assert(f.sourceListenerGroups.get('pagehide').size === 1 && f.sourceListenerGroups.get('pageshow').size === 1, 'only the view’s copy lifecycle hooks remain');
     assert.equal(f.calls.get.length + f.calls.bytes.length + f.calls.locks.length + f.listeners.size, 0);
     f.scope('all'); await tick(); assert.equal(f.document.querySelectorAll('.finder-result').length, 2); assert.equal(f.listeners.size, 1);
     const reads = f.calls.get.length; f.view.close(); assert.equal(f.listeners.size, 0); await f.open();
     assert.equal(f.document.querySelector('.finder-workspace-scope').value, 'current'); assert.equal(f.calls.get.length, reads);
-    assert.equal(JSON.stringify(f.component), f.untouched); assert.equal(f.calls.writers + f.calls.manager, 0); f.view.destroy(); assert.equal(f.currentSubscribers.size, 0);
+    assert.equal(JSON.stringify(f.component), f.untouched); assert.equal(f.calls.writers + f.calls.manager, 0); f.view.destroy(); assert.equal(f.currentSubscribers.size, 0); assert.equal(f.sourceListeners.size, 0); assert.equal(f.sourceListenerGroups.size, 0); assert.equal(f.document.listeners.size, 0);
 });
 test('same IDs in different workspaces are separate literal rows and exact categories, no icons/tasks/source component changes', async () => {
     const f = await setup(); f.defaultValues().links[0].layoutId = f.namedValues().links[0].layoutId = id(1);
@@ -228,7 +235,7 @@ test('source pagehide cancels visible or already-hidden source activations and s
         assert.equal(Boolean(f.document.hidden), hidden); assert.equal(tab.document.visibilityState, 'visible');
         const reads = f.calls.get.length, bytes = f.calls.bytes.length, locks = f.calls.locks.length;
         const departure = f.sourceListeners.get('pagehide'); assert.equal(typeof departure, 'function'); departure({ persisted: true });
-        assert.equal(tab.closed, true); assert.equal(f.listeners.size, 0); assert.equal(f.sourceListeners.size, 0);
+        assert.equal(tab.closed, true); assert.equal(f.listeners.size, 0); assert.deepEqual([...f.sourceListenerGroups.keys()].sort(), ['pagehide', 'pageshow']); assert(f.sourceListenerGroups.get('pagehide').size === 1 && f.sourceListenerGroups.get('pageshow').size === 1, 'only the view’s copy lifecycle hooks remain');
         gate.resolve(); await tick(); assert.equal(f.navigated.length, 0); assert.equal(f.calls.get.length, reads); assert.equal(f.calls.bytes.length, bytes); assert.equal(f.calls.locks.length, locks);
         assert.equal(f.document.querySelectorAll('.finder-result').length, 0); assert.match(f.status(), /unavailable/);
         f.view.close(); assert.equal(tab.closeCalls, 1); f.view.destroy();
@@ -244,4 +251,28 @@ test('source pagehide cancels a pending scan, retires its hooks, and never close
     f.document.querySelector('.finder-result').dispatch('click'); await tick(); f.tabs[0].location.href = 'https://user-choice.test/';
     f.sourceListeners.get('pagehide')({ persisted: true }); second.resolve(); await tick();
     assert.equal(f.tabs[0].closed, false); assert.equal(f.navigated.length, 0); f.view.destroy();
+});
+
+test('actual host All copy uses only loaded row raw URL, with no additional storage, locks, tabs or active workspace changes', async () => {
+    const f = await setup(), copied = []; f.context.navigator.clipboard = { writeText(value) { copied.push(value); return Promise.resolve(); } };
+    f.namedValues().links[0].url = 'example.test/中文?b=%2f&a=1#片段';
+    await f.open(); f.query('Synthetic'); f.scope('all'); await tick();
+    const before = { gets: f.calls.get.length, bytes: f.calls.bytes.length, locks: f.calls.locks.length, reads: f.currentReads.length, raw: JSON.stringify(f.raw) };
+    const copies = f.document.querySelectorAll('.finder-copy-url'); assert.equal(copies.length, 2); copies[1].dispatch('click');
+    assert.deepEqual(copied, ['example.test/中文?b=%2f&a=1#片段']); await tick();
+    assert.equal(f.calls.get.length, before.gets); assert.equal(f.calls.bytes.length, before.bytes); assert.equal(f.calls.locks.length, before.locks); assert.equal(f.currentReads.length, before.reads);
+    assert.equal(f.tabs.length + f.navigated.length + f.calls.writers + f.calls.manager, 0); assert.equal(JSON.stringify(f.raw), before.raw); assert.equal(JSON.stringify(f.component), f.untouched);
+    f.view.destroy(); assert.equal(f.sourceListenerGroups.size, 0); assert.equal(f.document.listeners.size, 0);
+});
+test('actual host destroy/remount preserves Finder-wide system write ownership and releases the new view only after settlement', async () => {
+    const f = await setup(), gate = deferred(), writes = []; let count = 0;
+    f.context.navigator.clipboard = { writeText(value) { writes.push(value); return count++ ? Promise.resolve() : gate.promise; } };
+    await f.open(); f.query('Synthetic'); const oldCopy = f.document.querySelector('.finder-copy-url'), oldStatus = f.document.querySelector('.finder-copy-status');
+    oldCopy.dispatch('click'); assert.equal(writes.length, 1); f.view.destroy(); assert.equal(f.sourceListenerGroups.size, 0); assert.equal(f.document.listeners.size, 0);
+    const replacement = f.context.LocalItabFinder.mountForShortcuts(f.host, f.component); await f.open(); f.query('Synthetic');
+    const newCopy = f.document.querySelector('.finder-copy-url'), input = f.document.querySelector('input'); assert.equal(newCopy.getAttribute('aria-disabled'), 'true');
+    newCopy.dispatch('click'); oldCopy.dispatch('click'); assert.equal(writes.length, 1); input.focus();
+    gate.resolve(); await tick(); assert.equal(newCopy.getAttribute('aria-disabled'), 'false'); assert.equal(f.document.querySelector('.finder-copy-status').textContent || '', ''); assert.equal(oldStatus.textContent || '', ''); assert.equal(f.document.activeElement, input);
+    newCopy.dispatch('click'); await tick(); assert.equal(writes.length, 2); assert.match(f.document.querySelector('.finder-copy-status').textContent, /copied/);
+    assert.equal(f.tabs.length + f.navigated.length + f.calls.writers + f.calls.manager, 0); replacement.destroy(); assert.equal(f.sourceListenerGroups.size, 0); assert.equal(f.document.listeners.size, 0);
 });

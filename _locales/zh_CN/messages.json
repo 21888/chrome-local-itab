@@ -964,6 +964,27 @@
   "finderShowing": {
     "message": "显示"
   },
+  "finderCopyURL": {
+    "message": "复制网址"
+  },
+  "finderCopyPending": {
+    "message": "正在复制网址…"
+  },
+  "finderCopySuccess": {
+    "message": "已复制网址。"
+  },
+  "finderCopyError": {
+    "message": "未能复制网址，请重试。"
+  },
+  "finderCopyUnavailable": {
+    "message": "此浏览器暂不支持复制，可手动选择显示的网址。"
+  },
+  "finderCopyRefresh": {
+    "message": "复制按钮需要刷新。请修改查询，或关闭并重新打开面板。"
+  },
+  "finderCopyStale": {
+    "message": "此结果已变化，请重新查找后复制网址。"
+  },
   "finderChanged": {
     "message": "此网站已更改或不可用。结果已刷新，请重新选择。"
   },
