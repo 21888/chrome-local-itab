@@ -2625,6 +2625,9 @@
   "calculatorRecentClear": {
     "message": "Clear recent calculations"
   },
+  "calculatorEditExpression": {
+    "message": "Edit expression"
+  },
   "calculatorUseResult": {
     "message": "Use result"
   },

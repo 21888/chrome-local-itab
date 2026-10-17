@@ -258,3 +258,233 @@ test('fallback labels, text-only rendering and appended wrapping/focus styles ar
     assert.match(css, /\.search-calculator-recent-expression[^}]*white-space:\s*pre-wrap[^}]*overflow-wrap:\s*anywhere/);
     assert.match(css, /\.search-calculator-recent[^}]*:focus-visible[^}]*outline:/); clean(h);
 });
+
+// Expression editing adds coverage without changing the existing harness or tests.
+function expressionEdit(h, index = 0) { return h.rows()[index].querySelector('.search-calculator-recent-edit'); }
+
+test('recent expression edit restores exact original text in both locales and waits for explicit submission', () => {
+    const examples = [['  = .5E+2 + ( -3 )  ', '47'], ['\t=1e-7*2 \t', '2e-7'],
+        ['=0.1+0.2', '0.30000000000000004'], [' =1000000000000000000000 ', '1e+21'], ['=-0', '0'], [' = -12 ', '-12']];
+    for (const locale of ['en', 'zh_CN']) {
+        const h = mount({ locale }); let calculations = 0; const calculate = h.window.LocalItabCalculator.calculate;
+        h.window.LocalItabCalculator = { calculate(expression) { calculations++; return calculate(expression); } };
+        for (const [expression, value] of examples) {
+            h.calculate(expression); h.calculate('=999'); h.edit('unfinished replacement draft'); h.expand();
+            const control = expressionEdit(h, 1), before = calculations, rows = h.rows(), records = recordTexts(h);
+            assert(control, 'each recent row has its own expression edit action'); assert.equal(control.tagName, 'BUTTON');
+            assert.equal(control.type, 'button'); assert.equal(control.tabIndex, 0);
+            assert.equal(control.textContent, h.messages.calculatorEditExpression.message);
+            assert.notEqual(control, h.use(1)); assert.equal(h.use(1).textContent, h.messages.calculatorUseResult.message);
+            control.focus(); control.dispatch('click');
+            assert.equal(h.input.value, expression); assert.equal(calculations, before, 'editing never evaluates');
+            assert.equal(h.document.activeElement, h.input); assert.equal(h.input.selectionStart, expression.length); assert.equal(h.input.selectionEnd, expression.length);
+            assert.equal(h.row.hidden, true); assert.equal(h.value.value, ''); assert.equal(h.feedback.hidden, true);
+            assert.equal(h.status.textContent, h.messages.calculatorHint.message); assert.equal(h.searchStatus.textContent, '');
+            assert.deepEqual(recordTexts(h), records, 'editing does not append, reorder or clear history');
+            assert.deepEqual(h.rows(), rows, 'editing does not redraw history'); assert.equal(h.recent.open, true);
+            assert.equal(h.window.LocalItabContentLifecycle.hasUncommittedWork(), true);
+            h.submit(); assert.equal(calculations, before + 1); assert.equal(h.value.value, value);
+            assert.deepEqual(recordTexts(h)[0], [expression, value]);
+            assert.deepEqual(recordTexts(h), [[expression, value], ...records].slice(0, 5), 'only explicit submission adds a record');
+        }
+        assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('expression edit clears successful copy feedback and calculator/search errors through the existing hint path', async () => {
+    const h = mount(), expression = '  =1E-7 * 2  ';
+    h.calculate(expression); h.calculate('=8'); h.expand(); h.copy.dispatch('click'); await settle();
+    assert.equal(h.feedback.textContent, h.messages.calculatorCopySuccess.message);
+    expressionEdit(h, 1).dispatch('click'); assert.equal(h.input.value, expression);
+    assert.equal(h.feedback.textContent, ''); assert.equal(h.feedback.hidden, true); assert.equal(h.row.hidden, true);
+    h.calculate('=1/0'); assert.equal(h.status.classList.contains('is-error'), true);
+    expressionEdit(h, 1).dispatch('click'); assert.equal(h.input.value, expression);
+    assert.equal(h.status.classList.contains('is-error'), false); assert.equal(h.status.textContent, h.messages.calculatorHint.message);
+    h.window.open = () => { throw new Error('blocked'); }; h.edit('ordinary query'); h.submit();
+    assert.equal(h.searchStatus.classList.contains('is-error'), true);
+    expressionEdit(h, 1).dispatch('click'); assert.equal(h.input.value, expression);
+    assert.equal(h.searchStatus.textContent, ''); assert.equal(h.searchStatus.classList.contains('is-error'), false);
+    assert.deepEqual(recordTexts(h), [['=8', '8'], [expression, '2e-7']]); assert.deepEqual(h.calls, ['8']); clean(h);
+});
+
+test('expression edit uses native button activation and rejects modifiers, IME, repeats and double-click tails', () => {
+    for (const key of ['Enter', ' ']) {
+        const h = mount(), expression = ' =42/7 '; h.calculate(expression); h.expand(); h.edit('draft'); const control = expressionEdit(h);
+        assert(control); assert.equal(control.dispatch('keydown', { key }).prevented, false);
+        assert.equal(h.input.value, 'draft', 'keydown does not synthesize an action');
+        for (const flags of [{ repeat: true }, { isComposing: true }, { keyCode: 229 }, { ctrlKey: true }, { metaKey: true }, { altKey: true }, { shiftKey: true }, { defaultPrevented: true }]) {
+            assert(control.dispatch('keydown', { key, ...flags }).prevented); control.dispatch('click', flags);
+            assert.equal(h.input.value, 'draft'); assert.equal(h.rows().length, 1);
+        }
+        control.dispatch('click', { detail: 2 }); assert.equal(h.input.value, 'draft');
+        for (const input of [h.input, h.host.querySelector('.search-custom-input')]) {
+            input.dispatch('compositionstart'); assert(control.dispatch('keydown', { key }).prevented); control.dispatch('click');
+            assert.equal(h.input.value, 'draft'); assert.equal(h.rows().length, 1); input.dispatch('compositionend');
+        }
+        control.dispatch('click', { detail: 0 }); assert.equal(h.input.value, expression); assert.equal(h.rows().length, 1);
+        assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('expression edit rejects unavailable owners, inputs, rows and controls without touching the draft', () => {
+    const unavailable = [
+        h => { h.host.hidden = true; }, h => { h.host.inert = true; }, h => h.host.setAttribute('aria-hidden', 'true'),
+        h => { h.host.style.display = 'none'; }, h => { h.host.style.visibility = 'hidden'; }, h => { h.host.style.visibility = 'collapse'; },
+        h => h.host.remove(), h => { h.document.hidden = true; }, h => { h.document.visibilityState = 'hidden'; },
+        h => h.window.LocalItabContentLifecycle.allowDeparture(), h => { h.recent.open = false; }, h => { h.recent.hidden = true; },
+        h => { h.recentList.hidden = true; }, h => { h.rows()[0].hidden = true; }, h => h.rows()[0].remove(),
+        h => { const row = h.rows()[0]; row.remove(); h.host.append(row); },
+        h => { expressionEdit(h).disabled = true; }, h => { expressionEdit(h).hidden = true; }, h => { expressionEdit(h).inert = true; },
+        h => expressionEdit(h).setAttribute('aria-hidden', 'true'), h => { expressionEdit(h).style.display = 'none'; },
+        h => { expressionEdit(h).style.visibility = 'hidden'; }, h => { expressionEdit(h).style.visibility = 'collapse'; },
+        h => expressionEdit(h).remove(), h => { const control = expressionEdit(h); control.remove(); h.document.body.append(control); },
+        h => { const control = expressionEdit(h); control.remove(); h.host.append(control); },
+        h => { h.input.hidden = true; }, h => { h.input.inert = true; }, h => h.input.setAttribute('aria-hidden', 'true'),
+        h => { h.input.style.display = 'none'; }, h => { h.input.style.visibility = 'hidden'; }, h => { h.input.style.visibility = 'collapse'; },
+        h => { h.input.disabled = true; }, h => { h.input.readOnly = true; }, h => h.input.remove(),
+        h => { h.input.remove(); h.document.body.append(h.input); }, h => { h.window.localCalculatorView = {}; },
+        h => { const details = h.document.createElement('details'); h.host.remove(); details.append(h.host); h.document.body.append(details); }
+    ];
+    for (const [index, hide] of unavailable.entries()) {
+        const h = mount(); h.calculate(); h.expand(); h.edit('draft'); const control = expressionEdit(h); assert(control); hide(h);
+        const focus = h.document.activeElement; control.dispatch('click');
+        assert.equal(h.input.value, 'draft', `unavailable expression scenario ${index}`); assert.equal(h.document.activeElement, focus);
+        assert.equal(h.input.selectionStart, undefined); assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+    const h = mount(); h.calculate(' =42/7 '); h.expand(); h.edit('draft'); const control = expressionEdit(h);
+    h.host.hidden = true; control.dispatch('click'); h.host.hidden = false; control.dispatch('click');
+    assert.equal(h.input.value, ' =42/7 '); assert.deepEqual(recordTexts(h), [[' =42/7 ', '6']]); clean(h);
+});
+
+test('expression and result actions have independent control ownership and exact row membership', () => {
+    for (const selected of ['expression', 'result']) {
+        const h = mount(); h.calculate(' =3+4 '); h.expand(); h.edit('draft');
+        const control = selected === 'expression' ? expressionEdit(h) : h.use();
+        const sibling = selected === 'expression' ? h.use() : expressionEdit(h);
+        sibling.remove(); h.copy.remove(); h.useResult.remove();
+        Object.defineProperty(h.window.navigator, 'clipboard', { get() { h.io.push('clipboard getter'); throw new Error('No clipboard'); } });
+        control.dispatch('click'); assert.equal(h.input.value, selected === 'expression' ? ' =3+4 ' : '=7');
+        assert.equal(h.rows().length, 1); assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+    for (const selected of ['expression', 'result']) {
+        const h = mount(); h.calculate('=3+4'); h.calculate('=9'); h.expand(); h.edit('draft');
+        const control = selected === 'expression' ? expressionEdit(h, 1) : h.use(1), originalRow = h.rows()[1];
+        control.remove(); h.rows()[0].append(control); control.dispatch('click');
+        assert.equal(h.input.value, 'draft', 'a current control moved into a different record row has no authority');
+        control.remove(); originalRow.append(control); control.dispatch('click');
+        assert.equal(h.input.value, selected === 'expression' ? '=3+4' : '=7'); clean(h);
+    }
+});
+
+test('both recent actions reject reattached stale controls and entire rows after redraw, clear and eviction', () => {
+    for (const invalidation of ['redraw', 'clear', 'evict']) {
+        const h = mount(); h.calculate(' =3+4 '); h.expand(); const row = h.rows()[0], controls = [h.use(), expressionEdit(h)];
+        if (invalidation === 'clear') h.clearRecent.dispatch('click');
+        if (invalidation === 'evict') for (let n = 0; n < 5; n++) h.calculate(`=${n}`);
+        else h.calculate('=9');
+        h.edit('new draft'); const records = recordTexts(h), currentRows = h.rows();
+        h.recentList.append(row);
+        for (const control of controls) { control.dispatch('click'); assert.equal(h.input.value, 'new draft', `${invalidation}: reattached old row`); }
+        row.remove();
+        for (const control of controls) {
+            control.remove(); currentRows[0].append(control); control.dispatch('click');
+            assert.equal(h.input.value, 'new draft', `${invalidation}: old control in a new row`); control.remove();
+        }
+        assert.deepEqual(recordTexts(h), records); assert.deepEqual(h.rows(), currentRows);
+        assert.equal(h.input.selectionStart, undefined); assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('old expression edit cannot regain authority after owner remount even when its entire form is reattached', () => {
+    const h = mount(); h.calculate(' =3+4 '); h.expand(); const controls = [h.use(), expressionEdit(h)], oldForm = h.form;
+    const current = h.remount(); current.calculate('=9'); current.expand(); current.edit('replacement draft'); current.input.focus();
+    h.host.append(oldForm);
+    for (const control of controls) control.dispatch('click');
+    assert.equal(current.input.value, 'replacement draft'); assert.equal(h.input.value, ' =3+4 ');
+    assert.equal(h.document.activeElement, current.input); assert.equal(current.input.selectionStart, undefined);
+    assert.deepEqual(recordTexts(current).slice(0, 1), [['=9', '9']]);
+    oldForm.remove(); assert.deepEqual(recordTexts(current), [['=9', '9']]); clean(h);
+});
+
+test('expression focus reentry preserves newer edits, ABA revisions, submissions, record changes and owner state', () => {
+    const interruptions = [
+        h => h.edit('new draft'), h => { h.edit('other draft'); h.edit('draft'); }, h => { h.input.value = 'direct change'; },
+        h => { h.input.value = '=42'; h.submit(); }, h => h.submit(), h => h.calculate('=4+8'),
+        h => { const input = h.host.querySelector('.search-custom-input'); input.value = 'changed'; input.dispatch('input'); input.value = ''; input.dispatch('input'); },
+        h => h.clearRecent.dispatch('click'), h => { for (let n = 0; n < 5; n++) h.calculate(`=${n}`); },
+        h => h.input.dispatch('compositionstart'), h => h.host.querySelector('.search-custom-input').dispatch('compositionstart'),
+        h => { h.input.disabled = true; }, h => { h.input.readOnly = true; }, h => { h.input.hidden = true; },
+        h => { h.recent.open = false; }, h => { h.document.hidden = true; }, h => { h.document.visibilityState = 'hidden'; },
+        h => { expressionEdit(h).disabled = true; }, h => { expressionEdit(h).hidden = true; }, h => expressionEdit(h).remove(),
+        h => h.rows()[0].remove(), h => { const row = h.rows()[0]; row.remove(); h.host.append(row); },
+        h => h.input.remove(), h => h.host.remove(), h => h.window.LocalItabContentLifecycle.allowDeparture(),
+        h => { h.document.activeElement = h.document.body; },
+        h => { const current = h.remount(); current.edit('replacement draft'); current.input.focus(); }
+    ];
+    for (const [index, interrupt] of interruptions.entries()) {
+        const h = mount(); h.calculate(' =3+4 '); h.expand(); h.edit('draft'); const control = expressionEdit(h); let expected;
+        assert(control); const focus = h.input.focus.bind(h.input); h.input.focus = () => {
+            focus(); interrupt(h); expected = { value: h.input.value, result: h.value.value, status: h.status.textContent, focus: h.document.activeElement };
+            h.input.selectionStart = 1; h.input.selectionEnd = 2;
+        };
+        control.dispatch('click'); assert(expected, `expression focus callback ${index}`);
+        assert.equal(h.input.value, expected.value, `expression focus reentry ${index}`); assert.equal(h.value.value, expected.result);
+        assert.equal(h.status.textContent, expected.status); assert.equal(h.document.activeElement, expected.focus);
+        assert.equal(h.input.selectionStart, 1); assert.equal(h.input.selectionEnd, 2); clean(h);
+    }
+});
+
+test('focus reentry from either recent action cannot overwrite the newer sibling action', () => {
+    for (const selected of ['expression', 'result']) {
+        const h = mount(); h.calculate(' =3+4 '); h.expand(); h.edit('draft');
+        const control = selected === 'expression' ? expressionEdit(h) : h.use();
+        const newer = selected === 'expression' ? h.use() : expressionEdit(h);
+        const focus = h.input.focus.bind(h.input); let entered = false;
+        h.input.focus = () => { focus(); if (!entered) { entered = true; newer.dispatch('click'); } };
+        control.dispatch('click'); const expected = selected === 'expression' ? '=7' : ' =3+4 ';
+        assert.equal(h.input.value, expected); assert.equal(h.input.selectionStart, expected.length); assert.equal(h.input.selectionEnd, expected.length);
+        assert.deepEqual(recordTexts(h), [[' =3+4 ', '7']]); assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('expression edit keeps pending clipboard writes locked through settlement and never accepts late feedback', async () => {
+    for (const rejected of [false, true]) for (const replaceOwner of [false, true]) {
+        const wait = deferred(), calls = [], h = mount({ clipboard: { writeText(text) { calls.push(text); return wait.promise; } } });
+        const expression = '  =1E-7 * 2  '; h.calculate(expression); h.calculate('=9'); h.copy.dispatch('click');
+        assert.deepEqual(calls, ['9']); h.expand(); expressionEdit(h, 1).dispatch('click');
+        assert.equal(h.input.value, expression); assert.equal(h.feedback.hidden, true); assert.equal(h.feedback.textContent, ''); assert.equal(h.observers.size, 0);
+        assert.equal(h.copy.getAttribute('aria-disabled'), 'true');
+        const current = replaceOwner ? h.remount() : h;
+        if (replaceOwner) current.calculate('=11'); else current.submit();
+        current.copy.dispatch('click'); assert.deepEqual(calls, ['9']); assert.equal(current.copy.getAttribute('aria-disabled'), 'true');
+        current.useResult.focus(); const focus = h.document.activeElement, records = recordTexts(current);
+        if (rejected) wait.reject(new Error('late denial')); else wait.resolve(); await settle();
+        assert.equal(current.input.value, replaceOwner ? '=11' : expression); assert.equal(current.value.value, replaceOwner ? '11' : '2e-7');
+        assert.equal(current.feedback.hidden, true); assert.equal(current.feedback.textContent, ''); assert.equal(current.copy.getAttribute('aria-disabled'), 'false');
+        assert.equal(h.document.activeElement, focus); assert.deepEqual(recordTexts(current), records);
+        current.copy.dispatch('click'); await settle(); assert.deepEqual(calls, ['9', replaceOwner ? '11' : '2e-7']);
+        assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('editing a recent expression preserves draft reload protection without adding a history-only blocker', () => {
+    const h = mount(), expression = '  =3 + 4  '; h.calculate(expression); h.edit(''); h.expand();
+    assert.equal(h.window.LocalItabContentLifecycle.hasUncommittedWork(), false);
+    expressionEdit(h).dispatch('click'); assert.equal(h.input.value, expression); assert.equal(h.window.LocalItabContentLifecycle.hasUncommittedWork(), true);
+    assert.equal(h.window.LocalItabContentLifecycle.reload(), false); assert.deepEqual(h.reloads, []);
+    h.edit(''); assert.equal(h.window.LocalItabContentLifecycle.hasUncommittedWork(), false);
+    assert.deepEqual(recordTexts(h), [[expression, '7']]); assert.equal(h.window.LocalItabContentLifecycle.reload(), true);
+    assert.deepEqual(h.reloads, ['reload']); assert.deepEqual(h.calls, []); clean(h);
+});
+
+test('expression edit has English fallback labels and reuses existing wrapping and keyboard focus styles', () => {
+    for (const translation of [undefined, { t: key => key }, { t: () => '' }]) {
+        const h = mount(); h.window.i18n = translation; const current = h.remount(); current.calculate(' =3+4 '); current.expand();
+        const control = expressionEdit(current); assert(control); assert.equal(control.textContent, 'Edit expression');
+        assert.equal(current.use().textContent, 'Use result'); control.dispatch('click'); assert.equal(current.input.value, ' =3+4 '); clean(h);
+    }
+    const css = fs.readFileSync('newtab.css', 'utf8');
+    assert.match(css, /\.search-calculator-recent-item\s*\{[^}]*flex-wrap:\s*wrap/);
+    assert.match(css, /\.search-calculator-recent button\s*\{[^}]*max-width:\s*100%[^}]*white-space:\s*normal[^}]*overflow-wrap:\s*anywhere/);
+    assert.match(css, /\.search-calculator-recent button:focus-visible\s*\{[^}]*outline:/);
+});

@@ -998,6 +998,30 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     const guardRecentKey = event => {
         if (['Enter', ' '].includes(event.key) && recentActivationBlocked(event)) event.preventDefault();
     };
+    const bindRecentDraftAction = (record, row, control, controlKey, nextValue) => {
+        // Each action owns its exact rendered control, independently of its sibling.
+        record[controlKey] = control;
+        control.addEventListener('keydown', guardRecentKey);
+        control.addEventListener('click', event => {
+            const current = () => recentCalculations.includes(record) && record[controlKey] === control &&
+                row.parentElement === calculatorRecentList && row.contains(control) &&
+                recentControlAvailable(control) && recentControlAvailable(input) && !input.readOnly;
+            if (event.detail > 1 || recentActivationBlocked(event) || !current()) return;
+            const before = input.value, revision = editRevision, operation = submissionRevision;
+            // Focus may synchronously replace this draft, submit, clear or remount.
+            input.focus();
+            if (document.activeElement !== input || !current() || input.value !== before ||
+                editRevision !== revision || submissionRevision !== operation) return;
+            input.value = nextValue;
+            markSearchEdited();
+            const nextRevision = editRevision;
+            updateCalculatorHint();
+            if (current() && document.activeElement === input && input.value === nextValue &&
+                editRevision === nextRevision && submissionRevision === operation) {
+                input.setSelectionRange(nextValue.length, nextValue.length);
+            }
+        });
+    };
     const renderRecentCalculations = () => {
         calculatorRecentList.replaceChildren(...recentCalculations.map(record => {
             const row = document.createElement('li');
@@ -1012,29 +1036,13 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
             use.className = 'search-calculator-recent-use';
             use.type = 'button';
             use.textContent = calculatorText('calculatorUseResult', 'Use result');
-            record.control = use;
-            use.addEventListener('keydown', guardRecentKey);
-            use.addEventListener('click', event => {
-                const current = () => recentCalculations.includes(record) && record.control === use &&
-                    row.parentElement === calculatorRecentList && row.contains(use) &&
-                    recentControlAvailable(use) && recentControlAvailable(input) && !input.readOnly;
-                if (event.detail > 1 || recentActivationBlocked(event) || !current()) return;
-                const before = input.value, revision = editRevision, operation = submissionRevision;
-                // Focus may synchronously replace this draft, submit, clear or remount.
-                input.focus();
-                if (document.activeElement !== input || !current() || input.value !== before ||
-                    editRevision !== revision || submissionRevision !== operation) return;
-                const nextValue = `=${record.value}`;
-                input.value = nextValue;
-                markSearchEdited();
-                const nextRevision = editRevision;
-                updateCalculatorHint();
-                if (current() && document.activeElement === input && input.value === nextValue &&
-                    editRevision === nextRevision && submissionRevision === operation) {
-                    input.setSelectionRange(nextValue.length, nextValue.length);
-                }
-            });
-            row.append(expression, value, use);
+            bindRecentDraftAction(record, row, use, 'control', `=${record.value}`);
+            const edit = document.createElement('button');
+            edit.className = 'search-calculator-recent-edit';
+            edit.type = 'button';
+            edit.textContent = calculatorText('calculatorEditExpression', 'Edit expression');
+            bindRecentDraftAction(record, row, edit, 'editControl', record.expression);
+            row.append(expression, value, use, edit);
             return row;
         }));
         calculatorRecentEmpty.hidden = recentCalculations.length > 0;

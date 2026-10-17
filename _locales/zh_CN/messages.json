@@ -2625,6 +2625,9 @@
   "calculatorRecentClear": {
     "message": "清空最近计算"
   },
+  "calculatorEditExpression": {
+    "message": "编辑表达式"
+  },
   "calculatorUseResult": {
     "message": "用结果继续计算"
   },
