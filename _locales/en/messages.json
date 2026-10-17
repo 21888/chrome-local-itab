@@ -514,14 +514,23 @@
   "countdownRelativeDaysLabel": {
     "message": "Days from today"
   },
+  "countdownRelativeDirectionLabel": {
+    "message": "Direction from today"
+  },
+  "countdownRelativeAfter": {
+    "message": "After today"
+  },
+  "countdownRelativeBefore": {
+    "message": "Before today"
+  },
   "countdownRelativeDaysHelp": {
-    "message": "Enter digits 0–9 only; 0 means today. Fill date uses your device’s local calendar when clicked and changes only the draft date. This day count is not saved. Choose Save separately."
+    "message": "Choose After today or Before today and enter digits 0–9 only; 0 means today in either direction. Fill date uses your device’s local calendar when clicked, within 0001-01-01 to 9999-12-31, and changes only the draft date. The day count and direction are not saved. Choose Save separately."
   },
   "countdownRelativeApply": {
     "message": "Fill date"
   },
   "countdownRelativeError": {
-    "message": "Enter a non-negative whole number using digits 0–9 only, with a resulting date no later than 9999-12-31. Your draft is unchanged."
+    "message": "Choose After today or Before today and enter a non-negative whole number using digits 0–9 only, with a resulting date from 0001-01-01 to 9999-12-31. Your draft is unchanged."
   },
   "countdownRelativeFilled": {
     "message": "Draft date filled: $1. Choose Save separately."

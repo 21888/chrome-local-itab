@@ -16,15 +16,15 @@ If another page saves while you are editing, your draft stays visible and the la
 
 ## Fill a date using days from today
 
-Enter **Days from today**, then choose **Fill date**. Use a non-negative integer containing only digits `0–9`; `0` means today and leading zeros are accepted. Blank input, whitespace, signs, decimals, scientific notation, mixed text, unsafe integers and results later than `9999-12-31` are rejected without changing the draft.
+Enter **Days from today**, choose **After today** (the default) or **Before today** in **Direction from today**, then choose **Fill date**. Use a non-negative integer containing only digits `0–9`; `0` means today in either direction and leading zeros are accepted. Blank input, whitespace, signs, decimals, scientific notation, mixed text, unsafe integers, invalid directions and results outside `0001-01-01` to `9999-12-31` are rejected without changing the draft.
 
-The calculation starts from the device’s local year, month and day **when you click**, adding calendar days rather than fixed 24-hour periods. Repeated clicks always start from today, not from the previous target. Once filled, the target stays fixed: midnight and returning to the page refresh only the existing date preview, without recalculating the target.
+The calculation starts from the device’s local year, month and day **when you click**, adding or subtracting calendar days rather than fixed 24-hour periods. Repeated clicks always start from today, not from the previous target. Once filled, the target stays fixed: midnight and returning to the page refresh only the existing date preview, without recalculating the target.
 
-Filling changes only the draft date. The title, visibility and saved state are unchanged. The day count is a temporary calculation parameter in this editor, not a saved setting; it is excluded from exports and backups. Choose **Save** separately to keep the filled date, or use the existing **Cancel** to reload the saved fields. Typing or composing the parameter does not create an unsaved Countdown edit.
+Filling changes only the draft date. The title, visibility and saved state are unchanged. The day count and direction are temporary calculation parameters in this editor, not saved settings; they are excluded from exports and backups. A new editor starts with an empty count and After today. Choose **Save** separately to keep the filled date, or use the existing **Cancel** to reload the saved fields. Typing or composing the count, or changing direction, does not create an unsaved Countdown edit. Changing direction clears only the relative-date feedback.
 
-Only an actual change of target date invalidates a reviewed TXT import or pending file read. An unchanged result, invalid count or parameter-only edit leaves that review intact. Filling is blocked during saving, IME composition, read failure, conflict, unknown save errors or editor departure. A valid result can correct the existing date-validation error. Separate fill/error feedback leaves the original Save and Retry workflow intact.
+Only an actual change of target date invalidates a reviewed TXT import or pending file read. An unchanged result, invalid count or direction, or parameter-only edit leaves that review intact. Filling is blocked during saving, IME composition, read failure, conflict, unknown save errors or editor departure. A valid result can correct the existing date-validation error. Separate fill/error feedback leaves the original Save and Retry workflow intact.
 
-[Automated validation scope and untested boundaries](countdown-relative-date-validation.md)
+[Before/after validation scope and untested boundaries](countdown-relative-direction-validation.md); [original forward-only validation](countdown-relative-date-validation.md)
 
 ## Import an exported TXT into the draft
 

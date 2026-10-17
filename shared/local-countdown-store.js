@@ -74,10 +74,11 @@
         check(Number.isSafeInteger(days), 'DATE');
         return days;
     }
-    // Add whole calendar days to the device-local date, never to its local timestamp.
+    // Add or subtract whole calendar days from the device-local date, never its local timestamp.
     // This is a one-shot draft calculation; no derived count or time is persisted.
-    function dateFromToday(days, date = new Date()) {
+    function dateFromToday(days, date = new Date(), direction = 'after') {
         check(Number.isSafeInteger(days) && days >= 0, 'DAYS');
+        check(direction === 'after' || direction === 'before', 'DIRECTION');
         let today;
         try {
             check(Number.isFinite(Date.prototype.getTime.call(date)), 'DATE');
@@ -85,9 +86,11 @@
             check(year >= 1 && year <= 9999, 'DATE');
             today = utcCalendarDate(year, Date.prototype.getMonth.call(date) + 1, Date.prototype.getDate.call(date));
         } catch (_) { throw fault('DATE'); }
-        const remaining = (utcCalendarDate(9999, 12, 31).getTime() - today.getTime()) / 86400000;
+        const remaining = direction === 'before'
+            ? (today.getTime() - utcCalendarDate(1, 1, 1).getTime()) / 86400000
+            : (utcCalendarDate(9999, 12, 31).getTime() - today.getTime()) / 86400000;
         check(days <= remaining, 'DATE');
-        today.setUTCDate(today.getUTCDate() + days);
+        today.setUTCDate(today.getUTCDate() + (direction === 'before' ? -days : days));
         return `${String(today.getUTCFullYear()).padStart(4, '0')}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
     }
     // The view chooses translated labels; this pure helper never emits an English UI label.

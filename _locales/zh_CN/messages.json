@@ -514,14 +514,23 @@
   "countdownRelativeDaysLabel": {
     "message": "从今天起的天数"
   },
+  "countdownRelativeDirectionLabel": {
+    "message": "相对今天的方向"
+  },
+  "countdownRelativeAfter": {
+    "message": "今天之后"
+  },
+  "countdownRelativeBefore": {
+    "message": "今天之前"
+  },
   "countdownRelativeDaysHelp": {
-    "message": "仅输入数字 0–9；0 代表今天。「填入日期」按点击时设备本地日历计算，只修改日期草稿。此天数不保存，需要保留日期时请另行点击「保存」。"
+    "message": "选择「今天之后」或「今天之前」，仅输入数字 0–9；两个方向的 0 都代表今天。「填入日期」按点击时设备本地日历计算，范围为 0001-01-01 至 9999-12-31，只修改日期草稿。天数和方向都不保存，需要保留日期时请另行点击「保存」。"
   },
   "countdownRelativeApply": {
     "message": "填入日期"
   },
   "countdownRelativeError": {
-    "message": "请输入仅含数字 0–9 的非负整数，结果日期不能晚于 9999-12-31。草稿未改变。"
+    "message": "请选择「今天之后」或「今天之前」，并输入仅含数字 0–9 的非负整数，结果日期须在 0001-01-01 至 9999-12-31 之间。草稿未改变。"
   },
   "countdownRelativeFilled": {
     "message": "已填入日期草稿：$1。请另行点击「保存」。"
