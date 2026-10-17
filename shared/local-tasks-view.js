@@ -36,6 +36,7 @@
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
         tasksCopyVisible: 'Copy visible tasks ({count})', tasksCopyVisiblePending: 'Copying visible tasks…', tasksCopyVisibleSuccess: 'Visible tasks copied.', tasksCopyVisibleFailure: 'Could not copy. Select the visible task text to copy it manually.',
+        tasksCopyCompleted: 'Copy visible completed tasks ({count})', tasksCopyCompletedPending: 'Copying visible completed tasks…', tasksCopyCompletedSuccess: 'Visible completed tasks copied.', tasksCopyCompletedFailure: 'Could not copy. Select the visible completed task text to copy it manually.',
         tasksReuseText: 'New task from text', tasksReuseHelp: 'Edit this independent draft, then choose Add to create one new active task. The original task stays unchanged. Line breaks stay within one task.',
         tasksReuseRetry: 'Retry previous add', tasksReuseUncertain: 'The previous add could not be confirmed. Retry its exact text below before adding the current draft.',
         tasksReusePrevious: 'Previous text to add', tasksReuseDraftRemains: 'The previous task was saved. Your current draft is still here; choose Add only when you want another task.',
@@ -157,8 +158,15 @@
             const copyVisibleRow = el('div', 'tasks-visible-copy'); copyVisibleRow.append(this.copyVisibleButton, this.completeBatchButton, this.copyVisibleStatus);
             this.completed = this.section('tasksCompleted'); this.removed = this.section('tasksRemoved');
             this.visibleCompletedTasks = [];
+            this.copyCompletedButton = button('tasksCopyCompleted', event => { if (!(event.detail > 1)) this.copyCompletedTasks(); }, 'tasks-copy-completed');
+            this.copyCompletedButton.addEventListener('keydown', event => {
+                if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
+            });
+            this.copyCompletedStatus = el('p', 'tasks-row-copy-status tasks-completed-copy-status'); this.copyCompletedStatus.hidden = true;
+            this.copyCompletedStatus.setAttribute('role', 'status'); this.copyCompletedStatus.setAttribute('aria-live', 'polite');
             this.reopenBatchButton = button('tasksReopenBatch', () => this.reopenBatch(), 'tasks-reopen-batch');
-            this.completed.box.replaceChildren(this.completed.summary, this.reopenBatchButton, this.completed.list);
+            const copyCompletedRow = el('div', 'tasks-visible-copy tasks-completed-copy'); copyCompletedRow.append(this.copyCompletedButton, this.reopenBatchButton, this.copyCompletedStatus);
+            this.completed.box.replaceChildren(this.completed.summary, copyCompletedRow, this.completed.list);
             this.completed.box.addEventListener('toggle', () => this.refreshCopyControls());
             this.data = el('details', 'tasks-data'); this.data.append(el('summary', '', t('tasksData')), el('p', 'tasks-help', t('tasksHelp')));
             const fileRow = el('div', 'tasks-data-actions');
@@ -618,6 +626,11 @@
             return this.copyText(snapshot.map((task, index) => `${index + 1}. ${task.text}`).join('\n'), origin, this.copyVisibleStatus,
                 () => this.copyVisibleCurrent(snapshot, origin), ['tasksCopyVisiblePending', 'tasksCopyVisibleSuccess', 'tasksCopyVisibleFailure'], this.list);
         }
+        copyCompletedTasks() {
+            const snapshot = this.visibleCompletedTasks, origin = this.copyCompletedButton;
+            return this.copyText(snapshot.map((task, index) => `${index + 1}. ${task.text}`).join('\n'), origin, this.copyCompletedStatus,
+                () => this.completedVisibleCurrent(snapshot, origin), ['tasksCopyCompletedPending', 'tasksCopyCompletedSuccess', 'tasksCopyCompletedFailure'], this.completed.list);
+        }
         refreshCopyControls() {
             const disabled = !!this.copyAttempt || !this.copyReady();
             // Keep the focused native button in place; the click guard enforces this state.
@@ -625,6 +638,9 @@
             this.copyVisibleButton.textContent = t('tasksCopyVisible').replace('{count}', this.visibleTasks.length);
             this.copyVisibleButton.disabled = !this.visibleTasks.length;
             this.copyVisibleButton.setAttribute('aria-disabled', String(disabled || this.copyVisibleButton.disabled));
+            this.copyCompletedButton.textContent = t('tasksCopyCompleted').replace('{count}', this.visibleCompletedTasks.length);
+            this.copyCompletedButton.disabled = !this.visibleCompletedTasks.length;
+            this.copyCompletedButton.setAttribute('aria-disabled', String(disabled || !this.completed.box.open || this.copyCompletedButton.disabled));
             // Match existing focus-preserving row actions while unavailable.
             this.completeBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.visibleTasks.length));
             this.reopenBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.completed.box.open || !this.visibleCompletedTasks.length));

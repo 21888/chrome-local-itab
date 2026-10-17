@@ -1174,6 +1174,18 @@
   "tasksCopyVisibleFailure": {
     "message": "未能复制。可选中当前显示的待办原文手动复制。"
   },
+  "tasksCopyCompleted": {
+    "message": "复制当前显示的已完成待办（{count}）"
+  },
+  "tasksCopyCompletedPending": {
+    "message": "正在复制当前显示的已完成待办…"
+  },
+  "tasksCopyCompletedSuccess": {
+    "message": "已复制当时显示的已完成待办。"
+  },
+  "tasksCopyCompletedFailure": {
+    "message": "未能复制。可选中当前显示的已完成待办原文手动复制。"
+  },
   "tasksReuseText": {
     "message": "用原文新建"
   },
