@@ -11,6 +11,7 @@
         tasksBatchRetry: 'Retry previous add', tasksBatchUncertain: 'The previous batch could not be confirmed. Retry that same batch safely before reviewing this draft.', tasksBatchDraftRemains: 'The previous batch was saved. Your current draft is still here; review it before adding anything else.',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
         tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
+        tasksMoveFirst: 'Move to list start', tasksMoveFirstHelp: 'Moves this task to the start of the list without changing Next up.',
         tasksActions: 'Actions', tasksUp: 'Move up', tasksDown: 'Move down', tasksMore: 'Show all tasks', tasksLess: 'Show fewer', tasksCompleted: 'Completed', tasksRemoved: 'Removed',
         tasksData: 'Task data', tasksHelp: 'Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks.',
         tasksExport: 'Export tasks', tasksImport: 'Import tasks', tasksCopies: 'Previous local copies', tasksRecover: 'Review restore', tasksUndo: 'Undo removal', tasksUndoComplete: 'Undo completion',
@@ -469,7 +470,22 @@
                     const down = button('tasksDown', () => run('move', { order: active, direction: 1 }));
                     up.disabled = !!this.filterQuery || index === 0; down.disabled = !!this.filterQuery || index === active.length - 1;
                     if (this.filterQuery) { up.title = t('tasksFilterReorder'); down.title = t('tasksFilterReorder'); }
-                    actions.append(up, down);
+                    const first = button('tasksMoveFirst', () => {
+                        const state = this.controller.state, workspace = this.controller.store.backend?.workspace;
+                        if (first.disabled || this.filterQuery || this.destroyed || this.controller.closed || this.controller.pending ||
+                            this.dialogs.size || this.pendingReview || root.LocalItabContentLifecycle?.departing || workspace?.invalidated || workspace?._suspended ||
+                            !first.isConnected || !this.list.contains(item) || !item.contains(first) || item.dataset.taskId !== task.id ||
+                            document.hidden || document.visibilityState === 'hidden' || first.closest('[hidden], [inert]') || !first.getClientRects().length ||
+                            ['hidden', 'collapse'].includes(root.getComputedStyle?.(first).visibility)) return;
+                        for (let node = first.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS' && !node.open) return;
+                        const current = state?.records.find(record => record.id === task.id);
+                        if (current?.version !== task.version || current.state !== 'active' ||
+                            JSON.stringify(state.records.filter(record => record.state === 'active').map(record => record.id)) !== JSON.stringify(active)) return;
+                        run('moveFirst', { order: active });
+                    });
+                    first.disabled = !!this.filterQuery || index === 0;
+                    first.title = t(this.filterQuery ? 'tasksFilterReorder' : 'tasksMoveFirstHelp');
+                    actions.append(up, down, first);
                 }
                 const edit = button('tasksEdit', () => this.edit(task, edit));
                 actions.append(edit, button('tasksRemove', () => {

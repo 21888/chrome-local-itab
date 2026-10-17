@@ -985,6 +985,12 @@
   "tasksDown": {
     "message": "Move down"
   },
+  "tasksMoveFirst": {
+    "message": "Move to list start"
+  },
+  "tasksMoveFirstHelp": {
+    "message": "Moves this task to the start of the list without changing Next up."
+  },
   "tasksMore": {
     "message": "Show all tasks"
   },

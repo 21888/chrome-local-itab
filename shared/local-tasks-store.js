@@ -237,6 +237,17 @@
                     const a = next.records.findIndex(t => t.id === task.id), b = next.records.findIndex(t => t.id === neighbor);
                     [next.records[a], next.records[b]] = [next.records[b], next.records[a]]; break;
                 }
+                case 'moveFirst': {
+                    const task = find(); check(task.state === 'active', 'CONFLICT');
+                    const slots = next.records.flatMap((record, index) => record.state === 'active' ? [index] : []);
+                    const active = slots.map(index => next.records[index].id);
+                    check(JSON.stringify(active) === JSON.stringify(command.order), 'CONFLICT');
+                    const index = active.indexOf(task.id); check(index > 0, 'CONFLICT');
+                    // Equivalent to successive upward swaps, in one write. Inactive
+                    // slots and every record's content/version/timestamps stay intact.
+                    for (let i = index; i > 0; i--) next.records[slots[i]] = next.records[slots[i - 1]];
+                    next.records[slots[0]] = task; break;
+                }
                 case 'remove': {
                     const task = find(); check(task.state !== 'removed', 'CONFLICT');
                     task.removedFrom = task.state; task.state = 'removed'; unpin(task); touch(task); break;

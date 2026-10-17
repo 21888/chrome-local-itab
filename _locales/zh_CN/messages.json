@@ -985,6 +985,12 @@
   "tasksDown": {
     "message": "下移"
   },
+  "tasksMoveFirst": {
+    "message": "移到列表首位"
+  },
+  "tasksMoveFirstHelp": {
+    "message": "将此待办移到列表首位，不改变“下一件事”。"
+  },
   "tasksMore": {
     "message": "显示全部待办"
   },
