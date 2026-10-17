@@ -1270,6 +1270,12 @@
   "tasksDown": {
     "message": "下移"
   },
+  "tasksMoveLast": {
+    "message": "移到列表末位"
+  },
+  "tasksMoveLastHelp": {
+    "message": "将此待办移到列表末位，不改变“下一件事”。"
+  },
   "tasksMoveFirst": {
     "message": "移到列表首位"
   },

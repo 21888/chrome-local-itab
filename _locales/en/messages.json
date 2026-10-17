@@ -1270,6 +1270,12 @@
   "tasksDown": {
     "message": "Move down"
   },
+  "tasksMoveLast": {
+    "message": "Move to list end"
+  },
+  "tasksMoveLastHelp": {
+    "message": "Moves this task to the end of the list without changing Next up."
+  },
   "tasksMoveFirst": {
     "message": "Move to list start"
   },

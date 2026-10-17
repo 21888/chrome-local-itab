@@ -41,6 +41,7 @@
         tasksReuseText: 'New task from text', tasksReuseHelp: 'Edit this independent draft, then choose Add to create one new active task. The original task stays unchanged. Line breaks stay within one task.',
         tasksReuseRetry: 'Retry previous add', tasksReuseUncertain: 'The previous add could not be confirmed. Retry its exact text below before adding the current draft.',
         tasksReusePrevious: 'Previous text to add', tasksReuseDraftRemains: 'The previous task was saved. Your current draft is still here; choose Add only when you want another task.',
+        tasksMoveLast: 'Move to list end', tasksMoveLastHelp: 'Moves this task to the end of the list without changing Next up.',
         tasksMoveFirst: 'Move to list start', tasksMoveFirstHelp: 'Moves this task to the start of the list without changing Next up.',
         tasksActions: 'Actions', tasksUp: 'Move up', tasksDown: 'Move down', tasksMore: 'Show all tasks', tasksLess: 'Show fewer', tasksCompleted: 'Completed', tasksRemoved: 'Removed',
         tasksData: 'Task data', tasksHelp: 'Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks.',
@@ -875,6 +876,7 @@
         }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
+            let lastOwner = null;
             const top = el('div', 'tasks-row-main');
             const title = el('span', 'tasks-text', task.text); if (task.state === 'done') title.classList.add('is-done');
             const run = (kind, values = {}, success) => this.perform(this.controller.store.request(kind, { id: task.id, version: task.version, ...values }), success);
@@ -919,7 +921,64 @@
                     });
                     first.disabled = !!this.filterQuery || index === 0;
                     first.title = t(this.filterQuery ? 'tasksFilterReorder' : 'tasksMoveFirstHelp');
-                    actions.append(up, down, first);
+                    const snapshot = Object.freeze({ ...task }), order = Object.freeze(active.slice());
+                    const owner = { generation: this.moveLastGeneration, host: this.host, list: this.list,
+                        controller: this.controller, store: this.controller.store, workspace: this.controller.store.backend?.workspace,
+                        session: root.LocalItabWorkspaces?.session, workspaceId: this.controller.store.backend?.workspace?.id,
+                        workspaceGeneration: this.controller.store.backend?.workspace?.generation,
+                        conflictCommand: this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null, chain: [] };
+                    for (let node = owner.list; node; node = node.parentElement) owner.chain.push([node, node.parentElement]);
+                    const last = button('tasksMoveLast', event => {
+                        if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                            event.target !== last || (event.currentTarget && event.currentTarget !== last)) return;
+                        const state = this.controller.state;
+                        // A refreshed conflict row is a new explicit choice. Keep
+                        // uncertain writes blocked, and never replay the old command.
+                        const reviewedConflict = this.controller.error?.code === 'CONFLICT' && !!this.controller.retryCommand &&
+                            owner.conflictCommand === this.controller.retryCommand;
+                        if (last.disabled || last.getAttribute('disabled') != null || last.getAttribute('aria-disabled') === 'true' ||
+                            this.filterQuery || this.filterInput.value.trim() || this.filterComposing || this.destroyed ||
+                            this.controller !== owner.controller || this.controller.store !== owner.store || this.controller.closed ||
+                            this.controller.pending || (this.controller.error && !reviewedConflict) || this.localError || (this.controller.retryCommand && !reviewedConflict) ||
+                            ['loading', 'saving'].includes(this.controller.status) || (this.controller.status === 'error' && !reviewedConflict) || this.dialogs.size || this.pendingReview ||
+                            this.batchSession || this.reuseSession || this.completionSession || root.LocalItabContentLifecycle?.departing ||
+                            owner.store.backend?.workspace !== owner.workspace || owner.workspace?.invalidated || owner.workspace?._suspended ||
+                            owner.workspace?.id !== owner.workspaceId || owner.workspace?.generation !== owner.workspaceGeneration ||
+                            root.LocalItabWorkspaces?.session !== owner.session || (owner.workspace && root.LocalItabWorkspaces?.session !== owner.workspace) || document.hidden || document.visibilityState === 'hidden' ||
+                            this.moveLastGeneration !== owner.generation || this.host !== owner.host || this.list !== owner.list ||
+                            item.dataset.taskId !== snapshot.id || !last.isConnected || item.parentElement !== owner.list ||
+                            Array.from(owner.list.children).find(node => node.dataset.taskId === snapshot.id) !== item ||
+                            item.querySelector('.tasks-text') !== title || title.textContent !== snapshot.text || title.children.length ||
+                            item.querySelector('.tasks-row-actions') !== actions || item.querySelector('.tasks-row-menu') !== owner.menu ||
+                            owner.menu.querySelector('summary') !== owner.summary || actions.querySelector('.tasks-move-last') !== last ||
+                            owner.chain.some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent)) return;
+                        // The displayed source and the control must both remain
+                        // visible; hiding only the title/top cannot authorize a move.
+                        for (const source of [last, title]) {
+                            if (!source.getClientRects().length) return;
+                            for (let node = source; node; node = node.parentElement) {
+                                const style = root.getComputedStyle?.(node);
+                                if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                                    node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                                    style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                                    (node.tagName === 'DETAILS' && !node.open)) return;
+                            }
+                        }
+                        const current = state?.records.find(record => record.id === snapshot.id);
+                        if (!current || Object.keys(snapshot).some(key => current[key] !== snapshot[key]) || current.state !== 'active' ||
+                            JSON.stringify(state.records.filter(record => record.state === 'active').map(record => record.id)) !== JSON.stringify(order) ||
+                            order.at(-1) === snapshot.id) return;
+                        // This source is an independent saved task. Quick-entry IME
+                        // state and drafts remain owned by the quick-entry field.
+                        this.perform(owner.store.request('moveLast', { id: snapshot.id, version: snapshot.version, order }));
+                    }, 'tasks-move-last');
+                    last.addEventListener('keydown', event => {
+                        if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                    });
+                    last.disabled = !!this.filterQuery || index === active.length - 1;
+                    last.title = t(this.filterQuery ? 'tasksFilterReorder' : 'tasksMoveLastHelp');
+                    lastOwner = { owner, last };
+                    actions.append(up, down, first, last);
                 }
                 const edit = button('tasksEdit', () => this.edit(task, edit));
                 actions.append(edit, button('tasksRemove', () => {
@@ -936,6 +995,10 @@
                 const menu = el('details', 'tasks-row-menu'), summary = el('summary', '', t('tasksActions'));
                 summary.dataset.taskAction = 'menu';
                 menu.append(summary, actions); item.append(menu);
+                if (lastOwner) {
+                    const { owner, last } = lastOwner; owner.menu = menu; owner.summary = summary;
+                    owner.chain.push([last, actions], [actions, menu], [menu, item], [summary, menu], [title, top], [top, item], [item, owner.list]);
+                }
             }
             top.querySelectorAll('button').forEach(node => { node.setAttribute('aria-disabled', String(!!this.controller.pending)); node.dataset.taskAction = node.textContent; });
             item.append(copyStatus); return item;
@@ -981,6 +1044,9 @@
                 this.filterStatus.hidden = !filtering;
                 this.filterStatus.textContent = filtering ? (count ? `${t('tasksFilterMatches')}: ${count}` : t('tasksFilterEmpty')) : '';
                 this.visibleTasks = visible.map(({ id, version, text, state }) => ({ id, version, text, state }));
+                // Only Move-to-end uses this render ownership fence; old row
+                // callbacks cannot revive after their nodes are reattached.
+                this.moveLastGeneration = (this.moveLastGeneration || 0) + 1;
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
                 if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
                 this.more.hidden = filtering || active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));
