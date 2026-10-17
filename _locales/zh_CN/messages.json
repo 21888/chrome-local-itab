@@ -2829,6 +2829,9 @@
   "monthCalendarIntervalSwap": {
     "message": "交换日期"
   },
+  "monthCalendarIntervalClear": {
+    "message": "清空日期"
+  },
   "monthCalendarIntervalCopy": {
     "message": "复制结果"
   },

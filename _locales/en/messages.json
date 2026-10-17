@@ -2829,6 +2829,9 @@
   "monthCalendarIntervalSwap": {
     "message": "Swap dates"
   },
+  "monthCalendarIntervalClear": {
+    "message": "Clear dates"
+  },
   "monthCalendarIntervalCopy": {
     "message": "Copy result"
   },

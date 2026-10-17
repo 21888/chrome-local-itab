@@ -1777,7 +1777,7 @@ class ClockComponent {
             fields: make('div', 'month-calendar-interval-fields'), hint: make('p', 'month-calendar-interval-hint'),
             start: make('input'), startText: make('span'), end: make('input'), endText: make('span'),
             startToday: make('button'), endToday: make('button'),
-            calculate: make('button'), swap: make('button'), copy: make('button'), error: make('div', 'month-calendar-error'),
+            calculate: make('button'), swap: make('button'), clear: make('button'), copy: make('button'), error: make('div', 'month-calendar-error'),
             result: make('div', 'month-calendar-interval-result'),
             copyStatus: make('div', 'month-calendar-interval-result'),
             startState: { composing: false, compositionEnter: false },
@@ -1812,8 +1812,9 @@ class ClockComponent {
         }
         interval.calculate.type = 'button';
         interval.swap.type = 'button';
+        interval.clear.type = 'button';
         interval.copy.type = 'button';
-        interval.fields.append(interval.calculate, interval.swap, interval.copy);
+        interval.fields.append(interval.calculate, interval.swap, interval.clear, interval.copy);
         interval.details.append(interval.summary, interval.hint, interval.fields, interval.error, interval.result, interval.copyStatus);
         panel.append(controls, editor, error, table, announcement, interval.details);
         details.append(summary, panel);
@@ -1916,6 +1917,35 @@ class ClockComponent {
             interval.resultValue = null;
             this.updateMonthCalendarInterval();
         });
+        // This explicit draft edit retains the open disclosures and month draft.
+        // Bind it to its original nodes so stale callbacks cannot edit replacements.
+        const clearDates = interval.clear, clearStart = interval.start, clearEnd = interval.end;
+        const clearFields = interval.fields, clearDetails = interval.details;
+        const clearStartLabel = clearStart.parentElement, clearEndLabel = clearEnd.parentElement;
+        const clearStartEndpoint = clearStartLabel.parentElement, clearEndEndpoint = clearEndLabel.parentElement;
+        const clearParent = details.parentElement;
+        const clearActive = () => view.interval === interval && view.details === details && view.panel === panel &&
+            interval.clear === clearDates && interval.start === clearStart && interval.end === clearEnd &&
+            interval.fields === clearFields && interval.details === clearDetails &&
+            clearDates.parentElement === clearFields && clearStart.parentElement === clearStartLabel &&
+            clearEnd.parentElement === clearEndLabel && clearStartLabel.parentElement === clearStartEndpoint &&
+            clearEndLabel.parentElement === clearEndEndpoint && clearStartEndpoint.parentElement === clearFields &&
+            clearEndEndpoint.parentElement === clearFields && clearFields.parentElement === clearDetails &&
+            clearDetails.parentElement === panel && panel.parentElement === details && details.parentElement === clearParent &&
+            [clearDates, clearStart, clearEnd, clearStartLabel, clearEndLabel, clearStartEndpoint, clearEndEndpoint,
+                clearFields, clearDetails, panel, details, clearParent].every(node => node.ownerDocument === document) &&
+            this.isMonthCalendarIntervalActive(view, [clearDates, clearStart, clearEnd]);
+        clearDates.addEventListener('click', event => {
+            if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                composing() || !clearActive()) return;
+            clearStart.value = '';
+            clearEnd.value = '';
+            this.invalidateMonthCalendarIntervalCopy();
+            interval.invalid = false;
+            interval.resultValue = null;
+            this.updateMonthCalendarInterval();
+        });
+        guardActivation(clearDates, clearActive);
         for (const [button, field] of [[interval.startToday, interval.start], [interval.endToday, interval.end]]) {
             button.addEventListener('click', event => {
                 if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
@@ -2205,6 +2235,7 @@ class ClockComponent {
             view.interval.endToday.textContent = this.worldClockText('monthCalendarIntervalEndToday', 'Use today for end');
             view.interval.calculate.textContent = this.worldClockText('monthCalendarIntervalCalculate', 'Calculate');
             view.interval.swap.textContent = this.worldClockText('monthCalendarIntervalSwap', 'Swap dates');
+            view.interval.clear.textContent = this.worldClockText('monthCalendarIntervalClear', 'Clear dates');
             view.interval.hint.textContent = this.worldClockText('monthCalendarIntervalHint',
                 'YYYY-MM-DD. End minus start in calendar days: same date 0, next date +1. Not hours, workdays or an inclusive count.');
             this.updateMonthCalendarInterval();
