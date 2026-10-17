@@ -610,6 +610,18 @@
   "countdownCopyFailure": {
     "message": "未能复制。请再次选择“复制日期”，或选中日期手动复制。"
   },
+  "countdownCopyMilestone": {
+    "message": "复制里程碑"
+  },
+  "countdownCopyMilestonePending": {
+    "message": "正在复制里程碑…"
+  },
+  "countdownCopyMilestoneSuccess": {
+    "message": "已复制里程碑。"
+  },
+  "countdownCopyMilestoneFailure": {
+    "message": "未能复制里程碑。请再次选择“复制里程碑”，或选中标题和日期手动复制。"
+  },
   "countdownExport": {
     "message": "导出文本"
   },

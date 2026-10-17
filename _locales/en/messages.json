@@ -610,6 +610,18 @@
   "countdownCopyFailure": {
     "message": "Could not copy. Try Copy date again, or select the date to copy it manually."
   },
+  "countdownCopyMilestone": {
+    "message": "Copy milestone"
+  },
+  "countdownCopyMilestonePending": {
+    "message": "Copying milestone…"
+  },
+  "countdownCopyMilestoneSuccess": {
+    "message": "Milestone copied."
+  },
+  "countdownCopyMilestoneFailure": {
+    "message": "Could not copy the milestone. Try Copy milestone again, or select the title and date to copy them manually."
+  },
   "countdownExport": {
     "message": "Export text"
   },

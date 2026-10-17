@@ -8,6 +8,14 @@ The optional card is hidden by default. It shows days left, Today, or days ago r
 
 Hide keeps the saved title and date. Use Settings to show it again. Edit opens the Countdown settings; Save updates other open pages. Unsaved Settings changes do not appear on the card until saved.
 
+## Copy the saved card
+
+**Copy milestone** copies exactly the currently displayed saved title, one LF newline, and its saved `YYYY-MM-DD`. It adds no trailing newline, labels, day count, ID, or other metadata. **Copy date** still copies only the ten-character saved ISO date. Both actions leave Settings drafts and saved data unchanged. To make an importable TXT backup, use **Export text**, whose format includes the final newline.
+
+The buttons use the already loaded saved snapshot, without a new storage read or write, permission query, added extension permission, clipboard read, or automatic retry. They share one in-flight clipboard write lock and copy feedback, separate from Save, recovery and export messages. If a copy fails, choose that action again or select the title/date manually. Hiding or editing the card, changing its saved state/workspace, or leaving invalidates its feedback; a system clipboard write already sent cannot be withdrawn. The operating system or other software may sync clipboard contents.
+
+[Milestone-copy checks and native-test limits](countdown-copy-milestone-validation.md)
+
 Countdown is saved separately in this browser profile on this device. It is excluded from configuration JSON exports, Chrome Sync, Google Drive backups and configuration recovery snapshots. Settings reset/import/restore preserve the countdown. Removing the extension or clearing browser data can erase it.
 
 Export text downloads the title and date as a plain-text file. Export from the card uses the saved values; export from Settings uses the current draft, including incomplete dates or a title too long to save. Recovery exports are bounded to 32,000 Unicode characters and 128 KiB. Complete exports can be reviewed with Import text and applied to the draft; Save remains a separate step. Incomplete recovery exports remain useful as a manual reference.

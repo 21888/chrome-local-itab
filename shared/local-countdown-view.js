@@ -33,6 +33,9 @@
         countdownSave: 'Save', countdownCancel: 'Cancel', countdownHide: 'Hide', countdownEdit: 'Edit',
         countdownCopyDate: 'Copy date', countdownCopying: 'Copying date…', countdownCopySuccess: 'Date copied.',
         countdownCopyFailure: 'Could not copy. Try Copy date again, or select the date to copy it manually.',
+        countdownCopyMilestone: 'Copy milestone', countdownCopyMilestonePending: 'Copying milestone…',
+        countdownCopyMilestoneSuccess: 'Milestone copied.',
+        countdownCopyMilestoneFailure: 'Could not copy the milestone. Try Copy milestone again, or select the title and date to copy them manually.',
         countdownImport: 'Import text', countdownImportPreview: 'Countdown text preview',
         countdownImportApply: 'Use title and date in draft', countdownImportCancel: 'Cancel import',
         countdownImportReading: 'Reading text…',
@@ -46,6 +49,10 @@
         countdownSavedPreview: 'Latest saved Countdown', countdownNotConfigured: 'Not configured', countdownShown: 'Shown', countdownHidden: 'Hidden',
         countdownToday: 'Today', countdownDayLeft: '1 day left', countdownDaysLeft: '$1 days left',
         countdownDayAgo: '1 day ago', countdownDaysAgo: '$1 days ago'
+    };
+    const copyActions = {
+        date: { control: 'copyButton', pending: 'countdownCopying', success: 'countdownCopySuccess', failure: 'countdownCopyFailure' },
+        milestone: { control: 'copyMilestoneButton', pending: 'countdownCopyMilestonePending', success: 'countdownCopyMilestoneSuccess', failure: 'countdownCopyMilestoneFailure' }
     };
     function t(key, value) {
         const translated = root.i18n?.t(key, value === undefined ? [] : [String(value)]);
@@ -102,10 +109,18 @@
             this.remaining.setAttribute('aria-live', 'off');
             this.status = el('p', 'countdown-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             this.hideButton = button('countdownHide', () => { this.invalidateCopy(); run(() => controller.setEnabled(false)); });
-            this.copyButton = button('countdownCopyDate', event => this.copyDate(event));
+            // Capture each source: an old callback cannot borrow a replaced control.
+            const copyDateButton = button('countdownCopyDate', event => this.copyDate(event, copyDateButton));
+            this.copyButton = copyDateButton;
+            const copyMilestoneButton = button('countdownCopyMilestone', event => this.copyMilestone(event, copyMilestoneButton));
+            this.copyMilestoneButton = copyMilestoneButton;
+            copyMilestoneButton.addEventListener('keydown', event => {
+                if ((event.key === 'Enter' || event.key === ' ') && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+            });
             this.copyStatus = el('p', 'countdown-status countdown-copy-status', '');
             this.copyStatus.setAttribute('role', 'status'); this.copyStatus.setAttribute('aria-live', 'polite');
             this.edit = el('a', 'countdown-button', t('countdownEdit'));
+            this.edit.addEventListener('click', () => this.invalidateCopy());
             // Dashboard startup captures this tab's session before mounting cards.
             const workspaceId = root.LocalItabWorkspaces?.session?.id;
             const settingsPath = 'options.html' + (workspaceId ? '?workspace=' + encodeURIComponent(workspaceId) : '') + '#countdown-settings';
@@ -115,7 +130,7 @@
             this.exportButton = button('countdownExport', () => exportText(controller.state, this.status));
             this.retry = button('countdownRetry', () => run(() => controller.retry()));
             this.useSaved = button('countdownUseSaved', () => run(() => controller.useSaved()));
-            const controls = el('div', 'countdown-controls'); controls.append(this.edit, this.copyButton, this.hideButton, this.exportButton, this.retry, this.useSaved);
+            const controls = el('div', 'countdown-controls'); controls.append(this.edit, this.copyButton, this.copyMilestoneButton, this.hideButton, this.exportButton, this.retry, this.useSaved);
             host.replaceChildren(header, this.title, this.date, this.remaining, controls, this.copyStatus, this.status);
             this.visibility = () => {
                 if (document.hidden || document.visibilityState === 'hidden') this.invalidateCopy();
@@ -135,7 +150,7 @@
             }
             if (root.MutationObserver) {
                 this.copyObserver = new root.MutationObserver(records => this.checkCopyMutations(records));
-                this.copyObserver.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open'] });
+                this.copyObserver.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open', 'disabled'] });
             }
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
         }
@@ -177,7 +192,11 @@
                 this.timeout = root.setTimeout(() => { this.timeout = null; this.render(); }, 60000);
             }
         }
-        canCopyDate(event) {
+        canCopyDate(event, origin = this.copyButton) { return this.canCopy('date', event, origin); }
+        canCopy(action, event, origin) {
+            const config = copyActions[action];
+            if (!config || origin !== this[config.control] || !origin || origin.disabled) return false;
+            if (action === 'milestone' && (event?.defaultPrevented || event?.repeat || event?.detail > 1)) return false;
             const c = this.controller, snapshot = this.copySnapshot, state = c.state;
             const workspace = c.store?.backend?.workspace, session = root.LocalItabWorkspaces?.session;
             if (this.closed || this.suspended || copyOwners.get(this.host) !== this || c.closed || !c.loaded ||
@@ -188,7 +207,7 @@
                 workspace !== this.copyWorkspace || workspace?.id !== this.copyWorkspaceId || workspace?.invalidated || workspace?._suspended ||
                 session !== this.copySession || session?.id !== this.copySessionId || session?.invalidated || session?._suspended ||
                 (workspace && session && workspace !== session)) return false;
-            for (const node of [this.host, this.copyButton, this.date, this.title, this.copyStatus]) {
+            for (const node of [this.host, origin, this.date, this.title, this.copyStatus]) {
                 if (node.ownerDocument !== document || !node.isConnected || !this.host.contains(node) || node.closest('[hidden], [inert]')) return false;
                 // An empty status is intentionally display:none; the date and native button must be visible.
                 if (node !== this.copyStatus && (!node.getClientRects().length || ['hidden', 'collapse'].includes(root.getComputedStyle?.(node)?.visibility))) return false;
@@ -197,9 +216,12 @@
             return this.date.textContent === snapshot.targetDate && this.date.dateTime === snapshot.targetDate && this.title.textContent === snapshot.title;
         }
         refreshCopyControl() {
-            if (!this.closed && copyOwners.get(this.host) === this && this.host.contains(this.copyButton)) {
+            if (this.closed || copyOwners.get(this.host) !== this) return;
+            for (const [action, config] of Object.entries(copyActions)) {
+                const origin = this[config.control];
+                if (!this.host.contains(origin)) continue;
                 // aria-disabled preserves native button focus; the click guard enforces it.
-                this.copyButton.setAttribute('aria-disabled', String(Boolean(copyFlight) || !this.canCopyDate()));
+                origin.setAttribute('aria-disabled', String(Boolean(copyFlight) || !this.canCopy(action, undefined, origin)));
             }
         }
         invalidateCopy() {
@@ -209,25 +231,34 @@
             // Never unlock an already invoked system clipboard write here.
         }
         checkCopyMutations(records = []) {
-            const targets = [this.host, this.copyButton, this.date, this.title];
+            const receipt = this.copyReceipt;
+            // A sibling action is independent; only the receipt's actual source owns feedback.
+            const title = receipt?.titleNode || this.title, date = receipt?.dateNode || this.date;
+            const targets = [this.host, receipt?.origin, date, title].filter(Boolean);
             const invalid = records.some(record => record.type === 'attributes'
                 ? targets.some(node => record.target === node || record.target.contains?.(node))
-                : record.target === this.date || record.target === this.title ||
+                : title.contains(record.target) || date.contains(record.target) ||
                     Array.from(record.removedNodes || []).some(removed => targets.some(node => removed === node || removed.contains?.(node))));
             if (invalid) { this.invalidateCopy(); this.refreshCopyControl(); }
         }
         copyCurrent(receipt) {
             return receipt.valid && this.copyReceipt === receipt && receipt.state === this.controller.state &&
+                receipt.titleNode === this.title && receipt.dateNode === this.date && receipt.statusNode === this.copyStatus &&
                 receipt.readGeneration === this.controller.readGeneration &&
-                ['schemaVersion', 'revision', 'title', 'targetDate', 'enabled'].every(key => this.controller.state[key] === receipt[key]) && this.canCopyDate();
+                ['schemaVersion', 'revision', 'title', 'targetDate', 'enabled'].every(key => this.controller.state[key] === receipt[key]) &&
+                this.canCopy(receipt.action, undefined, receipt.origin);
         }
-        async copyDate(event) {
+        copyDate(event, origin = this.copyButton) { return this.copy('date', event, origin); }
+        copyMilestone(event, origin = this.copyMilestoneButton) { return this.copy('milestone', event, origin); }
+        async copy(action, event, origin) {
             this.checkCopyMutations(this.copyObserver?.takeRecords?.() || []);
-            if (copyFlight || !this.canCopyDate(event)) return;
-            const receipt = { ...this.copySnapshot, valid: true, readGeneration: this.controller.readGeneration };
+            if (copyFlight || !this.canCopy(action, event, origin)) return;
+            const config = copyActions[action];
+            const receipt = { ...this.copySnapshot, action, origin, titleNode: this.title, dateNode: this.date,
+                statusNode: this.copyStatus, valid: true, readGeneration: this.controller.readGeneration };
             this.copyReceipt = receipt;
             const flight = { receipt }; copyFlight = flight;
-            setText(this.copyStatus, t('countdownCopying')); this.copyStatus.classList.remove('countdown-error');
+            setText(this.copyStatus, t(config.pending)); this.copyStatus.classList.remove('countdown-error');
             for (const view of copyViews) view.refreshCopyControl();
             const current = () => {
                 this.checkCopyMutations(this.copyObserver?.takeRecords?.() || []);
@@ -237,10 +268,10 @@
                 // Synchronous user-gesture call. No storage read, permission query or fallback write.
                 const clipboard = root.navigator?.clipboard;
                 if (typeof clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
-                await clipboard.writeText(receipt.targetDate);
-                if (current()) setText(this.copyStatus, t('countdownCopySuccess'));
+                await clipboard.writeText(action === 'milestone' ? receipt.title + '\n' + receipt.targetDate : receipt.targetDate);
+                if (current()) setText(this.copyStatus, t(config.success));
             } catch (_) {
-                if (current()) { setText(this.copyStatus, t('countdownCopyFailure')); this.copyStatus.classList.add('countdown-error'); }
+                if (current()) { setText(this.copyStatus, t(config.failure)); this.copyStatus.classList.add('countdown-error'); }
             } finally {
                 if (!current()) this.invalidateCopy();
                 if (copyFlight === flight) copyFlight = null;

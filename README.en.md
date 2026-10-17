@@ -432,6 +432,8 @@ Name one milestone and see local calendar days left, Today, or days ago. Hidden 
 
 In Countdown settings, enter **Days from today**, choose **After today** (default) or **Before today**, then **Fill date**. Digits `0–9` only; `0` means today in either direction. The click-time local-calendar result must stay within `0001-01-01` to `9999-12-31`. Count and direction are temporary, page-local parameters; filling changes only the draft date and **Save** remains separate. [Before/after checks and native-test limits](docs/countdown-relative-direction-validation.md).
 
+Choose **Copy milestone** to copy the exact displayed saved title, one LF newline, and the saved `YYYY-MM-DD`, with no trailing newline, labels or day count. It leaves Settings drafts unchanged and shares copy feedback and one in-flight write lock with **Copy date**. A failure requires another explicit click; title and date remain selectable. This clipboard text is not the TXT import format, which requires a final newline; use **Export text** for a backup. [Milestone-copy validation and native-test limits](docs/countdown-copy-milestone-validation.md).
+
 Choose **Copy date** on the card to copy exactly the displayed saved `YYYY-MM-DD`, without the title or day count. Settings drafts stay unchanged. If copying fails, try again or select the date manually. This uses the already loaded saved version; it does not read storage again, add extension permissions, or separately query/request clipboard permissions. An issued system write can still finish after leaving, but its stale card feedback is discarded. Your operating system or other software may sync clipboard content. [Copy-date checks and native-test limits](docs/countdown-copy-date-validation.md).
 
 <details>
