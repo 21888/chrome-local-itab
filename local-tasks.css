@@ -95,3 +95,6 @@
 
 .tasks-batch-feedback { color: var(--template-muted); }
 .tasks-batch-feedback.is-error { color: var(--template-error); }
+
+.tasks-row-copy-status { color: var(--template-muted); font-size: 12px; line-height: 1.55; margin: 8px 0 0; }
+.tasks-row-copy-status.is-error { color: var(--template-error); }

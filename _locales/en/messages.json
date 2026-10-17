@@ -916,6 +916,18 @@
   "tasksUnpin": {
     "message": "Unpin"
   },
+  "tasksCopyText": {
+    "message": "Copy text"
+  },
+  "tasksCopying": {
+    "message": "Copying task text…"
+  },
+  "tasksCopySuccess": {
+    "message": "Task text copied."
+  },
+  "tasksCopyFailure": {
+    "message": "Could not copy. Select the task text to copy it manually."
+  },
   "tasksEdit": {
     "message": "Edit"
   },

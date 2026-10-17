@@ -916,6 +916,18 @@
   "tasksUnpin": {
     "message": "取消置顶"
   },
+  "tasksCopyText": {
+    "message": "复制原文"
+  },
+  "tasksCopying": {
+    "message": "正在复制待办原文…"
+  },
+  "tasksCopySuccess": {
+    "message": "已复制待办原文。"
+  },
+  "tasksCopyFailure": {
+    "message": "未能复制。可选中待办原文手动复制。"
+  },
   "tasksEdit": {
     "message": "编辑"
   },

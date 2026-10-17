@@ -10,6 +10,7 @@
         tasksBatchPreview: 'Numbered preview', tasksBatchChanged: 'The list changed. Review again to check the latest capacity.', tasksBatchReady: 'Review the numbered list, then confirm to add every task together.',
         tasksBatchRetry: 'Retry previous add', tasksBatchUncertain: 'The previous batch could not be confirmed. Retry that same batch safely before reviewing this draft.', tasksBatchDraftRemains: 'The previous batch was saved. Your current draft is still here; review it before adding anything else.',
         tasksComplete: 'Complete', tasksReopen: 'Reopen', tasksPin: 'Pin next', tasksUnpin: 'Unpin', tasksEdit: 'Edit', tasksRemove: 'Remove', tasksRestore: 'Restore',
+        tasksCopyText: 'Copy text', tasksCopying: 'Copying task text…', tasksCopySuccess: 'Task text copied.', tasksCopyFailure: 'Could not copy. Select the task text to copy it manually.',
         tasksActions: 'Actions', tasksUp: 'Move up', tasksDown: 'Move down', tasksMore: 'Show all tasks', tasksLess: 'Show fewer', tasksCompleted: 'Completed', tasksRemoved: 'Removed',
         tasksData: 'Task data', tasksHelp: 'Tasks stay on this device. Settings exports, Chrome Sync and Drive backups do not include them. Export tasks separately. Removing the extension or browser data can delete local tasks.',
         tasksExport: 'Export tasks', tasksImport: 'Import tasks', tasksCopies: 'Previous local copies', tasksRecover: 'Review restore', tasksUndo: 'Undo removal', tasksUndoComplete: 'Undo completion',
@@ -56,8 +57,8 @@
         return modal;
     }
     class View {
-        constructor(host, { controller = new api.Controller(), onVisibility = () => {}, alwaysVisible = false } = {}) {
-            this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.alwaysVisible = alwaysVisible;
+        constructor(host, { controller = new api.Controller(), onVisibility = () => {}, alwaysVisible = false, clipboard = root.navigator?.clipboard } = {}) {
+            this.host = host; this.controller = controller; this.clipboard = clipboard; this.copyAttempt = null; this.onVisibility = onVisibility; this.alwaysVisible = alwaysVisible;
             this.dialogs = new Set(); this.reviewGeneration = 0; this.pendingReview = false; this.expanded = false; this.draftGeneration = 0; this.undo = null; this.actionGeneration = 0; this.destroyed = false; this.localError = null;
             host.classList.add('local-tasks-card'); host.setAttribute('aria-label', t('tasksTitle'));
             const header = el('header', 'tasks-header'); header.append(el('h2', '', t('tasksTitle')), el('span', 'tasks-local', t('tasksLocal')));
@@ -154,12 +155,13 @@
         hasUncommittedWork() { return !this.destroyed && (this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || this.dialogs.size > 0 || this.pendingReview || !!this.controller.pending); }
         createDialog(title, onClose) {
             if (this.destroyed || this.dialogs.size) return null;
+            this.invalidateCopy();
             this.reviewGeneration++; this.pendingReview = false;
             const modal = dialog(title, restoreFocus => {
-                this.dialogs.delete(modal); onClose?.();
+                this.dialogs.delete(modal); onClose?.(); this.refreshCopyControls();
                 if (restoreFocus && !this.destroyed && document.activeElement === document.body && !this.host.hidden) this.input.focus();
             });
-            this.dialogs.add(modal); return modal;
+            this.dialogs.add(modal); this.refreshCopyControls(); return modal;
         }
         section(key) {
             const box = el('details', 'tasks-section'), summary = el('summary', '', t(key)), list = el('ul', 'tasks-list');
@@ -374,6 +376,70 @@
                 root.removeEventListener?.('blur', cancel);
             });
         }
+        copyReady() {
+            const c = this.controller, workspace = c.store.backend?.workspace;
+            return !this.destroyed && !c.closed && !!c.state && !c.pending && !c.error &&
+                !['loading', 'saving', 'error'].includes(c.status) && !this.dialogs.size && !this.pendingReview &&
+                !root.LocalItabContentLifecycle?.departing && !workspace?.invalidated && !workspace?._suspended;
+        }
+        copyCurrent(task, item, title, origin) {
+            if (!this.copyReady() || !origin.isConnected || !this.host.contains(origin) ||
+                !item.contains(origin) || item.dataset.taskId !== task.id || title.textContent !== task.text ||
+                document.hidden || document.visibilityState === 'hidden' || origin.closest('[hidden], [inert]') ||
+                !origin.getClientRects().length || ['hidden', 'collapse'].includes(root.getComputedStyle?.(origin).visibility) || this.renderedRevision !== this.controller.state.revision) return false;
+            // Closed details descendants can still report layout boxes in Chromium.
+            for (let node = origin.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS' && !node.open) return false;
+            const current = this.controller.state.records.find(record => record.id === task.id);
+            return current?.version === task.version && current.text === task.text && current.state === task.state;
+        }
+        refreshCopyControls() {
+            const disabled = !!this.copyAttempt || !this.copyReady();
+            // Keep the focused native button in place; the click guard enforces this state.
+            this.host.querySelectorAll('.tasks-copy-text').forEach(node => node.setAttribute('aria-disabled', String(disabled)));
+        }
+        invalidateCopy() {
+            const attempt = this.copyAttempt;
+            if (!attempt) return;
+            attempt.valid = false; attempt.cleanup?.();
+            attempt.status.textContent = ''; attempt.status.hidden = true;
+            // Do not release the lock: an already invoked system write cannot be cancelled.
+        }
+        async copyTask(task, item, title, origin, status) {
+            if (this.copyAttempt || !this.copyCurrent(task, item, title, origin)) return;
+            const state = this.controller.state, workspace = this.controller.store.backend?.workspace;
+            const attempt = { valid: true, status }; this.copyAttempt = attempt;
+            const cancel = () => this.invalidateCopy();
+            // Remember even a brief hide/detach/closed menu before the promise settles.
+            const invalidating = records => records.some(record => record.type === 'attributes' ? record.target.contains(origin) :
+                Array.from(record.removedNodes || []).some(node => node === origin || node.contains?.(origin)));
+            const observer = root.MutationObserver ? new root.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
+            attempt.cleanup = () => {
+                observer?.disconnect(); document.removeEventListener('visibilitychange', cancel, true);
+                root.removeEventListener?.('blur', cancel); root.removeEventListener?.('pagehide', cancel);
+            };
+            const current = () => {
+                if (observer && invalidating(observer.takeRecords())) cancel();
+                return attempt.valid && this.copyAttempt === attempt && this.controller.state === state &&
+                    this.controller.store.backend?.workspace === workspace && this.copyCurrent(task, item, title, origin);
+            };
+            document.addEventListener('visibilitychange', cancel, true);
+            root.addEventListener?.('blur', cancel); root.addEventListener?.('pagehide', cancel);
+            observer?.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open'] });
+            status.textContent = t('tasksCopying'); status.hidden = false; status.classList.remove('is-error'); this.refreshCopyControls();
+            try {
+                // No awaited storage/permission work before this user-activated call.
+                if (!this.clipboard?.writeText) throw new Error('Clipboard unavailable');
+                await this.clipboard.writeText(task.text);
+                if (current()) status.textContent = t('tasksCopySuccess');
+            } catch (_) {
+                if (current()) { status.textContent = t('tasksCopyFailure'); status.classList.add('is-error'); }
+            } finally {
+                if (!current()) cancel();
+                attempt.cleanup();
+                if (this.copyAttempt === attempt) this.copyAttempt = null;
+                if (!this.destroyed) this.refreshCopyControls();
+            }
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
             const top = el('div', 'tasks-row-main');
@@ -388,6 +454,11 @@
             }
             top.append(title); item.append(top);
             const actions = el('div', 'tasks-row-actions');
+            const copyStatus = el('p', 'tasks-row-copy-status'); copyStatus.hidden = true;
+            copyStatus.setAttribute('role', 'status'); copyStatus.setAttribute('aria-live', 'polite');
+            const saved = { id: task.id, version: task.version, text: task.text, state: task.state };
+            const copy = button('tasksCopyText', () => this.copyTask(saved, item, title, copy, copyStatus), 'tasks-copy-text');
+            actions.append(copy);
             if (task.state === 'removed') actions.append(button('tasksRestore', () => run('restore')));
             else {
                 if (task.state === 'active') {
@@ -417,10 +488,11 @@
                 menu.append(summary, actions); item.append(menu);
             }
             top.querySelectorAll('button').forEach(node => { node.setAttribute('aria-disabled', String(!!this.controller.pending)); node.dataset.taskAction = node.textContent; });
-            return item;
+            item.append(copyStatus); return item;
         }
         render() {
             if (this.destroyed) return;
+            this.invalidateCopy();
             const state = this.controller.state, busy = !!this.controller.pending;
             if (this.pinnedFocus && state?.revision !== this.pinnedFocus.revision &&
                 state?.receipts.at(-1) !== this.pinnedFocus.command.operationId) this.pinnedFocus.cancel();
@@ -485,6 +557,7 @@
             }
             this.host.querySelectorAll('button[data-task-action]').forEach(node => node.setAttribute('aria-disabled', String(busy)));
             this.nextComplete?.setAttribute('aria-disabled', String(busy));
+            this.refreshCopyControls();
             this.undoButton.textContent = t(this.undo?.state === 'done' ? 'tasksUndoComplete' : 'tasksUndo');
             this.undoButton.hidden = !this.undo || !state?.records.some(t => t.id === this.undo.id && t.version === this.undo.version && t.state === this.undo.state);
             this.undoButton.disabled = busy;
@@ -608,7 +681,7 @@
         async importFile() {
             const generation = ++this.reviewGeneration;
             const file = this.fileInput.files?.[0]; this.fileInput.value = ''; if (!file) return;
-            this.pendingReview = true;
+            this.pendingReview = true; this.invalidateCopy(); this.refreshCopyControls();
             try {
                 if (file.size > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
                 const source = await file.text();
@@ -619,10 +692,10 @@
                 this.reviewReplacement(review, () => this.controller.store.request('replace', { source: review.source, revision: review.revision }));
             } catch (error) {
                 if (!this.destroyed && generation === this.reviewGeneration) { this.localError = error.code ? error : api.fault('FILE'); this.render(); }
-            } finally { if (generation === this.reviewGeneration) this.pendingReview = false; }
+            } finally { if (generation === this.reviewGeneration) { this.pendingReview = false; this.refreshCopyControls(); } }
         }
         async reviewRecovery(id) {
-            const generation = ++this.reviewGeneration, previousError = this.localError; this.pendingReview = true;
+            const generation = ++this.reviewGeneration, previousError = this.localError; this.pendingReview = true; this.invalidateCopy(); this.refreshCopyControls();
             try {
                 const state = await this.controller.store.read(), copy = state.recovery.find(item => item.id === id);
                 if (this.destroyed || generation !== this.reviewGeneration || this.dialogs.size) return;
@@ -634,7 +707,7 @@
                     () => this.controller.store.request('recover', { id, revision: state.revision }), 'tasksRestoreTitle');
             } catch (error) {
                 if (!this.destroyed && generation === this.reviewGeneration) { this.localError = error; this.render(); }
-            } finally { if (generation === this.reviewGeneration) this.pendingReview = false; }
+            } finally { if (generation === this.reviewGeneration) { this.pendingReview = false; this.refreshCopyControls(); } }
         }
         reviewReplacement(review, makeCommand, title = 'tasksReviewTitle') {
             let command = null;
@@ -656,7 +729,7 @@
             modal.panel.append(el('p', 'tasks-help', t('tasksReviewHelp')), el('p', '', `${t('tasksCurrent')}: ${summarize(review.current)}`),
                 el('p', '', `${t('tasksIncoming')}: ${summarize(review.incoming)}`), feedback, actions); modal.open(cancel);
         }
-        destroy() { this.destroyed = true; this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
+        destroy() { this.destroyed = true; this.invalidateCopy(); this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
     }
     function mount(host, options) {
         if (host.localTasksView) return host.localTasksView;
