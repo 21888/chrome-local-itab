@@ -469,6 +469,21 @@
   "countdownDatePreview": {
     "message": "Date preview (current draft): $1"
   },
+  "countdownRelativeDaysLabel": {
+    "message": "Days from today"
+  },
+  "countdownRelativeDaysHelp": {
+    "message": "Enter digits 0–9 only; 0 means today. Fill date uses your device’s local calendar when clicked and changes only the draft date. This day count is not saved. Choose Save separately."
+  },
+  "countdownRelativeApply": {
+    "message": "Fill date"
+  },
+  "countdownRelativeError": {
+    "message": "Enter a non-negative whole number using digits 0–9 only, with a resulting date no later than 9999-12-31. Your draft is unchanged."
+  },
+  "countdownRelativeFilled": {
+    "message": "Draft date filled: $1. Choose Save separately."
+  },
   "countdownEnable": {
     "message": "Show Countdown on the new tab page"
   },

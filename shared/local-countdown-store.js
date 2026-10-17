@@ -74,6 +74,22 @@
         check(Number.isSafeInteger(days), 'DATE');
         return days;
     }
+    // Add whole calendar days to the device-local date, never to its local timestamp.
+    // This is a one-shot draft calculation; no derived count or time is persisted.
+    function dateFromToday(days, date = new Date()) {
+        check(Number.isSafeInteger(days) && days >= 0, 'DAYS');
+        let today;
+        try {
+            check(Number.isFinite(Date.prototype.getTime.call(date)), 'DATE');
+            const year = Date.prototype.getFullYear.call(date);
+            check(year >= 1 && year <= 9999, 'DATE');
+            today = utcCalendarDate(year, Date.prototype.getMonth.call(date) + 1, Date.prototype.getDate.call(date));
+        } catch (_) { throw fault('DATE'); }
+        const remaining = (utcCalendarDate(9999, 12, 31).getTime() - today.getTime()) / 86400000;
+        check(days <= remaining, 'DATE');
+        today.setUTCDate(today.getUTCDate() + days);
+        return `${String(today.getUTCFullYear()).padStart(4, '0')}-${String(today.getUTCMonth() + 1).padStart(2, '0')}-${String(today.getUTCDate()).padStart(2, '0')}`;
+    }
     // The view chooses translated labels; this pure helper never emits an English UI label.
     function display(targetDate, date = new Date()) {
         const days = calendarDifference(targetDate, date);
@@ -166,5 +182,5 @@
             });
         }
     }
-    return { KEY, LOCK, LIMITS, Store, initial, validate, fields, title, isUnicode, parseDate, calendarDifference, display, exportText, parseText, fault, createChromeBackend };
+    return { KEY, LOCK, LIMITS, Store, initial, validate, fields, title, isUnicode, parseDate, calendarDifference, dateFromToday, display, exportText, parseText, fault, createChromeBackend };
 });

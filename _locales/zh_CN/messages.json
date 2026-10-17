@@ -469,6 +469,21 @@
   "countdownDatePreview": {
     "message": "日期预览（当前草稿）：$1"
   },
+  "countdownRelativeDaysLabel": {
+    "message": "从今天起的天数"
+  },
+  "countdownRelativeDaysHelp": {
+    "message": "仅输入数字 0–9；0 代表今天。「填入日期」按点击时设备本地日历计算，只修改日期草稿。此天数不保存，需要保留日期时请另行点击「保存」。"
+  },
+  "countdownRelativeApply": {
+    "message": "填入日期"
+  },
+  "countdownRelativeError": {
+    "message": "请输入仅含数字 0–9 的非负整数，结果日期不能晚于 9999-12-31。草稿未改变。"
+  },
+  "countdownRelativeFilled": {
+    "message": "已填入日期草稿：$1。请另行点击「保存」。"
+  },
   "countdownEnable": {
     "message": "在新标签页显示倒计时"
   },

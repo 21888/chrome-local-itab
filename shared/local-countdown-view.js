@@ -6,6 +6,11 @@
         countdownEventLabel: 'Milestone title (up to 80 characters)', countdownDateLabel: 'Target date (YYYY-MM-DD)',
         countdownDateHelp: 'Use a real calendar date from 0001-01-01 to 9999-12-31. Days are counted by your device’s local calendar, not 24-hour periods.',
         countdownDatePreview: 'Date preview (current draft): $1',
+        countdownRelativeDaysLabel: 'Days from today',
+        countdownRelativeDaysHelp: 'Enter digits 0–9 only; 0 means today. Fill date uses your device’s local calendar when clicked and changes only the draft date. This day count is not saved. Choose Save separately.',
+        countdownRelativeApply: 'Fill date',
+        countdownRelativeError: 'Enter a non-negative whole number using digits 0–9 only, with a resulting date no later than 9999-12-31. Your draft is unchanged.',
+        countdownRelativeFilled: 'Draft date filled: $1. Choose Save separately.',
         countdownEnable: 'Show Countdown on the new tab page',
         countdownEnableHelp: 'Optional and device-local. Hiding Countdown keeps its saved title and date.',
         countdownHelp: 'Saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. No notifications or network requests. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup.',
@@ -162,6 +167,19 @@
             this.datePreview = el('p', 'countdown-help countdown-date-preview');
             this.datePreview.setAttribute('aria-live', 'off');
             const dateField = el('div', 'countdown-field'); dateField.append(dateLabel, this.datePreview);
+            const relativeLabel = el('label', 'countdown-field', t('countdownRelativeDaysLabel'));
+            this.relativeDays = el('input', 'countdown-input'); this.relativeDays.type = 'text'; this.relativeDays.inputMode = 'numeric';
+            this.relativeDays.setAttribute('aria-label', t('countdownRelativeDaysLabel')); this.relativeDays.autocomplete = 'off'; this.relativeDays.spellcheck = false;
+            relativeLabel.append(this.relativeDays);
+            this.relativeApply = button('countdownRelativeApply', event => this.fillRelativeDate(event));
+            const relativeControls = el('div', 'countdown-controls'); relativeControls.append(this.relativeApply);
+            this.relativeStatus = el('p', 'countdown-status'); this.relativeStatus.setAttribute('role', 'status'); this.relativeStatus.setAttribute('aria-live', 'polite');
+            dateField.append(relativeLabel, el('p', 'countdown-help', t('countdownRelativeDaysHelp')), relativeControls, this.relativeStatus);
+            // The day count is a temporary calculation parameter, not a draft field.
+            // Its input and IME events must not invalidate a reviewed TXT import.
+            this.relativeDays.addEventListener('input', () => this.clearRelativeStatus());
+            this.relativeDays.addEventListener('compositionstart', () => { this.relativeComposing = true; this.clearRelativeStatus(); this.renderRelativeControl(); });
+            this.relativeDays.addEventListener('compositionend', () => { this.relativeComposing = false; this.renderRelativeControl(); });
             this.enabled = el('input'); this.enabled.type = 'checkbox';
             const enableLabel = el('label', 'countdown-enable-label'); enableLabel.append(this.enabled, el('span', '', t('countdownEnable')));
             this.status = el('p', 'countdown-status'); this.status.tabIndex = -1; this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
@@ -188,9 +206,9 @@
             const importControls = el('div', 'countdown-controls'); importControls.append(this.importApply, this.importCancel);
             this.importPanel.append(this.importInfo, this.importPreview, el('p', 'countdown-help', t('countdownImportHelp')), importControls);
             this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
-            this.visibility = () => this.renderDatePreview();
-            this.pagehide = () => { this.suspended = true; this.cancelTick(); this.cancelImport(); };
-            this.pageshow = () => { this.suspended = false; this.renderDatePreview(); };
+            this.visibility = () => { this.renderRelativeControl(); this.renderDatePreview(); };
+            this.pagehide = () => { this.suspended = true; this.renderRelativeControl(); this.cancelTick(); this.cancelImport(); };
+            this.pageshow = () => { this.suspended = false; this.renderRelativeControl(); this.renderDatePreview(); };
             document.addEventListener('visibilitychange', this.visibility);
             root.addEventListener?.('focus', this.visibility); root.addEventListener?.('pagehide', this.pagehide); root.addEventListener?.('pageshow', this.pageshow);
             const controls = el('div', 'countdown-controls'); controls.append(this.saveButton, this.cancelButton, this.exportButton, this.importButton, this.retry, this.useSaved, this.replace);
@@ -228,6 +246,44 @@
                 this.host.getClientRects().length && !['hidden', 'collapse'].includes(root.getComputedStyle?.(this.host)?.visibility)) {
                 this.timeout = root.setTimeout(() => { this.timeout = null; this.renderDatePreview(); }, 60000);
             }
+        }
+        canFillRelativeDate(event) {
+            const c = this.controller, workspace = c.store?.backend?.workspace, session = root.LocalItabWorkspaces?.session;
+            if (this.closed || this.suspended || c.closed || !c.loaded || c.pending || c.composing || this.relativeComposing ||
+                event?.isComposing || event?.keyCode === 229 || c.readError || c.conflict ||
+                (c.error && !['INVALID', 'TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT', 'DATE', 'UNCONFIGURED'].includes(c.error.code)) ||
+                document.hidden || document.visibilityState === 'hidden' || root.LocalItabContentLifecycle?.departing ||
+                workspace?.invalidated || workspace?._suspended || (workspace && session && workspace !== session)) return false;
+            for (const node of [this.relativeDays, this.relativeApply, this.date]) {
+                if (!node.isConnected || !this.host.contains(node) || node.closest('[hidden], [inert]') ||
+                    !node.getClientRects().length || ['hidden', 'collapse'].includes(root.getComputedStyle?.(node)?.visibility)) return false;
+                for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
+            }
+            return true;
+        }
+        renderRelativeControl() {
+            if (!this.closed) this.relativeApply.disabled = !this.canFillRelativeDate();
+        }
+        clearRelativeStatus() {
+            this.relativeReceipt = null; setText(this.relativeStatus, ''); this.relativeStatus.classList.remove('countdown-error');
+        }
+        fillRelativeDate(event) {
+            if (!this.canFillRelativeDate(event)) return;
+            const c = this.controller;
+            let targetDate;
+            try {
+                // Number alone would accept empty strings, signs, fractions or exponents.
+                if (!/^[0-9]+$/.test(this.relativeDays.value)) throw api.fault('DAYS');
+                targetDate = api.dateFromToday(Number(this.relativeDays.value), this.now());
+            } catch (_) {
+                this.relativeReceipt = { generation: c.generation, state: c.state };
+                setText(this.relativeStatus, t('countdownRelativeError')); this.relativeStatus.classList.add('countdown-error'); return;
+            }
+            // An unchanged result is a no-op, so existing import review/read ownership survives.
+            // A real change uses the existing generation and validation-error recovery rules.
+            if (targetDate !== c.draft.targetDate) c.setDraft({ targetDate });
+            this.relativeReceipt = { generation: c.generation, state: c.state };
+            setText(this.relativeStatus, t('countdownRelativeFilled', targetDate)); this.relativeStatus.classList.remove('countdown-error');
         }
         canImport() {
             const c = this.controller;
@@ -302,6 +358,9 @@
         render() {
             if (this.closed) return;
             const c = this.controller, draft = c.draft || {};
+            if (this.relativeReceipt && (c.pending || c.generation !== this.relativeReceipt.generation || c.state !== this.relativeReceipt.state)) this.clearRelativeStatus();
+            this.relativeDays.disabled = !c.loaded;
+            this.renderRelativeControl();
             if (this.importSession && !this.importCurrent(this.importSession)) this.cancelImport();
             this.importButton.disabled = !this.canImport();
             // The controller owns input generations. Never replace values during
