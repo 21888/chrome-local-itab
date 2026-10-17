@@ -3653,6 +3653,35 @@ textarea:focus-visible,
 .world-clock-time { color: var(--template-text); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.5; overflow-wrap: anywhere; }
 .world-clock-day { color: var(--template-muted); font-size: 11px; line-height: 1.5; }
 
+/* Copy remains a separate native button, outside the readonly field's label. */
+.search-calculator-result {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 6px 8px;
+    min-width: 0;
+}
+.search-calculator-result[hidden], .search-calculator-copy-status[hidden] { display: none; }
+.search-calculator-result .search-calculator-output { flex: 1 1 220px; }
+.search-calculator-copy {
+    max-width: 100%;
+    margin: 4px 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--template-control-radius, 8px);
+    background: var(--glass-bg);
+    color: var(--text-primary);
+    font: inherit;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+.search-calculator-copy[aria-disabled="true"] { opacity: 0.65; cursor: wait; }
+.search-calculator-copy:focus-visible { outline: 3px solid var(--template-focus); outline-offset: 2px; }
+.search-calculator-copy-status { flex: 1 1 100%; margin: 0 8px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.search-calculator-copy-status.is-error { color: var(--template-error, #b42318); }
+
 /* Successful local output stays selectable and fits narrow search rows. */
 .search-calculator-output {
     grid-column: 1 / -1;

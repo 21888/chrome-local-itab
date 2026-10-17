@@ -320,7 +320,7 @@ After deleting a shortcut, **Undo delete** restores the latest deletion on the s
 
 Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab: no search request, history or storage, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the previous result.
 
-After a successful calculation, Tab to the readonly result field to select its exact value, then press Ctrl/Cmd+C to copy with your browser. Calculation keeps focus on the expression; editing or starting IME composition clears the field. Results may display scientific notation and can be pasted into a new calculation, for example `=1e-7 * 2`.
+After a successful calculation, click “Copy result” to write the full number, without `=` or a label, to the system clipboard. You can still Tab to the readonly result field and press Ctrl/Cmd+C to copy with your browser. A separate copy failure message preserves the expression and result for manual copying. Neither calculation nor copying moves focus; editing or starting IME composition clears the field. An unfinished copy cannot be repeated, and clearing the result or changing the view cannot undo an already issued system write. Results may display scientific notation and can be pasted into a new calculation, for example `=1e-7 * 2`. [Copy-result validation scope](docs/calculator-result-copy-validation.md).
 
 <details>
 <summary>Calculator scope and precision limits</summary>

@@ -2334,6 +2334,18 @@
   "calculatorCopyResult": {
     "message": "Result · select and press Ctrl/Cmd+C to copy"
   },
+  "calculatorCopyAction": {
+    "message": "Copy result"
+  },
+  "calculatorCopying": {
+    "message": "Copying result…"
+  },
+  "calculatorCopySuccess": {
+    "message": "Result copied."
+  },
+  "calculatorCopyFailure": {
+    "message": "Could not copy. Select the result and press Ctrl/Cmd+C to copy it manually."
+  },
   "calculatorSyntax": {
     "message": "Check the expression. Use decimals, + - * / and parentheses only."
   },

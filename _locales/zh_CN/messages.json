@@ -2334,6 +2334,18 @@
   "calculatorCopyResult": {
     "message": "结果 · 选中后按 Ctrl/Cmd+C 复制"
   },
+  "calculatorCopyAction": {
+    "message": "复制结果"
+  },
+  "calculatorCopying": {
+    "message": "正在复制结果…"
+  },
+  "calculatorCopySuccess": {
+    "message": "结果已复制。"
+  },
+  "calculatorCopyFailure": {
+    "message": "无法复制。请选中结果并按 Ctrl/Cmd+C 手动复制。"
+  },
   "calculatorSyntax": {
     "message": "请检查表达式。仅支持小数、+ - * / 和括号。"
   },
