@@ -2505,6 +2505,18 @@
   "calculatorCopyResult": {
     "message": "结果 · 选中后按 Ctrl/Cmd+C 复制"
   },
+  "calculatorRecentTitle": {
+    "message": "本页最近计算"
+  },
+  "calculatorRecentNote": {
+    "message": "最多保留 5 条成功计算，不写入存储；清空或重新加载页面后丢弃。"
+  },
+  "calculatorRecentEmpty": {
+    "message": "暂无计算记录。"
+  },
+  "calculatorRecentClear": {
+    "message": "清空最近计算"
+  },
   "calculatorUseResult": {
     "message": "用结果继续计算"
   },

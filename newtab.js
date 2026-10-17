@@ -801,6 +801,27 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     calculatorCopyStatus.setAttribute('aria-live', 'polite');
     calculatorCopyStatus.setAttribute('aria-atomic', 'true');
     calculatorResultRow.append(calculatorOutput, calculatorCopy, calculatorUseResult, calculatorCopyStatus);
+    // Recent calculations belong only to this mounted search, never to storage.
+    const calculatorRecent = document.createElement('details');
+    calculatorRecent.className = 'search-calculator-recent';
+    const calculatorRecentSummary = document.createElement('summary');
+    calculatorRecentSummary.className = 'search-calculator-recent-summary';
+    calculatorRecentSummary.textContent = calculatorText('calculatorRecentTitle', 'Recent calculations on this page');
+    const calculatorRecentNote = document.createElement('p');
+    calculatorRecentNote.className = 'search-calculator-recent-note';
+    calculatorRecentNote.textContent = calculatorText('calculatorRecentNote', 'Up to 5 successful calculations. Not saved; clearing or reloading this page discards these entries.');
+    const calculatorRecentEmpty = document.createElement('p');
+    calculatorRecentEmpty.className = 'search-calculator-recent-empty';
+    calculatorRecentEmpty.textContent = calculatorText('calculatorRecentEmpty', 'No calculations yet.');
+    const calculatorRecentList = document.createElement('ol');
+    calculatorRecentList.className = 'search-calculator-recent-list';
+    const calculatorRecentClear = document.createElement('button');
+    calculatorRecentClear.className = 'search-calculator-recent-clear';
+    calculatorRecentClear.type = 'button';
+    calculatorRecentClear.textContent = calculatorText('calculatorRecentClear', 'Clear recent calculations');
+    calculatorRecentClear.disabled = true;
+    calculatorRecent.append(calculatorRecentSummary, calculatorRecentNote, calculatorRecentEmpty, calculatorRecentList, calculatorRecentClear);
+    let recentCalculations = [];
     let calculatorResult = null;
     const clearCopyStatus = () => {
         calculatorCopyStatus.textContent = '';
@@ -959,6 +980,71 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
             input.value === value && editRevision === revision && submissionRevision === operation) {
             input.setSelectionRange(value.length, value.length);
         }
+    });
+    const recentActivationBlocked = event => event.defaultPrevented || event.repeat || event.isComposing ||
+        event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || composing || customComposing;
+    const recentControlAvailable = control => {
+        if (window.localCalculatorView !== searchOwner || !control.isConnected || !container.contains(control) ||
+            control.disabled || composing || customComposing || document.hidden || document.visibilityState === 'hidden' ||
+            window.LocalItabContentLifecycle?.departing || !control.getClientRects().length) return false;
+        for (let node = control; node; node = node.parentElement) {
+            const style = window.getComputedStyle?.(node);
+            if (node.hidden || node.inert || node.getAttribute('aria-hidden') === 'true' ||
+                style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                (node.tagName === 'DETAILS' && !node.open)) return false;
+        }
+        return true;
+    };
+    const guardRecentKey = event => {
+        if (['Enter', ' '].includes(event.key) && recentActivationBlocked(event)) event.preventDefault();
+    };
+    const renderRecentCalculations = () => {
+        calculatorRecentList.replaceChildren(...recentCalculations.map(record => {
+            const row = document.createElement('li');
+            row.className = 'search-calculator-recent-item';
+            const expression = document.createElement('span');
+            expression.className = 'search-calculator-recent-expression';
+            expression.textContent = record.expression;
+            const value = document.createElement('span');
+            value.className = 'search-calculator-recent-value';
+            value.textContent = record.value;
+            const use = document.createElement('button');
+            use.className = 'search-calculator-recent-use';
+            use.type = 'button';
+            use.textContent = calculatorText('calculatorUseResult', 'Use result');
+            record.control = use;
+            use.addEventListener('keydown', guardRecentKey);
+            use.addEventListener('click', event => {
+                const current = () => recentCalculations.includes(record) && record.control === use &&
+                    row.parentElement === calculatorRecentList && row.contains(use) &&
+                    recentControlAvailable(use) && recentControlAvailable(input) && !input.readOnly;
+                if (event.detail > 1 || recentActivationBlocked(event) || !current()) return;
+                const before = input.value, revision = editRevision, operation = submissionRevision;
+                // Focus may synchronously replace this draft, submit, clear or remount.
+                input.focus();
+                if (document.activeElement !== input || !current() || input.value !== before ||
+                    editRevision !== revision || submissionRevision !== operation) return;
+                const nextValue = `=${record.value}`;
+                input.value = nextValue;
+                markSearchEdited();
+                const nextRevision = editRevision;
+                updateCalculatorHint();
+                if (current() && document.activeElement === input && input.value === nextValue &&
+                    editRevision === nextRevision && submissionRevision === operation) {
+                    input.setSelectionRange(nextValue.length, nextValue.length);
+                }
+            });
+            row.append(expression, value, use);
+            return row;
+        }));
+        calculatorRecentEmpty.hidden = recentCalculations.length > 0;
+        calculatorRecentClear.disabled = recentCalculations.length === 0;
+    };
+    calculatorRecentClear.addEventListener('keydown', guardRecentKey);
+    calculatorRecentClear.addEventListener('click', event => {
+        if (event.detail > 1 || recentActivationBlocked(event) || !recentControlAvailable(calculatorRecentClear)) return;
+        recentCalculations = [];
+        renderRecentCalculations();
     });
     const openSearch = url => {
         const value = input.value, revision = editRevision, operation = submissionRevision;
@@ -1161,7 +1247,7 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
         saveCustomSearch();
     });
 
-    form.append(select, input, button, calculatorStatus, calculatorResultRow, searchStatus, customConfig);
+    form.append(select, input, button, calculatorStatus, calculatorResultRow, calculatorRecent, searchStatus, customConfig);
     updateCustomConfigVisibility(false);
 
     form.addEventListener('keydown', event => {
@@ -1202,6 +1288,9 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
                 calculatorResult = { value: calculatorValue.value, expression, editRevision: revision, submissionRevision: operation };
                 calculatorOutput.hidden = false;
                 calculatorResultRow.hidden = false;
+                recentCalculations.unshift({ expression, value: calculatorValue.value });
+                recentCalculations.splice(5);
+                renderRecentCalculations();
             }
             return;
         }

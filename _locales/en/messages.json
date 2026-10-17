@@ -2505,6 +2505,18 @@
   "calculatorCopyResult": {
     "message": "Result · select and press Ctrl/Cmd+C to copy"
   },
+  "calculatorRecentTitle": {
+    "message": "Recent calculations on this page"
+  },
+  "calculatorRecentNote": {
+    "message": "Up to 5 successful calculations. Not saved; clearing or reloading this page discards these entries."
+  },
+  "calculatorRecentEmpty": {
+    "message": "No calculations yet."
+  },
+  "calculatorRecentClear": {
+    "message": "Clear recent calculations"
+  },
   "calculatorUseResult": {
     "message": "Use result"
   },

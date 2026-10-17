@@ -3746,3 +3746,16 @@ textarea:focus-visible,
 /* Elapsed-day comparison navigation wraps inside narrow cards. */
 .world-clock-comparison-navigation { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 8px; }
 .world-clock-comparison-navigation button[aria-disabled="true"] { cursor: default; }
+
+/* Page-local recent calculations; no persisted history or layout assumptions. */
+.search-calculator-recent { grid-column: 1 / -1; min-width: 0; margin: 4px 8px; color: var(--text-primary); font-size: 12px; line-height: 1.5; }
+.search-calculator-recent-summary { cursor: pointer; overflow-wrap: anywhere; }
+.search-calculator-recent-note, .search-calculator-recent-empty { margin: 8px 0; color: var(--text-secondary); }
+.search-calculator-recent-list { margin: 8px 0; padding: 0; list-style: none; }
+.search-calculator-recent-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; padding: 8px 0; border-bottom: 1px solid var(--glass-border); }
+.search-calculator-recent-expression { flex: 1 1 160px; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.search-calculator-recent-value { flex: 1 1 100px; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; user-select: text; }
+.search-calculator-recent button { max-width: 100%; padding: 6px 10px; border: 1px solid var(--glass-border); border-radius: 8px; background: var(--glass-bg); color: inherit; font: inherit; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+.search-calculator-recent button:disabled { opacity: 0.6; cursor: default; }
+.search-calculator-recent-summary:focus-visible, .search-calculator-recent button:focus-visible { outline: 3px solid var(--template-focus); outline-offset: 2px; }
+.search-calculator-recent [hidden] { display: none; }
