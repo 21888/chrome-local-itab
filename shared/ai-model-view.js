@@ -31,6 +31,7 @@
         if (before) { before.readOnly = true; before.rows = 6; }
         const prompt = field('Prompt', 'Exact prompt to send', 'textarea', refining ? '' : preview.text); prompt.readOnly = true; prompt.rows = 6;
         const status = el('p', 'prompt-help'); status.tabIndex = -1; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+        const sourceStatus = el('p', 'prompt-help'); sourceStatus.hidden = true; sourceStatus.tabIndex = -1; sourceStatus.setAttribute('role', 'status'); sourceStatus.setAttribute('aria-live', 'polite');
         const reviewText = el('pre', 'ai-model-review'); reviewText.hidden = true;
         const output = el('textarea', 'prompt-readonly'); output.readOnly = true; output.rows = 9; output.hidden = true; output.setAttribute('aria-label', refining ? t('RefineAfter', 'Proposed template draft (editable; not saved)') : t('Response', 'Model response'));
         const readerHost = el('div'); readerHost.hidden = true;
@@ -149,7 +150,7 @@
         let reviewed = null, response = null, aborter = null, busy = false, closed = false, saving = false, saved = false, permissionPending = false, suspended = false, command = null, cleanup, trialUI = null;
         // A textarea normalizes CRLF/CR on display. Keep its displayed value as
         // an ownership check without replacing the exact, unedited response.
-        let proposalDisplay = null, differenceFocusPending = false;
+        let proposalDisplay = null, differenceFocusPending = false, dispatchedRequest = null, sourceReviewRetired = false;
         const button = (name, fallback, action) => view.button(`Model${name}`, fallback, action);
         const difference = refining ? el('section', 'ai-refine-difference') : null;
         if (difference) { difference.hidden = true; difference.id = 'ai-refine-difference'; difference.setAttribute('aria-label', t('RefineDiffTitle', 'Template text differences')); }
@@ -225,6 +226,8 @@
             }; const message = messages[code] || messages.SAVE; return t(...message);
         };
         function update(focused = view.doc.activeElement) {
+            const reference = sourceReferenceState();
+            updateSourceNotice(reference);
             let valid = !refining;
             if (refining) {
                 try { valid = Boolean(response && refinement.current(c, template) && refinement.validateProposal(template, response.text)); } catch (_) {}
@@ -239,7 +242,7 @@
             }
             if (streaming) streaming.disabled = busy || saving || permissionPending || Boolean(response);
             if (trialButton) trialButton.disabled = busy || saving || presetPending || saved || suspended || Boolean(command) || !valid;
-            review.disabled = busy || saving || permissionPending || presetPending; allow.disabled = busy || saving || permissionPending || presetPending || !reviewed; send.disabled = busy || saving || permissionPending || presetPending || !reviewed || Boolean(response);
+            review.disabled = busy || saving || permissionPending || presetPending || reference !== 'ready'; allow.disabled = busy || saving || permissionPending || presetPending || reference !== 'ready' || !reviewed; send.disabled = busy || saving || permissionPending || presetPending || reference !== 'ready' || !reviewed || Boolean(response);
             if (instruction) instruction.disabled = busy || saving || Boolean(response);
             cancel.disabled = !busy; save.disabled = busy || saving || presetPending || !response || saved || (refining && (suspended || (!valid && !command))); close.disabled = saving;
             url.disabled = model.disabled = key.disabled = busy || saving || presetPending || Boolean(response);
@@ -252,7 +255,40 @@
             // Keep this dialog's keyboard scope without stealing another live focus.
             if (!closed && !trialUI && !overlay.hidden && overlay.isConnected && overlay.contains(focused) &&
                 (focused.disabled || focused.closest('[hidden], [inert]')) &&
-                (view.doc.activeElement === focused || view.doc.activeElement === view.doc.body)) status.focus();
+                (view.doc.activeElement === focused || view.doc.activeElement === view.doc.body)) (sourceStatus.hidden ? status : sourceStatus).focus();
+        }
+        function checksSourceReference() { return !refining && !(reviewed ? reviewedStream : streaming?.checked); }
+        function sourceReferenceState() {
+            // Non-streaming runs keep their frozen prompt even after ordinary
+            // edits or history navigation. Match the existing Save reference
+            // predicate, not current preview/session identity. Reads in flight
+            // and failed reads cannot establish that a reference was deleted.
+            if (!checksSourceReference()) return 'ready';
+            if (c.pendingReadGeneration !== null || !c.state) return 'loading';
+            if (c.linkedPromptUnavailable || c.error?.scope === 'read') return 'unreadable';
+            const record = c.record(source.promptId);
+            return record && !record.deletedAt && record.history.some(version => version.id === source.bodyVersionId) ? 'ready' : 'missing';
+        }
+        function updateSourceNotice(reference) {
+            const sent = Boolean(response || (busy && dispatchedRequest === aborter));
+            const message = saved || !checksSourceReference() ? '' : reference === 'missing' ? sent
+                ? t('SourceMissingSent', 'The saved prompt or linked version is no longer available. This request was already sent; any response is kept here, but saving may fail. Select the response text to copy it manually.')
+                : t('SourceMissing', 'The saved prompt or linked version is no longer available. Close this dialog and open an available saved prompt before sending.')
+                : !sent && reference === 'loading' ? t('SourceReading', 'Checking the saved prompt reference. Wait for it to load before reviewing or sending.')
+                : !sent && reference === 'unreadable' ? t('SourceReadFailed', 'Could not verify the saved prompt reference. Reload the prompt library before reviewing or sending.')
+                : !sent && sourceReviewRetired ? t('SourceReviewAgain', 'The saved prompt reference is available again. Review the request again before allowing access or sending.') : '';
+            sourceStatus.textContent = message; sourceStatus.hidden = !message;
+        }
+        function retireMissingReference() {
+            if (sourceReferenceState() !== 'missing' || response || saving || command || (busy && dispatchedRequest === aborter)) return;
+            // Retire the review as soon as deletion is observed. Restoring the
+            // source later must not revive a permission-waiting send or key.
+            sourceReviewRetired = true; key.value = ''; reviewed = null; reviewText.hidden = true;
+            if (aborter) stopRequest();
+        }
+        function referenceReady() {
+            if (sourceReferenceState() === 'ready') return true;
+            retireMissingReference(); update(); return false;
         }
         function sourceCurrent() {
             return c.sessionReady() && c.record()?.id === source.promptId && c.session() === session &&
@@ -266,7 +302,13 @@
             if (!sourceCurrent()) { suspend(); return; }
             output.value = partialText; output.hidden = !partialText; partialLabel.hidden = !partialText;
         }
-        function checkSource() { if (c.disposed || !readerSourceCurrent()) { clearCopyFeedback(); releaseReader(); } if (reviewedStream && !closed && !suspended && !sourceCurrent()) suspend(); updateDifference(); refreshCopyState(); }
+        function checkSource() {
+            if (closed) return;
+            if (c.disposed || !readerSourceCurrent()) { clearCopyFeedback(); releaseReader(); }
+            if (reviewedStream && !suspended && !sourceCurrent()) suspend();
+            if (checksSourceReference()) { retireMissingReference(); update(); }
+            else { updateDifference(); refreshCopyState(); }
+        }
         function invalidateConnection() { key.value = ''; reviewed = null; reviewText.hidden = true; status.textContent = ''; update(); }
         function renderPresets() {
             presetSelect.replaceChildren();
@@ -334,7 +376,7 @@
         function releaseRequest(request) {
             // Only the owning request can clear credentials or unlock the dialog.
             if (!request || aborter !== request) return;
-            clearPaint(); paintActive = null; aborter = null; key.value = ''; busy = false;
+            clearPaint(); paintActive = null; if (dispatchedRequest === request) dispatchedRequest = null; aborter = null; key.value = ''; busy = false;
             if (!closed) update();
         }
         function stopRequest() {
@@ -360,20 +402,21 @@
             update(focused);
         }
         const review = button('Review', 'Review request', () => {
-            if (c.disposed || busy || saving || permissionPending || presetPending) return;
+            if (c.disposed || busy || saving || permissionPending || presetPending || !referenceReady()) return;
             suspended = false;
             try {
                 if (refining) { if (!refinement.current(c, template)) throw { code: 'STALE' }; prompt.value = refinement.request(template, instruction.value); }
                 if (streaming?.checked && !sourceCurrent()) throw { code: 'STALE' };
                 reviewedStream = Boolean(streaming?.checked);
                 reviewed = root.LocalItabAIModel.review({ url: url.value, model: model.value, prompt: prompt.value });
+                sourceReviewRetired = false;
                 const modeLine = streaming ? `\n${reviewedStream ? t('StreamOn', 'Response mode: streaming') : t('StreamOff', 'Response mode: complete response')}` : '';
                 reviewText.textContent = `${t('Destination', 'Destination')}: ${reviewed.url}\n${t('Name', 'Model ID')}: ${reviewed.model}${modeLine}\n\n${reviewed.prompt}`;
                 reviewText.hidden = false; status.textContent = t('Reviewed', 'Review the full destination and content above. Allowing access alone does not send anything.');
             } catch (error) { reviewed = null; status.textContent = failure(error.code); } update();
         });
         const allow = button('Allow', 'Allow this endpoint', async () => {
-            if (c.disposed || !reviewed || busy || saving || permissionPending || presetPending || suspended) return;
+            if (c.disposed || !reviewed || busy || saving || permissionPending || presetPending || suspended || !referenceReady()) return;
             if (refining && !refinement.current(c, template)) { status.textContent = failure('STALE'); return; } const snapshot = reviewed;
             permissionPending = true; update();
             try {
@@ -383,7 +426,7 @@
             finally { permissionPending = false; if (!closed) update(); }
         });
         const send = button('Send', 'Send reviewed prompt', async () => {
-            if (c.disposed || !reviewed || busy || saving || permissionPending || presetPending || response || suspended) return;
+            if (c.disposed || !reviewed || busy || saving || permissionPending || presetPending || response || suspended || !referenceReady()) return;
             if (refining && !refinement.current(c, template)) { status.textContent = failure('STALE'); return; }
             if (reviewedStream && !sourceCurrent()) { suspend(); return; }
             if (reviewedStream) { saved = false; command = null; }
@@ -392,7 +435,7 @@
             const active = () => aborter === request && !c.disposed && !closed && !suspended && !signal.aborted; update(); cancel.focus();
             try {
                 const permitted = await cancellable(root.chrome.permissions.contains({ origins: [snapshot.permission] }), signal);
-                if (!active()) return;
+                if (!active() || !referenceReady()) return;
                 if (refining && !refinement.current(c, template)) throw { code: 'STALE' };
                 if (useStream && !sourceCurrent()) { suspend(); return; }
                 if (!permitted) throw { code: 'PERMISSION' };
@@ -409,6 +452,7 @@
                         if (paintTimer === null) paintTimer = setTimeout(paintPartial, 100);
                     };
                 }
+                dispatchedRequest = request;
                 const result = await cancellable(root.LocalItabAIModel.run(snapshot, options), signal);
                 if (!active()) return;
                 if (useStream && !sourceCurrent()) { suspend(); return; }
@@ -507,14 +551,14 @@
         if (instruction) instruction.addEventListener('input', () => { prompt.value = ''; invalidateConnection(); });
         for (const input of [url, model]) input.addEventListener('input', invalidateConnection);
         actions.append(review, allow, send, cancel); if (copy) resultActions.append(copy); resultActions.append(save); if (trialButton) resultActions.append(trialButton); if (!refining) resultActions.append(collections); resultActions.append(close);
-        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); if (compareText) { const diffActions = el('div', 'prompt-actions'); diffActions.append(compareText); box.append(diffActions, difference); } box.append(resultActions); if (copy) box.append(copyStatus); overlay.append(box); view.doc.body.append(overlay);
+        box.append(title, help, presetLabel, presetHelp, fields, presetActions, reviewText, actions, status, sourceStatus); if (proposalLabel) box.append(proposalLabel); box.append(partialLabel, output, readerHost); if (originalDetails) box.append(originalDetails); if (compareText) { const diffActions = el('div', 'prompt-actions'); diffActions.append(compareText); box.append(diffActions, difference); } box.append(resultActions); if (copy) box.append(copyStatus); overlay.append(box); view.doc.body.append(overlay);
         view.openDialog = true; view.cancelModelDialog = hide; view.checkModelRun = checkSource; root.addEventListener('beforeunload', guard); root.addEventListener('pagehide', hide); view.doc.addEventListener('visibilitychange', visibilityChanged);
         view.refreshModelCopy = refreshCopyState;
         cleanup = root.LocalItabDialog.open(overlay, url, finish); update();
         if (presetStore) Promise.resolve().then(() => presetStore.read()).then(state => {
             if (closed || c.disposed) return; presets = state.records; presetAvailable = true; renderPresets();
         }).catch(() => { if (!closed) status.textContent = t('PresetUnavailable', 'Saved connections are unavailable. You can still enter a connection manually.'); }).finally(() => { presetPending = false; if (!closed) update(); });
-        return { copy, copyStatus, readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, presetReload, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, overlay };
+        return { copy, copyStatus, readerHost, streaming, partialLabel, originalOutput, compareText, difference, trialButton, get trial() { return trialUI; }, instruction, before, reviewText, presetSelect, presetName, presetSave, presetDelete, presetReload, url, model, key, prompt, review, allow, send, cancel, save, close, output, status, sourceStatus, overlay };
     }
     root.LocalItabAIModelView = { open };
 })(window);

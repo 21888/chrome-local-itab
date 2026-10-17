@@ -7516,5 +7516,20 @@
   },
   "settingsResetErrorPrefix": {
     "message": "重置设置时出错："
+  },
+  "promptsModelSourceMissingSent": {
+    "message": "原已保存提示词或关联版本已不可用。此请求已经发送；返回的回答会保留在这里，但保存可能失败。你可以选中回答文本后手动复制。"
+  },
+  "promptsModelSourceMissing": {
+    "message": "原已保存提示词或关联版本已不可用。请关闭此窗口，从可用的已保存提示词重新打开后再发送。"
+  },
+  "promptsModelSourceReading": {
+    "message": "正在核对已保存提示词的关联版本。请等待读取完成后再检查或发送请求。"
+  },
+  "promptsModelSourceReadFailed": {
+    "message": "暂时无法核对已保存提示词的关联版本。请重新加载提示词库后再检查或发送请求。"
+  },
+  "promptsModelSourceReviewAgain": {
+    "message": "已保存提示词的关联版本已恢复可用。请重新检查请求后，再允许访问或发送。"
   }
 }

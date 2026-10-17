@@ -6,8 +6,13 @@ const Core = require('../shared/local-prompts-store');
 const Client = require('../shared/ai-model-client');
 const { createDocument, deferred } = require('./helpers/task-dom-model');
 const { setup, add, tick, settle } = require('./helpers/prompts-harness');
-async function mount({ safeReader = false, normalizeTextareas = false, locale, clipboard, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>' } = {}) {
+async function mount({ safeReader = false, normalizeTextareas = false, locale, clipboard, run, contains = async () => true, request = async () => true, mutate = async () => {}, presetStore, mode = 'run', body = 'Synthetic input <script>text</script>', subscribeSource = false, historical = false } = {}) {
     const h = setup(); await h.controller.start(); await add(h.controller, 'Synthetic prompt', body);
+    if (historical) {
+        const record = h.controller.record(), version = record.currentVersionId;
+        await h.store.mutate(h.store.request('edit', { id: record.id, version: record.version, body: 'Current synthetic body' })); await tick();
+        assert.equal(h.controller.useVersion(version, body), true);
+    }
     const doc = createDocument({ blurUnavailableFocus: true }), events = new Map(), eventHandlers = new Map(); let runs = 0, grants = 0, writes = 0, command;
     if (normalizeTextareas) {
         const create = doc.createElement;
@@ -35,6 +40,7 @@ async function mount({ safeReader = false, normalizeTextareas = false, locale, c
         el(tag, className, text) { const el = doc.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; },
         button(name, fallback, action) { const b = this.el('button', '', this.t(name, fallback)); b.addEventListener('click', action); return b; } };
     const store = { request(kind, values) { return { kind, ...values, operationId: 'synthetic_operation' }; }, async mutate(value, validator) { writes++; command = value; assert.equal(validator(h.raw, value.promptRef), true); return mutate(value); } };
+    if (subscribeSource) h.controller.onChange = () => view.checkModelRun?.();
     const ui = root.LocalItabAIModelView.open({ view, collectionStore: store, presetStore, mode });
     ui.url.value = 'https://synthetic.test/v1/chat/completions'; ui.model.value = 'fixture-model';
     return { h, ui, root, events, doc, view, get readerParses() { return readerParses; }, get runs() { return runs; }, get grants() { return grants; }, get writes() { return writes; }, get command() { return command; } };
@@ -1270,4 +1276,165 @@ for (const newerFocus of [false, true]) test(`full answer copy: visibility retur
     h.doc.listeners.get('visibilitychange')();
     assert.equal(h.doc.activeElement, newerFocus ? h.ui.close : h.ui.copy); assert.equal(h.ui.copyStatus.textContent, '');
     await click(h.ui.close); h.h.controller.dispose();
+});
+
+
+async function changeRunSource(h, kind, values = {}) {
+    const record = h.h.controller.record();
+    await h.h.store.mutate(h.h.store.request(kind, { id: record.id, version: record.version, ...values }));
+    await tick();
+}
+
+for (const phase of ['before review', 'reviewed']) test(`run source reference: deletion ${phase} blocks unsaveable requests through real subscriptions`, async () => {
+    const h = await mount({ subscribeSource: true });
+    if (phase === 'reviewed') await click(h.ui.review);
+    const exact = h.ui.prompt.value; h.ui.key.value = 'synthetic-temporary'; h.ui.send.focus();
+    await changeRunSource(h, 'remove');
+    assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.allow.disabled, true); assert.equal(h.ui.send.disabled, true);
+    assert.equal(h.ui.reviewText.hidden, true); assert.equal(h.ui.key.value, ''); assert.equal(h.ui.prompt.value, exact);
+    assert.equal(h.ui.sourceStatus.hidden, false); assert.match(h.ui.sourceStatus.textContent, /saved prompt or.*version.*no longer available/);
+    if (phase === 'reviewed') assert.equal(h.doc.activeElement, h.ui.sourceStatus);
+    await click(h.ui.review); await click(h.ui.allow); await click(h.ui.send);
+    assert.equal(h.grants, 0); assert.equal(h.runs, 0); assert.equal(h.writes, 0);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('run source reference: exact history version removal is blocked even while its prompt remains', async () => {
+    const h = await mount({ subscribeSource: true, historical: true, body: 'Historical synthetic body' });
+    await click(h.ui.review); const raw = h.h.raw, record = raw.records[0];
+    record.history = record.history.slice(1); raw.revision++; record.revision = raw.revision; record.version = 'synthetic_replaced_history';
+    await h.h.backend.write(Core.validate(raw)); await tick();
+    assert.equal(h.h.controller.record().deletedAt, null); assert.equal(h.ui.send.disabled, true);
+    await click(h.ui.send); assert.equal(h.runs, 0); assert.match(h.ui.sourceStatus.textContent, /no longer available/);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const phase of ['permission grant', 'permission check']) test(`run source reference: deletion and restoration during ${phase} cannot revive the retired request`, async () => {
+    const pending = deferred(); let checks = 0;
+    const h = await mount({ subscribeSource: true, request: () => pending.promise,
+        contains: () => ++checks === 1 && phase === 'permission check' ? pending.promise : Promise.resolve(true) });
+    await click(h.ui.review); h.ui.key.value = 'synthetic-temporary';
+    await click(phase === 'permission grant' ? h.ui.allow : h.ui.send);
+    assert.equal(h.runs, 0);
+    await changeRunSource(h, 'remove'); assert.equal(h.ui.key.value, ''); assert.equal(h.ui.reviewText.hidden, true);
+    await changeRunSource(h, 'restore');
+    pending.resolve(true); await tick();
+    assert.equal(h.runs, 0); assert.equal(h.ui.send.disabled, true); assert.equal(h.ui.allow.disabled, true);
+    assert.equal(h.ui.key.value, ''); assert.doesNotMatch(h.ui.status.textContent, /Endpoint access allowed/);
+    await click(h.ui.send); assert.equal(h.runs, 0);
+    await click(h.ui.review); await click(h.ui.send); assert.equal(h.runs, 1);
+    assert.equal(h.grants, phase === 'permission grant' ? 1 : 0);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const change of ['title', 'body', 'refresh', 'historical preview']) test(`run source reference: ${change} preserves a valid frozen historical request and save reference`, async () => {
+    let sent;
+    const h = await mount({ subscribeSource: true, historical: change === 'historical preview', body: 'Original synthetic body',
+        run: async request => { sent = request; return { text: 'Synthetic historical answer', model: request.model, origin: request.origin }; } });
+    const originalVersion = h.h.controller.session().versionId;
+    await click(h.ui.review); const reviewText = h.ui.reviewText.textContent;
+    if (change === 'title') await changeRunSource(h, 'edit', { title: 'Renamed synthetic title' });
+    if (change === 'body') await changeRunSource(h, 'edit', { body: 'Edited synthetic body' });
+    if (change === 'refresh') await h.h.controller.refresh();
+    if (change === 'historical preview') h.h.controller.returnToCurrent();
+    assert.equal(h.ui.reviewText.hidden, false); assert.equal(h.ui.reviewText.textContent, reviewText); assert.equal(h.ui.send.disabled, false);
+    assert.equal(h.ui.sourceStatus.hidden, true);
+    await click(h.ui.send); assert.equal(h.runs, 1); assert.equal(sent.prompt, 'Original synthetic body');
+    await click(h.ui.save); assert.equal(h.writes, 1); assert.equal(h.command.promptRef.bodyVersionId, originalVersion);
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('run source reference: pending and failed reads are temporary unknown states, not source deletion', async () => {
+    const pending = deferred(), h = await mount({ subscribeSource: true });
+    await click(h.ui.review); const reviewText = h.ui.reviewText.textContent;
+    const read = h.h.backend.read; h.h.backend.read = () => pending.promise;
+    const refreshing = h.h.controller.refresh();
+    assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.allow.disabled, true); assert.equal(h.ui.send.disabled, true);
+    assert.match(h.ui.sourceStatus.textContent, /Checking/); assert.doesNotMatch(h.ui.sourceStatus.textContent, /no longer available/);
+    await click(h.ui.send); await click(h.ui.allow); assert.equal(h.runs, 0); assert.equal(h.grants, 0);
+    pending.resolve(h.h.raw); await refreshing;
+    assert.equal(h.ui.send.disabled, false); assert.equal(h.ui.reviewText.textContent, reviewText);
+    h.h.backend.read = async () => { throw Error('Synthetic private read error'); }; await h.h.controller.refresh();
+    assert.equal(h.ui.send.disabled, true); assert.match(h.ui.sourceStatus.textContent, /Could not verify/);
+    assert.doesNotMatch(h.ui.sourceStatus.textContent, /no longer available|Synthetic private/);
+    h.h.backend.read = read; await h.h.controller.refresh();
+    assert.equal(h.ui.send.disabled, false); assert.equal(h.ui.sourceStatus.hidden, true);
+    await click(h.ui.send); assert.equal(h.runs, 1); await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const ending of ['success', 'failure']) test(`run source reference: deletion after dispatch preserves the in-flight ${ending} and its feedback`, async () => {
+    const pending = rejectableDeferred(); let signal;
+    const h = await mount({ subscribeSource: true, run: (_, options) => { signal = options.signal; return pending.promise; } });
+    await click(h.ui.review); await click(h.ui.send); assert.equal(h.runs, 1);
+    await changeRunSource(h, 'remove'); assert.equal(signal.aborted, false);
+    assert.match(h.ui.sourceStatus.textContent, /already sent.*saving may fail/);
+    if (ending === 'success') pending.resolve({ text: 'Keep this synthetic answer', model: 'fixture-model', origin: 'https://synthetic.test' });
+    else pending.reject({ code: 'RATE_LIMIT' });
+    await tick();
+    if (ending === 'success') {
+        assert.equal(h.ui.output.value, 'Keep this synthetic answer'); assert.equal(h.ui.output.hidden, false);
+        assert.equal(h.ui.save.disabled, false); assert.match(h.ui.status.textContent, /Response received/);
+    } else assert.match(h.ui.status.textContent, /rate-limited/);
+    assert.equal(h.runs, 1); assert.equal(h.writes, 0); await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('run source reference: completed answer and uncertain save keep their exact retry operation after deletion', async () => {
+    const receipt = deferred(), operations = []; let tries = 0;
+    const h = await mount({ subscribeSource: true, mutate: async operation => {
+        operations.push(operation); if (++tries === 1) { await receipt.promise; throw Error('Synthetic uncertain save'); }
+    } });
+    await click(h.ui.review); await click(h.ui.send); const answer = h.ui.output.value;
+    h.ui.save.dispatch('click'); await tick(); assert.equal(h.ui.close.disabled, true);
+    await changeRunSource(h, 'remove'); assert.equal(h.ui.output.value, answer); assert.equal(h.ui.close.disabled, true);
+    assert.match(h.ui.sourceStatus.textContent, /saving may fail/);
+    receipt.resolve(); await tick(); assert.match(h.ui.status.textContent, /Could not confirm the save/);
+    assert.equal(h.ui.output.value, answer); assert.equal(h.ui.save.disabled, false);
+    await changeRunSource(h, 'restore'); await click(h.ui.save);
+    assert.equal(h.writes, 2); assert.equal(operations[0], operations[1]); assert.match(h.ui.status.textContent, /Saved to your AI collection/);
+    assert.equal(h.runs, 1); await click(h.ui.close); h.h.controller.dispose();
+});
+
+for (const phase of ['before allow', 'before send', 'permission check']) test(`run source reference: ${phase} rechecks deletion even without a render hook`, async () => {
+    const pending = deferred(); let checks = 0;
+    const h = await mount({ contains: () => { checks++; return pending.promise; } });
+    await click(h.ui.review); h.ui.key.value = 'synthetic-temporary';
+    if (phase === 'permission check') await click(h.ui.send);
+    await changeRunSource(h, 'remove');
+    if (phase === 'permission check') { pending.resolve(true); await tick(); }
+    else await click(phase === 'before allow' ? h.ui.allow : h.ui.send);
+    assert.equal(h.grants, 0); assert.equal(h.runs, 0); assert.equal(checks, phase === 'permission check' ? 1 : 0);
+    assert.equal(h.ui.review.disabled, true); assert.equal(h.ui.allow.disabled, true); assert.equal(h.ui.send.disabled, true);
+    assert.equal(h.ui.reviewText.hidden, true); assert.equal(h.ui.key.value, '');
+    await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('run source reference: permission check finishing during a pending read never sends after automatic recovery', async () => {
+    const permission = deferred(), reading = deferred(); let checks = 0;
+    const h = await mount({ subscribeSource: true, contains: () => ++checks === 1 ? permission.promise : Promise.resolve(true) });
+    await click(h.ui.review); h.ui.key.value = 'synthetic-temporary'; await click(h.ui.send);
+    const read = h.h.backend.read; h.h.backend.read = () => reading.promise;
+    const refreshing = h.h.controller.refresh(); permission.resolve(true); await tick();
+    assert.equal(h.runs, 0); assert.equal(h.ui.key.value, ''); assert.equal(h.ui.send.disabled, true);
+    assert.match(h.ui.sourceStatus.textContent, /Checking/);
+    reading.resolve(h.h.raw); await refreshing; h.h.backend.read = read;
+    assert.equal(h.runs, 0); assert.equal(h.ui.send.disabled, false);
+    await click(h.ui.send); assert.equal(h.runs, 1); await click(h.ui.close); h.h.controller.dispose();
+});
+
+test('run source reference: independent missing-reference notice is localized without hiding transport feedback', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const pending = deferred(), h = await mount({ subscribeSource: true, locale, run: () => pending.promise });
+        const catalog = JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8'));
+        await click(h.ui.review); await changeRunSource(h, 'remove');
+        assert.equal(h.ui.sourceStatus.textContent, catalog.promptsModelSourceMissing.message);
+        await changeRunSource(h, 'restore'); assert.equal(h.ui.sourceStatus.textContent, catalog.promptsModelSourceReviewAgain.message);
+        await click(h.ui.review); await click(h.ui.send); await changeRunSource(h, 'remove');
+        assert.equal(h.ui.sourceStatus.textContent, catalog.promptsModelSourceMissingSent.message);
+        pending.resolve({ text: 'Synthetic preserved answer', model: 'fixture-model', origin: 'https://synthetic.test' }); await tick();
+        assert.equal(h.ui.status.textContent, catalog.promptsModelReady.message);
+        assert.equal(h.ui.output.value, 'Synthetic preserved answer'); assert.equal(h.ui.save.disabled, false);
+        await click(h.ui.save); assert.equal(h.ui.status.textContent, catalog.promptsModelSaveError.message);
+        assert.equal(h.ui.output.value, 'Synthetic preserved answer'); assert.equal(h.ui.save.disabled, false);
+        await click(h.ui.close); h.h.controller.dispose();
+    }
 });

@@ -7516,5 +7516,20 @@
   },
   "settingsResetErrorPrefix": {
     "message": "Error resetting settings:"
+  },
+  "promptsModelSourceMissingSent": {
+    "message": "The saved prompt or linked version is no longer available. This request was already sent; any response is kept here, but saving may fail. Select the response text to copy it manually."
+  },
+  "promptsModelSourceMissing": {
+    "message": "The saved prompt or linked version is no longer available. Close this dialog and open an available saved prompt before sending."
+  },
+  "promptsModelSourceReading": {
+    "message": "Checking the saved prompt reference. Wait for it to load before reviewing or sending."
+  },
+  "promptsModelSourceReadFailed": {
+    "message": "Could not verify the saved prompt reference. Reload the prompt library before reviewing or sending."
+  },
+  "promptsModelSourceReviewAgain": {
+    "message": "The saved prompt reference is available again. Review the request again before allowing access or sending."
   }
 }
