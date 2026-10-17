@@ -11,6 +11,14 @@ duplicate, move to Trash and restore. Open pages stay pinned to their original
 workspace; switching elsewhere does not retarget them. New tabs use the most
 recently selected workspace.
 
+The switch dialog searches the displayed names in its already-loaded active list
+at opening. Matching is a literal substring, ignoring case and query-edge spaces;
+IDs and Trash are excluded. Clear restores the original order, including separate
+same-named spaces and the disabled current space. Refreshes elsewhere leave this
+snapshot and your input intact; reopening starts with an empty query and the latest
+loaded list. Typing, clearing or pressing Enter never switches automatically.
+Click a result to use the same pending-save and unsaved-draft checks below.
+
 Switching waits for pending saves. Dirty pages offer Stay, Save and switch, or an
 explicit Discard. Failed/conflicted saves preserve the draft and stop navigation.
 Duplication copies saved contents only, never a page draft or running timer.

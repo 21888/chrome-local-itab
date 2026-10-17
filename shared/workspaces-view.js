@@ -35,7 +35,8 @@
         LegacyReview: 'Review recovery choice', LegacyReviewTitle: 'Review both saved copies', LegacyKeep: 'Keep current workspaces and retain older-tab copy', LegacyReviewHelp: 'Close every older Local iTab tab before continuing. This keeps the current workspaces active and preserves the older-tab copy separately. It does not merge or delete either copy.', LegacyCurrent: 'Current workspaces', LegacyOlder: 'Older-tab copy', LegacyDetected: 'Conflict detected', LegacySites: 'Sites', LegacyTasks: 'Tasks', LegacyNotes: 'Scratchpad characters', LegacySpaces: 'Workspaces', LegacyTrash: 'In Trash', LegacyChanged: 'Saved copies changed during review. Review again before choosing a recovery action.', LegacyReviewAgain: 'Review again', LegacyResolved: 'Current workspaces are kept and the older-tab copy is retained. This old page still cannot save. Copy or export its drafts, then explicitly reopen a workspace.',
         LegacyDownload: 'Download both saved copies', LegacyRequested: 'Recovery download requested. It contains both saved workspace copies, without account credentials or cloud-provider settings. Check your downloads before making recovery changes.', LegacyExportFailed: 'Could not export both saved copies. They remain on this device. Keep this page open and retry after closing older tabs.',
         ProviderScope: 'Chrome Sync and Google Drive manage Default only. Other workspaces are protected and use complete local backups.', OpenDefault: 'Open Default workspace',
-        Open: 'Open', Available: 'Available workspaces', SavedOnly: 'Operations here use saved content. Open drafts stay in their original tabs.'
+        Open: 'Open', Available: 'Available workspaces', SavedOnly: 'Operations here use saved content. Open drafts stay in their original tabs.',
+        SearchName: 'Search workspace names', ClearSearch: 'Clear search', SearchCount: '{count} of {total} workspaces', SearchEmpty: 'No workspaces match this name.'
     };
     const t = key => { const value = root.i18n?.t('spaces' + key); return value && value !== 'spaces' + key ? value : copy[key] || key; };
     let dialogNumber = 0;
@@ -267,15 +268,60 @@
         }
         function showPicker() {
             const d = makeDialog('Switch'); if (!d) return;
+            // Keep this opening's displayed names, identities and order stable.
+            // Filtering does not reload the registry or touch page drafts.
+            const snapshot = registry.workspaces.filter(w => !w.deletedAt).sort((a,b) => a.order - b.order)
+                .map(item => ({ id: item.id, name: item.name, current: item.id === session.id && !invalid }));
             create('p', 'spaces-help', t('Pinned'), d.panel);
+            const tools = create('div', 'spaces-picker-tools', undefined, d.panel);
+            const label = create('label', 'spaces-field spaces-picker-label', t('SearchName'), tools);
+            const input = create('input', 'spaces-picker-search', undefined, label); input.type = 'search'; input.autocomplete = 'off'; input.spellcheck = false;
+            const clear = button('ClearSearch', () => {
+                if (!usable(clear) || !usable(input)) return;
+                composing = false; input.value = ''; input.focus(); renderResults();
+            }, tools);
+            const count = create('p', 'spaces-help spaces-picker-count', '', d.panel);
+            count.id = `spaces-picker-count-${dialogNumber}`; count.setAttribute('role', 'status'); count.setAttribute('aria-live', 'polite'); count.setAttribute('aria-atomic', 'true');
+            input.setAttribute('aria-describedby', count.id);
             const options = create('div', 'spaces-picker', undefined, d.panel);
-            for (const item of registry.workspaces.filter(w => !w.deletedAt).sort((a,b) => a.order - b.order)) {
-                const b = button('Open', () => { d.close(); requestSwitch(item.id); }, options);
-                b.textContent = item.name + (item.id === session.id && !invalid ? ` · ${t('Loaded')}` : '');
-                b.disabled = item.id === session.id && !invalid;
+            const empty = create('p', 'spaces-empty', t('SearchEmpty'), d.panel);
+            const close = button('Close', () => { if (usable(close)) d.close(); }, d.panel);
+            let composing = false, resultRevision = 0;
+            const owns = node => d.valid() && node.isConnected && d.panel.contains(node);
+            function usable(node) {
+                return owns(node) && !busy && !d.executing && !doc.hidden && !node.disabled &&
+                    d.overlay.classList.contains('active') && !node.closest('[hidden], [inert], [aria-hidden="true"]') && node.getClientRects().length > 0;
             }
-            const close = button('Close', () => d.close(), d.panel);
-            d.open([...options.children].find(b => !b.disabled) || close);
+            function renderResults() {
+                const query = input.value.trim().toLowerCase();
+                const matches = snapshot.filter(item => item.name.toLowerCase().includes(query));
+                const revision = ++resultRevision;
+                // Removing a focused result, or disabling Clear, must not leave
+                // keyboard focus outside the shared dialog focus trap.
+                if (options.contains(doc.activeElement) || (doc.activeElement === clear && !input.value)) input.focus();
+                options.replaceChildren();
+                for (const item of matches) {
+                    const b = button('Open', event => {
+                        if (composing || event.isComposing || event.keyCode === 229 || !usable(b) || revision !== resultRevision || b.parentElement !== options) return;
+                        d.close(); requestSwitch(item.id);
+                    }, options);
+                    b.addEventListener('keydown', event => {
+                        if (['Enter', ' '].includes(event.key) && (composing || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                    });
+                    b.dataset.workspaceId = item.id;
+                    b.textContent = item.name + (item.current ? ` · ${t('Loaded')}` : '');
+                    b.disabled = item.current;
+                }
+                count.textContent = t('SearchCount').replace('{count}', String(matches.length)).replace('{total}', String(snapshot.length));
+                empty.hidden = matches.length !== 0; clear.disabled = !input.value;
+            }
+            input.addEventListener('compositionstart', () => { if (usable(input)) composing = true; });
+            // A composition can end after the tab is hidden. Release only this
+            // opening's state then; visible filtering still requires usable UI.
+            input.addEventListener('compositionend', () => { if (owns(input)) { composing = false; if (usable(input)) renderResults(); } });
+            input.addEventListener('focusout', () => { if (owns(input)) composing = false; });
+            input.addEventListener('input', event => { if (usable(input) && !composing && !event.isComposing) renderResults(); });
+            renderResults(); d.open(input);
         }
         function showName(kind, item) {
             const title = {create:'CreateTitle',rename:'RenameTitle',duplicate:'DuplicateTitle'}[kind];

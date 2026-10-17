@@ -2826,6 +2826,18 @@
   "spacesAvailable": {
     "message": "Available workspaces"
   },
+  "spacesSearchName": {
+    "message": "Search workspace names"
+  },
+  "spacesClearSearch": {
+    "message": "Clear search"
+  },
+  "spacesSearchCount": {
+    "message": "{count} of {total} workspaces"
+  },
+  "spacesSearchEmpty": {
+    "message": "No workspaces match this name."
+  },
   "spacesSavedOnly": {
     "message": "Operations here use saved content. Open drafts stay in their original tabs."
   },

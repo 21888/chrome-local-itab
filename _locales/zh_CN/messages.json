@@ -2826,6 +2826,18 @@
   "spacesAvailable": {
     "message": "可用工作区"
   },
+  "spacesSearchName": {
+    "message": "搜索工作区名称"
+  },
+  "spacesClearSearch": {
+    "message": "清除搜索"
+  },
+  "spacesSearchCount": {
+    "message": "匹配 {count} 个，共 {total} 个工作区"
+  },
+  "spacesSearchEmpty": {
+    "message": "没有名称匹配的工作区。"
+  },
   "spacesSavedOnly": {
     "message": "这里的操作仅处理已保存的内容。打开的草稿保留在原标签页。"
   },
