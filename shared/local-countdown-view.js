@@ -5,6 +5,7 @@
         countdownTitle: 'Countdown', countdownLocal: 'On this device',
         countdownEventLabel: 'Milestone title (up to 80 characters)', countdownDateLabel: 'Target date (YYYY-MM-DD)',
         countdownDateHelp: 'Use a real calendar date from 0001-01-01 to 9999-12-31. Days are counted by your device’s local calendar, not 24-hour periods.',
+        countdownDatePreview: 'Date preview (current draft): $1',
         countdownEnable: 'Show Countdown on the new tab page',
         countdownEnableHelp: 'Optional and device-local. Hiding Countdown keeps its saved title and date.',
         countdownHelp: 'Saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. No notifications or network requests. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup.',
@@ -147,8 +148,9 @@
         }
     }
     class SettingsView {
-        constructor(host, { controller = new api.Controller() } = {}) {
-            this.host = host; this.controller = controller; this.closed = false;
+        constructor(host, { controller = new api.Controller(), now = () => new Date() } = {}) {
+            this.host = host; this.controller = controller; this.now = now;
+            this.closed = false; this.suspended = false; this.timeout = null;
             host.classList.add('local-countdown-settings');
             const titleLabel = el('label', 'countdown-field', t('countdownEventLabel'));
             this.title = el('textarea', 'countdown-input'); this.title.rows = 2; this.title.setAttribute('aria-label', t('countdownEventLabel')); this.title.autocomplete = 'off';
@@ -157,10 +159,13 @@
             this.date = el('input', 'countdown-input'); this.date.type = 'text'; this.date.placeholder = 'YYYY-MM-DD'; this.date.setAttribute('aria-label', t('countdownDateLabel'));
             this.date.autocomplete = 'off'; this.date.spellcheck = false;
             dateLabel.append(this.date);
+            this.datePreview = el('p', 'countdown-help countdown-date-preview');
+            this.datePreview.setAttribute('aria-live', 'off');
+            const dateField = el('div', 'countdown-field'); dateField.append(dateLabel, this.datePreview);
             this.enabled = el('input'); this.enabled.type = 'checkbox';
             const enableLabel = el('label', 'countdown-enable-label'); enableLabel.append(this.enabled, el('span', '', t('countdownEnable')));
             this.status = el('p', 'countdown-status'); this.status.tabIndex = -1; this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
-            const inputs = el('div', 'countdown-fields'); inputs.append(titleLabel, dateLabel);
+            const inputs = el('div', 'countdown-fields'); inputs.append(titleLabel, dateField);
             this.saveButton = button('countdownSave', () => this.runAction(this.saveButton, () => controller.save()));
             this.cancelButton = button('countdownCancel', () => this.loadSaved(this.cancelButton));
             this.retry = button('countdownRetry', () => this.runAction(this.retry, () => controller.retry()));
@@ -183,7 +188,11 @@
             const importControls = el('div', 'countdown-controls'); importControls.append(this.importApply, this.importCancel);
             this.importPanel.append(this.importInfo, this.importPreview, el('p', 'countdown-help', t('countdownImportHelp')), importControls);
             this.importPanel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); this.cancelImport(true); } });
-            this.pagehide = () => this.cancelImport(); root.addEventListener?.('pagehide', this.pagehide);
+            this.visibility = () => this.renderDatePreview();
+            this.pagehide = () => { this.suspended = true; this.cancelTick(); this.cancelImport(); };
+            this.pageshow = () => { this.suspended = false; this.renderDatePreview(); };
+            document.addEventListener('visibilitychange', this.visibility);
+            root.addEventListener?.('focus', this.visibility); root.addEventListener?.('pagehide', this.pagehide); root.addEventListener?.('pageshow', this.pageshow);
             const controls = el('div', 'countdown-controls'); controls.append(this.saveButton, this.cancelButton, this.exportButton, this.importButton, this.retry, this.useSaved, this.replace);
             this.savedLabel = el('p', 'countdown-help', t('countdownSavedPreview'));
             this.savedPreview = el('pre', 'countdown-saved-preview'); this.savedPreview.setAttribute('aria-label', t('countdownSavedPreview'));
@@ -195,7 +204,30 @@
                 field.addEventListener('compositionstart', () => controller.setComposing(true));
                 field.addEventListener('compositionend', () => { if (controller.loaded) controller.setDraft({ [key]: field.value }); controller.setComposing(false); });
             }
+            // Settings sections can be hidden directly or by an ancestor. Do not
+            // observe descendants: preview text/hidden writes must not loop back.
+            if (root.MutationObserver) {
+                this.observer = new root.MutationObserver(this.visibility);
+                for (let node = host; node; node = node.parentElement) this.observer.observe(node, { attributes: true, attributeFilter: ['hidden', 'style', 'class'] });
+            }
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
+        }
+        cancelTick() { if (this.timeout !== null) { root.clearTimeout(this.timeout); this.timeout = null; } }
+        renderDatePreview() {
+            if (this.closed) return;
+            this.cancelTick();
+            const c = this.controller, targetDate = c.draft?.targetDate;
+            let days;
+            try { if (!c.composing && targetDate) days = api.calendarDifference(targetDate, this.now()); } catch (_) {}
+            const valid = Number.isInteger(days);
+            this.datePreview.hidden = !valid;
+            setText(this.datePreview, valid ? t('countdownDatePreview', `${targetDate} · ${daysText(days)}`) : '');
+            // This clock only reads the draft and updates this non-live preview.
+            // Never re-render status/import controls or read storage on a tick.
+            if (valid && !document.hidden && document.visibilityState !== 'hidden' && !this.suspended &&
+                this.host.getClientRects().length && !['hidden', 'collapse'].includes(root.getComputedStyle?.(this.host)?.visibility)) {
+                this.timeout = root.setTimeout(() => { this.timeout = null; this.renderDatePreview(); }, 60000);
+            }
         }
         canImport() {
             const c = this.controller;
@@ -291,9 +323,15 @@
             const saved = c.state;
             setText(this.savedPreview, saved ? `${saved.title || t('countdownNotConfigured')}\n${saved.targetDate || ''}\n${t(saved.enabled ? 'countdownShown' : 'countdownHidden')}` : t('countdownNotConfigured'));
             setText(this.status, statusText(c)); this.status.classList.toggle('countdown-error', Boolean(c.error || c.readError || c.conflict));
+            this.renderDatePreview();
         }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
-        destroy() { this.closed = true; this.cancelImport(); root.removeEventListener?.('pagehide', this.pagehide); this.unsubscribe(); this.controller.destroy(); }
+        destroy() {
+            this.closed = true; this.cancelTick(); this.observer?.disconnect(); this.cancelImport();
+            document.removeEventListener('visibilitychange', this.visibility); root.removeEventListener?.('focus', this.visibility);
+            root.removeEventListener?.('pagehide', this.pagehide); root.removeEventListener?.('pageshow', this.pageshow);
+            this.unsubscribe(); this.controller.destroy();
+        }
     }
     Object.assign(api, { View, SettingsView, mount: (host, options) => new View(host, options), mountSettings: (host, options) => new SettingsView(host, options) });
 })(window);

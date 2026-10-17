@@ -19,6 +19,7 @@
 .countdown-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .countdown-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 13px; }
 .countdown-input { display: block; width: 100%; min-height: 38px; padding: 8px 10px; line-height: 1.5; }
+.countdown-date-preview { margin: 0; font-variant-numeric: tabular-nums; }
 .countdown-enable-label { display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; }
 .countdown-enable-label input { flex: 0 0 auto; margin-top: 5px; accent-color: var(--template-accent); }
 .countdown-saved-preview { max-width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--template-border); border-radius: 7px; color: var(--template-text); background: var(--template-surface-raised); font: inherit; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }

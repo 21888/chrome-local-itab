@@ -2,6 +2,8 @@
 
 Use Settings → Search & cards → Countdown to name one milestone and enter a target date in YYYY-MM-DD format. The date must be a real Gregorian calendar date between 0001-01-01 and 9999-12-31. Titles support up to 80 Unicode characters. Enable Show Countdown, then choose Save. Cancel reloads the latest saved version; it asks before discarding an edited draft.
 
+The date field also shows **Date preview (current draft)** with the exact entered ISO date and days left, Today, or days ago before saving, even while Countdown is hidden. It follows the current draft, including applied TXT imports; it is separate from the latest saved values shown during a conflict. Empty, incomplete, invalid dates and active IME composition clear the preview. The preview refreshes each visible minute and on return to the page, without saving, reloading storage, or moving focus.
+
 The optional card is hidden by default. It shows days left, Today, or days ago relative to this device’s local calendar date. It compares calendar dates, not elapsed 24-hour periods, so daylight-saving changes do not shift the count. It refreshes on focus/visibility changes and at most one minute after a midnight passes while the card remains visible. There are no hours, recurrence, notifications, location requests or network services.
 
 Hide keeps the saved title and date. Use Settings to show it again. Edit opens the Countdown settings; Save updates other open pages. Unsaved Settings changes do not appear on the card until saved.

@@ -436,6 +436,9 @@
   "countdownDateHelp": {
     "message": "请输入 0001-01-01 至 9999-12-31 之间的真实日期。天数根据设备本地日历计算，而非每 24 小时计算。"
   },
+  "countdownDatePreview": {
+    "message": "日期预览（当前草稿）：$1"
+  },
   "countdownEnable": {
     "message": "在新标签页显示倒计时"
   },

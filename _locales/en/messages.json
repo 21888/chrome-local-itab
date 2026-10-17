@@ -436,6 +436,9 @@
   "countdownDateHelp": {
     "message": "Use a real calendar date from 0001-01-01 to 9999-12-31. Days are counted by your device’s local calendar, not 24-hour periods."
   },
+  "countdownDatePreview": {
+    "message": "Date preview (current draft): $1"
+  },
   "countdownEnable": {
     "message": "Show Countdown on the new tab page"
   },

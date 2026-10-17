@@ -8,11 +8,11 @@ const configured = (extra = {}) => ({ ...storeApi.initial(), enabled: true, titl
 function model({ raw: initial, failRead: initiallyFail = false, settings = false, translate } = {}) {
     // Model disabled/hidden focus loss explicitly; this is not native-browser acceptance.
     const document = createDocument({ blurUnavailableFocus: true }), events = new Map(), blobs = [], timers = new Map(), confirms = [], observers = [];
-    let raw = initial, failRead = initiallyFail, failWrite = false, tail = Promise.resolve(), hold, writes = 0, timerId = 0, approve = true;
+    let raw = initial, failRead = initiallyFail, failWrite = false, tail = Promise.resolve(), hold, reads = 0, writes = 0, timerId = 0, approve = true;
     let currentDate = new Date(2026, 9, 9, 12);
     const listeners = new Set(), backend = {
         lock(fn) { const p = tail.then(fn); tail = p.catch(() => {}); return p; },
-        async read() { if (failRead) throw Error(); return structuredClone(raw); },
+        async read() { reads++; if (failRead) throw Error(); return structuredClone(raw); },
         async write(value) { if (hold) await hold; if (failWrite) throw Error(); raw = structuredClone(value); writes++; listeners.forEach(fn => fn()); },
         subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
     };
@@ -26,14 +26,14 @@ function model({ raw: initial, failRead: initiallyFail = false, settings = false
         setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, delay }); return id; }, clearTimeout(id) { timers.delete(id); },
         addEventListener(type, fn) { if (!events.has(type)) events.set(type, new Set()); events.get(type).add(fn); },
         removeEventListener(type, fn) { events.get(type)?.delete(fn); },
-        MutationObserver: class { constructor(fn) { this.fn = fn; observers.push(this); } observe() {} disconnect() { this.disconnected = true; } }
+        MutationObserver: class { constructor(fn) { this.fn = fn; this.targets = []; observers.push(this); } observe(node, options) { this.targets.push({ node, options }); } disconnect() { this.disconnected = true; } }
     };
     const create = document.createElement; document.createElement = tag => { const node = create(tag); node.click = () => node.dispatch('click'); return node; };
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-countdown-view'), 'utf8'), { window, document });
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/workspaces-view'), 'utf8'), { window, document });
     const parent = document.createElement('div'), host = document.createElement(settings ? 'div' : 'article'); document.body.append(parent); parent.append(host);
     const controller = new Controller(new api.Store(backend));
-    const visibility = [], view = settings ? api.mountSettings(host, { controller }) : api.mount(host, { controller, now: () => currentDate, onVisibility: visible => visibility.push(visible) });
+    const visibility = [], view = settings ? api.mountSettings(host, { controller, now: () => currentDate }) : api.mount(host, { controller, now: () => currentDate, onVisibility: visible => visibility.push(visible) });
     // Mirror countdown-status:empty and require explicit programmatic focusability
     // for this paragraph. The generic helper does not model stylesheet layout or
     // distinguish a paragraph's default tabIndex -1 from an explicit tabindex.
@@ -42,7 +42,7 @@ function model({ raw: initial, failRead: initiallyFail = false, settings = false
     view.status.focus = () => { if (Object.hasOwn(view.status, '_tabIndex')) statusFocus(); };
     return {
         window, document, host, parent, controller, view, api, events, blobs, backend, timers, confirms, observers, visibility,
-        get raw() { return raw; }, get writes() { return writes; },
+        get raw() { return raw; }, get reads() { return reads; }, get writes() { return writes; },
         readFail: v => failRead = v, writeFail: v => failWrite = v, hold: p => hold = p, approve: v => approve = v, now: date => currentDate = date,
         flush: () => new Promise(r => setTimeout(r, 20)),
         fire: type => { for (const fn of events.get(type) || []) fn(); },
@@ -51,6 +51,138 @@ function model({ raw: initial, failRead: initiallyFail = false, settings = false
         input(field, value) { view[field].value = value; view[field].dispatch('input'); }
     };
 }
+
+
+test('DOM model: settings date preview shows exact draft dates and future/today/past labels before saving', async () => {
+    const m = model({ settings: true }); await m.flush();
+    try {
+        assert(m.view.datePreview, 'Settings needs a separate current-draft date preview');
+        assert(m.view.datePreview.hidden); assert.equal(m.view.datePreview.textContent, '');
+        assert(!m.view.date.parentElement.contains(m.view.datePreview), 'preview is separate from the input label');
+        assert.equal(m.view.datePreview.getAttribute('aria-live'), 'off'); assert.equal(m.view.datePreview.getAttribute('role'), undefined);
+        m.view.date.focus();
+        for (const [date, label] of [['2026-10-11', '2 days left'], ['2026-10-10', '1 day left'], ['2026-10-09', 'Today'], ['2026-10-08', '1 day ago'], ['2026-10-07', '2 days ago']]) {
+            m.input('date', date);
+            assert.equal(m.view.datePreview.textContent, `Date preview (current draft): ${date} · ${label}`);
+            assert(!m.view.datePreview.hidden); assert.equal(m.document.activeElement, m.view.date);
+            assert.equal(m.view.status.textContent, 'Unsaved changes'); assert.equal(m.tickCount(), 1);
+        }
+        assert.equal(m.controller.draft.title, ''); assert.equal(m.controller.draft.enabled, false);
+        assert.equal(m.writes, 0); assert.equal(m.raw, undefined);
+    } finally { m.view.destroy(); }
+});
+
+test('DOM model: settings date preview clears invalid and composing results without changing validation', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        assert(m.view.datePreview, 'Settings needs a separate current-draft date preview');
+        for (const value of ['', '2026-', '2026-02-30', '0000-01-01', '2026-10-09 ', '<img>']) {
+            m.input('date', value); assert(m.view.datePreview.hidden); assert.equal(m.view.datePreview.textContent, ''); assert.equal(m.tickCount(), 0);
+        }
+        m.input('date', '2026-02-30'); m.view.saveButton.dispatch('click'); await m.flush();
+        const error = m.view.status.textContent; assert.match(error, /real date/); assert(m.view.retry.hidden);
+        m.fire('focus'); assert.equal(m.view.status.textContent, error);
+        m.input('date', '2026-10-10'); assert.match(m.view.datePreview.textContent, /1 day left/);
+        m.view.date.dispatch('compositionstart'); m.view.date.value = '2026-10-12';
+        m.fire('focus'); assert(m.view.datePreview.hidden); assert.equal(m.view.datePreview.textContent, ''); assert.equal(m.tickCount(), 0);
+        m.view.date.dispatch('compositionend'); assert.match(m.view.datePreview.textContent, /2026-10-12 · 3 days left$/);
+        assert.equal(m.controller.draft.targetDate, '2026-10-12'); assert.equal(m.writes, 0);
+    } finally { m.view.destroy(); }
+});
+
+test('DOM model: settings date preview follows newer pending-save edits, import apply and Cancel', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        assert(m.view.datePreview, 'Settings needs a separate current-draft date preview');
+        m.input('date', '2026-10-10'); let release; m.hold(new Promise(done => release = done));
+        m.view.saveButton.dispatch('click'); await m.flush(); assert(m.controller.pending);
+        m.view.date.focus(); m.input('date', '2026-10-12'); assert.match(m.view.datePreview.textContent, /2026-10-12 · 3 days left$/);
+        release(); m.hold(null); await m.flush();
+        assert.equal(m.raw.targetDate, '2026-10-10'); assert.match(m.view.datePreview.textContent, /2026-10-12 · 3 days left$/);
+        assert.equal(m.document.activeElement, m.view.date); assert.equal(m.writes, 1);
+        await previewImport(m, importFile('Imported\n2026-10-08\n'));
+        assert.match(m.view.datePreview.textContent, /2026-10-12 · 3 days left$/);
+        m.view.importCancel.dispatch('click'); assert.equal(m.controller.draft.targetDate, '2026-10-12');
+        await previewImport(m, importFile('Imported\n2026-10-08\n')); m.view.importApply.dispatch('click');
+        assert.match(m.view.datePreview.textContent, /2026-10-08 · 1 day ago$/); assert.equal(m.writes, 1);
+        m.view.cancelButton.dispatch('click'); await m.flush();
+        assert.match(m.view.datePreview.textContent, /2026-10-10 · 1 day left$/); assert.equal(m.writes, 1);
+        m.input('date', '2026-10-12'); const releaseRead = pauseReads(m); m.view.cancelButton.dispatch('click');
+        m.input('date', '2026-10-09'); releaseRead(); await m.flush();
+        assert(m.controller.conflict); assert.match(m.view.datePreview.textContent, /2026-10-09 · Today$/);
+    } finally { m.view.destroy(); }
+});
+
+test('DOM model: settings date preview stays distinct from remote conflict and preserves read-error Retry', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        assert(m.view.datePreview, 'Settings needs a separate current-draft date preview');
+        m.input('date', '2026-10-12');
+        await new m.api.Store(m.backend).mutate({ kind: 'save', value: { enabled: true, title: 'Other page', targetDate: '2026-10-07' }, revision: m.raw.revision }); await m.flush();
+        assert(m.controller.conflict); assert.match(m.view.savedPreview.textContent, /2026-10-07/);
+        assert.match(m.view.datePreview.textContent, /2026-10-12 · 3 days left$/);
+        m.readFail(true); await assert.rejects(m.controller.refresh());
+        const error = m.view.status.textContent, reads = m.reads; assert(!m.view.retry.hidden);
+        m.now(new Date(2026, 9, 10)); m.tick(); m.fire('focus');
+        assert.match(m.view.datePreview.textContent, /2026-10-12 · 2 days left$/);
+        assert.equal(m.view.status.textContent, error); assert(!m.view.retry.hidden); assert.equal(m.reads, reads);
+        m.readFail(false); m.view.useSaved.dispatch('click'); await m.flush();
+        assert(!m.controller.conflict); assert(m.view.savedPreview.hidden);
+        assert.match(m.view.datePreview.textContent, /2026-10-07 · 3 days ago$/); assert.equal(m.writes, 1);
+    } finally { m.view.destroy(); }
+});
+
+test('DOM model: settings date preview owns one UI-only visible timer and cleans up without focus or error changes', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        assert(m.view.datePreview, 'Settings needs a separate current-draft date preview');
+        const observer = m.observers[0]; assert(observer); assert(observer.targets.some(({ node }) => node === m.host)); assert(observer.targets.some(({ node }) => node === m.parent));
+        for (const { options } of observer.targets) { assert(!options.subtree); assert.deepEqual(Array.from(options.attributeFilter), ['hidden', 'style', 'class']); }
+        assert(!observer.targets.some(({ node }) => node === m.view.datePreview));
+        m.input('title', 'a\uD800b'); m.view.exportText(); const error = m.view.status.textContent; assert.match(error, /invalid Unicode/);
+        m.view.date.focus(); const reads = m.reads, generation = m.controller.generation;
+        m.now(new Date(2026, 9, 11)); m.tick(); m.fire('focus'); observer.fn();
+        assert.equal(m.view.status.textContent, error); assert.equal(m.document.activeElement, m.view.date); assert.equal(m.tickCount(), 1);
+        assert.match(m.view.datePreview.textContent, /2026-10-11 · Today$/);
+        m.document.hidden = true; await m.document.listeners.get('visibilitychange')(); assert.equal(m.tickCount(), 0);
+        m.document.hidden = false; await m.document.listeners.get('visibilitychange')(); assert.equal(m.tickCount(), 1);
+        for (const node of [m.host, m.parent]) {
+            node.hidden = true; observer.fn(); assert.equal(m.tickCount(), 0);
+            node.hidden = false; observer.fn(); assert.equal(m.tickCount(), 1);
+        }
+        m.parent.style.visibility = 'hidden'; observer.fn(); assert.equal(m.tickCount(), 0);
+        m.parent.style.visibility = ''; observer.fn(); assert.equal(m.tickCount(), 1);
+        m.fire('pagehide'); assert.equal(m.tickCount(), 0); m.fire('focus'); assert.equal(m.tickCount(), 0);
+        m.fire('pageshow'); assert.equal(m.tickCount(), 1);
+        assert.equal(m.reads, reads); assert.equal(m.writes, 0); assert.equal(m.controller.generation, generation); assert.equal(m.view.status.textContent, error);
+        m.input('title', 'Launch'); await previewImport(m, importFile('bad')); const importError = m.view.importInfo.textContent;
+        m.view.importCancel.focus(); m.tick(); m.fire('focus');
+        assert.equal(m.view.importInfo.textContent, importError); assert.equal(m.document.activeElement, m.view.importCancel);
+        const staleTick = [...m.timers.values()].find(timer => timer.delay === 60000).fn;
+        m.view.destroy(); staleTick(); observer.fn(); m.fire('focus'); m.fire('pageshow');
+        assert.equal(m.tickCount(), 0); assert(observer.disconnected); assert.equal(m.events.get('focus').size, 0);
+        assert.equal(m.events.get('pagehide').size, 0); assert.equal(m.events.get('pageshow').size, 0); assert(!m.document.listeners.has('visibilitychange'));
+    } finally { if (!m.view.closed) m.view.destroy(); }
+});
+
+test('DOM model: settings date preview reuses local calendar days through leap day, year rollover and DST in English and Chinese', async () => {
+    const oldTZ = process.env.TZ; process.env.TZ = 'America/New_York';
+    try {
+        for (const locale of ['en', 'zh_CN']) {
+            const catalog = JSON.parse(fs.readFileSync(require.resolve(`../_locales/${locale}/messages.json`), 'utf8'));
+            const m = model({ settings: true, translate: (key, values) => (catalog[key]?.message || key).replace(/\$1/g, values[0] || '') }); await m.flush();
+            try {
+                assert(m.view.datePreview, 'Settings needs a separate current-draft date preview');
+                for (const [now, date, expectedDays] of [[new Date(2028, 1, 28, 23, 59), '2028-03-01', 2], [new Date(2026, 11, 31, 23, 59), '2027-01-01', 1], [new Date(2026, 2, 7, 23, 59), '2026-03-09', 2], [new Date(2026, 10, 1, 23, 59), '2026-11-02', 1]]) {
+                    m.now(now); m.input('date', date);
+                    const days = catalog[expectedDays === 1 ? 'countdownDayLeft' : 'countdownDaysLeft'].message.replace('$1', String(expectedDays));
+                    assert.equal(m.view.datePreview.textContent, catalog.countdownDatePreview.message.replace('$1', `${date} · ${days}`));
+                }
+                assert.equal(m.writes, 0);
+            } finally { m.view.destroy(); }
+        }
+    } finally { if (oldTZ === undefined) delete process.env.TZ; else process.env.TZ = oldTZ; }
+});
 
 test('DOM model: default Countdown is hidden and idle without any storage write', async () => {
     const m = model(); assert(m.host.hidden); await m.flush();
