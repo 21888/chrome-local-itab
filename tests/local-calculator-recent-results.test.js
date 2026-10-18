@@ -488,3 +488,155 @@ test('expression edit has English fallback labels and reuses existing wrapping a
     assert.match(css, /\.search-calculator-recent button\s*\{[^}]*max-width:\s*100%[^}]*white-space:\s*normal[^}]*overflow-wrap:\s*anywhere/);
     assert.match(css, /\.search-calculator-recent button:focus-visible\s*\{[^}]*outline:/);
 });
+
+// Clear-all focus regression: native activation is modeled explicitly here.
+// These checks do not establish Chrome key synthesis, focus painting or IME behavior.
+test('focused clear recent calculations returns to its summary after modeled Enter and Space in both locales', () => {
+    for (const locale of ['en', 'zh_CN']) for (const key of ['Enter', ' ']) {
+        const h = mount({ locale }); let evaluations = 0; const calculate = h.window.LocalItabCalculator.calculate;
+        h.window.LocalItabCalculator = { calculate(text) { evaluations++; return calculate(text); } };
+        h.calculate('=1+2'); h.expand(); h.input.setSelectionRange(1, 3);
+        const result = h.value.value, status = h.status.textContent, feedback = h.feedback.textContent;
+        h.clearRecent.focus(); assert.equal(h.document.activeElement, h.clearRecent);
+        assert.equal(h.clearRecent.dispatch('keydown', { key }).prevented, false);
+        assert.equal(h.rows().length, 1, 'keydown does not synthesize a click');
+        if (key === ' ') assert.equal(h.clearRecent.dispatch('keyup', { key }).prevented, false);
+        h.clearRecent.dispatch('click', { detail: 0 });
+        assert.deepEqual(h.rows(), []); assert.equal(h.clearRecent.disabled, true); assert.equal(h.recentEmpty.hidden, false);
+        assert.equal(h.recent.open, true); assert.equal(h.document.activeElement, h.recentSummary);
+        assert.equal(h.input.value, '=1+2'); assert.equal(h.input.selectionStart, 1); assert.equal(h.input.selectionEnd, 3);
+        assert.equal(h.value.value, result); assert.equal(h.row.hidden, false); assert.equal(h.status.textContent, status);
+        assert.equal(h.feedback.textContent, feedback); assert.equal(evaluations, 1);
+        assert.equal(h.window.LocalItabContentLifecycle.hasUncommittedWork(), true);
+        assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); assert.deepEqual(h.reloads, []); clean(h);
+    }
+});
+
+test('an unfocused clear control never takes focus from an input, result, outside control or body', () => {
+    for (const destination of ['input', 'result', 'outside', 'body']) {
+        const h = mount(); h.calculate('=6*7'); h.expand(); h.input.setSelectionRange(2, 4);
+        const outside = h.document.createElement('button'); h.document.body.append(outside);
+        const target = { input: h.input, result: h.copy, outside, body: h.document.body }[destination]; target.focus();
+        h.clearRecent.dispatch('click', { detail: 1 });
+        assert.deepEqual(h.rows(), []); assert.equal(h.document.activeElement, target, destination);
+        assert.equal(h.input.value, '=6*7'); assert.equal(h.input.selectionStart, 2); assert.equal(h.input.selectionEnd, 4);
+        assert.equal(h.value.value, '42'); assert.equal(h.row.hidden, false); assert.equal(h.recent.open, true);
+        assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('empty, repeated and composing clear activations neither remove records nor redirect focus', () => {
+    const empty = mount(); empty.expand(); empty.input.focus();
+    empty.clearRecent.dispatch('click', { detail: 0 });
+    assert.deepEqual(empty.rows(), []); assert.equal(empty.document.activeElement, empty.input);
+    assert.deepEqual(empty.calls, []); assert.deepEqual(empty.opens, []); clean(empty);
+    for (const flags of [{ repeat: true }, { isComposing: true }, { keyCode: 229 }]) {
+        const h = mount(); h.calculate('=7'); h.expand(); h.clearRecent.focus();
+        const records = recordTexts(h), status = h.status.textContent;
+        assert.equal(h.clearRecent.dispatch('keydown', { key: 'Enter', ...flags }).prevented, true);
+        h.clearRecent.dispatch('click', { detail: 0, ...flags });
+        assert.deepEqual(recordTexts(h), records); assert.equal(h.document.activeElement, h.clearRecent);
+        assert.equal(h.input.value, '=7'); assert.equal(h.value.value, '7'); assert.equal(h.status.textContent, status);
+        assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+    for (const selector of ['.search-input', '.search-custom-input']) {
+        const h = mount(); h.calculate('=7'); h.expand(); const records = recordTexts(h);
+        const composingInput = h.host.querySelector(selector); composingInput.dispatch('compositionstart'); h.clearRecent.focus();
+        h.clearRecent.dispatch('click', { detail: 0 });
+        assert.deepEqual(recordTexts(h), records); assert.equal(h.document.activeElement, h.clearRecent);
+        assert.equal(h.input.value, '=7'); composingInput.dispatch('compositionend');
+        assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('clear focus recovery and newer typing survive late current-result and recent-copy success or failure', async () => {
+    for (const source of ['current', 'recent']) for (const rejected of [false, true]) {
+        const wait = deferred(), writes = [], h = mount({ clipboard: { writeText(text) { writes.push(text); return wait.promise; } } });
+        h.calculate('=1+2'); h.expand();
+        const oldRow = h.rows()[0], oldStatus = oldRow.querySelector('.search-calculator-recent-copy-status');
+        const copy = source === 'current' ? h.copy : oldRow.querySelector('.search-calculator-recent-copy');
+        copy.dispatch('click'); assert.deepEqual(writes, [source === 'current' ? '3' : '=1+2\n3']);
+        h.clearRecent.focus(); h.clearRecent.dispatch('click', { detail: 0 });
+        assert.deepEqual(h.rows(), []); assert.equal(h.document.activeElement, h.recentSummary);
+        assert.equal(h.input.value, '=1+2'); assert.equal(h.value.value, '3'); assert.equal(h.row.hidden, false);
+        assert.equal(h.copy.getAttribute('aria-disabled'), 'true', 'clear does not release an issued clipboard write');
+        h.edit('new unfinished draft'); h.input.focus(); h.input.setSelectionRange(4, 7);
+        if (rejected) wait.reject(new Error('late copy failure')); else wait.resolve(); await settle();
+        assert.equal(h.document.activeElement, h.input); assert.equal(h.input.value, 'new unfinished draft');
+        assert.equal(h.input.selectionStart, 4); assert.equal(h.input.selectionEnd, 7); assert.equal(h.value.value, '');
+        assert.equal(h.row.hidden, true); assert.deepEqual(h.rows(), []); assert.equal(h.recent.open, true);
+        assert.equal(h.feedback.hidden, true); assert.equal(h.feedback.textContent, '');
+        assert.equal(oldStatus.hidden, true); assert.equal(oldStatus.textContent, '');
+        assert.equal(h.copy.getAttribute('aria-disabled'), 'false'); assert.equal(writes.length, 1);
+        assert.deepEqual(h.opens, []); assert.deepEqual(h.reloads, []); clean(h);
+    }
+});
+
+test('clear redraw never reclaims focus after a newer focus, edit, submission or remount', () => {
+    for (const change of ['focus', 'edit', 'edit-away-back', 'submit', 'calculate', 'remount']) {
+        const h = mount(); h.calculate('=1+2'); h.expand(); h.clearRecent.focus();
+        const outside = h.document.createElement('button'); h.document.body.append(outside);
+        let current = h, interrupted = false, expected, focusCalls = 0;
+        const focus = h.recentSummary.focus.bind(h.recentSummary);
+        h.recentSummary.focus = () => { focusCalls++; focus(); };
+        const replaceChildren = h.recentList.replaceChildren.bind(h.recentList);
+        h.recentList.replaceChildren = (...children) => {
+            replaceChildren(...children);
+            if (interrupted) return;
+            interrupted = true;
+            if (change === 'focus') outside.focus();
+            if (change === 'edit') h.edit('new unfinished draft');
+            if (change === 'edit-away-back') { h.edit('temporary draft'); h.edit('=1+2'); }
+            if (change === 'submit') h.submit();
+            if (change === 'calculate') h.calculate('=9*9');
+            if (change === 'remount') { current = h.remount(); current.edit('replacement draft'); current.input.focus(); }
+            expected = { draft: current.input.value, value: current.value.value, status: current.status.textContent, records: recordTexts(current) };
+        };
+        h.clearRecent.dispatch('click', { detail: 0 });
+        assert.equal(interrupted, true); assert.equal(focusCalls, 0, change);
+        assert.equal(current.input.value, expected.draft); assert.equal(current.value.value, expected.value);
+        assert.equal(current.status.textContent, expected.status); assert.deepEqual(recordTexts(current), expected.records);
+        const target = change === 'focus' ? outside : change === 'remount' ? current.input :
+            ['submit', 'calculate'].includes(change) ? h.clearRecent : h.document.body;
+        assert.equal(h.document.activeElement, target, change);
+        assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+    }
+});
+
+test('summary focus is the final clear side effect and leaves its newer input callback untouched', () => {
+    const h = mount(); h.calculate('=1+2'); h.expand(); h.clearRecent.focus();
+    const focus = h.recentSummary.focus.bind(h.recentSummary); let focusCalls = 0;
+    h.recentSummary.focus = () => {
+        focusCalls++; focus(); h.calculate('=8*8'); h.input.focus(); h.input.setSelectionRange(1, 4);
+    };
+    h.clearRecent.dispatch('click', { detail: 0 });
+    assert.equal(focusCalls, 1); assert.equal(h.document.activeElement, h.input);
+    assert.equal(h.input.value, '=8*8'); assert.equal(h.input.selectionStart, 1); assert.equal(h.input.selectionEnd, 4);
+    assert.equal(h.value.value, '64'); assert.deepEqual(recordTexts(h), [['=8*8', '64']]);
+    assert.equal(h.clearRecent.disabled, false); assert.equal(h.recent.open, true);
+    assert.deepEqual(h.calls, []); assert.deepEqual(h.opens, []); clean(h);
+});
+
+test('clear without another edit retains current-copy settlement but retires a removed recent-copy receipt', async () => {
+    for (const source of ['current', 'recent']) for (const rejected of [false, true]) {
+        const wait = deferred(), writes = [], h = mount({ clipboard: { writeText(text) { writes.push(text); return wait.promise; } } });
+        h.calculate('=1+2'); h.expand(); h.input.setSelectionRange(1, 3);
+        const oldRow = h.rows()[0], oldStatus = oldRow.querySelector('.search-calculator-recent-copy-status');
+        const copy = source === 'current' ? h.copy : oldRow.querySelector('.search-calculator-recent-copy');
+        copy.dispatch('click'); h.clearRecent.focus(); h.clearRecent.dispatch('click', { detail: 0 });
+        assert.equal(h.document.activeElement, h.recentSummary); assert.deepEqual(h.rows(), []);
+        assert.equal(h.copy.getAttribute('aria-disabled'), 'true'); h.copy.dispatch('click'); assert.equal(writes.length, 1);
+        if (rejected) wait.reject(new Error('late copy failure')); else wait.resolve(); await settle();
+        assert.equal(h.document.activeElement, h.recentSummary); assert.equal(h.recent.open, true);
+        assert.equal(h.input.value, '=1+2'); assert.equal(h.input.selectionStart, 1); assert.equal(h.input.selectionEnd, 3);
+        assert.equal(h.value.value, '3'); assert.equal(h.row.hidden, false); assert.deepEqual(h.rows(), []);
+        assert.equal(h.copy.getAttribute('aria-disabled'), 'false'); assert.equal(writes.length, 1);
+        if (source === 'current') {
+            const key = rejected ? 'calculatorCopyFailure' : 'calculatorCopySuccess';
+            assert.equal(h.feedback.hidden, false); assert.equal(h.feedback.textContent, h.messages[key].message);
+            assert.equal(h.feedback.classList.contains('is-error'), rejected);
+        } else { assert.equal(h.feedback.hidden, true); assert.equal(h.feedback.textContent, ''); }
+        assert.equal(oldStatus.hidden, true); assert.equal(oldStatus.textContent, '');
+        assert.deepEqual(h.opens, []); assert.deepEqual(h.reloads, []); clean(h);
+    }
+});

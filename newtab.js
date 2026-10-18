@@ -1182,8 +1182,21 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     calculatorRecentClear.addEventListener('keydown', guardRecentKey);
     calculatorRecentClear.addEventListener('click', event => {
         if (event.detail > 1 || recentActivationBlocked(event) || !recentControlAvailable(calculatorRecentClear)) return;
-        recentCalculations = [];
+        const focused = document.activeElement === calculatorRecentClear;
+        const draft = input.value, revision = editRevision, operation = submissionRevision;
+        const cleared = [];
+        recentCalculations = cleared;
         renderRecentCalculations();
+        // Disabling the focused Clear button can leave keyboard focus on body.
+        // Recover only this action's focus, never a newer edit, result or owner.
+        if (!focused || recentCalculations !== cleared || input.value !== draft ||
+            editRevision !== revision || submissionRevision !== operation ||
+            document.getElementById('search-container') !== container || form.parentElement !== container ||
+            input.parentElement !== form || calculatorRecent.parentElement !== form ||
+            calculatorRecentSummary.parentElement !== calculatorRecent || !recentControlAvailable(calculatorRecentSummary) ||
+            ![calculatorRecentClear, document.body].includes(document.activeElement)) return;
+        // Focus callbacks may start new work; do not write or focus again afterward.
+        calculatorRecentSummary.focus();
     });
     const openSearch = url => {
         const value = input.value, revision = editRevision, operation = submissionRevision;
