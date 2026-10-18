@@ -685,7 +685,12 @@ pinTest('identified workspace without any service is never treated as an anonymo
     pinTest('pin preserves existing Undo, active order and independent draft', async () => {
         const h = model({ pinned }); await settle();
         try {
+            row(h, 'task_0006').querySelector('.tasks-row-menu').open = true;
+            assert(button(row(h, 'task_0006'), 'Remove').getClientRects().length, 'Undo is seeded through visible Remove');
             button(row(h, 'task_0006'), 'Remove').dispatch('click'); await settle(); const undo = h.view.undo, before = h.backend.raw();
+            assert.equal(h.backend.raw().records.find(record => record.id === 'task_0006').state, 'removed');
+            assert.equal(h.backend.raw().records.find(record => record.id === 'task_0006').removedFrom, 'active');
+            assert.equal(h.view.undo.id, 'task_0006'); assert.equal(h.view.undo.state, 'removed');
             input(h.view.input, 'independent draft'); h.view.input.focus(); pinButton(h).dispatch('click'); await settle();
             assert.strictEqual(h.view.undo, undo); assert.equal(h.view.undoButton.hidden, false); assert.deepEqual(h.backend.raw().records, before.records);
             assert.equal(h.backend.raw().pinnedId, pinned ? null : 'task_0003'); assert.equal(h.view.input.value, 'independent draft'); assert.equal(h.document.activeElement, h.view.input);

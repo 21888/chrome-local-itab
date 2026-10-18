@@ -124,7 +124,11 @@ test('DOM model: stale detached pin cannot bless a newer pin', async () => {
     try {
         const one = await seed(h, 'one'), two = await seed(h, 'two'), removable = await seed(h, 'independent Undo');
         const removedRow = h.host.querySelectorAll('[data-task-id]').find(node => node.dataset.taskId === removable.id);
+        removedRow.querySelector('.tasks-row-menu').open = true;
+        assert(button(removedRow, 'Remove').getClientRects().length, 'independent Undo is seeded through a visible Remove action');
         click(removedRow, 'Remove'); await settle(); assert.equal(h.view.undo.id, removable.id);
+        assert.equal(h.controller.state.records.find(record => record.id === removable.id).state, 'removed');
+        assert.equal(h.view.undo.state, 'removed');
         const oldButton = button(h.host.querySelectorAll('[data-task-id]').find(node => node.dataset.taskId === one.id), 'Pin next');
         await h.controller.action('pin', { id: two.id, version: two.version, expectedPin: null }); await settle();
         setInput(h.view.input, 'independent quick-entry draft'); h.view.input.focus();

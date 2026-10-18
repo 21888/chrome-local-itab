@@ -124,10 +124,22 @@ for (const change of ['none', 'edit']) test(`uncertain Undo only retries origina
 
 test('latest completion/removal share one Undo slot and restoring a removed completed task keeps it completed', async () => {
     const h = await seeded(), other = await add(h.store, 'other'); await settle();
-    complete(h, true); await settle(); named(row(h, other.id), 'Remove').dispatch('click'); await settle();
+    complete(h, true); await settle();
+    row(h, other.id).querySelector('.tasks-row-menu').open = true;
+    assert(named(row(h, other.id), 'Remove').getClientRects().length, 'ACTIVE Remove is visibly available');
+    named(row(h, other.id), 'Remove').dispatch('click'); await settle();
+    assert.equal(h.backend.raw().records.find(record => record.id === other.id).state, 'removed');
+    assert.equal(h.backend.raw().records.find(record => record.id === other.id).removedFrom, 'active');
+    assert.equal(h.view.undo.state, 'removed');
     assert.equal(h.view.undo.id, other.id); assert.equal(h.view.undoButton.textContent, 'Undo removal');
     h.view.undoButton.dispatch('click'); await settle(); assert.equal(h.backend.raw().records[1].state, 'active');
-    named(row(h, h.task.id), 'Remove').dispatch('click'); await settle(); h.view.undoButton.dispatch('click'); await settle();
+    h.view.completed.box.open = true;
+    row(h, h.task.id).querySelector('.tasks-row-menu').open = true;
+    assert(named(row(h, h.task.id), 'Remove').getClientRects().length, 'DONE Remove is visibly available');
+    named(row(h, h.task.id), 'Remove').dispatch('click'); await settle();
+    assert.equal(h.backend.raw().records[0].state, 'removed'); assert.equal(h.backend.raw().records[0].removedFrom, 'done');
+    assert.equal(h.view.undo.id, h.task.id); assert.equal(h.view.undo.state, 'removed');
+    h.view.undoButton.dispatch('click'); await settle();
     assert.equal(h.backend.raw().records[0].state, 'done'); assert.equal(h.view.undoButton.hidden, true);
     row(h, other.id).querySelector('.tasks-check').dispatch('click'); await settle(); assert.equal(h.view.undo.id, other.id); h.view.destroy();
 });

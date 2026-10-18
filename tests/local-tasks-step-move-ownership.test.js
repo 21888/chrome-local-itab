@@ -716,7 +716,12 @@ stepTest('real pending write prevents further request creation and keeps unrelat
 stepTest('movement preserves Next up, existing Undo and independent quick-entry draft', async () => {
     const h = model(); await settle();
     try {
+        row(h, 'task_0006').querySelector('.tasks-row-menu').open = true;
+        assert(button(row(h, 'task_0006'), 'Remove').getClientRects().length, 'Undo is seeded through visible Remove');
         button(row(h, 'task_0006'), 'Remove').dispatch('click'); await settle();
+        assert.equal(h.backend.raw().records.find(record => record.id === 'task_0006').state, 'removed');
+        assert.equal(h.backend.raw().records.find(record => record.id === 'task_0006').removedFrom, 'active');
+        assert.equal(h.view.undo.id, 'task_0006'); assert.equal(h.view.undo.state, 'removed');
         const undo = h.view.undo, before = h.backend.raw(); input(h.view.input, 'independent draft'); h.view.input.focus();
         stepButton(h).dispatch('click'); await settle();
         assert.deepEqual(order(h.backend.raw()), movedOrder(before, 'task_0003', direction));

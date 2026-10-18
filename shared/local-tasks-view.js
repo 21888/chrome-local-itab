@@ -106,6 +106,9 @@
         const modal = { panel, close, get isOpen() { return !closed; }, open: focus => { cleanup = root.LocalItabDialog.open(overlay, focus, () => modal.close()); } };
         return modal;
     }
+    // Private render identity prevents retired Remove rows from regaining authority
+    // when old nodes and mutable View references are restored.
+    const rowRemoveLifecycles = new WeakMap();
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, alwaysVisible = false, clipboard = root.navigator?.clipboard } = {}) {
             this.host = host; this.controller = controller; this.clipboard = clipboard; this.copyAttempt = null; this.onVisibility = onVisibility; this.alwaysVisible = alwaysVisible;
@@ -287,6 +290,16 @@
                 workspace: reopenWorkspace, workspaceId: reopenWorkspace?.id, workspaceGeneration: reopenWorkspace?.generation,
                 legacyAvailability: !!reopenWorkspace && typeof reopenWorkspace === 'object' && reopenWorkspace.id == null && reopenWorkspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain: reopenChain });
+            // Both ACTIVE and DONE Remove menus belong to the original mounted source.
+            const removeWorkspace = controller.store.backend?.workspace ?? null, removeChain = [];
+            for (const list of [this.list, this.completed.list]) for (let node = list; node; node = node.parentElement) removeChain.push([node, node.parentElement]);
+            removeChain.push([this.completed.summary, this.completed.box], [this.filterInput, this.filter], [this.filter, host]);
+            this.rowRemoveOwner = Object.freeze({ host, activeList: this.list, completed: this.completed, box: this.completed.box,
+                summary: this.completed.summary, doneList: this.completed.list, filter: this.filter, filterInput: this.filterInput,
+                controller, store: controller.store, backend: controller.store.backend,
+                workspace: removeWorkspace, workspaceId: removeWorkspace?.id, workspaceGeneration: removeWorkspace?.generation,
+                legacyAvailability: !!removeWorkspace && typeof removeWorkspace === 'object' && removeWorkspace.id == null && removeWorkspace.generation == null && root.LocalItabWorkspaces == null,
+                session: root.LocalItabWorkspaces?.session ?? null, chain: removeChain });
             // Next up owns its construction source before any asynchronous read. Its
             // own lifecycle is independent of row redraws, filters and unrelated edits.
             const nextWorkspace = controller.store.backend?.workspace ?? null, nextChain = [];
@@ -361,6 +374,9 @@
             // Gate only the exact command created by a DONE row, never Undo's same-kind reopen.
             // Its original receipt survives collapsed/filtered/redrawn rows and is never reconstructed.
             if (command && command === this.rowReopenAttempt?.command && !this.rowReopenSourceCurrent(this.rowReopenAttempt.owner)) return;
+            // Only this exact single-row attempt owns Remove Retry; removal Undo is restore.
+            // Its original command/receipt and success effect survive legitimate row changes.
+            if (command && command === this.rowRemoveAttempt?.command && !this.rowRemoveSourceCurrent(this.rowRemoveAttempt.owner)) return;
             if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
                 !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
                 document.hidden || document.visibilityState === 'hidden')) return;
@@ -1674,10 +1690,67 @@
             }
             return true;
         }
+        rowRemoveSourceCurrent(owner) {
+            const c = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.rowRemoveOwner === owner && this.host === owner.host && this.list === owner.activeList &&
+                this.completed === owner.completed && this.completed.box === owner.box && this.completed.summary === owner.summary &&
+                this.completed.list === owner.doneList && this.filter === owner.filter && this.filterInput === owner.filterInput &&
+                this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                owner.chain.every(([node, parent]) => node.ownerDocument === document && node.parentElement === parent) &&
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null));
+        }
+        rowRemoveCurrent(source) {
+            const { owner, list, item, top, title, check, action, actions, menu, summary } = source;
+            // All non-layout checks repeat after the last computed-style lookup.
+            if (document.hidden || document.visibilityState === 'hidden' ||
+                (source.snapshot.state === 'done' && !owner.box.open) || !menu.open ||
+                owner.filterInput.value.trim().toLowerCase() !== source.filter || this.filterQuery !== source.filter || this.renderedFilter !== source.filter ||
+                action.disabled || action.getAttribute('disabled') != null || action.getAttribute('aria-disabled') === 'true' ||
+                !action.isConnected || action.textContent !== source.label || action.children.length || action.dataset.taskAction !== source.label ||
+                action.type !== 'button' || action.title !== source.actionTitle || action.getAttribute('aria-label') !== source.actionAria ||
+                item.dataset.taskId !== source.snapshot.id || item.parentElement !== list ||
+                Array.from(list.children).find(node => node.dataset.taskId === source.snapshot.id) !== item ||
+                item.querySelector('.tasks-row-main') !== top || item.querySelector('.tasks-check') !== check ||
+                item.querySelector('.tasks-text') !== title || title.textContent !== source.snapshot.text || title.children.length ||
+                title.classList.contains('is-done') !== (source.snapshot.state === 'done') ||
+                top.children.length !== 2 || top.children[0] !== check || top.children[1] !== title ||
+                item.querySelector('.tasks-row-actions') !== actions || item.querySelector('.tasks-row-menu') !== menu ||
+                menu.querySelector('summary') !== summary || summary.textContent !== source.menuLabel || summary.children.length || summary.dataset.taskAction !== 'menu' ||
+                [...owner.chain, ...source.chain].some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent)) return false;
+            for (const displayed of [action, title]) for (let node = displayed; node; node = node.parentElement) {
+                if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                    node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                    (node.tagName === 'DETAILS' && !node.open)) return false;
+            }
+            if (!this.rowRemoveSourceCurrent(owner)) return false;
+            const c = owner.controller;
+            const reviewedConflict = c.error?.code === 'CONFLICT' && !!c.retryCommand && source.conflictCommand === c.retryCommand;
+            if (this.destroyed || c.pending || (c.error && !reviewedConflict) || (c.retryCommand && !reviewedConflict) || this.localError ||
+                ['loading', 'saving'].includes(c.status) || (c.status === 'error' && !reviewedConflict) ||
+                this.filterComposing || this.dialogs.size || this.pendingReview ||
+                this.batchSession || this.reuseSession || this.completionSession || this.restorationSession ||
+                root.LocalItabContentLifecycle?.departing || rowRemoveLifecycles.get(this) !== source.lifecycle) return false;
+            // Store alone owns removedFrom/unpin and task-version/non-removed CAS.
+            // No unrelated revision, active-order or pin is added to this command.
+            const current = c.state?.records.find(record => record.id === source.snapshot.id);
+            return !!current && ['active', 'done'].includes(current.state) && Object.keys(source.snapshot).every(key => current[key] === source.snapshot[key]);
+        }
+        rowRemoveVisible(source) {
+            for (const displayed of [source.action, source.title]) {
+                if (!displayed.getClientRects().length) return false;
+                for (let node = displayed; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node);
+                    if (style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility)) return false;
+                }
+            }
+            return true;
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
             let firstSource = null, lastSource = null;
-            let pinSource = null;
+            let pinSource = null, removeSource = null;
             const stepSources = [];
             const top = el('div', 'tasks-row-main');
             const title = el('span', 'tasks-text', task.text); if (task.state === 'done') title.classList.add('is-done');
@@ -1807,13 +1880,28 @@
                     actions.append(up, down, first, last);
                 }
                 const edit = button('tasksEdit', () => this.edit(task, edit));
-                actions.append(edit, button('tasksRemove', () => {
+                const source = { owner: this.rowRemoveOwner, lifecycle: rowRemoveLifecycles.get(this),
+                    list: task.state === 'active' ? this.rowRemoveOwner.activeList : this.rowRemoveOwner.doneList,
+                    item, top, title, check: top.querySelector('.tasks-check'), actions, filter: this.filterQuery,
+                    snapshot: Object.freeze({ ...task }), label: t('tasksRemove'), menuLabel: t('tasksActions'),
+                    conflictCommand: this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null, chain: [] };
+                const remove = button('tasksRemove', event => {
+                    if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                        event.target !== remove || (event.currentTarget && event.currentTarget !== remove)) return;
+                    if (!this.rowRemoveCurrent(source) || !this.rowRemoveVisible(source) || !this.rowRemoveCurrent(source)) return;
                     const hadFocus = item.contains(document.activeElement);
-                    run('remove', {}, () => {
+                    const command = source.owner.store.request('remove', { id: source.snapshot.id, version: source.snapshot.version });
+                    this.rowRemoveAttempt = Object.freeze({ command, owner: source.owner });
+                    this.perform(command, () => {
                         this.render();
                         if (hadFocus && document.activeElement === document.body) this.undoButton.focus();
                     });
-                }));
+                });
+                remove.addEventListener('keydown', event => {
+                    if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                });
+                source.action = remove; source.actionTitle = remove.title; source.actionAria = remove.getAttribute('aria-label'); removeSource = source;
+                actions.append(edit, remove);
             }
             actions.querySelectorAll('button').forEach(node => { node.dataset.taskAction = node.textContent; node.setAttribute('aria-disabled', String(!!this.controller.pending)); });
             if (task.state === 'removed') item.append(actions);
@@ -1821,6 +1909,11 @@
                 const menu = el('details', 'tasks-row-menu'), summary = el('summary', '', t('tasksActions'));
                 summary.dataset.taskAction = 'menu';
                 menu.append(summary, actions); item.append(menu);
+                if (removeSource) {
+                    removeSource.menu = menu; removeSource.summary = summary;
+                    removeSource.chain.push([removeSource.action, actions], [actions, menu], [menu, item], [summary, menu],
+                        [removeSource.check, top], [title, top], [top, item], [item, removeSource.list]);
+                }
                 if (pinSource) {
                     pinSource.menu = menu; pinSource.summary = summary;
                     pinSource.chain.push([pinSource.pin, actions], [actions, menu], [menu, item], [summary, menu],
@@ -1892,6 +1985,7 @@
                 this.pinGeneration = (this.pinGeneration || 0) + 1;
                 this.completeGeneration = (this.completeGeneration || 0) + 1;
                 this.rowReopenGeneration = (this.rowReopenGeneration || 0) + 1;
+                rowRemoveLifecycles.set(this, Object.freeze({}));
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
                 if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
                 this.more.hidden = filtering || active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));
