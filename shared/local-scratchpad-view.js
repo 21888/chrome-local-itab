@@ -173,6 +173,51 @@
         const node = owner.lifecycle.nodes[name], focus = node.focus;
         if (current() && importTargetOwned(owner, name)) focus.call(node);
     }
+    const viewFinds = new WeakMap();
+    function findSourceCurrent(view, owner) {
+        if (!owner) return false;
+        const { lifecycle, chains } = owner, { controller, store, backend, workspace, host, nodes, document } = lifecycle;
+        const matches = () => !lifecycle.retired && !view.closed && view.controller === controller && controller.store === store &&
+            store?.backend === backend && backend?.workspace === workspace && workspace?.id === lifecycle.workspaceId &&
+            workspace?.generation === lifecycle.workspaceGeneration && root.LocalItabWorkspaces?.session === lifecycle.session &&
+            view.host === host && Object.keys(chains).every(name => view[name] === nodes[name] && copyChainOwned(chains[name], document, true));
+        return matches() && matches();
+    }
+    function beginFind(view) {
+        const owner = viewFinds.get(view);
+        return owner && { owner, epoch: ++owner.epoch, generation: owner.lifecycle.controller.generation };
+    }
+    function findCurrent(view, token, source = true) {
+        const matches = () => token && token.owner.epoch === token.epoch && !token.owner.lifecycle.retired && !view.closed &&
+            token.owner.lifecycle.controller.generation === token.generation && (!source || findSourceCurrent(view, token.owner));
+        return Boolean(matches() && matches());
+    }
+    function findTargetOwned(owner, name) {
+        return copyChainOwned(owner.chains[name], owner.lifecycle.document, true);
+    }
+    function writeFind(view, token, name, property, value, cleanup = false) {
+        if (findCurrent(view, token, !cleanup) && findTargetOwned(token.owner, name) && findCurrent(view, token, !cleanup))
+            token.owner.lifecycle.nodes[name][property] = value;
+    }
+    function callFind(view, token, name, method, args = [], cleanup = false, ready = () => true) {
+        if (!findCurrent(view, token, !cleanup) || !findTargetOwned(token.owner, name) || !ready()) return;
+        const node = token.owner.lifecycle.nodes[name], fn = node[method];
+        if (findCurrent(view, token, !cleanup) && findTargetOwned(token.owner, name) && ready() && findCurrent(view, token, !cleanup))
+            return fn.apply(node, args);
+    }
+    function clearFindHeld(view) {
+        const owner = viewFinds.get(view);
+        if (owner && !owner.lifecycle.retired) { owner.held = null; view.findHeldEnter = null; }
+    }
+    function findMessage(view, token, key, replacements = {}, ready = () => true) {
+        if (!findCurrent(view, token)) return false;
+        const status = token.owner.lifecycle.nodes.findStatus, previous = status.textContent;
+        let message = t(key);
+        for (const [name, value] of Object.entries(replacements)) message = message.replace('{' + name + '}', String(value));
+        if (!findCurrent(view, token) || !ready() || status.textContent !== previous || !findCurrent(view, token)) return false;
+        writeFind(view, token, 'findStatus', 'textContent', message);
+        return findCurrent(view, token);
+    }
     const fallback = {
         scratchpadTitle: 'Scratchpad', scratchpadLocal: 'On this device',
         scratchpadLabel: 'Scratchpad text', scratchpadEnable: 'Show Scratchpad on the new tab page',
@@ -289,10 +334,13 @@
             this.copyStatus.setAttribute('role', 'status'); this.copyStatus.setAttribute('aria-live', 'polite'); this.copyStatus.setAttribute('aria-atomic', 'true');
             this.importButton = button('scratchpadImport', () => this.chooseImport());
             this.findButton = button('scratchpadFind', event => {
-                if (!this.canFind(this.findButton, event)) return;
-                if (!this.findPanel.hidden) { this.closeFind(true); return; }
-                this.findPanel.hidden = false; this.findButton.setAttribute('aria-expanded', 'true'); this.renderFind();
-                try { this.findInput.focus(); } catch (_) {}
+                const token = beginFind(this);
+                if (!this.canFind(this.findButton, event) || !findCurrent(this, token)) return;
+                const { nodes } = token.owner.lifecycle;
+                if (!nodes.findPanel.hidden) { this.closeFind(true, token); return; }
+                writeFind(this, token, 'findPanel', 'hidden', false);
+                callFind(this, token, 'findButton', 'setAttribute', ['aria-expanded', 'true']); this.renderFind(token);
+                try { if (findCurrent(this, token) && this.canFind(nodes.findInput)) callFind(this, token, 'findInput', 'focus'); } catch (_) {}
             });
             this.findButton.setAttribute('aria-expanded', 'false');
             this.findSelectionButton = button('scratchpadFindSelection', event => this.findSelectedText(event));
@@ -304,41 +352,60 @@
             const findLabel = el('label', 'scratchpad-find-label'); findLabel.append(el('span', '', t('scratchpadFindLabel')), this.findInput);
             this.findPrevious = button('scratchpadFindPrevious', event => this.findText(-1, this.findPrevious, event));
             this.findNext = button('scratchpadFindNext', event => this.findText(1, this.findNext, event));
-            this.findClose = button('scratchpadFindClose', event => { if (this.canFind(this.findClose, event)) this.closeFind(true); });
+            this.findClose = button('scratchpadFindClose', event => {
+                const token = beginFind(this);
+                if (this.canFind(this.findClose, event) && findCurrent(this, token)) this.closeFind(true, token);
+            });
             this.findStatus = el('p', 'scratchpad-help scratchpad-find-status');
             this.findStatus.setAttribute('role', 'status'); this.findStatus.setAttribute('aria-live', 'polite'); this.findStatus.setAttribute('aria-atomic', 'true');
             const findControls = el('div', 'scratchpad-controls'); findControls.append(this.findPrevious, this.findNext, this.findClose);
             this.findPanel.append(findLabel, el('p', 'scratchpad-help', t('scratchpadFindHelp')), findControls, this.findStatus);
-            this.findInput.addEventListener('input', () => { this.resetFindResult(); this.renderFind(); });
-            this.findInput.addEventListener('compositionstart', () => { if (this.canFind(this.findInput)) { this.findComposing = true; this.resetFindResult(); this.renderFind(); } });
-            // Finish this input's IME bookkeeping even if the tab/card became
-            // hidden. Neither completion nor blur selects text or edits a draft.
-            const finishFindComposition = () => { if (!this.closed) { this.findComposing = false; this.renderFind(); } };
+            this.findInput.addEventListener('input', () => {
+                if (!findSourceCurrent(this, viewFinds.get(this))) return;
+                const token = beginFind(this); clearFindHeld(this); this.resetFindResult(token); this.renderFind(token);
+            });
+            this.findInput.addEventListener('compositionstart', () => {
+                const token = beginFind(this);
+                if (!this.canFind(this.findInput) || !findCurrent(this, token)) return;
+                clearFindHeld(this); this.findComposing = true; this.resetFindResult(token); this.renderFind(token);
+            });
+            // Finish original IME bookkeeping while hidden. An ordinary focusout
+            // during Find is not a new gesture and must not retire its caller.
+            const finishFindComposition = () => {
+                const owner = viewFinds.get(this); if (!findSourceCurrent(this, owner)) return;
+                const token = this.findComposing ? beginFind(this) : { owner, epoch: owner.epoch, generation: controller.generation };
+                this.findComposing = false; this.renderFind(token);
+            };
             this.findInput.addEventListener('compositionend', finishFindComposition);
             this.findInput.addEventListener('focusout', finishFindComposition);
             this.findInput.addEventListener('keydown', event => this.findEnter(1, this.findInput, event));
             this.findPrevious.addEventListener('keydown', event => this.findEnter(-1, this.findPrevious, event));
             this.findNext.addEventListener('keydown', event => this.findEnter(1, this.findNext, event));
-            // A held Find Enter follows focus into the editor. Suppress only
-            // repeats from that successful navigation, never a fresh edit key.
+            // Only the original successful gesture can suppress editor repeats.
             this.textarea.addEventListener('keydown', event => {
-                if (this.findHeldEnter && event.key === 'Enter' && event.repeat && this.canFind(this.findInput, event)) event.preventDefault();
-                else this.findHeldEnter = null;
+                const held = viewFinds.get(this)?.held;
+                if (held && this.findHeldEnter === held.event && event.key === 'Enter' && event.repeat &&
+                    findSourceCurrent(this, held.token.owner) && controller.generation === held.token.generation &&
+                    this.canFind(held.token.owner.lifecycle.nodes.findInput, event) &&
+                    held.token.owner.lifecycle.nodes.findInput.value === held.query && held.token.owner.lifecycle.nodes.textarea.value === held.text &&
+                    viewFinds.get(this).held === held && findSourceCurrent(this, held.token.owner)) event.preventDefault();
+                else clearFindHeld(this);
             });
-            this.textarea.addEventListener('blur', () => { this.findHeldEnter = null; });
-            this.findKeyup = () => { this.findHeldEnter = null; };
-            this.findPointerdown = () => { this.findHeldEnter = null; };
+            this.textarea.addEventListener('blur', () => clearFindHeld(this));
+            this.findKeyup = () => clearFindHeld(this);
+            this.findPointerdown = () => clearFindHeld(this);
             this.findKeydown = event => {
-                // Preserve the same successful event as it bubbles; every new
-                // non-repeat key retires the old ownership token locally.
-                if (!event.repeat && this.findHeldEnter !== event) this.findHeldEnter = null;
+                const owner = viewFinds.get(this);
+                // An older handled event may bubble after synchronous nested Find.
+                if (!event.repeat && !owner?.events.has(event)) clearFindHeld(this);
             };
-            this.findVisibilityChange = () => { if (document.hidden) { this.findHeldEnter = null; this.resetFindResult(); } };
+            this.findVisibilityChange = () => { if (document.hidden) { clearFindHeld(this); this.resetFindResult(); } };
             document.addEventListener('visibilitychange', this.findVisibilityChange);
             host.addEventListener('keyup', this.findKeyup); host.addEventListener('pointerdown', this.findPointerdown); host.addEventListener('keydown', this.findKeydown);
             this.findPanel.addEventListener('keydown', event => {
-                if (event.key !== 'Escape' || !this.canFind(event.target, event)) return;
-                event.preventDefault(); this.closeFind(true);
+                const token = beginFind(this);
+                if (event.key !== 'Escape' || !this.canFind(event.target, event) || !findCurrent(this, token)) return;
+                event.preventDefault(); if (findCurrent(this, token)) this.closeFind(true, token);
             });
             this.importFile = el('input'); this.importFile.type = 'file'; this.importFile.accept = '.txt,text/plain'; this.importFile.hidden = true;
             this.importFile.addEventListener('change', () => run(() => this.readImport()));
@@ -376,6 +443,11 @@
                 chains: Object.fromEntries(['textarea', 'importButton', 'importFile', 'importPanel', 'importInfo',
                     'importPreview', 'importAppend', 'importApply', 'importCancel']
                     .map(name => [name, copyNodeChain(lifecycle.nodes[name])])) });
+            // Find retains its construction source and complete original chains.
+            // Action tokens separate synchronous nested gestures from their caller.
+            viewFinds.set(this, { lifecycle, epoch: 0, held: null, events: new WeakSet(),
+                chains: Object.fromEntries(['textarea', 'findButton', 'findSelectionButton', 'findPanel', 'findInput',
+                    'findPrevious', 'findNext', 'findClose', 'findStatus'].map(name => [name, copyNodeChain(lifecycle.nodes[name])])) });
             // Teardown authority is private and captured before any prior-owner
             // invalidation callback can reparent or adopt the new controls.
             lifecycle.teardownChains = Object.fromEntries(['findInput', 'findStatus', 'findPanel', 'findButton',
@@ -459,99 +531,134 @@
                 !['hidden', 'collapse'].includes(root.getComputedStyle?.(node)?.visibility);
         }
         canFind(node, event) {
-            return this.controller.loaded && !document.hidden && !this.controller.composing && !this.findComposing &&
-                !event?.isComposing && event?.keyCode !== 229 && !node?.disabled && this.findVisible(node) && this.findVisible(this.textarea);
+            const owner = viewFinds.get(this);
+            return findSourceCurrent(this, owner) && Object.keys(owner.chains).some(name => owner.lifecycle.nodes[name] === node) &&
+                owner.lifecycle.controller.loaded && !document.hidden &&
+                !owner.lifecycle.controller.composing && !this.findComposing && !event?.isComposing && event?.keyCode !== 229 &&
+                !node?.disabled && this.findVisible(node) && this.findVisible(owner.lifecycle.nodes.textarea) && findSourceCurrent(this, owner);
         }
-        resetFindResult() { this.findResult = null; if (this.findStatus) this.findStatus.textContent = ''; }
-        closeFind(focus = false) {
-            const restore = focus && this.findPanel.contains(document.activeElement);
-            this.findHeldEnter = null; this.findComposing = false; this.findInput.value = ''; this.resetFindResult();
-            this.findPanel.hidden = true; this.findButton.setAttribute('aria-expanded', 'false');
-            this.findPrevious.disabled = this.findNext.disabled = true;
-            if (restore && this.canFind(this.findButton)) { try { this.findButton.focus(); } catch (_) {} }
+        resetFindResult(token = beginFind(this)) {
+            if (!findCurrent(this, token, false)) return;
+            this.findResult = null; writeFind(this, token, 'findStatus', 'textContent', '', true);
         }
-        renderFind() {
-            if (!this.findVisible(this.textarea)) this.closeFind();
+        closeFind(focus = false, token = beginFind(this)) {
+            if (!findCurrent(this, token, false)) return;
+            const { owner } = token, { nodes, document } = owner.lifecycle;
+            const focused = document.activeElement;
+            const restore = focus && findTargetOwned(owner, 'findPanel') && nodes.findPanel.contains(focused);
+            const ownsFocus = () => document.activeElement === focused || document.activeElement === document.body;
+            if (!findCurrent(this, token, false)) return;
+            clearFindHeld(this); this.findComposing = false;
+            writeFind(this, token, 'findInput', 'value', '', true); this.resetFindResult(token);
+            writeFind(this, token, 'findPanel', 'hidden', true, true);
+            callFind(this, token, 'findButton', 'setAttribute', ['aria-expanded', 'false'], true);
+            writeFind(this, token, 'findPrevious', 'disabled', true, true); writeFind(this, token, 'findNext', 'disabled', true, true);
+            if (restore && findCurrent(this, token) && ownsFocus() && this.canFind(nodes.findButton)) {
+                try { callFind(this, token, 'findButton', 'focus', [], false, ownsFocus); } catch (_) {}
+            }
+        }
+        renderFind(token = beginFind(this)) {
+            if (!findCurrent(this, token)) return;
+            const { nodes, controller } = token.owner.lifecycle;
+            if (!this.findVisible(nodes.textarea)) this.closeFind(false, token);
+            if (!findCurrent(this, token)) return;
             const match = this.findResult;
-            if (match && (match.query !== this.findInput.value || match.text !== this.textarea.value)) this.resetFindResult();
-            this.findButton.disabled = this.findSelectionButton.disabled = !this.controller.loaded;
-            // Visibility/IME are checked at action time; disabling for a hidden
-            // tab could strand controls after it returns without a new render.
-            const disabled = !this.findInput.value || !this.controller.loaded || this.findPanel.hidden;
-            this.findPrevious.disabled = this.findNext.disabled = disabled;
+            if (match && (match.query !== nodes.findInput.value || match.text !== nodes.textarea.value)) this.resetFindResult(token);
+            writeFind(this, token, 'findButton', 'disabled', !controller.loaded);
+            writeFind(this, token, 'findSelectionButton', 'disabled', !controller.loaded);
+            // Visibility/IME stay action-time checks so returning tabs recover.
+            const disabled = !nodes.findInput.value || !controller.loaded || nodes.findPanel.hidden;
+            writeFind(this, token, 'findPrevious', 'disabled', disabled); writeFind(this, token, 'findNext', 'disabled', disabled);
         }
         findSelectedText(event) {
-            if (!this.canFind(this.findSelectionButton, event)) return;
-            // Read the main DOM editor at activation, including after its blur.
-            // Selection offsets are UTF-16; only the selected text needs to be
-            // complete Unicode. The save limit does not limit this local query.
-            const text = this.textarea.value, start = this.textarea.selectionStart, end = this.textarea.selectionEnd;
+            const token = beginFind(this);
+            if (!this.canFind(this.findSelectionButton, event) || !findCurrent(this, token)) return;
+            const { nodes, document } = token.owner.lifecycle;
+            const text = nodes.textarea.value, start = nodes.textarea.selectionStart, end = nodes.textarea.selectionEnd,
+                direction = nodes.textarea.selectionDirection, previousQuery = nodes.findInput.value;
+            if (!findCurrent(this, token)) return;
+            const selected = () => findCurrent(this, token) && nodes.textarea.value === text && nodes.textarea.selectionStart === start &&
+                nodes.textarea.selectionEnd === end && nodes.textarea.selectionDirection === direction && nodes.findInput.value === previousQuery && findCurrent(this, token);
             const query = Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start && end <= text.length ? text.slice(start, end) : '';
-            this.findHeldEnter = null; this.resetFindResult();
-            this.findPanel.hidden = false; this.findButton.setAttribute('aria-expanded', 'true'); this.renderFind();
+            clearFindHeld(this); this.resetFindResult(token);
+            writeFind(this, token, 'findPanel', 'hidden', false);
+            callFind(this, token, 'findButton', 'setAttribute', ['aria-expanded', 'true']); this.renderFind(token);
+            if (!findCurrent(this, token)) return;
             if (!query || /[\r\n]/.test(query) || !api.isUnicode(query)) {
-                this.findStatus.textContent = t('scratchpadFindSelectionHelp'); return;
+                findMessage(this, token, 'scratchpadFindSelectionHelp', {}, selected); return;
             }
-            const previousQuery = this.findInput.value;
-            try { this.findInput.focus(); } catch (_) {}
-            // Focus can synchronously change the draft, query, selection or view.
-            // Never overwrite those newer changes with the activation snapshot.
-            if (!this.canFind(this.findSelectionButton) || !this.canFind(this.findInput) ||
-                this.textarea.value !== text || this.textarea.selectionStart !== start || this.textarea.selectionEnd !== end ||
-                this.findInput.value !== previousQuery) return;
-            if (document.activeElement !== this.findInput) {
-                this.findStatus.textContent = t('scratchpadFindSelectionFailed'); return;
-            }
-            this.findInput.value = query; this.renderFind();
+            try { callFind(this, token, 'findInput', 'focus'); } catch (_) {}
+            // Original focus may synchronously change source, selection or query.
+            if (!findCurrent(this, token) || !this.canFind(nodes.findSelectionButton) || !this.canFind(nodes.findInput) ||
+                nodes.textarea.value !== text || nodes.textarea.selectionStart !== start || nodes.textarea.selectionEnd !== end ||
+                nodes.textarea.selectionDirection !== direction || nodes.findInput.value !== previousQuery || !findCurrent(this, token)) return;
+            if (document.activeElement !== nodes.findInput) { findMessage(this, token, 'scratchpadFindSelectionFailed', {}, selected); return; }
+            writeFind(this, token, 'findInput', 'value', query); this.renderFind(token);
         }
         findEnter(direction, source, event) {
-            if (event.key !== 'Enter' || !this.canFind(source, event)) return;
-            // Also prevent native button activation, including key repeats, so
-            // one keyboard gesture cannot run both keydown and default click.
+            // Repeats consume no new action token: the successful original Enter
+            // still owns repeats that follow focus into the editor.
+            const owner = viewFinds.get(this), token = event.repeat ?
+                { owner, epoch: owner.epoch, generation: owner.lifecycle.controller.generation } : beginFind(this);
+            if (event.key !== 'Enter') return;
+            owner.events.add(event);
+            if (!this.canFind(source, event) || !findCurrent(this, token)) return;
             event.preventDefault();
-            if (!event.repeat && this.findText(direction, source, event)) this.findHeldEnter = event;
+            if (findCurrent(this, token) && !event.repeat && this.findText(direction, source, event, token) && findCurrent(this, token)) {
+                owner.held = { token, event, query: token.query, text: token.text };
+                this.findHeldEnter = event;
+            }
         }
-        findText(direction, source, event) {
-            this.findHeldEnter = null;
-            if (!this.findVisible(this.textarea)) { this.closeFind(); return; }
-            if (!this.canFind(source, event) || !this.canFind(this.findInput)) return;
-            // Read the actual editor each time: native textareas normalize CRLF,
-            // and unsaved/conflicted/over-limit drafts are all searchable as-is.
-            const query = this.findInput.value, text = this.textarea.value;
-            if (!query) { this.resetFindResult(); return; }
-            if (!api.isUnicode(query)) { this.resetFindResult(); this.findResult = { query, text }; this.findStatus.textContent = t('scratchpadFindInvalid'); return; }
+        findText(direction, source, event, token = beginFind(this)) {
+            if (!findCurrent(this, token)) return;
+            const { nodes, document } = token.owner.lifecycle;
+            clearFindHeld(this);
+            if (!this.findVisible(nodes.textarea)) { this.closeFind(false, token); return; }
+            if (!this.canFind(source, event) || !this.canFind(nodes.findInput) || !findCurrent(this, token)) return;
+            // Exact DOM text retains native CRLF normalization and recovery drafts.
+            const query = nodes.findInput.value, text = nodes.textarea.value;
+            if (!findCurrent(this, token)) return;
+            const snapshot = () => findCurrent(this, token) && this.canFind(nodes.findInput) &&
+                nodes.findInput.value === query && nodes.textarea.value === text && findCurrent(this, token);
+            if (!query) { this.resetFindResult(token); return; }
+            if (!api.isUnicode(query)) {
+                this.resetFindResult(token); if (!findCurrent(this, token)) return;
+                this.findResult = { query, text }; findMessage(this, token, 'scratchpadFindInvalid', {}, snapshot); return;
+            }
             let previous = this.findResult;
             if (previous && (previous.query !== query || previous.text !== text || !Number.isInteger(previous.start))) previous = null;
             let start, wrapped = false;
             if (direction > 0) start = text.indexOf(query, previous ? previous.start + 1 : 0);
-            // lastIndexOf(query, -1) still checks offset zero; explicitly stop
-            // before zero so Previous can wrap and overlapping matches work.
+            // lastIndexOf(-1) checks zero; explicitly stop before zero to wrap.
             else start = previous ? (previous.start > 0 ? text.lastIndexOf(query, previous.start - 1) : -1) : text.lastIndexOf(query);
             if (start < 0 && previous) { wrapped = true; start = direction > 0 ? text.indexOf(query) : text.lastIndexOf(query); }
-            this.resetFindResult(); this.findResult = { query, text };
-            if (start < 0) { this.findStatus.textContent = t('scratchpadFindNoMatch'); return; }
-            // Count the same literal, overlapping matches in this snapshot,
-            // retaining only counters rather than a list or background index.
+            this.resetFindResult(token); if (!findCurrent(this, token)) return;
+            this.findResult = { query, text };
+            if (start < 0) { findMessage(this, token, 'scratchpadFindNoMatch', {}, snapshot); return; }
             let current = 0, total = 0;
             for (let offset = text.indexOf(query); offset >= 0; offset = text.indexOf(query, offset + 1)) {
                 total++; if (offset === start) current = total;
             }
             const end = start + query.length;
+            const selected = () => snapshot() && nodes.textarea.selectionStart === start && nodes.textarea.selectionEnd === end && snapshot();
             try {
-                this.textarea.focus();
-                // Focus handlers may hide/detach the card or change its text.
-                if (document.activeElement !== this.textarea || !this.canFind(this.findInput) ||
-                    this.findInput.value !== query || this.textarea.value !== text) throw new Error('stale find');
-                this.textarea.setSelectionRange(start, end);
-                if (!this.canFind(this.findInput) || this.findInput.value !== query || this.textarea.value !== text ||
-                    this.textarea.selectionStart !== start || this.textarea.selectionEnd !== end) throw new Error('selection failed');
-                this.findResult = { query, text, start, end, current, total };
-                this.findStatus.textContent = t(wrapped ? (direction > 0 ? 'scratchpadFindWrappedNext' : 'scratchpadFindWrappedPrevious') : 'scratchpadFindSelected')
-                    .replace('{current}', String(current)).replace('{total}', String(total));
-                return true;
+                callFind(this, token, 'textarea', 'focus');
+                if (!snapshot() || document.activeElement !== nodes.textarea) throw new Error('stale find');
+                callFind(this, token, 'textarea', 'setSelectionRange', [start, end]);
+                if (!snapshot() || nodes.textarea.selectionStart !== start || nodes.textarea.selectionEnd !== end || !snapshot()) throw new Error('selection failed');
+                // Keep the navigation cursor before translation, but publish counts
+                // only if the same gesture still owns its feedback afterward.
+                this.findResult = { query, text, start, end };
+                if (findMessage(this, token, wrapped ? (direction > 0 ? 'scratchpadFindWrappedNext' : 'scratchpadFindWrappedPrevious') : 'scratchpadFindSelected', { current, total }, selected) && selected()) {
+                    this.findResult = { query, text, start, end, current, total }; token.query = query; token.text = text; return true;
+                }
             } catch (_) {
-                if (!this.findVisible(this.findInput)) this.closeFind();
-                else this.findStatus.textContent = t('scratchpadFindFailed');
+                if (!findCurrent(this, token)) return;
+                if (!this.findVisible(nodes.findInput)) this.closeFind(false, token);
+                else {
+                    const queryNow = nodes.findInput.value, textNow = nodes.textarea.value;
+                    findMessage(this, token, 'scratchpadFindFailed', {}, () => nodes.findInput.value === queryNow && nodes.textarea.value === textNow);
+                }
             }
         }
         canImport() { return importReady(this, viewImports.get(this)); }

@@ -6,7 +6,7 @@ const storeApi = require('../shared/local-scratchpad-store');
 
 // The local selection model checks ownership, offsets and effects only. Native
 // Chrome selection painting, scrolling and platform IME need separate QA.
-function model(text = '') {
+function model(text = '', { wrapped = false } = {}) {
     const document = createDocument(), listeners = new Set(), effects = [];
     const controller = {
         loaded: true, closed: false, state: { enabled: true, content: text }, draft: text,
@@ -22,14 +22,15 @@ function model(text = '') {
     };
     const api = { ...storeApi }, window = { LocalItabScratchpad: api, addEventListener() {}, removeEventListener() {} };
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-scratchpad-view'), 'utf8'), { window, document });
-    const host = document.createElement('article'); document.body.append(host);
+    const host = document.createElement('article'), wrapper = wrapped ? document.createElement('div') : null;
+    if (wrapper) { document.body.append(wrapper); wrapper.append(host); } else document.body.append(host);
     const view = new api.View(host, { controller }), textarea = view.textarea;
     textarea.selectionStart = textarea.selectionEnd = 0;
     textarea.setSelectionRange = (start, end) => { effects.push(['selection', start, end]); textarea.selectionStart = start; textarea.selectionEnd = end; };
     textarea.addEventListener('input', () => effects.push('input'));
     const focus = textarea.focus.bind(textarea);
     textarea.focus = () => { effects.push('focus'); focus(); };
-    return { window, document, host, controller, view, effects,
+    return { window, document, host, wrapper, controller, view, effects,
         query(value) { view.findInput.value = value; view.findInput.dispatch('input'); },
         open() { view.findButton.dispatch('click'); },
         range() { return [textarea.selectionStart, textarea.selectionEnd]; }
@@ -148,8 +149,8 @@ test('Scratchpad find: IME and keyboard routing stay local and recover after hid
 
 test('Scratchpad find: hidden, inert, detached, unloaded and destroyed controls refuse stale navigation', () => {
     for (const block of ['document', 'host', 'ancestor', 'inert', 'aria-hidden', 'css', 'visibility hidden', 'visibility collapse', 'detached', 'textarea detached', 'button detached', 'unloaded', 'closed', 'destroyed']) {
-        const m = model('one one'); m.open(); m.query('one');
-        const wrapper = m.document.createElement('div'); m.host.remove(); m.document.body.append(wrapper); wrapper.append(m.host);
+        const m = model('one one', { wrapped: true }); m.open(); m.query('one');
+        const wrapper = m.wrapper;
         if (block === 'document') m.document.hidden = true;
         if (block === 'host') m.host.hidden = true;
         if (block === 'ancestor') wrapper.hidden = true;
