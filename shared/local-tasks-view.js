@@ -124,6 +124,8 @@
     const quickAddAttempts = new WeakMap();
     // Reviewed transitions retain exact commands after their selection popup closes.
     const transitionAttempts = new WeakMap();
+    // Removed selection restoration owns its exact reviewed command after close.
+    const restorationAttempts = new WeakMap();
     function viewSourceCurrent(view, lifecycle) {
         if (!lifecycle || lifecycle.retired || view.destroyed) return false;
         const source = lifecycle.source;
@@ -380,6 +382,8 @@
             box.append(summary, list); return { box, summary, list, key };
         }
         async perform(command, success, failure = null) {
+            const restorationAttempt = restorationAttempts.get(this);
+            if (restorationAttempt?.command === command) return this.performRestoration(restorationAttempt);
             const transitionAttempt = transitionAttempts.get(this);
             if (transitionAttempt?.command === command) return this.performTransition(transitionAttempt);
             const quickAttempt = quickAddAttempts.get(this);
@@ -401,6 +405,31 @@
             catch (error) {
                 if (!this.destroyed && generation === this.actionGeneration && this.controller.retryCommand?.operationId === command.operationId) failure?.(error);
                 // Controller owns the card's safe, content-free feedback.
+            }
+        }
+        async performRestoration(attempt) {
+            const { owner, lifecycle, command } = attempt, controller = owner.controller;
+            const owns = () => restorationAttempts.get(this) === attempt &&
+                viewSourceCurrent(this, lifecycle) && this.editSourceCurrent(owner);
+            if (!owns() || controller.pending || (controller.retryCommand && controller.retryCommand !== command)) return;
+            const generation = ++this.actionGeneration;
+            this.localError = null; this.retryEffect = attempt.success; this.retryFailure = attempt.failure; this.retryEffectOperationId = command.operationId;
+            // Control/effect hooks must not redirect the original reviewed command.
+            if (!owns() || controller.pending || (controller.retryCommand && controller.retryCommand !== command)) return;
+            try {
+                const state = await controller.run(command);
+                if (restorationAttempts.get(this) !== attempt || generation !== this.actionGeneration || controller.pending ||
+                    (controller.retryCommand && controller.retryCommand !== command)) return;
+                // Keep private receipt acknowledgement for an open original modal;
+                // a saved/null closed attempt must still permit genuine READ Retry.
+                if (!owns()) { attempt.defer(); return; }
+                this.rememberUndo(command, state);
+                this.retryEffect = null; this.retryFailure = null; attempt.success(state); this.render();
+            } catch (error) {
+                if (restorationAttempts.get(this) !== attempt || generation !== this.actionGeneration || controller.pending ||
+                    controller.retryCommand !== command) return;
+                if (!owns()) { attempt.defer(); return; }
+                attempt.failure(error);
             }
         }
         async performTransition(attempt) {
@@ -469,6 +498,17 @@
             }
         }
         async retryLast() {
+            const restorationAttempt = restorationAttempts.get(this);
+            if (restorationAttempt) {
+                if (!viewSourceCurrent(this, restorationAttempt.lifecycle) || !this.editSourceCurrent(restorationAttempt.owner)) return;
+                if (restorationAttempt.owner.controller.retryCommand === restorationAttempt.command) {
+                    // Retain this path's historical workspace/page availability
+                    // without imposing its original row snapshot on receipt Retry.
+                    if (!this.restorationWorkspaceCurrent(restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
+                        document.hidden || document.visibilityState === 'hidden') return;
+                    return this.perform(restorationAttempt.command);
+                }
+            }
             const transitionAttempt = transitionAttempts.get(this);
             if (transitionAttempt) {
                 if (!viewSourceCurrent(this, transitionAttempt.lifecycle) || !this.editSourceCurrent(transitionAttempt.owner)) return;
@@ -985,13 +1025,17 @@
             });
         }
         restoreBatch(origin = this.restoreBatchButton) {
+            const owner = editSources.get(this), lifecycle = viewLifecycles.get(this);
+            const constructionCurrent = () => viewSourceCurrent(this, lifecycle) && this.editSourceCurrent(owner);
+            if (!constructionCurrent()) return;
+            const controller = owner.controller, store = owner.store, subscribe = controller.subscribe.bind(controller);
             let source = this.removedRestoreSource;
             const initialSource = source;
             if (!this.removedRestorationCurrent(source, origin)) return;
             const message = suffix => t(`tasksRestore${suffix}`);
             const css = suffix => `tasks-restore-${suffix}`;
             const records = Object.freeze(source.snapshot.map(task => Object.freeze({ ...task })));
-            const workspace = this.controller.store.backend?.workspace;
+            const workspace = owner.workspace;
             let unsubscribe = () => {}, epoch = 0, generation = 0, reviewing = false, saving = false;
             let review = null, attempt = null, retryCommand = null, focusDeparted = false, composing = false;
             const moved = event => { focusDeparted = !modal.panel.contains(event.target); };
@@ -1006,23 +1050,25 @@
                 this.render();
             });
             if (!modal) return;
+            if (!constructionCurrent()) { modal.close(false); return; }
             this.restorationSession = modal;
             const dialogOwner = { panel: modal.panel, overlay: modal.panel.parentElement, valid: true, opened: false, closing: false };
             this.restorationDialogOwner = dialogOwner;
-            const owns = () => !this.destroyed && modal.isOpen && this.restorationSession === modal && modal.panel.isConnected && this.host.isConnected;
+            const owns = () => viewLifecycles.get(this) === lifecycle && !lifecycle.retired && !this.destroyed &&
+                modal.isOpen && this.dialogs.has(modal) && this.restorationSession === modal && modal.panel.isConnected && owner.host.isConnected;
             const available = () => {
                 this.removedRestoreSource?.drain?.();
-                return dialogOwner.valid && this.removedRestoreOwner.valid && this.host === this.removedRestoreOwner.host &&
-                modal.panel.parentElement === dialogOwner.overlay && dialogOwner.overlay.parentElement === document.body && !this.controller.closed && !!this.controller.state && !document.hidden && document.visibilityState !== 'hidden' &&
+                return constructionCurrent() && dialogOwner.valid && this.removedRestoreOwner.valid && this.host === this.removedRestoreOwner.host &&
+                modal.panel.parentElement === dialogOwner.overlay && dialogOwner.overlay.parentElement === document.body && !controller.closed && !!controller.state && !document.hidden && document.visibilityState !== 'hidden' &&
                 !modal.panel.closest('[hidden], [inert]') && !!modal.panel.getClientRects().length &&
                 !['hidden', 'collapse'].includes(root.getComputedStyle?.(modal.panel).visibility) &&
-                !root.LocalItabContentLifecycle?.departing && this.controller.store.backend?.workspace === workspace &&
+                !root.LocalItabContentLifecycle?.departing && controller.store.backend?.workspace === workspace &&
                 !workspace?.invalidated && !workspace?._suspended && this.restorationWorkspaceCurrent(source) &&
-                modal.panel.ownerDocument === document;
+                modal.panel.ownerDocument === document && constructionCurrent();
             };
             const originalClose = modal.close;
-            modal.close = () => {
-                const restore = owns() && !focusDeparted && available() && !document.hidden && document.visibilityState !== 'hidden' &&
+            modal.close = (restoreFocus = true) => {
+                const restore = restoreFocus && owns() && !focusDeparted && available() && !document.hidden && document.visibilityState !== 'hidden' &&
                     (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
                 this.removedRestoreSource?.drain?.();
                 const background = this.restorationBackground;
@@ -1030,13 +1076,13 @@
                 dialogOwner.closing = true; originalClose(false);
                 this.removedRestoreSource?.drain?.();
                 if (background?.modal === modal) { background.expected = null; if (this.restorationBackground === background) this.restorationBackground = null; }
-                if (!restore || this.destroyed || this.dialogs.size || document.activeElement !== document.body) return;
+                if (!restore || !constructionCurrent() || this.dialogs.size || document.activeElement !== document.body) return;
                 const visible = node => {
                     if (!this.restorationNodeVisible(node) || node.disabled) return false;
                     for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
                     return true;
                 };
-                if (this.removedRestoreOwner.valid && this.restoreBatchButton === origin && visible(origin)) origin.focus(); else if (visible(this.input)) this.input.focus();
+                if (this.removedRestoreOwner.valid && this.restoreBatchButton === origin && visible(origin) && constructionCurrent()) origin.focus(); else if (visible(this.input) && constructionCurrent()) this.input.focus();
             };
             const selected = new Set(), choices = [];
             const selection = el('ol', `tasks-batch-list ${css('selection')}`);
@@ -1047,9 +1093,11 @@
             const setFeedback = (text, error = false) => { feedback.textContent = text; feedback.classList.toggle('is-error', error); };
             const cancel = button('tasksCancel', () => modal.close(), css('cancel'));
             const setControl = (node, disabled, hidden = false) => {
-                if (!owns()) return;
+                if (!owns() || !constructionCurrent()) return false;
                 if (document.activeElement === node && (disabled || hidden)) cancel.focus();
+                if (!owns() || !constructionCurrent()) return false;
                 node.disabled = disabled; node.hidden = hidden;
+                return owns() && constructionCurrent();
             };
             const showReview = value => {
                 preview.hidden = !value; title.textContent = value ? `${t('tasksBatchPreview')} (${value.count})` : '';
@@ -1061,19 +1109,27 @@
             };
             const update = () => {
                 if (!owns()) return;
+                // A source-gap notification can explain the conflict but cannot
+                // alter the reviewed selection, controls, preview or focus.
+                if (!constructionCurrent()) { setFeedback(t('tasksConflict'), true); return; }
+                if (retryCommand && attempt) showReview(attempt.review);
                 count.textContent = message('Selected').replace('{count}', selected.size).replace('{total}', records.length);
-                if (review && !saving && !retryCommand && (this.controller.state?.revision !== review.revision || !sourceCurrent())) {
-                    epoch++; review = null; showReview(null); setFeedback(message('Changed'));
+                if (review && !saving && !retryCommand) {
+                    const current = controller.state?.revision === review.revision && sourceCurrent();
+                    if (!constructionCurrent()) { setFeedback(t('tasksConflict'), true); return; }
+                    if (!current) { epoch++; review = null; showReview(null); setFeedback(message('Changed')); }
                 }
-                const blocked = saving || !!this.controller.pending || !available() || composing;
-                for (const checkbox of choices) setControl(checkbox, blocked);
-                setControl(all, blocked); setControl(clear, blocked || !selected.size);
-                setControl(reviewButton, blocked || reviewing || !!retryCommand || !selected.size || !sourceCurrent());
-                setControl(confirm, blocked || !review, !review || !!retryCommand);
+                const blocked = saving || !!controller.pending || !available() || composing;
+                for (const checkbox of choices) if (!setControl(checkbox, blocked)) return;
+                if (!setControl(all, blocked) || !setControl(clear, blocked || !selected.size)) return;
+                if (!setControl(reviewButton, blocked || reviewing || !!retryCommand || !selected.size || !sourceCurrent())) return;
+                if (!setControl(confirm, blocked || !review, !review || !!retryCommand)) return;
                 confirm.textContent = message('Confirm').replace('{count}', review?.count ?? 0);
-                setControl(retry, blocked, !retryCommand);
+                if (!setControl(retry, blocked, !retryCommand)) return;
                 retry.textContent = message('Retry').replace('{count}', retryCommand?.targets.length ?? 0);
-                if (!available()) { review = null; if (!retryCommand && !saving) showReview(null); setControl(confirm, true, true); setFeedback(t('tasksErrorUnavailable'), true); }
+                const stillAvailable = available();
+                if (!constructionCurrent()) { setFeedback(t('tasksConflict'), true); return; }
+                if (!stillAvailable) { review = null; if (!retryCommand && !saving) showReview(null); setControl(confirm, true, true); setFeedback(t('tasksErrorUnavailable'), true); }
             };
             const changed = () => {
                 generation++; epoch++; reviewing = false; review = null;
@@ -1083,7 +1139,7 @@
             for (const task of records) {
                 const row = el('li'), label = el('label'), checkbox = el('input', css('checkbox')); checkbox.type = 'checkbox'; checkbox.checked = false;
                 checkbox.addEventListener('change', event => {
-                    if (!owns() || !available() || composing || saving || this.controller.pending) { checkbox.checked = selected.has(task.id); return; }
+                    if (!owns() || !available() || composing || saving || controller.pending) { checkbox.checked = selected.has(task.id); return; }
                     if (event.isComposing || event.keyCode === 229) { checkbox.checked = selected.has(task.id); return; }
                     if (checkbox.checked) selected.add(task.id); else selected.delete(task.id); changed();
                 });
@@ -1091,55 +1147,67 @@
                 label.append(el('p', 'tasks-help tasks-restore-destination', message(task.removedFrom === 'active' ? 'ToActive' : 'ToDone'))); row.append(label); selection.append(row);
             }
             const select = value => {
-                if (!owns() || !available() || composing || saving || this.controller.pending) return;
+                if (!owns() || !available() || composing || saving || controller.pending) return;
                 selected.clear(); records.forEach((task, index) => { choices[index].checked = value; if (value) selected.add(task.id); }); changed();
             };
             const all = button('tasksRestoreSelectAll', event => { if (activation(event)) select(true); }, css('select-all'));
             const clear = button('tasksRestoreClear', event => { if (activation(event)) select(false); }, css('clear'));
             const prepare = async () => {
-                if (!owns() || !available() || composing || saving || this.controller.pending || retryCommand || !selected.size) return;
+                if (!owns() || !available() || composing || saving || controller.pending || retryCommand || !selected.size) return;
                 if (reviewing || !sourceCurrent()) { setFeedback(message('Changed')); return; }
                 const ticket = ++epoch, submittedGeneration = generation;
                 const targets = records.filter(task => selected.has(task.id)).map(({ id, version, removedFrom }) => ({ id, version, removedFrom }));
                 reviewing = true; review = null; showReview(null); setFeedback(t('tasksLoading')); update();
+                if (!owns() || !available() || controller.pending) { reviewing = false; if (owns()) update(); return; }
                 try {
-                    const value = await this.controller.store.reviewRestoration(targets);
+                    const value = await store.reviewRestoration(targets);
                     if (!owns() || !available() || ticket !== epoch || generation !== submittedGeneration) return;
-                    if ((this.controller.state?.revision !== value.revision || !sourceCurrent())) { setFeedback(message('Changed')); return; }
+                    if ((controller.state?.revision !== value.revision || !sourceCurrent())) { setFeedback(message('Changed')); return; }
                     review = value; showReview(value); setFeedback(message('Ready'));
-                } catch (error) { if (owns() && ticket === epoch) setFeedback(errorText(error), true); }
+                } catch (error) { if (owns() && ticket === epoch) setFeedback(constructionCurrent() ? errorText(error) : t('tasksConflict'), true); }
                 finally { if (owns() && ticket === epoch) { reviewing = false; update(); } }
             };
             const submit = async (retryPrevious = false) => {
-                if (!owns() || !available() || composing || saving || this.controller.pending) return;
-                if (retryPrevious) { if (!retryCommand) return; }
+                if (!owns() || !available() || composing || saving || controller.pending) return;
+                if (retryPrevious) {
+                    if (!retryCommand || !attempt || retryCommand !== attempt.command ||
+                        restorationAttempts.get(this) !== attempt || (controller.retryCommand && controller.retryCommand !== retryCommand)) return;
+                }
                 else {
                     if (!review || retryCommand) return;
-                    if ((this.controller.state?.revision !== review.revision || !sourceCurrent())) { update(); return; }
-                    attempt = Object.freeze({ command: review.command, review, generation });
+                    if ((controller.state?.revision !== review.revision || !sourceCurrent())) { update(); return; }
+                    attempt = { owner, lifecycle, command: review.command, review, generation, source };
                     this.restorationAttempt = Object.freeze({ command: review.command, review, source });
-                }
-                const submitted = attempt, command = submitted.command;
-                saving = true; setFeedback(t('tasksSaving')); update();
-                await this.perform(command, state => {
-                    if (this.restorationAttempt?.command === command) this.restorationAttempt = null;
-                    if (!owns()) return;
-                    retryCommand = null; attempt = null; review = null; showReview(null);
-                    if (available() && generation === submitted.generation && this.controller.state?.revision === state.revision &&
-                        this.controller.state?.receipts.at(-1) === command.operationId) modal.close();
-                    else setFeedback(message('Saved'));
-                }, error => {
-                    if (!owns()) return;
-                    review = null;
-                    if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
-                        retryCommand = command; showReview(submitted.review);
-                        setFeedback(`${errorText(error)} ${message('Uncertain')}`, true);
-                    } else {
-                        retryCommand = null; attempt = null; showReview(null);
+                    const submitted = attempt, command = submitted.command;
+                    attempt.defer = () => { retryCommand = command; };
+                    attempt.success = state => {
+                        if (!constructionCurrent()) return;
                         if (this.restorationAttempt?.command === command) this.restorationAttempt = null;
-                        this.controller.dismissRetry(command.operationId); setFeedback(errorText(error), true);
-                    }
-                });
+                        if (!owns() || attempt !== submitted) return;
+                        retryCommand = null; attempt = null; review = null; showReview(null);
+                        if (available() && generation === submitted.generation && controller.state?.revision === state.revision &&
+                            controller.state?.receipts.at(-1) === command.operationId) modal.close();
+                        else setFeedback(message('Saved'));
+                    };
+                    attempt.failure = error => {
+                        if (!owns() || attempt !== submitted || !constructionCurrent()) return;
+                        review = null;
+                        if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
+                            retryCommand = command; showReview(submitted.review);
+                            setFeedback(`${errorText(error)} ${message('Uncertain')}`, true);
+                        } else {
+                            retryCommand = null; attempt = null; showReview(null);
+                            if (this.restorationAttempt?.command === command) this.restorationAttempt = null;
+                            if (controller.retryCommand === command) controller.dismissRetry(command.operationId);
+                            if (owns() && constructionCurrent()) setFeedback(errorText(error), true);
+                        }
+                    };
+                    restorationAttempts.set(this, attempt);
+                }
+                const submitted = attempt;
+                saving = true; setFeedback(t('tasksSaving')); update();
+                if (!owns() || !available() || controller.pending) { saving = false; if (owns()) update(); return; }
+                await this.perform(submitted.command);
                 saving = false; if (owns()) update();
             };
             const reviewButton = button('tasksRestoreReview', event => { if (activation(event)) prepare(); }, css('review'));
@@ -1151,9 +1219,10 @@
             const selectionActions = el('div', 'tasks-dialog-actions'); selectionActions.append(all, clear);
             const actions = el('div', 'tasks-dialog-actions'); actions.append(cancel, reviewButton, retry, confirm);
             modal.panel.append(el('p', 'tasks-help', message('Help')), el('p', 'tasks-help', message('HistoryHelp')), selectionActions, selection, count, preview, feedback, actions);
-            modal.panel.addEventListener('compositionstart', () => { composing = true; changed(); });
-            modal.panel.addEventListener('compositionend', () => { composing = false; update(); });
+            modal.panel.addEventListener('compositionstart', () => { if (!owns() || !constructionCurrent()) return; composing = true; changed(); });
+            modal.panel.addEventListener('compositionend', () => { if (!owns()) return; composing = false; update(); });
             const sourceCurrent = () => {
+                if (!constructionCurrent()) return false;
                 const latest = this.removedRestoreSource;
                 // Unrelated writes may replace DOM rows without changing these
                 // originals. Require an explicit new review, never substitute text,
@@ -1163,11 +1232,12 @@
                     records.every((task, index) => ['id', 'version', 'text', 'state', 'removedFrom'].every(key => latest.snapshot[index][key] === task[key]))) {
                     const notify = source.changed; source.changed = null; source = latest; source.changed = notify;
                 }
-                return this.removedRestorationCurrent(source, origin, modal);
+                const current = this.removedRestorationCurrent(source, origin, modal);
+                return constructionCurrent() && current;
             };
             const activation = event => !event.defaultPrevented && !(event.detail > 1) && !event.repeat && !event.isComposing && event.keyCode !== 229;
-            source.changed = () => { if (owns() && !saving && !retryCommand) { epoch++; reviewing = false; review = null; showReview(null); setFeedback(message('Changed')); update(); } };
-            unsubscribe = this.controller.subscribe(update);
+            source.changed = () => { if (owns() && constructionCurrent() && !saving && !retryCommand) { epoch++; reviewing = false; review = null; showReview(null); setFeedback(message('Changed')); update(); } };
+            unsubscribe = subscribe(update);
             source.drain();
             const backgroundNode = Array.from(document.body.children).find(node => node.contains(this.host));
             if (root.LocalItabDialog && backgroundNode && !backgroundNode.inert) {
