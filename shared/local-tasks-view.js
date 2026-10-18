@@ -250,6 +250,13 @@
                 workspace: lastWorkspace, workspaceId: lastWorkspace?.id, workspaceGeneration: lastWorkspace?.generation,
                 legacyAvailability: !!lastWorkspace && typeof lastWorkspace === 'object' && lastWorkspace.id == null && lastWorkspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain: lastChain });
+            // One-step movement owns its construction source independently of the end actions.
+            const stepWorkspace = controller.store.backend?.workspace ?? null, stepChain = [];
+            for (let node = this.list; node; node = node.parentElement) stepChain.push([node, node.parentElement]);
+            this.stepMoveOwner = Object.freeze({ host, list: this.list, filterInput: this.filterInput, controller, store: controller.store, backend: controller.store.backend,
+                workspace: stepWorkspace, workspaceId: stepWorkspace?.id, workspaceGeneration: stepWorkspace?.generation,
+                legacyAvailability: !!stepWorkspace && typeof stepWorkspace === 'object' && stepWorkspace.id == null && stepWorkspace.generation == null && root.LocalItabWorkspaces == null,
+                session: root.LocalItabWorkspaces?.session ?? null, chain: stepChain });
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
@@ -307,6 +314,8 @@
             if (command?.kind === 'moveFirst' && !this.moveFirstSourceCurrent(this.moveFirstOwner)) return;
             // Move-to-end keeps the exact command and receipt, but never changes its mounted source.
             if (command?.kind === 'moveLast' && !this.moveLastSourceCurrent(this.moveLastOwner)) return;
+            // The original step-move receipt can outlive its row, but never its construction source.
+            if (command?.kind === 'move' && !this.stepMoveSourceCurrent(this.stepMoveOwner)) return;
             if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
                 !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
                 document.hidden || document.visibilityState === 'hidden')) return;
@@ -1326,9 +1335,62 @@
             }
             return true;
         }
+        stepMoveSourceCurrent(owner) {
+            const c = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.stepMoveOwner === owner && this.host === owner.host && this.list === owner.list &&
+                this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                // Older backends may expose only an availability object, without
+                // a workspace service. Its original identity still cannot change.
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null));
+        }
+        stepMoveCurrent(source) {
+            const owner = source.owner;
+            // Recheck page/filter DOM state before the final non-layout source checks.
+            if (document.hidden || document.visibilityState === 'hidden' || owner.filterInput.value.trim() || this.filterInput !== owner.filterInput) return false;
+            if (!this.stepMoveSourceCurrent(owner)) return false;
+            const c = owner.controller;
+            const reviewedConflict = c.error?.code === 'CONFLICT' && !!c.retryCommand && source.conflictCommand === c.retryCommand;
+            if (this.destroyed || c.pending || (c.error && !reviewedConflict) || (c.retryCommand && !reviewedConflict) || this.localError ||
+                ['loading', 'saving'].includes(c.status) || (c.status === 'error' && !reviewedConflict) ||
+                this.filterQuery || this.filterComposing || this.dialogs.size || this.pendingReview ||
+                this.batchSession || this.reuseSession || this.completionSession || this.restorationSession ||
+                root.LocalItabContentLifecycle?.departing || this.moveLastGeneration !== source.generation) return false;
+            // Read the current saved state after page/filter and any layout inspection.
+            const state = c.state, current = state?.records.find(record => record.id === source.snapshot.id);
+            const index = source.order.indexOf(source.snapshot.id), neighbor = source.order[index + source.direction];
+            return !!current && current.state === 'active' && index >= 0 && !!neighbor &&
+                (source.direction === -1 || source.direction === 1) &&
+                Object.keys(source.snapshot).every(key => current[key] === source.snapshot[key]) &&
+                JSON.stringify(state.records.filter(record => record.state === 'active').map(record => record.id)) === JSON.stringify(source.order);
+        }
+        stepMoveVisible(source) {
+            const { owner, item, title, actions, menu, summary, action } = source;
+            if (this.filterInput.value.trim() || document.hidden || document.visibilityState === 'hidden' ||
+                action.disabled || action.getAttribute('disabled') != null || action.getAttribute('aria-disabled') === 'true' ||
+                !action.isConnected || item.dataset.taskId !== source.snapshot.id || item.parentElement !== owner.list ||
+                Array.from(owner.list.children).find(node => node.dataset.taskId === source.snapshot.id) !== item ||
+                item.querySelector('.tasks-text') !== title || title.textContent !== source.snapshot.text || title.children.length ||
+                item.querySelector('.tasks-row-actions') !== actions || item.querySelector('.tasks-row-menu') !== menu ||
+                menu.querySelector('summary') !== summary || !actions.contains(action) ||
+                [...owner.chain, ...source.chain].some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent)) return false;
+            for (const displayed of [action, title]) {
+                if (!displayed.getClientRects().length) return false;
+                for (let node = displayed; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node);
+                    if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                        node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                        style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                        (node.tagName === 'DETAILS' && !node.open)) return false;
+                }
+            }
+            return true;
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
             let firstSource = null, lastSource = null;
+            const stepSources = [];
             const top = el('div', 'tasks-row-main');
             const title = el('span', 'tasks-text', task.text); if (task.state === 'done') title.classList.add('is-done');
             const run = (kind, values = {}, success) => this.perform(this.controller.store.request(kind, { id: task.id, version: task.version, ...values }), success);
@@ -1354,8 +1416,25 @@
                     const expectedPin = this.controller.state.pinnedId; const pinned = expectedPin === task.id; item.classList.toggle('is-pinned', pinned);
                     const pin = button(pinned ? 'tasksUnpin' : 'tasksPin', () => run('pin', { expectedPin }));
                     pin.setAttribute('aria-pressed', String(pinned)); actions.append(pin);
-                    const up = button('tasksUp', () => run('move', { order: active, direction: -1 }));
-                    const down = button('tasksDown', () => run('move', { order: active, direction: 1 }));
+                    const stepButton = (key, direction) => {
+                        const source = { owner: this.stepMoveOwner, generation: this.moveLastGeneration, item, title, actions, direction,
+                            snapshot: Object.freeze({ ...task }), order: Object.freeze(active.slice()),
+                            conflictCommand: this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null, chain: [] };
+                        const action = button(key, event => {
+                            if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                                event.target !== action || (event.currentTarget && event.currentTarget !== action)) return;
+                            if (!this.stepMoveCurrent(source) || !this.stepMoveVisible(source) || !this.stepMoveCurrent(source)) return;
+                            // No DOM reads follow this final source/state/order/neighbor check.
+                            this.perform(source.owner.store.request('move', { id: source.snapshot.id, version: source.snapshot.version,
+                                order: source.order, direction: source.direction }));
+                        });
+                        action.addEventListener('keydown', event => {
+                            if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                        });
+                        source.action = action; stepSources.push(source); return action;
+                    };
+                    const up = stepButton('tasksUp', -1);
+                    const down = stepButton('tasksDown', 1);
                     up.disabled = !!this.filterQuery || index === 0; down.disabled = !!this.filterQuery || index === active.length - 1;
                     if (this.filterQuery) { up.title = t('tasksFilterReorder'); down.title = t('tasksFilterReorder'); }
                     const source = { owner: this.moveFirstOwner, generation: this.moveLastGeneration, item, title, actions,
@@ -1409,6 +1488,11 @@
                 const menu = el('details', 'tasks-row-menu'), summary = el('summary', '', t('tasksActions'));
                 summary.dataset.taskAction = 'menu';
                 menu.append(summary, actions); item.append(menu);
+                for (const source of stepSources) {
+                    source.menu = menu; source.summary = summary;
+                    source.chain.push([source.action, actions], [actions, menu], [menu, item], [summary, menu],
+                        [title, top], [top, item], [item, source.owner.list]);
+                }
                 if (firstSource) {
                     firstSource.menu = menu; firstSource.summary = summary;
                     firstSource.chain.push([firstSource.first, actions], [actions, menu], [menu, item], [summary, menu],
