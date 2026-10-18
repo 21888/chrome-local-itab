@@ -2590,23 +2590,43 @@
             document.addEventListener('visibilitychange', departed, true); root.addEventListener?.('blur', departed);
         }
         async export() {
+            const lifecycle = viewLifecycles.get(this), current = () => viewSourceCurrent(this, lifecycle);
+            if (!current()) return;
+            const previousError = this.localError;
+            // Feedback belongs to the error state at invocation. A later file
+            // operation may report its own result without cancelling this export.
+            const report = error => {
+                if (current() && this.localError === previousError) { this.localError = error; this.render(); }
+            };
             let source;
-            try { source = await this.controller.store.export(); }
-            catch (error) {
-                this.localError = typeof error?.code === 'string' ? error : api.fault('FILE');
-                this.render(); return;
-            }
-            let url, link;
+            try { source = await lifecycle.source.store.export(); }
+            catch (error) { report(typeof error?.code === 'string' ? error : api.fault('FILE')); return; }
+            if (!current()) return;
+            let url, link, scheduled = false, error = null;
             try {
-                url = URL.createObjectURL(new Blob([source], { type: 'application/json' }));
-                link = el('a'); link.href = url; link.download = `local-itab-tasks-${new Date().toISOString().slice(0, 10)}.json`;
-                document.body.append(link); link.click(); setTimeout(() => URL.revokeObjectURL(url), 60000);
-                this.localError = null;
-            } catch (_) {
-                this.localError = api.fault('FILE');
-                if (url) URL.revokeObjectURL(url);
-            } finally { link?.remove(); }
-            this.render();
+                const blob = new Blob([source], { type: 'application/json' });
+                if (!current()) return;
+                url = URL.createObjectURL(blob);
+                if (!current()) return;
+                link = el('a');
+                if (!current()) return;
+                link.href = url;
+                if (!current()) return;
+                link.download = `local-itab-tasks-${new Date().toISOString().slice(0, 10)}.json`;
+                if (!current()) return;
+                document.body.append(link);
+                if (!current()) return;
+                const click = link.click;
+                if (!current()) return;
+                click.call(link);
+                setTimeout(() => URL.revokeObjectURL(url), 60000); scheduled = true;
+            } catch (_) { error = api.fault('FILE'); }
+            finally {
+                // These exact resources belong to this call, even after a source
+                // gap. Successful downloads keep the existing delayed URL release.
+                try { link?.remove(); } finally { if (url && !scheduled) URL.revokeObjectURL(url); }
+            }
+            report(error);
         }
         async importFile() {
             const owner = editSources.get(this);
