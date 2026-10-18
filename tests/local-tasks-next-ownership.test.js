@@ -123,9 +123,19 @@ test('RED: unchanged Next up control remains valid through filtering and an unre
     } finally { h.view.destroy(); }
 });
 test('RED: construction source cannot change before the first asynchronous Next up render', async t => {
-    const h = model();
-    try { changes.object(h); await settle(); await zeroIO(t, h, h.view.nextComplete, 'before-first-render source object'); }
-    finally { h.view.destroy(); }
+    const h = model(), workspace = h.backend.workspace;
+    try {
+        changes.object(h); await settle(); const counts = io(h), before = h.backend.raw();
+        // The View now refuses the changed source before constructing any Next
+        // up action. Its already-issued initial read need not be cancelled.
+        assert.ok(h.view.nextComplete == null); assert.equal(h.view.next.querySelectorAll('button').length, 0);
+        assert.equal(h.view.renderedRevision, undefined); assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+        h.view.render(); await settle(); assert.deepEqual(io(h), counts); assert.deepEqual(h.backend.raw(), before);
+        t.diagnostic(JSON.stringify({ label: 'before-first-render source object', delta: delta(counts, io(h)), noAction: h.view.nextComplete == null }));
+        sourceRestore(h, workspace); await h.controller.refresh(); await settle();
+        assert.ok(h.view.nextComplete?.getClientRects().length); h.view.nextComplete.dispatch('click'); await settle();
+        assert.equal(record(h).state, 'done'); assert.equal(h.backend.writes, counts.writes + 1);
+    } finally { sourceRestore(h, workspace); h.view.destroy(); }
 });
 for (const [name, change] of Object.entries(changes)) test(`RED: fresh Next up cannot adopt replacement workspace ${name}`, async t => {
     const h = model(); await settle();
@@ -307,9 +317,17 @@ for (const locale of ['zh_CN', 'fallback']) test(`current Next up preserves exac
     } finally { h.view.destroy(); }
 });
 for (const name of ['id', 'generation', 'session']) test(`construction ${name} is fixed before the initial asynchronous read`, async t => {
-    const h = model();
-    try { changes[name](h); await settle(); await zeroIO(t, h, h.view.nextComplete, `before initial read ${name}`); }
-    finally { h.view.destroy(); }
+    const h = model(), workspace = h.backend.workspace, identity = { id: workspace.id, generation: workspace.generation };
+    try {
+        changes[name](h); await settle(); const counts = io(h), before = h.backend.raw();
+        assert.ok(h.view.nextComplete == null); assert.equal(h.view.next.querySelectorAll('button').length, 0);
+        assert.equal(h.view.renderedRevision, undefined); assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+        h.view.render(); await settle(); assert.deepEqual(io(h), counts); assert.deepEqual(h.backend.raw(), before);
+        t.diagnostic(JSON.stringify({ label: `before initial read ${name}`, delta: delta(counts, io(h)), noAction: h.view.nextComplete == null }));
+        Object.assign(workspace, identity); sourceRestore(h, workspace); await h.controller.refresh(); await settle();
+        assert.ok(h.view.nextComplete?.getClientRects().length); h.view.nextComplete.dispatch('click'); await settle();
+        assert.equal(record(h).state, 'done'); assert.equal(h.backend.writes, counts.writes + 1);
+    } finally { Object.assign(workspace, identity); sourceRestore(h, workspace); h.view.destroy(); }
 });
 for (const kind of ['backend', 'store', 'controller']) test(`construction ${kind} cannot change before the initial asynchronous read`, async t => {
     const h = model(), foreign = model(), workspace = h.backend.workspace;
@@ -318,8 +336,14 @@ for (const kind of ['backend', 'store', 'controller']) test(`construction ${kind
         if (kind === 'backend') h.store.backend = foreign.backend;
         else if (kind === 'store') h.controller.store = foreign.store;
         else h.view.controller = foreign.controller;
-        await settle(); redraw(h); const own = io(h), other = io(foreign), before = foreign.backend.raw();
-        if (kind === 'controller') { h.view.nextComplete.dispatch('click'); await settle(); }
+        await settle(); if (kind !== 'controller') redraw(h); const own = io(h), other = io(foreign), before = foreign.backend.raw();
+        if (kind === 'controller') {
+            const original = h.backend.raw();
+            assert.ok(h.view.nextComplete == null); assert.equal(h.view.next.querySelectorAll('button').length, 0);
+            assert.equal(h.view.renderedRevision, undefined); assert.equal(own.requests, 0); assert.equal(own.writes, 0);
+            assert.equal(other.requests, 0); assert.equal(other.writes, 0);
+            h.view.render(); await settle(); assert.deepEqual(h.backend.raw(), original);
+        }
         else {
             // The original Controller now suppresses its late initial read when
             // Store/backend identity changed, so no action may be constructed.
@@ -330,6 +354,12 @@ for (const kind of ['backend', 'store', 'controller']) test(`construction ${kind
         t.diagnostic(JSON.stringify({ label: `first-read ${kind}`, own: delta(own, io(h)), foreign: delta(other, io(foreign)) }));
         assert.deepEqual({ own: io(h), foreign: io(foreign) }, { own, foreign: other }); assert.deepEqual(foreign.backend.raw(), before);
         if (kind !== 'controller') {
+            sourceRestore(h, workspace); await h.controller.refresh(); await settle();
+            assert.ok(h.view.nextComplete?.getClientRects().length); h.view.nextComplete.dispatch('click'); await settle();
+            assert.equal(record(h).state, 'done'); assert.equal(h.backend.writes, own.writes + 1);
+            assert.deepEqual(io(foreign), other); assert.deepEqual(foreign.backend.raw(), before);
+        }
+        if (kind === 'controller') {
             sourceRestore(h, workspace); await h.controller.refresh(); await settle();
             assert.ok(h.view.nextComplete?.getClientRects().length); h.view.nextComplete.dispatch('click'); await settle();
             assert.equal(record(h).state, 'done'); assert.equal(h.backend.writes, own.writes + 1);

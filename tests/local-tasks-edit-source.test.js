@@ -158,11 +158,18 @@ for (const source of ['controller', 'store', 'backend', 'workspace', 'id', 'gene
 test('RED: construction source is retained before first asynchronous render and before opening', async t => {
     const h = model(), owner = capture(h); change(h, 'workspace'); await settle();
     try {
-        const origin = row(h).querySelector('.tasks-row-menu'); origin.open = true;
-        const counts = io(h), before = h.backend.raw(); button(row(h), 'Edit').dispatch('click');
-        if (editor(h)) save(h, 'must stay on original source'); await settle();
+        const counts = io(h), before = h.backend.raw();
+        assert.equal(h.host.querySelectorAll('[data-task-id]').length, 0); assert.equal(h.view.renderedRevision, undefined); assert.ok(editor(h) == null);
+        assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+        h.view.render(); await settle();
         t.diagnostic(JSON.stringify({ label: 'before-first-render', delta: delta(counts, io(h)) }));
         assert.deepEqual(io(h), counts); assert.deepEqual(h.backend.raw(), before);
+        restore(h, owner); await h.controller.refresh(); await settle(); const original = h.backend.raw();
+        openRow(h); save(h, 'Original restored editor text'); await settle(); const after = h.backend.raw();
+        assert.equal(h.backend.writes, counts.writes + 1); assert.equal(h.backend.requests, counts.requests + 1); assert.equal(h.controller.status, 'saved');
+        assert.equal(after.records[0].text, 'Original restored editor text'); assert.equal(after.records[0].state, original.records[0].state); assert.ok(editor(h) == null);
+        assert.deepEqual(after.records.slice(1), original.records.slice(1)); assert.deepEqual(after.records.map(record => record.id), original.records.map(record => record.id));
+        assert.equal(after.pinnedId, original.pinnedId); assert.deepEqual(after.recovery, original.recovery); assert.equal(h.view.undo, null);
     } finally { restore(h, owner); h.view.destroy(); }
 });
 for (const mode of ['READ', 'false', 'drop', 'ack']) test(`RED: exact ${mode} failure Retry cannot cross independent backend, and remains recoverable on original`, async t => {

@@ -123,9 +123,21 @@ for (const state of ['active', 'done']) {
         } finally { h.view.destroy(); }
     });
     test(`RED: ${state} construction source cannot change before first async row render`, async () => {
-        const h = model();
-        try { sourceChanges.object(h); await settle(); await rejectsWithoutIO(h, removeButton(h, state)); }
-        finally { h.view.destroy(); }
+        const h = model(), workspace = h.backend.workspace, session = h.window.LocalItabWorkspaces.session;
+        try {
+            sourceChanges.object(h); await settle(); const counts = io(h), before = h.backend.raw();
+            // A changed construction source is rejected before rows gain authority.
+            assert.equal(h.host.querySelectorAll('[data-task-id]').length, 0); assert.equal(h.view.renderedRevision, undefined);
+            assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+            h.view.render(); await settle(); assert.deepEqual(io(h), counts); assert.deepEqual(h.backend.raw(), before);
+            h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; await h.controller.refresh(); await settle();
+            const original = h.backend.raw(); removeButton(h, state).dispatch('click'); await settle(); const after = h.backend.raw();
+            assert.equal(h.backend.writes, counts.writes + 1); assert.equal(h.backend.requests, counts.requests + 1); assert.equal(h.controller.status, 'saved');
+            const id = targetId(state), saved = after.records.find(record => record.id === id);
+            assert.equal(saved.state, 'removed'); assert.equal(saved.removedFrom, state); assert.equal(saved.text, original.records.find(record => record.id === id).text); assert.equal(h.view.undo.id, id);
+            assert.deepEqual(after.records.filter(record => record.id !== id), original.records.filter(record => record.id !== id));
+            assert.deepEqual(after.records.map(record => record.id), original.records.map(record => record.id)); assert.equal(after.pinnedId, original.pinnedId); assert.deepEqual(after.recovery, original.recovery);
+        } finally { h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; h.view.destroy(); }
     });
     for (const [name, change] of Object.entries(sourceChanges)) test(`RED: fresh ${state} row cannot adopt replacement ${name}`, async () => {
         const h = model(); await settle();

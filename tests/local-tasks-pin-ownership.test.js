@@ -115,9 +115,19 @@ for (const pinned of [false, true]) {
         } finally { h.view.destroy(); }
     });
     test(`RED: ${name} construction source cannot change before the first asynchronous row render`, async () => {
-        const h = model({ pinned });
-        try { sourceChanges.object(h); await settle(); await rejectsWithoutIO(h, pinButton(h)); }
-        finally { h.view.destroy(); }
+        const h = model({ pinned }), workspace = h.backend.workspace, session = h.window.LocalItabWorkspaces.session;
+        try {
+            sourceChanges.object(h); await settle(); const counts = { reads: h.backend.reads, writes: h.backend.writes, requests: h.backend.requests }, before = h.backend.raw();
+            // A changed construction source is rejected before rows gain authority.
+            assert.equal(h.host.querySelectorAll('[data-task-id]').length, 0); assert.equal(h.view.renderedRevision, undefined);
+            assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+            h.view.render(); await settle(); assert.deepEqual({ reads: h.backend.reads, writes: h.backend.writes, requests: h.backend.requests }, counts); assert.deepEqual(h.backend.raw(), before);
+            h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; await h.controller.refresh(); await settle();
+            const original = h.backend.raw(); pinButton(h).dispatch('click'); await settle(); const after = h.backend.raw();
+            assert.equal(h.backend.writes, counts.writes + 1); assert.equal(h.backend.requests, counts.requests + 1); assert.equal(h.controller.status, 'saved');
+            assert.equal(after.pinnedId, pinned ? null : 'task_0003'); assert.deepEqual(after.records, original.records);
+            assert.deepEqual(after.recovery, original.recovery); assert.equal(h.view.undo, null);
+        } finally { h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; h.view.destroy(); }
     });
     test(`RED: ${name} redrawn row cannot adopt an identical replacement workspace`, async () => {
         const h = model({ pinned }); await settle();

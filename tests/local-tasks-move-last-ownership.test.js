@@ -111,9 +111,20 @@ test('RED: current original row performs one moveLast write', async () => {
 });
 
 test('RED: construction owns the workspace before the first async row render', async () => {
-    const h = model();
-    try { sourceChanges.object(h); await settle(); await rejectsWithoutIO(h, moveButton(h)); }
-    finally { h.view.destroy(); }
+    const h = model(), workspace = h.backend.workspace, session = h.window.LocalItabWorkspaces.session;
+    try {
+        sourceChanges.object(h); await settle(); const counts = { reads: h.backend.reads, writes: h.backend.writes, requests: h.backend.requests }, before = h.backend.raw();
+        // A changed construction source is rejected before rows gain authority.
+        assert.equal(h.host.querySelectorAll('[data-task-id]').length, 0); assert.equal(h.view.renderedRevision, undefined);
+        assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+        h.view.render(); await settle(); assert.deepEqual({ reads: h.backend.reads, writes: h.backend.writes, requests: h.backend.requests }, counts); assert.deepEqual(h.backend.raw(), before);
+        h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; await h.controller.refresh(); await settle();
+        const original = h.backend.raw(); moveButton(h).dispatch('click'); await settle(); const after = h.backend.raw();
+        assert.equal(h.backend.writes, counts.writes + 1); assert.equal(h.backend.requests, counts.requests + 1); assert.equal(h.controller.status, 'saved');
+        assert.deepEqual(order(after), [...order(original).filter(id => id !== 'task_0003'), 'task_0003']);
+        assert.deepEqual(after.records.slice().sort((a, b) => a.id.localeCompare(b.id)), original.records.slice().sort((a, b) => a.id.localeCompare(b.id)));
+        assert.equal(after.pinnedId, original.pinnedId); assert.deepEqual(after.recovery, original.recovery); assert.equal(h.view.undo, null);
+    } finally { h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; h.view.destroy(); }
 });
 
 test('RED: redrawn moveLast row cannot adopt an identical replacement workspace', async () => {
@@ -233,9 +244,20 @@ for (const [name, change] of Object.entries(sourceChanges)) for (const freshRow 
 }
 
 test('view construction owns its workspace before the first async load renders rows', async () => {
-    const h = model();
-    try { sourceChanges.object(h); await settle(); await rejectsWithoutIO(h, moveButton(h)); }
-    finally { h.view.destroy(); }
+    const h = model(), workspace = h.backend.workspace, session = h.window.LocalItabWorkspaces.session;
+    try {
+        sourceChanges.object(h); await settle(); const counts = { reads: h.backend.reads, writes: h.backend.writes, requests: h.backend.requests }, before = h.backend.raw();
+        // A changed construction source is rejected before rows gain authority.
+        assert.equal(h.host.querySelectorAll('[data-task-id]').length, 0); assert.equal(h.view.renderedRevision, undefined);
+        assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+        h.view.render(); await settle(); assert.deepEqual({ reads: h.backend.reads, writes: h.backend.writes, requests: h.backend.requests }, counts); assert.deepEqual(h.backend.raw(), before);
+        h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; await h.controller.refresh(); await settle();
+        const original = h.backend.raw(); moveButton(h).dispatch('click'); await settle(); const after = h.backend.raw();
+        assert.equal(h.backend.writes, counts.writes + 1); assert.equal(h.backend.requests, counts.requests + 1); assert.equal(h.controller.status, 'saved');
+        assert.deepEqual(order(after), [...order(original).filter(id => id !== 'task_0003'), 'task_0003']);
+        assert.deepEqual(after.records.slice().sort((a, b) => a.id.localeCompare(b.id)), original.records.slice().sort((a, b) => a.id.localeCompare(b.id)));
+        assert.equal(after.pinnedId, original.pinnedId); assert.deepEqual(after.recovery, original.recovery); assert.equal(h.view.undo, null);
+    } finally { h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; h.view.destroy(); }
 });
 
 for (const mode of ['false', 'drop', 'ack']) test(`unresolved ${mode} write keeps the exact retry when a fresh moveLast is clicked`, async () => {

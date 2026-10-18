@@ -117,9 +117,20 @@ for (const filtered of [false, true]) test(`RED: current open completed row ${fi
     } finally { h.view.destroy(); }
 });
 test('RED: construction source cannot change before first asynchronous row render', async () => {
-    const h = model();
-    try { sourceChanges.object(h); await settle(); await rejectsWithoutIO(h, reopenButton(h)); }
-    finally { h.view.destroy(); }
+    const h = model(), workspace = h.backend.workspace, session = h.window.LocalItabWorkspaces.session;
+    try {
+        sourceChanges.object(h); await settle(); const counts = io(h), before = h.backend.raw();
+        // A changed construction source is rejected before rows gain authority.
+        assert.equal(h.host.querySelectorAll('[data-task-id]').length, 0); assert.equal(h.view.renderedRevision, undefined);
+        assert.equal(counts.requests, 0); assert.equal(counts.writes, 0);
+        h.view.render(); await settle(); assert.deepEqual(io(h), counts); assert.deepEqual(h.backend.raw(), before);
+        h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; await h.controller.refresh(); await settle();
+        const original = h.backend.raw(); reopenButton(h).dispatch('click'); await settle(); const after = h.backend.raw();
+        assert.equal(h.backend.writes, counts.writes + 1); assert.equal(h.backend.requests, counts.requests + 1); assert.equal(h.controller.status, 'saved');
+        assert.equal(after.records[0].state, 'active'); assert.equal(after.records[0].text, original.records[0].text); assert.equal(h.view.undo, null);
+        assert.deepEqual(after.records.filter(record => record.id !== 'task_0000'), original.records.filter(record => record.id !== 'task_0000'));
+        assert.deepEqual(after.records.map(record => record.id), original.records.map(record => record.id)); assert.equal(after.pinnedId, original.pinnedId); assert.deepEqual(after.recovery, original.recovery);
+    } finally { h.backend.workspace = workspace; h.window.LocalItabWorkspaces.session = session; h.view.destroy(); }
 });
 for (const [name, change] of Object.entries(sourceChanges)) test(`RED: fresh redraw cannot adopt replacement workspace ${name}`, async () => {
     const h = model(); await settle();

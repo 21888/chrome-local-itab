@@ -114,6 +114,19 @@
     // An editor keeps its construction source independently of mutable View fields
     // and of the rows that may be rebuilt while its draft remains open.
     const editSources = new WeakMap();
+    // Rendering and cleanup retain their construction source independently of
+    // public fields. Availability is separate: original storage errors still
+    // belong on this View, including suspended or invalidated workspaces.
+    const viewLifecycles = new WeakMap();
+    function viewSourceCurrent(view, lifecycle) {
+        if (!lifecycle || lifecycle.retired || view.destroyed) return false;
+        const source = lifecycle.source;
+        if (view.host !== source.host || source.host.ownerDocument !== document) return false;
+        const controller = source.controller, workspace = source.backend?.workspace ?? null;
+        return view.controller === controller && controller.store === source.store && source.store.backend === source.backend &&
+            workspace === source.workspace && workspace?.id === source.workspaceId && workspace?.generation === source.workspaceGeneration &&
+            (root.LocalItabWorkspaces?.session ?? null) === source.session;
+    }
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, alwaysVisible = false, clipboard = root.navigator?.clipboard } = {}) {
             this.host = host; this.controller = controller; this.clipboard = clipboard; this.copyAttempt = null; this.onVisibility = onVisibility; this.alwaysVisible = alwaysVisible;
@@ -122,6 +135,7 @@
                 workspace: editWorkspace, workspaceId: editWorkspace?.id, workspaceGeneration: editWorkspace?.generation,
                 session: root.LocalItabWorkspaces?.session ?? null,
                 legacyAvailability: !!editWorkspace && typeof editWorkspace === 'object' && editWorkspace.id == null && editWorkspace.generation == null && root.LocalItabWorkspaces == null }));
+            const lifecycle = { source: editSources.get(this), unsubscribe: null, retired: false }; viewLifecycles.set(this, lifecycle);
             this.dialogs = new Set(); this.reviewGeneration = 0; this.pendingReview = false; this.expanded = false; this.draftGeneration = 0; this.undo = null; this.actionGeneration = 0; this.destroyed = false; this.localError = null;
             host.classList.add('local-tasks-card'); host.setAttribute('aria-label', t('tasksTitle'));
             const header = el('header', 'tasks-header'); header.append(el('h2', '', t('tasksTitle')), el('span', 'tasks-local', t('tasksLocal')));
@@ -327,7 +341,8 @@
                 workspace: nextWorkspace, workspaceId: nextWorkspace?.id, workspaceGeneration: nextWorkspace?.generation,
                 legacyAvailability: !!nextWorkspace && typeof nextWorkspace === 'object' && nextWorkspace.id == null && nextWorkspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain: nextChain });
-            this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
+            this.unsubscribe = lifecycle.unsubscribe = controller.subscribe(() => { if (viewSourceCurrent(this, lifecycle)) this.render(); });
+            this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
             if (!this.quickEntryComposing || this.destroyed) return;
@@ -2032,27 +2047,32 @@
             item.append(copyStatus); return item;
         }
         render() {
-            if (this.destroyed) return;
+            const lifecycle = viewLifecycles.get(this);
+            if (!viewSourceCurrent(this, lifecycle)) return;
+            const controller = lifecycle.source.controller;
             this.invalidateCopy();
-            const state = this.controller.state, busy = !!this.controller.pending;
+            const state = controller.state, busy = !!controller.pending;
             if (this.pinnedFocus && state?.revision !== this.pinnedFocus.revision &&
                 state?.receipts.at(-1) !== this.pinnedFocus.command.operationId) this.pinnedFocus.cancel();
             // An unreadable initial store must expose its safe retry without changing visibility preferences.
-            const showReadError = !state && !!this.controller.error;
+            const showReadError = !state && !!controller.error;
             // A remote hide preference must not strand this page's quick-entry draft or save.
             // Keep the preference unchanged, then honor it when the owner finishes or clears the draft.
-            const ownsPendingAdd = busy && this.controller.retryCommand?.kind === 'add' &&
-                this.controller.retryCommand.operationId === this.retryEffectOperationId;
-            const ownsPendingBatch = busy && this.controller.retryCommand?.kind === 'addBatch' &&
-                this.controller.retryCommand.operationId === this.batchOperationId;
-            const ownsPendingReuse = busy && this.controller.retryCommand?.kind === 'add' &&
-                this.controller.retryCommand.operationId === this.reuseOperationId;
-            const ownsCompletionAttempt = ['completeBatch', 'reopenBatch', 'restoreBatch'].includes(this.controller.retryCommand?.kind) &&
-                this.controller.retryCommand.operationId === this.retryEffectOperationId &&
-                (busy || ['READ', 'WRITE', 'VERIFY'].includes(this.controller.error?.code));
+            const ownsPendingAdd = busy && controller.retryCommand?.kind === 'add' &&
+                controller.retryCommand.operationId === this.retryEffectOperationId;
+            const ownsPendingBatch = busy && controller.retryCommand?.kind === 'addBatch' &&
+                controller.retryCommand.operationId === this.batchOperationId;
+            const ownsPendingReuse = busy && controller.retryCommand?.kind === 'add' &&
+                controller.retryCommand.operationId === this.reuseOperationId;
+            const ownsCompletionAttempt = ['completeBatch', 'reopenBatch', 'restoreBatch'].includes(controller.retryCommand?.kind) &&
+                controller.retryCommand.operationId === this.retryEffectOperationId &&
+                (busy || ['READ', 'WRITE', 'VERIFY'].includes(controller.error?.code));
             const visible = !!this.completionSession || !!this.restorationSession || ownsCompletionAttempt || this.alwaysVisible || state?.enabled === true || showReadError || !!this.reuseSession || ownsPendingReuse || this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
             this.host.hidden = !visible;
             this.onVisibility(visible);
+            // The host callback may synchronously retire or replace this View's
+            // source. Nothing after that callback may adopt the replacement.
+            if (!viewSourceCurrent(this, lifecycle)) return;
             this.addButton.disabled = busy || !state || this.quickEntryComposing; this.batchButton.disabled = busy || !state;
             const focused = this.host.contains(document.activeElement) ? document.activeElement : null;
             const taskId = focused?.closest('[data-task-id]')?.dataset.taskId, action = focused?.dataset.taskAction;
@@ -2124,9 +2144,9 @@
                 ? !this.undo.records.every(record => state?.records.some(task => task.id === record.id && task.version === record.version && task.state === 'done'))
                 : !state?.records.some(t => t.id === this.undo.id && t.version === this.undo.version && t.state === this.undo.state));
             this.undoButton.disabled = busy;
-            const error = this.localError || this.controller.error;
-            this.status.textContent = error ? errorText(error) : this.controller.status === 'saved' && this.input.value ? t('tasksDraftRemains') : t({ loading: 'tasksLoading', saving: 'tasksSaving', saved: 'tasksSaved', ready: 'tasksReady' }[this.controller.status] || 'tasksReady');
-            this.feedback.classList.toggle('is-error', !!error); this.retry.hidden = !error || !['READ', 'WRITE', 'VERIFY'].includes(error.code) || !!this.localError || (!!this.controller.retryCommand && this.controller.retryCommand.operationId !== this.retryEffectOperationId);
+            const error = this.localError || controller.error;
+            this.status.textContent = error ? errorText(error) : controller.status === 'saved' && this.input.value ? t('tasksDraftRemains') : t({ loading: 'tasksLoading', saving: 'tasksSaving', saved: 'tasksSaved', ready: 'tasksReady' }[controller.status] || 'tasksReady');
+            this.feedback.classList.toggle('is-error', !!error); this.retry.hidden = !error || !['READ', 'WRITE', 'VERIFY'].includes(error.code) || !!this.localError || (!!controller.retryCommand && controller.retryCommand.operationId !== this.retryEffectOperationId);
             this.retry.disabled = busy;
         }
         rememberUndo(command, saved) {
@@ -2413,7 +2433,25 @@
             modal.panel.append(feedback, actions);
             opening = Object.freeze({ panel: modal.panel, overlay: modal.panel.parentElement }); modal.open(cancel);
         }
-        destroy() { this.destroyed = true; this.removedRestoreSource?.observer?.disconnect(); this.invalidateCopy(); this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
+        destroy() {
+            const lifecycle = viewLifecycles.get(this); if (!lifecycle || lifecycle.retired) return;
+            // Retire before callbacks: public fields and retained notifications
+            // cannot revive rendering or transfer cleanup to another source.
+            lifecycle.retired = true;
+            this.destroyed = true;
+            let failed = false, failure;
+            const cleanup = action => { try { action(); } catch (error) { if (!failed) { failed = true; failure = error; } } };
+            try {
+                const dialogs = Array.from(this.dialogs);
+                cleanup(() => this.removedRestoreSource?.observer?.disconnect()); cleanup(() => this.invalidateCopy());
+                this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false;
+                cleanup(() => this.pinnedFocus?.cancel()); this.reviewGeneration++; this.pendingReview = false;
+                // Every original resource gets its cleanup even if an earlier
+                // callback throws. Preserve the first exception for the caller.
+                dialogs.forEach(modal => cleanup(() => modal.close()));
+            } finally { cleanup(() => lifecycle.unsubscribe()); cleanup(() => lifecycle.source.controller.destroy()); }
+            if (failed) throw failure;
+        }
     }
     function mount(host, options) {
         if (host.localTasksView) return host.localTasksView;
