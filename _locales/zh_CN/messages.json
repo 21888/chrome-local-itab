@@ -1,4 +1,7 @@
 {
+  "showDashboard": {
+    "message": "显示主界面"
+  },
   "dashboardTools": {
     "message": "工具"
   },

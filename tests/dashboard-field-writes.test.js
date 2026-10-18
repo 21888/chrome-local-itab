@@ -543,3 +543,94 @@ bounded('quote-only visibility round trip retains original search nodes, both dr
     assert.equal(f.writes.length, writes + 2);
     same(f.state(), before, 'only the explicit hide/show preference changed and returned');
 });
+
+// New visible exit from Clarity quote-only mode. Existing fixtures and cases
+// above remain unchanged; this mounts the new real HTML control before remount.
+async function restoreButtonPage(f, locale = null) {
+    f.patch({ui: {...f.state().ui, dashboardHidden: true}});
+    const dash = await f.dashboard(locale), doc = dash.document;
+    doc.documentElement.dataset.dashboardTemplate = 'clarity';
+    const bar = doc.createElement('section'); bar.id = 'workspace-switcher';
+    const match = source('newtab.html').match(/<button\b([^>]*id="show-dashboard"[^>]*)>([^<]*)<\/button>/);
+    assert(match, 'quote-only mode needs a visible, keyboard-operable exit');
+    const show = doc.createElement('button'); show.textContent = match[2];
+    for (const [, name, value] of match[1].matchAll(/([\w-]+)="([^"]*)"/g)) {
+        show.setAttribute(name, value); if (name === 'id' || name === 'type') show[name] = value;
+        if (name === 'class') show.className = value;
+    }
+    const recovery = doc.createElement('a'); recovery.className = 'spaces-manage'; recovery.href = 'recovery.html';
+    const switcher = doc.createElement('button'); switcher.className = 'spaces-switch'; switcher.type = 'button';
+    bar.append(show, recovery, switcher); doc.getElementById('dashboard').append(bar);
+    await dash.remount(); return {...dash, show, bar, recovery, switcher};
+}
+for (const locale of [null, 'en', 'zh_CN']) bounded(`visible Show dashboard restores through one real preference write and preserves both drafts (${locale || 'fallback'})`, async () => {
+    const f = fixture(), d = await restoreButtonPage(f, locale), e = d.editor(), host = d.host, input = host.querySelector('.search-input');
+    input.value = '  original search draft  '; e.edit(DRAFT); const before = f.state();
+    d.show.focus(); d.show.dispatch('click'); await f.settle();
+    assert.equal(d.window.dashboardHiddenState, false); assert(!d.document.body.classList.contains('dashboard-hidden'));
+    same(f.state(), {...before, ui: {...before.ui, dashboardHidden: false}});
+    assert.equal(f.writes.length, 1); assert.deepEqual(Object.keys(f.writes[0]), ['ui']);
+    assert.equal(d.document.getElementById('search-container'), host); assert.equal(host.querySelector('.search-input'), input);
+    assert.equal(input.value, '  original search draft  '); assert.equal(e.input.value, DRAFT);
+    assert.equal(d.document.activeElement, d.switcher); assert.equal(f.forbiddenCalls, 0);
+});
+bounded('Show dashboard retains saved hidden mode on write failure and an explicit retry succeeds', async () => {
+    const f = fixture(), d = await restoreButtonPage(f, 'en'), before = f.state();
+    f.hooks.write = async () => { throw Error('synthetic write failure'); };
+    d.show.focus(); d.show.dispatch('click'); await f.settle();
+    same(f.state(), before); assert.equal(f.writes.length, 0); assert(d.document.body.classList.contains('dashboard-hidden'));
+    assert(d.document.querySelector('.error-message')?.textContent); assert.equal(d.document.activeElement, d.switcher);
+    f.hooks.write = null; d.show.focus(); d.show.dispatch('click'); await f.settle();
+    assert.equal(f.writes.length, 1); assert.equal(f.state().ui.dashboardHidden, false);
+});
+bounded('repeated restore activation and setup remount still issue only one explicit false write', async () => {
+    const f = fixture(), d = await restoreButtonPage(f); await d.remount();
+    const gate = f.pauseNextWrite(); d.show.focus(); d.show.dispatch('click'); await gate.entered;
+    d.show.dispatch('click', {detail: 2}); d.show.dispatch('click'); gate.resume(); await f.settle();
+    assert.equal(f.writes.length, 1); assert.equal(f.state().ui.dashboardHidden, false);
+    await d.toggle(); assert.equal(f.state().ui.dashboardHidden, true, 'original background double-click remains available');
+    d.show.dispatch('dblclick'); await f.settle(); assert.equal(f.writes.length, 2, 'interactive button double-click never triggers background toggle');
+});
+bounded('unavailable restore controls cannot read or write preferences or move focus', async () => {
+    for (const state of ['normal', 'other-template', 'inert', 'hidden', 'detached', 'disabled', 'page-hidden']) {
+        const f = fixture(), d = await restoreButtonPage(f); d.editor().input.focus();
+        if (state === 'normal') await d.context.setDashboardHidden(false);
+        if (state === 'other-template') d.document.documentElement.dataset.dashboardTemplate = 'graphite';
+        if (state === 'inert') d.bar.inert = true;
+        if (state === 'hidden') d.show.hidden = true;
+        if (state === 'detached') d.show.remove();
+        if (state === 'disabled') d.show.disabled = true;
+        if (state === 'page-hidden') d.document.visibilityState = 'hidden';
+        const before = f.state(), reads = f.reads.length, writes = f.writes.length, focus = d.document.activeElement;
+        d.show.dispatch('click'); await f.settle(); same(f.state(), before);
+        assert.equal(f.reads.length, reads, state); assert.equal(f.writes.length, writes, state); assert.equal(d.document.activeElement, focus, state);
+    }
+});
+bounded('restore click does not steal unrelated focus, and disabled workspace switch falls back to recovery link', async () => {
+    for (const ownsFocus of [false, true]) {
+        const f = fixture(), d = await restoreButtonPage(f); d.switcher.disabled = true;
+        (ownsFocus ? d.show : d.editor().input).focus(); const beforeFocus = d.document.activeElement;
+        d.show.dispatch('click'); await f.settle();
+        assert.equal(f.writes.length, 1); assert.equal(d.document.activeElement, ownsFocus ? d.recovery : beforeFocus);
+    }
+});
+bounded('restore completion and rollback preserve the user’s later focus', async () => {
+    for (const fail of [false, true]) {
+        const f = fixture(), d = await restoreButtonPage(f), gate = f.pauseNextWrite(fail);
+        d.show.focus(); d.show.dispatch('click'); await gate.entered;
+        d.recovery.focus(); const focus = d.document.activeElement;
+        gate.resume(); await f.settle();
+        assert.equal(d.document.activeElement, focus);
+        assert.equal(f.state().ui.dashboardHidden, fail); assert.equal(f.writes.length, fail ? 0 : 1);
+        if (fail) assert(d.document.querySelector('.error-message')?.textContent);
+    }
+});
+bounded('restore resumes after a template round trip without remount or a stale hidden-mode write', async () => {
+    const f = fixture(), d = await restoreButtonPage(f), before = f.state();
+    d.document.documentElement.dataset.dashboardTemplate = 'graphite';
+    d.show.dispatch('click'); await f.settle(); same(f.state(), before); assert.equal(f.writes.length, 0);
+    d.document.documentElement.dataset.dashboardTemplate = 'clarity';
+    d.show.dispatch('click', {isComposing: true}); await f.settle(); assert.equal(f.writes.length, 0);
+    d.show.focus(); d.show.dispatch('click'); await f.settle();
+    assert.equal(f.state().ui.dashboardHidden, false); assert.equal(f.writes.length, 1);
+});

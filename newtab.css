@@ -3764,3 +3764,6 @@ textarea:focus-visible,
 
 /* Local-time entry reuses the comparison wrapping controls. */
 .world-clock-comparison input[type="datetime-local"] { box-sizing: border-box; flex: 1 1 12rem; width: 100%; min-width: 0; max-width: 100%; padding: 6px; border: 1px solid currentColor; border-radius: 8px; background: transparent; color: inherit; font: inherit; }
+
+/* Visible only in the Clarity quote-only workspace bar. */
+#show-dashboard { display: none; }

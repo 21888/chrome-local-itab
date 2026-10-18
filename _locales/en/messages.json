@@ -1,4 +1,7 @@
 {
+  "showDashboard": {
+    "message": "Show dashboard"
+  },
   "dashboardTools": {
     "message": "Tools"
   },

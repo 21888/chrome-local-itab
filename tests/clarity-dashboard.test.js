@@ -258,3 +258,12 @@ test('Clarity quote-only mode hides only the search row while keeping the worksp
     assert.match(read('workspaces.css'), /body\.dashboard-hidden #workspace-switcher \{[^}]*position: fixed;[^}]*inset-block-start: 16px;/);
     assert.doesNotMatch(css, /body\.dashboard-hidden[^{}]*(?:workspace-switcher|workspace-bar)[^{}]*\{[^}]*display: none/);
 });
+
+test('quote-only exit is a real localized button shown only in Clarity hidden mode', () => {
+    const html = read('newtab.html'), css = read('clarity-dashboard.css');
+    assert.match(html, /<button[^>]*id="show-dashboard"[^>]*type="button"[^>]*data-i18n="showDashboard"[^>]*>Show dashboard<\/button>/);
+    assert.match(read('newtab.css'), /#show-dashboard\s*\{\s*display: none;\s*\}/);
+    assert.match(css, /:root\[data-dashboard-template="clarity"\] body\.dashboard-hidden #dashboard #show-dashboard\s*\{\s*display: inline-flex;\s*\}/);
+    assert.equal(JSON.parse(read('_locales/en/messages.json')).showDashboard.message, 'Show dashboard');
+    assert.equal(JSON.parse(read('_locales/zh_CN/messages.json')).showDashboard.message, '显示主界面');
+});

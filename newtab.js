@@ -3329,6 +3329,35 @@ function setupDashboardVisibilityToggle(uiConfig, baseline = null) {
     dashboardVisibilityOwner = dashboard;
     if (!dashboard) return;
 
+    // The quote-only view keeps its original workspace bar. Restore through
+    // the same field-only preference transaction as the background gesture.
+    const show = document.getElementById('show-dashboard');
+    const bar = document.getElementById('workspace-switcher');
+    const available = element => {
+        if (!element?.isConnected || element.disabled || !element.getClientRects().length) return false;
+        for (let node = element; node; node = node.parentElement) {
+            if (node.hidden || node.inert) return false;
+        }
+        return true;
+    };
+    show?.addEventListener('click', event => {
+        if (session !== dashboardVisibilitySession || dashboardVisibilityOwner !== dashboard ||
+            dashboard !== document.getElementById('dashboard') || !dashboard.isConnected ||
+            show !== document.getElementById('show-dashboard') || bar !== document.getElementById('workspace-switcher') ||
+            !dashboard.contains(bar) || !bar.contains(show) || !available(show) ||
+            !dashboardHiddenState || document.documentElement.dataset.dashboardTemplate !== 'clarity' ||
+            document.hidden || document.visibilityState === 'hidden' || event.isComposing) return;
+        // Transfer only this control's focus before it disappears; async success
+        // or rollback must never take focus away from the user's next action.
+        if (document.activeElement === show) {
+            const switcher = bar.querySelector('.spaces-switch');
+            const recovery = bar.querySelector('.spaces-manage');
+            const next = available(switcher) ? switcher : available(recovery) ? recovery : null;
+            next?.focus();
+        }
+        return setDashboardHidden(false);
+    });
+
     dashboard.addEventListener('dblclick', (event) => {
         if (session !== dashboardVisibilitySession || !shouldToggleFromEvent(event)) {
             return;
