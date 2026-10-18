@@ -1,4 +1,10 @@
 {
+  "dashboardTools": {
+    "message": "Tools"
+  },
+  "dashboardAppearance": {
+    "message": "Appearance"
+  },
   "bookmarkImportSitesFilter": {
     "message": "Filter review list"
   },

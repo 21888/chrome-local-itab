@@ -753,13 +753,13 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     select.value = currentSearchConfig.engine;
 
     const input = document.createElement('input');
-    input.className = 'search-input';
+    input.className = 'search-input itab-b-input';
     input.type = 'search';
     input.placeholder = (window.i18n && i18n.t('searchPlaceholder')) || 'Search or enter a URL';
     input.setAttribute('aria-label', input.placeholder);
 
     const button = document.createElement('button');
-    button.className = 'search-submit';
+    button.className = 'search-submit itab-b-button';
     button.type = 'submit';
     button.textContent = (window.i18n && i18n.t('search')) || 'Search';
 
@@ -1242,7 +1242,7 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     customConfig.className = 'search-custom-config';
 
     const customInput = document.createElement('input');
-    customInput.className = 'search-custom-input';
+    customInput.className = 'search-custom-input itab-b-input';
     customInput.type = 'text';
     customInput.inputMode = 'url';
     customInput.placeholder = 'https://example.com/search?q=%s';
@@ -1250,7 +1250,7 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
     customInput.setAttribute('aria-label', (window.i18n && i18n.t('customSearchUrl')) || 'Custom search URL');
 
     const customSave = document.createElement('button');
-    customSave.className = 'search-custom-save';
+    customSave.className = 'search-custom-save itab-b-button';
     customSave.type = 'button';
     customSave.textContent = (window.i18n && i18n.t('save')) || 'Save';
 
@@ -3443,7 +3443,7 @@ class ShortcutsComponent {
         const header = document.createElement('div');
         header.className = 'shortcuts-header';
         const heading = document.createElement('h2');
-        heading.className = 'shortcuts-title';
+        heading.className = 'shortcuts-title itab-b-title';
         heading.id = 'shortcuts-heading';
         header.appendChild(heading);
         if (window.LocalItabLayout) {

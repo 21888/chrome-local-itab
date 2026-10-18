@@ -1,0 +1,36 @@
+// Bulma 1.0.4 official component modules. No base/reset, helpers, global theme,
+// modal, JavaScript, remote font or runtime network dependency is included.
+@use "sass:meta";
+@use "utilities/initial-variables" with (
+  $class-prefix: "itab-b-",
+  $cssvars-prefix: "itab-b-",
+  $variables-host: ".itab-b-root",
+  $scheme-h: 150deg,
+  $scheme-s: 8%,
+  $radius: 8px,
+  $radius-small: 8px,
+  $radius-large: 12px,
+  $duration: 120ms
+);
+@use "utilities/derived-variables" with (
+  $colors: ("link": (#426e59, #ffffff)),
+  $size-normal: 0.875rem
+);
+@use "themes/light";
+@use "themes/dark";
+@use "themes/setup";
+
+:where(:root[data-dashboard-template="clarity"]) .itab-b-root {
+  @include light.light-theme;
+  @include setup.setup-theme;
+}
+:where(:root[data-dashboard-template="clarity"][data-color-mode="dark"]) .itab-b-root {
+  @include dark.dark-theme;
+}
+:where(:root[data-dashboard-template="clarity"]) {
+  @include meta.load-css("elements/button", $with: ("button-colors": ()));
+  @include meta.load-css("form/input-textarea");
+  @include meta.load-css("elements/box");
+  @include meta.load-css("elements/title");
+  @include meta.load-css("components/menu");
+}

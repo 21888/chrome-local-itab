@@ -1,0 +1,89 @@
+{
+  "name": "Bulma",
+  "version": "1.0.4",
+  "license": "MIT",
+  "repository": "https://github.com/jgthms/bulma",
+  "source_archive": {
+    "file": "bulma-1.0.4.tgz",
+    "url": "https://registry.npmjs.org/bulma/-/bulma-1.0.4.tgz",
+    "sha256": "4a3669880f72a69d13c34eafc294073ca106927e3ca8c534f56828a837b99105",
+    "integrity": "sha512-Ffb6YGXDiZYX3cqvSbHWqQ8+LkX6tVoTcZuVB3lm93sbAVXlO0D6QlOTMnV6g18gILpAXqkG2z9hf9z4hCjz2g=="
+  },
+  "compiler": {
+    "name": "Dart Sass",
+    "version": "1.86.3",
+    "artifacts": [
+      {
+        "file": "chokidar-4.0.3.tgz",
+        "url": "https://registry.npmjs.org/chokidar/-/chokidar-4.0.3.tgz",
+        "sha256": "61a29da9d314c2cd33a7be7327014814c4620673e3d4be41b120aa8544868389",
+        "integrity": "sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA=="
+      },
+      {
+        "file": "immutable-5.1.1.tgz",
+        "url": "https://registry.npmjs.org/immutable/-/immutable-5.1.1.tgz",
+        "sha256": "9c83e20d7dcb30bd612687400bf580cf99c05af5c04b505d30f569df62c49c73",
+        "integrity": "sha512-3jatXi9ObIsPGr3N5hGw/vWWcTkq6hUYhpQz4k0wLC+owqWi/LiugIw9x0EdNZ2yGedKN/HzePiBvaJRXa0Ujg=="
+      },
+      {
+        "file": "readdirp-4.1.2.tgz",
+        "url": "https://registry.npmjs.org/readdirp/-/readdirp-4.1.2.tgz",
+        "sha256": "766ea2ba6314aefe6b939c9bbe3999cc473286578aeb1c3805338c2dbd655f5a",
+        "integrity": "sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg=="
+      },
+      {
+        "file": "sass-1.86.3.tgz",
+        "url": "https://registry.npmjs.org/sass/-/sass-1.86.3.tgz",
+        "sha256": "34f7312e6a151b7dae8c1de5952d4a00b2cc5cb77c2abba44f996b36343ff9ec",
+        "integrity": "sha512-iGtg8kus4GrsGLRDLRBRHY9dNVA78ZaS7xr01cWnS7PEMQyFtTqBiyCrfpTYTZXRWM94akzckYjh8oADfFNTzw=="
+      },
+      {
+        "file": "source-map-js-1.2.1.tgz",
+        "url": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+        "sha256": "f126a6f9fca487a43219d8cb8c3a955279187a966119d548eb5cd47e999d4853",
+        "integrity": "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="
+      }
+    ]
+  },
+  "modules": [
+    "elements/button",
+    "form/input-textarea",
+    "elements/box",
+    "elements/title",
+    "components/menu"
+  ],
+  "configuration": {
+    "class_prefix": "itab-b-",
+    "cssvars_prefix": "itab-b-",
+    "scope": ":where(:root[data-dashboard-template=\"clarity\"])",
+    "color_mode": "Existing html[data-color-mode] only",
+    "global_reset": false,
+    "global_theme": false,
+    "modal": false,
+    "runtime_network": false
+  },
+  "entrypoint": "tools/bulma/clarity.scss",
+  "entrypoint_sha256": "f17febdcffc46c58646b20aaf21dcbcdeee976e1a626479aa7744452025d5eca",
+  "license_sha256": "fbe7d8ec18b72eded15d79ca73da5eef9e8e258f5f1aff83e4e993e69752279c",
+  "output": "vendor/bulma/clarity-components.css",
+  "output_sha256": "5f51f2de9fc1ea80bbcb5b22988064d7957d25374c03988f793189c0c800413b",
+  "upstream_sources": {
+    "vendor/bulma/upstream/components/menu.scss": "716ebeb84a5d1b357546719130d6ba001362539c59eaf3470a2ad8c11fc10fdc",
+    "vendor/bulma/upstream/elements/box.scss": "f65e1188d6b7871ed8c1631fd6e6e76f6cf866006b0a16b798bba760e17361b7",
+    "vendor/bulma/upstream/elements/button.scss": "6e52b9667da3b26118867f43672d97e0bb372a8a2e00949e7ae9193eaf646e1d",
+    "vendor/bulma/upstream/elements/title.scss": "76a712ef1461156adeb084cb7ea687d3145563724dc64d0077d3e936220b250c",
+    "vendor/bulma/upstream/form/input-textarea.scss": "8bcb60d7814999c87e583317a945963c0d928864236d8f362ad8beeac28cd96d",
+    "vendor/bulma/upstream/form/shared.scss": "fb9230e0eb7ecf4457a361cfeacff3f7adf9437362dd45d90d16bc4146f8c6d3",
+    "vendor/bulma/upstream/themes/dark.scss": "ef8946aeb55046c3942b679421f25a64e255bda920ba5816295cedc8debc4b0b",
+    "vendor/bulma/upstream/themes/light.scss": "d8d375bcfd5be2c2995b941dbf4faa52d5c08f394491b7f085e0bcfda9566d67",
+    "vendor/bulma/upstream/themes/setup.scss": "ecdd861d418318a7b9074e03b0e3dccba3a2b693c851218581e559c15f8f9e39",
+    "vendor/bulma/upstream/utilities/controls.scss": "a001a7f1a5ca39dd22204e20d45c5826251ebfd4beffdc4216fbe5c0491d9585",
+    "vendor/bulma/upstream/utilities/css-variables.scss": "f1b05481e5ac3238b0dbc250cf4311aa1444b975690936976534272aabaac156",
+    "vendor/bulma/upstream/utilities/derived-variables.scss": "4872e710aad8bdb0a2cf8c121033308e779bad8961f0bf1848ccd080ca3a42ef",
+    "vendor/bulma/upstream/utilities/extends.scss": "e81e135675c06d29d895f2095564a0bcee7e992155a26a605857306b1473e0b6",
+    "vendor/bulma/upstream/utilities/functions.scss": "1bb381ec06e924a845473f15498c424baa36f1af3e145bd2e838128ff03a2a4b",
+    "vendor/bulma/upstream/utilities/initial-variables.scss": "6a20b50bbb45b229cf618ace1554acd34a554060b8c32a16900db36d2a6aefa5",
+    "vendor/bulma/upstream/utilities/mixins.scss": "24163e28423dbcad7904ee3cf9e28a1e92819040218c7da75c754f35ab34b5e7"
+  },
+  "verification": "The exact npm release archives passed SHA512 integrity checks before extraction. Vendored Sass files are byte-identical to Bulma 1.0.4; the component output is generated locally with Dart Sass 1.86.3. No browser rendering claim."
+}

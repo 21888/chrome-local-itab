@@ -1,0 +1,252 @@
+/* Clarity's one component bridge. Bulma supplies the local component primitives;
+ * the existing template/color-mode tokens and user-owned variables remain truth.
+ * Loaded after templates, before opt-in dashboard customization. */
+:root[data-dashboard-template="clarity"] #dashboard {
+  --template-nav-width: 208px;
+  --template-column-gap: 32px;
+  --template-main-gap: 24px;
+  --template-control-radius: 8px;
+  --template-card-radius: 12px;
+  --template-tile-radius: 12px;
+  --shortcut-title-size: 14px;
+  --itab-b-family-primary: var(--font-family);
+  --itab-b-text: var(--template-text);
+  --itab-b-text-strong: var(--template-text);
+  --itab-b-scheme-main: var(--template-surface);
+  --itab-b-border: var(--template-border);
+  --itab-b-text-weak: var(--template-muted);
+  --itab-b-background: var(--template-surface-raised);
+  --itab-b-link: var(--template-accent);
+  max-width: 1440px;
+  font-size: calc(14px * var(--ui-scale, 1));
+  line-height: 1.5;
+}
+/* Keep the mounted containers and their DOM/focus order. Only Clarity flattens
+ * the header's visual box, so workspace/tools share the top grid row. */
+:root[data-dashboard-template="clarity"] body:not(.dashboard-hidden) #dashboard > .main-content-wrapper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+  gap: 24px;
+}
+:root[data-dashboard-template="clarity"] body:not(.dashboard-hidden) #dashboard .dashboard-header { display: contents; }
+:root[data-dashboard-template="clarity"] #dashboard #workspace-switcher {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  gap: 8px 16px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  min-width: 0;
+}
+:root[data-dashboard-template="clarity"] #dashboard #workspace-switcher .spaces-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 14px;
+  border-radius: 8px;
+}
+:root[data-dashboard-template="clarity"] #dashboard #workspace-switcher :is(.spaces-pinned, .spaces-manage, .spaces-status) {
+  font-size: 12px;
+  line-height: 1.5;
+}
+:root[data-dashboard-template="clarity"] #dashboard #workspace-switcher .spaces-pinned { flex: 1 1 100%; order: 1; }
+:root[data-dashboard-template="clarity"] #dashboard #workspace-switcher .spaces-invalid { flex-basis: 100%; order: 2; }
+:root[data-dashboard-template="clarity"] #dashboard .settings-nav {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+  gap: 8px;
+  justify-content: flex-end;
+  position: relative;
+  z-index: 5;
+}
+:root[data-dashboard-template="clarity"] #dashboard .template-intro {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: center;
+}
+:root[data-dashboard-template="clarity"] #dashboard .template-intro h1 {
+  margin: 0;
+  font-size: clamp(26px, 2.3vw, 32px);
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -.6px;
+}
+:root[data-dashboard-template="clarity"] #dashboard .template-intro p { margin-top: 8px; font-size: 14px; line-height: 1.5; }
+:root[data-dashboard-template="clarity"] #dashboard #clock-container { grid-column: 2; grid-row: 2; }
+:root[data-dashboard-template="clarity"] #dashboard .time-display { font-size: clamp(32px, 3vw, 44px); letter-spacing: -1px; font-weight: 450; }
+:root[data-dashboard-template="clarity"] #dashboard .date-display { font-size: 12px; }
+:root[data-dashboard-template="clarity"] #dashboard #search-container { grid-column: 1 / -1; grid-row: 3; }
+:root[data-dashboard-template="clarity"] #dashboard .dashboard-main { grid-column: 1 / -1; grid-row: 4; gap: 32px; }
+:root[data-dashboard-template="clarity"] #dashboard :is(.update-notice, .dashboard-footer) { grid-column: 1 / -1; }
+
+/* The rail is a calm, opaque navigation surface, including over wallpaper. */
+:root[data-dashboard-template="clarity"] #dashboard > .category-nav {
+  padding: 24px 16px;
+  border: 1px solid var(--template-border);
+  border-radius: 12px;
+  background: var(--template-surface);
+  color: var(--template-text);
+  --text-primary: var(--template-text);
+  --text-secondary: var(--template-muted);
+  align-self: start;
+}
+:root[data-dashboard-template="clarity"] #dashboard .template-brand { margin-bottom: 32px; gap: 10px; }
+:root[data-dashboard-template="clarity"] #dashboard .template-brand-name { font-size: 21px; letter-spacing: -.5px; }
+:root[data-dashboard-template="clarity"] #dashboard .template-brand-description { font-size: 12px; white-space: normal; }
+:root[data-dashboard-template="clarity"] #dashboard .category-nav-header { padding: 0 4px 8px; }
+:root[data-dashboard-template="clarity"] #dashboard .category-title { font-size: 12px; letter-spacing: .3px; }
+:root[data-dashboard-template="clarity"] #dashboard #category-list { gap: 4px; }
+:root[data-dashboard-template="clarity"] #dashboard .category-item { min-height: 40px; padding: 8px 12px; font-size: 14px; border-radius: 8px; }
+:root[data-dashboard-template="clarity"] #dashboard .category-count { font-size: 12px; }
+:root[data-dashboard-template="clarity"] #dashboard :is(.settings-button, .category-manage-btn) { width: 36px; height: 36px; min-height: 36px; min-width: 36px; }
+
+/* Native details own open/closed semantics. Their source controls never move. */
+:root:not([data-dashboard-template="clarity"]) .clarity-disclosure,
+:root:not([data-dashboard-template="clarity"]) .clarity-disclosure-panel { display: contents; }
+:root:not([data-dashboard-template="clarity"]) .clarity-disclosure > summary { display: none; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure { position: static; min-width: 0; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  height: auto;
+  padding: 7px 12px;
+  margin: 0;
+  border: 1px solid var(--template-border);
+  border-radius: 8px;
+  color: var(--template-text);
+  background: var(--template-surface);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure > summary::-webkit-details-marker { display: none; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure > summary::after { content: ''; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); margin-top: -3px; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure[open] > summary { border-color: var(--template-accent); background: var(--template-accent-soft); }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure[open] > summary::after { transform: rotate(225deg); margin-top: 3px; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure-panel {
+  position: static;
+  width: 100%;
+  max-height: calc(100dvh - 112px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+  margin: 12px 0 0;
+  border: 1px solid var(--template-border);
+  border-radius: 12px;
+  color: var(--template-text);
+  background: var(--template-surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 12%);
+}
+/* Open panels occupy real rows. Both remain visible even after focus leaves;
+ * important appearance feedback never competes with Tools for the same pixels. */
+:root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) .settings-nav { grid-column: 1 / -1; grid-row: 2; align-items: flex-start; justify-content: flex-start; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure[open] { flex: 1 1 280px; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure:not([open]) { flex: 0 0 auto; }
+:root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) .template-intro,
+:root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) #clock-container { grid-row: 3; }
+:root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) #search-container { grid-row: 4; }
+:root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) .dashboard-main { grid-row: 5; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-tools-panel .prompt-library-entry { display: flex; justify-content: flex-start; width: 100%; min-height: 40px; margin: 0 0 8px; font: inherit; font-size: 14px; white-space: normal; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-tools-panel .prompt-library-entry:last-child { margin-bottom: 0; }
+:root[data-dashboard-template="clarity"] #dashboard .appearance-controls { justify-content: flex-start; align-items: end; gap: 16px; }
+:root[data-dashboard-template="clarity"] #dashboard .appearance-field { flex: 1 1 180px; font-size: 12px; }
+:root[data-dashboard-template="clarity"] #dashboard .appearance-controls :is(button, select) { min-height: 36px; padding: 8px 12px; border-radius: 8px; font-size: 14px; color: var(--template-text); }
+:root[data-dashboard-template="clarity"] #dashboard .appearance-status { font-size: 12px; line-height: 1.5; }
+:root[data-dashboard-template="clarity"] #dashboard .template-gallery summary { min-height: 36px; font-size: 14px; }
+:root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure > summary:focus-visible { outline: 3px solid var(--template-focus); outline-offset: 3px; }
+
+/* Search owns the strongest primary action. Custom fields/calculator retain
+ * their own grid rows, native controls and error/status content. */
+:root[data-dashboard-template="clarity"] #dashboard .search-form { min-height: 72px; padding: 8px; gap: 8px; border-radius: 12px; box-shadow: none; }
+:root[data-dashboard-template="clarity"] #dashboard :is(.search-engine-select, .search-input, .search-submit) { height: 56px; min-height: 56px; font-size: 16px; }
+:root[data-dashboard-template="clarity"] #dashboard .search-input { padding: 12px 16px; box-shadow: none; --itab-b-input-placeholder-color: var(--template-muted); }
+:root[data-dashboard-template="clarity"] #dashboard .search-submit { min-width: 88px; padding-inline: 20px; border-radius: 8px; font-weight: 600; }
+:root[data-dashboard-template="clarity"] #dashboard :is(.search-custom-input, .search-custom-save) { min-height: 40px; font-size: 14px; }
+:root[data-dashboard-template="clarity"] #dashboard .search-custom-status { font-size: 12px; }
+:root[data-dashboard-template="clarity"] #dashboard .shortcuts-header { padding: 6px; margin-bottom: 16px; gap: 8px 16px; }
+:root[data-dashboard-template="clarity"] #dashboard .shortcuts-header .shortcuts-title { margin-inline-end: auto; font-size: 18px; line-height: 1.5; }
+:root[data-dashboard-template="clarity"] #dashboard .shortcuts-header :is(button, select) { min-height: 36px; border-radius: 8px; font-size: 12px; }
+/* No fixed-column override: JS-owned inline --shortcuts-columns keeps priority.
+ * Free layout is deliberately excluded from every tile geometry rule. */
+:root[data-dashboard-template="clarity"] #dashboard #shortcuts-grid:not(.free-layout) { grid-template-columns: repeat(var(--shortcuts-columns, 6), minmax(0, 1fr)); }
+:root[data-dashboard-template="clarity"] #dashboard #shortcuts-grid:not(.free-layout) > .shortcut-item { padding: 16px 12px; min-height: calc(var(--shortcut-icon-size) + 64px); box-shadow: none; }
+:root[data-dashboard-template="clarity"] #dashboard #info-cards-container { padding-top: 24px; gap: 16px; }
+:root[data-dashboard-template="clarity"] #dashboard .info-card { padding: 16px; border-radius: 12px; box-shadow: none; }
+:root[data-dashboard-template="clarity"] #dashboard :is(.info-card-title, .weather-details, .weather-high-low, .weather-aqi, .topic-item) { font-size: 12px; }
+
+@media (max-width: 1000px) {
+  :root[data-dashboard-template="clarity"] #dashboard { --template-column-gap: 24px; --template-nav-width: 184px; }
+  :root[data-dashboard-template="clarity"] #dashboard .settings-nav { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
+  :root[data-dashboard-template="clarity"] #dashboard #workspace-switcher { grid-column: 1 / -1; }
+  :root[data-dashboard-template="clarity"] #dashboard .template-intro, :root[data-dashboard-template="clarity"] #dashboard #clock-container { grid-row: 3; }
+  :root[data-dashboard-template="clarity"] #dashboard #search-container { grid-row: 4; }
+  :root[data-dashboard-template="clarity"] #dashboard .dashboard-main { grid-row: 5; }
+}
+@media (max-width: 900px) {
+  :root[data-dashboard-template="clarity"] #dashboard { grid-template-columns: minmax(0, 1fr); row-gap: 24px; }
+  :root[data-dashboard-template="clarity"] #dashboard > .category-nav { padding: 16px; }
+  :root[data-dashboard-template="clarity"] #dashboard .template-brand { margin-bottom: 16px; }
+  :root[data-dashboard-template="clarity"] #dashboard #category-list { flex-direction: row; overflow-x: auto; padding: 4px; }
+  :root[data-dashboard-template="clarity"] #dashboard .category-item { flex: 0 0 auto; width: auto; }
+  :root[data-dashboard-template="clarity"] #dashboard #shortcuts-grid:not(.free-layout):not(.columns-fixed) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  :root[data-dashboard-template="clarity"] body:not(.dashboard-hidden) #dashboard > .main-content-wrapper { gap: 16px; }
+  :root[data-dashboard-template="clarity"] #dashboard .template-intro { grid-column: 1 / -1; }
+  :root[data-dashboard-template="clarity"] #dashboard #clock-container { grid-column: 1 / -1; grid-row: 4; justify-self: start; text-align: start; }
+  :root[data-dashboard-template="clarity"] #dashboard .clock-display { align-items: flex-start; }
+  :root[data-dashboard-template="clarity"] #dashboard #search-container { grid-row: 5; }
+  :root[data-dashboard-template="clarity"] #dashboard .dashboard-main { grid-row: 6; }
+  :root[data-dashboard-template="clarity"] #dashboard .search-form { grid-template-columns: minmax(0, 1fr) auto; }
+  :root[data-dashboard-template="clarity"] #dashboard .search-engine-select { grid-column: 1 / -1; height: 36px; min-height: 36px; border-inline-end: 0; border-bottom: 1px solid var(--template-border); font-size: 14px; }
+  :root[data-dashboard-template="clarity"] #dashboard .search-input { grid-column: 1; }
+  :root[data-dashboard-template="clarity"] #dashboard .search-submit { min-width: 64px; padding-inline: 12px; grid-column: 2; }
+  :root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure-panel { padding: 16px; }
+  :root[data-dashboard-template="clarity"] #dashboard .clarity-disclosure[open] { flex-basis: 100%; }
+  :root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) #clock-container { grid-row: 4; }
+  :root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) #search-container { grid-row: 5; }
+  :root[data-dashboard-template="clarity"] #dashboard:has(.clarity-disclosure[open]) .dashboard-main { grid-row: 6; }
+  :root[data-dashboard-template="clarity"] #dashboard #shortcuts-grid:not(.free-layout):not(.columns-fixed) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  :root[data-dashboard-template="clarity"] #dashboard #shortcuts-grid:not(.free-layout):not(.columns-fixed) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* display:contents has no paint box. These visible descendants keep the same
+ * opaque semantic surface as the existing custom-background safety treatment.
+ * Paint-only surrounds do not change saved padding or free-layout coordinates. */
+:root[data-dashboard-template="clarity"][data-custom-background="true"] #dashboard :is(.template-intro, #clock-container, #workspace-switcher) {
+  --text-primary: var(--template-text);
+  --text-secondary: var(--template-muted);
+  --text-muted: var(--template-muted);
+  color: var(--template-text);
+  background: var(--template-surface);
+  box-shadow: 0 0 0 8px var(--template-surface);
+}
+
+/* The later calendar stylesheet targets the old header's inner grid. Clarity
+ * uses the wrapper grid, so its visible heading/clock retain their own rows. */
+@media (max-width: 600px) {
+  :root[data-dashboard-template="clarity"] body:not(.dashboard-hidden) #dashboard .dashboard-header:has(.month-calendar[open]) .template-intro { grid-column: 1 / -1; grid-row: 3; }
+  :root[data-dashboard-template="clarity"] body:not(.dashboard-hidden) #dashboard .dashboard-header:has(.month-calendar[open]) #clock-container { grid-column: 1 / -1; grid-row: 4; }
+}
+
+/* Saved wallpaper and solid-color backgrounds predate customization mode.
+ * Their visible reading regions need the same safety surface. */
+:root[data-dashboard-template="clarity"] body:is(.bg-color, .bg-image) #dashboard :is(.template-intro, #clock-container, #workspace-switcher) {
+  --text-primary: var(--template-text);
+  --text-secondary: var(--template-muted);
+  --text-muted: var(--template-muted);
+  color: var(--template-text);
+  background: var(--template-surface);
+  box-shadow: 0 0 0 8px var(--template-surface);
+}

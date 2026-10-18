@@ -1,4 +1,10 @@
 {
+  "dashboardTools": {
+    "message": "工具"
+  },
+  "dashboardAppearance": {
+    "message": "外观"
+  },
   "bookmarkImportSitesFilter": {
     "message": "筛选核对清单"
   },

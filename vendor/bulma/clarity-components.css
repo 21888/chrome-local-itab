@@ -1,0 +1,989 @@
+:where(:root[data-dashboard-template=clarity]) .itab-b-root {
+  --itab-b-scheme-h: 150deg;
+  --itab-b-scheme-s: 8%;
+  --itab-b-light-l: 90%;
+  --itab-b-light-invert-l: 20%;
+  --itab-b-dark-l: 20%;
+  --itab-b-dark-invert-l: 90%;
+  --itab-b-soft-l: 90%;
+  --itab-b-bold-l: 20%;
+  --itab-b-soft-invert-l: 20%;
+  --itab-b-bold-invert-l: 90%;
+  --itab-b-hover-background-l-delta: -5%;
+  --itab-b-active-background-l-delta: -10%;
+  --itab-b-hover-border-l-delta: -10%;
+  --itab-b-active-border-l-delta: -20%;
+  --itab-b-hover-color-l-delta: -5%;
+  --itab-b-active-color-l-delta: -10%;
+  --itab-b-hover-shadow-a-delta: -0.05;
+  --itab-b-active-shadow-a-delta: -0.1;
+  --itab-b-scheme-brightness: light;
+  --itab-b-scheme-main-l: 100%;
+  --itab-b-scheme-main-bis-l: 98%;
+  --itab-b-scheme-main-ter-l: 96%;
+  --itab-b-background-l: 96%;
+  --itab-b-border-weak-l: 93%;
+  --itab-b-border-l: 86%;
+  --itab-b-text-weak-l: 48%;
+  --itab-b-text-l: 29%;
+  --itab-b-text-strong-l: 21%;
+  --itab-b-text-title-l: 14%;
+  --itab-b-scheme-invert-ter-l: 14%;
+  --itab-b-scheme-invert-bis-l: 7%;
+  --itab-b-scheme-invert-l: 4%;
+  --itab-b-family-primary: Inter, SF Pro, Segoe UI, Roboto, Oxygen, Ubuntu, Helvetica Neue, Helvetica, Arial, sans-serif;
+  --itab-b-family-secondary: Inter, SF Pro, Segoe UI, Roboto, Oxygen, Ubuntu, Helvetica Neue, Helvetica, Arial, sans-serif;
+  --itab-b-family-code: Inconsolata, Hack, SF Mono, Roboto Mono, Source Code Pro, Ubuntu Mono, monospace;
+  --itab-b-size-small: 0.75rem;
+  --itab-b-size-normal: 0.875rem;
+  --itab-b-size-medium: 1.25rem;
+  --itab-b-size-large: 1.5rem;
+  --itab-b-weight-light: 300;
+  --itab-b-weight-normal: 400;
+  --itab-b-weight-medium: 500;
+  --itab-b-weight-semibold: 600;
+  --itab-b-weight-bold: 700;
+  --itab-b-weight-extrabold: 800;
+  --itab-b-block-spacing: 1.5rem;
+  --itab-b-duration: 120ms;
+  --itab-b-easing: ease-out;
+  --itab-b-radius-small: 8px;
+  --itab-b-radius: 8px;
+  --itab-b-radius-medium: 0.5em;
+  --itab-b-radius-large: 12px;
+  --itab-b-radius-rounded: 9999px;
+  --itab-b-speed: 86ms;
+  --itab-b-arrow-color: var(--itab-b-link);
+  --itab-b-loading-color: var(--itab-b-border);
+  --itab-b-burger-h: var(--itab-b-link-h);
+  --itab-b-burger-s: var(--itab-b-link-s);
+  --itab-b-burger-l: var(--itab-b-link-l);
+  --itab-b-burger-border-radius: 0.5em;
+  --itab-b-burger-gap: 5px;
+  --itab-b-burger-item-height: 2px;
+  --itab-b-burger-item-width: 20px;
+  --itab-b-link: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-l), 1);
+  --itab-b-link-base: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-l), 1);
+  --itab-b-link-rgb: 66, 110, 89;
+  --itab-b-link-h: 151deg;
+  --itab-b-link-s: 25%;
+  --itab-b-link-l: 35%;
+  --itab-b-link-00-l: 0%;
+  --itab-b-link-05-l: 5%;
+  --itab-b-link-10-l: 10%;
+  --itab-b-link-15-l: 15%;
+  --itab-b-link-20-l: 20%;
+  --itab-b-link-25-l: 25%;
+  --itab-b-link-30-l: 30%;
+  --itab-b-link-35-l: 35%;
+  --itab-b-link-40-l: 40%;
+  --itab-b-link-45-l: 45%;
+  --itab-b-link-50-l: 50%;
+  --itab-b-link-55-l: 55%;
+  --itab-b-link-60-l: 60%;
+  --itab-b-link-65-l: 65%;
+  --itab-b-link-70-l: 70%;
+  --itab-b-link-75-l: 75%;
+  --itab-b-link-80-l: 80%;
+  --itab-b-link-85-l: 85%;
+  --itab-b-link-90-l: 90%;
+  --itab-b-link-95-l: 95%;
+  --itab-b-link-100-l: 100%;
+  --itab-b-link-00: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-00-l), 1);
+  --itab-b-link-00-invert-l: var(--itab-b-link-50-l);
+  --itab-b-link-00-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-00-invert-l), 1);
+  --itab-b-link-05: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-05-l), 1);
+  --itab-b-link-05-invert-l: var(--itab-b-link-55-l);
+  --itab-b-link-05-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-05-invert-l), 1);
+  --itab-b-link-10: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-10-l), 1);
+  --itab-b-link-10-invert-l: var(--itab-b-link-65-l);
+  --itab-b-link-10-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-10-invert-l), 1);
+  --itab-b-link-15: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-15-l), 1);
+  --itab-b-link-15-invert-l: var(--itab-b-link-75-l);
+  --itab-b-link-15-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-15-invert-l), 1);
+  --itab-b-link-20: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-20-l), 1);
+  --itab-b-link-20-invert-l: var(--itab-b-link-90-l);
+  --itab-b-link-20-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-20-invert-l), 1);
+  --itab-b-link-25: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-25-l), 1);
+  --itab-b-link-25-invert-l: var(--itab-b-link-100-l);
+  --itab-b-link-25-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-25-invert-l), 1);
+  --itab-b-link-30: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-30-l), 1);
+  --itab-b-link-30-invert-l: var(--itab-b-link-100-l);
+  --itab-b-link-30-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-30-invert-l), 1);
+  --itab-b-link-35: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-35-l), 1);
+  --itab-b-link-35-invert-l: var(--itab-b-link-100-l);
+  --itab-b-link-35-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-35-invert-l), 1);
+  --itab-b-link-40: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-40-l), 1);
+  --itab-b-link-40-invert-l: var(--itab-b-link-100-l);
+  --itab-b-link-40-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-40-invert-l), 1);
+  --itab-b-link-45: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-45-l), 1);
+  --itab-b-link-45-invert-l: var(--itab-b-link-100-l);
+  --itab-b-link-45-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-45-invert-l), 1);
+  --itab-b-link-50: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-50-l), 1);
+  --itab-b-link-50-invert-l: var(--itab-b-link-00-l);
+  --itab-b-link-50-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-50-invert-l), 1);
+  --itab-b-link-55: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-55-l), 1);
+  --itab-b-link-55-invert-l: var(--itab-b-link-05-l);
+  --itab-b-link-55-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-55-invert-l), 1);
+  --itab-b-link-60: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-60-l), 1);
+  --itab-b-link-60-invert-l: var(--itab-b-link-05-l);
+  --itab-b-link-60-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-60-invert-l), 1);
+  --itab-b-link-65: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-65-l), 1);
+  --itab-b-link-65-invert-l: var(--itab-b-link-10-l);
+  --itab-b-link-65-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-65-invert-l), 1);
+  --itab-b-link-70: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-70-l), 1);
+  --itab-b-link-70-invert-l: var(--itab-b-link-10-l);
+  --itab-b-link-70-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-70-invert-l), 1);
+  --itab-b-link-75: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-75-l), 1);
+  --itab-b-link-75-invert-l: var(--itab-b-link-15-l);
+  --itab-b-link-75-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-75-invert-l), 1);
+  --itab-b-link-80: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-80-l), 1);
+  --itab-b-link-80-invert-l: var(--itab-b-link-15-l);
+  --itab-b-link-80-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-80-invert-l), 1);
+  --itab-b-link-85: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-85-l), 1);
+  --itab-b-link-85-invert-l: var(--itab-b-link-15-l);
+  --itab-b-link-85-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-85-invert-l), 1);
+  --itab-b-link-90: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-90-l), 1);
+  --itab-b-link-90-invert-l: var(--itab-b-link-20-l);
+  --itab-b-link-90-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-90-invert-l), 1);
+  --itab-b-link-95: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-95-l), 1);
+  --itab-b-link-95-invert-l: var(--itab-b-link-20-l);
+  --itab-b-link-95-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-95-invert-l), 1);
+  --itab-b-link-100: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-100-l), 1);
+  --itab-b-link-100-invert-l: var(--itab-b-link-20-l);
+  --itab-b-link-100-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-100-invert-l), 1);
+  --itab-b-link-invert-l: 100%;
+  --itab-b-link-invert: #ffffff;
+  --itab-b-link-light-l: var(--itab-b-link-90-l);
+  --itab-b-link-light: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-light-l), 1);
+  --itab-b-link-light-invert-l: var(--itab-b-link-20-l);
+  --itab-b-link-light-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-light-invert-l), 1);
+  --itab-b-link-dark-l: var(--itab-b-link-10-l);
+  --itab-b-link-dark: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-dark-l), 1);
+  --itab-b-link-dark-invert-l: var(--itab-b-link-65-l);
+  --itab-b-link-dark-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-dark-invert-l), 1);
+  --itab-b-link-soft: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-soft-l), 1);
+  --itab-b-link-bold: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-bold-l), 1);
+  --itab-b-link-soft-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-soft-invert-l), 1);
+  --itab-b-link-bold-invert: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-bold-invert-l), 1);
+  --itab-b-link-on-scheme-l: 29.5098039216%;
+  --itab-b-link-on-scheme: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-on-scheme-l), 1);
+  --itab-b-black-bis: hsl(221, 14%, 9%);
+  --itab-b-black-ter: hsl(221, 14%, 14%);
+  --itab-b-grey-darker: hsl(221, 14%, 21%);
+  --itab-b-grey-dark: hsl(221, 14%, 29%);
+  --itab-b-grey: hsl(221, 14%, 48%);
+  --itab-b-grey-light: hsl(221, 14%, 71%);
+  --itab-b-grey-lighter: hsl(221, 14%, 86%);
+  --itab-b-white-ter: hsl(221, 14%, 96%);
+  --itab-b-white-bis: hsl(221, 14%, 98%);
+  --itab-b-shadow-h: 221deg;
+  --itab-b-shadow-s: 14%;
+  --itab-b-shadow-l: 4%;
+  --itab-b-size-1: 3rem;
+  --itab-b-size-2: 2.5rem;
+  --itab-b-size-3: 2rem;
+  --itab-b-size-4: 1.5rem;
+  --itab-b-size-5: 1.25rem;
+  --itab-b-size-6: 1rem;
+  --itab-b-size-7: 0.75rem;
+  --itab-b-scheme-main: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-main-l));
+  --itab-b-scheme-main-bis: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-main-bis-l));
+  --itab-b-scheme-main-ter: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-main-ter-l));
+  --itab-b-background: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-background-l));
+  --itab-b-background-hover: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), calc(var(--itab-b-background-l) + var(--itab-b-hover-background-l-delta)));
+  --itab-b-background-active: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), calc(var(--itab-b-background-l) + var(--itab-b-active-background-l-delta)));
+  --itab-b-border-weak: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-border-weak-l));
+  --itab-b-border: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-border-l));
+  --itab-b-border-hover: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), calc(var(--itab-b-border-l) + var(--itab-b-hover-border-l-delta)));
+  --itab-b-border-active: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), calc(var(--itab-b-border-l) + var(--itab-b-active-border-l-delta)));
+  --itab-b-text-weak: hsl(var(--itab-b-text-h), var(--itab-b-text-s), var(--itab-b-text-weak-l));
+  --itab-b-text: hsl(var(--itab-b-text-h), var(--itab-b-text-s), var(--itab-b-text-l));
+  --itab-b-text-strong: hsl(var(--itab-b-text-h), var(--itab-b-text-s), var(--itab-b-text-strong-l));
+  --itab-b-scheme-invert-ter: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-invert-ter-l));
+  --itab-b-scheme-invert-bis: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-invert-bis-l));
+  --itab-b-scheme-invert: hsl(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-invert-l));
+  --itab-b-link: hsl(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-l));
+  --itab-b-link-text: hsl(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-on-scheme-l));
+  --itab-b-link-text-hover: hsl(var(--itab-b-link-h), var(--itab-b-link-s), calc(var(--itab-b-link-on-scheme-l) + var(--itab-b-hover-color-l-delta)));
+  --itab-b-link-text-active: hsl(var(--itab-b-link-h), var(--itab-b-link-s), calc(var(--itab-b-link-on-scheme-l) + var(--itab-b-active-color-l-delta)));
+  --itab-b-focus-h: var(--itab-b-link-h);
+  --itab-b-focus-s: var(--itab-b-link-s);
+  --itab-b-focus-l: var(--itab-b-link-l);
+  --itab-b-focus-offset: 1px;
+  --itab-b-focus-style: solid;
+  --itab-b-focus-width: 2px;
+  --itab-b-focus-shadow-size: 0 0 0 0.1875em;
+  --itab-b-focus-shadow-alpha: 0.25;
+  --itab-b-code: hsl(var(--itab-b-danger-h), var(--itab-b-danger-s), var(--itab-b-danger-on-scheme-l));
+  --itab-b-code-background: var(--itab-b-background);
+  --itab-b-pre: var(--itab-b-text);
+  --itab-b-pre-background: var(--itab-b-background);
+  --itab-b-shadow: 0 0.5em 1em -0.125em hsla(var(--itab-b-shadow-h), var(--itab-b-shadow-s), var(--itab-b-shadow-l), 0.1), 0 0px 0 1px hsla(var(--itab-b-shadow-h), var(--itab-b-shadow-s), var(--itab-b-shadow-l), 0.02);
+}
+
+:where(:root[data-dashboard-template=clarity][data-color-mode=dark]) .itab-b-root {
+  --itab-b-link-on-scheme-l: 49.5098039216%;
+  --itab-b-link-on-scheme: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-on-scheme-l), 1);
+  --itab-b-scheme-brightness: dark;
+  --itab-b-scheme-main-l: 9%;
+  --itab-b-scheme-main-bis-l: 11%;
+  --itab-b-scheme-main-ter-l: 13%;
+  --itab-b-soft-l: 20%;
+  --itab-b-bold-l: 90%;
+  --itab-b-soft-invert-l: 90%;
+  --itab-b-bold-invert-l: 20%;
+  --itab-b-background-l: 14%;
+  --itab-b-border-weak-l: 21%;
+  --itab-b-border-l: 24%;
+  --itab-b-text-weak-l: 53%;
+  --itab-b-text-l: 71%;
+  --itab-b-text-strong-l: 93%;
+  --itab-b-text-title-l: 100%;
+  --itab-b-hover-background-l-delta: 5%;
+  --itab-b-active-background-l-delta: 10%;
+  --itab-b-hover-border-l-delta: 10%;
+  --itab-b-active-border-l-delta: 20%;
+  --itab-b-hover-color-l-delta: 5%;
+  --itab-b-active-color-l-delta: 10%;
+  --itab-b-shadow-h: 0deg;
+  --itab-b-shadow-s: 0%;
+  --itab-b-shadow-l: 100%;
+}
+
+:where(:root[data-dashboard-template=clarity]) .itab-b-root {
+  --itab-b-control-radius: var(--itab-b-radius);
+  --itab-b-control-radius-small: var(--itab-b-radius-small);
+  --itab-b-control-border-width: 1px;
+  --itab-b-control-height: 2.5em;
+  --itab-b-control-line-height: 1.5;
+  --itab-b-control-padding-vertical: calc(0.5em - 1px);
+  --itab-b-control-padding-horizontal: calc(0.75em - 1px);
+  --itab-b-control-size: var(--itab-b-size-normal);
+  --itab-b-control-focus-shadow-l: 50%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button {
+  align-items: center;
+  appearance: none;
+  border-color: transparent;
+  border-style: solid;
+  border-width: var(--itab-b-control-border-width);
+  border-radius: var(--itab-b-control-radius);
+  box-shadow: none;
+  display: inline-flex;
+  font-size: var(--itab-b-control-size);
+  height: var(--itab-b-control-height);
+  justify-content: flex-start;
+  line-height: var(--itab-b-control-line-height);
+  padding-bottom: var(--itab-b-control-padding-vertical);
+  padding-left: var(--itab-b-control-padding-horizontal);
+  padding-right: var(--itab-b-control-padding-horizontal);
+  padding-top: var(--itab-b-control-padding-vertical);
+  position: relative;
+  transition-duration: var(--itab-b-duration);
+  transition-property: background-color, border-color, box-shadow, color;
+  vertical-align: top;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-loading::after {
+  animation: spinAround 500ms infinite linear;
+  border: 2px solid var(--itab-b-loading-color);
+  border-radius: var(--itab-b-radius-rounded);
+  border-right-color: transparent;
+  border-top-color: transparent;
+  content: "";
+  display: block;
+  height: 1em;
+  position: relative;
+  width: 1em;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button {
+  --itab-b-button-family: false;
+  --itab-b-button-weight: var(--itab-b-weight-medium);
+  --itab-b-button-border-color: var(--itab-b-border);
+  --itab-b-button-border-style: solid;
+  --itab-b-button-border-width: var(--itab-b-control-border-width);
+  --itab-b-button-padding-vertical: 0.5em;
+  --itab-b-button-padding-horizontal: 1em;
+  --itab-b-button-focus-border-color: var(--itab-b-link-focus-border);
+  --itab-b-button-focus-box-shadow-size: 0 0 0 0.125em;
+  --itab-b-button-focus-box-shadow-color: hsla(var(--itab-b-link-h), var(--itab-b-link-s), var(--itab-b-link-on-scheme-l), 0.25);
+  --itab-b-button-active-color: var(--itab-b-link-active);
+  --itab-b-button-active-border-color: var(--itab-b-link-active-border);
+  --itab-b-button-text-color: var(--itab-b-text);
+  --itab-b-button-text-decoration: underline;
+  --itab-b-button-text-hover-background-color: var(--itab-b-background);
+  --itab-b-button-text-hover-color: var(--itab-b-text-strong);
+  --itab-b-button-ghost-background: none;
+  --itab-b-button-ghost-border-color: transparent;
+  --itab-b-button-ghost-color: var(--itab-b-link-text);
+  --itab-b-button-ghost-decoration: none;
+  --itab-b-button-ghost-hover-color: var(--itab-b-link);
+  --itab-b-button-ghost-hover-decoration: underline;
+  --itab-b-button-disabled-background-color: var(--itab-b-scheme-main);
+  --itab-b-button-disabled-border-color: var(--itab-b-border);
+  --itab-b-button-disabled-shadow: none;
+  --itab-b-button-disabled-opacity: 0.5;
+  --itab-b-button-static-color: var(--itab-b-text-weak);
+  --itab-b-button-static-background-color: var(--itab-b-scheme-main-ter);
+  --itab-b-button-static-border-color: var(--itab-b-border);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button {
+  --itab-b-button-h: var(--itab-b-scheme-h);
+  --itab-b-button-s: var(--itab-b-scheme-s);
+  --itab-b-button-l: var(--itab-b-scheme-main-l);
+  --itab-b-button-background-l: var(--itab-b-scheme-main-l);
+  --itab-b-button-background-l-delta: 0%;
+  --itab-b-button-hover-background-l-delta: var(--itab-b-hover-background-l-delta);
+  --itab-b-button-active-background-l-delta: var(--itab-b-active-background-l-delta);
+  --itab-b-button-color-l: var(--itab-b-text-strong-l);
+  --itab-b-button-border-l: var(--itab-b-border-l);
+  --itab-b-button-border-l-delta: 0%;
+  --itab-b-button-hover-border-l-delta: var(--itab-b-hover-border-l-delta);
+  --itab-b-button-active-border-l-delta: var(--itab-b-active-border-l-delta);
+  --itab-b-button-focus-border-l-delta: var(--itab-b-focus-border-l-delta);
+  --itab-b-button-outer-shadow-h: 0;
+  --itab-b-button-outer-shadow-s: 0%;
+  --itab-b-button-outer-shadow-l: 20%;
+  --itab-b-button-outer-shadow-a: 0.05;
+  --itab-b-loading-color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), var(--itab-b-button-color-l));
+  background-color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), calc(var(--itab-b-button-background-l) + var(--itab-b-button-background-l-delta)));
+  border-color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), calc(var(--itab-b-button-border-l) + var(--itab-b-button-border-l-delta)));
+  border-style: var(--itab-b-button-border-style);
+  border-width: var(--itab-b-button-border-width);
+  box-shadow: 0px 0.0625em 0.125em hsla(var(--itab-b-button-outer-shadow-h), var(--itab-b-button-outer-shadow-s), var(--itab-b-button-outer-shadow-l), var(--itab-b-button-outer-shadow-a)), 0px 0.125em 0.25em hsla(var(--itab-b-button-outer-shadow-h), var(--itab-b-button-outer-shadow-s), var(--itab-b-button-outer-shadow-l), var(--itab-b-button-outer-shadow-a));
+  color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), var(--itab-b-button-color-l));
+  cursor: pointer;
+  font-weight: var(--itab-b-button-weight);
+  height: auto;
+  justify-content: center;
+  padding-bottom: calc(var(--itab-b-button-padding-vertical) - var(--itab-b-button-border-width));
+  padding-left: calc(var(--itab-b-button-padding-horizontal) - var(--itab-b-button-border-width));
+  padding-right: calc(var(--itab-b-button-padding-horizontal) - var(--itab-b-button-border-width));
+  padding-top: calc(var(--itab-b-button-padding-vertical) - var(--itab-b-button-border-width));
+  text-align: center;
+  white-space: nowrap;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button strong {
+  color: inherit;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button .itab-b-icon, :where(:root[data-dashboard-template=clarity]) .itab-b-button .itab-b-icon.itab-b-is-small, :where(:root[data-dashboard-template=clarity]) .itab-b-button .itab-b-icon.itab-b-is-medium, :where(:root[data-dashboard-template=clarity]) .itab-b-button .itab-b-icon.itab-b-is-large {
+  height: 1.5em;
+  width: 1.5em;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button .itab-b-icon:first-child:not(:last-child) {
+  margin-inline-start: calc(-0.5 * var(--itab-b-button-padding-horizontal));
+  margin-inline-end: calc(var(--itab-b-button-padding-horizontal) * 0.25);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button .itab-b-icon:last-child:not(:first-child) {
+  margin-inline-start: calc(var(--itab-b-button-padding-horizontal) * 0.25);
+  margin-inline-end: calc(-0.5 * var(--itab-b-button-padding-horizontal));
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button .itab-b-icon:first-child:last-child {
+  margin-inline-start: calc(-0.5 * var(--itab-b-button-padding-horizontal));
+  margin-inline-end: calc(-0.5 * var(--itab-b-button-padding-horizontal));
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-hovered {
+  --itab-b-button-background-l-delta: var(--itab-b-button-hover-background-l-delta);
+  --itab-b-button-border-l-delta: var(--itab-b-button-hover-border-l-delta);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button:focus-visible, :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-focused {
+  --itab-b-button-border-width: 1px;
+  border-color: hsl(var(--itab-b-focus-h), var(--itab-b-focus-s), var(--itab-b-focus-l));
+  box-shadow: var(--itab-b-focus-shadow-size) hsla(var(--itab-b-focus-h), var(--itab-b-focus-s), var(--itab-b-focus-l), var(--itab-b-focus-shadow-alpha));
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button:active, :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-active {
+  --itab-b-button-background-l-delta: var(--itab-b-button-active-background-l-delta);
+  --itab-b-button-border-l-delta: var(--itab-b-button-active-border-l-delta);
+  --itab-b-button-outer-shadow-a: 0;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button[disabled], :where(:root[data-dashboard-template=clarity]) fieldset[disabled] .itab-b-button {
+  background-color: var(--itab-b-button-disabled-background-color);
+  border-color: var(--itab-b-button-disabled-border-color);
+  box-shadow: var(--itab-b-button-disabled-shadow);
+  opacity: var(--itab-b-button-disabled-opacity);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-outlined {
+  --itab-b-button-border-width: max(1px, 0.0625em);
+  --itab-b-loading-color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), var(--itab-b-button-l));
+  background-color: transparent;
+  border-color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), var(--itab-b-button-l));
+  color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), var(--itab-b-button-l));
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-outlined:hover {
+  --itab-b-button-border-width: max(2px, 0.125em);
+  --itab-b-button-outer-shadow-alpha: 1;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-outlined[disabled], :where(:root[data-dashboard-template=clarity]) fieldset[disabled] .itab-b-button.itab-b-is-outlined {
+  background-color: transparent;
+  box-shadow: none;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-inverted {
+  background-color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), calc(var(--itab-b-button-color-l) + var(--itab-b-button-background-l-delta)));
+  color: hsl(var(--itab-b-button-h), var(--itab-b-button-s), var(--itab-b-button-background-l));
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-text {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--itab-b-button-text-color);
+  text-decoration: var(--itab-b-button-text-decoration);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-text:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-text.itab-b-is-hovered {
+  background-color: var(--itab-b-button-text-hover-background-color);
+  color: var(--itab-b-button-text-hover-color);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-text:active, :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-text.itab-b-is-active {
+  color: var(--itab-b-button-text-hover-color);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-text[disabled], :where(:root[data-dashboard-template=clarity]) fieldset[disabled] .itab-b-button.itab-b-is-text {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-ghost {
+  background: var(--itab-b-button-ghost-background);
+  border-color: var(--itab-b-button-ghost-border-color);
+  box-shadow: none;
+  color: var(--itab-b-button-ghost-color);
+  text-decoration: var(--itab-b-button-ghost-decoration);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-ghost:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-ghost.itab-b-is-hovered {
+  color: var(--itab-b-button-ghost-hover-color);
+  text-decoration: var(--itab-b-button-ghost-hover-decoration);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-small {
+  --itab-b-control-size: var(--itab-b-size-small);
+  --itab-b-control-radius: var(--itab-b-radius-small);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-normal {
+  --itab-b-control-size: var(--itab-b-size-normal);
+  --itab-b-control-radius: var(--itab-b-radius);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-medium {
+  --itab-b-control-size: var(--itab-b-size-medium);
+  --itab-b-control-radius: var(--itab-b-radius-medium);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-large {
+  --itab-b-control-size: var(--itab-b-size-large);
+  --itab-b-control-radius: var(--itab-b-radius-medium);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-fullwidth {
+  display: flex;
+  width: 100%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-loading {
+  box-shadow: none;
+  color: transparent !important;
+  pointer-events: none;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-loading::after {
+  position: absolute;
+  left: calc(50% - 1em * 0.5);
+  top: calc(50% - 1em * 0.5);
+  position: absolute !important;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-static {
+  background-color: var(--itab-b-button-static-background-color);
+  border-color: var(--itab-b-button-static-border-color);
+  color: var(--itab-b-button-static-color);
+  box-shadow: none;
+  pointer-events: none;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-rounded {
+  border-radius: var(--itab-b-radius-rounded);
+  padding-left: calc(var(--itab-b-button-padding-horizontal) + 0.25em - var(--itab-b-button-border-width));
+  padding-right: calc(var(--itab-b-button-padding-horizontal) + 0.25em - var(--itab-b-button-border-width));
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-start;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-are-small {
+  --itab-b-control-size: var(--itab-b-size-small);
+  --itab-b-control-radius: var(--itab-b-radius-small);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-are-medium {
+  --itab-b-control-size: var(--itab-b-size-medium);
+  --itab-b-control-radius: var(--itab-b-radius-medium);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-are-large {
+  --itab-b-control-size: var(--itab-b-size-large);
+  --itab-b-control-radius: var(--itab-b-radius-large);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons {
+  gap: 0;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button:not(:first-child) {
+  border-end-start-radius: 0;
+  border-start-start-radius: 0;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button:not(:last-child) {
+  border-end-end-radius: 0;
+  border-start-end-radius: 0;
+  margin-inline-end: -1px;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-hovered {
+  z-index: 2;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button:focus, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-focused, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button:active, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-active, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-selected {
+  z-index: 3;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button:focus:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-focused:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button:active:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-active:hover, :where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-selected:hover {
+  z-index: 4;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-has-addons .itab-b-button.itab-b-is-expanded {
+  flex-grow: 1;
+  flex-shrink: 1;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-is-centered {
+  justify-content: center;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-buttons.itab-b-is-right {
+  justify-content: flex-end;
+}
+@media screen and (max-width: 768px) {
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-small {
+    font-size: calc(var(--itab-b-size-small) * 0.75);
+  }
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive,
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-normal {
+    font-size: calc(var(--itab-b-size-small) * 0.875);
+  }
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-medium {
+    font-size: var(--itab-b-size-small);
+  }
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-large {
+    font-size: var(--itab-b-size-normal);
+  }
+}
+@media screen and (min-width: 769px) and (max-width: 1023px) {
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-small {
+    font-size: calc(var(--itab-b-size-small) * 0.875);
+  }
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive,
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-normal {
+    font-size: var(--itab-b-size-small);
+  }
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-medium {
+    font-size: var(--itab-b-size-normal);
+  }
+  :where(:root[data-dashboard-template=clarity]) .itab-b-button.itab-b-is-responsive.itab-b-is-large {
+    font-size: var(--itab-b-size-medium);
+  }
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-root {
+  --itab-b-control-radius: var(--itab-b-radius);
+  --itab-b-control-radius-small: var(--itab-b-radius-small);
+  --itab-b-control-border-width: 1px;
+  --itab-b-control-height: 2.5em;
+  --itab-b-control-line-height: 1.5;
+  --itab-b-control-padding-vertical: calc(0.5em - 1px);
+  --itab-b-control-padding-horizontal: calc(0.75em - 1px);
+  --itab-b-control-size: var(--itab-b-size-normal);
+  --itab-b-control-focus-shadow-l: 50%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-input, :where(:root[data-dashboard-template=clarity]) .itab-b-textarea {
+  align-items: center;
+  appearance: none;
+  border-color: transparent;
+  border-style: solid;
+  border-width: var(--itab-b-control-border-width);
+  border-radius: var(--itab-b-control-radius);
+  box-shadow: none;
+  display: inline-flex;
+  font-size: var(--itab-b-control-size);
+  height: var(--itab-b-control-height);
+  justify-content: flex-start;
+  line-height: var(--itab-b-control-line-height);
+  padding-bottom: var(--itab-b-control-padding-vertical);
+  padding-left: var(--itab-b-control-padding-horizontal);
+  padding-right: var(--itab-b-control-padding-horizontal);
+  padding-top: var(--itab-b-control-padding-vertical);
+  position: relative;
+  transition-duration: var(--itab-b-duration);
+  transition-property: background-color, border-color, box-shadow, color;
+  vertical-align: top;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-control,
+:where(:root[data-dashboard-template=clarity]) .itab-b-input,
+:where(:root[data-dashboard-template=clarity]) .itab-b-textarea,
+:where(:root[data-dashboard-template=clarity]) .itab-b-select {
+  --itab-b-input-h: var(--itab-b-scheme-h);
+  --itab-b-input-s: var(--itab-b-scheme-s);
+  --itab-b-input-l: var(--itab-b-scheme-main-l);
+  --itab-b-input-border-style: solid;
+  --itab-b-input-border-width: var(--itab-b-control-border-width);
+  --itab-b-input-border-l: var(--itab-b-border-l);
+  --itab-b-input-border-l-delta: 0%;
+  --itab-b-input-border-color: hsl(var(--itab-b-input-h), var(--itab-b-input-s), calc(var(--itab-b-input-border-l) + var(--itab-b-input-border-l-delta)));
+  --itab-b-input-hover-border-l-delta: var(--itab-b-hover-border-l-delta);
+  --itab-b-input-active-border-l-delta: var(--itab-b-active-border-l-delta);
+  --itab-b-input-focus-h: var(--itab-b-focus-h);
+  --itab-b-input-focus-s: var(--itab-b-focus-s);
+  --itab-b-input-focus-l: var(--itab-b-focus-l);
+  --itab-b-input-focus-shadow-size: var(--itab-b-focus-shadow-size);
+  --itab-b-input-focus-shadow-alpha: var(--itab-b-focus-shadow-alpha);
+  --itab-b-input-color-l: var(--itab-b-text-strong-l);
+  --itab-b-input-background-l: var(--itab-b-scheme-main-l);
+  --itab-b-input-background-l-delta: 0%;
+  --itab-b-input-height: var(--itab-b-control-height);
+  --itab-b-input-shadow: inset 0 0.0625em 0.125em hsla(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-invert-l), 0.05);
+  --itab-b-input-placeholder-color: hsla(var(--itab-b-text-h), var(--itab-b-text-s), var(--itab-b-text-strong-l), 0.3);
+  --itab-b-input-disabled-color: var(--itab-b-text-weak);
+  --itab-b-input-disabled-background-color: var(--itab-b-background);
+  --itab-b-input-disabled-border-color: var(--itab-b-background);
+  --itab-b-input-disabled-placeholder-color: hsla(var(--itab-b-text-h), var(--itab-b-text-s), var(--itab-b-text-weak-l), 0.3);
+  --itab-b-input-arrow: var(--itab-b-link);
+  --itab-b-input-icon-color: var(--itab-b-text-light);
+  --itab-b-input-icon-hover-color: var(--itab-b-text-weak);
+  --itab-b-input-icon-focus-color: var(--itab-b-link);
+  --itab-b-input-radius: var(--itab-b-radius);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-input, :where(:root[data-dashboard-template=clarity]) .itab-b-textarea {
+  background-color: hsl(var(--itab-b-input-h), var(--itab-b-input-s), calc(var(--itab-b-input-background-l) + var(--itab-b-input-background-l-delta)));
+  border-color: var(--itab-b-input-border-color);
+  border-radius: var(--itab-b-input-radius);
+  color: hsl(var(--itab-b-input-h), var(--itab-b-input-s), var(--itab-b-input-color-l));
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-textarea, :where(:root[data-dashboard-template=clarity]) .itab-b-input {
+  box-shadow: inset 0 0.0625em 0.125em hsla(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-invert-l), 0.05);
+  max-width: 100%;
+  width: 100%;
+}
+:where(:root[data-dashboard-template=clarity]) [readonly].itab-b-textarea, :where(:root[data-dashboard-template=clarity]) [readonly].itab-b-input {
+  box-shadow: none;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-is-link.itab-b-textarea, :where(:root[data-dashboard-template=clarity]) .itab-b-is-link.itab-b-input {
+  --itab-b-input-h: var(--itab-b-link-h);
+  --itab-b-input-s: var(--itab-b-link-s);
+  --itab-b-input-l: var(--itab-b-link-l);
+  --itab-b-input-focus-h: var(--itab-b-link-h);
+  --itab-b-input-focus-s: var(--itab-b-link-s);
+  --itab-b-input-focus-l: var(--itab-b-link-l);
+  --itab-b-input-border-l: var(--itab-b-link-l);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-is-small.itab-b-textarea, :where(:root[data-dashboard-template=clarity]) .itab-b-is-small.itab-b-input {
+  border-radius: var(--itab-b-radius-small);
+  font-size: var(--itab-b-size-small);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-is-medium.itab-b-textarea, :where(:root[data-dashboard-template=clarity]) .itab-b-is-medium.itab-b-input {
+  font-size: var(--itab-b-size-medium);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-is-large.itab-b-textarea, :where(:root[data-dashboard-template=clarity]) .itab-b-is-large.itab-b-input {
+  font-size: var(--itab-b-size-large);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-is-fullwidth.itab-b-textarea, :where(:root[data-dashboard-template=clarity]) .itab-b-is-fullwidth.itab-b-input {
+  display: block;
+  width: 100%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-is-inline.itab-b-textarea, :where(:root[data-dashboard-template=clarity]) .itab-b-is-inline.itab-b-input {
+  display: inline;
+  width: auto;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-input.itab-b-is-rounded {
+  border-radius: var(--itab-b-radius-rounded);
+  padding-left: calc(calc(0.75em - 1px) + 0.375em);
+  padding-right: calc(calc(0.75em - 1px) + 0.375em);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-input.itab-b-is-static {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-textarea {
+  --itab-b-textarea-padding: var(--itab-b-control-padding-horizontal);
+  --itab-b-textarea-max-height: 40em;
+  --itab-b-textarea-min-height: 8em;
+  display: block;
+  max-width: 100%;
+  min-width: 100%;
+  padding: var(--itab-b-textarea-padding);
+  resize: vertical;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-textarea:not([rows]) {
+  max-height: var(--itab-b-textarea-max-height);
+  min-height: var(--itab-b-textarea-min-height);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-textarea[rows] {
+  height: initial;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-textarea.itab-b-has-fixed-size {
+  resize: none;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-root {
+  --itab-b-control-radius: var(--itab-b-radius);
+  --itab-b-control-radius-small: var(--itab-b-radius-small);
+  --itab-b-control-border-width: 1px;
+  --itab-b-control-height: 2.5em;
+  --itab-b-control-line-height: 1.5;
+  --itab-b-control-padding-vertical: calc(0.5em - 1px);
+  --itab-b-control-padding-horizontal: calc(0.75em - 1px);
+  --itab-b-control-size: var(--itab-b-size-normal);
+  --itab-b-control-focus-shadow-l: 50%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-box {
+  --itab-b-box-background-color: var(--itab-b-scheme-main);
+  --itab-b-box-color: var(--itab-b-text);
+  --itab-b-box-radius: var(--itab-b-radius-large);
+  --itab-b-box-shadow: var(--itab-b-shadow);
+  --itab-b-box-padding: 1.25rem;
+  --itab-b-box-link-hover-shadow: 0 0.5em 1em -0.125em hsla(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-invert-l), 0.1), 0 0 0 1px var(--itab-b-link);
+  --itab-b-box-link-active-shadow: inset 0 1px 2px hsla(var(--itab-b-scheme-h), var(--itab-b-scheme-s), var(--itab-b-scheme-invert-l), 0.2), 0 0 0 1px var(--itab-b-link);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-box {
+  background-color: var(--itab-b-box-background-color);
+  border-radius: var(--itab-b-box-radius);
+  box-shadow: var(--itab-b-box-shadow);
+  color: var(--itab-b-box-color);
+  display: block;
+  padding: var(--itab-b-box-padding);
+}
+:where(:root[data-dashboard-template=clarity]) a.itab-b-box:hover, :where(:root[data-dashboard-template=clarity]) a.itab-b-box:focus {
+  box-shadow: var(--itab-b-box-link-hover-shadow);
+}
+:where(:root[data-dashboard-template=clarity]) a.itab-b-box:active {
+  box-shadow: var(--itab-b-box-link-active-shadow);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-root {
+  --itab-b-control-radius: var(--itab-b-radius);
+  --itab-b-control-radius-small: var(--itab-b-radius-small);
+  --itab-b-control-border-width: 1px;
+  --itab-b-control-height: 2.5em;
+  --itab-b-control-line-height: 1.5;
+  --itab-b-control-padding-vertical: calc(0.5em - 1px);
+  --itab-b-control-padding-horizontal: calc(0.75em - 1px);
+  --itab-b-control-size: var(--itab-b-size-normal);
+  --itab-b-control-focus-shadow-l: 50%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title,
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle {
+  --itab-b-title-color: var(--itab-b-text-strong);
+  --itab-b-title-family: false;
+  --itab-b-title-size: var(--itab-b-size-3);
+  --itab-b-title-weight: var(--itab-b-weight-extrabold);
+  --itab-b-title-line-height: 1.125;
+  --itab-b-title-strong-color: inherit;
+  --itab-b-title-strong-weight: inherit;
+  --itab-b-title-sub-size: 0.75em;
+  --itab-b-title-sup-size: 0.75em;
+  --itab-b-subtitle-color: var(--itab-b-text);
+  --itab-b-subtitle-family: false;
+  --itab-b-subtitle-size: var(--itab-b-size-5);
+  --itab-b-subtitle-weight: var(--itab-b-weight-normal);
+  --itab-b-subtitle-line-height: 1.25;
+  --itab-b-subtitle-strong-color: var(--itab-b-text-strong);
+  --itab-b-subtitle-strong-weight: var(--itab-b-weight-semibold);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title,
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle {
+  word-break: break-word;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title em,
+:where(:root[data-dashboard-template=clarity]) .itab-b-title span,
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle em,
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle span {
+  font-weight: inherit;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title sub,
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle sub {
+  font-size: var(--itab-b-title-sub-size);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title sup,
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle sup {
+  font-size: var(--itab-b-title-sup-size);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title .itab-b-tag,
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle .itab-b-tag {
+  vertical-align: middle;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title {
+  color: var(--itab-b-title-color);
+  font-size: var(--itab-b-title-size);
+  font-weight: var(--itab-b-title-weight);
+  line-height: var(--itab-b-title-line-height);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title strong {
+  color: var(--itab-b-title-strong-color);
+  font-weight: var(--itab-b-title-strong-weight);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title:not(.itab-b-is-spaced):has(+ .itab-b-subtitle) {
+  margin-bottom: 0;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title.itab-b-is-1 {
+  font-size: 3rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title.itab-b-is-2 {
+  font-size: 2.5rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title.itab-b-is-3 {
+  font-size: 2rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title.itab-b-is-4 {
+  font-size: 1.5rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title.itab-b-is-5 {
+  font-size: 1.25rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title.itab-b-is-6 {
+  font-size: 1rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-title.itab-b-is-7 {
+  font-size: 0.75rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle {
+  color: var(--itab-b-subtitle-color);
+  font-size: var(--itab-b-subtitle-size);
+  font-weight: var(--itab-b-subtitle-weight);
+  line-height: var(--itab-b-subtitle-line-height);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle strong {
+  color: var(--itab-b-subtitle-strong-color);
+  font-weight: var(--itab-b-subtitle-strong-weight);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle:not(.itab-b-is-spaced):has(+ .itab-b-title) {
+  margin-bottom: 0;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle.itab-b-is-1 {
+  font-size: 3rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle.itab-b-is-2 {
+  font-size: 2.5rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle.itab-b-is-3 {
+  font-size: 2rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle.itab-b-is-4 {
+  font-size: 1.5rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle.itab-b-is-5 {
+  font-size: 1.25rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle.itab-b-is-6 {
+  font-size: 1rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-subtitle.itab-b-is-7 {
+  font-size: 0.75rem;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-root {
+  --itab-b-control-radius: var(--itab-b-radius);
+  --itab-b-control-radius-small: var(--itab-b-radius-small);
+  --itab-b-control-border-width: 1px;
+  --itab-b-control-height: 2.5em;
+  --itab-b-control-line-height: 1.5;
+  --itab-b-control-padding-vertical: calc(0.5em - 1px);
+  --itab-b-control-padding-horizontal: calc(0.75em - 1px);
+  --itab-b-control-size: var(--itab-b-size-normal);
+  --itab-b-control-focus-shadow-l: 50%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list a,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list button,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list .itab-b-menu-item {
+  appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 1em;
+  margin: 0;
+  padding: 0;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu {
+  --itab-b-menu-item-h: var(--itab-b-scheme-h);
+  --itab-b-menu-item-s: var(--itab-b-scheme-s);
+  --itab-b-menu-item-l: var(--itab-b-scheme-main-l);
+  --itab-b-menu-item-background-l: var(--itab-b-scheme-main-l);
+  --itab-b-menu-item-background-l-delta: 0%;
+  --itab-b-menu-item-hover-background-l-delta: var(--itab-b-hover-background-l-delta);
+  --itab-b-menu-item-active-background-l-delta: var(--itab-b-active-background-l-delta);
+  --itab-b-menu-item-color-l: var(--itab-b-text-l);
+  --itab-b-menu-item-radius: var(--itab-b-radius-small);
+  --itab-b-menu-item-selected-h: var(--itab-b-link-h);
+  --itab-b-menu-item-selected-s: var(--itab-b-link-s);
+  --itab-b-menu-item-selected-l: var(--itab-b-link-l);
+  --itab-b-menu-item-selected-background-l: var(--itab-b-link-l);
+  --itab-b-menu-item-selected-color-l: var(--itab-b-link-invert-l);
+  --itab-b-menu-list-border-left: 1px solid var(--itab-b-border);
+  --itab-b-menu-list-line-height: 1.25;
+  --itab-b-menu-list-link-padding: 0.5em 0.75em;
+  --itab-b-menu-nested-list-margin: 0.75em;
+  --itab-b-menu-nested-list-padding-left: 0.75em;
+  --itab-b-menu-label-color: var(--itab-b-text-weak);
+  --itab-b-menu-label-font-size: 0.75em;
+  --itab-b-menu-label-letter-spacing: 0.1em;
+  --itab-b-menu-label-spacing: 1em;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu {
+  font-size: var(--itab-b-size-normal);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu.itab-b-is-small {
+  font-size: var(--itab-b-size-small);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu.itab-b-is-medium {
+  font-size: var(--itab-b-size-medium);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu.itab-b-is-large {
+  font-size: var(--itab-b-size-large);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list {
+  line-height: var(--itab-b-menu-list-line-height);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list a,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list button,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list .itab-b-menu-item {
+  background-color: hsl(var(--itab-b-menu-item-h), var(--itab-b-menu-item-s), calc(var(--itab-b-menu-item-background-l) + var(--itab-b-menu-item-background-l-delta)));
+  border-radius: var(--itab-b-menu-item-radius);
+  color: hsl(var(--itab-b-menu-item-h), var(--itab-b-menu-item-s), var(--itab-b-menu-item-color-l));
+  display: block;
+  padding: var(--itab-b-menu-list-link-padding);
+  text-align: left;
+  width: 100%;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list a:hover,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list button:hover,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list .itab-b-menu-item:hover {
+  --itab-b-menu-item-background-l-delta: var(--itab-b-menu-item-hover-background-l-delta);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list a:active,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list button:active,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list .itab-b-menu-item:active {
+  --itab-b-menu-item-background-l-delta: var(--itab-b-menu-item-active-background-l-delta);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list a.itab-b-is-active, :where(:root[data-dashboard-template=clarity]) .itab-b-menu-list a.itab-b-is-selected,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list button.itab-b-is-active,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list button.itab-b-is-selected,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list .itab-b-menu-item.itab-b-is-active,
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list .itab-b-menu-item.itab-b-is-selected {
+  --itab-b-menu-item-h: var(--itab-b-menu-item-selected-h);
+  --itab-b-menu-item-s: var(--itab-b-menu-item-selected-s);
+  --itab-b-menu-item-l: var(--itab-b-menu-item-selected-l);
+  --itab-b-menu-item-background-l: var(--itab-b-menu-item-selected-background-l);
+  --itab-b-menu-item-color-l: var(--itab-b-menu-item-selected-color-l);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-list li ul {
+  border-inline-start: var(--itab-b-menu-list-border-left);
+  margin: var(--itab-b-menu-nested-list-margin);
+  padding-inline-start: var(--itab-b-menu-nested-list-padding-left);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-label {
+  color: var(--itab-b-menu-label-color);
+  font-size: var(--itab-b-menu-label-font-size);
+  letter-spacing: var(--itab-b-menu-label-letter-spacing);
+  text-transform: uppercase;
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-label:not(:first-child) {
+  margin-top: var(--itab-b-menu-label-spacing);
+}
+:where(:root[data-dashboard-template=clarity]) .itab-b-menu-label:not(:last-child) {
+  margin-bottom: var(--itab-b-menu-label-spacing);
+}
