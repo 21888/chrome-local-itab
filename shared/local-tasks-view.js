@@ -2406,6 +2406,7 @@
         render() {
             const lifecycle = viewLifecycles.get(this);
             if (!viewSourceCurrent(this, lifecycle)) return;
+            const render = {}; lifecycle.render = render;
             const controller = lifecycle.source.controller;
             this.invalidateCopy();
             const state = controller.state, busy = !!controller.pending;
@@ -2427,9 +2428,9 @@
             const visible = !!this.completionSession || !!this.restorationSession || ownsCompletionAttempt || this.alwaysVisible || state?.enabled === true || showReadError || !!this.reuseSession || ownsPendingReuse || this.quickEntryComposing || this.quickEntryCompositionSettling || this.input.value.length > 0 || ownsPendingAdd || !!this.batchSession || ownsPendingBatch;
             this.host.hidden = !visible;
             this.onVisibility(visible);
-            // The host callback may synchronously retire or replace this View's
-            // source. Nothing after that callback may adopt the replacement.
-            if (!viewSourceCurrent(this, lifecycle)) return;
+            // The host callback may retire/replace the source or synchronously
+            // publish a newer render. Only the latest accepted render continues.
+            if (!viewSourceCurrent(this, lifecycle) || lifecycle.render !== render) return;
             this.addButton.disabled = busy || !state || this.quickEntryComposing; this.batchButton.disabled = busy || !state;
             const focused = this.host.contains(document.activeElement) ? document.activeElement : null;
             const taskId = focused?.closest('[data-task-id]')?.dataset.taskId, action = focused?.dataset.taskAction;
