@@ -265,6 +265,15 @@
                 workspace: pinWorkspace, workspaceId: pinWorkspace?.id, workspaceGeneration: pinWorkspace?.generation,
                 legacyAvailability: !!pinWorkspace && typeof pinWorkspace === 'object' && pinWorkspace.id == null && pinWorkspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain: pinChain });
+            // Ordinary completion owns its original mounted source before any asynchronous read.
+            const completeWorkspace = controller.store.backend?.workspace ?? null, completeChain = [];
+            for (let node = this.list; node; node = node.parentElement) completeChain.push([node, node.parentElement]);
+            completeChain.push([this.filterInput, this.filter], [this.filter, host]);
+            this.completeOwner = Object.freeze({ host, list: this.list, filter: this.filter, filterInput: this.filterInput,
+                controller, store: controller.store, backend: controller.store.backend,
+                workspace: completeWorkspace, workspaceId: completeWorkspace?.id, workspaceGeneration: completeWorkspace?.generation,
+                legacyAvailability: !!completeWorkspace && typeof completeWorkspace === 'object' && completeWorkspace.id == null && completeWorkspace.generation == null && root.LocalItabWorkspaces == null,
+                session: root.LocalItabWorkspaces?.session ?? null, chain: completeChain });
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
@@ -326,6 +335,8 @@
             if (command?.kind === 'move' && !this.stepMoveSourceCurrent(this.stepMoveOwner)) return;
             // Original pin receipts survive redraw and changed pins, but never change source.
             if (command?.kind === 'pin' && !this.pinSourceCurrent(this.pinOwner)) return;
+            // Original ordinary-completion Retry keeps its receipt/CAS, independently of rebuilt rows.
+            if (command?.kind === 'complete' && !this.completeSourceCurrent(this.completeOwner)) return;
             if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
                 !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
                 document.hidden || document.visibilityState === 'hidden')) return;
@@ -1475,6 +1486,56 @@
                 !available() || !this.pinSourceCurrent(owner) || !c.state || c.state.pinnedId === source.expectedPin) return;
             status.textContent = errorText({ code: 'CONFLICT' }); feedback.classList.add('is-error');
         }
+        completeSourceCurrent(owner) {
+            const c = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.completeOwner === owner && this.host === owner.host && this.list === owner.list &&
+                this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null));
+        }
+        completeCurrent(source) {
+            const { owner, item, top, title, action } = source;
+            // These checks perform no layout reads. Repeat them after the last visibility lookup,
+            // so a changed visible original, DOM source or saved task cannot create a command.
+            if (document.hidden || document.visibilityState === 'hidden' || this.filter !== owner.filter || this.filterInput !== owner.filterInput ||
+                owner.filterInput.value.trim().toLowerCase() !== source.filter || this.filterQuery !== source.filter || this.renderedFilter !== source.filter ||
+                action.disabled || action.getAttribute('disabled') != null || action.getAttribute('aria-disabled') === 'true' ||
+                !action.isConnected || action.textContent !== '○' || action.children.length || action.dataset.taskAction !== '○' ||
+                action.title !== source.label || action.getAttribute('aria-label') !== `${source.label}: ${source.snapshot.text}` ||
+                item.dataset.taskId !== source.snapshot.id || item.parentElement !== owner.list ||
+                Array.from(owner.list.children).find(node => node.dataset.taskId === source.snapshot.id) !== item ||
+                item.querySelector('.tasks-row-main') !== top || item.querySelector('.tasks-check') !== action ||
+                item.querySelector('.tasks-text') !== title || title.textContent !== source.snapshot.text || title.children.length || title.classList.contains('is-done') ||
+                top.children.length !== 2 || top.children[0] !== action || top.children[1] !== title ||
+                [...owner.chain, ...source.chain].some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent)) return false;
+            for (const displayed of [action, title]) for (let node = displayed; node; node = node.parentElement) {
+                if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                    node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                    (node.tagName === 'DETAILS' && !node.open)) return false;
+            }
+            if (!this.completeSourceCurrent(owner)) return false;
+            const c = owner.controller;
+            const reviewedConflict = c.error?.code === 'CONFLICT' && !!c.retryCommand && source.conflictCommand === c.retryCommand;
+            if (this.destroyed || c.pending || (c.error && !reviewedConflict) || (c.retryCommand && !reviewedConflict) || this.localError ||
+                ['loading', 'saving'].includes(c.status) || (c.status === 'error' && !reviewedConflict) ||
+                this.filterComposing || this.dialogs.size || this.pendingReview ||
+                this.batchSession || this.reuseSession || this.completionSession || this.restorationSession ||
+                root.LocalItabContentLifecycle?.departing || this.completeGeneration !== source.generation) return false;
+            // Ordinary complete is task-version/active CAS only: unrelated order and pin are independent.
+            const current = c.state?.records.find(record => record.id === source.snapshot.id);
+            return !!current && current.state === 'active' && Object.keys(source.snapshot).every(key => current[key] === source.snapshot[key]);
+        }
+        completeVisible(source) {
+            for (const displayed of [source.action, source.title]) {
+                if (!displayed.getClientRects().length) return false;
+                for (let node = displayed; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node);
+                    if (style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility)) return false;
+                }
+            }
+            return true;
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
             let firstSource = null, lastSource = null;
@@ -1483,7 +1544,25 @@
             const top = el('div', 'tasks-row-main');
             const title = el('span', 'tasks-text', task.text); if (task.state === 'done') title.classList.add('is-done');
             const run = (kind, values = {}, success) => this.perform(this.controller.store.request(kind, { id: task.id, version: task.version, ...values }), success);
-            if (task.state !== 'removed') {
+            if (task.state === 'active') {
+                const source = { owner: this.completeOwner, generation: this.completeGeneration, item, top, title,
+                    filter: this.filterQuery, snapshot: Object.freeze({ ...task }), label: t('tasksComplete'),
+                    conflictCommand: this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null, chain: [] };
+                const complete = button('tasksComplete', event => {
+                    if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                        event.target !== complete || (event.currentTarget && event.currentTarget !== complete)) return;
+                    if (!this.completeCurrent(source) || !this.completeVisible(source) || !this.completeCurrent(source)) return;
+                    this.perform(source.owner.store.request('complete', { id: source.snapshot.id, version: source.snapshot.version }));
+                }, 'tasks-check');
+                complete.textContent = '○'; complete.title = source.label;
+                complete.setAttribute('aria-label', `${source.label}: ${source.snapshot.text}`);
+                complete.addEventListener('keydown', event => {
+                    if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                });
+                source.action = complete;
+                source.chain.push([complete, top], [title, top], [top, item], [item, source.owner.list]);
+                top.append(complete);
+            } else if (task.state !== 'removed') {
                 const complete = button(task.state === 'active' ? 'tasksComplete' : 'tasksReopen', () => run(task.state === 'active' ? 'complete' : 'reopen'), 'tasks-check');
                 complete.textContent = task.state === 'active' ? '○' : '↶';
                 complete.title = t(task.state === 'active' ? 'tasksComplete' : 'tasksReopen');
@@ -1659,6 +1738,7 @@
                 // old row callbacks cannot revive after their nodes are reattached.
                 this.moveLastGeneration = (this.moveLastGeneration || 0) + 1;
                 this.pinGeneration = (this.pinGeneration || 0) + 1;
+                this.completeGeneration = (this.completeGeneration || 0) + 1;
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
                 if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
                 this.more.hidden = filtering || active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));

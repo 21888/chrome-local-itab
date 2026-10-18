@@ -60,8 +60,21 @@ const complete = (h, pinned) => pinned ? h.view.nextComplete.dispatch('click') :
 
 for (const locale of ['en', 'zh_CN']) for (const pinned of [false, true]) test(`completion Undo reopens exact identity, keeps draft/filter/focus and newer pin (${locale}, pinned=${pinned})`, async () => {
     const h = await seeded(locale), other = await add(h.store, h.task.text); await settle();
-    input(h.view.input, 'draft'); h.view.edit(other); const editor = h.document.querySelector('.tasks-editor'); input(editor, 'edit draft');
-    editor.focus(); complete(h, pinned); await settle();
+    input(h.view.input, 'draft');
+    let releaseCompletion = null;
+    if (!pinned) {
+        // Start the visible row's real save first; an open editor makes its background inert.
+        // Its late result must still preserve the newer editor draft and focus below.
+        const writes = h.backend.writes;
+        h.backend.delay = new Promise(resolve => { releaseCompletion = resolve; });
+        complete(h, false); await settle();
+        assert.equal(h.backend.writes, writes + 1); assert.equal(h.controller.status, 'saving'); assert.ok(h.controller.pending);
+    }
+    h.view.edit(other); const editor = h.document.querySelector('.tasks-editor'); input(editor, 'edit draft');
+    editor.focus();
+    if (pinned) complete(h, pinned);
+    else { releaseCompletion(); h.backend.delay = null; }
+    await settle();
     const done = h.backend.raw().records[0];
     assert.equal(h.view.undo.id, h.task.id); assert.equal(h.view.undo.version, done.version);
     assert.equal(h.view.undoButton.hidden, false); assert.equal(h.view.undoButton.textContent, locale === 'en' ? 'Undo completion' : '撤销完成');
