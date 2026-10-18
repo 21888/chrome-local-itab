@@ -126,6 +126,8 @@
     const transitionAttempts = new WeakMap();
     // Removed selection restoration owns its exact reviewed command after close.
     const restorationAttempts = new WeakMap();
+    // Ordinary actions retain their exact command and effects on the construction source.
+    const genericAttempts = new WeakMap();
     function viewSourceCurrent(view, lifecycle) {
         if (!lifecycle || lifecycle.retired || view.destroyed) return false;
         const source = lifecycle.source;
@@ -390,21 +392,38 @@
             if (quickAttempt?.command === command) return this.performQuickAdd(quickAttempt);
             const undoAttempt = undoAttempts.get(this);
             if (undoAttempt?.command === command) return this.performUndo(undoAttempt);
-            if (this.destroyed || this.controller.pending) return;
+            const lifecycle = viewLifecycles.get(this), controller = lifecycle?.source.controller;
+            if (!viewSourceCurrent(this, lifecycle) || controller.pending) return;
+            const attempt = { lifecycle, command, success, failure }; genericAttempts.set(this, attempt);
             const generation = ++this.actionGeneration;
+            const owns = () => genericAttempts.get(this) === attempt && generation === this.actionGeneration && viewSourceCurrent(this, lifecycle);
             this.localError = null;
-            this.retryEffect = success; this.retryFailure = failure; this.retryEffectOperationId = command.operationId;
+            if (!owns() || controller.pending) return;
+            this.retryEffect = success;
+            if (!owns() || controller.pending) return;
+            this.retryFailure = failure;
+            if (!owns() || controller.pending) return;
+            this.retryEffectOperationId = command.operationId;
+            // Request/effect hooks cannot redirect the captured source. Availability
+            // remains the Controller's concern, separate from source identity.
+            if (!owns() || controller.pending) return;
             try {
-                const state = await this.controller.run(command);
-                // Final controller notifications can start another action before this
-                // continuation runs. An older result must not replace its Undo/retry.
-                if (this.destroyed || generation !== this.actionGeneration || this.controller.pending ||
-                    (this.controller.retryCommand && this.controller.retryCommand.operationId !== command.operationId)) return;
-                this.rememberUndo(command, state); this.retryEffect = null; this.retryFailure = null; success?.(state); this.render();
+                const state = await controller.run(command);
+                // Final notifications or effect hooks may start a newer action.
+                const current = () => owns() && !controller.pending && !controller.error && (!controller.retryCommand || controller.retryCommand === command);
+                if (!current()) return;
+                this.rememberUndo(command, state);
+                if (!current()) return;
+                this.retryEffect = null;
+                if (!current()) return;
+                this.retryFailure = null;
+                if (!current()) return;
+                success?.(state);
+                if (current()) this.render();
             }
             catch (error) {
-                if (!this.destroyed && generation === this.actionGeneration && this.controller.retryCommand?.operationId === command.operationId) failure?.(error);
-                // Controller owns the card's safe, content-free feedback.
+                if (owns() && !controller.pending && controller.retryCommand === command && controller.error === error) failure?.(error);
+                // Only the captured Controller's exact failure owns this effect.
             }
         }
         async performRestoration(attempt) {
@@ -526,8 +545,11 @@
                 if (!viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(undoAttempt.owner)) return;
                 if (undoAttempt.owner.controller.retryCommand === undoAttempt.command) return this.perform(undoAttempt.command);
             }
-            if (this.controller.pending || this.destroyed) return;
-            const command = this.controller.retryCommand;
+            const lifecycle = viewLifecycles.get(this), controller = lifecycle?.source.controller;
+            if (!viewSourceCurrent(this, lifecycle) || controller.pending) return;
+            const command = controller.retryCommand, attempt = genericAttempts.get(this);
+            // An operation ID alone cannot authorize another command or its effects.
+            if (command && (attempt?.command !== command || attempt.lifecycle !== lifecycle)) return;
             // Retry must stay with the mounted moveFirst source, but its original
             // receipt remains authoritative after rows/order change or an unknown save.
             if (command?.kind === 'moveFirst' && !this.moveFirstSourceCurrent(this.moveFirstOwner)) return;
@@ -560,10 +582,15 @@
             }
             if (command) {
                 if (command.operationId !== this.retryEffectOperationId) return;
-                return this.perform(command, this.retryEffect, this.retryFailure);
+                return this.perform(command, attempt.success, attempt.failure);
             }
+            const generation = this.actionGeneration;
             this.localError = null;
-            try { await this.controller.retry(); if (!this.destroyed) this.render(); } catch (_) {}
+            if (!viewSourceCurrent(this, lifecycle) || generation !== this.actionGeneration || controller.pending || controller.retryCommand) return;
+            try {
+                await controller.retry();
+                if (viewSourceCurrent(this, lifecycle) && generation === this.actionGeneration && !controller.pending && !controller.retryCommand) this.render();
+            } catch (_) {}
         }
         add() {
             const owner = editSources.get(this);
@@ -1329,9 +1356,10 @@
             this.nextSelection = source; this.nextComplete = complete; this.next.append(complete);
         }
         performPinned(command, origin) {
-            if (this.destroyed || this.controller.pending) return;
+            const lifecycle = viewLifecycles.get(this), controller = lifecycle?.source.controller;
+            if (!viewSourceCurrent(this, lifecycle) || controller.pending) return;
             this.pinnedFocus?.cancel();
-            const intent = { command, revision: this.controller.state?.revision, valid: document.activeElement === origin };
+            const intent = { command, revision: controller.state?.revision, valid: document.activeElement === origin };
             const cancel = () => { intent.valid = false; }; intent.cancel = cancel;
             const moved = event => { if (event.target !== origin) cancel(); };
             const keyed = event => { if (!(event.repeat && ['Enter', ' '].includes(event.key))) cancel(); };
@@ -1346,9 +1374,10 @@
                 // Larger jumps include an unseen remote change and relinquish focus.
                 if (intent.valid && this.pinnedFocus === intent && !document.hidden && !this.host.hidden &&
                     this.host.isConnected && !this.host.closest('[inert]') && this.input.getClientRects().length &&
-                    this.controller.state?.revision === saved.revision && saved.receipts.at(-1) === command.operationId &&
+                    controller.state?.revision === saved.revision && saved.receipts.at(-1) === command.operationId &&
                     (saved.revision === intent.revision + 1 || saved.revision === intent.revision) &&
-                    (document.activeElement === origin || document.activeElement === document.body)) this.input.focus();
+                    (document.activeElement === origin || document.activeElement === document.body) &&
+                    viewSourceCurrent(this, lifecycle)) this.input.focus();
             }).finally(() => {
                 cancel(); if (this.pinnedFocus === intent) this.pinnedFocus = null;
                 document.removeEventListener('focusin', moved, true); document.removeEventListener('pointerdown', cancel, true);
