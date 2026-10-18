@@ -211,6 +211,57 @@ writer in **1.0.6** from the later candidate **1.1.6**, whose new shortcut write
 canonicalize URLs. Those version numbers must not be interchanged to infer an
 affected user's stored input.
 
+### Natural carryover of an older URL spelling
+
+A further source-derived chain distinguishes older stored values from new writes.
+Source **1.0.6** (`2befbd20226a114075ea9530ae615f8917ce9058`) can save
+`example.com` and `https://example.org` unchanged. Candidate **1.1.6**
+(`90b91e6456bfaea9a4519ae1ba9c5c5ed6e6b760`) canonicalizes its read projection
+and new shortcut writes, but reading alone does not replace those older raw values.
+Its Options quote-only guarded save updates only the quote. Its real first
+Shortcut render can add layout coordinates without replacing the stored links.
+
+The executed probe used the actual 1.0.6 writer to create each starting raw file.
+Candidate 1.1.6 then performed `getAll`, the quote-only guarded `setAll` contract
+used by Options, and actual Shortcut initialization/render through the previously
+reviewed DOM model. That exact output was independently handed to the real 71 and
+current Manager, Session, workspace-bound StorageManager and workspace View.
+A canonical-URL control followed the same process. Eight fresh processes, six
+byte-identical handoffs and 220 assertions passed.
+
+In the legacy lane, candidate 1.1.6's first render performed one layout-only write
+adding two canonical All-view positions; both original link strings and all seven
+original positions remained unchanged. The earlier quote edit was a separate
+quote-only write. Version 71 naturally rejected the resulting input as
+`WORKSPACE_CORRUPT`, without an injected storage failure or fabricated error.
+Its View showed the loading, load-error and deleted-or-replaced messages together.
+It submitted zero writes and retained the entire local-and-sync raw file
+byte-for-byte. The canonical control admitted normally.
+
+Current master admitted both lanes with five ordinary migration writes each.
+Every original top-level value, complete pre-migration value and initial scoped
+bundle value was retained. Its actual configuration read and production shortcut
+position accessor preserved the original URL-to-coordinate association. The
+current shortcut renderer was not run in this particular probe. No process
+enabled Sync, scheduled an upload, wrote cloud data, removed or cleared storage.
+
+This establishes a concrete source-supported way for older values to survive
+candidate 1.1.6 and trigger 71's admission failure. It does not establish that an
+affected user previously ran 1.0.6 or had these values. The two older sources are
+Git candidates, not authenticated historical store binaries. The Options API
+contract and modeled Shortcut render are not full Options/new-tab execution or
+a native browser upgrade. Only links, categories, layout and quote were seeded;
+this probe makes no personal-module or preexisting-recovery claim. Current
+compatibility already existed before this investigation; no production code was
+changed for this result.
+
+A separate read-only comparison of the signature-verified public 1.1.151 CRX
+payload found this compatibility and corrected workspace load-error classification
+already present there. The configuration codec, stored-URL, layout-identity and
+import-closure-service modules are byte-identical to current master; the relevant
+admission, read and View error-handling paths also match. This is source comparison,
+not execution of the same raw input on 1.1.151 or proof of an affected installation.
+
 ## Remaining release evidence
 
 The existing preservation suite also passed 612 tests across 12 explicit files,
