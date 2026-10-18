@@ -4,6 +4,37 @@
     // Ownership only; clipboard single-flight remains local to each View.
     const selectionOwners = new WeakMap();
     const savedOwners = new WeakMap();
+    const viewLifecycles = new WeakMap();
+    function viewSourceCurrent(view, lifecycle) {
+        if (!lifecycle || lifecycle.retired || view.closed) return false;
+        const { controller, store, backend, workspace } = lifecycle;
+        return !controller.closed && view.controller === controller && controller.store === store && store?.backend === backend &&
+            backend?.workspace === workspace && workspace?.id === lifecycle.workspaceId && workspace?.generation === lifecycle.workspaceGeneration &&
+            root.LocalItabWorkspaces?.session === lifecycle.session && view.host === lifecycle.host &&
+            lifecycle.host.ownerDocument === lifecycle.document &&
+            Object.entries(lifecycle.nodes).every(([name, node]) => view[name] === node && node.ownerDocument === lifecycle.document);
+    }
+    function retireViewCopy(view, lifecycle) {
+        const receipt = view.copyReceipt;
+        if (!lifecycle || !receipt) return;
+        const { host, nodes, selectionOwner, savedOwner } = lifecycle;
+        const owned = receipt.saved ? receipt.owner === savedOwner && receipt.origin === nodes.copySavedButton :
+            receipt.selection ? receipt.owner === selectionOwner && receipt.origin === nodes.copySelectionButton :
+                !receipt.owner && receipt.origin === nodes.copyButton;
+        if (!owned) return;
+        // Source rejection expires feedback, never the already-issued write's
+        // single-flight lock. Detach before cleanup so reentry owns any new receipt.
+        receipt.valid = false; view.copyReceipt = null;
+        try { receipt.cleanup?.(); }
+        finally {
+            const status = nodes.copyStatus;
+            if (view.copyReceipt === null && view.copyStatus === status && status.ownerDocument === lifecycle.document &&
+                status.parentElement === host && lifecycle.chain.every((node, index) => node.ownerDocument === lifecycle.document &&
+                    (node.parentElement || null) === (lifecycle.chain[index + 1] || null))) {
+                status.textContent = ''; status.hidden = true;
+            }
+        }
+    }
     const fallback = {
         scratchpadTitle: 'Scratchpad', scratchpadLocal: 'On this device',
         scratchpadLabel: 'Scratchpad text', scratchpadEnable: 'Show Scratchpad on the new tab page',
@@ -70,6 +101,11 @@
     }
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, clipboard = root.navigator?.clipboard } = {}) {
+            const store = controller.store, backend = store?.backend, workspace = backend?.workspace;
+            const lifecycle = { host, document, controller, store, backend, workspace, workspaceId: workspace?.id,
+                workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session,
+                nodes: {}, listeners: [], unsubscribe: null, destroyController: controller.destroy.bind(controller), retired: false };
+            viewLifecycles.set(this, lifecycle);
             this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.closed = false;
             this.clipboard = clipboard; this.copyAttempt = null; this.copyReceipt = null;
             host.classList.add('local-scratchpad-card'); host.setAttribute('aria-label', t('scratchpadTitle')); host.hidden = true;
@@ -184,18 +220,25 @@
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
             host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details);
+            // Render and teardown retain these original controls even if a public
+            // property is replaced. Detachment alone does not change ownership.
+            lifecycle.nodes = Object.fromEntries(['textarea', 'savedPreview', 'savedLabel', 'status', 'retry', 'useSaved', 'replace',
+                'exportButton', 'copyButton', 'copySelectionButton', 'copySavedButton', 'copyStatus', 'importButton', 'importFile',
+                'importPanel', 'importInfo', 'importPreview', 'importAppend', 'importApply', 'importCancel', 'findButton',
+                'findSelectionButton', 'findPanel', 'findInput', 'findPrevious', 'findNext', 'findClose', 'findStatus', 'count']
+                .map(name => [name, this[name]]));
             // Pin the original controls before callbacks can run. Receipts also
             // observe removal so a pending reparent/restore cannot revive them.
-            const selectionOwner = this.copySelectionOwner = { host, editor: this.textarea, origin: copySelectionButton,
+            const selectionOwner = lifecycle.selectionOwner = this.copySelectionOwner = { host, editor: this.textarea, origin: copySelectionButton,
                 controls, status: this.copyStatus, controller, document, parent: host.parentElement, valid: true };
             const previousSelectionOwner = selectionOwners.get(host);
             selectionOwners.set(host, selectionOwner);
             previousSelectionOwner?.invalidate();
             selectionOwner.invalidate = () => this.invalidateSelectionCopy();
-            const store = controller.store, backend = store?.backend, workspace = backend?.workspace;
             const chain = []; for (let node = host; node; node = node.parentElement) chain.push(node);
-            const savedOwner = this.copySavedOwner = { host, controller, store, backend, workspace,
-                workspaceId: workspace?.id, workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session,
+            lifecycle.chain = chain.slice();
+            const savedOwner = lifecycle.savedOwner = this.copySavedOwner = { host, controller, store, backend, workspace,
+                workspaceId: lifecycle.workspaceId, workspaceGeneration: lifecycle.workspaceGeneration, session: lifecycle.session,
                 preview: this.savedPreview, label: this.savedLabel, origin: copySavedButton, controls, status: this.copyStatus,
                 labelText: this.savedLabel.textContent, buttonText: copySavedButton.textContent, document, chain, valid: true };
             const previousSavedOwner = savedOwners.get(host);
@@ -206,18 +249,28 @@
             host.addEventListener('compositionstart', this.copyCompositionStart); host.addEventListener('compositionend', this.copyCompositionEnd);
             this.beforeUnload = event => { if (root.LocalItabContentLifecycle?.departing || !this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
             root.addEventListener?.('beforeunload', this.beforeUnload);
-            this.unsubscribe = controller.subscribe(() => this.render()); this.render(); run(() => controller.init());
+            lifecycle.listeners = [[host, 'compositionstart', this.copyCompositionStart], [host, 'compositionend', this.copyCompositionEnd],
+                [host, 'keyup', this.findKeyup], [host, 'pointerdown', this.findPointerdown], [host, 'keydown', this.findKeydown],
+                [document, 'visibilitychange', this.findVisibilityChange], [root, 'beforeunload', this.beforeUnload]];
+            this.unsubscribe = lifecycle.unsubscribe = controller.subscribe(() => {
+                if (viewSourceCurrent(this, lifecycle)) this.render();
+                else retireViewCopy(this, lifecycle);
+            });
+            this.render(); run(() => controller.init());
         }
         render() {
-            if (this.closed) return;
+            const lifecycle = viewLifecycles.get(this);
+            if (!viewSourceCurrent(this, lifecycle)) { retireViewCopy(this, lifecycle); return; }
             // Check the displayed saved snapshot before a render can overwrite it.
             if (this.copyReceipt?.saved && !this.copyCurrent(this.copyReceipt)) this.invalidateCopy();
-            const c = this.controller;
+            const c = lifecycle.controller;
             if (this.importSession && !this.importCurrent(this.importSession)) this.cancelImport();
             this.importButton.disabled = !this.canImport();
             const visible = c.state?.enabled === true || c.hasUncommittedWork() || Boolean(!c.loaded && c.error);
             this.host.hidden = !visible;
             if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
+            // Visibility callbacks can synchronously replace or retire this View.
+            if (!viewSourceCurrent(this, lifecycle)) { retireViewCopy(this, lifecycle); return; }
             this.textarea.readOnly = !c.loaded || c.readError;
             this.savedPreview.hidden = this.savedLabel.hidden = this.copySavedButton.hidden = !c.conflict;
             if (this.savedPreview.value !== (c.state?.content || '')) this.savedPreview.value = c.state?.content || '';
@@ -713,17 +766,44 @@
                 root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
             } catch (_) { link?.remove(); if (url) root.URL.revokeObjectURL(url); this.status.textContent = t('scratchpadExportError'); }
         }
-        hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
+        hasUncommittedWork() {
+            const lifecycle = viewLifecycles.get(this);
+            return Boolean(lifecycle && !lifecycle.retired && lifecycle.controller.hasUncommittedWork());
+        }
         destroy() {
-            this.copySavedOwner.valid = false;
-            if (savedOwners.get(this.host) === this.copySavedOwner) savedOwners.delete(this.host);
-            this.copySelectionOwner.valid = false;
-            if (selectionOwners.get(this.host) === this.copySelectionOwner) selectionOwners.delete(this.host);
-            this.invalidateCopy(); this.closeFind(); this.cancelImport(); this.closed = true;
-            this.host.removeEventListener('compositionstart', this.copyCompositionStart); this.host.removeEventListener('compositionend', this.copyCompositionEnd);
-            this.host.removeEventListener('keyup', this.findKeyup); this.host.removeEventListener('pointerdown', this.findPointerdown); this.host.removeEventListener('keydown', this.findKeydown);
-            document.removeEventListener('visibilitychange', this.findVisibilityChange);
-            root.removeEventListener?.('beforeunload', this.beforeUnload); this.unsubscribe(); this.controller.destroy();
+            const lifecycle = viewLifecycles.get(this); if (!lifecycle || lifecycle.retired) return;
+            // Private retirement precedes every callback and cannot be reset by
+            // public fields. A write already issued by the Store still settles.
+            lifecycle.retired = true; this.closed = true;
+            const { host, nodes, selectionOwner, savedOwner } = lifecycle;
+            let failed = false, failure;
+            const cleanup = action => { try { action(); } catch (error) { if (!failed) { failed = true; failure = error; } } };
+            savedOwner.valid = false; selectionOwner.valid = false;
+            if (savedOwners.get(host) === savedOwner) savedOwners.delete(host);
+            if (selectionOwners.get(host) === selectionOwner) selectionOwners.delete(host);
+            const receipt = this.copyReceipt;
+            // Retire only a receipt belonging to an original control/owner. A
+            // substituted foreign receipt cannot authorize its cleanup here.
+            if (receipt && (receipt.owner === selectionOwner || receipt.owner === savedOwner ||
+                (!receipt.owner && receipt.origin === nodes.copyButton))) {
+                receipt.valid = false; this.copyReceipt = null; cleanup(() => receipt.cleanup?.());
+            }
+            this.findHeldEnter = null; this.findComposing = false; this.findResult = null; this.importSession = null;
+            // Use pinned nodes rather than public helpers: their targets may have
+            // been replaced. Retired teardown never restores focus.
+            for (const action of [
+                () => { nodes.copyStatus.textContent = ''; }, () => { nodes.copyStatus.hidden = true; },
+                () => { nodes.findInput.value = ''; }, () => { nodes.findStatus.textContent = ''; },
+                () => { nodes.findPanel.hidden = true; }, () => nodes.findButton.setAttribute('aria-expanded', 'false'),
+                () => { nodes.findPrevious.disabled = true; }, () => { nodes.findNext.disabled = true; },
+                () => { nodes.importApply.textContent = t('scratchpadImportReplace'); }, () => { nodes.importAppend.checked = false; },
+                () => { nodes.importAppend.disabled = true; }, () => { nodes.importPanel.hidden = true; },
+                () => { nodes.importPreview.textContent = ''; }, () => { nodes.importInfo.textContent = ''; },
+                () => { nodes.importFile.value = ''; }
+            ]) cleanup(action);
+            for (const [target, type, listener] of lifecycle.listeners) cleanup(() => target.removeEventListener?.(type, listener));
+            cleanup(() => lifecycle.unsubscribe?.()); cleanup(() => lifecycle.destroyController());
+            if (failed) throw failure;
         }
     }
     function mountSettings(host, { controller = new api.Controller() } = {}) {
