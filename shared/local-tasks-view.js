@@ -111,9 +111,17 @@
     const rowRemoveLifecycles = new WeakMap();
     // Removed-row Restore has its own private, non-revivable render identity.
     const rowRestoreLifecycles = new WeakMap();
+    // An editor keeps its construction source independently of mutable View fields
+    // and of the rows that may be rebuilt while its draft remains open.
+    const editSources = new WeakMap();
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, alwaysVisible = false, clipboard = root.navigator?.clipboard } = {}) {
             this.host = host; this.controller = controller; this.clipboard = clipboard; this.copyAttempt = null; this.onVisibility = onVisibility; this.alwaysVisible = alwaysVisible;
+            const editWorkspace = controller.store.backend?.workspace ?? null;
+            editSources.set(this, Object.freeze({ host, controller, store: controller.store, backend: controller.store.backend,
+                workspace: editWorkspace, workspaceId: editWorkspace?.id, workspaceGeneration: editWorkspace?.generation,
+                session: root.LocalItabWorkspaces?.session ?? null,
+                legacyAvailability: !!editWorkspace && typeof editWorkspace === 'object' && editWorkspace.id == null && editWorkspace.generation == null && root.LocalItabWorkspaces == null }));
             this.dialogs = new Set(); this.reviewGeneration = 0; this.pendingReview = false; this.expanded = false; this.draftGeneration = 0; this.undo = null; this.actionGeneration = 0; this.destroyed = false; this.localError = null;
             host.classList.add('local-tasks-card'); host.setAttribute('aria-label', t('tasksTitle'));
             const header = el('header', 'tasks-header'); header.append(el('h2', '', t('tasksTitle')), el('span', 'tasks-local', t('tasksLocal')));
@@ -2151,14 +2159,28 @@
                 if (this.undo === record) this.undo = null;
             });
         }
+        editSourceCurrent(owner) {
+            if (!owner || editSources.get(this) !== owner || this.destroyed || this.host !== owner.host ||
+                owner.host.ownerDocument !== document) return false;
+            // Read source identities after the final host DOM check too.
+            const controller = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.controller === controller && !controller.closed &&
+                controller.store === owner.store && owner.store.backend === owner.backend && workspace === owner.workspace &&
+                workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null));
+        }
         edit(task, origin = null) {
+            const owner = editSources.get(this);
+            if (!this.editSourceCurrent(owner)) return;
+            const { controller, store } = owner;
             let ownedOperationId = null, focusDeparted = false;
             const moved = event => { focusDeparted = !modal.panel.contains(event.target); };
             const departed = () => { focusDeparted = true; };
             const modal = this.createDialog(t('tasksEditTitle'), () => {
                 document.removeEventListener('focusin', moved, true);
                 document.removeEventListener('visibilitychange', departed, true); root.removeEventListener?.('blur', departed);
-                this.controller.dismissRetry(ownedOperationId);
+                controller.dismissRetry(ownedOperationId);
             }); if (!modal) return;
             const input = el('textarea', 'tasks-editor', task.text), hint = el('p', 'tasks-help', t('tasksTextLimit'));
             input.value = task.text; input.setAttribute('aria-label', t('tasksEditTitle')); input.rows = 4;
@@ -2170,15 +2192,22 @@
             // Match quick-entry ownership even before an IME emits changed text.
             input.addEventListener('compositionstart', changed);
             const originalClose = modal.close;
-            const owns = () => !this.destroyed && open && modal.isOpen && input.isConnected;
+            let opening = null;
+            // Modal ownership deliberately ignores row redraw/filter/collapse and
+            // the host's inert state, which this dialog itself owns while open.
+            const owns = () => !!opening && !this.destroyed && open && modal.isOpen && this.dialogs.has(modal) &&
+                modal.panel === opening.panel && opening.panel.parentElement === opening.overlay && opening.overlay.parentElement === document.body &&
+                [opening.overlay, opening.panel, input, feedback, latest, buttons, cancel, saveButton, overwrite].every(node => node.ownerDocument === document && node.isConnected) &&
+                input.parentElement === opening.panel && feedback.parentElement === opening.panel && latest.parentElement === opening.panel &&
+                buttons.parentElement === opening.panel && [cancel, saveButton, overwrite].every(node => node.parentElement === buttons);
             const close = () => {
                 // A revision rebuilds the row. Resolve its current Edit by task identity,
                 // but only while this opening still owns focus (including native blur).
-                const restore = owns() && !focusDeparted && !document.hidden &&
+                const restore = owns() && this.editSourceCurrent(owner) && !focusDeparted && !document.hidden &&
                     (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
                 open = false; originalClose(origin ? false : restore);
-                if (!origin || !restore || this.destroyed || this.dialogs.size || !this.host.isConnected || document.activeElement !== document.body) return;
-                const item = Array.from(this.host.querySelectorAll('[data-task-id]')).find(node => node.dataset.taskId === task.id);
+                if (!origin || !restore || !this.editSourceCurrent(owner) || this.dialogs.size || document.activeElement !== document.body) return;
+                const item = Array.from(owner.host.querySelectorAll('[data-task-id]')).find(node => node.dataset.taskId === task.id);
                 const target = item && Array.from(item.querySelectorAll('[data-task-action]')).find(node => node.dataset.taskAction === t('tasksEdit'));
                 const visible = node => {
                     if (!node?.isConnected || node.disabled || node.closest('[hidden], [inert]') || !node.getClientRects().length) return false;
@@ -2186,7 +2215,7 @@
                     for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
                     return true;
                 };
-                if (visible(target)) target.focus(); else if (visible(this.input)) this.input.focus();
+                if (visible(target) && this.editSourceCurrent(owner)) target.focus(); else if (visible(this.input) && this.editSourceCurrent(owner)) this.input.focus();
             };
             modal.close = close;
             const setControl = (node, disabled, hidden = node.hidden) => {
@@ -2198,33 +2227,51 @@
             };
             // Escape is routed through the shared focus helper; detached input prevents late DOM/focus writes too.
             const save = async (replaceLatest = false) => {
-                if (!owns() || pending || this.controller.pending) return;
+                if (!owns() || pending) return;
+                if (!this.editSourceCurrent(owner)) { feedback.textContent = t('tasksConflict'); return; }
+                if (controller.pending) return;
                 if (replaceLatest) {
                     if (!reviewedLatest) { feedback.textContent = t('tasksConflict'); return; }
-                    baseline = reviewedLatest; failedCommand = null;
                 }
                 const text = input.value, submittedGeneration = generation;
-                const command = failedCommand || this.controller.store.request('edit', { id: baseline.id, version: baseline.version, text });
+                const submittedBaseline = replaceLatest ? reviewedLatest : baseline;
+                const values = { id: submittedBaseline.id, version: submittedBaseline.version, text };
+                if (!owns() || !this.editSourceCurrent(owner)) return;
+                const command = (!replaceLatest && failedCommand) || store.request('edit', values);
+                if (!owns() || !this.editSourceCurrent(owner)) return;
+                if (replaceLatest) { baseline = submittedBaseline; failedCommand = null; }
                 ownedOperationId = command.operationId; pending = true; setControl(saveButton, true); setControl(overwrite, true); feedback.textContent = t('tasksSaving');
+                const retainCommand = () => { failedCommand = generation === submittedGeneration && input.value === text ? command : null; };
                 try {
-                    const state = await this.controller.run(command);
+                    // Focus/disabled-control DOM work above must not silently
+                    // change the source between admission and dispatch.
                     if (!owns()) return;
+                    if (!this.editSourceCurrent(owner)) { retainCommand(); feedback.textContent = t('tasksConflict'); return; }
+                    const state = await controller.run(command);
+                    if (!owns()) return;
+                    // Admission cannot cancel or source-bind an already-dispatched
+                    // Store transaction. Keep its exact command for a deliberate
+                    // original-source receipt retry; never adopt a foreign result.
+                    if (!this.editSourceCurrent(owner)) { retainCommand(); feedback.textContent = t('tasksConflict'); return; }
                     baseline = state.records.find(t => t.id === task.id); failedCommand = null;
                     if (generation === submittedGeneration && input.value === text) close(); else feedback.textContent = t('tasksDraftRemains');
                 } catch (error) {
-                    if (!owns()) { this.controller.dismissRetry(command.operationId); return; }
-                    failedCommand = generation === submittedGeneration && input.value === text ? command : null; feedback.textContent = errorText(error);
+                    if (!owns()) { controller.dismissRetry(command.operationId); return; }
+                    retainCommand();
+                    if (!this.editSourceCurrent(owner)) { feedback.textContent = t('tasksConflict'); return; }
+                    feedback.textContent = errorText(error);
                     if (error.code === 'CONFLICT') {
                         failedCommand = null;
-                        const fresh = this.controller.state?.records.find(t => t.id === task.id && t.state !== 'removed');
+                        const fresh = controller.state?.records.find(t => t.id === task.id && t.state !== 'removed');
                         reviewedLatest = fresh || null; latest.hidden = !fresh; latest.textContent = fresh ? `${t('tasksLatest')}: ${fresh.text}` : '';
                         setControl(overwrite, pending, !fresh);
                     }
                 } finally { pending = false; setControl(saveButton, false); setControl(overwrite, false); }
             };
             const buttons = el('div', 'tasks-dialog-actions');
-            const saveButton = button('tasksSave', () => save(), 'tasks-primary'), overwrite = button('tasksOverwrite', () => save(true)); overwrite.hidden = true;
-            buttons.append(button('tasksCancel', () => close()), overwrite, saveButton); modal.panel.append(input, hint, latest, feedback, buttons); modal.open(input);
+            const cancel = button('tasksCancel', () => close()), saveButton = button('tasksSave', () => save(), 'tasks-primary'), overwrite = button('tasksOverwrite', () => save(true)); overwrite.hidden = true;
+            buttons.append(cancel, overwrite, saveButton); modal.panel.append(input, hint, latest, feedback, buttons);
+            opening = Object.freeze({ panel: modal.panel, overlay: modal.panel.parentElement }); modal.open(input);
             document.addEventListener('focusin', moved, true);
             document.addEventListener('visibilitychange', departed, true); root.addEventListener?.('blur', departed);
         }
