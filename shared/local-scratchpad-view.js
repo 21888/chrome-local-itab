@@ -28,6 +28,16 @@
         // read. Validate the captured links again before authorizing a write.
         return matches() && matches();
     }
+    function writeTeardownProperty(lifecycle, name, property, value) {
+        if (copyChainOwned(lifecycle.teardownChains[name], lifecycle.document, true)) lifecycle.nodes[name][property] = value;
+    }
+    function writeTeardownAttribute(lifecycle, name, attribute, value) {
+        if (!copyChainOwned(lifecycle.teardownChains[name], lifecycle.document, true)) return;
+        const node = lifecycle.nodes[name], setAttribute = node.setAttribute;
+        // Only read an owned method, then recheck: its getter can transfer the
+        // target just as an earlier cleanup setter or translation can.
+        if (copyChainOwned(lifecycle.teardownChains[name], lifecycle.document, true)) setAttribute.call(node, attribute, value);
+    }
     function copyContext(view, transaction, origin, owner) {
         const controller = view.controller, store = controller.store, backend = store?.backend, workspace = backend?.workspace;
         const host = view.host, chain = copyNodeChain(host);
@@ -302,6 +312,11 @@
                 'importPanel', 'importInfo', 'importPreview', 'importAppend', 'importApply', 'importCancel', 'findButton',
                 'findSelectionButton', 'findPanel', 'findInput', 'findPrevious', 'findNext', 'findClose', 'findStatus', 'count']
                 .map(name => [name, this[name]]));
+            // Teardown authority is private and captured before any prior-owner
+            // invalidation callback can reparent or adopt the new controls.
+            lifecycle.teardownChains = Object.fromEntries(['findInput', 'findStatus', 'findPanel', 'findButton',
+                'findPrevious', 'findNext', 'importApply', 'importAppend', 'importPanel', 'importPreview', 'importInfo', 'importFile']
+                .map(name => [name, copyNodeChain(lifecycle.nodes[name])]));
             // Pin the original controls before callbacks can run. Receipts also
             // observe removal so a pending reparent/restore cannot revive them.
             const selectionOwner = lifecycle.selectionOwner = this.copySelectionOwner = { host, editor: this.textarea, origin: copySelectionButton,
@@ -859,16 +874,23 @@
                 cleanup(() => { if (ownsStatus()) nodes.copyStatus.hidden = true; });
             }
             this.findHeldEnter = null; this.findComposing = false; this.findResult = null; this.importSession = null;
-            // Use pinned nodes rather than public helpers: their targets may have
-            // been replaced. Retired teardown never restores focus.
+            // Check each original target independently, including after another
+            // setter transfers it. Detached original chains remain eligible;
+            // new parents/documents do not. Retired teardown never restores focus.
             for (const action of [
-                () => { nodes.findInput.value = ''; }, () => { nodes.findStatus.textContent = ''; },
-                () => { nodes.findPanel.hidden = true; }, () => nodes.findButton.setAttribute('aria-expanded', 'false'),
-                () => { nodes.findPrevious.disabled = true; }, () => { nodes.findNext.disabled = true; },
-                () => { nodes.importApply.textContent = t('scratchpadImportReplace'); }, () => { nodes.importAppend.checked = false; },
-                () => { nodes.importAppend.disabled = true; }, () => { nodes.importPanel.hidden = true; },
-                () => { nodes.importPreview.textContent = ''; }, () => { nodes.importInfo.textContent = ''; },
-                () => { nodes.importFile.value = ''; }
+                () => writeTeardownProperty(lifecycle, 'findInput', 'value', ''),
+                () => writeTeardownProperty(lifecycle, 'findStatus', 'textContent', ''),
+                () => writeTeardownProperty(lifecycle, 'findPanel', 'hidden', true),
+                () => writeTeardownAttribute(lifecycle, 'findButton', 'aria-expanded', 'false'),
+                () => writeTeardownProperty(lifecycle, 'findPrevious', 'disabled', true),
+                () => writeTeardownProperty(lifecycle, 'findNext', 'disabled', true),
+                () => writeTeardownProperty(lifecycle, 'importApply', 'textContent', t('scratchpadImportReplace')),
+                () => writeTeardownProperty(lifecycle, 'importAppend', 'checked', false),
+                () => writeTeardownProperty(lifecycle, 'importAppend', 'disabled', true),
+                () => writeTeardownProperty(lifecycle, 'importPanel', 'hidden', true),
+                () => writeTeardownProperty(lifecycle, 'importPreview', 'textContent', ''),
+                () => writeTeardownProperty(lifecycle, 'importInfo', 'textContent', ''),
+                () => writeTeardownProperty(lifecycle, 'importFile', 'value', '')
             ]) cleanup(action);
             for (const [target, type, listener] of lifecycle.listeners) cleanup(() => target.removeEventListener?.(type, listener));
             cleanup(() => lifecycle.unsubscribe?.()); cleanup(() => lifecycle.destroyController());
