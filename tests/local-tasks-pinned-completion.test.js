@@ -151,11 +151,16 @@ test('filter, expansion, order, drafts and open sections survive pinned completi
         await pin(h, list[4]); if (expanded) h.view.more.dispatch('click');
         const button = h.view.nextComplete; input(h.view.filterInput, 'Task 1');
         assert.equal(h.view.nextComplete, button, 'filter leaves active pin action stable');
-        input(h.view.input, 'draft entry'); h.view.edit(list[1]);
+        input(h.view.input, 'draft entry');
+        const writes = h.backend.writes, completion = deferred(); h.backend.delay = completion.promise;
+        // Start a real visible Next up save, then give the newer editor ownership.
+        button.focus(); button.dispatch('click'); await settle();
+        assert.equal(h.backend.writes, writes + 1); assert.equal(h.controller.status, 'saving'); assert.ok(h.controller.pending);
+        h.view.edit(list[1]);
         const editor = h.document.querySelector('.tasks-editor'); input(editor, 'draft edit');
         h.view.completed.box.open = true; h.view.removed.box.open = true;
-        // Programmatic click models an action that does not own current editor focus.
-        editor.focus(); button.dispatch('click'); await settle();
+        editor.focus(); completion.resolve(); h.backend.delay = null; await settle();
+        assert.equal(h.backend.raw().records[4].state, 'done'); assert.equal(h.backend.writes, writes + 1);
         assert.equal(h.view.filterInput.value, 'Task 1'); assert.equal(h.view.filterQuery, 'task 1'); assert.equal(h.view.expanded, expanded);
         assert.equal(h.view.list.children.length, 1); assert.equal(h.view.input.value, 'draft entry'); assert.equal(editor.value, 'draft edit');
         assert.equal(h.document.activeElement, editor); assert.equal(h.view.completed.box.open, true); assert.equal(h.view.removed.box.open, true);

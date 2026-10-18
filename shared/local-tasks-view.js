@@ -228,10 +228,14 @@
             this.copies = el('div', 'tasks-copies'); this.data.append(fileRow, this.copies);
             this.feedback = el('div', 'tasks-feedback'); this.status = el('span'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             this.retry = button('tasksRetry', event => {
-                if (!(event.detail > 1 && this.controller.retryCommand?.kind === 'completePinned')) this.retryLast();
+                if (this.controller.retryCommand?.kind === 'completePinned' && (event.defaultPrevented || event.detail > 1 ||
+                    event.repeat || event.isComposing || event.keyCode === 229 || event.target !== this.retry ||
+                    (event.currentTarget && event.currentTarget !== this.retry))) return;
+                this.retryLast();
             });
             this.retry.addEventListener('keydown', event => {
-                if (this.controller.retryCommand?.kind === 'completePinned' && event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
+                if (this.controller.retryCommand?.kind === 'completePinned' && ['Enter', ' '].includes(event.key) &&
+                    (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
             });
             this.undoButton = button('tasksUndo', () => this.undoLast());
             this.feedback.append(this.status, this.retry, this.undoButton);
@@ -283,6 +287,14 @@
                 workspace: reopenWorkspace, workspaceId: reopenWorkspace?.id, workspaceGeneration: reopenWorkspace?.generation,
                 legacyAvailability: !!reopenWorkspace && typeof reopenWorkspace === 'object' && reopenWorkspace.id == null && reopenWorkspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain: reopenChain });
+            // Next up owns its construction source before any asynchronous read. Its
+            // own lifecycle is independent of row redraws, filters and unrelated edits.
+            const nextWorkspace = controller.store.backend?.workspace ?? null, nextChain = [];
+            for (let node = this.next; node; node = node.parentElement) nextChain.push([node, node.parentElement]);
+            this.nextOwner = Object.freeze({ host, next: this.next, controller, store: controller.store, backend: controller.store.backend,
+                workspace: nextWorkspace, workspaceId: nextWorkspace?.id, workspaceGeneration: nextWorkspace?.generation,
+                legacyAvailability: !!nextWorkspace && typeof nextWorkspace === 'object' && nextWorkspace.id == null && nextWorkspace.generation == null && root.LocalItabWorkspaces == null,
+                session: root.LocalItabWorkspaces?.session ?? null, chain: nextChain });
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
@@ -352,7 +364,11 @@
             if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
                 !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
                 document.hidden || document.visibilityState === 'hidden')) return;
-            if (command?.kind === 'completePinned' && command.operationId === this.retryEffectOperationId) {
+            if (command?.kind === 'completePinned') {
+                // The original receipt may outlive its Next up button, but cannot
+                // become another command or cross its construction source.
+                if (command !== this.nextAttempt?.command || !this.nextSourceCurrent(this.nextAttempt.owner) ||
+                    command.operationId !== this.retryEffectOperationId) return;
                 return this.performPinned(command, this.retry);
             }
             if (command) {
@@ -946,25 +962,84 @@
             root.addEventListener?.('blur', departed); root.addEventListener?.('pagehide', departed);
             update(); this.render();
         }
+        nextSourceCurrent(owner) {
+            const c = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.nextOwner === owner && this.host === owner.host && this.next === owner.next &&
+                this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null)) &&
+                owner.chain.every(([node, parent]) => node.ownerDocument === document && node.parentElement === parent);
+        }
+        nextCurrent(source) {
+            const { owner, action, title, snapshot } = source;
+            // No layout reads here. Repeat all source/text/state checks after the
+            // final visibility observation, before constructing the exact command.
+            if (this.nextSelection !== source || this.nextComplete !== action || this.nextTask?.id !== snapshot.id || this.nextTask?.version !== snapshot.version ||
+                document.hidden || document.visibilityState === 'hidden' || !action.isConnected ||
+                action.disabled || action.getAttribute('disabled') != null || action.getAttribute('aria-disabled') !== 'false' ||
+                action.tagName !== 'BUTTON' || action.type !== 'button' || action.textContent !== source.label || action.children.length ||
+                action.title !== source.actionTitle || action.getAttribute('aria-label') !== `${source.label}: ${snapshot.text}` ||
+                !action.classList.contains('tasks-next-complete') || !title.classList.contains('tasks-next-text') ||
+                title.textContent !== source.text || title.children.length || !owner.next.classList.contains('has-pin') ||
+                owner.next.children.length !== 2 || owner.next.children[0] !== title || owner.next.children[1] !== action ||
+                action.parentElement !== owner.next || title.parentElement !== owner.next ||
+                action.ownerDocument !== document || title.ownerDocument !== document || !this.nextSourceCurrent(owner)) return false;
+            for (const displayed of [action, title]) for (let node = displayed; node; node = node.parentElement) {
+                if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                    node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                    (node.tagName === 'DETAILS' && !node.open)) return false;
+            }
+            const c = owner.controller;
+            const reviewedConflict = c.error?.code === 'CONFLICT' && !!c.retryCommand && source.conflictCommand === c.retryCommand;
+            if (this.destroyed || c.pending || (c.error && !reviewedConflict) || (c.retryCommand && !reviewedConflict) || this.localError ||
+                ['loading', 'saving'].includes(c.status) || (c.status === 'error' && !reviewedConflict) ||
+                this.dialogs.size || this.pendingReview || this.batchSession || this.reuseSession || this.completionSession || this.restorationSession ||
+                root.LocalItabContentLifecycle?.departing) return false;
+            const current = c.state?.records.find(record => record.id === snapshot.id);
+            // Pin-only changes do not touch task.version. Keep both identities;
+            // the Store rechecks expectedPin with the active/version CAS in its lock.
+            return c.state?.pinnedId === source.expectedPin && !!current && current.state === 'active' &&
+                Object.keys(snapshot).every(key => current[key] === snapshot[key]);
+        }
+        nextVisible(source) {
+            for (const displayed of [source.action, source.title]) {
+                if (!displayed.getClientRects().length) return false;
+                for (let node = displayed; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node);
+                    if (style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility)) return false;
+                }
+            }
+            return true;
+        }
         renderNext(task) {
-            // Keep an unchanged action mounted through filtering and unrelated row updates.
-            if (this.nextTask?.id === task?.id && this.nextTask?.version === task?.version && this.next.children.length) return;
-            this.nextTask = task; this.nextComplete = null;
+            // Keep ordinary unchanged redraws stable. A newly observed genuine CAS
+            // conflict alone renews the deliberate choice; clearing it for saving
+            // must not replace the focused control or interrupt its focus lease.
+            const conflictCommand = this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null;
+            if (this.nextTask?.id === task?.id && this.nextTask?.version === task?.version && this.next.children.length &&
+                (!task || !conflictCommand || this.nextSelection?.conflictCommand === conflictCommand)) return;
+            this.nextTask = task; this.nextComplete = null; this.nextSelection = null;
             const text = el('span', 'tasks-next-text', task ? `${t('tasksNext')}: ${task.text}` : t('tasksNoPin'));
             this.next.replaceChildren(text); this.next.classList.toggle('has-pin', !!task);
             if (!task) return;
+            const source = { owner: this.nextOwner, title: text, text: text.textContent, label: t('tasksComplete'),
+                snapshot: Object.freeze({ ...task }), expectedPin: task.id, conflictCommand };
             const complete = button('tasksComplete', event => {
-                if (event.detail > 1 || this.destroyed || this.controller.pending || this.nextComplete !== complete ||
-                    !complete.isConnected || this.host.hidden) return;
-                const command = this.controller.store.request('completePinned', { id: task.id, version: task.version, expectedPin: task.id });
+                if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                    event.target !== complete || (event.currentTarget && event.currentTarget !== complete)) return;
+                if (!this.nextCurrent(source) || !this.nextVisible(source) || !this.nextCurrent(source)) return;
+                const command = source.owner.store.request('completePinned', { id: source.snapshot.id, version: source.snapshot.version, expectedPin: source.expectedPin });
+                this.nextAttempt = Object.freeze({ command, owner: source.owner });
                 this.performPinned(command, complete);
             }, 'tasks-next-complete');
-            complete.setAttribute('aria-label', `${t('tasksComplete')}: ${task.text}`);
+            complete.setAttribute('aria-label', `${source.label}: ${source.snapshot.text}`);
             // Leave ordinary Enter/Space activation to the native button.
             complete.addEventListener('keydown', event => {
-                if (event.repeat && ['Enter', ' '].includes(event.key)) event.preventDefault();
+                if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
             });
-            this.nextComplete = complete; this.next.append(complete);
+            source.action = complete; source.actionTitle = complete.title;
+            this.nextSelection = source; this.nextComplete = complete; this.next.append(complete);
         }
         performPinned(command, origin) {
             if (this.destroyed || this.controller.pending) return;

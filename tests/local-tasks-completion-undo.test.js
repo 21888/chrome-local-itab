@@ -69,10 +69,16 @@ for (const locale of ['en', 'zh_CN']) for (const pinned of [false, true]) test(`
         h.backend.delay = new Promise(resolve => { releaseCompletion = resolve; });
         complete(h, false); await settle();
         assert.equal(h.backend.writes, writes + 1); assert.equal(h.controller.status, 'saving'); assert.ok(h.controller.pending);
+    } else {
+        // Begin the real visible Next up write before the newer editor makes its background inert.
+        const writes = h.backend.writes;
+        h.backend.delay = new Promise(resolve => { releaseCompletion = resolve; });
+        complete(h, true); await settle();
+        assert.equal(h.backend.writes, writes + 1); assert.equal(h.controller.status, 'saving'); assert.ok(h.controller.pending);
     }
     h.view.edit(other); const editor = h.document.querySelector('.tasks-editor'); input(editor, 'edit draft');
     editor.focus();
-    if (pinned) complete(h, pinned);
+    if (pinned) { releaseCompletion(); h.backend.delay = null; }
     else { releaseCompletion(); h.backend.delay = null; }
     await settle();
     const done = h.backend.raw().records[0];
