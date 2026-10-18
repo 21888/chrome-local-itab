@@ -120,6 +120,8 @@
     const viewLifecycles = new WeakMap();
     // Undo records and exact attempts stay private to the source that confirmed them.
     const undoRecords = new WeakMap(), undoAttempts = new WeakMap();
+    // Quick entry owns only its exact Add attempt, never a reuse dialog's Add.
+    const quickAddAttempts = new WeakMap();
     function viewSourceCurrent(view, lifecycle) {
         if (!lifecycle || lifecycle.retired || view.destroyed) return false;
         const source = lifecycle.source;
@@ -376,6 +378,8 @@
             box.append(summary, list); return { box, summary, list, key };
         }
         async perform(command, success, failure = null) {
+            const quickAttempt = quickAddAttempts.get(this);
+            if (quickAttempt?.command === command) return this.performQuickAdd(quickAttempt);
             const undoAttempt = undoAttempts.get(this);
             if (undoAttempt?.command === command) return this.performUndo(undoAttempt);
             if (this.destroyed || this.controller.pending) return;
@@ -416,7 +420,31 @@
                 // A source gap never grants this continuation another View effect.
             }
         }
+        async performQuickAdd(attempt) {
+            const { owner, command, success } = attempt, controller = owner.controller;
+            const owns = () => quickAddAttempts.get(this) === attempt &&
+                viewSourceCurrent(this, viewLifecycles.get(this)) && this.editSourceCurrent(owner);
+            if (!owns() || controller.pending) return;
+            const generation = ++this.actionGeneration;
+            this.localError = null; this.retryEffect = success; this.retryFailure = null; this.retryEffectOperationId = command.operationId;
+            if (!owns() || controller.pending) return;
+            try {
+                const state = await controller.run(command);
+                // Issued work keeps its real result. Only this original attempt
+                // may clear its draft/effects after final Controller notifications.
+                if (!owns() || generation !== this.actionGeneration || controller.pending ||
+                    (controller.retryCommand && controller.retryCommand !== command)) return;
+                this.retryEffect = null; this.retryFailure = null; success(state); this.render();
+            } catch (_) {
+                // The captured Controller retains its error and exact Retry.
+            }
+        }
         async retryLast() {
+            const quickAttempt = quickAddAttempts.get(this);
+            if (quickAttempt) {
+                if (!viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(quickAttempt.owner)) return;
+                if (quickAttempt.owner.controller.retryCommand === quickAttempt.command) return this.perform(quickAttempt.command);
+            }
             const undoAttempt = undoAttempts.get(this);
             if (undoAttempt) {
                 if (!viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(undoAttempt.owner)) return;
@@ -462,13 +490,19 @@
             try { await this.controller.retry(); if (!this.destroyed) this.render(); } catch (_) {}
         }
         add() {
-            if (this.destroyed || this.quickEntryComposing || this.controller.pending) return;
+            const owner = editSources.get(this);
+            if (!viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(owner) ||
+                this.quickEntryComposing || owner.controller.pending) return;
             const text = this.input.value, generation = this.draftGeneration;
-            const command = this.controller.store.request('add', { text });
-            this.perform(command, () => {
+            const command = owner.store.request('add', { text });
+            if (!viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(owner) || owner.controller.pending) return;
+            const success = () => {
                 // A late success must not clear newer text or focus another element.
                 if (!this.quickEntryComposing && this.draftGeneration === generation && this.input.value === text) this.input.value = '';
-            });
+            };
+            quickAddAttempts.set(this, { owner, command, success });
+            // Add remains a deliberate new request. Only Retry replays this command.
+            this.perform(command);
         }
         addBatch() {
             if (this.destroyed || this.dialogs.size) return;
