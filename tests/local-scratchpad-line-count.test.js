@@ -237,10 +237,49 @@ for (const [language, label] of [['en', 'Lines: '], ['zh_CN', '行数：'], [und
 }
 
 test('line count: counting block is one constant-state pass without arrays, normalization, writes, geometry or extra lifecycle hooks', () => {
-    const block = viewSource.slice(viewSource.indexOf('            const editorText ='), viewSource.indexOf('            const text = statusText(c);'));
-    assert(block.includes('for (const character of editorText)')); assert.equal((block.match(/this\.textarea\.value/g) || []).length, 1);
-    assert(!/\.split\(|Array\.from|\.match|\.trim\(|\.normalize\(|\.slice\(|\.substring\(|\.push\(|new (?:Array|Map|Set)|setTimeout|setInterval|addEventListener|\.save\(|\.read\(|\.write\(|fetch|clipboard|focus\(|selection|scroll|clientHeight|scrollHeight/.test(block));
-    assert(!/this\.textarea\.value\s*=(?!=)/.test(block)); assert(!/this\.(?:status|copyStatus|findStatus|importInfo|importPreview|savedPreview)/.test(block));
+    // Ownership guards changed the source spelling, not the counting contract.
+    // Inspect only this block, and prove the check rejects the old hazards below.
+    const inspect = source => {
+        const renderStart = source.indexOf('        render() {'), renderEnd = source.indexOf('        findVisible(node) {', renderStart);
+        assert(renderStart >= 0 && renderEnd > renderStart, 'the original main render must be bounded');
+        const render = source.slice(renderStart, renderEnd);
+        const start = render.indexOf("const editorText = read(nodes.textarea, 'value') || '';"),
+            end = render.indexOf('const code = state.error?.code;', start);
+        assert(start >= 0 && end > start, 'the exact guarded count block must exist');
+        const block = render.slice(start, end);
+        assert(render.includes('const read = (object, key) => { if (current()) return object[key]; };'));
+        assert(render.includes('const write = (object, key, value) => { if (current()) object[key] = value; };'));
+        assert(block.includes('for (const character of editorText)'));
+        assert.equal((block.match(/\bfor\s*\(/g) || []).length, 1);
+        assert.equal((block.match(/\bread\(nodes\.textarea, 'value'\)/g) || []).length, 1);
+        assert.equal((block.match(/\bwrite\(nodes\.count, 'textContent'/g) || []).length, 1);
+        for (const method of ['read', 'write', 'call']) assert.equal((block.match(new RegExp('\\b' + method + '\\(', 'g')) || []).length, 1);
+        assert(block.includes("call(translate('scratchpadLines'), 'replace', ['{count}', lineCount.toLocaleString()])"));
+        assert(!/(?:this|nodes)\.textarea\.value|(?:c|state)\.draft/.test(block));
+        assert(!/\.split\(|Array\.from|Object\.(?:keys|values|entries|fromEntries)|\.match|\.trim\(|\.normalize\(|\.slice\(|\.substring\(|\.push\(|new (?:Array|Map|Set)|setTimeout|setInterval|addEventListener|\.save\(|\.read\(|\.write\(|fetch|clipboard|focus\(|selection|scroll|clientHeight|scrollHeight/.test(block));
+        assert(!/this\.textarea\.value\s*=(?!=)/.test(block));
+        assert(!/nodes\.textarea\.value\s*=(?!=)|\bwrite\((?!nodes\.count\s*,)/.test(block));
+        assert(!/this\.(?:status|copyStatus|findStatus|importInfo|importPreview|savedPreview)/.test(block));
+        assert(!/\bnodes\.(?!textarea\b|count\b)/.test(block));
+    };
+    inspect(viewSource);
+    const snapshot = "const editorText = read(nodes.textarea, 'value') || '';";
+    assert.throws(() => inspect(viewSource.replace(snapshot, "const editorText = this.textarea.value || '';")));
+    assert.throws(() => inspect(viewSource.replace(snapshot, "const editorText = state.draft || '';")));
+    for (const anchor of [snapshot, 'const code = state.error?.code;', '        render() {', '        findVisible(node) {'])
+        assert.throws(() => inspect(viewSource.replace(anchor, '')), anchor);
+    for (const hazard of [
+        "read(nodes.textarea, 'value');", 'this.textarea.value;', 'nodes.textarea.value;',
+        'c.draft;', 'state.draft;', "read(nodes.count, 'value');", "call(c, 'save');", "call(c, 'read');",
+        'for (const character of editorText) {}',
+        "editorText.split('\\n');", 'Array.from(editorText);', 'Object.keys(editorText);',
+        'editorText.trim();', 'editorText.normalize();', 'editorText.slice(0);',
+        "write(nodes.textarea, 'value', editorText);", "write(nodes.status, 'textContent', 'changed');",
+        "this.textarea.value = '';", "nodes.textarea.value = '';",
+        "fetch('https://example.invalid');", 'controller.save();', 'store.read();', 'store.write();',
+        'setTimeout(() => {}, 0);', 'setInterval(() => {}, 1);', "addEventListener('input', () => {});",
+        'clipboard.writeText(editorText);', 'node.focus();', 'node.scrollHeight;'
+    ]) assert.throws(() => inspect(viewSource.replace(snapshot, snapshot + '\n' + hazard)), hazard);
     const css = fs.readFileSync(require.resolve('../local-scratchpad.css'), 'utf8');
     assert.match(css, /\.local-scratchpad-card\s*\{[^}]*overflow-wrap:\s*anywhere/);
     assert(!/\.scratchpad-count[^}]*white-space:\s*nowrap/.test(css));

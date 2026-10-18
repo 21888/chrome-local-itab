@@ -14,6 +14,18 @@
             lifecycle.host.ownerDocument === lifecycle.document &&
             Object.entries(lifecycle.nodes).every(([name, node]) => view[name] === node && node.ownerDocument === lifecycle.document);
     }
+    const viewRenders = new WeakMap();
+    function renderSourceCurrent(view, owner) {
+        const matches = () => viewSourceCurrent(view, owner.lifecycle) &&
+            owner.chains.every(chain => copyChainOwned(chain, owner.lifecycle.document, true));
+        return matches() && matches();
+    }
+    function renderCurrent(view, token) {
+        const { owner, epoch, snapshot } = token;
+        const matches = () => owner.epoch === epoch && renderSourceCurrent(view, owner) &&
+            Object.entries(snapshot).every(([key, value]) => owner.lifecycle.controller[key] === value) && owner.epoch === epoch;
+        return matches() && matches();
+    }
     const viewEditors = new WeakMap();
     function editorSourceCurrent(view, owner) {
         if (!owner) return false;
@@ -529,6 +541,8 @@
                 .map(name => [name, this[name]]));
             viewEditors.set(this, { lifecycle, epoch: 0, composition: 0, events: new WeakMap(),
                 chains: Object.values(lifecycle.nodes).map(copyNodeChain) });
+            viewRenders.set(this, { lifecycle, epoch: 0,
+                chains: Object.values(lifecycle.nodes).map(copyNodeChain) });
             // Each recovery can emit into all rendering controls. Keep their
             // construction chains and source; public fields cannot retarget them.
             viewRecoveries.set(this, { lifecycle, epoch: 0,
@@ -598,44 +612,90 @@
             this.render(); run(() => controller.init());
         }
         render() {
-            const lifecycle = viewLifecycles.get(this);
-            if (!viewSourceCurrent(this, lifecycle)) { retireViewCopy(this, lifecycle); return; }
-            // Check the displayed saved snapshot before a render can overwrite it.
-            if (viewCopies.get(this).feedback?.receipt.saved && !this.copyCurrent(viewCopies.get(this).feedback.receipt)) this.invalidateCopy();
-            const c = lifecycle.controller;
-            if (this.importSession && !this.importCurrent(this.importSession)) this.cancelImport();
-            this.importButton.disabled = !this.canImport();
-            const visible = c.state?.enabled === true || c.hasUncommittedWork() || Boolean(!c.loaded && c.error);
-            this.host.hidden = !visible;
-            if (this.visible !== visible) { this.visible = visible; this.onVisibility(visible); }
-            // Visibility callbacks can synchronously replace or retire this View.
-            if (!viewSourceCurrent(this, lifecycle)) { retireViewCopy(this, lifecycle); return; }
-            this.textarea.readOnly = !c.loaded || c.readError;
-            this.savedPreview.hidden = this.savedLabel.hidden = this.copySavedButton.hidden = !c.conflict;
-            if (this.savedPreview.value !== (c.state?.content || '')) this.savedPreview.value = c.state?.content || '';
-            // Do not replace the DOM value during IME composition or on each
-            // keystroke: that would reset the caret and the native undo stack.
-            if (!c.composing && this.textarea.value !== c.draft) this.textarea.value = c.draft;
-            // Count the same current DOM snapshot for both metrics. CRLF is one
-            // break; a final CR/LF leaves an empty line. Soft wrapping is not a break.
-            const editorText = this.textarea.value || '';
-            let characterCount = 0, lineCount = editorText ? 1 : 0, previousCharacter = '';
-            for (const character of editorText) {
-                characterCount++;
-                if (character === '\r' || (character === '\n' && previousCharacter !== '\r')) lineCount++;
-                previousCharacter = character;
+            const owner = viewRenders.get(this); if (!owner) return;
+            const { lifecycle } = owner, { controller: c, host, nodes } = lifecycle;
+            // Reserve before observable ownership reads. Only this real state and
+            // synchronous render may finish; a nested render owns its own output.
+            const token = { owner, epoch: ++owner.epoch };
+            let state, failed = false;
+            const current = () => renderCurrent(this, token);
+            const read = (object, key) => { if (current()) return object[key]; };
+            const write = (object, key, value) => { if (current()) object[key] = value; };
+            const call = (object, key, args = []) => {
+                if (!current()) return;
+                const method = object[key];
+                if (current()) return method.apply(object, args);
+            };
+            const translate = key => {
+                const i18n = read(root, 'i18n'), translated = i18n && call(i18n, 't', [key]);
+                return translated && translated !== key ? translated : fallback[key] || key;
+            };
+            try {
+                state = token.snapshot = Object.fromEntries(['generation', 'state', 'draft', 'loaded', 'pending',
+                    'pendingWrite', 'error', 'readError', 'writeError', 'conflict', 'composing', 'status'].map(key => [key, c[key]]));
+                if (!current()) return;
+                // Check saved-copy provenance before overwriting its preview.
+                let feedback = viewCopies.get(this).feedback;
+                if (feedback?.receipt.saved && !call(this, 'copyCurrent', [feedback.receipt]) &&
+                    viewCopies.get(this).feedback === feedback) call(this, 'invalidateCopy');
+                const session = read(this, 'importSession');
+                if (session && !call(this, 'importCurrent', [session]) && read(this, 'importSession') === session) call(this, 'cancelImport');
+                write(nodes.importButton, 'disabled', !call(this, 'canImport'));
+                const visible = state.state?.enabled === true || call(c, 'hasUncommittedWork') || Boolean(!state.loaded && state.error);
+                write(host, 'hidden', !visible);
+                if (read(this, 'visible') !== visible) { write(this, 'visible', visible); call(this, 'onVisibility', [visible]); }
+                if (!current()) return;
+                write(nodes.textarea, 'readOnly', !state.loaded || state.readError);
+                for (const name of ['copySavedButton', 'savedLabel', 'savedPreview']) write(nodes[name], 'hidden', !state.conflict);
+                const saved = state.state?.content || '';
+                if (read(nodes.savedPreview, 'value') !== saved) write(nodes.savedPreview, 'value', saved);
+                // Keep the original IME/caret/undo behavior and count the same DOM
+                // snapshot for characters and CRLF-aware logical lines.
+                if (!state.composing && read(nodes.textarea, 'value') !== state.draft) write(nodes.textarea, 'value', state.draft);
+                const editorText = read(nodes.textarea, 'value') || '';
+                let characterCount = 0, lineCount = editorText ? 1 : 0, previousCharacter = '';
+                for (const character of editorText) {
+                    characterCount++;
+                    if (character === '\r' || (character === '\n' && previousCharacter !== '\r')) lineCount++;
+                    previousCharacter = character;
+                }
+                if (!current()) return;
+                const lines = call(translate('scratchpadLines'), 'replace', ['{count}', lineCount.toLocaleString()]);
+                write(nodes.count, 'textContent', `${characterCount.toLocaleString()} / 32,000 · ${lines}`);
+                // The settings status helper remains separate. This renderer must
+                // guard its own public work-query and translation lookups.
+                const code = state.error?.code;
+                const key = state.readError ? 'scratchpadLoadError' : state.conflict ? 'scratchpadConflict' :
+                    state.loaded && ['TEXT_LIMIT', 'SIZE_LIMIT'].includes(code) ? 'scratchpadTooLong' :
+                    state.loaded && code === 'TEXT' ? 'scratchpadInvalidText' :
+                    state.error ? (state.loaded ? 'scratchpadSaveError' : 'scratchpadLoadError') :
+                    !state.loaded ? 'scratchpadLoading' : state.pending ? 'scratchpadSaving' :
+                    call(c, 'hasUncommittedWork') ? 'scratchpadUnsaved' : 'scratchpadSaved';
+                const text = translate(key);
+                if (read(nodes.status, 'textContent') !== text) write(nodes.status, 'textContent', text);
+                const classes = read(nodes.status, 'classList');
+                call(classes, 'toggle', ['scratchpad-error', Boolean(state.error || state.conflict)]);
+                write(nodes.retry, 'hidden', (!state.error || Boolean(state.conflict)) && !state.readError ||
+                    (state.loaded && ['TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT'].includes(code)));
+                write(nodes.retry, 'disabled', Boolean(state.pending));
+                write(nodes.replace, 'hidden', !state.conflict); write(nodes.useSaved, 'hidden', !state.conflict);
+                write(nodes.useSaved, 'disabled', Boolean(state.pending || state.composing));
+                write(nodes.replace, 'disabled', Boolean(state.pending || state.composing || state.readError));
+                write(nodes.exportButton, 'disabled', !state.loaded && !state.draft);
+                call(this, 'renderFind');
+                if (!current()) return;
+                feedback = viewCopies.get(this).feedback;
+                if (feedback && !call(this, 'copyCurrent', [feedback.receipt]) &&
+                    viewCopies.get(this).feedback === feedback) call(this, 'invalidateCopy');
+                call(this, 'refreshCopyControl');
+            } catch (error) { failed = true; throw error; }
+            finally {
+                // Preserve source-rejection retirement without letting an older
+                // render clear a newer render's feedback or mask its own error.
+                try {
+                    if (owner.epoch === token.epoch && !renderSourceCurrent(this, owner) && owner.epoch === token.epoch) retireViewCopy(this);
+                } catch (error) { if (!failed) throw error; }
             }
-            this.count.textContent = `${characterCount.toLocaleString()} / 32,000 · ${t('scratchpadLines').replace('{count}', lineCount.toLocaleString())}`;
-            const text = statusText(c); if (this.status.textContent !== text) this.status.textContent = text;
-            this.status.classList.toggle('scratchpad-error', Boolean(c.error || c.conflict));
-            this.retry.hidden = (!c.error || Boolean(c.conflict)) && !c.readError || (c.loaded && ['TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT'].includes(c.error?.code)); this.retry.disabled = Boolean(c.pending);
-            this.useSaved.hidden = this.replace.hidden = !c.conflict;
-            this.useSaved.disabled = Boolean(c.pending || c.composing);
-            this.replace.disabled = Boolean(c.pending || c.composing || c.readError);
-            this.exportButton.disabled = !c.loaded && !c.draft;
-            this.renderFind();
-            if (viewCopies.get(this).feedback && !this.copyCurrent(viewCopies.get(this).feedback.receipt)) this.invalidateCopy();
-            this.refreshCopyControl();
         }
         findVisible(node) {
             return !this.closed && !this.controller.closed && this.host.isConnected && node?.isConnected && this.host.contains(node) &&
