@@ -108,6 +108,37 @@ was not fsynced. In the acknowledged-cloud lane, the process deliberately closes
 after all dispatched work settles and before a future 900 ms upload debounce fires.
 It makes no assertion about that later upload.
 
+### Separately observed scheduled upload
+
+A subsequent five-process probe waited for the original, unaccelerated 900 ms
+upload callback after first render. Exact 71 and current master received the same
+candidate 6-produced acknowledged cloud snapshot and newer local edits. Version
+71 really uploaded its newer configuration once. Current master instead refused
+the upload because the acknowledged cloud configuration differed from the newer
+local copy, with `SYNC_IDENTITY_COMPATIBILITY`, kind `review`:
+only the local guard's blocked state changed, with zero cloud writes or removals.
+The complete configuration, four personal modules and retained recovery remained
+unchanged during that callback. A local-opt-out control with a foreign cloud copy
+performed its normal migration and first-render layout writes, but scheduled no
+upload timer, read no cloud data and made no push call.
+
+Two fresh current processes then read the actual outputs. All local and cloud raw
+values remained equal. Reading the 71 output performed one real acknowledgement
+write that only reordered the `revision` and `fingerprint` object properties; it
+did not change either value. The current-review output remained byte-identical.
+Five stages and 381 assertions passed. Native Node timer resources and completion
+of their actual async callbacks were observed; the timer functions and delays were
+not replaced. All dispatched operations and locks settled. These remain Node
+timers and modeled browser boundaries, not Chrome scheduling or disk guarantees.
+
+The initial probe had two overstrict assertions: an async resource ancestor was
+assumed to survive queued-lock dispatch, and JSON object-property order was
+assumed to remain unchanged after acknowledgement. Original failures were kept.
+The revised probe instead verified the same original review Error through the
+actual timer-origin push and blocking calls, strict call ordering, complete raw
+equality and the exact acknowledgement-only serialization difference. Production
+code and existing tests were not changed.
+
 ## Historical overwrite condition and recovery limits
 
 Eight further source-version/consent probes confirmed the known historical
@@ -144,6 +175,41 @@ importable file.
 The pre-migration source has unverified content integrity. Its import review is
 refused because it has no importable recovery descriptor; this was not a
 corrupted-checksum test.
+
+## Historical workspace error classification
+
+Exact 71's workspace View displays its deleted-or-replaced warning for every
+non-legacy-conflict rejection of `session.ready()`, before trying a fallback
+registry refresh. If no registry has rendered, its button can still say that the
+workspace is loading while the status says it could not load. This combination
+does not establish deletion: it can appear briefly before that refresh completes,
+or persist when the fallback also fails. The runtime stylesheet already explicitly
+hides hidden banners, so this source path does not require a CSS visibility bug.
+
+A separate six-process composition ran the real Manager, Session, workspace-bound
+StorageManager validator and View with the same actual candidate 6-produced raw
+input. For each of 71 and current master, it covered persistent backing reads
+rejecting, the first migration snapshot submission rejecting before assignment,
+and healthy admission followed by real create/trash/restore-generation controls.
+All six stages and 204 assertions passed. In all four fault cases, every raw value
+and its complete serialization remained exact: there were zero assigned writes,
+removals, clears or cloud calls. The actual `StorageManager.getAll()` rejected with
+`WORKSPACE_READ` or `WORKSPACE_WRITE`, rather than returning empty defaults.
+
+Version 71's fault cases produced the loading, load-error and retirement messages
+together. Current master already separates those faults into an unavailable label
+and a load-error panel with the sanitized code. Its real deletion and replacement
+controls still retire the original captured session; restoring a new generation
+does not reactivate that old session. The healthy controls deliberately perform
+real migration and workspace-management writes and are not zero-write cases.
+
+These are injected backing failures and DOM text/visibility-flag checks, not a
+browser rendering test or a diagnosis of any affected profile. Version 71 requests
+`unlimitedStorage`; the write-failure case is not evidence of a user exhausting a
+10 MB quota. The earlier legacy-URL research also distinguishes the trim-only
+writer in **1.0.6** from the later candidate **1.1.6**, whose new shortcut writes
+canonicalize URLs. Those version numbers must not be interchanged to infer an
+affected user's stored input.
 
 ## Remaining release evidence
 
