@@ -69,6 +69,31 @@
         // Preserve the host's existing protection for Find and other inputs.
         return token ? editorCurrent(view, token) : !event || event.target !== owner?.lifecycle.nodes.textarea;
     }
+    const viewRecoveries = new WeakMap();
+    function recoveryCurrent(view, token) {
+        if (!token) return false;
+        const { owner, event, button, snapshot } = token, { lifecycle, chains } = owner;
+        const matches = () => owner.epoch === token.epoch && viewSourceCurrent(view, lifecycle) &&
+            (!event || (event.target === button && (!event.currentTarget || event.currentTarget === button))) &&
+            chains.every(chain => copyChainOwned(chain, lifecycle.document, true)) &&
+            Object.entries(snapshot).every(([key, value]) => lifecycle.controller[key] === value) &&
+            owner.epoch === token.epoch;
+        return matches() && matches();
+    }
+    function recover(view, event, name, method) {
+        const owner = viewRecoveries.get(view); if (!owner) return;
+        const { controller, nodes } = owner.lifecycle;
+        // Reserve and capture state before observable ownership/event access.
+        // A newer recovery, draft or IME must not become this old click's baseline.
+        const token = { owner, epoch: ++owner.epoch, event, button: nodes[name] };
+        token.snapshot = Object.fromEntries(['generation', 'state', 'error', 'pending', 'composing',
+            'loaded', 'readError', 'writeError', 'conflict'].map(key => [key, controller[key]]));
+        if (!recoveryCurrent(view, token)) return;
+        const action = controller[method];
+        // Recovery availability and storage/CAS semantics belong to Controller.
+        // Ownership alone must not reject hidden/detached original UI or errors.
+        if (recoveryCurrent(view, token)) return action.call(controller);
+    }
     const viewCopies = new WeakMap();
     function copyNodeChain(node) {
         const chain = []; for (; node; node = node.parentElement) chain.push(node);
@@ -370,9 +395,9 @@
             this.savedPreview = el('textarea', 'scratchpad-text scratchpad-saved-preview'); this.savedPreview.readOnly = true; this.savedPreview.spellcheck = false; this.savedPreview.setAttribute('aria-label', t('scratchpadSavedPreview'));
             this.savedLabel = el('p', 'scratchpad-help', t('scratchpadSavedPreview'));
             this.status = el('p', 'scratchpad-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
-            this.retry = button('scratchpadRetry', () => run(() => controller.retry()));
-            this.useSaved = button('scratchpadUseSaved', () => run(() => controller.useSaved()));
-            this.replace = button('scratchpadReplace', () => run(() => controller.replaceWithDraft()));
+            this.retry = button('scratchpadRetry', event => run(() => recover(this, event, 'retry', 'retry')));
+            this.useSaved = button('scratchpadUseSaved', event => run(() => recover(this, event, 'useSaved', 'useSaved')));
+            this.replace = button('scratchpadReplace', event => run(() => recover(this, event, 'replace', 'replaceWithDraft')));
             this.exportButton = button('scratchpadExport', () => this.exportText());
             const copyButton = this.copyButton = button('scratchpadCopyText', event => run(() => this.copyText(event, copyButton)));
             const copySelectionButton = this.copySelectionButton = button('scratchpadCopySelection', event => run(() => this.copySelectedText(event, selectionOwner)));
@@ -503,6 +528,10 @@
                 'findSelectionButton', 'findPanel', 'findInput', 'findPrevious', 'findNext', 'findClose', 'findStatus', 'count']
                 .map(name => [name, this[name]]));
             viewEditors.set(this, { lifecycle, epoch: 0, composition: 0, events: new WeakMap(),
+                chains: Object.values(lifecycle.nodes).map(copyNodeChain) });
+            // Each recovery can emit into all rendering controls. Keep their
+            // construction chains and source; public fields cannot retarget them.
+            viewRecoveries.set(this, { lifecycle, epoch: 0,
                 chains: Object.values(lifecycle.nodes).map(copyNodeChain) });
             // Export retains its construction source and controls. Workspace and
             // Session are captured per call so late setup does not disable recovery.
