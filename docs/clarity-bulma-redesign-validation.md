@@ -119,3 +119,68 @@ tests/dashboard-card-layout-backup-compat.test.js
 These checks establish source, package, DOM/event-model and targeted cascade contracts. They do not establish browser geometry, visual quality, native popup painting or actual extension loading. No browser launch, screenshot capture/upload or release was performed for this candidate by this implementation step.
 
 Real-browser review remains necessary through an approved route: English/Chinese, light/dark, default/custom/legacy wallpaper, wide/tall/390px/600px layouts, both disclosures, gallery preview/Apply/Cancel/error, expanded month calendar, grid/free layout, saved column counts, keyboard/context-menu focus, quote-only and temporary-focus views. No new permission or alternate rendering route is implied by this checklist.
+
+## Follow-up: real-browser static preview and narrow date correction
+
+2026-10-18, baseline `26d79b7bb691131054dc4443621de96fb9e3b232`.
+
+A supported dot-cloud desktop terminal and its ordinary localhost browser now
+provide a working static preview route. This supersedes the earlier connectivity
+blocker for this limited preview. The server freezes all 138 runtime files and
+their SHA-256 hashes. The production HTML receives one extra, preview-only local
+Chrome API bridge, with synthetic page-memory storage, localized test sites,
+disabled sync and blocked external navigation. No extension is installed and no
+user profile or saved data is read. Only the iTab tab was captured, locally;
+screenshots and preview infrastructure are not published in the repository.
+
+The first pass visibly checked English/light and Chinese/dark at 1172 CSS pixels,
+legacy-style synthetic wallpaper, and free placement. The latter retained the
+seeded first two positions of 0px and 120px. Both Tools and Appearance panels
+occupied separate, non-overlapping rectangles; Escape closed only Tools and
+returned focus to its original summary while Appearance stayed open.
+
+At a 390px-wide embedded viewport (382px content width after its scrollbar), a
+real cascade defect was found: the legacy narrow `.date-display` cap of 135px
+still applied. The English date wrapped onto three lines although the grid row
+had 348px available. The clock was only 135px wide and 130.75px tall.
+
+The correction is limited to the existing Clarity `max-width: 620px` block:
+`#clock-container` gets `width: 100%`, and `.date-display` gets `max-width: 100%`.
+No font, wrapping, ordering, stored layout, custom setting or non-Clarity rule is
+changed. The same real browser then measured a 348px clock, a single 19.1875px
+date line, and a 92.375px clock height. Search moved up by 38.375px. Horizontal
+scroll width remained equal to the 382px content width.
+
+Additional actual render checks:
+
+- 390px English/light, calendar open: heading, clock/calendar and search retain
+  separate rows; calendar fits within its row; no horizontal overflow.
+- 620px Chinese/dark: full-row clock is 560px wide; content and scroll widths
+  are both 612px. At 621px English/light the clock remains in column 2 and
+  258.53125px wide; content and scroll widths are both 613px.
+- 600px English/light with synthetic PNG wallpaper: clock is 558px wide and
+  the date stays one line. Its readable surface remains near-opaque white with
+  dark text; content and scroll widths are both 592px.
+- 1100-by-1100px Chinese/dark with a synthetic custom gradient: no horizontal
+  overflow or fractional search-row spacer; the dark reading surface and light
+  text remain present.
+
+Fixed-size checks use actual same-origin iframe viewports, not native browser
+window resizing. The initially supplied SVG wallpaper and incomplete custom
+appearance seed were correctly rejected by existing validation. The preview
+fixtures were corrected to PNG and the complete existing customization shape;
+no production validator was loosened. Candidate and baseline runtime manifests
+differ only in `clarity-dashboard.css`.
+
+The two appended source-contract tests first failed against the old CSS while
+all 15 existing tests passed. The original test bytes and helpers are unchanged;
+each new assertion also rejects removal of its own required declaration.
+Owner focused validation passed 262 Node tests, and Python passed 84 tests.
+Independent source/cascade and focused month-calendar review passed 150 tests.
+Full unchanged CI remains the delivery gate.
+
+These observations establish a real static-renderer visual check and this
+specific correction. They do not establish native extension loading, a real
+Chrome upgrade, persistence across a real browser profile, all popup/menu flows,
+the remaining checklist above, or final user acceptance of the redesign. The
+historical upgrade incident and release/store safety gate are unchanged.

@@ -222,3 +222,27 @@ test('legacy saved image/color wallpapers retain safe workspace, intro and clock
     const css = read('clarity-dashboard.css');
     assert.match(css, /body:is\(\.bg-color, \.bg-image\) #dashboard :is\(\.template-intro, #clock-container, #workspace-switcher\)\s*\{[^}]*background: var\(--template-surface\);/);
 });
+test('narrow Clarity clock uses its full grid row without changing desktop or other templates', () => {
+    const css = read('clarity-dashboard.css');
+    const narrow = css.slice(css.indexOf('@media (max-width: 620px)'), css.indexOf('@media (max-width: 420px)'));
+    const selector = ':root[data-dashboard-template="clarity"] #dashboard #clock-container';
+    const rule = narrow.slice(narrow.indexOf(selector)).match(/^[^{]+\{([^}]+)\}/)[1];
+    const accepts = body => /(?:^|;)\s*width: 100%;/.test(body);
+    assert(accepts(rule), 'the clock must fill its existing full-width row');
+    assert.equal(accepts(rule.replace('width: 100%;', '')), false, 'removing only the width must fail');
+    for (const declaration of ['grid-column: 1 / -1;', 'grid-row: 4;', 'justify-self: start;', 'text-align: start;']) assert(rule.includes(declaration));
+    const desktop = css.slice(0, css.indexOf('@media')).match(/#clock-container \{([^}]+)\}/)[1];
+    assert.match(desktop, /grid-column: 2;/); assert.doesNotMatch(desktop, /width:/);
+});
+
+test('narrow Clarity date overrides the 135px legacy cap and keeps normal wrapping', () => {
+    const css = read('clarity-dashboard.css');
+    const narrow = css.slice(css.indexOf('@media (max-width: 620px)'), css.indexOf('@media (max-width: 420px)'));
+    assert.match(read('dashboard-templates.css'), /\.date-display \{[^}]*max-width: 135px;/);
+    const rule = narrow.match(/:root\[data-dashboard-template="clarity"\] #dashboard \.date-display \{([^}]+)\}/);
+    assert(rule, 'Clarity must override the legacy narrow date cap locally');
+    const accepts = body => /(?:^|;)\s*max-width: 100%;/.test(body);
+    assert(accepts(rule[1]));
+    assert.equal(accepts(rule[1].replace('max-width: 100%;', '')), false, 'removing only the cap override must fail');
+    assert.doesNotMatch(rule[1], /white-space:|overflow:|text-overflow:|font-size:|display:|height:/);
+});
