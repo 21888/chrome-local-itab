@@ -1,4 +1,31 @@
 {
+  "dashboardSkipShortcuts": {
+    "message": "跳至快捷方式"
+  },
+  "dashboardWorkspaceLabel": {
+    "message": "工作区"
+  },
+  "dashboardClockLabel": {
+    "message": "当前日期与时间"
+  },
+  "dashboardShortcutsLabel": {
+    "message": "快捷方式"
+  },
+  "dashboardCardsLabel": {
+    "message": "本地信息卡片"
+  },
+  "dashboardWeatherLabel": {
+    "message": "本地天气"
+  },
+  "dashboardTopicsLabel": {
+    "message": "本地热点"
+  },
+  "dashboardMovieLabel": {
+    "message": "电影卡片"
+  },
+  "dashboardQuoteLabel": {
+    "message": "每日语录"
+  },
   "showDashboard": {
     "message": "显示主界面"
   },

@@ -1,4 +1,31 @@
 {
+  "dashboardSkipShortcuts": {
+    "message": "Skip to shortcuts"
+  },
+  "dashboardWorkspaceLabel": {
+    "message": "Workspace"
+  },
+  "dashboardClockLabel": {
+    "message": "Current time and date"
+  },
+  "dashboardShortcutsLabel": {
+    "message": "Quick access shortcuts"
+  },
+  "dashboardCardsLabel": {
+    "message": "Local information cards"
+  },
+  "dashboardWeatherLabel": {
+    "message": "Local weather"
+  },
+  "dashboardTopicsLabel": {
+    "message": "Local hot topics"
+  },
+  "dashboardMovieLabel": {
+    "message": "Movie card"
+  },
+  "dashboardQuoteLabel": {
+    "message": "Daily quote"
+  },
   "showDashboard": {
     "message": "Show dashboard"
   },

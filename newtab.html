@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="safe-answer-reader.css">
 </head>
 <body>
-    <a class="skip-link" href="#shortcuts-container">Skip to shortcuts</a>
+    <a class="skip-link" href="#shortcuts-container" data-i18n="dashboardSkipShortcuts">Skip to shortcuts</a>
     <!-- Ambient Background -->
     <div class="geometric-bg">
         <div class="geometric-shape"></div>
@@ -59,13 +59,13 @@
 
         <!-- 主内容区域 -->
         <div class="main-content-wrapper">
-            <section id="workspace-switcher" class="workspace-bar" aria-label="Workspace">
+            <section id="workspace-switcher" class="workspace-bar" aria-label="Workspace" data-i18n-aria-label="dashboardWorkspaceLabel">
                 <a class="spaces-manage" href="recovery.html" target="_blank" rel="noopener" data-i18n="recoveryEntry">Inspect saved copies (read-only)</a>
                 <button id="show-dashboard" class="spaces-button itab-b-button" type="button" data-i18n="showDashboard">Show dashboard</button>
             </section>
             <header class="dashboard-header">
                 <div class="template-intro"><h1 id="template-heading" class="itab-b-title"></h1><p id="template-description"></p></div>
-                <section id="clock-container" class="clock-section" aria-label="Current time and date">
+                <section id="clock-container" class="clock-section" aria-label="Current time and date" data-i18n-aria-label="dashboardClockLabel">
                     <!-- Clock component will be rendered here -->
                 </section>
                 
@@ -94,28 +94,28 @@
                 </nav>
             </header>
 
-            <section id="search-container" class="search-section" aria-label="Search">
+            <section id="search-container" class="search-section" aria-label="Search" data-i18n-aria-label="search">
                 <!-- Search component will be rendered here -->
             </section>
 
             <main class="dashboard-main">
-                <section id="shortcuts-container" class="shortcuts-section main-content" aria-label="Quick access shortcuts">
+                <section id="shortcuts-container" class="shortcuts-section main-content" aria-label="Quick access shortcuts" data-i18n-aria-label="dashboardShortcutsLabel">
                     <!-- Shortcuts grid will be rendered here -->
                 </section>
 
-                <section id="info-cards-container" class="info-cards-grid" aria-label="Local information cards">
+                <section id="info-cards-container" class="info-cards-grid" aria-label="Local information cards" data-i18n-aria-label="dashboardCardsLabel">
                     <article id="local-tasks-card" hidden></article>
                     <article id="local-focus-card" hidden></article>
                     <article id="local-scratchpad-card" hidden></article>
                     <article id="local-countdown-card" hidden></article>
                     <article id="world-clocks-card" class="info-card world-clocks-card module-hidden" aria-labelledby="world-clocks-heading" hidden></article>
-                    <article id="weather-container" class="info-card weather-card module-hidden" aria-label="Local weather">
+                    <article id="weather-container" class="info-card weather-card module-hidden" aria-label="Local weather" data-i18n-aria-label="dashboardWeatherLabel">
                         <!-- Weather card will be rendered here -->
                     </article>
-                    <article id="hot-container" class="info-card hot-card module-hidden" aria-label="Local hot topics">
+                    <article id="hot-container" class="info-card hot-card module-hidden" aria-label="Local hot topics" data-i18n-aria-label="dashboardTopicsLabel">
                         <!-- Hot topics card will be rendered here -->
                     </article>
-                    <article id="movie-container" class="info-card movie-card module-hidden" aria-label="Movie card">
+                    <article id="movie-container" class="info-card movie-card module-hidden" aria-label="Movie card" data-i18n-aria-label="dashboardMovieLabel">
                         <!-- Movie card will be rendered here -->
                     </article>
                 </section>
@@ -126,7 +126,7 @@
                 <button type="button"></button>
             </aside>
             <footer class="dashboard-footer">
-                <section id="quote-container" class="quote-section" aria-label="Daily quote">
+                <section id="quote-container" class="quote-section" aria-label="Daily quote" data-i18n-aria-label="dashboardQuoteLabel">
                     <!-- Quote will be rendered here -->
                 </section>
             </footer>
