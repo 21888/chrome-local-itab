@@ -7,6 +7,8 @@
     function calculate(expression) {
         if (typeof expression !== 'string') return { error: 'syntax' };
         if (expression.length > MAX_LENGTH) return { error: 'length' };
+        // Three one-code-unit aliases only; never normalize or rewrite the caller's draft.
+        expression = expression.replace(/[×÷−]/g, operator => operator === '×' ? '*' : operator === '÷' ? '/' : '-');
         let index = 0;
         const fail = code => { throw code; };
         const skip = () => { while (/\s/.test(expression[index] || '') && index < expression.length) index++; };

@@ -328,7 +328,7 @@ After deleting a shortcut, **Undo delete** restores the latest deletion on the s
 
 ### Local calculator
 
-Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Expressions, results and errors stay in this tab, without search requests or storage writes, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the current result.
+Start a search with `=` and press Enter (or Calculate), for example `=(12 + 3) / 2` → `7.5`. Supports decimals, unary `+`/`-`, `+ - * /` and parentheses. Pasted `×`, `÷` and `−` are also accepted as `*`, `/` and `-`, including unary minus and exponent signs (`=1e−7×2`). The draft and recent expression retain their exact original text; full-width digits/operators, other dash characters and implicit multiplication are not normalized. [Typographic-operator validation](docs/calculator-typographic-operators-validation.md). Expressions, results and errors stay in this tab, without search requests or storage writes, including with an unconfigured custom search engine. Remove `=` to return to ordinary search. Editing clears the current result.
 
 After a successful calculation, “Use result” replaces the search input with `=` plus the complete result and places the cursor at the end. Append `+`, `-`, `*` or `/`, then explicitly submit the next calculation. This clears the old result and copy feedback without automatically calculating, searching, copying or saving. The input remains an unsaved draft in this tab. [Continue-result validation scope](docs/calculator-continue-result-validation.md).
 

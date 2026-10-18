@@ -1237,7 +1237,7 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
         clearCalculatorOutput();
         calculatorStatus.classList.remove('is-error');
         calculatorStatus.textContent = isCalculation()
-            ? calculatorText('calculatorHint', 'Local calculator · Enter to calculate. Use decimals, + - * / and parentheses.')
+            ? calculatorText('calculatorHint', 'Local calculator · Enter to calculate. Use decimals, + - * /, × ÷ − and parentheses.')
             : calculatorText('calculatorDiscover', 'Tip: start with = to calculate locally, for example =(12 + 3) / 2');
         button.textContent = isCalculation()
             ? calculatorText('calculatorCalculate', 'Calculate')
@@ -1424,7 +1424,7 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
                 editRevision !== revision || submissionRevision !== operation) return;
             result = result || { error: 'unavailable' };
             const errors = {
-                syntax: ['calculatorSyntax', 'Check the expression. Use decimals, + - * / and parentheses only.'],
+                syntax: ['calculatorSyntax', 'Check the expression. Use decimals, + - * /, × ÷ − and parentheses only.'],
                 length: ['calculatorLength', 'Expression too long. Use at most 256 characters after =.'],
                 depth: ['calculatorDepth', 'Too many nested parentheses or signs. Use at most 32 levels.'],
                 zero: ['calculatorZero', 'Cannot divide by zero.'],

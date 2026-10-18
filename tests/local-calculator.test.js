@@ -13,7 +13,7 @@ for (const [expression, expected] of [
     ['('.repeat(32)+'1'+')'.repeat(32),1], ['-'.repeat(32)+'1',1],
     ['1'+' '.repeat(255),1]
 ]) assert.equal(calculate(expression).value, expected, expression);
-for (const expression of ['', ' ', '.', '1..2', '1 2', '2(3)', '(2)3', '()', '(1', '1)', '2**3', '0xff', 'NaN', 'Infinity', 'alert(1)', '1,5', '1%', '1=1', '1;2', 'Math.PI', '2−1', '=1', '<img src=x>', '1//2']) assert.equal(calculate(expression).error,'syntax',expression);
+for (const expression of ['', ' ', '.', '1..2', '1 2', '2(3)', '(2)3', '()', '(1', '1)', '2**3', '0xff', 'NaN', 'Infinity', 'alert(1)', '1,5', '1%', '1=1', '1;2', 'Math.PI', '=1', '<img src=x>', '1//2']) assert.equal(calculate(expression).error,'syntax',expression);
 for (const expression of ['1/0','0/0','1/-0','1/(2-2)']) assert.equal(calculate(expression).error,'zero');
 assert.equal(calculate('1'+'/(.1+.2-.3)'.repeat(20)).error,'range');
 assert.equal(calculate('1'.repeat(257)).error,'length');

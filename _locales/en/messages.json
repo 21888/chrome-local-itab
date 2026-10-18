@@ -2677,7 +2677,7 @@
     "message": "Tip: start with = to calculate locally, for example =(12 + 3) / 2"
   },
   "calculatorHint": {
-    "message": "Local calculator · Enter to calculate. Use decimals, + - * / and parentheses."
+    "message": "Local calculator · Enter to calculate. Use decimals, + - * /, × ÷ − and parentheses."
   },
   "calculatorCalculate": {
     "message": "Calculate"
@@ -2734,7 +2734,7 @@
     "message": "Could not copy. Select the result and press Ctrl/Cmd+C to copy it manually."
   },
   "calculatorSyntax": {
-    "message": "Check the expression. Use decimals, + - * / and parentheses only."
+    "message": "Check the expression. Use decimals, + - * /, × ÷ − and parentheses only."
   },
   "calculatorLength": {
     "message": "Expression too long. Use at most 256 characters after =."
