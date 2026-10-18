@@ -23,11 +23,11 @@ function initial() {
 // Independent synthetic storage/DOM fixture, using the real Store/Controller/View.
 // Each workspace object/ID/generation routes to its own identical starting data.
 // These are modeled ownership probes, not native Chrome or event-timing evidence.
-function model({ legacy = false, locale = 'en', sessionMode = 'matching' } = {}) {
+function model({ legacy = false, legacyAvailability = false, locale = 'en', sessionMode = 'matching' } = {}) {
     const sources = new Map(), identities = new WeakMap(), listeners = new Set();
     let identity = 0, queue = Promise.resolve(), operation = 0;
     const backend = {
-        workspace: legacy ? undefined : { id: 'workspace_0001', generation: 'generation_0001' },
+        workspace: legacy ? undefined : legacyAvailability ? { invalidated: false, _suspended: false } : { id: 'workspace_0001', generation: 'generation_0001' },
         reads: 0, writes: 0, requests: 0, mode: null, delay: null, notifications: true, nextReadFails: false,
         lock(fn) { const next = queue.then(fn); queue = next.catch(() => {}); return next; },
         async read() {
@@ -63,6 +63,7 @@ function model({ legacy = false, locale = 'en', sessionMode = 'matching' } = {})
     const api = { ...tasks, Controller }, window = { LocalItabTasks: api, LocalItabContentLifecycle: { departing: false },
         LocalItabWorkspaces: { session: sessionMode === 'missing' ? undefined : sessionMode === 'wrong' ? {} : backend.workspace },
         getComputedStyle(node) { return { display: node.style.display || 'block', visibility: node.style.visibility || 'visible' }; } };
+    if (legacyAvailability || sessionMode === 'absent') delete window.LocalItabWorkspaces;
     if (locale !== 'fallback') {
         const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, '../_locales', locale, 'messages.json'), 'utf8'));
         window.i18n = { t: key => catalog[key]?.message || key };
@@ -424,5 +425,71 @@ for (const mode of ['false', 'drop', 'ack']) test(`legacy ${mode} Retry stays av
         assert.equal(h.backend.reads, reads); assert.equal(h.backend.writes, writes); assert.strictEqual(h.controller.retryCommand, request);
         h.backend.workspace = null; h.view.retry.dispatch('click'); await settle(); assert.equal(h.controller.status, 'saved');
         assert.equal(h.backend.writes, writes + (mode === 'ack' ? 0 : 1)); assert.equal(h.backend.raw().receipts.at(-1), request.operationId);
+    } finally { h.view.destroy(); }
+});
+
+test('original anonymous availability object without a workspace service retains current-row movement', async () => {
+    const h = model({ legacyAvailability: true }); await settle();
+    try {
+        assert.equal(h.window.LocalItabWorkspaces, undefined); assert.equal(h.backend.workspace.id, undefined); assert.equal(h.backend.workspace.generation, undefined);
+        const before = h.backend.raw(); input(h.view.input, 'legacy availability draft'); h.view.input.focus();
+        moveButton(h, 'task_0004').dispatch('click'); await settle();
+        assert.equal(h.backend.writes, 1); assert.equal(order(h.backend.raw())[0], 'task_0004');
+        assert.equal(h.backend.raw().pinnedId, before.pinnedId); assert.deepEqual(h.backend.raw().recovery, before.recovery);
+        assert.equal(h.view.input.value, 'legacy availability draft'); assert.equal(h.document.activeElement, h.view.input);
+    } finally { h.view.destroy(); }
+});
+
+for (const mode of ['false', 'drop', 'ack']) test(`original anonymous availability object retains same-source ${mode} Retry`, async () => {
+    const h = model({ legacyAvailability: true }); await settle(); h.backend.notifications = false;
+    try {
+        h.backend.mode = mode; moveButton(h, 'task_0004').dispatch('click'); await settle();
+        assert.equal(h.controller.error.code, mode === 'drop' ? 'VERIFY' : 'WRITE'); const request = h.controller.retryCommand;
+        h.backend.mode = null; await h.controller.refresh(); redraw(h); const writes = h.backend.writes;
+        h.view.retry.dispatch('click'); await settle(); assert.equal(h.controller.status, 'saved');
+        assert.equal(h.backend.writes, writes + (mode === 'ack' ? 0 : 1)); assert.equal(h.backend.raw().receipts.at(-1), request.operationId);
+        assert.equal(order(h.backend.raw())[0], 'task_0004');
+    } finally { h.view.destroy(); }
+});
+
+const availabilityChanges = {
+    'new empty service': h => { h.window.LocalItabWorkspaces = {}; },
+    'new matching session service': h => { h.window.LocalItabWorkspaces = { session: h.backend.workspace }; },
+    'replaced availability object': h => { h.backend.workspace = { ...h.backend.workspace }; },
+    'new workspace ID': h => { h.backend.workspace.id = 'workspace_0002'; },
+    'new workspace generation': h => { h.backend.workspace.generation = 'generation_0002'; },
+    'invalidated original': h => { h.backend.workspace.invalidated = true; },
+    'suspended original': h => { h.backend.workspace._suspended = true; }
+};
+for (const [name, change] of Object.entries(availabilityChanges)) for (const freshRow of [false, true]) test(`anonymous availability rejects ${name} (${freshRow ? 'redrawn' : 'original'} row)`, async () => {
+    const h = model({ legacyAvailability: true }); await settle();
+    try {
+        let action = moveButton(h); change(h);
+        if (freshRow) { redraw(h); action = moveButton(h); }
+        await rejectsWithoutIO(h, action);
+    } finally { h.view.destroy(); }
+});
+
+for (const [name, change] of Object.entries(availabilityChanges)) for (const mode of ['false', 'drop', 'ack']) test(`anonymous availability ${mode} Retry rejects ${name} until the original source returns`, async () => {
+    const h = model({ legacyAvailability: true }); await settle(); h.backend.notifications = false;
+    try {
+        const availability = h.backend.workspace;
+        h.backend.mode = mode; moveButton(h, 'task_0004').dispatch('click'); await settle();
+        const request = h.controller.retryCommand; assert.equal(request.kind, 'moveFirst'); h.backend.mode = null; change(h);
+        const before = h.backend.raw(), reads = h.backend.reads, writes = h.backend.writes;
+        h.view.retry.dispatch('click'); await settle(); assert.equal(h.backend.reads, reads); assert.equal(h.backend.writes, writes);
+        assert.deepEqual(h.backend.raw(), before); assert.strictEqual(h.controller.retryCommand, request);
+        h.backend.workspace = availability; delete availability.id; delete availability.generation;
+        availability.invalidated = false; availability._suspended = false; delete h.window.LocalItabWorkspaces;
+        h.view.retry.dispatch('click'); await settle(); assert.equal(h.controller.status, 'saved');
+        assert.equal(h.backend.writes, writes + (mode === 'ack' ? 0 : 1)); assert.equal(h.backend.raw().receipts.at(-1), request.operationId);
+    } finally { h.view.destroy(); }
+});
+
+test('identified workspace without any service is never treated as an anonymous availability object', async () => {
+    const h = model({ sessionMode: 'absent' }); await settle();
+    try {
+        await rejectsWithoutIO(h, moveButton(h)); redraw(h); await rejectsWithoutIO(h, moveButton(h));
+        h.window.LocalItabWorkspaces = { session: h.backend.workspace }; redraw(h); await rejectsWithoutIO(h, moveButton(h));
     } finally { h.view.destroy(); }
 });

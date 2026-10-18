@@ -36,7 +36,19 @@ Legacy no-workspace backends treat null and undefined as the same source. A temp
 
 Store, Controller, schemas, receipt/recovery/export protocols, localization, button count, other row-action handlers and existing tests/helpers stay unchanged. Movement still uses the existing one-write `moveFirst` CAS, preserves Next up and drafts, and retains the established focus and retry paths.
 
-## Verification status
+## First exact-source CI failure and compatibility correction
+
+The first remote exact-source run **39082465776**, job **117542085192**, ran **8,890 tests: 8,889 passed and 1 failed**. The failed unchanged test was `tests/local-tasks-copy-visible.test.js:139`, “Next up outside the active preview is not copied and moving a row first changes only the subsequent copied order”. Python tests and runtime packaging did not execute in that failed CI run. The earlier focused/independent passes did not establish full-suite success.
+
+The original copy-visible fixture exposes an anonymous `{ invalidated, _suspended }` availability object as its backend workspace, with no workspace ID/generation and no `LocalItabWorkspaces` service. Requiring `session === workspace` for that older shape prevented Move-to-start before request creation, so the subsequent copy retained its old order. The Copy implementation and its old assertion were correct and remain unchanged.
+
+An authorized local run of the **unchanged** copy-visible file at **00:32:25 UTC** reproduced **103 passed, 1 failed out of 104**, exit **1**, with the identical sole failure. Its full log was preserved before compatibility edits.
+
+The narrow correction captures `legacyAvailability` only at construction for an anonymous availability object with nullish ID/generation and no workspace service. The same original object/backend/Store/Controller must remain in place, its original ID/generation must match, it must remain valid and unsuspended, and the service must remain absent. Identified workspaces without a matching session stay rejected. A subsequently introduced service, replaced object or newly added ID/generation cannot acquire this exception, including after redraw and on the original Retry.
+
+New independent cases cover this legacy movement and same-source Retry, rejected source changes, original-source restoration and identified workspaces without a service. Existing 133 ownership cases, the original copy-visible test and all shared helpers remain intact. The ten-file compatibility check includes the unchanged copy-visible file alongside the earlier nine files; its completed result is recorded separately below.
+
+## Initial bounded verification before compatibility correction
 
 - The baseline RED run above is complete and preserved.
 - Static `git diff --check` passed. The Move-to-end block, Store/Controller, existing move-first/move-last tests, shared DOM helper, manifest and CI were verified byte-for-byte unchanged from the baseline.
@@ -46,10 +58,10 @@ Store, Controller, schemas, receipt/recovery/export protocols, localization, but
 - This passing run follows the two disclosed RED runs; it is not described as a clean baseline. The retained new assertions cover cross-source Retry rejection followed by original-source restoration, same-source latest-acknowledgement confirmation after refresh/redraw, preservation of unrelated edits after an uncommitted failure, and conflict without writing after a later receipt.
 
 - The owner's separate 25-probe independent review subsequently passed **25/25 on its first run**, **0 failed, 0 skipped**. It covered old complete-row revival, late layout/source changes, isolated Store/backend rejection with no reads/writes, original-source Retry restoration, and an unrelated later edit causing receipt CONFLICT without a new write. Its full log was retained as `feature67-independent-round1.log`.
-- Passing model checks now total **480 focused + 25 independent = 505**. This total excludes the separately preserved failed RED runs. Python/runtime packaging and exact-source CI are separate gates, not implied by these Node results.
+- At that pre-compatibility point, passing model checks totaled **480 focused + 25 independent = 505**. This total excludes the separately preserved failed RED runs. Python/runtime packaging and exact-source CI are separate gates, not implied by these Node results.
 
-- Final owner checks passed **84/84 Python tests**. Package creation and verification checked **133 runtime files**; runtime ZIP SHA-256: `dcdc9f405fe68083c5042b9a8a8b53a107e72764ebb1c48e97139879024118d3`. Packaging reported the modified working-tree source, not a committed or browser-tested build.
-- The owner independently checked all **397 protected baseline files** and the existing Move-to-end handler unchanged. Exact-source remote CI remains pending publication.
+- Before the first publication, owner checks passed **84/84 Python tests**. Package creation and verification checked **133 runtime files**; runtime ZIP SHA-256: `dcdc9f405fe68083c5042b9a8a8b53a107e72764ebb1c48e97139879024118d3`. Packaging reported the modified working-tree source, not a committed or browser-tested build.
+- Before that first publication, the owner independently checked all **397 protected baseline files** and the existing Move-to-end handler unchanged. The subsequent exact-source CI failure is recorded above.
 
 Exact bounded test command:
 
@@ -65,5 +77,15 @@ node --max-old-space-size=512 --test --test-concurrency=1 \
   tests/local-tasks-pinned-completion.test.js \
   tests/local-tasks-edit-return-focus.test.js
 ```
+
+## Compatibility correction verification
+
+The first compatibility GREEN window began at **00:33:58 UTC**. Both View/new-test syntax checks passed. The ten-file run passed **624/624 tests**, **0 failed, 0 cancelled, 0 skipped**, exit **0**, duration **11.381 seconds**. This includes **173 ownership tests** (the prior 133 plus 40 new compatibility cases), **104 unchanged copy-visible tests**, and **347 unchanged tests** from the earlier eight regression files. The previously failing original copy-visible assertion passes unchanged. No repeat of this GREEN window or assertion relaxation occurred.
+
+The owner's compatibility independent review then passed **37/37 on its first run**, **0 failed, 0 skipped**: the previous 25 probes plus 12 new compatibility probes. These additionally cover anonymous-source movement and Retry, service/object/ID/generation/availability drift, ID-only or generation-only workspaces without a service, and rejection when a service missing its session existed at construction and was later removed. Its complete log is `feature67-compatibility-independent-round1.log`. The final compatibility model verification totals **624 focused + 37 independent = 661**; Python/runtime and exact-source CI remain separate gates.
+
+After the compatibility source freeze, owner Python checks again passed **84/84**. Package creation and verification again passed **133 runtime files**, with corrected runtime ZIP SHA-256 `a5417a286d1777ffdc1d3d827d5acb63e89ecd8fc76fa5d0dd802be3815bbc46`. All **397 protected baseline files** and the Move-to-end handler were independently rechecked unchanged. This local packaging result does not imply remote CI or browser completion.
+
+Exact compatibility command: the nine-file command above plus `tests/local-tasks-copy-visible.test.js`, still using `node --max-old-space-size=512 --test --test-concurrency=1`. The complete log is retained as `67-move-first-compatibility-focused-green-01.log`. The prior 480-test/25-probe passes are historical evidence, not extra distinct cases to add to 624. The initial failed full CI remains disclosed, and a new exact-source CI is still required after the correction.
 
 These are bounded synthetic model probes, not native Chrome, keyboard/IME, accessibility, screenshot or visual-layout evidence. No local full-suite/scale run, user device, paid platform, Release/tag/store submission or manifest bump is included. The unchanged exact-source CI remains the full gate after review and push.

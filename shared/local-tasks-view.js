@@ -241,6 +241,7 @@
             for (let node = this.list; node; node = node.parentElement) chain.push([node, node.parentElement]);
             this.moveFirstOwner = Object.freeze({ host, list: this.list, filterInput: this.filterInput, controller, store: controller.store, backend: controller.store.backend,
                 workspace, workspaceId: workspace?.id, workspaceGeneration: workspace?.generation,
+                legacyAvailability: !!workspace && typeof workspace === 'object' && workspace.id == null && workspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain });
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
@@ -1222,7 +1223,9 @@
                 this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
                 workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
                 !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
-                (!workspace || owner.session === workspace);
+                // Older backends may expose only an availability object, without
+                // a workspace service. Its original identity still cannot change.
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null));
         }
         moveFirstCurrent(source) {
             const owner = source.owner;
