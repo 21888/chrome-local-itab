@@ -119,6 +119,16 @@
         if (view.copyAttempt === transaction.receipt) view.copyAttempt = null;
         if (!state.feedback || state.feedback === transaction) refreshCopyButtons(view, transaction);
     }
+    const viewExports = new WeakMap();
+    function exportContextCurrent(view, owner, context) {
+        const { lifecycle, chains } = owner, { controller, store, backend, host, nodes, document } = lifecycle;
+        const matches = () => !lifecycle.retired && !view.closed && view.controller === controller && controller.store === store &&
+            store?.backend === backend && view.host === host && ['textarea', 'status', 'exportButton'].every(name => view[name] === nodes[name]) &&
+            (!context || (backend?.workspace === context.workspace && context.workspace?.id === context.workspaceId &&
+                context.workspace?.generation === context.workspaceGeneration && root.LocalItabWorkspaces?.session === context.session)) &&
+            chains.every(chain => copyChainOwned(chain, document, true));
+        return matches() && matches();
+    }
     const fallback = {
         scratchpadTitle: 'Scratchpad', scratchpadLocal: 'On this device',
         scratchpadLabel: 'Scratchpad text', scratchpadEnable: 'Show Scratchpad on the new tab page',
@@ -312,6 +322,10 @@
                 'importPanel', 'importInfo', 'importPreview', 'importAppend', 'importApply', 'importCancel', 'findButton',
                 'findSelectionButton', 'findPanel', 'findInput', 'findPrevious', 'findNext', 'findClose', 'findStatus', 'count']
                 .map(name => [name, this[name]]));
+            // Export retains its construction source and controls. Workspace and
+            // Session are captured per call so late setup does not disable recovery.
+            viewExports.set(this, { lifecycle, active: false,
+                chains: ['textarea', 'status', 'exportButton'].map(name => copyNodeChain(lifecycle.nodes[name])) });
             // Teardown authority is private and captured before any prior-owner
             // invalidation callback can reparent or adopt the new controls.
             lifecycle.teardownChains = Object.fromEntries(['findInput', 'findStatus', 'findPanel', 'findButton',
@@ -838,16 +852,63 @@
             }
         }
         exportText() {
-            // Export the current visible draft, including unsaved/conflicted text.
-            let url, link;
+            const owner = viewExports.get(this);
+            if (!owner || owner.active || owner.lifecycle.retired) return;
+            // Reserve before observable getters can synchronously reenter export.
+            owner.active = true;
+            const { controller, backend, document, nodes } = owner.lifecycle;
+            let context, feedback, generation, url, link, remove, urls, revoke, scheduled = false, removed = false, revoked = false, failed = false;
+            const current = () => exportContextCurrent(this, owner, context);
+            const removeLink = () => { if (link && !removed) { removed = true; remove?.call(link); } };
+            const revokeURL = () => { if (url !== undefined && !revoked) { revoked = true; revoke.call(urls, url); } };
+            const report = key => {
+                if (!current() || controller.generation !== generation || nodes.status.textContent !== feedback) return;
+                const message = t(key);
+                if (current() && controller.generation === generation && nodes.status.textContent === feedback) nodes.status.textContent = message;
+            };
             try {
-                const draft = this.controller.composing ? this.textarea.value : this.controller.draft;
-                if (!api.isUnicode(draft)) { this.status.textContent = t('scratchpadInvalidText'); return; }
-                const blob = new root.Blob([draft], { type: 'text/plain;charset=utf-8' });
-                url = root.URL.createObjectURL(blob); link = el('a'); link.href = url; link.download = 'local-itab-scratchpad.txt';
-                document.body.append(link); link.click(); link.remove();
-                root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
-            } catch (_) { link?.remove(); if (url) root.URL.revokeObjectURL(url); this.status.textContent = t('scratchpadExportError'); }
+                if (!current()) return;
+                const workspace = backend?.workspace;
+                context = { workspace, workspaceId: workspace?.id, workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session };
+                if (!current()) return;
+                feedback = nodes.status.textContent; generation = controller.generation;
+                // Preserve exact raw newlines, except during genuine IME composition.
+                const draft = controller.composing ? nodes.textarea.value : controller.draft;
+                if (!current()) return;
+                if (!api.isUnicode(draft)) { report('scratchpadInvalidText'); return; }
+                const Blob = root.Blob; if (!current()) return;
+                urls = root.URL; if (!current()) return;
+                const createURL = urls.createObjectURL; if (!current()) return;
+                revoke = urls.revokeObjectURL; if (!current()) return;
+                const create = document.createElement; if (!current()) return;
+                const body = document.body; if (!current()) return;
+                const append = body.append; if (!current()) return;
+                const schedule = root.setTimeout; if (!current()) return;
+                const blob = new Blob([draft], { type: 'text/plain;charset=utf-8' }); if (!current()) return;
+                url = createURL.call(urls, blob); if (!current()) return;
+                link = create.call(document, 'a');
+                // Capture cleanup before any later anchor setter or click lookup.
+                remove = link.remove; if (!current()) return;
+                const click = link.click; if (!current()) return;
+                link.href = url; if (!current()) return;
+                link.download = 'local-itab-scratchpad.txt'; if (!current()) return;
+                append.call(body, link); if (!current()) return;
+                // The source can remain ours while a callback redirects this
+                // disposable resource. Recheck its payload and destination too.
+                const anchorCurrent = () => link.href === url && link.download === 'local-itab-scratchpad.txt' &&
+                    link.ownerDocument === document && link.parentElement === body && current();
+                if (!anchorCurrent() || !anchorCurrent()) return;
+                click.call(link);
+                // Activation is already issued; later source changes cannot undo it.
+                removeLink();
+                schedule.call(root, () => { try { revokeURL(); } catch (_) {} }, 1000); scheduled = true;
+            } catch (_) { failed = true; }
+            finally {
+                try { removeLink(); } catch (_) { failed = true; }
+                if (!scheduled) try { revokeURL(); } catch (_) { failed = true; }
+                try { if (failed) report('scratchpadExportError'); } catch (_) {}
+                owner.active = false;
+            }
         }
         hasUncommittedWork() {
             const lifecycle = viewLifecycles.get(this);
