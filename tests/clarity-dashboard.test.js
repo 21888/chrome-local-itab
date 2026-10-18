@@ -246,3 +246,15 @@ test('narrow Clarity date overrides the 135px legacy cap and keeps normal wrappi
     assert.equal(accepts(rule[1].replace('max-width: 100%;', '')), false, 'removing only the cap override must fail');
     assert.doesNotMatch(rule[1], /white-space:|overflow:|text-overflow:|font-size:|display:|height:/);
 });
+
+
+test('Clarity quote-only mode hides only the search row while keeping the workspace recovery bar reachable', () => {
+    const css = read('clarity-dashboard.css');
+    const selector = ':root[data-dashboard-template="clarity"] body.dashboard-hidden #dashboard #search-container';
+    const block = css.slice(css.indexOf(selector)).match(/^[^{]+\{([^}]+)\}/);
+    assert(css.includes(selector) && block, 'the independent search row must obey Clarity quote-only mode');
+    assert.match(block[1], /display: none;/);
+    assert.equal(block[1].replace('display: none;', '').trim(), '', 'visibility-only rule does not restyle or reposition content');
+    assert.match(read('workspaces.css'), /body\.dashboard-hidden #workspace-switcher \{[^}]*position: fixed;[^}]*inset-block-start: 16px;/);
+    assert.doesNotMatch(css, /body\.dashboard-hidden[^{}]*(?:workspace-switcher|workspace-bar)[^{}]*\{[^}]*display: none/);
+});

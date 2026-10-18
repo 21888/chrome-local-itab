@@ -32,6 +32,9 @@
   gap: 24px;
 }
 :root[data-dashboard-template="clarity"] body:not(.dashboard-hidden) #dashboard .dashboard-header { display: contents; }
+/* The search is a sibling of the hidden header, not its descendant. Keep the
+ * original workspace/recovery bar available above the quote-only view. */
+:root[data-dashboard-template="clarity"] body.dashboard-hidden #dashboard #search-container { display: none; }
 :root[data-dashboard-template="clarity"] #dashboard #workspace-switcher {
   grid-column: 1;
   grid-row: 1;

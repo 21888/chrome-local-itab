@@ -522,3 +522,24 @@ bounded('dashboard failures show localized conflict, write, and missing-lock fee
         assert.equal(f.writes.length, 0); assert.equal(e.select.value, 'google'); assert.equal(dash.window.dashboardHiddenState, false);
     }
 });
+
+
+bounded('quote-only visibility round trip retains original search nodes, both drafts, and all saved configuration', async () => {
+    const f = fixture(), dash = await f.dashboard(), editor = dash.editor();
+    const host = dash.host, input = host.querySelector('.search-input');
+    input.value = '  unsubmitted search =21\u00f73  '; input.dispatch('input');
+    editor.edit(DRAFT);
+    const before = f.state(), writes = f.writes.length;
+    for (const hidden of [true, false]) {
+        await dash.toggle();
+        assert.equal(dash.document.body.classList.contains('dashboard-hidden'), hidden);
+        assert.equal(dash.document.getElementById('search-container'), host);
+        assert.equal(host.querySelector('.search-input'), input);
+        assert.equal(input.value, '  unsubmitted search =21\u00f73  ');
+        assert.equal(dash.editor().input, editor.input); assert.equal(editor.input.value, DRAFT);
+        same(f.state(), { ...before, ui: { ...before.ui, dashboardHidden: hidden } });
+        assert.deepEqual(Object.keys(f.writes.at(-1)), ['ui']);
+    }
+    assert.equal(f.writes.length, writes + 2);
+    same(f.state(), before, 'only the explicit hide/show preference changed and returned');
+});

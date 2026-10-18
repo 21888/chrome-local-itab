@@ -184,3 +184,49 @@ specific correction. They do not establish native extension loading, a real
 Chrome upgrade, persistence across a real browser profile, all popup/menu flows,
 the remaining checklist above, or final user acceptance of the redesign. The
 historical upgrade incident and release/store safety gate are unchanged.
+
+## Quote-only search overlap correction (2026-10-18)
+
+A subsequent actual static-renderer check found a pre-existing quote-only
+visibility gap: the search container is a sibling of the hidden dashboard
+header, so the old header visibility rule did not hide it. The workspace bar is
+intentionally fixed near the top in this mode, as documented in the original
+workspace QA checklist. Its recovery link and description therefore overlapped
+the still-visible search input. At 1180px, the quote started at y=166px and its
+757px container extended below the 757px viewport.
+
+The correction adds one Clarity-only `body.dashboard-hidden` rule that sets
+`display: none` on the independent search container. It retains the workspace
+switcher and read-only recovery entry point. No nodes are removed or rebuilt;
+normal mode, other templates, storage schema, preference writes and restore
+behavior are unchanged.
+
+The new source-contract test failed against the original CSS. The appended
+real-Store hide/show test already passed that baseline: it proves the original
+search host, search input and custom-engine input survive, both unsubmitted
+drafts remain exact, the complete saved configuration is unchanged except for
+the explicit visibility preference, and exactly two writes each contain only
+`ui`. Returning to normal mode restores the original complete raw object.
+All pre-existing test and helper bytes are retained.
+
+Owner focused validation passed 91 Node tests across Clarity, field writes,
+search drafts/regressions, template rendering/live preview and temporary focus
+lifecycle. Python passed 84 tests. Independent source and real-Store review
+passed all 48 Clarity/field-write tests. Full unchanged CI remains the delivery
+gate. Actual post-fix visual observations are recorded separately below after
+verification; these checks do not resolve the historical upgrade incident.
+
+The post-fix real static-renderer check passed in English/light at 1180px:
+search has no layout rectangle, the workspace bar remains at y=16px, and the
+quote starts at y=24px instead of y=166px. Its visible text no longer competes
+with search or workspace controls. The workspace chooser opens and closes
+normally. Double-clicking the quote restores the dashboard, the exact original
+search draft (including surrounding spaces), and all 12 synthetic site actions.
+At a 390-by-844px Chinese/dark iframe viewport, search is also absent, all
+workspace/recovery controls and the quote remain readable, and content/scroll
+widths are both 390px. Restoring the dashboard makes search and all 12 site
+actions available again, with content/scroll widths both 382px after its
+scrollbar. Baseline and candidate manifests differ only in the Clarity CSS
+among all 138 runtime files. Images remain local and are not included in Git.
+These are synthetic static-renderer observations through the documented cloud
+browser route, not native extension or real-profile upgrade validation.
