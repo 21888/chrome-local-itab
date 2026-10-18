@@ -14,6 +14,61 @@
             lifecycle.host.ownerDocument === lifecycle.document &&
             Object.entries(lifecycle.nodes).every(([name, node]) => view[name] === node && node.ownerDocument === lifecycle.document);
     }
+    const viewEditors = new WeakMap();
+    function editorSourceCurrent(view, owner) {
+        if (!owner) return false;
+        const { lifecycle, chains } = owner;
+        // Editing can emit a render into every original control. Hidden and
+        // detached original fragments remain ours; a new parent/document does not.
+        const matches = () => viewSourceCurrent(view, lifecycle) &&
+            chains.every(chain => copyChainOwned(chain, lifecycle.document, true));
+        return matches() && matches();
+    }
+    function editorCurrent(view, token) {
+        const matches = () => token && token.accepted && editorSourceCurrent(view, token.owner) &&
+            token.owner.epoch === token.epoch && token.owner.lifecycle.controller.generation === token.generation;
+        return Boolean(matches() && matches());
+    }
+    function beginEditor(view, event, type) {
+        const owner = viewEditors.get(view); if (!owner) return null;
+        const { nodes, controller } = owner.lifecycle;
+        const token = { owner, epoch: ++owner.epoch, generation: controller.generation, accepted: false };
+        if (event) owner.events.set(event, token);
+        if ((event?.target && event.target !== nodes.textarea) || (event?.currentTarget && event.currentTarget !== nodes.textarea)) return token;
+        token.accepted = true;
+        if (editorCurrent(view, token)) return token;
+        // An original editor event can retire its own old clipboard feedback
+        // even after late workspace setup. This grants no draft/DOM authority and
+        // never calls public cleanup/refresh methods against replacement controls.
+        if (owner.epoch === token.epoch && !owner.lifecycle.retired &&
+            (type === 'compositionstart' || (type === 'input' && !viewCopies.get(view).feedback?.receipt.saved))) retireViewCopy(view);
+        token.accepted = false; return token;
+    }
+    function callEditor(view, token, object, method, args, current = () => editorCurrent(view, token)) {
+        if (!current()) return;
+        const fn = object[method];
+        if (current()) return fn.apply(object, args);
+    }
+    function draftFromEditor(view, token) {
+        const controller = token.owner.lifecycle.controller, editor = token.owner.lifecycle.nodes.textarea;
+        if (!editorCurrent(view, token) || !controller.loaded) return;
+        const value = editor.value;
+        if (!editorCurrent(view, token)) return;
+        const generation = token.generation;
+        callEditor(view, token, controller, 'setDraft', [value]);
+        // A synchronous genuine newer draft is not this event's acknowledgement.
+        if (token.owner.epoch === token.epoch && controller.generation === generation + 1) token.generation++;
+    }
+    function editorCompositionCurrent(view, token) {
+        const matches = () => token?.accepted && editorSourceCurrent(view, token.owner) &&
+            token.owner.composition === token.composition;
+        return Boolean(matches() && matches());
+    }
+    function editorHostCurrent(view, event) {
+        const owner = viewEditors.get(view), token = event && owner?.events.get(event);
+        // Preserve the host's existing protection for Find and other inputs.
+        return token ? editorCurrent(view, token) : !event || event.target !== owner?.lifecycle.nodes.textarea;
+    }
     const viewCopies = new WeakMap();
     function copyNodeChain(node) {
         const chain = []; for (; node; node = node.parentElement) chain.push(node);
@@ -295,9 +350,23 @@
             host.classList.add('local-scratchpad-card'); host.setAttribute('aria-label', t('scratchpadTitle')); host.hidden = true;
             const header = el('header', 'scratchpad-header'); header.append(el('h2', '', t('scratchpadTitle')), el('span', 'scratchpad-local', t('scratchpadLocal')));
             this.textarea = el('textarea', 'scratchpad-text'); this.textarea.setAttribute('aria-label', t('scratchpadLabel')); this.textarea.spellcheck = false; this.textarea.setAttribute('autocomplete', 'off');
-            this.textarea.addEventListener('input', () => { if (!viewCopies.get(this).feedback?.receipt.saved) this.invalidateCopy(); this.resetFindResult(); if (controller.loaded) controller.setDraft(this.textarea.value); });
-            this.textarea.addEventListener('compositionstart', () => { this.findHeldEnter = null; controller.setComposing(true); });
-            this.textarea.addEventListener('compositionend', () => { if (controller.loaded) controller.setDraft(this.textarea.value); controller.setComposing(false); });
+            this.textarea.addEventListener('input', event => {
+                const token = beginEditor(this, event, 'input'); if (!editorCurrent(this, token)) return;
+                if (!viewCopies.get(this).feedback?.receipt.saved) callEditor(this, token, this, 'invalidateCopy', []);
+                callEditor(this, token, this, 'resetFindResult', []); draftFromEditor(this, token);
+            });
+            this.textarea.addEventListener('compositionstart', event => {
+                const token = beginEditor(this, event, 'compositionstart'); if (!editorCurrent(this, token)) return;
+                token.composition = ++token.owner.composition; this.findHeldEnter = null;
+                callEditor(this, token, controller, 'setComposing', [true]);
+            });
+            this.textarea.addEventListener('compositionend', event => {
+                const token = beginEditor(this, event, 'compositionend'); if (!editorCurrent(this, token)) return;
+                token.composition = ++token.owner.composition; draftFromEditor(this, token);
+                // Ordinary nested editing must still release this finished IME.
+                // A newer composition event owns its own completion instead.
+                callEditor(this, token, controller, 'setComposing', [false], () => editorCompositionCurrent(this, token));
+            });
             this.savedPreview = el('textarea', 'scratchpad-text scratchpad-saved-preview'); this.savedPreview.readOnly = true; this.savedPreview.spellcheck = false; this.savedPreview.setAttribute('aria-label', t('scratchpadSavedPreview'));
             this.savedLabel = el('p', 'scratchpad-help', t('scratchpadSavedPreview'));
             this.status = el('p', 'scratchpad-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
@@ -433,6 +502,8 @@
                 'importPanel', 'importInfo', 'importPreview', 'importAppend', 'importApply', 'importCancel', 'findButton',
                 'findSelectionButton', 'findPanel', 'findInput', 'findPrevious', 'findNext', 'findClose', 'findStatus', 'count']
                 .map(name => [name, this[name]]));
+            viewEditors.set(this, { lifecycle, epoch: 0, composition: 0, events: new WeakMap(),
+                chains: Object.values(lifecycle.nodes).map(copyNodeChain) });
             // Export retains its construction source and controls. Workspace and
             // Session are captured per call so late setup does not disable recovery.
             viewExports.set(this, { lifecycle, active: false,
@@ -471,8 +542,20 @@
             const previousSavedOwner = savedOwners.get(host);
             savedOwners.set(host, savedOwner); previousSavedOwner?.invalidate();
             savedOwner.invalidate = () => { savedOwner.valid = false; if (viewCopies.get(this).feedback?.receipt.saved) this.invalidateCopy(); };
-            this.copyCompositionStart = () => { this.copySelectionKey = null; this.copySavedKey = null; this.invalidateCopy(); this.refreshCopyControl(); };
-            this.copyCompositionEnd = () => this.refreshCopyControl();
+            this.copyCompositionStart = event => {
+                if (!editorHostCurrent(this, event)) return;
+                this.copySelectionKey = null; this.copySavedKey = null;
+                const invalidate = this.invalidateCopy;
+                if (!editorHostCurrent(this, event)) return; invalidate.call(this);
+                if (!editorHostCurrent(this, event)) return;
+                const refresh = this.refreshCopyControl;
+                if (editorHostCurrent(this, event)) refresh.call(this);
+            };
+            this.copyCompositionEnd = event => {
+                if (!editorHostCurrent(this, event)) return;
+                const refresh = this.refreshCopyControl;
+                if (editorHostCurrent(this, event)) refresh.call(this);
+            };
             host.addEventListener('compositionstart', this.copyCompositionStart); host.addEventListener('compositionend', this.copyCompositionEnd);
             this.beforeUnload = event => { if (root.LocalItabContentLifecycle?.departing || !this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
             root.addEventListener?.('beforeunload', this.beforeUnload);
