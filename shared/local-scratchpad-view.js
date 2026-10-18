@@ -15,13 +15,28 @@
             Object.entries(lifecycle.nodes).every(([name, node]) => view[name] === node && node.ownerDocument === lifecycle.document);
     }
     const viewCopies = new WeakMap();
+    function copyNodeChain(node) {
+        const chain = []; for (; node; node = node.parentElement) chain.push(node);
+        return chain;
+    }
+    function copyChainOwned(chain, document, detached = false) {
+        const matches = () => chain?.length && chain.every((node, index) => {
+            const parent = node.parentElement || null;
+            return node.ownerDocument === document && (parent === (chain[index + 1] || null) || (detached && parent === null));
+        });
+        // DOM accessors may synchronously transfer a target during the first
+        // read. Validate the captured links again before authorizing a write.
+        return matches() && matches();
+    }
     function copyContext(view, transaction, origin, owner) {
         const controller = view.controller, store = controller.store, backend = store?.backend, workspace = backend?.workspace;
-        const host = view.host, chain = []; for (let node = host; node; node = node.parentElement) chain.push(node);
+        const host = view.host, chain = copyNodeChain(host);
         Object.assign(transaction, { controller, store, backend, workspace, workspaceId: workspace?.id,
             workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session,
             host, document, chain, editor: owner?.editor || view.textarea, status: owner?.status || view.copyStatus,
             origin, buttons: [view.copyButton, view.copySelectionButton, view.copySavedButton] });
+        transaction.statusChain = copyNodeChain(transaction.status);
+        transaction.targetChains = [copyNodeChain(transaction.editor), transaction.statusChain, ...transaction.buttons.map(copyNodeChain)];
     }
     function copyContextCurrent(view, transaction) {
         const c = transaction.controller, { store, backend, workspace, host, editor, status, buttons } = transaction;
@@ -31,7 +46,8 @@
             workspace?.generation === transaction.workspaceGeneration && root.LocalItabWorkspaces?.session === transaction.session &&
             view.host === host && view.textarea === editor && view.copyStatus === status &&
             [view.copyButton, view.copySelectionButton, view.copySavedButton].every((button, index) => button === buttons[index]) &&
-            [host, editor, status, ...buttons].every(node => node?.ownerDocument === transaction.document);
+            copyChainOwned(transaction.chain, transaction.document) &&
+            transaction.targetChains.every(chain => chain.includes(host) && copyChainOwned(chain, transaction.document));
     }
     function refreshCopyButtons(view, transaction) {
         const state = viewCopies.get(view), active = state.active, feedback = state.feedback;
@@ -59,13 +75,16 @@
         // idempotent resource cleanup still runs. No foreign hook is consulted.
         attempt(() => transaction.cleanup?.());
         const status = transaction.status;
-        if (!state.feedback && view.copyReceipt === null && status && (!strict ||
-            (view.copyStatus === status && status.ownerDocument === transaction.document && status.parentElement === transaction.host &&
-                transaction.chain.every((node, index) => node.ownerDocument === transaction.document &&
-                    (node.parentElement || null) === (transaction.chain[index + 1] || null))))) {
-            attempt(() => { status.textContent = ''; }); attempt(() => { status.hidden = true; });
-        }
+        // A detached original fragment is still ours; a new parent/document is
+        // not. Cleanup hooks and either setter can transfer ownership again.
+        const ownsStatus = () => status && (!strict || view.copyStatus === status) &&
+            copyChainOwned(transaction.statusChain, transaction.document, true) && !state.feedback && view.copyReceipt === null;
+        attempt(() => { if (ownsStatus()) status.textContent = ''; });
+        attempt(() => { if (ownsStatus()) status.hidden = true; });
         if (failure) { transaction.cleanupError ||= failure; throw failure; }
+    }
+    function writeCopyStatus(view, transaction, property, value) {
+        if (view.copyCurrent(transaction.receipt)) transaction.status[property] = value;
     }
     function cleanCopyResources(actions) {
         let cleaned = false;
@@ -293,6 +312,7 @@
             selectionOwner.invalidate = () => this.invalidateSelectionCopy();
             const chain = []; for (let node = host; node; node = node.parentElement) chain.push(node);
             lifecycle.chain = chain.slice();
+            lifecycle.copyStatusChain = copyNodeChain(this.copyStatus);
             const savedOwner = lifecycle.savedOwner = this.copySavedOwner = { host, controller, store, backend, workspace,
                 workspaceId: lifecycle.workspaceId, workspaceGeneration: lifecycle.workspaceGeneration, session: lifecycle.session,
                 preview: this.savedPreview, label: this.savedLabel, origin: copySavedButton, controls, status: this.copyStatus,
@@ -676,7 +696,7 @@
                 if (!this.canCopySaved(owner, event) || !copyContextCurrent(this, transaction)) return;
                 this.invalidateCopy(); viewCopies.get(this).feedback = transaction; this.copyReceipt = receipt;
                 if (this.copySavedKey) this.copySavedKey.used = true;
-                const sources = [owner.origin, owner.preview, owner.label, owner.controls, owner.status, ...owner.chain];
+                const sources = [owner.origin, owner.preview, owner.label, owner.controls, owner.status, ...owner.chain, ...transaction.buttons];
                 const displays = [owner.origin, owner.preview, owner.label];
                 const attributes = new Set([owner.origin, owner.preview, owner.label, owner.controls, ...owner.chain]);
                 const invalidating = records => records.some(record => record.type === 'attributes' ? attributes.has(record.target) :
@@ -700,11 +720,11 @@
                 owner.preview.addEventListener('input', cancel); owner.preview.addEventListener('change', cancel);
                 receipt.snapshot = this.savedSnapshot(owner);
                 if (!this.copyCurrent(receipt)) { cancel(); return; }
-                const payload = receipt.snapshot.content, status = transaction.status;
-                status.hidden = false;
-                if (!payload) { status.textContent = t('scratchpadCopySavedEmpty'); return; }
-                if (!api.isUnicode(payload)) { status.textContent = t('scratchpadCopySavedInvalid'); return; }
-                status.textContent = t('scratchpadCopySavedCopying'); this.refreshCopyControl();
+                const payload = receipt.snapshot.content;
+                writeCopyStatus(this, transaction, 'hidden', false);
+                if (!payload) { writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopySavedEmpty')); return; }
+                if (!api.isUnicode(payload)) { writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopySavedInvalid')); return; }
+                writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopySavedCopying')); this.refreshCopyControl();
                 const clipboard = this.clipboard, writeText = clipboard?.writeText;
                 if (!this.copyCurrent(receipt)) { cancel(); return; }
                 if (typeof writeText !== 'function') throw new Error('Clipboard unavailable');
@@ -713,9 +733,9 @@
                 const result = writeText.call(clipboard, payload);
                 try { if (!this.copyCurrent(receipt)) cancel(); }
                 finally { await result; }
-                if (this.copyCurrent(receipt)) status.textContent = t('scratchpadCopySavedSuccess');
+                if (this.copyCurrent(receipt)) writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopySavedSuccess'));
             } catch (_) {
-                if (this.copyCurrent(receipt)) transaction.status.textContent = t('scratchpadCopySavedFailure');
+                if (this.copyCurrent(receipt)) writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopySavedFailure'));
             } finally {
                 try { if (!this.copyCurrent(receipt)) cancel(); }
                 finally { finishCopy(this, transaction); }
@@ -742,7 +762,7 @@
                 viewCopies.get(this).feedback = transaction; this.copyReceipt = receipt;
                 // Record brief hide/show or detach/reattach cycles, even when the DOM
                 // looks unchanged again by the time the clipboard promise settles.
-                const sources = owner ? [origin, editor, owner.status] : [origin, editor];
+                const sources = [origin, editor, copyStatus, ...transaction.buttons];
                 const invalidating = records => records.some(record => record.type === 'attributes' ?
                     record.target.contains(origin) || record.target.contains(editor) :
                     Array.from(record.removedNodes || []).some(node => sources.some(source => node === source || node.contains?.(source))));
@@ -773,17 +793,17 @@
                 receipt.editorText = editor.value;
                 if (owner) { receipt.start = editor.selectionStart; receipt.end = editor.selectionEnd; receipt.direction = editor.selectionDirection; }
                 if (!this.copyCurrent(receipt)) { cancel(); return; }
-                copyStatus.hidden = false;
+                writeCopyStatus(this, transaction, 'hidden', false);
                 let payload = receipt.draft;
                 if (owner) {
                     const { start, end, editorText } = receipt;
                     payload = Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start && end <= editorText.length ? editorText.slice(start, end) : '';
-                    if (!payload || !api.isUnicode(payload)) { copyStatus.textContent = t('scratchpadCopySelectionHelp'); return; }
+                    if (!payload || !api.isUnicode(payload)) { writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopySelectionHelp')); return; }
                 } else {
-                    if (!payload) { copyStatus.textContent = t('scratchpadCopyEmpty'); return; }
-                    if (!api.isUnicode(payload)) { copyStatus.textContent = t('scratchpadCopyInvalid'); return; }
+                    if (!payload) { writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopyEmpty')); return; }
+                    if (!api.isUnicode(payload)) { writeCopyStatus(this, transaction, 'textContent', t('scratchpadCopyInvalid')); return; }
                 }
-                copyStatus.textContent = t(owner ? 'scratchpadCopySelectionCopying' : 'scratchpadCopying'); this.refreshCopyControl();
+                writeCopyStatus(this, transaction, 'textContent', t(owner ? 'scratchpadCopySelectionCopying' : 'scratchpadCopying')); this.refreshCopyControl();
                 // The full route retains the exact controller draft (including
                 // CRLF). The selection route slices the native DOM value only.
                 // No awaited work precedes this user-activated system call.
@@ -793,9 +813,9 @@
                 const result = writeText.call(clipboard, payload);
                 try { if (!this.copyCurrent(receipt)) cancel(); }
                 finally { await result; }
-                if (this.copyCurrent(receipt)) copyStatus.textContent = t(owner ? 'scratchpadCopySelectionSuccess' : 'scratchpadCopySuccess');
+                if (this.copyCurrent(receipt)) writeCopyStatus(this, transaction, 'textContent', t(owner ? 'scratchpadCopySelectionSuccess' : 'scratchpadCopySuccess'));
             } catch (_) {
-                if (this.copyCurrent(receipt)) transaction.status.textContent = t(owner ? 'scratchpadCopySelectionFailure' : 'scratchpadCopyFailure');
+                if (this.copyCurrent(receipt)) writeCopyStatus(this, transaction, 'textContent', t(owner ? 'scratchpadCopySelectionFailure' : 'scratchpadCopyFailure'));
             } finally {
                 try { if (!this.copyCurrent(receipt)) cancel(); }
                 finally { finishCopy(this, transaction); }
@@ -829,12 +849,19 @@
             savedOwner.valid = false; selectionOwner.valid = false;
             if (savedOwners.get(host) === savedOwner) savedOwners.delete(host);
             if (selectionOwners.get(host) === selectionOwner) selectionOwners.delete(host);
+            const feedback = viewCopies.get(this).feedback;
             cleanup(() => retireViewCopy(this));
+            if (!feedback) {
+                // No receipt owns this status. Retain construction-time private
+                // ancestry rather than following mutable public owner objects.
+                const ownsStatus = () => copyChainOwned(lifecycle.copyStatusChain, lifecycle.document, true);
+                cleanup(() => { if (ownsStatus()) nodes.copyStatus.textContent = ''; });
+                cleanup(() => { if (ownsStatus()) nodes.copyStatus.hidden = true; });
+            }
             this.findHeldEnter = null; this.findComposing = false; this.findResult = null; this.importSession = null;
             // Use pinned nodes rather than public helpers: their targets may have
             // been replaced. Retired teardown never restores focus.
             for (const action of [
-                () => { nodes.copyStatus.textContent = ''; }, () => { nodes.copyStatus.hidden = true; },
                 () => { nodes.findInput.value = ''; }, () => { nodes.findStatus.textContent = ''; },
                 () => { nodes.findPanel.hidden = true; }, () => nodes.findButton.setAttribute('aria-expanded', 'false'),
                 () => { nodes.findPrevious.disabled = true; }, () => { nodes.findNext.disabled = true; },

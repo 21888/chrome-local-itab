@@ -382,11 +382,18 @@ for (const change of ['status replacement', 'status document', 'controls documen
     test(`Scratchpad selection copy: ${change} cannot redirect old feedback`, async t => {
         const held = deferred(), m = await model(t, 'A selected Z', { writeText: () => held.promise }), originalStatus = m.view.copyStatus;
         m.click(); let newStatus;
+        const transferred = ['status document', 'status parent'].includes(change);
+        const receipt = transferred ? m.view.copyReceipt : null, before = transferred ? remember(m) : null;
         if (change === 'status replacement') { newStatus = m.document.createElement('p'); newStatus.textContent = 'new owner status'; originalStatus.replaceWith(newStatus); m.view.copyStatus = newStatus; }
         if (change === 'status document') originalStatus.ownerDocument = {};
         if (change === 'controls document') m.view.copySelectionButton.parentElement.ownerDocument = {};
         if (change === 'status parent') { originalStatus.remove(); m.document.body.append(originalStatus); }
-        held.resolve(); await flush(); assert.equal(originalStatus.textContent, ''); assert(originalStatus.hidden);
+        if (transferred) { originalStatus.textContent = 'New owner feedback'; originalStatus.hidden = false; }
+        held.resolve(); await flush();
+        if (transferred) {
+            assert.equal(originalStatus.textContent, 'New owner feedback'); assert.equal(originalStatus.hidden, false);
+            assert.equal(receipt.valid, false); assert.equal(m.view.copyReceipt, null); unchanged(m, before);
+        } else { assert.equal(originalStatus.textContent, ''); assert(originalStatus.hidden); }
         if (newStatus) assert.equal(newStatus.textContent, 'new owner status');
         m.click(); assert.deepEqual(m.calls, ['selected']);
     });

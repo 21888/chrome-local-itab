@@ -236,11 +236,18 @@ for (const phase of ['before first copy', 'pending', 'settled']) for (const [nam
         const held = deferred(), m = await model(t, 'Saved owner text', { writeText: () => held.promise }), status = m.view.copyStatus;
         if (phase !== 'before first copy') { m.click(); assert.deepEqual(m.calls, ['Saved owner text']); }
         if (phase === 'settled') { held.resolve(); await flush(); }
-        const attempt = m.view.copyAttempt; change(m); await m.view.copySavedText();
+        const transferred = phase !== 'before first copy' && ['status reparent', 'host ancestor reparent', 'host document replacement', 'copyStatus document replacement'].includes(name);
+        const receipt = transferred ? m.view.copyReceipt : null, before = transferred ? remember(m) : null;
+        const attempt = m.view.copyAttempt; change(m);
+        if (transferred) { status.textContent = 'New owner feedback'; status.hidden = false; }
+        await m.view.copySavedText();
         if (phase === 'pending') { assert.equal(m.view.copyAttempt, attempt); held.resolve(); await flush(); }
         else { held.resolve(); m.view.render(); await flush(); }
         assert.equal(m.calls.length, phase === 'before first copy' ? 0 : 1);
-        if (phase !== 'before first copy') { assert.equal(status.textContent, ''); assert(status.hidden); }
+        if (transferred) {
+            assert.equal(status.textContent, 'New owner feedback'); assert.equal(status.hidden, false);
+            assert.equal(receipt.valid, false); assert.equal(m.view.copyReceipt, null); unchanged(m, before);
+        } else if (phase !== 'before first copy') { assert.equal(status.textContent, ''); assert(status.hidden); }
         if (name === 'status replacement') assert.equal(m.view.copyStatus.textContent, 'new owner status');
         assert.equal(m.view.copyAttempt, null); m.view.host = m.host; m.controller.store = m.store; m.store.backend = m.backend;
     });
