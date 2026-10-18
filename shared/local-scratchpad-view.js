@@ -129,6 +129,50 @@
             chains.every(chain => copyChainOwned(chain, document, true));
         return matches() && matches();
     }
+    const viewImports = new WeakMap();
+    function importSourceCurrent(view, owner) {
+        if (!owner) return false;
+        const { lifecycle, chains } = owner, { controller, store, backend, workspace, host, nodes, document } = lifecycle;
+        const matches = () => !lifecycle.retired && !view.closed && !controller.closed && view.controller === controller &&
+            controller.store === store && store?.backend === backend && backend?.workspace === workspace &&
+            workspace?.id === lifecycle.workspaceId && workspace?.generation === lifecycle.workspaceGeneration &&
+            root.LocalItabWorkspaces?.session === lifecycle.session && view.host === host &&
+            Object.keys(chains).every(name => view[name] === nodes[name] && copyChainOwned(chains[name], document, true));
+        return matches() && matches();
+    }
+    function importReady(view, owner) {
+        if (!importSourceCurrent(view, owner)) return false;
+        const c = owner.lifecycle.controller;
+        return c.loaded && c.state?.enabled === true && !c.pending && !c.error && !c.readError &&
+            !c.hasUncommittedWork() && importSourceCurrent(view, owner);
+    }
+    function importSessionCurrent(view, owner, session) {
+        const matches = () => session && session.valid && owner.session === session && view.importSession === session.receipt &&
+            session.receipt.state === session.state && session.receipt.generation === session.generation &&
+            (session.text === undefined || (session.receipt.text === session.text && session.receipt.name === session.name)) &&
+            importReady(view, owner) && owner.lifecycle.controller.state === session.state &&
+            owner.lifecycle.controller.generation === session.generation;
+        const current = matches() && matches();
+        if (session && !current) session.valid = false;
+        return Boolean(current);
+    }
+    function beginImport(view, owner, state, generation) {
+        if (owner.session) owner.session.valid = false;
+        const receipt = { state, generation }, session = { receipt, state, generation, valid: true };
+        owner.epoch++; owner.session = session; view.importSession = receipt;
+        return session;
+    }
+    function importTargetOwned(owner, name) {
+        return copyChainOwned(owner.chains[name], owner.lifecycle.document, true);
+    }
+    function writeImport(owner, current, name, property, value) {
+        if (current() && importTargetOwned(owner, name) && current()) owner.lifecycle.nodes[name][property] = value;
+    }
+    function focusImport(owner, current, name) {
+        if (!current() || !importTargetOwned(owner, name)) return;
+        const node = owner.lifecycle.nodes[name], focus = node.focus;
+        if (current() && importTargetOwned(owner, name)) focus.call(node);
+    }
     const fallback = {
         scratchpadTitle: 'Scratchpad', scratchpadLocal: 'On this device',
         scratchpadLabel: 'Scratchpad text', scratchpadEnable: 'Show Scratchpad on the new tab page',
@@ -326,6 +370,12 @@
             // Session are captured per call so late setup does not disable recovery.
             viewExports.set(this, { lifecycle, active: false,
                 chains: ['textarea', 'status', 'exportButton'].map(name => copyNodeChain(lifecycle.nodes[name])) });
+            // Import changes saved text, so it shares the construction source's
+            // workspace/session identity rather than export's recovery admission.
+            viewImports.set(this, { lifecycle, session: null, epoch: 0,
+                chains: Object.fromEntries(['textarea', 'importButton', 'importFile', 'importPanel', 'importInfo',
+                    'importPreview', 'importAppend', 'importApply', 'importCancel']
+                    .map(name => [name, copyNodeChain(lifecycle.nodes[name])])) });
             // Teardown authority is private and captured before any prior-owner
             // invalidation callback can reparent or adopt the new controls.
             lifecycle.teardownChains = Object.fromEntries(['findInput', 'findStatus', 'findPanel', 'findButton',
@@ -504,82 +554,147 @@
                 else this.findStatus.textContent = t('scratchpadFindFailed');
             }
         }
-        canImport() {
-            const c = this.controller;
-            return !this.closed && c.loaded && c.state?.enabled === true && !c.pending && !c.error && !c.readError && !c.hasUncommittedWork();
-        }
-        importCurrent(session) {
-            return this.importSession === session && this.canImport() && this.controller.state === session.state && this.controller.generation === session.generation;
+        canImport() { return importReady(this, viewImports.get(this)); }
+        importCurrent(receipt) {
+            const owner = viewImports.get(this), session = owner.session;
+            return receipt === session?.receipt && importSessionCurrent(this, owner, session);
         }
         cancelImport(focus = false) {
-            const focused = document.activeElement, restore = this.importPanel.contains(focused);
-            this.importSession = null; this.importApply.textContent = t('scratchpadImportReplace'); this.importAppend.checked = false; this.importAppend.disabled = true; this.importPanel.hidden = true; this.importPreview.textContent = ''; this.importInfo.textContent = ''; this.importFile.value = '';
-            if (focus && this.canImport()) this.importButton.focus();
-            else if (restore && !this.closed) {
-                if (this.controller.state?.enabled) this.textarea.focus();
-                else focused?.blur?.();
+            const owner = viewImports.get(this), { lifecycle } = owner, { nodes, controller: c } = lifecycle;
+            const previous = owner.session, epoch = ++owner.epoch;
+            if (previous) previous.valid = false;
+            owner.session = null;
+            const current = () => owner.epoch === epoch && !owner.session && !lifecycle.retired;
+            const state = c.state, generation = c.generation, focused = lifecycle.document.activeElement;
+            const restore = current() && importTargetOwned(owner, 'importPanel') && nodes.importPanel.contains(focused);
+            if (current() && (!previous || this.importSession === previous.receipt)) this.importSession = null;
+            // Each setter/translation can synchronously start a newer selection or
+            // transfer a later target. Retire first, then clean only our own nodes.
+            for (const [name, property, value] of [
+                ['importApply', 'textContent', t('scratchpadImportReplace')],
+                ['importAppend', 'checked', false], ['importAppend', 'disabled', true],
+                ['importPanel', 'hidden', true], ['importPreview', 'textContent', ''],
+                ['importInfo', 'textContent', ''], ['importFile', 'value', '']
+            ]) writeImport(owner, current, name, property, value);
+            const ownsFocus = () => current() && importSourceCurrent(this, owner) && c.state === state && c.generation === generation;
+            if (focus && ownsFocus() && importReady(this, owner)) focusImport(owner, ownsFocus, 'importButton');
+            else if (restore && ownsFocus()) {
+                if (c.state?.enabled) focusImport(owner, ownsFocus, 'textarea');
+                else {
+                    const blur = focused?.blur;
+                    if (ownsFocus() && importTargetOwned(owner, 'importPanel')) blur?.call(focused);
+                }
             }
+            return epoch;
         }
         chooseImport() {
-            this.cancelImport();
-            if (!this.canImport()) return;
-            this.importSession = { state: this.controller.state, generation: this.controller.generation };
-            this.importFile.click();
+            const owner = viewImports.get(this), epoch = this.cancelImport();
+            if (owner.epoch !== epoch || !importReady(this, owner)) return;
+            const c = owner.lifecycle.controller, session = beginImport(this, owner, c.state, c.generation);
+            if (!importSessionCurrent(this, owner, session)) return;
+            const file = owner.lifecycle.nodes.importFile, click = file.click;
+            if (importSessionCurrent(this, owner, session)) click.call(file);
         }
         async readImport() {
-            const session = this.importSession;
-            if (!session || !this.importCurrent(session)) { this.cancelImport(); return; }
-            // Each selection owns its own completion, even if another chooser opens.
-            const files = Array.from(this.importFile.files || []);
-            this.importFile.value = '';
+            const owner = viewImports.get(this), session = owner.session, { nodes } = owner.lifecycle;
+            if (!importSessionCurrent(this, owner, session)) { if (owner.session === session) this.cancelImport(); return; }
+            // Each selection owns its own completion, even within one chooser.
+            const files = Array.from(nodes.importFile.files || []);
+            if (!importSessionCurrent(this, owner, session)) return;
+            nodes.importFile.value = '';
+            if (!importSessionCurrent(this, owner, session)) return;
             if (!files.length) { this.cancelImport(true); return; }
-            this.importSession = { state: session.state, generation: session.generation }; const owned = this.importSession;
-            this.importPanel.hidden = false; this.importApply.disabled = true; this.importAppend.disabled = true;
-            this.importPreview.textContent = ''; this.importInfo.textContent = t('scratchpadImportReading');
-            this.importCancel.focus();
+            const owned = beginImport(this, owner, session.state, session.generation);
+            const current = () => importSessionCurrent(this, owner, owned);
+            writeImport(owner, current, 'importPanel', 'hidden', false);
+            writeImport(owner, current, 'importApply', 'disabled', true);
+            writeImport(owner, current, 'importAppend', 'disabled', true);
+            writeImport(owner, current, 'importPreview', 'textContent', '');
+            writeImport(owner, current, 'importInfo', 'textContent', t('scratchpadImportReading'));
+            focusImport(owner, current, 'importCancel');
             try {
-                const file = files[0];
-                if (files.length !== 1 || !/\.txt$/i.test(file.name) || file.size > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
-                const bytes = await file.arrayBuffer();
-                if (!this.importCurrent(owned)) return;
-                if (bytes.byteLength > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
+                if (!current()) return;
+                const file = files[0], name = file.name;
+                if (!current()) return;
+                const size = file.size;
+                if (!current()) return;
+                if (files.length !== 1 || typeof name !== 'string' || !/\.txt$/i.test(name) || size > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
+                const read = file.arrayBuffer;
+                if (!current()) return;
+                const bytes = await read.call(file);
+                if (!current()) return;
+                const length = bytes.byteLength;
+                if (!current()) return;
+                if (length > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
                 // Preserve a literal leading BOM as text, like our own UTF-8 export.
-                const text = api.content(new root.TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes));
-                owned.text = text; owned.name = file.name;
-                this.importAppend.disabled = false; this.renderImportPreview();
+                const Decoder = root.TextDecoder;
+                if (!current()) return;
+                const decoder = new Decoder('utf-8', { fatal: true, ignoreBOM: true });
+                if (!current()) return;
+                const decode = decoder.decode;
+                if (!current()) return;
+                const text = api.content(decode.call(decoder, bytes));
+                if (!current()) return;
+                owned.receipt.text = text;
+                if (!current()) return;
+                owned.receipt.name = name;
+                if (!current()) return;
+                owned.text = text; owned.name = name;
+                writeImport(owner, current, 'importAppend', 'disabled', false);
+                if (current()) this.renderImportPreview();
             } catch (_) {
-                if (this.importCurrent(owned)) this.importInfo.textContent = t('scratchpadImportError');
+                if (current()) writeImport(owner, current, 'importInfo', 'textContent', t('scratchpadImportError'));
             }
         }
-        importResult(session) {
-            const before = session.state.content, after = session.text;
+        importResult(receipt) {
+            const owner = viewImports.get(this), session = owner.session;
+            if (receipt !== session?.receipt || !importSessionCurrent(this, owner, session) || typeof session.text !== 'string') throw api.fault('UNAVAILABLE');
+            const before = session.state.content, after = session.text, append = owner.lifecycle.nodes.importAppend.checked;
             // Preserve both inputs exactly; separate adjacent non-empty lines only.
             const separator = before && after && !/[\r\n]$/.test(before) && !/^[\r\n]/.test(after) ? '\n' : '';
-            return api.content(this.importAppend.checked ? before + separator + after : after);
+            const text = api.content(append ? before + separator + after : after);
+            if (!importSessionCurrent(this, owner, session) || owner.lifecycle.nodes.importAppend.checked !== append) throw api.fault('UNAVAILABLE');
+            return text;
         }
         renderImportPreview() {
-            const session = this.importSession;
-            if (!session || !this.importCurrent(session) || typeof session.text !== 'string') return;
-            this.importApply.textContent = t(this.importAppend.checked ? 'scratchpadImportAppend' : 'scratchpadImportReplace');
+            const owner = viewImports.get(this), session = owner.session, { nodes } = owner.lifecycle;
+            if (!importSessionCurrent(this, owner, session) || typeof session.text !== 'string') return;
+            const append = nodes.importAppend.checked, current = () => importSessionCurrent(this, owner, session) && nodes.importAppend.checked === append;
+            writeImport(owner, current, 'importApply', 'textContent', t(append ? 'scratchpadImportAppend' : 'scratchpadImportReplace'));
             try {
-                const text = this.importResult(session);
-                this.importInfo.textContent = `${session.name} · ${Array.from(text).length.toLocaleString()} / 32,000 · ${new root.Blob([text]).size.toLocaleString()} B`;
-                this.importPreview.textContent = text; this.importApply.disabled = false;
+                if (!current()) return;
+                const text = this.importResult(session.receipt);
+                const info = `${session.name} · ${Array.from(text).length.toLocaleString()} / 32,000 · ${new root.Blob([text]).size.toLocaleString()} B`;
+                writeImport(owner, current, 'importInfo', 'textContent', info);
+                writeImport(owner, current, 'importPreview', 'textContent', text);
+                writeImport(owner, current, 'importApply', 'disabled', false);
             } catch (_) {
-                this.importPreview.textContent = ''; this.importApply.disabled = true;
-                this.importInfo.textContent = t('scratchpadImportAppendLimit');
+                writeImport(owner, current, 'importPreview', 'textContent', '');
+                writeImport(owner, current, 'importApply', 'disabled', true);
+                if (current()) writeImport(owner, current, 'importInfo', 'textContent', t('scratchpadImportAppendLimit'));
             }
         }
         applyImport() {
-            const session = this.importSession;
-            if (!session || !this.importCurrent(session) || typeof session.text !== 'string') { this.cancelImport(); return; }
+            const owner = viewImports.get(this), session = owner.session, c = owner.lifecycle.controller;
+            if (!importSessionCurrent(this, owner, session) || typeof session.text !== 'string') { this.cancelImport(); return; }
             let text;
-            try { text = this.importResult(session); } catch (_) { this.renderImportPreview(); return; }
-            this.cancelImport();
-            // The controller owns the draft from here: existing CAS, Retry, conflict
-            // recovery, export and verified-save status apply without new storage.
-            this.controller.setDraft(text); this.textarea.focus();
-            run(() => this.controller.save());
+            try { text = this.importResult(session.receipt); } catch (_) { this.renderImportPreview(); return; }
+            if (!importSessionCurrent(this, owner, session)) return;
+            const epoch = this.cancelImport();
+            const unchanged = () => owner.epoch === epoch && !owner.session && this.importSession === null &&
+                importReady(this, owner) && c.state === session.state && c.generation === session.generation;
+            if (!unchanged()) return;
+            const setDraft = c.setDraft;
+            if (!unchanged()) return;
+            // The original Controller owns the draft from here. Its emit/focus
+            // callbacks may create a newer draft; never explicitly save that edit.
+            setDraft.call(c, text);
+            const applied = () => owner.epoch === epoch && !owner.session && this.importSession === null && importSourceCurrent(this, owner) &&
+                c.state === session.state && c.generation === session.generation + 1 && c.draft === text;
+            focusImport(owner, applied, 'textarea');
+            if (!applied()) return;
+            const save = c.save;
+            if (applied()) run(() => save.call(c));
         }
         canCopy(event) { return this.canCopyFrom(this.copyButton, event); }
         canCopyFrom(origin, event) {
@@ -919,6 +1034,7 @@
             // Private retirement precedes every callback and cannot be reset by
             // public fields. A write already issued by the Store still settles.
             lifecycle.retired = true; this.closed = true;
+            const imports = viewImports.get(this); imports.epoch++; imports.session = null;
             const { host, nodes, selectionOwner, savedOwner } = lifecycle;
             let failed = false, failure;
             const cleanup = action => { try { action(); } catch (error) { if (!failed) { failed = true; failure = error; } } };

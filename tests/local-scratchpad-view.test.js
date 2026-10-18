@@ -234,7 +234,8 @@ test('Import text adds no network, storage keys or permissions and uses controll
     const view = fs.readFileSync(require.resolve('../shared/local-scratchpad-view'), 'utf8');
     const importCode = view.slice(view.indexOf('        canImport()'), view.indexOf('        exportText()'));
     assert(!/fetch\(|XMLHttpRequest|chrome\.storage|localStorage|sessionStorage/.test(importCode));
-    assert(importCode.includes('this.controller.setDraft(text)')); assert(importCode.includes('this.controller.save()'));
+    assert(importCode.includes('c = owner.lifecycle.controller')); assert(importCode.includes('const setDraft = c.setDraft') && importCode.includes('setDraft.call(c, text)'));
+    assert(importCode.includes('const save = c.save') && importCode.includes('save.call(c)'));
 });
 
 function appendImport(m, checked = true) {
