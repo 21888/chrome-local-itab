@@ -1397,23 +1397,177 @@
             if (failed) throw failure;
         }
     }
-    function mountSettings(host, { controller = new api.Controller() } = {}) {
-        host.classList.add('local-scratchpad-settings');
-        const label = el('label', 'scratchpad-enable-label'), input = el('input'); input.type = 'checkbox'; input.disabled = true;
-        label.append(input, el('span', '', t('scratchpadEnable')));
-        const status = el('p', 'scratchpad-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
-        const retry = button('scratchpadRetry', () => run(() => controller.retry()));
-        const readLatest = button('scratchpadReadLatest', () => run(() => controller.useSaved()));
-        host.replaceChildren(label, el('p', 'scratchpad-help', t('scratchpadEnableHelp')), el('p', 'scratchpad-help', t('scratchpadHelp')), status, retry, readLatest);
-        const render = () => {
-            input.checked = controller.state?.enabled === true; input.disabled = !controller.loaded || Boolean(controller.pending || controller.error || controller.conflict);
-            const text = controller.conflict && !controller.readError ? t('scratchpadSettingsConflict') : statusText(controller); if (status.textContent !== text) status.textContent = text;
-            retry.hidden = !controller.readError && (!controller.error || Boolean(controller.conflict)); retry.disabled = Boolean(controller.pending);
-            readLatest.hidden = !controller.conflict; readLatest.disabled = Boolean(controller.pending);
+    // Settings has a separate lifecycle from the editor View. Supersession only
+    // retires UI authority; the original Controller still owns its draft/write.
+    const settingsHosts = new WeakMap();
+    const settingsStateKeys = ['state', 'draft', 'generation', 'loaded', 'pending', 'pendingWrite',
+        'error', 'readError', 'writeError', 'conflict', 'composing', 'status', 'closed'];
+    function settingsClaimCurrent(owner) {
+        return !owner.retired && settingsHosts.get(owner.host) === owner;
+    }
+    function settingsSourceCurrent(owner) {
+        const matches = () => {
+            if (!settingsClaimCurrent(owner) || owner.host.ownerDocument !== owner.document) return false;
+            if (owner.hostChain && !copyChainOwned(owner.hostChain, owner.document, true)) return false;
+            if (owner.sourceReady) {
+                const { controller, store, backend, workspace } = owner;
+                if (controller.closed || owner.handle.controller !== controller || controller.store !== store || store?.backend !== backend ||
+                    backend?.workspace !== workspace || workspace?.id !== owner.workspaceId || workspace?.generation !== owner.workspaceGeneration ||
+                    root.LocalItabWorkspaces?.session !== owner.session) return false;
+            }
+            return owner.nodes.every(({ node, parent }) => node.ownerDocument === owner.document && (node.parentElement || null) === parent) && settingsClaimCurrent(owner);
         };
-        input.addEventListener('change', () => run(() => controller.setEnabled(input.checked)));
-        const unsubscribe = controller.subscribe(render); render(); run(() => controller.init());
-        return { controller, hasUncommittedWork: () => controller.hasUncommittedWork(), destroy() { unsubscribe(); controller.destroy(); } };
+        return matches() && matches();
+    }
+    function settingsToken(owner) {
+        const token = { owner, epoch: ++owner.epoch, snapshot: {} };
+        // Reserve before any observable source, DOM, event or method admission.
+        for (const key of settingsStateKeys) token.snapshot[key] = owner.controller[key];
+        return token;
+    }
+    function settingsCurrent(token) {
+        const { owner, epoch, snapshot } = token;
+        const matches = () => owner.epoch === epoch && settingsSourceCurrent(owner) &&
+            settingsStateKeys.every(key => owner.controller[key] === snapshot[key]) && owner.epoch === epoch;
+        return matches() && matches();
+    }
+    function settingsCall(token, object, key, args = []) {
+        if (!settingsCurrent(token)) return;
+        const method = object[key];
+        if (settingsCurrent(token)) return method.apply(object, args);
+    }
+    function settingsText(token, key) {
+        if (!settingsCurrent(token)) return;
+        const i18n = root.i18n;
+        if (!settingsCurrent(token)) return;
+        const translate = i18n?.t;
+        if (!settingsCurrent(token)) return;
+        const translated = translate?.call(i18n, key);
+        if (settingsCurrent(token)) return translated && translated !== key ? translated : fallback[key] || key;
+    }
+    function settingsWrite(token, node, key, value) {
+        if (settingsCurrent(token)) node[key] = value;
+    }
+    function renderSettings(owner) {
+        if (!owner.controller) return;
+        const token = settingsToken(owner), s = token.snapshot, { input, status, retry, readLatest } = owner.controls;
+        if (!settingsCurrent(token)) return;
+        const checked = s.state?.enabled === true;
+        settingsWrite(token, input, 'checked', checked);
+        settingsWrite(token, input, 'disabled', !s.loaded || Boolean(s.pending || s.error || s.conflict));
+        if (!settingsCurrent(token)) return;
+        let key;
+        if (s.readError) key = 'scratchpadLoadError';
+        else if (s.conflict) key = 'scratchpadSettingsConflict';
+        else {
+            const code = s.error?.code;
+            if (!settingsCurrent(token)) return;
+            if (s.loaded && ['TEXT_LIMIT', 'SIZE_LIMIT'].includes(code)) key = 'scratchpadTooLong';
+            else if (s.loaded && code === 'TEXT') key = 'scratchpadInvalidText';
+            else if (s.error) key = s.loaded ? 'scratchpadSaveError' : 'scratchpadLoadError';
+            else if (!s.loaded) key = 'scratchpadLoading';
+            else if (s.pending) key = 'scratchpadSaving';
+            else key = settingsCall(token, owner.controller, 'hasUncommittedWork') ? 'scratchpadUnsaved' : 'scratchpadSaved';
+        }
+        const text = settingsText(token, key);
+        if (!settingsCurrent(token)) return;
+        const previous = status.textContent;
+        if (previous !== text) settingsWrite(token, status, 'textContent', text);
+        settingsWrite(token, retry, 'hidden', !s.readError && (!s.error || Boolean(s.conflict)));
+        settingsWrite(token, retry, 'disabled', Boolean(s.pending));
+        settingsWrite(token, readLatest, 'hidden', !s.conflict);
+        settingsWrite(token, readLatest, 'disabled', Boolean(s.pending));
+    }
+    function settingsAction(owner, event, node, method) {
+        const token = settingsToken(owner);
+        if (!settingsCurrent(token)) return;
+        if (event && ((event.target && event.target !== node) || (event.currentTarget && event.currentTarget !== node))) return;
+        if (!settingsCurrent(token)) return;
+        // Read the original native checkbox exactly once for this action.
+        const args = method === 'setEnabled' ? [node.checked] : [];
+        return settingsCall(token, owner.controller, method, args);
+    }
+    function cleanupSettings(owner, destroyController) {
+        let failed = false, failure;
+        const clean = action => { try { action(); } catch (error) { if (!failed) { failed = true; failure = error; } } };
+        const listeners = owner.listeners.splice(0), unsubscribe = owner.unsubscribe;
+        owner.unsubscribe = null;
+        for (const remove of listeners) clean(remove);
+        if (unsubscribe) clean(unsubscribe);
+        if (destroyController && owner.destroyController) clean(owner.destroyController);
+        if (failed) throw failure;
+    }
+    function mountSettings(host, options = {}) {
+        const owner = { host, document, nodes: [], controls: {}, listeners: [], unsubscribe: null, epoch: 0, retired: false };
+        settingsHosts.set(host, owner);
+        const handle = owner.handle = {
+            controller: undefined,
+            hasUncommittedWork: () => Boolean(!owner.retired && owner.controller?.hasUncommittedWork()),
+            destroy() {
+                if (owner.retired) return;
+                owner.retired = true; owner.epoch++;
+                cleanupSettings(owner, true);
+            }
+        };
+        const stopped = {}, check = () => { if (!settingsSourceCurrent(owner)) throw stopped; };
+        const call = (object, key, args = []) => { check(); const method = object[key]; check(); return method.apply(object, args); };
+        const write = (node, key, value) => { check(); node[key] = value; check(); };
+        const translate = key => {
+            check(); const i18n = root.i18n; check(); const fn = i18n?.t; check();
+            const value = fn?.call(i18n, key); check(); return value && value !== key ? value : fallback[key] || key;
+        };
+        const create = (tag, cls, key) => {
+            const node = call(document, 'createElement', [tag]); owner.nodes.push({ node, parent: null }); check();
+            if (cls) write(node, 'className', cls);
+            if (key) write(node, 'textContent', translate(key));
+            return node;
+        };
+        const append = (parent, key, children) => {
+            call(parent, key, children);
+            for (const child of children) owner.nodes.find(record => record.node === child).parent = parent;
+            check();
+        };
+        const listen = (node, type, fn) => {
+            check(); const remove = node.removeEventListener; check(); const add = node.addEventListener; check();
+            // Capture cleanup before an entered add callback can throw or remount.
+            owner.listeners.push(() => remove.call(node, type, fn)); add.call(node, type, fn); check();
+        };
+        try {
+            check(); owner.hostChain = copyNodeChain(host); check();
+            let controller = options.controller; check();
+            if (controller === undefined) { const Constructor = api.Controller; check(); controller = new Constructor(); check(); }
+            owner.controller = handle.controller = controller;
+            const destroy = controller.destroy; owner.destroyController = () => destroy.call(controller); check();
+            owner.store = controller.store; check(); owner.backend = owner.store?.backend; check(); owner.workspace = owner.backend?.workspace; check();
+            owner.workspaceId = owner.workspace?.id; check(); owner.workspaceGeneration = owner.workspace?.generation; check();
+            owner.session = root.LocalItabWorkspaces?.session; owner.sourceReady = true; check();
+            const classList = host.classList; check(); call(classList, 'add', ['local-scratchpad-settings']);
+            const label = create('label', 'scratchpad-enable-label'), input = create('input');
+            write(input, 'type', 'checkbox'); write(input, 'disabled', true);
+            append(label, 'append', [input, create('span', '', 'scratchpadEnable')]);
+            const status = create('p', 'scratchpad-status'); call(status, 'setAttribute', ['role', 'status']); call(status, 'setAttribute', ['aria-live', 'polite']);
+            const retry = create('button', 'scratchpad-button', 'scratchpadRetry'), readLatest = create('button', 'scratchpad-button', 'scratchpadReadLatest');
+            write(retry, 'type', 'button'); write(readLatest, 'type', 'button');
+            const help = create('p', 'scratchpad-help', 'scratchpadEnableHelp'), details = create('p', 'scratchpad-help', 'scratchpadHelp');
+            owner.controls = { input, status, retry, readLatest };
+            append(host, 'replaceChildren', [label, help, details, status, retry, readLatest]);
+            listen(input, 'change', event => run(() => settingsAction(owner, event, input, 'setEnabled')));
+            listen(retry, 'click', event => run(() => settingsAction(owner, event, retry, 'retry')));
+            listen(readLatest, 'click', event => run(() => settingsAction(owner, event, readLatest, 'useSaved')));
+            const token = settingsToken(owner);
+            owner.unsubscribe = settingsCall(token, controller, 'subscribe', [() => renderSettings(owner)]); check();
+            renderSettings(owner); check();
+            // Lookup and dispatch are separate boundaries. An entered init/read
+            // may finish; a getter that remounts must not start the old init.
+            run(() => settingsCall(settingsToken(owner), controller, 'init'));
+            return handle;
+        } catch (error) {
+            // No rollback of entered external callbacks, unknown unsubscribers,
+            // or Controller work. Clean only resources we actually acquired.
+            try { cleanupSettings(owner, false); } catch (_) {}
+            if (error !== stopped) { owner.retired = true; owner.epoch++; throw error; }
+            return handle;
+        }
     }
     Object.assign(api, { View, mount: (host, options) => new View(host, options), mountSettings });
 })(window);
