@@ -58,7 +58,7 @@ page-memory storage. Runtime hashes were frozen at startup and compared with
 the baseline Git tree: only the two catalogs, HTML, JavaScript, base CSS and
 Clarity CSS changed. No extension was installed and no user profile was used.
 
-At 1180px English/light, the 136-by-37px return button is visible in the bar at
+For the initial candidate, at 1180px English/light the 136-by-37px return button is visible in the bar at
 x=16/y=16. Recovery and workspace controls are readable on the same row. Enter
 restores the normal dashboard and moves focus to the workspace chooser. A
 subsequent background double-click hides it again; Space on the return button
@@ -76,3 +76,29 @@ These observations validate rendering and UI behavior under a synthetic bridge.
 They do not establish native-extension upgrade behavior, real Chrome storage
 fault recovery, or the root cause/resolution of the historical data-loss report.
 Manifest 1.1.155, Release and Chrome Web Store publication remain unchanged.
+
+
+## Full-CI recovery-entry contract correction
+
+The first exact-source CI (`39173169087`, commit `350a38f0`) completed with
+16,578 of 16,579 Node tests passing. Its only failure was the original
+`recovery-view.test.js` static contract: the read-only recovery anchor must
+remain immediately inside the workspace bar, before initialization. The new
+button had been inserted before that anchor. The focused original recovery
+suite reproduced the same single failure (50 of 51 passing).
+
+The correction moves the new button after the unchanged original anchor. The
+recovery link therefore retains its first-control position and its full
+original markup, target and relationship attributes. The newly added feature
+fixture follows this real HTML order. The original recovery test is unchanged;
+no assertion or helper from the pre-feature baseline is weakened or removed.
+Owner and independent recovery/Clarity/field-write runs both passed 109 tests.
+
+The corrected production renderer was rechecked at 1180px English/light and
+390-by-844px Chinese/dark. Both local screenshots show the recovery link first
+and return button second, without overlap. At 390px the button is 96-by-37px at
+x=152.015625/y=16, alongside the first recovery link. Widths remain 390/390 in
+quote-only mode and 382/382 after restoration. Enter still restores all 12 site
+actions and hands focus to the workspace chooser. The corrected 138-file
+runtime manifest is frozen separately; only HTML changes from the first
+candidate. Full exact-source CI is rerun for the correction commit.

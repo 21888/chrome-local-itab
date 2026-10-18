@@ -560,7 +560,7 @@ async function restoreButtonPage(f, locale = null) {
     }
     const recovery = doc.createElement('a'); recovery.className = 'spaces-manage'; recovery.href = 'recovery.html';
     const switcher = doc.createElement('button'); switcher.className = 'spaces-switch'; switcher.type = 'button';
-    bar.append(show, recovery, switcher); doc.getElementById('dashboard').append(bar);
+    bar.append(recovery, show, switcher); doc.getElementById('dashboard').append(bar);
     await dash.remount(); return {...dash, show, bar, recovery, switcher};
 }
 for (const locale of [null, 'en', 'zh_CN']) bounded(`visible Show dashboard restores through one real preference write and preserves both drafts (${locale || 'fallback'})`, async () => {
