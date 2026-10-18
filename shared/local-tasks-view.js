@@ -274,6 +274,15 @@
                 workspace: completeWorkspace, workspaceId: completeWorkspace?.id, workspaceGeneration: completeWorkspace?.generation,
                 legacyAvailability: !!completeWorkspace && typeof completeWorkspace === 'object' && completeWorkspace.id == null && completeWorkspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain: completeChain });
+            // Only a DONE row's Reopen selection owns this source; completion Undo is independent.
+            const reopenWorkspace = controller.store.backend?.workspace ?? null, reopenChain = [];
+            for (let node = this.completed.list; node; node = node.parentElement) reopenChain.push([node, node.parentElement]);
+            reopenChain.push([this.completed.summary, this.completed.box], [this.filterInput, this.filter], [this.filter, host]);
+            this.rowReopenOwner = Object.freeze({ host, completed: this.completed, box: this.completed.box, summary: this.completed.summary,
+                list: this.completed.list, filter: this.filter, filterInput: this.filterInput, controller, store: controller.store, backend: controller.store.backend,
+                workspace: reopenWorkspace, workspaceId: reopenWorkspace?.id, workspaceGeneration: reopenWorkspace?.generation,
+                legacyAvailability: !!reopenWorkspace && typeof reopenWorkspace === 'object' && reopenWorkspace.id == null && reopenWorkspace.generation == null && root.LocalItabWorkspaces == null,
+                session: root.LocalItabWorkspaces?.session ?? null, chain: reopenChain });
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
@@ -337,6 +346,9 @@
             if (command?.kind === 'pin' && !this.pinSourceCurrent(this.pinOwner)) return;
             // Original ordinary-completion Retry keeps its receipt/CAS, independently of rebuilt rows.
             if (command?.kind === 'complete' && !this.completeSourceCurrent(this.completeOwner)) return;
+            // Gate only the exact command created by a DONE row, never Undo's same-kind reopen.
+            // Its original receipt survives collapsed/filtered/redrawn rows and is never reconstructed.
+            if (command && command === this.rowReopenAttempt?.command && !this.rowReopenSourceCurrent(this.rowReopenAttempt.owner)) return;
             if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
                 !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
                 document.hidden || document.visibilityState === 'hidden')) return;
@@ -1536,6 +1548,57 @@
             }
             return true;
         }
+        rowReopenSourceCurrent(owner) {
+            const c = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.rowReopenOwner === owner && this.host === owner.host && this.completed === owner.completed &&
+                this.completed.box === owner.box && this.completed.summary === owner.summary && this.completed.list === owner.list &&
+                this.filter === owner.filter && this.filterInput === owner.filterInput &&
+                this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null));
+        }
+        rowReopenCurrent(source) {
+            const { owner, item, top, title, action } = source;
+            // Repeat non-layout checks after the final visibility lookup, including exact DONE text and source.
+            if (document.hidden || document.visibilityState === 'hidden' || !owner.box.open ||
+                owner.filterInput.value.trim().toLowerCase() !== source.filter || this.filterQuery !== source.filter || this.renderedFilter !== source.filter ||
+                action.disabled || action.getAttribute('disabled') != null || action.getAttribute('aria-disabled') === 'true' ||
+                !action.isConnected || action.textContent !== '↶' || action.children.length || action.dataset.taskAction !== '↶' ||
+                action.title !== source.label || action.getAttribute('aria-label') !== `${source.label}: ${source.snapshot.text}` ||
+                item.dataset.taskId !== source.snapshot.id || item.parentElement !== owner.list ||
+                Array.from(owner.list.children).find(node => node.dataset.taskId === source.snapshot.id) !== item ||
+                item.querySelector('.tasks-row-main') !== top || item.querySelector('.tasks-check') !== action ||
+                item.querySelector('.tasks-text') !== title || title.textContent !== source.snapshot.text || title.children.length || !title.classList.contains('is-done') ||
+                top.children.length !== 2 || top.children[0] !== action || top.children[1] !== title ||
+                [...owner.chain, ...source.chain].some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent)) return false;
+            for (const displayed of [action, title]) for (let node = displayed; node; node = node.parentElement) {
+                if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                    node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                    (node.tagName === 'DETAILS' && !node.open)) return false;
+            }
+            if (!this.rowReopenSourceCurrent(owner)) return false;
+            const c = owner.controller;
+            const reviewedConflict = c.error?.code === 'CONFLICT' && !!c.retryCommand && source.conflictCommand === c.retryCommand;
+            if (this.destroyed || c.pending || (c.error && !reviewedConflict) || (c.retryCommand && !reviewedConflict) || this.localError ||
+                ['loading', 'saving'].includes(c.status) || (c.status === 'error' && !reviewedConflict) ||
+                this.filterComposing || this.dialogs.size || this.pendingReview ||
+                this.batchSession || this.reuseSession || this.completionSession || this.restorationSession ||
+                root.LocalItabContentLifecycle?.departing || this.rowReopenGeneration !== source.generation) return false;
+            // Reopen keeps task-version/DONE CAS only; unrelated revisions, order and pin remain independent.
+            const current = c.state?.records.find(record => record.id === source.snapshot.id);
+            return !!current && current.state === 'done' && Object.keys(source.snapshot).every(key => current[key] === source.snapshot[key]);
+        }
+        rowReopenVisible(source) {
+            for (const displayed of [source.action, source.title]) {
+                if (!displayed.getClientRects().length) return false;
+                for (let node = displayed; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node);
+                    if (style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility)) return false;
+                }
+            }
+            return true;
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
             let firstSource = null, lastSource = null;
@@ -1562,12 +1625,26 @@
                 source.action = complete;
                 source.chain.push([complete, top], [title, top], [top, item], [item, source.owner.list]);
                 top.append(complete);
-            } else if (task.state !== 'removed') {
-                const complete = button(task.state === 'active' ? 'tasksComplete' : 'tasksReopen', () => run(task.state === 'active' ? 'complete' : 'reopen'), 'tasks-check');
-                complete.textContent = task.state === 'active' ? '○' : '↶';
-                complete.title = t(task.state === 'active' ? 'tasksComplete' : 'tasksReopen');
-                complete.setAttribute('aria-label', `${t(task.state === 'active' ? 'tasksComplete' : 'tasksReopen')}: ${task.text}`);
-                top.append(complete);
+            } else if (task.state === 'done') {
+                const source = { owner: this.rowReopenOwner, generation: this.rowReopenGeneration, item, top, title,
+                    filter: this.filterQuery, snapshot: Object.freeze({ ...task }), label: t('tasksReopen'),
+                    conflictCommand: this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null, chain: [] };
+                const reopen = button('tasksReopen', event => {
+                    if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                        event.target !== reopen || (event.currentTarget && event.currentTarget !== reopen)) return;
+                    if (!this.rowReopenCurrent(source) || !this.rowReopenVisible(source) || !this.rowReopenCurrent(source)) return;
+                    const command = source.owner.store.request('reopen', { id: source.snapshot.id, version: source.snapshot.version });
+                    this.rowReopenAttempt = Object.freeze({ command, owner: source.owner });
+                    this.perform(command);
+                }, 'tasks-check');
+                reopen.textContent = '↶'; reopen.title = source.label;
+                reopen.setAttribute('aria-label', `${source.label}: ${source.snapshot.text}`);
+                reopen.addEventListener('keydown', event => {
+                    if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                });
+                source.action = reopen;
+                source.chain.push([reopen, top], [title, top], [top, item], [item, source.owner.list]);
+                top.append(reopen);
             }
             top.append(title); item.append(top);
             const actions = el('div', 'tasks-row-actions');
@@ -1739,6 +1816,7 @@
                 this.moveLastGeneration = (this.moveLastGeneration || 0) + 1;
                 this.pinGeneration = (this.pinGeneration || 0) + 1;
                 this.completeGeneration = (this.completeGeneration || 0) + 1;
+                this.rowReopenGeneration = (this.rowReopenGeneration || 0) + 1;
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
                 if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
                 this.more.hidden = filtering || active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));
