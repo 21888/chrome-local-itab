@@ -505,15 +505,23 @@
             this.perform(command);
         }
         addBatch() {
-            if (this.destroyed || this.dialogs.size) return;
+            const owner = editSources.get(this), lifecycle = viewLifecycles.get(this);
+            const sourceCurrent = () => viewSourceCurrent(this, lifecycle) && this.editSourceCurrent(owner);
+            if (!sourceCurrent() || this.dialogs.size) return;
+            const controller = owner.controller, store = owner.store, subscribe = controller.subscribe.bind(controller);
+            const returnFocus = document.activeElement;
+            // Closing owns only this exact command on the construction Controller.
+            // In particular, no-attempt Cancel must not dismiss a READ error.
+            const dismiss = command => { if (command && controller.retryCommand === command) controller.dismissRetry(command.operationId); };
             let unsubscribe = () => {}, epoch = 0, generation = 0, reviewing = false, saving = false;
             let review = null, attempt = null, retryCommand = null, composing = false;
             const modal = this.createDialog(t('tasksBatch'), () => {
                 epoch++; unsubscribe();
                 if (this.batchSession === modal) this.batchSession = null;
-                this.controller.dismissRetry(attempt?.command.operationId); this.render();
+                if (attempt) dismiss(attempt.command); this.render();
             });
             if (!modal) return;
+            if (!sourceCurrent()) { modal.close(false); return; }
             this.batchSession = modal;
             const input = el('textarea', 'tasks-editor tasks-batch-editor'); input.rows = 7;
             input.setAttribute('aria-label', t('tasksBatchLabel'));
@@ -524,13 +532,27 @@
             const title = el('h3', '', t('tasksBatchPreview')), list = el('ol', 'tasks-batch-list'); preview.append(title, list);
             const feedback = el('p', 'tasks-dialog-feedback tasks-batch-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
             const setFeedback = (text, isError = false) => { feedback.textContent = text; feedback.classList.toggle('is-error', isError); };
-            const owns = () => !this.destroyed && modal.isOpen && this.batchSession === modal && input.isConnected;
+            const owns = () => viewLifecycles.get(this) === lifecycle && !lifecycle.retired && !this.destroyed &&
+                modal.isOpen && this.dialogs.has(modal) && this.batchSession === modal && input.isConnected;
+            const originalClose = modal.close;
+            modal.close = (restoreFocus = true) => {
+                const restore = restoreFocus && owns() && sourceCurrent() &&
+                    (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
+                originalClose(false);
+                // Cleanup can synchronously start newer work or change the source.
+                if (!restore || !sourceCurrent() || this.dialogs.size || document.activeElement !== document.body) return;
+                if (returnFocus?.isConnected && !returnFocus.closest('[inert]') && sourceCurrent()) returnFocus.focus();
+                if (sourceCurrent() && document.activeElement === document.body && !owner.host.hidden) this.input.focus();
+            };
             const setControl = (node, disabled, hidden = false) => {
                 // Chrome drops focus when its active control becomes disabled/hidden.
                 // Transfer only that control's focus before the transition, keeping
                 // Escape/Tab inside this opening without reclaiming newer focus.
-                if (owns() && document.activeElement === node && (disabled || hidden)) input.focus();
+                if (!owns() || !sourceCurrent()) return false;
+                if (document.activeElement === node && (disabled || hidden)) input.focus();
+                if (!owns() || !sourceCurrent()) return false;
                 node.disabled = disabled; node.hidden = hidden;
+                return owns() && sourceCurrent();
             };
             const showReview = value => {
                 preview.hidden = !value; title.textContent = `${t('tasksBatchPreview')}${value ? ` (${value.count})` : ''}`;
@@ -538,73 +560,92 @@
             };
             const update = () => {
                 if (!owns()) return;
-                const state = this.controller.state;
+                // Explain a gap only in this opening; do not move focus or publish
+                // controls/preview from another source while the original is away.
+                if (!sourceCurrent()) { setFeedback(t('tasksConflict'), true); return; }
+                if (retryCommand && attempt) showReview(attempt.review);
+                const state = controller.state;
                 const total = review && (!state || review.revision >= state.revision) ? review.currentTotal : state?.records.length;
                 const lines = input.value.split(/\r\n|\r|\n/).filter(line => line.trim().length > 0).length;
                 count.textContent = `${t('tasksBatchCount')}: ${lines} · ${t('tasksBatchCapacity')}: ${total ?? '—'}/${api.LIMITS.records} · ${t('tasksBatchRemaining')}: ${total === undefined ? '—' : api.LIMITS.records - total}`;
-                if (review && !saving && !retryCommand && this.controller.state?.revision > review.revision) {
+                if (review && !saving && !retryCommand && controller.state?.revision > review.revision) {
                     epoch++; review = null; showReview(null); setFeedback(t('tasksBatchChanged'));
                 }
-                const busy = saving || !!this.controller.pending;
-                setControl(reviewButton, busy || reviewing || !!retryCommand || composing);
-                setControl(confirm, busy || !review || composing, !review || !!retryCommand);
+                const busy = saving || !!controller.pending;
+                if (!setControl(reviewButton, busy || reviewing || !!retryCommand || composing)) return;
+                if (!setControl(confirm, busy || !review || composing, !review || !!retryCommand)) return;
                 confirm.textContent = `${t('tasksBatchConfirm')}${review ? ` (${review.count})` : ''}`;
-                setControl(retry, busy || composing, !retryCommand);
+                if (!setControl(retry, busy || composing, !retryCommand)) return;
                 retry.textContent = `${t('tasksBatchRetry')}${attempt && retryCommand ? ` (${attempt.review.count})` : ''}`;
             };
             const prepare = async () => {
-                if (!owns() || saving || this.controller.pending || retryCommand || composing) return;
+                if (!owns() || !sourceCurrent() || saving || controller.pending || retryCommand || composing) return;
                 const source = input.value, submittedGeneration = generation, ticket = ++epoch;
                 reviewing = true; review = null; showReview(null); setFeedback(t('tasksLoading')); update();
+                // Disabling a focused control may run focus hooks before review.
+                if (!owns() || !sourceCurrent() || controller.pending) { reviewing = false; if (owns()) update(); return; }
                 try {
-                    const value = await this.controller.store.reviewBatch(source);
+                    const value = await store.reviewBatch(source);
                     if (!owns() || ticket !== epoch || generation !== submittedGeneration || input.value !== source) return;
-                    if (this.controller.state?.revision > value.revision) { setFeedback(t('tasksBatchChanged')); return; }
+                    if (!sourceCurrent()) { setFeedback(t('tasksConflict'), true); return; }
+                    if (controller.state?.revision > value.revision) { setFeedback(t('tasksBatchChanged')); return; }
                     review = { ...value, source, generation: submittedGeneration };
                     showReview(review); setFeedback(t('tasksBatchReady'));
                 } catch (error) {
-                    if (owns() && ticket === epoch) setFeedback(errorText(error), true);
+                    if (owns() && ticket === epoch) setFeedback(sourceCurrent() ? errorText(error) : t('tasksConflict'), true);
                 } finally {
                     if (owns() && ticket === epoch) { reviewing = false; update(); }
                 }
             };
             const submit = async (retryPrevious = false) => {
-                if (!owns() || saving || this.controller.pending || composing) return;
-                if (retryPrevious) { if (!retryCommand) return; }
+                if (!owns() || !sourceCurrent() || saving || controller.pending || composing) return;
+                if (retryPrevious) {
+                    if (!retryCommand || !attempt || retryCommand !== attempt.command ||
+                        (controller.retryCommand && controller.retryCommand !== retryCommand)) return;
+                }
                 else {
                     if (!review || retryCommand || review.generation !== generation || review.source !== input.value) return;
                     // An observed remote update always gets another numbered review.
-                    if (this.controller.state?.revision > review.revision) { update(); return; }
+                    if (controller.state?.revision > review.revision) { update(); return; }
                     attempt = { command: review.command, review };
                 }
                 const submitted = attempt, command = submitted.command;
-                saving = true; this.batchOperationId = command.operationId;
-                setFeedback(t('tasksSaving')); update();
+                saving = true; setFeedback(t('tasksSaving')); update();
+                if (!owns() || !sourceCurrent() || controller.pending) { saving = false; if (owns()) update(); return; }
+                this.batchOperationId = command.operationId;
                 try {
-                    const state = await this.controller.run(command);
-                    if (!owns()) return;
+                    const state = await controller.run(command);
+                    if (!owns() || attempt !== submitted) return;
+                    // Even a real saved receipt needs explicit acknowledgement if
+                    // this opening could not safely receive its result.
+                    if (!sourceCurrent()) { retryCommand = command; setFeedback(t('tasksConflict'), true); return; }
                     retryCommand = null; review = null; attempt = null;
                     // A confirmed old batch must not dismiss a newer draft or another dialog.
                     // If a later state was already observed, leave the draft for review too.
                     if (generation === submitted.review.generation && input.value === submitted.review.source &&
-                        this.controller.state?.revision === state.revision && !this.controller.pending &&
-                        (!this.controller.retryCommand || this.controller.retryCommand.operationId === command.operationId) &&
+                        controller.state?.revision === state.revision && !controller.pending &&
+                        (!controller.retryCommand || controller.retryCommand.operationId === command.operationId) &&
                         state.receipts.at(-1) === command.operationId) modal.close();
                     else { showReview(null); setFeedback(t('tasksBatchDraftRemains')); }
                 } catch (error) {
-                    if (!owns()) { this.controller.dismissRetry(command.operationId); return; }
+                    if (!owns()) { dismiss(command); return; }
+                    if (attempt !== submitted) return;
+                    if (!sourceCurrent()) { retryCommand = command; setFeedback(t('tasksConflict'), true); return; }
                     review = null;
                     if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
                         retryCommand = command; showReview(submitted.review);
                         setFeedback(`${errorText(error)} ${t('tasksBatchUncertain')}`, true);
                     } else {
                         retryCommand = null; attempt = null; showReview(null);
-                        this.controller.dismissRetry(command.operationId); setFeedback(errorText(error), true);
+                        dismiss(command); setFeedback(errorText(error), true);
                     }
                 } finally {
                     saving = false;
-                    if (!owns()) this.controller.dismissRetry(command.operationId);
-                    else update();
+                    if (!owns()) dismiss(command);
+                    if (sourceCurrent() && (!this.batchSession || this.batchSession === modal) &&
+                        this.batchOperationId === command.operationId) this.batchOperationId = null;
+                    if (owns()) update();
+                    if (sourceCurrent()) this.render();
                 }
             };
             const reviewButton = button('tasksBatchReview', prepare);
@@ -626,7 +667,7 @@
             input.addEventListener('focusout', () => { composing = false; update(); });
             const actions = el('div', 'tasks-dialog-actions'); actions.append(button('tasksCancel', () => modal.close()), reviewButton, retry, confirm);
             modal.panel.append(input, hint, count, preview, feedback, actions);
-            unsubscribe = this.controller.subscribe(update); modal.open(input); update(); this.render();
+            unsubscribe = subscribe(update); modal.open(input); update(); this.render();
         }
         completeBatch() { return this.transitionBatch(false); }
         reopenBatch() { return this.transitionBatch(true); }
