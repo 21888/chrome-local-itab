@@ -2152,7 +2152,7 @@
     "message": "Shortcuts per row"
   },
   "shortcutsPerRowDesc": {
-    "message": "Limit how many shortcuts appear in each row when auto arrange is on"
+    "message": "Grid mode keeps this fixed number of shortcuts per row, even in narrow windows. Choose a smaller number for wider tiles and more readable titles. Free placement ignores this setting."
   },
   "tabPrivacy": {
     "message": "Privacy"
