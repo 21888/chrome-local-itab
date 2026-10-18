@@ -2295,39 +2295,49 @@
             this.render();
         }
         async importFile() {
+            const owner = editSources.get(this);
+            if (!this.editSourceCurrent(owner)) return;
+            const { store } = owner;
             const generation = ++this.reviewGeneration;
             const file = this.fileInput.files?.[0]; this.fileInput.value = ''; if (!file) return;
             this.pendingReview = true; this.invalidateCopy(); this.refreshCopyControls();
             try {
                 if (file.size > api.LIMITS.bytes) throw api.fault('SIZE_LIMIT');
+                if (!this.editSourceCurrent(owner)) return;
                 const source = await file.text();
-                if (this.destroyed || generation !== this.reviewGeneration) return;
-                const review = await this.controller.store.review(source);
-                if (this.destroyed || generation !== this.reviewGeneration || this.dialogs.size) return;
+                if (!this.editSourceCurrent(owner) || generation !== this.reviewGeneration) return;
+                const review = await store.review(source);
+                if (!this.editSourceCurrent(owner) || generation !== this.reviewGeneration || this.dialogs.size) return;
                 this.localError = null; this.render();
-                this.reviewReplacement(review, () => this.controller.store.request('replace', { source: review.source, revision: review.revision }));
+                if (!this.editSourceCurrent(owner) || generation !== this.reviewGeneration || this.dialogs.size) return;
+                this.reviewReplacement(review, () => store.request('replace', { source: review.source, revision: review.revision }), 'tasksReviewTitle', owner);
             } catch (error) {
-                if (!this.destroyed && generation === this.reviewGeneration) { this.localError = error.code ? error : api.fault('FILE'); this.render(); }
+                if (this.editSourceCurrent(owner) && generation === this.reviewGeneration) { this.localError = error.code ? error : api.fault('FILE'); this.render(); }
             } finally { if (generation === this.reviewGeneration) { this.pendingReview = false; this.refreshCopyControls(); } }
         }
         async reviewRecovery(id) {
+            const owner = editSources.get(this);
+            if (!this.editSourceCurrent(owner)) return;
+            const { store } = owner;
             const generation = ++this.reviewGeneration, previousError = this.localError; this.pendingReview = true; this.invalidateCopy(); this.refreshCopyControls();
             try {
-                const state = await this.controller.store.read(), copy = state.recovery.find(item => item.id === id);
-                if (this.destroyed || generation !== this.reviewGeneration || this.dialogs.size) return;
+                if (!this.editSourceCurrent(owner)) return;
+                const state = await store.read(), copy = state.recovery.find(item => item.id === id);
+                if (!this.editSourceCurrent(owner) || generation !== this.reviewGeneration || this.dialogs.size) return;
                 if (!copy) throw api.fault('CONFLICT');
                 // Retire only feedback that predates this valid preview. A file
                 // operation may have reported a newer error while the read waited.
                 if (this.localError === previousError) { this.localError = null; this.render(); }
+                if (!this.editSourceCurrent(owner) || generation !== this.reviewGeneration || this.dialogs.size) return;
                 // Capture the same successful read for both review and confirmation.
                 // Later page updates (or a retained read result) cannot rewrite it.
                 const revision = state.revision;
                 const recoveryPreview = Object.freeze({ pinnedId: copy.content.pinnedId,
                     records: Object.freeze(copy.content.records.map(task => Object.freeze({ ...task }))) });
                 this.reviewReplacement({ current: api.counts(state), incoming: api.counts(recoveryPreview), recoveryPreview },
-                    () => this.controller.store.request('recover', { id, revision }), 'tasksRestoreTitle');
+                    () => store.request('recover', { id, revision }), 'tasksRestoreTitle', owner);
             } catch (error) {
-                if (!this.destroyed && generation === this.reviewGeneration) { this.localError = error; this.render(); }
+                if (this.editSourceCurrent(owner) && generation === this.reviewGeneration) { this.localError = error; this.render(); }
             } finally { if (generation === this.reviewGeneration) { this.pendingReview = false; this.refreshCopyControls(); } }
         }
         recoveryPreview(content) {
@@ -2347,27 +2357,61 @@
             }
             details.append(list); return details;
         }
-        reviewReplacement(review, makeCommand, title = 'tasksReviewTitle') {
-            let command = null;
-            const modal = this.createDialog(t(title), () => this.controller.dismissRetry(command?.operationId)); if (!modal) return;
+        reviewReplacement(review, makeCommand, title = 'tasksReviewTitle', owner = editSources.get(this)) {
+            if (!this.editSourceCurrent(owner)) return;
+            const { controller } = owner;
+            let command = null, pending = false, opening = null;
+            const modal = this.createDialog(t(title), () => { if (command) controller.dismissRetry(command.operationId); }); if (!modal) return;
             const feedback = el('p', 'tasks-dialog-feedback'); feedback.setAttribute('role', 'status');
+            // The shared modal owns an inert host; only its own original DOM
+            // chain grants review authority. Rows and host layout may change.
+            const owns = () => !!opening && !this.destroyed && modal.isOpen && this.dialogs.has(modal) &&
+                modal.panel === opening.panel && opening.panel.parentElement === opening.overlay && opening.overlay.parentElement === document.body &&
+                [opening.overlay, opening.panel, feedback, actions, cancel, confirm].every(node => node.ownerDocument === document && node.isConnected) &&
+                feedback.parentElement === opening.panel && actions.parentElement === opening.panel && cancel.parentElement === actions && confirm.parentElement === actions;
+            const usable = () => !document.hidden && (!document.visibilityState || document.visibilityState === 'visible') &&
+                !root.LocalItabContentLifecycle?.departing && !confirm.disabled && !confirm.closest('[hidden], [inert]') && !!confirm.getClientRects().length;
+            const sourceCurrent = () => this.editSourceCurrent(owner);
+            const conflict = () => { if (owns()) feedback.textContent = t('tasksConflict'); };
+            const originalClose = modal.close;
+            modal.close = (restoreFocus = true) => originalClose(restoreFocus && owns() && sourceCurrent());
             const cancel = button('tasksCancel', () => modal.close());
             const confirm = button('tasksReplace', async () => {
-                if (this.destroyed || !modal.isOpen || !confirm.isConnected || this.controller.pending) return;
-                command ||= makeCommand();
-                // Keep keyboard events in this review before disabling its focused
-                // confirmation. Async results never reclaim newer focus.
-                if (document.activeElement === confirm) cancel.focus();
-                confirm.disabled = true; feedback.textContent = t('tasksSaving');
-                try { await this.controller.run(command); modal.close(); }
-                catch (error) { if (!modal.isOpen) { this.controller.dismissRetry(command.operationId); return; } feedback.textContent = errorText(error); if (error.code === 'CONFLICT') confirm.hidden = true; }
-                finally { confirm.disabled = false; }
+                if (!owns() || pending || !usable()) return;
+                if (!sourceCurrent()) { conflict(); return; }
+                if (controller.pending) return;
+                pending = true;
+                try {
+                    command ||= makeCommand();
+                    if (!owns() || !usable()) return;
+                    if (!sourceCurrent()) { conflict(); return; }
+                    // Request construction and focus/disabled-control DOM work
+                    // cannot redirect dispatch to a replacement source.
+                    if (document.activeElement === confirm) cancel.focus();
+                    if (!owns() || !usable()) return;
+                    if (!sourceCurrent()) { conflict(); return; }
+                    confirm.disabled = true; feedback.textContent = t('tasksSaving');
+                    if (!owns()) return;
+                    if (!sourceCurrent()) { conflict(); return; }
+                    await controller.run(command);
+                    if (!owns()) return;
+                    // Already-dispatched work completes on its original Store.
+                    // Keep its exact command for a deliberate original receipt
+                    // retry rather than closing a review under another source.
+                    if (!sourceCurrent()) { conflict(); return; }
+                    modal.close();
+                } catch (error) {
+                    if (!owns()) { if (command) controller.dismissRetry(command.operationId); return; }
+                    if (!sourceCurrent()) { conflict(); return; }
+                    feedback.textContent = errorText(error); if (error.code === 'CONFLICT') confirm.hidden = true;
+                } finally { pending = false; if (owns()) confirm.disabled = false; }
             }, 'tasks-primary');
             const actions = el('div', 'tasks-dialog-actions'); actions.append(cancel, confirm);
             modal.panel.append(el('p', 'tasks-help', t('tasksReviewHelp')), el('p', '', `${t('tasksCurrent')}: ${summarize(review.current)}`),
                 el('p', '', `${t('tasksIncoming')}: ${summarize(review.incoming)}`));
             if (review.recoveryPreview) modal.panel.append(this.recoveryPreview(review.recoveryPreview));
-            modal.panel.append(feedback, actions); modal.open(cancel);
+            modal.panel.append(feedback, actions);
+            opening = Object.freeze({ panel: modal.panel, overlay: modal.panel.parentElement }); modal.open(cancel);
         }
         destroy() { this.destroyed = true; this.removedRestoreSource?.observer?.disconnect(); this.invalidateCopy(); this.quickEntryCompositionEpoch++; this.quickEntryComposing = false; this.quickEntryCompositionSettling = false; this.pinnedFocus?.cancel(); this.reviewGeneration++; this.pendingReview = false; this.dialogs.forEach(modal => modal.close()); this.unsubscribe(); this.controller.destroy(); }
     }
