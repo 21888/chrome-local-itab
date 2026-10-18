@@ -236,6 +236,12 @@
             this.undoButton = button('tasksUndo', () => this.undoLast());
             this.feedback.append(this.status, this.retry, this.undoButton);
             host.replaceChildren(header, this.next, this.form, batchRow, this.filter, this.filterStatus, copyVisibleRow, this.list, this.more, this.completed.box, this.removed.box, this.data, this.feedback);
+            // Move-to-start belongs to the mounted source, including before its first async read.
+            const workspace = controller.store.backend?.workspace ?? null, chain = [];
+            for (let node = this.list; node; node = node.parentElement) chain.push([node, node.parentElement]);
+            this.moveFirstOwner = Object.freeze({ host, list: this.list, filterInput: this.filterInput, controller, store: controller.store, backend: controller.store.backend,
+                workspace, workspaceId: workspace?.id, workspaceGeneration: workspace?.generation,
+                session: root.LocalItabWorkspaces?.session ?? null, chain });
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
@@ -288,6 +294,9 @@
         async retryLast() {
             if (this.controller.pending || this.destroyed) return;
             const command = this.controller.retryCommand;
+            // Retry must stay with the mounted moveFirst source, but its original
+            // receipt remains authoritative after rows/order change or an unknown save.
+            if (command?.kind === 'moveFirst' && !this.moveFirstSourceCurrent(this.moveFirstOwner)) return;
             if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
                 !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
                 document.hidden || document.visibilityState === 'hidden')) return;
@@ -1207,9 +1216,57 @@
             root.addEventListener?.('blur', departed); root.addEventListener?.('pagehide', departed);
             update(); this.render();
         }
+        moveFirstSourceCurrent(owner) {
+            const c = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.moveFirstOwner === owner && this.host === owner.host && this.list === owner.list &&
+                this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                (!workspace || owner.session === workspace);
+        }
+        moveFirstCurrent(source) {
+            const owner = source.owner;
+            // Recheck page/filter DOM state before the final non-layout source checks.
+            if (document.hidden || document.visibilityState === 'hidden' || owner.filterInput.value.trim() || this.filterInput !== owner.filterInput) return false;
+            if (!this.moveFirstSourceCurrent(owner)) return false;
+            const c = owner.controller;
+            const reviewedConflict = c.error?.code === 'CONFLICT' && !!c.retryCommand && source.conflictCommand === c.retryCommand;
+            if (this.destroyed || c.pending || (c.error && !reviewedConflict) || (c.retryCommand && !reviewedConflict) || this.localError ||
+                ['loading', 'saving'].includes(c.status) || (c.status === 'error' && !reviewedConflict) ||
+                this.filterQuery || this.filterComposing || this.dialogs.size || this.pendingReview ||
+                this.batchSession || this.reuseSession || this.completionSession || this.restorationSession ||
+                root.LocalItabContentLifecycle?.departing || this.moveLastGeneration !== source.generation) return false;
+            // Read the current saved state after page/filter and any layout inspection.
+            const state = c.state, current = state?.records.find(record => record.id === source.snapshot.id);
+            return !!current && current.state === 'active' && source.order[0] !== source.snapshot.id &&
+                Object.keys(source.snapshot).every(key => current[key] === source.snapshot[key]) &&
+                JSON.stringify(state.records.filter(record => record.state === 'active').map(record => record.id)) === JSON.stringify(source.order);
+        }
+        moveFirstVisible(source) {
+            const { owner, item, title, actions, menu, summary, first } = source;
+            if (this.filterInput.value.trim() || document.hidden || document.visibilityState === 'hidden' ||
+                first.disabled || first.getAttribute('disabled') != null || first.getAttribute('aria-disabled') === 'true' ||
+                !first.isConnected || item.dataset.taskId !== source.snapshot.id || item.parentElement !== owner.list ||
+                Array.from(owner.list.children).find(node => node.dataset.taskId === source.snapshot.id) !== item ||
+                item.querySelector('.tasks-text') !== title || title.textContent !== source.snapshot.text || title.children.length ||
+                item.querySelector('.tasks-row-actions') !== actions || item.querySelector('.tasks-row-menu') !== menu ||
+                menu.querySelector('summary') !== summary || !actions.contains(first) ||
+                [...owner.chain, ...source.chain].some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent)) return false;
+            for (const displayed of [first, title]) {
+                if (!displayed.getClientRects().length) return false;
+                for (let node = displayed; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node);
+                    if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                        node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                        style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                        (node.tagName === 'DETAILS' && !node.open)) return false;
+                }
+            }
+            return true;
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
-            let lastOwner = null;
+            let firstSource = null, lastOwner = null;
             const top = el('div', 'tasks-row-main');
             const title = el('span', 'tasks-text', task.text); if (task.state === 'done') title.classList.add('is-done');
             const run = (kind, values = {}, success) => this.perform(this.controller.store.request(kind, { id: task.id, version: task.version, ...values }), success);
@@ -1239,19 +1296,21 @@
                     const down = button('tasksDown', () => run('move', { order: active, direction: 1 }));
                     up.disabled = !!this.filterQuery || index === 0; down.disabled = !!this.filterQuery || index === active.length - 1;
                     if (this.filterQuery) { up.title = t('tasksFilterReorder'); down.title = t('tasksFilterReorder'); }
-                    const first = button('tasksMoveFirst', () => {
-                        const state = this.controller.state, workspace = this.controller.store.backend?.workspace;
-                        if (first.disabled || this.filterQuery || this.destroyed || this.controller.closed || this.controller.pending ||
-                            this.dialogs.size || this.pendingReview || root.LocalItabContentLifecycle?.departing || workspace?.invalidated || workspace?._suspended ||
-                            !first.isConnected || !this.list.contains(item) || !item.contains(first) || item.dataset.taskId !== task.id ||
-                            document.hidden || document.visibilityState === 'hidden' || first.closest('[hidden], [inert]') || !first.getClientRects().length ||
-                            ['hidden', 'collapse'].includes(root.getComputedStyle?.(first).visibility)) return;
-                        for (let node = first.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS' && !node.open) return;
-                        const current = state?.records.find(record => record.id === task.id);
-                        if (current?.version !== task.version || current.state !== 'active' ||
-                            JSON.stringify(state.records.filter(record => record.state === 'active').map(record => record.id)) !== JSON.stringify(active)) return;
-                        run('moveFirst', { order: active });
+                    const source = { owner: this.moveFirstOwner, generation: this.moveLastGeneration, item, title, actions,
+                        snapshot: Object.freeze({ ...task }), order: Object.freeze(active.slice()),
+                        conflictCommand: this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null, chain: [] };
+                    const first = button('tasksMoveFirst', event => {
+                        if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                            event.target !== first || (event.currentTarget && event.currentTarget !== first)) return;
+                        if (!this.moveFirstCurrent(source) || !this.moveFirstVisible(source) || !this.moveFirstCurrent(source)) return;
+                        // No layout or ancestry reads after the final source/state check. Unknown writes
+                        // retain their exact Retry; a refreshed conflict row is a new choice.
+                        this.perform(source.owner.store.request('moveFirst', { id: source.snapshot.id, version: source.snapshot.version, order: source.order }));
                     });
+                    first.addEventListener('keydown', event => {
+                        if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                    });
+                    source.first = first; firstSource = source;
                     first.disabled = !!this.filterQuery || index === 0;
                     first.title = t(this.filterQuery ? 'tasksFilterReorder' : 'tasksMoveFirstHelp');
                     const snapshot = Object.freeze({ ...task }), order = Object.freeze(active.slice());
@@ -1328,6 +1387,11 @@
                 const menu = el('details', 'tasks-row-menu'), summary = el('summary', '', t('tasksActions'));
                 summary.dataset.taskAction = 'menu';
                 menu.append(summary, actions); item.append(menu);
+                if (firstSource) {
+                    firstSource.menu = menu; firstSource.summary = summary;
+                    firstSource.chain.push([firstSource.first, actions], [actions, menu], [menu, item], [summary, menu],
+                        [title, top], [top, item], [item, firstSource.owner.list]);
+                }
                 if (lastOwner) {
                     const { owner, last } = lastOwner; owner.menu = menu; owner.summary = summary;
                     owner.chain.push([last, actions], [actions, menu], [menu, item], [summary, menu], [title, top], [top, item], [item, owner.list]);
@@ -1377,8 +1441,8 @@
                 this.filterStatus.hidden = !filtering;
                 this.filterStatus.textContent = filtering ? (count ? `${t('tasksFilterMatches')}: ${count}` : t('tasksFilterEmpty')) : '';
                 this.visibleTasks = visible.map(({ id, version, text, state }) => ({ id, version, text, state }));
-                // Only Move-to-end uses this render ownership fence; old row
-                // callbacks cannot revive after their nodes are reattached.
+                // Move-to-start and Move-to-end share this render ownership fence;
+                // old row callbacks cannot revive after their nodes are reattached.
                 this.moveLastGeneration = (this.moveLastGeneration || 0) + 1;
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
                 if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
