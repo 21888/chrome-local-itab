@@ -19,7 +19,7 @@ function initial() {
 }
 // Real Store/Controller/View; independent sources; unchanged shared DOM helper.
 // A dispatched backend read/write captures its own destination at invocation.
-// The Store itself still dereferences its backend between awaited operations.
+// Each Store operation now keeps the backend that owns its lock request.
 function model({ workspaceMode = 'identified', workspace: suppliedWorkspace, sessionMode = 'matching', state = initial() } = {}) {
     const identities = new WeakMap(), sources = new Map(), listeners = new Set(), windowListeners = new Map();
     let identity = 0, queue = Promise.resolve(), operation = 0;
@@ -258,24 +258,39 @@ test('RED: already-dispatched successful write is not cancelled, but a foreign s
 test('in-flight verification failure retains exact retry and acknowledges original committed write after source returns', async t => {
     const h = model(), foreign = model({ workspace: h.backend.workspace }); await settle(); const owner = capture(h);
     try {
-        const draft = openRow(h), gate = deferred(); h.backend.writeGate = gate; save(h, 'committed before source returns'); await settle();
+        const before = h.backend.raw(), foreignBefore = foreign.backend.raw(), draft = openRow(h), gate = deferred(); h.backend.writeGate = gate; save(h, 'committed before source returns'); await settle();
+        assert.equal(h.backend.writes, 1); assert.ok(h.controller.pending);
+        // The original write really commits. Return its original pre-write state
+        // for this one verification read to preserve a genuine VERIFY failure.
+        const read = h.backend.read; let staleVerification = true;
+        h.backend.read = async function () { const current = await read.call(this); if (staleVerification) { staleVerification = false; return clone(before); } return current; };
         const original = h.controller.retryCommand, own = io(h), other = io(foreign); change(h, 'backend', foreign); gate.resolve(); await settle();
         t.diagnostic(JSON.stringify({ label: 'dispatched-write verify', own: delta(own, io(h)), foreign: delta(other, io(foreign)), code: h.controller.error?.code }));
         assert.equal(h.controller.error.code, 'VERIFY'); assert.ok(editor(h) === draft, 'the original opening retains its draft'); assert.equal(button(modal(h), 'Save task').disabled, false);
+        assert.equal(staleVerification, false); assert.strictEqual(h.controller.retryCommand, original); assert.equal(draft.value, 'committed before source returns');
+        assert.deepEqual(delta(own, io(h)), { requests: 0, reads: 1, writes: 0 }); assert.deepEqual(io(foreign), other); assert.deepEqual(foreign.backend.raw(), foreignBefore);
+        assert.equal(record(h).text, 'committed before source returns'); assertOtherData(before, h.backend.raw());
         restore(h, owner); const counts = io(h); save(h); await settle(); assert.ok(modal(h) === null, 'the owned editor closes'); assert.equal(h.backend.requests, counts.requests); assert.equal(h.backend.writes, counts.writes);
         assert.equal(h.backend.raw().receipts.filter(id => id === original.operationId).length, 1);
+        assert.equal(h.backend.raw().receipts.at(-1), original.operationId);
     } finally { restore(h, owner); h.view.destroy(); foreign.view.destroy(); }
 });
-test('RED boundary: already-dispatched read can still reach replacement backend; its late result must retain the original draft', async t => {
+test('already-dispatched read completes on its original backend and its late result retains the original draft', async t => {
     const h = model(), foreign = model({ workspace: h.backend.workspace }); await settle(); const owner = capture(h);
     try {
-        const draft = openRow(h), gate = deferred(); h.backend.readGate = gate; save(h, 'dispatched read draft'); await settle();
+        const before = h.backend.raw(), foreignBefore = foreign.backend.raw(), draft = openRow(h), gate = deferred(); h.backend.readGate = gate; save(h, 'dispatched read draft'); await settle();
+        const original = h.controller.retryCommand;
         assert.equal(h.backend.writes, 0); const own = io(h), other = io(foreign); change(h, 'backend', foreign); gate.resolve(); await settle();
         t.diagnostic(JSON.stringify({ label: 'dispatched-read boundary', own: delta(own, io(h)), foreign: delta(other, io(foreign)), foreignText: record(foreign).text, draftOpen: editor(h) === draft }));
-        // This documents a Store-level limit of the proposed UI-only change, not a
-        // zero-I/O expectation or permission to redirect an already-started write.
-        assert.equal(foreign.backend.writes, other.writes + 1); assert.equal(record(foreign).text, 'dispatched read draft');
+        // The original UI-only boundary and its later first failure are retained
+        // as evidence. Store transaction capture now prevents foreign I/O.
+        assert.deepEqual(delta(own, io(h)), { requests: 0, reads: 1, writes: 1 }); assert.deepEqual(io(foreign), other); assert.deepEqual(foreign.backend.raw(), foreignBefore);
+        assert.equal(record(h).text, 'dispatched read draft'); assertOtherData(before, h.backend.raw());
         assert.ok(editor(h) === draft, 'the original opening retains its draft'); assert.equal(draft.value, 'dispatched read draft'); assert.equal(button(modal(h), 'Save task').disabled, false);
+        restore(h, owner); const resumed = io(h); save(h); await settle(); assert.ok(modal(h) === null, 'the owned editor closes');
+        assert.equal(h.backend.requests, resumed.requests); assert.equal(h.backend.writes, resumed.writes);
+        assert.equal(h.backend.raw().receipts.filter(id => id === original.operationId).length, 1);
+        assert.equal(h.backend.raw().receipts.at(-1), original.operationId);
     } finally { restore(h, owner); h.view.destroy(); foreign.view.destroy(); }
 });
 test('RED: late real conflict cannot display a foreign Controller record as reviewed latest', async t => {

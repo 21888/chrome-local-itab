@@ -206,12 +206,15 @@
             this.backend = backend; this.id = options.id || id;
             this.now = options.now || (() => new Date().toISOString());
         }
-        async readRaw() {
+        async readRaw(backend = this.backend) {
             let raw;
-            try { raw = await this.backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
+            try { raw = await backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
             return raw === undefined ? initial() : clone(validate(raw));
         }
-        read() { return this.backend.lock(() => this.readRaw()); }
+        read() {
+            const backend = this.backend;
+            return backend.lock(() => this.readRaw(backend));
+        }
         subscribe(listener) { return this.backend.subscribe(listener); }
         request(kind, values = {}) {
             const operationId = this.id();
@@ -234,22 +237,27 @@
             return Object.freeze({ ...values, texts, identities, createdAt: this.now(), kind, operationId });
         }
         async verifyBatch(command) {
+            const backend = this.backend;
             // Receipts contain only operation IDs, not historical command digests.
             // Confirm only that this entire original batch is present unchanged now.
             check(command?.kind === 'addBatch' && token(command.operationId));
             const snapshot = clone(command), expected = initial();
             appendBatch(expected, snapshot); validate(expected);
-            return this.backend.lock(async () => {
-                const current = await this.readRaw();
+            return backend.lock(async () => {
+                const current = await this.readRaw(backend);
                 const matches = current.receipts.includes(snapshot.operationId) &&
                     expected.records.every(record => same(record, current.records.find(task => task.id === record.id)));
                 return { matches };
             });
         }
         async mutate(command, guard = null) {
+            // One invocation owns one backend before it queues for that lock.
+            // Already-started work may finish there; replacing the public field
+            // cannot redirect its read, write or verification to another source.
+            const backend = this.backend;
             check(command && token(command.operationId), 'INVALID');
-            return this.backend.lock(async () => {
-                const current = await this.readRaw();
+            return backend.lock(async () => {
+                const current = await this.readRaw(backend);
                 if (current.receipts.includes(command.operationId)) {
                     // An acknowledged older operation is not proof its result still exists.
                     // After any later mutation, keep the editor/draft and require review.
@@ -384,10 +392,10 @@
                 default: throw fault('INVALID');
                 }
                 finish(next, command.operationId);
-                try { if (await this.backend.write(next) === false) throw fault('WRITE'); }
+                try { if (await backend.write(next) === false) throw fault('WRITE'); }
                 catch (_) { throw fault('WRITE'); }
                 // Never advertise Saved merely because the write promise resolved.
-                const verified = await this.readRaw();
+                const verified = await this.readRaw(backend);
                 check(same(verified, next), 'VERIFY');
                 return verified;
             });
@@ -402,11 +410,12 @@
             return { source, revision: current.revision, incoming: counts({ ...file.content, recovery: file.recovery }), current: counts(current) };
         }
         async reviewRestoration(selected) {
+            const backend = this.backend;
             // Capture the exact identities and destinations synchronously before
             // waiting for storage. No selection mutation can substitute a target.
             const targets = restorationTargets(selected);
-            return this.backend.lock(async () => {
-                const current = await this.readRaw(), next = clone(current);
+            return backend.lock(async () => {
+                const current = await this.readRaw(backend), next = clone(current);
                 const command = this.request('restoreBatch', { targets, revision: current.revision });
                 const records = Object.freeze(targets.map(target => {
                     const task = current.records.find(record => record.id === target.id && record.version === target.version &&
@@ -420,13 +429,14 @@
         reviewCompletion(selected) { return this.reviewTransition('completeBatch', selected); }
         reviewReopening(selected) { return this.reviewTransition('reopenBatch', selected); }
         async reviewTransition(kind, selected) {
+            const backend = this.backend;
             check(kind === 'completeBatch' || kind === 'reopenBatch');
             const completing = kind === 'completeBatch';
             // Capture identities before waiting for the lock. Selection controls
             // cannot rewrite this read-only review or its eventual command.
             const targets = batchTargets(selected);
-            return this.backend.lock(async () => {
-                const current = await this.readRaw(), next = clone(current);
+            return backend.lock(async () => {
+                const current = await this.readRaw(backend), next = clone(current);
                 const command = this.request(kind, { targets, revision: current.revision });
                 const records = Object.freeze(targets.map(target => {
                     const task = current.records.find(record => record.id === target.id && record.version === target.version && record.state === (completing ? 'active' : 'done'));
@@ -438,9 +448,10 @@
             });
         }
         async reviewBatch(source) {
+            const backend = this.backend;
             const texts = parseBatch(source), command = this.request('addBatch', { texts });
-            return this.backend.lock(async () => {
-                const current = await this.readRaw(), next = clone(current);
+            return backend.lock(async () => {
+                const current = await this.readRaw(backend), next = clone(current);
                 appendBatch(next, command);
                 finish(next, command.operationId);
                 // Revision describes the preview only: an append can safely merge
