@@ -5,14 +5,20 @@
     const selectionOwners = new WeakMap();
     const savedOwners = new WeakMap();
     const viewLifecycles = new WeakMap();
+    // A new public mount owns this exact host before any observable construction
+    // callback. Keep UI succession separate from Controller/draft retirement.
+    const hostOwners = new WeakMap();
+    function hostCurrent(lifecycle) {
+        return Boolean(lifecycle && !lifecycle.retired && hostOwners.get(lifecycle.host) === lifecycle);
+    }
     function viewSourceCurrent(view, lifecycle) {
-        if (!lifecycle || lifecycle.retired || view.closed) return false;
+        if (!hostCurrent(lifecycle) || view.closed) return false;
         const { controller, store, backend, workspace } = lifecycle;
         return !controller.closed && view.controller === controller && controller.store === store && store?.backend === backend &&
             backend?.workspace === workspace && workspace?.id === lifecycle.workspaceId && workspace?.generation === lifecycle.workspaceGeneration &&
             root.LocalItabWorkspaces?.session === lifecycle.session && view.host === lifecycle.host &&
             lifecycle.host.ownerDocument === lifecycle.document &&
-            Object.entries(lifecycle.nodes).every(([name, node]) => view[name] === node && node.ownerDocument === lifecycle.document);
+            Object.entries(lifecycle.nodes).every(([name, node]) => view[name] === node && node.ownerDocument === lifecycle.document) && hostCurrent(lifecycle);
     }
     const viewRenders = new WeakMap();
     function renderSourceCurrent(view, owner) {
@@ -78,6 +84,7 @@
     }
     function editorHostCurrent(view, event) {
         const owner = viewEditors.get(view), token = event && owner?.events.get(event);
+        if (!hostCurrent(owner?.lifecycle)) return false;
         // Preserve the host's existing protection for Find and other inputs.
         return token ? editorCurrent(view, token) : !event || event.target !== owner?.lifecycle.nodes.textarea;
     }
@@ -225,11 +232,11 @@
     function importSourceCurrent(view, owner) {
         if (!owner) return false;
         const { lifecycle, chains } = owner, { controller, store, backend, workspace, host, nodes, document } = lifecycle;
-        const matches = () => !lifecycle.retired && !view.closed && !controller.closed && view.controller === controller &&
+        const matches = () => hostCurrent(lifecycle) && !view.closed && !controller.closed && view.controller === controller &&
             controller.store === store && store?.backend === backend && backend?.workspace === workspace &&
             workspace?.id === lifecycle.workspaceId && workspace?.generation === lifecycle.workspaceGeneration &&
             root.LocalItabWorkspaces?.session === lifecycle.session && view.host === host &&
-            Object.keys(chains).every(name => view[name] === nodes[name] && copyChainOwned(chains[name], document, true));
+            Object.keys(chains).every(name => view[name] === nodes[name] && copyChainOwned(chains[name], document, true)) && hostCurrent(lifecycle);
         return matches() && matches();
     }
     function importReady(view, owner) {
@@ -376,15 +383,25 @@
     }
     class View {
         constructor(host, { controller = new api.Controller(), onVisibility = () => {}, clipboard = root.navigator?.clipboard } = {}) {
-            const store = controller.store, backend = store?.backend, workspace = backend?.workspace;
-            const lifecycle = { host, document, controller, store, backend, workspace, workspaceId: workspace?.id,
-                workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session,
-                nodes: {}, listeners: [], unsubscribe: null, destroyController: controller.destroy.bind(controller), retired: false };
-            viewLifecycles.set(this, lifecycle);
+            const lifecycle = { host, document, nodes: {}, listeners: [], unsubscribe: null, retired: false };
+            viewLifecycles.set(this, lifecycle); hostOwners.set(host, lifecycle);
             viewCopies.set(this, { active: null, feedback: null });
+            const current = () => hostCurrent(lifecycle);
+            const callHost = (object, key, args) => {
+                if (!current()) return;
+                const method = object[key];
+                if (current()) return method.apply(object, args);
+            };
+            try {
+            const store = controller.store, backend = store?.backend, workspace = backend?.workspace;
+            Object.assign(lifecycle, { controller, store, backend, workspace, workspaceId: workspace?.id,
+                workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session,
+                destroyController: controller.destroy.bind(controller) });
             this.host = host; this.controller = controller; this.onVisibility = onVisibility; this.closed = false;
             this.clipboard = clipboard; this.copyAttempt = null; this.copyReceipt = null;
-            host.classList.add('local-scratchpad-card'); host.setAttribute('aria-label', t('scratchpadTitle')); host.hidden = true;
+            callHost(host.classList, 'add', ['local-scratchpad-card']);
+            callHost(host, 'setAttribute', ['aria-label', t('scratchpadTitle')]);
+            if (current()) host.hidden = true;
             const header = el('header', 'scratchpad-header'); header.append(el('h2', '', t('scratchpadTitle')), el('span', 'scratchpad-local', t('scratchpadLocal')));
             this.textarea = el('textarea', 'scratchpad-text'); this.textarea.setAttribute('aria-label', t('scratchpadLabel')); this.textarea.spellcheck = false; this.textarea.setAttribute('autocomplete', 'off');
             this.textarea.addEventListener('input', event => {
@@ -506,8 +523,6 @@
                 if (!event.repeat && !owner?.events.has(event)) clearFindHeld(this);
             };
             this.findVisibilityChange = () => { if (document.hidden) { clearFindHeld(this); this.resetFindResult(); } };
-            document.addEventListener('visibilitychange', this.findVisibilityChange);
-            host.addEventListener('keyup', this.findKeyup); host.addEventListener('pointerdown', this.findPointerdown); host.addEventListener('keydown', this.findKeydown);
             this.findPanel.addEventListener('keydown', event => {
                 const token = beginFind(this);
                 if (event.key !== 'Escape' || !this.canFind(event.target, event) || !findCurrent(this, token)) return;
@@ -531,7 +546,7 @@
             const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.copySavedButton, this.exportButton, this.copyButton, this.copySelectionButton, this.importButton, this.findButton, this.findSelectionButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
-            host.replaceChildren(header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details);
+            callHost(host, 'replaceChildren', [header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details]);
             // Render and teardown retain these original controls even if a public
             // property is replaced. Detachment alone does not change ownership.
             lifecycle.nodes = Object.fromEntries(['textarea', 'savedPreview', 'savedLabel', 'status', 'retry', 'useSaved', 'replace',
@@ -571,10 +586,13 @@
             // observe removal so a pending reparent/restore cannot revive them.
             const selectionOwner = lifecycle.selectionOwner = this.copySelectionOwner = { host, editor: this.textarea, origin: copySelectionButton,
                 controls, status: this.copyStatus, controller, document, parent: host.parentElement, valid: true };
-            const previousSelectionOwner = selectionOwners.get(host);
-            selectionOwners.set(host, selectionOwner);
-            previousSelectionOwner?.invalidate();
+            // Publish complete copy owners before invoking an older callback: it
+            // can synchronously mount another View on this same host.
             selectionOwner.invalidate = () => this.invalidateSelectionCopy();
+            if (current()) {
+                const previousSelectionOwner = selectionOwners.get(host);
+                selectionOwners.set(host, selectionOwner); previousSelectionOwner?.invalidate();
+            }
             const chain = []; for (let node = host; node; node = node.parentElement) chain.push(node);
             lifecycle.chain = chain.slice();
             lifecycle.copyStatusChain = copyNodeChain(this.copyStatus);
@@ -582,9 +600,11 @@
                 workspaceId: lifecycle.workspaceId, workspaceGeneration: lifecycle.workspaceGeneration, session: lifecycle.session,
                 preview: this.savedPreview, label: this.savedLabel, origin: copySavedButton, controls, status: this.copyStatus,
                 labelText: this.savedLabel.textContent, buttonText: copySavedButton.textContent, document, chain, valid: true };
-            const previousSavedOwner = savedOwners.get(host);
-            savedOwners.set(host, savedOwner); previousSavedOwner?.invalidate();
             savedOwner.invalidate = () => { savedOwner.valid = false; if (viewCopies.get(this).feedback?.receipt.saved) this.invalidateCopy(); };
+            if (current()) {
+                const previousSavedOwner = savedOwners.get(host);
+                savedOwners.set(host, savedOwner); previousSavedOwner?.invalidate();
+            }
             this.copyCompositionStart = event => {
                 if (!editorHostCurrent(this, event)) return;
                 this.copySelectionKey = null; this.copySavedKey = null;
@@ -599,17 +619,41 @@
                 const refresh = this.refreshCopyControl;
                 if (editorHostCurrent(this, event)) refresh.call(this);
             };
-            host.addEventListener('compositionstart', this.copyCompositionStart); host.addEventListener('compositionend', this.copyCompositionEnd);
             this.beforeUnload = event => { if (root.LocalItabContentLifecycle?.departing || !this.hasUncommittedWork()) return; event.preventDefault(); event.returnValue = ''; };
-            root.addEventListener?.('beforeunload', this.beforeUnload);
             lifecycle.listeners = [[host, 'compositionstart', this.copyCompositionStart], [host, 'compositionend', this.copyCompositionEnd],
                 [host, 'keyup', this.findKeyup], [host, 'pointerdown', this.findPointerdown], [host, 'keydown', this.findKeydown],
                 [document, 'visibilitychange', this.findVisibilityChange], [root, 'beforeunload', this.beforeUnload]];
-            this.unsubscribe = lifecycle.unsubscribe = controller.subscribe(() => {
-                if (viewSourceCurrent(this, lifecycle)) this.render();
-                else retireViewCopy(this, lifecycle);
+            for (const [target, type, listener] of lifecycle.listeners) {
+                if (!current()) break;
+                const add = target.addEventListener;
+                if (current()) add?.call(target, type, listener);
+            }
+            if (current()) {
+                const subscribe = controller.subscribe;
+                if (current()) this.unsubscribe = lifecycle.unsubscribe = subscribe.call(controller, () => {
+                    if (viewSourceCurrent(this, lifecycle)) this.render();
+                    else retireViewCopy(this, lifecycle);
+                });
+            }
+            if (current()) this.render();
+            if (current()) run(() => {
+                const init = controller.init;
+                if (current()) return init.call(controller);
             });
-            this.render(); run(() => controller.init());
+            } catch (error) {
+                // Failed construction never reinstates a predecessor or destroys
+                // its Controller. Release only resources this attempt acquired;
+                // preserve the original exception even if cleanup also throws.
+                lifecycle.retired = true; this.closed = true;
+                for (const [map, owner] of [[selectionOwners, lifecycle.selectionOwner], [savedOwners, lifecycle.savedOwner]]) {
+                    if (owner) owner.valid = false;
+                    if (owner && map.get(host) === owner) map.delete(host);
+                }
+                try { retireViewCopy(this); } catch (_) {}
+                for (const [target, type, listener] of lifecycle.listeners) try { target.removeEventListener?.(type, listener); } catch (_) {}
+                try { lifecycle.unsubscribe?.(); } catch (_) {}
+                throw error;
+            }
         }
         render() {
             const owner = viewRenders.get(this); if (!owner) return;
