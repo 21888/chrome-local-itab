@@ -40,10 +40,14 @@ start. Preserve all current checks for record fields, types, IDs, reserved ident
 maps, finite coordinates and supported schemas. Do not drop unknown fields to make
 validation pass. Existing documented cosmetic defaults remain a separate rule.
 
-There is no automatic URL replacement, coordinate remapping, identity allocation,
-new schema or default reset at upgrade. The pre-migration source snapshot and the
-workspace bundle retain the original records and every layout key. Explicit later
-mutations must carry raw before/after records and retain their exact provenance.
+Workspace admission and configuration reads do not replace saved URLs, remap
+existing coordinates, allocate identities, advance the layout schema or reset
+defaults. The pre-migration snapshot and initially migrated workspace bundle retain
+the original records and layout keys. Subsequent writes must retain raw record
+provenance. Existing first-render initialization of a saved manual layout may
+persist identities or missing visible-view positions through the guarded layout
+writer. See the [bounded first-render and version-chain investigation](upgrade-preservation-investigation-2026-10-18.md)
+for the executed boundary and its limitations.
 
 ### First compatibility subset
 
@@ -77,7 +81,7 @@ acceptance or claim they were previously blocked.
 | Ordinary reads | `get('links')`, `getAll`, `validateConfigObject`, `layoutSnapshot`, `getLayoutSnapshotForUpdate` | Return the same preserved URL text used by position keys and subsequent baselines. |
 | Shortcut input/write entry | `set('links')` → `validateData` → `writeLocalValues`; `setAll` | Choose the stored-array contract before whole-array normalization. Only the explicitly edited/new URL may follow the input-normalization path. Audit every caller; an unclassified writer must reject rather than rewrite old records. |
 | Compare-and-swap | `writeLocalValues` expectedLinks, `deleteShortcutWithUndo` expectedLinks, `applyLayoutPatch` expected.links | Compare stored URL spelling exactly. Canonically equivalent spelling changes can change position identity and must conflict. |
-| Position/identity mutation | `layoutSnapshot`, `LayoutIdentity.needs/allocate`, `applyLayoutPatch` | Preserve raw previousLinks and every legacy/hidden/orphan view. On an explicit URL collision, derive each new ID's coordinates from that record's exact previous raw URL. Do not assign IDs during startup. |
+| Position/identity mutation | `layoutSnapshot`, `LayoutIdentity.needs/allocate`, `applyLayoutPatch` | Preserve raw previousLinks and every legacy/hidden/orphan view. On an explicit URL collision, derive each new ID's coordinates from that record's exact previous raw URL. Do not assign IDs during workspace admission or configuration reads. Existing first-render manual-layout initialization may allocate IDs for exact duplicate saved URL strings through `applyLayoutPatch`. |
 | Editor | `handleFormSubmit`, `normalizedShortcutDraft`, `saveShortcutLinks` | A title/icon/category-only edit retains the unchanged original URL. An explicitly changed URL keeps the normal input policy and raw prior-record provenance. |
 | Delete/Undo and organizer | `shortcutUndoSnapshot`, `deleteShortcutWithUndo`, `undoShortcutDeletion`, `readShortcutOrganizerSnapshot`, `moveShortcutsToCategory` | Preserve all unselected records and layout maps. Do not treat known safe URL spelling as a repaired record; retain strict other-field checks. |
 | Complete archives | `completeBackupConfigFromRaw`, `validateCompleteBackupConfig`, `validateImportPayload`, `shared/complete-backup.js` | Export, parse, restore and recovery must retain raw URL/position associations. Admit only the documented stored URL forms, without weakening whole-envelope validation. |
@@ -144,14 +148,16 @@ is preserved. Read-only preview and verified backup before cloud clearing remain
 available. A separate transport guard is necessary: the earlier review-on-difference
 protection does not protect a first upload that an old client could later read.
 
-Explicit edits or free-layout operations may require schema-2 IDs. Allocation
+Explicit edits or persisted manual-layout initialization may require schema-2 IDs. Allocation
 uses each original row URL and copies every view's coordinate before the edit.
-If a stored schema marker exists, the explicit operation keeps it consistent
+If a stored schema marker exists, the guarded layout mutation keeps it consistent
 with the resulting layout; a missing marker remains missing. A confirmed restore
 from schema 2 to 1 retains a before-restore recovery copy in the guarded
 replacement write and changes the existing marker to 1.
-Unconfirmed replacement still refuses without writes. Startup never performs
-these explicit schema changes.
+Unconfirmed replacement still refuses without writes. Workspace admission and
+configuration reads do not perform these schema changes. First-render manual-layout
+initialization may update an existing schema marker when allocating identities.
+Canonically equivalent but distinct saved URL strings alone do not require allocation.
 
 ## Safety and capacity contract
 
