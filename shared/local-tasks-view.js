@@ -1386,7 +1386,9 @@
             });
         }
         copyReady() {
-            const c = this.controller, workspace = c.store.backend?.workspace;
+            const lifecycle = viewLifecycles.get(this);
+            if (!viewSourceCurrent(this, lifecycle)) return false;
+            const c = lifecycle.source.controller, workspace = lifecycle.source.backend?.workspace;
             return !this.destroyed && !c.closed && !!c.state && !c.pending && !c.error &&
                 !['loading', 'saving', 'error'].includes(c.status) && !this.dialogs.size && !this.pendingReview &&
                 !root.LocalItabContentLifecycle?.departing && !workspace?.invalidated && !workspace?._suspended;
@@ -1461,71 +1463,141 @@
                 () => this.removedVisibleCurrent(snapshot, origin, source), ['tasksCopyRemovedPending', 'tasksCopyRemovedSuccess', 'tasksCopyRemovedFailure'], this.removedCopyOwner.list);
         }
         refreshCopyControls() {
-            const disabled = !!this.copyAttempt || !this.copyReady();
+            const lifecycle = viewLifecycles.get(this);
+            if (!viewSourceCurrent(this, lifecycle)) return;
+            const host = lifecycle.source.host, controller = lifecycle.source.controller;
+            const attempt = lifecycle.copyAttempt, publicAttempt = this.copyAttempt;
+            const current = () => viewSourceCurrent(this, lifecycle) && lifecycle.copyAttempt === attempt && this.copyAttempt === publicAttempt;
+            const disabled = !!attempt || !!publicAttempt || !this.copyReady();
             // Keep the focused native button in place; the click guard enforces this state.
-            this.host.querySelectorAll('.tasks-copy-text').forEach(node => node.setAttribute('aria-disabled', String(disabled)));
+            host.querySelectorAll('.tasks-copy-text').forEach(node => { if (current()) node.setAttribute('aria-disabled', String(disabled)); });
+            if (!current()) return;
             this.copyVisibleButton.textContent = t('tasksCopyVisible').replace('{count}', this.visibleTasks.length);
+            if (!current()) return;
             this.copyVisibleButton.disabled = !this.visibleTasks.length;
+            if (!current()) return;
             this.copyVisibleButton.setAttribute('aria-disabled', String(disabled || this.copyVisibleButton.disabled));
+            if (!current()) return;
             this.copyCompletedButton.textContent = t('tasksCopyCompleted').replace('{count}', this.visibleCompletedTasks.length);
+            if (!current()) return;
             this.copyCompletedButton.disabled = !this.visibleCompletedTasks.length;
+            if (!current()) return;
             this.copyCompletedButton.setAttribute('aria-disabled', String(disabled || !this.completed.box.open || this.copyCompletedButton.disabled));
+            if (!current()) return;
             this.copyRemovedButton.textContent = t('tasksCopyRemoved').replace('{count}', this.visibleRemovedTasks.length);
+            if (!current()) return;
             this.copyRemovedButton.disabled = !this.visibleRemovedTasks.length;
+            if (!current()) return;
             this.copyRemovedButton.setAttribute('aria-disabled', String(disabled || !this.removed.box.open || this.copyRemovedButton.disabled));
             // Match existing focus-preserving row actions while unavailable.
+            if (!current()) return;
             this.completeBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.visibleTasks.length));
+            if (!current()) return;
             this.reopenBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !this.completed.box.open || !this.visibleCompletedTasks.length));
+            if (!current()) return;
             if (this.restoreBatchButton.disabled !== !this.visibleRemovedTasks.length) this.restoreBatchButton.disabled = !this.visibleRemovedTasks.length;
-            this.restoreBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError || !!this.controller.retryCommand || !this.removed.box.open || this.restoreBatchButton.disabled));
-            this.host.querySelectorAll('.tasks-reuse-text').forEach(node => node.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError)));
+            if (!current()) return;
+            this.restoreBatchButton.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError || !!controller.retryCommand || !this.removed.box.open || this.restoreBatchButton.disabled));
+            if (!current()) return;
+            host.querySelectorAll('.tasks-reuse-text').forEach(node => { if (current()) node.setAttribute('aria-disabled', String(!this.copyReady() || !!this.localError)); });
         }
         invalidateCopy() {
-            const attempt = this.copyAttempt;
-            if (!attempt) return;
-            attempt.valid = false; attempt.cleanup?.();
-            attempt.status.textContent = ''; attempt.status.hidden = true;
-            // Do not release the lock: an already invoked system write cannot be cancelled.
+            // The private slot owns the unresolved write, even if public fields
+            // have changed. Each cancel closure retains only its exact attempt.
+            viewLifecycles.get(this)?.copyAttempt?.cancel();
         }
         copyTask(task, item, title, origin, status) {
             return this.copyText(task.text, origin, status, () => this.copyCurrent(task, item, title, origin));
         }
         async copyText(text, origin, status, isCurrent, messages = ['tasksCopying', 'tasksCopySuccess', 'tasksCopyFailure'], content = null) {
-            if (this.copyAttempt || !isCurrent()) return;
-            const state = this.controller.state, workspace = this.controller.store.backend?.workspace;
-            const attempt = { valid: true, status }; this.copyAttempt = attempt;
-            const cancel = () => this.invalidateCopy();
-            // Remember even a brief hide/detach/closed menu before the promise settles.
+            const lifecycle = viewLifecycles.get(this);
+            const sourceCurrent = () => viewSourceCurrent(this, lifecycle);
+            if (!sourceCurrent() || lifecycle.copyAttempt || this.copyAttempt || !isCurrent() || !sourceCurrent()) return;
+            const controller = lifecycle.source.controller, host = lifecycle.source.host, state = controller.state;
+            const attempt = { valid: true, status }; lifecycle.copyAttempt = attempt; this.copyAttempt = attempt;
+            const parent = status.parentElement, statusChain = [];
+            for (let node = parent; node && node !== host; node = node.parentElement) statusChain.push([node, node.parentElement]);
+            let observer = null, cleaned = false, statusText = null;
+            const cleanup = () => {
+                if (cleaned) return; cleaned = true;
+                observer?.disconnect(); document.removeEventListener('visibilitychange', cancel, true);
+                root.removeEventListener?.('blur', cancel); root.removeEventListener?.('pagehide', cancel);
+            };
+            const statusOwned = () => {
+                if (lifecycle.copyAttempt !== attempt || this.copyAttempt !== attempt ||
+                    status.ownerDocument !== document || status.parentElement !== parent) return false;
+                // A detached original subtree remains ours. Adopting that same
+                // subtree into any foreign parent, even a detached one, does not.
+                for (const [node, originalParent] of statusChain) {
+                    if (node.ownerDocument !== document) return false;
+                    if (node.parentElement !== originalParent) return node.parentElement === null;
+                }
+                return true;
+            };
+            const cancel = () => {
+                attempt.valid = false; cleanup();
+                // A retired callback cannot erase a newer copy's feedback or a
+                // status node that has been adopted by a different host.
+                if (statusText !== null && statusOwned() && status.textContent === statusText) {
+                    status.textContent = '';
+                    if (statusOwned() && status.textContent === '') status.hidden = true;
+                }
+                // An issued clipboard write cannot be cancelled. Keep its lock.
+            };
+            attempt.cancel = cancel; attempt.cleanup = cleanup;
+            // Remember even a brief hide/detach/closed menu before settlement.
             const targets = content ? [origin, content] : [origin];
             const invalidating = records => records.some(record => content?.contains(record.target) || (record.type === 'attributes'
                 ? targets.some(target => record.target.contains(target))
                 : Array.from(record.removedNodes || []).some(node => targets.some(target => node === target || node.contains?.(target)))));
-            const observer = root.MutationObserver ? new root.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
-            attempt.cleanup = () => {
-                observer?.disconnect(); document.removeEventListener('visibilitychange', cancel, true);
-                root.removeEventListener?.('blur', cancel); root.removeEventListener?.('pagehide', cancel);
-            };
+            const owns = () => attempt.valid && lifecycle.copyAttempt === attempt && this.copyAttempt === attempt && sourceCurrent() && controller.state === state;
             const current = () => {
                 if (observer && invalidating(observer.takeRecords())) cancel();
-                return attempt.valid && this.copyAttempt === attempt && this.controller.state === state &&
-                    this.controller.store.backend?.workspace === workspace && isCurrent();
+                // The route's DOM/layout checks may themselves run hooks. Check
+                // source and exact-attempt identity again after the final one.
+                return owns() && isCurrent() && owns();
             };
-            document.addEventListener('visibilitychange', cancel, true);
-            root.addEventListener?.('blur', cancel); root.addEventListener?.('pagehide', cancel);
-            observer?.observe(document.documentElement, { subtree: true, childList: true, characterData: !!content, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open'] });
-            status.textContent = t(messages[0]); status.hidden = false; status.classList.remove('is-error'); this.refreshCopyControls();
             try {
-                // No awaited storage/permission work before this user-activated call.
-                if (!this.clipboard?.writeText) throw new Error('Clipboard unavailable');
-                await this.clipboard.writeText(text);
-                if (current()) status.textContent = t(messages[1]);
+                if (!current()) return;
+                // Capture both once before status/control hooks can replace them.
+                // Preserve the receiver; no storage or permission work is awaited.
+                let clipboard, writeText, clipboardError;
+                try { clipboard = this.clipboard; writeText = clipboard?.writeText; } catch (error) { clipboardError = error; }
+                if (!current()) return;
+                observer = root.MutationObserver ? new root.MutationObserver(records => { if (invalidating(records)) cancel(); }) : null;
+                if (!current()) return;
+                document.addEventListener('visibilitychange', cancel, true);
+                if (!current()) return;
+                root.addEventListener?.('blur', cancel);
+                if (!current()) return;
+                root.addEventListener?.('pagehide', cancel);
+                if (!current()) return;
+                observer?.observe(document.documentElement, { subtree: true, childList: true, characterData: !!content, attributes: true, attributeFilter: ['hidden', 'inert', 'style', 'class', 'open'] });
+                if (!current()) return;
+                statusText = t(messages[0]); status.textContent = statusText;
+                if (!current()) return;
+                status.hidden = false;
+                if (!current()) return;
+                status.classList.remove('is-error');
+                if (!current()) return;
+                this.refreshCopyControls();
+                if (!current()) return;
+                if (clipboardError) throw clipboardError;
+                if (typeof writeText !== 'function') throw new Error('Clipboard unavailable');
+                await Reflect.apply(writeText, clipboard, [text]);
+                if (current()) { statusText = t(messages[1]); status.textContent = statusText; }
             } catch (_) {
-                if (current()) { status.textContent = t(messages[2]); status.classList.add('is-error'); }
+                if (current()) {
+                    statusText = t(messages[2]); status.textContent = statusText;
+                    if (current()) status.classList.add('is-error');
+                }
             } finally {
                 if (!current()) cancel();
-                attempt.cleanup();
+                cleanup();
+                const owned = lifecycle.copyAttempt === attempt;
+                if (owned) lifecycle.copyAttempt = null;
                 if (this.copyAttempt === attempt) this.copyAttempt = null;
-                if (!this.destroyed) this.refreshCopyControls();
+                if (owned && sourceCurrent() && !lifecycle.copyAttempt && !this.copyAttempt) this.refreshCopyControls();
             }
         }
         reuseTask(task, item, title, origin) {
