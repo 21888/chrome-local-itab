@@ -211,8 +211,26 @@ test('RED: original Undo completion pending failure and exact Retry keep existin
             await settle(); h.backend.delay = null;
             const original = h.controller.retryCommand; assert.equal(original.kind, 'reopen'); assert.equal(h.controller.error.code, errorCode(mode));
             h.backend.mode = null;
-            // Undo is an existing separate action. A row-source session gate must not take it over.
-            h.window.LocalItabWorkspaces.session = {};
+            // Undo rejects a changed session, independently of the older row attempt.
+            const undoSource = { controller: h.view.controller, store: h.controller.store, backend: h.store.backend, host: h.view.host,
+                workspace: h.backend.workspace, id: h.backend.workspace?.id, generation: h.backend.workspace?.generation, session: h.window.LocalItabWorkspaces.session };
+            const gap = { io: { requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, raw: h.backend.raw(), error: h.controller.error,
+                retry: h.controller.retryCommand, state: h.controller.state, undo: h.view.undo, rowAttempt: h.view.rowReopenAttempt };
+            h.window.LocalItabWorkspaces.session = {}; h.view.retry.dispatch('click'); await settle();
+            assert.deepEqual({ requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, gap.io); assert.deepEqual(h.backend.raw(), gap.raw);
+            assert.strictEqual(h.controller.error, gap.error); assert.strictEqual(h.controller.retryCommand, gap.retry); assert.strictEqual(h.controller.state, gap.state);
+            assert.strictEqual(h.view.undo, gap.undo); assert.strictEqual(h.view.rowReopenAttempt, gap.rowAttempt);
+            h.window.LocalItabWorkspaces.session = undoSource.session;
+            // Invalidate only the row's section wrapper; keep the original Undo source and DOM.
+            const section = h.view.completed, nodes = h.host.querySelectorAll('*'), draft = h.view.input.value, focused = h.document.activeElement;
+            h.view.completed = { ...section };
+            assert.strictEqual(h.view.completed.box, section.box); assert.strictEqual(h.view.completed.summary, section.summary); assert.strictEqual(h.view.completed.list, section.list);
+            assert.equal(h.host.querySelectorAll('*').length, nodes.length); assert(h.host.querySelectorAll('*').every((node, index) => node === nodes[index]));
+            assert.equal(h.view.input.value, draft); assert.strictEqual(h.document.activeElement, focused);
+            assert.equal(h.view.rowReopenSourceCurrent(h.view.rowReopenOwner), false);
+            assert.strictEqual(h.view.controller, undoSource.controller); assert.strictEqual(h.controller.store, undoSource.store); assert.strictEqual(h.store.backend, undoSource.backend);
+            assert.strictEqual(h.view.host, undoSource.host); assert.strictEqual(h.backend.workspace, undoSource.workspace);
+            assert.equal(h.backend.workspace?.id, undoSource.id); assert.equal(h.backend.workspace?.generation, undoSource.generation); assert.strictEqual(h.window.LocalItabWorkspaces.session, undoSource.session);
             const writes = h.backend.writes, requests = h.backend.requests;
             h.view.retry.dispatch('click'); await settle();
             assert.equal(h.controller.status, 'saved'); assert.equal(h.backend.writes, writes + (mode === 'ack' ? 0 : 1));
@@ -228,7 +246,27 @@ test('RED: prior row attempt cannot claim subsequent Undo command merely because
         activeComplete(h).dispatch('click'); await settle();
         failNext(h, 'false'); h.view.undoButton.dispatch('click'); await settle();
         const original = h.controller.retryCommand; assert.equal(original.kind, 'reopen'); assert.equal(original.id, 'task_0003');
-        h.backend.mode = null; h.window.LocalItabWorkspaces.session = {};
+        h.backend.mode = null;
+        // Undo rejects a changed session, independently of the older row attempt.
+        const undoSource = { controller: h.view.controller, store: h.controller.store, backend: h.store.backend, host: h.view.host,
+            workspace: h.backend.workspace, id: h.backend.workspace?.id, generation: h.backend.workspace?.generation, session: h.window.LocalItabWorkspaces.session };
+        const gap = { io: { requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, raw: h.backend.raw(), error: h.controller.error,
+            retry: h.controller.retryCommand, state: h.controller.state, undo: h.view.undo, rowAttempt: h.view.rowReopenAttempt };
+        h.window.LocalItabWorkspaces.session = {}; h.view.retry.dispatch('click'); await settle();
+        assert.deepEqual({ requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, gap.io); assert.deepEqual(h.backend.raw(), gap.raw);
+        assert.strictEqual(h.controller.error, gap.error); assert.strictEqual(h.controller.retryCommand, gap.retry); assert.strictEqual(h.controller.state, gap.state);
+        assert.strictEqual(h.view.undo, gap.undo); assert.strictEqual(h.view.rowReopenAttempt, gap.rowAttempt);
+        h.window.LocalItabWorkspaces.session = undoSource.session;
+        // Invalidate only the row's section wrapper; keep the original Undo source and DOM.
+        const section = h.view.completed, nodes = h.host.querySelectorAll('*'), draft = h.view.input.value, focused = h.document.activeElement;
+        h.view.completed = { ...section };
+        assert.strictEqual(h.view.completed.box, section.box); assert.strictEqual(h.view.completed.summary, section.summary); assert.strictEqual(h.view.completed.list, section.list);
+        assert.equal(h.host.querySelectorAll('*').length, nodes.length); assert(h.host.querySelectorAll('*').every((node, index) => node === nodes[index]));
+        assert.equal(h.view.input.value, draft); assert.strictEqual(h.document.activeElement, focused);
+        assert.equal(h.view.rowReopenSourceCurrent(h.view.rowReopenOwner), false);
+        assert.strictEqual(h.view.controller, undoSource.controller); assert.strictEqual(h.controller.store, undoSource.store); assert.strictEqual(h.store.backend, undoSource.backend);
+        assert.strictEqual(h.view.host, undoSource.host); assert.strictEqual(h.backend.workspace, undoSource.workspace);
+        assert.equal(h.backend.workspace?.id, undoSource.id); assert.equal(h.backend.workspace?.generation, undoSource.generation); assert.strictEqual(h.window.LocalItabWorkspaces.session, undoSource.session);
         h.view.retry.dispatch('click'); await settle();
         assert.equal(h.controller.status, 'saved'); assert.equal(h.backend.raw().receipts.at(-1), original.operationId);
         assert.equal(h.backend.raw().records[3].state, 'active'); assert.equal(h.view.undo, null);

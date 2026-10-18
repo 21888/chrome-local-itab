@@ -208,7 +208,28 @@ test('RED: original Remove Undo restore Retry remains independent after earlier 
             removeButton(h, state).dispatch('click'); await settle(); const id = state === 'active' ? 'task_0003' : 'task_0000'; assert.equal(h.view.undo.id, id);
             failNext(h, mode); h.view.undoButton.dispatch('click'); await settle();
             const original = h.controller.retryCommand; assert.equal(original.kind, 'restore'); assert.equal(h.controller.error.code, errorCode(mode));
-            h.backend.mode = null; h.window.LocalItabWorkspaces.session = {}; const counts = io(h);
+            h.backend.mode = null;
+            // Undo rejects a changed session, independently of the older row attempt.
+            const undoSource = { controller: h.view.controller, store: h.controller.store, backend: h.store.backend, host: h.view.host,
+                workspace: h.backend.workspace, id: h.backend.workspace?.id, generation: h.backend.workspace?.generation, session: h.window.LocalItabWorkspaces.session };
+            const gap = { io: { requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, raw: h.backend.raw(), error: h.controller.error,
+                retry: h.controller.retryCommand, state: h.controller.state, undo: h.view.undo, rowAttempt: h.view.rowRestoreAttempt };
+            h.window.LocalItabWorkspaces.session = {}; h.view.retry.dispatch('click'); await settle();
+            assert.deepEqual({ requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, gap.io); assert.deepEqual(h.backend.raw(), gap.raw);
+            assert.strictEqual(h.controller.error, gap.error); assert.strictEqual(h.controller.retryCommand, gap.retry); assert.strictEqual(h.controller.state, gap.state);
+            assert.strictEqual(h.view.undo, gap.undo); assert.strictEqual(h.view.rowRestoreAttempt, gap.rowAttempt);
+            h.window.LocalItabWorkspaces.session = undoSource.session;
+            // Invalidate only the row's section wrapper; keep the original Undo source and DOM.
+            const section = h.view.removed, nodes = h.host.querySelectorAll('*'), draft = h.view.input.value, focused = h.document.activeElement;
+            h.view.removed = { ...section };
+            assert.strictEqual(h.view.removed.box, section.box); assert.strictEqual(h.view.removed.summary, section.summary); assert.strictEqual(h.view.removed.list, section.list);
+            assert.equal(h.host.querySelectorAll('*').length, nodes.length); assert(h.host.querySelectorAll('*').every((node, index) => node === nodes[index]));
+            assert.equal(h.view.input.value, draft); assert.strictEqual(h.document.activeElement, focused);
+            assert.equal(h.view.rowRestoreSourceCurrent(h.view.rowRestoreOwner), false);
+            assert.strictEqual(h.view.controller, undoSource.controller); assert.strictEqual(h.controller.store, undoSource.store); assert.strictEqual(h.store.backend, undoSource.backend);
+            assert.strictEqual(h.view.host, undoSource.host); assert.strictEqual(h.backend.workspace, undoSource.workspace);
+            assert.equal(h.backend.workspace?.id, undoSource.id); assert.equal(h.backend.workspace?.generation, undoSource.generation); assert.strictEqual(h.window.LocalItabWorkspaces.session, undoSource.session);
+            const counts = io(h);
             h.view.retry.dispatch('click'); await settle();
             assert.equal(h.backend.writes, counts.writes + (mode === 'ack' ? 0 : 1)); assert.equal(h.backend.requests, counts.requests);
             assert.equal(h.backend.raw().receipts.at(-1), original.operationId); assert.equal(h.backend.raw().records.find(r => r.id === id).state, state); assert.equal(h.view.undo, null);
@@ -519,7 +540,28 @@ for (const state of ['active', 'done']) for (const mode of ['READ', 'false', 'dr
         const original = h.controller.retryCommand; assert.equal(original.kind, 'restore'); assert.notStrictEqual(original, earlierAttempt.command);
         assert.strictEqual(h.view.rowRestoreAttempt, earlierAttempt); assert(h.controller.pending); assert.equal(h.view.undo.id, id);
         release(); await settle(); assert.equal(h.controller.error.code, errorCode(mode)); assert.equal(h.view.undo.id, id);
-        h.backend.mode = null; h.window.LocalItabWorkspaces.session = {}; const counts = io(h);
+        h.backend.mode = null;
+        // Undo rejects a changed session, independently of the older row attempt.
+        const undoSource = { controller: h.view.controller, store: h.controller.store, backend: h.store.backend, host: h.view.host,
+            workspace: h.backend.workspace, id: h.backend.workspace?.id, generation: h.backend.workspace?.generation, session: h.window.LocalItabWorkspaces.session };
+        const gap = { io: { requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, raw: h.backend.raw(), error: h.controller.error,
+            retry: h.controller.retryCommand, state: h.controller.state, undo: h.view.undo, rowAttempt: h.view.rowRestoreAttempt };
+        h.window.LocalItabWorkspaces.session = {}; h.view.retry.dispatch('click'); await settle();
+        assert.deepEqual({ requests: h.backend.requests, reads: h.backend.reads, writes: h.backend.writes }, gap.io); assert.deepEqual(h.backend.raw(), gap.raw);
+        assert.strictEqual(h.controller.error, gap.error); assert.strictEqual(h.controller.retryCommand, gap.retry); assert.strictEqual(h.controller.state, gap.state);
+        assert.strictEqual(h.view.undo, gap.undo); assert.strictEqual(h.view.rowRestoreAttempt, gap.rowAttempt);
+        h.window.LocalItabWorkspaces.session = undoSource.session;
+        // Invalidate only the row's section wrapper; keep the original Undo source and DOM.
+        const section = h.view.removed, nodes = h.host.querySelectorAll('*'), draft = h.view.input.value, focused = h.document.activeElement;
+        h.view.removed = { ...section };
+        assert.strictEqual(h.view.removed.box, section.box); assert.strictEqual(h.view.removed.summary, section.summary); assert.strictEqual(h.view.removed.list, section.list);
+        assert.equal(h.host.querySelectorAll('*').length, nodes.length); assert(h.host.querySelectorAll('*').every((node, index) => node === nodes[index]));
+        assert.equal(h.view.input.value, draft); assert.strictEqual(h.document.activeElement, focused);
+        assert.equal(h.view.rowRestoreSourceCurrent(h.view.rowRestoreOwner), false);
+        assert.strictEqual(h.view.controller, undoSource.controller); assert.strictEqual(h.controller.store, undoSource.store); assert.strictEqual(h.store.backend, undoSource.backend);
+        assert.strictEqual(h.view.host, undoSource.host); assert.strictEqual(h.backend.workspace, undoSource.workspace);
+        assert.equal(h.backend.workspace?.id, undoSource.id); assert.equal(h.backend.workspace?.generation, undoSource.generation); assert.strictEqual(h.window.LocalItabWorkspaces.session, undoSource.session);
+        const counts = io(h);
         h.view.retry.dispatch('click'); await settle();
         assert.equal(h.backend.requests, counts.requests); assert.equal(h.backend.writes, counts.writes + (mode === 'ack' ? 0 : 1));
         assert.equal(h.controller.status, 'saved'); assert.equal(h.view.undo, null); assert.equal(h.backend.raw().receipts.at(-1), original.operationId);

@@ -118,6 +118,8 @@
     // public fields. Availability is separate: original storage errors still
     // belong on this View, including suspended or invalidated workspaces.
     const viewLifecycles = new WeakMap();
+    // Undo records and exact attempts stay private to the source that confirmed them.
+    const undoRecords = new WeakMap(), undoAttempts = new WeakMap();
     function viewSourceCurrent(view, lifecycle) {
         if (!lifecycle || lifecycle.retired || view.destroyed) return false;
         const source = lifecycle.source;
@@ -374,6 +376,8 @@
             box.append(summary, list); return { box, summary, list, key };
         }
         async perform(command, success, failure = null) {
+            const undoAttempt = undoAttempts.get(this);
+            if (undoAttempt?.command === command) return this.performUndo(undoAttempt);
             if (this.destroyed || this.controller.pending) return;
             const generation = ++this.actionGeneration;
             this.localError = null;
@@ -391,7 +395,33 @@
                 // Controller owns the card's safe, content-free feedback.
             }
         }
+        async performUndo(attempt) {
+            const { owner, command, record } = attempt, controller = owner.controller;
+            const owns = () => undoAttempts.get(this) === attempt && this.undo === record &&
+                viewSourceCurrent(this, viewLifecycles.get(this)) && this.editSourceCurrent(owner);
+            if (!owns() || controller.pending) return;
+            const generation = ++this.actionGeneration;
+            this.localError = null; this.retryEffect = null; this.retryFailure = null; this.retryEffectOperationId = command.operationId;
+            // Recheck after local effect setup, immediately before captured dispatch.
+            if (!owns() || controller.pending) return;
+            attempt.dispatched = true;
+            try {
+                const state = await controller.run(command); attempt.saved = state;
+                if (!owns() || generation !== this.actionGeneration || controller.pending ||
+                    (controller.retryCommand && controller.retryCommand !== command)) return;
+                this.undo = null; undoRecords.delete(this); undoAttempts.delete(this);
+                this.retryEffect = null; this.retryFailure = null; this.render();
+            } catch (_) {
+                // The captured Controller retains its real result and exact Retry.
+                // A source gap never grants this continuation another View effect.
+            }
+        }
         async retryLast() {
+            const undoAttempt = undoAttempts.get(this);
+            if (undoAttempt) {
+                if (!viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(undoAttempt.owner)) return;
+                if (undoAttempt.owner.controller.retryCommand === undoAttempt.command) return this.perform(undoAttempt.command);
+            }
             if (this.controller.pending || this.destroyed) return;
             const command = this.controller.retryCommand;
             // Retry must stay with the mounted moveFirst source, but its original
@@ -2150,12 +2180,15 @@
             this.retry.disabled = busy;
         }
         rememberUndo(command, saved) {
+            const owner = editSources.get(this);
+            if (!viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(owner)) return;
             if (command.kind === 'completeBatch') {
                 const current = this.controller.state;
                 if (saved.receipts.at(-1) !== command.operationId || current?.revision !== saved.revision || current.receipts.at(-1) !== command.operationId) return;
                 const records = command.targets.map(target => saved.records.find(task => task.id === target.id && task.version === target.nextVersion && task.state === 'done' && task.updatedAt === command.updatedAt));
                 if (records.every(record => record && current.records.some(task => Object.keys(record).every(key => task[key] === record[key])))) {
                     this.undo = Object.freeze({ kind: 'completeBatch', records: Object.freeze(records.map(record => Object.freeze({ ...record }))) });
+                    undoRecords.set(this, { owner, record: this.undo }); undoAttempts.delete(this);
                 }
                 return;
             }
@@ -2166,18 +2199,24 @@
             this.undo = saved.receipts.at(-1) === command.operationId && record &&
                 this.controller.state?.records.some(task => task.id === record.id && task.version === record.version && task.state === state)
                 ? { ...record } : null;
+            if (this.undo) undoRecords.set(this, { owner, record: this.undo }); else undoRecords.delete(this);
+            undoAttempts.delete(this);
         }
         undoLast() {
-            const record = this.undo;
-            if (!record || this.undoButton.hidden) return;
-            if (record.kind === 'completeBatch') {
-                return this.perform(this.controller.store.request('reopenBatch', { targets: record.records.map(({ id, version }) => ({ id, version })) }), () => {
-                    if (this.undo === record) this.undo = null;
-                });
-            }
-            this.perform(this.controller.store.request(record.state === 'done' ? 'reopen' : 'restore', { id: record.id, version: record.version }), () => {
-                if (this.undo === record) this.undo = null;
-            });
+            const slot = undoRecords.get(this), record = this.undo;
+            if (!slot || slot.record !== record || !viewSourceCurrent(this, viewLifecycles.get(this)) || !this.editSourceCurrent(slot.owner)) return;
+            const { owner } = slot, controller = owner.controller, previous = undoAttempts.get(this);
+            if (controller.pending) return;
+            // A saved result delivered during a source gap still owns its exact
+            // receipt. Explicit return acknowledges it without a new request.
+            if (previous?.record === record && previous.dispatched) return this.perform(previous.command);
+            if (this.undoButton.hidden) return;
+            const command = owner.store.request(record.kind === 'completeBatch' ? 'reopenBatch' : record.state === 'done' ? 'reopen' : 'restore',
+                record.kind === 'completeBatch' ? { targets: record.records.map(({ id, version }) => ({ id, version })) } : { id: record.id, version: record.version });
+            if (undoRecords.get(this) !== slot || this.undo !== record || !viewSourceCurrent(this, viewLifecycles.get(this)) ||
+                !this.editSourceCurrent(owner) || controller.pending) return;
+            const attempt = { owner, record, command, dispatched: false, saved: null }; undoAttempts.set(this, attempt);
+            return this.perform(command);
         }
         editSourceCurrent(owner) {
             if (!owner || editSources.get(this) !== owner || this.destroyed || this.host !== owner.host ||
