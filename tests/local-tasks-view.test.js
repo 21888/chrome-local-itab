@@ -120,11 +120,39 @@ test('DOM model: overwrite is bound to the exact displayed conflict version', as
 });
 
 test('DOM model: stale detached pin cannot bless a newer pin', async () => {
-    const h = model(); await settle(); const one = await seed(h, 'one'), two = await seed(h, 'two');
-    const oldButton = button(h.host.querySelectorAll('[data-task-id]').find(node => node.dataset.taskId === one.id), 'Pin next');
-    await h.controller.action('pin', { id: two.id, version: two.version, expectedPin: null }); await settle();
-    oldButton.dispatch('click'); await settle(); assert.equal(h.controller.state.pinnedId, two.id); assert.equal(h.controller.error.code, 'CONFLICT');
-    h.view.destroy();
+    const h = model(); await settle();
+    try {
+        const one = await seed(h, 'one'), two = await seed(h, 'two'), removable = await seed(h, 'independent Undo');
+        const removedRow = h.host.querySelectorAll('[data-task-id]').find(node => node.dataset.taskId === removable.id);
+        click(removedRow, 'Remove'); await settle(); assert.equal(h.view.undo.id, removable.id);
+        const oldButton = button(h.host.querySelectorAll('[data-task-id]').find(node => node.dataset.taskId === one.id), 'Pin next');
+        await h.controller.action('pin', { id: two.id, version: two.version, expectedPin: null }); await settle();
+        setInput(h.view.input, 'independent quick-entry draft'); h.view.input.focus();
+        const state = h.controller.state, error = h.controller.error, retry = h.controller.retryCommand, pending = h.controller.pending;
+        const status = h.controller.status, undo = h.view.undo, draft = h.view.input, saved = structuredClone(h.b.raw());
+        const io = { requests: 0, reads: 0, writes: 0 };
+        const request = h.store.request.bind(h.store), read = h.b.read.bind(h.b), write = h.b.write.bind(h.b);
+        h.store.request = (...args) => { io.requests++; return request(...args); };
+        h.b.read = (...args) => { io.reads++; return read(...args); };
+        h.b.write = (...args) => { io.writes++; return write(...args); };
+        oldButton.dispatch('click'); await settle(); assert.equal(h.controller.state.pinnedId, two.id);
+        // A detached choice is rejected before Store; the precise visible notice
+        // replaces the old implementation-coupled Controller.error assertion.
+        assert.deepEqual(io, { requests: 0, reads: 0, writes: 0 }); assert.deepEqual(h.b.raw(), saved);
+        assert.strictEqual(h.controller.state, state); assert.strictEqual(h.controller.error, error); assert.equal(error, null);
+        assert.strictEqual(h.controller.retryCommand, retry); assert.equal(retry, null); assert.strictEqual(h.controller.pending, pending);
+        assert.equal(h.controller.status, status); assert.strictEqual(h.view.undo, undo); assert.equal(h.view.localError, null);
+        assert.strictEqual(h.view.input, draft); assert.equal(draft.value, 'independent quick-entry draft'); assert.equal(h.document.activeElement, draft);
+        assert.equal(h.view.status.textContent, 'This task list changed in another page. Your draft is still here. Review the latest version before retrying.');
+        assert.equal(h.view.feedback.classList.contains('is-error'), true); assert.equal(h.view.status.isConnected, true);
+        assert(h.view.status.getClientRects().length); assert.equal(h.view.status.getAttribute('role'), 'status');
+        assert.equal(h.view.status.getAttribute('aria-live'), 'polite'); assert.equal(h.view.retry.hidden, true);
+        const current = h.host.querySelectorAll('[data-task-id]').find(node => node.dataset.taskId === one.id);
+        current.querySelector('.tasks-row-menu').open = true; click(current, 'Pin next'); await settle();
+        assert.equal(h.controller.state.pinnedId, one.id); assert.equal(h.controller.status, 'saved');
+        assert.equal(io.requests, 1); assert.equal(io.writes, 1); assert.equal(h.view.feedback.classList.contains('is-error'), false);
+        assert.strictEqual(h.view.undo, undo); assert.strictEqual(h.view.input, draft); assert.equal(draft.value, 'independent quick-entry draft');
+    } finally { h.view.destroy(); }
 });
 
 test('DOM model: delayed old import cannot open a second dialog or replace an editor', async () => {

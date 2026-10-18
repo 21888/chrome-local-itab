@@ -257,6 +257,14 @@
                 workspace: stepWorkspace, workspaceId: stepWorkspace?.id, workspaceGeneration: stepWorkspace?.generation,
                 legacyAvailability: !!stepWorkspace && typeof stepWorkspace === 'object' && stepWorkspace.id == null && stepWorkspace.generation == null && root.LocalItabWorkspaces == null,
                 session: root.LocalItabWorkspaces?.session ?? null, chain: stepChain });
+            // Pin choices own their mounted source before the first asynchronous row load.
+            const pinWorkspace = controller.store.backend?.workspace ?? null, pinChain = [];
+            for (let node = this.list; node; node = node.parentElement) pinChain.push([node, node.parentElement]);
+            this.pinOwner = Object.freeze({ host, list: this.list, filterInput: this.filterInput, feedback: this.feedback, status: this.status,
+                controller, store: controller.store, backend: controller.store.backend,
+                workspace: pinWorkspace, workspaceId: pinWorkspace?.id, workspaceGeneration: pinWorkspace?.generation,
+                legacyAvailability: !!pinWorkspace && typeof pinWorkspace === 'object' && pinWorkspace.id == null && pinWorkspace.generation == null && root.LocalItabWorkspaces == null,
+                session: root.LocalItabWorkspaces?.session ?? null, chain: pinChain });
             this.unsubscribe = controller.subscribe(() => this.render()); this.render(); controller.refresh().catch(() => {});
         }
         deferQuickEntryBlur() {
@@ -316,6 +324,8 @@
             if (command?.kind === 'moveLast' && !this.moveLastSourceCurrent(this.moveLastOwner)) return;
             // The original step-move receipt can outlive its row, but never its construction source.
             if (command?.kind === 'move' && !this.stepMoveSourceCurrent(this.stepMoveOwner)) return;
+            // Original pin receipts survive redraw and changed pins, but never change source.
+            if (command?.kind === 'pin' && !this.pinSourceCurrent(this.pinOwner)) return;
             if (command?.kind === 'restoreBatch' && (!this.restorationAttempt || this.restorationAttempt.command !== command ||
                 !this.restorationWorkspaceCurrent(this.restorationAttempt.source) || root.LocalItabContentLifecycle?.departing ||
                 document.hidden || document.visibilityState === 'hidden')) return;
@@ -1387,9 +1397,88 @@
             }
             return true;
         }
+        pinSourceCurrent(owner) {
+            const c = owner.controller, workspace = owner.backend?.workspace ?? null;
+            return this.pinOwner === owner && this.host === owner.host && this.list === owner.list &&
+                this.controller === c && c.store === owner.store && c.store.backend === owner.backend && !c.closed &&
+                workspace === owner.workspace && workspace?.id === owner.workspaceId && workspace?.generation === owner.workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && (root.LocalItabWorkspaces?.session ?? null) === owner.session &&
+                (!workspace || owner.session === workspace || (owner.legacyAvailability && root.LocalItabWorkspaces == null));
+        }
+        pinCurrent(source) {
+            const owner = source.owner;
+            // A current filtered row is a valid choice; only an obsolete filter result is rejected.
+            if (document.hidden || document.visibilityState === 'hidden' || this.filterInput !== owner.filterInput ||
+                owner.filterInput.value.trim().toLowerCase() !== source.filter || source.pin.textContent !== source.label ||
+                source.pin.children.length || source.pin.dataset.taskAction !== source.label || source.pin.getAttribute('aria-label') != null ||
+                source.pin.getAttribute('aria-pressed') !== String(source.pinned) || source.item.classList.contains('is-pinned') !== source.pinned) return false;
+            if (!this.pinSourceCurrent(owner)) return false;
+            const c = owner.controller;
+            const reviewedConflict = c.error?.code === 'CONFLICT' && !!c.retryCommand && source.conflictCommand === c.retryCommand;
+            if (this.destroyed || c.pending || (c.error && !reviewedConflict) || (c.retryCommand && !reviewedConflict) || this.localError ||
+                ['loading', 'saving'].includes(c.status) || (c.status === 'error' && !reviewedConflict) ||
+                this.filterQuery !== source.filter || this.filterComposing || this.dialogs.size || this.pendingReview ||
+                this.batchSession || this.reuseSession || this.completionSession || this.restorationSession ||
+                root.LocalItabContentLifecycle?.departing || this.pinGeneration !== source.generation) return false;
+            const state = c.state, current = state?.records.find(record => record.id === source.snapshot.id);
+            return !!current && current.state === 'active' && state.pinnedId === source.expectedPin &&
+                Object.keys(source.snapshot).every(key => current[key] === source.snapshot[key]);
+        }
+        pinVisible(source) {
+            const { owner, item, title, actions, menu, summary, pin } = source;
+            if (document.hidden || document.visibilityState === 'hidden' || owner.filterInput.value.trim().toLowerCase() !== source.filter ||
+                pin.disabled || pin.getAttribute('disabled') != null || pin.getAttribute('aria-disabled') === 'true' ||
+                !pin.isConnected || item.dataset.taskId !== source.snapshot.id || item.parentElement !== owner.list ||
+                Array.from(owner.list.children).find(node => node.dataset.taskId === source.snapshot.id) !== item ||
+                item.querySelector('.tasks-text') !== title || title.textContent !== source.snapshot.text || title.children.length ||
+                item.querySelector('.tasks-row-actions') !== actions || item.querySelector('.tasks-row-menu') !== menu ||
+                menu.querySelector('summary') !== summary || !actions.contains(pin) ||
+                pin.textContent !== source.label || pin.children.length || pin.dataset.taskAction !== source.label ||
+                pin.getAttribute('aria-pressed') !== String(source.pinned) || pin.getAttribute('aria-label') != null ||
+                item.classList.contains('is-pinned') !== source.pinned ||
+                [...owner.chain, ...source.chain].some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent)) return false;
+            for (const displayed of [pin, title]) {
+                if (!displayed.getClientRects().length) return false;
+                for (let node = displayed; node; node = node.parentElement) {
+                    const style = root.getComputedStyle?.(node);
+                    if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                        node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                        style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                        (node.tagName === 'DETAILS' && !node.open)) return false;
+                }
+            }
+            return true;
+        }
+        pinStaleFeedback(source) {
+            const owner = source.owner, c = owner.controller, feedback = owner.feedback, status = owner.status;
+            const available = () => !this.destroyed && !c.pending && !c.error && !c.retryCommand && !this.localError &&
+                !['loading', 'saving', 'error'].includes(c.status) && !this.dialogs.size && !this.pendingReview &&
+                !this.batchSession && !this.reuseSession && !this.completionSession && !this.restorationSession &&
+                !root.LocalItabContentLifecycle?.departing;
+            if (!available() || !this.pinSourceCurrent(owner) || !c.state || c.state.pinnedId === source.expectedPin ||
+                document.hidden || document.visibilityState === 'hidden' || this.feedback !== feedback || this.status !== status || feedback.parentElement !== owner.host || status.parentElement !== feedback ||
+                status.getAttribute('role') !== 'status' || status.getAttribute('aria-live') !== 'polite' ||
+                owner.chain.some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent) ||
+                feedback.ownerDocument !== document || status.ownerDocument !== document || !status.isConnected || !status.getClientRects().length) return;
+            for (let node = status; node; node = node.parentElement) {
+                const style = root.getComputedStyle?.(node);
+                if (node.hidden || node.inert || node.disabled || node.getAttribute('aria-hidden') === 'true' ||
+                    node.style.display === 'none' || ['hidden', 'collapse'].includes(node.style.visibility) ||
+                    style?.display === 'none' || ['hidden', 'collapse'].includes(style?.visibility) ||
+                    (node.tagName === 'DETAILS' && !node.open)) return;
+            }
+            // This is local visible feedback, never a simulated Controller/Store failure or receipt.
+            // Recheck source and state after layout; a normal render or new choice clears the notice.
+            if (document.hidden || document.visibilityState === 'hidden' || this.feedback !== feedback || this.status !== status ||
+                feedback.parentElement !== owner.host || status.parentElement !== feedback || !status.isConnected ||
+                owner.chain.some(([node, parent]) => node.ownerDocument !== document || node.parentElement !== parent) ||
+                !available() || !this.pinSourceCurrent(owner) || !c.state || c.state.pinnedId === source.expectedPin) return;
+            status.textContent = errorText({ code: 'CONFLICT' }); feedback.classList.add('is-error');
+        }
         row(task, index, active) {
             const item = el('li', 'tasks-row'); item.dataset.taskId = task.id;
             let firstSource = null, lastSource = null;
+            let pinSource = null;
             const stepSources = [];
             const top = el('div', 'tasks-row-main');
             const title = el('span', 'tasks-text', task.text); if (task.state === 'done') title.classList.add('is-done');
@@ -1414,7 +1503,20 @@
             else {
                 if (task.state === 'active') {
                     const expectedPin = this.controller.state.pinnedId; const pinned = expectedPin === task.id; item.classList.toggle('is-pinned', pinned);
-                    const pin = button(pinned ? 'tasksUnpin' : 'tasksPin', () => run('pin', { expectedPin }));
+                    const choice = { owner: this.pinOwner, generation: this.pinGeneration, item, title, actions, expectedPin, pinned,
+                        filter: this.filterQuery, snapshot: Object.freeze({ ...task }), label: t(pinned ? 'tasksUnpin' : 'tasksPin'),
+                        conflictCommand: this.controller.error?.code === 'CONFLICT' ? this.controller.retryCommand : null, chain: [] };
+                    const pin = button(pinned ? 'tasksUnpin' : 'tasksPin', event => {
+                        if (event.defaultPrevented || event.detail > 1 || event.repeat || event.isComposing || event.keyCode === 229 ||
+                            event.target !== pin || (event.currentTarget && event.currentTarget !== pin)) return;
+                        if (!this.pinCurrent(choice) || !this.pinVisible(choice) || !this.pinCurrent(choice)) { this.pinStaleFeedback(choice); return; }
+                        // The original expectedPin is the CAS condition; unrelated ordering is independent.
+                        this.perform(choice.owner.store.request('pin', { id: choice.snapshot.id, version: choice.snapshot.version, expectedPin: choice.expectedPin }));
+                    });
+                    pin.addEventListener('keydown', event => {
+                        if (['Enter', ' '].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
+                    });
+                    choice.pin = pin; pinSource = choice;
                     pin.setAttribute('aria-pressed', String(pinned)); actions.append(pin);
                     const stepButton = (key, direction) => {
                         const source = { owner: this.stepMoveOwner, generation: this.moveLastGeneration, item, title, actions, direction,
@@ -1488,6 +1590,11 @@
                 const menu = el('details', 'tasks-row-menu'), summary = el('summary', '', t('tasksActions'));
                 summary.dataset.taskAction = 'menu';
                 menu.append(summary, actions); item.append(menu);
+                if (pinSource) {
+                    pinSource.menu = menu; pinSource.summary = summary;
+                    pinSource.chain.push([pinSource.pin, actions], [actions, menu], [menu, item], [summary, menu],
+                        [title, top], [top, item], [item, pinSource.owner.list]);
+                }
                 for (const source of stepSources) {
                     source.menu = menu; source.summary = summary;
                     source.chain.push([source.action, actions], [actions, menu], [menu, item], [summary, menu],
@@ -1551,6 +1658,7 @@
                 // Move-to-start and Move-to-end share this render ownership fence;
                 // old row callbacks cannot revive after their nodes are reattached.
                 this.moveLastGeneration = (this.moveLastGeneration || 0) + 1;
+                this.pinGeneration = (this.pinGeneration || 0) + 1;
                 this.list.replaceChildren(...visible.map(task => this.row(task, ids.indexOf(task.id), ids)));
                 if (!active.length && !filtering) this.list.append(el('li', 'tasks-empty', t('tasksEmpty')));
                 this.more.hidden = filtering || active.length <= 4; this.more.textContent = t(this.expanded ? 'tasksLess' : 'tasksMore'); this.more.setAttribute('aria-expanded', String(this.expanded));
