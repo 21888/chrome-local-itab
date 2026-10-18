@@ -319,9 +319,22 @@ for (const kind of ['backend', 'store', 'controller']) test(`construction ${kind
         else if (kind === 'store') h.controller.store = foreign.store;
         else h.view.controller = foreign.controller;
         await settle(); redraw(h); const own = io(h), other = io(foreign), before = foreign.backend.raw();
-        h.view.nextComplete.dispatch('click'); await settle();
+        if (kind === 'controller') { h.view.nextComplete.dispatch('click'); await settle(); }
+        else {
+            // The original Controller now suppresses its late initial read when
+            // Store/backend identity changed, so no action may be constructed.
+            assert.equal(h.controller.state, null); assert.ok(h.view.nextComplete == null);
+            assert.equal(h.view.next.querySelectorAll('button').length, 0);
+            assert.equal(own.requests, 0); assert.equal(own.writes, 0); assert.equal(other.requests, 0); assert.equal(other.writes, 0);
+        }
         t.diagnostic(JSON.stringify({ label: `first-read ${kind}`, own: delta(own, io(h)), foreign: delta(other, io(foreign)) }));
         assert.deepEqual({ own: io(h), foreign: io(foreign) }, { own, foreign: other }); assert.deepEqual(foreign.backend.raw(), before);
+        if (kind !== 'controller') {
+            sourceRestore(h, workspace); await h.controller.refresh(); await settle();
+            assert.ok(h.view.nextComplete?.getClientRects().length); h.view.nextComplete.dispatch('click'); await settle();
+            assert.equal(record(h).state, 'done'); assert.equal(h.backend.writes, own.writes + 1);
+            assert.deepEqual(io(foreign), other); assert.deepEqual(foreign.backend.raw(), before);
+        }
     } finally { sourceRestore(h, workspace); h.view.destroy(); foreign.view.destroy(); }
 });
 const retryChanges = {

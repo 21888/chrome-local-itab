@@ -173,15 +173,19 @@ test('an independent later invocation deliberately uses the currently configured
     assert.deepEqual(counts(own), { locks: 0, reads: 0, writes: 0 }); assert.deepEqual(own.raw(), before); assert.equal(foreign.writes, 1);
 });
 
-test('boundary: Controller conflict refresh is a separate operation on its current backend', async t => {
+test('boundary: Controller conflict refresh remains within its construction source', async t => {
     const { own, foreign, store } = fixture(), command = edit(store), controller = new Controller(store);
     await controller.refresh(); await store.mutate(edit(store));
-    const before = own.raw(), other = foreign.raw(), gate = gateAt(own, 'read');
+    const before = own.raw(), other = foreign.raw(), state = controller.state, gate = gateAt(own, 'read');
     const pending = controller.run(command); await gate.entered.promise; store.backend = foreign; gate.release.resolve();
     await assert.rejects(pending, { code: 'CONFLICT' });
-    t.diagnostic(JSON.stringify({ boundary: 'separate-conflict-refresh', own: counts(own), foreign: counts(foreign), controllerText: controller.state.records[0].text }));
-    assert.deepEqual(counts(foreign), { locks: 1, reads: 1, writes: 0 }); assert.deepEqual(controller.state, other);
+    // Feature 77 recorded the then-unfixed foreign Controller refresh boundary.
+    // Controller source ownership now refuses that separate foreign operation.
+    t.diagnostic(JSON.stringify({ boundary: 'construction-source-conflict-refresh', own: counts(own), foreign: counts(foreign), controllerText: controller.state.records[0].text }));
+    assert.deepEqual(counts(foreign), { locks: 0, reads: 0, writes: 0 }); assert.strictEqual(controller.state, state);
     assert.strictEqual(controller.retryCommand, command); assert.equal(controller.error.code, 'CONFLICT');
+    const error = controller.error; store.backend = own; await controller.refresh();
+    assert.deepEqual(controller.state, before); assert.strictEqual(controller.retryCommand, command); assert.strictEqual(controller.error, error);
     assert.deepEqual(own.raw(), before); assert.deepEqual(foreign.raw(), other); controller.destroy();
 });
 
