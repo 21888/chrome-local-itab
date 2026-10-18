@@ -1330,8 +1330,13 @@
             }
         }
         reuseTask(task, item, title, origin) {
-            if (this.localError || !this.copyCurrent(task, item, title, origin)) return;
-            const sourceText = task.text, workspace = this.controller.store.backend?.workspace;
+            const owner = editSources.get(this), lifecycle = viewLifecycles.get(this);
+            const sourceCurrent = () => viewSourceCurrent(this, lifecycle) && this.editSourceCurrent(owner);
+            if (!sourceCurrent() || this.localError || !this.copyCurrent(task, item, title, origin) || !sourceCurrent()) return;
+            const sourceText = task.text, controller = owner.controller, store = owner.store;
+            const subscribe = controller.subscribe.bind(controller);
+            // Only this opening's exact command may dismiss its original feedback.
+            const dismiss = command => { if (command && controller.retryCommand === command) controller.dismissRetry(command.operationId); };
             let unsubscribe = () => {}, generation = 0, edited = false, composing = false, compositionEpoch = 0;
             let saving = false, attempt = null, retryCommand = null, focusDeparted = false;
             const moved = event => { focusDeparted = !modal.panel.contains(event.target); };
@@ -1342,7 +1347,7 @@
                 document.removeEventListener('visibilitychange', departed, true);
                 root.removeEventListener?.('blur', departed); root.removeEventListener?.('pagehide', departed);
                 if (this.reuseSession === modal) this.reuseSession = null;
-                if (attempt) this.controller.dismissRetry(attempt.command.operationId); this.render();
+                if (attempt) dismiss(attempt.command); this.render();
             });
             if (!modal) return;
             this.reuseSession = modal;
@@ -1354,10 +1359,9 @@
             const previousText = el('p', 'tasks-latest'); previous.append(el('h3', '', t('tasksReusePrevious')), previousText);
             const feedback = el('p', 'tasks-dialog-feedback tasks-batch-feedback'); feedback.setAttribute('role', 'status'); feedback.setAttribute('aria-live', 'polite');
             const setFeedback = (text, error = false) => { feedback.textContent = text; feedback.classList.toggle('is-error', error); };
-            const owns = () => !this.destroyed && modal.isOpen && this.reuseSession === modal && input.isConnected;
-            const available = () => !this.controller.closed && !!this.controller.state &&
-                !root.LocalItabContentLifecycle?.departing && this.controller.store.backend?.workspace === workspace &&
-                !workspace?.invalidated && !workspace?._suspended;
+            const owns = () => viewLifecycles.get(this) === lifecycle && !lifecycle.retired && !this.destroyed &&
+                modal.isOpen && this.dialogs.has(modal) && this.reuseSession === modal && input.isConnected;
+            const available = () => sourceCurrent() && !!controller.state && !root.LocalItabContentLifecycle?.departing;
             // Native textarea.value normalizes CRLF/CR to LF. Until an actual
             // input event, submit the saved snapshot, including its original breaks.
             const currentText = () => edited ? input.value : sourceText;
@@ -1366,7 +1370,7 @@
                 const restore = owns() && !focusDeparted && available() && !document.hidden && document.visibilityState !== 'hidden' &&
                     (modal.panel.contains(document.activeElement) || document.activeElement === document.body);
                 originalClose(false);
-                if (!restore || this.destroyed || this.dialogs.size || document.activeElement !== document.body) return;
+                if (!restore || !available() || this.dialogs.size || document.activeElement !== document.body) return;
                 const current = Array.from(this.host.querySelectorAll('[data-task-id]')).find(node => node.dataset.taskId === task.id);
                 const target = current?.querySelector('.tasks-reuse-text');
                 const visible = node => {
@@ -1375,7 +1379,7 @@
                     for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS' && !parent.open) return false;
                     return true;
                 };
-                if (visible(target)) target.focus(); else if (visible(this.input)) this.input.focus();
+                if (visible(target) && available()) target.focus(); else if (visible(this.input) && available()) this.input.focus();
             };
             const setControl = (node, disabled, hidden = false) => {
                 if (document.activeElement === node && (disabled || hidden)) input.focus();
@@ -1383,49 +1387,67 @@
             };
             const update = () => {
                 if (!owns()) return;
-                const blocked = saving || !!this.controller.pending || composing || !available();
+                // A source gap can explain the conflict in this old opening, but
+                // cannot disable a newly focused control or transfer its focus.
+                if (!available()) { setFeedback(t(sourceCurrent() ? 'tasksErrorUnavailable' : 'tasksConflict'), true); return; }
+                const blocked = saving || !!controller.pending || composing;
                 setControl(add, blocked || !!retryCommand);
                 setControl(retry, blocked, !retryCommand);
                 previous.hidden = !retryCommand;
                 previousText.textContent = retryCommand ? retryCommand.text : '';
-                if (!available()) setFeedback(t('tasksErrorUnavailable'), true);
             };
             const submit = async (retryPrevious = false) => {
-                if (!owns() || !available() || saving || this.controller.pending || composing) return;
-                if (retryPrevious) { if (!retryCommand) return; }
-                else {
+                if (!owns() || !available() || saving || controller.pending || composing) return;
+                if (retryPrevious) {
+                    if (!retryCommand || !attempt || retryCommand !== attempt.command ||
+                        (controller.retryCommand && controller.retryCommand !== retryCommand)) return;
+                } else {
                     if (retryCommand) return;
-                    attempt = { command: this.controller.store.request('add', { text: currentText() }), generation, text: currentText() };
+                    // Request hooks cannot give an old snapshot a newer IME/ABA generation.
+                    const text = currentText(), submittedGeneration = generation;
+                    const command = store.request('add', { text });
+                    if (!owns() || !available() || controller.pending) return;
+                    attempt = { command, generation: submittedGeneration, text };
                 }
                 const submitted = attempt, command = submitted.command;
                 saving = true; this.reuseOperationId = command.operationId; setFeedback(t('tasksSaving')); update();
+                // Focus/disabled-control work can also invalidate the captured source.
+                if (!owns() || !available() || controller.pending) {
+                    saving = false; if (owns()) update(); return;
+                }
                 try {
-                    const state = await this.controller.run(command);
-                    if (!owns()) return;
+                    const state = await controller.run(command);
+                    if (!owns() || attempt !== submitted) return;
+                    // A completed receipt still needs an explicit acknowledgement
+                    // after a source gap; never turn it silently into another Add.
+                    if (!available()) { retryCommand = command; setFeedback(t('tasksConflict'), true); return; }
                     retryCommand = null; attempt = null;
                     // Only this opening's unchanged draft and current confirmed
                     // receipt may close. A new IME, ABA edit or later state owns itself.
-                    if (available() && !composing && generation === submitted.generation && currentText() === submitted.text &&
-                        this.controller.state?.revision === state.revision && !this.controller.pending &&
-                        (!this.controller.retryCommand || this.controller.retryCommand.operationId === command.operationId) &&
+                    if (!composing && generation === submitted.generation && currentText() === submitted.text &&
+                        controller.state?.revision === state.revision && !controller.pending &&
+                        (!controller.retryCommand || controller.retryCommand === command) &&
                         state.receipts.at(-1) === command.operationId) modal.close();
                     else setFeedback(t('tasksReuseDraftRemains'));
                 } catch (error) {
-                    if (!owns()) { this.controller.dismissRetry(command.operationId); return; }
+                    if (!owns()) { dismiss(command); return; }
+                    if (attempt !== submitted) return;
+                    if (!available()) { retryCommand = command; setFeedback(t('tasksConflict'), true); return; }
                     if (['READ', 'WRITE', 'VERIFY'].includes(error.code)) {
                         // Input changes never abandon an uncertain operation or
                         // change its text. Retry is a separate explicit action.
                         retryCommand = command; setFeedback(`${errorText(error)} ${t('tasksReuseUncertain')}`, true);
                     } else {
                         retryCommand = null; attempt = null;
-                        this.controller.dismissRetry(command.operationId); setFeedback(errorText(error), true);
+                        dismiss(command); setFeedback(errorText(error), true);
                     }
                 } finally {
                     saving = false;
-                    if (!owns()) this.controller.dismissRetry(command.operationId);
-                    if (this.reuseOperationId === command.operationId) this.reuseOperationId = null;
+                    if (!owns()) dismiss(command);
+                    if (sourceCurrent() && (!this.reuseSession || this.reuseSession === modal) &&
+                        this.reuseOperationId === command.operationId) this.reuseOperationId = null;
                     if (owns()) update();
-                    if (!this.destroyed) this.render();
+                    if (sourceCurrent()) this.render();
                 }
             };
             const add = button('tasksAdd', event => { if (!(event.detail > 1)) submit(); }, 'tasks-primary');
@@ -1454,7 +1476,7 @@
             input.addEventListener('focusout', blur);
             const actions = el('div', 'tasks-dialog-actions'); actions.append(button('tasksCancel', () => modal.close()), retry, add);
             modal.panel.append(input, hint, previous, feedback, actions);
-            unsubscribe = this.controller.subscribe(update); modal.open(input);
+            unsubscribe = subscribe(update); modal.open(input);
             document.addEventListener('focusin', moved, true);
             document.addEventListener('visibilitychange', departed, true);
             root.addEventListener?.('blur', departed); root.addEventListener?.('pagehide', departed);
