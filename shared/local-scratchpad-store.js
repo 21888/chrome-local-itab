@@ -38,19 +38,19 @@
     }
     class Store {
         constructor(backend = createChromeBackend()) { this.backend = backend; }
-        async raw() { let value; try { value = await this.backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
+        async raw(backend = this.backend) { let value; try { value = await backend.read(); } catch (error) { if (error.code?.startsWith('WORKSPACE_')) throw error; throw fault('READ'); }
             if (value === undefined) return initial();
             try { return { ...validate(value) }; } catch (_) { throw fault('CORRUPT'); } }
-        read() { return this.backend.lock(() => this.raw()); }
+        read() { const backend = this.backend; return backend.lock(() => this.raw(backend)); }
         subscribe(fn) { return this.backend.subscribe(fn); }
-        mutate(command) { return this.backend.lock(async () => {
-            const state = await this.raw(); check(command.revision === state.revision, 'CONFLICT');
+        mutate(command) { const backend = this.backend; return backend.lock(async () => {
+            const state = await this.raw(backend); check(command.revision === state.revision, 'CONFLICT');
             if (command.kind === 'content') state.content = content(command.value);
             else if (command.kind === 'visibility') { check(typeof command.value === 'boolean'); state.enabled = command.value; }
             else throw fault('INVALID');
             state.revision++; validate(state);
-            try { await this.backend.write(state); } catch (_) { throw fault('WRITE'); }
-            const saved = await this.raw(); check(same(state, saved), 'VERIFY'); return saved;
+            try { await backend.write(state); } catch (_) { throw fault('WRITE'); }
+            const saved = await this.raw(backend); check(same(state, saved), 'VERIFY'); return saved;
         }); }
     }
     return { KEY, LOCK, LIMITS, Store, initial, validate, content, isUnicode, fault, createChromeBackend };
