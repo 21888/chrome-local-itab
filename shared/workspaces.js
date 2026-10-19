@@ -277,6 +277,12 @@
                 check(marker && ['prepared', 'submitted'].includes(marker.status), 'NO_RECOVERY');
                 const registry = await this.registry(), snapshot = await this.readSnapshot(registry);
                 const state = await this.get([PROMPTS_KEY, COLLECTIONS_KEY, '__localItabCompleteRecoveryV2']);
+                // A self-consistent recovery file is not necessarily the original
+                // for this pending transaction. Never label an unrelated copy as
+                // its "before" candidate; retain all stored bytes on mismatch.
+                check(marker.recoveryKey === '__localItabCompleteRecoveryV2' &&
+                    typeof marker.recoveryChecksum === 'string' && /^[a-f0-9]{64}$/.test(marker.recoveryChecksum) &&
+                    state.__localItabCompleteRecoveryV2?.checksum === marker.recoveryChecksum, 'RECOVERY');
                 return { snapshot, prompts: state[PROMPTS_KEY], collections: state[COLLECTIONS_KEY], recovery: state.__localItabCompleteRecoveryV2 };
             }));
         }

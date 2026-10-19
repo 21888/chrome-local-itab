@@ -181,3 +181,49 @@ test('recovery cancellation during async verification does not switch authoritie
     f.chrome.storage.local.get=async keys=>{const value=await original(keys);if(keys.includes(Backup.WORKSPACE_RECOVERY_KEY))current=false;return value;};const writes=f.writes.length;
     await assert.rejects(f.store.recoverInterruptedRestore(review,{confirmed:true,isCurrent:()=>current}));assert.equal(f.writes.length,writes);f.chrome.storage.local.get=original;
 });
+
+test('interrupted candidate export refuses a valid recovery belonging to another restore',async()=>{
+    const incoming=fixture(),f=fixture();await add(incoming,'Imported','New','incoming_id');await add(f,'Existing','Old','existing_id');
+    const plan=await f.store.review(await incoming.store.export(),null,accepted);
+    f.hooks.set=(values,raw)=>{Object.assign(raw,copy(values));if(Object.hasOwn(values,Workspaces.REGISTRY_KEY))throw Error('ack');};
+    await assert.rejects(f.store.restore(plan,{confirmed:true}));delete f.hooks.set;
+    const unrelated=fixture();await add(unrelated,'Unrelated','Different original','unrelated_id');
+    const source=await unrelated.store.export();
+    f.raw[Backup.WORKSPACE_RECOVERY_KEY]={source,checksum:await f.manager.fingerprint(source)};
+    const before=copy(f.raw),writes=f.writes.length;
+    await assert.rejects(f.store.exportInterruptedCandidates(),code('WORKSPACE_RECOVERY'));
+    assert.equal(f.writes.length,writes);assert.deepEqual(f.raw,before);
+});
+
+test('candidate binding rejects missing or unsupported transaction references without changing raw copies',async()=>{
+    for(const change of [marker=>{delete marker.recoveryChecksum;},marker=>{marker.recoveryChecksum='';},marker=>{marker.recoveryKey='__unrelatedRecovery';}]){
+        const f=fixture();await add(f);const plan=await f.store.review(await f.store.export(),null,accepted);
+        f.hooks.set=(values,raw)=>{Object.assign(raw,copy(values));if(values[Workspaces.RESTORE_TRANSACTION_KEY]?.status==='prepared')throw Error('ack');};
+        await assert.rejects(f.store.restore(plan,{confirmed:true}));delete f.hooks.set;
+        change(f.raw[Workspaces.RESTORE_TRANSACTION_KEY]);const before=copy(f.raw),writes=f.writes.length;
+        await assert.rejects(f.store.exportInterruptedCandidates(),code('WORKSPACE_RECOVERY'));
+        assert.equal(f.writes.length,writes);assert.deepEqual(f.raw,before);
+    }
+});
+
+test('candidate binding uses original content checksum, not transaction id or status, retaining live and Trash copies',async()=>{
+    for(const status of ['prepared','submitted']){
+        const f=fixture();await add(f,'Original','Retained body');const plan=await f.store.review(await f.store.export(),null,accepted);
+        f.hooks.set=(values,raw)=>{Object.assign(raw,copy(values));if(values[Workspaces.RESTORE_TRANSACTION_KEY]?.status===status)throw Error('ack');};
+        await assert.rejects(f.store.restore(plan,{confirmed:true}));delete f.hooks.set;
+        // Portable backup files have no transaction id. Identical original bytes
+        // remain a valid before candidate for a different transaction identity.
+        f.raw[Workspaces.RESTORE_TRANSACTION_KEY].id='another_transaction';
+        const before=copy(f.raw),writes=f.writes.length;
+        const candidates=JSON.parse(await f.store.exportInterruptedCandidates());
+        assert.deepEqual(candidates.before,JSON.parse(f.raw[Backup.WORKSPACE_RECOVERY_KEY].source));
+        assert.equal(candidates.before.workspaces.length,2);
+        assert.equal(candidates.before.trash.length,1);
+        assert(candidates.before.trash.some(entry=>entry.id==='removed'&&entry.deletedAt===now));
+        assert.equal(f.writes.length,writes);assert.deepEqual(f.raw,before);
+        f.raw[Backup.WORKSPACE_RECOVERY_KEY].source+=' ';
+        const altered=copy(f.raw);
+        await assert.rejects(f.store.exportInterruptedCandidates(),code('RECOVERY'));
+        assert.equal(f.writes.length,writes);assert.deepEqual(f.raw,altered);
+    }
+});
