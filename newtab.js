@@ -4472,12 +4472,12 @@ class ShortcutsComponent {
                     <form class="modal-form" id="shortcut-form" novalidate>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-title">${(window.i18n && i18n.t('title')) || 'Title'}</label>
-                            <input type="text" class="form-input" id="shortcut-title" placeholder="${(window.i18n && i18n.t('title')) || 'Title'}" required>
+                            <input type="text" class="form-input" id="shortcut-title" aria-describedby="title-error" aria-invalid="false" placeholder="${(window.i18n && i18n.t('title')) || 'Title'}" required>
                             <div class="form-error" id="title-error"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="shortcut-url">${(window.i18n && i18n.t('url')) || 'URL'}</label>
-                            <input type="text" class="form-input" id="shortcut-url" placeholder="https://example.com" inputmode="url" required>
+                            <input type="text" class="form-input" id="shortcut-url" aria-describedby="url-error" aria-invalid="false" placeholder="https://example.com" inputmode="url" required>
                             <div class="form-error" id="url-error"></div>
                         </div>
                         <div class="form-group">
@@ -4783,6 +4783,7 @@ class ShortcutsComponent {
      */
     validateForm(title, url) {
         let isValid = true;
+        const invalidFields = [];
 
         // Clear previous errors
         this.clearFormErrors();
@@ -4791,20 +4792,32 @@ class ShortcutsComponent {
         if (!title) {
             this.showFormError('title', ((window.i18n && i18n.t('titleRequired')) || 'Title is required'));
             isValid = false;
+            invalidFields.push('title');
         } else if (title.length > 50) {
             this.showFormError('title', ((window.i18n && i18n.t('titleTooLong')) || 'Title must be 50 characters or less'));
             isValid = false;
+            invalidFields.push('title');
         }
 
         // Validate URL
         if (!url) {
             this.showFormError('url', ((window.i18n && i18n.t('urlRequired')) || 'URL is required'));
             isValid = false;
+            invalidFields.push('url');
         } else if (!this.isValidUrl(url)) {
             this.showFormError('url', ((window.i18n && i18n.t('urlInvalid')) || 'Please enter a valid URL'));
             isValid = false;
+            invalidFields.push('url');
         }
 
+        // Only synchronous validation of the focused editor moves focus.
+        // Async write feedback must not steal focus from later user activity.
+        for (const field of invalidFields) {
+            this.modal.querySelector(`#shortcut-${field}`)?.setAttribute('aria-invalid', 'true');
+        }
+        if (invalidFields.length && this.modal.contains(document.activeElement)) {
+            this.modal.querySelector(`#shortcut-${invalidFields[0]}`)?.focus();
+        }
         return isValid;
     }
 
@@ -4838,6 +4851,9 @@ class ShortcutsComponent {
         errorElements.forEach(element => {
             element.textContent = '';
         });
+        for (const field of ['title', 'url']) {
+            this.modal.querySelector(`#shortcut-${field}`)?.setAttribute('aria-invalid', 'false');
+        }
     }
 
     // (Removed) automatic replacement of stored icon URLs to data URLs to preserve original icon values

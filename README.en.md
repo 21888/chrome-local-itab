@@ -302,6 +302,8 @@ Choose **Prepare export summary** first to check the selected modules, generatio
 
 Shortcut and task editors keep the dialog and draft when Escape is used during IME composition. Ordinary Escape after composition still closes the dialog. [Behavior and verification scope](docs/dialog-ime-validation.md#english).
 
+When a shortcut fails title or URL validation, focus moves to the first invalid field and its existing error description is associated with that input. Drafts stay intact; a later save failure does not steal focus. [Validation focus and verification](docs/shortcut-validation-focus.md).
+
 Reloading or closing a tab requests Chrome’s native warning while an Add/Edit shortcut has changed fields or an unresolved save. Pristine or fully reverted forms do not warn. Cancel, ×, backdrop clicks and ordinary Escape still discard the draft; successful saves release protection. Chrome may suppress the warning, and unsaved drafts are not persisted. [Scope and verification](docs/shortcut-departure-validation.md#english).
 
 [Offline local-workflow checks and scope](docs/offline-local-validation.md).
