@@ -7,7 +7,12 @@
     const clone = value => JSON.parse(JSON.stringify(value));
     const same = (a, b) => a === b || Boolean(a && b && typeof a === 'object' && typeof b === 'object' && Array.isArray(a) === Array.isArray(b) && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(key => Object.hasOwn(b, key) && same(a[key], b[key])));
     function fault(code) { const error = new Error(`Workspace preset: ${code}`); error.code = code; return error; }
-    function createBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks) {
+    function createBackend(chromeApi = globalThis.chrome, locks = globalThis.navigator?.locks, workspace = globalThis.LocalItabWorkspaces?.session) {
+        if (workspace) return {
+            lock: fn => workspace.withLock(fn),
+            read: () => workspace.get([tasks.KEY, focus.KEY]),
+            write: values => workspace.set(values)
+        };
         if (!chromeApi?.storage?.local || !locks?.request) throw fault('UNAVAILABLE');
         return {
             // No existing writer acquires both locks. Always tasks -> focus; never call Store.read/mutate under these locks.
