@@ -125,7 +125,8 @@
                 if (!this.pendingCommand && this.error?.scope === 'read') this.error = null;
             } catch (error) {
                 if (this.disposed || generation !== this.readGeneration) return;
-                this.error = { code: error.code || 'READ', scope: 'read' };
+                // Read failures cannot replace feedback from a rejected user operation.
+                if (!this.error || this.error.scope === 'read') this.error = { code: error.code || 'READ', scope: 'read' };
             } finally {
                 if (this.pendingReadGeneration === generation) this.pendingReadGeneration = null;
             }
@@ -208,6 +209,7 @@
         duplicates() { const draft = this.draft(); return draft && this.state ? Core.findDuplicates(this.state, { body: draft.input.body, sourceUrl: draft.input.sourceUrl }).filter(item => item.id !== draft.id) : []; }
         replacementReady() {
             return !this.disposed && Boolean(this.state) && !this.busy && !this.pendingCommand && !this.drafts.size && !this.promptLoading &&
+                this.comparisonReadGeneration === this.readGeneration &&
                 this.pendingReadGeneration !== this.readGeneration && this.error?.scope !== 'read';
         }
         replacementCurrent(review) {
