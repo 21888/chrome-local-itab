@@ -3244,6 +3244,11 @@ body::after {
     box-shadow: var(--shadow-md);
 }
 
+/* A disabled shortcuts module must not leave an empty keyboard jump. */
+body:has(#shortcuts-container.module-hidden) > .skip-link[href="#shortcuts-container"] {
+    display: none;
+}
+
 .skip-link:focus {
     transform: translateY(0);
     outline: 2px solid var(--text-accent);
