@@ -255,3 +255,59 @@ bounded('both catalogs contain exactly the scoped wording without substitutions'
         assert.equal(catalogs[locale][key].placeholders, undefined, 'user content never enters translation substitution');
     }
 });
+
+// Real Chrome loses focus when accepted row actions replace the topic list.
+// Reuse the unchanged production/real-Store fixture; only these cases focus a
+// visible row action before dispatch and inspect its immediate replacement.
+for (const locale of ['en', 'zh_CN']) {
+    for (const failure of [false, true]) bounded(`${locale}: accepted Edit repairs focus immediately; later ${failure ? 'failure' : 'success'} cannot reclaim it`, async () => {
+        const p = await page({locale}), before = clone(p.state.stored), group = 'weibo';
+        const old = p.row(group).querySelector('.edit-topic-btn'); old.focus();
+        const gate = p.pause(), pending = p.edit(group, ['  Updated literal <raw> 中文  ', '43']);
+        await gate.entered.promise;
+        const replacement = p.row(group).querySelector('.edit-topic-btn');
+        assert.ok(replacement !== old); assert.equal(old.isConnected, false);
+        assert.ok(p.document.activeElement === replacement, 'same row Edit is the immediate focus destination');
+        assert.deepEqual(p.topics(group), [{t: 'Updated literal <raw> 中文', s: 43}]);
+        p.field('quote-text').value = '  Newer unrelated draft  '; p.field('quote-text').focus();
+        if (failure) p.state.error = new Error('Synthetic focus-test rejection');
+        gate.resume.resolve(); await pending;
+        assert.ok(p.document.activeElement === p.field('quote-text'));
+        assert.equal(p.field('quote-text').value, '  Newer unrelated draft  ');
+        assert.equal(last(p).type, failure ? 'error' : 'success');
+        assert.equal(p.state.writes.length, Number(!failure));
+        if (failure) assert.deepEqual(p.state.stored, before);
+        else { assert.deepEqual(p.state.stored.hot[group], [{t: 'Updated literal <raw> 中文', s: 43}]); untouched(p, before, group); }
+    });
+    for (const [count, index, next] of [[2, 0, 0], [2, 1, 0], [1, 0, null]]) {
+        bounded(`${locale}: confirmed Delete ${index}/${count} focuses ${next === null ? 'the title input' : 'a surviving Edit'}, not another Delete`, async () => {
+            const p = await page({locale}), group = 'weibo';
+            if (count === 2) await p.add(group, 'Synthetic second', '20');
+            const before = clone(p.state.stored), expected = clone(before.hot[group]); expected.splice(index, 1);
+            p.state.writes.length = 0;
+            p.row(group, index).querySelector('.delete-topic-btn').focus();
+            await p.remove(group, index);
+            const target = next === null ? p.title(group) : p.row(group, next).querySelector('.edit-topic-btn');
+            assert.ok(p.document.activeElement === target, 'non-destructive continuation target');
+            assert.equal(target.classList.contains('delete-topic-btn'), false);
+            assert.deepEqual(p.state.stored.hot[group], expected); assert.deepEqual(p.topics(group), expected);
+            assert.equal(p.state.writes.length, 1); untouched(p, before, group);
+        });
+    }
+    bounded(`${locale}: cancelled title and declined deletion keep the original focused action without writes`, async () => {
+        const p = await page({locale}), before = clone(p.state.stored), row = p.row('weibo');
+        const edit = row.querySelector('.edit-topic-btn'); edit.focus(); await p.edit('weibo', [null]);
+        assert.ok(p.document.activeElement === edit); assert.ok(p.row('weibo') === row);
+        const remove = row.querySelector('.delete-topic-btn'); p.state.allowDelete = false;
+        remove.focus(); await p.remove('weibo');
+        assert.ok(p.document.activeElement === remove); assert.ok(p.row('weibo') === row);
+        assert.equal(p.state.writes.length, 0); assert.deepEqual(p.state.stored, before);
+    });
+    bounded(`${locale}: unfocused row callbacks do not steal an unrelated input's focus`, async () => {
+        const p = await page({locale}), input = p.field('quote-text');
+        input.value = '  Unrelated text  '; input.focus();
+        await p.edit('weibo'); assert.ok(p.document.activeElement === input);
+        await p.remove('weibo'); assert.ok(p.document.activeElement === input);
+        assert.equal(input.value, '  Unrelated text  ');
+    });
+}

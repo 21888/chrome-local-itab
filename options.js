@@ -3195,8 +3195,25 @@ function addTopicToList(tabType, title, score, index) {
 
     // Add event listeners for edit and delete buttons
     const ownsRow = () => topicElement.isConnected && listElement.querySelectorAll('.topic-item')[index] === topicElement;
-    editBtn.addEventListener('click', () => { if (ownsRow()) editHotTopic(tabType, index); });
-    deleteBtn.addEventListener('click', () => { if (ownsRow()) deleteHotTopic(tabType, index); });
+    const runRowAction = (button, action) => {
+        if (!ownsRow()) return;
+        const ownedFocus = document.activeElement === button;
+        const section = listElement.closest('.topic-list');
+        action();
+        // Accepted edits replace the list synchronously, before the save settles.
+        // Repair only focus lost by that replacement, never a later save callback.
+        if (!ownedFocus || topicElement.isConnected || document.activeElement !== document.body ||
+            document.getElementById(`${tabType}-list`) !== listElement || !listElement.isConnected ||
+            !section?.contains(listElement) || section.style.display === 'none' || section.closest('[hidden], [inert]')) return;
+        const rows = listElement.querySelectorAll('.topic-item');
+        const next = rows[Math.min(index, rows.length - 1)];
+        // A removed row continues at Edit (or the empty list's title input),
+        // never another Delete action that a held activation could repeat.
+        const target = next?.querySelector('.edit-topic-btn') || section.querySelector('.topic-title-input');
+        if (target?.isConnected && !target.disabled) target.focus();
+    };
+    editBtn.addEventListener('click', () => runRowAction(editBtn, () => editHotTopic(tabType, index)));
+    deleteBtn.addEventListener('click', () => runRowAction(deleteBtn, () => deleteHotTopic(tabType, index)));
     
     listElement.appendChild(topicElement);
 }
