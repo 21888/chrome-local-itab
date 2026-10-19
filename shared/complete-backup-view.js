@@ -72,6 +72,10 @@
     "ExportSnapshot": "This is the saved snapshot at the generation time below. Later saved edits are not added automatically. No download has been requested yet.",
     "ExportReady": "Summary ready. Review it, then choose Download this backup.",
     "ExportTime": "Snapshot generated (UTC)",
+    "ExportDigest": "SHA-256 of exact JSON (UTF-8)",
+    "ExportDigestPending": "Calculating; you can download without waiting.",
+    "ExportDigestUnavailable": "Unavailable; you can still download this backup.",
+    "ExportDigestHelp": "Compare this fingerprint with the downloaded file to check its bytes. It does not verify recovery or authenticity.",
     "ExportBytes": "Exact JSON size (UTF-8 bytes)",
     "ExportLive": "Live workspace identities in this file",
     "ExportTrash": "Trash workspace identities in this file",
@@ -165,6 +169,8 @@
         const exportHeading = make('h4', '', t('ExportReview'), exportPanel); exportHeading.tabIndex = -1;
         const exportNotice = make('p', 'form-hint', '', exportPanel);
         const exportMeta = make('p', 'complete-backup-export-meta', '', exportPanel);
+        const exportDigest = make('p', 'complete-backup-export-digest', '', exportPanel);
+        make('p', 'form-hint', t('ExportDigestHelp'), exportPanel);
         const exportScope = make('p', 'form-hint complete-backup-export-scope', '', exportPanel);
         const exportCounts = make('ul', 'complete-backup-export-counts', undefined, exportPanel);
         const exportActions = make('div', 'complete-backup-actions', undefined, exportPanel);
@@ -293,7 +299,7 @@
             if (!Object.values(groups).some(items => items.length)) make('p', 'form-hint complete-backup-workspace-impact-unchanged', t('WorkspaceImpactUnchanged'), workspaceImpactContent);
             workspaceImpact.hidden = false;
         }
-        function clearExport() { exportSnapshot = null; exportWatching = false; downloadDeparted = false; exportObserver?.disconnect(); exportPanel.hidden = true; exportMeta.textContent = exportScope.textContent = ''; exportCounts.replaceChildren(); }
+        function clearExport() { exportSnapshot = null; exportWatching = false; downloadDeparted = false; exportObserver?.disconnect(); exportPanel.hidden = true; exportMeta.textContent = exportScope.textContent = exportDigest.textContent = ''; exportCounts.replaceChildren(); }
         function clear() { clearExport(); clearWorkspaceImpact(); configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
         function abandon() { if (!current(generation) || ['applying', 'downloading'].includes(phase)) return; const ordinaryExport = exportWatching; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t(ordinaryExport ? 'ExportCancelled' : 'Cancelled'); (ordinaryExport ? exportButton : choose).focus(); }
         const countText = (value, module) => {
@@ -488,7 +494,20 @@
                 if (typeof text !== 'string') throw {code: isRecovery ? 'NO_RECOVERY' : 'INVALID'};
                 if (!isRecovery) {
                     const details = exportDetails(text, ids);
-                    exportSnapshot = {text, ids: [...ids], token};
+                    const snapshot = exportSnapshot = {text, ids: [...ids], token};
+                    exportDigest.textContent = `${t('ExportDigest')}: ${t('ExportDigestPending')}`;
+                    // Advisory only. A stuck provider must never block backup.
+                    // Late results belong only to this exact prepared snapshot.
+                    (async () => {
+                        let digest = t('ExportDigestUnavailable');
+                        try {
+                            if (root.crypto?.subtle) {
+                                const hash = await root.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+                                if (hash.byteLength === 32) digest = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
+                            }
+                        } catch (_) { /* Download remains available without a fingerprint. */ }
+                        if (current(token) && exportSnapshot === snapshot) exportDigest.textContent = `${t('ExportDigest')}: ${digest}`;
+                    })();
                     exportMeta.textContent = `${t('ExportTime')}: ${details.exportedAt}. ${t('ExportBytes')}: ${details.bytes}. ` + (details.legacy ? t('ExportLegacy') : `${t('ExportLive')}: ${details.live}. ${t('ExportTrash')}: ${details.trash}.`);
                     exportScope.textContent = t(details.legacy ? 'ExportSingleCountScope' : details.globalOnly ? 'ExportGlobalOnly' : 'ExportCountScope');
                     for (const [id, value] of details.rows) {

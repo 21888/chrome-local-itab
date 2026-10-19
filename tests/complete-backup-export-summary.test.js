@@ -11,7 +11,7 @@ async function until(predicate) {
     while (!predicate() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 1));
     assert(predicate(), 'expected export summary state');
 }
-function mount(t, store, {locale, download, observer = false, allowReview = false} = {}) {
+function mount(t, store, {locale, download, observer = false, allowReview = false, crypto = {subtle:{digest:async(_,bytes)=>Uint8Array.from(require("node:crypto").createHash("sha256").update(bytes).digest()).buffer}}} = {}) {
     const document = createDocument({blurUnavailableFocus:true, aggregateTextContent:true});
     const host = document.createElement('div'); document.body.append(host);
     const catalog = locale && JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`));
@@ -27,6 +27,7 @@ function mount(t, store, {locale, download, observer = false, allowReview = fals
     const window = {LocalItabCompleteBackup:Backup, LocalItabPrompts:Prompts, LocalItabAICollections:Collections,
         i18n:{t:key => catalog?.[key]?.message || key},
         addEventListener:(name, fn) => events.set(name, fn), removeEventListener:(name, fn) => {if (events.get(name) === fn) events.delete(name);}};
+    window.crypto = crypto;
     if(observer)window.MutationObserver=Observer;
     const calls = {exports:[], sources:[], downloads:[], reviews:0};
     const realExport = store.export.bind(store);
@@ -95,6 +96,7 @@ function expectedRows(file) {
 }
 function assertSummary(m, text) {
     const file = JSON.parse(text), panel = m.get('export-summary'), meta = m.get('export-meta').textContent;
+    assert(m.get('export-digest').textContent.includes(require('node:crypto').createHash('sha256').update(text).digest('hex')));
     assert.equal(panel.hidden, false); assert.equal(m.get('preview').hidden, true); assert.equal(m.get('apply').disabled, true);
     assert(meta.includes(file.exportedAt)); assert(meta.includes(`UTF-8 bytes): ${Buffer.byteLength(text)}.`));
     if(file.schemaVersion===1)assert.match(meta,/Single-workspace contents: 1.*Live\/Trash identities are not recorded/);
@@ -279,4 +281,45 @@ test('late preparation preserves unrelated focus; no-change bulk selection prese
     const m=mount(t,f.store);m.click('export');await until(()=>entered);
     const outside=m.document.createElement('textarea');m.document.body.append(outside);outside.focus();wait.resolve();await until(()=>!m.view.pending);
     assert.equal(m.document.activeElement,outside);const text=m.get('export-summary').textContent;m.click('select-all');assert.equal(m.get('export-summary').textContent,text);assert(!m.get('download-export').disabled);assert.equal(m.calls.exports.length,1);
+});
+
+for (const mode of ['missing', 'rejected', 'invalid-length']) test(`digest ${mode} preserves read-only explicit backup download`, async t => {
+    const f=fixture(); const crypto=mode==='missing'?null:{subtle:{digest:async()=>{if(mode==='rejected')throw new Error('PRIVATE digest error');return new ArrayBuffer(3);}}};
+    const m=mount(t,f.store,{crypto});m.select(['scratchpad']);m.click('export');await until(()=>!m.view.pending);
+    assert.match(m.get('export-digest').textContent,/Unavailable/);assert(!m.get('export-summary').textContent.includes('PRIVATE'));
+    assert.equal(m.calls.downloads.length,0);m.click('download-export');await until(()=>!m.view.pending);
+    assert.equal(m.calls.downloads[0][0],m.calls.sources[0]);assert.equal(m.calls.exports.length,1);assert.equal(f.writes.length,0);
+});
+
+for (const action of ['cancel-export','change','pagehide','destroy']) test(`delayed SHA-256 cannot revive export after ${action}`,async t=>{
+    const wait=deferred(),f=fixture();let bytes,entered=false;
+    const crypto={subtle:{digest:async(algorithm,input)=>{assert.equal(algorithm,'SHA-256');bytes=Buffer.from(input);entered=true;return wait.promise;}}};
+    const m=mount(t,f.store,{crypto});m.select(['scratchpad']);m.click('export');await until(()=>entered);
+    assert.equal(bytes.toString('utf8'),m.calls.sources[0]);assert(!m.get('download-export').disabled);
+    const oldDownload=m.get('download-export'),panel=m.get('export-summary'),digest=m.get('export-digest');
+    if(action==='change')m.select(['tasks']);else if(action==='pagehide')m.events.get('pagehide')();else if(action==='destroy')m.view.destroy();else m.click(action);
+    wait.resolve(new ArrayBuffer(32));await tick();oldDownload.dispatch('click');
+    assert(panel.hidden);assert.equal(digest.textContent,'');assert.equal(m.calls.downloads.length,0);assert.equal(f.writes.length,0);
+});
+
+
+test('never-settling digest does not block download and old result cannot change a newer summary',async t=>{
+    const wait=deferred(),f=fixture();let calls=0;
+    const crypto={subtle:{digest:()=>++calls===1?wait.promise:Promise.resolve(new Uint8Array(32).fill(1).buffer)}};
+    const m=mount(t,f.store,{crypto});m.select(['scratchpad']);m.click('export');await until(()=>!m.view.pending);
+    assert.match(m.get('export-digest').textContent,/Calculating/);assert(!m.get('download-export').disabled);
+    m.click('download-export');await until(()=>!m.view.pending);assert.equal(m.calls.downloads[0][0],m.calls.sources[0]);
+    m.select(['tasks']);m.click('export');await until(()=>!m.view.pending);const digest=m.get('export-digest').textContent;
+    assert(digest.endsWith('01'.repeat(32)));wait.resolve(new ArrayBuffer(32));await tick();assert.equal(m.get('export-digest').textContent,digest);
+    assert.equal(f.writes.length,0);assert.equal(m.calls.downloads.length,1);
+});
+
+
+test('real Web Crypto fingerprints exactly the downloaded Unicode JSON bytes',async t=>{
+    const f=await synthetic();withPrivateImages(f);const writes=f.writes.length,m=mount(t,f.store,{crypto:require('node:crypto').webcrypto});
+    assert(writes > 0, 'synthetic setup writes are recorded before export');
+    m.click('export');await until(()=>!m.view.pending);await until(()=>!m.get('export-digest').textContent.includes('Calculating'));
+    const source=m.calls.sources[0],expected=require('node:crypto').createHash('sha256').update(Buffer.from(source,'utf8')).digest('hex');
+    assert(m.get('export-digest').textContent.endsWith(expected));m.click('download-export');await until(()=>!m.view.pending);
+    assert.equal(m.calls.downloads[0][0],source);assert.equal(f.writes.length,writes);
 });

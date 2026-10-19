@@ -8303,6 +8303,18 @@
   "completeBackupExportTime": {
     "message": "快照生成时间（UTC）"
   },
+  "completeBackupExportDigest": {
+    "message": "完整 JSON（UTF-8）的 SHA-256"
+  },
+  "completeBackupExportDigestPending": {
+    "message": "正在计算；无需等待即可下载。"
+  },
+  "completeBackupExportDigestUnavailable": {
+    "message": "暂不可用；仍可下载此备份。"
+  },
+  "completeBackupExportDigestHelp": {
+    "message": "将此指纹与下载文件的指纹比较，可核对文件字节是否一致。这不代表恢复验证或真实性认证。"
+  },
   "completeBackupExportBytes": {
     "message": "JSON 精确大小（UTF-8 字节）"
   },

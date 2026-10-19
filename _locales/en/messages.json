@@ -8303,6 +8303,18 @@
   "completeBackupExportTime": {
     "message": "Snapshot generated (UTC)"
   },
+  "completeBackupExportDigest": {
+    "message": "SHA-256 of exact JSON (UTF-8)"
+  },
+  "completeBackupExportDigestPending": {
+    "message": "Calculating; you can download without waiting."
+  },
+  "completeBackupExportDigestUnavailable": {
+    "message": "Unavailable; you can still download this backup."
+  },
+  "completeBackupExportDigestHelp": {
+    "message": "Compare this fingerprint with the downloaded file to check its bytes. It does not verify recovery or authenticity."
+  },
   "completeBackupExportBytes": {
     "message": "Exact JSON size (UTF-8 bytes)"
   },
