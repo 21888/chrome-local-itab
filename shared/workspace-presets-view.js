@@ -112,7 +112,7 @@
         const selecting = () => { dismiss(); status.textContent = ''; };
         appearance?.addEventListener('change', selecting);
         controls();
-        return { get pending() { return pending; }, hasUncommittedWork: () => Boolean(pending || preview),
+        return { get pending() { return pending; }, get applying() { return Boolean(pending) && phase === 'applying'; }, hasUncommittedWork: () => Boolean(pending || preview),
             destroy() { closed = true; dismiss(); unsubscribe?.(); appearance?.removeEventListener('change', selecting); } };
     }
     root.LocalItabWorkspace.mount = mount;
