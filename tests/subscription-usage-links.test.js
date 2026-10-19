@@ -8,13 +8,18 @@ const html=fs.readFileSync('options.html','utf8');
 const section=html.match(/<section\b[^>]*id="subscription-usage-settings"[\s\S]*?<\/section>/)[0];
 const locales=Object.fromEntries(['en','zh_CN'].map(lang=>[lang,JSON.parse(fs.readFileSync(`_locales/${lang}/messages.json`))]));
 // The independently reviewed manual-topic spacing is unrelated to the passive
-// subscription guide. Exempt exactly its one literal block, not arbitrary CSS.
+// subscription guide. Exempt exact reviewed literal blocks, not arbitrary CSS.
 const topicScoreSpacing=Buffer.from('.topic-score {\n    margin-inline-start: var(--spacing-sm);\n}\n\n');
+const interruptedSettingsIsolation=Buffer.from('\n/* A pending restore must not expose default-looking ordinary settings. */\n.options-main[hidden], .options-footer[hidden], #workspace-switcher[hidden] { display: none !important; }\n');
 function preservedOptionsCss(bytes){
- const start=bytes.indexOf(topicScoreSpacing);
- assert.ok(start>=0,'reviewed score spacing block exists');
- assert.equal(bytes.indexOf(topicScoreSpacing,start+topicScoreSpacing.length),-1,'reviewed score spacing block is unique');
- return Buffer.concat([bytes.subarray(0,start),bytes.subarray(start+topicScoreSpacing.length)]);
+ // Only these independently reviewed literal blocks may differ from the guide baseline.
+ for(const [name,block] of [['score spacing',topicScoreSpacing],['interrupted settings isolation',interruptedSettingsIsolation]]){
+  const start=bytes.indexOf(block);
+  assert.ok(start>=0,`reviewed ${name} block exists`);
+  assert.equal(bytes.indexOf(block,start+block.length),-1,`reviewed ${name} block is unique`);
+  bytes=Buffer.concat([bytes.subarray(0,start),bytes.subarray(start+block.length)]);
+ }
+ return bytes;
 }
 test('subscription viewing uses only two fixed user-clicked safe HTTPS anchors in Privacy',()=>{
  const anchors=[...section.matchAll(/<a\b([^>]+)>([^<]+)<\/a>/g)];assert.equal(anchors.length,2);
@@ -57,7 +62,7 @@ test('guide does not change Claude permission flow, catalog, manifest, or instal
  assert.doesNotMatch(optionsSource,/\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|chrome\s*(?:\?\.)?\.?(?:cookies|scripting)|window\.open\s*\(|\bimport\s*\(/);
  // Bookmark scope review appends isolated styles after the original 42,422
  // bytes. After removing only the exact independently reviewed topic-score
- // spacing block, preserve every historical byte and the full original file.
+ // spacing and interrupted-settings isolation blocks, preserve every other byte.
  // No subscription styling, permission or guide guard is removed.
  const preservedCss=preservedOptionsCss(fs.readFileSync('options.css'));
  const originalCss=preservedCss.subarray(0,42422);
@@ -70,7 +75,7 @@ test('guide does not change Claude permission flow, catalog, manifest, or instal
  assert.doesNotMatch(html,/<link\b[^>]*rel="(?:prefetch|preconnect|dns-prefetch)"/);
 });
 
-test('preserved Options CSS guard rejects other edits and broadened score spacing',()=>{
+test('preserved Options CSS guard rejects other edits and broadened reviewed rules',()=>{
  const css=fs.readFileSync('options.css');
  const expected=JSON.parse(fs.readFileSync('tests/fixtures/subscription-usage-preserved.json'))['options.css'];
  const check=bytes=>assert.equal(crypto.createHash('sha256').update(preservedOptionsCss(bytes)).digest('hex'),expected);
@@ -79,6 +84,10 @@ test('preserved Options CSS guard rejects other edits and broadened score spacin
   ['unrelated existing token',Buffer.from(css.toString().replace('--spacing-sm: 12px;','--spacing-sm: 13px;'))],
   ['extra subscription rule',Buffer.concat([css,Buffer.from('\n#subscription-usage-settings { display: none; }\n')])],
   ['duplicate reviewed block',Buffer.concat([css,topicScoreSpacing])],
+  ['duplicate isolation block',Buffer.concat([css,interruptedSettingsIsolation])],
+  ['broadened isolation selector',Buffer.from(css.toString().replace('.options-footer[hidden]', '.options-footer'))],
+  ['removed isolation rule',Buffer.from(css.toString().replace(interruptedSettingsIsolation.toString(),''))],
+  ['extra isolation declaration',Buffer.from(css.toString().replace('#workspace-switcher[hidden] { display: none !important; }', '#workspace-switcher[hidden] { display: none !important; visibility: hidden; }'))],
   ['extra score declaration',Buffer.from(css.toString().replace('margin-inline-start: var(--spacing-sm);','margin-inline-start: var(--spacing-sm); display: none;'))]
  ]){assert.notDeepEqual(changed,css,name);assert.throws(()=>check(changed),assert.AssertionError,name);}
 });

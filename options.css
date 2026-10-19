@@ -1694,3 +1694,6 @@ textarea:focus-visible,
 .bookmark-export-preview .btn { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
 .bookmark-export-preview :focus-visible { outline: 2px solid var(--text-accent); outline-offset: 4px; }
 @media (max-width: 600px) { .bookmark-export-preview .btn { width: 100%; } }
+
+/* A pending restore must not expose default-looking ordinary settings. */
+.options-main[hidden], .options-footer[hidden], #workspace-switcher[hidden] { display: none !important; }

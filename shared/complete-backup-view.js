@@ -96,6 +96,7 @@
     "ExportDownloadError": "The download request could not be verified. Check your browser’s downloads before preparing another copy; no automatic retry was made.",
     "Choose": "Choose local backup JSON",
     "Recovery": "Download pre-restore recovery copy",
+    "RecoveryOnlyHelp": "Download retained copies for safekeeping. File import is unavailable in this limited view. Use Inspect interrupted restore to review the previous state; after a verified recovery, reload Settings.",
     "RecoveryHelp": "A verified local recovery copy is saved before replacement. Download it, then choose that JSON file here to review and restore. Starting a later confirmed restore may replace this snapshot, even if the target replacement does not finish.",
     "Review": "Review local replacement",
     "Scope": "Only selected modules will be replaced, not merged. Unselected modules stay unchanged. Review the incoming and current counts below.",
@@ -147,7 +148,7 @@
     Object.assign(fallback, {"Collections": "AI collections and saved versions", "CollectionHelp": "Collections are one global library shared across workspaces. Full backups include manually saved excerpts, notes, source URLs, prompt references, archived records and versions. Check private content before sharing; provider credentials are excluded. Explicitly saved question/source snapshots and exact endpoint/model metadata are included unchanged; backups are unencrypted.", "CollectionTarget": "Destination for AI collections", "ChooseCollectionTarget": "Choose the collections destination", "GlobalCollections": "Global AI collections on this device", "CollectionTargetRequired": "Choose the global AI collections target, then review again. Active and archived collections will be replaced.", "CollectionScope": "The selected global AI collections are replaced once, including archived records. Existing content and saved versions remain in recovery. Prompt references retain their exact IDs and may be unresolved.", "CollectionConflicts": "Matching collection IDs whose saved content differs"});
     const MODULES = ['config', 'tasks', 'scratchpad', 'countdown', 'focus', 'prompts', 'collections'];
     const titleKey = id => id[0].toUpperCase() + id.slice(1);
-    function mount(host, {store, restore = (preview, isCurrent) => store.restore(preview, {confirmed: true, isCurrent}), recoverInterruptedRestore = (review, isCurrent) => store.recoverInterruptedRestore(review, { confirmed: true, isCurrent }), reload = () => root.LocalItabContentLifecycle?.reload(), download = downloadFile} = {}) {
+    function mount(host, {store, recoveryOnly = false, restore = (preview, isCurrent) => store.restore(preview, {confirmed: true, isCurrent}), recoverInterruptedRestore = (review, isCurrent) => store.recoverInterruptedRestore(review, { confirmed: true, isCurrent }), reload = () => root.LocalItabContentLifecycle?.reload(), download = downloadFile} = {}) {
         if (!host?.ownerDocument || !store) throw new TypeError('Complete backup needs a host and store.');
         const doc = host.ownerDocument;
         const t = key => { const id = 'completeBackup' + key; const value = root.i18n?.t(id); return value && value !== id ? value : fallback[key]; };
@@ -155,7 +156,7 @@
         const make = (tag, cls, text, parent) => { const el = doc.createElement(tag); if (cls) el.className = cls; if (text !== undefined) el.textContent = text; parent?.append(el); return el; };
         const shell = make('section', 'complete-backup', undefined, host);
         make('h3', 'section-title', t('Title'), shell);
-        for (const key of ['Help', 'WorkspaceHelp', 'SyncSafety', 'PromptHelp', 'CollectionHelp', 'SavedOnly', 'Privacy', 'LargeFile']) make('p', 'form-hint', t(key), shell);
+        for (const key of (recoveryOnly ? ['SyncSafety', 'Privacy'] : ['Help', 'WorkspaceHelp', 'SyncSafety', 'PromptHelp', 'CollectionHelp', 'SavedOnly', 'Privacy', 'LargeFile'])) make('p', 'form-hint', t(key), shell);
         const choices = make('fieldset', 'complete-backup-modules', undefined, shell);
         make('legend', '', t('Modules'), choices);
         const button = (key, name, parent = actions, danger = false) => { const el = make('button', `btn ${danger ? 'btn-danger' : 'btn-secondary'} complete-backup-${name}`, t(key), parent); el.type = 'button'; return el; };
@@ -209,13 +210,14 @@
         const configInspection = make('a', 'complete-backup-config-inspection', t('InspectConfigImport'), shell);
         configInspection.target = '_blank'; configInspection.rel = 'noopener'; configInspection.hidden = true;
         const reloadButton = button('Reload', 'reload', shell); reloadButton.hidden = true;
-        const recovery = button('Recovery', 'recovery', shell); make('p', 'form-hint', t('RecoveryHelp'), shell);
+        const recovery = button('Recovery', 'recovery', shell); make('p', 'form-hint', t(recoveryOnly ? 'RecoveryOnlyHelp' : 'RecoveryHelp'), shell);
         const downloadInterrupted = button('DownloadInterrupted', 'download-interrupted', shell); downloadInterrupted.hidden = typeof store.exportInterruptedCandidates !== 'function';
         const inspectInterrupted = button('InspectInterrupted', 'inspect-interrupted', shell);
         const interruptedSummary = make('p', 'form-hint complete-backup-interrupted-summary', '', shell); interruptedSummary.hidden = true;
         const recoverInterrupted = button('RecoverInterrupted', 'recover-interrupted', shell, true); recoverInterrupted.hidden = true;
         const cancelInterrupted = button('Cancel', 'cancel-interrupted', shell); cancelInterrupted.hidden = true;
         inspectInterrupted.hidden = typeof store.inspectInterruptedRestore !== 'function';
+        if (recoveryOnly) choices.hidden = actions.hidden = true;
         // Observe only the ordinary export's lifetime. Removed-and-reattached
         // old nodes must not revive it, even before the observer callback runs.
         const exportObserver = root.MutationObserver ? new root.MutationObserver(records => checkExportDeparture(records)) : null;
@@ -236,13 +238,13 @@
         function controls() {
             const busy = ['applying', 'exporting', 'downloading'].includes(phase);
             const unknownScope = phase === 'large' || phase === 'reading' && !availableModules;
-            for (const id of MODULES) inputs[id].disabled = busy || unknownScope || Boolean(availableModules && !availableModules.includes(id));
-            selectAll.disabled = clearSelection.disabled = busy || unknownScope;
-            exportButton.disabled = choose.disabled = file.disabled = recovery.disabled = busy;
-            target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = busy || phase === 'reading';
+            for (const id of MODULES) inputs[id].disabled = recoveryOnly || busy || unknownScope || Boolean(availableModules && !availableModules.includes(id));
+            selectAll.disabled = clearSelection.disabled = recoveryOnly || busy || unknownScope;
+            exportButton.disabled = choose.disabled = file.disabled = recoveryOnly || busy; recovery.disabled = busy;
+            target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = recoveryOnly || busy || phase === 'reading';
             inspectInterrupted.disabled = busy; downloadInterrupted.disabled = busy || phase === 'reading'; recoverInterrupted.disabled = busy || !interruptedReview;
-            largeButton.disabled = busy;
-            apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
+            largeButton.disabled = recoveryOnly || busy;
+            apply.disabled = recoveryOnly || phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
             cancel.disabled = cancelExport.disabled = cancelInterrupted.disabled = ['applying', 'downloading'].includes(phase);
             downloadExport.disabled = phase !== 'export-ready' || !exportSnapshot;
             copyDigest.disabled = phase !== 'export-ready' || !exportSnapshot?.digest;
@@ -374,7 +376,7 @@
             } catch (error) { if (current(token)) { phase = ''; clear(); status.textContent = errorText(error); controls(); move(status); } }
             finally { move(current(token) ? status : null); }
         }
-        choose.addEventListener('click', () => { if (!current(generation) || choose.disabled) return; file.value = ''; file.click(); });
+        choose.addEventListener('click', () => { if (recoveryOnly || !current(generation) || choose.disabled) return; file.value = ''; file.click(); });
         async function readFile(chosen, token) {
             const move = focusOwner(choose); pendingLargeFile = null; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; clear(); phase = 'reading'; panel.hidden = false; warning.hidden = true; status.textContent = t('Reading'); controls();
             try {
@@ -387,7 +389,7 @@
             finally { move(current(token) ? status : null); }
         }
         file.addEventListener('change', () => {
-            if (!current(generation) || file.disabled) return;
+            if (recoveryOnly || !current(generation) || file.disabled) return;
             const chosen = file.files?.[0]; file.value = ''; if (!chosen) return;
             // A newly selected file owns the next review, including failed or
             // oversized reads. Do not retain a previous interrupted-repair action.
@@ -403,11 +405,11 @@
             readFile(chosen, token);
         });
         largeButton.addEventListener('click', () => {
-            if (!current(generation) || largeButton.disabled || phase !== 'large' || !pendingLargeFile) return;
+            if (recoveryOnly || !current(generation) || largeButton.disabled || phase !== 'large' || !pendingLargeFile) return;
             const chosen = pendingLargeFile; readFile(chosen, ++generation);
         });
         function selectModules(checked, origin) {
-            if (!current(generation) || origin.disabled) return;
+            if (recoveryOnly || !current(generation) || origin.disabled) return;
             let changed = false;
             for (const id of MODULES) {
                 if (availableModules && !availableModules.includes(id) || inputs[id].checked === checked) continue;
@@ -418,17 +420,17 @@
         }
         selectAll.addEventListener('click', () => selectModules(true, selectAll));
         clearSelection.addEventListener('click', () => selectModules(false, clearSelection));
-        for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (!current(generation) || input.disabled) return; if (exportWatching) expireExport(); if (source) review(++generation, input); });
-        target.addEventListener('change', () => { if (!current(generation) || target.disabled || !source) return; targetWorkspaceId = target.value || undefined; review(++generation, target); });
-        promptTargetSelect.addEventListener('change', () => { if (!current(generation) || promptTargetSelect.disabled || !source) return; promptTarget = promptTargetSelect.value || undefined; review(++generation, promptTargetSelect); });
-        collectionTargetSelect.addEventListener('change', () => { if (!current(generation) || collectionTargetSelect.disabled || !source) return; collectionTarget = collectionTargetSelect.value || undefined; review(++generation, collectionTargetSelect); });
+        for (const input of Object.values(inputs)) input.addEventListener('change', () => { if (recoveryOnly || !current(generation) || input.disabled) return; if (exportWatching) expireExport(); if (source) review(++generation, input); });
+        target.addEventListener('change', () => { if (recoveryOnly || !current(generation) || target.disabled || !source) return; targetWorkspaceId = target.value || undefined; review(++generation, target); });
+        promptTargetSelect.addEventListener('change', () => { if (recoveryOnly || !current(generation) || promptTargetSelect.disabled || !source) return; promptTarget = promptTargetSelect.value || undefined; review(++generation, promptTargetSelect); });
+        collectionTargetSelect.addEventListener('change', () => { if (recoveryOnly || !current(generation) || collectionTargetSelect.disabled || !source) return; collectionTarget = collectionTargetSelect.value || undefined; review(++generation, collectionTargetSelect); });
         cancel.addEventListener('click', abandon); cancelExport.addEventListener('click', abandon); cancelInterrupted.addEventListener('click', abandon);
         shell.addEventListener('keydown', event => {
             if (event.key === 'Escape' && !event.repeat && !event.isComposing && event.keyCode !== 229 && !['applying', 'downloading'].includes(phase) && (source !== null || exportWatching || !cancelInterrupted.hidden || ['reading', 'large'].includes(phase))) { event.preventDefault(); abandon(); }
             if (['Enter', ' ', 'Spacebar'].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
         });
         apply.addEventListener('click', async () => {
-            if (!current(generation) || apply.disabled || phase !== 'ready') return;
+            if (recoveryOnly || !current(generation) || apply.disabled || phase !== 'ready') return;
             const ticket = preview, token = ++generation; phase = 'applying'; status.textContent = t('Applying'); status.focus(); controls();
             const move = focusOwner(status);
             try {
@@ -503,6 +505,7 @@
             }
         });
         async function exportFile(isRecovery) {
+            if (recoveryOnly && !isRecovery) return;
             if (!current(generation) || ['applying', 'exporting', 'downloading'].includes(phase)) return;
             const ids = selected(); if (!isRecovery && !ids.length) { status.textContent = t('None'); return; }
             const token = ++generation, origin = isRecovery ? recovery : exportButton, move = focusOwner(origin);

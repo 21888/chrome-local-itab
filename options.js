@@ -323,6 +323,35 @@ function setupCompleteBackup() {
     });
 }
 
+// Startup recovery must remain reachable without admitting ordinary settings
+// reads/writes through the pending-restore fence. Never unlock this page in-place.
+function setupInterruptedSettingsRecovery(error) {
+    if (error?.code !== 'WORKSPACE_RESTORE_PENDING') return false;
+    for (const area of document.querySelectorAll('.options-main, .options-footer, #workspace-switcher')) {
+        if (area.id === 'interrupted-settings-recovery') continue;
+        area.hidden = true; area.inert = true;
+        for (const control of area.querySelectorAll('input, button, select, textarea')) control.disabled = true;
+    }
+    if (window.interruptedSettingsRecoveryView) return true;
+    if (!window.LocalItabCompleteBackup || !window.LocalItabCompleteBackupView) return false;
+    const host = document.createElement('section'); host.id = 'interrupted-settings-recovery'; host.className = 'options-main';
+    const notice = document.createElement('p'); notice.className = 'form-hint'; notice.setAttribute('role', 'alert');
+    notice.textContent = t('settingsInterruptedRecovery', 'An interrupted local restore is blocking ordinary Settings. Inspect the saved copies below before deciding whether to restore the previous state. No automatic repair has run. After recovery, use Reload; ordinary settings stay unavailable on this page. This does not diagnose or resolve an earlier upgrade data-loss incident.');
+    host.append(notice); (document.querySelector('.options-container') || document.body).append(host);
+    try {
+        const store = new window.LocalItabCompleteBackup.Store(storageManager);
+        window.interruptedSettingsRecoveryView = window.LocalItabCompleteBackupView.mount(host, {
+            store, recoveryOnly: true,
+            recoverInterruptedRestore: (review, isCurrent) => queueSettingsWrite(async () => {
+                if (!isCurrent()) throw Object.assign(new Error(), {code: 'CANCELLED'});
+                if (completeBackupHasDrafts()) throw Object.assign(new Error(), {code: 'DIRTY'});
+                return store.recoverInterruptedRestore(review, {confirmed: true, isCurrent: () => isCurrent() && !completeBackupHasDrafts()});
+            })
+        });
+        return true;
+    } catch (setupError) { host.remove(); throw setupError; }
+}
+
 // Serialize background-only writes while the newest request owns the controls.
 // A rejected operation must not poison the next upload/removal/type-change attempt.
 let backgroundRequest = 0;
@@ -657,6 +686,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         refreshPrivacyPermissionHints();
     } catch (error) {
+        if (setupInterruptedSettingsRecovery(error)) return;
         console.error('Error initializing options page:', error);
         showErrorMessage(t('settingsLoadFailed', 'Failed to load settings. Please try refreshing the page.'));
     }

@@ -8467,5 +8467,11 @@
   },
   "tasksRestoreHistoryHelp": {
     "message": "Restoration keeps all original text and the 500-record capacity unchanged. It does not restore an old pin or add an Undo/redo action."
+  },
+  "settingsInterruptedRecovery": {
+    "message": "An interrupted local restore is blocking ordinary Settings. Inspect the saved copies below before deciding whether to restore the previous state. No automatic repair has run. After recovery, use Reload; ordinary settings stay unavailable on this page. This does not diagnose or resolve an earlier upgrade data-loss incident."
+  },
+  "completeBackupRecoveryOnlyHelp": {
+    "message": "Download retained copies for safekeeping. File import is unavailable in this limited view. Use Inspect interrupted restore to review the previous state; after a verified recovery, reload Settings."
   }
 }

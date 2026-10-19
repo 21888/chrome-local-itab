@@ -1,0 +1,311 @@
+'use strict';
+// Production Settings startup, StorageManager, Backup Store/View and lifecycle.
+// The only boundaries replaced are DOM/events, RAM Chrome storage/locks, and
+// downloads/reload. Store's constructor is bound to those real fixture backends;
+// getAll(), ensureSyncInitialized() and recovery transactions are never stubbed.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+const StorageManager = require('../storage.js');
+const {createDocument, deferred} = require('./helpers/task-dom-model');
+const {synthetic, fixture, accepted, Backup, Workspaces, Prompts, Collections, copy} = require('./helpers/complete-backup-acceptance');
+const source = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
+const tick = () => new Promise(resolve => setTimeout(resolve, 10));
+async function until(predicate) {
+    const deadline = Date.now() + 2000;
+    while (!predicate() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 1));
+    assert(predicate(), 'expected production recovery UI state to settle');
+}
+
+async function interrupted() {
+    const incoming = await synthetic('source'), target = await synthetic('target');
+    const preview = await target.store.review(await incoming.store.export(), null, accepted);
+    target.hooks.set = (values, raw) => {
+        Object.assign(raw, copy(values));
+        if (values[Workspaces.RESTORE_TRANSACTION_KEY]?.status === 'prepared') throw Error('Synthetic lost acknowledgement');
+    };
+    await assert.rejects(target.store.restore(preview, {confirmed: true}), error => error.code === 'UNCONFIRMED');
+    assert.equal(target.raw[Workspaces.RESTORE_TRANSACTION_KEY].status, 'prepared');
+    // Reconstruct all managers and tickets from persisted JSON, as after restart.
+    return fixture({persisted: JSON.parse(JSON.stringify(target.raw))});
+}
+
+function model(f, workspaceId = 'work') {
+    const calls = {mounts: [], stores: [], downloads: [], reloads: 0, fileReads: 0,
+        localReads: 0, localRemoves: 0, providerReads: 0, providerWrites: 0, providerRemoves: 0,
+        reviews: 0, exports: 0, restores: 0, inspections: 0, recoveries: 0};
+    const read = f.chrome.storage.local.get;
+    f.chrome.storage.local.get = (...args) => { calls.localReads++; return read(...args); };
+    f.chrome.storage.local.remove = async () => { calls.localRemoves++; throw Error('Unexpected local remove'); };
+    f.chrome.storage.sync = {
+        async get() { calls.providerReads++; throw Error('Unexpected Sync read'); },
+        async getBytesInUse() { calls.providerReads++; throw Error('Unexpected Sync quota read'); },
+        async set() { calls.providerWrites++; throw Error('Unexpected Sync write'); },
+        async remove() { calls.providerRemoves++; throw Error('Unexpected Sync remove'); }
+    };
+    const chromeListeners = new Set();
+    f.chrome.storage.onChanged = {addListener: fn => chromeListeners.add(fn), removeListener: fn => chromeListeners.delete(fn)};
+    const manager = new StorageManager({workspace: f.workspaceManager.capture(workspaceId)});
+    assert.equal(manager.getAll, StorageManager.prototype.getAll);
+    assert.equal(manager.ensureSyncInitialized, StorageManager.prototype.ensureSyncInitialized);
+    const document = createDocument({blurUnavailableFocus: true, aggregateTextContent: true});
+    // prepend is the only missing DOM primitive used by production lifecycle.
+    document.body.prepend = function(node) { node.parentElement = this; this.children.unshift(node); };
+    const container = document.createElement('div'); container.className = 'options-container';
+    const header = document.createElement('header'); header.className = 'options-header';
+    const main = document.createElement('main'); main.className = 'options-main';
+    const normalHost = document.createElement('div'); normalHost.id = 'complete-backup';
+    const controls = ['input', 'textarea', 'select', 'button'].map(tag => document.createElement(tag));
+    controls[0].id = 'quote-text'; controls[1].id = 'world-clock-label';
+    main.append(...controls, normalHost);
+    const switcher = document.createElement('div'); switcher.id = 'workspace-switcher';
+    const selectWorkspace = document.createElement('select'); switcher.append(selectWorkspace);
+    // Match options.html: footer is a sibling, never a descendant of main.
+    const footer = document.createElement('footer'); footer.className = 'options-footer';
+    const footerActions = document.createElement('div'); footerActions.className = 'footer-actions';
+    const save = document.createElement('button'); save.id = 'save-settings';
+    const reset = document.createElement('button'); reset.id = 'reset-settings';
+    footerActions.append(save, reset); footer.append(footerActions);
+    header.append(switcher); container.append(header, main, footer); document.body.append(container);
+    const handlers = new Map();
+    const window = {LocalItabPrompts: Prompts, LocalItabAICollections: Collections,
+        location: {reload() { calls.reloads++; }}, confirm() { throw Error('Unexpected confirmation'); },
+        addEventListener(type, fn) { if (!handlers.has(type)) handlers.set(type, new Set()); handlers.get(type).add(fn); },
+        removeEventListener(type, fn) { handlers.get(type)?.delete(fn); }};
+    let sequence = 0;
+    class BoundStore extends Backup.Store {
+        constructor(storage) {
+            super(storage, Backup.createBackend(storage, f.chrome, f.locks), {workspaceManager: f.workspaceManager, id: () => `recovery_test_${++sequence}`});
+            calls.stores.push(this);
+        }
+        review(...args) { calls.reviews++; return super.review(...args); }
+        export(...args) { calls.exports++; return super.export(...args); }
+        restore(...args) { calls.restores++; return super.restore(...args); }
+        inspectInterruptedRestore(...args) { calls.inspections++; return super.inspectInterruptedRestore(...args); }
+        recoverInterruptedRestore(...args) { calls.recoveries++; return super.recoverInterruptedRestore(...args); }
+    }
+    window.LocalItabCompleteBackup = {...Backup, Store: BoundStore};
+    const timers = new Set();
+    const ctx = {window, document, storageManager: manager, chrome: f.chrome, URL, Blob, console: {log() {}, error() {}, warn() {}},
+        setTimeout(fn, ms) { const timer = setTimeout(fn, ms); timers.add(timer); return timer; }, clearTimeout};
+    vm.createContext(ctx);
+    vm.runInContext(source('shared/complete-backup-view.js'), ctx);
+    const mount = window.LocalItabCompleteBackupView.mount;
+    window.LocalItabCompleteBackupView.mount = (host, options) => {
+        calls.mounts.push({host, options});
+        return mount(host, {...options, download: async (...args) => { calls.downloads.push(args); }});
+    };
+    vm.runInContext(source('shared/local-content-lifecycle.js'), ctx);
+    vm.runInContext(source('options.js'), ctx);
+    const get = name => document.getElementById('interrupted-settings-recovery')?.querySelector('.complete-backup-' + name);
+    const dispatchWindow = (type, event = {}) => { for (const fn of handlers.get(type) || []) fn(event); };
+    const listenerCount = () => [...handlers.values()].reduce((sum, set) => sum + set.size, 0) + chromeListeners.size;
+    return {f, calls, ctx, window, manager, document, container, main, footer, save, reset, normalHost, switcher, controls: [...controls, selectWorkspace, save, reset],
+        get, dispatchWindow, listenerCount, get view() { return window.interruptedSettingsRecoveryView; },
+        async start() { await document.listeners.get('DOMContentLoaded')({type: 'DOMContentLoaded'}); },
+        close() { this.view?.destroy(); for (const timer of timers) clearTimeout(timer); }};
+}
+
+function isolated(m, {initialized = false} = {}) {
+    assert.equal(m.main.parentElement, m.footer.parentElement, 'footer models the real sibling layout');
+    assert.equal(m.main.contains(m.footer), false);
+    for (const root of [m.main, m.footer, m.switcher]) {
+        assert.equal(root.hidden, true, 'ordinary Settings and workspace selection stay hidden');
+        assert.equal(root.inert, true, 'ordinary Settings and workspace selection stay inert');
+    }
+    for (const control of m.controls) assert.equal(control.disabled, true, 'unloaded ordinary controls must be disabled');
+    if (!initialized) {
+        assert.equal(m.controls[0].value, '', 'failed initialization must not populate an editable default');
+        assert.equal(m.window.completeBackupView, undefined, 'ordinary Backup view is never mounted');
+        assert.equal(m.window.settingsFormView, undefined, 'ordinary Settings handlers are never initialized');
+        assert.equal(m.normalHost.children.length, 0);
+    }
+    const host = m.document.getElementById('interrupted-settings-recovery');
+    assert(host?.isConnected && !host.hidden && !host.closest('[inert]'), 'recovery is reachable outside isolated Settings');
+    assert.equal(host.parentElement, m.container, 'recovery stays in the real options layout above the page backdrop');
+    assert.equal(m.container.hidden, false); assert.equal(m.container.inert, false);
+    for (const name of ['recovery', 'download-interrupted']) {
+        assert.equal(m.get(name).hidden, false, 'recovery downloads remain visible');
+        assert(m.get(name).getClientRects().length > 0, 'recovery downloads have visible layout');
+    }
+}
+function noProviderEffects(m) {
+    assert.deepEqual([m.calls.providerReads, m.calls.providerWrites, m.calls.providerRemoves, m.calls.localRemoves], [0, 0, 0, 0]);
+}
+function unchanged(m, before, writes = 0) {
+    assert.deepEqual(m.f.raw, before, 'all persisted bytes remain unchanged');
+    assert.equal(m.f.writes.length, writes, 'no implicit local writes'); noProviderEffects(m);
+}
+async function inspected(m) {
+    m.get('inspect-interrupted').dispatch('click');
+    await until(() => !m.get('recover-interrupted').hidden && !m.get('recover-interrupted').disabled);
+}
+function ordinaryEvents(m) {
+    const file = m.get('file');
+    file.files = [{size: 2, text: async () => { m.calls.fileReads++; return '{}'; }}];
+    file.dispatch('change');
+    for (const name of ['export', 'choose', 'apply', 'select-all', 'clear-selection', 'large', 'download-export']) m.get(name).dispatch('click');
+    for (const control of m.document.getElementById('interrupted-settings-recovery').querySelectorAll('[data-module]')) {
+        control.checked = !control.checked; control.dispatch('change');
+    }
+    for (const name of ['target', 'prompt-target', 'collection-target']) { m.get(name).value = 'synthetic'; m.get(name).dispatch('change'); }
+}
+
+test('recovery startup API handles only WORKSPACE_RESTORE_PENDING, never unrelated errors', async t => {
+    const m = model(fixture()); t.after(() => m.close());
+    assert.equal(typeof m.ctx.setupInterruptedSettingsRecovery, 'function');
+    const before = copy(m.f.raw), listeners = m.listenerCount();
+    for (const error of [null, new Error('Synthetic failure'), {code: 'WORKSPACE_CORRUPT'}, {code: 'WORKSPACE_CONFLICT'}, {code: 'UNCONFIRMED'}]) {
+        assert.equal(await m.ctx.setupInterruptedSettingsRecovery(error), false);
+    }
+    assert.equal(m.calls.mounts.length, 0); assert.equal(m.listenerCount(), listeners);
+    assert.equal(m.document.getElementById('interrupted-settings-recovery'), null);
+    assert.equal(m.main.hidden, false); assert.equal(m.main.inert, false); unchanged(m, before);
+});
+
+for (const workspaceId of ['default', 'work']) test(`${workspaceId}: real startup fence exposes one isolated read-only recovery view without Sync or default edits`, async t => {
+    const m = model(await interrupted(), workspaceId); t.after(() => m.close());
+    const before = copy(m.f.raw);
+    await assert.rejects(m.ctx.initializeOptionsPage(), error => error.code === 'WORKSPACE_RESTORE_PENDING');
+    assert.equal(m.calls.mounts.length, 0); unchanged(m, before);
+    await m.start();
+    assert(m.view, 'DOMContentLoaded must expose recovery after the real getAll rejection');
+    isolated(m); unchanged(m, before);
+    assert.equal(m.calls.mounts.length, 1); assert.equal(m.calls.stores.length, 1);
+    assert.equal(m.calls.mounts[0].options.recoveryOnly, true);
+    assert(m.calls.stores[0] instanceof Backup.Store);
+    const view = m.view, listeners = m.listenerCount();
+    await m.ctx.setupInterruptedSettingsRecovery({code: 'WORKSPACE_RESTORE_PENDING'});
+    await m.ctx.setupInterruptedSettingsRecovery({code: 'WORKSPACE_RESTORE_PENDING'});
+    assert.equal(m.view, view); assert.equal(m.calls.mounts.length, 1); assert.equal(m.listenerCount(), listeners);
+    assert.equal(m.document.querySelectorAll('#interrupted-settings-recovery').length, 1);
+    assert.equal(m.get('inspect-interrupted').listeners.get('click').length, 1);
+    await inspected(m); assert(m.calls.inspections >= 1); unchanged(m, before);
+    m.get('cancel-interrupted').dispatch('click'); ordinaryEvents(m); await tick();
+    isolated(m); unchanged(m, before);
+    for (const name of ['export', 'choose', 'file', 'apply']) assert.equal(m.get(name).disabled, true, `${name} cannot be revived by cancel/events`);
+    assert.equal(m.get('modules').hidden, true); assert.equal(m.get('actions').hidden, true);
+    // Exercise recoveryOnly event guards independently of disabled rendering:
+    // synthetic events must not turn hidden ordinary controls into authority.
+    for (const name of ['export', 'choose', 'file', 'apply', 'select-all', 'clear-selection', 'large', 'download-export', 'target', 'prompt-target', 'collection-target']) m.get(name).disabled = false;
+    for (const input of m.document.getElementById('interrupted-settings-recovery').querySelectorAll('[data-module]')) input.disabled = false;
+    ordinaryEvents(m); await tick(); m.view.cancel();
+    assert.deepEqual([m.calls.fileReads, m.calls.reviews, m.calls.exports, m.calls.restores, m.calls.recoveries], [0, 0, 0, 0, 0]);
+    isolated(m); unchanged(m, before);
+    for (const name of ['recovery', 'download-interrupted']) {
+        m.get(name).dispatch('click'); await until(() => !m.view.pending);
+        assert.equal(m.calls.downloads.length, name === 'recovery' ? 1 : 2);
+        assert.doesNotThrow(() => JSON.parse(m.calls.downloads.at(-1)[0]));
+        assert(!m.calls.downloads.at(-1)[0].includes('SECRET_PROVIDER'));
+        assert(!m.calls.downloads.at(-1)[0].includes('SECRET_AUTH'));
+        isolated(m); unchanged(m, before);
+    }
+});
+
+test('late pending restore isolates the sibling footer even after real initialization attached Save and Reset listeners', async t => {
+    const pending = await interrupted(), f = await synthetic('target');
+    // A separate production transaction's persisted result arrives only after
+    // this page has read its ordinary Settings and attached the real listeners.
+    const m = model(f); t.after(() => m.close()); const priorWrites = f.writes.length;
+    const expectedQuote = f.values('work').quote;
+    const status = m.document.createElement('div'); status.id = 'cloud-sync-status'; m.main.append(status);
+    let reachedLateStartup = false, pendingBefore;
+    f.chrome.storage.local.getBytesInUse = async () => {
+        reachedLateStartup = true;
+        assert(m.window.settingsFormView, 'production populateFormFields finished');
+        assert(m.window.completeBackupView, 'ordinary Backup mounted before the late failure');
+        assert.equal(m.save.listeners.get('click')?.length, 1, 'production setupEventListeners attached Save');
+        assert.equal(m.reset.listeners.get('click')?.length, 1, 'production setupEventListeners attached Reset');
+        assert.equal(m.document.getElementById('quote-text').value, expectedQuote);
+        assert.equal(m.footer.hidden, false);
+        for (const key of Object.keys(f.raw)) delete f.raw[key];
+        Object.assign(f.raw, copy(pending.raw)); pendingBefore = copy(f.raw);
+        // The error still originates in the real restore fence. displayStorageInfo
+        // catches its first read error; the following real renderSyncStatus call
+        // reaches the same pending fence and triggers the DOMContentLoaded catch.
+        await f.workspaceManager.assertRestoreSettled();
+        assert.fail('pending fixture must remain fenced');
+    };
+    await m.start();
+    assert.equal(reachedLateStartup, true, 'test must not pass through an early initialization failure');
+    assert(m.view, 'the later Sync-status failure must expose recovery');
+    assert.equal(m.calls.mounts.length, 2, 'one ordinary view and one isolated recovery view');
+    assert.equal(m.calls.mounts[0].options.recoveryOnly, undefined);
+    assert.equal(m.calls.mounts[1].options.recoveryOnly, true);
+    isolated(m, {initialized: true}); unchanged(m, pendingBefore, priorWrites);
+    assert.equal(m.document.getElementById('quote-text').value, expectedQuote, 'loaded values are retained, never reset to defaults');
+    // Native activation cannot reach disabled, inert or hidden controls. The
+    // tiny DOM's raw dispatch intentionally bypasses those browser semantics.
+    for (const control of [m.save, m.reset]) {
+        assert.equal(control.getClientRects().length, 0);
+        control.focus(); assert.notEqual(m.document.activeElement, control);
+        assert(control.disabled && control.closest('[inert]'));
+        assert.equal(control.listeners.get('click').length, 1, 'the test retains the already attached real listener');
+    }
+    m.get('inspect-interrupted').dispatch('click');
+    await until(() => !m.get('recover-interrupted').disabled);
+    m.get('cancel-interrupted').dispatch('click');
+    isolated(m, {initialized: true}); unchanged(m, pendingBefore, priorWrites);
+});
+
+test('queued recovery rechecks current ownership and real page-local draft guards before invoking Store', async t => {
+    const m = model(await interrupted()); t.after(() => m.close()); await m.start();
+    assert(m.view, 'recovery view must be mounted'); const before = copy(m.f.raw);
+    const {store, recoverInterruptedRestore} = m.calls.mounts[0].options;
+    for (const reason of ['cancelled', 'draft']) {
+        const report = await store.inspectInterruptedRestore(), gate = deferred(); let current = true;
+        const waiting = m.ctx.queueSettingsWrite(() => gate.promise);
+        const attempt = recoverInterruptedRestore(report, () => current);
+        const rejected = assert.rejects(attempt, error => error.code === (reason === 'cancelled' ? 'CANCELLED' : 'DIRTY'));
+        if (reason === 'cancelled') current = false;
+        else m.window.localScratchpadSettingsView = {hasUncommittedWork: () => true};
+        gate.resolve(); await waiting; await rejected;
+        delete m.window.localScratchpadSettingsView;
+        assert.equal(m.calls.recoveries, 0); isolated(m); unchanged(m, before);
+    }
+});
+
+test('a real field draft appearing during portable recovery validation blocks the first repair write', async t => {
+    const m = model(await interrupted()); t.after(() => m.close()); await m.start();
+    assert(m.view, 'recovery view must be mounted'); const before = copy(m.f.raw);
+    const {store, recoverInterruptedRestore} = m.calls.mounts[0].options;
+    const report = await store.inspectInterruptedRestore(), gate = deferred(); let entered = false;
+    m.f.hooks.read = async (keys, raw) => {
+        if (Array.isArray(keys) && keys.includes(Backup.WORKSPACE_RECOVERY_KEY)) { entered = true; await gate.promise; }
+        return copy(keys === null ? raw : Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    const attempt = recoverInterruptedRestore(report, () => true);
+    const rejected = assert.rejects(attempt, error => error.code === 'CANCELLED');
+    await until(() => entered);
+    m.document.getElementById('world-clock-label').value = 'Synthetic newer page-local draft';
+    gate.resolve(); await rejected; delete m.f.hooks.read;
+    assert.equal(m.calls.recoveries, 1, 'production Store performs portable recovery validation');
+    assert.equal(m.document.getElementById('world-clock-label').value, 'Synthetic newer page-local draft');
+    isolated(m); unchanged(m, before);
+});
+
+test('recovery participates in lifecycle guards and only explicit verified recovery enables Reload, never ordinary controls', async t => {
+    const m = model(await interrupted()); t.after(() => m.close()); await m.start();
+    assert(m.view, 'recovery view must be mounted'); await inspected(m);
+    const life = m.window.LocalItabContentLifecycle;
+    assert.equal(life.hasUncommittedWork(), true);
+    const departure = {preventDefault() { this.prevented = true; }};
+    m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true);
+    const gate = deferred(); let entered = false;
+    m.f.hooks.set = async (values, raw) => { entered = true; await gate.promise; Object.assign(raw, copy(values)); };
+    m.get('recover-interrupted').dispatch('click'); m.get('recover-interrupted').dispatch('click');
+    await until(() => entered);
+    assert.equal(m.calls.recoveries, 1); assert.equal(life.pending(), true);
+    await assert.rejects(life.waitForPending({timeout: 0}), error => error.code === 'WORKSPACE_BUSY');
+    assert.equal(m.calls.reloads, 0); isolated(m); noProviderEffects(m);
+    gate.resolve(); await until(() => !m.view.pending && !m.get('reload').hidden);
+    delete m.f.hooks.set;
+    assert.equal(m.f.raw[Workspaces.RESTORE_TRANSACTION_KEY].status, 'recovered');
+    assert.equal(m.f.writes.length, 2, 'only the two production verified recovery writes occurred');
+    assert.match(m.get('status').textContent, /restored and verified/i);
+    assert.equal(life.pending(), false); assert.equal(life.hasUncommittedWork(), false);
+    const recovered = copy(m.f.raw); ordinaryEvents(m); m.view.cancel(); await tick();
+    isolated(m); unchanged(m, recovered, 2); assert.equal(m.calls.reloads, 0);
+    assert.equal(m.get('reload').hidden, false, 'cancel cannot erase the explicit Reload path');
+    m.get('reload').dispatch('click'); assert.equal(m.calls.reloads, 1);
+});
