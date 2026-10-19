@@ -148,11 +148,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const manageBtn = document.getElementById('manage-categories');
         if (manageBtn) {
             manageBtn.addEventListener('click', () => {
-                if (chrome.runtime?.openOptionsPage) {
-                    window.LocalItabWorkspacesView.openSettings();
-                } else {
-                    window.LocalItabWorkspacesView.openSettings('category-settings');
-                }
+                window.LocalItabWorkspacesView.openSettings('category-settings');
             });
         }
         // Initialize custom context menu
