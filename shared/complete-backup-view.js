@@ -214,6 +214,7 @@
         const inspectInterrupted = button('InspectInterrupted', 'inspect-interrupted', shell);
         const interruptedSummary = make('p', 'form-hint complete-backup-interrupted-summary', '', shell); interruptedSummary.hidden = true;
         const recoverInterrupted = button('RecoverInterrupted', 'recover-interrupted', shell, true); recoverInterrupted.hidden = true;
+        const cancelInterrupted = button('Cancel', 'cancel-interrupted', shell); cancelInterrupted.hidden = true;
         inspectInterrupted.hidden = typeof store.inspectInterruptedRestore !== 'function';
         // Observe only the ordinary export's lifetime. Removed-and-reattached
         // old nodes must not revive it, even before the observer callback runs.
@@ -242,7 +243,7 @@
             inspectInterrupted.disabled = busy; downloadInterrupted.disabled = busy || phase === 'reading'; recoverInterrupted.disabled = busy || !interruptedReview;
             largeButton.disabled = busy;
             apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
-            cancel.disabled = cancelExport.disabled = ['applying', 'downloading'].includes(phase);
+            cancel.disabled = cancelExport.disabled = cancelInterrupted.disabled = ['applying', 'downloading'].includes(phase);
             downloadExport.disabled = phase !== 'export-ready' || !exportSnapshot;
             copyDigest.disabled = phase !== 'export-ready' || !exportSnapshot?.digest;
             copyDigest.setAttribute('aria-disabled', String(copyDigest.disabled || Boolean(exportSnapshot?.copying)));
@@ -308,7 +309,7 @@
         }
         function clearExport() { exportSnapshot = null; exportWatching = false; downloadDeparted = false; exportObserver?.disconnect(); exportPanel.hidden = true; exportMeta.textContent = exportScope.textContent = exportDigest.textContent = copyFeedback.textContent = ''; exportCounts.replaceChildren(); }
         function clear() { clearExport(); clearWorkspaceImpact(); configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
-        function abandon() { if (!current(generation) || ['applying', 'downloading'].includes(phase)) return; const ordinaryExport = exportWatching; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t(ordinaryExport ? 'ExportCancelled' : 'Cancelled'); (ordinaryExport ? exportButton : choose).focus(); }
+        function abandon() { if (!current(generation) || ['applying', 'downloading'].includes(phase)) return; const ordinaryExport = exportWatching, interruptedOnly = !cancelInterrupted.hidden && source === null; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = cancelInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t(ordinaryExport ? 'ExportCancelled' : 'Cancelled'); (ordinaryExport ? exportButton : interruptedOnly ? inspectInterrupted : choose).focus(); }
         const countText = (value, module) => {
             if (!value || typeof value !== 'object') return '';
             const parts = [];
@@ -388,6 +389,9 @@
         file.addEventListener('change', () => {
             if (!current(generation) || file.disabled) return;
             const chosen = file.files?.[0]; file.value = ''; if (!chosen) return;
+            // A newly selected file owns the next review, including failed or
+            // oversized reads. Do not retain a previous interrupted-repair action.
+            interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = cancelInterrupted.hidden = true; interruptedSummary.textContent = '';
             const token = ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear();
             if (!Number.isSafeInteger(chosen.size) || chosen.size < 0 || chosen.size > (root.LocalItabCompleteBackup?.LIMITS.bytes || 32 * 1024 * 1024)) {
                 phase = ''; controls(); status.textContent = t('Size'); status.focus(); return;
@@ -418,9 +422,9 @@
         target.addEventListener('change', () => { if (!current(generation) || target.disabled || !source) return; targetWorkspaceId = target.value || undefined; review(++generation, target); });
         promptTargetSelect.addEventListener('change', () => { if (!current(generation) || promptTargetSelect.disabled || !source) return; promptTarget = promptTargetSelect.value || undefined; review(++generation, promptTargetSelect); });
         collectionTargetSelect.addEventListener('change', () => { if (!current(generation) || collectionTargetSelect.disabled || !source) return; collectionTarget = collectionTargetSelect.value || undefined; review(++generation, collectionTargetSelect); });
-        cancel.addEventListener('click', abandon); cancelExport.addEventListener('click', abandon);
+        cancel.addEventListener('click', abandon); cancelExport.addEventListener('click', abandon); cancelInterrupted.addEventListener('click', abandon);
         shell.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && !event.repeat && !event.isComposing && event.keyCode !== 229 && !['applying', 'downloading'].includes(phase) && (source !== null || exportWatching || ['reading', 'large'].includes(phase))) { event.preventDefault(); abandon(); }
+            if (event.key === 'Escape' && !event.repeat && !event.isComposing && event.keyCode !== 229 && !['applying', 'downloading'].includes(phase) && (source !== null || exportWatching || !cancelInterrupted.hidden || ['reading', 'large'].includes(phase))) { event.preventDefault(); abandon(); }
             if (['Enter', ' ', 'Spacebar'].includes(event.key) && (event.repeat || event.isComposing || event.keyCode === 229)) event.preventDefault();
         });
         apply.addEventListener('click', async () => {
@@ -507,7 +511,7 @@
             const reviewPhase = isRecovery && preview && ['ready', 'target'].includes(phase) ? phase : '';
             if (!reviewPhase) { source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; clear(); }
             if (!isRecovery) {
-                interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true;
+                interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = cancelInterrupted.hidden = true;
                 exportWatching = true; exportObserver?.observe(doc.documentElement, {childList:true, subtree:true});
                 exportPanel.hidden = false; exportNotice.textContent = t('ExportPreparing');
             }
@@ -568,16 +572,16 @@
         });
         inspectInterrupted.addEventListener('click', async () => {
             if (!current(generation) || inspectInterrupted.disabled) return;
-            const token = ++generation; source = null; availableModules = null; clear(); interruptedReview = null; phase = 'reading'; controls();
+            const token = ++generation; source = null; availableModules = null; clear(); interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; interruptedSummary.textContent = ''; cancelInterrupted.hidden = false; phase = 'reading'; controls();
             try {
                 const report = await store.inspectInterruptedRestore();
                 if (!current(token)) return;
                 interruptedReview = report.pending && report.canRecover !== false ? report : null;
-                interruptedSummary.hidden = !report.pending; recoverInterrupted.hidden = !interruptedReview;
+                interruptedSummary.hidden = cancelInterrupted.hidden = !report.pending; recoverInterrupted.hidden = !interruptedReview;
                 if (!report.pending) reloadButton.hidden = false;
                 interruptedSummary.textContent = report.pending ? t(report.canRecover === false ? 'InterruptedChanged' : 'InterruptedReview') : '';
                 status.textContent = t(report.pending ? 'RestorePending' : 'NoInterrupted');
-            } catch (error) { if (current(token)) status.textContent = errorText(error); }
+            } catch (error) { if (current(token)) { cancelInterrupted.hidden = true; status.textContent = errorText(error); } }
             finally { if (current(token)) { phase = ''; controls(); } }
         });
         recoverInterrupted.addEventListener('click', async () => {
@@ -586,13 +590,13 @@
             try {
                 await recoverInterruptedRestore(ticket, () => current(token));
                 if (!current(token)) return;
-                interruptedSummary.hidden = recoverInterrupted.hidden = true; reloadButton.hidden = false; status.textContent = t('RecoveredInterrupted');
-            } catch (error) { if (current(token)) { recoverInterrupted.hidden = true; status.textContent = errorText(error, true); } }
+                interruptedSummary.hidden = recoverInterrupted.hidden = cancelInterrupted.hidden = true; reloadButton.hidden = false; status.textContent = t('RecoveredInterrupted');
+            } catch (error) { if (current(token)) { interruptedSummary.hidden = recoverInterrupted.hidden = cancelInterrupted.hidden = true; status.textContent = errorText(error, true); } }
             finally { if (current(token)) { phase = ''; controls(); } }
         });
         reloadButton.addEventListener('click', () => reload());
         controls();
-        return { get pending() { return ['applying', 'exporting', 'downloading'].includes(phase); }, hasUncommittedWork: () => Boolean(source || phase), cancel: abandon,
+        return { get pending() { return ['applying', 'exporting', 'downloading'].includes(phase); }, hasUncommittedWork: () => Boolean(source || phase || !cancelInterrupted.hidden), cancel: abandon,
             destroy() { if (['applying', 'downloading'].includes(phase)) return false; destroyed = true; ++generation; source = null; availableModules = null; clearExport(); root.removeEventListener?.('pagehide', expireExport); clearWorkspaceImpact(); shell.remove(); return true; } };
     }
     function downloadFile(text, name, doc) {
