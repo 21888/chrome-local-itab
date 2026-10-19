@@ -42,3 +42,27 @@ The 05:54–05:55 UTC production-renderer check in the dot cloud browser passed:
 Screenshots are local only. The preview uses synthetic page-memory Chrome APIs
 and production rendering, not an installed extension or durable user profile.
 This change provides no new evidence of historical upgrade safety.
+
+## Full-CI compatibility correction
+
+The first exact-source CI (`39207213988`, source `8932cbba`) ran 16,657 Node
+tests: 16,656 passed and the passive subscription-guide preservation test failed.
+That earlier test froze the first 42,422 bytes and the entire Options stylesheet,
+including unrelated topic rows. The added four-line score rule changed those
+hashes; the guide, permissions, network behavior and its own styling did not
+change. Python/build were skipped after the Node failure. The complete failing
+case and a separate local reproduction are retained.
+
+The compatibility correction leaves production CSS unchanged. The one existing
+preservation case now removes exactly one byte-for-byte score-spacing block
+before checking the same historical prefix and full-file hashes. It rejects a
+missing or duplicated block. All other file hashes, permission code boundaries,
+manifest permissions, safe links, no-network checks and passive real-startup
+tests remain. No fixture hash is updated. A new negative test proves that an
+unrelated spacing token edit, an added subscription-guide hiding rule, a second
+score block or an extra score declaration still fails. The separate topic CSS
+test also continues to require the unique single-declaration rule.
+
+All 86 combined topic and passive-guide checks pass after this test-only
+correction. The same production bytes were already visually verified above;
+the repaired commit still requires its own complete exact-source CI.

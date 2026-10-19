@@ -7,6 +7,15 @@ const searchSource=fs.readFileSync('shared/settings-search.js','utf8');
 const html=fs.readFileSync('options.html','utf8');
 const section=html.match(/<section\b[^>]*id="subscription-usage-settings"[\s\S]*?<\/section>/)[0];
 const locales=Object.fromEntries(['en','zh_CN'].map(lang=>[lang,JSON.parse(fs.readFileSync(`_locales/${lang}/messages.json`))]));
+// The independently reviewed manual-topic spacing is unrelated to the passive
+// subscription guide. Exempt exactly its one literal block, not arbitrary CSS.
+const topicScoreSpacing=Buffer.from('.topic-score {\n    margin-inline-start: var(--spacing-sm);\n}\n\n');
+function preservedOptionsCss(bytes){
+ const start=bytes.indexOf(topicScoreSpacing);
+ assert.ok(start>=0,'reviewed score spacing block exists');
+ assert.equal(bytes.indexOf(topicScoreSpacing,start+topicScoreSpacing.length),-1,'reviewed score spacing block is unique');
+ return Buffer.concat([bytes.subarray(0,start),bytes.subarray(start+topicScoreSpacing.length)]);
+}
 test('subscription viewing uses only two fixed user-clicked safe HTTPS anchors in Privacy',()=>{
  const anchors=[...section.matchAll(/<a\b([^>]+)>([^<]+)<\/a>/g)];assert.equal(anchors.length,2);
  const urls=['https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan','https://grok.com/dashboard'];
@@ -47,16 +56,31 @@ test('guide does not change Claude permission flow, catalog, manifest, or instal
  assert.doesNotMatch(optionsSource,/subscription[-_]?usage|claude[-_]?usage|(?:help\.openai|chatgpt|grok|claude)\.com|claude\.ai/i);
  assert.doesNotMatch(optionsSource,/\bfetch\s*\(|XMLHttpRequest|WebSocket|EventSource|sendBeacon|chrome\s*(?:\?\.)?\.?(?:cookies|scripting)|window\.open\s*\(|\bimport\s*\(/);
  // Bookmark scope review appends isolated styles after the original 42,422
- // bytes. Keep that entire historical CSS byte-for-byte as well as checking
- // the reviewed current file below; no permission or guide guard is removed.
- const originalCss=fs.readFileSync('options.css').subarray(0,42422);
+ // bytes. After removing only the exact independently reviewed topic-score
+ // spacing block, preserve every historical byte and the full original file.
+ // No subscription styling, permission or guide guard is removed.
+ const preservedCss=preservedOptionsCss(fs.readFileSync('options.css'));
+ const originalCss=preservedCss.subarray(0,42422);
  assert.equal(crypto.createHash('sha256').update(originalCss).digest('hex'),
   '2729c1d1465a5dd01fe39e659c431bb9510616b7025ca467d917ea8f1b377428','original Options CSS prefix');
- for(const [file,hash] of Object.entries(expected))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),hash,file);
+ for(const [file,hash] of Object.entries(expected))assert.equal(crypto.createHash('sha256').update(file==='options.css'?preservedCss:fs.readFileSync(file)).digest('hex'),hash,file);
  assert.match(html,/<a\b[^>]*id="claude-usage-open"[^>]*href="claude-usage-experiment.html"/);
  const script=fs.readFileSync('shared/settings-search.js','utf8');
  assert.doesNotMatch(script,/fetch\s*\(|chrome\.permissions|chrome\.scripting|chrome\.storage|window\.open\s*\(/);
  assert.doesNotMatch(html,/<link\b[^>]*rel="(?:prefetch|preconnect|dns-prefetch)"/);
+});
+
+test('preserved Options CSS guard rejects other edits and broadened score spacing',()=>{
+ const css=fs.readFileSync('options.css');
+ const expected=JSON.parse(fs.readFileSync('tests/fixtures/subscription-usage-preserved.json'))['options.css'];
+ const check=bytes=>assert.equal(crypto.createHash('sha256').update(preservedOptionsCss(bytes)).digest('hex'),expected);
+ check(css);
+ for(const [name,changed]of [
+  ['unrelated existing token',Buffer.from(css.toString().replace('--spacing-sm: 12px;','--spacing-sm: 13px;'))],
+  ['extra subscription rule',Buffer.concat([css,Buffer.from('\n#subscription-usage-settings { display: none; }\n')])],
+  ['duplicate reviewed block',Buffer.concat([css,topicScoreSpacing])],
+  ['extra score declaration',Buffer.from(css.toString().replace('margin-inline-start: var(--spacing-sm);','margin-inline-start: var(--spacing-sm); display: none;'))]
+ ]){assert.notDeepEqual(changed,css,name);assert.throws(()=>check(changed),assert.AssertionError,name);}
 });
 
 
