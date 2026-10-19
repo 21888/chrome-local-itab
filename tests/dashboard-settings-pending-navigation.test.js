@@ -28,7 +28,7 @@ async function prepared() {
     return fixture({persisted: JSON.parse(JSON.stringify(target.raw))});
 }
 
-function model(f, workspaceId) {
+function model(f, workspaceId, {locale} = {}) {
     const calls = {reads: 0, removes: 0, providerReads: 0, providerWrites: 0, providerRemoves: 0, opened: [], errors: [], assignments: [], timers: []};
     const read = f.chrome.storage.local.get;
     f.chrome.storage.local.get = (...args) => { calls.reads++; return read(...args); };
@@ -51,13 +51,23 @@ function model(f, workspaceId) {
     elementPrototype.removeChild = function (child) {
         assert.equal(child.parentElement, this); child.remove(); return child;
     };
+    const tabIndex = Object.getOwnPropertyDescriptor(elementPrototype, 'tabIndex');
+    Object.defineProperty(elementPrototype, 'tabIndex', {...tabIndex, set(value) {
+        tabIndex.set.call(this, value); this.attributes.tabindex = String(value);
+    }});
+    const skip = document.createElement('a'); skip.className = 'skip-link';
+    // Native attributes and properties share values. Reflect only the two
+    // properties needed by the real Skip link and production localization.
+    Object.defineProperty(skip.dataset, 'i18n', {get() { return skip.getAttribute('data-i18n'); }, set(value) { skip.setAttribute('data-i18n', value); }});
+    Object.defineProperty(skip, 'href', {get() { return new URL(skip.getAttribute('href'), 'chrome-extension://synthetic/newtab.html').href; }, set(value) { skip.setAttribute('href', value); }});
+    skip.setAttribute('href', '#shortcuts-container'); skip.setAttribute('data-i18n', 'dashboardSkipShortcuts'); skip.textContent = 'Skip to shortcuts';
     const settings = document.createElement('button'); settings.id = 'open-options'; settings.className = 'settings-button';
     const categories = document.createElement('button'); categories.id = 'manage-categories'; categories.className = 'category-manage-btn';
     const switcher = document.createElement('section'); switcher.id = 'workspace-switcher'; switcher.className = 'workspace-bar';
     const recovery = document.createElement('a'); recovery.className = 'spaces-manage'; recovery.href = 'recovery.html'; recovery.target = '_blank'; recovery.rel = 'noopener';
     recovery.textContent = 'Inspect saved copies (read-only)'; switcher.append(recovery);
     const draft = document.createElement('input'); draft.value = 'Synthetic unchanged page query';
-    document.body.append(categories, switcher, settings, draft);
+    document.body.append(skip, categories, switcher, settings, draft);
     const window = {document, chrome: f.chrome, LocalItabWorkspaces: {manager: f.workspaceManager, session},
         addEventListener() {}, removeEventListener() {},
         open(...args) { calls.opened.push(args); return null; },
@@ -66,11 +76,16 @@ function model(f, workspaceId) {
         console: {log() {}, warn() {}, error(...args) { calls.errors.push(args); }},
         setTimeout(fn, delay) { calls.timers.push({fn, delay}); return calls.timers.length; }, clearTimeout() {}};
     vm.createContext(ctx);
+    if (locale) {
+        const messages = JSON.parse(source(`_locales/${locale}/messages.json`));
+        f.chrome.i18n = {getMessage: key => messages[key]?.message || ''};
+        vm.runInContext(source('i18n.js'), ctx); ctx.i18n = window.i18n;
+    }
     vm.runInContext(source('shared/workspaces-view.js'), ctx);
     vm.runInContext(source('newtab.js'), ctx);
     const effects = () => ({reads: calls.reads, writes: f.writes.length, removes: calls.removes,
         providerReads: calls.providerReads, providerWrites: calls.providerWrites, providerRemoves: calls.providerRemoves});
-    return {f, calls, session, storageManager, document, settings, categories, switcher, recovery, draft, window, ctx, effects,
+    return {f, calls, session, storageManager, document, skip, settings, categories, switcher, recovery, draft, window, ctx, effects,
         async start() {
             // Both production DOM-ready listeners run. Banner cleanup and the
             // separate 100ms CategoryNavigation task are recorded, not assumed
@@ -418,5 +433,85 @@ test('prepared restore startup keeps only its dedicated notice and is refused by
         assert.deepEqual(m.effects(), baseline); assert.equal(noticeListeners(m), listeners); assert.equal(m.calls.timers.length, timerCount);
         assert(m.document.activeElement === m.draft); assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0);
         unchanged(m, before);
+    }
+});
+
+async function skipFailureModel(failure, locale) {
+    const f = failure === 'pending restore' ? await prepared() : fixture();
+    if (failure === 'corrupt Work values') f.values('work').quote = 42;
+    const m = model(f, 'work', {locale});
+    if (failure === 'Chrome read failure') f.hooks.read = async () => { throw Error('Synthetic Skip Chrome read failure'); };
+    return m;
+}
+function assertFailureSkip(m, failure, locale) {
+    const id = failure === 'pending restore' ? 'dashboard-restore-pending' : 'dashboard-load-failed';
+    const notice = m.document.getElementById(id); assert(notice?.getClientRects().length);
+    assert.equal(m.skip.getAttribute('href'), '#' + id, 'failed startup routes Skip to the visible explanation');
+    assert.equal(notice.getAttribute('tabindex'), '-1', 'the section must be explicitly focusable as a native fragment target');
+    assert.equal(notice.tabIndex, -1);
+    const key = m.skip.getAttribute('data-i18n'); assert(key && key !== 'dashboardSkipShortcuts');
+    const messages = JSON.parse(source(`_locales/${locale}/messages.json`));
+    assert(messages[key]?.message, 'the replacement Skip label exists in each supported catalog');
+    assert.equal(m.skip.textContent, messages[key].message);
+    assert.match(m.skip.textContent, locale === 'en' ? /skip.*(?:status|notice|message|error)/i : /(?:跳转|跳到|跳至|跳过).*(?:状态|提示|说明|错误)/);
+    assert.doesNotMatch(m.skip.textContent, /shortcuts|快捷方式|快捷链接/i);
+    return notice;
+}
+
+for (const locale of ['en', 'zh_CN']) for (const failure of ['corrupt Work values', 'Chrome read failure', 'pending restore'])
+    test(`${locale}/${failure}: dashboard failure Skip targets the notice without stealing focus or losing its localized label`, async t => {
+        const m = await skipFailureModel(failure, locale); t.after(() => m.close()); const before = copy(m.f.raw);
+        m.draft.focus(); await m.start();
+        const error = m.calls.errors.find(args => args[0] === 'Error in initializeDashboard:')?.[1];
+        assert.equal(error?.code, failure === 'pending restore' ? 'WORKSPACE_RESTORE_PENDING' : failure === 'corrupt Work values' ? 'WORKSPACE_CORRUPT' : 'WORKSPACE_READ');
+        const notice = assertFailureSkip(m, failure, locale), baseline = m.effects();
+        assert(m.document.activeElement === m.draft, 'presenting the notice does not move focus');
+        const listeners = noticeListeners(m), timerCount = m.calls.timers.length;
+        const show = failure === 'pending restore' ? m.ctx.showDashboardRestorePending : m.ctx.showDashboardLoadFailed;
+        show(error); show(error);
+        m.window.i18n.localizeDocument(m.document);
+        assert(assertFailureSkip(m, failure, locale) === notice);
+        assert.equal(m.document.querySelectorAll('#' + notice.id).length, 1);
+        assert.equal(noticeListeners(m), listeners); assert.equal(m.calls.timers.length, timerCount); assert.deepEqual(m.effects(), baseline);
+        assert(m.document.activeElement === m.draft);
+        await m.start(); assert(assertFailureSkip(m, failure, locale) === notice);
+        assert.equal(noticeListeners(m), listeners); assert(m.document.activeElement === m.draft);
+        assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); unchanged(m, before);
+        // Programmatic focusability only: native hash navigation/Enter behavior
+        // is intentionally left to the separate browser verification.
+        const repeatedEffects = m.effects(); notice.focus(); assert(m.document.activeElement === notice);
+        assert.deepEqual(m.effects(), repeatedEffects); unchanged(m, before);
+    });
+
+test('normal dashboard Skip markup and rejected notice helpers retain the original bilingual destination and label', t => {
+    assert.match(source('newtab.html'), /<body>\s*<a class="skip-link" href="#shortcuts-container" data-i18n="dashboardSkipShortcuts">Skip to shortcuts<\/a>/);
+    for (const locale of ['en', 'zh_CN']) {
+        const m = model(fixture(), 'work', {locale}); t.after(() => m.close()); const before = copy(m.f.raw), baseline = m.effects();
+        m.draft.focus(); m.window.i18n.localizeDocument(m.document);
+        const expected = JSON.parse(source(`_locales/${locale}/messages.json`)).dashboardSkipShortcuts.message;
+        m.ctx.setupSettingsNavigation(); m.ctx.setupSettingsNavigation();
+        for (const error of [undefined, new Error('Synthetic unrelated error'), {code: 'WORKSPACE_CORRUPT'}, {code: 'WORKSPACE_RESTORE_PENDING_EXTRA'}])
+            assert.equal(m.ctx.showDashboardRestorePending(error), false);
+        assert.equal(m.ctx.showDashboardLoadFailed({code: 'WORKSPACE_RESTORE_PENDING'}), false);
+        m.window.i18n.localizeDocument(m.document);
+        assert.equal(m.skip.getAttribute('href'), '#shortcuts-container'); assert.equal(m.skip.getAttribute('data-i18n'), 'dashboardSkipShortcuts');
+        assert.equal(m.skip.textContent, expected); assert(m.document.activeElement === m.draft);
+        assert.equal(m.document.getElementById('dashboard-load-failed'), null); assert.equal(m.document.getElementById('dashboard-restore-pending'), null);
+        assert.deepEqual(m.effects(), baseline); assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); unchanged(m, before);
+    }
+});
+
+test('dashboard failure notices remain safe when the optional Skip link is absent', async t => {
+    for (const failure of ['corrupt Work values', 'Chrome read failure', 'pending restore']) {
+        const m = await skipFailureModel(failure, 'en'); t.after(() => m.close()); const before = copy(m.f.raw);
+        m.skip.remove(); m.draft.focus(); await m.start();
+        const id = failure === 'pending restore' ? 'dashboard-restore-pending' : 'dashboard-load-failed';
+        const notice = m.document.getElementById(id); assert(notice?.getClientRects().length);
+        assert.equal(notice.getAttribute('tabindex'), '-1'); assert.equal(m.document.querySelector('.skip-link'), null);
+        assert(m.calls.errors.every(args => args[1]?.code?.startsWith('WORKSPACE_')), 'no Skip wiring exception replaces the original storage error');
+        const error = m.calls.errors.find(args => args[0] === 'Error in initializeDashboard:')?.[1], baseline = m.effects();
+        (failure === 'pending restore' ? m.ctx.showDashboardRestorePending : m.ctx.showDashboardLoadFailed)(error);
+        assert(m.document.getElementById(id) === notice); assert(m.document.activeElement === m.draft);
+        assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); assert.deepEqual(m.effects(), baseline); unchanged(m, before);
     }
 });

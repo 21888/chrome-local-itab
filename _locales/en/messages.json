@@ -8494,5 +8494,8 @@
   },
   "dashboardLoadFailedPersistent": {
     "message": "The dashboard has not fully loaded. Visible content may be incomplete. This does not prove saved content was deleted. Reload to try again, or open Settings. You can also inspect saved copies read-only."
+  },
+  "dashboardSkipLoadStatus": {
+    "message": "Skip to loading status"
   }
 }

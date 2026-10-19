@@ -8494,5 +8494,8 @@
   },
   "dashboardLoadFailedPersistent": {
     "message": "仪表盘未能完成加载，显示内容可能不完整。这不代表已保存内容已被删除。你可以刷新重试或打开设置，也可以只读检查保存的副本。"
+  },
+  "dashboardSkipLoadStatus": {
+    "message": "跳至加载状态"
   }
 }

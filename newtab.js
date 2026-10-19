@@ -130,6 +130,16 @@ function setupSettingsNavigation() {
     }
 }
 
+function setupDashboardFailureSkip(notice) {
+    notice.setAttribute('tabindex', '-1');
+    const skip = document.querySelector('.skip-link');
+    if (!skip) return;
+    skip.setAttribute('href', '#' + notice.id);
+    skip.setAttribute('data-i18n', 'dashboardSkipLoadStatus');
+    const translated = window.i18n?.t('dashboardSkipLoadStatus');
+    skip.textContent = translated && translated !== 'dashboardSkipLoadStatus' ? translated : 'Skip to loading status';
+}
+
 function showDashboardRestorePending(error) {
     if (error?.code !== 'WORKSPACE_RESTORE_PENDING') return false;
     if (document.getElementById('dashboard-restore-pending')) return true;
@@ -139,6 +149,7 @@ function showDashboardRestorePending(error) {
     };
     const notice = document.createElement('section');
     notice.id = 'dashboard-restore-pending'; notice.className = 'spaces-invalid'; notice.setAttribute('role', 'alert');
+    setupDashboardFailureSkip(notice);
     const message = document.createElement('p');
     message.textContent = text('dashboardRestorePending', 'The dashboard has not fully loaded because an interrupted local restore needs review. This does not prove saved content was deleted. No automatic repair has run. Open Settings to review the restore, or inspect saved copies read-only. Reloading alone does not resolve an unverified restore.');
     notice.append(message);
@@ -164,6 +175,7 @@ function showDashboardLoadFailed(error) {
     const translated = window.i18n?.t('dashboardLoadFailedPersistent');
     const notice = document.createElement('section');
     notice.id = 'dashboard-load-failed'; notice.className = 'spaces-invalid'; notice.setAttribute('role', 'alert');
+    setupDashboardFailureSkip(notice);
     notice.textContent = translated && translated !== 'dashboardLoadFailedPersistent' ? translated : fallback;
     (document.getElementById('workspace-switcher') || document.body).append(notice);
     return true;
