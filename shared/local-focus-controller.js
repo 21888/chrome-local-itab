@@ -3,11 +3,13 @@
     else Object.assign(root.LocalItabFocus, factory(root.LocalItabFocus));
 })(typeof window === 'undefined' ? globalThis : window, function (api) {
     'use strict';
+    const feedbackOwners = new WeakMap();
     class Controller {
         constructor(store = new api.Store(), { monotonic = () => performance.now(), wall = () => Date.now() } = {}) {
             this.store = store; this.monotonic = monotonic; this.wall = wall; this.listeners = new Set();
             this.state = null; this.error = null; this.pending = null; this.closed = false; this.anchor = null; this.clockUncertain = false;
-            this.unsubscribe = store.subscribe(() => { this.refresh().catch(() => {}); });
+            feedbackOwners.set(this, { generation: 0, mutationError: false });
+            this.unsubscribe = store.subscribe(() => { this.refresh({ background: true }).catch(() => {}); });
         }
         subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
         snapshot() {
@@ -35,9 +37,23 @@
             if (!sameRun) { this.anchor = { mono: this.monotonic(), wall: this.wall(), remaining: api.project(state, this.wall()).session.remainingMs }; this.clockUncertain = false; }
             this.state = state;
         }
-        async refresh() {
-            try { const state = await this.store.read(); this.accept(state); if (!this.closed) { this.error = null; this.tick(); this.emit(); } return state; }
-            catch (error) { if (!this.closed) { this.error = error; this.emit(); } throw error; }
+        async refresh({ background = false } = {}) {
+            const feedback = feedbackOwners.get(this);
+            const generation = background ? feedback.generation : ++feedback.generation;
+            const ownsFeedback = () => generation === feedback.generation && (!background || !feedback.mutationError);
+            try {
+                const state = await this.store.read(); this.accept(state);
+                if (!this.closed) {
+                    // Notifications may publish committed state without dismissing
+                    // an unacknowledged or rejected user operation's feedback.
+                    if (ownsFeedback()) { this.error = null; feedback.mutationError = false; }
+                    this.tick(); this.emit();
+                }
+                return state;
+            } catch (error) {
+                if (!this.closed && ownsFeedback()) { this.error = error; feedback.mutationError = false; this.emit(); }
+                throw error;
+            }
         }
         tick(expectedRevision = this.state?.revision) {
             if (this.closed || !this.state || expectedRevision !== this.state.revision || this.state.session.status !== 'running') return false;
@@ -59,8 +75,14 @@
                 if (this.snapshot().session.status === 'uncertain') return Promise.reject(api.fault('CLOCK'));
             }
             const command = { kind, value, revision: this.state.revision };
-            this.error = null;
-            const promise = this.store.mutate(command).then(state => { this.accept(state); return state; }).catch(async error => {
+            const feedback = feedbackOwners.get(this);
+            feedback.generation++; feedback.mutationError = false; this.error = null;
+            const promise = this.store.mutate(command).then(state => {
+                feedback.generation++; feedback.mutationError = false;
+                if (!this.closed) this.error = null;
+                this.accept(state); return state;
+            }).catch(async error => {
+                feedback.generation++; feedback.mutationError = true;
                 if (!this.closed) { this.error = error;
                     // Do not replay an uncertain write or a stale command. Read committed state; user can choose again.
                     try { this.accept(await this.store.read()); } catch (_) {}
