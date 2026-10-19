@@ -144,7 +144,7 @@
         const presetSelect = el('select'); presetLabel.append(presetSelect);
         const presetHelp = el('p', 'prompt-help', t('PresetHelp', 'Save only the name, endpoint and model ID. Never enter credentials in these fields. Presets stay on this device and are excluded from backups. Selecting one does not grant access or send anything.'));
         const presetActions = el('div', 'prompt-actions');
-        let presets = [], selectedPreset = null, presetPending = Boolean(presetStore), presetAvailable = false, presetReloadEpoch = 0;
+        let presets = [], selectedPreset = null, presetPending = Boolean(presetStore), presetWriting = false, presetAvailable = false, presetReloadEpoch = 0;
         const actions = el('div', 'prompt-actions'), resultActions = el('div', 'prompt-actions');
         let reviewedStream = false, partialText = '', paintTimer = null, paintActive = null;
         let reviewed = null, response = null, aborter = null, busy = false, closed = false, saving = false, saved = false, permissionPending = false, suspended = false, command = null, cleanup, trialUI = null;
@@ -367,7 +367,7 @@
         }
         async function changePreset(removing) {
             if (closed || c.disposed || !presetAvailable || presetPending || busy || saving || permissionPending || response || (removing && !selectedPreset)) return;
-            presetPending = true; invalidateConnection();
+            presetPending = presetWriting = true; invalidateConnection();
             try {
                 const value = { name: presetName.value, url: url.value, model: model.value };
                 const result = removing ? await presetStore.remove(selectedPreset) : await presetStore.save(value, selectedPreset);
@@ -377,7 +377,7 @@
                 else { presetName.value = selectedPreset.name; url.value = selectedPreset.url; model.value = selectedPreset.model; }
                 renderPresets(); status.textContent = t(removing ? 'PresetDeleted' : 'PresetSaved', removing ? 'Connection preset deleted.' : 'Connection preset saved on this device. Review again before sending.');
             } catch (error) { if (!closed) status.textContent = presetFailure(error); }
-            finally { presetPending = false; if (!closed) update(); }
+            finally { presetPending = presetWriting = false; if (!closed) update(); }
         }
         const presetSave = button('PresetSave', 'Save connection preset', () => changePreset(false));
         const presetDelete = button('PresetDelete', 'Delete connection preset', () => changePreset(true));
@@ -416,7 +416,7 @@
             cleanup?.(); overlay.remove(); view.openDialog = false; view.cancelModelDialog = null; view.checkModelRun = null;
             if (view.refreshModelCopy === refreshCopyState) view.refreshModelCopy = null;
         }
-        function guard(event) { if (busy || saving || (response && !saved)) { event.preventDefault(); event.returnValue = ''; } }
+        function guard(event) { if (busy || saving || presetWriting || (response && !saved)) { event.preventDefault(); event.returnValue = ''; } }
         function hide() { trialUI?.hide(); suspend(); }
         function suspend() {
             const focused = view.doc.activeElement;

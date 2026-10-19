@@ -43,3 +43,20 @@ OS clipboard, real provider, paid API, permission grant and public release
 validation were not performed for this feature commit. No screenshots or test
 payloads were uploaded. Full combined regression and packaging remain the
 release integrator's separate verification step.
+
+## Pending preset changes and page departure
+
+The saved-prompt Run and Refine dialogs request a browser departure warning
+while an explicitly submitted connection-preset Save or Delete is awaiting its
+result. A separate write-only flag keeps initial loading, explicit Reload and
+ordinary unsaved connection fields outside this warning. Success or failure
+settles the flag; a failure does not automatically retry the operation.
+
+The existing dialog Close behavior is unchanged: it may close during a preset
+change, releasing that dialog's warning, while the already-submitted local
+write may still complete. Closing is not cancellation of the storage request.
+The 18 production-dialog/store model cases cover both Run and Refine, pending
+Save/Delete, clean reads and fields, settlement, failure and explicit Close.
+They verify that a warning is requested, not that a browser will display it or
+that navigation cannot interrupt persistence. No native warning was verified
+for this change, and it does not establish the cause of the upgrade incident.

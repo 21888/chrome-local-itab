@@ -1438,3 +1438,95 @@ test('run source reference: independent missing-reference notice is localized wi
         await click(h.ui.close); h.h.controller.dispose();
     }
 });
+
+// Real preset-store mutations with synthetic storage delays. These cases cover
+// browser departure separately from the existing explicit dialog Close policy.
+function presetDepartureFixture() {
+    let state = { version: 1, records: [{ name: 'Synthetic connection', url: 'https://synthetic.test/v1/chat/completions', model: 'fixture-model' }] };
+    let nextRead = null, nextWrite = null, queue = Promise.resolve();
+    const gates = [], calls = { reads: 0, writes: 0, commits: 0 };
+    const store = Presets.createStore({ chromeApi: { storage: { local: {
+        async get() {
+            calls.reads++; const snapshot = structuredClone(state), pending = nextRead; nextRead = null;
+            if (pending) await pending.promise;
+            return { [Presets.KEY]: snapshot };
+        },
+        async set(value) {
+            calls.writes++; const next = structuredClone(value[Presets.KEY]), pending = nextWrite; nextWrite = null;
+            if (pending) await pending.promise;
+            if (pending?.fail) throw new Error('Synthetic preset persistence failure');
+            state = next; calls.commits++;
+        }
+    } } }, locks: { request: (_, action) => { const result = queue.then(action); queue = result.catch(() => {}); return result; } } });
+    return { store, calls,
+        holdRead() { const pending = deferred(); gates.push(pending); nextRead = pending; return pending; },
+        holdWrite(fail = false) { const pending = deferred(); pending.fail = fail; gates.push(pending); nextWrite = pending; return pending; },
+        release() { gates.forEach(pending => pending.resolve()); } };
+}
+async function mountPresetDeparture(t, mode) {
+    const fixture = presetDepartureFixture(), h = await mount({ mode, presetStore: fixture.store }); await tick();
+    // prompts.js also installs this outer guard in production. Keep its real
+    // controller clean, so an unrelated prompt draft cannot mask this boundary.
+    h.root.LocalItabPromptsView.View.prototype.attachDepartureGuard.call(h.view);
+    assert.equal(h.h.controller.hasUncommittedWork(), false);
+    t.after(async () => { fixture.release(); await tick(); await click(h.ui.close); h.h.controller.dispose(); });
+    return { fixture, h };
+}
+function presetDepartureEvent(h) {
+    const event = { prevented: false, preventDefault() { this.prevented = true; } };
+    h.events.get('beforeunload')(event); return event;
+}
+function selectDeparturePreset(h) {
+    assert.equal(h.ui.presetSelect.disabled, false); h.ui.presetSelect.value = '0'; h.ui.presetSelect.dispatch('change');
+}
+function assertPresetDepartureNoExternal(h) { assert.equal(h.runs, 0); assert.equal(h.grants, 0); assert.equal(h.writes, 0); }
+
+for (const mode of ['run', 'refine']) {
+    test(`preset departure: ${mode} ordinary fields and pending read-only reload stay clean`, async t => {
+        const { fixture, h } = await mountPresetDeparture(t, mode);
+        h.ui.url.value = 'https://manual-synthetic.test/v1/chat/completions'; h.ui.url.dispatch('input');
+        h.ui.model.value = 'manual-synthetic-model'; h.ui.model.dispatch('input'); h.ui.presetName.value = 'Manual synthetic connection';
+        assert.equal(presetDepartureEvent(h).prevented, false);
+        const pending = fixture.holdRead(); await click(h.ui.presetReload);
+        assert.equal(presetDepartureEvent(h).prevented, false, 'reading metadata does not request a departure warning');
+        assert.equal(fixture.calls.writes, 0); pending.resolve(); await tick();
+        assert.equal(presetDepartureEvent(h).prevented, false); assertPresetDepartureNoExternal(h);
+    });
+    for (const operation of ['save', 'delete']) {
+        test(`preset departure: ${mode} pending ${operation} requests a browser warning`, async t => {
+            const { fixture, h } = await mountPresetDeparture(t, mode); selectDeparturePreset(h);
+            if (operation === 'save') { h.ui.model.value = 'pending-synthetic-model'; h.ui.model.dispatch('input'); }
+            fixture.holdWrite(); await click(operation === 'save' ? h.ui.presetSave : h.ui.presetDelete);
+            assert.equal(fixture.calls.writes, 1); assert.equal(fixture.calls.commits, 0);
+            assert.equal(h.h.controller.hasUncommittedWork(), false);
+            const event = presetDepartureEvent(h); assertPresetDepartureNoExternal(h);
+            assert.equal(event.prevented, true, 'pending explicit preset mutation must request a departure warning');
+            assert.equal(event.returnValue, '');
+        });
+        test(`preset departure: ${mode} settled ${operation} leaves clean departure state`, async t => {
+            const { fixture, h } = await mountPresetDeparture(t, mode); selectDeparturePreset(h);
+            const pending = fixture.holdWrite(); await click(operation === 'save' ? h.ui.presetSave : h.ui.presetDelete);
+            pending.resolve(); await tick(); assert.equal(fixture.calls.writes, 1); assert.equal(fixture.calls.commits, 1);
+            assert.match(h.ui.status.textContent, operation === 'save' ? /preset saved/ : /preset deleted/);
+            assert.equal(presetDepartureEvent(h).prevented, false); assertPresetDepartureNoExternal(h);
+        });
+        test(`preset departure: ${mode} rejected ${operation} settles cleanly without automatic replay`, async t => {
+            const { fixture, h } = await mountPresetDeparture(t, mode); selectDeparturePreset(h);
+            if (operation === 'save') { h.ui.model.value = 'failed-synthetic-model'; h.ui.model.dispatch('input'); }
+            const pending = fixture.holdWrite(true); await click(operation === 'save' ? h.ui.presetSave : h.ui.presetDelete);
+            pending.resolve(); await tick(); assert.match(h.ui.status.textContent, /Could not save or load presets/);
+            assert.equal(presetDepartureEvent(h).prevented, false, 'settled failure leaves metadata fields alone, not a pending write');
+            assert.equal(fixture.calls.writes, 1); assert.equal(fixture.calls.commits, 0); await tick();
+            assert.equal(fixture.calls.writes, 1); assertPresetDepartureNoExternal(h);
+        });
+        test(`preset departure: ${mode} Close stays available during ${operation} and old write may finish`, async t => {
+            const { fixture, h } = await mountPresetDeparture(t, mode); selectDeparturePreset(h);
+            const pending = fixture.holdWrite(); await click(operation === 'save' ? h.ui.presetSave : h.ui.presetDelete);
+            assert.equal(h.ui.close.disabled, false); await click(h.ui.close);
+            assert.equal(h.view.openDialog, false); assert.equal(h.ui.overlay.isConnected, false);
+            assert.equal(presetDepartureEvent(h).prevented, false, 'closed dialog releases departure ownership');
+            pending.resolve(); await tick(); assert.equal(fixture.calls.commits, 1); assert.equal(h.view.openDialog, false);
+            assertPresetDepartureNoExternal(h);
+        });
+    }
+}
