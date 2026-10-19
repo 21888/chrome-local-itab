@@ -230,7 +230,7 @@
             this.checkModelRun?.();
             this.checkExcerptDialog?.();
             this.checkStarterDialog?.();
-            if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
+            if (this.comparison && (c.selected !== this.comparison.recordId || c.draft() || c.linkedPromptUnavailable || c.error?.scope === 'read' || !c.record()?.history.some(v => v.id === this.comparison.from) || !c.record()?.history.some(v => v.id === this.comparison.to))) this.comparison = null;
             if (kind === 'draftPreview') { this.renderDraftPreview(); return; }
             if (kind === 'draftPreviewValues') { this.updateDraftPreview(); return; }
             if (kind === 'linkedResults') { this.updateLinkedResults(); this.updatePreview(); if (this.draftPreviewElements) this.updateMissingVariableButton(this.draftPreviewElements, true); this.historyDraftActions?.update(); return; }
@@ -926,13 +926,13 @@
         renderComparison(record, history) {
             const c = this.controller, panel = this.el('section', 'prompt-comparison');
             const opener = this.focusKey(this.button('Compare', 'Compare saved versions', () => {
-                if (c.selected !== record.id || c.error?.scope === 'read') return;
+                if (c.selected !== record.id || c.linkedPromptUnavailable || c.error?.scope === 'read') return;
                 const from = record.history.find(v => v.id === this.historyId) || record.history[0];
                 const to = record.history.find(v => v.id !== from.id && v.id === record.currentVersionId) || record.history.find(v => v.id !== from.id) || from;
                 this.comparison = { recordId: record.id, from: from.id, to: to.id }; paint();
                 panel.querySelector('select')?.focus();
             }), 'compare-open');
-            opener.disabled = c.error?.scope === 'read';
+            opener.disabled = c.linkedPromptUnavailable || c.error?.scope === 'read';
             const close = () => { this.comparison = null; paint(); opener.focus(); };
             panel.addEventListener('keydown', event => {
                 if (event.key === 'Escape' && !event.isComposing && event.keyCode !== 229 && !event.repeat) { event.preventDefault(); event.stopPropagation(); close(); }
@@ -951,7 +951,7 @@
                         const option = this.el('option', '', `v${index + 1} · ${this.date(version.createdAt)}`); option.value = version.id; select.append(option);
                     }
                     select.value = state[side]; select.addEventListener('change', () => {
-                        if (this.comparison !== state || c.selected !== record.id || c.error?.scope === 'read' || !record.history.some(v => v.id === select.value)) return;
+                        if (this.comparison !== state || c.selected !== record.id || c.linkedPromptUnavailable || c.error?.scope === 'read' || !record.history.some(v => v.id === select.value)) return;
                         state[side] = select.value; paint(); panel.querySelector(`[data-prompt-focus="compare-${side}"]`)?.focus();
                     }); label.append(select); selectors.append(label);
                 }
