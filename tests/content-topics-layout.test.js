@@ -67,3 +67,13 @@ test('long literal titles wrap and action groups can move without truncation', (
     assert.match(source, /titleEl\.textContent = title;/);
     assert.match(source, /actions\.append\(editBtn, deleteBtn\);/);
 });
+
+test('manual topic scores are visually separated without changing literal title or number text', () => {
+    const score = unique('.topic-score').trim();
+    assert.equal(score, 'margin-inline-start: var(--spacing-sm);', 'only a logical gap, no clipping, generated text or data formatting');
+    assert.match(read('options.css'), /--spacing-sm:\s*12px;/);
+    const source = read('options.js');
+    assert.match(source, /titleEl\.textContent = title;/);
+    assert.match(source, /scoreEl\.textContent = String\(score\);/);
+    assert.match(source, /content\.append\(titleEl, scoreEl\);/);
+});
