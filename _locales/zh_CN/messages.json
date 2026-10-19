@@ -8488,5 +8488,8 @@
   },
   "settingsUnloadedForm": {
     "message": "设置未能完成加载。显示的值可能是默认值或不完整的内容，并非已校验的已保存设置副本。此页面无法编辑或保存。你可以返回仪表盘，或刷新后重试。"
+  },
+  "settingsInitialLoading": {
+    "message": "正在加载设置，当前暂不可编辑。"
   }
 }

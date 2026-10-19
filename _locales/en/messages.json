@@ -8488,5 +8488,8 @@
   },
   "settingsUnloadedForm": {
     "message": "Settings did not finish loading. The values shown may be defaults or incomplete; they are not a verified copy of your saved settings. Editing and saving are unavailable on this page. You can return to the dashboard or reload to try again."
+  },
+  "settingsInitialLoading": {
+    "message": "Loading settings. Editing is temporarily unavailable."
   }
 }

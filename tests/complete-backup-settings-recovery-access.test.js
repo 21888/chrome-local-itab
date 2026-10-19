@@ -1009,3 +1009,141 @@ test('first-load gate does not relock an owned draft when a later startup read f
     m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true);
     noDashboardNavigation(m); unchanged(m, before);
 });
+
+function addHiddenWorkspaceAndSyncPanels(m) {
+    // Match real options.html rather than counting hidden Sync placeholders or
+    // the workspace manager's hidden status as a reachable Settings message.
+    const panel = id => { const node = m.document.createElement('div'); node.id = id; node.className = 'tab-panel'; node.style.display = 'none'; m.main.append(node); return node; };
+    const workspace = panel('tab-workspaces'), manager = m.document.createElement('div'); manager.id = 'workspace-manager'; workspace.append(manager);
+    const sync = panel('tab-sync');
+    for (const id of ['cloud-sync-status', 'drive-backup-status']) {
+        const status = m.document.createElement('div'); status.id = id; status.className = 'cloud-sync-status';
+        const placeholder = m.document.createElement('strong'); placeholder.textContent = 'Loading…'; placeholder.setAttribute('data-i18n', 'loading');
+        status.append(placeholder); sync.append(status);
+    }
+}
+function settingsLoadingNotices(m) {
+    return m.document.querySelectorAll('[role="status"]').filter(node => node.getClientRects().length && !node.closest('[inert]') &&
+        /loading/i.test(node.textContent) && /settings/i.test(node.textContent));
+}
+function settingsLoadingNotice(m) {
+    const notices = settingsLoadingNotices(m);
+    assert.equal(notices.length, 1, 'one visible Settings loading status explains the first-load gate');
+    const notice = notices[0];
+    assert(m.container.contains(notice)); assert.equal(m.main.contains(notice), false); assert.equal(m.footer.contains(notice), false);
+    assert.equal(notice.querySelectorAll('input, button, select, textarea').length, 0, 'loading feedback cannot offer an unlock or write action');
+    assert.equal([...notice.listeners.values()].reduce((sum, list) => sum + list.length, 0), 0, 'the status needs no action listener');
+    return notice;
+}
+
+for (const boundary of ['configuration read', 'quota read']) test(`initial loading status remains reachable after workspace mount while the real ${boundary} waits`, async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    addHiddenWorkspaceAndSyncPanels(m); delete m.f.chrome.storage.sync;
+    const gate = deferred(); let entered = false, notice;
+    if (boundary === 'configuration read') {
+        m.f.hooks.read = async (keys, raw) => {
+            if (!entered && m.document.querySelector('.spaces-switch')?.textContent.includes('Work') && m.document.querySelector('.spaces-status')?.textContent === '') {
+                entered = true; await gate.promise;
+            }
+            return copy(keys === null ? raw : Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+        };
+        m.f.chrome.storage.local.getBytesInUse = async () => 0;
+    } else m.f.chrome.storage.local.getBytesInUse = async () => { entered = true; await gate.promise; return 0; };
+    m.back.focus(); const loading = m.start();
+    try {
+        await until(() => entered);
+        assert.equal(m.manager.workspace.id, 'work'); assert.match(m.document.querySelector('.spaces-switch').textContent, /Work/);
+        assert.equal(m.document.querySelector('.spaces-status').textContent, '', 'workspace loading has already finished');
+        assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true);
+        assert.equal(Boolean(m.window.settingsFormView), boundary === 'quota read');
+        notice = settingsLoadingNotice(m);
+        assert.equal(m.document.activeElement, m.back, 'announcing progress never moves focus');
+        noDashboardNavigation(m); unchanged(m, before);
+    } finally { gate.resolve(); await loading; delete m.f.hooks.read; }
+    assert.equal(notice.isConnected, false, 'successful completion removes its loading status');
+    assert.equal(settingsLoadingNotices(m).length, 0); assert.equal(m.main.inert, false); assert.equal(m.footer.inert, false);
+    assert.equal(m.document.activeElement, m.back); noDashboardNavigation(m); unchanged(m, before);
+});
+
+test('initial loading status is a single instance until the last concurrent startup settles', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    delete m.f.chrome.storage.sync;
+    const first = holdStartupRead(m), quotaGate = deferred(); let quotaReads = 0, notice;
+    m.f.chrome.storage.local.getBytesInUse = async () => { if (++quotaReads === 2) await quotaGate.promise; return 0; };
+    m.back.focus(); const firstLoading = m.start(); let secondLoading;
+    try {
+        await first.entered.promise; notice = settingsLoadingNotice(m);
+        secondLoading = m.start(); assert.equal(settingsLoadingNotice(m), notice);
+        first.gate.resolve(); await until(() => quotaReads === 2); await Promise.race([firstLoading, secondLoading]);
+        assert.equal(settingsLoadingNotice(m), notice, 'an earlier finally cannot remove the status of remaining initial work');
+        assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true); assert.equal(m.document.activeElement, m.back);
+        noDashboardNavigation(m); unchanged(m, before);
+    } finally { first.gate.resolve(); quotaGate.resolve(); await Promise.all([firstLoading, secondLoading]); delete m.f.hooks.read; }
+    assert.equal(notice.isConnected, false); assert.equal(settingsLoadingNotices(m).length, 0);
+    assert.equal(m.back.listeners.get('click')?.length, 1); assert.equal(m.document.activeElement, m.back); unchanged(m, before);
+});
+
+for (const failure of ['pending restore', 'missing Default bundle', 'unrelated read']) test(`initial loading status yields to existing ${failure} protection without concealing the failure`, async t => {
+    const f = failure === 'pending restore' ? await interrupted() : failure === 'missing Default bundle' ? await damagedSettings(failure) : fixture();
+    const m = model(f, 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(f.raw);
+    const {gate, entered} = holdStartupRead(m, failure === 'unrelated read' ? Error('Synthetic loading-status read failure') : null);
+    m.back.focus(); const loading = m.start(); let notice;
+    try {
+        await entered.promise; notice = settingsLoadingNotice(m);
+        assert.equal(m.document.activeElement, m.back); noDashboardNavigation(m); unchanged(m, before);
+    } finally { gate.resolve(); await loading; delete f.hooks.read; }
+    assert.equal(notice.isConnected, false, 'a settled error is not still described as loading');
+    assert.equal(settingsLoadingNotices(m).length, 0); assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true);
+    // Check automatic behavior before downloadOnlyIsolation deliberately tests
+    // the recovery host's programmatic focus. Avoid formatting circular DOMs.
+    assert(m.document.activeElement === m.back, 'failure handoff must not move focus');
+    if (failure === 'unrelated read') {
+        assert(m.calls.errors.some(args => args.some(error => error?.code === 'WORKSPACE_READ')));
+        const failed = m.document.getElementById('settings-unloaded-notice'); assert(failed?.getClientRects().length && !failed.closest('[inert]'));
+        assert.equal(failed.getAttribute('role'), 'alert'); assert.equal(m.view, undefined);
+    } else if (failure === 'pending restore') isolated(m); else downloadOnlyIsolation(m);
+    noDashboardNavigation(m); unchanged(m, before);
+});
+
+test('initial loading status is not recreated for an already owned draft during a failed retry', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    delete m.f.chrome.storage.sync; m.f.chrome.storage.local.getBytesInUse = async () => 0;
+    await m.start(); const form = m.window.settingsFormView; assert(form);
+    const field = m.document.getElementById('quote-text'); field.value = 'Synthetic owned draft while retrying';
+    const draft = field.value; assert.equal(form.hasUncommittedWork(), true);
+    assert.equal(settingsLoadingNotices(m).length, 0);
+    const {gate, entered} = holdStartupRead(m, Error('Synthetic owned-form retry failure'));
+    m.back.focus(); const loading = m.start();
+    try {
+        await entered.promise;
+        assert.equal(settingsLoadingNotices(m).length, 0, 'an owned draft is not a newly locked first-load form');
+        assert.equal(m.main.inert, false); assert.equal(m.footer.inert, false);
+        assert.equal(m.window.settingsFormView, form); assert.equal(field.value, draft); assert.equal(form.hasUncommittedWork(), true);
+        assert.equal(m.document.activeElement, m.back); unchanged(m, before);
+    } finally { gate.resolve(); await loading; delete m.f.hooks.read; }
+    assert.equal(settingsLoadingNotices(m).length, 0); assert.equal(m.document.getElementById('settings-unloaded-notice'), null);
+    assert.equal(m.window.settingsFormView, form); assert.equal(field.value, draft); assert.equal(form.hasUncommittedWork(), true);
+    assert.equal(m.document.activeElement, m.back); noDashboardNavigation(m); unchanged(m, before);
+});
+
+test('initial loading status cleans up an actual setup exception without leaving initialization pending', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    const failure = Error('Synthetic Back listener setup failure'), addListener = m.back.addEventListener;
+    let failedOnce = false, createdNotice;
+    m.back.addEventListener = function(type, fn) {
+        if (type === 'click' && !failedOnce) { failedOnce = true; createdNotice = settingsLoadingNotices(m)[0]; throw failure; }
+        return addListener.call(this, type, fn);
+    };
+    m.back.focus(); await m.start();
+    assert.equal(failedOnce, true); assert(m.calls.errors.some(args => args.includes(failure)), 'the original setup exception remains reported');
+    assert.equal(settingsLoadingNotices(m).length, 0); if (createdNotice) assert.equal(createdNotice.isConnected, false);
+    // Read the actual lexical counters; neither lifecycle nor startup is stubbed.
+    assert.equal(vm.runInContext('settingsInitializations', m.ctx), 0);
+    assert.equal(vm.runInContext('settingsInitializing', m.ctx), false);
+    assert.equal(m.window.settingsFormView, undefined); assert.equal(m.view, undefined);
+    assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true);
+    for (const area of [m.main, m.footer]) for (const control of area.querySelectorAll('input, button, select, textarea')) assert.equal(control.disabled, true);
+    assert(m.document.getElementById('settings-unloaded-notice')?.getClientRects().length);
+    assert.equal(m.document.activeElement, m.back); assert.equal(m.calls.localReads, 0);
+    noDashboardNavigation(m); unchanged(m, before);
+});

@@ -97,6 +97,14 @@ test('preserved Options CSS guard rejects other edits and broadened reviewed rul
 // unrelated status panels are stubs; native external navigation is not modeled.
 async function assertPassiveGuide(source=optionsSource,locale='en') {
  const document=createDocument(), calls=[], errors=[], stages=[];
+ // This document owns its Element class; leave the shared DOM model unchanged.
+ Object.getPrototypeOf(document.body).prepend=function(...children){
+  const nodes=children.flatMap(child=>child.tagName==='#FRAGMENT'?[...child.children]:[child]);
+  const ordered=nodes.filter((child,index)=>nodes.lastIndexOf(child)===index);
+  for(const child of ordered)child.remove();
+  this.children.unshift(...ordered);
+  for(const child of ordered)child.parentElement=this;
+ };
  const node=(tag,id,parent=document.body)=>{const el=document.createElement(tag);el.id=id;parent.append(el);return el;};
  const host=node('section','settings-search');
  const input=node('input','settings-search-input',host);node('button','settings-search-clear',host);
@@ -125,7 +133,9 @@ async function assertPassiveGuide(source=optionsSource,locale='en') {
  const chrome={permissions:{request:record('permission request'),contains:record('permission read')},
   scripting:{executeScript:record('scripting')},cookies:{getAll:record('cookies')},
   tabs:{create:record('tabs.create'),query:record('tabs.query')},runtime:{sendMessage:record('runtime message')}};
- const context=vm.createContext({window,document,chrome,storageManager:{getRecoveryAvailability:async()=>({})},
+ // Browser window properties are global bindings. This VM separates the two,
+ // so expose the same preloaded i18n object for production t() as well.
+ const context=vm.createContext({window,document,chrome,i18n:window.i18n,storageManager:{getRecoveryAvailability:async()=>({})},
   fetch:record('fetch'),XMLHttpRequest:record('XHR'),WebSocket:record('WebSocket'),EventSource:record('EventSource'),
   navigator:{sendBeacon:record('beacon')},setTimeout:record('timer'),clearTimeout(){},
   console:{log(){},warn(){},error:(...args)=>errors.push(args)}});
@@ -134,7 +144,13 @@ async function assertPassiveGuide(source=optionsSource,locale='en') {
  context.initializeOptionsPage=async()=>stages.push('initialized');
  context.displayStorageInfo=context.renderSyncStatus=context.renderDriveBackupPanel=async()=>{};
  context.showErrorMessage=message=>errors.push(message);
- await document.listeners.get('DOMContentLoaded')();
+ const loaded=document.listeners.get('DOMContentLoaded')();
+ const loading=document.getElementById('settings-loading-notice');
+ assert(loading&&loading.parentElement===document.body&&document.body.children[0]===loading);
+ assert.equal(loading.getAttribute('role'),'status');assert.equal(loading.textContent,locales[locale].settingsInitialLoading.message);
+ assert.equal(document.querySelectorAll('#settings-loading-notice').length,1);
+ await loaded;
+ assert.equal(document.getElementById('settings-loading-notice'),null);assert.equal(loading.parentElement,null);assert.equal(loading.isConnected,false);
  assert.deepEqual(stages,['initialized','localized']);assert.deepEqual(errors,[],'startup completed');
  for(const key of ['subscriptionUsageCodexOpen','subscriptionUsageGrokOpen']){
   input.value=locales[locale][key].message;input.dispatch('input');

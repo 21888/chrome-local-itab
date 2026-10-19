@@ -679,6 +679,7 @@ const dashboardNavigationButtons = new WeakSet();
 let settingsInitializing = true;
 let settingsInitializations = 0;
 let settingsInitialLoadAreas = null;
+let settingsInitialLoadNotice = null;
 function setupDashboardNavigation() {
     // Back to dashboard button
     const backButton = document.getElementById('back-to-dashboard');
@@ -702,15 +703,20 @@ function setupDashboardNavigation() {
 document.addEventListener('DOMContentLoaded', async function() {
     settingsInitializing = true;
     ++settingsInitializations;
-    if (!window.settingsFormView && !settingsInitialLoadAreas) {
-        settingsInitialLoadAreas = Array.from(document.querySelectorAll('.options-main, .options-footer'))
-            .filter(area => area.id !== 'interrupted-settings-recovery').map(area => ({area, inert: area.inert}));
-        for (const {area} of settingsInitialLoadAreas) area.inert = true;
-    }
-    setupDashboardNavigation();
-    console.log('Local iTab options page loaded');
-    
     try {
+        if (!window.settingsFormView && !settingsInitialLoadAreas) {
+            settingsInitialLoadAreas = Array.from(document.querySelectorAll('.options-main, .options-footer'))
+                .filter(area => area.id !== 'interrupted-settings-recovery').map(area => ({area, inert: area.inert}));
+            for (const {area} of settingsInitialLoadAreas) area.inert = true;
+        }
+        setupDashboardNavigation();
+        console.log('Local iTab options page loaded');
+        if (settingsInitialLoadAreas && !settingsInitialLoadNotice) {
+            settingsInitialLoadNotice = document.createElement('p'); settingsInitialLoadNotice.className = 'form-hint';
+            settingsInitialLoadNotice.id = 'settings-loading-notice'; settingsInitialLoadNotice.setAttribute('role', 'status');
+            settingsInitialLoadNotice.textContent = t('settingsInitialLoading', 'Loading settings. Editing is temporarily unavailable.');
+            (document.querySelector('.options-container') || document.body).prepend(settingsInitialLoadNotice);
+        }
         // Initialize options page with stored data
         await window.LocalItabWorkspacesView?.mountPage();
         await initializeOptionsPage();
@@ -744,6 +750,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         showErrorMessage(t('settingsLoadFailed', 'Failed to load settings. Please try refreshing the page.'));
     } finally {
         settingsInitializing = --settingsInitializations > 0;
+        if (!settingsInitializing) {
+            settingsInitialLoadNotice?.remove(); settingsInitialLoadNotice = null;
+        }
         if (!settingsInitializing && settingsInitialLoadAreas) {
             // Only the last startup may release the original areas. Protection
             // failures keep their lock; new recovery hosts were never included.

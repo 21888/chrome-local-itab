@@ -146,8 +146,38 @@ test('normal Settings button opens a Settings URL pinned to the loaded workspace
     await listeners[0](); settings.dispatch('click'); assert.equal(options, 1);
 });
 
+function createSettingsDocument() {
+    const document = createDocument();
+    // This Element class belongs to this document only. Keep the shared helper
+    // unchanged, and use its real removal bookkeeping when moving nodes.
+    Object.getPrototypeOf(document.body).prepend = function(...children) {
+        const nodes = children.flatMap(child => child.tagName === '#FRAGMENT' ? [...child.children] : [child]);
+        const ordered = nodes.filter((child, index) => nodes.lastIndexOf(child) === index);
+        for (const child of ordered) child.remove();
+        this.children.unshift(...ordered);
+        for (const child of ordered) child.parentElement = this;
+    };
+    return document;
+}
+test('local Settings DOM prepend and remove preserve ownership and sibling order', () => {
+    const document = createSettingsDocument(), first = document.createElement('p'), second = document.createElement('p');
+    const previous = document.createElement('div'), last = document.createElement('div');
+    document.body.append(previous, last); previous.append(first, second);
+    document.body.prepend(first, second);
+    assert.deepEqual(document.body.children, [first, second, previous, last]); assert.equal(previous.children.length, 0);
+    assert(first.parentElement === document.body && second.parentElement === document.body);
+    assert(first.isConnected && second.isConnected);
+    document.body.prepend(second, first, second);
+    assert.deepEqual(document.body.children, [first, second, previous, last], 'moving existing nodes never duplicates them');
+    first.remove(); first.remove();
+    assert.deepEqual(document.body.children, [second, previous, last]); assert.equal(first.parentElement, null); assert.equal(first.isConnected, false);
+    const fragment = document.createDocumentFragment(); fragment.append(first);
+    document.body.prepend(fragment); assert.equal(fragment.children.length, 0);
+    assert(first.parentElement === document.body); assert.deepEqual(document.body.children, [first, second, previous, last]);
+});
+
 function settings(hash = '#import-settings-btn', compact = false) {
-    const document = createDocument(), timers = [], scrolls = [], errors = [], ready = deferred();
+    const document = createSettingsDocument(), timers = [], scrolls = [], errors = [], ready = deferred();
     const html = fs.readFileSync('options.html', 'utf8');
     const tablist = document.createElement('aside'); tablist.className = 'options-tabs'; document.body.append(tablist);
     const content = document.createElement('div'); content.className = 'options-content'; document.body.append(content);
@@ -181,8 +211,13 @@ function settings(hash = '#import-settings-btn', compact = false) {
 test('actual Options DOM-ready flow waits for initialization, selects Data, and focuses Import without activation', async () => {
     for (const compact of [false, true]) {
         const h = settings('#import-settings-btn', compact);
+        const loading = h.document.getElementById('settings-loading-notice');
+        assert(loading && loading.parentElement === h.document.body && h.document.body.children[0] === loading);
+        assert.equal(loading.getAttribute('role'), 'status'); assert.equal(h.document.querySelectorAll('#settings-loading-notice').length, 1);
         assert.equal(h.timers.length, 0); assert.equal(h.button.listeners.size, 0); assert.ok(h.document.activeElement === h.document.body, "expected focus ownership");
         h.ready.resolve(); await h.loaded; assert.deepEqual(h.errors, []);
+        assert.equal(h.document.getElementById('settings-loading-notice'), null); assert.equal(loading.parentElement, null);
+        assert.equal(loading.isConnected, false); assert.equal(h.document.body.children.includes(loading), false);
         assert(h.panels.data.classList.contains('active')); assert.equal(h.tabs.find(tab => tab.getAttribute('aria-selected') === 'true').dataset.tab, 'data');
         assert.ok(h.document.activeElement === h.document.body, "expected focus ownership"); h.runTimers();
         assert.ok(h.document.activeElement === h.button, "expected focus ownership"); assert.equal(h.scrolls.at(-1).target, h.button);
