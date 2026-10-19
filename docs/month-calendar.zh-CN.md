@@ -32,3 +32,5 @@
 窄屏展开时，时钟会在页头独占一行；收起时原有布局不变。月历没有需要备份或同步的状态。
 
 参见[验证范围与原生检查](month-calendar-validation.md)、[日期间隔结果复制检查](month-calendar-interval-copy-validation.md)、[交换日期检查](month-calendar-interval-swap-validation.md)、[起止日期填入今天检查](month-calendar-interval-today-validation.md)与[清空日期检查](month-calendar-interval-clear-validation.md)。
+
+打开月历后立即操作控件时，延后到达的原生展开通知不会重新收起日期间隔，也不会重置刚切换的月份。参见[快速打开与键盘操作验证](month-calendar-opening-validation.md)。

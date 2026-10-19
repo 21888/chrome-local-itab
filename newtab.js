@@ -1881,16 +1881,30 @@ class ClockComponent {
         const active = source => this.monthCalendar === view && this.isMonthCalendarActive(source);
         const intervalActive = source => interval.details.open && interval.details.contains(source) && active(source);
         const composing = () => view.composing || interval.startState.composing || interval.endState.composing;
+        const initializeOpening = now => {
+            this.calendarMonth = window.MonthCalendar.localTuple(now);
+            this.syncMonthCalendarDraft();
+            this.clearMonthCalendarInterval();
+        };
+        summary.addEventListener('click', event => {
+            if (event.defaultPrevented || event.button > 0 || details.open || this.monthCalendar !== view ||
+                !this.enabled || document.hidden || document.body.classList.contains('dashboard-hidden') ||
+                !this.isMonthCalendarVisible(summary)) return;
+            // Native activation exposes the controls before its queued toggle.
+            // Initialize before the default open, without replacing that action.
+            initializeOpening(new Date());
+            view.preparedOpening = event;
+        });
         details.addEventListener('toggle', event => {
             if (event.target !== details || this.monthCalendar !== view || !details.isConnected) return;
             if (!details.open) { this.closeMonthCalendar(); return; }
             if (!active(summary)) { this.closeMonthCalendar(); return; }
-            // Native toggle events may coalesce. Reinitialize the draft on every
-            // opening, even when the table's same-month render key is unchanged.
+            const prepared = view.preparedOpening && !view.preparedOpening.defaultPrevented;
+            view.preparedOpening = null;
             const now = new Date();
-            this.calendarMonth = window.MonthCalendar.localTuple(now);
-            this.syncMonthCalendarDraft();
-            this.clearMonthCalendarInterval();
+            // Programmatic/coalesced openings retain the existing fresh-session
+            // fallback. A native opening must not clear newer interval actions.
+            if (!prepared) initializeOpening(now);
             this.updateMonthCalendar(now);
         });
         const navigate = (delta, source) => {
@@ -2253,6 +2267,7 @@ class ClockComponent {
 
     closeMonthCalendar() {
         if (!this.monthCalendar) return;
+        this.monthCalendar.preparedOpening = null;
         this.monthCalendar.details.open = false;
         this.monthCalendar.announcement.textContent = '';
         this.calendarMonth = null;

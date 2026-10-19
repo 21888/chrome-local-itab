@@ -32,3 +32,5 @@ Each field has its own IME completion state. Composition Enter and held Enter do
 On narrow screens, opening the viewer moves the clock into its own header row. The collapsed layout is unchanged. There is no calendar state to back up or sync.
 
 See [validation scope and native checks](month-calendar-validation.md), [date-result copy checks](month-calendar-interval-copy-validation.md), [swap-date checks](month-calendar-interval-swap-validation.md) [endpoint-today checks](month-calendar-interval-today-validation.md) and [clear-date checks](month-calendar-interval-clear-validation.md).
+
+Opening the calendar and immediately using its controls keeps those new actions; a delayed native opening notification does not fold Date interval or reset a newly requested month. See [opening-order validation](month-calendar-opening-validation.md).

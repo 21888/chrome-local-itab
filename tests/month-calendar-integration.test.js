@@ -653,3 +653,67 @@ test('a hidden or disabled endpoint rejects even a visible calculate button and 
         const h = model(); h.open(); assert.equal(h.context.shouldToggleFromEvent({ target: h.view.interval[nodeName] }), false);
     }
 });
+
+
+// Native details toggles are queued: later opening notification must not erase
+// interactions already made in the newly visible calendar. The browser trace
+// exercises real Return / Tab / Space; this model controls only event order.
+test('queued calendar opening preserves an interval already opened and edited by native activation', () => {
+    const h = model(), v = h.view, x = v.interval;
+    v.summary.dispatch('click'); v.details.open = true; // browser default action
+    x.details.open = true; x.details.dispatch('toggle');
+    v.year.value = '0200'; v.month.value = '1';
+    x.start.value = '2024-02-28'; x.end.value = '2024-03-01'; x.calculate.dispatch('click');
+    const result = x.result.textContent; x.end.focus();
+    v.details.dispatch('toggle'); // delayed native notification
+    assert.equal(x.details.open, true);
+    assert.deepEqual([v.year.value, v.month.value, x.start.value, x.end.value], ['0200', '1', '2024-02-28', '2024-03-01']);
+    assert.equal(x.result.textContent, result); assert.match(result, /\+2 calendar days/);
+    assert.equal(h.document.activeElement, x.end); assert.equal(h.intervalCreations, 1);
+    h.clock.stop();
+});
+
+test('queued calendar opening does not overwrite an already requested month navigation', () => {
+    const h = model(), v = h.view;
+    v.summary.dispatch('click'); v.details.open = true;
+    v.next.focus(); v.next.dispatch('click');
+    const caption = v.caption.textContent; assert.match(caption, /November/);
+    v.details.dispatch('toggle');
+    assert.equal(v.caption.textContent, caption); assert.equal(v.month.value, '10');
+    assert.equal(h.document.activeElement, v.next); h.clock.stop();
+});
+
+test('closing before an opening notification still clears drafts and makes the next opening fresh', () => {
+    const h = model(), v = h.view;
+    v.summary.dispatch('click'); v.details.open = true;
+    v.interval.details.open = true; v.interval.start.value = '2024-02-28';
+    h.clock.closeMonthCalendar();
+    h.at(2027, 0, 1, 12); v.details.open = true; v.details.dispatch('toggle');
+    assert.equal(v.year.value, '2027'); assert.equal(v.month.value, '0');
+    assert.equal(v.interval.details.open, false); assert.equal(v.interval.start.value, '');
+    h.clock.stop();
+});
+
+
+test('cancelled native opening cannot skip initialization of a later programmatic opening', () => {
+    const h = model(), v = h.view;
+    const click = v.summary.dispatch('click');
+    // The bounded helper has no native default-action machinery. This is the
+    // defaultPrevented flag a later listener would set on the same real event.
+    click.defaultPrevented = true;
+    h.at(2027, 0, 1, 12); v.details.open = true; v.details.dispatch('toggle');
+    assert.equal(v.year.value, '2027'); assert.equal(v.month.value, '0');
+    assert.equal(v.preparedOpening, null); h.clock.stop();
+});
+
+test('hidden or retired summary activation cannot preinitialize a calendar draft', () => {
+    for (const hide of [h => { h.host.hidden = true; }, h => { h.document.hidden = true; },
+        h => { h.host.inert = true; }, h => { h.context.document.body.classList.add('dashboard-hidden'); },
+        h => h.clock.createMonthCalendar()]) {
+        const h = model(), old = h.view; hide(h);
+        const before = [old.year.value, old.month.value, old.interval.start.value];
+        old.summary.dispatch('click');
+        assert.deepEqual([old.year.value, old.month.value, old.interval.start.value], before);
+        assert.equal(old.preparedOpening, undefined); h.clock.stop();
+    }
+});
