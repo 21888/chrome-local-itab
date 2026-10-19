@@ -1028,7 +1028,7 @@ function setupEventListeners() {
     const saveButton = document.getElementById('save-settings');
     if (saveButton) {
         saveButton.addEventListener('click', async function() {
-            await saveAllSettings(true);
+            await saveAllSettings(true, saveButton);
         });
     }
     
@@ -2226,10 +2226,38 @@ async function deleteDriveSnapshot(snapshot) {
     });
 }
 
-async function saveAllSettings(includeWorldClocks = false) {
+// Explicit Save may reveal its own invalid search draft; auto-save and late
+// storage failures must never navigate away from the user's newer work.
+function focusSubmittedSearchError(owner) {
+    if (!owner) return;
+    const {trigger, input, engine, value, engineValue} = owner;
+    const current = () => document.visibilityState !== 'hidden' &&
+        document.getElementById('save-settings') === trigger && trigger.isConnected && !trigger.disabled &&
+        document.activeElement === trigger && !trigger.closest('[hidden], [inert]') && trigger.getClientRects().length &&
+        document.getElementById('search-custom') === input && input.isConnected && !input.disabled &&
+        document.getElementById('search-engine') === engine && engine.isConnected &&
+        input.value === value && engine.value === engineValue && !input.closest('[hidden], [inert]');
+    if (!current()) return;
+    const panel = input.closest('.tab-panel');
+    const tab = document.querySelector('.tab-button[data-tab="content"]');
+    if (!panel || panel !== document.getElementById('tab-content') || panel.dataset.tab !== 'content' ||
+        !tab?.isConnected || tab.disabled || tab.closest('[hidden], [inert]')) return;
+    if (!panel.classList.contains('active')) tab.click();
+    if (!current() || !panel.contains(input) || !panel.classList.contains('active') || !input.getClientRects().length ||
+        window.getComputedStyle?.(input)?.visibility === 'hidden') return;
+    input.focus({preventScroll: true});
+    input.scrollIntoView({behavior: 'instant', block: 'center'});
+}
+
+async function saveAllSettings(includeWorldClocks = false, validationTrigger = null) {
     if (settingsReplacementPending) return;
     if (bookmarkImportPending) { bookmarkDeferredSettingsSave = true; bookmarkDeferredWorldClockSave ||= includeWorldClocks; return; }
     const session = settingsSession;
+    const searchInput = validationTrigger && document.getElementById('search-custom');
+    const searchEngine = validationTrigger && document.getElementById('search-engine');
+    const searchFocus = searchInput && searchEngine && document.getElementById('save-settings') === validationTrigger &&
+        document.activeElement === validationTrigger ? {trigger: validationTrigger, input: searchInput, engine: searchEngine,
+            value: searchInput.value, engineValue: searchEngine.value} : null;
     const submittedClock = clockFormSnapshot(includeWorldClocks);
     const submittedCategories = categorySnapshot(getCategoriesFromDOM());
     const submittedCategorySignature = bookmarkCategorySignature();
@@ -2249,6 +2277,7 @@ async function saveAllSettings(includeWorldClocks = false) {
     ++worldClockSaves;
     return queueSettingsWrite(async () => {
         if (session !== settingsSession || settingsReplacementPending) return;
+        let invalidSearch = false;
         try {
             showMessage(t('settingsSaving', 'Saving settings...'), 'info');
             if (collectError) throw collectError;
@@ -2262,9 +2291,12 @@ async function saveAllSettings(includeWorldClocks = false) {
                 if (JSON.stringify(submittedForm.bg) !== JSON.stringify(settingsFormBaseline.bg)) paths.push('bg');
             }
             if (paths.includes('search') && submittedForm.search.engine === 'custom') {
-                if (!submittedForm.search.custom) throw new Error(t('customSearchUrlRequired', 'Custom search URL is required'));
+                if (!submittedForm.search.custom) {
+                    invalidSearch = true;
+                    throw new Error(t('customSearchUrlRequired', 'Custom search URL is required'));
+                }
                 try { submittedForm.search.custom = normalizeSearchTemplateForOptions(submittedForm.search.custom); }
-                catch (_) { throw new Error(t('customSearchUrlInvalid', 'Enter a valid HTTP or HTTPS search URL')); }
+                catch (_) { invalidSearch = true; throw new Error(t('customSearchUrlInvalid', 'Enter a valid HTTP or HTTPS search URL')); }
             }
             const settings = Object.fromEntries([...new Set(paths.map(path => path.split('.')[0]))].map(key => [key, storageManager.validateData(key, submittedForm[key])]));
             if (paths.includes('privacy.onlineFavicons') && submittedForm.privacy.onlineFavicons &&
@@ -2316,6 +2348,7 @@ async function saveAllSettings(includeWorldClocks = false) {
             console.error('Error saving settings:', error);
             const detail = error.code?.startsWith('SETTINGS_') ? settingsNotice(error) : error.code === 'CLOCK_CONFLICT' ? t('worldClockConflict', 'Clock settings changed in another tab or could not be safely compared. Your edits are still here. Review the latest values in a new Settings tab before retrying.') : error.message;
             showMessage(error.code?.startsWith('SETTINGS_') ? detail : `${t('settingsSaveErrorPrefix', 'Error saving settings:')} ${detail}`, 'error');
+            if (invalidSearch) focusSubmittedSearchError(searchFocus);
         }
     }).finally(() => { --worldClockSaves; });
 }
