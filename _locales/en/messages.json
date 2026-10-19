@@ -8473,5 +8473,8 @@
   },
   "completeBackupRecoveryOnlyHelp": {
     "message": "Download retained copies for safekeeping. File import is unavailable in this limited view. Use Inspect interrupted restore to review the previous state; after a verified recovery, reload Settings."
+  },
+  "dashboardRestorePending": {
+    "message": "The dashboard has not fully loaded because an interrupted local restore needs review. This does not prove saved content was deleted. No automatic repair has run. Open Settings to review the restore, or inspect saved copies read-only. Reloading alone does not resolve an unverified restore."
   }
 }

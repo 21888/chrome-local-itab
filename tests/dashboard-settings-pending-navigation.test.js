@@ -44,6 +44,13 @@ function model(f, workspaceId) {
     assert.equal(storageManager.getAll, StorageManager.prototype.getAll);
     assert.equal(storageManager.ensureSyncInitialized, StorageManager.prototype.ensureSyncInitialized);
     const document = createDocument({aggregateTextContent: true});
+    // The real transient-toast timeout uses DOM parentNode/removeChild. Model
+    // those locally so advancing its 5000ms cleanup actually removes the toast.
+    const elementPrototype = Object.getPrototypeOf(document.body);
+    Object.defineProperty(elementPrototype, 'parentNode', {get() { return this.parentElement; }});
+    elementPrototype.removeChild = function (child) {
+        assert.equal(child.parentElement, this); child.remove(); return child;
+    };
     const settings = document.createElement('button'); settings.id = 'open-options'; settings.className = 'settings-button';
     const categories = document.createElement('button'); categories.id = 'manage-categories'; categories.className = 'category-manage-btn';
     const switcher = document.createElement('section'); switcher.id = 'workspace-switcher'; switcher.className = 'workspace-bar';
@@ -211,4 +218,116 @@ test('dashboard fixture uses the production static Settings/category buttons and
         assert(!/\b(?:async|defer)\b/i.test(scripts[index]), 'navigation dependencies remain synchronous classic scripts');
         assert(!/\btype\s*=\s*["']module["']/i.test(scripts[index]), 'module/deferred ordering is not the current startup contract');
     }
+});
+
+function pendingStartupError(m) {
+    const error = m.calls.errors.find(args => args[0] === 'Error in initializeDashboard:')?.[1];
+    assert.equal(error?.code, 'WORKSPACE_RESTORE_PENDING', 'the actual protected getAll, not a stubbed initialization, supplies the pending error');
+    return error;
+}
+function noticeLinks(m, notice, workspaceId) {
+    const links = notice.querySelectorAll('a');
+    assert.equal(links.length, 2, 'the notice provides Settings and a separate read-only recovery destination');
+    assert.equal(notice.querySelectorAll('button,input,select,textarea').length, 0, 'a read-only notice exposes no repair or editing action');
+    const byPage = new Map(links.map(link => [new URL(link.href, m.window.location.href).pathname, link]));
+    for (const page of ['/options.html', '/recovery.html']) {
+        const link = byPage.get(page); assert(link, `missing ${page} destination`);
+        const url = new URL(link.href, m.window.location.href);
+        assert.equal(url.protocol, 'chrome-extension:'); assert.equal(url.host, 'synthetic');
+        assert.equal(url.searchParams.get('workspace'), workspaceId);
+        assert.deepEqual([...url.searchParams.keys()], ['workspace']);
+        assert.equal(url.hash, ''); assert.equal(link.target, '_blank'); assert.equal(link.rel, 'noopener');
+        assert(link.getClientRects().length, 'the native link remains visible');
+        assert.equal(link.listeners.get('click')?.length || 0, 0, 'native navigation needs no extra mutation handler');
+    }
+    assert.match(byPage.get('/recovery.html').textContent, /read.only/i);
+    return links;
+}
+function noticeListeners(m) {
+    return [m.document.body, ...m.document.querySelectorAll('*')].reduce((count, node) =>
+        count + [...node.listeners.values()].reduce((sum, listeners) => sum + listeners.length, 0), 0);
+}
+function expireTransientToasts(m) {
+    const timers = m.calls.timers.filter(timer => timer.delay === 5000 && !timer.ran);
+    assert(timers.length, 'at least the deliberately created real transient toast must be cleaned up');
+    for (const timer of timers) { timer.ran = true; timer.fn(); }
+    assert.equal(m.document.querySelectorAll('.error-message').length, 0, 'the production 5-second cleanup really removed every transient toast');
+}
+
+for (const workspaceId of ['default', 'work']) test(`${workspaceId}: interrupted dashboard startup keeps a persistent read-only recovery notice after transient error cleanup`, async t => {
+    const m = model(await prepared(), workspaceId); t.after(() => m.close()); const before = copy(m.f.raw);
+    m.draft.focus(); const focused = m.document.activeElement, draft = m.draft.value;
+    // Exercise the existing production timeout even if pending handling no
+    // longer creates its own generic toast. Do not run unrelated 100ms tasks.
+    m.ctx.showErrorMessage('Synthetic transient notification');
+    await m.start(); const error = pendingStartupError(m);
+    assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0);
+    assert.equal(m.document.activeElement, focused, 'startup must not steal focus for a notice');
+    assert.equal(m.switcher.querySelector('.spaces-load-error').hidden, true,
+        'registry/list really succeeded: its own load-error banner did not explain this later protected read failure');
+    const notice = m.document.getElementById('dashboard-restore-pending');
+    assert(notice, 'the pending error needs its own persistent dashboard notice');
+    assert.equal(notice.parentElement, m.switcher); assert.equal(notice.getAttribute('role'), 'alert');
+    assert(notice.getClientRects().length); assert.equal(notice.inert, false);
+    assert.match(notice.textContent, /(?:interrupted|unverified|pending).{0,80}(?:restore|recovery)|(?:restore|recovery).{0,80}(?:interrupted|unverified|pending)/i);
+    assert.match(notice.textContent, /(?:not|haven.t|hasn.t).{0,50}loaded/i, 'unloaded ordinary content is explained');
+    assert.match(notice.textContent, /(?:not|doesn.t).{0,70}(?:mean|confirm|prove).{0,70}(?:deleted|lost)/i, 'an empty shell is not presented as evidence of deletion');
+    const links = noticeLinks(m, notice, workspaceId), startupEffects = m.effects();
+    expireTransientToasts(m);
+    assert.equal(m.document.getElementById('dashboard-restore-pending'), notice);
+    assert(notice.getClientRects().length, 'the persistent notice survives real 5000ms cleanup');
+    assert.deepEqual(m.effects(), startupEffects); unchanged(m, before);
+
+    // The model dispatches handlers but does not pretend to perform the browser's
+    // native anchor default action. Its exact encoded destination is checked above.
+    for (const link of links) { link.focus(); assert.equal(m.document.activeElement, link); assert.equal(link.dispatch('click').prevented, false); }
+    assert.deepEqual(m.effects(), startupEffects, 'notice link clicks must add no local/provider I/O');
+    assert.equal(m.calls.opened.length, 0, 'native links need no additional scripted opening');
+    const focusedLink = m.document.activeElement, listenerCount = noticeListeners(m), timerCount = m.calls.timers.length;
+    m.ctx.showDashboardRestorePending(error);
+    assert.equal(m.document.querySelectorAll('#dashboard-restore-pending').length, 1);
+    assert.equal(m.document.getElementById('dashboard-restore-pending'), notice);
+    assert.deepEqual(m.effects(), startupEffects, 're-reporting the error adds no reads, writes or repair');
+    assert.equal(noticeListeners(m), listenerCount); assert.equal(m.calls.timers.length, timerCount);
+    assert.equal(m.document.activeElement, focusedLink);
+    await m.start(); pendingStartupError(m);
+    assert.equal(m.document.querySelectorAll('#dashboard-restore-pending').length, 1);
+    assert.equal(m.document.getElementById('dashboard-restore-pending'), notice);
+    assert.equal(noticeListeners(m), listenerCount, 'repeated real startup adds neither a notice nor listeners');
+    assert.equal(m.settings.listeners.get('click').length, 1); assert.equal(m.categories.listeners.get('click').length, 1);
+    assert.equal(m.document.activeElement, focusedLink); assert.equal(m.draft.value, draft);
+    assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); unchanged(m, before);
+});
+
+test('creating the pending notice from a real protected-read error adds no I/O, timers, listeners, focus change or repair', async t => {
+    const m = model(await prepared(), 'work'); t.after(() => m.close()); const before = copy(m.f.raw);
+    let pending;
+    await assert.rejects(m.storageManager.getAll(), error => { pending = error; return error.code === 'WORKSPACE_RESTORE_PENDING'; });
+    m.draft.focus(); const baseline = m.effects(), listeners = noticeListeners(m), timerCount = m.calls.timers.length;
+    assert.equal(typeof m.ctx.showDashboardRestorePending, 'function', 'a narrow presentation helper must handle only this proven pending error');
+    for (const unrelated of [undefined, new Error('Synthetic unknown error'), {code: 'WORKSPACE_READ'}, {code: 'WORKSPACE_RESTORE_PENDING_EXTRA'}]) {
+        assert.equal(m.ctx.showDashboardRestorePending(unrelated), false);
+        assert.equal(m.document.getElementById('dashboard-restore-pending'), null);
+    }
+    m.ctx.showDashboardRestorePending(pending);
+    const notice = m.document.getElementById('dashboard-restore-pending'); assert(notice?.getClientRects().length);
+    noticeLinks(m, notice, 'work');
+    assert.equal(noticeListeners(m), listeners); assert.equal(m.calls.timers.length, timerCount);
+    assert.deepEqual(m.effects(), baseline, 'creating the notice is presentation only, with no additional storage access');
+    assert.equal(m.document.activeElement, m.draft); assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0);
+    assert.equal(m.f.raw[Workspaces.RESTORE_TRANSACTION_KEY].status, 'prepared'); unchanged(m, before);
+});
+
+test('a genuine unrelated Chrome read failure never receives interrupted-restore instructions', async t => {
+    const m = model(fixture(), 'work'); t.after(() => m.close()); const before = copy(m.f.raw);
+    m.f.hooks.read = async () => { throw Error('Synthetic unrelated Chrome read failure'); };
+    m.draft.focus(); await m.start();
+    const error = m.calls.errors.find(args => args[0] === 'Error in initializeDashboard:')?.[1];
+    assert(error, 'the real StorageManager startup must fail'); assert.notEqual(error.code, 'WORKSPACE_RESTORE_PENDING');
+    assert.equal(m.document.getElementById('dashboard-restore-pending'), null);
+    assert(m.document.querySelector('.error-message')?.getClientRects().length, 'ordinary startup errors retain their existing feedback');
+    const baseline = m.effects(); expireTransientToasts(m);
+    assert.equal(m.document.getElementById('dashboard-restore-pending'), null);
+    assert.deepEqual(m.effects(), baseline); assert.equal(m.document.activeElement, m.draft);
+    assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); unchanged(m, before);
 });

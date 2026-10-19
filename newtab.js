@@ -130,6 +130,32 @@ function setupSettingsNavigation() {
     }
 }
 
+function showDashboardRestorePending(error) {
+    if (error?.code !== 'WORKSPACE_RESTORE_PENDING') return false;
+    if (document.getElementById('dashboard-restore-pending')) return true;
+    const text = (key, fallback) => {
+        const translated = window.i18n?.t(key);
+        return translated && translated !== key ? translated : fallback;
+    };
+    const notice = document.createElement('section');
+    notice.id = 'dashboard-restore-pending'; notice.className = 'spaces-invalid'; notice.setAttribute('role', 'alert');
+    const message = document.createElement('p');
+    message.textContent = text('dashboardRestorePending', 'The dashboard has not fully loaded because an interrupted local restore needs review. This does not prove saved content was deleted. No automatic repair has run. Open Settings to review the restore, or inspect saved copies read-only. Reloading alone does not resolve an unverified restore.');
+    notice.append(message);
+    const session = window.LocalItabWorkspaces?.session, id = session?.id || session?.requestedId;
+    const recoveryUrl = (window.chrome?.runtime?.getURL?.('recovery.html') || 'recovery.html') + (id ? '?workspace=' + encodeURIComponent(id) : '');
+    for (const [href, key, fallback] of [
+        [window.LocalItabWorkspacesView.settingsUrl(id), 'openSettings', 'Open Settings'],
+        [recoveryUrl, 'recoveryEntry', 'Inspect saved copies (read-only)']
+    ]) {
+        const row = document.createElement('p'), link = document.createElement('a');
+        link.className = 'spaces-manage'; link.href = href; link.target = '_blank'; link.rel = 'noopener';
+        link.textContent = text(key, fallback); row.append(link); notice.append(row);
+    }
+    (document.getElementById('workspace-switcher') || document.body).append(notice);
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
 
@@ -167,7 +193,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     } catch (error) {
         console.error('Error initializing dashboard:', error);
         // Show error message to user
-        showErrorMessage((window.i18n && i18n.t('failedToLoadDashboard')) || 'Failed to load dashboard. Please try refreshing the page.');
+        if (!showDashboardRestorePending(error))
+            showErrorMessage((window.i18n && i18n.t('failedToLoadDashboard')) || 'Failed to load dashboard. Please try refreshing the page.');
     }
 });
 
