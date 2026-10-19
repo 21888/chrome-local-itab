@@ -395,6 +395,8 @@ AI 上下文回答区可明确点击“复制回答”或“复制任务 JSON”
 
 “用选中文字查找”把当前编辑区选中的完整单行文字原样填入查找框，只预填、不自动定位或计数。[选区入口与验收范围](docs/scratchpad-find-selection-validation.md)。“查找文字”在当前编辑区按区分大小写的原文定位，包括未保存和超限草稿。“上一处”“下一处”或 Enter 定位成功后显示“第n处/共m处”及绕回提示，重叠匹配也计数，不编辑或保存文本。[查找说明](docs/local-scratchpad.zh-CN.md#在本页便笺中查找文字) · [模型验证与原生边界](docs/scratchpad-match-position-validation.md)。
 
+查找定位后会将匹配滚动到可见位置，不替换原文；过长匹配显示开头。已核验 390 像素合成生产界面中的英文浅色、中文深色首末项与绕回可见性。[滚动修复与验收边界](docs/scratchpad-find-visibility-validation.md)。
+
 编辑区字符配额旁显示“行数：N”。空文本为 0 行；CRLF 算一次换行，CR/LF 及末尾空行参与计数，视觉软换行不计。两项统计均取当前编辑区文本，包括未保存或超限草稿。[行数规则与验证范围](docs/scratchpad-line-count-validation.md)。
 
 “复制选中文本”原样复制主编辑区当前的非空选区，包含换行和空白。选区使用 textarea 显示的 LF 换行；“复制当前全文”仍复制控制器保留的完整原始草稿及 CRLF。已加载的未保存、读取失败后只读、冲突和超限草稿均可复制，不保存、不更改选区；只有被选中的片段需要完整 Unicode。这两个按钮与“复制已保存文本”共用本视图一个在途剪贴板写入，失败后可手动复制原选区或明确再次点击重试。[选区复制检查与原生限制](docs/scratchpad-copy-selection-validation.md)。

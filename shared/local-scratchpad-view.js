@@ -304,6 +304,48 @@
         if (findCurrent(view, token, !cleanup) && findTargetOwned(token.owner, name) && ready() && findCurrent(view, token, !cleanup))
             return fn.apply(node, args);
     }
+    function revealFindMatch(view, token, text, start, end, selected) {
+        const { document, nodes } = token.owner.lifecycle, editor = nodes.textarea;
+        const current = () => selected() && document.activeElement === editor && selected();
+        // Selection APIs do not reliably reveal a match in a scrolled textarea.
+        // Measure its real wrapping without assigning to the editor or undo stack.
+        if (!current() || !root.getComputedStyle || !document.createRange || !document.createTextNode) return;
+        const css = root.getComputedStyle(editor), width = editor.clientWidth, height = editor.clientHeight;
+        if (!current() || !(width > 0 && height > 0)) return;
+        const mirror = document.createElement('div');
+        let top, bottom;
+        try {
+            mirror.setAttribute('aria-hidden', 'true');
+            Object.assign(mirror.style, { position: 'fixed', left: '0', top: '0', visibility: 'hidden',
+                pointerEvents: 'none', boxSizing: 'border-box', width: width + 'px', height: 'auto',
+                minHeight: '0', maxHeight: 'none', margin: '0', border: '0', overflow: 'hidden' });
+            for (const property of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontVariant', 'fontStretch',
+                'fontKerning', 'fontFeatureSettings', 'fontVariationSettings', 'lineHeight', 'letterSpacing', 'wordSpacing',
+                'textTransform', 'textIndent', 'textAlign', 'direction', 'tabSize', 'whiteSpace', 'wordBreak', 'overflowWrap',
+                'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) mirror.style[property] = css[property];
+            const content = document.createTextNode(text); mirror.append(content);
+            if (!current()) return;
+            document.body.append(mirror);
+            const range = document.createRange(); range.setStart(content, start); range.setEnd(content, end);
+            const origin = mirror.getBoundingClientRect().top;
+            let first;
+            for (const box of range.getClientRects()) if (box.height > 0) {
+                first ||= box; top = Math.min(top ?? Infinity, box.top - origin); bottom = Math.max(bottom ?? -Infinity, box.bottom - origin);
+            }
+            const paddingTop = parseFloat(css.paddingTop) || 0, paddingBottom = parseFloat(css.paddingBottom) || 0;
+            if (!first || !Number.isFinite(top) || !Number.isFinite(bottom)) throw new Error('find layout unavailable');
+            // A very long match cannot fit: reveal its beginning rather than its tail.
+            if (bottom - top > height - paddingTop - paddingBottom) { top = first.top - origin; bottom = first.bottom - origin; }
+            let scroll = editor.scrollTop;
+            if (top < scroll + paddingTop) scroll = top - paddingTop;
+            else if (bottom > scroll + height - paddingBottom) scroll = bottom - height + paddingBottom;
+            scroll = Math.max(0, Math.min(scroll, editor.scrollHeight - height));
+            if (!current()) return;
+            editor.scrollTop = scroll;
+        } finally { mirror.remove(); }
+        if (current() && typeof editor.scrollIntoView === 'function')
+            callFind(view, token, 'textarea', 'scrollIntoView', [{ block: 'nearest', inline: 'nearest', behavior: 'instant' }], false, current);
+    }
     function clearFindHeld(view) {
         const owner = viewFinds.get(view);
         if (owner && !owner.lifecycle.retired) { owner.held = null; view.findHeldEnter = null; }
@@ -862,6 +904,8 @@
                 if (!snapshot() || document.activeElement !== nodes.textarea) throw new Error('stale find');
                 callFind(this, token, 'textarea', 'setSelectionRange', [start, end]);
                 if (!snapshot() || nodes.textarea.selectionStart !== start || nodes.textarea.selectionEnd !== end || !snapshot()) throw new Error('selection failed');
+                revealFindMatch(this, token, text, start, end, selected);
+                if (!selected() || document.activeElement !== nodes.textarea) throw new Error('stale find');
                 // Keep the navigation cursor before translation, but publish counts
                 // only if the same gesture still owns its feedback afterward.
                 this.findResult = { query, text, start, end };
