@@ -1,5 +1,30 @@
 # Shortcut editor content preview
 
+## Refresh icon button label (2026-10-19)
+
+The existing refresh button now has the catalog title “Refresh icon from site”
+in English and “刷新网站图标” in Chinese. Actual cloud-browser shortcut-editor
+checks found that both catalogs lacked `refreshIcon`: the existing i18n helper
+returns a missing key literally, so the button's English fallback was not used.
+Only those two message entries are added. Button markup, handlers, cached icon
+behavior, explicit refresh, privacy checks and network permissions are unchanged.
+
+Two new regressions evaluate the actual button template through the production
+i18n helper and catalogs; both fail on the original catalogs and pass after the
+correction. The related icon/preview/locale/validation set passes 28 tests and
+Python passes 84. No old test or helper is changed.
+
+At 04:10 UTC, the actual production renderer in dot-cloud Chrome exposed the
+correct title and matching button name in English/light and Chinese/dark at a
+390 × 844 CSS-pixel iframe. Both real accessibility trees contained the localized
+description instead of the key. Escape returned to the Add button. This was a
+static renderer with an explicit synthetic page-memory API bridge, not an
+installed extension or real-profile storage test. All 138 runtime files were
+frozen; only the two locale catalogs differ from the preceding delivered source.
+The refresh/fetch buttons were not activated. Pointer-hover tooltip painting,
+screen-reader speech and actual online icon fetching were not tested. No new
+screenshots were taken or uploaded for this label-only correction.
+
 The add/edit dialog shows a read-only **icon and title** sample. It is not a replica of the selected template's card grid, collection headings, spacing or placement. The full card layout is visible on the home page after saving.
 
 - Title and icon text are trimmed like saved values. Blank icons use 🌐. URLs use the existing `normalizeHttpUrl` routine.

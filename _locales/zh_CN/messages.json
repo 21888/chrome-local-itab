@@ -1671,6 +1671,9 @@
   "autoFetchIcon": {
     "message": "自动获取网站图标"
   },
+  "refreshIcon": {
+    "message": "刷新网站图标"
+  },
   "cancel": {
     "message": "取消"
   },

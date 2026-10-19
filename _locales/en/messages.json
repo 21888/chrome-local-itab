@@ -1671,6 +1671,9 @@
   "autoFetchIcon": {
     "message": "Auto-fetch website icon"
   },
+  "refreshIcon": {
+    "message": "Refresh icon from site"
+  },
   "cancel": {
     "message": "Cancel"
   },
