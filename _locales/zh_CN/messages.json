@@ -5007,6 +5007,15 @@
   "promptsModelSaveError": {
     "message": "无法确认保存成功。回复仍保留在此处；重试会使用同一个保存操作。"
   },
+  "aiContextPresetName": {
+    "message": "连接预设名称"
+  },
+  "aiContextPresetSave": {
+    "message": "保存连接预设"
+  },
+  "aiContextPresetDelete": {
+    "message": "删除连接预设"
+  },
   "aiContextTitle": {
     "message": "用资料提问"
   },

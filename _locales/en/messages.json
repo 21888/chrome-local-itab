@@ -5007,6 +5007,15 @@
   "promptsModelSaveError": {
     "message": "Could not confirm the save. Your response remains here. Retry uses the same save operation."
   },
+  "aiContextPresetName": {
+    "message": "Connection preset name"
+  },
+  "aiContextPresetSave": {
+    "message": "Save connection preset"
+  },
+  "aiContextPresetDelete": {
+    "message": "Delete connection preset"
+  },
   "aiContextTitle": {
     "message": "Ask your context"
   },
