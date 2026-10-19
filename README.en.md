@@ -16,7 +16,9 @@ No build step or Local iTab account is required. The clock, shortcut management,
 
 ## Preview
 
-### Current interface · 1.1.118
+The Clarity homepage on `master` has been rebuilt with locally bundled Bulma components. The retained 1.1.118 screenshots below are historical references, not the current layout. See the [redesign and static-browser checks](docs/clarity-bulma-redesign-validation.md#follow-up-real-browser-static-preview-and-narrow-date-correction). Those checks use synthetic data and a preview API bridge; they do not establish native-extension upgrade behavior or real-profile persistence. This redesign has not been published to the Chrome Web Store.
+
+### Historical interface · 1.1.118
 
 Captured on 2026-10-13 from the published 1.1.118 runtime in isolated Linux Chrome for Testing. These four original fullscreen images use 100% browser zoom and retain the browser notice, without cropping, redrawing or retouching. 1364 × 1024 is the image size, not a tested mobile CSS viewport. Interface languages are stated below; workspace names and record contents are synthetic examples, with natural-English sample text.
 

@@ -16,7 +16,9 @@ No requiere compilación ni una cuenta de Local iTab. El reloj, la gestión de a
 
 ## Vista previa
 
-### Interfaz actual · 1.1.118
+La página de inicio Clarity de `master` se ha rediseñado con componentes Bulma incluidos localmente. Las capturas de 1.1.118 que se conservan a continuación son referencias históricas, no muestran el diseño actual. Consulta el [rediseño y las pruebas estáticas en navegador](docs/clarity-bulma-redesign-validation.md#follow-up-real-browser-static-preview-and-narrow-date-correction). Estas pruebas usan datos sintéticos y un puente de API de vista previa; no verifican la actualización de la extensión nativa ni la persistencia en un perfil real. Este rediseño aún no se ha publicado en Chrome Web Store.
+
+### Interfaz histórica · 1.1.118
 
 Capturas del 2026-10-13 con el paquete publicado 1.1.118 en Chrome for Testing para Linux, en un perfil aislado. Las cuatro imágenes originales de pantalla completa conservan el aviso del navegador, con zoom al 100%, sin recortes, retoques ni redibujado. 1364 × 1024 es el tamaño de la imagen, no una ventana móvil CSS verificada. Se indica el idioma de cada interfaz; los nombres y contenidos son ejemplos sintéticos, con textos de muestra en inglés.
 

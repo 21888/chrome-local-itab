@@ -16,7 +16,9 @@
 
 ## 界面预览
 
-### 当前界面 · 1.1.118
+当前 `master` 中的 Clarity 首页已采用本地 Bulma 组件重新布局。下方保留的 1.1.118 截图仅供历史参考，不代表当前布局。见[改版与静态浏览器验收](docs/clarity-bulma-redesign-validation.md#follow-up-real-browser-static-preview-and-narrow-date-correction)。该验收使用合成数据和预览 API 桥接，不证明原生扩展升级或真实配置持久化；此次改版尚未发布到 Chrome 商店。
+
+### 历史界面 · 1.1.118
 
 2026-10-13 使用正式 1.1.118 运行包，在独立的 Linux Chrome for Testing 中拍摄。以下四张是原始全屏截图，100% 浏览器缩放，保留浏览器提示，未裁切、重绘或美化；1364 × 1024 是图片尺寸，不代表已测固定手机视口。界面语言按图注标明，工作空间与正文均为合成示例，其中使用英文示例名称和文字。
 
