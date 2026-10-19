@@ -96,11 +96,11 @@ test('departure: actual Tasks settings visibility write is protected only while 
 
 test('departure: existing settings guards stay intact and unrelated reload guards do not expand', async () => {
     const h = harness(); await settle();
-    for (const name of ['localCountdownSettingsView', 'localScratchpadSettingsView', 'worldClockSettingsView']) {
+    for (const name of ['localCountdownSettingsView', 'localScratchpadSettingsView', 'worldClockSettingsView', 'bookmarkImportView']) {
         let dirty = true; h.window[name] = { hasUncommittedWork: () => dirty };
         h.guarded(true, name); dirty = false; h.guarded(false, `${name} released`); delete h.window[name];
     }
-    for (const name of ['localCountdownView', 'localScratchpadView', 'bookmarkImportView', 'workspacePresetsView']) {
+    for (const name of ['localCountdownView', 'localScratchpadView', 'workspacePresetsView']) {
         h.window[name] = { controller: { pending: {} }, pending: {}, hasUncommittedWork: () => true };
         h.guarded(false, `${name} departure behavior unchanged`); delete h.window[name];
     }

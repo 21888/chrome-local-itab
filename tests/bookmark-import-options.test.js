@@ -5,6 +5,7 @@ const StorageManager = require('../storage.js');
 const {createDocument, deferred} = require('./helpers/task-dom-model.js');
 const BookmarkImport = require('../shared/bookmark-import.js');
 const Finder = require('../shared/shortcut-finder.js');
+const {File} = require('node:buffer');
 const source = fs.readFileSync('options.js', 'utf8');
 const watchdog = setTimeout(() => { console.error('Bookmark options model did not settle.'); process.exit(1); }, 10000);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -49,6 +50,96 @@ function tab() {
 }
 
 const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><DT><H3>Imported work</H3><DL><DT><A HREF="https://new.example/">New</A></DL></DL>';
+async function bookmarkDepartureRegression() {
+    // Reuse this file's form-initialized Options/StorageManager fixture. Unlike
+    // its earlier tests, mount the real View and lifecycle, with actual Node
+    // File reads and a gate inside Chrome local.set. No native prompt is modeled.
+    reset(); const a = tab(), window = a.context.window, events = new Map(), rows = [], gates = [];
+    const before = clone(state), local = global.chrome.storage.local, get = local.get, set = local.set;
+    const io = {reads: 0, sets: 0};
+    local.get = (...args) => { io.reads++; return get(...args); };
+    local.set = (...args) => { io.sets++; return set(...args); };
+    window.addEventListener = (type, fn) => { const list = events.get(type) || []; list.push(fn); events.set(type, list); };
+    window.removeEventListener = (type, fn) => events.set(type, (events.get(type) || []).filter(handler => handler !== fn));
+    window.confirm = a.context.confirm = () => assert.fail('departure events must not confirm or save');
+    window.location = {reload() { assert.fail('departure events must not reload'); }};
+    const host = a.document.createElement('div'); host.id = 'bookmark-import'; a.document.body.append(host);
+    vm.runInContext(fs.readFileSync('shared/bookmark-import-view.js', 'utf8'), a.context);
+    vm.runInContext(fs.readFileSync('shared/local-content-lifecycle.js', 'utf8'), a.context);
+    a.context.setupBookmarkImport(); const view = window.bookmarkImportView; a.context.setupBookmarkImport();
+    assert(view === window.bookmarkImportView); assert.equal(host.querySelectorAll('.bookmark-import').length, 1);
+    assert.equal(events.get('beforeunload').length, 1);
+    assert.equal(a.storage.getBookmarkImportSnapshot, StorageManager.prototype.getBookmarkImportSnapshot);
+    assert.equal(a.storage.appendBookmarkImport, StorageManager.prototype.appendBookmarkImport);
+    const lifecycle = window.LocalItabContentLifecycle, file = host.querySelector('.bookmark-import-file');
+    const choose = host.querySelector('.bookmark-import-choose'), apply = host.querySelector('.bookmark-import-apply'), cancel = host.querySelector('.bookmark-import-cancel');
+    file.click = () => assert.fail('regression must not open a file chooser');
+    function select(gate, content = html) {
+        const selected = new File([content], 'synthetic-bookmarks.html', {type: 'text/html', lastModified: 0});
+        if (gate) { const read = selected.text.bind(selected); selected.text = async () => { gate.entered.resolve(); await gate.resume.promise; if (gate.error) throw gate.error; return read(); }; }
+        choose.focus(); file.files = [selected]; file.dispatch('change'); return view.pending;
+    }
+    function gate() { const value = {entered: deferred(), resume: deferred()}; gates.push(value); return value; }
+    function capture(stage, expected) {
+        const raw = clone(state), calls = {...io}, writeCount = writes.length;
+        const event = {prevented: false, preventDefault() { this.prevented = true; }};
+        for (const listener of events.get('beforeunload')) listener(event);
+        assert.deepEqual(state, raw); assert.deepEqual(io, calls); assert.equal(writes.length, writeCount);
+        assert.equal(a.context.settingsHasUncommittedWork(), false, 'ordinary form cannot hide an omitted bookmark guard');
+        rows.push({stage, expected, prevented: event.prevented, returnValueSet: Object.hasOwn(event, 'returnValue'),
+            pending: lifecycle.pending(), hasWork: lifecycle.hasUncommittedWork(), departing: lifecycle.departing});
+        if (event.prevented) assert.equal(event.returnValue, '');
+    }
+    try {
+        capture('idle', false);
+        const reading = gate(), readWork = select(reading); await reading.entered.promise;
+        assert(view.pending && view.hasUncommittedWork() && lifecycle.pending()); capture('reading File.text', true);
+        reading.resume.resolve(); await readWork;
+        assert(!view.pending && view.hasUncommittedWork() && !apply.disabled); capture('review ready', true);
+        lifecycle.allowDeparture(); assert.equal(lifecycle.departing, true); capture('explicit allowDeparture', false);
+        lifecycle.cancelDeparture(); assert.equal(lifecycle.departing, false); capture('cancelDeparture restores review guard', true);
+        cancel.dispatch('click'); assert.equal(view.hasUncommittedWork(), false); capture('review cancelled', false);
+        assert.deepEqual(state, before); assert.equal(writes.length, 0);
+
+        const obsolete = gate(), obsoleteWork = select(obsolete); await obsolete.entered.promise;
+        cancel.dispatch('click'); capture('reading cancelled', false);
+        obsolete.resume.resolve(); await obsoleteWork;
+        assert.equal(view.hasUncommittedWork(), false); capture('cancelled read completed late', false);
+        assert.deepEqual(state, before); assert.equal(writes.length, 0);
+
+        const failedRead = gate(); failedRead.error = new Error('Synthetic local File.text failure');
+        const failedReadCalls = {...io}, failedReadWork = select(failedRead); await failedRead.entered.promise;
+        failedRead.resume.resolve(); await failedReadWork;
+        assert.match(host.querySelector('.bookmark-import-status').textContent, /Could not read this local file/);
+        assert(!view.pending && !view.hasUncommittedWork()); assert.equal(host.querySelector('.bookmark-import-preview').hidden, true);
+        capture('file read failed without a review', false); assert.deepEqual(io, failedReadCalls);
+        assert.deepEqual(state, before); assert.equal(writes.length, 0);
+        await select(undefined, '<div>Synthetic non-bookmark document</div>');
+        assert.match(host.querySelector('.bookmark-import-status').textContent, /could not be imported safely/);
+        assert(!view.pending && !view.hasUncommittedWork()); assert.equal(host.querySelector('.bookmark-import-preview').hidden, true);
+        capture('parsing failed without a review', false); assert.deepEqual(state, before); assert.equal(writes.length, 0);
+
+        await select(); assert(view.hasUncommittedWork() && !apply.disabled);
+        const saving = gate(); pauseWrite = saving; apply.dispatch('click'); const applying = view.pending;
+        await saving.entered.promise;
+        assert.equal(io.sets, 1, 'Apply really reached Chrome local.set'); assert.deepEqual(state, before); assert.equal(writes.length, 0);
+        assert(view.pending && lifecycle.pending()); assert.equal(cancel.disabled, true); assert.equal(view.close(), false);
+        capture('applying at Chrome local.set', true);
+        saving.resume.resolve(); await applying;
+        assert.match(host.querySelector('.bookmark-import-status').textContent, /^Bookmarks added: 1/);
+        assert.equal(writes.length, 1); assert.equal(state.links.length, before.links.length + 1);
+        assert.deepEqual(state.links.slice(0, before.links.length), before.links); capture('apply settled', false);
+        console.log('Bookmark departure stages:', JSON.stringify(rows));
+        for (const row of rows) {
+            assert.equal(row.prevented, row.expected, row.stage + ' beforeunload protection');
+            assert.equal(row.returnValueSet, row.expected, row.stage + ' native-warning request');
+        }
+    } finally {
+        for (const value of gates) value.resume.resolve();
+        if (view.pending) await view.pending;
+        view.destroy(); local.get = get; local.set = set;
+    }
+}
 (async () => {
     reset(); let a = tab(); const before = clone(state);
     let prepared = await a.context.prepareBookmarkImport(html);
@@ -153,6 +244,7 @@ const html = '<!DOCTYPE NETSCAPE-Bookmark-file-1><DL><DT><H3>Imported work</H3><
     assert.equal(prepared.snapshot.categories[0].name, 'Saved first');
     await a.context.applyBookmarkImport(prepared);
     assert.equal(state.categories[0].name, 'Saved first');
+    await bookmarkDepartureRegression();
     // Source wiring leaves JSON backup UI untouched and loads parser before Storage.
     const page = fs.readFileSync('options.html', 'utf8');
     assert.match(page, /id="import-settings"[^>]*accept=".json"/);
