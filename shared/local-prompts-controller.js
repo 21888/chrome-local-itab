@@ -87,7 +87,9 @@
                 if (!this.pendingCommand && this.error?.scope === 'read') this.error = null;
             } catch (error) {
                 if (this.disposed || generation !== this.readGeneration) return;
-                this.linkedPromptUnavailable = true; this.error = { code: error.code || 'READ', scope: 'read' };
+                this.linkedPromptUnavailable = true;
+                // A failed background read must not take ownership of a rejected user operation.
+                if (!this.error || this.error.scope === 'read') this.error = { code: error.code || 'READ', scope: 'read' };
             } finally {
                 if (this.pendingReadGeneration === generation) this.pendingReadGeneration = null;
             }
