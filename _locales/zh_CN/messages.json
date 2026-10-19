@@ -4554,6 +4554,9 @@
   "promptsCompare": {
     "message": "比较已保存版本"
   },
+  "promptsSavedBodyCompareHelp": {
+    "message": "只读比较已保存的正文，不会填充变量。“原版本 → 新版本”决定删除和新增的文字。"
+  },
   "promptsCompareHelp": {
     "message": "选择最多两个已保存的连接。核对各目标将收到的同一份完整提示词，再明确点击发送。最多会发起两次服务商请求，各服务商都可能收费。每个目标的密钥独立且仅临时使用；不会自动重试。"
   },

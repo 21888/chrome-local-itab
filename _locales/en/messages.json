@@ -4554,6 +4554,9 @@
   "promptsCompare": {
     "message": "Compare saved versions"
   },
+  "promptsSavedBodyCompareHelp": {
+    "message": "Read-only comparison of saved bodies. Variables are not filled in. From → To determines removed and added text."
+  },
   "promptsCompareHelp": {
     "message": "Select up to two saved connections. Review the same completed prompt for each target, then explicitly Send. This makes up to two provider requests; each provider may charge you. Keys are temporary and separate for each target. No automatic retries."
   },

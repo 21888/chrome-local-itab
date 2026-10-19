@@ -942,7 +942,7 @@
                 if (!this.comparison) return;
                 const state = this.comparison;
                 panel.append(this.el('h3', '', this.t('Compare', 'Compare saved versions')),
-                    this.el('p', 'prompt-help', this.t('CompareHelp', 'Read-only comparison of saved bodies. Variables are not filled in. From → To determines removed and added text.')));
+                    this.el('p', 'prompt-help', this.t('SavedBodyCompareHelp', 'Read-only comparison of saved bodies. Variables are not filled in. From → To determines removed and added text.')));
                 const selectors = this.el('div', 'prompt-compare-grid');
                 for (const [side, name, fallback] of [['from', 'CompareFrom', 'From'], ['to', 'CompareTo', 'To']]) {
                     const label = this.el('label', 'prompt-field'), select = this.focusKey(this.el('select'), `compare-${side}`);
