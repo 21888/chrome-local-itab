@@ -156,6 +156,19 @@ function showDashboardRestorePending(error) {
     return true;
 }
 
+
+function showDashboardLoadFailed(error) {
+    if (error?.code === 'WORKSPACE_RESTORE_PENDING') return false;
+    if (document.getElementById('dashboard-load-failed')) return true;
+    const fallback = 'The dashboard has not fully loaded. Visible content may be incomplete. This does not prove saved content was deleted. Reload to try again, or open Settings. You can also inspect saved copies read-only.';
+    const translated = window.i18n?.t('dashboardLoadFailedPersistent');
+    const notice = document.createElement('section');
+    notice.id = 'dashboard-load-failed'; notice.className = 'spaces-invalid'; notice.setAttribute('role', 'alert');
+    notice.textContent = translated && translated !== 'dashboardLoadFailedPersistent' ? translated : fallback;
+    (document.getElementById('workspace-switcher') || document.body).append(notice);
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
 
@@ -193,8 +206,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     } catch (error) {
         console.error('Error initializing dashboard:', error);
         // Show error message to user
-        if (!showDashboardRestorePending(error))
+        if (!showDashboardRestorePending(error)) {
+            showDashboardLoadFailed(error);
             showErrorMessage((window.i18n && i18n.t('failedToLoadDashboard')) || 'Failed to load dashboard. Please try refreshing the page.');
+        }
     }
 });
 

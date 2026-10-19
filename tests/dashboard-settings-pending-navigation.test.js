@@ -331,3 +331,92 @@ test('a genuine unrelated Chrome read failure never receives interrupted-restore
     assert.deepEqual(m.effects(), baseline); assert.equal(m.document.activeElement, m.draft);
     assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); unchanged(m, before);
 });
+
+function ordinaryDashboardNotice(m) {
+    const notice = m.document.getElementById('dashboard-load-failed');
+    assert(notice, 'a failed ordinary startup needs a persistent explanation after transient feedback expires');
+    assert(notice.parentElement === m.switcher); assert.equal(notice.getAttribute('role'), 'alert');
+    assert(notice.getClientRects().length && !notice.closest('[inert]'));
+    assert.match(notice.textContent, /(?:not|haven.t|hasn.t).{0,50}loaded/i);
+    assert.match(notice.textContent, /(?:not|doesn.t).{0,70}(?:mean|confirm|prove).{0,70}(?:deleted|lost)/i);
+    assert.doesNotMatch(notice.textContent, /interrupted|unverified restore|restore needs review|Synthetic private/i,
+        'generic failure text neither diagnoses a restore nor exposes the underlying error');
+    assert.equal(notice.querySelectorAll('button,input,select,textarea,a').length, 0,
+        'the explanation adds no repair, editing, retry or navigation control');
+    assert.equal(m.document.getElementById('dashboard-restore-pending'), null);
+    return notice;
+}
+
+for (const failure of ['corrupt Work values', 'Chrome read failure']) test(`${failure}: ordinary dashboard failure notice survives the real toast timeout and repeated startup`, async t => {
+    const f = fixture(); if (failure === 'corrupt Work values') f.values('work').quote = 42;
+    const m = model(f, 'work'); t.after(() => m.close()); const before = copy(f.raw);
+    if (failure === 'Chrome read failure') f.hooks.read = async (keys, raw) => {
+        // Let the real registry/list and Session capture finish, then fail the
+        // actual Chrome boundary used by getAll. Never replace getAll itself.
+        if (m.switcher.querySelector('.spaces-switch')?.textContent.includes('Work') && m.switcher.querySelector('.spaces-status')?.textContent === '')
+            throw Error('Synthetic private Chrome read failure');
+        return copy(keys === null ? raw : Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    m.draft.focus(); const draft = m.draft.value;
+    await m.start();
+    const error = m.calls.errors.find(args => args[0] === 'Error in initializeDashboard:')?.[1];
+    assert.equal(error?.code, failure === 'corrupt Work values' ? 'WORKSPACE_CORRUPT' : 'WORKSPACE_READ');
+    assert(m.calls.errors.some(args => args[0] === 'Error initializing dashboard:' && args[1] === error), 'original error remains reported');
+    assert.equal(m.session.id, 'work'); assert.equal(m.switcher.querySelector('.spaces-load-error').hidden, true);
+    assert(m.document.querySelector('.error-message')?.getClientRects().length, 'ordinary errors keep their original transient feedback');
+    const notice = ordinaryDashboardNotice(m), startupEffects = m.effects();
+    assert(m.document.activeElement === m.draft); assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0);
+    expireTransientToasts(m); assert(ordinaryDashboardNotice(m) === notice);
+    assert.deepEqual(m.effects(), startupEffects); unchanged(m, before);
+
+    const listeners = noticeListeners(m), timerCount = m.calls.timers.length;
+    m.ctx.showDashboardLoadFailed(error); m.ctx.showDashboardLoadFailed(error);
+    assert(ordinaryDashboardNotice(m) === notice); assert.equal(m.document.querySelectorAll('#dashboard-load-failed').length, 1);
+    assert.equal(noticeListeners(m), listeners); assert.equal(m.calls.timers.length, timerCount); assert.deepEqual(m.effects(), startupEffects);
+    assert(m.document.activeElement === m.draft);
+    await m.start(); expireTransientToasts(m);
+    assert(ordinaryDashboardNotice(m) === notice); assert.equal(m.document.querySelectorAll('#dashboard-load-failed').length, 1);
+    assert.equal(noticeListeners(m), listeners); assert(m.document.activeElement === m.draft); assert.equal(m.draft.value, draft);
+    assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); unchanged(m, before);
+
+    const repeatedEffects = m.effects();
+    m.settings.focus(); m.settings.dispatch('click'); m.categories.focus(); m.categories.dispatch('click'); destinations(m);
+    assert(m.recovery.getClientRects().length); m.recovery.focus(); assert(m.document.activeElement === m.recovery);
+    assert.equal(m.recovery.href, 'recovery.html'); assert.equal(m.recovery.dispatch('click').prevented, false);
+    assert.deepEqual(m.effects(), repeatedEffects, 'existing exits add no local/provider I/O'); unchanged(m, before);
+    t.diagnostic(JSON.stringify({failure, startupEffects, repeatedEffects, clickEffects: m.effects(), rawUnchanged: true}));
+});
+
+for (const failure of ['corrupt Work values', 'Chrome read failure']) test(`${failure}: creating an ordinary dashboard failure notice from a real getAll error is presentation only`, async t => {
+    const f = fixture(); if (failure === 'corrupt Work values') f.values('work').quote = 42;
+    const m = model(f, 'work'); t.after(() => m.close()); const before = copy(f.raw);
+    if (failure === 'Chrome read failure') f.hooks.read = async () => { throw Error('Synthetic private Chrome read failure'); };
+    let failed;
+    await assert.rejects(m.storageManager.getAll(), error => { failed = error; return error.code === (failure === 'corrupt Work values' ? 'WORKSPACE_CORRUPT' : 'WORKSPACE_READ'); });
+    m.draft.focus(); const baseline = m.effects(), listeners = noticeListeners(m), timerCount = m.calls.timers.length;
+    assert.equal(m.ctx.showDashboardRestorePending(failed), false, 'the pending helper keeps its exact error whitelist');
+    assert.equal(typeof m.ctx.showDashboardLoadFailed, 'function');
+    m.ctx.showDashboardLoadFailed(failed); const notice = ordinaryDashboardNotice(m);
+    m.ctx.showDashboardLoadFailed(failed); assert(ordinaryDashboardNotice(m) === notice);
+    assert.equal(m.document.querySelectorAll('#dashboard-load-failed').length, 1);
+    assert.equal(noticeListeners(m), listeners); assert.equal(m.calls.timers.length, timerCount);
+    assert.deepEqual(m.effects(), baseline); assert(m.document.activeElement === m.draft);
+    assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0); unchanged(m, before);
+});
+
+test('prepared restore startup keeps only its dedicated notice and is refused by the ordinary failure helper', async t => {
+    for (const workspaceId of ['default', 'work']) {
+        const m = model(await prepared(), workspaceId); t.after(() => m.close()); const before = copy(m.f.raw);
+        m.draft.focus(); await m.start(); const error = pendingStartupError(m);
+        const notice = m.document.getElementById('dashboard-restore-pending'); assert(notice?.getClientRects().length);
+        noticeLinks(m, notice, workspaceId); assert.equal(m.document.getElementById('dashboard-load-failed'), null);
+        const baseline = m.effects(), listeners = noticeListeners(m), timerCount = m.calls.timers.length;
+        assert.equal(typeof m.ctx.showDashboardLoadFailed, 'function');
+        assert.equal(m.ctx.showDashboardLoadFailed(error), false);
+        assert.equal(m.document.getElementById('dashboard-load-failed'), null);
+        assert(m.document.getElementById('dashboard-restore-pending') === notice);
+        assert.deepEqual(m.effects(), baseline); assert.equal(noticeListeners(m), listeners); assert.equal(m.calls.timers.length, timerCount);
+        assert(m.document.activeElement === m.draft); assert.equal(m.calls.opened.length, 0); assert.equal(m.calls.assignments.length, 0);
+        unchanged(m, before);
+    }
+});
