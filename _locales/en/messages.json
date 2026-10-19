@@ -8476,5 +8476,11 @@
   },
   "dashboardRestorePending": {
     "message": "The dashboard has not fully loaded because an interrupted local restore needs review. This does not prove saved content was deleted. No automatic repair has run. Open Settings to review the restore, or inspect saved copies read-only. Reloading alone does not resolve an unverified restore."
+  },
+  "settingsRecoveryDownloadOnly": {
+    "message": "The saved workspace structure could not be validated, so ordinary Settings remain unavailable. You can request a download of a retained complete pre-restore copy below. The copy is checked before download; no repair or restore is available here. Keep downloaded files private. This does not diagnose or resolve an earlier upgrade data-loss incident."
+  },
+  "completeBackupRecoveryDownloadOnlyHelp": {
+    "message": "This view can only download a retained pre-restore copy after its integrity and supported format are checked. It cannot export today’s complete state, inspect a restore transaction, import, or restore. A valid retained copy may not be available. Check your downloads; requesting a download does not confirm that the file was saved."
   }
 }

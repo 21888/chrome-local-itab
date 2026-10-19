@@ -30,12 +30,13 @@ async function interrupted() {
     return fixture({persisted: JSON.parse(JSON.stringify(target.raw))});
 }
 
-function model(f, workspaceId = 'work') {
+function model(f, workspaceId = 'work', {mountWorkspaces = false} = {}) {
     const calls = {mounts: [], stores: [], downloads: [], reloads: 0, fileReads: 0,
         localReads: 0, localRemoves: 0, providerReads: 0, providerWrites: 0, providerRemoves: 0,
-        reviews: 0, exports: 0, restores: 0, inspections: 0, recoveries: 0};
+        reviews: 0, exports: 0, restores: 0, inspections: 0, recoveries: 0,
+        recoveryDownloads: 0, recoverySettled: 0, candidateExports: 0, readKeys: [], errors: []};
     const read = f.chrome.storage.local.get;
-    f.chrome.storage.local.get = (...args) => { calls.localReads++; return read(...args); };
+    f.chrome.storage.local.get = (...args) => { calls.localReads++; calls.readKeys.push(copy(args[0])); return read(...args); };
     f.chrome.storage.local.remove = async () => { calls.localRemoves++; throw Error('Unexpected local remove'); };
     f.chrome.storage.sync = {
         async get() { calls.providerReads++; throw Error('Unexpected Sync read'); },
@@ -81,6 +82,11 @@ function model(f, workspaceId = 'work') {
         location: {reload() { calls.reloads++; }}, confirm() { throw Error('Unexpected confirmation'); },
         addEventListener(type, fn) { if (!handlers.has(type)) handlers.set(type, new Set()); handlers.get(type).add(fn); },
         removeEventListener(type, fn) { handlers.get(type)?.delete(fn); }};
+    if (mountWorkspaces) {
+        f.chrome.runtime = {getURL: file => 'chrome-extension://synthetic/' + file};
+        Object.assign(window, {document, chrome: f.chrome, LocalItabWorkspaces: {manager: f.workspaceManager, session: manager.workspace}});
+        window.location.href = 'chrome-extension://synthetic/options.html?workspace=' + encodeURIComponent(workspaceId);
+    }
     let sequence = 0;
     class BoundStore extends Backup.Store {
         constructor(storage) {
@@ -92,10 +98,12 @@ function model(f, workspaceId = 'work') {
         restore(...args) { calls.restores++; return super.restore(...args); }
         inspectInterruptedRestore(...args) { calls.inspections++; return super.inspectInterruptedRestore(...args); }
         recoverInterruptedRestore(...args) { calls.recoveries++; return super.recoverInterruptedRestore(...args); }
+        recovery(...args) { calls.recoveryDownloads++; return super.recovery(...args).finally(() => { calls.recoverySettled++; }); }
+        exportInterruptedCandidates(...args) { calls.candidateExports++; return super.exportInterruptedCandidates(...args); }
     }
     window.LocalItabCompleteBackup = {...Backup, Store: BoundStore};
     const timers = new Set();
-    const ctx = {window, document, storageManager: manager, chrome: f.chrome, URL, Blob, console: {log() {}, error() {}, warn() {}},
+    const ctx = {window, document, storageManager: manager, chrome: f.chrome, URL, Blob, console: {log() {}, error(...args) { calls.errors.push(args); }, warn() {}},
         setTimeout(fn, ms) { const timer = setTimeout(fn, ms); timers.add(timer); return timer; }, clearTimeout};
     vm.createContext(ctx);
     vm.runInContext(source('shared/complete-backup-view.js'), ctx);
@@ -105,6 +113,7 @@ function model(f, workspaceId = 'work') {
         return mount(host, {...options, download: async (...args) => { calls.downloads.push(args); }});
     };
     vm.runInContext(source('shared/local-content-lifecycle.js'), ctx);
+    if (mountWorkspaces) vm.runInContext(source('shared/workspaces-view.js'), ctx);
     vm.runInContext(source('options.js'), ctx);
     const get = name => document.getElementById('interrupted-settings-recovery')?.querySelector('.complete-backup-' + name);
     const dispatchWindow = (type, event = {}) => { for (const fn of handlers.get(type) || []) fn(event); };
@@ -112,7 +121,7 @@ function model(f, workspaceId = 'work') {
     return {f, calls, ctx, window, manager, document, skip, searchInput, container, main, footer, save, reset, normalHost, switcher, controls: [...controls, searchInput, selectWorkspace, save, reset],
         get, dispatchWindow, listenerCount, get view() { return window.interruptedSettingsRecoveryView; },
         async start() { await document.listeners.get('DOMContentLoaded')({type: 'DOMContentLoaded'}); },
-        close() { this.view?.destroy(); for (const timer of timers) clearTimeout(timer); }};
+        close() { this.view?.destroy(); window.workspacesView?.destroy(); for (const timer of timers) clearTimeout(timer); }};
 }
 
 function isolated(m, {initialized = false} = {}) {
@@ -160,11 +169,11 @@ function ordinaryEvents(m) {
     for (const name of ['target', 'prompt-target', 'collection-target']) { m.get(name).value = 'synthetic'; m.get(name).dispatch('change'); }
 }
 
-test('recovery startup API handles only WORKSPACE_RESTORE_PENDING, never unrelated errors', async t => {
+test('limited recovery startup API rejects unrelated errors outside its explicit allowlist', async t => {
     const m = model(fixture()); t.after(() => m.close());
     assert.equal(typeof m.ctx.setupInterruptedSettingsRecovery, 'function');
     const before = copy(m.f.raw), listeners = m.listenerCount();
-    for (const error of [null, new Error('Synthetic failure'), {code: 'WORKSPACE_CORRUPT'}, {code: 'WORKSPACE_CONFLICT'}, {code: 'UNCONFIRMED'}]) {
+    for (const error of [null, new Error('Synthetic failure'), ...['WORKSPACE_CORRUPT', 'WORKSPACE_CONFLICT', 'WORKSPACE_INVALID', 'WORKSPACE_READ', 'WORKSPACE_WRITE', 'WORKSPACE_UNAVAILABLE', 'WORKSPACE_VERSION_EXTRA', 'WORKSPACE_RESTORE_PENDING_EXTRA', 'UNCONFIRMED'].map(code => ({code}))]) {
         assert.equal(await m.ctx.setupInterruptedSettingsRecovery(error), false);
     }
     assert.equal(m.calls.mounts.length, 0); assert.equal(m.listenerCount(), listeners);
@@ -368,4 +377,168 @@ test('recovery participates in lifecycle guards and only explicit verified recov
     isolated(m); unchanged(m, recovered, 2); assert.equal(m.calls.reloads, 0);
     assert.equal(m.get('reload').hidden, false, 'cancel cannot erase the explicit Reload path');
     m.get('reload').dispatch('click'); assert.equal(m.calls.reloads, 1);
+});
+
+let completedRestore;
+async function damagedSettings(kind) {
+    if (!completedRestore) completedRestore = (async () => {
+        const incoming = await synthetic('source'), target = await synthetic('target');
+        await target.store.restore(await target.store.review(await incoming.store.export(), null, accepted), {confirmed: true});
+        return {raw: JSON.parse(JSON.stringify(target.raw)), partial: await incoming.store.export(['scratchpad'])};
+    })();
+    const saved = await completedRestore, raw = copy(saved.raw);
+    if (kind === 'registry schema 99') raw[Workspaces.REGISTRY_KEY].schemaVersion = 99;
+    else {
+        const id = kind === 'missing Default bundle' ? 'default' : 'removed';
+        delete raw[Workspaces.bundleKey(raw[Workspaces.REGISTRY_KEY].workspaces.find(entry => entry.id === id))];
+    }
+    return {...fixture({persisted: raw}), recoverySource: raw[Backup.WORKSPACE_RECOVERY_KEY].source, partialArchive: saved.partial};
+}
+
+function downloadOnlyIsolation(m) {
+    for (const area of [m.main, m.footer, m.switcher]) {
+        assert.equal(area.hidden, true, 'ordinary Settings must be hidden after a structural startup failure');
+        assert.equal(area.inert, true);
+    }
+    for (const control of m.controls) assert.equal(control.disabled, true);
+    assert.equal(m.normalHost.children.length, 0); assert.equal(m.window.completeBackupView, undefined);
+    assert.equal(m.window.settingsFormView, undefined);
+    const host = m.document.getElementById('interrupted-settings-recovery');
+    assert(host?.getClientRects().length && !host.closest('[inert]'));
+    assert.equal(host.parentElement, m.container); assert.equal(m.container.hidden, false); assert.equal(m.container.inert, false);
+    assert.equal(m.skip.getAttribute('href'), '#interrupted-settings-recovery');
+    assert.equal(host.tabIndex, -1); host.focus(); assert.equal(m.document.activeElement, host);
+    assert(m.get('recovery').getClientRects().length && !m.get('recovery').disabled);
+    assert.deepEqual(host.querySelectorAll('button').filter(button => button.getClientRects().length), [m.get('recovery')], 'only the validated retained-copy download is offered');
+    const visibleText = host.querySelectorAll('p').filter(node => node.getClientRects().length).map(node => node.textContent).join(' ');
+    assert.match(visibleText, /can contain private notes|keep.*private/i);
+    assert.match(visibleText, /does not diagnose or resolve.*upgrade data.loss incident/i);
+    assert.doesNotMatch(visibleText, /Use Inspect interrupted restore|then choose that JSON file here/i, 'download-only guidance must not suggest a hidden import or repair action');
+    for (const name of ['download-interrupted', 'inspect-interrupted', 'recover-interrupted', 'reload']) {
+        assert.equal(m.get(name).hidden, true, `${name} is not offered in download-only mode`);
+        assert.equal(m.get(name).disabled, true, `${name} is disabled in download-only mode`);
+    }
+}
+
+async function rejectDownloadOnlyEvents(m) {
+    const before = copy(m.f.raw), reads = m.calls.localReads, downloads = m.calls.downloads.length;
+    // Raw synthetic events deliberately bypass native hidden/disabled behavior;
+    // force-enabled controls still cannot acquire mutation or inspection rights.
+    for (const name of ['export', 'choose', 'file', 'apply', 'select-all', 'clear-selection', 'large', 'download-export', 'target', 'prompt-target', 'collection-target', 'download-interrupted', 'inspect-interrupted', 'recover-interrupted', 'reload']) m.get(name).disabled = false;
+    for (const input of m.document.getElementById('interrupted-settings-recovery').querySelectorAll('[data-module]')) input.disabled = false;
+    ordinaryEvents(m);
+    for (const name of ['download-interrupted', 'inspect-interrupted', 'recover-interrupted', 'reload', 'cancel-interrupted']) m.get(name).dispatch('click');
+    await tick(); m.view.cancel();
+    assert.deepEqual([m.calls.fileReads, m.calls.reviews, m.calls.exports, m.calls.restores, m.calls.inspections, m.calls.recoveries, m.calls.candidateExports, m.calls.reloads], [0, 0, 0, 0, 0, 0, 0, 0]);
+    assert.equal(m.calls.localReads, reads); assert.equal(m.calls.downloads.length, downloads);
+    downloadOnlyIsolation(m); unchanged(m, before);
+}
+
+for (const damage of ['missing Default bundle', 'missing Trash bundle', 'registry schema 99']) test(`${damage}: real Work Settings failure preserves an isolated download-only route to the verified root recovery copy`, async t => {
+    const f = await damagedSettings(damage), m = model(f, 'work', {mountWorkspaces: true}); t.after(() => m.close());
+    const before = copy(f.raw), expectedError = damage === 'registry schema 99' ? 'WORKSPACE_VERSION' : 'WORKSPACE_BUNDLE_MISSING';
+    await m.start();
+    assert(m.calls.errors.some(args => args.some(error => error?.code === expectedError)), 'real StorageManager must reject the structurally damaged registry/bundle while requesting intact Work');
+    assert.equal(m.calls.downloads.length, 0); assert.equal(m.calls.recoveryDownloads, 0); assert.equal(m.calls.reloads, 0);
+    assert(!m.calls.readKeys.some(keys => keys === null || keys.includes(Backup.WORKSPACE_RECOVERY_KEY)), 'startup must not read or validate the retained copy before the explicit download');
+    unchanged(m, before);
+    assert(m.view, 'structural startup errors need a limited retained-copy download entry');
+    downloadOnlyIsolation(m);
+    assert.equal(m.calls.mounts.length, 1); assert.equal(m.calls.mounts[0].options.downloadOnly, true);
+    const view = m.view, listeners = m.listenerCount(), reads = m.calls.localReads;
+    assert.equal(m.ctx.setupInterruptedSettingsRecovery({code: expectedError}), true);
+    assert.equal(m.ctx.setupInterruptedSettingsRecovery({code: 'WORKSPACE_RESTORE_PENDING'}), true);
+    assert.equal(m.view, view); assert.equal(m.calls.mounts.length, 1); assert.equal(m.listenerCount(), listeners); assert.equal(m.calls.localReads, reads);
+    downloadOnlyIsolation(m); // A later pending report cannot expand this view's authority.
+    const readsBeforeDownload = m.calls.readKeys.length;
+    m.get('recovery').dispatch('click'); await until(() => !m.view.pending);
+    assert.equal(m.calls.downloads.length, 1); assert.equal(m.calls.recoveryDownloads, 1);
+    assert.equal(m.calls.downloads[0][0], f.recoverySource, 'download the exact fully validated retained source');
+    assert.deepEqual(m.calls.readKeys.slice(readsBeforeDownload), [[Backup.WORKSPACE_RECOVERY_KEY]], 'download independently reads only the root retained copy');
+    assert.doesNotThrow(() => Backup.parse(m.calls.downloads[0][0], m.manager));
+    assert(!m.calls.downloads[0][0].includes('SECRET_PROVIDER')); assert(!m.calls.downloads[0][0].includes('SECRET_AUTH'));
+    downloadOnlyIsolation(m); unchanged(m, before);
+    await rejectDownloadOnlyEvents(m);
+});
+
+test('download-only view forces ordinary-operation isolation even without the caller setting recoveryOnly', async t => {
+    const m = model(await damagedSettings('missing Trash bundle')); t.after(() => m.close()); const before = copy(m.f.raw);
+    // Directly exercise the production View option, independently of Options
+    // also passing recoveryOnly. Only mounting/downloads use the existing hook.
+    const host = m.document.createElement('section'); host.id = 'interrupted-settings-recovery'; m.container.append(host);
+    const store = new m.window.LocalItabCompleteBackup.Store(m.manager);
+    m.window.interruptedSettingsRecoveryView = m.window.LocalItabCompleteBackupView.mount(host, {store, downloadOnly: true, recoveryOnly: false});
+    assert.equal(m.get('modules').hidden, true); assert.equal(m.get('actions').hidden, true);
+    for (const name of ['export', 'choose', 'file', 'apply', 'select-all', 'clear-selection', 'large', 'download-export', 'target', 'prompt-target', 'collection-target', 'download-interrupted', 'inspect-interrupted', 'recover-interrupted', 'reload']) {
+        assert.equal(m.get(name).disabled, true); m.get(name).disabled = false;
+    }
+    ordinaryEvents(m);
+    for (const name of ['download-interrupted', 'inspect-interrupted', 'recover-interrupted', 'reload']) m.get(name).dispatch('click');
+    await tick(); m.view.cancel();
+    assert.deepEqual([m.calls.fileReads, m.calls.reviews, m.calls.exports, m.calls.restores, m.calls.inspections, m.calls.recoveries, m.calls.candidateExports, m.calls.reloads, m.calls.localReads, m.calls.downloads.length], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    unchanged(m, before);
+});
+
+test('download-only startup refuses invalid or missing retained copies without claiming download success', async t => {
+    const f = await damagedSettings('missing Trash bundle'), m = model(f, 'work', {mountWorkspaces: true}); t.after(() => m.close());
+    await m.start(); assert(m.view, 'real damaged startup must expose the download-only view');
+    const retained = copy(f.raw[Backup.WORKSPACE_RECOVERY_KEY]);
+    const variants = [
+        ['checksum mismatch', {...copy(retained), checksum: '0'.repeat(64)}],
+        ['unsupported archive', {source: '{}', checksum: await m.manager.fingerprint('{}')}],
+        ['partial archive', {source: f.partialArchive, checksum: await m.manager.fingerprint(f.partialArchive)}],
+        ['extra envelope field', {...copy(retained), unexpected: true}],
+        ['missing copy', null]
+    ];
+    for (const [label, saved] of variants) {
+        if (saved) f.raw[Backup.WORKSPACE_RECOVERY_KEY] = saved; else delete f.raw[Backup.WORKSPACE_RECOVERY_KEY];
+        const before = copy(f.raw), reads = m.calls.readKeys.length;
+        m.get('recovery').dispatch('click'); await until(() => !m.view.pending);
+        assert.equal(m.calls.downloads.length, 0, `${label}: invalid data must never reach the download boundary`);
+        assert.match(m.get('status').textContent, /no valid.*recovery copy/i, label);
+        assert.doesNotMatch(m.get('status').textContent, /download requested|restored and verified/i, label);
+        // Store.recovery has an existing read-only V1 compatibility lookup only
+        // when V2 is absent. Invalid V2 must never fall through to another copy.
+        assert.deepEqual(m.calls.readKeys.slice(reads), saved ? [[Backup.WORKSPACE_RECOVERY_KEY]] : [[Backup.WORKSPACE_RECOVERY_KEY], [Backup.RECOVERY_KEY]], label);
+        downloadOnlyIsolation(m); unchanged(m, before);
+    }
+    assert.equal(m.calls.recoveryDownloads, variants.length);
+    assert.deepEqual([m.calls.inspections, m.calls.recoveries, m.calls.candidateExports, m.calls.reloads], [0, 0, 0, 0]);
+});
+
+test('a real unrelated storage read failure does not enter structural retained-copy mode', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    m.f.hooks.read = async () => { throw Error('Synthetic unrelated storage read failure'); };
+    await m.start();
+    assert(m.calls.errors.some(args => args.some(error => error?.code === 'WORKSPACE_READ')));
+    assert.equal(m.view, undefined); assert.equal(m.calls.mounts.length, 0);
+    assert.equal(m.document.getElementById('interrupted-settings-recovery'), null);
+    assert.equal(m.main.hidden, false); assert.equal(m.main.inert, false);
+    assert.equal(m.calls.recoveryDownloads, 0); assert.equal(m.calls.downloads.length, 0); unchanged(m, before);
+});
+
+for (const departure of ['cancel', 'destroy']) test(`${departure}: a late validated retained-copy read cannot download or reclaim focus after leaving download-only review`, async t => {
+    const m = model(await damagedSettings('missing Default bundle'), 'work', {mountWorkspaces: true}); t.after(() => m.close());
+    await m.start(); assert(m.view); const before = copy(m.f.raw), gate = deferred(); let entered = false;
+    m.f.hooks.read = async (keys, raw) => {
+        if (keys.includes(Backup.WORKSPACE_RECOVERY_KEY)) { entered = true; await gate.promise; }
+        return copy(Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    const status = m.get('status'), reads = m.calls.readKeys.length;
+    m.get('recovery').focus(); m.get('recovery').dispatch('click');
+    try {
+        await until(() => entered); assert.equal(m.view.pending, true);
+        if (departure === 'cancel') m.view.cancel(); else assert.equal(m.view.destroy(), true);
+        const other = m.document.createElement('button'); other.textContent = 'Synthetic newer focus owner'; m.container.append(other); other.focus();
+        const statusAfterDeparture = status.textContent;
+        gate.resolve(); await until(() => m.calls.recoverySettled === 1); await tick();
+        assert.equal(m.calls.downloads.length, 0); assert.equal(m.document.activeElement, other);
+        assert.equal(status.textContent, statusAfterDeparture, 'late validation cannot publish new feedback');
+        assert.deepEqual(m.calls.readKeys.slice(reads), [[Backup.WORKSPACE_RECOVERY_KEY]]);
+        assert.equal(m.calls.recoveryDownloads, 1); assert.equal(m.calls.recoveries, 0); assert.equal(m.calls.reloads, 0);
+        for (const area of [m.main, m.footer, m.switcher]) assert(area.hidden && area.inert);
+        for (const control of m.controls) assert.equal(control.disabled, true);
+        if (departure === 'cancel') downloadOnlyIsolation(m);
+        unchanged(m, before);
+    } finally { gate.resolve(); delete m.f.hooks.read; }
 });

@@ -96,6 +96,7 @@
     "ExportDownloadError": "The download request could not be verified. Check your browser’s downloads before preparing another copy; no automatic retry was made.",
     "Choose": "Choose local backup JSON",
     "Recovery": "Download pre-restore recovery copy",
+    "RecoveryDownloadOnlyHelp": "This view can only download a retained pre-restore copy after its integrity and supported format are checked. It cannot export today’s complete state, inspect a restore transaction, import, or restore. A valid retained copy may not be available. Check your downloads; requesting a download does not confirm that the file was saved.",
     "RecoveryOnlyHelp": "Download retained copies for safekeeping. File import is unavailable in this limited view. Use Inspect interrupted restore to review the previous state; after a verified recovery, reload Settings.",
     "RecoveryHelp": "A verified local recovery copy is saved before replacement. Download it, then choose that JSON file here to review and restore. Starting a later confirmed restore may replace this snapshot, even if the target replacement does not finish.",
     "Review": "Review local replacement",
@@ -148,8 +149,9 @@
     Object.assign(fallback, {"Collections": "AI collections and saved versions", "CollectionHelp": "Collections are one global library shared across workspaces. Full backups include manually saved excerpts, notes, source URLs, prompt references, archived records and versions. Check private content before sharing; provider credentials are excluded. Explicitly saved question/source snapshots and exact endpoint/model metadata are included unchanged; backups are unencrypted.", "CollectionTarget": "Destination for AI collections", "ChooseCollectionTarget": "Choose the collections destination", "GlobalCollections": "Global AI collections on this device", "CollectionTargetRequired": "Choose the global AI collections target, then review again. Active and archived collections will be replaced.", "CollectionScope": "The selected global AI collections are replaced once, including archived records. Existing content and saved versions remain in recovery. Prompt references retain their exact IDs and may be unresolved.", "CollectionConflicts": "Matching collection IDs whose saved content differs"});
     const MODULES = ['config', 'tasks', 'scratchpad', 'countdown', 'focus', 'prompts', 'collections'];
     const titleKey = id => id[0].toUpperCase() + id.slice(1);
-    function mount(host, {store, recoveryOnly = false, restore = (preview, isCurrent) => store.restore(preview, {confirmed: true, isCurrent}), recoverInterruptedRestore = (review, isCurrent) => store.recoverInterruptedRestore(review, { confirmed: true, isCurrent }), reload = () => root.LocalItabContentLifecycle?.reload(), download = downloadFile} = {}) {
+    function mount(host, {store, recoveryOnly = false, downloadOnly = false, restore = (preview, isCurrent) => store.restore(preview, {confirmed: true, isCurrent}), recoverInterruptedRestore = (review, isCurrent) => store.recoverInterruptedRestore(review, { confirmed: true, isCurrent }), reload = () => root.LocalItabContentLifecycle?.reload(), download = downloadFile} = {}) {
         if (!host?.ownerDocument || !store) throw new TypeError('Complete backup needs a host and store.');
+        recoveryOnly = recoveryOnly || downloadOnly;
         const doc = host.ownerDocument;
         const t = key => { const id = 'completeBackup' + key; const value = root.i18n?.t(id); return value && value !== id ? value : fallback[key]; };
         let generation = 0, source = null, availableModules = null, preview = null, targetWorkspaceId, promptTarget, collectionTarget, interruptedReview = null, phase = '', destroyed = false, pendingLargeFile = null, exportSnapshot = null, exportWatching = false, downloadDeparted = false;
@@ -210,13 +212,13 @@
         const configInspection = make('a', 'complete-backup-config-inspection', t('InspectConfigImport'), shell);
         configInspection.target = '_blank'; configInspection.rel = 'noopener'; configInspection.hidden = true;
         const reloadButton = button('Reload', 'reload', shell); reloadButton.hidden = true;
-        const recovery = button('Recovery', 'recovery', shell); make('p', 'form-hint', t(recoveryOnly ? 'RecoveryOnlyHelp' : 'RecoveryHelp'), shell);
-        const downloadInterrupted = button('DownloadInterrupted', 'download-interrupted', shell); downloadInterrupted.hidden = typeof store.exportInterruptedCandidates !== 'function';
+        const recovery = button('Recovery', 'recovery', shell); make('p', 'form-hint', t(downloadOnly ? 'RecoveryDownloadOnlyHelp' : recoveryOnly ? 'RecoveryOnlyHelp' : 'RecoveryHelp'), shell);
+        const downloadInterrupted = button('DownloadInterrupted', 'download-interrupted', shell); downloadInterrupted.hidden = downloadOnly || typeof store.exportInterruptedCandidates !== 'function';
         const inspectInterrupted = button('InspectInterrupted', 'inspect-interrupted', shell);
         const interruptedSummary = make('p', 'form-hint complete-backup-interrupted-summary', '', shell); interruptedSummary.hidden = true;
         const recoverInterrupted = button('RecoverInterrupted', 'recover-interrupted', shell, true); recoverInterrupted.hidden = true;
         const cancelInterrupted = button('Cancel', 'cancel-interrupted', shell); cancelInterrupted.hidden = true;
-        inspectInterrupted.hidden = typeof store.inspectInterruptedRestore !== 'function';
+        inspectInterrupted.hidden = downloadOnly || typeof store.inspectInterruptedRestore !== 'function';
         if (recoveryOnly) choices.hidden = actions.hidden = true;
         // Observe only the ordinary export's lifetime. Removed-and-reattached
         // old nodes must not revive it, even before the observer callback runs.
@@ -242,7 +244,8 @@
             selectAll.disabled = clearSelection.disabled = recoveryOnly || busy || unknownScope;
             exportButton.disabled = choose.disabled = file.disabled = recoveryOnly || busy; recovery.disabled = busy;
             target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = recoveryOnly || busy || phase === 'reading';
-            inspectInterrupted.disabled = busy; downloadInterrupted.disabled = busy || phase === 'reading'; recoverInterrupted.disabled = busy || !interruptedReview;
+            inspectInterrupted.disabled = downloadOnly || busy; downloadInterrupted.disabled = downloadOnly || busy || phase === 'reading'; recoverInterrupted.disabled = downloadOnly || busy || !interruptedReview;
+            reloadButton.disabled = downloadOnly;
             largeButton.disabled = recoveryOnly || busy;
             apply.disabled = recoveryOnly || phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
             cancel.disabled = cancelExport.disabled = cancelInterrupted.disabled = ['applying', 'downloading'].includes(phase);
@@ -559,7 +562,7 @@
         }
         exportButton.addEventListener('click', () => exportFile(false)); recovery.addEventListener('click', () => exportFile(true));
         downloadInterrupted.addEventListener('click', async () => {
-            if (!current(generation) || downloadInterrupted.disabled) return;
+            if (downloadOnly || !current(generation) || downloadInterrupted.disabled) return;
             if (exportWatching) clearExport();
             // A read-only recovery download must not strand an existing review.
             // Only settled reviews can resume; the token still owns cancellation.
@@ -574,7 +577,7 @@
             } }
         });
         inspectInterrupted.addEventListener('click', async () => {
-            if (!current(generation) || inspectInterrupted.disabled) return;
+            if (downloadOnly || !current(generation) || inspectInterrupted.disabled) return;
             const token = ++generation; source = null; availableModules = null; clear(); interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; interruptedSummary.textContent = ''; cancelInterrupted.hidden = false; phase = 'reading'; controls();
             try {
                 const report = await store.inspectInterruptedRestore();
@@ -588,7 +591,7 @@
             finally { if (current(token)) { phase = ''; controls(); } }
         });
         recoverInterrupted.addEventListener('click', async () => {
-            if (!current(generation) || recoverInterrupted.disabled || !interruptedReview) return;
+            if (downloadOnly || !current(generation) || recoverInterrupted.disabled || !interruptedReview) return;
             const ticket = interruptedReview, token = ++generation; interruptedReview = null; phase = 'applying'; status.textContent = t('Applying'); controls();
             try {
                 await recoverInterruptedRestore(ticket, () => current(token));
@@ -597,7 +600,7 @@
             } catch (error) { if (current(token)) { interruptedSummary.hidden = recoverInterrupted.hidden = cancelInterrupted.hidden = true; status.textContent = errorText(error, true); } }
             finally { if (current(token)) { phase = ''; controls(); } }
         });
-        reloadButton.addEventListener('click', () => reload());
+        reloadButton.addEventListener('click', () => { if (!downloadOnly) reload(); });
         controls();
         return { get pending() { return ['applying', 'exporting', 'downloading'].includes(phase); }, hasUncommittedWork: () => Boolean(source || phase || !cancelInterrupted.hidden), cancel: abandon,
             destroy() { if (['applying', 'downloading'].includes(phase)) return false; destroyed = true; ++generation; source = null; availableModules = null; clearExport(); root.removeEventListener?.('pagehide', expireExport); clearWorkspaceImpact(); shell.remove(); return true; } };

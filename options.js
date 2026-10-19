@@ -324,9 +324,10 @@ function setupCompleteBackup() {
 }
 
 // Startup recovery must remain reachable without admitting ordinary settings
-// reads/writes through the pending-restore fence. Never unlock this page in-place.
+// reads/writes through protection fences. Never unlock this page in-place.
 function setupInterruptedSettingsRecovery(error) {
-    if (error?.code !== 'WORKSPACE_RESTORE_PENDING') return false;
+    const downloadOnly = ['WORKSPACE_BUNDLE_MISSING', 'WORKSPACE_VERSION'].includes(error?.code);
+    if (!downloadOnly && error?.code !== 'WORKSPACE_RESTORE_PENDING') return false;
     for (const area of document.querySelectorAll('.options-main, .options-footer, #workspace-switcher')) {
         if (area.id === 'interrupted-settings-recovery') continue;
         area.hidden = true; area.inert = true;
@@ -337,12 +338,12 @@ function setupInterruptedSettingsRecovery(error) {
     const host = document.createElement('section'); host.id = 'interrupted-settings-recovery'; host.className = 'options-main';
     host.setAttribute('tabindex', '-1');
     const notice = document.createElement('p'); notice.className = 'form-hint'; notice.setAttribute('role', 'alert');
-    notice.textContent = t('settingsInterruptedRecovery', 'An interrupted local restore is blocking ordinary Settings. Inspect the saved copies below before deciding whether to restore the previous state. No automatic repair has run. After recovery, use Reload; ordinary settings stay unavailable on this page. This does not diagnose or resolve an earlier upgrade data-loss incident.');
+    notice.textContent = downloadOnly ? t('settingsRecoveryDownloadOnly', 'The saved workspace structure could not be validated, so ordinary Settings remain unavailable. You can request a download of a retained complete pre-restore copy below. The copy is checked before download; no repair or restore is available here. Keep downloaded files private. This does not diagnose or resolve an earlier upgrade data-loss incident.') : t('settingsInterruptedRecovery', 'An interrupted local restore is blocking ordinary Settings. Inspect the saved copies below before deciding whether to restore the previous state. No automatic repair has run. After recovery, use Reload; ordinary settings stay unavailable on this page. This does not diagnose or resolve an earlier upgrade data-loss incident.');
     host.append(notice); (document.querySelector('.options-container') || document.body).append(host);
     try {
         const store = new window.LocalItabCompleteBackup.Store(storageManager);
         window.interruptedSettingsRecoveryView = window.LocalItabCompleteBackupView.mount(host, {
-            store, recoveryOnly: true,
+            store, recoveryOnly: true, downloadOnly,
             recoverInterruptedRestore: (review, isCurrent) => queueSettingsWrite(async () => {
                 if (!isCurrent()) throw Object.assign(new Error(), {code: 'CANCELLED'});
                 if (completeBackupHasDrafts()) throw Object.assign(new Error(), {code: 'DIRTY'});
