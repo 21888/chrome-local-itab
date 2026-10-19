@@ -12,6 +12,12 @@ In a saved prompt or collection item's detail view, choose **Export current save
 
 Files use the fixed names `local-itab-prompt.md` and `local-itab-collection.md`, with UTF-8 Markdown content. Export does not modify saved data, add permissions, or use network access.
 
+## Collection snapshots and storage freshness
+
+For collection items, **Copy excerpt** copies the body currently displayed on this page. Single-item Markdown reviews the selected record version already loaded here and requests the exact complete string shown in that review; it does not re-read storage at download time. “Current saved item” therefore does not guarantee the latest storage state. After a failed read, explicitly selecting a retained item can still let you copy or review that older snapshot, including when an interrupted restore has already submitted different stored data. This is a readable copy of the displayed version, not confirmation that a restore succeeded or a current recovery backup.
+
+To obtain a fresh copy, first resolve any interrupted restore through the backup workflow, then successfully use **Refresh saved data** and review the resulting item/version again. A new read or changed selection invalidates an earlier Markdown review rather than silently swapping its contents. The all-library **Export** JSON path is different: it re-reads storage and refuses unresolved restore states without requesting a download. Filtered Markdown requires current successful-read eligibility; dismissing an error by selecting an item does not reopen it. These distinctions do not imply that a browser download has been saved to disk.
+
 ## Export the current filtered collection
 
 The list-side **Export filtered results as Markdown** entry is separate from single-item export. It takes every matching saved record in the current Saved or Archived scope and the exact query/type/tool/tag intersection, using the same Recently updated or Earliest saved order as the list. Zero matches cannot start a review. Review the count, scope, active filters, order and complete literal output, then explicitly download `local-itab-collection-results.md`.
@@ -27,6 +33,12 @@ Filtering, sorting, saved-state/read changes, hidden/departed pages or a replace
 仅导出当前单个已保存条目。提示词保留 `{{变量}}` 模板原文，不含临时变量值；收藏包含原文、注释和元数据，关联提示词仅包含精确 ID，不包含关联正文。草稿、修订提案、其他条目、历史版本和恢复快照均不导出。来源网址默认不包含，需手动勾选，并可检查保存的网址原文；不会访问网址。即使不包含网址，正文和注释仍可能含私人信息。
 
 这是未加密的可读副本，不是恢复备份。原有 JSON 备份功能不变。条目或版本在检查期间改变，或保存状态不确定时，需重新发起导出。
+
+### 收藏页面版本与存储最新状态
+
+「复制摘录」复制本页当前显示的正文。单条 Markdown 审阅本页已经加载的所选记录版本，下载请求使用审阅中展示的完整字符串，不在下载时重新读存储。因此「当前已保存条目」不保证是存储的最新状态。读取失败后，明确选择保留的条目仍可能复制或审阅旧页面版本，即使中断恢复已经提交了不同的存储数据。它是所见版本的可读副本，不是恢复成功的确认或最新恢复备份。
+
+如需最新副本，先按备份流程处理未完成的恢复，再成功执行「刷新已保存的数据」，重新核对条目与版本。新的读取或选择变化会使旧 Markdown 审阅失效，不会偷偷替换审阅内容。全库「导出」JSON 则会重新读取存储，恢复未确定完成时拒绝请求下载；筛选 Markdown 合集要求当前成功读取凭证，选择条目清除错误不会重新开放它。这些行为均不证明浏览器已把文件保存到磁盘。
 
 ### 当前筛选结果合集
 
