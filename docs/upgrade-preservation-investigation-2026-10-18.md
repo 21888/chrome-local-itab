@@ -262,6 +262,34 @@ import-closure-service modules are byte-identical to current master; the relevan
 admission, read and View error-handling paths also match. This is source comparison,
 not execution of the same raw input on 1.1.151 or proof of an affected installation.
 
+## Current first-render continuation · 2026-10-19
+
+A separate continuation used the exact two retained candidate 1.1.6 output files
+from the carryover probe above. It ran current Manager, Session, workspace-bound
+StorageManager and workspace View, then actual Shortcut initialization and first
+render, in two fresh processes. The current source is
+[`9d2e0e1`](https://github.com/21888/chrome-local-itab/commit/9d2e0e1995a0f079b3afdfc4a12494b0e231725d),
+tree `1dc8d5b087a9510f7572d9a8ae22e7fa00086f0a`; it is a later source than the
+original probe's current-source pin. The historical inputs were not regenerated.
+
+Both lanes passed 110 assertions in total. Each performed 33 local backing reads
+and five ordinary migration writes, retaining the complete original raw values,
+pre-migration copy and initial workspace bundle. First Shortcut render added no
+writes. Both tiles retained their original URL-to-coordinate associations in
+All, Work and hidden views; the legacy lane did not substitute the canonical
+coordinates previously added by candidate 1.1.6. Negative saved y coordinates
+remained unchanged, although display-only fitting placed the modeled tiles at
+zero y. The actual Sync initialization method ran once per lane, but Sync backing
+access, provider calls, removals and clears were all zero. Independent whole-file
+verification confirmed all 92 historical evidence files and all 1599 tracked
+current-source files remained unchanged.
+
+This closes the earlier probe's specific unexecuted first-Shortcut-render path
+for those two synthetic inputs. DOM, Chrome storage and Web Locks remain modeled;
+category navigation DOM and the complete new-tab boot sequence were not run.
+It is neither a native upgrade test nor a finding about an affected user's data,
+and no new production defect or recovery of actual user data was established.
+
 ## Remaining release evidence
 
 The existing preservation suite also passed 612 tests across 12 explicit files,
