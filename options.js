@@ -658,7 +658,31 @@ function refreshPrivacyPermissionHints() {
     });
 }
 
+const dashboardNavigationButtons = new WeakSet();
+let settingsInitializing = true;
+function setupDashboardNavigation() {
+    // Back to dashboard button
+    const backButton = document.getElementById('back-to-dashboard');
+    if (backButton && !dashboardNavigationButtons.has(backButton)) {
+        dashboardNavigationButtons.add(backButton);
+        backButton.addEventListener('click', function() {
+            const lifecycle = window.LocalItabContentLifecycle;
+            const readingBackup = Array.from(document.querySelectorAll('.complete-backup')).some(shell => shell.getAttribute('aria-busy') === 'true');
+            if (settingsInitializing || !lifecycle || readingBackup || lifecycle.pending() || lifecycle.hasUncommittedWork() ||
+                window.workspacesView?.pending || window.workspacesView?.hasUncommittedWork?.()) {
+                showErrorMessage(t('settingsBackBlocked', 'Finish the current action, cancel the open review, or save or discard your drafts before returning to the dashboard.'));
+                return;
+            }
+            const id = storageManager.workspace?.id || storageManager.workspace?.requestedId;
+            // Navigate this page only; retain the shared native departure guard.
+            window.location.href = 'newtab.html' + (id ? '?workspace=' + encodeURIComponent(id) : '');
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
+    settingsInitializing = true;
+    setupDashboardNavigation();
     console.log('Local iTab options page loaded');
     
     try {
@@ -692,7 +716,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (setupInterruptedSettingsRecovery(error)) return;
         console.error('Error initializing options page:', error);
         showErrorMessage(t('settingsLoadFailed', 'Failed to load settings. Please try refreshing the page.'));
-    }
+    } finally { settingsInitializing = false; }
 });
 
 async function initializeOptionsPage() {
@@ -1041,22 +1065,8 @@ function getCategoriesFromDOM() {
 }
 
 function setupEventListeners() {
-    // Back to dashboard button
-    const backButton = document.getElementById('back-to-dashboard');
-    if (backButton) {
-        backButton.addEventListener('click', function() {
-            // Close the options page and return to the new tab page
-            if (chrome.tabs) {
-                chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                    chrome.tabs.update(tabs[0].id, {url: chrome.runtime.getURL('newtab.html') + (storageManager.workspace?.id ? '?workspace=' + encodeURIComponent(storageManager.workspace.id) : '')});
-                });
-            } else {
-                // Fallback for when chrome.tabs is not available
-                window.location.href = 'newtab.html' + (storageManager.workspace?.id ? '?workspace=' + encodeURIComponent(storageManager.workspace.id) : '');
-            }
-        });
-    }
-    
+    setupDashboardNavigation();
+
     // Save settings button
     const saveButton = document.getElementById('save-settings');
     if (saveButton) {

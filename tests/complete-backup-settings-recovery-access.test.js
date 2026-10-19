@@ -30,11 +30,12 @@ async function interrupted() {
     return fixture({persisted: JSON.parse(JSON.stringify(target.raw))});
 }
 
-function model(f, workspaceId = 'work', {mountWorkspaces = false} = {}) {
+function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable = true, unrequested = false, simulateDepartureCancellation = false} = {}) {
     const calls = {mounts: [], stores: [], downloads: [], reloads: 0, fileReads: 0,
         localReads: 0, localRemoves: 0, providerReads: 0, providerWrites: 0, providerRemoves: 0,
         reviews: 0, exports: 0, restores: 0, inspections: 0, recoveries: 0,
-        recoveryDownloads: 0, recoverySettled: 0, candidateExports: 0, readKeys: [], errors: []};
+        recoveryDownloads: 0, recoverySettled: 0, candidateExports: 0, readKeys: [], errors: [],
+        tabQueries: [], currentTabRequests: 0, activeTabId: 42, tabUpdates: [], locationAssignments: [], confirmations: 0, cancelledDepartures: 0};
     const read = f.chrome.storage.local.get;
     f.chrome.storage.local.get = (...args) => { calls.localReads++; calls.readKeys.push(copy(args[0])); return read(...args); };
     f.chrome.storage.local.remove = async () => { calls.localRemoves++; throw Error('Unexpected local remove'); };
@@ -46,7 +47,14 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false} = {}) {
     };
     const chromeListeners = new Set();
     f.chrome.storage.onChanged = {addListener: fn => chromeListeners.add(fn), removeListener: fn => chromeListeners.delete(fn)};
-    const manager = new StorageManager({workspace: f.workspaceManager.capture(workspaceId)});
+    f.chrome.runtime = {getURL: file => 'chrome-extension://synthetic/' + file};
+    if (tabsAvailable) f.chrome.tabs = {
+        getCurrent(callback) { calls.currentTabRequests++; callback({id: 17}); },
+        query(query, callback) { calls.tabQueries.push(copy(query)); callback([{id: calls.activeTabId}]); },
+        update(id, changes) { calls.tabUpdates.push({id, ...copy(changes)}); }
+    };
+    const requestedId = unrequested ? undefined : workspaceId;
+    const manager = new StorageManager({workspace: f.workspaceManager.capture(requestedId)});
     assert.equal(manager.getAll, StorageManager.prototype.getAll);
     assert.equal(manager.ensureSyncInitialized, StorageManager.prototype.ensureSyncInitialized);
     const document = createDocument({blurUnavailableFocus: true, aggregateTextContent: true});
@@ -59,6 +67,9 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false} = {}) {
     skip.href = '#settings-search-input'; document.body.append(skip);
     const container = document.createElement('div'); container.className = 'options-container';
     const header = document.createElement('header'); header.className = 'options-header';
+    const headerTop = document.createElement('div'); headerTop.className = 'header-top';
+    const back = document.createElement('button'); back.id = 'back-to-dashboard'; back.className = 'back-button'; back.textContent = 'Back to Dashboard';
+    headerTop.append(back); header.append(headerTop);
     const main = document.createElement('main'); main.className = 'options-main';
     const normalHost = document.createElement('div'); normalHost.id = 'complete-backup';
     const controls = ['input', 'textarea', 'select', 'button'].map(tag => document.createElement(tag));
@@ -67,7 +78,13 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false} = {}) {
     const searchControls = document.createElement('div'); searchControls.className = 'settings-search-controls';
     const searchInput = document.createElement('input'); searchInput.id = 'settings-search-input'; searchInput.type = 'search';
     searchControls.append(searchInput); searchSection.append(searchControls);
-    main.append(searchSection, ...controls, normalHost);
+    // The real category editor must mount even when tests edit another field:
+    // production records its clean baseline only after both these nodes exist.
+    const categorySection = document.createElement('section'); categorySection.id = 'category-settings';
+    const categoryList = document.createElement('ul'); categoryList.id = 'category-manage-list'; categoryList.className = 'category-manage-list';
+    const addCategory = document.createElement('button'); addCategory.id = 'add-category'; addCategory.type = 'button'; addCategory.textContent = 'Add Category';
+    categorySection.append(categoryList, addCategory);
+    main.append(searchSection, ...controls, categorySection, normalHost);
     const switcher = document.createElement('div'); switcher.id = 'workspace-switcher';
     const selectWorkspace = document.createElement('select'); switcher.append(selectWorkspace);
     // Match options.html: footer is a sibling, never a descendant of main.
@@ -79,13 +96,25 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false} = {}) {
     header.append(switcher); container.append(header, main, footer); document.body.append(container);
     const handlers = new Map();
     const window = {LocalItabPrompts: Prompts, LocalItabAICollections: Collections,
-        location: {reload() { calls.reloads++; }}, confirm() { throw Error('Unexpected confirmation'); },
+        location: {reload() { calls.reloads++; }}, confirm() { calls.confirmations++; throw Error('Unexpected confirmation'); },
         addEventListener(type, fn) { if (!handlers.has(type)) handlers.set(type, new Set()); handlers.get(type).add(fn); },
         removeEventListener(type, fn) { handlers.get(type)?.delete(fn); }};
+    let pageUrl = 'chrome-extension://synthetic/options.html' + (requestedId === undefined ? '' : '?workspace=' + encodeURIComponent(requestedId));
+    const initialUrl = pageUrl;
+    Object.defineProperty(window.location, 'href', {get() { return pageUrl; }, set(value) {
+        calls.locationAssignments.push(value);
+        const destination = new URL(value, pageUrl).href;
+        // Optional model of a browser honoring the real beforeunload guard and
+        // the user choosing Stay. This does not claim Chrome always shows it.
+        if (simulateDepartureCancellation) {
+            const event = {preventDefault() { this.prevented = true; }};
+            for (const fn of handlers.get('beforeunload') || []) fn(event);
+            if (event.prevented) { calls.cancelledDepartures++; return; }
+        }
+        pageUrl = destination;
+    }});
     if (mountWorkspaces) {
-        f.chrome.runtime = {getURL: file => 'chrome-extension://synthetic/' + file};
         Object.assign(window, {document, chrome: f.chrome, LocalItabWorkspaces: {manager: f.workspaceManager, session: manager.workspace}});
-        window.location.href = 'chrome-extension://synthetic/options.html?workspace=' + encodeURIComponent(workspaceId);
     }
     let sequence = 0;
     class BoundStore extends Backup.Store {
@@ -118,7 +147,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false} = {}) {
     const get = name => document.getElementById('interrupted-settings-recovery')?.querySelector('.complete-backup-' + name);
     const dispatchWindow = (type, event = {}) => { for (const fn of handlers.get(type) || []) fn(event); };
     const listenerCount = () => [...handlers.values()].reduce((sum, set) => sum + set.size, 0) + chromeListeners.size;
-    return {f, calls, ctx, window, manager, document, skip, searchInput, container, main, footer, save, reset, normalHost, switcher, controls: [...controls, searchInput, selectWorkspace, save, reset],
+    return {f, calls, ctx, window, manager, document, initialUrl, skip, searchInput, container, main, footer, save, reset, back, normalHost, switcher, controls: [...controls, searchInput, addCategory, selectWorkspace, save, reset],
         get, dispatchWindow, listenerCount, get view() { return window.interruptedSettingsRecoveryView; },
         async start() { await document.listeners.get('DOMContentLoaded')({type: 'DOMContentLoaded'}); },
         close() { this.view?.destroy(); window.workspacesView?.destroy(); for (const timer of timers) clearTimeout(timer); }};
@@ -541,4 +570,186 @@ for (const departure of ['cancel', 'destroy']) test(`${departure}: a late valida
         if (departure === 'cancel') downloadOnlyIsolation(m);
         unchanged(m, before);
     } finally { gate.resolve(); delete m.f.hooks.read; }
+});
+
+function noDashboardNavigation(m) {
+    assert.deepEqual([m.calls.currentTabRequests, m.calls.tabQueries.length, m.calls.tabUpdates.length, m.calls.locationAssignments.length], [0, 0, 0, 0], 'loading Settings must never request navigation');
+}
+function blockedDashboard(m, {count = 0} = {}) {
+    assert.deepEqual([m.calls.currentTabRequests, m.calls.tabQueries.length, m.calls.tabUpdates.length], [0, 0, 0]);
+    assert.equal(m.calls.locationAssignments.length, count, 'unfinished work must not request Back navigation');
+    const notice = m.document.querySelectorAll('.message-error').at(-1);
+    assert(notice?.getClientRects().length && !notice.closest('[inert]'), 'blocked Back explains the next step outside isolated Settings');
+    assert.equal(notice.getAttribute('role'), 'alert');
+    assert.match(notice.textContent, /finish.*current action.*cancel.*review.*save or discard.*drafts/i);
+    assert.equal(m.calls.confirmations, 0, 'Back never asks to discard unfinished work');
+    assert.equal(m.window.LocalItabContentLifecycle.departing, false, 'Back never pre-authorizes departure');
+}
+function dashboardDestination(m, {count = 1, workspaceId = 'work'} = {}) {
+    assert.deepEqual([m.calls.tabQueries.length, m.calls.currentTabRequests, m.calls.tabUpdates.length], [0, 0, 0], 'Back navigates only this page, without selecting or updating any browser tab');
+    assert.equal(m.calls.locationAssignments.length, count, 'one explicit click requests one current-page navigation');
+    assert.equal(new URL(m.initialUrl).pathname, '/options.html');
+    for (const destination of m.calls.locationAssignments) {
+        const url = new URL(destination, m.initialUrl);
+        assert.equal(url.protocol, 'chrome-extension:'); assert.equal(url.host, 'synthetic'); assert.equal(url.pathname, '/newtab.html');
+        assert.equal(url.searchParams.get('workspace'), workspaceId);
+        assert.deepEqual([...url.searchParams.keys()], ['workspace']); assert.equal(url.hash, '');
+    }
+}
+
+test('Back to Dashboard waits for an open recovery review to be cancelled without retiring or confirming it', async t => {
+    const m = model(await interrupted(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    await m.start(); assert(m.view); isolated(m); noDashboardNavigation(m);
+    assert.equal(m.manager.workspace.id, 'work');
+    assert(m.back.getClientRects().length && !m.back.disabled && !m.back.closest('[inert]'));
+    const gate = deferred(); let entered = false;
+    m.f.hooks.read = async (keys, raw) => {
+        entered = true; await gate.promise;
+        return copy(keys === null ? raw : Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    m.get('inspect-interrupted').dispatch('click');
+    try {
+        await until(() => entered);
+        assert.equal(m.document.getElementById('interrupted-settings-recovery').querySelector('.complete-backup').getAttribute('aria-busy'), 'true');
+        assert.equal(m.view.pending, false, 'a real Inspect read is not exposed as a write-pending phase');
+        const reads = m.calls.localReads;
+        m.back.dispatch('click'); blockedDashboard(m);
+        assert.equal(m.calls.localReads, reads); unchanged(m, before);
+    } finally { gate.resolve(); delete m.f.hooks.read; }
+    await until(() => !m.get('recover-interrupted').hidden && !m.get('recover-interrupted').disabled);
+    assert.equal(m.window.LocalItabContentLifecycle.hasUncommittedWork(), true);
+    const reads = m.calls.localReads, view = m.view;
+    m.back.focus(); m.back.dispatch('click'); blockedDashboard(m);
+    assert.equal(m.calls.localReads, reads, 'Back navigation must not read or repair protected storage');
+    assert.equal(m.view, view); assert.equal(m.view.hasUncommittedWork(), true);
+    assert.equal(m.window.LocalItabContentLifecycle.departing, false, 'navigation cannot pre-authorize departure or discard reviews');
+    const departure = {preventDefault() { this.prevented = true; }};
+    m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true, 'the real native-departure guard remains registered');
+    assert.equal(m.calls.confirmations, 0);
+    m.get('cancel-interrupted').dispatch('click'); assert.equal(m.view.hasUncommittedWork(), false);
+    m.back.dispatch('click'); dashboardDestination(m);
+    assert.equal(m.calls.localReads, reads); assert.equal(m.window.LocalItabContentLifecycle.departing, false);
+    unchanged(m, before);
+});
+
+test('Back to Dashboard keeps requested Work without tabs APIs after real structural startup fails before identity capture', async t => {
+    const m = model(await damagedSettings('missing Default bundle'), 'work', {mountWorkspaces: true, tabsAvailable: false}); t.after(() => m.close()); const before = copy(m.f.raw);
+    await m.start(); assert(m.view); downloadOnlyIsolation(m); noDashboardNavigation(m);
+    assert.equal(m.manager.workspace.id, null); assert.equal(m.manager.workspace.requestedId, 'work');
+    assert(m.back.getClientRects().length && !m.back.closest('[inert]'));
+    const reads = m.calls.localReads; m.back.dispatch('click'); dashboardDestination(m);
+    assert.equal(m.calls.localReads, reads); assert.equal(m.calls.recoveryDownloads, 0); unchanged(m, before);
+});
+
+test('Back to Dashboard waits for the first real startup read, then preserves Work after protected startup fails', async t => {
+    const m = model(await interrupted(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    const gate = deferred(), entered = deferred();
+    m.f.hooks.read = async (keys, raw) => {
+        entered.resolve(); await gate.promise;
+        return copy(keys === null ? raw : Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    const loading = m.start();
+    try {
+        await entered.promise; noDashboardNavigation(m);
+        assert.equal(m.manager.workspace.id, null); assert.equal(m.manager.workspace.requestedId, 'work');
+        assert.throws(() => m.f.workspaceManager.capture('work&workspace=default'), error => error.code === 'WORKSPACE_NOT_FOUND', 'identity fallback retains real Session token validation');
+        const reads = m.calls.localReads;
+        m.back.dispatch('click'); blockedDashboard(m);
+        assert.equal(m.calls.confirmations, 0); assert.equal(m.window.LocalItabContentLifecycle.departing, false);
+        assert.equal(m.calls.localReads, reads); unchanged(m, before);
+    } finally { gate.resolve(); await loading; delete m.f.hooks.read; }
+    assert(m.view, 'real getAll still reaches its pending restore fence after the read resumes');
+    noDashboardNavigation(m); m.back.dispatch('click'); dashboardDestination(m); unchanged(m, before);
+});
+
+test('Back to Dashboard binds once across repeated ordinary Settings startup and never navigates before a click', async t => {
+    assert.match(source('options.html'), /<div class="header-top">\s*<button id="back-to-dashboard" class="back-button"/);
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    m.f.chrome.storage.local.getBytesInUse = async () => 0; delete m.f.chrome.storage.sync;
+    await m.start(); assert(m.window.settingsFormView); noDashboardNavigation(m);
+    await m.start(); assert(m.window.settingsFormView); noDashboardNavigation(m);
+    assert.equal(m.document.getElementById('category-manage-list').dataset.categoryBound, 'true', 'the real category editor initializes its baseline');
+    assert.equal(m.ctx.bookmarkCategoryFormClean(), true);
+    assert.equal(m.window.settingsFormView.hasUncommittedWork(), false, 'complete ordinary form starts clean');
+    assert.equal(m.back.listeners.get('click')?.length, 1, 'repeated startup must not duplicate the Back handler');
+    const reads = m.calls.localReads; m.back.dispatch('click'); dashboardDestination(m);
+    const quote = m.document.getElementById('quote-text'), savedQuote = quote.value; quote.value = 'Synthetic newer unsaved quote';
+    assert.equal(m.window.settingsFormView.hasUncommittedWork(), true, 'use a real form draft and its production dirty-path comparison');
+    m.back.dispatch('click'); blockedDashboard(m, {count: 1});
+    assert.equal(quote.value, 'Synthetic newer unsaved quote'); assert.equal(m.window.settingsFormView.hasUncommittedWork(), true);
+    assert.equal(m.window.LocalItabContentLifecycle.departing, false);
+    const departure = {preventDefault() { this.prevented = true; }};
+    m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true);
+    assert.equal(m.calls.confirmations, 0);
+    quote.value = savedQuote; assert.equal(m.window.settingsFormView.hasUncommittedWork(), false);
+    m.back.dispatch('click'); dashboardDestination(m, {count: 2});
+    assert.equal(m.calls.localReads, reads); unchanged(m, before);
+});
+
+test('Back to Dashboard blocks during a real recovery download and only navigates after it settles cleanly', async t => {
+    const m = model(await interrupted(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    await m.start(); assert(m.view); noDashboardNavigation(m);
+    const gate = deferred(); let entered = false;
+    m.f.hooks.read = async (keys, raw) => {
+        if (keys.includes(Backup.WORKSPACE_RECOVERY_KEY)) { entered = true; await gate.promise; }
+        return copy(Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    m.get('recovery').dispatch('click');
+    try {
+        await until(() => entered); const reads = m.calls.localReads;
+        assert.equal(m.view.pending, true); assert.equal(m.window.LocalItabContentLifecycle.pending(), true);
+        m.back.dispatch('click'); blockedDashboard(m);
+        assert.equal(m.view.pending, true, 'Back must not cancel or settle the current action');
+        assert.equal(m.window.LocalItabContentLifecycle.departing, false);
+        const departure = {preventDefault() { this.prevented = true; }};
+        m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true);
+        assert.equal(m.calls.confirmations, 0); assert.equal(m.calls.localReads, reads); unchanged(m, before);
+        gate.resolve(); await until(() => m.calls.recoverySettled === 1 && !m.view.pending); await tick();
+        assert.equal(m.calls.downloads.length, 1); assert.equal(m.view.hasUncommittedWork(), false);
+        m.back.dispatch('click'); dashboardDestination(m);
+        assert.equal(m.calls.confirmations, 0); assert.equal(m.window.LocalItabContentLifecycle.departing, false); unchanged(m, before);
+    } finally { gate.resolve(); delete m.f.hooks.read; }
+});
+
+test('Back to Dashboard targets its own page even when another tab is active and tabs APIs are available', async t => {
+    const m = model(await interrupted(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    await m.start(); assert(m.view); noDashboardNavigation(m);
+    // An active-tab query would return another page (99), while getCurrent
+    // would itself be asynchronous. Neither API belongs in current-page routing.
+    m.calls.activeTabId = 99;
+    m.f.chrome.tabs.getCurrent = () => { m.calls.currentTabRequests++; };
+    const reads = m.calls.localReads;
+    m.back.dispatch('click'); dashboardDestination(m);
+    assert.equal(m.calls.localReads, reads); assert.equal(m.calls.confirmations, 0); unchanged(m, before);
+});
+
+test('Back to Dashboard keeps the real captured Work identity after the last-used workspace changes', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true, unrequested: true}); t.after(() => m.close());
+    assert.equal(m.manager.workspace.id, null); assert.equal(m.manager.workspace.requestedId, undefined);
+    m.f.chrome.storage.local.getBytesInUse = async () => 0; delete m.f.chrome.storage.sync;
+    await m.start(); assert(m.window.settingsFormView); assert.equal(m.manager.workspace.id, 'work');
+    await m.f.workspaceManager.select('default'); await tick();
+    assert.equal(m.f.raw[Workspaces.REGISTRY_KEY].lastUsedId, 'default');
+    const before = copy(m.f.raw), writes = m.f.writes.length, reads = m.calls.localReads;
+    noDashboardNavigation(m); m.back.dispatch('click'); dashboardDestination(m);
+    assert.equal(m.calls.localReads, reads); unchanged(m, before, writes);
+});
+
+test('an independent ordinary departure can still be cancelled by the modeled browser without discarding a real Settings draft', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true, simulateDepartureCancellation: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    m.f.chrome.storage.local.getBytesInUse = async () => 0; delete m.f.chrome.storage.sync;
+    await m.start(); assert(m.window.settingsFormView); noDashboardNavigation(m);
+    const originalUrl = m.window.location.href, quote = m.document.getElementById('quote-text');
+    quote.value = 'Synthetic draft retained after choosing Stay';
+    assert.equal(m.window.settingsFormView.hasUncommittedWork(), true);
+    const reads = m.calls.localReads;
+    // This is an independent browser departure, not the guarded Back action.
+    // Preserve the existing beforeunload model without treating it as a safety
+    // guarantee for programmatic Back navigation.
+    m.window.location.href = 'newtab.html?workspace=work'; dashboardDestination(m);
+    assert.equal(m.calls.cancelledDepartures, 1); assert.equal(m.window.location.href, originalUrl);
+    assert.equal(quote.value, 'Synthetic draft retained after choosing Stay');
+    assert.equal(m.window.settingsFormView.hasUncommittedWork(), true);
+    assert.equal(m.window.LocalItabContentLifecycle.departing, false); assert.equal(m.calls.confirmations, 0);
+    assert.equal(m.calls.localReads, reads); unchanged(m, before);
 });

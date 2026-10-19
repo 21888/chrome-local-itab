@@ -8482,5 +8482,8 @@
   },
   "completeBackupRecoveryDownloadOnlyHelp": {
     "message": "This view can only download a retained pre-restore copy after its integrity and supported format are checked. It cannot export today’s complete state, inspect a restore transaction, import, or restore. A valid retained copy may not be available. Check your downloads; requesting a download does not confirm that the file was saved."
+  },
+  "settingsBackBlocked": {
+    "message": "Finish the current action, cancel the open review, or save or discard your drafts before returning to the dashboard."
   }
 }
