@@ -3,9 +3,12 @@
 ## English
 
 Use **Find a setting** above the Settings tabs to search section and control names
-across all six tabs. Try **World clocks**, **Free placement**, **Scratchpad**,
+across all tabs. Try **World clocks**, **Free placement**, **Scratchpad**,
 **favicon**, or **Import browser bookmarks**. Results show their tab and section,
-plus matching control names when available.
+plus matching control names when available. Countdown also matches **Days from
+today**, **Direction from today**, **After today**, **Before today**, and **Fill
+date**. Opening those results only navigates to Countdown; it does not fill a date
+or save a draft. [Validation](settings-search-countdown-validation.md).
 
 Typing keeps you in the current tab. Click a result, or use Tab to focus a result
 and Enter/Space to open its section. Focus moves to the section heading or module
@@ -21,9 +24,12 @@ still works normally when you finish an edit and leave the field.
 
 ## 中文
 
-设置标签页上方的「查找设置」可搜索六个标签页中的设置区域和控件名称。
+设置标签页上方的「查找设置」可搜索所有标签页中的设置区域和控件名称。
 输入当前界面语言中的设置名称，然后点击结果，或按 Tab 将焦点移到结果并按
 Enter／空格，即可打开对应区域。结果同时显示所属标签页和匹配的控件名称。
+倒计时还支持搜索「从今天起的天数」「相对今天的方向」「今天之后」「今天之前」
+和「填入日期」。打开结果只定位到倒计时，不会填入日期或保存草稿。
+[验证范围](settings-search-countdown-validation.md)。
 
 输入搜索词不会自动切换标签页。打开结果后，焦点移到区域标题或模块设置组；
 不会启用模块、执行按钮操作，或强制显示有条件的控件。「清除搜索」会清空搜索词，

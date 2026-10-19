@@ -189,3 +189,47 @@ for (const locale of ['en', 'zh_CN']) for (const scenario of ['initial', 'claude
   assert.deepEqual({query:h.input.value,drafts:JSON.stringify(h.drafts),writes:h.writes,refreshes:h.refreshes},before);
  });
 }
+
+
+// Relative-date controls are existing public setting names, not user content.
+const countdownRelativeSearchKeys = ['countdownRelativeDaysLabel', 'countdownRelativeDirectionLabel',
+ 'countdownRelativeAfter', 'countdownRelativeBefore', 'countdownRelativeApply'];
+for (const locale of ['en', 'zh_CN']) for (const key of countdownRelativeSearchKeys) {
+ test(`relative Countdown labels navigate without editing: ${locale}/${key}`, () => {
+  const h = harness(locale, true), label = locales[locale][key].message;
+  const entry = h.entries.find(entry => entry.target === 'countdown-settings');
+  const initialTab = h.tabs.find(tab => tab.getAttribute('aria-selected') === 'true');
+  const draft = h.window.localCountdownSettingsView.draft;
+  const draftBefore = JSON.stringify(h.drafts);
+  const values = h.nodes['countdown-settings'].children.filter(n => ['INPUT', 'PRE'].includes(n.tagName));
+  h.query(label);
+  assert.equal(h.buttons().length, 1, `find the public label ${label}`);
+  assert.equal(h.tabs.find(tab => tab.getAttribute('aria-selected') === 'true'), initialTab);
+  const button = h.resultFor(entry); assert(button);
+  assert(button.querySelector('.settings-search-result-detail').textContent.includes(label));
+  assert.equal(h.input.dispatch('keydown', {key: 'Enter'}).prevented, false);
+  assert.equal(h.scrolls.length, 0, 'typing/Enter in search does not run the target action');
+  button.dispatch('click');
+  assert(h.panels.content.classList.contains('active'));
+  assert.equal(h.document.activeElement.tagName, 'H2');
+  assert.equal(h.document.activeElement.parentElement === h.nodes['countdown-settings'], true);
+  assert.equal(h.scrolls.at(-1).id, 'countdown-settings');
+  assert.equal(h.window.localCountdownSettingsView.draft, draft);
+  assert.equal(JSON.stringify(h.drafts), draftBefore);
+  assert.deepEqual(values.map(n => n.value), privateValues);
+  assert.equal(h.writes, 0); assert.equal(h.refreshes, 0);
+  h.clear.dispatch('click'); assert.equal(h.document.activeElement, h.input);
+  assert(h.panels.content.classList.contains('active'));
+  for (const privateQuery of [...privateValues, '2026-11-15']) {
+   h.query(privateQuery); assert.equal(h.buttons().length, 0);
+  }
+ });
+}
+test('relative Countdown public labels remain searchable with the English fallback', () => {
+ const h = harness(); h.window.i18n = undefined;
+ for (const key of countdownRelativeSearchKeys) {
+  const matches = h.api.find(locales.en[key].message);
+  assert.equal(matches.length, 1); assert.equal(matches[0].target, 'countdown-settings');
+ }
+ assert.equal(h.writes, 0); assert.equal(h.refreshes, 0);
+});

@@ -43,3 +43,5 @@ The supported format is the existing exporter: title, newline, ISO calendar date
 Recovery exports can contain unfinished text. An incomplete or invalid date cannot be imported. A complete multiline or overlong title can be reviewed and brought into the draft without truncation, but existing Save rules still require a single-line title of up to 80 characters. The editor uses a textarea so recovery lines remain visible and editable. HTML-looking text remains plain text.
 
 A newer title/date/visibility edit, title/date IME composition, save, saved-state refresh/conflict, read failure, page departure, or destroyed editor invalidates the review and any pending file read. Choose the file again to review it against the current draft. The same file may be selected again after a read failure.
+
+To find this editor from another Settings tab, search **Days from today**, **Before today**, or **Fill date** in **Find a setting**, then open the Countdown result. The result navigates to the section without filling or saving anything.
