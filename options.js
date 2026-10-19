@@ -966,17 +966,31 @@ function setupCategoryManagement(categories = []) {
     list.addEventListener('click', (e) => {
         const li = e.target.closest('.category-manage-item');
         if (!li) return;
+        const ownedFocus = document.activeElement === e.target;
+        let focusTarget = null;
         if (e.target.classList.contains('cat-delete')) {
+            const neighbor = li.nextElementSibling || li.previousElementSibling;
+            // Land on a name, not another Delete button, after removing a row.
+            focusTarget = neighbor?.querySelector('.cat-name') || addBtn;
             li.remove();
             scheduleSave();
         } else if (e.target.classList.contains('cat-up')) {
+            focusTarget = e.target;
             const prev = li.previousElementSibling;
             if (prev) list.insertBefore(li, prev);
             scheduleSave();
         } else if (e.target.classList.contains('cat-down')) {
+            focusTarget = e.target;
             const next = li.nextElementSibling;
             if (next) list.insertBefore(next, li);
             scheduleSave();
+        }
+        // Native removal/move can drop focus to body. Repair only this action's
+        // lost focus; a newer focus or replacement editor remains authoritative.
+        if (ownedFocus && focusTarget?.isConnected && document.activeElement === document.body &&
+            document.getElementById('category-manage-list') === list && list.isConnected &&
+            (focusTarget === addBtn ? document.getElementById('add-category') === addBtn : list.contains(focusTarget))) {
+            focusTarget.focus();
         }
     });
 
