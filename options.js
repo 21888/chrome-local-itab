@@ -677,6 +677,8 @@ function refreshPrivacyPermissionHints() {
 
 const dashboardNavigationButtons = new WeakSet();
 let settingsInitializing = true;
+let settingsInitializations = 0;
+let settingsInitialLoadAreas = null;
 function setupDashboardNavigation() {
     // Back to dashboard button
     const backButton = document.getElementById('back-to-dashboard');
@@ -699,6 +701,12 @@ function setupDashboardNavigation() {
 
 document.addEventListener('DOMContentLoaded', async function() {
     settingsInitializing = true;
+    ++settingsInitializations;
+    if (!window.settingsFormView && !settingsInitialLoadAreas) {
+        settingsInitialLoadAreas = Array.from(document.querySelectorAll('.options-main, .options-footer'))
+            .filter(area => area.id !== 'interrupted-settings-recovery').map(area => ({area, inert: area.inert}));
+        for (const {area} of settingsInitialLoadAreas) area.inert = true;
+    }
     setupDashboardNavigation();
     console.log('Local iTab options page loaded');
     
@@ -734,7 +742,17 @@ document.addEventListener('DOMContentLoaded', async function() {
         protectUnloadedSettingsForm();
         console.error('Error initializing options page:', error);
         showErrorMessage(t('settingsLoadFailed', 'Failed to load settings. Please try refreshing the page.'));
-    } finally { settingsInitializing = false; }
+    } finally {
+        settingsInitializing = --settingsInitializations > 0;
+        if (!settingsInitializing && settingsInitialLoadAreas) {
+            // Only the last startup may release the original areas. Protection
+            // failures keep their lock; new recovery hosts were never included.
+            if (window.settingsFormView && !window.interruptedSettingsRecoveryView && !document.getElementById('settings-unloaded-notice')) {
+                for (const {area, inert} of settingsInitialLoadAreas) area.inert = inert;
+            }
+            settingsInitialLoadAreas = null;
+        }
+    }
 });
 
 async function initializeOptionsPage() {

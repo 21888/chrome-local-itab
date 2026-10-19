@@ -77,6 +77,14 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     const normalHost = document.createElement('div'); normalHost.id = 'complete-backup';
     const controls = ['input', 'textarea', 'select', 'button'].map(tag => document.createElement(tag));
     controls[0].id = 'quote-text'; controls[1].id = 'world-clock-label';
+    // These checkboxes are in the statically active Appearance panel. Unlike
+    // quote-text in the inactive Data panel, they are reachable before JS tabs.
+    const appearance = document.createElement('div'); appearance.id = 'tab-appearance'; appearance.className = 'tab-panel active'; appearance.setAttribute('role', 'tabpanel');
+    const clockControls = ['hour12-format', 'show-seconds'].map(id => {
+        const checkbox = document.createElement('input'); checkbox.id = id; checkbox.type = 'checkbox'; checkbox.checked = false;
+        checkbox.className = 'setting-checkbox'; return checkbox;
+    });
+    appearance.append(...clockControls);
     const searchSection = document.createElement('section'); searchSection.id = 'settings-search'; searchSection.className = 'settings-search';
     const searchControls = document.createElement('div'); searchControls.className = 'settings-search-controls';
     const searchInput = document.createElement('input'); searchInput.id = 'settings-search-input'; searchInput.type = 'search';
@@ -87,7 +95,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     const categoryList = document.createElement('ul'); categoryList.id = 'category-manage-list'; categoryList.className = 'category-manage-list';
     const addCategory = document.createElement('button'); addCategory.id = 'add-category'; addCategory.type = 'button'; addCategory.textContent = 'Add Category';
     categorySection.append(categoryList, addCategory);
-    main.append(searchSection, ...controls, categorySection, normalHost);
+    main.append(searchSection, appearance, ...controls, categorySection, normalHost);
     const switcher = document.createElement('div'); switcher.id = 'workspace-switcher';
     const selectWorkspace = document.createElement('select'); switcher.append(selectWorkspace);
     // Match options.html: footer is a sibling, never a descendant of main.
@@ -150,7 +158,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     const get = name => document.getElementById('interrupted-settings-recovery')?.querySelector('.complete-backup-' + name);
     const dispatchWindow = (type, event = {}) => { for (const fn of handlers.get(type) || []) fn(event); };
     const listenerCount = () => [...handlers.values()].reduce((sum, set) => sum + set.size, 0) + chromeListeners.size;
-    return {f, calls, ctx, window, manager, document, initialUrl, skip, searchInput, container, main, footer, save, reset, back, normalHost, switcher, controls: [...controls, searchInput, addCategory, selectWorkspace, save, reset],
+    return {f, calls, ctx, window, manager, document, initialUrl, skip, searchInput, container, main, footer, save, reset, back, normalHost, switcher, controls: [...controls, ...clockControls, searchInput, addCategory, selectWorkspace, save, reset],
         get, dispatchWindow, listenerCount, get view() { return window.interruptedSettingsRecoveryView; },
         async start() { await document.listeners.get('DOMContentLoaded')({type: 'DOMContentLoaded'}); },
         expireTimers(ms) { for (const [timer, task] of timerCallbacks) if (task.ms <= ms) { clearTimeout(timer); timerCallbacks.delete(timer); task.fn(); } },
@@ -850,4 +858,154 @@ test('an unrelated late startup read failure preserves initialized form drafts a
     m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true);
     assert.equal(quote.value, 'Synthetic draft before late startup failure'); assert.equal(m.calls.localReads, reads);
     unchanged(m, before);
+});
+
+test('first Settings loading cannot silently overwrite a visible Appearance toggle accepted before the real storage read settles', async t => {
+    const f = fixture(), m = model(f, 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(f.raw);
+    f.chrome.storage.local.getBytesInUse = async () => 0; delete f.chrome.storage.sync;
+    const html = source('options.html'), activeAppearance = html.slice(html.indexOf('<div class="tab-panel active" id="tab-appearance"'), html.indexOf('<div class="tab-panel" id="tab-layout"'));
+    assert.match(activeAppearance, /<input type="checkbox" id="hour12-format"/);
+    assert.match(source('options.css'), /\.tab-panel\.active\s*\{\s*display:\s*flex;/);
+    const checkbox = m.document.getElementById('hour12-format'), savedValue = m.manager.defaultConfig.clock.hour12;
+    const draft = !savedValue, gate = deferred(), entered = deferred();
+    f.hooks.read = async (keys, raw) => {
+        entered.resolve(); await gate.promise;
+        return copy(keys === null ? raw : Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    const loading = m.start(); let acceptedInput = false, duringRead;
+    try {
+        await entered.promise;
+        assert.equal(m.window.settingsFormView, undefined, 'the first real read has not installed the form owner');
+        const reads = m.calls.localReads;
+        assert.equal(checkbox.closest('.tab-panel').classList.contains('active'), true);
+        checkbox.focus();
+        if (m.document.activeElement === checkbox && !checkbox.disabled && !checkbox.closest('[inert]') && checkbox.getClientRects().length) {
+            checkbox.checked = !checkbox.checked; checkbox.dispatch('click'); checkbox.dispatch('input'); checkbox.dispatch('change'); acceptedInput = true;
+            assert.equal(checkbox.checked, draft);
+        }
+        duringRead = {localReads: reads, acceptedInput, formRegistered: Boolean(m.window.settingsFormView),
+            lifecycleDirty: m.window.LocalItabContentLifecycle.hasUncommittedWork()};
+        m.back.dispatch('click'); blockedDashboard(m);
+        assert.equal(m.calls.localReads, reads, 'typing and blocked Back cannot perform storage IO');
+        unchanged(m, before);
+    } finally { gate.resolve(); await loading; delete f.hooks.read; }
+    assert(m.window.settingsFormView, 'production initialization and population must complete after the real read resumes');
+    noDashboardNavigation(m); unchanged(m, before);
+    t.diagnostic(JSON.stringify({duringRead, afterLoad: {localReads: m.calls.localReads, localWrites: f.writes.length,
+        providerReads: m.calls.providerReads, providerWrites: m.calls.providerWrites, providerRemoves: m.calls.providerRemoves,
+        localRemoves: m.calls.localRemoves, formRegistered: true, lifecycleDirty: m.window.LocalItabContentLifecycle.hasUncommittedWork(),
+        acceptedDraftPreserved: checkbox.checked === draft, loadedSavedClock: checkbox.checked === savedValue, navigationRequests: m.calls.locationAssignments.length}}));
+    if (acceptedInput) {
+        assert.equal(checkbox.checked, draft, 'visible toggle accepted while loading must not be silently replaced by saved values');
+        assert.equal(m.window.settingsFormView.hasUncommittedWork(), true, 'preserved input must retain draft protection');
+    } else assert.equal(checkbox.checked, savedValue, 'blocking early input still permits the verified saved value to populate');
+    assert(!checkbox.disabled && !checkbox.closest('[inert]'), 'successful initialization leaves the ordinary form editable');
+});
+
+function holdStartupRead(m, error = null) {
+    const gate = deferred(), entered = deferred(); let held = false;
+    m.f.hooks.read = async (keys, raw) => {
+        if (!held) { held = true; entered.resolve(); await gate.promise; }
+        if (error) throw error;
+        return copy(keys === null ? raw : Object.fromEntries(keys.filter(key => Object.hasOwn(raw, key)).map(key => [key, raw[key]])));
+    };
+    return {gate, entered};
+}
+
+for (const originalMainInert of [false, true]) test(`first-load gate restores original main inert=${originalMainInert} without enabling previously disabled controls`, async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    m.f.chrome.storage.local.getBytesInUse = async () => 0; delete m.f.chrome.storage.sync;
+    m.main.inert = originalMainInert; m.footer.inert = !originalMainInert;
+    const fixedControl = m.document.getElementById('show-seconds'); fixedControl.disabled = true; m.reset.disabled = true;
+    const laterArea = m.document.createElement('section'); laterArea.className = 'options-main'; laterArea.inert = true;
+    const {gate, entered} = holdStartupRead(m), loading = m.start();
+    try {
+        await entered.promise;
+        m.container.append(laterArea);
+        assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true, 'all first-load form regions are blocked during IO');
+        assert.equal(fixedControl.disabled, true); assert.equal(m.reset.disabled, true);
+        noDashboardNavigation(m); unchanged(m, before);
+    } finally { gate.resolve(); await loading; delete m.f.hooks.read; }
+    assert(m.window.settingsFormView); assert.equal(m.main.inert, originalMainInert); assert.equal(m.footer.inert, !originalMainInert);
+    assert.equal(laterArea.inert, true, 'completion never rewrites a region created after the first-load snapshot');
+    assert.equal(fixedControl.disabled, true, 'the gate does not turn on a pre-disabled field');
+    assert.equal(m.reset.disabled, true, 'the gate does not turn on a pre-disabled action');
+    assert.equal(m.back.listeners.get('click')?.length, 1); unchanged(m, before);
+});
+
+test('first-load gate remains owned until both concurrent real startup reads settle', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    delete m.f.chrome.storage.sync;
+    const first = holdStartupRead(m), secondGate = deferred(); let quotaReads = 0;
+    m.f.chrome.storage.local.getBytesInUse = async () => {
+        if (++quotaReads === 2) await secondGate.promise;
+        return 0;
+    };
+    const firstLoading = m.start(); let secondLoading;
+    try {
+        await first.entered.promise;
+        secondLoading = m.start();
+        first.gate.resolve(); await until(() => quotaReads === 2);
+        // Real lock scheduling can let either invocation finish first. The
+        // region must remain gated whichever finally runs while one read waits.
+        await Promise.race([firstLoading, secondLoading]);
+        assert(m.window.settingsFormView, 'one real startup has populated its form while the other still reads quota');
+        assert.equal(quotaReads, 2);
+        assert.equal(m.main.inert, true, 'an older finally cannot unlock a still-running startup');
+        assert.equal(m.footer.inert, true);
+        const reads = m.calls.localReads;
+        m.back.dispatch('click'); blockedDashboard(m);
+        assert.equal(m.calls.localReads, reads); unchanged(m, before);
+    } finally { first.gate.resolve(); secondGate.resolve(); await Promise.all([firstLoading, secondLoading]); delete m.f.hooks.read; }
+    assert.equal(m.main.inert, false); assert.equal(m.footer.inert, false);
+    assert.equal(m.back.listeners.get('click')?.length, 1, 'concurrent startup does not add another Back listener');
+    noDashboardNavigation(m); unchanged(m, before);
+});
+
+for (const failure of ['pending restore', 'missing Default bundle', 'unrelated read']) test(`first-load gate retains failed ${failure} isolation without locking a new recovery host`, async t => {
+    const f = failure === 'pending restore' ? await interrupted() : failure === 'missing Default bundle' ? await damagedSettings(failure) : fixture();
+    const m = model(f, 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(f.raw);
+    const {gate, entered} = holdStartupRead(m, failure === 'unrelated read' ? Error('Synthetic first-load read failure') : null);
+    const loading = m.start();
+    try {
+        await entered.promise;
+        assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true);
+        noDashboardNavigation(m); unchanged(m, before);
+    } finally { gate.resolve(); await loading; delete f.hooks.read; }
+    assert.equal(m.window.settingsFormView, undefined);
+    assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true, 'failed startup cannot restore an editable unowned form');
+    if (failure === 'unrelated read') {
+        assert.equal(m.view, undefined); assert.equal(m.main.hidden, false);
+        assert(m.document.getElementById('settings-unloaded-notice').getClientRects().length);
+    } else {
+        if (failure === 'pending restore') isolated(m); else downloadOnlyIsolation(m);
+        const host = m.document.getElementById('interrupted-settings-recovery');
+        assert.equal(host.inert, false, 'the gate restores only its original areas, never the newly mounted recovery host');
+        const download = m.get('recovery'); download.focus(); assert.equal(m.document.activeElement, download);
+        assert.equal(download.disabled, false); assert.equal(m.calls.recoveryDownloads, 0);
+    }
+    unchanged(m, before);
+});
+
+test('first-load gate does not relock an owned draft when a later startup read fails', async t => {
+    const m = model(fixture(), 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(m.f.raw);
+    m.f.chrome.storage.local.getBytesInUse = async () => 0; delete m.f.chrome.storage.sync;
+    await m.start(); const form = m.window.settingsFormView; assert(form);
+    const quote = m.document.getElementById('quote-text'); quote.value = 'Synthetic owned draft before a retry';
+    assert.equal(form.hasUncommittedWork(), true);
+    const saveListeners = m.save.listeners.get('click')?.length;
+    const {gate, entered} = holdStartupRead(m, Error('Synthetic owned retry read failure')), loading = m.start();
+    try {
+        await entered.promise;
+        assert.equal(m.main.inert, false); assert.equal(m.footer.inert, false, 'a registered owner is not a first-load form');
+        assert.equal(m.window.settingsFormView, form); assert.equal(quote.value, 'Synthetic owned draft before a retry');
+        m.back.dispatch('click'); blockedDashboard(m);
+    } finally { gate.resolve(); await loading; delete m.f.hooks.read; }
+    assert.equal(m.window.settingsFormView, form); assert.equal(form.hasUncommittedWork(), true);
+    assert.equal(m.main.inert, false); assert.equal(m.footer.inert, false); assert.notEqual(quote.disabled, true);
+    assert.equal(m.document.getElementById('settings-unloaded-notice'), null); assert.equal(m.view, undefined);
+    assert.equal(m.back.listeners.get('click')?.length, 1); assert.equal(m.save.listeners.get('click')?.length, saveListeners);
+    const departure = {preventDefault() { this.prevented = true; }};
+    m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true);
+    noDashboardNavigation(m); unchanged(m, before);
 });
