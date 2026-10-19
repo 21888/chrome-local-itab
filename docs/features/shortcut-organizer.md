@@ -52,3 +52,11 @@ The ordinary organizer transaction does not queue implicit layout writes while i
 - Importing the genuine mixed-batch export through the ordinary Settings picker, reloading New Tab and Settings, then exporting again preserved the complete data payload exactly.
 
 Native coverage was English/light desktop on a synthetic profile. Legacy missing IDs, dark/narrow/Chinese presentation, concurrent edits, write failures, large batches and the automatic-coordinate guard were not exercised natively. Renderer interruptions recovered by reloading; their cause was not established. Model evidence above must not be read as native coverage.
+
+## Bounded static-renderer checks — 2026-10-19
+
+[Current workflow acceptance](../saved-site-browser-acceptance.md#organizer) adds
+Chinese/dark 390px production-renderer checks for filtered selection, hidden
+selection review, Back and Cancel. It uses an explicit synthetic API bridge;
+it does not install the extension, submit a move, compare complete stored
+snapshots, or replace the historical native-write checks above.
