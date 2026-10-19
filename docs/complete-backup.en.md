@@ -61,9 +61,20 @@ The buttons share the module checkboxes' locks while the first file check, a lar
 
 Before target replacement, a pre-restore snapshot of all five modules in every workspace (including Trash), plus only the selected global libraries, is saved locally and read back. If that step fails, target data is not replaced. Only the latest complete recovery snapshot is retained; starting another confirmed restore may replace that snapshot even if the final replacement does not finish. Download an existing recovery copy before proceeding if you need to keep it. This is distinct from the history inside Tasks.
 
-Use **Download pre-restore recovery copy**, then choose that JSON through the same reviewed import flow. Recovery download does not restore automatically. A final write or verification failure may leave the result uncertain: inspect saved data and the recovery copy rather than automatically retrying. The UI explicitly distinguishes that from failures known to occur before replacement.
+In ordinary Settings, use **Download pre-restore recovery copy**, then choose that JSON through the reviewed import flow. The limited recovery view described below cannot import files. Recovery download does not restore automatically. A final write or verification failure may leave the result uncertain: inspect saved data and the recovery copy rather than automatically retrying. The UI explicitly distinguishes that from failures known to occur before replacement.
 
 An interrupted combined restore can leave a durable pending marker that blocks cooperating writers even after reload. Use the offered inspection and separately confirmed recovery flow; it verifies the saved prior state before repairing. Do not repeatedly import or assume reload fixes an uncertain write. This is verified staged replacement, not a guarantee of browser-crash atomicity.
+
+### When ordinary Settings cannot load
+
+If a pending combined restore blocks Settings initialization, the page offers a limited recovery view instead of editable defaults. Ordinary settings, workspace switching, Save and Reset stay unavailable. No automatic repair runs. The keyboard **Skip to settings** link moves focus to the recovery section.
+
+1. Use **Download pre-restore recovery copy** or **Download both saved copies** if you want separate local files for safekeeping. These files may contain private content. A download request does not prove that the browser saved the file; check your downloads before relying on it.
+2. Choose **Inspect interrupted restore**. Inspection does not restore data. **Cancel review** dismisses the review without changing saved data or drafts; it does not resolve the pending transaction or unlock ordinary settings.
+3. If inspection offers **Restore verified previous state**, review its scope before choosing it. This is a separate explicit recovery action covering the affected workspaces, Trash and selected global libraries, not a merge of drafts. Keep needed drafts before proceeding. Do not automatically retry an uncertain result.
+4. After a verified recovery, use **Reload saved state** to return to ordinary Settings. The limited page does not unlock its hidden form in place. File import and ordinary export remain unavailable there, including after cancelling inspection.
+
+If no verified recovery action is offered, preserve the available copies and the reported error; do not assume that reloading repairs the pending state. This flow addresses an interrupted local transaction. It does not diagnose or resolve the earlier upgrade data-loss incident.
 
 The JSON can contain personal notes, prompt bodies, saved excerpts, task history, complete URLs and images. Keep it private. No new network permission is required and private modules are not uploaded to cloud backups by this feature.
 
