@@ -58,7 +58,9 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     assert.equal(manager.getAll, StorageManager.prototype.getAll);
     assert.equal(manager.ensureSyncInitialized, StorageManager.prototype.ensureSyncInitialized);
     const document = createDocument({blurUnavailableFocus: true, aggregateTextContent: true});
-    // prepend is the only missing DOM primitive used by production lifecycle.
+    // Local primitives for production notices and their normal toast cleanup.
+    Object.defineProperty(Object.getPrototypeOf(document.body), 'parentNode', {get() { return this.parentElement; }});
+    document.body.removeChild = function(node) { node.remove(); return node; };
     document.body.prepend = function(node) { node.parentElement = this; this.children.unshift(node); };
     const skip = document.createElement('a'); skip.className = 'skip-link'; skip.textContent = 'Skip to settings';
     // Reflect this anchor's href like the browser, whether production assigns
@@ -66,6 +68,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     Object.defineProperty(skip, 'href', {get() { return this.getAttribute('href'); }, set(value) { this.setAttribute('href', value); }});
     skip.href = '#settings-search-input'; document.body.append(skip);
     const container = document.createElement('div'); container.className = 'options-container';
+    container.prepend = document.body.prepend;
     const header = document.createElement('header'); header.className = 'options-header';
     const headerTop = document.createElement('div'); headerTop.className = 'header-top';
     const back = document.createElement('button'); back.id = 'back-to-dashboard'; back.className = 'back-button'; back.textContent = 'Back to Dashboard';
@@ -131,9 +134,9 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
         exportInterruptedCandidates(...args) { calls.candidateExports++; return super.exportInterruptedCandidates(...args); }
     }
     window.LocalItabCompleteBackup = {...Backup, Store: BoundStore};
-    const timers = new Set();
+    const timers = new Set(), timerCallbacks = new Map();
     const ctx = {window, document, storageManager: manager, chrome: f.chrome, URL, Blob, console: {log() {}, error(...args) { calls.errors.push(args); }, warn() {}},
-        setTimeout(fn, ms) { const timer = setTimeout(fn, ms); timers.add(timer); return timer; }, clearTimeout};
+        setTimeout(fn, ms) { const timer = setTimeout(fn, ms); timers.add(timer); timerCallbacks.set(timer, {fn, ms}); return timer; }, clearTimeout};
     vm.createContext(ctx);
     vm.runInContext(source('shared/complete-backup-view.js'), ctx);
     const mount = window.LocalItabCompleteBackupView.mount;
@@ -150,6 +153,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     return {f, calls, ctx, window, manager, document, initialUrl, skip, searchInput, container, main, footer, save, reset, back, normalHost, switcher, controls: [...controls, searchInput, addCategory, selectWorkspace, save, reset],
         get, dispatchWindow, listenerCount, get view() { return window.interruptedSettingsRecoveryView; },
         async start() { await document.listeners.get('DOMContentLoaded')({type: 'DOMContentLoaded'}); },
+        expireTimers(ms) { for (const [timer, task] of timerCallbacks) if (task.ms <= ms) { clearTimeout(timer); timerCallbacks.delete(timer); task.fn(); } },
         close() { this.view?.destroy(); window.workspacesView?.destroy(); for (const timer of timers) clearTimeout(timer); }};
 }
 
@@ -542,7 +546,7 @@ test('a real unrelated storage read failure does not enter structural retained-c
     assert(m.calls.errors.some(args => args.some(error => error?.code === 'WORKSPACE_READ')));
     assert.equal(m.view, undefined); assert.equal(m.calls.mounts.length, 0);
     assert.equal(m.document.getElementById('interrupted-settings-recovery'), null);
-    assert.equal(m.main.hidden, false); assert.equal(m.main.inert, false);
+    assert.equal(m.main.hidden, false); assert.equal(m.main.inert, true, 'unloaded ordinary form is isolated without granting recovery authority');
     assert.equal(m.calls.recoveryDownloads, 0); assert.equal(m.calls.downloads.length, 0); unchanged(m, before);
 });
 
@@ -752,4 +756,98 @@ test('an independent ordinary departure can still be cancelled by the modeled br
     assert.equal(m.window.settingsFormView.hasUncommittedWork(), true);
     assert.equal(m.window.LocalItabContentLifecycle.departing, false); assert.equal(m.calls.confirmations, 0);
     assert.equal(m.calls.localReads, reads); unchanged(m, before);
+});
+
+for (const failure of ['invalid Work quote', 'unrelated local read']) test(`${failure}: an early real Settings failure disables unloaded form controls without widening recovery access`, async t => {
+    const f = fixture();
+    if (failure === 'invalid Work quote') f.values('work').quote = 42;
+    const m = model(f, 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(f.raw);
+    if (failure === 'unrelated local read') f.hooks.read = async () => { throw Error('Synthetic early unrelated read failure'); };
+    const expectedCode = failure === 'invalid Work quote' ? 'WORKSPACE_CORRUPT' : 'WORKSPACE_READ';
+    const label = m.document.getElementById('world-clock-label'); label.value = 'Synthetic displayed value before loading';
+    const originalLabel = label.value;
+    await m.start();
+    assert(m.calls.errors.some(args => args.some(error => error?.code === expectedCode)), 'the real startup error remains observable');
+    assert.equal(m.window.settingsFormView, undefined, 'the failed startup never installed form draft ownership');
+    assert.equal(m.window.completeBackupView, undefined); assert.equal(m.view, undefined);
+    assert.equal(m.calls.mounts.length, 0); assert.equal(m.document.getElementById('interrupted-settings-recovery'), null);
+    assert.equal(m.save.listeners.get('click')?.length || 0, 0, 'Save is uninitialized, not a successful no-op save');
+    noDashboardNavigation(m);
+    const notice = m.document.getElementById('settings-unloaded-notice');
+    assert(notice?.getClientRects().length && !notice.closest('[inert]'));
+    assert.equal(notice.getAttribute('role'), 'alert');
+    assert.equal(m.skip.getAttribute('href'), '#settings-unloaded-notice', 'Skip must bypass the disabled search field');
+    assert.equal(notice.tabIndex, -1); assert.equal(notice._tabIndex, -1, 'the notice explicitly accepts programmatic fragment focus');
+    assert.equal(m.document.querySelector(m.skip.getAttribute('href')), notice);
+    notice.focus(); assert.equal(m.document.activeElement, notice);
+    assert.match(notice.textContent, /defaults or incomplete.*not a verified copy.*editing and saving are unavailable/i);
+    assert.equal(m.container.hidden, false); assert.equal(m.container.inert, false);
+    assert.equal(label.value, originalLabel, 'failure isolation preserves displayed values without claiming they were loaded');
+    await m.start();
+    assert.equal(m.document.getElementById('settings-unloaded-notice'), notice);
+    assert.equal(m.document.querySelectorAll('#settings-unloaded-notice').length, 1, 'repeated failure does not duplicate the persistent notice');
+    assert.equal(m.skip.getAttribute('href'), '#settings-unloaded-notice');
+    assert.equal(m.back.listeners.get('click')?.length, 1);
+    m.expireTimers(3000);
+    assert.equal(m.document.querySelectorAll('.message-error').length, 0, 'the real transient error toasts expired');
+    assert(notice.isConnected && notice.getClientRects().length, 'unloaded-form warning outlives toast cleanup');
+    noDashboardNavigation(m);
+    const reads = m.calls.localReads;
+    // Model native input only when the control can actually receive it. Direct
+    // script assignments to disabled controls are not browser user input.
+    label.focus();
+    if (m.document.activeElement === label && !label.disabled && !label.closest('[inert]')) {
+        label.value = 'Synthetic unprotected early draft'; label.dispatch('input');
+    }
+    assert.equal(m.calls.localReads, reads); assert.equal(m.calls.confirmations, 0); unchanged(m, before);
+    assert.equal(label.value, originalLabel, 'a failed, unloaded form must not accept an unowned draft');
+    for (const area of [m.main, m.footer]) {
+        assert.equal(area.hidden, false); assert.equal(area.inert, true);
+        for (const control of area.querySelectorAll('input, textarea, select, button')) {
+            assert.equal(control.disabled, true, 'every unloaded ordinary form control is disabled');
+            control.focus(); assert.notEqual(m.document.activeElement, control);
+        }
+    }
+    m.back.focus(); assert.equal(m.document.activeElement, m.back, 'the safe page exit remains outside isolated form areas');
+    m.back.dispatch('click'); dashboardDestination(m);
+    assert.equal(m.calls.localReads, reads); assert.equal(m.calls.confirmations, 0);
+    assert.equal(m.calls.recoveryDownloads, 0); assert.equal(m.calls.restores, 0); assert.equal(m.calls.recoveries, 0);
+    unchanged(m, before);
+});
+
+test('an unrelated late startup read failure preserves initialized form drafts and their lifecycle guard', async t => {
+    const f = fixture(), m = model(f, 'work', {mountWorkspaces: true}); t.after(() => m.close()); const before = copy(f.raw);
+    delete f.chrome.storage.sync;
+    const status = m.document.createElement('div'); status.id = 'cloud-sync-status'; m.main.append(status);
+    const quote = m.document.getElementById('quote-text');
+    let reachedLateStartup = false, form;
+    f.chrome.storage.local.getBytesInUse = async () => {
+        reachedLateStartup = true; form = m.window.settingsFormView;
+        assert(form, 'the production form and baseline initialized before the failure');
+        assert(m.window.completeBackupView); assert.equal(m.save.listeners.get('click')?.length, 1);
+        assert.equal(form.hasUncommittedWork(), false);
+        quote.value = 'Synthetic draft before late startup failure'; quote.dispatch('input');
+        assert.equal(form.hasUncommittedWork(), true);
+        // Only fail the real Chrome read boundary. The following production
+        // Sync-status read reaches StorageManager and the startup error handler.
+        f.hooks.read = async () => { throw Error('Synthetic late unrelated read failure'); };
+        return 0;
+    };
+    await m.start();
+    assert.equal(reachedLateStartup, true);
+    assert(m.calls.errors.some(args => args.some(error => error?.code === 'WORKSPACE_READ')));
+    assert.equal(m.view, undefined); assert.equal(m.calls.mounts.length, 1, 'unknown errors cannot grant recovery authority');
+    assert.equal(m.document.getElementById('settings-unloaded-notice'), null, 'an owned late-stage form is not described as unloaded');
+    assert.equal(m.skip.getAttribute('href'), '#settings-search-input', 'the initialized late-failure form keeps its ordinary Skip target');
+    assert.equal(m.window.settingsFormView, form); assert.equal(quote.value, 'Synthetic draft before late startup failure');
+    assert.equal(m.main.hidden, false); assert.equal(m.main.inert, false); assert.notEqual(quote.disabled, true);
+    assert.equal(m.footer.hidden, false); assert.notEqual(m.save.disabled, true);
+    assert.equal(m.save.listeners.get('click')?.length, 1, 'the existing ordinary save path remains owned');
+    assert.equal(form.hasUncommittedWork(), true); assert.equal(m.window.LocalItabContentLifecycle.hasUncommittedWork(), true);
+    noDashboardNavigation(m); const reads = m.calls.localReads;
+    m.back.dispatch('click'); blockedDashboard(m);
+    const departure = {preventDefault() { this.prevented = true; }};
+    m.dispatchWindow('beforeunload', departure); assert.equal(departure.prevented, true);
+    assert.equal(quote.value, 'Synthetic draft before late startup failure'); assert.equal(m.calls.localReads, reads);
+    unchanged(m, before);
 });

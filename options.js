@@ -355,6 +355,23 @@ function setupInterruptedSettingsRecovery(error) {
     } catch (setupError) { host.remove(); throw setupError; }
 }
 
+// A failed initial read must not leave an editable, unowned default form.
+// A registered form may already contain drafts: retain its existing protection.
+function protectUnloadedSettingsForm() {
+    if (window.settingsFormView) return;
+    for (const area of document.querySelectorAll('.options-main, .options-footer')) {
+        area.inert = true;
+        for (const control of area.querySelectorAll('input, button, select, textarea')) control.disabled = true;
+    }
+    if (document.getElementById('settings-unloaded-notice')) return;
+    const notice = document.createElement('p'); notice.id = 'settings-unloaded-notice'; notice.className = 'form-hint';
+    notice.setAttribute('role', 'alert');
+    notice.setAttribute('tabindex', '-1');
+    document.querySelector('.skip-link')?.setAttribute('href', '#settings-unloaded-notice');
+    notice.textContent = t('settingsUnloadedForm', 'Settings did not finish loading. The values shown may be defaults or incomplete; they are not a verified copy of your saved settings. Editing and saving are unavailable on this page. You can return to the dashboard or reload to try again.');
+    (document.querySelector('.options-container') || document.body).prepend(notice);
+}
+
 // Serialize background-only writes while the newest request owns the controls.
 // A rejected operation must not poison the next upload/removal/type-change attempt.
 let backgroundRequest = 0;
@@ -714,6 +731,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         refreshPrivacyPermissionHints();
     } catch (error) {
         if (setupInterruptedSettingsRecovery(error)) return;
+        protectUnloadedSettingsForm();
         console.error('Error initializing options page:', error);
         showErrorMessage(t('settingsLoadFailed', 'Failed to load settings. Please try refreshing the page.'));
     } finally { settingsInitializing = false; }
