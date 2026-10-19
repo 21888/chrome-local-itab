@@ -8303,6 +8303,18 @@
   "completeBackupExportTime": {
     "message": "快照生成时间（UTC）"
   },
+  "completeBackupExportCopyDigest": {
+    "message": "复制指纹"
+  },
+  "completeBackupExportCopyPending": {
+    "message": "正在复制指纹…"
+  },
+  "completeBackupExportCopySuccess": {
+    "message": "已复制指纹。"
+  },
+  "completeBackupExportCopyError": {
+    "message": "无法复制指纹。可手动选择；仍可下载备份。"
+  },
   "completeBackupExportDigest": {
     "message": "完整 JSON（UTF-8）的 SHA-256"
   },

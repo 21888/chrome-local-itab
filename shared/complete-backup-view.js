@@ -72,6 +72,10 @@
     "ExportSnapshot": "This is the saved snapshot at the generation time below. Later saved edits are not added automatically. No download has been requested yet.",
     "ExportReady": "Summary ready. Review it, then choose Download this backup.",
     "ExportTime": "Snapshot generated (UTC)",
+    "ExportCopyDigest": "Copy fingerprint",
+    "ExportCopyPending": "Copying fingerprint…",
+    "ExportCopySuccess": "Fingerprint copied.",
+    "ExportCopyError": "Could not copy the fingerprint. You can select it manually; downloading is still available.",
     "ExportDigest": "SHA-256 of exact JSON (UTF-8)",
     "ExportDigestPending": "Calculating; you can download without waiting.",
     "ExportDigestUnavailable": "Unavailable; you can still download this backup.",
@@ -174,7 +178,8 @@
         const exportScope = make('p', 'form-hint complete-backup-export-scope', '', exportPanel);
         const exportCounts = make('ul', 'complete-backup-export-counts', undefined, exportPanel);
         const exportActions = make('div', 'complete-backup-actions', undefined, exportPanel);
-        const downloadExport = button('ExportDownload', 'download-export', exportActions), cancelExport = button('ExportCancel', 'cancel-export', exportActions);
+        const downloadExport = button('ExportDownload', 'download-export', exportActions), copyDigest = button('ExportCopyDigest', 'copy-digest', exportActions), cancelExport = button('ExportCancel', 'cancel-export', exportActions);
+        const copyFeedback = make('p', 'form-hint complete-backup-copy-feedback', '', exportPanel); copyFeedback.setAttribute('role', 'status'); copyFeedback.setAttribute('aria-live', 'polite');
         const panel = make('section', 'complete-backup-preview', undefined, shell); panel.hidden = true;
         make('h4', '', t('Review'), panel);
         const summary = make('p', '', t('Scope'), panel); summary.tabIndex = -1;
@@ -239,6 +244,8 @@
             apply.disabled = phase !== 'ready' || Boolean(preview?.requiresTarget || preview?.requiresPromptTarget || preview?.requiresCollectionTarget) || !preview?.selected.length || Boolean(preview?.selected.includes('focus') && preview.current.focus?.activeSession);
             cancel.disabled = cancelExport.disabled = ['applying', 'downloading'].includes(phase);
             downloadExport.disabled = phase !== 'export-ready' || !exportSnapshot;
+            copyDigest.disabled = phase !== 'export-ready' || !exportSnapshot?.digest;
+            copyDigest.setAttribute('aria-disabled', String(copyDigest.disabled || Boolean(exportSnapshot?.copying)));
             shell.setAttribute('aria-busy', String(['reading', 'applying', 'exporting', 'downloading'].includes(phase)));
         }
         // Only move focus if the initiating control still owns it after async work.
@@ -299,7 +306,7 @@
             if (!Object.values(groups).some(items => items.length)) make('p', 'form-hint complete-backup-workspace-impact-unchanged', t('WorkspaceImpactUnchanged'), workspaceImpactContent);
             workspaceImpact.hidden = false;
         }
-        function clearExport() { exportSnapshot = null; exportWatching = false; downloadDeparted = false; exportObserver?.disconnect(); exportPanel.hidden = true; exportMeta.textContent = exportScope.textContent = exportDigest.textContent = ''; exportCounts.replaceChildren(); }
+        function clearExport() { exportSnapshot = null; exportWatching = false; downloadDeparted = false; exportObserver?.disconnect(); exportPanel.hidden = true; exportMeta.textContent = exportScope.textContent = exportDigest.textContent = copyFeedback.textContent = ''; exportCounts.replaceChildren(); }
         function clear() { clearExport(); clearWorkspaceImpact(); configInspection.hidden = true; preview = null; panel.hidden = true; largeButton.hidden = true; counts.replaceChildren(); destination.hidden = workspaceSummary.hidden = promptDestination.hidden = promptSummary.hidden = collectionDestination.hidden = collectionSummary.hidden = true; summary.textContent = t('Scope'); }
         function abandon() { if (!current(generation) || ['applying', 'downloading'].includes(phase)) return; const ordinaryExport = exportWatching; interruptedReview = null; interruptedSummary.hidden = recoverInterrupted.hidden = true; ++generation; source = null; availableModules = null; targetWorkspaceId = promptTarget = collectionTarget = undefined; pendingLargeFile = null; phase = ''; clear(); controls(); status.textContent = t(ordinaryExport ? 'ExportCancelled' : 'Cancelled'); (ordinaryExport ? exportButton : choose).focus(); }
         const countText = (value, module) => {
@@ -453,6 +460,25 @@
                     return [id, label];
                 })};
         }
+        copyDigest.addEventListener('click', () => {
+            if (!current(generation) || doc.hidden || !shell.getClientRects().length || copyDigest.disabled || phase !== 'export-ready' || !exportSnapshot?.digest || exportSnapshot.copying) return;
+            const snapshot = exportSnapshot, token = generation, ids = selected();
+            if (ids.length !== snapshot.ids.length || ids.some((id, index) => id !== snapshot.ids[index])) { expireExport(); return; }
+            snapshot.copying = true; controls(); copyFeedback.textContent = t('ExportCopyPending');
+            const finish = key => {
+                snapshot.copying = false;
+                if (current(token) && exportSnapshot === snapshot && phase === 'export-ready') { copyFeedback.textContent = t(key); controls(); }
+            };
+            try {
+                const clipboard = root.navigator?.clipboard, writeText = clipboard?.writeText;
+                if (!current(token) || exportSnapshot !== snapshot || doc.hidden || !shell.getClientRects().length) { finish('ExportCopyError'); return; }
+                const now = selected();
+                if (now.length !== snapshot.ids.length || now.some((id, index) => id !== snapshot.ids[index])) { expireExport(); return; }
+                if (typeof writeText !== 'function') { finish('ExportCopyError'); return; }
+                // Explicit activation only; never copy the backup body or read clipboard.
+                Promise.resolve(writeText.call(clipboard, snapshot.digest)).then(() => finish('ExportCopySuccess'), () => finish('ExportCopyError'));
+            } catch (_) { finish('ExportCopyError'); }
+        });
         downloadExport.addEventListener('click', async () => {
             if (!current(generation) || downloadExport.disabled || phase !== 'export-ready' || !exportSnapshot) return;
             const snapshot = exportSnapshot, ids = selected();
@@ -506,7 +532,10 @@
                                 if (hash.byteLength === 32) digest = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('');
                             }
                         } catch (_) { /* Download remains available without a fingerprint. */ }
-                        if (current(token) && exportSnapshot === snapshot) exportDigest.textContent = `${t('ExportDigest')}: ${digest}`;
+                        if (current(token) && exportSnapshot === snapshot) {
+                            snapshot.digest = /^[a-f0-9]{64}$/.test(digest) ? digest : null;
+                            exportDigest.textContent = `${t('ExportDigest')}: ${digest}`; controls();
+                        }
                     })();
                     exportMeta.textContent = `${t('ExportTime')}: ${details.exportedAt}. ${t('ExportBytes')}: ${details.bytes}. ` + (details.legacy ? t('ExportLegacy') : `${t('ExportLive')}: ${details.live}. ${t('ExportTrash')}: ${details.trash}.`);
                     exportScope.textContent = t(details.legacy ? 'ExportSingleCountScope' : details.globalOnly ? 'ExportGlobalOnly' : 'ExportCountScope');

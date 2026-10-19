@@ -11,7 +11,7 @@ async function until(predicate) {
     while (!predicate() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 1));
     assert(predicate(), 'expected export summary state');
 }
-function mount(t, store, {locale, download, observer = false, allowReview = false, crypto = {subtle:{digest:async(_,bytes)=>Uint8Array.from(require("node:crypto").createHash("sha256").update(bytes).digest()).buffer}}} = {}) {
+function mount(t, store, {locale, download, observer = false, allowReview = false, clipboard, crypto = {subtle:{digest:async(_,bytes)=>Uint8Array.from(require("node:crypto").createHash("sha256").update(bytes).digest()).buffer}}} = {}) {
     const document = createDocument({blurUnavailableFocus:true, aggregateTextContent:true});
     const host = document.createElement('div'); document.body.append(host);
     const catalog = locale && JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`));
@@ -27,7 +27,7 @@ function mount(t, store, {locale, download, observer = false, allowReview = fals
     const window = {LocalItabCompleteBackup:Backup, LocalItabPrompts:Prompts, LocalItabAICollections:Collections,
         i18n:{t:key => catalog?.[key]?.message || key},
         addEventListener:(name, fn) => events.set(name, fn), removeEventListener:(name, fn) => {if (events.get(name) === fn) events.delete(name);}};
-    window.crypto = crypto;
+    window.crypto = crypto; window.navigator = {clipboard};
     if(observer)window.MutationObserver=Observer;
     const calls = {exports:[], sources:[], downloads:[], reviews:0};
     const realExport = store.export.bind(store);
@@ -322,4 +322,44 @@ test('real Web Crypto fingerprints exactly the downloaded Unicode JSON bytes',as
     const source=m.calls.sources[0],expected=require('node:crypto').createHash('sha256').update(Buffer.from(source,'utf8')).digest('hex');
     assert(m.get('export-digest').textContent.endsWith(expected));m.click('download-export');await until(()=>!m.view.pending);
     assert.equal(m.calls.downloads[0][0],source);assert.equal(f.writes.length,writes);
+});
+
+for (const locale of ['en','zh_CN']) test(`copy fingerprint requires explicit click and copies only 64 hex characters (${locale})`,async t=>{
+    const f=fixture(),writes=[],m=mount(t,f.store,{locale,clipboard:{writeText:text=>{writes.push(text);return Promise.resolve();}}});
+    assert(m.get('copy-digest').disabled);m.select(['scratchpad']);m.click('export');await until(()=>!m.view.pending);
+    assert.equal(writes.length,0);assert(!m.get('copy-digest').disabled);const expected=require('node:crypto').createHash('sha256').update(m.calls.sources[0]).digest('hex');
+    m.click('copy-digest');m.get('copy-digest').dispatch('click');await tick();assert.deepEqual(writes,[expected]);assert.equal(m.calls.downloads.length,0);
+    assert.equal(m.document.activeElement===m.get('copy-digest'),true);assert(!m.get('download-export').disabled);assert.equal(f.writes.length,0);
+    const catalog=JSON.parse(fs.readFileSync(`_locales/${locale}/messages.json`));assert.equal(m.get('copy-feedback').textContent,catalog.completeBackupExportCopySuccess.message);
+});
+
+for(const mode of ['missing','throw','reject'])test(`clipboard ${mode} leaves manual fingerprint and backup download available`,async t=>{
+    const f=fixture(),m=mount(t,f.store,{clipboard:mode==='missing'?null:{writeText:()=>{if(mode==='throw')throw Error('PRIVATE');return Promise.reject(Error('PRIVATE'));}}});
+    m.click('export');await until(()=>!m.view.pending);const digest=m.get('export-digest').textContent;m.click('copy-digest');await tick();
+    assert.match(m.get('copy-feedback').textContent,/Could not copy/);assert(!m.get('copy-feedback').textContent.includes('PRIVATE'));assert.equal(m.get('export-digest').textContent,digest);assert(!m.get('copy-digest').disabled);
+    m.click('download-export');await until(()=>!m.view.pending);assert.equal(m.calls.downloads.length,1);assert.equal(f.writes.length,0);
+});
+
+for(const action of ['cancel-export','change','pagehide','destroy','download-export'])test(`late clipboard result after ${action} cannot revive status or take focus`,async t=>{
+    const f=fixture(),wait=deferred(),writes=[],m=mount(t,f.store,{clipboard:{writeText:text=>{writes.push(text);return wait.promise;}}});
+    m.click('export');await until(()=>!m.view.pending);m.click('copy-digest');assert.equal(m.get('copy-digest').getAttribute('aria-disabled'),'true');assert(!m.get('download-export').disabled);
+    const feedback=m.get('copy-feedback');if(action==='change'){m.select(['tasks']);m.click('export');await until(()=>!m.view.pending);}else if(action==='pagehide')m.events.get('pagehide')();else if(action==='destroy')m.view.destroy();else m.click(action);
+    const outside=m.document.createElement('textarea');m.document.body.append(outside);outside.focus();await until(()=>!m.view.pending);const before=feedback.textContent;
+    wait.resolve();await tick();assert.equal(feedback.textContent,before);assert.equal(m.document.activeElement,outside);assert.equal(writes.length,1);assert.equal(f.writes.length,0);
+});
+
+test('pending or unavailable fingerprint cannot be copied and download remains independent',async t=>{
+    for(const crypto of [null,{subtle:{digest:()=>new Promise(()=>{})}}]){
+        const f=fixture(),writes=[],m=mount(t,f.store,{crypto,clipboard:{writeText:text=>writes.push(text)}});m.click('export');await until(()=>!m.view.pending);
+        assert(m.get('copy-digest').disabled);m.get('copy-digest').dispatch('click');assert.equal(writes.length,0);m.click('download-export');await until(()=>!m.view.pending);assert.equal(m.calls.downloads.length,1);
+    }
+});
+
+for(const mode of ['silent-selection','hidden-document','clipboard-getter-cancel'])test(`copy rechecks authority before writing (${mode})`,async t=>{
+    const f=fixture(),writes=[],clipboard={writeText:text=>writes.push(text)},m=mount(t,f.store,{clipboard});
+    m.select(['scratchpad']);m.click('export');await until(()=>!m.view.pending);
+    if(mode==='silent-selection')m.input('tasks').checked=true;
+    else if(mode==='hidden-document')m.document.hidden=true;
+    else Object.defineProperty(m.window.navigator,'clipboard',{get:()=>{m.click('cancel-export');return clipboard;}});
+    m.get('copy-digest').dispatch('click');await tick();assert.equal(writes.length,0);assert.equal(f.writes.length,0);
 });

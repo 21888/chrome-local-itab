@@ -8303,6 +8303,18 @@
   "completeBackupExportTime": {
     "message": "Snapshot generated (UTC)"
   },
+  "completeBackupExportCopyDigest": {
+    "message": "Copy fingerprint"
+  },
+  "completeBackupExportCopyPending": {
+    "message": "Copying fingerprint…"
+  },
+  "completeBackupExportCopySuccess": {
+    "message": "Fingerprint copied."
+  },
+  "completeBackupExportCopyError": {
+    "message": "Could not copy the fingerprint. You can select it manually; downloading is still available."
+  },
   "completeBackupExportDigest": {
     "message": "SHA-256 of exact JSON (UTF-8)"
   },
