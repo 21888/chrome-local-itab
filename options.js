@@ -335,6 +335,7 @@ function setupInterruptedSettingsRecovery(error) {
     if (window.interruptedSettingsRecoveryView) return true;
     if (!window.LocalItabCompleteBackup || !window.LocalItabCompleteBackupView) return false;
     const host = document.createElement('section'); host.id = 'interrupted-settings-recovery'; host.className = 'options-main';
+    host.setAttribute('tabindex', '-1');
     const notice = document.createElement('p'); notice.className = 'form-hint'; notice.setAttribute('role', 'alert');
     notice.textContent = t('settingsInterruptedRecovery', 'An interrupted local restore is blocking ordinary Settings. Inspect the saved copies below before deciding whether to restore the previous state. No automatic repair has run. After recovery, use Reload; ordinary settings stay unavailable on this page. This does not diagnose or resolve an earlier upgrade data-loss incident.');
     host.append(notice); (document.querySelector('.options-container') || document.body).append(host);
@@ -348,6 +349,7 @@ function setupInterruptedSettingsRecovery(error) {
                 return store.recoverInterruptedRestore(review, {confirmed: true, isCurrent: () => isCurrent() && !completeBackupHasDrafts()});
             })
         });
+        document.querySelector('.skip-link')?.setAttribute('href', '#interrupted-settings-recovery');
         return true;
     } catch (setupError) { host.remove(); throw setupError; }
 }

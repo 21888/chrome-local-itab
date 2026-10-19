@@ -51,13 +51,22 @@ function model(f, workspaceId = 'work') {
     const document = createDocument({blurUnavailableFocus: true, aggregateTextContent: true});
     // prepend is the only missing DOM primitive used by production lifecycle.
     document.body.prepend = function(node) { node.parentElement = this; this.children.unshift(node); };
+    const skip = document.createElement('a'); skip.className = 'skip-link'; skip.textContent = 'Skip to settings';
+    // Reflect this anchor's href like the browser, whether production assigns
+    // the property or attribute. The shared small DOM does not do URL reflection.
+    Object.defineProperty(skip, 'href', {get() { return this.getAttribute('href'); }, set(value) { this.setAttribute('href', value); }});
+    skip.href = '#settings-search-input'; document.body.append(skip);
     const container = document.createElement('div'); container.className = 'options-container';
     const header = document.createElement('header'); header.className = 'options-header';
     const main = document.createElement('main'); main.className = 'options-main';
     const normalHost = document.createElement('div'); normalHost.id = 'complete-backup';
     const controls = ['input', 'textarea', 'select', 'button'].map(tag => document.createElement(tag));
     controls[0].id = 'quote-text'; controls[1].id = 'world-clock-label';
-    main.append(...controls, normalHost);
+    const searchSection = document.createElement('section'); searchSection.id = 'settings-search'; searchSection.className = 'settings-search';
+    const searchControls = document.createElement('div'); searchControls.className = 'settings-search-controls';
+    const searchInput = document.createElement('input'); searchInput.id = 'settings-search-input'; searchInput.type = 'search';
+    searchControls.append(searchInput); searchSection.append(searchControls);
+    main.append(searchSection, ...controls, normalHost);
     const switcher = document.createElement('div'); switcher.id = 'workspace-switcher';
     const selectWorkspace = document.createElement('select'); switcher.append(selectWorkspace);
     // Match options.html: footer is a sibling, never a descendant of main.
@@ -100,7 +109,7 @@ function model(f, workspaceId = 'work') {
     const get = name => document.getElementById('interrupted-settings-recovery')?.querySelector('.complete-backup-' + name);
     const dispatchWindow = (type, event = {}) => { for (const fn of handlers.get(type) || []) fn(event); };
     const listenerCount = () => [...handlers.values()].reduce((sum, set) => sum + set.size, 0) + chromeListeners.size;
-    return {f, calls, ctx, window, manager, document, container, main, footer, save, reset, normalHost, switcher, controls: [...controls, selectWorkspace, save, reset],
+    return {f, calls, ctx, window, manager, document, skip, searchInput, container, main, footer, save, reset, normalHost, switcher, controls: [...controls, searchInput, selectWorkspace, save, reset],
         get, dispatchWindow, listenerCount, get view() { return window.interruptedSettingsRecoveryView; },
         async start() { await document.listeners.get('DOMContentLoaded')({type: 'DOMContentLoaded'}); },
         close() { this.view?.destroy(); for (const timer of timers) clearTimeout(timer); }};
@@ -161,6 +170,57 @@ test('recovery startup API handles only WORKSPACE_RESTORE_PENDING, never unrelat
     assert.equal(m.calls.mounts.length, 0); assert.equal(m.listenerCount(), listeners);
     assert.equal(m.document.getElementById('interrupted-settings-recovery'), null);
     assert.equal(m.main.hidden, false); assert.equal(m.main.inert, false); unchanged(m, before);
+});
+
+test('ordinary Settings startup keeps the first Skip link pointing to the reachable search input', async t => {
+    const html = source('options.html');
+    assert.match(html, /<body>\s*<a class="skip-link" href="#settings-search-input">/);
+    const m = model(fixture()); t.after(() => m.close()); const before = copy(m.f.raw);
+    // Ordinary startup also reports quota. Supply the RAM boundary in this
+    // offline-provider case; recovery tests keep Sync available and fenced.
+    m.f.chrome.storage.local.getBytesInUse = async () => 0;
+    delete m.f.chrome.storage.sync;
+    assert.equal(m.document.body.children[0], m.skip);
+    await m.start();
+    assert(m.window.settingsFormView, 'normal production initialization must finish');
+    assert.equal(m.view, undefined);
+    assert.equal(m.skip.getAttribute('href'), '#settings-search-input');
+    assert.equal(m.searchInput.disabled, undefined);
+    assert(m.searchInput.getClientRects().length && !m.searchInput.closest('[inert]'));
+    m.searchInput.focus(); assert.equal(m.document.activeElement, m.searchInput);
+    assert.equal(await m.ctx.setupInterruptedSettingsRecovery({code: 'WORKSPACE_CORRUPT'}), false);
+    assert.equal(m.skip.getAttribute('href'), '#settings-search-input'); unchanged(m, before);
+});
+
+for (const workspaceId of ['default', 'work']) test(`${workspaceId}: recovery Skip link targets one focusable recovery host through repeat entry and cancel`, async t => {
+    const m = model(await interrupted(), workspaceId); t.after(() => m.close()); const before = copy(m.f.raw);
+    assert.equal(m.skip.getAttribute('href'), '#settings-search-input');
+    await m.start(); assert(m.view, 'production startup must expose recovery');
+    const host = m.document.getElementById('interrupted-settings-recovery');
+    assert.equal(m.document.body.children[0], m.skip, 'Skip remains the first page element');
+    assert.equal(m.skip.getAttribute('href'), '#interrupted-settings-recovery');
+    assert.equal(host.tabIndex, -1);
+    assert.equal(host._tabIndex, -1, 'the host explicitly opts into programmatic focus');
+    assert.equal(m.searchInput.disabled, true);
+    assert.equal(m.searchInput.getClientRects().length, 0);
+    host.focus(); assert.equal(m.document.activeElement, host);
+    m.searchInput.focus(); assert.equal(m.document.activeElement, host, 'the old search target stays isolated');
+    const domListenerCount = () => [m.skip, host, ...host.querySelectorAll('*')].reduce((total, node) => total + [...node.listeners.values()].reduce((sum, listeners) => sum + listeners.length, 0), 0);
+    const counts = {reads: m.calls.localReads, listeners: m.listenerCount(), domListeners: domListenerCount()};
+    const view = m.view;
+    await m.ctx.setupInterruptedSettingsRecovery({code: 'WORKSPACE_RESTORE_PENDING'});
+    await m.ctx.setupInterruptedSettingsRecovery({code: 'WORKSPACE_RESTORE_PENDING'});
+    assert.equal(m.view, view); assert.equal(m.calls.mounts.length, 1);
+    assert.equal(m.document.querySelectorAll('#interrupted-settings-recovery').length, 1);
+    assert.equal(m.calls.localReads, counts.reads, 'retargeting Skip cannot reread saved data');
+    assert.equal(m.listenerCount(), counts.listeners); assert.equal(domListenerCount(), counts.domListeners);
+    await inspected(m); const readsAfterInspection = m.calls.localReads;
+    m.get('cancel-interrupted').dispatch('click');
+    assert.equal(m.skip.getAttribute('href'), '#interrupted-settings-recovery');
+    assert.equal(m.document.querySelector(m.skip.getAttribute('href')), host);
+    host.focus(); assert.equal(m.document.activeElement, host);
+    assert.equal(m.calls.localReads, readsAfterInspection, 'cancel and focus do not touch storage');
+    isolated(m); unchanged(m, before);
 });
 
 for (const workspaceId of ['default', 'work']) test(`${workspaceId}: real startup fence exposes one isolated read-only recovery view without Sync or default edits`, async t => {
