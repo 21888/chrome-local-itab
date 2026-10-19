@@ -6,10 +6,10 @@ const vm = require('node:vm');
 const {createDocument} = require('./helpers/task-dom-model');
 
 const source = fs.readFileSync('newtab.js', 'utf8');
-const start = source.indexOf('// Set up settings button');
-const end = source.indexOf('// Initialize custom context menu', start);
-assert.ok(start >= 0 && end > start, 'use the actual adjacent dashboard settings bindings');
-const bindings = source.slice(start, end);
+const start = source.indexOf('const settingsNavigationButtons = new WeakSet();');
+const end = source.indexOf("document.addEventListener('DOMContentLoaded'", start);
+assert.ok(start >= 0 && end > start, 'use the actual idempotent dashboard settings bindings');
+const bindings = source.slice(start, end) + '\nsetupSettingsNavigation();';
 const workspaceView = fs.readFileSync('shared/workspaces-view.js', 'utf8');
 
 function fixture(id, optionsAPI, categoryButton = true) {

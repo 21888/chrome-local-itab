@@ -556,6 +556,9 @@
         if (openDefault) { openDefault.hidden = id === 'default'; openDefault.addEventListener('click', () => root.workspacesView.requestSwitch('default')); }
         if (id && root.history?.replaceState) { const url = new URL(root.location.href); url.searchParams.set('workspace',id); root.history.replaceState(null,'',url.href); }
     }
-    function openSettings(hash = '') { root.open(settingsUrl(root.LocalItabWorkspaces?.session?.id, hash), '_blank', 'noopener'); }
+    function openSettings(hash = '') {
+        const session = root.LocalItabWorkspaces?.session;
+        root.open(settingsUrl(session?.id || session?.requestedId, hash), '_blank', 'noopener');
+    }
     root.LocalItabWorkspacesView = {mount, mountPage, openSettings, settingsUrl, copy};
 })(window);

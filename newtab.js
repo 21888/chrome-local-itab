@@ -119,10 +119,22 @@ function isSafeImageDataUrl(value) {
     return /^data:image\/(?:png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(String(value || ''));
 }
 
+// Navigation must remain available even when protected storage cannot load.
+const settingsNavigationButtons = new WeakSet();
+function setupSettingsNavigation() {
+    for (const [id, anchor] of [['open-options', ''], ['manage-categories', 'category-settings']]) {
+        const button = document.getElementById(id);
+        if (!button || settingsNavigationButtons.has(button)) continue;
+        button.addEventListener('click', () => window.LocalItabWorkspacesView.openSettings(anchor));
+        settingsNavigationButtons.add(button);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Local iTab new tab page loaded');
 
     try {
+        setupSettingsNavigation();
         // Localize the static shell even when workspace startup cannot finish.
         window.i18n?.localizeDocument(document);
         // Initialize dashboard components with stored data
@@ -136,21 +148,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
         window.localFocusView?.attachDocumentTitle();
 
-        // Set up settings button
-        const settingsButton = document.getElementById('open-options');
-        if (settingsButton) {
-            settingsButton.addEventListener('click', function () {
-                window.LocalItabWorkspacesView.openSettings();
-            });
-        }
-
-        // Category management button in sidebar header
-        const manageBtn = document.getElementById('manage-categories');
-        if (manageBtn) {
-            manageBtn.addEventListener('click', () => {
-                window.LocalItabWorkspacesView.openSettings('category-settings');
-            });
-        }
         // Initialize custom context menu
         if (window.contextMenu) {
             window.contextMenu.init({
