@@ -27,4 +27,8 @@ Usa **Download pre-restore recovery copy** y selecciona el JSON descargado para 
 
 Una restauración combinada interrumpida puede dejar una marca persistente que bloquea nuevas escrituras incluso después de recargar. Usa la inspección y recuperación con confirmación independiente que ofrece la interfaz. No repitas automáticamente la importación ni supongas que recargar resuelve una escritura incierta. No se garantiza atomicidad ante un cierre inesperado del navegador.
 
+**Download both saved copies** genera un paquete de diagnóstico con `before` y `current`; la importación ordinaria de copias completas no acepta directamente ese paquete. `before` es la copia portátil anterior verificada y vinculada a la transacción pendiente; `current` es la instantánea guardada capturada para inspección. Tras una escritura parcial puede contener valores antiguos y nuevos, incluso vínculos a prompts/versiones sin resolver. Descargarlo no repara ni fusiona esos valores, ni garantiza que el almacenamiento permanezca igual después de la captura.
+
+Las copias portátiles de Focus y el JSON anterior a la restauración contienen preferencias, no identificadores de sesiones en ejecución ni sus plazos. Dejar Focus sin seleccionar conserva las sesiones guardadas en el destino. La recuperación de una restauración interrumpida, confirmada por separado, usa el estado original retenido y verificado de los espacios. Importar el JSON portátil no equivale a esa recuperación ni permite reanudar un temporizador anterior.
+
 El archivo puede contener notas privadas, prompts, extractos, historial, URL completas e imágenes. Guárdalo de forma segura. Esta función no amplía permisos de red ni añade contenido privado a copias en la nube.

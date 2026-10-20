@@ -65,6 +65,10 @@ In ordinary Settings, use **Download pre-restore recovery copy**, then choose th
 
 An interrupted combined restore can leave a durable pending marker that blocks cooperating writers even after reload. Use the offered inspection and separately confirmed recovery flow; it verifies the saved prior state before repairing. Do not repeatedly import or assume reload fixes an uncertain write. This is verified staged replacement, not a guarantee of browser-crash atomicity.
 
+**Download both saved copies** produces a diagnostic package containing `before` and `current`, not a file accepted directly by the ordinary complete-backup import. `before` is the checked portable pre-restore copy associated with the pending transaction; `current` is the saved snapshot captured for inspection. After a partial write, that current state can contain both older and newer values, including unresolved prompt/version links. Downloading it does not repair or merge those values, and the captured snapshot is not a promise that storage will remain unchanged afterward.
+
+Portable Focus backups and pre-restore JSON contain preferences, not running-session identities or deadlines. Leaving Focus unselected preserves the destination's saved sessions. The separately confirmed interrupted-restore recovery instead uses verified retained raw workspace state; do not treat importing portable JSON as equivalent to that recovery or as a way to resume an old timer.
+
 ### When ordinary Settings cannot load
 
 If a pending combined restore blocks Settings initialization, the page offers a limited recovery view instead of editable defaults. Ordinary settings, workspace switching, Save and Reset stay unavailable. No automatic repair runs. The keyboard **Skip to settings** link moves focus to the recovery section.
