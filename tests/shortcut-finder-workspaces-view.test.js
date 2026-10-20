@@ -276,3 +276,49 @@ test('actual host destroy/remount preserves Finder-wide system write ownership a
     newCopy.dispatch('click'); await tick(); assert.equal(writes.length, 2); assert.match(f.document.querySelector('.finder-copy-status').textContent, /copied/);
     assert.equal(f.tabs.length + f.navigated.length + f.calls.writers + f.calls.manager, 0); replacement.destroy(); assert.equal(f.sourceListenerGroups.size, 0); assert.equal(f.document.listeners.size, 0);
 });
+
+test('unavailable snapshots never expose stale category counts and successful retry restores validated choices', async () => {
+    for (const locale of ['en', 'zh_CN']) {
+        const f = await setup(locale); await f.open(); f.query('Synthetic');
+        const category = f.document.querySelector('.finder-category');
+        assert(category.children.length > 1);
+        const gate = deferred(); let paused = false;
+        f.hook(async type => { if (type === 'get' && !paused) { paused = true; await gate.promise; } });
+        f.scope('all'); await tick();
+        assert.equal(category.disabled, true);
+        assert.equal(category.children.length, 1);
+        assert.doesNotMatch(category.children[0].textContent, /\(\d+\)/);
+        const bundle = f.raw[W.bundleKey(f.named)]; delete f.raw[W.bundleKey(f.named)];
+        gate.resolve(); await tick();
+        assert.equal(category.disabled, true); assert.equal(category.children.length, 1);
+        assert.equal(f.document.querySelectorAll('.finder-result').length, 0);
+        f.scope('current'); await tick();
+        assert.equal(category.disabled, false); assert(category.children.length > 1);
+        f.raw[W.bundleKey(f.named)] = bundle;
+        f.scope('all'); await tick();
+        assert.equal(category.disabled, false); assert.equal(category.children.length, 3);
+        assert.equal(f.document.querySelectorAll('.finder-result').length, 2);
+        assert.equal(f.calls.writers + f.calls.manager, 0); f.view.destroy();
+    }
+});
+test('refresh preserves category identity without stale counts or stealing later focus', async () => {
+    for (const focusCategory of [false, true]) {
+        const f = await setup(); await f.open(); f.query('Synthetic'); f.scope('all'); await tick();
+        const category = f.document.querySelector('.finder-category'), input = f.document.querySelector('input');
+        const selected = category.children[2].value;
+        category.value = selected; category.dispatch('change');
+        const owner = focusCategory ? category : f.document.querySelector('.finder-workspace-scope'); owner.focus();
+        const gate = deferred(); let paused = false;
+        f.hook(async type => { if (type === 'get' && !paused) { paused = true; await gate.promise; } });
+        f.emit(W.bundleKey(f.named)); await tick();
+        assert.equal(category.disabled, true); assert.equal(category.value, selected);
+        assert.equal(category.children.length, 1);
+        assert.equal(f.document.activeElement, focusCategory ? input : owner);
+        const later = f.document.querySelector('.finder-match-mode'); later.focus();
+        gate.resolve(); await tick();
+        assert.equal(category.disabled, false); assert.equal(category.value, selected);
+        assert.equal(f.document.querySelectorAll('.finder-result').length, 1);
+        assert.equal(f.document.activeElement, later);
+        assert.equal(f.calls.writers + f.calls.manager, 0); f.view.destroy();
+    }
+});

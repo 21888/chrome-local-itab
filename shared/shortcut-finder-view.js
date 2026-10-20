@@ -183,6 +183,14 @@
             invalidateCopyReceipt(); renderEpoch++; copyControls.clear();
             copyNotice.textContent = ''; watchCopyOwners();
             if (preparation) {
+                // Counts belong to the admitted snapshot, not the previous scope.
+                // Keep only the filter identity so a same-scope refresh can restore it.
+                const placeholder = el('option', '', t('finderAllCategories'));
+                placeholder.value = categorySelect.value;
+                categorySelect.replaceChildren(placeholder);
+                delete categorySelect.dataset.options;
+                if (document.activeElement === categorySelect) input.focus({ preventScroll: true });
+                categorySelect.disabled = true;
                 list.replaceChildren(); previous.hidden = next.hidden = true;
                 status.textContent = t(preparation === 'loading' ? 'finderPending' : options.getScope?.() === 'all' ? 'finderAllUnavailable' : 'finderReadError');
                 list.setAttribute('aria-busy', String(preparation === 'loading'));
@@ -204,6 +212,7 @@
                 categorySelect.dataset.options = signature;
             }
             categorySelect.value = result.category;
+            categorySelect.disabled = false;
             list.replaceChildren();
             status.textContent = !result.saved ? t('finderEmpty') : !result.query.trim() && !result.category ? t('finderHint') : !result.total ? t('finderNone') :
                 `${t('finderResults')}: ${result.total} · ${t('finderShowing')}: ${result.start + 1}–${result.start + result.rows.length}`;
