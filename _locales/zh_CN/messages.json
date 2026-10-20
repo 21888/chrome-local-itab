@@ -197,6 +197,12 @@
   "completeBackupInterruptedChanged": {
     "message": "中断恢复后，保留的数据副本发生变化。为避免丢失较新内容，自动回退已阻止。请下载两份已保存数据以供核对，也可下载恢复前副本。"
   },
+  "completeBackupInterruptedDownloadHelp": {
+    "message": "这是诊断 JSON，不能直接作为备份导入。它包含已校验的恢复前副本（before）和读取时的已保存快照（current）；部分写入后，后者可能混合较旧与较新的值。下载不会修复或合并数据。如需可导入文件，请使用“下载恢复前的备份副本”。"
+  },
+  "completeBackupInterruptedDownloadRequested": {
+    "message": "已请求下载诊断包，不能直接作为备份导入。请检查下载列表；此处无法核验下载是否完成。未执行恢复或合并。"
+  },
   "completeBackupDownloadInterrupted": {
     "message": "下载两份已保存数据"
   },

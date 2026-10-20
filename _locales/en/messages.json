@@ -197,6 +197,12 @@
   "completeBackupInterruptedChanged": {
     "message": "A retained saved copy changed after the interrupted restore. Automatic rollback is blocked to avoid losing newer content. Download both saved copies for review; the pre-restore download is also available."
   },
+  "completeBackupInterruptedDownloadHelp": {
+    "message": "Diagnostic JSON, not a directly importable backup. It contains the verified pre-restore copy (before) and a captured saved snapshot (current), which may mix older and newer values after a partial write. Downloading does not repair or merge data. For an importable file, use Download pre-restore recovery copy."
+  },
+  "completeBackupInterruptedDownloadRequested": {
+    "message": "Download requested for the diagnostic package, not a directly importable backup. Check your downloads; completion cannot be verified here. No recovery or merge was performed."
+  },
   "completeBackupDownloadInterrupted": {
     "message": "Download both saved copies"
   },

@@ -28,6 +28,8 @@
     "NoInterrupted": "No interrupted combined restore needs recovery. You can reload to inspect the saved state; no recovery action was taken.",
     "RecoveredInterrupted": "The previous workspace and selected global library states were restored and verified. Reload to show them; drafts remain in this page.",
     "DownloadInterrupted": "Download both saved copies",
+    "InterruptedDownloadHelp": "Diagnostic JSON, not a directly importable backup. It contains the verified pre-restore copy (before) and a captured saved snapshot (current), which may mix older and newer values after a partial write. Downloading does not repair or merge data. For an importable file, use Download pre-restore recovery copy.",
+    "InterruptedDownloadRequested": "Download requested for the diagnostic package, not a directly importable backup. Check your downloads; completion cannot be verified here. No recovery or merge was performed.",
     "InterruptedChanged": "A retained saved copy changed after the interrupted restore. Automatic rollback is blocked to avoid losing newer content. Download both saved copies for review; the pre-restore download is also available.",
     "Title": "Complete local backup",
     "SyncSafety": "If Chrome Sync is enabled, restoring Default configuration pauses it until you review it separately. An interrupted attempt can leave Sync paused even when no workspace replacement finished.",
@@ -149,6 +151,7 @@
     Object.assign(fallback, {"Collections": "AI collections and saved versions", "CollectionHelp": "Collections are one global library shared across workspaces. Full backups include manually saved excerpts, notes, source URLs, prompt references, archived records and versions. Check private content before sharing; provider credentials are excluded. Explicitly saved question/source snapshots and exact endpoint/model metadata are included unchanged; backups are unencrypted.", "CollectionTarget": "Destination for AI collections", "ChooseCollectionTarget": "Choose the collections destination", "GlobalCollections": "Global AI collections on this device", "CollectionTargetRequired": "Choose the global AI collections target, then review again. Active and archived collections will be replaced.", "CollectionScope": "The selected global AI collections are replaced once, including archived records. Existing content and saved versions remain in recovery. Prompt references retain their exact IDs and may be unresolved.", "CollectionConflicts": "Matching collection IDs whose saved content differs"});
     const MODULES = ['config', 'tasks', 'scratchpad', 'countdown', 'focus', 'prompts', 'collections'];
     const titleKey = id => id[0].toUpperCase() + id.slice(1);
+    let nextDescriptionId = 0;
     function mount(host, {store, recoveryOnly = false, downloadOnly = false, restore = (preview, isCurrent) => store.restore(preview, {confirmed: true, isCurrent}), recoverInterruptedRestore = (review, isCurrent) => store.recoverInterruptedRestore(review, { confirmed: true, isCurrent }), reload = () => root.LocalItabContentLifecycle?.reload(), download = downloadFile} = {}) {
         if (!host?.ownerDocument || !store) throw new TypeError('Complete backup needs a host and store.');
         recoveryOnly = recoveryOnly || downloadOnly;
@@ -214,6 +217,10 @@
         const reloadButton = button('Reload', 'reload', shell); reloadButton.hidden = true;
         const recovery = button('Recovery', 'recovery', shell); make('p', 'form-hint', t(downloadOnly ? 'RecoveryDownloadOnlyHelp' : recoveryOnly ? 'RecoveryOnlyHelp' : 'RecoveryHelp'), shell);
         const downloadInterrupted = button('DownloadInterrupted', 'download-interrupted', shell); downloadInterrupted.hidden = downloadOnly || typeof store.exportInterruptedCandidates !== 'function';
+        const interruptedDownloadHelp = make('p', 'form-hint complete-backup-interrupted-download-help', t('InterruptedDownloadHelp'), shell);
+        interruptedDownloadHelp.id = 'complete-backup-interrupted-download-help-' + (++nextDescriptionId);
+        interruptedDownloadHelp.hidden = downloadInterrupted.hidden;
+        downloadInterrupted.setAttribute('aria-describedby', interruptedDownloadHelp.id);
         const inspectInterrupted = button('InspectInterrupted', 'inspect-interrupted', shell);
         const interruptedSummary = make('p', 'form-hint complete-backup-interrupted-summary', '', shell); interruptedSummary.hidden = true;
         const recoverInterrupted = button('RecoverInterrupted', 'recover-interrupted', shell, true); recoverInterrupted.hidden = true;
@@ -569,7 +576,7 @@
             const reviewPhase = preview && ['ready', 'target'].includes(phase) ? phase :
                 phase === 'large' && pendingLargeFile ? 'large' : '';
             const token = ++generation; phase = 'exporting'; controls(); status.textContent = t('Exporting');
-            try { const text = await store.exportInterruptedCandidates(); if (!current(token)) return; await download(text, 'local-itab-interrupted-copies', doc); if (current(token)) status.textContent = t('Download'); }
+            try { const text = await store.exportInterruptedCandidates(); if (!current(token)) return; await download(text, 'local-itab-interrupted-copies', doc); if (current(token)) status.textContent = t('InterruptedDownloadRequested'); }
             catch (error) { if (current(token)) status.textContent = errorText(error); }
             finally { if (current(token)) {
                 phase = reviewPhase; controls();
