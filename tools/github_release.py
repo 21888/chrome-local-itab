@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 
 REPOSITORY = '21888/chrome-local-itab'
 
@@ -218,6 +219,25 @@ def tag_commit(api, tag):
     raise ValueError('Excessively nested tag')
 
 
+def verify_created_tag(api, tag, sha, created):
+    # Only an exact successful creation response permits bounded absence retries.
+    # Errors/malformed reads and any other target fail immediately, without writes.
+    check(isinstance(created, dict) and created.get('ref') == 'refs/tags/' + tag
+          and isinstance(created.get('object'), dict)
+          and created['object'].get('type') == 'commit' and created['object'].get('sha') == sha,
+          'Tag creation response does not match requested ref and source')
+    for attempt in range(3):
+        ref = api.api(f'git/ref/tags/{tag}', missing_ok=True)
+        if ref is not None:
+            check(isinstance(ref, dict) and isinstance(ref.get('object'), dict)
+                  and ref['object'].get('type') == 'commit' and ref['object'].get('sha') == sha,
+                  'Created tag does not match source')
+            return
+        if attempt < 2:
+            time.sleep(1)
+    raise ValueError('Created tag is not visible after bounded verification')
+
+
 def assets_for(api, release_id):
     result = []
     page = 1
@@ -307,8 +327,8 @@ def publish(out, sha, api=None, *, root=None):
         check(target == sha, 'Existing release is not pinned to expected SHA')
         check(release['tag_name'] == tag and release['body'] == notes(sha, version) and not release['prerelease'], 'Existing release metadata differs')
     if target is None:
-        api.api('git/refs', {'ref': 'refs/tags/' + tag, 'sha': sha}, method='POST')
-        check(tag_commit(api, tag) == sha, 'Created tag does not match source')
+        created = api.api('git/refs', {'ref': 'refs/tags/' + tag, 'sha': sha}, method='POST')
+        verify_created_tag(api, tag, sha, created)
     if release is None:
         release = api.api('releases', {'tag_name': tag, 'target_commitish': sha, 'name': 'Local iTab ' + version,
                                      'body': notes(sha, version), 'draft': True, 'prerelease': False}, method='POST')

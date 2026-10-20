@@ -52,7 +52,7 @@ class FakeGitHub:
             if self.target:
                 raise RuntimeError('Already exists')
             self.target = payload['sha']
-            return {}
+            return {'ref': payload['ref'], 'object': {'type': 'commit', 'sha': self.target}}
         if path.startswith('releases?'):
             return [] if self.release is None else [copy.deepcopy(self.release)]
         if path == 'releases' and method == 'POST':
@@ -150,6 +150,92 @@ class ReleaseTests(unittest.TestCase):
         self.api.mutations.clear()
         release.publish(self.out, SHA, self.api)
         self.assertFalse(self.api.mutations)
+
+    def post_create_reads(self, results, creation=None):
+        original = self.api.api
+        reads = []
+        def api(path, payload=None, method='GET', missing_ok=False):
+            if path == 'git/ref/tags/' + TAG and self.api.target is not None:
+                reads.append(path)
+                if results:
+                    value = results.pop(0)
+                    if isinstance(value, Exception):
+                        raise value
+                    return value
+            value = original(path, payload, method, missing_ok)
+            return creation(value) if path == 'git/refs' and method == 'POST' and creation else value
+        self.api.api = api
+        return reads
+
+    def test_post_create_missing_then_correct(self):
+        reads = self.post_create_reads([None, None])
+        with patch.object(release.time, 'sleep') as sleep:
+            release.publish(self.out, SHA, self.api)
+        self.assertEqual(sleep.call_args_list, [unittest.mock.call(1), unittest.mock.call(1)])
+        self.assertEqual(len(reads), 5)  # Three admission reads plus pre/post-publication guards.
+        self.assertEqual(sum(path == 'git/refs' for _, path, _ in self.api.mutations), 1)
+        self.assertFalse(self.api.release['draft'])
+
+    def test_post_create_persistently_missing_stops_before_release(self):
+        reads = self.post_create_reads([None] * 4)
+        with patch.object(release.time, 'sleep') as sleep, self.assertRaisesRegex(ValueError, 'not visible'):
+            release.publish(self.out, SHA, self.api)
+        self.assertEqual(len(reads), 3)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual([path for _, path, _ in self.api.mutations], ['git/refs'])
+        self.assertIsNone(self.api.release)
+
+    def test_post_create_wrong_target_fails_without_retry(self):
+        reads = self.post_create_reads([{'object': {'type': 'commit', 'sha': 'c' * 40}}])
+        with patch.object(release.time, 'sleep') as sleep, self.assertRaisesRegex(ValueError, 'does not match'):
+            release.publish(self.out, SHA, self.api)
+        self.assertEqual(len(reads), 1)
+        sleep.assert_not_called()
+        self.assertEqual([path for _, path, _ in self.api.mutations], ['git/refs'])
+
+    def test_post_create_error_after_absence_is_not_retried(self):
+        for message in ['HTTP 403', 'HTTP 429', 'transport failure']:
+            with self.subTest(message=message):
+                self.api = FakeGitHub()
+                reads = self.post_create_reads([None, RuntimeError(message)])
+                with patch.object(release.time, 'sleep') as sleep, self.assertRaisesRegex(RuntimeError, message):
+                    release.publish(self.out, SHA, self.api)
+                self.assertEqual(len(reads), 2)
+                self.assertEqual(sleep.call_count, 1)
+                self.assertEqual([path for _, path, _ in self.api.mutations], ['git/refs'])
+
+    def test_post_create_malformed_read_is_not_absence(self):
+        for value in [{}, {'object': {}}, {'object': {'type': 'commit', 'sha': None}},
+                      {'object': {'type': 'tag', 'sha': SHA}}]:
+            with self.subTest(value=value):
+                self.api = FakeGitHub()
+                reads = self.post_create_reads([value])
+                with patch.object(release.time, 'sleep') as sleep, self.assertRaisesRegex(ValueError, 'does not match'):
+                    release.publish(self.out, SHA, self.api)
+                self.assertEqual(len(reads), 1)
+                sleep.assert_not_called()
+                self.assertEqual([path for _, path, _ in self.api.mutations], ['git/refs'])
+
+    def test_creation_response_must_identify_exact_lightweight_ref(self):
+        for value in [None, {}, {'ref': 'refs/tags/wrong', 'object': {'type': 'commit', 'sha': SHA}},
+                      {'ref': 'refs/tags/' + TAG, 'object': {'type': 'commit', 'sha': 'c' * 40}},
+                      {'ref': 'refs/tags/' + TAG, 'object': {'type': 'tag', 'sha': SHA}}]:
+            with self.subTest(value=value):
+                self.api = FakeGitHub()
+                reads = self.post_create_reads([], creation=lambda _: value)
+                with patch.object(release.time, 'sleep') as sleep, self.assertRaisesRegex(ValueError, 'creation response'):
+                    release.publish(self.out, SHA, self.api)
+                self.assertFalse(reads)
+                sleep.assert_not_called()
+                self.assertEqual([path for _, path, _ in self.api.mutations], ['git/refs'])
+
+    def test_existing_exact_tag_retry_never_creates_or_waits(self):
+        self.api.target = SHA
+        with patch.object(release.time, 'sleep') as sleep:
+            release.publish(self.out, SHA, self.api)
+        sleep.assert_not_called()
+        self.assertFalse(any(path == 'git/refs' for _, path, _ in self.api.mutations))
+        self.assertFalse(self.api.release['draft'])
 
     def test_partial_draft_resumes(self):
         self.api.fail_upload_once = True
