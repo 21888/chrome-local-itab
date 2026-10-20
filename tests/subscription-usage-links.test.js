@@ -151,7 +151,8 @@ async function assertPassiveGuide(source=optionsSource,locale='en') {
  assert.equal(document.querySelectorAll('#settings-loading-notice').length,1);
  await loaded;
  assert.equal(document.getElementById('settings-loading-notice'),null);assert.equal(loading.parentElement,null);assert.equal(loading.isConnected,false);
- assert.deepEqual(stages,['initialized','localized']);assert.deepEqual(errors,[],'startup completed');
+ // Static shell localization now precedes storage; the normal dynamic pass remains.
+ assert.deepEqual(stages,['localized','initialized','localized']);assert.deepEqual(errors,[],'startup completed');
  for(const key of ['subscriptionUsageCodexOpen','subscriptionUsageGrokOpen']){
   input.value=locales[locale][key].message;input.dispatch('input');
   const matches=results.querySelectorAll('button');assert.equal(matches.length,1);

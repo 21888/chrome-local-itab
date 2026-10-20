@@ -709,6 +709,9 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .filter(area => area.id !== 'interrupted-settings-recovery').map(area => ({area, inert: area.inert}));
             for (const {area} of settingsInitialLoadAreas) area.inert = true;
         }
+        // Static labels and document language must not depend on storage loading.
+        // Recovery and load-error branches can return before ordinary setup.
+        window.i18n?.localizeDocument?.(document);
         setupDashboardNavigation();
         console.log('Local iTab options page loaded');
         if (settingsInitialLoadAreas && !settingsInitialLoadNotice) {

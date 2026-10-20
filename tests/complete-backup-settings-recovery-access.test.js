@@ -30,7 +30,7 @@ async function interrupted() {
     return fixture({persisted: JSON.parse(JSON.stringify(target.raw))});
 }
 
-function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable = true, unrequested = false, simulateDepartureCancellation = false} = {}) {
+function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable = true, unrequested = false, simulateDepartureCancellation = false, locale} = {}) {
     const calls = {mounts: [], stores: [], downloads: [], reloads: 0, fileReads: 0,
         localReads: 0, localRemoves: 0, providerReads: 0, providerWrites: 0, providerRemoves: 0,
         reviews: 0, exports: 0, restores: 0, inspections: 0, recoveries: 0,
@@ -53,6 +53,10 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
         query(query, callback) { calls.tabQueries.push(copy(query)); callback([{id: calls.activeTabId}]); },
         update(id, changes) { calls.tabUpdates.push({id, ...copy(changes)}); }
     };
+    if (locale) {
+        const catalog = JSON.parse(source('_locales/' + locale + '/messages.json'));
+        f.chrome.i18n = {getMessage: key => catalog[key]?.message || '', getUILanguage: () => locale};
+    }
     const requestedId = unrequested ? undefined : workspaceId;
     const manager = new StorageManager({workspace: f.workspaceManager.capture(requestedId)});
     assert.equal(manager.getAll, StorageManager.prototype.getAll);
@@ -62,7 +66,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     Object.defineProperty(Object.getPrototypeOf(document.body), 'parentNode', {get() { return this.parentElement; }});
     document.body.removeChild = function(node) { node.remove(); return node; };
     document.body.prepend = function(node) { node.parentElement = this; this.children.unshift(node); };
-    const skip = document.createElement('a'); skip.className = 'skip-link'; skip.textContent = 'Skip to settings';
+    const skip = document.createElement('a'); skip.className = 'skip-link'; skip.textContent = 'Skip to settings'; skip.setAttribute('data-i18n', 'settingsSkipLink');
     // Reflect this anchor's href like the browser, whether production assigns
     // the property or attribute. The shared small DOM does not do URL reflection.
     Object.defineProperty(skip, 'href', {get() { return this.getAttribute('href'); }, set(value) { this.setAttribute('href', value); }});
@@ -72,7 +76,12 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     const header = document.createElement('header'); header.className = 'options-header';
     const headerTop = document.createElement('div'); headerTop.className = 'header-top';
     const back = document.createElement('button'); back.id = 'back-to-dashboard'; back.className = 'back-button'; back.textContent = 'Back to Dashboard';
-    headerTop.append(back); header.append(headerTop);
+    back.textContent = ''; back.setAttribute('data-i18n-title', 'backToDashboard');
+    const backLabel = document.createElement('span'); backLabel.setAttribute('data-i18n', 'backToDashboard'); backLabel.textContent = 'Back to Dashboard'; back.append(backLabel);
+    const heading = document.createElement('h1'); heading.setAttribute('data-i18n', 'optionsTitle'); heading.textContent = 'Local iTab Settings';
+    const subtitle = document.createElement('p'); subtitle.setAttribute('data-i18n', 'optionsSubtitle'); subtitle.textContent = 'Tune a private, local-first new tab page';
+    const pageTitle = document.createElement('title'); pageTitle.setAttribute('data-i18n', 'optionsTitle'); pageTitle.textContent = 'Local iTab Settings'; document.documentElement.append(pageTitle);
+    headerTop.append(back); header.append(headerTop, heading, subtitle);
     const main = document.createElement('main'); main.className = 'options-main';
     const normalHost = document.createElement('div'); normalHost.id = 'complete-backup';
     const controls = ['input', 'textarea', 'select', 'button'].map(tag => document.createElement(tag));
@@ -105,6 +114,14 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     const reset = document.createElement('button'); reset.id = 'reset-settings';
     footerActions.append(save, reset); footer.append(footerActions);
     header.append(switcher); container.append(header, main, footer); document.body.append(container);
+    if (locale) {
+        for (const el of [skip, back, backLabel, heading, subtitle, pageTitle]) {
+            for (const key of ['data-i18n', 'data-i18n-title']) {
+                const value = el.getAttribute(key); if (value) el.dataset[key === 'data-i18n' ? 'i18n' : 'i18nTitle'] = value;
+            }
+        }
+        document.querySelectorAll = selector => document.documentElement.querySelectorAll(selector);
+    }
     const handlers = new Map();
     const window = {LocalItabPrompts: Prompts, LocalItabAICollections: Collections,
         location: {reload() { calls.reloads++; }}, confirm() { calls.confirmations++; throw Error('Unexpected confirmation'); },
@@ -146,6 +163,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     const ctx = {window, document, storageManager: manager, chrome: f.chrome, URL, Blob, console: {log() {}, error(...args) { calls.errors.push(args); }, warn() {}},
         setTimeout(fn, ms) { const timer = setTimeout(fn, ms); timers.add(timer); timerCallbacks.set(timer, {fn, ms}); return timer; }, clearTimeout};
     vm.createContext(ctx);
+    if (locale) { vm.runInContext(source('i18n.js'), ctx); ctx.i18n = window.i18n; }
     vm.runInContext(source('shared/complete-backup-view.js'), ctx);
     const mount = window.LocalItabCompleteBackupView.mount;
     window.LocalItabCompleteBackupView.mount = (host, options) => {
@@ -158,7 +176,7 @@ function model(f, workspaceId = 'work', {mountWorkspaces = false, tabsAvailable 
     const get = name => document.getElementById('interrupted-settings-recovery')?.querySelector('.complete-backup-' + name);
     const dispatchWindow = (type, event = {}) => { for (const fn of handlers.get(type) || []) fn(event); };
     const listenerCount = () => [...handlers.values()].reduce((sum, set) => sum + set.size, 0) + chromeListeners.size;
-    return {f, calls, ctx, window, manager, document, initialUrl, skip, searchInput, container, main, footer, save, reset, back, normalHost, switcher, controls: [...controls, ...clockControls, searchInput, addCategory, selectWorkspace, save, reset],
+    return {f, calls, ctx, window, manager, document, initialUrl, skip, searchInput, container, main, footer, save, reset, back, backLabel, heading, subtitle, pageTitle, normalHost, switcher, controls: [...controls, ...clockControls, searchInput, addCategory, selectWorkspace, save, reset],
         get, dispatchWindow, listenerCount, get view() { return window.interruptedSettingsRecoveryView; },
         async start() { await document.listeners.get('DOMContentLoaded')({type: 'DOMContentLoaded'}); },
         expireTimers(ms) { for (const [timer, task] of timerCallbacks) if (task.ms <= ms) { clearTimeout(timer); timerCallbacks.delete(timer); task.fn(); } },
@@ -224,7 +242,7 @@ test('limited recovery startup API rejects unrelated errors outside its explicit
 
 test('ordinary Settings startup keeps the first Skip link pointing to the reachable search input', async t => {
     const html = source('options.html');
-    assert.match(html, /<body>\s*<a class="skip-link" href="#settings-search-input">/);
+    assert.match(html, /<body>\s*<a class="skip-link" href="#settings-search-input" data-i18n="settingsSkipLink">/);
     const m = model(fixture()); t.after(() => m.close()); const before = copy(m.f.raw);
     // Ordinary startup also reports quota. Supply the RAM boundary in this
     // offline-provider case; recovery tests keep Sync available and fenced.
@@ -1146,4 +1164,67 @@ test('initial loading status cleans up an actual setup exception without leaving
     assert(m.document.getElementById('settings-unloaded-notice')?.getClientRects().length);
     assert.equal(m.document.activeElement, m.back); assert.equal(m.calls.localReads, 0);
     noDashboardNavigation(m); unchanged(m, before);
+});
+
+for (const locale of ['en', 'zh_CN']) for (const pending of [false, true]) test(`static Settings shell localizes before normal/recovery startup: ${locale}, pending=${pending}`, async t => {
+    const f = pending ? await interrupted() : fixture();
+    const m = model(f, 'work', {locale}); t.after(() => m.close());
+    if (!pending) { f.chrome.storage.local.getBytesInUse = async () => 0; delete f.chrome.storage.sync; }
+    const before = copy(f.raw), catalog = JSON.parse(source('_locales/' + locale + '/messages.json'));
+    await m.start();
+    assert.equal(m.heading.textContent, catalog.optionsTitle.message);
+    assert.equal(m.pageTitle.textContent, catalog.optionsTitle.message);
+    assert.equal(m.subtitle.textContent, catalog.optionsSubtitle.message);
+    assert.equal(m.backLabel.textContent, catalog.backToDashboard.message);
+    assert.equal(m.back.getAttribute('title'), catalog.backToDashboard.message);
+    assert.equal(m.skip.textContent, catalog.settingsSkipLink.message);
+    assert.equal(m.document.documentElement.lang, catalog.documentLanguage.message);
+    if (pending) {
+        isolated(m); assert.equal(m.skip.getAttribute('href'), '#interrupted-settings-recovery');
+        m.get('inspect-interrupted').dispatch('click'); await until(() => !m.get('cancel-interrupted').hidden);
+        m.get('cancel-interrupted').dispatch('click');
+        assert.equal(m.document.activeElement, m.get('inspect-interrupted'));
+        assert.equal(m.get('recover-interrupted').hidden, true);
+        assert.equal(m.skip.textContent, catalog.settingsSkipLink.message);
+        isolated(m);
+    } else {
+        assert(m.window.settingsFormView); assert.equal(m.view, undefined);
+        assert.equal(m.skip.getAttribute('href'), '#settings-search-input');
+    }
+    unchanged(m, before);
+});
+
+for (const fail of [false, true]) test(`Chinese shell and document language are available during a held real read (${fail ? 'failure' : 'success'})`, async t => {
+    const m = model(fixture(), 'work', {locale:'zh_CN'}); t.after(() => m.close());
+    const before = copy(m.f.raw), catalog = JSON.parse(source('_locales/zh_CN/messages.json'));
+    delete m.f.chrome.storage.sync; m.f.chrome.storage.local.getBytesInUse = async () => 0;
+    const hold = holdStartupRead(m, fail ? Error('Synthetic held read failure') : null);
+    m.back.focus(); const starting = m.start();
+    try {
+        await hold.entered.promise;
+        assert.equal(m.heading.textContent, catalog.optionsTitle.message);
+        assert.equal(m.backLabel.textContent, catalog.backToDashboard.message);
+        assert.equal(m.skip.textContent, catalog.settingsSkipLink.message);
+        assert.equal(m.document.documentElement.lang, 'zh-CN');
+        assert.equal(m.document.activeElement, m.back);
+        assert.equal(m.main.inert, true); assert.equal(m.footer.inert, true);
+        unchanged(m, before);
+    } finally { hold.gate.resolve(); await starting; delete m.f.hooks.read; }
+    assert.equal(m.heading.textContent, catalog.optionsTitle.message);
+    if (fail) { assert.equal(m.window.settingsFormView, undefined); assert.equal(m.view, undefined); assert(m.document.getElementById('settings-unloaded-notice')); }
+    else assert(m.window.settingsFormView);
+    unchanged(m, before);
+});
+
+test('Chinese structural download-only startup retains translated static labels without exposing recovery mutations', async t => {
+    const m = model(await damagedSettings('missing Default bundle'), 'work', {locale:'zh_CN'}); t.after(() => m.close());
+    const before = copy(m.f.raw), catalog = JSON.parse(source('_locales/zh_CN/messages.json'));
+    await m.start();
+    assert(m.view); assert.equal(m.calls.mounts[0].options.downloadOnly, true);
+    assert.equal(m.heading.textContent, catalog.optionsTitle.message);
+    assert.equal(m.skip.textContent, catalog.settingsSkipLink.message);
+    assert.equal(m.get('download-interrupted').hidden, true);
+    assert.equal(m.get('interrupted-download-help').hidden, true);
+    assert.equal(m.get('recover-interrupted').hidden, true);
+    assert.equal(m.calls.downloads.length, 0); unchanged(m, before);
 });

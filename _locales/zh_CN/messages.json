@@ -1,4 +1,7 @@
 {
+  "settingsSkipLink": {
+    "message": "跳至设置"
+  },
   "dashboardSkipShortcuts": {
     "message": "跳至快捷方式"
   },

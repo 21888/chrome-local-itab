@@ -1,4 +1,7 @@
 {
+  "settingsSkipLink": {
+    "message": "Skip to settings"
+  },
   "dashboardSkipShortcuts": {
     "message": "Skip to shortcuts"
   },
