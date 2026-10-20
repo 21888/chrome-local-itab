@@ -60,3 +60,7 @@ Chinese/dark 390px production-renderer checks for filtered selection, hidden
 selection review, Back and Cancel. It uses an explicit synthetic API bridge;
 it does not install the extension, submit a move, compare complete stored
 snapshots, or replace the historical native-write checks above.
+
+## Bounded production-renderer recovery checks — 2026-10-20
+
+[Integrated recovery acceptance](../shortcut-organizer-focus-validation.md#production-renderer-recovery-flow--2026-10-20) adds English keyboard checks on 1.1.157 for stale destination refusal followed by a fresh exact-twin move, a committed move with temporarily unavailable readback followed by fresh inspection, and a lost acknowledgement recovered through authoritative readback. Complete synthetic state comparisons preserve record identity/order and coordinate maps. The real Session-backed read failure is non-retryable; the test does not pretend to exercise the lower-level model's retryable error. This is page-memory fixture evidence, not installed-extension or populated-module persistence certification.
