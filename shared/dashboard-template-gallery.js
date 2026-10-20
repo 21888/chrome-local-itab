@@ -72,7 +72,9 @@
             details.addEventListener('toggle', () => { if (!details.open) void preview.cancel(); });
         }
         details.addEventListener('keydown', event => {
-            if (event.key !== 'Escape' || !details.open) return;
+            // Respect the same IME/inner-control ownership as the outer preview listener.
+            if (event.key !== 'Escape' || !details.open || event.defaultPrevented ||
+                event.isComposing || event.keyCode === 229) return;
             event.preventDefault();
             close();
         });

@@ -31,3 +31,11 @@ The keyboard cases model focus loss when controls are disabled or hidden. First 
 测试包含 28 个合成存储与 DOM 模型用例，覆盖连续试看和取消、最新保存值恢复、明确及重复应用、等锁并发、设置替换、关闭与 Esc、pagehide 和晚回调、读写失败、会话失效、设置页原行为、自由布局坐标保真、缓存图标、待完成编辑和晚到的网格转自由布局。另运行相关既有聚焦回归。它们不等于原生 Chromium 的布局、焦点、滚动或扩展实测；浏览器验证需单独完成，本文件不声称已通过浏览器实测。
 
 键盘用例模拟控件被禁用或隐藏后的失焦。首次读取前，图库将当前模板按钮拥有的焦点转交既有状态提示；后续选择保持按钮焦点，晚到读取不会抢回已移到输入框或图库标题的焦点。应用自身精确提交的外观事件不再清空已确认的本地保存提示。即便模板相同，明暗、自定义、相邻外观版本、设置代次或其他来源事件仍使待完成预览失效。已被内层控件处理或标记为输入法组合输入的 Esc 不会关闭图库，也不会把焦点从其他模块草稿拉走；图库已处理的 Esc 不会在窗口层再次处理。已检查中英文状态文案；模型不覆盖原生键盘导航和读屏播报。
+
+### Gallery-owned Escape / 图库内的 Esc (2026-10-20)
+
+The gallery disclosure now applies the same event-ownership checks as the outer preview listener. An Escape already consumed by a descendant, marked as IME composition, or carrying the legacy composition key code 229 does not close the gallery, cancel its preview, or move keyboard focus. A subsequent ordinary Escape still closes it and restores focus to the summary without saving. This applies both to the immediate-save Settings gallery and the new-tab live preview.
+
+Four added English/Chinese × Settings/live-preview regression cases dispatch the event through a focused gallery choice and then the window, rather than testing only the outer listener. Each covers all three ownership markers, unchanged preview/focus, no storage writes, and subsequent ordinary Escape dismissal. These are DOM-model regressions, not native IME or assistive-technology acceptance.
+
+图库自身现在与外层预览监听器一致：已经被内层控件处理、标记为输入法组合输入、或带有旧式组合键码 229 的 Esc，不会关闭图库、取消预览或转移焦点。之后普通的 Esc 仍会关闭图库并把焦点交还标题，不保存更改。设置页立即保存图库与新标签页实时预览均受此保护。新增中英文回归从图库按钮冒泡至窗口，验证三种标记及后续正常关闭；这是 DOM 模型验证，不冒充原生输入法或读屏验收。

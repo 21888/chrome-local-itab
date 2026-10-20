@@ -136,6 +136,31 @@ test('IME and already-handled Escape preserve the preview and a newer module dra
     }
 });
 
+for (const immediate of [false, true]) for (const language of ['en', 'zh_CN'])
+    test(`${language}: ${immediate ? 'Settings' : 'live-preview'} gallery respects consumed and composing Escape`, async () => {
+        for (const fields of [{ isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }]) {
+            const h = fixture({ immediate, language });
+            if (!immediate) await h.controller.previewTemplate('folio');
+            const choice = h.host.querySelector('[data-template-choice="folio"]');
+            choice.focus();
+            const preview = h.controller.preview;
+            const event = choice.dispatch('keydown', { key: 'Escape', defaultPrevented: false,
+                preventDefault() { this.defaultPrevented = true; }, ...fields });
+            h.event('keydown', event); await h.settle();
+            assert.equal(h.details.open, true, JSON.stringify(fields));
+            assert.equal(h.controller.preview, preview);
+            assert.equal(h.document.activeElement, choice);
+            assert.equal(event.defaultPrevented, fields.defaultPrevented === true);
+            assert.equal(h.ends, 0); assert.equal(h.writes.length, 0);
+            const ordinary = choice.dispatch('keydown', { key: 'Escape', defaultPrevented: false,
+                preventDefault() { this.defaultPrevented = true; } });
+            h.event('keydown', ordinary); await h.settle();
+            assert.equal(h.details.open, false);
+            assert.equal(h.document.activeElement, h.host.querySelector('summary'));
+            assert.equal(h.controller.preview, null); assert.equal(h.writes.length, 0);
+        }
+    });
+
 test('a gallery Escape bubbles to the window without starting a second restoration', async () => {
     const h = fixture(); await h.controller.previewTemplate('folio');
     const choice = h.host.querySelector('[data-template-choice="folio"]'); choice.focus();
