@@ -9,7 +9,7 @@ The catalog now has 21 templates. The six additions change structure, density an
 - **Mosaic / 拼贴**: an asymmetric two-column board; links are arranged as a small tile grid inside each real category.
 - **Paper / 便笺**: a narrow one-column index; category labels sit beside their list on larger screens and stack above it on small screens.
 
-Open **Browse 21 layouts / 浏览 21 种布局** beside the appearance controls on the dashboard or Settings. The small diagrams are layout schematics, not screenshots or sample user content. Browsing and collapsing the gallery do not save anything; choosing a template button uses the same immediate-save path as the native select. Escape closes the gallery and returns focus to its summary. The existing select remains available for a compact keyboard workflow.
+Open **Browse 21 layouts / 浏览 21 种布局** beside the appearance controls on the dashboard or Settings. The small diagrams are layout schematics, not screenshots or sample user content. Browsing and collapsing the gallery do not save anything. On the new-tab dashboard, choosing a template previews current content until Apply; Cancel, Close or Escape discards the preview. The compact template select and the Settings gallery retain immediate-save behavior. See [real-content preview](template-live-preview.md). Escape closes the gallery and returns focus to its summary. The existing select remains available for a compact keyboard workflow.
 
 Every addition supports light and dark appearance. Palettes reuse established tested roles so text, muted text, active categories and accent controls retain AA contrast. The changes do not add permissions, network calls, sample content or stored site data.
 
