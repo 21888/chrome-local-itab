@@ -1,6 +1,6 @@
 # Local Tasks validation — 2026-10-08
 
-These dated checks are historical evidence for their named features and source versions. They do not validate the later **New task from text** editor. Its 2026-10-17 model-only scope is recorded in [reuse draft validation](tasks-reuse-draft-validation.md); no new native browser or screenshot check is claimed.
+These dated checks are historical evidence for their named features and source versions. They do not validate the later **New task from text** editor. Its 2026-10-17 model-only scope is recorded in [reuse draft validation](tasks-reuse-draft-validation.md); the bounded 2026-10-20 production-page keyboard check is now recorded there separately, with synthetic RAM storage and no installed-extension/persistence claim.
 
 ## Automated checks
 
