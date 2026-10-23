@@ -4293,6 +4293,9 @@
   "collectionsPromptLoading": {
     "message": "正在读取本地提示词…"
   },
+  "collectionsPromptSubscriptionError": {
+    "message": "本地提示词更新不可用。请保留含未保存草稿的页面，另行重新打开此页面以重试。已有精确关联保持不变。"
+  },
   "collectionsPromptReadError": {
     "message": "无法读取本地提示词。已有的精确链接已保留，请刷新重试。"
   },

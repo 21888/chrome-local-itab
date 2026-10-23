@@ -344,7 +344,7 @@
             target.replaceChildren(); const result = this.controller.promptResolution(reference);
             const messages = {
                 unlinked: ['PromptUnlinked', 'No prompt linked.'], loading: ['PromptLoading', 'Reading local prompts…'],
-                unavailable: ['PromptReadError', 'Local prompts could not be read. Any existing exact link is kept. Refresh to retry.'],
+                unavailable: this.controller.promptSubscriptionError ? ['PromptSubscriptionError', 'Local prompt updates are unavailable. Keep any unsaved drafts open and reopen this page to retry. Existing exact links are kept.'] : ['PromptReadError', 'Local prompts could not be read. Any existing exact link is kept. Refresh to retry.'],
                 unresolved: ['PromptMissing', 'This exact prompt version is missing locally. Its IDs are kept; no substitute is used.'],
                 resolved: ['PromptResolved', 'Exact linked prompt version']
             };
@@ -398,7 +398,7 @@
         updatePromptPanel() {
             const p = this.promptPanel, c = this.controller; if (!p) return;
             const input = c.draft()?.input, ref = input ? (input.promptId || input.bodyVersionId ? { promptId: input.promptId, bodyVersionId: input.bodyVersionId } : null) : c.record()?.promptRef;
-            p.sourceStatus.textContent = c.promptLoading ? this.t('PromptLoading', 'Reading local prompts…') : c.promptError || !c.promptState ? this.t('PromptReadError', 'Local prompts could not be read. Any existing exact link is kept. Refresh to retry.') : !c.promptOptions().length ? this.t('PromptEmpty', 'No local prompt versions are available.') : '';
+            p.sourceStatus.textContent = c.promptLoading ? this.t('PromptLoading', 'Reading local prompts…') : c.promptError || !c.promptState ? c.promptSubscriptionError ? this.t('PromptSubscriptionError', 'Local prompt updates are unavailable. Keep any unsaved drafts open and reopen this page to retry. Existing exact links are kept.') : this.t('PromptReadError', 'Local prompts could not be read. Any existing exact link is kept. Refresh to retry.') : !c.promptOptions().length ? this.t('PromptEmpty', 'No local prompt versions are available.') : '';
             this.promptResult(p.linked, ref);
             this.renderPromptNavigation(p);
             if (!p.editable || !c.draft()) return;

@@ -34,7 +34,7 @@
     class Controller {
         constructor({ store, promptStore = null, onChange = () => {} } = {}) {
             if (!store) throw new Error('A fenced collection backend is required'); this.store = store; this.onChange = onChange;
-            this.promptStore = promptStore; this.promptState = null; this.promptError = null; this.promptLoading = false; this.promptGeneration = 0;
+            this.promptStore = promptStore; this.promptState = null; this.promptError = null; this.promptLoading = false; this.promptGeneration = 0; this.promptSubscriptionError = false;
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
             this.busy = false; this.error = null; this.notice = ''; this.readGeneration = 0; this.pendingReadGeneration = null;
@@ -47,7 +47,8 @@
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
-            this.unsubscribePrompts = this.promptStore?.subscribe(() => { void this.refreshPrompts(); });
+            try { this.unsubscribePrompts = this.promptStore?.subscribe(() => { void this.refreshPrompts(); }); }
+            catch (_) { this.promptSubscriptionError = true; }
             this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); });
             await Promise.all([this.refresh(), this.refreshPrompts()]);
         }
@@ -62,6 +63,7 @@
             const generation = ++this.promptGeneration;
             this.promptLoading = true; this.promptError = null; this.notify('prompts');
             try {
+                if (this.promptSubscriptionError) throw Prompts.fault('READ');
                 const state = Prompts.validate(await this.promptStore.read());
                 if (this.disposed || generation !== this.promptGeneration) return null;
                 this.promptState = state; this.promptLoading = false; this.notify('prompts'); return state;
