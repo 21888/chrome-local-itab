@@ -6186,7 +6186,12 @@ class CategoryNavigation {
         this.currentCategory = localStorage.getItem(this.storageKey) || 'all';
         this.categories = [];
         this.defaultCategories = storageManager.getDefaultValue('categories');
-        this.init();
+        this.init().catch(error => {
+            // The delayed category startup is outside the main boot promise.
+            // Keep failed storage reads explicit without rendering defaults.
+            console.error('Error initializing category navigation:', error);
+            showDashboardLoadFailed(error);
+        });
     }
 
     async init() {
