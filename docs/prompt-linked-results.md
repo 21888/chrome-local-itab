@@ -43,3 +43,11 @@ These are synthetic unit/UI-model checks. Independent native Chrome acceptance o
 可用性以实际成功加载的本地快照为准，沿用既有刷新与订阅；开始读取即撤下过时入口，读取失败须成功刷新后恢复。不承诺其他标签页尚未通知、尚未重新读取时也能瞬时同步。目标页沿用原有缺失、归档目标处理；不增加存储读写、数据结构、权限、联网、模型或剪贴板操作。
 
 新入口验证仅为合成数据的有界 Node DOM 模型测试，覆盖精确版本、恢复排除、读取代际、旧 click/auxclick、隐藏页面、BFCache、对话框以及双语文案和草稿/焦点保留。尚未对本入口进行真实 Chrome 新标签页、上下文菜单、Tab/Enter、屏幕阅读器或视觉布局验收。
+
+## Cross-library subscription journey (2026-10-23)
+
+`tests/collection-prompt-subscription-journey.test.js` connects both production Stores, Controllers and mounted Views with synthetic RAM backends. A saved result linked to an older immutable version returns through its generated URL and the production target resolver to the current saved prompt/body session. Navigation adds no writes. Archiving and restoring through the target Controller’s actual actions propagates through backend subscriptions, withdrawing and rebuilding the source return entry without manually refreshing or replacing controller snapshots. Retained old click/auxclick handlers reject navigation. The collection’s complete raw value and write count stay unchanged, and a separate unsaved result draft retains its identity and text throughout.
+
+This adds a connected model journey, not native Chrome acceptance: URL resolution is invoked by the harness, archive/restore uses the real Controller action rather than a browser confirmation dialog, and DOM/RAM adapters do not prove browser tab creation, keyboard focus, installed persistence or upgrade recovery. The attempted native return journey remains unaccepted because the cloud browser could not reach the local fixture and terminal input encountered ambiguous window identity. No product defect was established or runtime change made.
+
+双库订阅完整流程使用真实 Store、Controller 和已挂载 View：旧版本关联经生成的 URL/目标解析器打开当前正文，目标端实际归档/恢复操作通过后端订阅撤下并重建来源入口，旧处理器拒绝导航，收藏原始值与写次数不变，另一未保存草稿对象和正文保留。此为合成 DOM/RAM 集成模型，不是原生新标签页、键盘焦点、确认对话框、安装持久化或升级恢复验收；本次原生流程受环境连接和窗口身份限制，仍未验。未发现产品缺陷，未修改运行代码。
