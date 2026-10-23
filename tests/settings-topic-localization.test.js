@@ -5,7 +5,7 @@ const {test} = require('node:test');
 const {createDocument, deferred} = require('./helpers/task-dom-model');
 
 // Actual DOMContentLoaded, i18n catalogs, row/Add handlers, save queue and
-// StorageManager over RAM Chrome storage and serialized Web Locks. DOM/events,
+// explicit CommonJS StorageManager over RAM Chrome storage and serialized Web Locks. DOM/events,
 // prompt/confirm, timers and Sync scheduling are models, not native Chrome QA.
 const html = fs.readFileSync('options.html', 'utf8');
 const catalogs = Object.fromEntries(['en', 'zh_CN'].map(locale =>
@@ -89,7 +89,7 @@ async function page({locale = 'en', api = 'normal', missingKey, sync = false} = 
     });
     context.window = context;
     for (const path of ['shared/layout-identity.js', 'shared/world-clocks.js', 'shared/stored-shortcut-url.js',
-        'shared/dashboard-template-registry.js', 'shared/configuration-codec.js', 'storage.js']) vm.runInContext(fs.readFileSync(path, 'utf8'), context);
+        'shared/dashboard-template-registry.js', 'shared/configuration-codec.js', 'storage.js']) path === 'storage.js' ? require('./helpers/standalone-storage-model')(context) : vm.runInContext(fs.readFileSync(path, 'utf8'), context);
     Object.assign(state.stored, clone(context.storageManager.cloneDefaultConfig()), {
         hot: {tab: 'weibo', ...Object.fromEntries(groups.map((group, index) => [group, [{t: rawTitle + group, s: 100 + index}]]))},
         quote: 'Saved quotation 中文', categories: [{id: 'synthetic', name: 'Saved category 中文', icon: '★'}],

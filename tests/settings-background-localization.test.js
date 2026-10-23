@@ -5,7 +5,7 @@ const {test} = require('node:test');
 const {createDocument} = require('./helpers/task-dom-model');
 
 // Real DOMContentLoaded initialization, i18n, Options event handlers/messages,
-// file reader adapter, save queue and StorageManager. Only the DOM/events,
+// file reader adapter, save queue and explicit CommonJS StorageManager. Only the DOM/events,
 // browser catalogs, timers, image decoding, Web Locks and Chrome storage are
 // deterministic models. This is not a native Chrome picker/codec/drag test.
 const source = fs.readFileSync('options.html', 'utf8');
@@ -101,7 +101,7 @@ async function page({locale = 'en', api = 'normal', missingKey, sync = false} = 
     });
     context.window = context;
     for (const path of ['shared/layout-identity.js', 'shared/world-clocks.js', 'shared/stored-shortcut-url.js', 'shared/dashboard-template-registry.js', 'shared/configuration-codec.js', 'storage.js']) {
-        vm.runInContext(fs.readFileSync(path, 'utf8'), context);
+        path === 'storage.js' ? require('./helpers/standalone-storage-model')(context) : vm.runInContext(fs.readFileSync(path, 'utf8'), context);
     }
     Object.assign(state.stored, clone(context.storageManager.cloneDefaultConfig()), {bg: {type: 'image', value: OLD},
         quote: 'User $& quoted 中文', categories: [{id: 'synthetic', name: 'Saved $1 中文', icon: '★'}],

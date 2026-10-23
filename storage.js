@@ -54,7 +54,7 @@ class StorageManager {
         this._syncCompatibilityError = null;
         this._syncPushTimer = null;
         this._shortcutUndoTicket = null;
-        this.chromeApi?.storage?.onChanged?.addListener((changes, area) => {
+        if (this.workspace || (typeof module !== 'undefined' && module.exports)) this.chromeApi?.storage?.onChanged?.addListener((changes, area) => {
             if (area === 'local' && changes[this.syncIdentityStateKey]) {
                 const next = changes[this.syncIdentityStateKey].newValue;
                 this._syncCompatibilityError = next?.blocked || null;
@@ -69,7 +69,17 @@ class StorageManager {
         if (this.workspace) this.workspace.manager.configureValidation((values, globals) => this.validateWorkspaceValues(values, globals));
     }
 
-    get chromeApi() { return this.workspace?.manager.chrome || (typeof chrome !== 'undefined' ? chrome : null); }
+    get chromeApi() {
+        // Browser pages must never fall back to legacy root storage when the
+        // workspace bootstrap failed. Standalone CommonJS research/tests retain
+        // their explicit legacy backend; a page must reload with a valid session.
+        if (!this.workspace && !(typeof module !== 'undefined' && module.exports)) {
+            const error = new Error('Workspace initialization is unavailable. Saved data has not been changed.');
+            error.code = 'WORKSPACE_UNAVAILABLE';
+            throw error;
+        }
+        return this.workspace?.manager.chrome || (typeof chrome !== 'undefined' ? chrome : null);
+    }
 
     get legacyLocal() {
         const backend = this.chromeApi.storage.local;
@@ -100,8 +110,9 @@ class StorageManager {
     onLocalChanged(listener) {
         if (this.workspace) return this.workspace.subscribe(listener);
         const changed = (changes, area) => { if (area === 'local') listener(changes, area); };
-        chrome.storage.onChanged.addListener(changed);
-        return () => chrome.storage.onChanged.removeListener(changed);
+        const changes = this.chromeApi.storage.onChanged;
+        changes.addListener(changed);
+        return () => changes.removeListener(changed);
     }
 
     forDefaultWorkspace() {
