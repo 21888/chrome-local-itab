@@ -4518,6 +4518,9 @@
   "promptsLinkedUnavailable": {
     "message": "无法安全读取已保存的结果；这并不代表没有关联结果。"
   },
+  "promptsLinkedSubscriptionUnavailable": {
+    "message": "已保存结果的更新监听不可用。请保留此页面以保留未保存草稿和变量值，并另行重新打开此页面以重试。未更改任何已保存数据。"
+  },
   "promptsLinkedRetry": {
     "message": "重新读取结果"
   },

@@ -4518,6 +4518,9 @@
   "promptsLinkedUnavailable": {
     "message": "Saved results could not be read safely. This is not an empty result list."
   },
+  "promptsLinkedSubscriptionUnavailable": {
+    "message": "Saved-result updates are unavailable. Keep this page open to retain unsaved drafts and variable values, and reopen this page to retry. No saved data has been changed."
+  },
   "promptsLinkedRetry": {
     "message": "Read results again"
   },

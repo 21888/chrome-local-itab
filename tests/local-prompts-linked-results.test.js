@@ -161,3 +161,43 @@ test('stale result links reject loading, archived, removed-version and changed r
         assert.equal(link.dispatch('click').prevented, true, mode); assert.equal(link.dispatch('auxclick').prevented, true, mode); c.dispose();
     }
 });
+
+for (const locale of ['en', 'zh_CN']) test(`auxiliary result subscription failure gives an actionable recovery path without losing prompt drafts (${locale})`, async t => {
+    const p = setup(), r = collections.setup();
+    await p.store.mutate(p.store.request('add', { title: 'Retained prompt', body: 'Explain {{topic}}' }));
+    const prompt = p.raw.records[0];
+    await r.store.mutate(r.store.request('add', { title: 'Retained result', body: 'Saved answer', promptRef: { promptId: prompt.id, bodyVersionId: prompt.currentVersionId } }));
+    const before = { p: p.raw, r: r.raw, pw: p.writes, rw: r.writes };
+    const subscribe = r.backend.subscribe, read = r.backend.read; let resultReads = 0;
+    r.backend.subscribe = () => { throw new Error('Synthetic result subscription failure'); };
+    r.backend.read = async () => { resultReads++; return read(); };
+    const mount = () => {
+        const c = new Controller({ store: p.store, collectionStore: r.store });
+        const document = createDocument({ aggregateTextContent: true }), host = document.createElement('div'); document.body.append(host);
+        const root = { document, LocalItabPrompts: Prompts, LocalItabAISearch: Search, addEventListener() {}, removeEventListener() {} };
+        vm.runInThisContext('(function(window) {\n' + fs.readFileSync(`${__dirname}/../shared/local-prompts-view.js`, 'utf8') + '\n})')(root);
+        const messages = JSON.parse(fs.readFileSync(`${__dirname}/../_locales/${locale}/messages.json`, 'utf8'));
+        const view = new root.LocalItabPromptsView.View({ host, controller: c, translate: (key, fallback) => messages['prompts' + key]?.message || fallback });
+        view.render(); t.after(() => c.dispose()); return { c, view };
+    };
+    const { c, view } = mount(); await c.start();
+    assert.equal(c.record().body, prompt.body); assert.equal(c.error, null); assert.equal(c.collectionSubscriptionError, true);
+    assert.match(view.main.textContent, locale === 'en' ? /reopen this page/ : /重新打开此页面/);
+    assert.equal(view.main.querySelector('.prompt-linked-card'), null);
+    assert.equal(view.main.querySelectorAll('button').some(b => b.textContent === (locale === 'en' ? 'Read results again' : '重新读取结果')), false);
+    c.setVariable('topic', 'Retained variable'); const session = c.session();
+    c.edit(); c.update('body', 'Unsaved retained draft'); const draft = c.draft();
+    r.backend.subscribe = subscribe; await c.refreshCollections();
+    assert.equal(resultReads, 0); assert.equal(c.draft(), draft); assert.equal(draft.input.body, 'Unsaved retained draft');
+    const reopened = mount(); await reopened.c.start();
+    assert.equal(reopened.c.collectionError, null); assert.ok(reopened.view.main.querySelector('.prompt-linked-card'));
+    assert.equal(resultReads, 1); assert.equal(c.draft(), draft); assert.equal(draft.input.body, 'Unsaved retained draft');
+    assert.equal(c.session(), session); assert.equal(session.values.topic, 'Retained variable');
+    r.backend.read = async () => { throw new Error('Synthetic ordinary read failure'); };
+    await reopened.c.refreshCollections();
+    const retry = reopened.view.main.querySelectorAll('button').find(b => b.textContent === (locale === 'en' ? 'Read results again' : '重新读取结果'));
+    assert.ok(retry, 'ordinary read failure still offers retry');
+    r.backend.read = read; retry.dispatch('click'); await tick();
+    assert.ok(reopened.view.main.querySelector('.prompt-linked-card'));
+    assert.deepEqual({ p: p.raw, r: r.raw, pw: p.writes, rw: r.writes }, before);
+});

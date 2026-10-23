@@ -802,8 +802,11 @@
             if (session && !c.sessionSourceCurrent()) { status.textContent = this.errorText('PREVIEW_UNAVAILABLE'); section.append(status); return; }
             if (c.collectionLoading || c.pendingReadGeneration !== null) status.textContent = this.t('LinkedLoading', 'Reading saved results…');
             else if (c.collectionError || !c.collectionState || c.linkedPromptUnavailable || c.disposed) {
-                status.textContent = this.t('LinkedUnavailable', 'Saved results could not be read safely. This is not an empty result list.');
-                section.append(status, this.button('LinkedRetry', 'Read results again', () => { void c.refreshCollections(); if (c.linkedPromptUnavailable) void c.refresh(); })); return;
+                status.textContent = c.collectionSubscriptionError
+                    ? this.t('LinkedSubscriptionUnavailable', 'Saved-result updates are unavailable. Keep this page open to retain unsaved drafts and variable values, and reopen this page to retry. No saved data has been changed.')
+                    : this.t('LinkedUnavailable', 'Saved results could not be read safely. This is not an empty result list.');
+                section.append(status);
+                if (!c.collectionSubscriptionError) section.append(this.button('LinkedRetry', 'Read results again', () => { void c.refreshCollections(); if (c.linkedPromptUnavailable) void c.refresh(); })); return;
             } else {
                 const rows = c.linkedResults(promptId, versionId);
                 if (!rows.length) status.textContent = this.t('LinkedEmpty', 'No active saved results are linked to this exact version.');
