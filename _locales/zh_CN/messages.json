@@ -4293,6 +4293,12 @@
   "collectionsPromptLoading": {
     "message": "正在读取本地提示词…"
   },
+  "promptsSubscriptionUnavailable": {
+    "message": "本地已保存数据的更新监听不可用。请保留含未保存草稿的页面，另行重新打开此页面以重试。未更改任何已保存数据。"
+  },
+  "collectionsSubscriptionUnavailable": {
+    "message": "本地已保存数据的更新监听不可用。请保留含未保存草稿的页面，另行重新打开此页面以重试。未更改任何已保存数据。"
+  },
   "collectionsPromptSubscriptionError": {
     "message": "本地提示词更新不可用。请保留含未保存草稿的页面，另行重新打开此页面以重试。已有精确关联保持不变。"
   },

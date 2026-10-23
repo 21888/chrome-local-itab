@@ -4293,6 +4293,12 @@
   "collectionsPromptLoading": {
     "message": "Reading local prompts…"
   },
+  "promptsSubscriptionUnavailable": {
+    "message": "Local saved-data updates are unavailable. Keep any unsaved draft pages open and reopen this page to retry. No saved data has been changed."
+  },
+  "collectionsSubscriptionUnavailable": {
+    "message": "Local saved-data updates are unavailable. Keep any unsaved draft pages open and reopen this page to retry. No saved data has been changed."
+  },
   "collectionsPromptSubscriptionError": {
     "message": "Local prompt updates are unavailable. Keep any unsaved drafts open and reopen this page to retry. Existing exact links are kept."
   },

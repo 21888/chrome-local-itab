@@ -30,7 +30,7 @@
     }
     class Controller {
         constructor({ store = new Core.Store(), collectionStore = null, onChange = () => {} } = {}) {
-            this.store = store; this.onChange = onChange;
+            this.store = store; this.onChange = onChange; this.subscriptionError = false;
             this.collectionStore = collectionStore; this.collectionState = null; this.collectionLoading = false;
             this.collectionError = null; this.linkedPromptUnavailable = false; this.collectionGeneration = 0; this.collectionSubscriptionError = false;
             this.state = null; this.selected = null; this.drafts = new Map(); this.sessions = new Map(); this.activeSessions = new Map();
@@ -41,7 +41,8 @@
         }
         notify(kind = 'render') { if (!this.disposed) this.onChange(kind); }
         async start() {
-            this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); });
+            try { this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); }); }
+            catch (_) { this.subscriptionError = true; await this.refresh(); return; }
             try { this.unsubscribeCollections = this.collectionStore?.subscribe(() => { void this.refreshCollections(); }); }
             catch (_) { this.collectionSubscriptionError = true; }
             await Promise.all([this.refresh(), this.refreshCollections()]);
@@ -81,6 +82,7 @@
             this.excerptEpoch++; const generation = ++this.readGeneration;
             this.pendingReadGeneration = generation; this.notify('linkedResults');
             try {
+                if (this.subscriptionError) throw Core.fault('READ');
                 const next = await this.store.read();
                 if (this.disposed || generation !== this.readGeneration) return;
                 this.accept(next); this.linkedPromptUnavailable = false;
@@ -455,6 +457,7 @@
         }
         async retry() { if (this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand, this.pendingInspection); }
         async execute(operation, inspect = false) {
+            if (this.subscriptionError) return false;
             if (this.busy) return false;
             this.excerptEpoch++; this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
             try {

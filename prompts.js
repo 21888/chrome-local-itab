@@ -37,7 +37,7 @@
         view.modelCollectionStore = modelCollectionStore;
         root.localPromptsView = view; view.attachDepartureGuard(); view.render();
         root.addEventListener?.('pagehide', event => { if (!event.persisted) controller.dispose(); });
-        void applyAppearance(); await controller.start();
+        void applyAppearance(); await controller.start(); if (controller.subscriptionError) return;
         root.chrome?.storage?.onChanged?.addListener((changes, area) => {
             if (area === 'local' && Object.keys(changes).some(key => key === 'appearance' || key.startsWith('__localItabWorkspace'))) void applyAppearance();
         });

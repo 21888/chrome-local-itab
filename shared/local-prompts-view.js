@@ -272,7 +272,7 @@
             if (!message && c.draftCount()) message = this.t('DraftNotice', 'Unsaved drafts stay in this tab while you browse. Save them before leaving.');
             this.status.replaceChildren(this.el('span', '', message));
             if (c.pendingCommand) { const retry = this.button(c.pendingInspection ? 'InspectSave' : 'RetrySave', c.pendingInspection ? 'Check saved outcome' : 'Retry same save', () => void c.retry()); retry.disabled = c.busy; this.status.append(retry); }
-            else if (c.error?.scope === 'read') this.status.append(this.button('RetryRead', 'Read again', () => void c.refresh()));
+            else if (c.error?.scope === 'read' && !c.subscriptionError) this.status.append(this.button('RetryRead', 'Read again', () => void c.refresh()));
             if (c.error?.code?.includes('RESTORE_PENDING')) this.status.append(this.backupLink());
         }
         backupLink() {
@@ -335,7 +335,7 @@
         }
         renderUnavailable() {
             const section = this.el('section', 'prompt-empty'); section.append(this.heading(this.t('Loading', 'Opening your library…')));
-            if (this.controller.error) { section.replaceChildren(this.heading(this.t('Unavailable', 'Your library could not be read safely')), this.el('p', '', this.t('UnavailableBody', 'Saved data has not been replaced. Try reading it again.'))); }
+            if (this.controller.error) { section.replaceChildren(this.heading(this.t('Unavailable', 'Your library could not be read safely')), this.el('p', '', this.controller.subscriptionError ? this.errorText('READ') : this.t('UnavailableBody', 'Saved data has not been replaced. Try reading it again.'))); }
             this.main.append(section);
         }
         renderEmpty() {
@@ -986,6 +986,7 @@
             try { return new Intl.DateTimeFormat(this.doc.documentElement.lang || 'en', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); } catch (_) { return value; }
         }
         errorText(code) {
+            if (this.controller.subscriptionError) return this.t('SubscriptionUnavailable', 'Local saved-data updates are unavailable. Keep any unsaved draft pages open and reopen this page to retry. No saved data has been changed.');
             if (code === 'OUTCOME_UNCERTAIN') return this.t('OutcomeUncertain', 'The earlier save may already have completed. Your draft is kept and new saves are paused. Check its saved receipt; if no matching receipt remains, keep this tab open and inspect the library before taking further action.');
             if (code === 'SESSION_LIMIT') return this.t('PreviewSessionLimit', 'Temporary preview memory is full or this value is too large. Shorten values, clear this preview, or explicitly clear all preview values in this tab. Existing preview values are kept.');
             if (code === 'PREVIEW_UNAVAILABLE') return this.t('PreviewUnavailable', 'This exact preview source cannot currently be verified. Your body and values are kept; copying and saved-excerpt insertion are paused. Read again or explicitly return to the current version.');

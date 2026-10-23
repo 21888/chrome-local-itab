@@ -33,7 +33,7 @@
     }
     class Controller {
         constructor({ store, promptStore = null, onChange = () => {} } = {}) {
-            if (!store) throw new Error('A fenced collection backend is required'); this.store = store; this.onChange = onChange;
+            if (!store) throw new Error('A fenced collection backend is required'); this.store = store; this.onChange = onChange; this.subscriptionError = false;
             this.promptStore = promptStore; this.promptState = null; this.promptError = null; this.promptLoading = false; this.promptGeneration = 0; this.promptSubscriptionError = false;
             this.state = null; this.selected = null; this.drafts = new Map();
             this.filters = { query: '', mode: 'all', type: '', tool: '', tag: '' };
@@ -49,7 +49,8 @@
         async start() {
             try { this.unsubscribePrompts = this.promptStore?.subscribe(() => { void this.refreshPrompts(); }); }
             catch (_) { this.promptSubscriptionError = true; }
-            this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); });
+            try { this.unsubscribe = this.store.subscribe(() => { if (this.busy) this.refreshQueued = true; else void this.refresh(); }); }
+            catch (_) { this.subscriptionError = true; await this.refresh(); return; }
             await Promise.all([this.refresh(), this.refreshPrompts()]);
         }
         dispose() {
@@ -120,6 +121,7 @@
             this.pendingReadGeneration = generation;
             this.notify('comparison');
             try {
+                if (this.subscriptionError) throw Core.fault('READ');
                 const next = await this.store.read();
                 if (this.disposed || generation !== this.readGeneration) return;
                 if (!this.accept(next)) throw Core.fault('READ');
@@ -300,6 +302,7 @@
         async retry() { if (this.disposed || this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand, this.pendingInspection); }
         async verify() { if (this.disposed || this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand, true); }
         async execute(operation, inspect = false) {
+            if (this.subscriptionError) return false;
             if (this.disposed || this.busy || (this.pendingCommand && this.pendingCommand !== operation) || (inspect && this.pendingCommand !== operation)) return false;
             this.interactionGeneration++;
             this.busy = true; this.error = null; this.notice = ''; const generation = ++this.readGeneration; this.notify();

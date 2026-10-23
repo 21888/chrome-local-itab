@@ -47,7 +47,7 @@
             clearURL: () => root.history.replaceState(null, '', root.location.pathname),
             blocked: () => view.openDialog || view.revisionDraft !== null || view.proposals.size > 0
         });
-        void applyAppearance(); await controller.start(); if (resultDraft) await resultDraft.run(); else await capture.run();
+        void applyAppearance(); await controller.start(); if (controller.subscriptionError) return; if (resultDraft) await resultDraft.run(); else await capture.run();
         root.chrome?.storage?.onChanged?.addListener((changes, area) => {
             if (area === 'local' && Object.keys(changes).some(key => key === 'appearance' || key.startsWith('__localItabWorkspace'))) void applyAppearance();
         });
