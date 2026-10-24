@@ -72,6 +72,7 @@
             this.cancelMarkdownDialog?.();
             this.cancelExcerptDialog?.();
             this.cancelModelDialog?.();
+            this.cancelConfirmationDialog?.();
         }
         attachSearchShortcut() {
             this.detachSearchShortcut?.();
@@ -203,7 +204,7 @@
             this.beforeUnload = event => { if (this.controller.hasUncommittedWork()) { event.preventDefault(); event.returnValue = ''; } };
             root.addEventListener?.('beforeunload', this.beforeUnload);
         }
-        focusDetail(name) { const target = name ? this.main.querySelector(`[data-prompt-focus="${name}"]`) : this.main.querySelector('.prompt-detail-heading'); target?.focus(); }
+        focusDetail(name) { if (this.destroyed || this.controller.disposed) return; const target = name ? this.main.querySelector(`[data-prompt-focus="${name}"]`) : this.main.querySelector('.prompt-detail-heading'); target?.focus(); }
         clearPendingFocus() { this.pendingFocus = null; this.pendingFocusCleanup?.(); }
         rememberPendingFocus(key) {
             this.clearPendingFocus(); this.pendingFocus = key;
@@ -1065,11 +1066,12 @@
                     if (finished) return;
                     finished = true; this.openDialog = false; this.dialogFocus = null;
                     if (markdownPreview !== undefined) this.cancelMarkdownDialog = null;
+                    if (this.cancelConfirmationDialog === cancelOwned) this.cancelConfirmationDialog = null;
                     const active = this.doc.activeElement;
                     const usable = node => node?.isConnected && !node.disabled && !node.closest('[hidden], [inert]') && node.getClientRects().length;
                     // A newer selection or a nested dialog owns its own focus. Only
                     // recover a replaced opener while this confirmation still owns it.
-                    const restore = !c.disposed && !focus.stale && c.selected === focus.selected && c.draft() === focus.draft &&
+                    const restore = !this.destroyed && !c.disposed && !focus.stale && c.selected === focus.selected && c.draft() === focus.draft &&
                         (markdownPreview === undefined || !markdownCurrent || markdownCurrent()) &&
                         (overlay.contains(active) || active === this.doc.body || active === this.doc.documentElement || !usable(active));
                     close?.(restore); overlay.remove();
@@ -1079,7 +1081,9 @@
                     }
                     resolve(answer);
                 };
-                if (markdownPreview !== undefined) this.cancelMarkdownDialog = () => finish(false);
+                const cancelOwned = () => finish(false);
+                if (markdownPreview !== undefined) this.cancelMarkdownDialog = cancelOwned;
+                else this.cancelConfirmationDialog = cancelOwned;
                 const cancel = this.button('Cancel', 'Cancel', () => finish(false)), proceed = this.el('button', 'prompt-primary', accept); proceed.type = 'button'; proceed.addEventListener('click', () => finish(true));
                 actions.append(cancel, proceed); box.append(actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true;
                 // A long export review must open at its scope/privacy introduction.

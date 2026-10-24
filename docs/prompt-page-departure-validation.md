@@ -1,0 +1,9 @@
+# Prompt page departure and delayed confirmation
+
+The prompt controller now refuses to start a new mutation or operation inspection after disposal. The prompt View also cancels its owned ordinary confirmation when destroyed, removes that dialog and avoids moving detail focus after departure. Previously disposal only suppressed the mutation's eventual UI completion: a delayed affirmative confirmation could still invoke the real Store and write the saved library. The pre-fix regression observed one additional write after disposal. This is a page-lifecycle defect, not evidence for the historical upgrade incident.
+
+The existing prompt View suite now covers a real mounted trash-confirmation dialog, controller disposal, removal of the owned dialog, and rejection of retained callbacks/actions. A separate held confirmation promise proves the controller rejects a late affirmative result without changing raw state or write count. A third case pauses a real Store save at its backend write, disposes the controller, then allows that already-started operation to settle: the submitted data really commits, while its late completion does not delete or take ownership of the old editor draft. A separate View-only destruction check verifies that cancelling its dialog does not restore focus to the departed opener even while the controller is still live. Disposal does not promise cancellation or rollback of an operation already in progress.
+
+These tests use production Store/Controller/View with synthetic DOM and RAM; the held promise models late delivery and is not a successful mutation stub. They do not certify browser pagehide ordering, native dialog focus, process termination, installed persistence or historical incident recovery. No storage schema, permissions, migration, CWS action or automatic recovery changes.
+
+提示词页销毁后不再启动新的写入或操作核验，并清理自有普通确认框，避免晚到确认继续保存以及旧页面抢焦点。已经进入存储写入的操作不冒称取消或回滚。验证使用实际 Store/Controller/View 与合成 DOM/RAM，不是原生卸载时序、持久化或历史事故结论。

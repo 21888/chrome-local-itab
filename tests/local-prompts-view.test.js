@@ -312,3 +312,50 @@ test('destroy releases an open model dialog exactly once, including controller d
     h.controller.dispose(); assert.equal(cancelled, 1);
     h.view.destroy(); assert.equal(cancelled, 1);
 });
+
+test('disposing a prompt page cancels its pending trash confirmation and rejects retained actions', async () => {
+    const h = await mount(), c = h.controller;
+    await add(c, 'Synthetic retained prompt', 'Saved body');
+    const before = h.h.raw, writes = h.h.writes;
+    const pending = h.view.remove(c.record());
+    const dialog = h.doc.body.querySelector('[role="dialog"]'); assert.ok(dialog);
+    const accept = dialog.querySelectorAll('button').find(button => button.textContent === 'Move to Trash'); assert.ok(accept);
+    c.dispose();
+    assert.equal(Boolean(h.doc.body.querySelector('[role="dialog"]')), false, 'departure removes the owned confirmation');
+    accept.dispatch('click'); await pending; await tick();
+    assert.deepEqual(h.h.raw, before); assert.equal(h.h.writes, writes);
+    assert.equal(await c.action('favorite'), false); assert.deepEqual(h.h.raw, before); assert.equal(h.h.writes, writes);
+});
+
+test('late trash confirmation after controller disposal cannot start a saved-data write', async () => {
+    const confirmation = deferred(), h = await mount({ confirm: () => confirmation.promise }), c = h.controller;
+    await add(c, 'Synthetic retained prompt', 'Saved body');
+    const before = h.h.raw, writes = h.h.writes, pending = h.view.remove(c.record());
+    c.dispose(); confirmation.resolve(true); await pending;
+    assert.equal(h.h.writes, writes, 'a late confirmation must not invoke a write');
+    assert.deepEqual(h.h.raw, before);
+});
+
+test('disposal does not pretend an already-started prompt save was cancelled', async () => {
+    const h = await mount(), c = h.controller;
+    await add(c, 'Synthetic retained prompt', 'Saved body'); c.edit(); c.update('body', 'Explicitly submitted body');
+    const gate = deferred(), entered = deferred(), write = h.backend.write.bind(h.backend), writes = h.h.writes;
+    h.backend.write = async state => { entered.resolve(); await gate.promise; return write(state); };
+    const draft = c.draft(), saving = c.save(); await entered.promise; c.dispose();
+    gate.resolve(); assert.equal(await saving, false);
+    assert.equal(h.h.writes, writes + 1); assert.equal(h.h.raw.records[0].body, 'Explicitly submitted body');
+    assert.equal(c.draft(), draft, 'late completion does not take ownership of the detached editor');
+    const after = h.h.raw; assert.equal(await c.save(), false); assert.equal(h.h.writes, writes + 1); assert.deepEqual(h.h.raw, after);
+});
+
+test('destroying only the view closes its confirmation without restoring departed focus', async () => {
+    const h = await mount(), c = h.controller; await add(c, 'Synthetic prompt', 'Saved body');
+    const opener = h.view.main.querySelectorAll('button').find(button => button.textContent === 'Move to Trash'); opener.focus();
+    const pending = h.view.remove(c.record()); let restores = 0;
+    const focus = opener.focus; opener.focus = () => { restores++; focus.call(opener); };
+    const before = h.h.raw, writes = h.h.writes;
+    h.view.destroy(); await pending;
+    assert.equal(restores, 0); assert.equal(c.disposed, false);
+    assert.equal(Boolean(h.doc.body.querySelector('[role="dialog"]')), false);
+    assert.deepEqual(h.h.raw, before); assert.equal(h.h.writes, writes); c.dispose();
+});

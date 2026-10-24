@@ -457,6 +457,7 @@
         }
         async retry() { if (this.busy || !this.pendingCommand) return false; return this.execute(this.pendingCommand, this.pendingInspection); }
         async execute(operation, inspect = false) {
+            if (this.disposed) return false;
             if (this.subscriptionError) return false;
             if (this.busy) return false;
             this.excerptEpoch++; this.busy = true; this.error = null; this.notice = ''; ++this.readGeneration; this.notify();
