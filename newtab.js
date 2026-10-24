@@ -1514,15 +1514,28 @@ function initializeSearchComponent(searchConfig = {}, baseline = null) {
         const template = engine === 'custom'
             ? currentSearchConfig.custom
             : SEARCH_ENGINES[engine] || SEARCH_ENGINES.google;
-        const url = window.LocalItabSearch?.buildSearchUrl
-            ? window.LocalItabSearch.buildSearchUrl(template, query)
-            : (() => {
-                const encoded = encodeURIComponent(query);
-                if (template.includes('%s')) return template.split('%s').join(encoded);
-                const fallbackUrl = new URL(normalizeSearchTemplate(template));
-                fallbackUrl.searchParams.set('q', query);
-                return fallbackUrl.toString();
-            })();
+        let url;
+        const value = input.value, revision = editRevision;
+        try {
+            url = window.LocalItabSearch?.buildSearchUrl
+                ? window.LocalItabSearch.buildSearchUrl(template, query)
+                : (() => {
+                    const encoded = encodeURIComponent(query);
+                    if (template.includes('%s')) return template.split('%s').join(encoded);
+                    const fallbackUrl = new URL(normalizeSearchTemplate(template));
+                    fallbackUrl.searchParams.set('q', query);
+                    return fallbackUrl.toString();
+                })();
+        } catch (_) {
+            // Preserve malformed/programmatic input rather than silently rewriting
+            // it or allowing a rejected submit promise to leave no feedback.
+            if (!input.isConnected || window.localCalculatorView !== searchOwner ||
+                input.value !== value || editRevision !== revision || submissionRevision !== operation) return;
+            searchStatus.textContent = calculatorText('searchPrepareFailed', 'Could not prepare this search. Your input is still here; edit it and try again.');
+            searchStatus.classList.add('is-error');
+            searchStatus.classList.remove('sr-only');
+            return;
+        }
         openSearch(url);
     });
 

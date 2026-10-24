@@ -75,6 +75,34 @@ function mount(engine = 'google', custom = '', locale = null) {
             save() { return button.listeners.get('click')[0](); }
         };
     };
+    // Programmatically supplied malformed UTF-16: this is an exception-safety
+    // boundary, not evidence that native keyboard/clipboard input produces it.
+    for (const locale of [null, 'en', 'zh_CN']) {
+        for (const helper of [true, false]) {
+            const h = mount('google', '', locale);
+            if (!helper) delete h.window.LocalItabSearch;
+            const query = 'synthetic \ud800 query';
+            h.edit(query); h.input.focus();
+            await assert.doesNotReject(() => h.submit());
+            const status = h.host.querySelector('.search-open-status');
+            assert.equal(h.opens.length, 0);
+            assert.equal(h.input.value, query);
+            assert.equal(h.document.activeElement, h.input);
+            assert(h.owned());
+            assert(status.classList.contains('is-error'));
+            assert(!status.classList.contains('sr-only'));
+            const messages = JSON.parse(fs.readFileSync(`_locales/${locale || 'en'}/messages.json`, 'utf8'));
+            assert.equal(status.textContent, messages.searchPrepareFailed.message);
+            assert.equal(h.writes.length, 0);
+            h.edit('synthetic 😀 query');
+            assert(status.classList.contains('sr-only'));
+            await h.submit();
+            assert.equal(h.opens.length, 1);
+            assert(h.opens[0][0].includes(encodeURIComponent('synthetic 😀 query')));
+            assert(!h.owned());
+            assert.equal(h.writes.length, 0);
+        }
+    }
     const savedTemplate = 'https://saved.example/?q=%s';
     const draftTemplate = 'https://draft.example/?q=%s';
     for (const initial of ['', savedTemplate]) {

@@ -2793,6 +2793,9 @@
   "calculatorUnavailable": {
     "message": "The local calculator is unavailable. Reload the page to retry."
   },
+  "searchPrepareFailed": {
+    "message": "Could not prepare this search. Your input is still here; edit it and try again."
+  },
   "searchOpenFailed": {
     "message": "Could not open a new tab. Your input is still here; you can submit it again."
   },

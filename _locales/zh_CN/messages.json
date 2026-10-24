@@ -2793,6 +2793,9 @@
   "calculatorUnavailable": {
     "message": "本地计算器不可用。请重新加载页面后重试。"
   },
+  "searchPrepareFailed": {
+    "message": "无法准备此次搜索。输入内容仍保留，请修改后重试。"
+  },
   "searchOpenFailed": {
     "message": "未能打开新标签页。输入已保留，你可以再次提交。"
   },
