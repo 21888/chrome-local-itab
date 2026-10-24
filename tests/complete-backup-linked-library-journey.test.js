@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm');
-const { fixture, withGlobals, seed, boot, clone, values } = require('./helpers/complete-import-receipt-fixture');
+const { fixture, withGlobals, seed, boot, clone, values, Workspaces, DEFER } = require('./helpers/complete-import-receipt-fixture');
 const Prompts = require('../shared/local-prompts-store');
 const Collections = require('../shared/local-ai-collections-store');
 const Search = require('../shared/local-ai-search');
@@ -22,7 +22,7 @@ function mount(controller, kind) {
 }
 
 
-test('complete dual-library restore propagates through real workspace subscriptions and preserves open drafts', async t => {
+for (const interrupted of [false, true]) test(`complete dual-library restore ${interrupted ? 'partially commits then explicitly recovers' : 'succeeds'} through real subscriptions and preserves open drafts`, async t => {
     const f = fixture(seed());
     await withGlobals(f, async () => {
         const b = await boot(f);
@@ -51,6 +51,42 @@ test('complete dual-library restore propagates through real workspace subscripti
         const reviewedRaw = clone(f.raw), reviewedWrites = f.writes.length;
         const preview = await b.store.review(archive, null, { promptTarget: 'global-library', collectionTarget: 'global-collections' });
         assert.deepEqual(f.raw, reviewedRaw); assert.equal(f.writes.length, reviewedWrites);
+        if (interrupted) {
+            // Model only the collection-key part of the combined Chrome write
+            // reaching RAM. Keep the real transaction journal and readback gates.
+            f.hooks.set = (written, raw, apply) => {
+                if (Object.hasOwn(written, Workspaces.REGISTRY_KEY)) {
+                    apply({ [Collections.KEY]: written[Collections.KEY] }); return;
+                }
+                return DEFER;
+            };
+            await assert.rejects(b.store.restore(preview, { confirmed: true }), error => error.code === 'UNCONFIRMED');
+            f.hooks.set = null; await tick(); await tick();
+            assert.equal(f.raw[Collections.KEY].records[0].body, 'Original saved answer', 'collection replacement actually committed');
+            assert.deepEqual(f.raw[Prompts.KEY], currentP, 'prompt replacement did not commit');
+            assert.equal(f.raw[Workspaces.RESTORE_TRANSACTION_KEY].status, 'prepared');
+            assert.equal(pc.collectionError, 'READ'); assert.equal(cc.error.scope, 'read');
+            assert.equal(cp.view.main.querySelector('a.collection-open-prompt'), null);
+            assert.equal(oldBack.dispatch('click').prevented, true); assert.equal(oldBack.dispatch('auxclick', { button: 1 }).prevented, true);
+            const uncertainRaw = clone(f.raw), uncertainWrites = f.writes.length;
+            assert.equal(await editor.save(), false);
+            assert.deepEqual(f.raw, uncertainRaw); assert.equal(f.writes.length, uncertainWrites);
+            assert.equal(editor.draft(), changedDraft); assert.equal(changedDraft.input.body, 'Unsaved replacement of later answer');
+            const recovery = await b.store.inspectInterruptedRestore(); assert.equal(recovery.canRecover, true);
+            assert.deepEqual(f.raw, uncertainRaw); assert.equal(f.writes.length, uncertainWrites);
+            await b.store.recoverInterruptedRestore(recovery, { confirmed: true }); await tick(); await tick();
+            assert.deepEqual(f.raw[Prompts.KEY], currentP); assert.deepEqual(f.raw[Collections.KEY], currentC);
+            assert.equal(f.raw[Workspaces.RESTORE_TRANSACTION_KEY].status, 'recovered');
+            assert.equal(pc.record().body, 'Later {{topic}}'); assert.equal(cc.record().body, 'Later saved answer');
+            assert.equal(pc.drafts.get('new'), pd); assert.equal(pd.input.body, 'Keep prompt draft');
+            assert.equal(cc.drafts.get('new'), cd); assert.equal(cd.input.body, 'Keep answer draft');
+            assert.equal(editor.draft(), changedDraft); assert.equal(changedDraft.input.body, 'Unsaved replacement of later answer');
+            const recoveredBack = cp.view.main.querySelector('a.collection-open-prompt'); assert.ok(recoveredBack);
+            assert.equal(recoveredBack.dispatch('click').prevented, false);
+            assert.equal(oldBack.dispatch('click').prevented, true);
+            assert.deepEqual(values(f), unchangedWorkspace); assert.deepEqual(f.providers, []);
+            return;
+        }
         await b.store.restore(preview, { confirmed: true }); await tick(); await tick();
         assert.equal(pc.record().body, 'Original {{topic}}'); assert.equal(cc.record().body, 'Original saved answer');
         assert.equal(oldBack.dispatch('click').prevented, true); assert.equal(oldBack.dispatch('auxclick', { button: 1 }).prevented, true);

@@ -83,3 +83,9 @@ A new integration journey restores an earlier complete backup selecting both glo
 This is additional conditional data-preservation evidence, not a production fix, real browser-tab/restart test, installed-upgrade acceptance or historical-incident attribution. The collection's intervening body change goes through its existing review/revise operation, rather than bypassing its review guard. The test invokes confirmed backup restoration directly; it does not claim backup-dialog or native focus acceptance.
 
 完整备份同时替换两库后，实际订阅链更新已挂载页面，撤下旧关联并保留未保存草稿；已编辑旧记录变冲突，拒绝陈旧保存且不新增写入，替换前两库记录完整保留在恢复副本中，工作区内容不变。此为合成存储/事件/DOM集成补证，无运行修复，不是原生跨页、安装持久化或历史事故结论。
+
+### Interrupted replacement and explicit rollback (2026-10-24)
+
+The same open-library journey now includes one partial-commit branch: only the collection key from the combined restore write reaches synthetic storage, while the real journal remains `prepared` and the prior prompt state remains intact. Actual readback rejects restoration as unconfirmed. The mounted pages withdraw the unsafe return link; the existing editor's Save is rejected with no additional write, and its draft remains intact. A read-only interrupted-restore inspection is nonmutating. Explicit confirmed recovery through the actual backup Store restores both full prior library states and marks the journal `recovered`; subscription events rebuild usable navigation while old handlers remain rejected. All three unsaved drafts and workspace values survive. The test does not inject a successful rollback response or manually refresh a controller.
+
+This adds a specific failure/recovery boundary to the synthetic integration evidence, not a runtime fix or proof of crash-atomic Chrome writes, native quota behavior, browser restart or the historical incident. It calls the real recovery API directly rather than certifying the confirmation dialog.
