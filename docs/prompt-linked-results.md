@@ -75,3 +75,11 @@ When the prompt page cannot register its auxiliary saved-result subscription, it
 The English/Chinese regression reproduces the misleading action before the fix, then uses real Stores, Controller and mounted View with synthetic RAM/DOM event failure. It verifies the retained prompt, absent unsafe result cards, zero result reads in the failed instance even after the backend recovers, unchanged raw data/write counts, a fresh controller's successful result linkage, and the old instance's same draft/session objects and values. A later ordinary read failure recovers via the actual retry button. This is not native page reopening, cross-tab Chrome storage persistence, or historical upgrade-incident recovery.
 
 提示词页的辅助结果监听注册失败后，现在提示保留旧页草稿及变量、另开页面重试，不再显示无法恢复该实例的“重新读取结果”；普通读取失败仍保留有效重试。双语合成回归验证原内容、草稿及变量保留和新实例重新注册，不宣称草稿迁移、真实浏览器重开或历史事故修复。
+
+## Complete backup replacing both open libraries (2026-10-24)
+
+A new integration journey restores an earlier complete backup selecting both global libraries while prompt and collection pages remain mounted. It uses the actual complete-backup Store, Workspace Manager, fenced library Stores, Controllers and Views; only Chrome storage/events, locks and DOM are synthetic. Subscription delivery, not manual controller refresh or snapshot substitution, updates the pages. The previously rendered return link rejects click/middle-click after replacement and a newly rendered link is usable. Both unrelated new drafts retain their object identity/content; another editor's modified saved-record draft remains intact, becomes conflicted and refuses stale Save without any additional write. The two library recovery copies retain the exact pre-replacement records, and workspace values remain unchanged. Preparing review alone is nonmutating.
+
+This is additional conditional data-preservation evidence, not a production fix, real browser-tab/restart test, installed-upgrade acceptance or historical-incident attribution. The collection's intervening body change goes through its existing review/revise operation, rather than bypassing its review guard. The test invokes confirmed backup restoration directly; it does not claim backup-dialog or native focus acceptance.
+
+完整备份同时替换两库后，实际订阅链更新已挂载页面，撤下旧关联并保留未保存草稿；已编辑旧记录变冲突，拒绝陈旧保存且不新增写入，替换前两库记录完整保留在恢复副本中，工作区内容不变。此为合成存储/事件/DOM集成补证，无运行修复，不是原生跨页、安装持久化或历史事故结论。
