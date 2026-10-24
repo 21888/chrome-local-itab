@@ -37,3 +37,13 @@ git diff --check
 以上为 Node 与 DOM 模型验证，仅使用合成数据；未运行全套 Node 回归、真实浏览器、原生键盘/屏幕阅读器或视觉验收，没有截图。此修复不代表发布或商店验收。
 
 原问题阻断卡片内恢复入口，但现有通知的 Reload page 仍可明确放弃页面后离开，不能将它描述为绝对无法离开或数据丢失。
+
+## 生产页面限定复验 · 2026-10-21
+
+云端 Chromium 加载 master `89df9e7cd0c007a4eaf7411e2aefc76efca453d0` 的生产首页，全部 138 个运行文件 SHA-256 与冻结记录一致，manifest 为 1.1.157。英文浅色合成夹具使用页面内存浏览器 API 桥接，保留真实 Workspace Session、Countdown Store/Controller/View；没有安装扩展。
+
+初始化产生 5 次 RAM 写入。通过夹具按钮仅让下一次包含 Countdown 的 bundle 写入在修改前失败，再点击生产 Hide：失败被拒绝一次，写入数仍为 5。随后夹具创建另一个真实 Countdown Controller，经 init、setDraft、save 保存 enabled=false、空标题、空日期，revision 0→1；成功写入总数为 6。此时生产卡片仍未 hidden，实际布局矩形存在，日期内容为空，Retry 与 Load saved 在可访问性树中可达，并显示先加载较新数据再选择 Hide 的提示。
+
+键盘 Enter 激活 Retry 后，卡片仍可见，Retry 消失、Load saved 保留；写入数仍为 6，已保存空状态和 revision 1 未变。再用 Enter 激活 Load saved，卡片 hidden=true、布局矩形数归零，写入数仍为 6。没有恢复旧日期或重放 Hide，没有手工伪造 Controller 错误/冲突字段，也没有生产代码修改。两步完成后的焦点快照均为页面根，不宣称恢复到某个指定控件。
+
+这是同一合成页面中两个生产 Controller 的可观察恢复流程，不是真实跨标签竞争、扩展落盘、浏览器重启、崩溃/配额或历史事故恢复证明；没有重跑受控延迟读取、Load saved 读取失败、中文/深色及读屏矩阵。外部/文件动作计数为零，自有页面和服务已关闭。
