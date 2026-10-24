@@ -796,6 +796,9 @@
   "scratchpadUnsaved": {
     "message": "Unsaved changes"
   },
+  "scratchpadSubscriptionError": {
+    "message": "Scratchpad could not watch saved changes. Reopen this page before editing. Saved text has not been changed."
+  },
   "scratchpadLoadError": {
     "message": "Could not load Scratchpad. Retry before editing."
   },

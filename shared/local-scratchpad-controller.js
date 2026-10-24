@@ -4,7 +4,7 @@
 })(typeof window === 'undefined' ? globalThis : window, function (api, root) {
     'use strict';
     class Controller {
-        #store; #backend; #unsubscribe = null; #retired = false;
+        #store; #backend; #unsubscribe = null; #retired = false; #subscriptionFailed = false;
         constructor(store = new api.Store(), { onChange = () => {}, delay = 500 } = {}) {
             this.#store = store; this.#backend = store.backend;
             this.store = store; this.onChange = onChange; this.delay = delay;
@@ -16,7 +16,7 @@
         // Public field assignment is not a supported way to retarget this editor.
         #alive() { return !this.#retired && !this.closed; }
         #ownsSource() { return this.#alive() && this.store === this.#store && this.#store.backend === this.#backend; }
-        #requireSource() { if (!this.#ownsSource()) throw api.fault('UNAVAILABLE'); }
+        #requireSource() { if (!this.#ownsSource()) throw api.fault('UNAVAILABLE'); if (this.#subscriptionFailed) throw api.fault('SUBSCRIPTION'); }
         #unsubscribeOwned() { const unsubscribe = this.#unsubscribe; this.#unsubscribe = null; unsubscribe?.(); }
         subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
         emit() { if (this.#alive()) { this.onChange(this); this.listeners.forEach(fn => fn(this)); } }
@@ -24,11 +24,22 @@
             if (!this.#alive()) return;
             this.#requireSource();
             if (!this.#unsubscribe) {
-                this.#unsubscribe = this.#store.subscribe(() => {
-                    if (!this.#ownsSource()) return;
-                    if (this.pending) this.refreshNeeded = true;
-                    else this.refresh().catch(() => {});
-                });
+                try {
+                    this.#unsubscribe = this.#store.subscribe(() => {
+                        if (!this.#ownsSource()) return;
+                        if (this.pending) this.refreshNeeded = true;
+                        else this.refresh().catch(() => {});
+                    });
+                } catch (_) {
+                    // A failed registration is not a usable subscription. Keep
+                    // this instance read/write closed; a fresh page may retry.
+                    this.#subscriptionFailed = true;
+                    if (this.#ownsSource()) {
+                        this.error = api.fault('SUBSCRIPTION'); this.readError = true;
+                        this.status = 'error'; this.cancelTimer(); this.emit();
+                    }
+                    throw api.fault('SUBSCRIPTION');
+                }
                 this.unsubscribe = () => this.#unsubscribeOwned();
             }
             return this.refresh();

@@ -796,6 +796,9 @@
   "scratchpadUnsaved": {
     "message": "有未保存的更改"
   },
+  "scratchpadSubscriptionError": {
+    "message": "便签无法监听已保存内容的变化。请重新打开页面后再编辑，已保存的文字未被修改。"
+  },
   "scratchpadLoadError": {
     "message": "无法加载便笺。请重试后再编辑。"
   },

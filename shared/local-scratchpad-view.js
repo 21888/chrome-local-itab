@@ -367,6 +367,7 @@
         scratchpadLoading: 'Loading local Scratchpad…', scratchpadSaving: 'Saving…',
         scratchpadSaved: 'Saved on this device', scratchpadUnsaved: 'Unsaved changes',
         scratchpadLoadError: 'Could not load Scratchpad. Retry before editing.',
+        scratchpadSubscriptionError: 'Scratchpad could not watch saved changes. Reopen this page before editing. Saved text has not been changed.',
         scratchpadSaveError: 'Could not confirm the save. Your draft is still here. Retry or export a text copy before leaving.',
         scratchpadConflict: 'Another page changed the saved text. Your draft is still here. Use saved text to discard this draft, or replace saved text with this draft.',
         scratchpadRetry: 'Retry', scratchpadUseSaved: 'Use saved text', scratchpadReplace: 'Replace with my draft',
@@ -751,7 +752,7 @@
                 // The settings status helper remains separate. This renderer must
                 // guard its own public work-query and translation lookups.
                 const code = state.error?.code;
-                const key = state.readError ? 'scratchpadLoadError' : state.conflict ? 'scratchpadConflict' :
+                const key = code === 'SUBSCRIPTION' ? 'scratchpadSubscriptionError' : state.readError ? 'scratchpadLoadError' : state.conflict ? 'scratchpadConflict' :
                     state.loaded && ['TEXT_LIMIT', 'SIZE_LIMIT'].includes(code) ? 'scratchpadTooLong' :
                     state.loaded && code === 'TEXT' ? 'scratchpadInvalidText' :
                     state.error ? (state.loaded ? 'scratchpadSaveError' : 'scratchpadLoadError') :
@@ -761,7 +762,7 @@
                 if (read(nodes.status, 'textContent') !== text) write(nodes.status, 'textContent', text);
                 const classes = read(nodes.status, 'classList');
                 call(classes, 'toggle', ['scratchpad-error', Boolean(state.error || state.conflict)]);
-                write(nodes.retry, 'hidden', (!state.error || Boolean(state.conflict)) && !state.readError ||
+                write(nodes.retry, 'hidden', code === 'SUBSCRIPTION' || (!state.error || Boolean(state.conflict)) && !state.readError ||
                     (state.loaded && ['TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT'].includes(code)));
                 write(nodes.retry, 'disabled', Boolean(state.pending));
                 write(nodes.replace, 'hidden', !state.conflict); write(nodes.useSaved, 'hidden', !state.conflict);
@@ -1501,7 +1502,8 @@
         settingsWrite(token, input, 'disabled', !s.loaded || Boolean(s.pending || s.error || s.conflict));
         if (!settingsCurrent(token)) return;
         let key;
-        if (s.readError) key = 'scratchpadLoadError';
+        if (s.error?.code === 'SUBSCRIPTION') key = 'scratchpadSubscriptionError';
+        else if (s.readError) key = 'scratchpadLoadError';
         else if (s.conflict) key = 'scratchpadSettingsConflict';
         else {
             const code = s.error?.code;
@@ -1517,7 +1519,7 @@
         if (!settingsCurrent(token)) return;
         const previous = status.textContent;
         if (previous !== text) settingsWrite(token, status, 'textContent', text);
-        settingsWrite(token, retry, 'hidden', !s.readError && (!s.error || Boolean(s.conflict)));
+        settingsWrite(token, retry, 'hidden', s.error?.code === 'SUBSCRIPTION' || !s.readError && (!s.error || Boolean(s.conflict)));
         settingsWrite(token, retry, 'disabled', Boolean(s.pending));
         settingsWrite(token, readLatest, 'hidden', !s.conflict);
         settingsWrite(token, readLatest, 'disabled', Boolean(s.pending));
