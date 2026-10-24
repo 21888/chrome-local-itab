@@ -5,11 +5,16 @@
     'use strict';
     const feedbackOwners = new WeakMap();
     class Controller {
+        #subscriptionFailed = false;
         constructor(store = new api.Store(), { monotonic = () => performance.now(), wall = () => Date.now() } = {}) {
             this.store = store; this.monotonic = monotonic; this.wall = wall; this.listeners = new Set();
             this.state = null; this.error = null; this.pending = null; this.closed = false; this.anchor = null; this.clockUncertain = false;
             feedbackOwners.set(this, { generation: 0, mutationError: false });
-            this.unsubscribe = store.subscribe(() => { this.refresh({ background: true }).catch(() => {}); });
+            try {
+                this.unsubscribe = store.subscribe(() => { this.refresh({ background: true }).catch(() => {}); });
+            } catch (_) {
+                this.#subscriptionFailed = true; this.error = api.fault('SUBSCRIPTION');
+            }
         }
         subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
         snapshot() {
@@ -38,6 +43,7 @@
             this.state = state;
         }
         async refresh({ background = false } = {}) {
+            if (this.#subscriptionFailed) throw api.fault('SUBSCRIPTION');
             const feedback = feedbackOwners.get(this);
             const generation = background ? feedback.generation : ++feedback.generation;
             const ownsFeedback = () => generation === feedback.generation && (!background || !feedback.mutationError);
@@ -67,6 +73,7 @@
             this.emit(); return true;
         }
         action(kind, value) {
+            if (this.#subscriptionFailed) return Promise.reject(api.fault('SUBSCRIPTION'));
             if (this.closed || !this.state) return Promise.reject(api.fault('READ'));
             if (this.pending) return this.pending;
             if (['start', 'pause', 'resume'].includes(kind)) {
@@ -92,7 +99,7 @@
             this.pending = promise; this.emit(); return promise;
         }
         hasUncommittedWork() { return Boolean(this.pending); }
-        destroy() { this.closed = true; this.unsubscribe(); this.listeners.clear(); }
+        destroy() { this.closed = true; this.unsubscribe?.(); this.listeners.clear(); }
     }
     return { Controller };
 });

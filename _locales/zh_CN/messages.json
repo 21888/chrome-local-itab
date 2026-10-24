@@ -589,6 +589,9 @@
   "countdownHelp": {
     "message": "仅保存在此设备的当前浏览器配置中，不包含在设置导出、浏览器同步和 Google 云盘备份中。不发送通知，也不联网。移除扩展或清除浏览器数据可能导致内容丢失。可导出文本副本自行备份。"
   },
+  "countdownSubscriptionError": {
+    "message": "倒计时无法监听已保存状态的变化。请重新打开页面后再编辑，已保存的状态未被修改。"
+  },
   "countdownLoading": {
     "message": "正在读取本地倒计时…"
   },
@@ -2627,6 +2630,9 @@
   },
   "focusEnableHelp": {
     "message": "可选，仅在此设备保存。隐藏后仍保留当前时段和结束时间。"
+  },
+  "focusSubscriptionError": {
+    "message": "专注计时器无法监听已保存状态的变化。请重新打开页面后再编辑，已保存的状态未被修改。"
   },
   "focusLoading": {
     "message": "正在读取本地计时器…"

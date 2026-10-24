@@ -21,6 +21,7 @@
         countdownHelp: 'Saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. No notifications or network requests. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup.',
         countdownLoading: 'Loading local Countdown…', countdownSaving: 'Saving…',
         countdownSaved: 'Saved on this device', countdownUnsaved: 'Unsaved changes',
+        countdownSubscriptionError: 'Countdown could not watch saved changes. Reopen this page before editing. Saved state has not been changed.',
         countdownLoadError: 'Could not load Countdown. Retry to read the saved state. Your draft is still here.',
         countdownSaveError: 'Could not confirm the save. Your draft is still here. Retry or export a text copy before leaving.',
         countdownConflict: 'Another page changed this Countdown. Your draft is still here. Load saved to discard this draft, or replace the saved Countdown with this draft.',
@@ -66,10 +67,12 @@
         return { DATE: 'countdownInvalidDate', TEXT: 'countdownInvalidTitle', TEXT_LIMIT: 'countdownTitleTooLong', SIZE_LIMIT: 'countdownTitleTooLong', UNCONFIGURED: 'countdownUnconfigured' }[error?.code];
     }
     function canRetry(c) {
+        if (c.error?.code === 'SUBSCRIPTION') return false;
         return Boolean(c.readError || (c.error && !validationKey(c.error) &&
             (!c.conflict || (c.lastAttempt && c.error.code !== 'CONFLICT'))));
     }
     function statusText(c) {
+        if (c.error?.code === 'SUBSCRIPTION') return t('countdownSubscriptionError');
         if (c.readError) return t('countdownLoadError');
         if (c.conflict) return t('countdownConflict');
         if (c.error) return t(validationKey(c.error) || (c.loaded ? 'countdownSaveError' : 'countdownLoadError'));

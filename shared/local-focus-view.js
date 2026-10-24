@@ -18,6 +18,7 @@
         focusHelp: 'Each workspace shares one timer across its own new-tab pages. No sound or background alert. Closing or hiding the page keeps the saved deadline; reopening estimates elapsed time using your device clock. Clock changes while closed can affect that estimate. Each interval starts only when you press Start. Settings exports and cloud backups exclude this timer. Removing the extension or browser data can erase it.',
         focusBrief: 'One timer per workspace, shared across its new-tab pages. No sound or background alert.', focusDetails: 'How timing works',
         focusEnable: 'Show Focus timer on the new tab page', focusEnableHelp: 'Optional and device-local. Hiding it keeps the current session and deadline.',
+        focusSubscriptionError: 'The timer could not watch saved changes. Reopen this page before editing. Saved state has not been changed.',
         focusLoading: 'Loading local timer…', focusSaving: 'Saving timer…', focusError: 'Could not confirm the timer change. Read the latest state before trying again.',
         focusDraftRetained: 'Your unsaved minutes are kept on this page. Finish editing when that interval is ready.', focusSaveMinutes: 'Save minutes',
         focusWorkspaceUnavailable: 'Timer unavailable in this tab',
@@ -318,13 +319,13 @@
                 // Keep drafts and pending/uncertain-write evidence. Presentation
                 // retirement neither refreshes nor mutates the timer or Session.
                 this.feedback.textContent = this.controller.error ? t('focusWorkspaceError') : this.controller.pending ? t('focusSaving') : '';
-                this.retry.hidden = !this.controller.error;
+                this.retry.hidden = !this.controller.error || this.controller.error.code === 'SUBSCRIPTION';
                 return;
             }
             this.titlePresentation?.update();
             this.cancelTick(); const state = this.controller.snapshot(), pending = Boolean(this.controller.pending);
             this.renderProgress(state);
-            if (!state) { this.clearExpectedEnd(); this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error; return; }
+            if (!state) { this.clearExpectedEnd(); this.exitTemporaryFocus(); this.focusViewButton.disabled = true; this.saveMinutes.hidden = true; this.saveMinutes.disabled = true; this.start.disabled = true; this.reset.disabled = true; this.phase.disabled = true; this.minutes.disabled = true; if (this.controller.error) { this.host.hidden = false; if (this.visible !== true) { this.visible = true; this.onVisibility(true); } } this.feedback.textContent = t(this.controller.error?.code === 'SUBSCRIPTION' ? 'focusSubscriptionError' : this.controller.error ? 'focusError' : 'focusLoading'); this.retry.hidden = !this.controller.error || this.controller.error.code === 'SUBSCRIPTION'; return; }
             const s = state.session;
             if (this.temporaryFocus) {
                 if (!state.enabled || !this.host.isConnected || root.dashboardHiddenState || document.body.classList.contains('dashboard-hidden') ||
@@ -360,7 +361,7 @@
             this.start.disabled = pending || s.status === 'uncertain' || editableDraft; this.reset.disabled = pending || s.status === 'ready';
             const hiddenDraft = this.durationDrafts.size > (editableDraft ? 1 : 0);
             this.feedback.textContent = this.controller.error ? t(this.controller.error.code === 'CONFLICT' ? 'focusConflict' : 'focusError') : pending ? t('focusSaving') : hiddenDraft ? t('focusDraftRetained') : '';
-            this.retry.hidden = !this.controller.error; this.retry.disabled = pending;
+            this.retry.hidden = !this.controller.error || this.controller.error.code === 'SUBSCRIPTION'; this.retry.disabled = pending;
             if (!document.hidden && state.enabled && s.status === 'running') {
                 const revision = state.revision, timeout = root.setTimeout(() => {
                     if (this.closed || this.timeout !== timeout) return;
@@ -379,7 +380,7 @@
         host.replaceChildren(label, el('p', 'focus-help', t('focusEnableHelp')), el('p', 'focus-help', t('focusHelp')), status, retry);
         input.addEventListener('change', () => controller.action('visibility', input.checked).catch(() => {}));
         const render = () => { const state = controller.snapshot(); input.disabled = !state || Boolean(controller.pending); input.checked = state?.enabled === true;
-            status.textContent = t(controller.error ? 'focusError' : controller.pending ? 'focusSaving' : !state ? 'focusLoading' : 'focusEnableHelp'); retry.hidden = !controller.error; retry.disabled = Boolean(controller.pending); };
+            status.textContent = t(controller.error?.code === 'SUBSCRIPTION' ? 'focusSubscriptionError' : controller.error ? 'focusError' : controller.pending ? 'focusSaving' : !state ? 'focusLoading' : 'focusEnableHelp'); retry.hidden = !controller.error || controller.error.code === 'SUBSCRIPTION'; retry.disabled = Boolean(controller.pending); };
         const unsubscribe = controller.subscribe(render); render(); controller.refresh().catch(() => {});
         return { controller, destroy() { unsubscribe(); controller.destroy(); } };
     }

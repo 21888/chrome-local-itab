@@ -11,6 +11,8 @@
     const editableErrors = new Set(['INVALID', 'TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT', 'DATE', 'UNCONFIGURED']);
 
     class Controller {
+        #subscriptionFailed = false;
+        #requireSubscription() { if (this.#subscriptionFailed) throw api.fault('SUBSCRIPTION'); }
         constructor(store = new api.Store(), { onChange = () => {} } = {}) {
             this.store = store; this.onChange = onChange;
             this.state = null; this.draft = { enabled: false, title: '', targetDate: '' };
@@ -27,10 +29,17 @@
         }
         async init() {
             if (this.closed) return;
-            if (!this.unsubscribe) this.unsubscribe = this.store.subscribe(() => {
-                if (this.pending) this.refreshNeeded = true;
-                else this.refresh().catch(() => {});
-            });
+            this.#requireSubscription();
+            try {
+                if (!this.unsubscribe) this.unsubscribe = this.store.subscribe(() => {
+                    if (this.pending) this.refreshNeeded = true;
+                    else this.refresh().catch(() => {});
+                });
+            } catch (_) {
+                this.#subscriptionFailed = true;
+                this.error = api.fault('SUBSCRIPTION'); this.readError = true;
+                this.updateStatus(); this.emit(); throw this.error;
+            }
             return this.refresh();
         }
         dirty() { return Boolean(this.loaded && !sameValues(this.draft, this.state)); }
@@ -74,6 +83,7 @@
             this.updateStatus();
         }
         async refresh() {
+            this.#requireSubscription();
             if (this.closed) return;
             if (this.pending) { this.refreshNeeded = true; return; }
             const read = ++this.readGeneration;
@@ -110,6 +120,7 @@
             this.updateStatus(); this.emit();
         }
         async run(kind, value, revision, originalAttempt) {
+            this.#requireSubscription();
             if (this.pending || this.closed) return;
             let expected;
             try {
@@ -144,6 +155,7 @@
             return this.run('visibility', value, this.state.revision);
         }
         async retry() {
+            this.#requireSubscription();
             if (this.pending || this.closed || this.composing) return;
             if (!this.loaded) return this.refresh();
             const attempt = this.lastAttempt, read = ++this.readGeneration;
@@ -183,6 +195,7 @@
             return outcome;
         }
         async useSaved() {
+            this.#requireSubscription();
             if (this.pending || this.closed) return;
             const generation = this.generation, read = ++this.readGeneration;
             this.pending = true; this.updateStatus(); this.emit();

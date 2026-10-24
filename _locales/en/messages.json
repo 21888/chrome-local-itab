@@ -589,6 +589,9 @@
   "countdownHelp": {
     "message": "Saved only in this browser profile on this device. Excluded from settings exports, browser Sync and Google Drive backups. No notifications or network requests. Removing the extension or clearing browser data can erase it. Export a text copy to keep your own backup."
   },
+  "countdownSubscriptionError": {
+    "message": "Countdown could not watch saved changes. Reopen this page before editing. Saved state has not been changed."
+  },
   "countdownLoading": {
     "message": "Loading local Countdown…"
   },
@@ -2627,6 +2630,9 @@
   },
   "focusEnableHelp": {
     "message": "Optional and device-local. Hiding it keeps the current session and deadline."
+  },
+  "focusSubscriptionError": {
+    "message": "The timer could not watch saved changes. Reopen this page before editing. Saved state has not been changed."
   },
   "focusLoading": {
     "message": "Loading local timer…"
