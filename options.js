@@ -218,6 +218,7 @@ function queueSettingsWrite(operation) {
 async function replaceSettings(operation) {
     if (settingsReplacementRunning) throw new Error('A settings replacement is already in progress.');
     const replacementDraft = settingsReplacementFormSnapshot();
+    retireSettingsImportPreparation();
     window.importClosureView?.cancel();
     settingsReplacementDraft = replacementDraft;
     settingsReplacementRunning = true;

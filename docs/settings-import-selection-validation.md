@@ -64,3 +64,52 @@ These are focused Node/RAM checks, not the full Node suite or native Chrome QA.
 Native picker/dialog rendering, browser lifecycle ordering and persistent browser
 storage were not exercised. No browser, screenshots, provider operation, user
 device, push, tag, release or store submission was used for this patch.
+
+## Confirmed replacement fence (2026-10-25)
+
+A confirmed Settings replacement also retires any older unconfirmed JSON
+preparation, before its queued operation starts. Retirement is permanent for
+that preparation even when Reset fails or returns false. Declining Reset does
+not retire it. A new deliberate picker selection still works after either
+outcome. Already-confirmed imports continue to own their submitted result,
+including uncertain-write verification retries; this is not cancellation of
+storage work.
+
+The added matrix uses actual Options DOM-ready and bound Reset/import controls.
+It holds file text or provider-state reading, accepts Reset, changes an ordinary
+quote draft while Reset is pending, and then releases the obsolete read with
+success or rejection. Successful Reset uses real StorageManager/workspace
+storage and its real reload guard; failed-write cases inject a synthetic storage
+rejection, while false-result cases model the clear operation returning false.
+It checks no late import dialog, feedback, error log, toast, input cleanup, write
+or reload, preservation of the newer draft, and a later deliberate picker.
+A declined-Reset control verifies the original preparation remains usable.
+Existing verified/uncertain confirmed-import tests cover submitted ownership and
+same-file retry. All records and errors are synthetic.
+
+This is a late-prompt/error ownership counterexample, not evidence of automatic
+data loss or a historical incident cause. On the old path, overwriting after the
+late preview still requires a second explicit acceptance. Native file dialogs,
+browser event ordering and persistent browser storage are outside this RAM model.
+Validation against baseline `474d689` (unchanged runtime, new tests) produced
+12 expected failures: six late replacement confirmations and six late error
+feedback results. The declined-Reset control passed. No fixture failures,
+skips or cancellations occurred. The assertions were unchanged for the fix.
+
+After adding the single retirement call in `replaceSettings`, all 246 tests in
+the eight suites below passed (serial execution; no skips or cancellations),
+including all 13 new cases and confirmed verified/uncertain import/retry cases:
+
+```sh
+node --test --test-name-pattern='confirmed (retained-draft|rejected|false) reset|declining Reset' tests/settings-transfer-localization.test.js
+node --test --test-concurrency=1 tests/settings-transfer-localization.test.js tests/backup-roundtrip.test.js tests/import-settings-navigation.test.js tests/settings-stale-save.test.js tests/import-safety.test.js tests/identity-recovery-ui.test.js tests/backup-read-safety.test.js tests/backup-download-feedback.test.js
+node --check options.js
+node --check tests/settings-transfer-localization.test.js
+git -c core.whitespace=cr-at-eol diff --check
+```
+
+Both syntax checks and the diff check passed. Raw local run evidence is in
+`/tmp/itab-reset-preparation-negative.log` and
+`/tmp/itab-reset-preparation-focused.log` (ephemeral, not repository artifacts).
+This is a focused model pass, not a full suite or native GUI pass. No version,
+manifest, store submission, release or push was changed by this task.

@@ -105,7 +105,7 @@ async function page(f, {locale = 'en', api = 'normal', missingKey, session = nul
     }
     // Use the actual entry tags and attributes from options.html, not substitute
     // controller entry points. Options initializes and binds these elements.
-    for (const id of ['export-settings', 'import-settings', 'import-settings-btn']) {
+    for (const id of ['export-settings', 'import-settings', 'import-settings-btn', 'reset-settings']) {
         const match = html.match(new RegExp(`<([a-z]+)\\b([^>]*\\bid="${id}"[^>]*)>`));
         assert(match, `actual transfer entry ${id}`);
         const node = document.createElement(match[1]);
@@ -645,4 +645,59 @@ selectionCheck('confirmed completion restores each control’s original disabled
     assert.equal(last(p).status, 'success');
     assert.equal(p.field('import-settings-btn').disabled, true); assert.equal(p.field('import-settings').disabled, false);
     await p.fire('import-settings-btn', 'click', {detail: 1}); assert.equal(p.state.pickers, 0);
+});
+
+// A confirmed replacement invalidates older, still-unconfirmed preparation even
+// if a newer ordinary draft keeps this page open or the replacement fails.
+for (const stage of ['text', 'provider']) for (const error of [false, true]) for (const reset of ['retained-draft', 'rejected', 'false']) {
+    selectionCheck(`confirmed ${reset} reset retires held ${stage} ${error ? 'rejection' : 'success'}`, async (p, session) => {
+        const before = clone(p.f.raw), a = await waitingSelection(p, stage, error);
+        const entered = deferred(), resume = deferred();
+        const bundle = Workspaces.bundleKey(p.f.raw[Workspaces.REGISTRY_KEY].workspaces.find(entry => entry.id === session.id));
+        let submitted = false;
+        if (reset === 'false') p.storage.clear = async () => { entered.resolve(); await resume.promise; return false; };
+        else p.f.hooks.set = async written => {
+            if (!submitted && written[bundle]) {
+                submitted = true; entered.resolve(); await resume.promise;
+                if (reset === 'rejected') throw Error('Synthetic reset write rejected');
+            }
+            return DEFER;
+        };
+        p.state.decisions = [true];
+        const resetting = p.fire('reset-settings', 'click'); await entered.promise;
+        p.field('quote-text').value = 'Synthetic newer ordinary draft';
+        resume.resolve(); await resetting; p.f.hooks.set = null;
+        assert.equal(p.state.confirms.length, 1, 'only the explicit Reset confirmation');
+        assert.equal(p.state.reloads, 0, 'newer draft or failed reset retains the page');
+        if (reset === 'retained-draft') assert.equal((await p.storage.getAll()).quote, p.storage.defaultConfig.quote);
+        else assert.deepEqual(p.f.raw, before, 'unsuccessful reset did not commit');
+        const saved = clone(p.f.raw), feedback = clone(p.state.feedback), errors = p.state.errors.length;
+        const toasts = p.field('toast-container').children.map(node => node.textContent), writes = p.f.writes.length;
+        p.field('import-settings').value = 'Synthetic retained picker value';
+        // Accept by default: before the fence, a late *second* confirmation can
+        // authorize the old import. This is not an automatic overwrite claim.
+        a.gate.resume.resolve(); await a.pending;
+        assert.equal(p.state.confirms.length, 1, 'retired preparation must not ask for late import confirmation');
+        assert.deepEqual(p.state.feedback, feedback); assert.equal(p.state.errors.length, errors);
+        assert.deepEqual(p.field('toast-container').children.map(node => node.textContent), toasts);
+        assert.equal(p.field('import-settings').value, 'Synthetic retained picker value');
+        assert.equal(p.field('quote-text').value, 'Synthetic newer ordinary draft');
+        assert.deepEqual(p.f.raw, saved); assert.equal(p.f.writes.length, writes);
+        assert.equal(p.timerCount(1500), 0); assert.equal(p.state.reloads, 0);
+        // Retirement is not a permanent import ban, including after failure.
+        await p.fire('import-settings-btn', 'click', {detail: 1});
+        assert.equal(p.state.pickers, 1); p.state.decisions = [false];
+        await p.import(p.file(selectedPayload(p, 'fresh'), {name: 'synthetic-fresh.json'}));
+        assert.equal(p.state.confirms.length, 2); assert.equal(last(p).text, expected('en', 'settingsImportCancelled'));
+        assert.equal(p.field('import-settings').value, ''); assert.deepEqual(p.f.raw, saved);
+        assert.equal(p.f.writes.length, writes); assert.equal(p.timerCount(1500), 0);
+    });
+}
+selectionCheck('declining Reset does not retire an unconfirmed file selection', async p => {
+    const a = await waitingSelection(p, 'text');
+    p.state.decisions = [false]; await p.fire('reset-settings', 'click');
+    assert.equal(p.f.writes.length, 0);
+    p.state.decisions = [false]; a.gate.resume.resolve(); await a.pending;
+    assert.equal(p.state.confirms.length, 2); assert.equal(p.f.writes.length, 0);
+    assert.equal(last(p).text, expected('en', 'settingsImportCancelled'));
 });
