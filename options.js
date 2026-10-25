@@ -154,10 +154,34 @@ function advanceSettingsBaseline(settings, paths, submittedForm) {
         storageManager.setSettingsPath(settingsFormBaseline, path, storageManager.settingsPathValue(submittedForm, path));
     }
 }
+// Replacement authorizes discarding the form at confirmation, not edits made
+// while its write or delayed reload is pending. Compare raw controls: validation
+// may normalize an unfinished search/number/empty field back to its old value.
+function settingsReplacementFormSnapshot() {
+    const ids = [
+        'bg-type', 'bg-color', 'bg-color-text', 'bg-image-upload',
+        'show-clock', 'show-search', 'show-shortcuts', 'show-weather', 'show-hot', 'show-movie',
+        'search-engine', 'search-custom', 'weather-city', 'weather-temp', 'weather-condition',
+        'weather-aqi-label', 'weather-aqi', 'weather-low', 'weather-high', 'hot-topics-tab',
+        'movie-title', 'movie-note', 'movie-poster-upload', 'quote-text',
+        'dashboard-padding-auto', 'dashboard-padding-top', 'dashboard-padding-right',
+        'dashboard-padding-bottom', 'dashboard-padding-left', 'show-shortcut-titles',
+        'finder-shortcut-enabled', 'shortcuts-gap-x', 'shortcuts-gap-y', 'shortcut-icon-size',
+        'shortcut-title-size', 'shortcut-title-color-auto', 'shortcut-title-color',
+        'shortcut-title-color-text', 'privacy-online-favicons'
+    ];
+    const controls = ids.map(id => document.getElementById(id)).filter(Boolean);
+    controls.push(...document.querySelectorAll('.topic-title-input, .topic-score-input'));
+    return JSON.stringify({controls: controls.map(input => [input.id || '', input.value, Boolean(input.checked),
+        Boolean(input.validity?.badInput)]),
+        categories: bookmarkCategorySignature()});
+}
 function settingsHasUncommittedWork() {
     if (manualSyncActionsPending > 0 || driveActionInProgress || driveDeviceNameHasDrafts()) return true;
     if (settingsReplacementRunning || worldClockSaves > 0 || backgroundSaves > 0 || settingsHelperSaves > 0 || privacyPermissionPending) return true;
-    if (settingsReplacementPending || !settingsFormBaseline) return false;
+    if (settingsReplacementPending) return settingsReplacementDraft === null ||
+        settingsReplacementFormSnapshot() !== settingsReplacementDraft;
+    if (!settingsFormBaseline) return false;
     try { return settingsDirtyPaths(collectFormData(false)).length > 0 ||
         (backgroundFormBaseline !== null && backgroundFormSnapshot() !== backgroundFormBaseline) ||
         Array.from(document.querySelectorAll('.topic-title-input')).some(input => input.value) || !bookmarkCategoryFormClean(); }
@@ -170,6 +194,7 @@ let settingsSaveQueue = Promise.resolve();
 let settingsSession = 0;
 let settingsReplacementPending = false;
 let settingsReplacementRunning = false;
+let settingsReplacementDraft = null;
 let categorySaveTimeout;
 const categorySnapshot = categories => categories.map(({ id, name, icon }) => ({ id, name, icon }));
 const sameCategories = (a, b) => JSON.stringify(categorySnapshot(a)) === JSON.stringify(categorySnapshot(b));
@@ -180,7 +205,9 @@ function queueSettingsWrite(operation) {
 }
 async function replaceSettings(operation) {
     if (settingsReplacementRunning) throw new Error('A settings replacement is already in progress.');
+    const replacementDraft = settingsReplacementFormSnapshot();
     window.importClosureView?.cancel();
+    settingsReplacementDraft = replacementDraft;
     settingsReplacementRunning = true;
     settingsReplacementPending = true;
     ++settingsSession;

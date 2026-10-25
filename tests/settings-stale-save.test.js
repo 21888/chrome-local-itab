@@ -749,3 +749,94 @@ bounded('Finder checkbox uses ordinary debounced autosave and keeps a newer draf
     f.hooks.write = null; await a.save(); success(a);
     assert.equal(f.state().ui.finderShortcutEnabled, true);
 });
+
+function enableRealLifecycle(page) {
+    page.document.body.prepend = (...children) => page.document.body.append(...children);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../shared/local-content-lifecycle.js'), 'utf8'), page.context);
+}
+for (const field of ['quote-text', 'search-custom', 'weather-temp', 'bg-color-text']) bounded(`reset preserves newer ordinary ${field} draft before reload`, async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const gate = f.pauseNextWrite();
+    const resetting = p.context.resetAllSettings(); await gate.entered;
+    p.field(field).value = 'new unfinished draft';
+    gate.resume(); await resetting;
+    assert.equal(p.reloads, 0, 'successful reset must not implicitly reload over a newer draft');
+    assert.equal(p.field(field).value, 'new unfinished draft');
+    assert.ok(p.context.window.settingsFormView.hasUncommittedWork());
+    const before = f.state(), count = f.writes.length; await p.save();
+    same(f.state(), before); assert.equal(f.writes.length, count, 'replacement safety fence remains');
+    assert.ok(f.state()[TOKEN], 'reset committed its replacement generation');
+});
+
+for (const edit of ['category-name', 'category-remove', 'topic', 'visibility', 'empty-quote']) bounded(`reset preserves newer ${edit} form work`, async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const topic = p.document.createElement('input'); topic.className = 'topic-title-input'; p.document.body.append(topic);
+    const gate = f.pauseNextWrite(), resetting = p.context.resetAllSettings(); await gate.entered;
+    if (edit === 'category-name') editCategory(p, '  ');
+    if (edit === 'category-remove') p.document.querySelector('#category-manage-list li').remove();
+    if (edit === 'topic') topic.value = 'Unsubmitted topic';
+    if (edit === 'visibility') p.field('show-clock').checked = !p.field('show-clock').checked;
+    if (edit === 'empty-quote') p.field('quote-text').value = '';
+    gate.resume(); await resetting;
+    assert.equal(p.reloads, 0); assert.ok(p.context.window.settingsFormView.hasUncommittedWork());
+});
+bounded('reset still discards only the unchanged pre-confirmation ordinary draft', async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    p.field('quote-text').value = 'Draft intentionally discarded by reset';
+    await p.context.resetAllSettings();
+    assert.equal(p.reloads, 1); assert.equal(p.context.window.settingsFormView.hasUncommittedWork(), false);
+});
+bounded('replacement rechecks ordinary edits made after commit before its delayed reload', async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const replacement = f.state(); replacement.quote = 'Imported quote';
+    await p.import(replacement); success(p);
+    p.field('quote-text').value = 'Typed after import completed';
+    for (const timer of [...p.timers.values()]) await timer();
+    assert.equal(p.reloads, 0); assert.ok(p.document.getElementById('local-content-reload-notice'));
+    assert.equal(f.state().quote, 'Imported quote');
+    assert.equal(p.field('quote-text').value, 'Typed after import completed');
+});
+for (const result of ['throw', 'false']) bounded(`unsuccessful ${result} reset keeps ordinary drafts saveable`, async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    p.storage.clear = async () => { if (result === 'throw') throw new Error('synthetic failure'); return false; };
+    p.field('quote-text').value = 'Retained after failure';
+    await p.context.resetAllSettings(); assert.equal(p.reloads, 0);
+    assert.ok(p.context.window.settingsFormView.hasUncommittedWork());
+    await p.save(); success(p); assert.equal(f.state().quote, 'Retained after failure');
+});
+bounded('a second explicitly confirmed reset owns the newer draft without lifting save fences', async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const gate = f.pauseNextWrite(), resetting = p.context.resetAllSettings(); await gate.entered;
+    p.field('quote-text').value = 'New draft'; gate.resume(); await resetting;
+    assert.equal(p.reloads, 0);
+    await p.context.resetAllSettings(); assert.equal(p.reloads, 1);
+});
+
+for (const replacement of ['reset', 'import']) for (const provider of ['baidu', 'weibo', 'zhihu']) bounded(`${replacement} retains newer ${provider} topic score-only draft`, async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const title = p.document.createElement('input'); title.className = 'topic-title-input'; title.id = `${provider}-topic-title`;
+    title.value = 'Previously confirmed topic draft';
+    const score = p.document.createElement('input'); score.className = 'topic-score-input'; score.id = `${provider}-topic-score`;
+    score.type = 'number'; score.value = '10'; p.document.body.append(title, score);
+    const gate = f.pauseNextWrite();
+    const replacing = replacement === 'reset' ? p.context.resetAllSettings() : p.import(f.state());
+    await gate.entered; score.value = '12345'; gate.resume(); await replacing;
+    if (replacement === 'import') for (const timer of [...p.timers.values()]) await timer();
+    assert.equal(p.reloads, 0); assert.equal(score.value, '12345');
+    assert.ok(p.context.window.settingsFormView.hasUncommittedWork());
+    const before = f.state(), count = f.writes.length; await p.save();
+    same(f.state(), before); assert.equal(f.writes.length, count);
+});
+for (const replacement of ['reset', 'import']) bounded(`${replacement} retains changed numeric badInput when value remains empty`, async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const input = p.field('shortcuts-gap-x'); input.value = ''; input.validity = {badInput: false};
+    const gate = f.pauseNextWrite();
+    const replacing = replacement === 'reset' ? p.context.resetAllSettings() : p.import(f.state());
+    await gate.entered;
+    // Model a native number field reporting unfinished input without exposing
+    // that text through .value; this is not native browser validation evidence.
+    input.validity.badInput = true; gate.resume(); await replacing;
+    if (replacement === 'import') for (const timer of [...p.timers.values()]) await timer();
+    assert.equal(p.reloads, 0); assert.equal(input.value, '');
+    assert.ok(p.context.window.settingsFormView.hasUncommittedWork());
+});
