@@ -271,3 +271,74 @@ test('remote order conflict retains local draft and atomically rejects other sub
     assert(html.includes('id="world-clock-suggestions"'));assert(fs.readFileSync('options.css','utf8').includes('.world-clock-inputs > div { flex: 1 1 180px; min-width: 0; }'));
     console.log('PASS world-clock Settings DOM model: Add/Remove/Enter/focus, explicit save, unrelated preservation, remote CAS conflict, async draft ownership, missing-read guard, reload protection and narrow layout source checks.');
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+function holdClockReset(h) {
+    const entered = deferred(), resume = deferred();
+    const defaults = {hour12:false, showSeconds:true, worldClocks:[]};
+    h.context.storageManager.defaultConfig.clock = clone(defaults);
+    h.context.storageManager.clear = async () => {
+        entered.resolve(); await resume.promise; h.saved = defaults; return true;
+    };
+    return {entered, resume, defaults};
+}
+test('reset completion preserves a newer world-clock draft entered while storage is pending', async () => {
+    const h = harness(entries.slice(0, 1));
+    const {entered, resume, defaults} = holdClockReset(h);
+    const resetting = h.context.resetAllSettings();
+    await entered.promise;
+    h.add('Asia/Tokyo', 'New draft after reset started');
+    h.get('world-clock-zone').value = 'Europe/London';
+    h.get('world-clock-label').value = 'Not added yet';
+    const newer = draft(h);
+    resume.resolve(); await resetting;
+    assert.deepEqual(draft(h), newer);
+    assert.deepEqual(h.saved, defaults);
+    assert.deepEqual(clone(vm.runInContext('clockBaseline', h.context)), defaults);
+    assert.equal(h.get('world-clock-zone').value, 'Europe/London');
+    assert.equal(h.get('world-clock-label').value, 'Not added yet');
+    assert(h.window.worldClockSettingsView.hasUncommittedWork());
+    assert.equal(h.window.reloads, undefined);
+});
+
+for (const edit of ['zone', 'label', 'hour12', 'seconds', 'reorder']) test(`reset retains a newer clock ${edit} edit without writing it`, async () => {
+    const h = harness(entries.slice(0, 2));
+    const {entered, resume, defaults} = holdClockReset(h);
+    const resetting = h.context.resetAllSettings(); await entered.promise;
+    if (edit === 'zone') h.get('world-clock-zone').value = 'Europe/London';
+    if (edit === 'label') h.get('world-clock-label').value = 'Unadded label';
+    if (edit === 'hour12') h.get('hour12-format').checked = true;
+    if (edit === 'seconds') h.get('show-seconds').checked = false;
+    if (edit === 'reorder') action(h, 1, 'up').dispatch('click');
+    const snapshot = () => clone(vm.runInContext(`({clock:clockFormSnapshot(true), zone:document.getElementById('world-clock-zone').value, label:document.getElementById('world-clock-label').value})`, h.context));
+    const newer = snapshot();
+    resume.resolve(); await resetting;
+    assert.deepEqual(snapshot(), newer);
+    assert.deepEqual(h.saved, defaults);
+    assert.deepEqual(clone(vm.runInContext('clockBaseline', h.context)), defaults);
+    assert(h.window.worldClockSettingsView.hasUncommittedWork());
+    assert.equal(h.window.reloads, undefined);
+    await h.context.saveAllSettings(true);
+    assert.equal(h.writes.length, 0, 'reset page remains fenced from stale saves');
+});
+
+test('failed reset preserves the clock draft and still permits a deliberate save', async () => {
+    const h = harness(); h.add('UTC', 'Original');
+    h.context.storageManager.clear = async () => { throw new Error('synthetic reset failure'); };
+    await h.context.resetAllSettings();
+    assert.deepEqual(draft(h), [{timeZone:'UTC', label:'Original'}]);
+    assert.equal(h.window.reloads, undefined);
+    await h.context.saveAllSettings(true);
+    assert.deepEqual(h.saved.worldClocks, draft(h));
+});
+
+test('false reset result preserves the clock baseline and permits an explicit save retry', async () => {
+    const h = harness(); h.add('Asia/Tokyo', 'Preserved');
+    const before = clone(vm.runInContext('clockBaseline', h.context));
+    h.context.storageManager.clear = async () => false;
+    await h.context.resetAllSettings();
+    assert.deepEqual(clone(vm.runInContext('clockBaseline', h.context)), before);
+    assert.deepEqual(draft(h), [{timeZone:'Asia/Tokyo', label:'Preserved'}]);
+    assert.equal(h.window.reloads, undefined);
+    await h.context.saveAllSettings(true);
+    assert.deepEqual(h.saved.worldClocks, draft(h));
+});

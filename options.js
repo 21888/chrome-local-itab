@@ -2445,25 +2445,36 @@ async function saveAllSettings(includeWorldClocks = false, validationTrigger = n
 }
 
 async function resetAllSettings() {
+    // Reset owns only the clock form present when the user requested it.
+    const clockDraftAtReset = clockFormInitialized ? JSON.stringify({clock: clockFormSnapshot(true),
+        zone: document.getElementById('world-clock-zone')?.value,
+        label: document.getElementById('world-clock-label')?.value}) : null;
     try {
         showMessage(t('settingsResetting', 'Resetting settings...'), 'info');
         
         // Reset only this workspace; preserve personal modules and shared preferences.
         const cleared = await replaceSettings(() => storageManager.clear());
         if (!cleared) throw new Error(t('settingsResetFailed', 'Settings could not be reset. Please try again.'));
-        // The confirmed reset discards this configuration draft, even when a
-        // separate private-content draft still prevents the automatic reload.
+        // The confirmed reset discards only its original clock draft; later
+        // clock edits and separate private-content drafts prevent reload.
         if (clockFormInitialized) {
             clockBaseline = copyClock(storageManager.defaultConfig.clock);
-            worldClockDraft = [];
-            const hour12 = document.getElementById('hour12-format');
-            const seconds = document.getElementById('show-seconds');
-            if (hour12) hour12.checked = clockBaseline.hour12;
-            if (seconds) seconds.checked = clockBaseline.showSeconds;
-            for (const id of ['world-clock-zone', 'world-clock-label']) {
-                const input = document.getElementById(id); if (input) input.value = '';
+            const clockDraftNow = JSON.stringify({clock: clockFormSnapshot(true),
+                zone: document.getElementById('world-clock-zone')?.value,
+                label: document.getElementById('world-clock-label')?.value});
+            // Later edits remain a draft against the reset storage baseline.
+            // The lifecycle guard keeps this page open rather than losing them.
+            if (clockDraftNow === clockDraftAtReset) {
+                worldClockDraft = [];
+                const hour12 = document.getElementById('hour12-format');
+                const seconds = document.getElementById('show-seconds');
+                if (hour12) hour12.checked = clockBaseline.hour12;
+                if (seconds) seconds.checked = clockBaseline.showSeconds;
+                for (const id of ['world-clock-zone', 'world-clock-label']) {
+                    const input = document.getElementById(id); if (input) input.value = '';
+                }
+                renderWorldClockDraft();
             }
-            renderWorldClockDraft();
         }
         
         // Reload the page to show defaults
