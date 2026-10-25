@@ -8,7 +8,7 @@ const MiB = 1024 * 1024;
 function createHarness(config) {
     const manager = new StorageManager();
     const provider = { sync: { enabled: true, lastSync: 'current-device-marker', lastError: '', includeLargeAssets: false } };
-    const state = { blobs: [], decisions: [], prompts: [], feedback: [], writes: [], timers: [], reloads: 0, reads: 0, saveResult: true, saveError: null };
+    const state = { blobs: [], decisions: [], prompts: [], feedback: [], errors: [], writes: [], timers: [], reloads: 0, reads: 0, saveResult: true, saveError: null };
     const input = { value: 'backup.json' };
     manager.getAllForBackup = async () => config;
     manager.getLocalProviderState = async () => provider;
@@ -25,12 +25,16 @@ function createHarness(config) {
         storageManager: manager, URL: BlobURL, Blob,
         document: {
             addEventListener() {},
+            // This transport-only fixture has an import picker but no Settings
+            // form, categories or topic controls. A real Document still exposes
+            // this API and returns an empty list for those absent controls.
+            querySelectorAll() { return []; },
             getElementById(id) { return id === 'import-settings' ? input : null; },
             createElement() { return { click() {}, remove() {} }; },
             body: { appendChild() {}, removeChild() {} }
         },
         window: { location: { reload() { state.reloads++; } } },
-        console: { log() {}, error() {}, warn() {} },
+        console: { log() {}, error(...args) { state.errors.push(args.map(value => value?.message || String(value)).join(' ')); }, warn() {} },
         confirm(message) { state.prompts.push(message); return state.decisions.length ? state.decisions.shift() : true; },
         setTimeout(callback) { state.timers.push(callback); }
     };
@@ -40,7 +44,7 @@ function createHarness(config) {
     context.showImportExportFeedback = (operation, status, message) => state.feedback.push({ operation, status, message });
     const reset = () => {
         state.decisions = []; state.prompts = []; state.feedback = []; state.writes = []; state.timers = [];
-        state.reads = 0; state.reloads = 0; state.saveResult = true; state.saveError = null; input.value = 'backup.json';
+        state.errors = []; state.reads = 0; state.reloads = 0; state.saveResult = true; state.saveError = null; input.value = 'backup.json';
     };
     const readFile = blob => {
         const file = new File([blob], 'local-itab-settings.json', { type: 'application/json' });
@@ -76,6 +80,7 @@ function createHarness(config) {
         assert.equal(h.state.prompts.length, 2, 'resource warning precedes replacement confirmation');
         assert.match(h.state.prompts[0], /memory/);
         assert.match(h.state.prompts[1], /replace all settings/);
+        assert.deepEqual(h.state.errors, [], 'confirmed roundtrip must not report an internal import error');
         assert.equal(h.state.writes.length, 1);
         const restored = h.state.writes[0].settings;
         for (const key of ['bg', 'movie']) assert.deepEqual(restored[key], config[key], `${key} at ${imageMiB} MiB`);
