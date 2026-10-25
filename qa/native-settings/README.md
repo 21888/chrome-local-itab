@@ -121,6 +121,53 @@ Do not retry, use a native picker, inject a File, change the origin, or otherwis
 bypass that pending approval. Continue unrelated Reset tests. A newly generated
 fixture does not grant approval to complete the blocked import action.
 
+### Later bounded native supplements (2026-10-25)
+
+The matrix above records the earlier observation window. These later cases used
+that same frozen f15c22d product runtime and rich2 bridge, not the newly packaged
+runner. They add real Chromium control/event/dialog evidence with the same
+sessionStorage-backed synthetic RAM storage boundary:
+
+- **14:41–14:46 UTC — first generation-fence rejection, then normal Save:**
+  rejected the first precommit write; boot1, zero applied writes and complete raw
+  storage identical to baseline. A subsequent ordinary Quote edit/Save succeeded
+  with one applied write and only the target bundle's quote changed. The failure
+  phase is zero-write; the full recovery flow is not. This is known-no-apply
+  synthetic rejection, not persistent-storage failure or uncertain/partial apply.
+- **14:41–14:46 UTC — explicit Reload cancel/accept:** after retained-draft Reset,
+  cancel kept the draft and boot1; accepting the later prompt genuinely reloaded
+  to boot2/default Quote. Raw storage was identical before/cancel/accept and writes
+  stayed 2 throughout. Hidden/pagehide events occurred only after acceptance.
+- **16:20–16:22 UTC — ordinary Quote A→B→A during held Reset:** 54 owned controls'
+  id/value/checked/badInput fields and 5 categories' id/name/icon fields were
+  identical in the before/after DOM captures. Two real input events showed B then
+  A in the same focus, with no intermediate change/blur. A normal Quote blur
+  occurred on Release, with no change event. The page retained A and its reload
+  notice, boot1/writes2, no hidden/pagehide event; old Save added zero writes and
+  changed no raw storage. This tests capture-input revision, not merely a changed
+  final raw value. Personal records, nonempty global libraries/preferences and
+  other-workspace registry/bundle values remained exact-equal.
+
+Local evidence SHA-256 references (files remain outside this repository):
+
+| Local evidence | SHA-256 |
+|---|---|
+| next-independent-case/VERIFICATION.json | 61e26d41ed29a210adaabeceef15760c965e0cc03d96d8e0c52b971cbf57914b |
+| next-independent-case/RELOAD-VERIFICATION.json | 9f370d68699d4265b4e5abbccd15a2edc64915bd964f1ca4e2a0a94a38b6fa5b |
+| next-independent-case/SHA256.json (18-entry original freeze) | 4c05218a0042fbbfa8d83eeff702456b009fd8e78d99ceca7679bc2ecdaa0e10 |
+| capture-revision-aba/VERIFICATION.json | 5fc3a578f6504ae64e86f5122c284110a0e48f92728ce1ccc5b50b52db9d372f |
+| capture-revision-aba/held-dom.json and edited-dom.json (equal bytes) | 65a1dcc8e4901c054c83239e1bc5ccdb1da6c28806258448c57447f786cdc097 |
+| capture-revision-aba/SHA256.json (15-entry supplement freeze) | d3be583b1c5d7ac2a5451d6e1580341acd3344d86f10fca5d5b76b3b32022483 |
+
+The original frozen PLAN's NOT RUN heading is historical; a separate local
+STATUS pointer links its completed results without modifying the original
+18-entry freeze. Screenshots, raw audits, DOM captures and generated fixtures
+are not included in this documentation change. Numeric two-different-invalid-raw
+input with equal value/badInput remains untested. None of these supplements
+passes the pending import/file/provider cases, import's 1500ms delay, installed
+extension persistence, install/upgrade, real providers or CWS. No version,
+manifest, release or approval status changes follow from this supplement.
+
 ## Isolation from default checks and release runtime
 
 The exact source `.github/workflows/release.yml` runs
