@@ -97,6 +97,19 @@ test('preserved Options CSS guard rejects other edits and broadened reviewed rul
 // unrelated status panels are stubs; native external navigation is not modeled.
 async function assertPassiveGuide(source=optionsSource,locale='en') {
  const document=createDocument(), calls=[], errors=[], stages=[];
+ const registrations=[],addDocumentListener=document.addEventListener.bind(document);
+ document.addEventListener=(type,handler,options)=>{
+  registrations.push({type,handler,options});addDocumentListener(type,handler,options);
+ };
+ // This fixture models document capture explicitly; the shared helper models
+ // only element bubbling. Dispatch the actual registered production callbacks,
+ // without asserting native browser event/number-input behavior.
+ const elementPrototype=Object.getPrototypeOf(document.body),dispatchElement=elementPrototype.dispatch;
+ elementPrototype.dispatch=function(type,fields={}){
+  const event={type,target:this,...fields};
+  for(const registration of registrations)if(registration.type===type&&registration.options===true)registration.handler(event);
+  return dispatchElement.call(this,type,fields);
+ };
  // This document owns its Element class; leave the shared DOM model unchanged.
  Object.getPrototypeOf(document.body).prepend=function(...children){
   const nodes=children.flatMap(child=>child.tagName==='#FRAGMENT'?[...child.children]:[child]);
@@ -135,7 +148,7 @@ async function assertPassiveGuide(source=optionsSource,locale='en') {
   tabs:{create:record('tabs.create'),query:record('tabs.query')},runtime:{sendMessage:record('runtime message')}};
  // Browser window properties are global bindings. This VM separates the two,
  // so expose the same preloaded i18n object for production t() as well.
- const context=vm.createContext({window,document,chrome,i18n:window.i18n,storageManager:{getRecoveryAvailability:async()=>({})},
+ const context=vm.createContext({window,document,chrome,i18n:window.i18n,storageManager:{getRecoveryAvailability:async()=>({}),set:record('storage write'),setAll:record('storage write'),saveSettingsPatch:record('storage write')},
   fetch:record('fetch'),XMLHttpRequest:record('XHR'),WebSocket:record('WebSocket'),EventSource:record('EventSource'),
   navigator:{sendBeacon:record('beacon')},setTimeout:record('timer'),clearTimeout(){},
   console:{log(){},warn(){},error:(...args)=>errors.push(args)}});
@@ -164,7 +177,30 @@ async function assertPassiveGuide(source=optionsSource,locale='en') {
   for(let ancestor=anchor.parentElement;ancestor;ancestor=ancestor.parentElement)assert.equal(ancestor.listeners.size,0,'no delegated guide handler');
   anchor.focus();anchor.dispatch('focus');anchor.dispatch('mouseover');anchor.dispatch('keydown',{key:'Enter'});anchor.dispatch('click');
  }
- assert.deepEqual([...document.listeners.keys()],['DOMContentLoaded'],'no document-level guide handler');
+ // These are the only two reviewed non-guide document listeners. Pin both
+ // callback behavior and its ownership collector: broadening selectors or
+ // adding arbitrary document handlers is not an acceptable exemption.
+ assert.deepEqual(registrations.map(({type})=>type),['input','change','DOMContentLoaded'],'only reviewed document handlers');
+ const reviewedHandler=`event => {
+    if (settingsReplacementControls().includes(event.target)) ++settingsOrdinaryInputRevision;
+}`;
+ for(const registration of registrations.slice(0,2)){
+  assert.equal(registration.options,true,'ordinary revision handler is capture-only');
+  assert.equal(registration.handler.toString(),reviewedHandler,'exact restricted ordinary revision handler');
+ }
+ assert.equal(crypto.createHash('sha256').update(context.settingsReplacementControls.toString()).digest('hex'),
+  '5e25717c2ad0abc44bf762cf450d1d3101326ef16a77eaf36326cfc96a0982ee','exact reviewed ordinary ownership collector');
+ const revision=()=>vm.runInContext('settingsOrdinaryInputRevision',context);
+ const beforeGuideEvents=revision();
+ for(const target of [guide,heading,...anchors])for(const type of ['input','change'])target.dispatch(type);
+ assert.equal(revision(),beforeGuideEvents,'guide input/change must not write ordinary revision');
+ // Positive control: an inert capture shim must not make the guide test pass.
+ const owned=node('input','quote-text');
+ for(const type of ['input','change']){
+  const beforeOwnedEvent=revision();owned.dispatch(type);
+  assert.equal(revision(),beforeOwnedEvent+1,'modeled capture reaches the ordinary owner');
+ }
+ owned.remove();
  assert.deepEqual(anchors.map(anchor=>anchor.href),originalHrefs,'guide URLs stay fixed');
  assert.deepEqual(anchors.map(anchor=>anchor.getAttribute('href')),originalHrefs);
  assert.deepEqual(calls,[],'startup, search, focus and guide clicks cause no JS requests or permissions');
@@ -175,4 +211,16 @@ test('passive-guide regression guard rejects injected requests and anchor handle
  await assert.rejects(assertPassiveGuide(optionsSource+"\ndocument.getElementById('subscription-usage-codex').addEventListener('click',()=>{});"),/no script listeners/);
  await assert.rejects(assertPassiveGuide(optionsSource+"\ndocument.querySelectorAll('a.btn').forEach(anchor=>anchor.addEventListener('click',()=>{}));"),/no script listeners/);
  await assert.rejects(assertPassiveGuide(optionsSource+"\nchrome.permissions.request({origins:['https:\/\/grok.com/*']});"),/no JS requests/);
+});
+
+test('passive-guide guard rejects unreviewed document handlers and expanded ordinary ownership',async()=>{
+ for(const [source,reason]of [
+  [optionsSource+"\ndocument.addEventListener('input',()=>{},true);",/only reviewed document handlers/],
+  [optionsSource.replace("}, true);\nfunction settingsReplacementFormSnapshot()", "}, false);\nfunction settingsReplacementFormSnapshot()"),/capture-only/],
+  [optionsSource.replace('if (settingsReplacementControls().includes(event.target)) ++settingsOrdinaryInputRevision;', '++settingsOrdinaryInputRevision;'),/exact restricted ordinary revision handler/],
+  [optionsSource.replace(".topic-title-input, .topic-score-input, #category-manage-list .cat-name", "a, .topic-title-input, .topic-score-input, #category-manage-list .cat-name"),/exact reviewed ordinary ownership collector/]
+ ]){
+  assert.notEqual(source,optionsSource,'mutation must change production source');
+  await assert.rejects(assertPassiveGuide(source),reason);
+ }
 });

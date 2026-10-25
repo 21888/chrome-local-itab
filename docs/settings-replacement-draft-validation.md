@@ -86,3 +86,44 @@ it was not retried with expanded permissions or a GUI. These modeled failures
 and passes must not be represented as native keystroke proof. No full suite,
 external writes/push/release, store publication, or installed-upgrade test was
 performed for this local change.
+
+## Passive subscription guide fixture correction (2026-10-25)
+
+The aggregate for `f2718b9` failed in run `40171495161`, job
+`121103075807`: 16,989/16,992 passed. All three failures were in
+`tests/subscription-usage-links.test.js`: its document-listener assertion allowed
+only `DOMContentLoaded`, so the two new ordinary revision capture listeners
+failed that assertion. The injected-request negative case was then intercepted
+by the wrong assertion before reaching its intended no-JS-request guard. The
+complete unchanged seven-test file reproduced locally with three failures
+(exit 1) before this fixture correction; this is not attributed to flakiness.
+
+The corrected fixture does **not** globally allow document listeners. It requires
+exactly the reviewed `input`, `change`, and `DOMContentLoaded` registrations,
+requires both ordinary listeners to use literal `capture === true`, pins the
+complete callback source, and pins the shared ordinary-control collector's
+SHA-256. A local capture-dispatch model delivers guide/heading/anchor `input`
+and `change` events to the actual production callbacks and verifies no revision
+change or recorded I/O. Owned `quote-text` input/change positive controls each
+must increment the revision, preventing an inert dispatch model from producing
+a false pass. No native browser event or numeric-input behavior is claimed.
+
+Four new mutation cases reject an extra document listener, non-capture listener,
+ungated revision callback, and expanded ordinary selector. Existing injected
+fetch/permission calls and direct/delegated anchor-listener negative cases still
+fail for their original no-request/no-anchor-listener reasons. Existing CSS,
+manifest, fixed-link, and permission-source safety assertions remain intact.
+Production `options.js` and CI configuration are unchanged by this correction.
+
+Validation after the fixture correction:
+
+- Complete passive-guide file: **8/8 passed**, exit 0.
+- Serial combined guide plus the preceding six Settings/lifecycle files:
+  **143/143 passed**, exit 0.
+- Fixture JavaScript syntax and `git diff --check`: passed.
+- Local logs retained at `/tmp/itab-passive-before.log`,
+  `/tmp/itab-passive-after.log`, and `/tmp/itab-passive-focused.log`.
+
+No full suite or new remote aggregate was run locally; the preceding remote
+aggregate remains a failure, not a retroactive pass. No push/release/store action
+was performed by this local correction task.
