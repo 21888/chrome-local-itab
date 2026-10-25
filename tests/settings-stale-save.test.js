@@ -53,6 +53,16 @@ function fixture(initial) {
     function manager() { const m = new StorageManager(); m._syncInitialized = true; return m; }
     async function page({initialize = true, events = false} = {}) {
         const storage = manager(), document = createDocument();
+        // Explicit document capture model: task-dom-model only bubbles element
+        // events. This is not a native DOM dispatch or number-input probe.
+        const captureHandlers = new Map(), addDocumentListener = document.addEventListener.bind(document);
+        document.addEventListener = (type, handler, options) => {
+            if (options === true || options?.capture) {
+                const handlers = captureHandlers.get(type) || [];
+                handlers.push(handler); captureHandlers.set(type, handlers);
+            }
+            addDocumentListener(type, handler, options);
+        };
         for (const id of ['hour12-format', 'show-seconds', 'show-clock', 'show-search', 'show-shortcuts',
             'show-weather', 'show-hot', 'show-movie', 'show-shortcut-titles', 'finder-shortcut-enabled', 'quote-text', 'search-engine',
             'search-custom', 'privacy-online-favicons', 'weather-city', 'weather-temp', 'weather-condition',
@@ -89,6 +99,9 @@ function fixture(initial) {
         const field = id => document.getElementById(id);
         return {storage, document, context, messages, timers, field, get reloads() { return reloads; },
             save: () => context.saveAllSettings(),
+            captureEdit(type, target) {
+                for (const handler of captureHandlers.get(type) || []) handler({type, target});
+            },
             readFileLater() {
                 const started = deferred(); let reader;
                 context.FileReader = class {readAsDataURL() { reader = this; started.resolve(); }};
@@ -839,4 +852,63 @@ for (const replacement of ['reset', 'import']) bounded(`${replacement} retains c
     if (replacement === 'import') for (const timer of [...p.timers.values()]) await timer();
     assert.equal(p.reloads, 0); assert.equal(input.value, '');
     assert.ok(p.context.window.settingsFormView.hasUncommittedWork());
+});
+
+for (const replacement of ['reset', 'import', 'delayed-import']) bounded(`${replacement} conservatively retains modeled same-exposed-state input event`, async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const input = p.field('shortcuts-gap-x'); input.value = ''; input.validity = {badInput: true};
+    if (replacement === 'delayed-import') await p.import(f.state());
+    else {
+        const gate = f.pauseNextWrite();
+        const replacing = replacement === 'reset' ? p.context.resetAllSettings() : p.import(f.state());
+        await gate.entered;
+        p.captureEdit('input', input);
+        gate.resume(); await replacing;
+    }
+    if (replacement === 'delayed-import') p.captureEdit('input', input);
+    if (replacement !== 'reset') for (const timer of [...p.timers.values()]) await timer();
+    assert.equal(input.value, ''); assert.equal(input.validity.badInput, true);
+    assert.equal(p.reloads, 0, 'later modeled edit event must survive identical exposed value/badInput');
+    assert.ok(p.context.window.settingsFormView.hasUncommittedWork());
+    const before = f.state(), count = f.writes.length; await p.save();
+    same(f.state(), before); assert.equal(f.writes.length, count, 'replacement save fence remains');
+});
+
+for (const type of ['input', 'change']) bounded(`${type} revision tracks only ordinary ownership including dynamic topics and categories`, async () => {
+    const f = fixture(), p = await f.page();
+    const targets = [p.field('quote-text'), p.field('show-clock'),
+        p.document.querySelector('#category-manage-list .cat-name'), p.document.querySelector('#category-manage-list .cat-icon')];
+    for (const className of ['topic-title-input', 'topic-score-input']) {
+        const input = p.document.createElement('input'); input.className = className;
+        p.document.body.append(input); targets.push(input);
+    }
+    const snapshot = () => JSON.parse(p.context.settingsReplacementFormSnapshot());
+    for (const target of targets) {
+        const before = snapshot(); p.captureEdit(type, target); const after = snapshot();
+        assert.equal(after.revision, before.revision + 1, `tracks ${target.id || target.className}`);
+        same(after.controls, before.controls, 'only event revision changes');
+        assert.equal(after.categories, before.categories);
+    }
+    for (const id of ['world-clock-zone', 'world-clock-label', 'drive-device-name', 'local-scratchpad-text', 'layout-search', 'unrelated-input']) {
+        const input = p.document.createElement('input'); input.id = id; p.document.body.append(input);
+        const before = snapshot(); p.captureEdit(type, input); same(snapshot(), before, `does not own ${id}`);
+    }
+    const before = snapshot(); p.captureEdit(type, p.field('hour12-format')); same(snapshot(), before, 'clock has its own owner');
+});
+bounded('edit revision before confirmation is discardable and second explicit reset owns later events', async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    p.captureEdit('input', p.field('quote-text'));
+    assert.equal(p.context.window.settingsFormView.hasUncommittedWork(), false, 'revision alone is not ordinary dirty state before replacement');
+    const gate = f.pauseNextWrite(), resetting = p.context.resetAllSettings(); await gate.entered;
+    p.captureEdit('change', p.field('show-clock')); gate.resume(); await resetting;
+    assert.equal(p.reloads, 0);
+    await p.context.resetAllSettings(); assert.equal(p.reloads, 1);
+    assert.equal(p.context.window.settingsFormView.hasUncommittedWork(), false);
+});
+bounded('unowned events during reset do not manufacture an ordinary draft', async () => {
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    const unrelated = p.document.createElement('input'); p.document.body.append(unrelated);
+    const gate = f.pauseNextWrite(), resetting = p.context.resetAllSettings(); await gate.entered;
+    p.captureEdit('input', unrelated); p.captureEdit('change', unrelated);
+    gate.resume(); await resetting; assert.equal(p.reloads, 1);
 });

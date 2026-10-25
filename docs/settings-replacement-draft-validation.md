@@ -33,3 +33,56 @@ The first remote aggregate on commit `648efbb9` failed: GitHub Actions run `4016
 The test fixture now supplies `querySelectorAll()` returning an empty collection because it intentionally contains no ordinary Settings/category/topic form controls. Production guards, expected write counts, exact exported/restored synthetic asset bytes, provider settings, recovery behavior and reload assertions were not changed. A new diagnostic assertion also requires successful roundtrips to have no swallowed internal import errors.
 
 The complete roundtrip file passes, and a serial run combining it with the preceding five targeted files passes **128/128**. Syntax and whitespace checks pass. This is a fixture correction supported by the reproduced exception, not a CI-flakiness attribution, and does not convert the failed remote aggregate into a pass. A new-commit remote aggregate remains necessary.
+
+## Conservative ordinary edit-event revision (2026-10-25)
+
+Raw snapshots cannot distinguish a later edit event if both `.value` and
+`validity.badInput` remain identical. A new page-local monotonic revision now
+tracks `input` and `change` in document capture phase, restricted to the same
+ordinary control collection used for raw snapshots (static ordinary IDs,
+dynamically rendered topic title/score, and category name/icon controls). Capture
+runs before target handlers normalize values or stop propagation. Clock, Drive,
+layout/private-content and unrelated controls retain their separate ownership.
+Raw value/checked/badInput/category snapshots remain, so programmatic changes
+without events are still detected.
+
+This intentionally errs toward preservation: an ordinary edit event after
+confirmation may keep the page even when its final exposed value is unchanged.
+The revision is compared only within the existing pending replacement guard;
+it does not independently make ordinary forms dirty. A fresh explicit reset
+captures a fresh revision and can still discard its confirmed unchanged draft.
+The replacement remains persisted, and the stale-page save fence is unchanged.
+
+Test-before-patch evidence: three new actual-`options.js` + actual lifecycle
+modeled cases (held reset, held import, and committed import before delayed
+reload) each kept `.value === ''` and `badInput === true`, then explicitly
+modeled a later document capture `input` event. All three failed on `5adce0b`
+with `reloads: actual 1, expected 0`, using:
+
+```sh
+node --test --test-name-pattern='same-exposed-state' tests/settings-stale-save.test.js
+```
+
+After the runtime patch those same three cases pass. The fixture explicitly
+models document capture listeners because its existing DOM helper only bubbles
+element events; it does not simulate native numeric editing. Additional tests
+cover both event types, ordinary and dynamic ownership, exclusion of other
+owners/unrelated inputs, unchanged pre-confirmation state, repeated explicit
+reset, and unchanged replacement save fencing. Existing no-event raw-control
+regressions remain in the suite.
+
+Final focused validation: **135/135 passed** in a single serial run:
+
+```sh
+node --test --test-concurrency=1 tests/settings-stale-save.test.js tests/backup-roundtrip.test.js tests/world-clocks-options.test.js tests/local-content-lifecycle.test.js tests/import-settings-navigation.test.js tests/dashboard-settings-pending-navigation.test.js
+node --check options.js
+node --check tests/settings-stale-save.test.js
+git diff --check
+```
+
+Native browser invalid-number behavior remains **unverified**. An earlier
+headless probe failed before opening the page with sandbox Unix socket `EPERM`;
+it was not retried with expanded permissions or a GUI. These modeled failures
+and passes must not be represented as native keystroke proof. No full suite,
+external writes/push/release, store publication, or installed-upgrade test was
+performed for this local change.

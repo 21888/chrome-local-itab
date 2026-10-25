@@ -157,7 +157,8 @@ function advanceSettingsBaseline(settings, paths, submittedForm) {
 // Replacement authorizes discarding the form at confirmation, not edits made
 // while its write or delayed reload is pending. Compare raw controls: validation
 // may normalize an unfinished search/number/empty field back to its old value.
-function settingsReplacementFormSnapshot() {
+let settingsOrdinaryInputRevision = 0;
+function settingsReplacementControls() {
     const ids = [
         'bg-type', 'bg-color', 'bg-color-text', 'bg-image-upload',
         'show-clock', 'show-search', 'show-shortcuts', 'show-weather', 'show-hot', 'show-movie',
@@ -171,8 +172,19 @@ function settingsReplacementFormSnapshot() {
         'shortcut-title-color-text', 'privacy-online-favicons'
     ];
     const controls = ids.map(id => document.getElementById(id)).filter(Boolean);
-    controls.push(...document.querySelectorAll('.topic-title-input, .topic-score-input'));
-    return JSON.stringify({controls: controls.map(input => [input.id || '', input.value, Boolean(input.checked),
+    controls.push(...document.querySelectorAll('.topic-title-input, .topic-score-input, #category-manage-list .cat-name, #category-manage-list .cat-icon'));
+    return controls;
+}
+// Capture before target handlers normalize a value or stop propagation. The same
+// ownership collection drives both event tracking and raw snapshots. An edit
+// event conservatively preserves the page even when the exposed value ends up
+// unchanged (including number inputs whose badInput state was already true).
+for (const type of ['input', 'change']) document.addEventListener(type, event => {
+    if (settingsReplacementControls().includes(event.target)) ++settingsOrdinaryInputRevision;
+}, true);
+function settingsReplacementFormSnapshot() {
+    const controls = settingsReplacementControls();
+    return JSON.stringify({revision: settingsOrdinaryInputRevision, controls: controls.map(input => [input.id || '', input.value, Boolean(input.checked),
         Boolean(input.validity?.badInput)]),
         categories: bookmarkCategorySignature()});
 }
