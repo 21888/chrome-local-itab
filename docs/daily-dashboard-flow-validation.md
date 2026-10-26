@@ -72,9 +72,45 @@ Native zoom was restored to 100% and document width 1180 before cleanup. Both ow
 | Focus setup/Reset | Actual Store/Controller/View regressions, full project run at the functional commit, desktop synthetic native setup and Reset chains | Other platforms and assistive technology not established |
 | Saved-site discovery and Organizer | Integrated add/reveal and complete move/review/back chains; native synthetic add/reveal grid/free routes | Every import/export and upgrade combination is not implied |
 | Tasks duplicate/edit/pin/completion | Two complete real-controller model chains here; ordinary add used after native template changes | Full duplicate/edit/retry chain not newly repeated in native UI |
-| Scratchpad workspace departure | Actual Manager/Session/lifecycle/picker/controller complete models, including failure/newer draft; ordinary native editing retained through appearance changes | Native multi-workspace departure/return remains separate from these models |
+| Scratchpad workspace departure | Actual Manager/Session/lifecycle/picker/controller complete models, including failure/newer draft; native normal and failed-save recovery round trips below | Native newer-typing-during-pending-write remains model-only; no import/upgrade conclusion |
 | Template/card layout/navigation | Desktop synthetic complete page plus the bounded measured-zoom keyboard routes above | 21-template × language × zoom × custom-layout matrix is incomplete; mobile devices, screen readers and real dragging not claimed |
-| Calculator and local recent results | Existing focused calculation/continuation/copy/recent-result model suites; historical scientific-calculation native spot checks | Current complete calculate → continue → recover from invalid expression → reuse recent result route is the next bounded check; no network search or clipboard read is required |
+| Calculator and local recent results | Existing nine focused files: 115/115 passed; native calculate → continue → local error → reuse older result → remove/clear history chain below | Clipboard interaction and installed-extension behavior were not part of this native pass |
 | Installed extension migration / file import incident | Existing retained failure and recovery evidence only | **Blocked separately** by the original file-selection approval/incident gate; no retry/bypass, upgrade-success claim, Release 161 or CWS submission |
 
-An untested combination is not a confirmed defect and not a reason to stop unrelated authorized development. The next calculator route should first establish its real public-control chain and only change production if a reproducible user-visible failure is found.
+An untested combination is not a confirmed defect and not a reason to stop unrelated authorized development. The calculator route below found no defect; Scratchpad multi-workspace departure/return was then checked below, keeping the original import incident separate. Remaining combinations stay explicitly bounded in the table.
+
+
+## Native calculator continuation and error recovery
+
+The same verified full-page runtime was served on isolated loopback port 8778 with synthetic storage, in one owned Chromium tab. The existing nine `local-calculator*.test.js` files separately passed **115/115**, exit 0. No production change was needed.
+
+1. Enter `=1/10000000`: local result `1e-7`. Use result restored `=1e-7` with the caret at its end; appending `*2` and Enter produced `2e-7`.
+2. Enter `=1/0`: the local divide-by-zero error appeared, without a site/provider opening. Recent results still contained both successful calculations.
+3. Use the older `1e-7` result: the input regained the exact reusable expression, without automatically calculating it. Append `+1` and Enter: `1.0000001`, with three history entries.
+4. Remove the middle `2e-7` history entry: two entries remained; the current expression/result were unchanged.
+5. Clear recent calculations: zero history rows remained while `=1e-7+1` and `1.0000001` stayed in the current input/result.
+
+Final DOM-backed synthetic readback showed **0 storage writes**, no opened sites, and exact preservation of Tasks, Scratchpad, Focus, Countdown, global settings and the other workspace. Calculator session history is not being described as persisted workspace data. Clipboard controls were not invoked or read. This was a native synthetic-page interaction test, not installation, upgrade, import or OS-input-method validation.
+
+The owned browser tab was closed; only the original untouched tab remained. The dedicated 8778 server was stopped with Ctrl-C, its stopped marker and shell prompt verified, and its terminal tab closed before releasing GUI ownership. Screenshots were inspected only in-tool, not uploaded.
+
+
+## Native Scratchpad workspace departure and explicit recovery
+
+An isolated port-8779 full-page fixture retained the same **138/138** runtime hashes. Only synthetic setup changed: a fresh session key, the second workspace's existing note enabled in its legal workspace bundle, visible write-hold/reject/release controls, and DOM-backed saved-note readback. The legacy shadow and production autosave delay were unchanged. The existing complete workspace/Scratchpad model file was rerun: **3/3 passed**, exit 0; this is a focused rerun, not a new 3,177-test aggregate.
+
+| Actual native action | Cumulative writes | Result |
+| --- | ---: | --- |
+| Ordinary edit/autosave of `Synthetic workspace return note 中文 👩‍💻` | 1 | Original workspace note saved, revision 1 |
+| Picker selects second workspace, then Default | 3 | Actual page navigation displays distinct second note, then exact saved first note |
+| Arm synthetic next write, edit `Synthetic failed-save draft 中文 retained`, reject held autosave | 3 | Failure shown; latest editor draft retained, original saved content unchanged |
+| Select second workspace → Stay | 3 | Draft decision prevents departure; Stay retains failed draft |
+| Select second workspace → Save and switch | 3 | Safely remains in Default with “Some edits need attention”; does not automatically retry a failed acknowledgement |
+| Stay → original editor's explicit Retry | 4 | Ordinary retry reads/checks saved state, saves exact draft as revision 2, shows Saved |
+| Select second workspace, then Default | 6 | Other note remains distinct/unchanged; returned editable note is exact recovered draft with Saved status |
+
+The failed-save route intentionally differs from a clean unsaved-draft Save and switch: the controller's existing error fence requires review/Retry in the original editor. The initial acceptance plan expected Save and switch to retry, but native evidence and source review corrected that expectation; no production bug or fix is claimed. No controls were forced through a modal's focus boundary, and no dirty-state race was manufactured by changing the autosave timer.
+
+Final readback retained the second workspace's entire content bundle, Tasks, Focus, Countdown and global settings exactly. Normal workspace selection updated registry/last-used state; it is **not** reported as zero-write or exact-registry preservation. No discard, import, export, clipboard or external provider action was performed. Native pending/newer-typing race coverage is not inferred from the separate model suite.
+
+The owned tab was closed, port 8779 stopped by Ctrl-C with its stopped marker and shell prompt verified, and the dedicated terminal tab closed. Browser inventory contained only the original untouched tab. Screenshots were inspected in-tool only. These calculator and Scratchpad acceptance results form one documentation update, not two new features or runtime fixes.
