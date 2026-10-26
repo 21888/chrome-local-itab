@@ -4,17 +4,18 @@ const fs = require('node:fs'), vm = require('node:vm');
 const { createDocument } = require('./helpers/task-dom-model');
 const storeApi = require('../shared/local-scratchpad-store');
 const { Controller } = require('../shared/local-scratchpad-controller');
-function model({fail=false}={}) {
+function model({fail=false,workspace}={}) {
     const document=createDocument(), events=new Map(), blobs=[];
     let raw, failRead=fail, failWrite=false, tail=Promise.resolve(), hold, writes=0;
     const listeners=new Set(), backend={
+        workspace,
         lock(fn){const p=tail.then(fn);tail=p.catch(()=>{});return p;},
         async read(){if(failRead)throw Error();return structuredClone(raw);},
         async write(v){if(hold)await hold;if(failWrite)throw Error();raw=structuredClone(v);writes++;listeners.forEach(fn=>fn());},
         subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn);}
     };
     const api={...storeApi,Controller};
-    const window={LocalItabScratchpad:api, Blob, TextDecoder, URL:{createObjectURL(blob){blobs.push(blob);return'blob:test';},revokeObjectURL(){}}, setTimeout(fn){fn();},addEventListener:(type,fn)=>events.set(type,fn),removeEventListener:type=>events.delete(type)};
+    const window={LocalItabScratchpad:api, ...(workspace ? {LocalItabWorkspaces:{session:workspace}} : {}), Blob, TextDecoder, URL:{createObjectURL(blob){blobs.push(blob);return'blob:test';},revokeObjectURL(){}}, setTimeout(fn, delay){ if (delay === 0) return setTimeout(fn, 0); fn(); },addEventListener:(type,fn)=>events.set(type,fn),removeEventListener:type=>events.delete(type)};
     const create=document.createElement;document.createElement=tag=>{const node=create(tag);node.click=()=>node.dispatch('click');return node;};
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-scratchpad-view'),'utf8'),{window,document});
     const host=document.createElement('article');document.body.append(host);const controller=new Controller(new api.Store(backend),{delay:5});
@@ -315,4 +316,96 @@ test('Append import: a second file selection retires decoded text before its asy
     m.view.applyImport(); assert.equal(m.writes, writes); assert.equal(m.controller.draft, 'saved');
     resolve(new TextEncoder().encode('second').buffer); await pending;
     assert.equal(m.writes, writes); assert(m.view.importPanel.hidden); m.view.destroy();
+});
+
+test('lost editor compositionend on focusout resumes autosave of current draft', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true);
+    try {
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'draft during composition'; m.view.textarea.dispatch('input');
+        m.view.textarea.dispatch('focusout'); await m.flush();
+        m.view.textarea.value = 'ordinary later draft'; m.view.textarea.dispatch('input'); await m.flush();
+        assert.equal(m.controller.composing, false);
+        assert.equal(m.raw.content, 'ordinary later draft');
+        assert.equal(m.controller.hasUncommittedWork(), false);
+    } finally { m.view.destroy(); }
+});
+function blurTurns(m) {
+    const callbacks = [], schedule = m.window.setTimeout;
+    m.window.setTimeout = (fn, delay) => delay === 0 ? callbacks.push(fn) : schedule(fn, delay);
+    return () => { for (const fn of callbacks.splice(0)) fn(); };
+}
+for (const order of ['input-end', 'end-input', 'no-end']) test(`editor blur reads final text with ${order} ordering and saves once`, async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true); const settleBlur = blurTurns(m), before = m.writes;
+    try {
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'unfinished'; m.view.textarea.dispatch('input');
+        m.view.textarea.dispatch('focusout');
+        m.view.textarea.value = 'final plain draft';
+        if (order === 'input-end') m.view.textarea.dispatch('input');
+        if (order !== 'no-end') m.view.textarea.dispatch('compositionend');
+        if (order === 'end-input') m.view.textarea.dispatch('input');
+        settleBlur(); await m.flush();
+        assert.equal(m.raw.content, 'final plain draft'); assert.equal(m.writes, before + 1); assert.equal(m.controller.composing, false);
+    } finally { m.view.destroy(); }
+});
+test('old editor blur does not end a newer composition or discard its draft', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true); const settleBlur = blurTurns(m), before = m.writes;
+    try {
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.dispatch('focusout');
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'new composition'; m.view.textarea.dispatch('input');
+        settleBlur(); await m.flush(); assert.equal(m.controller.composing, true); assert.equal(m.writes, before);
+        m.view.textarea.dispatch('compositionend'); await m.flush(); assert.equal(m.raw.content, 'new composition');
+    } finally { m.view.destroy(); }
+});
+for (const retire of ['destroy', 'workspace', 'controller', 'new-view']) test(`queued editor blur cannot save after ${retire} source retirement`, async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true); const settleBlur = blurTurns(m), before = m.writes;
+    let replacement;
+    try {
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'retired draft'; m.view.textarea.dispatch('input');
+        m.view.textarea.dispatch('focusout');
+        if (retire === 'destroy') m.view.destroy();
+        if (retire === 'workspace') m.backend.workspace = { id: 'replacement', generation: 2 };
+        if (retire === 'controller') m.view.controller = { closed: false };
+        if (retire === 'new-view') replacement = new m.api.View(m.host, { controller: new Controller(new m.api.Store(m.backend), { delay: 5 }) });
+        settleBlur(); await m.flush(); assert.equal(m.writes, before); assert.equal(m.raw.content, '');
+        assert.equal(m.controller.draft, 'retired draft');
+    } finally { replacement?.destroy(); m.view.controller = m.controller; m.view.destroy(); m.controller.destroy(); }
+});
+test('editor blur during pending save retains newer draft through the older settlement', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true); const settleBlur = blurTurns(m);
+    let release; const held = new Promise(resolve => { release = resolve; });
+    try {
+        m.hold(held); m.controller.setDraft('older dispatched draft'); const saving = m.controller.save(); await m.flush();
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'newer unsaved draft'; m.view.textarea.dispatch('input'); m.view.textarea.dispatch('focusout');
+        settleBlur(); assert.equal(m.controller.draft, 'newer unsaved draft'); assert.equal(m.controller.composing, false);
+        release(); await saving; await m.flush(); assert.equal(m.raw.content, 'newer unsaved draft'); assert.equal(m.view.textarea.value, 'newer unsaved draft');
+    } finally { release(); m.view.destroy(); }
+});
+test('editor blur does not retry a failed save or clear its error without an explicit Retry', async () => {
+    const m = model(); await m.flush(); await m.controller.setEnabled(true); const settleBlur = blurTurns(m);
+    try {
+        m.writeFail(true); m.controller.setDraft('failed draft'); await assert.rejects(m.controller.save()); const before = m.writes, error = m.controller.error;
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'new draft after failure'; m.view.textarea.dispatch('input'); m.view.textarea.dispatch('focusout');
+        m.writeFail(false); settleBlur(); await m.flush();
+        assert.equal(m.controller.composing, false); assert.equal(m.controller.error, error); assert.equal(m.writes, before); assert.equal(m.controller.draft, 'new draft after failure');
+        await m.controller.retry(); assert.equal(m.raw.content, 'new draft after failure');
+    } finally { m.view.destroy(); }
+});
+for (const field of ['id', 'generation']) test(`queued editor blur rejects a changed workspace ${field} on the same object`, async () => {
+    const workspace = { id: 'original-workspace', generation: 1 }, m = model({ workspace });
+    await m.flush(); await m.controller.setEnabled(true); const settleBlur = blurTurns(m), before = m.writes;
+    try {
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'original workspace draft'; m.view.textarea.dispatch('input'); m.view.textarea.dispatch('focusout');
+        workspace[field] = field === 'id' ? 'replacement-workspace' : 2;
+        settleBlur(); await m.flush(); assert.equal(m.writes, before); assert.equal(m.raw.content, ''); assert.equal(m.controller.draft, 'original workspace draft');
+    } finally { m.view.destroy(); }
+});
+test('editor blur preserves the lifecycle autosave pause instead of forcing a write', async () => {
+    const previous = globalThis.LocalItabContentLifecycle;
+    const m = model(); await m.flush(); await m.controller.setEnabled(true); const settleBlur = blurTurns(m), before = m.writes;
+    try {
+        globalThis.LocalItabContentLifecycle = { autosavePaused: true };
+        m.view.textarea.dispatch('compositionstart'); m.view.textarea.value = 'retained during lifecycle pause'; m.view.textarea.dispatch('input'); m.view.textarea.dispatch('focusout');
+        settleBlur(); await m.flush(); assert.equal(m.writes, before); assert.equal(m.controller.composing, false); assert.equal(m.controller.draft, 'retained during lifecycle pause');
+        globalThis.LocalItabContentLifecycle.autosavePaused = false; m.controller.schedule(); await m.flush(); assert.equal(m.raw.content, 'retained during lifecycle pause');
+    } finally { globalThis.LocalItabContentLifecycle = previous; m.view.destroy(); }
 });

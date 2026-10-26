@@ -464,6 +464,22 @@
                 // A newer composition event owns its own completion instead.
                 callEditor(this, token, controller, 'setComposing', [false], () => editorCompositionCurrent(this, token));
             });
+            this.textarea.addEventListener('focusout', event => {
+                const owner = viewEditors.get(this);
+                if (!editorSourceCurrent(this, owner) || !controller.composing ||
+                    event.target !== owner.lifecycle.nodes.textarea) return;
+                const composition = owner.composition;
+                // Let the browser's final input/end events run first. A missing
+                // end must not suspend this draft's normal autosave indefinitely.
+                root.setTimeout(() => {
+                    if (!editorSourceCurrent(this, owner) || owner.composition !== composition || !controller.composing) return;
+                    const token = beginEditor(this, event, 'focusout');
+                    if (!editorCurrent(this, token)) return;
+                    token.composition = ++owner.composition;
+                    draftFromEditor(this, token);
+                    callEditor(this, token, controller, 'setComposing', [false], () => editorCompositionCurrent(this, token));
+                }, 0);
+            });
             this.savedPreview = el('textarea', 'scratchpad-text scratchpad-saved-preview'); this.savedPreview.readOnly = true; this.savedPreview.spellcheck = false; this.savedPreview.setAttribute('aria-label', t('scratchpadSavedPreview'));
             this.savedLabel = el('p', 'scratchpad-help', t('scratchpadSavedPreview'));
             this.status = el('p', 'scratchpad-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
