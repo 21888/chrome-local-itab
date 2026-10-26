@@ -141,3 +141,113 @@ test('a real stale storage snapshot returns keyboard control to Cancel and a fre
     assert.equal(writes, 1); assert.deepEqual(state, moved);
     assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.document.activeElement, opener);
 });
+
+test('retiring an organizer during its read removes the old dialog and late read cannot steal new focus', async () => {
+    const h = model(), read = deferred(); h.read = read;
+    const opening = h.view.open(); await tick();
+    assert.equal(h.view.pending, true);
+    h.view.destroy(); h.host.remove();
+    const newer = h.document.createElement('button'); newer.textContent = 'New dashboard action'; h.document.body.append(newer); newer.focus();
+    assert.equal(h.document.querySelector('.organizer-overlay'), null, 'retired loading dialog must not remain over the new dashboard');
+    read.resolve(h.snapshot); await opening;
+    assert.equal(h.document.querySelector('.organizer-overlay'), null);
+    assert.equal(h.document.activeElement, newer); assert.equal(h.calls, 0);
+    assert.equal(h.view.hasUncommittedWork(), false);
+});
+
+test('real shortcuts render retires an organizer waiting for its original read before mounting another', async () => {
+    const h = model(), read = deferred(); h.read = read;
+    const container = h.document.createElement('section'); container.id = 'shortcuts-container'; h.document.body.append(container); container.append(h.host);
+    vm.runInContext(fs.readFileSync('newtab.js', 'utf8') + '\nthis.ShortcutsComponent = ShortcutsComponent;', h.context);
+    const component = new h.context.ShortcutsComponent([], { autoArrange: true }, h.snapshot.categories);
+    component.applyLayoutMode = () => {}; component.createModal = () => {};
+    component.organizerView = h.view;
+    const opening = h.view.open(); await tick();
+    component.render();
+    assert.notEqual(component.organizerView, h.view);
+    assert.equal(h.document.querySelector('.organizer-overlay'), null, 'render must not leave the retired overlay on body');
+    h.read = null; await component.organizerView.open();
+    const freshSearch = h.document.querySelector('.organizer-search-input'); freshSearch.value = 'new query'; freshSearch.dispatch('input'); freshSearch.focus();
+    read.resolve({ links: [], categories: [], state: {} }); await opening;
+    assert.equal(h.document.querySelectorAll('.organizer-overlay').length, 1);
+    assert.equal(h.document.querySelector('.organizer-search-input'), freshSearch);
+    assert.equal(freshSearch.value, 'new query'); assert.equal(h.document.activeElement, freshSearch);
+    assert.equal(h.calls, 0); component.organizerView.close();
+});
+
+function rejectable() { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; }
+
+for (const settle of ['resolve', 'reject']) test(`destroy during layout preparation stops a late ${settle} before any snapshot read`, async () => {
+    const h = model(), flush = rejectable(); h.component.layoutController.flush = () => flush.promise;
+    const opening = h.view.open(); assert.equal(h.reads, 0);
+    assert.equal(h.view.destroy(), true);
+    let replacementReads = 0; h.context.storageManager = { async readShortcutOrganizerSnapshot() { replacementReads++; return h.snapshot; } };
+    const newer = h.document.createElement('button'); h.document.body.append(newer); newer.focus();
+    settle === 'resolve' ? flush.resolve(true) : flush.reject(new Error('Late flush failure'));
+    assert.equal(await opening, false); assert.equal(h.reads, 0); assert.equal(replacementReads, 0);
+    assert.equal(h.document.querySelector('.organizer-overlay'), null); assert.equal(h.document.activeElement, newer);
+    assert.equal(await h.view.open(), false); assert.equal(h.calls, 0);
+});
+
+test('a destroyed read rejection cannot paint an error or reopen via retained public open', async () => {
+    const h = model(), read = rejectable(); h.read = read;
+    const opening = h.view.open(); await tick(); h.view.destroy();
+    read.reject(new Error('Late read failure')); assert.equal(await opening, false);
+    assert.equal(await h.view.open(), false); assert.equal(h.document.querySelector('.organizer-overlay'), null);
+    assert.equal(h.view.pending, false); assert.equal(h.view.hasUncommittedWork(), false); assert.equal(h.calls, 0);
+});
+
+for (const stage of ['flush', 'read']) test(`storage replacement during ${stage} retires preparation rather than showing the previous source`, async () => {
+    const h = model(), pending = rejectable();
+    if (stage === 'flush') h.component.layoutController.flush = () => pending.promise;
+    else h.read = pending;
+    const opening = h.view.open(); await tick();
+    let replacementReads = 0; h.context.storageManager = { async readShortcutOrganizerSnapshot() { replacementReads++; return h.snapshot; } };
+    pending.resolve(stage === 'flush' ? true : h.snapshot); assert.equal(await opening, false);
+    assert.equal(replacementReads, 0); assert.equal(h.document.querySelector('.organizer-overlay'), null); assert.equal(h.calls, 0);
+});
+
+test('ordinary Cancel during preparation remains reusable and old flush cannot read into the new opening', async () => {
+    const h = model(), flush = rejectable(); h.component.layoutController.flush = () => flush.promise;
+    const old = h.view.open(); assert.equal(h.view.close(), true);
+    h.component.layoutController.flush = async () => true;
+    assert.equal(await h.view.open(), true); const search = h.document.querySelector('.organizer-search-input'); search.value = 'Twin'; search.dispatch('input'); search.focus();
+    assert.equal(h.reads, 1); flush.resolve(true); assert.equal(await old, false);
+    assert.equal(h.reads, 1); assert.equal(h.document.activeElement, search); assert.equal(search.value, 'Twin'); h.view.close();
+});
+
+for (const outcome of ['success', 'retryable']) test(`destroy cannot cancel a submitted write before ${outcome} settlement`, async () => {
+    const h = model(), write = rejectable(); h.write = write; await h.review(); h.click('Move reviewed sites');
+    const panel = h.document.querySelector('.organizer-panel');
+    assert.equal(h.view.destroy(), false); assert.equal(h.view.close(), false);
+    assert.equal(h.view.pending, true); assert.equal(h.document.querySelector('.organizer-panel'), panel); assert.equal(h.calls, 1);
+    if (outcome === 'success') write.resolve();
+    else write.reject(Object.assign(new Error('Synthetic write failure'), { code: 'ORGANIZER_FAILED' }));
+    await tick(); assert.equal(h.view.pending, false);
+    if (outcome === 'retryable') {
+        assert.equal(h.button('Retry reviewed move').disabled, false);
+        assert.equal(h.document.activeElement, h.button('Retry reviewed move'));
+        assert.deepEqual(Array.from(h.request.indices), [1]);
+    }
+    assert.equal(h.view.destroy(), true); assert.equal(await h.view.open(), false); assert.equal(h.calls, 1);
+});
+
+for (const outcome of ['resolve', 'reject']) for (const stage of ['flush', 'read']) for (const change of ['workspace-object', 'workspace-id', 'workspace-generation', 'session-object', 'session-id', 'session-generation', 'layout-controller']) test(`${stage} ${outcome} preparation refuses changed ${change} within the same store and host`, async () => {
+    const h = model(), pending = rejectable();
+    h.context.storageManager.workspace = { id: 'original', generation: 1 };
+    h.context.LocalItabWorkspaces = { session: { id: 'original', generation: 1 } };
+    if (stage === 'flush') h.component.layoutController.flush = () => pending.promise;
+    else h.read = pending;
+    const opening = h.view.open(); await tick();
+    const target = change.startsWith('workspace') ? h.context.storageManager.workspace : h.context.LocalItabWorkspaces.session;
+    if (change === 'workspace-object') h.context.storageManager.workspace = { ...target };
+    else if (change === 'session-object') h.context.LocalItabWorkspaces.session = { ...target };
+    else if (change.endsWith('-id')) target.id = 'replacement';
+    else if (change.endsWith('-generation')) target.generation++;
+    else h.component.layoutController = { async flush() {} };
+    const newer = h.document.createElement('button'); h.document.body.append(newer); newer.focus();
+    if (outcome === 'resolve') pending.resolve(stage === 'flush' ? true : h.snapshot);
+    else pending.reject(new Error('Late original-source failure'));
+    assert.equal(await opening, false); assert.equal(h.reads, stage === 'flush' ? 0 : 1);
+    assert.equal(h.document.querySelector('.organizer-overlay'), null); assert.equal(h.document.activeElement, newer); assert.equal(h.calls, 0);
+});

@@ -19,17 +19,26 @@
     const t = key => { const value = root.i18n?.t(key); return value && value !== key ? value : fallback[key]; };
     const el = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
     function mount(host, component) {
-        let overlay, body, status, cleanup, snapshot, request, selected = new Set(), destination = '', query = '', busy = false, revision = 0, selectionRevision = 0, submitted = false;
+        let overlay, body, status, cleanup, snapshot, request, selected = new Set(), destination = '', query = '', busy = false, revision = 0, selectionRevision = 0, submitted = false, destroyed = false;
         const button = (key, action) => { const node = el('button', t(key)); node.type = 'button'; node.addEventListener('click', event => { if (node.isConnected && !node.disabled && !event.isComposing && event.keyCode !== 229 && !event.repeat && !(event.detail > 1)) action(); }); return node; };
         const opener = button('organizerOpen', () => open()); opener.className = 'organizer-opener'; opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
-        function close() {
+        function close(restoreFocus = true) {
             if (busy && submitted) return false;
-            revision++; busy = false; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; request = snapshot = null; selected.clear(); destination = query = ''; submitted = false; return true;
+            revision++; busy = false; cleanup?.(restoreFocus); cleanup = null; overlay?.remove(); overlay = null; request = snapshot = null; selected.clear(); destination = query = ''; submitted = false; return true;
         }
         function controls() { for (const node of overlay.querySelectorAll('button, input, select')) node.disabled = busy || node.dataset.unavailable === 'true'; }
         async function open(source = '') {
-            if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
-            const owner = ++revision; busy = true; selected = new Set(); destination = query = ''; request = null; submitted = false;
+            if (destroyed || !host.isConnected || overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
+            const owner = ++revision, store = root.storageManager, controller = component.layoutController;
+            const workspace = store.workspace, session = root.LocalItabWorkspaces?.session;
+            const workspaceId = workspace?.id, workspaceGeneration = workspace?.generation;
+            const sessionId = session?.id, sessionGeneration = session?.generation;
+            const sourceCurrent = () => root.storageManager === store && host.isConnected &&
+                component.layoutController === controller && store.workspace === workspace &&
+                workspace?.id === workspaceId && workspace?.generation === workspaceGeneration &&
+                !workspace?.invalidated && !workspace?._suspended && root.LocalItabWorkspaces?.session === session &&
+                session?.id === sessionId && session?.generation === sessionGeneration && !session?.invalidated && !session?._suspended;
+            busy = true; selected = new Set(); destination = query = ''; request = null; submitted = false;
             overlay = el('div', undefined, 'organizer-overlay'); const panel = el('section', undefined, 'organizer-panel');
             panel.tabIndex = -1; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-label', t('organizerOpen'));
             panel.append(el('h2', t('organizerOpen'))); status = el('p', t('organizerLoading')); status.setAttribute('role', 'status'); panel.append(status);
@@ -37,15 +46,25 @@
             cleanup = root.LocalItabDialog?.open(overlay, panel, close);
             try {
                 // Pending layout writes complete before capturing the exact review.
-                const controller = component.layoutController;
                 if (controller?.failedChange || controller?.invalidated) throw Object.assign(new Error(), { code: 'ORGANIZER_LAYOUT_PENDING' });
                 const flushed = await controller?.flush();
-                if (flushed === false || controller?.failedChange || controller?.invalidated) throw Object.assign(new Error(), { code: 'ORGANIZER_LAYOUT_PENDING' });
-                const fresh = await root.storageManager.readShortcutOrganizerSnapshot();
+                // Read preparation is cancellable; never advance a retired opening
+                // into a read against a newly mounted storage source.
                 if (owner !== revision) return false;
+                if (!sourceCurrent()) { close(false); return false; }
+                if (flushed === false || controller?.failedChange || controller?.invalidated) throw Object.assign(new Error(), { code: 'ORGANIZER_LAYOUT_PENDING' });
+                const fresh = await store.readShortcutOrganizerSnapshot();
+                if (owner !== revision) return false;
+                if (!sourceCurrent()) { close(false); return false; }
                 snapshot = fresh;
                 busy = false; renderSelection(source); return true;
-            } catch (error) { if (owner === revision) { busy = false; status.textContent = t(error.code === 'ORGANIZER_LAYOUT_PENDING' ? 'organizerLayout' : 'organizerError'); } return false; }
+            } catch (error) {
+                if (owner === revision) {
+                    if (!sourceCurrent()) { close(false); return false; }
+                    busy = false; status.textContent = t(error.code === 'ORGANIZER_LAYOUT_PENDING' ? 'organizerLayout' : 'organizerError');
+                }
+                return false;
+            }
         }
         function renderSelection(source = '') {
             const owner = revision, view = ++selectionRevision;
@@ -182,7 +201,12 @@
                 status.textContent = t(error.code === 'ORGANIZER_LAYOUT_PENDING' ? 'organizerLayout' : error.code === 'ORGANIZER_FAILED' ? 'organizerFailed' : error.code === 'ORGANIZER_UNVERIFIED' ? 'organizerUnverified' : 'organizerChanged');
             }
         }
-        return { open, close, get pending() { return busy; }, hasUncommittedWork: () => Boolean(overlay || busy), destroy() { if (!busy) { close(); opener.remove(); } } };
+        return { open, close, get pending() { return busy; }, hasUncommittedWork: () => Boolean(overlay || busy), destroy() {
+            // Preserve the existing submitted-write guard. Loading alone owns no
+            // mutation and must not leave an orphan dialog after host replacement.
+            if (busy && submitted) return false;
+            destroyed = true; close(false); opener.remove(); return true;
+        } };
     }
     api.mount = mount;
 })(window);
