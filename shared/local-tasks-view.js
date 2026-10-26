@@ -154,13 +154,36 @@
             this.filterQuery = ''; this.filterComposing = false;
             this.filter = el('div', 'tasks-filter'); this.filterInput = el('input'); this.filterInput.type = 'text';
             this.filterInput.setAttribute('aria-label', t('tasksFilter')); this.filterInput.placeholder = t('tasksFilterPlaceholder');
-            this.filterInput.addEventListener('compositionstart', () => { this.filterComposing = true; });
-            this.filterInput.addEventListener('compositionend', () => { this.filterComposing = false; this.applyFilter(); });
-            this.filterInput.addEventListener('input', event => { if (!this.filterComposing && !event.isComposing) this.applyFilter(); });
+            const filterInput = this.filterInput;
+            let filterCompositionEpoch = 0;
+            const filterCurrent = () => viewSourceCurrent(this, lifecycle) && this.filterInput === filterInput &&
+                filterInput.isConnected && host.contains(filterInput);
+            filterInput.addEventListener('compositionstart', () => {
+                if (!filterCurrent()) return;
+                filterCompositionEpoch++; this.filterComposing = true;
+            });
+            filterInput.addEventListener('compositionend', () => {
+                if (!filterCurrent()) return;
+                filterCompositionEpoch++; this.filterComposing = false; this.applyFilter();
+            });
+            filterInput.addEventListener('focusout', () => {
+                if (!filterCurrent() || !this.filterComposing) return;
+                const epoch = filterCompositionEpoch;
+                // A cancelled IME may omit compositionend. Wait through final
+                // same-turn input; a newer composition or Clear owns its state.
+                setTimeout(() => {
+                    if (!filterCurrent() || epoch !== filterCompositionEpoch) return;
+                    filterCompositionEpoch++; this.filterComposing = false; this.applyFilter();
+                }, 0);
+            });
+            filterInput.addEventListener('input', event => {
+                if (filterCurrent() && !this.filterComposing && !event.isComposing) this.applyFilter();
+            });
             this.filterClear = button('tasksFilterClear', () => {
-                const ownsFocus = document.activeElement === this.filterClear || document.activeElement === this.filterInput;
-                this.filterInput.value = ''; this.filterComposing = false; this.applyFilter();
-                if (ownsFocus) this.filterInput.focus();
+                if (!filterCurrent()) return;
+                const ownsFocus = document.activeElement === this.filterClear || document.activeElement === filterInput;
+                filterCompositionEpoch++; filterInput.value = ''; this.filterComposing = false; this.applyFilter();
+                if (ownsFocus) filterInput.focus();
             });
             this.filter.append(this.filterInput, this.filterClear);
             this.filterStatus = el('p', 'tasks-help'); this.filterStatus.hidden = true; this.filterStatus.setAttribute('role', 'status');

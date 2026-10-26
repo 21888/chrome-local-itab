@@ -26,7 +26,7 @@ function model(options = {}) {
     vm.runInContext(fs.readFileSync(fs.existsSync(dialogPath) ? dialogPath : path.resolve(__dirname, '../source-model/shared/dialog-focus.js'), 'utf8'), context);
     vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../shared/local-tasks-view.js'), 'utf8'), context);
     const view = api.mount(host, { controller, alwaysVisible: options.alwaysVisible ?? true, onVisibility: options.onVisibility });
-    return { b, store, controller, document, host, search, api, view };
+    return { b, store, controller, document, host, search, api, view, window };
 }
 const button = (parent, text) => parent.querySelectorAll('button').find(node => node.textContent === text);
 const click = (parent, text) => { const node = button(parent, text); assert(node, `button ${text}`); node.dispatch('click'); return node; };
@@ -802,4 +802,77 @@ test('recovery preview: Chinese catalog labels describe snapshot states and remo
     ]);
     assert.match(preview.querySelector('.tasks-help').textContent, /已移除.*保持已移除/);
     assert.deepEqual(recoveryPreviewTexts(modal(h)), copy.content.records.map(record => record.text));
+});
+
+test('DOM model: task filter recovers from composition blur without an end event',async()=>{
+    const timers=[],h=model({setTimeout:fn=>{timers.push(fn);return timers.length;}});await settle();
+    await seed(h,'Alpha task');await seed(h,'Beta task');const before=JSON.stringify(h.b.raw());
+    const input=h.view.filterInput;input.focus();input.dispatch('compositionstart');input.value='Alpha';input.dispatch('input',{isComposing:true});
+    h.search.focus();input.dispatch('focusout');assert.equal(h.view.filterQuery,'','final composition input keeps this turn');
+    for(const fn of timers.splice(0))fn();
+    assert.equal(h.view.filterComposing,false,'lost compositionend must not strand later searches');
+    input.focus();setInput(input,'Beta');assert.equal(h.view.list.querySelector('.tasks-text').textContent,'Beta task');
+    assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,1);assert.equal(JSON.stringify(h.b.raw()),before);
+    h.view.destroy();
+});
+
+for(const settlement of ['final-input','compositionend','refocus'])test(`DOM model: filter blur retains ${settlement} and does not move focus or write`,async()=>{
+    const timers=[],h=model({setTimeout:fn=>{timers.push(fn);return timers.length;}});await settle();
+    await seed(h,'Alpha');await seed(h,'Beta');let writes=0;const write=h.b.write;h.b.write=async value=>{writes++;return write(value);};
+    const input=h.view.filterInput;input.focus();input.dispatch('compositionstart');input.value='Al';input.dispatch('input',{isComposing:true});
+    h.search.focus();input.dispatch('focusout');input.value='Beta';
+    if(settlement==='compositionend')input.dispatch('compositionend');
+    input.dispatch('input',{isComposing:settlement!=='compositionend'});
+    if(settlement==='refocus')input.focus();const focus=h.document.activeElement;
+    for(const fn of timers.splice(0))fn();
+    assert.equal(h.view.filterComposing,false);assert.equal(h.view.filterQuery,'beta');assert.equal(input.value,'Beta');
+    assert.equal(h.view.list.querySelector('.tasks-text').textContent,'Beta');assert.equal(h.document.activeElement,focus);assert.equal(writes,0);h.view.destroy();
+});
+
+test('DOM model: an older filter blur cannot end a newer composition or undo Clear',async()=>{
+    const timers=[],h=model({setTimeout:fn=>{timers.push(fn);return timers.length;}});await settle();await seed(h,'Alpha');await seed(h,'Beta');
+    const input=h.view.filterInput;input.focus();input.dispatch('compositionstart');input.value='Alpha';h.search.focus();input.dispatch('focusout');
+    input.focus();input.dispatch('compositionstart');input.value='Beta';input.dispatch('input',{isComposing:true});
+    for(const fn of timers.splice(0))fn();assert.equal(h.view.filterComposing,true);assert.equal(h.view.filterQuery,'');
+    input.dispatch('compositionend');assert.equal(h.view.filterQuery,'beta');
+    input.dispatch('compositionstart');h.search.focus();input.dispatch('focusout');h.view.filterClear.dispatch('click');
+    setInput(input,'Alpha');for(const fn of timers.splice(0))fn();
+    assert.equal(h.view.filterComposing,false);assert.equal(h.view.filterQuery,'alpha');assert.equal(input.value,'Alpha');h.view.destroy();
+});
+
+for(const retirement of ['destroy','workspace'])test(`DOM model: ${retirement} retires old filter blur and events before a new view`,async()=>{
+    const timers=[],h=model({setTimeout:fn=>{timers.push(fn);return timers.length;}});await settle();await seed(h,'Alpha');await seed(h,'Beta');
+    const old=h.view,input=old.filterInput;input.focus();input.dispatch('compositionstart');input.value='Alpha';h.search.focus();input.dispatch('focusout');
+    if(retirement==='destroy')old.destroy();
+    else {h.b.workspace={id:'workspace_new',generation:'generation_new'};h.window.LocalItabWorkspaces={session:h.b.workspace};}
+    const host=h.document.createElement('article');h.document.body.append(host);
+    const controller=new Controller(h.store),view=h.api.mount(host,{controller,alwaysVisible:true});await settle();
+    view.filterInput.focus();view.filterInput.dispatch('compositionstart');view.filterInput.value='Beta';view.filterInput.dispatch('input',{isComposing:true});
+    const raw=JSON.stringify(h.b.raw()),query=old.filterQuery;
+    for(const fn of timers.splice(0))fn();input.dispatch('compositionend');setInput(input,'stale');old.filterClear.dispatch('click');
+    assert.equal(old.filterQuery,query);assert.equal(view.filterComposing,true);assert.equal(view.filterQuery,'');assert.equal(view.filterInput.value,'Beta');
+    view.filterInput.dispatch('compositionend');assert.equal(view.filterQuery,'beta');assert.equal(view.list.querySelector('.tasks-text').textContent,'Beta');
+    assert.equal(JSON.stringify(h.b.raw()),raw);view.destroy();if(retirement==='workspace')old.destroy();
+});
+
+for(const transition of ['hide','detach'])test(`DOM model: temporary filter ${transition} cannot replay an older query`,async()=>{
+    const timers=[],h=model({setTimeout:fn=>{timers.push(fn);return timers.length;}});await settle();await seed(h,'Alpha');await seed(h,'Beta');
+    const raw=JSON.stringify(h.b.raw()),input=h.view.filterInput,parent=input.parentElement;
+    input.focus();input.dispatch('compositionstart');input.value='Alpha';h.search.focus();input.dispatch('focusout');
+    if(transition==='hide')h.host.hidden=true;else input.remove();
+    input.value='Beta';
+    if(transition==='hide')h.host.hidden=false;else parent.append(input);
+    for(const fn of timers.splice(0))fn();
+    assert.equal(input.value,'Beta');assert.equal(h.view.filterQuery,'beta');assert.equal(h.view.list.querySelector('.tasks-text').textContent,'Beta');
+    assert.equal(h.document.activeElement,h.search);assert.equal(JSON.stringify(h.b.raw()),raw);h.view.destroy();
+});
+
+test('DOM model: mouse Clear stays empty through the old filter composition end and blur callback',async()=>{
+    const timers=[],h=model({setTimeout:fn=>{timers.push(fn);return timers.length;}});await settle();await seed(h,'Alpha');await seed(h,'Beta');
+    const raw=JSON.stringify(h.b.raw()),input=h.view.filterInput;
+    input.focus();input.dispatch('compositionstart');input.value='Alpha';h.view.filterClear.focus();input.dispatch('focusout');
+    h.view.filterClear.dispatch('click',{detail:1});input.dispatch('compositionend');input.dispatch('input',{isComposing:true});
+    for(const fn of timers.splice(0))fn();
+    assert.equal(input.value,'');assert.equal(h.view.filterQuery,'');assert.equal(h.view.filterComposing,false);
+    assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,2);assert.equal(JSON.stringify(h.b.raw()),raw);h.view.destroy();
 });
