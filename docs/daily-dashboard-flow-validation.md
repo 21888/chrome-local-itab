@@ -69,9 +69,9 @@ Native zoom was restored to 100% and document width 1180 before cleanup. Both ow
 
 | Area | Evidence currently established | Remaining scope / actual blocker |
 | --- | --- | --- |
-| Focus setup/Reset | Actual Store/Controller/View regressions, full project run at the functional commit, desktop synthetic native setup and Reset chains | Other platforms and assistive technology not established |
+| Focus setup/Reset and temporary view | Actual Store/Controller/View regressions, full project run at the functional commit, native setup/Reset plus full-page temporary-view chain below | Other platforms, assistive technology and native full elapsed-interval completion not established |
 | Saved-site discovery and Organizer | Integrated add/reveal and complete move/review/back chains; native synthetic add/reveal grid/free routes | Every import/export and upgrade combination is not implied |
-| Tasks duplicate/edit/pin/completion | Two complete real-controller model chains here; ordinary add used after native template changes | Full duplicate/edit/retry chain not newly repeated in native UI |
+| Tasks duplicate/edit/pin/completion | Two complete real-controller model chains; native duplicate identity/edit/pin/completion/Undo and failed-save retry below | Newer typing during an in-flight save remains model-only; this native retry typed after rejection |
 | Scratchpad workspace departure | Actual Manager/Session/lifecycle/picker/controller complete models, including failure/newer draft; native normal and failed-save recovery round trips below | Native newer-typing-during-pending-write remains model-only; no import/upgrade conclusion |
 | Template/card layout/navigation | Desktop synthetic complete page plus the bounded measured-zoom keyboard routes above | 21-template × language × zoom × custom-layout matrix is incomplete; mobile devices, screen readers and real dragging not claimed |
 | Calculator and local recent results | Existing nine focused files: 115/115 passed; native calculate → continue → local error → reuse older result → remove/clear history chain below | Clipboard interaction and installed-extension behavior were not part of this native pass |
@@ -114,3 +114,28 @@ The failed-save route intentionally differs from a clean unsaved-draft Save and 
 Final readback retained the second workspace's entire content bundle, Tasks, Focus, Countdown and global settings exactly. Normal workspace selection updated registry/last-used state; it is **not** reported as zero-write or exact-registry preservation. No discard, import, export, clipboard or external provider action was performed. Native pending/newer-typing race coverage is not inferred from the separate model suite.
 
 The owned tab was closed, port 8779 stopped by Ctrl-C with its stopped marker and shell prompt verified, and the dedicated terminal tab closed. Browser inventory contained only the original untouched tab. Screenshots were inspected in-tool only. These calculator and Scratchpad acceptance results form one documentation update, not two new features or runtime fixes.
+
+
+## Native Tasks duplicate identity and recovery
+
+Port 8780 used the same 138 verified runtime files and synthetic storage. The two existing complete-flow models reran **2/2 passed**. Native UI created two identical titles, filtered them, and edited only the second via its observed row Actions menu. It disappeared from the old filter; focus returned to Add a task. Filtering the new title, Pin next → Next up Complete → Completed → Undo completion preserved the second record identity, reopened it active and did not restore the old pin.
+
+A visible fixture control armed one precommit write rejection before the edit dialog opened. Save task then displayed the normal failure and retained its draft, with no write and the previous saved text unchanged. Typing a newer value **after rejection** and explicitly choosing Save task committed that value. A subsequent explicit Pin next selected the same second record ID. This does not establish native newer typing during a pending save.
+
+The final eight writes were two Adds, initial Edit, Pin, Complete, Undo, successful retry Edit and final Pin. The first duplicate's complete object and original seeded task remained exact; global settings, other workspace registry/bundle, Scratchpad, Focus and Countdown also remained exact. Two DOM-role locator mismatches for native Actions/Pin controls were corrected using fresh observed AX indices; these automation mismatches were not product failures. No runtime change was necessary.
+
+Owned tab 19, dedicated server 8780 and its terminal tab were closed after the stopped marker/shell were verified. Only the original untouched browser tab remained. No clipboard/import/upgrade operation or screenshot upload occurred. This result is grouped with the temporary-focus route below, not counted as a new feature.
+
+
+## Native temporary focus and return to the full page
+
+The page-level route on isolated port 8781 used all 138 unchanged runtime files. The existing temporary-view model file independently passed **12/12**, exit 0. Native steps used the ordinary 25-minute timer without changing the clock or production timing.
+
+- An unsubmitted task draft prevented entry into Temporary focus view. The page and exact draft remained, the Finish or save notice appeared, and storage writes stayed at zero.
+- Explicitly adding that task produced write 1. Entering temporary view showed the centered Focus card and a visible Exit control, with other ordinary page modules hidden and no extra save.
+- Start → Pause → Resume produced writes 2–4. Escape restored the original page and note/task visibility while the **complete saved Focus object, including the running deadline, remained exact** and writes stayed at 4.
+- Entering again and choosing Stop / reset restored the full page automatically, with Ready to start and keyboard focus on Start. Total writes were 5; no timer restarted automatically.
+
+Scratchpad, Countdown, global settings and the other workspace's registry/content stayed exact. Tasks changed only through the explicit Add and Focus only through its four ordinary timer actions. Presentation entry/exit itself did not save. This bounded desktop Clarity route does not establish every template, assistive technology, or actual elapsed interval completion. No product defect or runtime fix was found.
+
+Owned tab 20, dedicated server 8781 and its terminal tab were cleaned up after stopped-marker/shell verification; inventory retained only the untouched original tab. No screenshots were uploaded. The Tasks and temporary-focus routes close two distinct acceptance gaps in one grouped documentation update; neither is represented as new product functionality.
