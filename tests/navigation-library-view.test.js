@@ -1811,3 +1811,81 @@ test('review details keep hostile text and long URLs literal, with scoped single
  assert.match(css,/\.navigation-library-details\s*\{[^}]*overflow-wrap:\s*anywhere/);
  assert.match(css,/\.navigation-library-panel :focus-visible[^}]*outline:\s*3px solid/);
 });
+
+for (const settle of ['end-without-input', 'end-before-input', 'focusout']) test(`composed search restores batch selection after ${settle}`, async () => {
+ const h=model({locale:'zh-CN'}),writer=batchWriter(h);await h.view.open();
+ pickSite(h,'github');const input=h.document.querySelector('.navigation-library-search input');input.focus();
+ input.dispatch('compositionstart');input.value='chatgpt';input.dispatch('input',{isComposing:true});
+ const button=selectResults(h);assert.equal(button.disabled,true);assert.equal(writer.calls,0);
+ if(settle==='focusout') input.dispatch('focusout');
+ else input.dispatch('compositionend');
+ if(settle==='end-before-input') input.dispatch('input',{isComposing:false});
+ assert.equal(button.disabled,false,'completed search must allow choosing its current results');
+ assert.equal(input.value,'chatgpt');assert.equal(cards(h).length,1);assert.equal(cards(h)[0].dataset.site,'chatgpt');
+ assert.equal(selectionCount(h),'1 / 20 已选');button.dispatch('click');assert.equal(selectionCount(h),'2 / 20 已选');
+ startReview(h);reviewConfirm(h).dispatch('click');await tick();assert.equal(writer.calls,1);
+ assert.deepEqual(Array.from(writer.request.sites,site=>site.name).sort(),['ChatGPT','GitHub']);
+});
+
+test('composition completion refreshes only controls and repeated searches retain selection and destination',async()=>{
+ const h=model(),writer=batchWriter(h);await h.view.open();pickSite(h,'github');
+ const input=h.document.querySelector('.navigation-library-search input'),destination=h.document.querySelector('.navigation-library-destination select');
+ destination.value='personal';destination.dispatch('change');
+ for(const query of ['chatgpt','figma','chatgpt']) {
+  input.focus();input.dispatch('compositionstart');input.value=query;input.dispatch('input',{isComposing:true});
+  const result=cards(h)[0],pick=result.querySelector('input'),reads=h.reads;
+  assert.equal(selectResults(h).disabled,true);input.dispatch('compositionend');
+  assert.equal(selectResults(h).disabled,false);assert.equal(cards(h)[0],result,'settlement must not rerender or replay an older query');
+  assert.equal(cards(h)[0].querySelector('input'),pick);assert.equal(h.document.activeElement,input);
+  assert.equal(input.value,query);assert.equal(result.dataset.site,query);assert.equal(destination.value,'personal');
+  assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.reads,reads);assert.equal(writer.calls,0);
+ }
+ selectResults(h).dispatch('click');startReview(h);reviewConfirm(h).dispatch('click');await tick();
+ assert.equal(writer.calls,1);assert.equal(writer.request.destination,'personal');
+ assert.deepEqual(Array.from(writer.request.sites,site=>site.name).sort(),['ChatGPT','GitHub']);
+});
+
+test('cancelled search composition restores availability without selecting or rewriting the draft',async()=>{
+ const h=model();await h.view.open();h.search('github');const input=h.document.querySelector('.navigation-library-search input');
+ input.focus();input.dispatch('compositionstart');assert.equal(selectResults(h).disabled,true);
+ input.dispatch('compositionend');assert.equal(selectResults(h).disabled,false);
+ assert.equal(input.value,'github');assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.calls,0);
+ input.dispatch('compositionstart');input.dispatch('focusout');assert.equal(selectResults(h).disabled,false);
+ assert.equal(input.value,'github');assert.equal(h.calls,0);
+});
+
+test('composition settlement retains over-capacity, empty, already-selected and external-work selection fences',async()=>{
+ for(const condition of ['capacity','empty','selected','pending','departure']) {
+  const h=model();await h.view.open();h.search(condition==='capacity'?'':condition==='empty'?'no-match-synthetic':condition==='selected'?'chatgpt':'github');
+  if(condition==='selected')pickSite(h,'chatgpt');
+  const input=h.document.querySelector('.navigation-library-search input');input.focus();input.dispatch('compositionstart');
+  input.dispatch('input',{isComposing:true});
+  if(condition==='pending')h.component._pendingSave=true;
+  if(condition==='departure')h.context.LocalItabContentLifecycle.allowDeparture();
+  input.dispatch('compositionend');assert.equal(selectResults(h).disabled,true,condition);
+  selectResults(h).dispatch('click');assert.equal(selectionCount(h),`${condition==='selected'?1:0} / 20 selected`);assert.equal(h.calls,0);
+ }
+});
+
+test('composition events while initial read is pending safely build a selectable current bar',async()=>{
+ const h=model(),pending=deferred();h.read=pending;const opening=h.view.open();await tick();
+ const panel=h.document.querySelector('.navigation-library-panel');panel.focus();
+ for(const settle of ['compositionend','focusout']){panel.dispatch('compositionstart');panel.dispatch(settle);}
+ assert.equal(selectResults(h),null);assert.equal(h.calls,0);pending.resolve(h.snapshot);await opening;
+ h.search('chatgpt');assert.equal(selectResults(h).disabled,false);selectResults(h).dispatch('click');
+ assert.equal(selectionCount(h),'1 / 20 selected');assert.equal(h.calls,0);
+});
+
+test('retired composition settlement cannot enable selection during a new opening composition',async()=>{
+ const h=model();await h.view.open();h.search('chatgpt');const oldInput=h.document.querySelector('.navigation-library-search input');
+ const oldPanel=h.document.querySelector('.navigation-library-panel');
+ const callbacks=['compositionend','focusout'].map(type=>oldPanel.listeners.get(type)[0]);
+ oldInput.focus();oldInput.dispatch('compositionstart');oldInput.dispatch('input',{isComposing:true});h.view.close();
+ await h.view.open();h.search('figma');const input=h.document.querySelector('.navigation-library-search input');
+ input.focus();input.dispatch('compositionstart');input.dispatch('input',{isComposing:true});
+ h.document.body.append(oldPanel);
+ for(const callback of callbacks){callback({target:oldInput});callback({target:input});}
+ oldInput.dispatch('compositionend');assert.equal(selectResults(h).disabled,true);assert.equal(input.value,'figma');
+ oldPanel.remove();input.dispatch('compositionend');assert.equal(selectResults(h).disabled,false);
+ assert.equal(cards(h)[0].dataset.site,'figma');assert.equal(selectionCount(h),'0 / 20 selected');assert.equal(h.calls,0);
+});

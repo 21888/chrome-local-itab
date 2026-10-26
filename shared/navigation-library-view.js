@@ -85,13 +85,13 @@
             const handleCompositionStart = event => {
                 if (!owns(event)) return;
                 compositionTarget = event.target;
-                invalidateReview(); refreshCurrentDeselection();
+                invalidateReview(); refreshResultSelection();
             };
             const handleCompositionEnd = event => {
-                if (owns(event) && compositionTarget === event.target) { compositionTarget = null; refreshCurrentDeselection(); }
+                if (owns(event) && compositionTarget === event.target) { compositionTarget = null; refreshResultSelection(); }
             };
             const handleFocusOut = event => {
-                if (owns(event) && compositionTarget === event.target) { compositionTarget = null; refreshCurrentDeselection(); }
+                if (owns(event) && compositionTarget === event.target) { compositionTarget = null; refreshResultSelection(); }
             };
             ownedPanel.addEventListener('compositionstart', handleCompositionStart);
             ownedPanel.addEventListener('compositionend', handleCompositionEnd);
@@ -456,6 +456,9 @@
             batchDeselect.disabled = batchDeselect.dataset.unavailable === 'true';
         }
         function refreshResultSelection() {
+            // The dialog listens for composition before its asynchronous read
+            // builds the controls. Never update a retired or not-yet-built bar.
+            if (!batchSelect?.isConnected || !panel?.contains(batchSelect)) return;
             refreshReadControl();
             refreshCurrentDeselection();
             const additions = currentResultSelection(), overLimit = selected.size + additions.length > 20;
