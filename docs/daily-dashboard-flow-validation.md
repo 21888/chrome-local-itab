@@ -162,3 +162,101 @@ Port 8783 reused the validated shared synthetic-backend bridge with two legitima
 The second record's entire post-independent-edit object remained exact through both conflicts and the confirmed replacement. Scratchpad, Focus, Countdown, global settings and the other workspace registry/content remained exact. No production defect was found. Both owned tabs and only the port-8783 server/terminal were closed after stopped-marker/shell verification, leaving the original tab untouched. No screenshots were uploaded.
 
 Together, the Scratchpad and Tasks routes validate representative cross-page conflict choices with real page controls, shipped controllers and browser Web Locks over an explicitly synthetic storage adapter. They do not establish installed-extension storage events, actual upgrade safety, every asynchronous ordering or any bypass of the separate import/incident gate. This bounded concurrency batch ends here rather than expanding into repeated permutations of already-covered races.
+
+## Four additional structural templates with a retained task draft
+
+On 2026-10-26 an isolated port-8791 full-page synthetic fixture exercised the
+current Column (split), Bookmark (right navigation), Dock (bottom navigation)
+and Quiet (centered) compositions. This supplements earlier sidebar/top and
+historical template checks; it is not a new feature or production fix. The six
+existing complete template model files independently passed **46/46**, exit 0.
+
+Column gallery preview and Cancel made no storage write and restored Clarity.
+Previewing again and explicitly applying saved Column once. Ordinary template
+selection then saved Bookmark, Dock and Quiet. Category controls in their actual
+positions correctly switched Work/Reading/All and displayed the corresponding
+one/two seeded cards. The unsubmitted task draft remained exact throughout.
+
+Native Chrome zoom produced a measured **586 CSS-pixel document client width**
+and 380-pixel viewport height (200%). Quiet's ordinary Finder searched outside
+the current Reading category and returned the exact saved Work card; closing it
+did not open a site. From the retained task input, a real Tab reached Add without
+submitting. Column, Bookmark and Dock were then selected at this zoom and their
+category controls operated normally. Each of the four structures measured
+`scrollWidth === clientWidth === 586`, with no page-level horizontal overflow.
+Focus's Interval and the existing Scratchpad editor remained directly focusable;
+no timer action or note edit was performed.
+
+Seven explicit template saves in total changed appearance only. DOM-backed
+synthetic readback retained the saved sites, Tasks, Focus, Scratchpad, Countdown,
+global privacy/sync/Prompt/Collection records and the other workspace's complete
+bundle exactly. The existing custom solid background stayed `#e9edf4`; this does
+not test setting a new background, uploading an image or arbitrary-image contrast.
+Screenshots were inspected in-tool only, not uploaded.
+
+An initial visit to ordinary `newtab.html` omitted the fixture bridge and showed
+WORKSPACE_UNAVAILABLE. Navigating the same owned tab to the intended fixture page
+resolved that setup error without any recovery/reset action; it is not a product
+failure. A broad Column text locator was also corrected after a strict-match
+error before interaction. Neither setup error is counted as product evidence.
+
+Finally Chrome zoom was restored (client/scroll width 1180), only the unsubmitted
+synthetic task draft was explicitly cleared, and the owned tab, port-8791 server
+and dedicated terminal tab were closed after stopped-marker/shell verification.
+Only the original untouched browser tab remained. This bounded light/English
+representative pass does not cover all 21 templates at every breakpoint/locale,
+screen readers, installed-extension storage, upgrade or the separate import gate.
+
+## Custom appearance preview, save, return and narrow layout
+
+On 2026-10-26, port-8797 used the final local `fa1a242` runtime with synthetic
+origin-local shared storage and real production pages/controllers/Web Locks.
+Five complete customization/appearance model files passed **96/96**, exit 0.
+This extends the previously model-only complete customization flow; no product
+code changed or new feature was added for this acceptance batch.
+
+On the actual homepage, Customize previewed a 135-degree black/white gradient,
+24px card padding, 20px gap, 16px corners, 40% card opacity and four columns.
+Computed CSS showed that gradient, padding and four columns, but write count
+remained zero. Cancel returned to the original saved template background and
+restored keyboard focus to Customize without writing.
+
+The initial fixture intended to preseed a solid saved background, but inserted
+that assignment before the seed-defining script. Readback correctly exposed the
+actual unchanged template background. That erroneous fixture-only assignment was
+removed; it was not a product failure. Instead, the real Open Settings route
+opened an owned local tab, where Solid Color and native text `#aabbcc`/Tab saved
+the background in two normal writes. The homepage was reloaded and showed
+`rgb(170, 187, 204)` before the remaining checks.
+
+The same full customization was then explicitly saved once (write 3). Reload
+retained the gradient, 24px padding, 20px gap and four columns. Selecting Folio
+and Dark made the existing two appearance writes (4/5), retained every override,
+and preserved the underlying `bg: {type: 'color', value: '#aabbcc'}`. The native
+screenshot showed readable protected header/navigation/search surfaces across
+the black/white gradient. DOM-backed computed styles showed the card container's
+opaque `rgb(36,33,29)` backing and 40%-alpha card surface with light text; opacity
+is not promised to reveal arbitrary wallpaper beneath text.
+
+At actual Chrome 200% zoom, document `clientWidth` and `scrollWidth` were both
+586 CSS pixels. The four-column preference automatically rendered one 552px
+column, without changing its saved value or making a write. The reopened drawer
+retained all selected values. Reset preview temporarily cleared overrides and
+revealed the saved solid background; Cancel restored the saved custom gradient,
+again without writing, and focused Customize. After restoring 100% zoom, choosing
+Use saved background and explicitly saving changed only that override mode
+(write 6): body returned to `rgb(170,187,204)` with no image while card parameters,
+Folio/Dark and the original saved background remained intact.
+
+All target Tasks/Focus/Scratchpad/Countdown content, shared privacy/sync/Prompt/
+Collection data, and the other workspace's registry and bundle stayed exact.
+This pass did not switch workspaces, reorder cards, upload an image, invoke
+external services, or repeat the separate Free-placement acceptance. It does not
+claim all palettes/breakpoints, native screen-reader behavior or installed upgrade
+safety. Actual tab 48 and the owned Settings tab 49 were closed; only original
+untouched tab 9 remained. Server 8797 was stopped with its marker/shell confirmed,
+and its dedicated Terminal tab was closed. Screenshots were in-tool only.
+
+These two representative template/customization flows form one documentation
+batch, not separate feature deliveries. The import/upgrade incident gate remains
+independent and is not changed by these synthetic local-page results.
