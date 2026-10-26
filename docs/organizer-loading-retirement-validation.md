@@ -25,3 +25,15 @@ The change is confined to organizer view lifecycle ownership. Storage transactio
 - Python aggregate: **91/91 passed**, exit 0.
 
 These are synthetic DOM/event and real-method integration tests, not a forced native browser race or installed-extension upgrade test. No user data, network provider, file picker, import approval, Release or store submission is used.
+
+## Complete cross-component move flow (test-only follow-up)
+
+`tests/shortcut-organizer-complete-flow.test.js` connects the actual organizer view, StorageManager, ShortcutsComponent and CategoryNavigation with synthetic storage and DOM. Both scenarios passed without finding another product defect; this follow-up changes tests/documentation only.
+
+- Search across groups and select the second duplicate record, a Reading record and an orphan-category record; Review includes all three despite hidden matches. Back retains the query. Changing destination to Reading removes only the already-in-destination selection. Confirm moves the exact two remaining indices, preserving all other fields and records. The current Work category stays selected and its home count becomes one; choosing Reading displays the three expected cards.
+- Cancel before submission writes nothing. A real pending storage write prevents Cancel/destroy, ignores repeat confirmation, and completes with exactly one write.
+- Successful bulk movement intentionally retires the previous deletion Undo receipt. There is **no bulk-move Undo** promise. The test checks this existing contract rather than introducing one.
+
+The two complete-flow tests are model integration, not additional native-browser acceptance. Grid filtering and card rendering are real; free-layout geometry is not exercised by these two tests.
+
+Test-only follow-up validation: all five organizer files **105/105 passed**, exit 0. The earlier 17,184 full-suite count belongs to the runtime retirement commit and excludes these two newly added tests; no new aggregate result is claimed here.
