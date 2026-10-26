@@ -78,3 +78,31 @@ suite (**17,243 Node + 91 Python**) predates these two new tests and is not
 claimed to include them. This commit changes tests and this combined validation
 document only; it is not two new product features and fixes no demonstrated
 production defect.
+
+## CI portability failure and explicit fixture lock correction
+
+The first published batch (`701f7e8`, Actions run `40404500149`, job
+`121858635720`) did **not** pass CI: 17,245 tests, 17,244 passed and one failed.
+The new shortcut journey expected its edit write count to be 1 but observed 0.
+Production correctly raised `LAYOUT_LOCK_UNAVAILABLE` at `storage.js:444`.
+The fixture had replaced `withLocalWriteLock` with a private queue without
+providing the separately required Web Locks capability. Local Node v24.22.1
+provided `navigator.locks`, accidentally masking this undeclared dependency.
+This was a real test-fixture portability failure, not a flaky CI or a product
+write regression; the production guard must remain intact.
+
+The complete original test was reproduced locally with
+`node --no-experimental-global-navigator --test tests/shortcut-edit-complete-journey.test.js`:
+the same guard and `0 !== 1` assertion failed, exit 1. The corrected fixture now
+explicitly supplies a named, serialized synthetic `navigator.locks.request`,
+uses the actual `StorageManager.withLocalWriteLock`, and asserts that the edit,
+delete and Undo each acquire `local-itab-local-write`. A test teardown restores
+the original global navigator property descriptor (or its absence) and verifies
+that restoration. No production code, expected persisted data, write counts,
+identity checks or CI configuration was relaxed.
+
+The same six complete related files pass **24/24** with the ordinary local Node
+runtime and **24/24** with native navigator disabled, both exit 0. These are two
+environment runs of the same tests, not 48 distinct tests. A new exact-commit CI
+result remains separate from these local results; the original failed run stays
+part of the evidence.
