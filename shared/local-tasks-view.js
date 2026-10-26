@@ -95,6 +95,11 @@
             CAPACITY: 'tasksErrorCapacity', RECOVERY_LIMIT: 'tasksErrorRecovery', SIZE_LIMIT: 'tasksErrorSize', UNAVAILABLE: 'tasksErrorUnavailable',
             INVALID: 'tasksErrorInvalid', VERSION: 'tasksErrorInvalid', FILE: 'tasksErrorFile' }[code] || 'tasksErrorWrite');
     }
+    // Match canonically equivalent Unicode without changing stored/displayed
+    // text or the raw filter string used by row/action ownership checks.
+    function matchesTaskFilter(task, query) {
+        return task.text.toLowerCase().normalize('NFC').includes(query.normalize('NFC'));
+    }
     function summarize(counts) { return `${t('tasksActive')}: ${counts.active} · ${t('tasksDone')}: ${counts.done} · ${t('tasksDeleted')}: ${counts.removed} · ${t('tasksRecoveryCount')}: ${counts.recovery}`; }
     function dialog(title, onClose) {
         const overlay = el('div', 'tasks-overlay'); overlay.setAttribute('aria-hidden', 'true');
@@ -1064,7 +1069,7 @@
                 ![origin, owner.summary, owner.list].every(node => this.restorationNodeVisible(node, modal)) ||
                 this.visibleRemovedTasks !== source.snapshot || this.renderedRevision !== state.revision || source.revision !== state.revision ||
                 this.renderedFilter !== this.filterQuery || source.filter !== this.filterQuery || this.filterInput.value.trim().toLowerCase() !== this.filterQuery) return false;
-            const expected = state.records.filter(task => task.state === 'removed' && task.text.toLowerCase().includes(this.filterQuery));
+            const expected = state.records.filter(task => task.state === 'removed' && matchesTaskFilter(task, this.filterQuery));
             const rows = Array.from(owner.list.children);
             return expected.length === source.snapshot.length && rows.length === expected.length && source.snapshot.every((task, index) => {
                 const row = rows[index], title = source.titles[index], current = expected[index];
@@ -1433,7 +1438,7 @@
         copyVisibleCurrent(snapshot, origin) {
             if (!snapshot.length || this.visibleTasks !== snapshot || !this.copyOriginCurrent(origin) ||
                 this.renderedFilter !== this.filterQuery || this.renderedRevision !== this.controller.state.revision) return false;
-            const matched = this.controller.state.records.filter(task => task.state === 'active' && task.text.toLowerCase().includes(this.filterQuery));
+            const matched = this.controller.state.records.filter(task => task.state === 'active' && matchesTaskFilter(task, this.filterQuery));
             const expected = this.filterQuery || this.expanded ? matched : matched.slice(0, 4);
             const rows = Array.from(this.list.children);
             return expected.length === snapshot.length && rows.length === snapshot.length && snapshot.every((task, index) => {
@@ -1444,7 +1449,7 @@
         completedVisibleCurrent(snapshot, origin) {
             if (!this.completed.box.open || !snapshot.length || this.visibleCompletedTasks !== snapshot || !this.copyOriginCurrent(origin) ||
                 this.renderedFilter !== this.filterQuery || this.renderedRevision !== this.controller.state.revision) return false;
-            const expected = this.controller.state.records.filter(task => task.state === 'done' && task.text.toLowerCase().includes(this.filterQuery));
+            const expected = this.controller.state.records.filter(task => task.state === 'done' && matchesTaskFilter(task, this.filterQuery));
             const rows = Array.from(this.completed.list.children);
             return expected.length === snapshot.length && rows.length === snapshot.length && snapshot.every((task, index) => {
                 const item = rows[index], title = item.querySelector('.tasks-text');
@@ -1461,7 +1466,7 @@
                 origin.parentElement !== owner.controls || owner.status.parentElement !== owner.controls || owner.list.parentElement !== owner.box ||
                 !this.copyOriginCurrent(origin) || !this.copyOriginCurrent(owner.list) ||
                 this.renderedFilter !== this.filterQuery || this.renderedRevision !== this.controller.state.revision) return false;
-            const expected = this.controller.state.records.filter(task => task.state === 'removed' && task.text.toLowerCase().includes(this.filterQuery));
+            const expected = this.controller.state.records.filter(task => task.state === 'removed' && matchesTaskFilter(task, this.filterQuery));
             const rows = Array.from(owner.list.children);
             return expected.length === snapshot.length && rows.length === snapshot.length && snapshot.every((task, index) => {
                 const item = rows[index], title = item.querySelector('.tasks-text');
@@ -2462,7 +2467,7 @@
                 const revisionChanged = this.renderedRevision !== state.revision;
                 this.renderedRevision = state.revision; this.renderedFilter = this.filterQuery;
                 const filtering = !!this.filterQuery;
-                const matches = task => task.text.toLowerCase().includes(this.filterQuery);
+                const matches = task => matchesTaskFilter(task, this.filterQuery);
                 const openRows = Array.from(this.host.querySelectorAll('[data-task-id] .tasks-row-menu[open]')).map(node => node.closest('[data-task-id]').dataset.taskId);
                 const active = state.records.filter(task => task.state === 'active'), ids = active.map(t => t.id);
                 const pinned = active.find(task => task.id === state.pinnedId);

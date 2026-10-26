@@ -11,7 +11,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 async function settle() { await tick(); await tick(); await tick(); }
 function model(options = {}) {
     let raw, queue = Promise.resolve(); const listeners = new Set();
-    const b = { fail: false, delay: null, failRead: options.failRead,
+    const b = { fail: false, delay: null, failRead: options.failRead, workspace: options.workspace,
         lock(fn) { const next = queue.then(fn); queue = next.catch(() => {}); return next; },
         async read() { if (b.failRead) throw new Error("Storage unavailable"); return raw && structuredClone(raw); },
         async write(value) { if (b.delay) await b.delay; if (b.fail) return false; raw = structuredClone(value); listeners.forEach(fn => fn()); },
@@ -20,7 +20,8 @@ function model(options = {}) {
     const store = new tasks.Store(b), controller = new Controller(store);
     const document = createDocument({ blurUnavailableFocus: options.blurUnavailableFocus }), host = document.createElement('article'), search = document.createElement('input');
     document.body.append(search, host); search.focus();
-    const api = { ...tasks, Controller }, window = { LocalItabTasks: api, i18n: options.i18n };
+    const api = { ...tasks, Controller }, window = { LocalItabTasks: api, i18n: options.i18n,
+        ...(options.workspace ? { LocalItabWorkspaces: { session: options.workspace } } : {}) };
     const context = vm.createContext({ window, document, crypto: webcrypto, setTimeout: options.setTimeout || setTimeout, URL: options.URL || URL, Blob, console });
     const dialogPath = path.resolve(__dirname, '../shared/dialog-focus.js');
     vm.runInContext(fs.readFileSync(fs.existsSync(dialogPath) ? dialogPath : path.resolve(__dirname, '../source-model/shared/dialog-focus.js'), 'utf8'), context);
@@ -875,4 +876,69 @@ test('DOM model: mouse Clear stays empty through the old filter composition end 
     for(const fn of timers.splice(0))fn();
     assert.equal(input.value,'');assert.equal(h.view.filterQuery,'');assert.equal(h.view.filterComposing,false);
     assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,2);assert.equal(JSON.stringify(h.b.raw()),raw);h.view.destroy();
+});
+
+for(const [saved,query] of [['Café','Cafe\u0301'],['Cafe\u0301','Café']])test(`DOM model: task filtering finds canonical-equivalent text ${JSON.stringify(saved)} from ${JSON.stringify(query)}`,async()=>{
+    const h=model();await settle();await seed(h,`${saved} active`);
+    const done=await seed(h,`${saved} done`),removed=await seed(h,`${saved} removed`);
+    await h.controller.action('complete',{id:done.id,version:done.version});await h.controller.action('remove',{id:removed.id,version:removed.version});await settle();
+    const before=structuredClone(h.b.raw());h.view.filterInput.focus();setInput(h.view.filterInput,query);
+    assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,1,'active canonical-equivalent task must match');
+    assert.equal(h.view.completed.list.querySelectorAll('[data-task-id]').length,1);assert.equal(h.view.removed.list.querySelectorAll('[data-task-id]').length,1);
+    assert.equal(h.view.filterStatus.textContent,'Matching tasks: 3');assert.equal(h.view.filterInput.value,query);
+    assert.equal(h.view.filterQuery,query.toLowerCase(),'raw filter ownership must not be normalized');assert.deepEqual(h.b.raw(),before);
+    h.view.destroy();
+});
+
+test('DOM model: canonical filter matching covers reordered marks, Japanese, Korean, Chinese and existing case folding',async()=>{
+    for(const [text,query] of [['A\u030A task','Å'],['q\u0307\u0323 task','q\u0323\u0307'],['か\u3099 task','が'],['가 task','가'],['中文任务','中文'],['PLAN task','plan']]){
+        const h=model();await settle();await seed(h,text);const before=structuredClone(h.b.raw());setInput(h.view.filterInput,query);
+        assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,1,JSON.stringify({text,query}));
+        assert.equal(h.view.list.querySelector('.tasks-text').textContent,text);assert.equal(h.view.filterInput.value,query);
+        assert.deepEqual(h.b.raw(),before);h.view.destroy();
+    }
+});
+
+test('DOM model: canonical matching does not strip accents, compatibility-fold or change emoji ZWJ sequences',async()=>{
+    for(const [text,query,match] of [['Café','cafe',false],['Cafe\u0301','cafe',false],['ＡＢＣ','abc',false],['ﬃ','ffi',false],['①','1',false],['👩‍💻 report','👩‍💻',true],['👩‍💻 report','👩💻',false]]){
+        const h=model();await settle();await seed(h,text);const before=structuredClone(h.b.raw());setInput(h.view.filterInput,query);
+        assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,match?1:0,JSON.stringify({text,query}));
+        assert.deepEqual(h.b.raw(),before);h.view.destroy();
+    }
+});
+
+for(const state of ['active','done','removed'])test(`DOM model: canonical ${state} matches copy exact original Unicode without writes`,async()=>{
+    const h=model();await settle();const text='Cafe\u0301 original',task=await seed(h,text);
+    if(state!=='active')await h.controller.action(state==='done'?'complete':'remove',{id:task.id,version:task.version});await settle();
+    const before=structuredClone(h.b.raw()),calls=[];h.view.clipboard={writeText(value){calls.push(value);return Promise.resolve();}};
+    setInput(h.view.filterInput,'Café');h.view.completed.box.open=true;h.view.removed.box.open=true;
+    const action=state==='active'?h.view.copyVisibleButton:state==='done'?h.view.copyCompletedButton:h.view.copyRemovedButton;
+    action.dispatch('click',{detail:1});await settle();assert.deepEqual(calls,[`1. ${text}`]);
+    assert.deepEqual(h.b.raw(),before);h.view.destroy();
+});
+
+test('DOM model: canonical search preserves raw filter ownership, IME deferral, drafts and whitespace clear behavior',async()=>{
+    const h=model();await settle();for(let i=0;i<5;i++)await seed(h,`Other ${i}`);await seed(h,'Café result');
+    const before=structuredClone(h.b.raw());setInput(h.view.input,'Unsubmitted task');const input=h.view.filterInput;input.focus();
+    input.dispatch('compositionstart');input.value='  CAFE\u0301  ';input.dispatch('input',{isComposing:true});
+    assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,4);input.dispatch('compositionend');
+    assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,1);assert.equal(input.value,'  CAFE\u0301  ');assert.equal(h.view.filterQuery,'cafe\u0301');
+    assert.equal(h.view.input.value,'Unsubmitted task');assert.equal(h.document.activeElement,input);
+    setInput(input,' \t ');assert.equal(h.view.filterQuery,'');assert.equal(h.view.list.querySelectorAll('[data-task-id]').length,4);assert.equal(h.view.more.hidden,false);
+    h.view.filterClear.dispatch('click');assert.equal(input.value,'');assert.equal(h.view.input.value,'Unsubmitted task');assert.deepEqual(h.b.raw(),before);h.view.destroy();
+});
+
+test('DOM model: canonical removed filter can open an exact-original restoration review and cancel without writes',async()=>{
+    const h=model({workspace:{id:'workspace_0001',generation:'generation_0001'}});await settle();
+    const text='Cafe\u0301 removed',task=await seed(h,text);await h.controller.action('remove',{id:task.id,version:task.version});await settle();
+    const before=structuredClone(h.b.raw());let writes=0;const write=h.b.write;h.b.write=async value=>{writes++;return write(value);};
+    setInput(h.view.filterInput,'Café');h.view.removed.box.open=true;h.view.removed.box.dispatch('toggle');
+    h.view.filterInput.value='Cafe\u0301';h.view.restoreBatchButton.dispatch('click',{detail:1});
+    assert.equal(modal(h),null,'an uncommitted raw filter edit cannot adopt a rendered review, even if canonically equivalent');
+    setInput(h.view.filterInput,'Café');
+    h.view.restoreBatchButton.dispatch('click',{detail:1});assert(modal(h),'matching source remains eligible for an explicit review');
+    modal(h).querySelector('.tasks-restore-select-all').dispatch('click');modal(h).querySelector('.tasks-restore-review').dispatch('click');await settle();
+    const preview=modal(h).querySelector('.tasks-restore-preview');assert.equal(preview.hidden,false);
+    assert.equal(preview.querySelector('.tasks-recovery-text').textContent,text);assert.equal(h.view.filterInput.value,'Café');
+    click(modal(h),'Cancel');assert.deepEqual(h.b.raw(),before);assert.equal(writes,0);h.view.destroy();
 });
