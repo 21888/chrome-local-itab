@@ -47,3 +47,34 @@ The observed cumulative synthetic storage writes were:
 Normal scrolling visibly reached the two Tasks, the paused Focus timer with Resume/Reset, and the two-column Scratchpad with its exact note and Saved status. Readback retained the original shortcut content, other workspace, global settings and Countdown exactly. Tasks, Focus and Scratchpad changed only through the explicit operations above. No site was opened. One stale AX index after task insertion expanded the timing-help disclosure rather than Start; the current Start control was then used and its actual Running/Pause results verified. That automation correction is not a product failure.
 
 The owned browser tab was closed, the dedicated server terminated normally by Ctrl-C with its stopped marker verified, and its terminal tab closed. Existing Options/approval tabs were untouched. Screenshots were inspected locally/in-tool, not uploaded. This native pass covers the stated desktop route, not every template, viewport, drag gesture, OS input method, actual extension installation/upgrade or import/recovery gate.
+
+## Measured zoom and representative keyboard routes
+
+A separate synthetic page on `localhost:8777` used the same verified runtime. Native Chrome zoom UI showed **200%** with a **586×380 CSS-pixel** document viewport, then **300%** with **388×253 CSS pixels**. The reported document scroll width equaled client width in each checked template state. Image pixels were not used as CSS dimensions.
+
+| State | Actually exercised |
+| --- | --- |
+| Clarity, 200% / 586 CSS px | Native Tab to Skip to shortcuts, Enter then Tab to Placement; Tab/Enter opened Finder, query and Escape returned to its opener; native Tab traversed shortcut actions → Tasks input → Focus Start → Scratchpad editor. |
+| Clarity, 300% / 388 CSS px | Shift+Tab returned from Scratchpad through the page to Appearance; keyboard opened the gallery, reached Folio and applied its preview while retaining the task draft. |
+| Folio, 300% / 388 CSS px | Keyboard reached Finder; query then ArrowDown focused the complete result, visibly scrolled into its own dialog viewport. Escape returned to the opener; Tab reached Tasks, Focus Start and Scratchpad. Keyboard returned to the gallery and selected/applied Today. |
+| Today, 300% / 388 CSS px | Shift+Tab reached category All; Right moved focus to Work, then Enter selected it. Finder result was visibly reachable, Escape restored its opener, and Tab traversed all three personal modules to the readable Scratchpad. |
+
+These are representative routes, **not** a three-template-by-two-zoom matrix or all 21 templates. No inaccessible control or page-wide horizontal overflow was observed in these states. Smooth focus scrolling briefly produced an offscreen rectangle immediately after a key; a subsequent screenshot/readback confirmed the settled control onscreen, so that transient observation is not a defect claim. Inner dialog/disclosure scrolling is intentional and distinct from page overflow.
+
+Two automation/environment corrections were kept separate from product results: the dedicated `dashboard-qa.localhost` URL failed with `ERR_SSL_PROTOCOL_ERROR`, so the standard authorized localhost page was used without changing security settings; an exact-label loop missed Finder's visible `/` hint and reached Add, saving the synthetic task draft. The corrected route matched the actual label and verified Finder. The final three writes were Folio Apply, that task Add, and Today Apply. Scratchpad, Focus, Countdown, global settings, the other workspace and shortcut content remained unchanged; no site opened.
+
+Native zoom was restored to 100% and document width 1180 before cleanup. Both owned tabs (including the failed navigation tab, closed through its tab-strip X without reading its internal page) were removed. Only the original untouched tab remained in inventory. Port 8777 stopped normally, and its dedicated terminal tab closed. No screenshots were uploaded. The existing category/disclosure/template/CardLayout model baseline separately passed **50/50**, exit 0.
+
+## Remaining acceptance map and next route
+
+| Area | Evidence currently established | Remaining scope / actual blocker |
+| --- | --- | --- |
+| Focus setup/Reset | Actual Store/Controller/View regressions, full project run at the functional commit, desktop synthetic native setup and Reset chains | Other platforms and assistive technology not established |
+| Saved-site discovery and Organizer | Integrated add/reveal and complete move/review/back chains; native synthetic add/reveal grid/free routes | Every import/export and upgrade combination is not implied |
+| Tasks duplicate/edit/pin/completion | Two complete real-controller model chains here; ordinary add used after native template changes | Full duplicate/edit/retry chain not newly repeated in native UI |
+| Scratchpad workspace departure | Actual Manager/Session/lifecycle/picker/controller complete models, including failure/newer draft; ordinary native editing retained through appearance changes | Native multi-workspace departure/return remains separate from these models |
+| Template/card layout/navigation | Desktop synthetic complete page plus the bounded measured-zoom keyboard routes above | 21-template × language × zoom × custom-layout matrix is incomplete; mobile devices, screen readers and real dragging not claimed |
+| Calculator and local recent results | Existing focused calculation/continuation/copy/recent-result model suites; historical scientific-calculation native spot checks | Current complete calculate → continue → recover from invalid expression → reuse recent result route is the next bounded check; no network search or clipboard read is required |
+| Installed extension migration / file import incident | Existing retained failure and recovery evidence only | **Blocked separately** by the original file-selection approval/incident gate; no retry/bypass, upgrade-success claim, Release 161 or CWS submission |
+
+An untested combination is not a confirmed defect and not a reason to stop unrelated authorized development. The next calculator route should first establish its real public-control chain and only change production if a reproducible user-visible failure is found.
