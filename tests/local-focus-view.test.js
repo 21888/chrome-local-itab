@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm');
 const { createDocument } = require(require('node:path').resolve(__dirname, require('node:fs').existsSync(require('node:path').resolve(__dirname, '../storage.js')) ? 'helpers/task-dom-model' : '../../chrome-local-itab/tests/helpers/task-dom-model'));
 const { harness } = require('./focus-timer-helpers');
-function model(h = harness()) {
+function model(h = harness(), workspace) {
     const document = createDocument(), timers = new Map(); let timer = 0;
     // Native Chromium blurs a focused control as soon as disabled is set.
     const create = document.createElement;
@@ -18,11 +18,11 @@ function model(h = harness()) {
     document.addEventListener = (type, fn) => { if (!events.has(type)) events.set(type, new Set()); events.get(type).add(fn); document.listeners.set(type, event => { for (const listener of [...events.get(type)]) listener(event || {}); }); };
     document.removeEventListener = (type, fn) => events.get(type)?.delete(fn);
     const api = { ...require('../shared/local-focus-store'), ...require('../shared/local-focus-controller') };
-    const window = { LocalItabFocus: api, setTimeout(fn) { timers.set(++timer, fn); return timer; }, clearTimeout(id) { timers.delete(id); } };
+    const window = { LocalItabWorkspaces: workspace ? { session: workspace } : undefined, LocalItabFocus: api, setTimeout(fn) { timers.set(++timer, fn); return timer; }, clearTimeout(id) { timers.delete(id); } };
     vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-focus-view'), 'utf8'), { window, document });
     const host = document.createElement('article'); document.body.append(host); const c = h.controller(), visibility = [];
     const view = new api.View(host, { controller: c, onVisibility: value => visibility.push(value) });
-    return { h, document, timers, c, host, view, api, visibility };
+    return { h, document, timers, c, host, view, api, visibility, window };
 }
 test('DOM model: optional card never enables itself; local visibility and hidden throttling', async () => {
     const m = model(); await m.h.flush(); assert(m.host.hidden); assert.equal(m.h.writes, 0);
@@ -100,4 +100,51 @@ test('DOM model: concise timer disclosure and collapsed native details retain co
     assert.equal(m.document.activeElement, m.view.start); assert.equal(m.h.writes, writes + 1, 'only explicit Start persists, disclosure does not');
     details.open = false; details.dispatch('toggle'); await m.h.flush(); assert.equal(m.h.writes, writes + 1);
     m.view.destroy();
+});
+
+test('explicit Stop/reset returns keyboard control to Start after the original saved timer is reset', async () => {
+    const m = model(); await m.h.flush(); await m.c.action('visibility', true);
+    m.view.start.focus(); m.view.start.dispatch('click'); await m.h.flush();
+    m.view.start.dispatch('click'); await m.h.flush(); assert.equal(m.c.snapshot().session.status, 'paused');
+    const before = m.h.writes; m.view.reset.focus(); m.view.reset.dispatch('click');
+    assert.equal(m.document.activeElement, m.document.body, 'pending disabled Reset loses native focus');
+    await m.h.flush(); assert.equal(m.c.snapshot().session.status, 'ready'); assert.equal(m.h.writes, before + 1);
+    assert.equal(m.document.activeElement, m.view.start, 'explicit successful Reset should leave Start ready for the next keyboard action');
+    assert.equal(m.view.start.textContent, 'Start'); assert.equal(m.view.reset.disabled, true);
+    const held = m.document.activeElement.dispatch('keydown', { key: 'Enter', repeat: true });
+    assert.equal(held.prevented, true); await m.h.flush(); assert.equal(m.c.snapshot().session.status, 'ready'); assert.equal(m.h.writes, before + 1);
+    const restart = m.document.activeElement.dispatch('keydown', { key: 'Enter', repeat: false });
+    if (!restart.prevented) m.document.activeElement.dispatch('click');
+    await m.h.flush(); assert.equal(m.c.snapshot().session.status, 'running'); assert.equal(m.h.writes, before + 2);
+    m.view.destroy();
+});
+
+for (const change of ['focus', 'focus-away-back', 'pointer', 'tab', 'hidden', 'detached', 'new-action', 'destroy', 'error', 'workspace-object', 'workspace-generation']) test(`pending explicit Reset does not reclaim Start after ${change}`, async () => {
+    const workspace = { id: 'synthetic-original', generation: 1 }, m = model(undefined, workspace);
+    await m.h.flush(); await m.c.action('visibility', true); await m.c.action('start');
+    const outside = m.document.createElement('button'); m.document.body.append(outside);
+    const before = m.h.writes;
+    if (change === 'error') m.h.failWrite(true);
+    m.view.reset.focus(); m.view.reset.dispatch('click');
+    assert.equal(m.document.activeElement, m.document.body);
+    if (change === 'focus') outside.focus();
+    if (change === 'focus-away-back') { outside.focus(); m.document.listeners.get('focusin')({ target: outside }); m.document.body.focus(); }
+    if (change === 'pointer') m.document.listeners.get('pointerdown')({ target: m.document.body });
+    if (change === 'tab') m.document.listeners.get('keydown')({ key: 'Tab', repeat: false });
+    if (change === 'hidden') m.document.hidden = true;
+    if (change === 'detached') m.host.remove();
+    if (change === 'new-action') m.view.run('reset');
+    if (change === 'destroy') m.view.destroy();
+    if (change === 'workspace-object') m.window.LocalItabWorkspaces.session = { ...workspace };
+    if (change === 'workspace-generation') workspace.generation++;
+    await m.h.flush(); assert.notEqual(m.document.activeElement, m.view.start);
+    if (change === 'focus') assert.equal(m.document.activeElement, outside);
+    if (change === 'error') { assert.equal(m.h.writes, before); assert.equal(m.c.snapshot().session.status, 'running'); assert(m.c.error); }
+    assert(m.h.writes <= before + 1, 'focus handling must not add another write'); m.view.destroy();
+});
+
+test('unfocused or programmatic Reset does not acquire a user focus receipt', async () => {
+    const m = model(); await m.h.flush(); await m.c.action('visibility', true); await m.c.action('start');
+    const outside = m.document.createElement('button'); m.document.body.append(outside); outside.focus();
+    m.view.reset.dispatch('click'); await m.h.flush(); assert.equal(m.document.activeElement, outside); assert.equal(m.c.snapshot().session.status, 'ready'); m.view.destroy();
 });

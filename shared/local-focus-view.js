@@ -107,7 +107,7 @@
                 if (status === 'completed') this.run('phase', state.session.phase === 'focus' ? 'break' : 'focus');
                 else if (['ready', 'running', 'paused'].includes(status)) this.run({ ready: 'start', running: 'pause', paused: 'resume' }[status]);
             });
-            this.reset = button('focusReset', () => this.run('reset'));
+            this.reset = button('focusReset', () => this.run('reset', undefined, this.reset));
             const controls = el('div', 'focus-controls'); controls.append(this.start, this.reset);
             this.feedback = el('p', 'focus-feedback'); this.feedback.setAttribute('role', 'status'); this.retry = button('focusRetry', () => {
                 if (this.closed || this.isWorkspaceRetired()) { this.render(); return; }
@@ -217,7 +217,7 @@
         run(kind, value, focusSource = this.start) {
             if (this.closed || this.isWorkspaceRetired()) { this.render(); return Promise.resolve(); }
             // Native disabled buttons lose focus. Restore only this user-owned
-            // primary action (or explicit Save → Start), never a completion,
+            // primary action (or explicit Save/Reset → Start), never a completion,
             // blur autosave, remote update or newer intent.
             const token = {}; this.focusIntent = token;
             const ownsFocus = document.activeElement === focusSource && !this.controller.pending;
