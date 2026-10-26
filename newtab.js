@@ -6274,8 +6274,14 @@ function showErrorMessage(message) {
 // 分类导航功能
 class CategoryNavigation {
     constructor() {
-        this.storageKey = 'currentCategory';
-        this.currentCategory = localStorage.getItem(this.storageKey) || 'all';
+        // Resolve the preference only after the original workspace-backed read.
+        // Category IDs can be identical in otherwise independent workspaces.
+        this.preferenceStore = storageManager;
+        this.preferenceSession = window.LocalItabWorkspaces?.session || null;
+        this.preferenceIdentity = this.preferenceSession?.id && this.preferenceSession?.generation
+            ? { id: this.preferenceSession.id, generation: this.preferenceSession.generation } : null;
+        this.storageKey = null;
+        this.currentCategory = 'all';
         this.categories = [];
         this.defaultCategories = storageManager.getDefaultValue('categories');
         this.init().catch(error => {
@@ -6287,7 +6293,18 @@ class CategoryNavigation {
     }
 
     async init() {
-        this.categories = await storageManager.get('categories', this.defaultCategories);
+        const categories = await this.preferenceStore.get('categories', this.defaultCategories);
+        if (!this.categoryPreferenceSourceCurrent()) return;
+        const session = this.preferenceSession;
+        if (session && (!session.id || !session.generation)) return;
+        this.preferenceIdentity = session ? { id: session.id, generation: session.generation } : null;
+        this.storageKey = session ? `currentCategory:v1:${encodeURIComponent(session.id)}:${encodeURIComponent(session.generation)}` : 'currentCategory';
+        try {
+            const saved = localStorage.getItem(this.storageKey);
+            // The old preference belongs only to Default, never to other spaces.
+            this.currentCategory = saved || (session?.id === 'default' ? localStorage.getItem('currentCategory') : null) || 'all';
+        } catch (error) { console.warn('Failed to read category preference', error); }
+        this.categories = categories;
         if (this.currentCategory !== 'all' && !this.categories.some(c => c.id === this.currentCategory)) {
             this.currentCategory = 'all';
         }
@@ -6380,7 +6397,16 @@ class CategoryNavigation {
         });
     }
 
+    categoryPreferenceSourceCurrent() {
+        // Older standalone hosts have no captured source; normal pages always do.
+        if (!this.preferenceStore) return true;
+        if (storageManager !== this.preferenceStore || (window.LocalItabWorkspaces?.session || null) !== this.preferenceSession) return false;
+        const session = this.preferenceSession, identity = this.preferenceIdentity;
+        return !session?.invalidated && (!identity || session.id === identity.id && session.generation === identity.generation);
+    }
+
     selectCategory(category) {
+        if (!this.categoryPreferenceSourceCurrent() || this.preferenceStore && !this.storageKey) return;
         if (window.appearanceController?.previewGuard || window.shortcutsComponentInstance?._templatePreview) return;
         if (this.currentCategory === category) return;
         this.currentCategory = category;
