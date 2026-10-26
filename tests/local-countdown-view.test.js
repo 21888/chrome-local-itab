@@ -703,3 +703,147 @@ test('Settings action focus: synchronous render redirects, empty status and usab
         assert.equal(m.writes, 0); m.controller.pending = false; m.view.destroy();
     }
 });
+
+test('settings title blur without compositionend restores explicit Save for a later ordinary edit', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.view.title.dispatch('compositionstart'); m.input('title', 'Composed draft'); m.view.title.dispatch('focusout');
+        for (const [id, timer] of [...m.timers]) if (timer.delay === 0) { m.timers.delete(id); timer.fn(); }
+        m.input('title', 'Final ordinary title');
+        assert.equal(m.writes, 0, 'blur must not autosave a manually saved setting');
+        assert.equal(m.view.saveButton.disabled, false);
+        m.view.saveButton.dispatch('click'); await m.flush(); assert.equal(m.raw.title, 'Final ordinary title');
+    } finally { m.view.destroy(); }
+});
+function settleCompositionBlur(m) {
+    for (const [id, timer] of [...m.timers]) if (timer.delay === 0) { m.timers.delete(id); timer.fn(); }
+}
+for (const field of ['title', 'date']) for (const order of ['input-end', 'end-input', 'no-end']) test(`settings ${field} blur preserves final draft for explicit Save: ${order}`, async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        const value = field === 'title' ? 'Final milestone' : '2026-12-31';
+        m.view[field].dispatch('compositionstart'); m.view[field].dispatch('focusout'); m.view[field].value = value;
+        if (order === 'input-end') m.view[field].dispatch('input');
+        if (order !== 'no-end') m.view[field].dispatch('compositionend');
+        if (order === 'end-input') m.view[field].dispatch('input');
+        settleCompositionBlur(m); await m.flush();
+        assert.equal(m.writes, 0); assert.equal(m.controller.composing, false); assert.equal(m.view[field].value, value); assert.equal(m.view.saveButton.disabled, false);
+        m.view.saveButton.dispatch('click'); await m.flush(); assert.equal(m.writes, 1); assert.equal(m.raw[field === 'title' ? 'title' : 'targetDate'], value);
+    } finally { m.view.destroy(); }
+});
+test('old title blur cannot release a newer date composition', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.view.title.dispatch('compositionstart'); m.input('title', 'New title'); m.view.title.dispatch('focusout');
+        m.view.date.dispatch('compositionstart'); m.view.date.value = '2027-01-02'; settleCompositionBlur(m);
+        assert.equal(m.controller.composing, true); assert.equal(m.view.saveButton.disabled, true); assert.equal(m.writes, 0);
+        m.view.date.dispatch('compositionend'); assert.equal(m.view.saveButton.disabled, false); m.view.saveButton.dispatch('click'); await m.flush();
+        assert.equal(m.raw.title, 'New title'); assert.equal(m.raw.targetDate, '2027-01-02');
+    } finally { m.view.destroy(); }
+});
+for (const boundary of ['destroy', 'pagehide', 'session', 'session-generation', 'workspace', 'controller', 'field', 'remount']) test(`queued settings blur cannot settle retired ${boundary} source`, async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    let replacement;
+    try {
+        const original = m.view.title; original.dispatch('compositionstart'); m.input('title', 'Owned draft'); original.dispatch('focusout');
+        original.value = 'Uncommitted retired text';
+        if (boundary === 'destroy') m.view.destroy();
+        if (boundary === 'pagehide') m.fire('pagehide');
+        if (boundary === 'session') m.window.LocalItabWorkspaces.session = { id: 'other' };
+        if (boundary === 'session-generation') m.window.LocalItabWorkspaces.session.generation = 2;
+        if (boundary === 'workspace') m.backend.workspace = { id: 'other' };
+        if (boundary === 'controller') m.view.controller = { closed: false };
+        if (boundary === 'field') m.view.title = m.document.createElement('textarea');
+        if (boundary === 'remount') replacement = m.api.mountSettings(m.host, { controller: new Controller(new m.api.Store(m.backend)) });
+        settleCompositionBlur(m); await m.flush(); assert.equal(m.controller.draft.title, 'Owned draft'); assert.equal(m.writes, 0); assert.equal(m.raw.title, 'Launch');
+    } finally { replacement?.destroy(); m.view.controller = m.controller; m.view.destroy(); }
+});
+test('settings blur preserves conflict and requires the existing recovery choice', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.input('title', 'Local draft'); await m.backend.write(configured({ title: 'Remote saved title', revision: 2 })); await m.flush(); assert.equal(m.controller.conflict, true);
+        const writes = m.writes; m.view.title.dispatch('compositionstart'); m.input('title', 'New local draft'); m.view.title.dispatch('focusout'); settleCompositionBlur(m);
+        assert.equal(m.controller.composing, false); assert.equal(m.controller.conflict, true); assert.equal(m.view.saveButton.disabled, true); assert.equal(m.writes, writes);
+        assert.equal(m.controller.draft.title, 'New local draft'); assert.equal(m.raw.title, 'Remote saved title');
+    } finally { m.view.destroy(); }
+});
+test('settings blur during pending save retains the new draft but never auto-saves it', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush(); let release;
+    try {
+        const held = new Promise(resolve => { release = resolve; }); m.hold(held); m.input('title', 'Old submitted title'); const saving = m.controller.save(); await m.flush();
+        m.view.title.dispatch('compositionstart'); m.input('title', 'New retained title'); m.view.title.dispatch('focusout'); settleCompositionBlur(m);
+        assert.equal(m.view.saveButton.disabled, true); release(); await saving; await m.flush();
+        assert.equal(m.raw.title, 'Old submitted title'); assert.equal(m.controller.draft.title, 'New retained title'); assert.equal(m.writes, 1); assert.equal(m.view.saveButton.disabled, false);
+        m.view.saveButton.dispatch('click'); await m.flush(); assert.equal(m.raw.title, 'New retained title'); assert.equal(m.writes, 2);
+    } finally { release?.(); m.view.destroy(); }
+});
+test('settings blur retains failed-write error until explicit Retry', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.writeFail(true); m.input('title', 'Failed title'); await assert.rejects(m.controller.save()); const error = m.controller.error;
+        m.view.title.dispatch('compositionstart'); m.input('title', 'Retained after failure'); m.view.title.dispatch('focusout'); settleCompositionBlur(m); m.writeFail(false); await m.flush();
+        assert.equal(m.controller.error, error); assert.equal(m.writes, 0); assert.equal(m.view.saveButton.disabled, true); assert.equal(m.view.retry.disabled, false);
+        m.view.retry.dispatch('click'); await m.flush(); assert.equal(m.raw.title, 'Failed title'); assert.equal(m.writes, 1);
+        assert.equal(m.controller.draft.title, 'Retained after failure'); assert.equal(m.view.saveButton.disabled, false);
+        m.view.saveButton.dispatch('click'); await m.flush(); assert.equal(m.raw.title, 'Retained after failure'); assert.equal(m.writes, 2);
+    } finally { m.view.destroy(); }
+});
+test('late title compositionend cannot unlock a newer date composition', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.view.title.dispatch('compositionstart'); m.input('title', 'Title draft'); m.view.title.dispatch('focusout');
+        m.view.date.dispatch('compositionstart'); m.view.date.value = '2027-03-04';
+        m.view.title.dispatch('compositionend'); settleCompositionBlur(m);
+        assert.equal(m.controller.composing, true); assert.equal(m.view.saveButton.disabled, true); assert.equal(m.writes, 0);
+        m.view.date.dispatch('compositionend'); assert.equal(m.controller.composing, false); assert.equal(m.controller.draft.targetDate, '2027-03-04');
+    } finally { m.view.destroy(); }
+});
+for (const event of ['compositionstart', 'compositionend']) test(`retired settings ${event} cannot change original controller composition`, async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        if (event === 'compositionend') m.view.title.dispatch('compositionstart');
+        const composing = m.controller.composing, generation = m.controller.generation;
+        m.window.LocalItabWorkspaces.session = { id: 'replacement' }; m.view.title.value = 'Retired text'; m.view.title.dispatch(event);
+        assert.equal(m.controller.composing, composing); assert.equal(m.controller.generation, generation); assert.equal(m.controller.draft.title, 'Launch'); assert.equal(m.writes, 0);
+    } finally { m.view.destroy(); }
+});
+test('composition completion rechecks field ownership after draft update emits a newer composition', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    let unsubscribe;
+    try {
+        m.view.title.dispatch('compositionstart'); m.view.title.value = 'Completed title';
+        unsubscribe = m.controller.subscribe(() => { if (m.controller.draft.title === 'Completed title') { unsubscribe(); m.view.date.dispatch('compositionstart'); m.view.date.value = '2027-05-06'; } });
+        m.view.title.dispatch('compositionend'); assert.equal(m.controller.composing, true); assert.equal(m.view.saveButton.disabled, true); assert.equal(m.writes, 0);
+        m.view.date.dispatch('compositionend'); assert.equal(m.controller.composing, false); assert.equal(m.controller.draft.targetDate, '2027-05-06');
+    } finally { unsubscribe?.(); m.view.destroy(); }
+});
+for (const action of ['save', 'cancel']) test(`switching composition fields retains both drafts through explicit ${action}`, async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.view.title.dispatch('compositionstart'); m.input('title', 'Earlier title input'); m.view.title.dispatch('focusout'); m.view.title.value = 'Final title at departure';
+        m.view.date.dispatch('compositionstart'); m.view.date.value = '2027-06-07'; m.view.title.dispatch('compositionend'); settleCompositionBlur(m); m.view.date.dispatch('compositionend');
+        assert.equal(m.controller.draft.title, 'Final title at departure'); assert.equal(m.view.title.value, 'Final title at departure'); assert.equal(m.controller.draft.targetDate, '2027-06-07'); assert.equal(m.writes, 0);
+        m.view[action === 'save' ? 'saveButton' : 'cancelButton'].dispatch('click'); await m.flush();
+        assert.equal(m.writes, action === 'save' ? 1 : 0); assert.equal(m.raw.title, action === 'save' ? 'Final title at departure' : 'Launch');
+        assert.equal(m.raw.targetDate, action === 'save' ? '2027-06-07' : '2026-10-11');
+    } finally { m.view.destroy(); }
+});
+test('field handoff never reads a detached previous editor', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.view.title.dispatch('compositionstart'); m.input('title', 'Owned title'); m.view.title.remove();
+        Object.defineProperty(m.view.title, 'value', { configurable: true, get() { throw new Error('retired editor was read'); } });
+        const generation = m.controller.generation; m.view.date.dispatch('compositionstart');
+        assert.equal(m.controller.generation, generation); assert.equal(m.controller.draft.title, 'Owned title'); assert.equal(m.writes, 0);
+    } finally { m.view.destroy(); }
+});
+test('field handoff cannot replace a newer composition created by its draft notification', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush(); let unsubscribe;
+    try {
+        m.view.title.dispatch('compositionstart'); m.view.title.value = 'Departure title'; m.view.date.value = '2027-08-09';
+        unsubscribe = m.controller.subscribe(() => { if (m.controller.draft.title === 'Departure title') { unsubscribe(); m.view.title.dispatch('compositionstart'); m.view.title.value = 'Newest composition title'; } });
+        m.view.date.dispatch('compositionstart'); m.view.date.dispatch('compositionend');
+        assert.equal(m.controller.composing, true); assert.equal(m.view.title.value, 'Newest composition title'); assert.equal(m.controller.draft.targetDate, '2027-08-09'); assert.equal(m.writes, 0);
+        m.view.title.dispatch('compositionend'); assert.equal(m.controller.composing, false); assert.equal(m.controller.draft.title, 'Newest composition title');
+    } finally { unsubscribe?.(); m.view.destroy(); }
+});

@@ -370,9 +370,47 @@
             this.title.addEventListener('input', () => { if (controller.loaded) controller.setDraft({ title: this.title.value }); });
             this.date.addEventListener('input', () => { if (controller.loaded) controller.setDraft({ targetDate: this.date.value }); });
             this.enabled.addEventListener('change', () => { if (controller.loaded) controller.setDraft({ enabled: this.enabled.checked }); });
-            for (const [field, key] of [[this.title, 'title'], [this.date, 'targetDate']]) {
-                field.addEventListener('compositionstart', () => controller.setComposing(true));
-                field.addEventListener('compositionend', () => { if (controller.loaded) controller.setDraft({ [key]: field.value }); controller.setComposing(false); });
+            const compositionStore = controller.store, compositionBackend = compositionStore.backend;
+            const compositionWorkspace = compositionBackend.workspace, compositionSession = root.LocalItabWorkspaces?.session;
+            const workspaceId = compositionWorkspace?.id, workspaceGeneration = compositionWorkspace?.generation;
+            const sessionId = compositionSession?.id, sessionGeneration = compositionSession?.generation;
+            const compositionFields = [[this.title, 'title'], [this.date, 'targetDate']];
+            let compositionEpoch = 0, activeCompositionField = null;
+            const compositionCurrent = () => !this.closed && !this.suspended && !controller.closed &&
+                this.host === host && this.controller === controller && controller.store === compositionStore && compositionStore.backend === compositionBackend &&
+                compositionBackend.workspace === compositionWorkspace && compositionWorkspace?.id === workspaceId && compositionWorkspace?.generation === workspaceGeneration &&
+                !compositionWorkspace?.invalidated && !compositionWorkspace?._suspended &&
+                root.LocalItabWorkspaces?.session === compositionSession && compositionSession?.id === sessionId && compositionSession?.generation === sessionGeneration &&
+                !compositionSession?.invalidated && !compositionSession?._suspended &&
+                this.title === compositionFields[0][0] && this.date === compositionFields[1][0] &&
+                host.ownerDocument === document && host.isConnected && compositionFields.every(([field]) => field.ownerDocument === document && host.contains(field));
+            const finishComposition = (field, key) => {
+                if (!compositionCurrent() || activeCompositionField !== field) return;
+                const settled = ++compositionEpoch;
+                if (controller.loaded) controller.setDraft({ [key]: field.value });
+                if (compositionCurrent() && compositionEpoch === settled && activeCompositionField === field) {
+                    activeCompositionField = null;
+                    controller.setComposing(false);
+                }
+            };
+            for (const [field, key] of compositionFields) {
+                field.addEventListener('compositionstart', () => {
+                    if (!compositionCurrent()) return;
+                    const previous = compositionFields.find(([node]) => node === activeCompositionField && node !== field);
+                    const started = ++compositionEpoch; activeCompositionField = field;
+                    // Preserve the departing field's final text before a new field
+                    // takes ownership; its delayed end must not unlock this one.
+                    if (previous && controller.loaded) controller.setDraft({ [previous[1]]: previous[0].value });
+                    if (compositionCurrent() && compositionEpoch === started && activeCompositionField === field) controller.setComposing(true);
+                });
+                field.addEventListener('compositionend', () => finishComposition(field, key));
+                field.addEventListener('focusout', () => {
+                    if (!compositionCurrent() || !controller.composing || activeCompositionField !== field) return;
+                    const epoch = compositionEpoch;
+                    root.setTimeout(() => {
+                        if (compositionEpoch === epoch && controller.composing) finishComposition(field, key);
+                    }, 0);
+                });
             }
             // Settings sections can be hidden directly or by an ancestor. Do not
             // observe descendants: preview text/hidden writes must not loop back.
