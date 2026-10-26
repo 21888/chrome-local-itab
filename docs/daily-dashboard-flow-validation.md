@@ -260,3 +260,79 @@ and its dedicated Terminal tab was closed. Screenshots were in-tool only.
 These two representative template/customization flows form one documentation
 batch, not separate feature deliveries. The import/upgrade incident gate remains
 independent and is not changed by these synthetic local-page results.
+
+## Countdown ordinary editor → card → cancel/hide/show
+
+Port 8798 exercised the shipped Countdown flow over synthetic storage after nine
+complete Countdown test files passed **467/467**. Settings search for Days from
+today opened the correct section. A synthetic multilingual title, Show enabled,
+and After today / 2 produced the draft date `2026-10-28` and “2 days left” on the
+observed local calendar date, with no write. Explicit module Save wrote once.
+The actual homepage displayed that exact saved title/date and day count.
+
+The card's Edit anchor opened workspace-specific Settings. Changing only the
+synthetic title then confirming Cancel discarded that draft and restored the
+saved text, with write count still one. The card's Hide wrote only its enabled
+state (write 2), retaining title/date. Opening Settings, showing Countdown and
+explicitly saving (write 3) made the original homepage card reappear without a
+reload. Other personal modules, shared privacy/sync/AI libraries and the other
+workspace stayed exact. No file, clipboard, system clock or provider was used.
+This is not a native DST/midnight or imported-file test. Tabs 50–52, server 8798
+and its dedicated terminal were closed; only the untouched original tab remained.
+
+## Reversible Prompt Trash and Collection Archive recovery
+
+Port 8799 used valid synthetic snapshots built by the real stores/controllers:
+one Prompt and one linked Collection, each with two body versions; the result
+linked specifically to Prompt v1, not current v2. The complete controller chain
+proved stable IDs, text, history, notes and exact reference across removal and
+restoration. Nine related complete files passed **162/162**.
+
+The real Collection details showed its current excerpt, two versions, annotation
+and exact older Prompt body. Following its actual Prompt link opened the correct
+record. With global homepage search already open, Archive result → confirm Move
+to Trash for Prompt → Restore prompt → Restore from archive produced four writes
+and live search counts **2 → 1 → 0 → 1 → 2**, without Refresh or reload. Trash and
+Archived views retained the bodies and histories. After restoration, selecting
+v1 in Prompt history displayed the exact restored result link; current v2 remained
+unlinked. Body/current-version IDs, historical versions, notes and promptRef stayed
+unchanged; normal revision/version/timestamps changed, so whole-record equality
+is not claimed. All workspace modules, privacy/sync and the other workspace's
+registry/bundle remained exact.
+
+This is reversible user-interface recovery of synthetic records, not permanent
+deletion, JSON restore, real user-data incident recovery or installed-extension
+upgrade acceptance. No import/export, file, clipboard or model call occurred.
+Owned tabs 53–55 were closed; a second inventory confirmed only original tab 9.
+Server 8799 and its dedicated terminal were stopped/closed normally. No production
+defect was found in either chain, and no screenshots were uploaded.
+
+## Manually maintained local Weather, Topics and Movie cards
+
+Port 8800 exercised actual Settings and homepage rendering with no online card
+provider. Four complete topic/settings files passed **162/162**. Visibility was
+enabled for the three existing cards; local city/condition/temperature/range/AQI,
+movie title/note and two topic groups were entered. Adding a Baidu topic with
+score 12345 retained the other unsaved form fields; adding a Weibo topic with
+score 77 and ordinary Save produced the intended complete configuration.
+
+The actual homepage rendered the synthetic weather values (18°, low/high 12/24,
+AQI 35), multilingual city and condition, movie text with a placeholder rather
+than an image, and the saved active Weibo topic. Topic-group selection is an
+existing Settings preference; no homepage group-switch control is claimed.
+Reopening Settings retained both groups. Native title/score prompts changed the
+Baidu entry to the intended new title and 54321; confirming Delete removed only
+the synthetic Weibo entry. Saving Baidu as the active group and returning to the
+homepage displayed the edited topic while weather/movie values stayed intact.
+
+Nine actual writes included the existing visibility/group automatic saves,
+topic helper saves and explicit ordinary Saves; this is not described as a
+single manual transaction. Every other personal module, shared privacy/sync/AI
+library and other workspace registry/bundle stayed exact. The test did not use
+images, posters, file selection, live weather/topics, site opening or provider
+permissions. Native prompt/confirm opening caused expected tool click timeouts;
+the pending dialogs were handled directly without repeating the original action.
+No product defect was found. Tabs 56/57, server 8800 and its dedicated terminal
+were closed, with final inventory showing only the untouched original tab 9.
+The Countdown, reversible-library-recovery and local-card checks are one bounded
+acceptance batch, not three new features or incident-release authorization.
