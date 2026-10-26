@@ -149,7 +149,20 @@
             this.main = this.el('main', 'prompt-main'); this.main.id = 'collection-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.paragraph('Scope', 'Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model.'), this.paragraph('Limits', 'Limits: 200 items including archived · 32,000 characters per excerpt · 20 body versions per item · 2 MiB total. Capacity errors keep your draft; no text or history is silently removed.'), this.paragraph('Privacy', 'Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text.'));
             this.shell.append(brand, header, this.captureStatus, this.status, layout, footer); this.host.append(this.shell);
-            this.main.addEventListener('keydown', event => { if (!event.isComposing && event.keyCode !== 229 && !event.repeat && (event.ctrlKey || event.metaKey) && event.key?.toLowerCase() === 's' && c.draft()) { event.preventDefault(); void this.save(); } });
+            let saveComposition = null;
+            this.main.addEventListener('compositionstart', event => { saveComposition = event.target; });
+            const finishSaveComposition = event => { if (saveComposition === event.target) saveComposition = null; };
+            this.main.addEventListener('compositionend', finishSaveComposition);
+            this.main.addEventListener('focusout', finishSaveComposition);
+            this.main.addEventListener('keydown', event => {
+                if (saveComposition && (!saveComposition.isConnected || !this.main.contains(saveComposition) || !saveComposition.contains(this.doc.activeElement))) saveComposition = null;
+                if (this.destroyed || c.disposed || !(event.ctrlKey || event.metaKey) || event.key?.toLowerCase() !== 's' || !c.draft()) return;
+                // Own this editor's Save key without letting unfinished IME text
+                // reach metadata saving or the duplicate-excerpt confirmation.
+                event.preventDefault(); event.stopPropagation();
+                if (event.isComposing || event.keyCode === 229 || event.repeat || saveComposition) return;
+                void this.save();
+            });
         }
         attachDepartureGuard() {
             root.removeEventListener?.('beforeunload', this.beforeUnload);

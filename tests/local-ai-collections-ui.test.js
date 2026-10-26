@@ -471,3 +471,90 @@ test('copy controls retain keyboard focus while pending and never steal focus wh
     }
     h.c.dispose();
 });
+
+test('collection note composition blocks flagless Save shortcut and retains the editor', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const notes = h.view.editor.fields.notes; notes.focus(); notes.dispatch('compositionstart'); notes.value = 'Unfinished annotation'; notes.dispatch('input');
+        const before = h.h.writes; notes.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller);
+        assert.equal(h.h.writes, before); assert.ok(h.controller.draft()); assert.equal(h.view.editor.fields.notes, notes);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+for (const modifier of ['ctrlKey', 'metaKey']) for (const order of ['input-end', 'end-input']) test(`collection ${modifier} Save resumes after ${order} without changing excerpt history`, async () => {
+    const h = await mount(); const original = await add(h.controller); h.controller.edit();
+    try {
+        const notes = h.view.editor.fields.notes; notes.focus(); notes.dispatch('compositionstart'); notes.value = 'Final annotation';
+        if (order === 'input-end') notes.dispatch('input'); notes.dispatch('compositionend'); if (order === 'end-input') notes.dispatch('input');
+        const before = h.h.writes; const event = notes.dispatch('keydown', { key: 's', [modifier]: true }); await settle(h.controller);
+        assert.equal(event.prevented, true); assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record().notes, 'Final annotation');
+        assert.equal(h.controller.record().body, original.body); assert.equal(h.controller.record().currentVersionId, original.currentVersionId); assert.deepEqual(h.controller.record().history, original.history);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+for (const protection of ['flag', '229', 'repeat', 'lifecycle']) test(`collection editor owns browser Save but does not write during ${protection}`, async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const notes = h.view.editor.fields.notes; notes.focus(); if (protection === 'lifecycle') notes.dispatch('compositionstart'); notes.value = 'Unsaved annotation'; notes.dispatch('input'); const before = h.h.writes;
+        const event = notes.dispatch('keydown', { key: 's', metaKey: true, ...(protection === 'flag' ? { isComposing: true } : protection === '229' ? { keyCode: 229 } : protection === 'repeat' ? { repeat: true } : {}) });
+        await settle(h.controller); assert.equal(event.prevented, true); assert.equal(h.h.writes, before); assert.equal(h.controller.draft().input.notes, 'Unsaved annotation');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('collection note blur recovers a missing end without auto-saving or stranding the next shortcut', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const notes = h.view.editor.fields.notes; notes.focus(); notes.dispatch('compositionstart'); notes.value = 'Intermediate'; notes.dispatch('input'); const before = h.h.writes;
+        notes.dispatch('focusout'); await settle(h.controller); assert.equal(h.h.writes, before); notes.value = 'Later annotation'; notes.dispatch('input');
+        notes.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record().notes, 'Later annotation');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('collection old title completion cannot release the newer annotation composition', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const { title, notes } = h.view.editor.fields; title.focus(); title.dispatch('compositionstart'); notes.focus(); notes.dispatch('compositionstart'); notes.value = 'New annotation'; notes.dispatch('input');
+        title.dispatch('compositionend'); title.dispatch('focusout'); const before = h.h.writes; notes.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before);
+        notes.dispatch('compositionend'); notes.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before + 1);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('new collection duplicate review waits for composition completion and still honors cancellation', async () => {
+    let reviews = 0, approved = false; const h = await mount(async () => { reviews++; return approved; }); await add(h.controller, 'Saved', 'Same excerpt'); h.controller.create(); h.controller.update('title', 'New');
+    try {
+        const body = h.view.editor.fields.body; body.focus(); body.dispatch('compositionstart'); body.value = 'Same excerpt'; body.dispatch('input'); const before = h.h.writes;
+        body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(reviews, 0); assert.equal(h.h.writes, before);
+        body.dispatch('compositionend'); body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(reviews, 1); assert.equal(h.h.writes, before); assert.ok(h.controller.draft());
+        approved = true; body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(reviews, 2); assert.equal(h.h.writes, before + 1); assert.equal(h.controller.state.records.length, 2);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('collection record switches isolate composing editors and keep the first unsaved annotation', async () => {
+    const h = await mount(); const first = await add(h.controller, 'First', 'First excerpt'), second = await add(h.controller, 'Second', 'Second excerpt'); h.controller.select(first.id); h.controller.edit();
+    try {
+        const oldNotes = h.view.editor.fields.notes; oldNotes.focus(); oldNotes.dispatch('compositionstart'); oldNotes.value = 'First draft'; oldNotes.dispatch('input');
+        h.controller.select(second.id); h.controller.edit(); const notes = h.view.editor.fields.notes; notes.focus(); notes.dispatch('compositionstart'); notes.value = 'Second final'; notes.dispatch('input');
+        oldNotes.dispatch('compositionend'); oldNotes.dispatch('focusout'); const before = h.h.writes; notes.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before);
+        notes.dispatch('compositionend'); notes.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record(second.id).notes, 'Second final');
+        h.controller.select(first.id); assert.equal(h.controller.draft().input.notes, 'First draft'); assert.equal(h.controller.record().body, 'First excerpt');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('collection composition does not consume ordinary keys, unrelated shortcuts or search Save', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const notes = h.view.editor.fields.notes; notes.focus(); notes.dispatch('compositionstart'); const before = h.h.writes;
+        for (const keys of [{ key: 's' }, { key: 'f', ctrlKey: true }, { key: 'Enter', isComposing: true }]) assert.equal(notes.dispatch('keydown', keys).prevented, false);
+        h.view.search.focus(); assert.equal(h.view.search.dispatch('keydown', { key: 's', ctrlKey: true }).prevented, false); await settle(h.controller); assert.equal(h.h.writes, before);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+for (const retired of ['view', 'controller']) test(`retired collection ${retired} does not own Save shortcut`, async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const notes = h.view.editor.fields.notes; notes.focus(); notes.value = 'Uncommitted'; notes.dispatch('input'); const before = h.h.writes;
+        if (retired === 'view') h.view.destroy(); else h.controller.dispose();
+        assert.equal(notes.dispatch('keydown', { key: 's', ctrlKey: true }).prevented, false); await settle(h.controller); assert.equal(h.h.writes, before);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('replaced collection editor does not inherit a detached field composition lock', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const oldNotes = h.view.editor.fields.notes; oldNotes.focus(); oldNotes.dispatch('compositionstart'); oldNotes.value = 'Retained draft'; oldNotes.dispatch('input');
+        h.view.render(); const notes = h.view.editor.fields.notes; assert.notEqual(notes, oldNotes); assert.equal(oldNotes.isConnected, false); notes.focus(); notes.value = 'Replacement final'; notes.dispatch('input');
+        oldNotes.dispatch('compositionend'); const before = h.h.writes; notes.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller);
+        assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record().notes, 'Replacement final');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
