@@ -123,3 +123,10 @@ The matrix does not cover screen readers, OS IME, installation/migration,
 online providers, imported files, all background contrasts, or arbitrary custom
 card sizes. Those require their own scoped evidence rather than extrapolation
 from this matrix.
+
+The synthetic locale bridge substitutes named catalog placeholders but not the
+legacy positional `$1` used by the day/week date suffix. Those suffixes therefore
+showed literal `$1` in this fixture. This matrix does not validate date formatting;
+the separately documented actual Chrome message-API checks in
+`localized-date-validation.md` cover that contract. The fixture limitation was
+not treated as a production defect or changed mid-matrix.
