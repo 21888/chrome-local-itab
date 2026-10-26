@@ -11,6 +11,7 @@
         savedState: 'Saved in this workspace', savedAll: 'All', savedNew: 'Not added', savedAdded: 'Added',
         tag: 'Use', country: 'Operator location', company: 'Company / organization', pricing: 'Pricing',
         any: 'Any', destination: 'Add to your category', results: 'sites', result: 'site', add: 'Add', added: 'Added', visit: 'Open official site', official: 'Official site',
+        viewOnHome: 'View on home', viewFirstOnHome: 'View first added shortcut on home', viewUnavailable: 'Could not locate this shortcut safely. Check your current workspace and category.',
         loading: 'Reading your saved sites…', saving: 'Saving…', saved: 'Added to', duplicate: 'Already in your shortcuts',
         empty: 'No sites match these filters.', emptyHelp: 'Clear filters to browse all sites. Your selection and destination stay unchanged.',
         emptySelected: 'No sites selected yet.', emptySelectedHelp: 'Turn off selected-only view to choose sites. Other filters stay in place.',
@@ -44,7 +45,7 @@
         let newCategoryMode = false, draftName = '', compositionTarget = null, nameInput, newCategoryPanel, existingDestination, newCategoryButton, categoryError, useExisting;
         const selected = new Set();
         const expandedDetails = new Set(), renderedDetails = new Map();
-        let reviewed = null, selectedOnly = false;
+        let reviewed = null, selectedOnly = false, revealResult = null, revealButton, revealRefreshTimer = null;
         let busy = false, writing = false, blocked = false, revision = 0, criteria = {}, currentDestination = '';
         const language = () => /^zh/i.test(document.documentElement.lang || '') ? 'zh' : 'en';
         const countryLabels = new Map();
@@ -69,7 +70,23 @@
         const opener = button(t('open'), open, 'navigation-library-opener'); opener.setAttribute('aria-haspopup', 'dialog'); host.append(opener);
         function close() {
             if (writing) return false;
+            if (revealRefreshTimer !== null) root.clearTimeout?.(revealRefreshTimer);
+            revealRefreshTimer = null;
             revision++; readTicket++; refreshing = false; expandedDetails.clear(); renderedDetails.clear(); busy = false; cleanupSearchShortcut?.(); cleanupSearchShortcut = null; cleanupComposition?.(); cleanupComposition = null; cleanup?.(); cleanup = null; overlay?.remove(); overlay = null; snapshot = null; selected.clear(); selectedOnly = false; reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null; return true;
+        }
+        function refreshRevealAfterLayout() {
+            if (!overlay || !revealResult || !revealButton?.isConnected) return;
+            if (revealRefreshTimer !== null) root.clearTimeout?.(revealRefreshTimer);
+            const owner = revision, result = revealResult, control = revealButton;
+            // Layout render precedes its promise finally/pending decrement.
+            // One queued repaint observes settlement; this is not polling.
+            revealRefreshTimer = root.setTimeout(() => {
+                revealRefreshTimer = null;
+                if (owner !== revision || result !== revealResult || control !== revealButton || !control.isConnected) return;
+                // Never hide/blur a control the user may already own. Existing
+                // visible actions retain their click-time safe failure feedback.
+                if (component.canRevealCatalogShortcut?.(result)) control.hidden = false;
+            }, 0);
         }
         function isComposing() {
             // A lost end/blur event must not strand every action after focus moves
@@ -115,7 +132,7 @@
         }
         async function open() {
             if (overlay || root.LocalItabContentLifecycle?.departing || component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component.modal?.classList.contains('active')) return false;
-            countryLabels.clear(); missingDestinationFeedback = null;
+            countryLabels.clear(); missingDestinationFeedback = null; revealResult = null;
             const owner = ++revision; expandedDetails.clear(); renderedDetails.clear(); busy = true; writing = false; blocked = false; criteria = {}; selected.clear(); selectedOnly = false; reviewed = null; draftName = ''; newCategoryMode = false; compositionTarget = null;
             overlay = el('div', undefined, 'navigation-library-overlay'); panel = el('section', undefined, 'navigation-library-panel'); panel.tabIndex = -1;
             bindComposition(owner, panel);
@@ -124,6 +141,15 @@
             copy.append(el('p', t('eyebrow'), 'navigation-library-eyebrow')); const title = el('h2', t('title')); title.id = 'navigation-library-title'; copy.append(title, el('p', t('intro'), 'navigation-library-intro'));
             const dismiss = button('×', close, 'navigation-library-close'); dismiss.setAttribute('aria-label', t('close')); head.append(copy, dismiss); panel.append(head);
             status = el('p', t('loading'), 'navigation-library-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.setAttribute('aria-atomic', 'true'); panel.append(status);
+            const reveal = revealButton = button(t('viewOnHome'), () => {
+                if (owner !== revision || !reveal.isConnected || reveal.disabled || busy || !revealResult) return;
+                const result = revealResult;
+                if (!component.revealCatalogShortcut?.(result, close)) {
+                    if (status?.isConnected) status.textContent = t('viewUnavailable');
+                    else root.showErrorMessage?.(t('viewUnavailable'));
+                }
+            }, 'navigation-library-reveal');
+            reveal.hidden = true; panel.append(reveal);
             overlay.append(panel); document.body.append(overlay); cleanup = root.LocalItabDialog?.open(overlay, panel, close);
             try {
                 const controller = component.layoutController;
@@ -749,6 +775,7 @@
         async function save(site, batch = false, confirmation = null) {
             if (externalWorkPending()) { status.textContent = t(component.layoutController?.invalidated ? 'refreshReload' : 'layout'); setControls(); return; }
             if (busy || writing || isComposing() || blocked || !snapshot || (!newCategoryMode && !validDestination()) || root.LocalItabContentLifecycle?.departing || (confirmation && reviewed !== confirmation) || (newCategoryMode && !confirmation?.newCategory)) return;
+            revealResult = null; revealButton.hidden = true;
             writing = busy = true; setControls(); panel.focus(); status.textContent = batch ? `${t('saving')} ${site.length}` : `${t('saving')} ${site.name}`;
             const request = confirmation ? { baseline: confirmation.baseline,
                 ...(batch ? { sites: confirmation.sites } : { site: confirmation.sites[0] }),
@@ -757,6 +784,9 @@
             try {
                 const saved = await component.addCatalogShortcut(request); snapshot = saved;
                 if (saved.createdCategory) { currentDestination = saved.destination || saved.createdCategory.id; draftName = ''; nameInput.value = ''; newCategoryMode = false; newCategoryPanel.hidden = true; existingDestination.hidden = false; newCategoryButton.hidden = false; }
+                revealResult = saved;
+                revealButton.hidden = !component.canRevealCatalogShortcut?.(saved);
+                revealButton.textContent = t(batch ? 'viewFirstOnHome' : 'viewOnHome');
                 rebuildDestinations();
                 useExisting.dataset.unavailable = String(!snapshot.categories.length);
                 status.textContent = request.newCategory && !saved.createdCategory ? t('noNewSites') : batch ? `${saved.addedCount} · ${t('saved')} ${destinationLabels.get(currentDestination) || currentDestination}${saved.skippedCount ? ` · ${saved.skippedCount} ${t('skipped')}` : ''}` : saved.duplicate ? `${site.name}: ${t('duplicate')}` : `${site.name} · ${t('saved')} ${destinationLabels.get(currentDestination) || currentDestination}`;
@@ -765,9 +795,10 @@
                 status.textContent = t(error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_CATEGORY_NAME' ? 'categoryInvalid' : error.code === 'CATALOG_CATEGORY_EXISTS' ? 'categoryExists' : error.code === 'CATALOG_FAILED' ? (batch ? 'batchFailed' : 'failed') : error.code === 'CATALOG_UNVERIFIED' || error.mayHaveCommitted ? 'uncertain' : error.code === 'CATALOG_LAYOUT_PENDING' ? 'layout' : 'conflict');
             } finally {
                 writing = busy = false; renderResults(batch ? site[0]?.id : site.id); setControls();
+                revealButton.hidden = !revealResult || !component.canRevealCatalogShortcut?.(revealResult);
             }
         }
-        return { open, close, get pending() { return busy; }, hasUncommittedWork: () => Boolean(overlay || busy), destroy() { if (!writing) { close(); opener.remove(); } } };
+        return { open, close, refreshRevealAfterLayout, get pending() { return busy; }, hasUncommittedWork: () => Boolean(overlay || busy), destroy() { if (!writing) { close(); opener.remove(); } } };
     }
     root.LocalItabNavigationLibrary = { mount };
 })(window);

@@ -5730,6 +5730,15 @@
   "navigationLibraryVisit": {
     "message": "打开官方网站"
   },
+  "navigationLibraryViewOnHome": {
+    "message": "在主页查看"
+  },
+  "navigationLibraryViewFirstOnHome": {
+    "message": "在主页查看首个新增快捷方式"
+  },
+  "navigationLibraryViewUnavailable": {
+    "message": "无法安全定位此快捷方式，请检查当前工作区和分类。"
+  },
   "navigationLibraryLoading": {
     "message": "正在读取已保存的网站…"
   },

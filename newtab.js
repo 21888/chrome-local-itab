@@ -3502,6 +3502,34 @@ function setDashboardHidden(hidden) {
  * Shortcuts Component Class
  * Handles shortcuts grid display and CRUD operations
  */
+// A reveal receipt is local UI authority, never persisted or resolved by URL.
+const catalogRevealReceipts = new WeakMap();
+function catalogRevealTarget(component, result, allowScheduledLayout = false) {
+    const receipt = catalogRevealReceipts.get(component);
+    if (!receipt || receipt.result !== result || window.shortcutsComponentInstance !== component ||
+        storageManager !== receipt.store || component.links !== receipt.links || component.links[receipt.index] !== receipt.link ||
+        component._shortcutWritesPending || component._pendingSave || component._pendingDelete || component._shortcutOrderPending || component._shortcutUndoPending ||
+        component.layoutController !== receipt.controller || component._templatePreview || component.layoutController?.invalidated || component.layoutController?.failedChange ||
+        (!allowScheduledLayout && (component.layoutController?.pending || component.layoutController?.timer)) || component.layoutController?.modePending || component.modal?.classList.contains('active') ||
+        window.LocalItabContentLifecycle?.departing || document.hidden || document.visibilityState === 'hidden' ||
+        window.categoryNavigation !== receipt.navigation || !component.container?.getClientRects().length) return null;
+    const session = window.LocalItabWorkspaces?.session, workspace = receipt.store.workspace;
+    if (session !== receipt.session || session?.id !== receipt.sessionId || session?.generation !== receipt.sessionGeneration ||
+        session?.invalidated || session?._suspended || workspace !== receipt.workspace || workspace?.id !== receipt.workspaceId ||
+        workspace?.generation !== receipt.workspaceGeneration || workspace?.invalidated || workspace?._suspended ||
+        !receipt.fields.every((field, index) => receipt.link[field] === receipt.values[index]) ||
+        !receipt.navigation?.categories?.some(category => category.id === receipt.category)) return null;
+    const grid = document.getElementById('shortcuts-grid');
+    if (!grid?.isConnected || grid !== component.gridEl || !component.container?.contains(grid)) return null;
+    for (const more of grid.querySelectorAll('[data-action="more"]')) {
+        const rendered = component._shortcutMenuTargets.get(more);
+        if (!rendered || rendered.index !== receipt.index || !rendered.isCurrent() || !grid.contains(rendered.item)) continue;
+        const target = rendered.item.querySelector('.shortcut-launch');
+        if (target?.isConnected && !target.disabled) return { receipt, target };
+    }
+    return null;
+}
+
 class ShortcutsComponent {
     constructor(links, layout, categories = [], layoutBaseline) {
         this.layoutBaseline = layoutBaseline;
@@ -3580,10 +3608,11 @@ class ShortcutsComponent {
         const undo = this.createShortcutUndoBar();
         this.container.replaceChildren(header, this._shortcutUndoLiveStatus, undo, grid);
         if (this.layoutController) {
-            const renderLayout = this.layoutController.render;
-            this.layoutController.render = (...args) => {
+            const layoutOwner = this.layoutController, renderLayout = layoutOwner.render;
+            layoutOwner.render = (...args) => {
                 renderLayout(...args);
                 this.refreshShortcutUndo();
+                if (this.layoutController === layoutOwner) this.navigationLibraryView?.refreshRevealAfterLayout?.();
             };
         }
         this.refreshShortcutUndo();
@@ -4316,6 +4345,13 @@ class ShortcutsComponent {
             this.modal?.classList.contains('active')) throw new Error('Shortcut action pending');
         this._shortcutWritesPending = (this._shortcutWritesPending || 0) + 1;
         const controller = this.layoutController;
+        const store = storageManager, session = window.LocalItabWorkspaces?.session, workspace = store.workspace;
+        const scope = { store, controller, session, sessionId: session?.id, sessionGeneration: session?.generation,
+            workspace, workspaceId: workspace?.id, workspaceGeneration: workspace?.generation,
+            navigation: window.categoryNavigation };
+        const baseline = request.baseline?.links ?? store.defaultConfig?.links;
+        const previousLinks = Array.isArray(baseline) ? JSON.parse(JSON.stringify(baseline)) : null;
+        catalogRevealReceipts.delete(this);
         controller?.holdShortcutMutation();
         this.refreshShortcutUndo();
         try {
@@ -4335,11 +4371,54 @@ class ShortcutsComponent {
             }
             this._shortcutUndoReceipt = null;
             this.updateGrid();
+            const count = Array.isArray(request.sites) ? saved.addedCount : saved.duplicate === false ? 1 : 0;
+            const fields = ['title', 'url', 'icon', 'category', 'layoutId'];
+            // The verified storage transaction appends only genuine additions.
+            // Prove the unchanged prefix and adopted projection before issuing a
+            // runtime receipt; duplicates and uncertain outcomes get no receipt.
+            if (previousLinks && Number.isInteger(count) && count > 0 && Array.isArray(saved.links) &&
+                saved.links.length === previousLinks.length + count && this.links.length === saved.links.length &&
+                store.sameShortcutUndoValue?.(saved.links.slice(0, previousLinks.length), previousLinks)) {
+                const index = previousLinks.length, link = this.links[index], verified = saved.links[index];
+                if (link && fields.every(field => link[field] === verified[field])) catalogRevealReceipts.set(this, {
+                    ...scope, result: saved, links: this.links, index, link, fields, values: fields.map(field => link[field]),
+                    category: link.category || 'work'
+                });
+            }
             return saved;
         } finally {
             this._shortcutWritesPending--;
             controller?.releaseShortcutMutation();
             this.refreshShortcutUndo();
+        }
+    }
+
+    canRevealCatalogShortcut(result) {
+        try { return Boolean(catalogRevealTarget(this, result)); } catch (_) { return false; }
+    }
+
+    revealCatalogShortcut(result, dismiss) {
+        try {
+            let current = catalogRevealTarget(this, result);
+            if (!current || (dismiss && dismiss() === false)) return false;
+            current = catalogRevealTarget(this, result);
+            if (!current) return false;
+            current.receipt.navigation.selectCategory(current.receipt.category);
+            // Normal category selection may schedule its own missing-position save.
+            // That does not replace this exact card/source or authorize another write.
+            current = catalogRevealTarget(this, result, true);
+            if (!current || current.receipt.navigation.currentCategory !== current.receipt.category || !this.isVisibleFocusTarget(current.target)) return false;
+            const target = current.target;
+            target.focus();
+            current = catalogRevealTarget(this, result, true);
+            if (!current || current.target !== target || document.activeElement !== target || current.receipt.navigation.currentCategory !== current.receipt.category) return false;
+            target.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+            current = catalogRevealTarget(this, result, true);
+            return Boolean(current && current.target === target && document.activeElement === target && current.receipt.navigation.currentCategory === current.receipt.category);
+        } catch (_) {
+            // Category preference/layout work already requested by this click is
+            // not rolled back. The caller reports failure instead of claiming focus.
+            return false;
         }
     }
 

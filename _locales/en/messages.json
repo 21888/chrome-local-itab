@@ -5730,6 +5730,15 @@
   "navigationLibraryVisit": {
     "message": "Open official site"
   },
+  "navigationLibraryViewOnHome": {
+    "message": "View on home"
+  },
+  "navigationLibraryViewFirstOnHome": {
+    "message": "View first added shortcut on home"
+  },
+  "navigationLibraryViewUnavailable": {
+    "message": "Could not locate this shortcut safely. Check your current workspace and category."
+  },
   "navigationLibraryLoading": {
     "message": "Reading your saved sites…"
   },
