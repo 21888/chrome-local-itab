@@ -1426,7 +1426,7 @@ function setupEventListeners() {
             // Normalize values like fff or FFFFFF
             if (/^[0-9A-F]{3}$/i.test(v)) v = '#' + v;
             if (/^[0-9A-F]{6}$/i.test(v)) v = '#' + v;
-            if (/^#[0-9A-F]{6}$/i.test(v)) {
+            if (/^#[0-9A-F]{3}([0-9A-F]{3})?$/i.test(v)) {
                 bgColorInput.value = v;
                 bgColorTextInput.value = v;
                 await saveBackgroundSettings();

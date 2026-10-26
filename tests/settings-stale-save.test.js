@@ -912,3 +912,110 @@ bounded('unowned events during reset do not manufacture an ordinary draft', asyn
     p.captureEdit('input', unrelated); p.captureEdit('change', unrelated);
     gate.resume(); await resetting; assert.equal(p.reloads, 1);
 });
+
+bounded('background text shorthand follows the same real change-save path as six-digit colors', async () => {
+    const f = fixture(), a = await f.page({events: true});
+    a.field('bg-type').value = 'color';
+    a.field('bg-color-text').value = '#112233';
+    await a.field('bg-color-text').listeners.get('change')[0]({target: a.field('bg-color-text')});
+    same(f.state().bg, {type: 'color', value: '#112233'});
+    const before = f.writes.length;
+    a.field('bg-color-text').value = 'abc';
+    await a.field('bg-color-text').listeners.get('change')[0]({target: a.field('bg-color-text')});
+    same(f.state().bg, {type: 'color', value: '#abc'});
+    assert.equal(f.writes.length, before + 1);
+    assert.equal(a.field('bg-color').value, '#abc');
+    assert.equal(a.field('bg-color-text').value, '#abc');
+});
+
+bounded('explicit ordinary Save currently accepts a shorthand background color', async () => {
+    const f = fixture(), a = await f.page({events: true});
+    a.field('bg-type').value = 'color'; a.field('bg-color-text').value = 'abc';
+    await a.save(); success(a);
+    same(f.state().bg, {type: 'color', value: '#abc'});
+    assert.equal(a.field('bg-color-text').value, '#abc');
+});
+
+
+for (const value of ['abc', '#AbC', '  DEF  ', '123456', '#ABCDEF']) bounded(`background change accepts existing hex form ${JSON.stringify(value)} without altering other settings`, async () => {
+    const f = fixture(), a = await f.page({events: true}), before = f.state();
+    a.field('bg-type').value = 'color'; a.field('bg-color-text').value = value;
+    await a.field('bg-color-text').listeners.get('change')[0]({target: a.field('bg-color-text')});
+    const normalized = value.trim().startsWith('#') ? value.trim() : '#' + value.trim();
+    same(f.state().bg, {type: 'color', value: normalized});
+    same({...f.state(), bg: before.bg}, before, 'only background changes');
+    assert.equal(f.writes.length, 1);
+    const reopened = await f.page();
+    assert.equal(reopened.field('bg-color-text').value, normalized);
+    assert.equal(f.writes.length, 1, 'opening does not migrate or rewrite');
+    reopened.field('quote-text').value = 'Independent quote'; await reopened.save(); success(reopened);
+    same(f.state().bg, {type: 'color', value: normalized}, 'unrelated save retains saved spelling');
+});
+
+bounded('invalid background change remains an unsaved draft without substituting black', async () => {
+    const f = fixture(), a = await f.page({events: true}), before = f.state();
+    a.field('bg-type').value = 'color';
+    for (const value of ['', '#ab', '#abcd', '#abcdef00', '#ggg', 'red']) {
+        a.field('bg-color-text').value = value;
+        await a.field('bg-color-text').listeners.get('change')[0]({target: a.field('bg-color-text')});
+        same(f.state(), before); assert.equal(f.writes.length, 0);
+        assert.equal(a.field('bg-color-text').value, value);
+    }
+});
+
+bounded('shorthand change failure retains draft and explicit retry saves it', async () => {
+    const f = fixture(), a = await f.page({events: true}), before = f.state();
+    a.field('bg-type').value = 'color'; a.field('bg-color-text').value = 'abc';
+    f.hooks.write = async () => { throw new Error('synthetic unavailable'); };
+    await a.field('bg-color-text').listeners.get('change')[0]({target: a.field('bg-color-text')});
+    same(f.state(), before); assert.equal(f.writes.length, 0);
+    assert.equal(a.field('bg-color-text').value, '#abc');
+    assert.equal(a.messages.at(-1).type, 'error');
+    assert.equal(a.context.window.settingsFormView.hasUncommittedWork(), true);
+    f.hooks.write = null; await a.save(); success(a);
+    same(f.state().bg, {type: 'color', value: '#abc'}); assert.equal(f.writes.length, 1);
+});
+
+bounded('pending shorthand change cannot overwrite newer text and the queued latest color wins', async () => {
+    const f = fixture(), a = await f.page({events: true});
+    a.field('bg-type').value = 'color'; a.field('bg-color-text').value = 'abc';
+    const change = () => a.field('bg-color-text').listeners.get('change')[0]({target: a.field('bg-color-text')});
+    const gate = f.pauseNextWrite(), first = change(); await gate.entered;
+    a.field('bg-color-text').value = 'def'; const second = change();
+    gate.resume(); await Promise.all([first, second]);
+    same(f.state().bg, {type: 'color', value: '#def'});
+    assert.equal(a.field('bg-color-text').value, '#def'); assert.equal(f.writes.length, 2);
+});
+
+// Native 8795/8796 Chromium readback accepts #abc and exposes #aabbcc.
+// Keep this explicit model separate from the generic string-valued fixture;
+// it models observed color serialization, not native events or browser paint.
+function observedNativeColorSerialization(input) {
+    let value = input.value;
+    Object.defineProperty(input, 'value', {configurable: true, get: () => value, set(next) {
+        const text = String(next).toLowerCase();
+        value = /^#[0-9a-f]{3}$/.test(text) ? '#' + [...text.slice(1)].map(c => c + c).join('') : text;
+    }});
+}
+
+bounded('native-color serialization flows through existing immediate helper without changing ordinary Save semantics', async () => {
+    const f = fixture(), a = await f.page({events: true});
+    observedNativeColorSerialization(a.field('bg-color'));
+    a.field('bg-type').value = 'color'; a.field('bg-color-text').value = 'AbC';
+    await a.field('bg-color-text').listeners.get('change')[0]({target: a.field('bg-color-text')});
+    same(f.state().bg, {type: 'color', value: '#aabbcc'});
+    assert.equal(a.field('bg-color-text').value, '#aabbcc'); assert.equal(f.writes.length, 1);
+    await a.save(); success(a); assert.equal(f.writes.length, 1, 'unchanged Save does not write again');
+});
+
+bounded('historical shorthand remains stored unchanged despite native picker expansion on read and unrelated Save', async () => {
+    const config = new StorageManager().cloneDefaultConfig(); config.bg = {type: 'color', value: '#abc'};
+    const f = fixture(config), a = await f.page({events: true});
+    observedNativeColorSerialization(a.field('bg-color'));
+    await a.context.populateFormFields(await a.storage.getAll());
+    assert.equal(a.field('bg-color').value, '#aabbcc');
+    assert.equal(a.field('bg-color-text').value, '#abc');
+    assert.equal(f.writes.length, 0);
+    a.field('quote-text').value = 'Unrelated quote'; await a.save(); success(a);
+    same(f.state().bg, config.bg); assert.equal(f.writes.length, 1);
+});
