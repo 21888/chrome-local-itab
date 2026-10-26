@@ -359,3 +359,99 @@ test('destroying only the view closes its confirmation without restoring departe
     assert.equal(Boolean(h.doc.body.querySelector('[role="dialog"]')), false);
     assert.deepEqual(h.h.raw, before); assert.equal(h.h.writes, writes); c.dispose();
 });
+
+test('Save shortcut does not commit an ongoing editor composition when keydown lacks IME flags', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); body.dispatch('compositionstart'); body.value = 'intermediate composition'; body.dispatch('input');
+        const before = h.h.writes; body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller);
+        assert.equal(h.h.writes, before); assert.ok(h.controller.draft()); assert.equal(h.view.main.querySelector('[data-prompt-focus="body"]'), body);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+for (const modifier of ['ctrlKey', 'metaKey']) for (const order of ['input-end', 'end-input']) test(`${modifier} Save resumes after ${order} composition completion and ignores held repeats`, async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); body.dispatch('compositionstart'); body.value = 'Final composed prompt';
+        if (order === 'input-end') body.dispatch('input'); body.dispatch('compositionend'); if (order === 'end-input') body.dispatch('input');
+        const before = h.h.writes; body.dispatch('keydown', { key: 's', [modifier]: true, repeat: true }); await settle(h.controller); assert.equal(h.h.writes, before);
+        const event = body.dispatch('keydown', { key: 's', [modifier]: true }); assert.equal(event.prevented, true); await settle(h.controller);
+        assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record().body, 'Final composed prompt'); assert.equal(h.controller.draft(), undefined);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('lost compositionend on editor blur does not strand a later ordinary Save shortcut', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); body.dispatch('compositionstart'); body.value = 'Current draft'; body.dispatch('input');
+        body.dispatch('focusout'); body.value = 'Later ordinary edit'; body.dispatch('input'); const before = h.h.writes;
+        body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record().body, 'Later ordinary edit');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('late title end or focusout cannot unlock a newer prompt body composition', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const title = h.view.main.querySelector('[data-prompt-focus="title"]'), body = h.view.main.querySelector('[data-prompt-focus="body"]');
+        title.focus(); title.dispatch('compositionstart'); body.focus(); body.dispatch('compositionstart'); body.value = 'Still composing'; body.dispatch('input');
+        title.dispatch('compositionend'); title.dispatch('focusout'); const before = h.h.writes; body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller);
+        assert.equal(h.h.writes, before); assert.equal(h.controller.draft().input.body, 'Still composing');
+        body.dispatch('compositionend'); body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before + 1);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('removed old prompt editor composition does not block saving a replacement editor', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const oldBody = h.view.main.querySelector('[data-prompt-focus="body"]'); oldBody.focus(); oldBody.dispatch('compositionstart');
+        h.controller.update('body', 'Retained draft'); h.view.render(); const body = h.view.main.querySelector('[data-prompt-focus="body"]'); assert.notEqual(body, oldBody); assert.equal(oldBody.isConnected, false);
+        body.focus(); body.value = 'New editor text'; body.dispatch('input'); oldBody.dispatch('compositionend'); const before = h.h.writes;
+        body.dispatch('keydown', { key: 's', metaKey: true }); await settle(h.controller); assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record().body, 'New editor text');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('old prompt editor completion cannot unlock a new record composition or save the wrong draft', async () => {
+    const h = await mount(); const first = await add(h.controller, 'First', 'First saved'), second = await add(h.controller, 'Second', 'Second saved'); h.controller.select(first.id); h.controller.edit();
+    try {
+        const oldBody = h.view.main.querySelector('[data-prompt-focus="body"]'); oldBody.focus(); oldBody.dispatch('compositionstart'); oldBody.value = 'First unsaved'; oldBody.dispatch('input');
+        h.controller.select(second.id); h.controller.edit(); const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); body.dispatch('compositionstart'); body.value = 'Second final'; body.dispatch('input');
+        oldBody.dispatch('compositionend'); oldBody.dispatch('focusout'); const before = h.h.writes; body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before);
+        body.dispatch('compositionend'); body.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller); assert.equal(h.h.writes, before + 1); assert.equal(h.controller.record(second.id).body, 'Second final'); assert.equal(h.controller.record(first.id).body, 'First saved');
+        h.controller.select(first.id); assert.equal(h.controller.draft().input.body, 'First unsaved');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('search-field shortcut remains outside prompt editor save ownership', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit(); h.controller.update('body', 'Unsaved draft');
+    try {
+        const before = h.h.writes; h.view.search.focus(); h.view.search.dispatch('keydown', { key: 's', ctrlKey: true }); await settle(h.controller);
+        assert.equal(h.h.writes, before); assert.equal(h.controller.draft().input.body, 'Unsaved draft');
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+for (const modifier of ['ctrlKey', 'metaKey']) test(`current editor ${modifier}+S prevents browser Save while composition owns the field`, async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); body.dispatch('compositionstart'); body.value = 'Unfinished composition'; body.dispatch('input');
+        const before = h.h.writes, event = body.dispatch('keydown', { key: 's', [modifier]: true }); await settle(h.controller);
+        assert.equal(event.prevented, true); assert.equal(h.h.writes, before); assert.ok(h.controller.draft());
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+for (const protection of ['flag', '229', 'repeat']) test(`editor Save shortcut prevents native default without app writes for ${protection}`, async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit(); h.controller.update('body', 'Unsaved');
+    try {
+        const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); const before = h.h.writes;
+        const event = body.dispatch('keydown', { key: 's', ctrlKey: true, ...(protection === 'flag' ? { isComposing: true } : protection === '229' ? { keyCode: 229 } : { repeat: true }) });
+        await settle(h.controller); assert.equal(event.prevented, true); assert.equal(h.h.writes, before); assert.ok(h.controller.draft());
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+test('composition gate does not swallow ordinary text, unrelated shortcuts or outside search Save', async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit();
+    try {
+        const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); body.dispatch('compositionstart'); const before = h.h.writes;
+        for (const keys of [{ key: 's' }, { key: 'f', ctrlKey: true }, { key: 'Enter', isComposing: true }]) assert.equal(body.dispatch('keydown', keys).prevented, false);
+        h.view.search.focus(); assert.equal(h.view.search.dispatch('keydown', { key: 's', ctrlKey: true }).prevented, false);
+        await settle(h.controller); assert.equal(h.h.writes, before);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});
+for (const retirement of ['view', 'controller']) test(`retired ${retirement} does not swallow Save or dispatch a write`, async () => {
+    const h = await mount(); await add(h.controller); h.controller.edit(); h.controller.update('body', 'Retained');
+    try {
+        const body = h.view.main.querySelector('[data-prompt-focus="body"]'); body.focus(); const before = h.h.writes;
+        if (retirement === 'view') h.view.destroy(); else h.controller.dispose();
+        assert.equal(body.dispatch('keydown', { key: 's', ctrlKey: true }).prevented, false); await settle(h.controller); assert.equal(h.h.writes, before);
+    } finally { h.view.destroy(); h.controller.dispose(); }
+});

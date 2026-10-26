@@ -187,9 +187,21 @@
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.el('p', '', this.t('Scope', 'One library across all workspaces. Saved on this device; copying is always your choice.')),
                 this.el('p', '', this.t('Privacy', 'This is not an encrypted vault. Device access and unencrypted backups can expose saved text. Do not store passwords or API keys.')));
             this.shell.append(brand, header, this.status, layout, footer); this.host.append(this.shell);
+            let saveComposition = null;
+            this.main.addEventListener('compositionstart', event => { saveComposition = event.target; });
+            const finishSaveComposition = event => { if (saveComposition === event.target) saveComposition = null; };
+            this.main.addEventListener('compositionend', finishSaveComposition);
+            this.main.addEventListener('focusout', finishSaveComposition);
             this.main.addEventListener('keydown', event => {
-                if (event.isComposing || event.keyCode === 229 || event.repeat) return;
-                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && c.draft()) { event.preventDefault(); event.stopPropagation(); void c.save(); }
+                // Some IME key events omit isComposing/229. Keep the actual
+                // editor gesture until it ends or its field loses ownership.
+                if (saveComposition && (!saveComposition.isConnected || !this.main.contains(saveComposition) || !saveComposition.contains(this.doc.activeElement))) saveComposition = null;
+                if (this.destroyed || c.disposed || !(event.ctrlKey || event.metaKey) || event.key?.toLowerCase() !== 's' || !c.draft()) return;
+                // This editor owns Save, even when composition/repeat blocks an
+                // app write. Do not fall through to the browser's Save Page UI.
+                event.preventDefault(); event.stopPropagation();
+                if (event.isComposing || event.keyCode === 229 || event.repeat || saveComposition) return;
+                void c.save();
             });
         }
         async leave(url) {
