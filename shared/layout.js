@@ -87,7 +87,13 @@
         }
 
         retry() {
-            if (this.invalidated) { global.location?.reload(); return Promise.resolve(false); }
+            if (this.invalidated) {
+                // Use the same pending-write/draft choice as other page reloads.
+                // Browser beforeunload alone is not a reliable save boundary.
+                if (global.LocalItabContentLifecycle?.reload) global.LocalItabContentLifecycle.reload();
+                else global.location?.reload();
+                return Promise.resolve(false);
+            }
             return this.failedChange ? this.change(this.failedChange.patch, this.failedChange.positions, { identityPositions: this.failedChange.identityPositions }) : this.refresh();
         }
 
