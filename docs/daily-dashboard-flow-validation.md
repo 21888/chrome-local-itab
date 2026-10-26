@@ -139,3 +139,26 @@ The page-level route on isolated port 8781 used all 138 unchanged runtime files.
 Scratchpad, Countdown, global settings and the other workspace's registry/content stayed exact. Tasks changed only through the explicit Add and Focus only through its four ordinary timer actions. Presentation entry/exit itself did not save. This bounded desktop Clarity route does not establish every template, assistive technology, or actual elapsed interval completion. No product defect or runtime fix was found.
 
 Owned tab 20, dedicated server 8781 and its terminal tab were cleaned up after stopped-marker/shell verification; inventory retained only the untouched original tab. No screenshots were uploaded. The Tasks and temporary-focus routes close two distinct acceptance gaps in one grouped documentation update; neither is represented as new product functionality.
+
+
+## Two-tab Scratchpad conflict follow-through
+
+A separate port-8782 fixture shared only its synthetic backend across two owned Chromium tabs through origin-local storage and browser storage events. The bridge adapted those events to its synthetic Chrome-storage subscription interface; the shipped Store, Controller, View and origin Web Locks ran unchanged. This is not a claim about installed-extension Chrome storage, upgrade or migration. A two-context fixture self-test verified bidirectional notifications/reads, precommit rejection and shared write counts; the existing Scratchpad Store/View baseline passed **79/79**.
+
+In A, an explicitly armed synthetic save rejection retained draft A. B's ordinary editor/autosave then saved revision 1. A displayed the latest B text beside its retained draft. Explicit Use saved text adopted B, with no additional write. The sequence repeated with a new retained A draft and B revision 2; A explicitly chose Replace with my draft against that displayed revision. Revision 3 contained exactly A's chosen draft, and the clean B editor updated to the same text. Three successful writes total, with both rejected writes adding none. Tasks, Focus, Countdown, global data and the other workspace registry/bundle stayed exact.
+
+No bug was found. The two tabs, port-8782 server and dedicated terminal tab were closed after shell/stopped-marker verification; only the original untouched tab remained. No screenshots or data were uploaded. This evidence is grouped with the Tasks concurrent-edit route below, not counted as a feature.
+
+
+## Two-tab Tasks independent edits and reviewed overwrite
+
+Port 8783 reused the validated shared synthetic-backend bridge with two legitimate task identities. Production runtime stayed unchanged; the existing Store/edit-source baseline passed **103/103**, exit 0. These focused counts and native interactions do not imply a new full-suite run.
+
+1. A opened an edit for the first record. B edited and saved the second record. A then saved its still-open first edit: both independent changes survived (2 writes).
+2. A opened a new first-record draft. B saved a newer first-record version. A's ordinary Save failed closed with its draft retained and the latest saved task displayed (3 writes).
+3. B saved yet another version while A still displayed the earlier review (4 writes). A's first Replace latest with my edit **did not write** or overwrite that unseen version. The editor retained its draft and updated the displayed latest version.
+4. A explicitly clicked Replace latest with my edit again, now against the displayed current revision. Exactly one write succeeded (5 total), and B's clean page updated to the same first-record text.
+
+The second record's entire post-independent-edit object remained exact through both conflicts and the confirmed replacement. Scratchpad, Focus, Countdown, global settings and the other workspace registry/content remained exact. No production defect was found. Both owned tabs and only the port-8783 server/terminal were closed after stopped-marker/shell verification, leaving the original tab untouched. No screenshots were uploaded.
+
+Together, the Scratchpad and Tasks routes validate representative cross-page conflict choices with real page controls, shipped controllers and browser Web Locks over an explicitly synthetic storage adapter. They do not establish installed-extension storage events, actual upgrade safety, every asynchronous ordering or any bypass of the separate import/incident gate. This bounded concurrency batch ends here rather than expanding into repeated permutations of already-covered races.
