@@ -8,6 +8,8 @@
     const types = ['prompt', 'collection'];
     const validId = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{8,100}$/.test(value);
     const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+    // Canonical equivalence only: retain accents, compatibility characters and saved text.
+    const searchText = value => value.normalize('NFC').toLowerCase().normalize('NFC');
     function href(type, id) {
         if (!types.includes(type) || !validId(id)) return null;
         return `${type === 'prompt' ? 'prompts' : 'collections'}.html?record=${encodeURIComponent(id)}`;
@@ -26,25 +28,27 @@
         return { id: record.id };
     }
     function snippet(value, needle) {
-        const found = needle ? value.toLowerCase().indexOf(needle) : 0;
+        const folded = searchText(value);
+        const found = needle ? folded.indexOf(needle) : 0;
+        const decomposedOffset = folded.slice(0, Math.max(0, found)).normalize('NFD').length;
         const points = Array.from(value);
-        // Folded offsets may expand (for example İ → i + combining dot).
-        // Map back to original code points, retaining exact literal text.
+        // Compare decomposition lengths to map NFC/case-expanded offsets back
+        // to original code points. Returned snippets retain exact literal text.
         let index = 0, offset = 0;
-        while (index < points.length && offset < found) offset += points[index++].toLowerCase().length;
+        while (index < points.length && offset < decomposedOffset) offset += searchText(points[index++]).normalize('NFD').length;
         const start = Math.max(0, index - 45), end = Math.min(points.length, start + 180);
         return `${start ? '…' : ''}${points.slice(start, end).join('')}${end < points.length ? '…' : ''}`;
     }
     function search(snapshots, query = '', filter = 'all') {
         if (typeof query !== 'string' || query.length > 500 || !['all', ...types].includes(filter)) return [];
-        const needle = query.trim().toLowerCase(), rows = [];
+        const needle = searchText(query.trim()), rows = [];
         for (const type of types) {
             if (filter !== 'all' && filter !== type) continue;
             for (const record of snapshots[type]?.records || []) {
                 if (record.deletedAt || !href(type, record.id)) continue;
                 const fields = [['body', record.body], ['title', record.title], ['tags', record.tags.join(', ')]];
                 if (type === 'collection' && typeof record.notes === 'string') fields.push(['notes', record.notes]);
-                const match = needle ? fields.find(([, value]) => value.toLowerCase().includes(needle)) : fields[0];
+                const match = needle ? fields.find(([, value]) => searchText(value).includes(needle)) : fields[0];
                 if (!match) continue;
                 rows.push({ type, id: record.id, title: record.title, field: match[0], snippet: snippet(match[1], needle), href: href(type, record.id) });
             }
@@ -93,11 +97,12 @@
             // A delayed first read must not override newer navigation or a draft.
             const resolve = pending && this.selected === '' && !this.hasUncommittedWork();
             pending = false;
-            accept.call(this, state);
-            if (!resolve) return;
+            const accepted = accept.call(this, state);
+            if (!resolve || accepted === false) return accepted;
             const result = resolveTarget(this.state, request);
             this.selected = result.id || '';
             this.navigationError = result.error || null;
+            return accepted;
         };
         const select = controller.select;
         controller.select = function (id) {
