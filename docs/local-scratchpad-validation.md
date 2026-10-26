@@ -47,3 +47,13 @@ The exact published `3f20fa9` extension ZIP (SHA256 `b9090699e131f6e8dc60763211f
 The 27-character saved multiline Scratchpad content persisted throughout. No new Scratchpad clipping or unreadable text was observed. Folio intentionally stacks cards in a right rail; not all three neighboring cards are visible simultaneously. Existing Tasks search placeholder truncation in some narrow columns was not counted as a new Scratchpad defect.
 
 This extends the earlier bounded layout coverage only. It does not establish exhaustive contrast compliance, all-template narrow coverage, keyboard/IME or assistive-technology behavior. The owned test browser was closed normally; original desktop captures and source hashes were retained with the acceptance artifacts.
+
+## Complete workspace departure and return (2026-10-26)
+
+`tests/scratchpad-workspace-complete-flow.test.js` connects the actual workspace Manager/Session storage backend, Scratchpad Store/Controller/View, content lifecycle and workspace picker. The backend, lock scheduler and DOM are synthetic; provider access fails explicitly. This is an honest regression addition: the tested production implementation already passed, so no product fix is claimed.
+
+- Edit a Unicode/multiline note, request another workspace, choose Stay, request again and Save and switch. The original draft survives Stay and is saved before departure. Opening the second workspace and then returning shows the original exact note; the second workspace's entire value snapshot is unchanged.
+- A storage write failure keeps the original draft, shows the recoverable decision and does not navigate.
+- While a submitted write waits, another Save click does not submit again. New typing remains in the original editor, and the older save cannot cause departure. A later explicit Save and switch saves the newer draft and then navigates.
+
+Three complete-flow tests passed, with **3,177/3,177** applicable Scratchpad/workspace tests passing (exit 0). This count is a focused set, not a new full-project run. It is DOM-model integration, not native browser navigation, installed extension migration, file import, or recovery-approval validation. No runtime source changed.
