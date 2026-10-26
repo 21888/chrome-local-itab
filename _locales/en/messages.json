@@ -8551,5 +8551,11 @@
   },
   "dashboardSkipLoadStatus": {
     "message": "Skip to loading status"
+  },
+  "subscriptionUsageClaudeHint": {
+    "message": "Claude: the official guide explains Settings → Usage and which plans show usage limits. This link opens help only; it does not enable the experiment below, request permissions or read your account."
+  },
+  "subscriptionUsageClaudeOpen": {
+    "message": "Open Claude usage guide"
   }
 }

@@ -21,9 +21,9 @@ function preservedOptionsCss(bytes){
  }
  return bytes;
 }
-test('subscription viewing uses only two fixed user-clicked safe HTTPS anchors in Privacy',()=>{
- const anchors=[...section.matchAll(/<a\b([^>]+)>([^<]+)<\/a>/g)];assert.equal(anchors.length,2);
- const urls=['https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan','https://grok.com/dashboard'];
+test('subscription viewing uses only three fixed user-clicked safe HTTPS anchors in Privacy',()=>{
+ const anchors=[...section.matchAll(/<a\b([^>]+)>([^<]+)<\/a>/g)];assert.equal(anchors.length,3);
+ const urls=['https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan','https://grok.com/dashboard','https://support.claude.com/en/articles/9797557-usage-limit-best-practices'];
  anchors.forEach(([whole,attrs,label],i)=>{assert.ok(attrs.includes(`href="${urls[i]}"`));assert.ok(attrs.includes('target="_blank"'));assert.ok(attrs.includes('rel="noopener noreferrer"'));assert.ok(label.trim());assert.doesNotMatch(attrs,/\bon\w+=|tabindex="-1"|download/);});
  assert.doesNotMatch(section,/<(?:script|iframe|img|input|button)\b|\bon\w+=|\b(?:src|ping)=|0%|progressbar/);
  const before=html.slice(0,html.indexOf('id="subscription-usage-settings"'));
@@ -39,6 +39,9 @@ test('every guide label is bilingual, has an exact English HTML fallback, and di
  assert.match(locales.zh_CN.subscriptionUsageDescription.message,/尚未接入 Codex 或 Grok 的实时订阅用量/);
  assert.match(locales.en.subscriptionUsageDescription.message,/API billing is not subscription usage/);
  assert.match(locales.en.subscriptionUsageCodexHint.message,/help, not the Codex app/);
+ assert.match(locales.en.subscriptionUsageClaudeHint.message,/Settings → Usage/);
+ assert.match(locales.en.subscriptionUsageClaudeHint.message,/does not enable the experiment below, request permissions or read your account/);
+ assert.match(locales.zh_CN.subscriptionUsageClaudeHint.message,/不会启用下方实验、申请权限或读取账号/);
  for(const lang of ['en','zh_CN'])assert.ok(locales[lang].subscriptionUsagePrivacy.message.includes('Claude'));
 });
 test('guide does not change Claude permission flow, catalog, manifest, or install runtime requests',()=>{
@@ -166,7 +169,7 @@ async function assertPassiveGuide(source=optionsSource,locale='en') {
  assert.equal(document.getElementById('settings-loading-notice'),null);assert.equal(loading.parentElement,null);assert.equal(loading.isConnected,false);
  // Static shell localization now precedes storage; the normal dynamic pass remains.
  assert.deepEqual(stages,['localized','initialized','localized']);assert.deepEqual(errors,[],'startup completed');
- for(const key of ['subscriptionUsageCodexOpen','subscriptionUsageGrokOpen']){
+ for(const key of ['subscriptionUsageCodexOpen','subscriptionUsageGrokOpen','subscriptionUsageClaudeOpen']){
   input.value=locales[locale][key].message;input.dispatch('input');
   const matches=results.querySelectorAll('button');assert.equal(matches.length,1);
   matches[0].dispatch('click');assert(panels.privacy.classList.contains('active'));
@@ -211,6 +214,8 @@ test('passive-guide regression guard rejects injected requests and anchor handle
  await assert.rejects(assertPassiveGuide(optionsSource+"\ndocument.getElementById('subscription-usage-codex').addEventListener('click',()=>{});"),/no script listeners/);
  await assert.rejects(assertPassiveGuide(optionsSource+"\ndocument.querySelectorAll('a.btn').forEach(anchor=>anchor.addEventListener('click',()=>{}));"),/no script listeners/);
  await assert.rejects(assertPassiveGuide(optionsSource+"\nchrome.permissions.request({origins:['https:\/\/grok.com/*']});"),/no JS requests/);
+ await assert.rejects(assertPassiveGuide(optionsSource+"\ndocument.getElementById('subscription-usage-claude').addEventListener('click',()=>{});"),/no script listeners/);
+ await assert.rejects(assertPassiveGuide(optionsSource+"\nfetch('https://support.claude.com/en/articles/9797557-usage-limit-best-practices');"),/no JS requests/);
 });
 
 test('passive-guide guard rejects unreviewed document handlers and expanded ordinary ownership',async()=>{

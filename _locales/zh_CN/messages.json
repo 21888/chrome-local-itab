@@ -8551,5 +8551,11 @@
   },
   "dashboardSkipLoadStatus": {
     "message": "跳至加载状态"
+  },
+  "subscriptionUsageClaudeHint": {
+    "message": "Claude：官方指南说明如何在设置 → 用量中查看，以及哪些方案显示用量限制。此链接仅打开帮助，不会启用下方实验、申请权限或读取账号。"
+  },
+  "subscriptionUsageClaudeOpen": {
+    "message": "打开 Claude 用量指南"
   }
 }
