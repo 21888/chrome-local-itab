@@ -148,3 +148,67 @@ test('unfocused or programmatic Reset does not acquire a user focus receipt', as
     const outside = m.document.createElement('button'); m.document.body.append(outside); outside.focus();
     m.view.reset.dispatch('click'); await m.h.flush(); assert.equal(m.document.activeElement, outside); assert.equal(m.c.snapshot().session.status, 'ready'); m.view.destroy();
 });
+
+test('interval setup through save/start/pause/resume/reset preserves minutes and explicit keyboard ownership', async () => {
+    const m = model(); await m.h.flush(); await m.c.action('visibility', true); const before = m.h.writes, phaseFocus = [];
+    m.view.phase.focus(); m.view.phase.value = 'break'; m.view.phase.dispatch('change');
+    assert.equal(m.document.activeElement, m.document.body); await m.h.flush();
+    assert.equal(m.c.snapshot().session.phase, 'break'); assert.equal(m.c.snapshot().session.status, 'ready');
+    phaseFocus.push(m.document.activeElement === m.view.phase);
+    m.view.minutes.focus(); m.view.minutes.value = '7'; m.view.minutes.dispatch('input');
+    assert.equal(m.view.saveMinutes.hidden, false); assert.equal(m.view.start.disabled, true); assert.equal(m.h.writes, before + 1);
+    m.view.saveMinutes.focus(); m.view.saveMinutes.dispatch('click'); await m.h.flush();
+    assert.equal(m.c.snapshot().durations.break, 7); assert.equal(m.document.activeElement === m.view.start, true);
+    for (const status of ['running', 'paused', 'running']) {
+        const key = m.document.activeElement.dispatch('keydown', {key:'Enter',repeat:false});
+        if (!key.prevented) m.document.activeElement.dispatch('click'); await m.h.flush();
+        assert.equal(m.c.snapshot().session.status, status); assert.equal(m.document.activeElement === m.view.start, true);
+    }
+    m.view.reset.focus(); m.view.reset.dispatch('click'); await m.h.flush();
+    assert.equal(m.c.snapshot().session.status, 'ready'); assert.equal(m.document.activeElement === m.view.start, true);
+    m.view.phase.focus(); m.view.phase.value = 'focus'; m.view.phase.dispatch('change'); await m.h.flush();
+    phaseFocus.push(m.document.activeElement === m.view.phase);
+    assert.equal(m.view.minutes.value, '25'); assert.equal(m.c.snapshot().durations.break, 7);
+    assert.equal(m.c.snapshot().session.phase, 'focus'); assert.equal(m.c.snapshot().session.status, 'ready'); assert.equal(m.h.writes, before + 7);
+    assert.deepEqual(phaseFocus, [true, true], 'both explicit interval choices retain their control for continued keyboard setup');
+    m.view.destroy();
+});
+
+for (const change of ['focus-outside', 'focus-away-back', 'pointer', 'tab', 'hidden', 'detached', 'new-action', 'destroy', 'error', 'workspace-object', 'workspace-generation', 'removed-select']) test(`interval setup receipt does not reclaim selection after ${change}`, async () => {
+    const workspace = { id: 'synthetic-original', generation: 1 }, m = model(undefined, workspace);
+    await m.h.flush(); await m.c.action('visibility', true); const before = m.h.writes;
+    const outside = m.document.createElement('button'); m.document.body.append(outside);
+    if (change === 'error') m.h.failWrite(true);
+    m.view.phase.focus(); m.view.phase.value = 'break'; m.view.phase.dispatch('change'); assert.equal(m.document.activeElement, m.document.body);
+    if (change === 'focus-outside') { outside.focus(); m.document.listeners.get('focusin')({target:outside}); }
+    if (change === 'focus-away-back') { outside.focus(); m.document.listeners.get('focusin')({target:outside}); m.document.body.focus(); }
+    if (change === 'pointer') m.document.listeners.get('pointerdown')({target:m.document.body});
+    if (change === 'tab') m.document.listeners.get('keydown')({key:'Tab',repeat:false});
+    if (change === 'hidden') m.document.hidden = true;
+    if (change === 'detached') m.host.remove();
+    if (change === 'new-action') m.view.run('reset');
+    if (change === 'destroy') m.view.destroy();
+    if (change === 'workspace-object') m.window.LocalItabWorkspaces.session = {...workspace};
+    if (change === 'workspace-generation') workspace.generation++;
+    if (change === 'removed-select') m.view.phase.remove();
+    await m.h.flush(); assert.equal(m.document.activeElement === m.view.phase, false); assert.equal(m.document.activeElement === m.view.start, false);
+    if (change === 'focus-outside') assert.equal(m.document.activeElement === outside, true);
+    if (change === 'error') { assert.equal(m.h.writes,before); assert.equal(m.c.snapshot().session.phase,'focus'); assert(m.c.error); }
+    assert(m.h.writes <= before + 1); m.view.destroy();
+});
+
+test('changing interval without focus never claims the selection or Start', async () => {
+    const m=model();await m.h.flush();await m.c.action('visibility',true);const outside=m.document.createElement('button');m.document.body.append(outside);outside.focus();
+    m.view.phase.value='break';m.view.phase.dispatch('change');await m.h.flush();assert.equal(m.document.activeElement===outside,true);assert.equal(m.c.snapshot().session.phase,'break');assert.equal(m.c.snapshot().session.status,'ready');m.view.destroy();
+});
+
+test('new minute editing after phase settlement wins over the older selection focus receipt', async () => {
+    const m=model();await m.h.flush();await m.c.action('visibility',true);let edited=false;
+    const unsubscribe=m.c.subscribe(()=>{
+        if(edited||m.c.pending||m.c.snapshot()?.session.phase!=='break')return;
+        edited=true;m.view.minutes.focus();m.document.listeners.get('focusin')({target:m.view.minutes});m.view.minutes.value='9';m.view.minutes.dispatch('input');
+    });
+    const before=m.h.writes;m.view.phase.focus();m.view.phase.value='break';m.view.phase.dispatch('change');await m.h.flush();
+    assert(edited);assert.equal(m.document.activeElement===m.view.minutes,true);assert.equal(m.view.minutes.value,'9');assert.equal(m.c.snapshot().durations.break,5);assert.equal(m.h.writes,before+1);assert.equal(m.view.start.disabled,true);
+    unsubscribe();m.view.saveMinutes.focus();m.view.saveMinutes.dispatch('click');await m.h.flush();assert.equal(m.c.snapshot().durations.break,9);assert.equal(m.document.activeElement===m.view.start,true);assert.equal(m.c.snapshot().session.status,'ready');m.view.destroy();
+});

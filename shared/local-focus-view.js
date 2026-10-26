@@ -88,7 +88,7 @@
             this.workspaceNotice = el('p', 'focus-feedback'); this.workspaceNotice.setAttribute('role', 'status'); this.workspaceNotice.hidden = true;
             this.phase = el('select'); this.phase.setAttribute('aria-label', t('focusPhase'));
             for (const [value, key] of [['focus', 'focusWork'], ['break', 'focusBreak']]) { const option = el('option', '', t(key)); option.value = value; this.phase.append(option); }
-            this.phase.addEventListener('change', () => this.run('phase', this.phase.value));
+            this.phase.addEventListener('change', () => this.run('phase', this.phase.value, this.phase, this.phase));
             const minuteLabel = el('label', 'focus-minutes', t('focusMinutes')); this.minutes = el('input'); this.minutes.type = 'number'; this.minutes.min = '1'; this.minutes.max = '180'; this.minutes.step = '1';
             this.minutes.addEventListener('input', () => { if (this.trackDurationDraft()) { this.durationInputPhase = this.minutesPhase; this.render(); } });
             this.minutes.addEventListener('change', () => { if (this.durationInputPhase === this.minutesPhase) this.commitDurationDraft(); });
@@ -214,15 +214,15 @@
             }
             this.run('duration', value, explicit ? this.saveMinutes : null);
         }
-        run(kind, value, focusSource = this.start) {
+        run(kind, value, focusSource = this.start, focusTarget = this.start) {
             if (this.closed || this.isWorkspaceRetired()) { this.render(); return Promise.resolve(); }
             // Native disabled buttons lose focus. Restore only this user-owned
-            // primary action (or explicit Save/Reset → Start), never a completion,
+            // primary action, explicit Save/Reset → Start, or interval selection, never a completion,
             // blur autosave, remote update or newer intent.
             const token = {}; this.focusIntent = token;
             const ownsFocus = document.activeElement === focusSource && !this.controller.pending;
             const cancel = () => { if (this.focusIntent === token) this.focusIntent = null; };
-            const moved = event => { if (event.target !== this.start && event.target !== document.body) cancel(); };
+            const moved = event => { if (event.target !== focusTarget && event.target !== document.body) cancel(); };
             const key = event => { if (!(event.repeat && (event.key === 'Enter' || event.key === ' '))) cancel(); };
             if (ownsFocus) {
                 document.addEventListener('pointerdown', cancel, true);
@@ -233,10 +233,10 @@
             }
             return this.controller.action(kind, value).then(saved => {
                 if (ownsFocus && this.focusIntent === token && !this.closed && !this.isWorkspaceRetired() && !document.hidden &&
-                    !this.host.hidden && this.host.isConnected && !this.start.disabled &&
+                    !this.host.hidden && this.host.isConnected && focusTarget.isConnected && !focusTarget.disabled &&
                     this.controller.snapshot()?.revision === saved.revision &&
-                    (document.activeElement === document.body || document.activeElement === this.start)) {
-                    this.start.focus({ preventScroll: true });
+                    (document.activeElement === document.body || document.activeElement === focusTarget)) {
+                    focusTarget.focus({ preventScroll: true });
                 }
                 return saved;
             }).catch(() => {}).finally(() => {
