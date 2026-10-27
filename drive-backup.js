@@ -464,19 +464,33 @@ class DriveBackupManager {
                 throw new Error(`Backup is too large (${this.formatBytes(draft.sizeBytes)}). Reduce local images or use manual export.`);
             }
 
-            const uploaded = draft.sizeBytes > this.warningSizeBytes
-                ? await this.uploadResumable(draft, options)
-                : await this.uploadMultipart(draft, options);
+            // Upload and retention belong to this reviewed snapshot, not a computer
+            // another tab may select while the network request is pending.
+            const uploadDraft = { ...draft, metadata: JSON.parse(JSON.stringify(draft.metadata || {})) };
+            const props = uploadDraft.metadata.appProperties;
+            const owner = props?.app === 'local-itab' && props.type === 'backupSnapshot' &&
+                typeof props.deviceId === 'string' && props.deviceId.trim() && props.deviceId === draft.state?.deviceId &&
+                typeof props.snapshotId === 'string' && props.snapshotId.trim() && props.snapshotId === draft.snapshotId
+                ? { deviceId: props.deviceId, snapshotId: props.snapshotId } : null;
+            const uploaded = uploadDraft.sizeBytes > this.warningSizeBytes
+                ? await this.uploadResumable(uploadDraft, options)
+                : await this.uploadMultipart(uploadDraft, options);
 
             let state = await this.saveState({
-                lastBackupAt: draft.createdAt || new Date().toISOString(),
+                lastBackupAt: uploadDraft.createdAt || new Date().toISOString(),
                 lastError: ''
             });
             let pruneError = null;
 
             if (options.prune !== false) {
                 try {
-                    await this.pruneSnapshotsForDevice(state.deviceId, this.retentionLimit, options);
+                    const acknowledged = uploaded?.appProperties;
+                    if (!owner || typeof uploaded?.id !== 'string' || !uploaded.id.trim() ||
+                        acknowledged?.app !== 'local-itab' || acknowledged.type !== 'backupSnapshot' ||
+                        acknowledged.deviceId !== owner.deviceId || acknowledged.snapshotId !== owner.snapshotId) {
+                        throw new Error('Snapshot ownership could not be verified; cleanup was not run and older snapshots were kept.');
+                    }
+                    await this.pruneSnapshotsForDevice(owner.deviceId, this.retentionLimit, options);
                 } catch (error) {
                     pruneError = error;
                     state = await this.saveState({

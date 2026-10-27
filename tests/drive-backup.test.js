@@ -139,7 +139,8 @@ async function assertPruneFailureDoesNotFailUpload() {
     const manager = new DriveBackupManager(storage);
     const savedStates = [];
     manager.assertAvailable = () => {};
-    manager.uploadMultipart = async () => ({ id: 'uploaded_file' });
+    const appProperties = { app: 'local-itab', type: 'backupSnapshot', deviceId: 'device_a', snapshotId: 'snapshot_a' };
+    manager.uploadMultipart = async () => ({ id: 'uploaded_file', appProperties });
     manager.saveState = async partial => {
         savedStates.push(partial);
         return { deviceId: 'device_a', ...partial };
@@ -152,7 +153,8 @@ async function assertPruneFailureDoesNotFailUpload() {
         json: '{}',
         sizeBytes: 2,
         createdAt: '2026-05-16T10:00:00.000Z',
-        metadata: {}
+        state: { deviceId: 'device_a' }, snapshotId: 'snapshot_a',
+        metadata: { appProperties }
     });
 
     assert.strictEqual(result.id, 'uploaded_file');
