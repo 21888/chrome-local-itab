@@ -7574,6 +7574,24 @@
   "recoveryPreviewTitle": {
     "message": "Site records · text only"
   },
+  "recoveryFilterLabel": {
+    "message": "Find title or URL in this inspected copy"
+  },
+  "recoveryFilterApply": {
+    "message": "Find site text"
+  },
+  "recoveryFilterClear": {
+    "message": "Clear site search"
+  },
+  "recoveryFilterHelp": {
+    "message": "Literal, case-insensitive text search in this preview only. Downloads and file reviews still use the complete selected copy."
+  },
+  "recoveryFilterCount": {
+    "message": "Matching site records: $1 of $2. Original record numbers are retained."
+  },
+  "recoveryFilterEmpty": {
+    "message": "No site text matches this search in this inspected copy. This does not prove that a site was deleted."
+  },
   "recoveryPreviewHelp": {
     "message": "Original order and duplicate records are retained. Missing fields are labelled; icons and site links are never loaded."
   },

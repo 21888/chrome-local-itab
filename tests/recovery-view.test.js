@@ -416,3 +416,76 @@ test('invalid query does not silently expose historical rows before explicit all
     m.find('Show all saved copies').dispatch('click'); assert.equal(m.host.querySelectorAll('.recovery-entry').length, 1);
     assert(m.allText().includes('invalid or ambiguous')); assert.equal(m.downloads.length, 0);
 });
+
+test('preview can find a later-page site without changing its original number or export source', async () => {
+    const links = Array.from({ length: 205 }, (_, index) => ({ title: `Site ${index + 1}`, url: `https://example.test/${index + 1}` }));
+    links[204] = { title: 'Needle 中文', url: 'https://example.test/last' };
+    const m = model({ links }); await m.view.ready;
+    m.find('Preview site text').dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-site-title').length, 100);
+    const input = m.host.querySelector('.recovery-site-filter');
+    assert(input, 'a local search must reach records not rendered on the first page');
+    input.value = 'needle'; m.find('Find site text').dispatch('click');
+    assert.deepEqual(m.host.querySelectorAll('.recovery-site-title').map(node => node.textContent), ['Needle 中文']);
+    assert.equal(m.host.querySelector('.recovery-site-list li').getAttribute('value'), '205');
+    assert.equal(m.host.querySelector('.recovery-filter-count').textContent, 'Matching site records: 1 of 205. Original record numbers are retained.');
+    m.find('Download investigation JSON').dispatch('click');
+    assert.equal(m.downloads.length, 1);
+    assert.deepEqual(m.calls.filter(call => call[0] === 'exportEntry').map(call => call[2]), ['copy_1']);
+    assert.deepEqual(links[204], { title: 'Needle 中文', url: 'https://example.test/last' });
+});
+
+for (const locale of ['en', 'zh_CN']) test(`preview search keeps duplicate indices, literal Unicode and clear semantics (${locale})`, async () => {
+    const links = [{ title: 'duplicate', url: 'https://example.test/a' }, { title: 'duplicate', url: 'https://example.test/a' },
+        { title: '中文 👩‍💻 <img> .*', url: 'https://example.test/Encoded%20Path' }, {}, { title: '', url: '' },
+        { title: 'x'.repeat(4001) + 'TAILMARK', url: 'https://example.test/long' }];
+    const m = model({ links, locale }); await m.view.ready;
+    m.find(locale === 'en' ? 'Preview site text' : '预览站点文字').dispatch('click');
+    const input = m.host.querySelector('.recovery-site-filter');
+    const apply = m.find(locale === 'en' ? 'Find site text' : '查找站点文字');
+    const clear = m.find(locale === 'en' ? 'Clear site search' : '清除站点查找');
+    const indices = () => m.host.querySelectorAll('.recovery-site-list li').map(node => node.getAttribute('value'));
+    input.value = 'DUPLICATE'; input.dispatch('input'); assert.equal(indices().length, 6, 'typing alone does not rebuild');
+    apply.dispatch('click'); assert.deepEqual(indices(), ['1', '2']);
+    input.value = '.*'; apply.dispatch('click'); assert.deepEqual(indices(), ['3'], 'not a regular expression');
+    input.value = '中文 👩‍💻'; apply.dispatch('click'); assert.deepEqual(indices(), ['3']);
+    input.value = 'encoded%20path'; apply.dispatch('click'); assert.deepEqual(indices(), ['3'], 'literal URL text, not decoded or visited');
+    input.value = 'tailmark'; apply.dispatch('click'); assert.deepEqual(indices(), ['6'], 'match full inspected text even when display is truncated');
+    input.value = 'absent'; apply.dispatch('click'); assert.deepEqual(indices(), []);
+    assert(m.allText().includes(locale === 'en' ? 'does not prove that a site was deleted' : '不代表站点已被删除'));
+    clear.focus(); clear.dispatch('click'); assert.equal(input.value, ''); assert.equal(m.document.activeElement, input);
+    assert.deepEqual(indices(), ['1', '2', '3', '4', '5', '6']);
+    input.value = '  '; apply.dispatch('click'); assert.equal(indices().length, 6);
+    assert.equal(m.host.querySelectorAll('a, img, iframe').length, 0);
+    assert.equal(m.calls.filter(call => call[0] === 'preview').length, 1);
+});
+
+test('explicit search handles keyboard composition guards and bounded matching pages', async () => {
+    const links = Array.from({ length: 305 }, (_, i) => ({ title: i % 2 ? 'other' : 'match', url: `https://example.test/${i}` }));
+    const m = model({ links }); await m.view.ready; m.find('Preview site text').dispatch('click');
+    const input = m.host.querySelector('.recovery-site-filter'); input.value = 'match'; input.focus();
+    for (const extra of [{ isComposing: true }, { keyCode: 229 }, { repeat: true }]) input.dispatch('keydown', { key: 'Enter', ...extra });
+    assert.equal(m.host.querySelectorAll('.recovery-site-title')[1].textContent, 'other');
+    input.dispatch('keydown', { key: 'Enter' }); assert.equal(m.document.activeElement, input);
+    assert.equal(m.host.querySelectorAll('.recovery-site-title').length, 100);
+    m.find('Next sites').dispatch('click'); assert.equal(m.host.querySelectorAll('.recovery-site-title').length, 53);
+    assert.equal(m.host.querySelector('.recovery-site-list li').getAttribute('value'), '201');
+    m.find('Clear site search').dispatch('click');
+    assert.equal(m.host.querySelector('.recovery-site-list li').getAttribute('value'), '1');
+    assert.equal(m.host.querySelectorAll('.recovery-site-title').length, 100);
+});
+
+test('old search controls cannot affect reopened previews, refreshed copies or hidden pages', async () => {
+    const m = model(); await m.view.ready; m.find('Preview site text').dispatch('click');
+    const oldInput = m.host.querySelector('.recovery-site-filter'), oldApply = m.find('Find site text');
+    m.find('Hide site text').dispatch('click'); m.find('Preview site text').dispatch('click');
+    oldInput.value = 'none'; oldApply.dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-site-title').length, 2);
+    const currentInput = m.host.querySelector('.recovery-site-filter'), currentApply = m.find('Find site text');
+    currentInput.value = 'none'; m.document.visibilityState = 'hidden'; currentApply.dispatch('click');
+    assert.equal(m.host.querySelectorAll('.recovery-site-title').length, 2);
+    m.document.visibilityState = 'visible'; m.find('Refresh inspection').dispatch('click'); await tick();
+    currentApply.dispatch('click'); assert.equal(m.host.querySelector('.recovery-site-filter'), null);
+    m.find('Preview site text').dispatch('click'); assert.equal(m.host.querySelector('.recovery-site-filter').value, '');
+    m.view.destroy(); oldApply.dispatch('click'); currentApply.dispatch('click'); assert.equal(m.downloads.length, 0);
+});

@@ -128,6 +128,10 @@
         PreviewTruncated: 'Long title or URL text is shortened to the first 4,000 characters here. Investigation JSON keeps allowed field values in full.',
         PreviewUnavailable: 'Site records could not be read from this copy. That is not a count of zero.',
         NoSites: 'This copy contains an empty site-record array.', MissingTitle: '[Title field missing]', MissingUrl: '[URL field missing]',
+        FilterLabel: 'Find title or URL in this inspected copy', FilterApply: 'Find site text', FilterClear: 'Clear site search',
+        FilterHelp: 'Literal, case-insensitive text search in this preview only. Downloads and file reviews still use the complete selected copy.',
+        FilterCount: 'Matching site records: $1 of $2. Original record numbers are retained.',
+        FilterEmpty: 'No site text matches this search in this inspected copy. This does not prove that a site was deleted.',
         Previous: 'Previous sites', Next: 'Next sites', Range: 'Site records $1–$2 of $3',
         Download: 'Download investigation JSON', ExportUnavailable: 'Investigation export is unavailable for this record.',
         DownloadRequested: 'Private investigation JSON download requested. Check your downloads. This file cannot be imported directly as a recovery backup.',
@@ -527,12 +531,47 @@
                     renderWarnings(preview.omissions, previewHost);
                     if (preview.links === null) create('p', 'recovery-help', t('PreviewUnavailable'), previewHost);
                     else if (!preview.links.length) create('p', 'recovery-help', t('NoSites'), previewHost);
-                    else renderSites(preview.links);
+                    else renderSites(preview.links, previewHost, 'PreviewTruncated', true);
                     previewHost.hidden = false; previewButton.textContent = t('HidePreview'); previewButton.setAttribute('aria-expanded', 'true');
                 } catch (_) { announce('PreviewFailed', true); }
             }
-            function renderSites(links, target = previewHost, truncatedKey = 'PreviewTruncated') {
-                let offset = 0;
+            function renderSites(links, target = previewHost, truncatedKey = 'PreviewTruncated', searchable = false) {
+                let offset = 0, indices = links.map((_, index) => index);
+                let filter, filterCount, empty, clear;
+                const current = () => valid(snapshot, generation) && target.isConnected && !target.hidden && list.isConnected;
+                if (searchable) {
+                    const controls = create('div', 'recovery-filter', undefined, target);
+                    const label = create('label', '', t('FilterLabel'), controls);
+                    filter = create('input', 'recovery-site-filter', undefined, label);
+                    filter.type = 'search'; filter.maxLength = 1000;
+                    const help = create('p', 'recovery-help', t('FilterHelp'), controls);
+                    help.id = previewHost.id + '-search-help'; filter.setAttribute('aria-describedby', help.id);
+                    button('FilterApply', applyFilter, controls);
+                    clear = button('FilterClear', () => {
+                        if (!current()) return;
+                        const owned = doc.activeElement === clear;
+                        filter.value = ''; applyFilter();
+                        if (owned) filter.focus();
+                    }, controls);
+                    filter.addEventListener('keydown', event => {
+                        if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229 || event.repeat) return;
+                        event.preventDefault(); applyFilter();
+                    });
+                    filterCount = create('p', 'recovery-filter-count', '', target);
+                    filterCount.setAttribute('role', 'status'); filterCount.setAttribute('aria-live', 'polite');
+                    empty = create('p', 'recovery-help', t('FilterEmpty'), target); empty.hidden = true;
+                }
+                function applyFilter() {
+                    if (!current()) return;
+                    const query = filter.value.slice(0, 1000).trim().toLowerCase();
+                    // Explicit apply only: typing never rebuilds a potentially large list.
+                    // Keep original indices; never mutate the inspected copy or export source.
+                    indices = [];
+                    links.forEach((link, index) => {
+                        if (!query || [link?.title, link?.url].some(value => typeof value === 'string' && value.toLowerCase().includes(query))) indices.push(index);
+                    });
+                    offset = 0; paint();
+                }
                 const list = create('ol', 'recovery-site-list', undefined, target);
                 let previous, next, range;
                 if (links.length > pageSize) {
@@ -543,8 +582,10 @@
                 }
                 function paint() {
                     list.replaceChildren(); list.setAttribute('start', String(offset + 1));
-                    for (const link of links.slice(offset, offset + pageSize)) {
+                    for (const sourceIndex of indices.slice(offset, offset + pageSize)) {
+                        const link = links[sourceIndex];
                         const item = create('li', '', undefined, list);
+                        if (searchable) item.setAttribute('value', String(sourceIndex + 1));
                         let truncated = false;
                         function field(value, missing, className) {
                             let visible = typeof value === 'string' ? value : t(missing);
@@ -560,14 +601,18 @@
                         field(link?.url, 'MissingUrl', 'recovery-site-url');
                         if (truncated) create('p', 'recovery-help', t(truncatedKey), item);
                     }
+                    if (filterCount) {
+                        filterCount.textContent = t('FilterCount', [String(indices.length), String(links.length)]);
+                        empty.hidden = indices.length !== 0;
+                    }
                     if (range) {
-                        range.textContent = t('Range', [String(offset + 1), String(Math.min(offset + pageSize, links.length)), String(links.length)]);
-                        previous.disabled = offset === 0; next.disabled = offset + pageSize >= links.length;
+                        range.textContent = t('Range', [String(indices.length ? offset + 1 : 0), String(Math.min(offset + pageSize, indices.length)), String(indices.length)]);
+                        previous.disabled = offset === 0; next.disabled = offset + pageSize >= indices.length;
                     }
                 }
                 function changePage(delta, trigger) {
-                    if (!valid(snapshot, generation) || target.hidden) return;
-                    offset = Math.max(0, Math.min(Math.floor((links.length - 1) / pageSize) * pageSize, offset + delta));
+                    if (!current()) return;
+                    offset = Math.max(0, Math.min(Math.floor((indices.length - 1) / pageSize) * pageSize, offset + delta));
                     const focused = doc.activeElement === trigger;
                     paint();
                     if (focused && trigger.disabled) (trigger === next ? previous : next).focus();

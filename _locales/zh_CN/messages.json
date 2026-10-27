@@ -7574,6 +7574,24 @@
   "recoveryPreviewTitle": {
     "message": "站点记录 · 仅文字"
   },
+  "recoveryFilterLabel": {
+    "message": "在此已检查副本中查找标题或网址"
+  },
+  "recoveryFilterApply": {
+    "message": "查找站点文字"
+  },
+  "recoveryFilterClear": {
+    "message": "清除站点查找"
+  },
+  "recoveryFilterHelp": {
+    "message": "仅在文字预览中进行不区分大小写的字面匹配；下载和文件审阅仍使用所选的完整副本。"
+  },
+  "recoveryFilterCount": {
+    "message": "匹配站点记录：$1 / $2。保留原始记录编号。"
+  },
+  "recoveryFilterEmpty": {
+    "message": "此已检查副本中没有匹配的站点文字。这不代表站点已被删除。"
+  },
   "recoveryPreviewHelp": {
     "message": "保留原有顺序和重复记录。缺失字段会明确标注，不加载图标或打开站点链接。"
   },
