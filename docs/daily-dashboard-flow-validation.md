@@ -408,3 +408,25 @@ Both fixtures and all native readbacks used synthetic data only. Owned tabs
 the pre-existing Chrome tab 83 was not touched. Screenshots were inspected only
 in-tool. No screenshots, runtime files or profiles accompany this grouped QA
 update; no new feature, version, Release, CWS action or incident resolution is claimed.
+
+## 2026-10-27: occupied-category removal and recent-calculation copying
+
+This bounded follow-on batch uses separate local synthetic pages, not installed-extension or upgrade validation. It changes no production source. The two fixtures each had 166 common non-wrapper files byte-identical to the current local source, including assets; that number is not a runtime-manifest count. Original browser tabs were preserved; owned tabs and servers were normally closed. No screenshots or binary evidence are included, and no full suite was rerun for these checks.
+
+### Occupied category → homepage fallback → Finder → reload (8821)
+
+Actual Options, StorageManager, category navigation and Finder were used. A category named Reading contained a saved shortcut, while Work and its unrelated shortcut remained. Deleting only Reading through its native settings control and allowing the normal autosave produced one synthetic workspace write. Shortcut objects (including their original `reading` category IDs), layout, personal data and Default workspace stayed exactly equal.
+
+Returning to the same Work homepage selected All and displayed both shortcuts. Finder's category selector retained the otherwise orphaned raw `reading` ID with count one; selecting it showed exactly the retained shortcut and its original URL as text. Neither the shortcut nor an external destination was opened. Reload kept the All fallback and both shortcuts. This verifies discoverability without claiming that category removal reassigns or deletes its member shortcuts. Normal category preference localStorage behavior is separate from the counted workspace write.
+
+A bounded actual-code model independently exercised the same deletion and fresh navigation/Finder flow. Two initial fixture errors were corrected before its passing result: separate Options/newtab VM contexts were required for their top-level declarations, and the limited DOM fixture needed the actual shortcut visibility selector. Neither correction changed production or relaxed preservation assertions. This one model result is not an additional full-suite pass.
+
+### Recent calculation → newer draft → copy rejection → keyboard retry (8822)
+
+The actual search/calculator initializer received the literal expression `  = 1.0e-07  ` through native input and Enter. It produced `1e-7` and one page-local recent record. The input was then replaced with `New unsaved calculator draft`, without submitting a search.
+
+A deliberately rejecting **in-memory clipboard adapter** captured a click on that record's Copy calculation button. The visible failure retained both source strings and the newer draft. An explicit Enter on the same native button then succeeded and left focus on that button. Both attempted payloads were exactly the original expression, one LF, and `1e-7`: no labels, newer draft or trailing newline were added. The history remained one unchanged record. Folding/reopening recent history retired the old success feedback while retaining the record and draft, without a third copy attempt.
+
+Final synthetic storage readback showed zero writes, unchanged links/layout/personal data/other workspace, and no external/provider attempts or errors. The synthetic unsaved input was explicitly cleared only after preservation evidence, for cleanup. The fixture reused the preceding valid category seed and its visible storage-proof label; no category action was taken in this second flow.
+
+This closes the native activation/readback gap left by the historical recent-copy model report; it does not test OS clipboard contents, real browser permission denial, assistive technology, every pending-copy race or IME sequence. Existing model results remain separately scoped. Neither flow establishes recovery from the historical data-loss incident or removes the store-release gate.
