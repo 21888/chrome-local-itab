@@ -44,3 +44,48 @@ Recommendations intentionally expose only four combinations of two existing opti
 Independent review reproduced and fixed stale recommendations during appearance refresh and async focus stealing; final full suite passes 112 tests. Bounded native Chrome for Testing 155 acceptance on the identical final runtime passed explicit preview/apply/cancel, keyboard focus and held Enter, visual-only module preservation, task retention, a running timer hidden then restored without restarting, actual cross-tab stale-review rejection, and a 666px-wide browser window in light/dark. Captures are desktop pixels, not exact content viewport measurements.
 
 Native acceptance did not cover injected failures, artificial latency/focus races, live Sync/Drive, unresolved external appearance refresh, screen readers, Chinese, all 15 combinations, 390px viewport, exact recovery-field comparisons, or DevTools console audit. Those automated checks remain model evidence only where present.
+
+## Current Workspace integration, bounded native journey — 2026-10-27
+
+The current 21 visual templates expose four distinct Tasks/Focus visibility
+combinations. This pass exercised those combinations through actual Chinese
+Options and newtab pages, not another all-template visual matrix. The unchanged
+runtime was frozen at local `bb6d025` (published as `e8a3ffcb`); four complete
+preset test files passed **39/39**. This is a QA addition, not a product fix.
+
+An independent loopback fixture used legal synthetic Default/Work bundles,
+the production Workspace Manager and native Web Locks. Storage was a local
+synthetic bridge, not an installed-extension profile or real account. Start
+was clicked normally, then the full saved baseline was captured.
+
+- Clarity Preview/Cancel wrote no module data. Visual template selection
+  remained a separate appearance-only write.
+- Explicit Clarity, Graphite, Folio and Studio applications covered both hidden,
+  Focus only, Tasks only and both visible. Each changed application wrote the
+  Work bundle once. Default remained exact. Original task records, pin,
+  recovery/receipts and all nonvisibility fields were compared exactly.
+- The running timer retained the same session ID, phase, status, durations,
+  start and deadline through hiding/reappearance. The first return showed
+  **19:36**, rather than restarting at 25:00. System time was not modified.
+- After a fresh Studio preview, an actual new task was saved in the other
+  page. Applying the old preview required re-preview, retained that task and
+  added no write (count stayed **10**). A fresh no-op application also added
+  no write. Comparisons before and after the deliberate task addition used
+  separately identified baselines.
+- At **393 CSS px**, using native window resizing and **200% browser zoom**,
+  Chinese review copy wrapped and document scroll width was 386 px. Tab reached
+  Apply then Cancel; Enter cancelled and returned focus to Preview. This is
+  not an exact 390×844 or mobile-device claim. Window/zoom were restored.
+
+The initial fixture rejected an empty Sync metadata read needed at Options
+startup; correcting that synthetic read boundary resolved startup without a
+production change or real Sync access. Also, the first tool-driven text-entry
+and indexed Add attempt retained the text without committing. Only the later
+observed Add/save was counted as the cross-page mutation; this does not establish
+an OS IME defect or successful first attempt.
+
+Owned tabs and the loopback service/Terminal tab were normally closed; the
+pre-existing tab was untouched. No imports, downloads, account permissions,
+screenshots uploads or publication actions were part of this journey. Failure
+injection remains model evidence, and this does not resolve the historical
+upgrade/data-loss incident or substitute for actual extension migration testing.

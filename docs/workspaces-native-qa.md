@@ -1,5 +1,50 @@
 # Workspaces native QA checklist
 
+## Bounded saved-only duplication acceptance — 2026-10-27
+
+The duplication item below now has a current complete native journey, separate
+from the remaining checklist. Actual Chinese Options and newtab runtime from
+local `bb6d025` (remote `e8a3ffcb`) ran on an independent loopback fixture with
+legal synthetic storage and native Web Locks. Production files were unchanged.
+The fixture's actual Manager `ready`/`duplicate` self-check passed before UI use;
+the existing automated invariant remains
+`duplicate retains saved content while resetting the active focus session`.
+
+1. Start the source Work timer using its visible control; retain a typed,
+   unsubmitted Task draft in that original tab. Saved source data included
+   active/done/removed Tasks, pin, recovery, receipts and a multiline Unicode
+   Scratchpad ending with LF.
+2. Open Work management in another tab. Read the saved-only/no-active-timer
+   duplication notice, type a name and Cancel: no copy and no storage write.
+3. Explicitly duplicate with **the same display name**. A distinct ID/generation
+   was created with two writes: its new bundle, then the registry. The complete
+   source bundle and Default bundle remained exact; `lastUsedId` stayed Default.
+4. Compare the copy: every saved field other than Focus was exact, including
+   task record versions, recovery and receipts, and the note's original LF and
+   Unicode bytes. Focus retained durations/visibility, advanced its revision,
+   and became ready with null session ID/start/deadline. The original remained
+   running with the same session/deadline.
+5. Click the newly created row's Open action, then Return home. URL identity
+   matched that copy despite the duplicate name. Opening intentionally caused
+   one additional registry write selecting it as last-used. The newtab showed
+   the saved note/tasks and **25:00 / ready**, with an empty quick-entry field;
+   reloading retained this state without another write or automatic start.
+6. The original tab remained bound to its original ID, still displayed its
+   exact unsaved Task draft and a normally decreasing timer (**23:26** at the
+   final observation). The synthetic draft was cleared only during cleanup,
+   after recording its preservation; it was never copied or saved.
+
+Total writes were four: source Start, copy bundle, copy registry, explicit
+selection registry. No providers/errors were reported by the fixture. One
+post-reload Playwright role lookup did not match the fixture's `summary` element;
+fresh native accessibility selection succeeded. This was not a product failure.
+Owned tabs/server/Terminal were normally closed, leaving the original browser
+tab untouched. This pass used no import, Trash, restore, file chooser, account,
+disk download or screenshot upload, and does not establish installed-extension
+migration, fault-injection, OS IME or historical incident resolution.
+
+## Remaining checklist (not all claimed by the bounded pass above)
+
 Test the integrated unpacked extension with a disposable browser profile and no live user-data deletion.
 
 - On an existing-data fixture, verify Default retains sites, free/grid positions, appearance, task/history, notes, countdown, Focus preferences/session, and global privacy/provider settings after migration.
