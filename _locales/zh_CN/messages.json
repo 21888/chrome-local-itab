@@ -4071,6 +4071,12 @@
   "collectionsExport": {
     "message": "导出"
   },
+  "collectionsExportPreparing": {
+    "message": "正在准备完整 JSON 副本…"
+  },
+  "collectionsExportRequested": {
+    "message": "已请求下载 JSON。此页面无法验证浏览器是否已完成下载。"
+  },
   "collectionsExportFailed": {
     "message": "无法创建导出文件，已保存内容未改变。"
   },

@@ -89,11 +89,11 @@ test('old cancelled read settlement cannot unlock or download for a newer export
 
 for (const retired of [false, true]) test(`read rejection ${retired ? 'after retirement stays silent' : 'keeps current error and allows explicit retry'}`, async () => {
     const f = await mount(), read = f.backend.read; let reject; const pending = new Promise((_, no) => { reject = no; }); f.backend.read = () => pending;
-    const op = f.begin(); f.accept(op); await tick(); const status = f.view.status.textContent;
+    const op = f.begin(); f.accept(op); await tick();
     if (retired) f.view.destroy(); reject(Error('synthetic read refusal')); await op.pending;
     assert.equal(f.downloads.clicks.length, 0);
-    if (retired) assert.equal(f.view.status.textContent, status);
-    else { assert.match(f.view.status.textContent, /Export could not be created/); f.backend.read = read; const retry = f.begin(); f.accept(retry); await retry.pending; assert.equal(f.downloads.clicks.length, 1); }
+    if (retired) assert.equal(f.view.jsonExportStatus.textContent, '');
+    else { assert.match(f.view.jsonExportStatus.textContent, /Export could not be created/); f.backend.read = read; const retry = f.begin(); f.accept(retry); await retry.pending; assert.equal(f.downloads.clicks.length, 1); }
     f.unchanged(); f.c.dispose();
 });
 
@@ -139,4 +139,63 @@ test('retiring an open review never restores the opener into a new focus owner',
     assert.equal(f.doc.activeElement === other, true);
     assert.equal(f.view.exportButton.getAttribute('aria-disabled'), 'false');
     assert.equal(f.downloads.clicks.length, 0); f.unchanged(); f.c.dispose();
+});
+
+test('explicit successful retry replaces export failure feedback without claiming disk completion', async () => {
+    const f = await mount(), read = f.backend.read; f.backend.read = async () => { throw Error('synthetic refusal'); };
+    let op = f.begin(); f.accept(op); await op.pending;
+    assert.match([f.view.status.textContent, f.view.jsonExportStatus?.textContent].join(' '), /Export could not be created/);
+    f.backend.read = read; op = f.begin(); f.accept(op); await op.pending;
+    assert.equal(f.downloads.clicks.length, 1);
+    assert.doesNotMatch([f.view.status.textContent, f.view.jsonExportStatus?.textContent].join(' '), /Export could not be created/);
+    assert.match([f.view.status.textContent, f.view.jsonExportStatus?.textContent].join(' '), /JSON download requested/);
+    f.unchanged(); f.c.dispose();
+});
+
+test('cancelled retry retains last export outcome and never reads another copy', async () => {
+    const f = await mount(); let reads = 0; f.backend.read = async () => { reads++; throw Error('refused'); };
+    const failed = f.begin(); f.accept(failed); await failed.pending;
+    const message = f.view.jsonExportStatus.textContent;
+    const cancel = f.begin(); cancel.overlay.querySelector('button').dispatch('click'); await cancel.pending;
+    assert.equal(reads, 1); assert.equal(f.view.jsonExportStatus.textContent, message);
+    assert.equal(f.view.jsonExportStatus.classList.contains('error'), true); f.unchanged(); f.c.dispose();
+});
+
+for (const fail of [false, true]) test(`export ${fail ? 'failure' : 'success'} cannot overwrite Controller save warning and controls`, async () => {
+    const f = await mount(), gate = f.hold();
+    if (fail) { const read = f.backend.read; f.backend.read = async () => { await read(); throw Error('refused'); }; }
+    const op = f.begin(); f.accept(op); await tick();
+    assert.match(f.view.jsonExportStatus.textContent, /Preparing the complete JSON/);
+    f.c.error = { code: 'READ', scope: 'read' }; f.view.render();
+    const warning = f.view.status.textContent, refresh = f.view.status.querySelector('button'); assert.ok(refresh);
+    gate.resolve(); await op.pending;
+    assert.equal(f.view.status.textContent, warning); assert.equal(f.view.status.querySelector('button') === refresh, true);
+    assert.match(f.view.jsonExportStatus.textContent, fail ? /Export could not/ : /JSON download requested/);
+    assert.equal(f.view.jsonExportStatus.classList.contains('error'), fail); f.unchanged(); f.c.dispose();
+});
+
+for (const rejectRead of [false, true]) test(`source replacement during ${rejectRead ? 'failed' : 'successful'} read clears only retired progress`, async () => {
+    const f = await mount(), read = f.backend.read; let resolve, reject;
+    f.backend.read = () => new Promise((yes, no) => { resolve = yes; reject = no; });
+    const op = f.begin(); f.accept(op); await tick(); f.c.onChange = () => {};
+    f.view.status.textContent = 'New owner warning';
+    if (rejectRead) reject(Error('old refusal')); else resolve(await read()); await op.pending;
+    assert.equal(f.view.jsonExportStatus.textContent, ''); assert.equal(f.view.status.textContent, 'New owner warning');
+    assert.equal(f.downloads.clicks.length, 0); f.unchanged(); f.c.dispose();
+});
+
+test('late retired failure cannot overwrite the newer export progress or success', async () => {
+    const f = await mount(), read = f.backend.read, second = deferred(); let rejectFirst, reads = 0;
+    f.backend.read = async () => { if (++reads === 1) await new Promise((_, no) => { rejectFirst = no; }); else await second.promise; return read(); };
+    const old = f.begin(); f.accept(old); await tick();
+    f.events.get('pagehide')({ persisted: true }); f.events.get('pageshow')({ persisted: true });
+    const fresh = f.begin(); f.accept(fresh); await tick(); rejectFirst(Error('old refusal')); await old.pending;
+    assert.match(f.view.jsonExportStatus.textContent, /Preparing the complete JSON/);
+    second.resolve(); await fresh.pending; assert.match(f.view.jsonExportStatus.textContent, /JSON download requested/);
+    assert.equal(f.downloads.clicks.length, 1); f.unchanged(); f.c.dispose();
+});
+
+for (const language of ['en', 'zh_CN']) test(`JSON export progress and requested feedback have ${language} translations`, () => {
+    const messages = JSON.parse(fs.readFileSync(`_locales/${language}/messages.json`, 'utf8'));
+    for (const name of ['ExportPreparing', 'ExportRequested', 'ExportFailed']) assert.ok(messages[`collections${name}`]?.message);
 });

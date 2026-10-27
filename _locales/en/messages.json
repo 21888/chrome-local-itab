@@ -4071,6 +4071,12 @@
   "collectionsExport": {
     "message": "Export"
   },
+  "collectionsExportPreparing": {
+    "message": "Preparing the complete JSON copy…"
+  },
+  "collectionsExportRequested": {
+    "message": "JSON download requested. Browser completion cannot be verified here."
+  },
   "collectionsExportFailed": {
     "message": "Export could not be created. Saved content is unchanged."
   },

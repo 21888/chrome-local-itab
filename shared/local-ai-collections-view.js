@@ -109,6 +109,7 @@
             this.newButton = this.button('New', 'Save an excerpt', () => { c.create(); this.main.querySelector('input')?.focus(); }, 'prompt-primary'); actions.append(this.importButton, this.exportButton, this.newButton); header.append(heading, actions);
             this.captureStatus = this.el('div', 'prompt-status'); this.captureStatus.setAttribute('role', 'status'); this.captureStatus.setAttribute('aria-live', 'polite');
             this.status = this.el('div', 'prompt-status'); this.status.tabIndex = -1; this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
+            this.jsonExportStatus = this.el('div', 'prompt-status'); this.jsonExportStatus.setAttribute('role', 'status'); this.jsonExportStatus.setAttribute('aria-live', 'polite');
             const layout = this.el('div', 'prompt-layout'), sidebar = this.el('aside', 'prompt-sidebar'); sidebar.setAttribute('aria-label', this.t('Browse', 'Browse saved excerpts'));
             this.search = this.field(sidebar, 'Search', 'Search title, excerpt, tags and annotations', '', query => c.filter({ query })); this.search.type = 'search'; this.search.maxLength = 500;
             this.search.setAttribute('aria-keyshortcuts', '/');
@@ -150,7 +151,7 @@
             sidebar.append(this.draftList, this.listCount, this.resultMarkdownButton, this.list);
             this.main = this.el('main', 'prompt-main'); this.main.id = 'collection-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.paragraph('Scope', 'Saved on this device. Excerpts are manually supplied, not complete conversations. Nothing is scraped, executed or sent to a model.'), this.paragraph('Limits', 'Limits: 200 items including archived · 32,000 characters per excerpt · 20 body versions per item · 2 MiB total. Capacity errors keep your draft; no text or history is silently removed.'), this.paragraph('Privacy', 'Not an encrypted vault. Avoid secrets. Exports contain private text, annotations, history and conversation links; removing source URLs does not anonymize the text.'));
-            this.shell.append(brand, header, this.captureStatus, this.status, layout, footer); this.host.append(this.shell);
+            this.shell.append(brand, header, this.captureStatus, this.status, this.jsonExportStatus, layout, footer); this.host.append(this.shell);
             let saveComposition = null;
             this.main.addEventListener('compositionstart', event => { saveComposition = event.target; });
             const finishSaveComposition = event => { if (saveComposition === event.target) saveComposition = null; };
@@ -970,6 +971,7 @@
             const context = this.jsonExport;
             if (!context) return;
             this.jsonExport = null;
+            if (context.pendingFeedback && this.jsonExportStatus === context.feedback) { context.feedback.textContent = ''; context.feedback.classList.remove('error'); }
             context.closeDialog?.();
             this.updateJsonExportButton();
         }
@@ -980,12 +982,19 @@
                 host.contains(shell) && shell.contains(button) && button.isConnected && !host.hidden && !shell.hidden &&
                 this.doc.visibilityState !== 'hidden' && !c.busy && !c.pendingCommand;
             if (this.openDialog || this.jsonExport || button.disabled || !sourceCurrent()) return;
-            const context = { current: () => this.jsonExport === context && sourceCurrent() };
+            const feedback = this.jsonExportStatus;
+            const context = { feedback, pendingFeedback: false, current: () => this.jsonExport === context && sourceCurrent() };
+            const report = (name, fallback, error = false) => {
+                if (!context.current() || this.jsonExportStatus !== feedback || !shell.contains(feedback)) return;
+                feedback.textContent = this.t(name, fallback); feedback.classList.toggle('error', error);
+                context.pendingFeedback = name === 'ExportPreparing';
+            };
             this.jsonExport = context; this.updateJsonExportButton();
             let omit = false, url, anchor, submitted = false;
             try {
                 const accepted = await this.dialog({ title: this.t('Export', 'Export'), body: this.t('ContextSnapshotExportWarning', 'Saved question/source snapshots, when present, are included in full and may contain private text and endpoint URLs even if attribution source URLs are omitted.') + '\n\n' + this.t('ExportWarning', 'Download an unencrypted JSON copy of all saved and archived items, body history, annotations, prompt references and recovery snapshots. Unsaved drafts are excluded. Keep it somewhere private.'), accept: this.t('Download', 'Download JSON'), checkbox: value => { omit = value; }, ownerContext: context });
                 if (!accepted || !context.current()) return;
+                report('ExportPreparing', 'Preparing the complete JSON copy…');
                 // Store.export() returns the complete serialized backup. Do not
                 // submit a deferred file after this page or export owner retires.
                 const data = await store.export({ omitSourceUrls: omit });
@@ -997,8 +1006,9 @@
                 anchor = this.el('a'); anchor.href = url; anchor.download = 'local-itab-ai-collection.json'; this.doc.body.append(anchor);
                 if (!context.current()) return;
                 anchor.click(); submitted = true;
+                report('ExportRequested', 'JSON download requested. Browser completion cannot be verified here.');
             } catch (_) {
-                if (context.current()) this.status.textContent = this.t('ExportFailed', 'Export could not be created. Saved content is unchanged.');
+                report('ExportFailed', 'Export could not be created. Saved content is unchanged.', true);
             } finally {
                 try { anchor?.remove(); } catch (_) { /* Best-effort DOM cleanup. */ }
                 if (url) {
