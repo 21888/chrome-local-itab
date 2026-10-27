@@ -6,6 +6,7 @@ const Drive = require('../drive-backup');
 
 async function fixture(t, { resumable = false, outcome = 'normal' } = {}) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'chrome');
+    t.after(require('./helpers/drive-state-lock-model')());
     const clone = value => structuredClone(value), raw = {}, calls = { deleted: [], uploads: [], lists: 0, auth: 0 };
     global.chrome = {
         runtime: { getManifest: () => ({ oauth2: { client_id: 'synthetic-not-an-account' } }) },

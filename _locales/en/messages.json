@@ -2124,6 +2124,12 @@
   "driveSafetyBackupFailedConfirm": {
     "message": "Could not create a safety backup: $1\n\nContinue restore without a safety backup?"
   },
+  "driveStatePatchInvalid": {
+    "message": "Drive status updates cannot replace computer profiles. No Drive settings were changed."
+  },
+  "driveStateLockUnavailable": {
+    "message": "Safe computer-profile saving is unavailable. No Drive settings were changed."
+  },
   "driveRestorePreparationChanged": {
     "message": "Restore cancelled because the form or workspace changed. Your draft was kept. Any safety backup already created remains available."
   },

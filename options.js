@@ -1938,8 +1938,8 @@ function setupDriveBackupEventListeners() {
             }
 
             await runDriveAction(t('driveRenaming', '正在保存电脑名称...'), async () => {
-                const state = await manager.renameDevice(name);
-                acknowledgeDriveDeviceName(input, submittedDeviceId, submittedValue, state?.deviceName ?? name);
+                const state = await manager.renameDevice(name, submittedDeviceId);
+                acknowledgeDriveDeviceName(input, submittedDeviceId, submittedValue, state?.knownDevices?.find(profile => profile.id === submittedDeviceId)?.name ?? name);
                 await renderDriveBackupPanel();
                 showMessage(t('driveRenamed', '电脑名称已保存，后续备份将使用新名称。'), 'success');
             });

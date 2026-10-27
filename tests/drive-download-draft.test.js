@@ -19,7 +19,7 @@ async function harness() {
     const saved = { deviceId: 'home', deviceName: 'Saved home', connectedAt: '2026-01-01T00:00:00Z', lastError: '',
         knownDevices: [{ id: 'home', name: 'Saved home' }, { id: 'work', name: 'Saved work' }] };
     const snapshot = { id: 'synthetic-snapshot', name: 'synthetic-backup.json', deviceId: 'home', size: 24 };
-    const calls = { downloads: 0, clicks: 0, errors: [], renames: [], additions: [], selections: [], reads: 0,
+    const calls = { downloads: 0, clicks: 0, errors: [], renames: [], renameIds: [], additions: [], selections: [], reads: 0,
         payloadGate: null, panelGate: null, renameGate: null, addGate: null, selectGate: null, failRead: false,
         failClick: false, failRename: false, failAdd: false, failSelect: false, failPanelRead: false, fallbacks: 0,
         listings: 0, uploads: 0, uploadGate: null, failUpload: false, messages: [], timers: [] };
@@ -33,9 +33,10 @@ async function harness() {
         async downloadSnapshotPayload() { calls.downloads++; if (calls.payloadGate) await calls.payloadGate.promise;
             if (calls.failRead) throw new Error('Synthetic payload unavailable'); return { data: { synthetic: true } }; },
         async setLastError(error) { calls.errors.push(error.message); saved.lastError = error.message; },
-        async renameDevice(name) { calls.renames.push(name); if (calls.renameGate) await calls.renameGate.promise;
-            if (calls.failRename) throw new Error('Synthetic rename failed'); saved.deviceName = name.trim();
-            saved.knownDevices.find(item => item.id === saved.deviceId).name = saved.deviceName; return structuredClone(saved); },
+        async renameDevice(name, id) { calls.renames.push(name); calls.renameIds.push(id); if (calls.renameGate) await calls.renameGate.promise;
+            if (calls.failRename) throw new Error('Synthetic rename failed');
+            saved.knownDevices.find(item => item.id === id).name = name.trim();
+            if (saved.deviceId === id) saved.deviceName = name.trim(); return structuredClone(saved); },
         async addDevice(name) { calls.additions.push(name); if (calls.addGate) await calls.addGate.promise;
             if (calls.failAdd) throw new Error('Synthetic add failed'); saved.deviceId = 'new'; saved.deviceName = name.trim();
             saved.knownDevices.push({ id: 'new', name: saved.deviceName }); return { deviceCreated: true }; },
@@ -636,4 +637,17 @@ test('Drive departure protects names before Settings initialization and after re
     assert.equal(h.departureCalls.some(call => call[0] === 'reload'), false);
     const uninitialized = await harness(); uninitialized.get('device-name').value = 'Draft before Settings baseline';
     assert.equal(uninitialized.context.settingsHasUncommittedWork(), true);
+});
+
+
+test('Rename submits the displayed profile ID even if another instance changed selection', async () => {
+    const h = await harness(); h.get('device-name').value = 'Reviewed home name';
+    h.saved.deviceId = 'work'; h.saved.deviceName = 'Saved work';
+    await h.event('rename-device');
+    assert.deepEqual(h.calls.renameIds, ['home']);
+    assert.equal(h.saved.deviceId, 'work'); assert.equal(h.saved.deviceName, 'Saved work');
+    assert.equal(h.saved.knownDevices.find(profile => profile.id === 'home').name, 'Reviewed home name');
+    assert.equal(h.get('device-name').value, 'Saved work');
+    h.get('device-select').value = 'home'; await h.event('device-select', 'change');
+    assert.equal(h.get('device-name').value, 'Reviewed home name', 'acknowledgement belongs to renamed ID, not current selection');
 });

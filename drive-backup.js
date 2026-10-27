@@ -215,28 +215,44 @@ class DriveBackupManager {
         return this.normalizeState(await this.getRawState());
     }
 
-    async ensureState() {
-        const raw = await this.getRawState();
-        const state = this.normalizeState(raw);
-        const rawDevices = Array.isArray(raw.knownDevices) ? raw.knownDevices : [];
-        const normalizedDevicesChanged = JSON.stringify(state.knownDevices) !== JSON.stringify(rawDevices);
-        if (
-            state.deviceId !== raw.deviceId ||
-            state.activeDeviceId !== raw.activeDeviceId ||
-            state.deviceName !== raw.deviceName ||
-            normalizedDevicesChanged
-        ) {
-            await this.saveState(state);
+    async updateState(update, { normalizeOnly = false } = {}) {
+        const locks = typeof navigator !== 'undefined' && navigator.locks;
+        if (!locks?.request) {
+            const error = new Error(DriveBackupManager.getLocalizedMessage('driveStateLockUnavailable',
+                'Safe computer-profile saving is unavailable. No Drive settings were changed.'));
+            error.code = 'DRIVE_STATE_LOCK_UNAVAILABLE';
+            throw error;
         }
-        return state;
+        // Global provider metadata is shared by every Options instance. Never
+        // hold this lock across network requests or another state operation.
+        return locks.request('local-itab-drive-state-write', async () => {
+            const raw = await this.getRawState();
+            const current = this.normalizeState(raw);
+            const next = this.normalizeState({ ...current, ...update(current) });
+            if (!normalizeOnly || next.deviceId !== raw.deviceId || next.activeDeviceId !== raw.activeDeviceId ||
+                next.deviceName !== raw.deviceName || JSON.stringify(next.knownDevices) !== JSON.stringify(Array.isArray(raw.knownDevices) ? raw.knownDevices : [])) {
+                await chrome.storage.local.set({ [this.stateKey]: next });
+            }
+            return next;
+        });
+    }
+
+    async ensureState() {
+        return this.updateState(() => ({}), { normalizeOnly: true });
     }
 
     async saveState(partial) {
-        if (typeof chrome === 'undefined' || !chrome.storage?.local) return this.normalizeState(partial);
-        const current = this.normalizeState(await this.getRawState());
-        const next = this.normalizeState({ ...current, ...partial });
-        await chrome.storage.local.set({ [this.stateKey]: next });
-        return next;
+        const metadata = new Set(['connectedAt', 'lastBackupAt', 'lastRestoreAt', 'lastError']);
+        if (!partial || typeof partial !== 'object' || Array.isArray(partial) ||
+            Object.keys(partial).some(key => !metadata.has(key) || typeof partial[key] !== 'string')) {
+            const error = new Error(DriveBackupManager.getLocalizedMessage('driveStatePatchInvalid',
+                'Drive status updates cannot replace computer profiles. No Drive settings were changed.'));
+            error.code = 'DRIVE_STATE_PATCH_INVALID';
+            throw error;
+        }
+        // Detach the command before waiting for the cross-instance lock.
+        const patch = JSON.parse(JSON.stringify(partial));
+        return this.updateState(() => patch);
     }
 
     async setLastError(error) {
@@ -244,68 +260,45 @@ class DriveBackupManager {
         return this.saveState({ lastError: message });
     }
 
-    async renameDevice(name) {
-        const state = await this.getState();
+    async renameDevice(name, deviceId) {
         const nextName = DriveBackupManager.normalizeDeviceName(name);
-        const updatedAt = new Date().toISOString();
-        const knownDevices = state.knownDevices.map(profile => {
-            if (profile.id !== state.deviceId) return profile;
-            return { ...profile, name: nextName, updatedAt };
-        });
-
-        return this.saveState({
-            deviceId: state.deviceId,
-            activeDeviceId: state.deviceId,
-            deviceName: nextName,
-            knownDevices,
-            lastError: ''
+        // Options supplies the displayed field's ID. Legacy callers capture
+        // their original target, never carry an old profile list into the lock.
+        const targetId = deviceId === undefined ? (await this.getState()).deviceId : String(deviceId || '').trim();
+        return this.updateState(state => {
+            if (!state.knownDevices.some(profile => profile.id === targetId)) {
+                throw new Error('Computer profile was not found.');
+            }
+            const updatedAt = new Date().toISOString();
+            const knownDevices = state.knownDevices.map(profile => profile.id === targetId
+                ? { ...profile, name: nextName, updatedAt } : profile);
+            // A newer selection is independent of renaming the reviewed ID.
+            return { knownDevices, ...(state.deviceId === targetId ? {deviceName: nextName} : {}), lastError: '' };
         });
     }
 
     async addDevice(name) {
-        const state = await this.getState();
         const nextName = DriveBackupManager.normalizeDeviceName(name);
-        const existing = state.knownDevices.find(profile => (
-            profile.name.toLocaleLowerCase() === nextName.toLocaleLowerCase()
-        ));
-
-        if (existing) {
-            const selected = await this.selectDevice(existing.id);
-            return { ...selected, deviceCreated: false };
-        }
-
-        const now = new Date().toISOString();
-        const profile = {
-            id: DriveBackupManager.createId('device_'),
-            name: nextName,
-            createdAt: now,
-            updatedAt: now
-        };
-
-        const saved = await this.saveState({
-            deviceId: profile.id,
-            activeDeviceId: profile.id,
-            deviceName: profile.name,
-            knownDevices: [...state.knownDevices, profile],
-            lastError: ''
+        let deviceCreated = false;
+        const saved = await this.updateState(state => {
+            const existing = state.knownDevices.find(profile => profile.name.toLocaleLowerCase() === nextName.toLocaleLowerCase());
+            const now = new Date().toISOString();
+            const profile = existing || { id: DriveBackupManager.createId('device_'), name: nextName, createdAt: now, updatedAt: now };
+            deviceCreated = !existing;
+            return {
+                deviceId: profile.id, activeDeviceId: profile.id, deviceName: profile.name,
+                knownDevices: existing ? state.knownDevices : [...state.knownDevices, profile], lastError: ''
+            };
         });
-        return { ...saved, deviceCreated: true };
+        return { ...saved, deviceCreated };
     }
 
     async selectDevice(deviceId) {
-        const state = await this.getState();
         const nextId = String(deviceId || '').trim();
-        const profile = state.knownDevices.find(item => item.id === nextId);
-        if (!profile) {
-            throw new Error('Computer profile was not found.');
-        }
-
-        return this.saveState({
-            deviceId: profile.id,
-            activeDeviceId: profile.id,
-            deviceName: profile.name,
-            knownDevices: state.knownDevices,
-            lastError: ''
+        return this.updateState(state => {
+            const profile = state.knownDevices.find(item => item.id === nextId);
+            if (!profile) throw new Error('Computer profile was not found.');
+            return { deviceId: profile.id, activeDeviceId: profile.id, deviceName: profile.name, lastError: '' };
         });
     }
 

@@ -362,10 +362,10 @@ async function assertDeviceProfilesCanBeAddedSelectedAndRenamed() {
         ]
     };
     manager.getRawState = async () => raw;
-    manager.saveState = async partial => {
-        raw = manager.normalizeState({ ...raw, ...partial });
-        return raw;
-    };
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'chrome');
+    const restoreLocks = require('./helpers/drive-state-lock-model')();
+    global.chrome = {storage: {local: {set: async values => { raw = values[manager.stateKey]; }}}};
+    try {
 
     let state = await manager.addDevice('Office Computer');
     assert.strictEqual(state.deviceName, 'Office Computer');
@@ -390,6 +390,10 @@ async function assertDeviceProfilesCanBeAddedSelectedAndRenamed() {
         () => manager.selectDevice('missing_device'),
         /not found/
     );
+    } finally {
+        restoreLocks();
+        if (descriptor) Object.defineProperty(globalThis, 'chrome', descriptor); else delete global.chrome;
+    }
 }
 
 (async () => {
