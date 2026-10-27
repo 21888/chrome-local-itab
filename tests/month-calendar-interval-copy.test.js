@@ -173,7 +173,7 @@ test('ordinary navigation, Today, month jump, ticks and clock preference updates
 
 const interruptions = {
     'same-value input': h => h.x.start.dispatch('input'),
-    'same-value change': h => h.x.end.dispatch('change'),
+    'same-value change': h => h.x.end.dispatch('change', { type: 'change' }),
     'edit away and back': h => { const value = h.x.start.value; h.x.start.value = '2000-01-01'; h.x.start.dispatch('input'); h.x.start.value = value; h.x.start.dispatch('input'); h.x.calculate.dispatch('click'); },
     'same-result calculation': h => h.x.calculate.dispatch('click'),
     'locale ABA': h => { h.locale('zh_CN'); h.tick(); h.locale('en'); h.tick(); },
@@ -703,4 +703,63 @@ test('endpoint Today remains stable across ticks/locales with no focus theft, ex
         assert.equal(escape.prevented, true); assert.equal(h.document.activeElement, h.view.summary); assert.equal(start.value, ''); assert.equal(end.value, '');
         clean(h, true);
     }
+});
+
+for (const submit of ['Enter', 'Calculate button']) test(`calculated interval survives unchanged blur change before Copy (${submit})`, async () => {
+    const h = mount(); h.open();
+    h.x.start.value = '2000-02-28'; h.x.start.dispatch('input');
+    h.x.end.value = '2000-03-01'; h.x.end.dispatch('input'); h.x.end.focus();
+    if (submit === 'Enter') h.x.end.dispatch('keydown', { key: 'Enter' });
+    else h.x.calculate.dispatch('click');
+    const result = '2000-02-28 → 2000-03-01: +2 calendar days';
+    assert.equal(h.x.result.textContent, result);
+    // Chrome commits the unchanged text field on leaving it after Enter.
+    h.x.end.dispatch('change', { type: 'change' }); h.x.end.dispatch('blur'); h.x.copy.focus();
+    assert.equal(h.x.result.textContent, result, 'late unchanged change must retain the calculated result');
+    assert.equal(h.x.copy.getAttribute('aria-disabled'), 'false');
+    h.x.copy.dispatch('click'); await settle();
+    assert.deepEqual(h.calls, [result]); assert.equal(h.calculations, 1); clean(h);
+});
+
+test('unchanged change preserves an invalid calculation error until an actual edit or explicit Clear', () => {
+    const h = mount(); h.open(); h.x.start.value = '2000-02-28'; h.x.end.value = '2000-02-30';
+    h.x.end.dispatch('input'); h.x.end.dispatch('keydown', { key: 'Enter' });
+    const error = h.x.error.textContent; assert(error); assert.equal(h.x.error.hidden, false);
+    h.x.end.dispatch('change', { type: 'change' }); h.x.end.dispatch('blur');
+    assert.equal(h.x.error.textContent, error); assert.equal(h.x.error.hidden, false);
+    assert.equal(h.x.end.value, '2000-02-30'); assert.equal(h.x.copy.getAttribute('aria-disabled'), 'true');
+    h.x.clear.dispatch('click'); assert.equal(h.x.start.value, ''); assert.equal(h.x.end.value, '');
+    assert.equal(h.x.error.hidden, true); assert.equal(h.x.result.textContent, ''); clean(h);
+});
+
+for (const kind of ['input', 'change']) test(`a real ${kind} edit and return to the old dates cannot revive an old result`, () => {
+    const h = mount(); h.calculate(); const original = h.x.end.value;
+    h.x.end.value = '2030-01-01'; h.x.end.dispatch(kind, { type: kind });
+    assert.equal(h.x.result.textContent, '');
+    h.x.end.value = original; h.x.end.dispatch(kind, { type: kind });
+    assert.equal(h.x.result.textContent, ''); assert.equal(h.x.copy.getAttribute('aria-disabled'), 'true');
+    h.x.copy.dispatch('click'); assert.deepEqual(h.calls, []);
+    h.x.end.dispatch('keydown', { key: 'Enter' }); assert(h.x.result.textContent);
+    h.x.end.dispatch('change', { type: 'change' }); assert(h.x.result.textContent); clean(h);
+});
+
+for (const withInput of [false, true]) test(`composition completion cannot treat a changed draft as the calculated value (input=${withInput})`, () => {
+    const h = mount(); h.calculate(); h.x.end.dispatch('compositionstart'); h.x.end.value = '2024-03-01';
+    if (withInput) h.x.end.dispatch('input');
+    h.x.end.dispatch('keydown', { key: 'Enter', isComposing: true });
+    h.x.end.dispatch('compositionend'); h.x.end.dispatch('change', { type: 'change' });
+    assert.equal(h.x.result.textContent, ''); assert.equal(h.x.copy.getAttribute('aria-disabled'), 'true');
+    h.x.end.dispatch('keyup', { key: 'Enter' }); h.x.end.dispatch('keydown', { key: 'Enter' });
+    assert.equal(h.x.result.textContent, '2024-02-28 → 2024-03-01: +2 calendar days');
+    h.x.end.dispatch('change', { type: 'change' }); assert(h.x.result.textContent); clean(h);
+});
+
+test('unchanged change keeps the result but never revives an invalidated pending copy receipt', async () => {
+    const wait = deferred(), calls = [], h = mount({ clipboard: { writeText(text) { calls.push(text); return wait.promise; } } });
+    const result = h.calculate(); h.x.copy.dispatch('click');
+    h.x.end.dispatch('change', { type: 'change' }); assert.equal(h.x.result.textContent, result);
+    h.x.copy.dispatch('click'); assert.equal(calls.length, 1);
+    wait.resolve(); await settle(); h.flush();
+    assert.equal(h.x.copyStatus.textContent, ''); assert.equal(h.x.result.textContent, result);
+    assert.equal(h.x.copy.getAttribute('aria-disabled'), 'false'); clean(h);
 });

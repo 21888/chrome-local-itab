@@ -2029,7 +2029,8 @@ class ClockComponent {
             if (!intervalActive(source) || composing() ||
                 !intervalActive(interval.start) || !intervalActive(interval.end)) return;
             this.invalidateMonthCalendarIntervalCopy();
-            const days = window.MonthCalendar.dateInterval(interval.start.value, interval.end.value);
+            interval.calculatedDraft = { start: interval.start.value, end: interval.end.value };
+            const days = window.MonthCalendar.dateInterval(interval.calculatedDraft.start, interval.calculatedDraft.end);
             interval.invalid = days === null;
             interval.resultValue = days === null ? null : { start: interval.start.value, end: interval.end.value, days };
             this.updateMonthCalendarInterval();
@@ -2099,9 +2100,20 @@ class ClockComponent {
         interval.copy.addEventListener('click', event => this.copyMonthCalendarInterval(view, event));
         for (const [field, state] of [[interval.start, interval.startState], [interval.end, interval.endState]]) {
             bindDraftField(field, state, intervalActive, calculate);
-            const edited = () => {
+            const edited = event => {
                 if (!intervalActive(field)) return;
                 this.invalidateMonthCalendarIntervalCopy();
+                // Enter can calculate before Chrome commits this text field on blur.
+                // That unchanged change event must not erase the result or error.
+                // Input still retires it even after an edit-away-and-back sequence;
+                // copy receipts remain invalidated independently above.
+                const calculated = interval.calculatedDraft;
+                if (event.type === 'change' && calculated && calculated.start === interval.start.value &&
+                    calculated.end === interval.end.value) {
+                    this.refreshMonthCalendarIntervalCopyControl();
+                    return;
+                }
+                interval.calculatedDraft = null;
                 interval.invalid = false;
                 interval.resultValue = null;
                 this.updateMonthCalendarInterval();
@@ -2172,6 +2184,7 @@ class ClockComponent {
         interval.details.open = false;
         interval.start.value = '';
         interval.end.value = '';
+        interval.calculatedDraft = null;
         interval.invalid = false;
         interval.resultValue = null;
         for (const state of [interval.startState, interval.endState]) {
