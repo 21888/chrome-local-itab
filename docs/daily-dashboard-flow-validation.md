@@ -336,3 +336,75 @@ No product defect was found. Tabs 56/57, server 8800 and its dedicated terminal
 were closed, with final inventory showing only the untouched original tab 9.
 The Countdown, reversible-library-recovery and local-card checks are one bounded
 acceptance batch, not three new features or incident-release authorization.
+
+## Mixed-origin removed Tasks: native component restoration (2026-10-27)
+
+A dedicated port-8819 page mounted the actual Tasks Store, Controller, View,
+Dialog focus helper and lifecycle, with unchanged production CSS. These six
+runtime files match the blobs at `31cd61a9ca429fddd16d5ab8d41daa75bd6d0e6e`.
+The backend used actual browser Web Locks and explicitly synthetic sessionStorage;
+this is component acceptance, not a full-dashboard or installed-extension test.
+Seven valid records included two identical CRLF/Unicode/literal-HTML texts removed
+from different states, two unselected removed records, an unrelated pin and a
+sentinel with an existing receipt produced through the actual Store.
+
+The native selection dialog began with no selection and showed each original
+Active/Completed destination. Selecting the two identical texts, reviewing and
+cancelling wrote nothing and retained the quick-entry draft. Reopening again
+started unselected. Explicit review and one confirmation restored only those two
+identities: one active, one completed. The complete unselected records, pin,
+record order, original receipt and all original text stayed exact. One write
+incremented revision 1 to 2 and appended one receipt. The quick-entry draft stayed
+unsaved with appropriate status. After explicitly clearing that synthetic draft,
+reload retained the saved result with no second write; draft survival across
+reload is not claimed.
+
+The first fixture omitted its workspace-owner identity and correctly received
+an unavailable-storage refusal. It was cancelled without a write. Only the fixture
+was corrected to supply the fixed synthetic owner used by existing model tests;
+no production guard changed. Seed validation, fixture syntax and runtime-byte
+comparison passed. Existing model/full-suite counts are not presented as new runs.
+
+## Conflict-preserving Scratchpad copy routes (2026-10-27)
+
+Port 8820 mounted the actual Scratchpad Store/Controller/View and production CSS
+with two Store instances sharing a synthetic memory backend under browser Web
+Locks. A separate, explicit `clipboard` dependency captured text in page memory
+and could reject one requested write. **No system clipboard, clipboard permission,
+file import/export, provider, or account was accessed.** These native controls
+exercise the shipped copy logic, not actual OS clipboard behavior.
+
+- Before editing, Copy current text retained the original controller CRLF bytes
+  even though the native textarea displayed LF.
+- A visible fixture control rejected the next ordinary autosave before commit.
+  A second Store then saved a different BOM/CRLF/CR/LF snapshot. The retained draft
+  and its actual selected text could be copied without any data write. Copy saved
+  text remained disabled because the previous save was unconfirmed; this guard
+  was not bypassed or described as a defect.
+- Explicit Use saved text ended that synthetic conflict without a write. A new
+  ordinary edit followed immediately by the second Store's explicit update
+  produced a clean conflict, with the original autosave delay unchanged.
+- Copy saved text then encountered the one armed memory-copy rejection. The UI
+  retained both versions and explained explicit retry. Native Enter on that same
+  button retried successfully, with the identical complete saved BOM/CRLF/CR/LF
+  payload. It did not substitute the newer editor draft or resolve the conflict.
+- In that same conflict, Copy current text captured the entire current draft;
+  Ctrl+End then Shift+Home made a backward native selection at UTF-16 `[50,74)`,
+  and Copy selected text captured only `New retained local draft`. The selection,
+  draft and saved snapshot remained unchanged. The saved state stayed revision 2
+  with two successful Store writes throughout these copies; one earlier rejected
+  save is counted separately, not as a successful write.
+
+The conflict was explicitly resolved with Use saved text only after preserving
+all readbacks, to close the disposable page normally. No runtime defect was found.
+Six runtime files were byte-compared and fixture syntax checked; this did not rerun
+or extend the historical full-suite result. These checks do not establish native
+permission denial, physical-key repeat, OS IME, real Chrome storage, crash/upgrade
+recovery, or all asynchronous schedules. The initial Tasks fixture refusal and Scratchpad copy-denial
+results remain part of the evidence, not discarded failures.
+
+Both fixtures and all native readbacks used synthetic data only. Owned tabs
+84/85/86 and dedicated servers 8819/8820 and Terminal tabs were closed normally;
+the pre-existing Chrome tab 83 was not touched. Screenshots were inspected only
+in-tool. No screenshots, runtime files or profiles accompany this grouped QA
+update; no new feature, version, Release, CWS action or incident resolution is claimed.
