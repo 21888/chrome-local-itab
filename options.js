@@ -2275,8 +2275,7 @@ async function saveConfirmedRestore(manager, settings) {
     }
 }
 
-async function createBeforeRestoreSafetyBackup() {
-    const manager = getDriveBackupManager();
+async function createBeforeRestoreSafetyBackup(manager = getDriveBackupManager()) {
     const draft = await manager.createSnapshotDraft({ reason: 'beforeRestore' });
     if (draft.sizeBytes > manager.maximumSizeBytes) {
         throw new Error(t('driveSafetyBackupTooLarge', '安全备份过大（$1）。', formatBytes(draft.sizeBytes)));
@@ -2299,29 +2298,66 @@ async function restoreDriveSnapshot(snapshot) {
     ));
     if (!confirmed) return;
 
-    await runDriveAction(t('driveCreatingSafetyBackup', '恢复前正在创建安全备份...'), async () => {
-        try {
-            await createBeforeRestoreSafetyBackup();
-        } catch (error) {
-            const proceed = confirm(t('driveSafetyBackupFailedConfirm', '无法创建安全备份：$1\n\n是否继续在没有安全备份的情况下恢复？', error.message));
-            if (!proceed) {
-                showMessage(t('driveRestoreCancelled', '已取消恢复。'), 'info');
-                return;
+    // Confirmation owns this form and source, not drafts entered during network awaits.
+    const sourceStorage = storageManager;
+    const confirmedSession = settingsSession;
+    const confirmedDraft = settingsReplacementFormSnapshot();
+    const snapshotId = snapshot.id;
+    const owners = [sourceStorage.workspace, providerStorage.workspace, window.LocalItabWorkspaces?.session]
+        .map(owner => ({ owner, id: owner?.id, generation: owner?.generation }));
+    let retired = false;
+    const retire = () => { retired = true; };
+    const visibility = () => { if (document.hidden) retire(); };
+    const current = (queued = false) => !retired && !document.hidden &&
+        !window.LocalItabContentLifecycle?.departing && storageManager === sourceStorage &&
+        getDriveBackupManager() === manager && settingsSession === confirmedSession + (queued ? 1 : 0) &&
+        settingsReplacementFormSnapshot() === confirmedDraft &&
+        [sourceStorage.workspace, providerStorage.workspace, window.LocalItabWorkspaces?.session]
+            .every((owner, index) => owner === owners[index].owner && owner?.id === owners[index].id &&
+                owner?.generation === owners[index].generation && !owner?.invalidated && !owner?._suspended);
+    const cancel = () => showMessage(t('driveRestorePreparationChanged',
+        'Restore cancelled because the form or workspace changed. Your draft was kept. Any safety backup already created remains available.'), 'info');
+    window.addEventListener?.('pagehide', retire);
+    document.addEventListener?.('visibilitychange', visibility);
+    try {
+        await runDriveAction(t('driveCreatingSafetyBackup', '恢复前正在创建安全备份...'), async () => {
+            if (!current()) { cancel(); return; }
+            try {
+                await createBeforeRestoreSafetyBackup(manager);
+            } catch (error) {
+                if (!current()) { cancel(); return; }
+                const proceed = confirm(t('driveSafetyBackupFailedConfirm', '无法创建安全备份：$1\n\n是否继续在没有安全备份的情况下恢复？', error.message));
+                if (!proceed) {
+                    showMessage(t('driveRestoreCancelled', '已取消恢复。'), 'info');
+                    return;
+                }
             }
-        }
 
-        showMessage(t('driveDownloadingSelected', '正在下载所选备份...'), 'info');
-        const payload = await manager.downloadSnapshotPayload(snapshot.id, { interactive: true });
-        const providerState = await providerStorage.getLocalProviderState();
-        const validatedSettings = providerStorage.prepareRestoredConfig(payload, providerState);
-        const success = await replaceSettings(() => saveConfirmedRestore(providerStorage, validatedSettings));
-        if (!success) {
-            throw new Error(t('driveRestoreSaveFailed', '保存恢复后的设置失败。'));
-        }
-        await manager.markRestored();
-        showMessage(t('driveSettingsRestored', '设置已恢复，正在重新加载...'), 'success');
-        setTimeout(() => window.LocalItabContentLifecycle.reload(), 1200);
-    });
+            if (!current()) { cancel(); return; }
+            showMessage(t('driveDownloadingSelected', '正在下载所选备份...'), 'info');
+            const payload = await manager.downloadSnapshotPayload(snapshotId, { interactive: true });
+            if (!current()) { cancel(); return; }
+            const providerState = await providerStorage.getLocalProviderState();
+            if (!current()) { cancel(); return; }
+            const validatedSettings = providerStorage.prepareRestoredConfig(payload, providerState);
+            let cancelled = false;
+            const success = await replaceSettings(() => {
+                if (!current(true)) { cancelled = true; return false; }
+                return saveConfirmedRestore(providerStorage, validatedSettings);
+            });
+            if (cancelled) { cancel(); return; }
+            if (!success) {
+                throw new Error(t('driveRestoreSaveFailed', '保存恢复后的设置失败。'));
+            }
+            await manager.markRestored();
+            showMessage(t('driveSettingsRestored', '设置已恢复，正在重新加载...'), 'success');
+            setTimeout(() => window.LocalItabContentLifecycle.reload(), 1200);
+        });
+    } finally {
+        retire();
+        window.removeEventListener?.('pagehide', retire);
+        document.removeEventListener?.('visibilitychange', visibility);
+    }
 }
 
 async function downloadDriveSnapshot(snapshot) {

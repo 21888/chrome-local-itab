@@ -2124,6 +2124,9 @@
   "driveSafetyBackupFailedConfirm": {
     "message": "Could not create a safety backup: $1\n\nContinue restore without a safety backup?"
   },
+  "driveRestorePreparationChanged": {
+    "message": "Restore cancelled because the form or workspace changed. Your draft was kept. Any safety backup already created remains available."
+  },
   "driveRestoreCancelled": {
     "message": "Restore cancelled."
   },

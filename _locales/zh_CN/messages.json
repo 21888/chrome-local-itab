@@ -2124,6 +2124,9 @@
   "driveSafetyBackupFailedConfirm": {
     "message": "无法创建安全备份：$1\n\n是否继续在没有安全备份的情况下恢复？"
   },
+  "driveRestorePreparationChanged": {
+    "message": "表单或工作区已更改，恢复已取消。草稿已保留；已创建的安全备份仍然可用。"
+  },
   "driveRestoreCancelled": {
     "message": "已取消恢复。"
   },

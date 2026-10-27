@@ -1019,3 +1019,172 @@ bounded('historical shorthand remains stored unchanged despite native picker exp
     a.field('quote-text').value = 'Unrelated quote'; await a.save(); success(a);
     same(f.state().bg, config.bg); assert.equal(f.writes.length, 1);
 });
+
+// Public Options restore, real Drive multipart/snapshot validation and Storage
+// replacement; only the network/auth boundary is synthetic.
+async function driveRestoreFixture(t, phase = 'upload') {
+    const descriptors = Object.fromEntries(['chrome', 'navigator', 'crypto'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+    t.after(() => { for (const [key, descriptor] of Object.entries(descriptors)) {
+        if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
+    } });
+    const f = fixture(), p = await f.page(); enableRealLifecycle(p);
+    chrome.identity = {getAuthToken: async () => { throw Error('Real auth forbidden'); }};
+    chrome.runtime = {getManifest: () => ({oauth2: {client_id: 'synthetic-only'}})};
+    const Drive = require('../drive-backup');
+    const drive = new Drive(p.storage); p.context.window.driveBackupManager = drive;
+    const entered = deferred(), resume = deferred(), routes = [], uploads = [];
+    const pause = async stage => { if (phase === stage) { entered.resolve(); await resume.promise; } };
+    const incoming = p.storage.buildDriveBackupPayload({...p.storage.cloneDefaultConfig(), quote: 'Confirmed restored quote'},
+        {deviceId: 'source_device', deviceName: 'Source', snapshotId: 'selected_snapshot'});
+    drive.driveRequest = async (url, init = {}) => {
+        routes.push(url);
+        if (init.method === 'POST') {
+            uploads.push(await init.body.text()); await pause('upload');
+            return {json: async () => ({id: 'safety_copy'})};
+        }
+        if (url === '/files/selected-file?alt=media') {
+            await pause('download'); return {json: async () => incoming};
+        }
+        throw Error('Unexpected synthetic route: ' + url);
+    };
+    const providerState = p.storage.getLocalProviderState.bind(p.storage);
+    p.storage.getLocalProviderState = async (...args) => { await pause('provider'); return providerState(...args); };
+    const setAll = p.storage.setAll.bind(p.storage); let submissions = 0;
+    p.storage.setAll = async (...args) => { submissions++; await pause('submitted'); return setAll(...args); };
+    const snapshot = {id: 'selected-file', deviceName: 'Source', createdTime: '2026-10-27T00:00:00Z'};
+    return {f, p, drive, snapshot, routes, uploads, entered: entered.promise, resume: resume.resolve,
+        get submissions() { return submissions; }, start: () => p.context.restoreDriveSnapshot(snapshot),
+        async timers() { for (const callback of [...p.timers.values()]) await callback(); }};
+}
+
+for (const phase of ['upload', 'download', 'provider']) bounded(`Drive restore cancels new draft during ${phase} preparation before replacement`, async t => {
+    const x = await driveRestoreFixture(t, phase), quote = x.f.state().quote;
+    const pending = x.start(); await x.entered;
+    x.p.field('quote-text').value = 'New unsubmitted draft';
+    x.resume(); await pending; await x.timers();
+    assert.equal(x.submissions, 0); assert.equal(x.f.state().quote, quote);
+    assert.equal(x.p.reloads, 0); assert.equal(x.p.field('quote-text').value, 'New unsubmitted draft');
+    assert.equal(x.p.context.window.settingsFormView.hasUncommittedWork(), true);
+    assert.equal(x.uploads.length, 1); assert.match(x.p.messages.at(-1).text, /Restore cancelled/);
+});
+
+bounded('Drive restore unchanged confirmation restores once through actual Storage and lifecycle', async t => {
+    const x = await driveRestoreFixture(t); const originalQuote = x.f.state().quote;
+    const pending = x.start(); await x.entered;
+    x.resume(); await pending; await x.timers();
+    assert.equal(x.submissions, 1); assert.equal(x.uploads.length, 1);
+    const recovery = x.f.state()[x.p.storage.restoreRecoveryKey];
+    assert.equal(recovery.reason, 'beforeRestore');
+    assert.equal(recovery.payload.data.quote, originalQuote);
+    assert.equal(x.f.state().quote, 'Confirmed restored quote'); assert.equal(x.p.reloads, 1);
+});
+
+bounded('Drive restore confirmation captures snapshot id rather than mutable caller object', async t => {
+    const x = await driveRestoreFixture(t); const pending = x.start(); await x.entered;
+    x.snapshot.id = 'different-file'; x.resume(); await pending;
+    assert.equal(x.submissions, 1); assert.ok(x.routes.includes('/files/selected-file?alt=media'));
+    assert.equal(x.routes.some(route => route.includes('different-file')), false);
+});
+
+bounded('Drive restore cancels edit ABA even when raw form returns to confirmed values', async t => {
+    const x = await driveRestoreFixture(t); const pending = x.start(); await x.entered;
+    const input = x.p.field('quote-text'), original = input.value;
+    input.value = 'temporary'; x.p.captureEdit('input', input);
+    input.value = original; x.p.captureEdit('input', input);
+    x.resume(); await pending;
+    assert.equal(x.submissions, 0); assert.match(x.p.messages.at(-1).text, /Restore cancelled/);
+});
+
+bounded('Drive restore keeps a later draft without undoing a submitted replacement', async t => {
+    const x = await driveRestoreFixture(t, 'submitted'); const pending = x.start(); await x.entered;
+    x.p.field('quote-text').value = 'Draft after submission';
+    x.resume(); await pending; await x.timers();
+    assert.equal(x.submissions, 1); assert.equal(x.f.state().quote, 'Confirmed restored quote');
+    assert.equal(x.p.reloads, 0); assert.equal(x.p.field('quote-text').value, 'Draft after submission');
+    assert.equal(x.p.context.window.settingsFormView.hasUncommittedWork(), true);
+});
+
+bounded('Drive restore rechecks draft when its replacement enters the Settings write queue', async t => {
+    const x = await driveRestoreFixture(t); const queue = deferred();
+    x.p.context.queueGate = queue.promise;
+    vm.runInContext('queueSettingsWrite(() => queueGate)', x.p.context);
+    const pending = x.start(); await x.entered; x.resume();
+    // Reach the queued replacement without releasing the previous operation.
+    for (let i = 0; i < 1000 && !vm.runInContext("settingsReplacementRunning", x.p.context); i++) await Promise.resolve();
+    assert.equal(vm.runInContext("settingsReplacementRunning", x.p.context), true);
+    x.p.field('quote-text').value = 'Draft while queued'; queue.resolve();
+    await pending; await x.timers();
+    assert.equal(x.submissions, 0); assert.equal(x.p.reloads, 0);
+    assert.equal(x.p.field('quote-text').value, 'Draft while queued');
+});
+
+bounded('Drive restore retires when same workspace object changes generation', async t => {
+    const x = await driveRestoreFixture(t); const owner = {id: 'default', generation: 1};
+    x.p.context.window.LocalItabWorkspaces = {session: owner};
+    const pending = x.start(); await x.entered; owner.generation++;
+    x.resume(); await pending; assert.equal(x.submissions, 0);
+    assert.match(x.p.messages.at(-1).text, /Restore cancelled/);
+});
+
+for (const event of ['pagehide', 'visibilitychange']) bounded(`Drive restore remains retired after ${event} and return`, async t => {
+    const x = await driveRestoreFixture(t), handlers = new Map();
+    const target = event === 'pagehide' ? x.p.context.window : x.p.document;
+    const add = target.addEventListener?.bind(target), remove = target.removeEventListener?.bind(target);
+    target.addEventListener = (type, fn, ...rest) => { if (type === event) handlers.set(fn, fn); add?.(type, fn, ...rest); };
+    target.removeEventListener = (type, fn, ...rest) => { if (type === event) handlers.delete(fn); remove?.(type, fn, ...rest); };
+    const pending = x.start(); await x.entered;
+    x.p.document.hidden = true; for (const fn of handlers.values()) fn(); x.p.document.hidden = false;
+    x.resume(); await pending; assert.equal(x.submissions, 0); assert.equal(handlers.size, 0);
+});
+
+bounded('Drive restore declines failed safety backup without submitting replacement', async t => {
+    const x = await driveRestoreFixture(t); let confirmations = 0;
+    x.p.context.confirm = () => ++confirmations === 1;
+    x.drive.uploadSnapshotDraft = async () => { throw Error('Synthetic upload refused'); };
+    await x.start(); assert.equal(confirmations, 2); assert.equal(x.submissions, 0);
+    assert.equal(x.routes.length, 0);
+});
+
+bounded('Drive restore honors explicit continue after failed safety backup only for unchanged form', async t => {
+    const x = await driveRestoreFixture(t, 'none'); let confirmations = 0;
+    x.p.context.confirm = () => { confirmations++; return true; };
+    x.drive.uploadSnapshotDraft = async () => { throw Error('Synthetic upload refused'); };
+    await x.start(); assert.equal(confirmations, 2); assert.equal(x.submissions, 1);
+    assert.equal(x.f.state().quote, 'Confirmed restored quote');
+});
+
+for (const source of ['storage', 'manager', 'session']) bounded(`Drive restore refuses changed ${source} owner during preparation`, async t => {
+    const x = await driveRestoreFixture(t); const pending = x.start(); await x.entered;
+    if (source === 'storage') x.p.context.storageManager = x.f.manager();
+    if (source === 'manager') x.p.context.window.driveBackupManager = new (require('../drive-backup'))(x.p.storage);
+    if (source === 'session') x.p.context.window.LocalItabWorkspaces = {session: {id: 'other', generation: 1}};
+    x.resume(); await pending; assert.equal(x.submissions, 0);
+    assert.match(x.p.messages.at(-1).text, /Restore cancelled/);
+});
+
+bounded('Drive restore does not request unsafe continuation after a failed upload and new draft', async t => {
+    const x = await driveRestoreFixture(t); let confirmations = 0;
+    x.p.context.confirm = () => { confirmations++; return true; };
+    x.drive.uploadSnapshotDraft = async () => {
+        x.p.field('quote-text').value = 'New draft before failed acknowledgement';
+        throw Error('Synthetic upload acknowledgement lost');
+    };
+    await x.start(); assert.equal(confirmations, 1); assert.equal(x.submissions, 0);
+    assert.match(x.p.messages.at(-1).text, /Restore cancelled/);
+});
+
+bounded('Drive restore preserves new draft during post-commit markRestored acknowledgement', async t => {
+    const x = await driveRestoreFixture(t, 'none'), entered = deferred(), resume = deferred();
+    const markRestored = x.drive.markRestored.bind(x.drive);
+    x.drive.markRestored = async (...args) => {
+        await markRestored(...args); entered.resolve(); await resume.promise;
+    };
+    const pending = x.start(); await entered.promise;
+    assert.equal(x.f.state().quote, 'Confirmed restored quote', 'replacement is already persisted');
+    x.p.field('quote-text').value = 'Draft while recording successful restore';
+    resume.resolve(); await pending; await x.timers();
+    assert.equal(x.submissions, 1); assert.equal(x.f.state().quote, 'Confirmed restored quote');
+    assert.equal(x.p.reloads, 0);
+    assert.equal(x.p.field('quote-text').value, 'Draft while recording successful restore');
+    assert.equal(x.p.context.window.settingsFormView.hasUncommittedWork(), true);
+});
