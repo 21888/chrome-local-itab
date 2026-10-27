@@ -44,6 +44,14 @@ test('every guide label is bilingual, has an exact English HTML fallback, and di
  assert.match(locales.zh_CN.subscriptionUsageClaudeHint.message,/不会启用下方实验、申请权限或读取账号/);
  for(const lang of ['en','zh_CN'])assert.ok(locales[lang].subscriptionUsagePrivacy.message.includes('Claude'));
 });
+// Project only the independently reviewed Claude provenance repair back to
+// this guide's historical byte snapshot. Preserve the original catalog hash.
+function preservedCatalogSource(source) {
+ const current = '"https://claude.com/pricing",\n            "https://www.anthropic.com/legal/privacy"\n        ],\n        "verifiedOn": "2026-10-27"';
+ const previous = '"https://support.claude.com/en/articles/11049762-choose-a-claude-plan",\n            "https://www.anthropic.com/transparency/voluntary-commitments/security%26privacy"\n        ],\n        "verifiedOn": "2026-10-12"';
+ assert.equal(source.split(current).length,2,'exactly one reviewed Claude source block');
+ return source.replace(current,previous);
+}
 test('guide does not change Claude permission flow, catalog, manifest, or install runtime requests',()=>{
  const expected=JSON.parse(fs.readFileSync('tests/fixtures/subscription-usage-preserved.json'));
  const manifest=JSON.parse(fs.readFileSync('manifest.json'));
@@ -71,7 +79,7 @@ test('guide does not change Claude permission flow, catalog, manifest, or instal
  const originalCss=preservedCss.subarray(0,42422);
  assert.equal(crypto.createHash('sha256').update(originalCss).digest('hex'),
   '2729c1d1465a5dd01fe39e659c431bb9510616b7025ca467d917ea8f1b377428','original Options CSS prefix');
- for(const [file,hash] of Object.entries(expected))assert.equal(crypto.createHash('sha256').update(file==='options.css'?preservedCss:fs.readFileSync(file)).digest('hex'),hash,file);
+ for(const [file,hash] of Object.entries(expected))assert.equal(crypto.createHash('sha256').update(file==='options.css'?preservedCss:file==='shared/navigation-sites.js'?preservedCatalogSource(fs.readFileSync(file,'utf8')):fs.readFileSync(file)).digest('hex'),hash,file);
  assert.match(html,/<a\b[^>]*id="claude-usage-open"[^>]*href="claude-usage-experiment.html"/);
  const script=fs.readFileSync('shared/settings-search.js','utf8');
  assert.doesNotMatch(script,/fetch\s*\(|chrome\.permissions|chrome\.scripting|chrome\.storage|window\.open\s*\(/);
@@ -228,4 +236,12 @@ test('passive-guide guard rejects unreviewed document handlers and expanded ordi
   assert.notEqual(source,optionsSource,'mutation must change production source');
   await assert.rejects(assertPassiveGuide(source),reason);
  }
+});
+
+test('historical catalog guard permits only the exact reviewed Claude provenance repair',()=>{
+ const source=fs.readFileSync('shared/navigation-sites.js','utf8');
+ const hash=JSON.parse(fs.readFileSync('tests/fixtures/subscription-usage-preserved.json'))['shared/navigation-sites.js'];
+ const check=text=>assert.equal(crypto.createHash('sha256').update(preservedCatalogSource(text)).digest('hex'),hash);
+ check(source);
+ for(const changed of [source.replace('https://claude.com/pricing','https://example.com/pricing'),source.replace('2026-10-27','2026-10-28'),source.replace('"company": "Anthropic"','"company": "Other"'),source.replace('"name": "Grok"','"name": "Other"')])assert.throws(()=>check(changed));
 });

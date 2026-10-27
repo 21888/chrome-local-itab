@@ -120,3 +120,13 @@ test('saved location index canonicalizes URLs and deduplicates category identiti
  assert.deepEqual([...saved.keys()],[...Catalog.savedURLs(links)]);
  assert.equal(Catalog.savedLocations().size,0);
 });
+
+test('Claude provenance uses reviewed public pricing and operator pages without changing its destination or tier', () => {
+ const claude=sites.find(site=>site.id==='claude');
+ assert.deepEqual(claude.sources,['https://claude.com/pricing','https://www.anthropic.com/legal/privacy']);
+ assert.equal(claude.verifiedOn,'2026-10-27');
+ assert.equal(claude.url,'https://claude.ai/');assert.equal(claude.name,'Claude');
+ assert.equal(claude.company,'Anthropic');assert.equal(claude.country,'US');
+ assert.equal(claude.pricing,'freemium');assert.match(claude.pricingNote.en,/usage limits/);
+ assert.equal(sites.filter(site=>site.categories.includes('ai')).length,28);
+});

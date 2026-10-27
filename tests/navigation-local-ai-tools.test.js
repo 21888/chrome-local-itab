@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const Catalog = require('../shared/navigation-catalog');
 const sites = require('../shared/navigation-sites');
 const ConfigurationCodec = require('../shared/configuration-codec');
-const previous = sites.slice(0, 146);
+const previous = sites.slice(0, 146).map(require('./helpers/navigation-ai-pricing-review').beforeClaudeSourceReview);
 const added = sites.slice(146);
 const ids = ['ollama', 'comfyui', 'librechat'];
 const tagKey = tag => 'navigationTag' + tag.split('-').map(part => part[0].toUpperCase() + part.slice(1)).join('');

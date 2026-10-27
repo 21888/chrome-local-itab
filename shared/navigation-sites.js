@@ -52,10 +52,10 @@
             "zh": "Free 有使用限制；Pro、Max 及团队方案为付费订阅。"
         },
         "sources": [
-            "https://support.claude.com/en/articles/11049762-choose-a-claude-plan",
-            "https://www.anthropic.com/transparency/voluntary-commitments/security%26privacy"
+            "https://claude.com/pricing",
+            "https://www.anthropic.com/legal/privacy"
         ],
-        "verifiedOn": "2026-10-12",
+        "verifiedOn": "2026-10-27",
         "categories": [
             "ai"
         ],
