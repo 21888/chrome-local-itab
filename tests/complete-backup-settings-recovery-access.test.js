@@ -468,7 +468,7 @@ function downloadOnlyIsolation(m) {
     assert.equal(m.skip.getAttribute('href'), '#interrupted-settings-recovery');
     assert.equal(host.tabIndex, -1); host.focus(); assert.equal(m.document.activeElement, host);
     assert(m.get('recovery').getClientRects().length && !m.get('recovery').disabled);
-    assert.deepEqual(host.querySelectorAll('button').filter(button => button.getClientRects().length), [m.get('recovery')], 'only the validated retained-copy download is offered');
+    assert.deepEqual(host.querySelectorAll('button').filter(button => button.getClientRects().length).map(button => button.className), ['recovery', 'recovery-previous', 'recovery-candidate'].map(name => m.get(name).className), 'only the three independently validated retained-copy downloads are offered');
     const visibleText = host.querySelectorAll('p').filter(node => node.getClientRects().length).map(node => node.textContent).join(' ');
     assert.match(visibleText, /can contain private notes|keep.*private/i);
     assert.match(visibleText, /does not diagnose or resolve.*upgrade data.loss incident/i);

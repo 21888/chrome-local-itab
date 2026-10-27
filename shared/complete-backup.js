@@ -8,6 +8,10 @@
 })(typeof window === 'undefined' ? globalThis : window, function (tasks, scratchpad, countdown, focus, prompts, collections) {
     'use strict';
     const FORMAT = 'local-itab-complete-backup', RECOVERY_KEY = '__localItabCompleteRecoveryV1', WORKSPACE_RECOVERY_KEY = '__localItabCompleteRecoveryV2';
+    const RECOVERY_SLOTS = Object.freeze({
+        [RECOVERY_KEY]: Object.freeze({previous: '__localItabCompleteRecoveryPreviousV1', candidate: '__localItabCompleteRecoveryCandidateV1'}),
+        [WORKSPACE_RECOVERY_KEY]: Object.freeze({previous: '__localItabCompleteRecoveryPreviousV2', candidate: '__localItabCompleteRecoveryCandidateV2'})
+    });
     const SCOPED_MODULES = Object.freeze(['config', 'tasks', 'scratchpad', 'countdown', 'focus']);
     const MODULES = Object.freeze([...SCOPED_MODULES, 'prompts', 'collections']);
     const scopedSelection = names => names.filter(name => !['prompts', 'collections'].includes(name));
@@ -410,7 +414,8 @@
                     check(!affected.some(bundle => ['running', 'paused', 'uncertain'].includes(bundle.values[focus.KEY]?.session?.status)), 'FOCUS_ACTIVE');
                 }
                 const replacement = this.workspaceReplacement(ticket, snapshot);
-                const source = this.workspaceSnapshot(snapshot, [...SCOPED_MODULES, ...(ticket.promptState ? ['prompts'] : []), ...(ticket.collectionState ? ['collections'] : [])], ticket.promptState, ticket.collectionState).source, recovery = { source, checksum: await this.manager.fingerprint(source) };
+                const source = this.workspaceSnapshot(snapshot, [...SCOPED_MODULES, ...(ticket.promptState ? ['prompts'] : []), ...(ticket.collectionState ? ['collections'] : [])], ticket.promptState, ticket.collectionState).source;
+                let recovery = { source, checksum: await this.manager.fingerprint(source) };
                 check(isCurrent(), 'CANCELLED');
                 // Recheck after asynchronous recovery preparation as well as at
                 // lock admission, before overwriting even the recovery slot.
@@ -420,10 +425,11 @@
                     check(same(latest, snapshot), 'CONFLICT');
                 }
                 await this.workspaces.guardImportClosures(snapshot, ticket.closures);
-                try {
-                    check(await this.backend.write({ [WORKSPACE_RECOVERY_KEY]: recovery }) !== false, 'RECOVERY');
-                    check(same(await this.backend.readRecovery(WORKSPACE_RECOVERY_KEY), recovery), 'RECOVERY');
-                } catch (_) { throw fault('RECOVERY'); }
+                recovery = await this.persistRecovery(recovery, WORKSPACE_RECOVERY_KEY, isCurrent, async () => {
+                    check(same(await this.workspaceRead(tx), snapshot), 'CONFLICT');
+                    if (ticket.promptState) check(same(await this.promptState(tx), ticket.promptState), 'CONFLICT');
+                    if (ticket.collectionState) check(same(await this.collectionState(tx), ticket.collectionState), 'CONFLICT');
+                });
                 check(isCurrent(), 'CANCELLED');
                 check(same(await this.workspaceRead(tx), snapshot), 'CONFLICT');
                 if (ticket.promptState) check(same(await this.promptState(tx), ticket.promptState), 'CONFLICT');
@@ -508,17 +514,90 @@
             try { return await this.workspaces.recoverInterruptedRestore(review, { confirmed: true, isCurrent }); }
             catch (error) { if (error.code === 'WORKSPACE_CONFLICT') throw fault('CONFLICT'); const uncertain = fault('UNCONFIRMED'); uncertain.mayHaveCommitted = true; throw uncertain; }
         }
-        async recovery() {
-            let saved; try {
-                saved = await this.backend.readRecovery(this.workspaces ? WORKSPACE_RECOVERY_KEY : RECOVERY_KEY);
-                if (saved === undefined && this.workspaces) saved = await this.backend.readRecovery(RECOVERY_KEY);
-            } catch (_) { throw fault('RECOVERY'); }
-            try { saved = boundedCopy(saved, LIMITS.bytes + 1024); } catch (_) { throw fault('RECOVERY'); }
+        async verifiedRecovery(value) {
+            let saved;
+            try { saved = boundedCopy(value, LIMITS.bytes + 1024); } catch (_) { throw fault('RECOVERY'); }
             object(saved, ['source', 'checksum']);
             check(typeof saved.source === 'string' && saved.source.length <= LIMITS.bytes && bytes(saved.source) <= LIMITS.bytes && typeof saved.checksum === 'string' && /^[a-f0-9]{64}$/.test(saved.checksum), 'RECOVERY');
             check(await this.manager.fingerprint(saved.source) === saved.checksum, 'RECOVERY');
             const file = parse(saved.source, this.manager); check(SCOPED_MODULES.every(name => file.schemaVersion >= 2 ? file.modules.includes(name) : Object.hasOwn(file.modules, name)), 'RECOVERY');
-            return saved.source;
+            return saved;
+        }
+        async reuseRecoveryTime(expected, retained) {
+            if (!retained) return expected;
+            // Retrying unchanged saved content must not manufacture a different
+            // candidate solely because the export clock advanced. Regenerate the
+            // entire archive at the retained timestamp, then compare exact bytes
+            // and digest; no module/body/identity field is ignored.
+            const file = JSON.parse(expected.source), prior = JSON.parse(retained.source);
+            file.exportedAt = prior.exportedAt;
+            // Global-library archive envelopes carry their own export clock,
+            // separate from saved record timestamps. Reuse only those clocks.
+            for (const id of ['prompts', 'collections']) {
+                if (file.globals?.[id] && prior.globals?.[id]) file.globals[id].exportedAt = prior.globals[id].exportedAt;
+            }
+            const source = JSON.stringify(file);
+            return source === retained.source && await this.manager.fingerprint(source) === retained.checksum ? retained : expected;
+        }
+        async persistRecovery(value, key, isCurrent, verifySource = async () => {}) {
+            const slots = RECOVERY_SLOTS[key]; check(slots, 'RECOVERY');
+            try {
+                let recovery = await this.verifiedRecovery(value);
+                const rawMain = await this.backend.readRecovery(key);
+                const rawFallback = rawMain === undefined && key === WORKSPACE_RECOVERY_KEY
+                    ? await this.backend.readRecovery(RECOVERY_KEY) : undefined;
+                const rawPrior = rawMain === undefined ? rawFallback : rawMain;
+                const prior = rawPrior === undefined ? null : await this.verifiedRecovery(rawPrior);
+                recovery = await this.reuseRecoveryTime(recovery, prior);
+                const currentMain = async () => {
+                    check(same(await this.backend.readRecovery(key), rawMain), 'RECOVERY');
+                    if (rawFallback !== undefined) check(same(await this.backend.readRecovery(RECOVERY_KEY), rawFallback), 'RECOVERY');
+                    await verifySource();
+                    check(isCurrent(), 'CANCELLED');
+                };
+                check(isCurrent(), 'CANCELLED');
+                // A byte-identical verified main already protects this attempt.
+                // Do not rotate previous or touch a different retained candidate.
+                if (rawMain !== undefined && same(prior, recovery)) { await currentMain(); return recovery; }
+                const previousRaw = await this.backend.readRecovery(slots.previous);
+                const previous = previousRaw === undefined ? null : await this.verifiedRecovery(previousRaw);
+                const candidateRaw = await this.backend.readRecovery(slots.candidate);
+                const candidate = candidateRaw === undefined ? null : await this.verifiedRecovery(candidateRaw);
+                recovery = await this.reuseRecoveryTime(recovery, candidate);
+                check(!candidate || same(candidate, recovery) || prior && same(candidate, prior), 'RECOVERY_STAGE_OCCUPIED');
+                await currentMain();
+                const writeVerified = async (target, expected) => {
+                    check(isCurrent(), 'CANCELLED');
+                    check(await this.backend.write({ [target]: clone(expected) }) !== false, 'RECOVERY');
+                    const saved = await this.verifiedRecovery(await this.backend.readRecovery(target));
+                    check(same(saved, expected), 'RECOVERY');
+                    check(isCurrent(), 'CANCELLED');
+                };
+                // Fixed bounded slots; no eviction/cleanup or compensating write.
+                // Unpublished candidates remain available for explicit export.
+                if (!candidate || !same(candidate, recovery)) await writeVerified(slots.candidate, recovery);
+                else check(same(await this.verifiedRecovery(await this.backend.readRecovery(slots.candidate)), recovery), 'RECOVERY');
+                await currentMain();
+                if (prior && (!previous || !same(previous, prior))) await writeVerified(slots.previous, prior);
+                else if (prior) check(same(await this.verifiedRecovery(await this.backend.readRecovery(slots.previous)), prior), 'RECOVERY');
+                await currentMain();
+                // Preserve the legacy flat main format for transaction readers.
+                // Lost acknowledgement stops here; targets are never submitted.
+                await writeVerified(key, recovery);
+                return recovery;
+            } catch (error) {
+                if (['CANCELLED', 'CONFLICT', 'RECOVERY_STAGE_OCCUPIED'].includes(error?.code)) throw error;
+                throw fault('RECOVERY');
+            }
+        }
+        async recovery(kind = 'latest') {
+            check(['latest', 'previous', 'candidate'].includes(kind), 'RECOVERY');
+            const main = this.workspaces ? WORKSPACE_RECOVERY_KEY : RECOVERY_KEY;
+            let saved; try {
+                saved = await this.backend.readRecovery(kind === 'latest' ? main : RECOVERY_SLOTS[main][kind]);
+                if (saved === undefined && this.workspaces && kind === 'latest') saved = await this.backend.readRecovery(RECOVERY_KEY);
+            } catch (_) { throw fault('RECOVERY'); }
+            return (await this.verifiedRecovery(saved)).source;
         }
         restore(preview, { confirmed = false, isCurrent = () => true } = {}) {
             check(confirmed === true, 'CONFIRMATION');
@@ -556,10 +635,7 @@
                 // Establish a verified recovery copy BEFORE touching target keys.
                 // The final multi-key set is one submission, not a promise of
                 // browser-crash atomicity. Never retry or roll back an uncertain set.
-                try {
-                    check(await this.backend.write({ [RECOVERY_KEY]: recovery }) !== false, 'RECOVERY');
-                    check(same(await this.backend.readRecovery(), recovery), 'RECOVERY');
-                } catch (_) { throw fault('RECOVERY'); }
+                await this.persistRecovery(recovery, RECOVERY_KEY, isCurrent, async () => check(same(await this.raw(), raw), 'CONFLICT'));
                 check(isCurrent(), 'CANCELLED');
                 // Defend also against unsupported/out-of-band writers during the
                 // awaited recovery write. Cooperating extension writers are locked.
@@ -575,5 +651,5 @@
             });
         }
     }
-    return { FORMAT, MODULES, SCOPED_MODULES, LIMITS, RECOVERY_KEY, WORKSPACE_RECOVERY_KEY, Store, createBackend, parse, fault };
+    return { FORMAT, MODULES, SCOPED_MODULES, LIMITS, RECOVERY_KEY, WORKSPACE_RECOVERY_KEY, RECOVERY_SLOTS, Store, createBackend, parse, fault };
 });

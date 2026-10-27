@@ -3105,6 +3105,30 @@
   "completeBackupRecovery": {
     "message": "Download pre-restore recovery copy"
   },
+  "completeBackupRecoveryPreviousDownload": {
+    "message": "Previous verified recovery copy download requested. Check browser downloads; no restore or slot clearing was performed."
+  },
+  "completeBackupRecoveryCandidateDownload": {
+    "message": "Recovery candidate download requested. This is not evidence of a completed restore; downloading does not clear or unlock the preparation slot."
+  },
+  "completeBackupNoRecoveryPrevious": {
+    "message": "The previous verified recovery copy is missing, unreadable or failed integrity checks. Main and candidate copies were not changed."
+  },
+  "completeBackupNoRecoveryCandidate": {
+    "message": "The retained candidate is missing, unreadable or failed integrity checks. Main and previous copies were not changed."
+  },
+  "completeBackupRecoveryPrevious": {
+    "message": "Download previous verified recovery copy"
+  },
+  "completeBackupRecoveryCandidate": {
+    "message": "Download retained recovery candidate"
+  },
+  "completeBackupRecoverySlotsHelp": {
+    "message": "Main is the latest published pre-restore copy, not proof that restoration finished. Previous retains the verified main copied before publication. Candidate is preparation data, not a completed restore. Each download checks the exact retained copy; downloading does not clear slots or unlock restoration."
+  },
+  "completeBackupRecoveryStageOccupied": {
+    "message": "A different unpublished recovery candidate occupies the preparation slot. This restore was not performed. You can separately verify and download the main, previous and candidate copies below. Downloading does not clear or unlock this slot; other extension features remain available."
+  },
   "completeBackupRecoveryHelp": {
     "message": "A verified local recovery copy is saved before replacement. Download it, then choose that JSON file here to review and restore. Starting a later confirmed restore may replace this snapshot, even if the target replacement does not finish."
   },
@@ -3175,7 +3199,7 @@
     "message": "Save or finish your current edits and pending actions before restoring. Your drafts remain here."
   },
   "completeBackupRecoveryError": {
-    "message": "The recovery copy could not be saved and verified. No replacement was made."
+    "message": "The recovery copy preparation could not be saved and verified; the requested data restore was not submitted. Main, previous and candidate slots may reflect different preparation stages. You can independently validate and download retained copies; no slot was automatically cleared."
   },
   "completeBackupUnconfirmed": {
     "message": "The replacement could not be verified. Some data may have changed. Do not retry automatically. Inspect saved data and download the pre-restore recovery copy if needed."

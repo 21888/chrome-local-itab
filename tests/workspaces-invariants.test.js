@@ -914,7 +914,10 @@ for (const phase of ['running', 'paused', 'completed']) bounded(`trash and resto
 });
 
 bounded('workspace archive recovery does not mutate migrated v1 recovery or trigger a false legacy conflict', async () => {
-    const historical = { source: 'UNRELATED_HISTORICAL_RECOVERY', checksum: 'a'.repeat(64) };
+    const legacyFixture = fixture(seeded()), legacyStorage = new StorageManager();
+    const legacyStore = new CompleteBackup.Store(legacyStorage, CompleteBackup.createBackend(legacyStorage, legacyFixture.chrome, legacyFixture.locks), {now: () => NOW});
+    const source = await legacyStore.export(CompleteBackup.SCOPED_MODULES);
+    const historical = { source, checksum: await legacyStorage.fingerprint(source) };
     const f = fixture({ ...seeded(), __localItabCompleteRecoveryV1: historical }), { manager } = await selected(f);
     const store = backup(f, manager), legacy = JSON.stringify({ format: CompleteBackup.FORMAT, schemaVersion: 1, exportedAt: NOW, modules: { scratchpad: { schemaVersion: 1, enabled: true, content: 'NEW_WORKSPACE_NOTE' } } });
     await store.restore(await store.review(legacy, ['scratchpad'], { targetWorkspaceId: 'default' }), { confirmed: true });
@@ -923,6 +926,18 @@ bounded('workspace archive recovery does not mutate migrated v1 recovery or trig
     assert.deepEqual((await next.capture('default').local.get(['__localItabCompleteRecoveryV1'])).__localItabCompleteRecoveryV1, historical);
     const recovery = JSON.parse(await store.recovery()); assert.equal(recovery.schemaVersion, 2);
     assert.equal(recovery.workspaces[0].modules.scratchpad.content, 'PRIVATE_NOTE_A\n中文');
+    assert.equal(f.raw[Workspaces.LEGACY_CONFLICT_KEY], undefined);
+});
+
+bounded('corrupt migrated v1 recovery is retained and blocks first v2 publication without a target write', async () => {
+    const historical = { source: 'UNRELATED_HISTORICAL_RECOVERY', checksum: 'a'.repeat(64) };
+    const f = fixture({ ...seeded(), __localItabCompleteRecoveryV1: historical }), { manager } = await selected(f);
+    const store = backup(f, manager), legacy = JSON.stringify({ format: CompleteBackup.FORMAT, schemaVersion: 1, exportedAt: NOW, modules: { scratchpad: { schemaVersion: 1, enabled: true, content: 'NEW_WORKSPACE_NOTE' } } });
+    const preview = await store.review(legacy, ['scratchpad'], { targetWorkspaceId: 'default' });
+    const before = copy(f.raw), writes = f.writes.length;
+    await assert.rejects(store.restore(preview, { confirmed: true }), code('RECOVERY'));
+    assert.deepEqual(f.raw, before); assert.equal(f.writes.length, writes);
+    assert.deepEqual(f.raw.__localItabCompleteRecoveryV1, historical);
     assert.equal(f.raw[Workspaces.LEGACY_CONFLICT_KEY], undefined);
 });
 

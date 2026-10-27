@@ -98,7 +98,7 @@ test('registry, other workspace and same-content revision changes all invalidate
 });
 for(const mode of ['throw','drop','mismatch'])test('portable recovery '+mode+' prevents any staging or registry mutation',async()=>{
     const f=fixture(),preview=await f.store.review(await legacySource(),['scratchpad'],{targetWorkspaceId:'work'}),before=copy(f.raw[Workspaces.REGISTRY_KEY]);
-    f.hooks.set=(values,raw)=>{if(mode==='throw')throw Error('quota');if(mode==='drop')return;Object.assign(raw,copy(values));raw[Backup.WORKSPACE_RECOVERY_KEY].checksum='bad';};
+    f.hooks.set=(values,raw)=>{if(mode==='throw')throw Error('quota');if(mode==='drop')return;Object.assign(raw,copy(values));raw[Backup.RECOVERY_SLOTS[Backup.WORKSPACE_RECOVERY_KEY].candidate].checksum='bad';};
     await assert.rejects(f.store.restore(preview,{confirmed:true}),code('RECOVERY'));assert.equal(f.writes.length,1);assert.deepEqual(f.raw[Workspaces.REGISTRY_KEY],before);
 });
 test('cancel during asynchronous staging prevents registry authority switch',async()=>{

@@ -84,8 +84,9 @@ test('all modules restore with complete prior history recovery and fresh editor 
     assert.equal(preview.incoming.tasks.recovery, 8);
     assert.equal(preview.incoming.config.dataUrlIcons, 1);
     assert.equal((await f.store.restore(preview, { confirmed: true })).changed, true);
-    assert.equal(f.writes.length, 2);
-    assert.deepEqual(Object.keys(f.writes[0]), [Backup.RECOVERY_KEY]);
+    assert.equal(f.writes.length, 3);
+    assert.deepEqual(Object.keys(f.writes[0]), [Backup.RECOVERY_SLOTS[Backup.RECOVERY_KEY].candidate]);
+    assert.deepEqual(Object.keys(f.writes[1]), [Backup.RECOVERY_KEY]);
     assert.equal(f.raw[Tasks.KEY].recovery.length, 8); assert.equal(f.raw[Tasks.KEY].revision, 8);
     assert.equal(f.raw[Scratchpad.KEY].revision, 5); assert.equal(f.raw[Countdown.KEY].revision, 6); assert.equal(f.raw[Focus.KEY].revision, 4);
     assert(f.raw[Tasks.KEY].records.every((t, n) => t.version !== initial[Tasks.KEY].records[n].version));
@@ -106,7 +107,7 @@ test('selection preserves every unselected storage key and ongoing Focus session
     await f.store.restore(preview, { confirmed: true });
     for (const [key, value] of Object.entries(before)) if (key !== Scratchpad.KEY) assert.deepEqual(f.raw[key], value, key);
     assert.equal(f.raw[Scratchpad.KEY].content, 'Replacement');
-    assert.deepEqual(Object.keys(f.writes[1]), [Scratchpad.KEY]);
+    assert.deepEqual(Object.keys(f.writes.at(-1)), [Scratchpad.KEY]);
 });
 
 test('confirmation and a live opaque review ticket are mandatory; preview mutation cannot change transaction', async () => {
@@ -114,7 +115,7 @@ test('confirmation and a live opaque review ticket are mandatory; preview mutati
     assert.throws(() => f.store.restore(p), code('CONFIRMATION'));
     assert.throws(() => f.store.restore({ ...p }, { confirmed: true }), code('CONFLICT'));
     p.selected.push('config'); p.incoming.scratchpad.characters = 0;
-    await f.store.restore(p, { confirmed: true }); assert.deepEqual(Object.keys(f.writes[1]), [Scratchpad.KEY]);
+    await f.store.restore(p, { confirmed: true }); assert.deepEqual(Object.keys(f.writes.at(-1)), [Scratchpad.KEY]);
     assert.throws(() => f.store.restore(p, { confirmed: true }), code('CONFLICT'));
 });
 
@@ -188,7 +189,7 @@ for (const mode of ['throw', 'false', 'drop', 'mismatch', 'read']) test(`recover
         if (mode === 'false') return false;
         if (mode === 'drop') return;
         Object.assign(raw, copy(values));
-        if (mode === 'mismatch') raw[Backup.RECOVERY_KEY].checksum = 'bad';
+        if (mode === 'mismatch') raw[Backup.RECOVERY_SLOTS[Backup.RECOVERY_KEY].candidate].checksum = 'bad';
         if (mode === 'read') f.hooks.read = () => { throw Error('read'); };
     };
     await assert.rejects(f.store.restore(p, { confirmed: true }), code('RECOVERY'));
@@ -199,7 +200,7 @@ for (const mode of ['throw', 'false', 'drop', 'mismatch', 'read']) test(`recover
 for (const mode of ['throwBefore', 'throwAfter', 'drop', 'partial', 'readback']) test(`target ${mode} is uncertain, never success/rollback/retry; recovery remains available`, async () => {
     const f = fixture(populated()), p = await f.store.review(await source());
     f.hooks.set = (values, raw) => {
-        if (Object.hasOwn(values, Backup.RECOVERY_KEY)) { Object.assign(raw, copy(values)); return; }
+        if (Object.keys(values).every(key => [Backup.RECOVERY_KEY, ...Object.values(Backup.RECOVERY_SLOTS[Backup.RECOVERY_KEY])].includes(key))) { Object.assign(raw, copy(values)); return; }
         if (mode === 'throwBefore') throw Error('write');
         if (mode === 'drop') return;
         if (mode === 'partial') { raw[Scratchpad.KEY] = values[Scratchpad.KEY]; return; }
@@ -208,7 +209,7 @@ for (const mode of ['throwBefore', 'throwAfter', 'drop', 'partial', 'readback'])
         if (mode === 'readback') f.hooks.read = () => { throw Error('read'); };
     };
     await assert.rejects(f.store.restore(p, { confirmed: true }), error => error.code === 'UNCONFIRMED' && error.mayHaveCommitted);
-    assert.equal(f.writes.length, 2); delete f.hooks.read;
+    assert.equal(f.writes.length, 3); delete f.hooks.read;
     assert.equal(JSON.parse(await f.store.recovery()).modules.tasks.recovery.length, 8);
 });
 
@@ -297,7 +298,7 @@ test('selection is captured before asynchronous lock wait', async () => {
     const selected = ['scratchpad'], pending = f.store.review(await source(), selected);
     selected.push('config'); release(); await blocker;
     const p = await pending; assert.deepEqual(p.selected, ['scratchpad']);
-    await f.store.restore(p, { confirmed: true }); assert.deepEqual(Object.keys(f.writes[1]), [Scratchpad.KEY]);
+    await f.store.restore(p, { confirmed: true }); assert.deepEqual(Object.keys(f.writes.at(-1)), [Scratchpad.KEY]);
 });
 
 test('selection changes reuse privately parsed source but still refresh authoritative baseline', async () => {

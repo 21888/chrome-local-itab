@@ -98,6 +98,14 @@
     "ExportDownloadError": "The download request could not be verified. Check your browser’s downloads before preparing another copy; no automatic retry was made.",
     "Choose": "Choose local backup JSON",
     "Recovery": "Download pre-restore recovery copy",
+    "RecoveryPreviousDownload": "Previous verified recovery copy download requested. Check browser downloads; no restore or slot clearing was performed.",
+    "RecoveryCandidateDownload": "Recovery candidate download requested. This is not evidence of a completed restore; downloading does not clear or unlock the preparation slot.",
+    "NoRecoveryPrevious": "The previous verified recovery copy is missing, unreadable or failed integrity checks. Main and candidate copies were not changed.",
+    "NoRecoveryCandidate": "The retained candidate is missing, unreadable or failed integrity checks. Main and previous copies were not changed.",
+    "RecoveryPrevious": "Download previous verified recovery copy",
+    "RecoveryCandidate": "Download retained recovery candidate",
+    "RecoverySlotsHelp": "Main is the latest published pre-restore copy, not proof that restoration finished. Previous retains the verified main copied before publication. Candidate is preparation data, not a completed restore. Each download checks the exact retained copy; downloading does not clear slots or unlock restoration.",
+    "RecoveryStageOccupied": "A different unpublished recovery candidate occupies the preparation slot. This restore was not performed. You can separately verify and download the main, previous and candidate copies below. Downloading does not clear or unlock this slot; other extension features remain available.",
     "RecoveryDownloadOnlyHelp": "This view can only download a retained pre-restore copy after its integrity and supported format are checked. It cannot export today’s complete state, inspect a restore transaction, import, or restore. A valid retained copy may not be available. Check your downloads; requesting a download does not confirm that the file was saved.",
     "RecoveryOnlyHelp": "Download retained copies for safekeeping. File import is unavailable in this limited view. Use Inspect interrupted restore to review the previous state; after a verified recovery, reload Settings.",
     "RecoveryHelp": "A verified local recovery copy is saved before replacement. Download it, then choose that JSON file here to review and restore. Starting a later confirmed restore may replace this snapshot, even if the target replacement does not finish.",
@@ -123,7 +131,7 @@
     "Read": "Saved data could not be read safely. Check storage availability and try again.",
     "Conflict": "Saved data changed after preview. Choose the file again for a fresh review. This attempt made no replacement.",
     "Dirty": "Save or finish your current edits and pending actions before restoring. Your drafts remain here.",
-    "RecoveryError": "The recovery copy could not be saved and verified. No replacement was made.",
+    "RecoveryError": "The recovery copy preparation could not be saved and verified; the requested data restore was not submitted. Main, previous and candidate slots may reflect different preparation stages. You can independently validate and download retained copies; no slot was automatically cleared.",
     "Unconfirmed": "The replacement could not be verified. Some data may have changed. Do not retry automatically. Inspect saved data and download the pre-restore recovery copy if needed.",
     "NoRecovery": "No valid pre-restore recovery copy is available.",
     "Unknown": "The operation failed. Review saved data before retrying.",
@@ -215,7 +223,8 @@
         const configInspection = make('a', 'complete-backup-config-inspection', t('InspectConfigImport'), shell);
         configInspection.target = '_blank'; configInspection.rel = 'noopener'; configInspection.hidden = true;
         const reloadButton = button('Reload', 'reload', shell); reloadButton.hidden = true;
-        const recovery = button('Recovery', 'recovery', shell); make('p', 'form-hint', t(downloadOnly ? 'RecoveryDownloadOnlyHelp' : recoveryOnly ? 'RecoveryOnlyHelp' : 'RecoveryHelp'), shell);
+        const recovery = button('Recovery', 'recovery', shell), previousRecovery = button('RecoveryPrevious', 'recovery-previous', shell), candidateRecovery = button('RecoveryCandidate', 'recovery-candidate', shell);
+        make('p', 'form-hint', t('RecoverySlotsHelp'), shell); make('p', 'form-hint', t(downloadOnly ? 'RecoveryDownloadOnlyHelp' : recoveryOnly ? 'RecoveryOnlyHelp' : 'RecoveryHelp'), shell);
         const downloadInterrupted = button('DownloadInterrupted', 'download-interrupted', shell); downloadInterrupted.hidden = downloadOnly || typeof store.exportInterruptedCandidates !== 'function';
         const interruptedDownloadHelp = make('p', 'form-hint complete-backup-interrupted-download-help', t('InterruptedDownloadHelp'), shell);
         interruptedDownloadHelp.id = 'complete-backup-interrupted-download-help-' + (++nextDescriptionId);
@@ -249,7 +258,7 @@
             const unknownScope = phase === 'large' || phase === 'reading' && !availableModules;
             for (const id of MODULES) inputs[id].disabled = recoveryOnly || busy || unknownScope || Boolean(availableModules && !availableModules.includes(id));
             selectAll.disabled = clearSelection.disabled = recoveryOnly || busy || unknownScope;
-            exportButton.disabled = choose.disabled = file.disabled = recoveryOnly || busy; recovery.disabled = busy;
+            exportButton.disabled = choose.disabled = file.disabled = recoveryOnly || busy; recovery.disabled = previousRecovery.disabled = candidateRecovery.disabled = busy;
             target.disabled = promptTargetSelect.disabled = collectionTargetSelect.disabled = recoveryOnly || busy || phase === 'reading';
             inspectInterrupted.disabled = downloadOnly || busy; downloadInterrupted.disabled = downloadOnly || busy || phase === 'reading'; recoverInterrupted.disabled = downloadOnly || busy || !interruptedReview;
             reloadButton.disabled = downloadOnly;
@@ -277,7 +286,7 @@
                 configInspection.href = 'recovery.html' + (typeof id === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(id) ? '?workspace=' + encodeURIComponent(id) : '');
             }
             if (error?.mayHaveCommitted || error?.code === 'UNCONFIRMED') return t('Unconfirmed');
-            return t(({CONFIG_IMPORT_PENDING:'ConfigImportPending',CONFIG_IMPORT_RECEIPT_INVALID:'ConfigImportReceiptInvalid',DUPLICATE_KEY:'DuplicateKey',INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
+            return t(({CONFIG_IMPORT_PENDING:'ConfigImportPending',CONFIG_IMPORT_RECEIPT_INVALID:'ConfigImportReceiptInvalid',DUPLICATE_KEY:'DuplicateKey',INVALID:'Invalid',VERSION:'Invalid',SIZE_LIMIT:'Size',READ:'Read',CORRUPT:'Read',CONFLICT:'Conflict',DIRTY:'Dirty',RECOVERY:'RecoveryError',RECOVERY_STAGE_OCCUPIED:'RecoveryStageOccupied',NO_RECOVERY:'NoRecovery',CANCELLED:'Cancelled',FILE:'File',FOCUS_ACTIVE:'FocusWarning',TARGET:'TargetRequired',TOPOLOGY:'Topology',WORKSPACE_CONFLICT:'Conflict',WORKSPACE_STALE:'Conflict',WORKSPACE_CANCELED:'Cancelled',WORKSPACE_CANCELLED:'Cancelled',WORKSPACE_RECOVERY:'RecoveryError',RESTORE_PENDING:'RestorePending',WORKSPACE_RESTORE_PENDING:'RestorePending',HISTORY_LIMIT:'PromptLimit',RECOVERY_LIMIT:'PromptLimit',CAPACITY:'PromptLimit',IDENTITY_CONFLICT:'PromptIdentity'})[error?.code] || (applying ? 'Unconfirmed' : 'Unknown'));
         };
         function clearWorkspaceImpact() {
             workspaceImpact.hidden = true; workspaceImpact.open = false;
@@ -514,11 +523,11 @@
                 move(visible ? status : null);
             }
         });
-        async function exportFile(isRecovery) {
+        async function exportFile(isRecovery, recoveryKind = 'latest') {
             if (recoveryOnly && !isRecovery) return;
             if (!current(generation) || ['applying', 'exporting', 'downloading'].includes(phase)) return;
             const ids = selected(); if (!isRecovery && !ids.length) { status.textContent = t('None'); return; }
-            const token = ++generation, origin = isRecovery ? recovery : exportButton, move = focusOwner(origin);
+            const token = ++generation, origin = isRecovery ? ({latest: recovery, previous: previousRecovery, candidate: candidateRecovery}[recoveryKind]) : exportButton, move = focusOwner(origin);
             // A read-only recovery download retains settled destination choices
             // without refreshing the review or granting a missing destination.
             const reviewPhase = isRecovery && preview && ['ready', 'target'].includes(phase) ? phase : '';
@@ -532,7 +541,7 @@
             try {
                 await new Promise(resolve => setTimeout(resolve, 0));
                 if (!current(token)) return;
-                const text = await (isRecovery ? store.recovery() : store.export(ids));
+                const text = await (isRecovery ? (recoveryKind === 'latest' ? store.recovery() : store.recovery(recoveryKind)) : store.export(ids));
                 if (!current(token)) return;
                 if (typeof text !== 'string') throw {code: isRecovery ? 'NO_RECOVERY' : 'INVALID'};
                 if (!isRecovery) {
@@ -562,12 +571,14 @@
                     }
                     phase = 'export-ready'; controls(); exportNotice.textContent = t('ExportSnapshot'); status.textContent = t('ExportReady'); move(exportHeading); return;
                 }
-                await download(text, isRecovery ? 'local-itab-pre-restore' : 'local-itab-complete', doc);
-                if (current(token)) status.textContent = t('Download');
-            } catch (error) { if (current(token)) { if (!isRecovery) clearExport(); status.textContent = isRecovery ? t('NoRecovery') : error?.code === 'WORKSPACE_READ' ? t('Read') : errorText(error); } }
+                await download(text, isRecovery ? (recoveryKind === 'latest' ? 'local-itab-pre-restore' : `local-itab-pre-restore-${recoveryKind}`) : 'local-itab-complete', doc);
+                if (current(token)) status.textContent = t(isRecovery && recoveryKind === 'previous' ? 'RecoveryPreviousDownload' : isRecovery && recoveryKind === 'candidate' ? 'RecoveryCandidateDownload' : 'Download');
+            } catch (error) { if (current(token)) { if (!isRecovery) clearExport(); status.textContent = isRecovery ? t(recoveryKind === 'previous' ? 'NoRecoveryPrevious' : recoveryKind === 'candidate' ? 'NoRecoveryCandidate' : 'NoRecovery') : error?.code === 'WORKSPACE_READ' ? t('Read') : errorText(error); } }
             finally { if (current(token)) { if (phase !== 'export-ready') phase = reviewPhase; controls(); } move(current(token) ? status : null); }
         }
         exportButton.addEventListener('click', () => exportFile(false)); recovery.addEventListener('click', () => exportFile(true));
+        previousRecovery.addEventListener('click', () => exportFile(true, 'previous'));
+        candidateRecovery.addEventListener('click', () => exportFile(true, 'candidate'));
         downloadInterrupted.addEventListener('click', async () => {
             if (downloadOnly || !current(generation) || downloadInterrupted.disabled) return;
             if (exportWatching) clearExport();

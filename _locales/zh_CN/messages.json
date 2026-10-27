@@ -3105,6 +3105,30 @@
   "completeBackupRecovery": {
     "message": "下载恢复前的备份副本"
   },
+  "completeBackupRecoveryPreviousDownload": {
+    "message": "已请求下载上一份已验证恢复副本。请检查浏览器下载记录；未执行恢复或清空槽位。"
+  },
+  "completeBackupRecoveryCandidateDownload": {
+    "message": "已请求下载恢复候选副本。这不证明恢复已完成；下载不会清空准备槽或解除阻塞。"
+  },
+  "completeBackupNoRecoveryPrevious": {
+    "message": "上一份已验证恢复副本不存在、无法读取或未通过完整性校验。主槽与候选副本未更改。"
+  },
+  "completeBackupNoRecoveryCandidate": {
+    "message": "保留的候选副本不存在、无法读取或未通过完整性校验。主槽与上一份副本未更改。"
+  },
+  "completeBackupRecoveryPrevious": {
+    "message": "下载上一份已验证恢复副本"
+  },
+  "completeBackupRecoveryCandidate": {
+    "message": "下载保留的恢复候选副本"
+  },
+  "completeBackupRecoverySlotsHelp": {
+    "message": "主槽是最近发布的恢复前副本，不证明恢复已完成。上一份保留发布前已验证的主槽内容；候选只是准备数据，不是已完成的恢复。每次下载都会校验该副本；下载不会清空槽位或解除恢复阻塞。"
+  },
+  "completeBackupRecoveryStageOccupied": {
+    "message": "准备槽中保留着不同的未发布恢复候选，本次恢复未执行。可在下方分别校验并下载主槽、上一份及候选副本；下载不会清空槽位或解除阻塞，插件其他功能仍可使用。"
+  },
   "completeBackupRecoveryHelp": {
     "message": "替换前会保存并验证本地恢复副本。下载后在此选择该 JSON 文件，即可预览并恢复。启动下一次已确认的恢复操作可能替换此快照，即使最终替换未完成。"
   },
@@ -3175,7 +3199,7 @@
     "message": "请先保存或完成当前编辑及待处理操作，再恢复。草稿仍保留在本页。"
   },
   "completeBackupRecoveryError": {
-    "message": "无法保存并验证恢复副本，未进行替换。"
+    "message": "恢复准备副本未能保存并验证，本次数据恢复尚未提交。主副本、上一已验证副本和候选副本可能处于不同准备阶段；可分别校验并下载保留副本，系统未自动清空任何槽位。"
   },
   "completeBackupUnconfirmed": {
     "message": "无法验证替换结果，部分数据可能已改变。请勿自动重试。请检查已保存数据，并按需下载恢复前的备份副本。"
