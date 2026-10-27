@@ -2124,6 +2124,9 @@
   "driveSafetyBackupFailedConfirm": {
     "message": "无法创建安全备份：$1\n\n是否继续在没有安全备份的情况下恢复？"
   },
+  "driveRetentionCurrentSnapshot": {
+    "message": "快照排序会删除刚上传的备份，因此已跳过整个清理。所有旧副本均已保留。"
+  },
   "driveStatePatchInvalid": {
     "message": "云盘状态更新不能替换电脑分组，云盘设置未更改。"
   },

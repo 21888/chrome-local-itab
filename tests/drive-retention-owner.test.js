@@ -4,10 +4,10 @@ const assert = require('node:assert/strict');
 const Storage = require('../storage');
 const Drive = require('../drive-backup');
 
-async function fixture(t, { resumable = false, outcome = 'normal' } = {}) {
+async function fixture(t, { resumable = false, outcome = 'normal', futureDates = false, paginate = false, failSecondPage = false } = {}) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'chrome');
     t.after(require('./helpers/drive-state-lock-model')());
-    const clone = value => structuredClone(value), raw = {}, calls = { deleted: [], uploads: [], lists: 0, auth: 0 };
+    const clone = value => structuredClone(value), raw = {}, calls = { deleted: [], uploads: [], lists: 0, auth: 0, order: [] };
     global.chrome = {
         runtime: { getManifest: () => ({ oauth2: { client_id: 'synthetic-not-an-account' } }) },
         identity: { getAuthToken: async () => { calls.auth++; throw Error('Real authorization forbidden'); } },
@@ -30,7 +30,7 @@ async function fixture(t, { resumable = false, outcome = 'normal' } = {}) {
     const files = [];
     for (const group of ['a', 'b']) for (let index = 1; index <= 21; index++) files.push({
         id: `${group}_${index}`, name: `snapshot_${group}_${index}.json`, createdTime: `2026-01-${String(index).padStart(2, '0')}T00:00:00.000Z`,
-        appProperties: { app: 'local-itab', type: 'backupSnapshot', deviceId: `device_${group}`, deviceName: group, snapshotId: `snapshot_${group}_${index}` }
+        appProperties: { app: 'local-itab', type: 'backupSnapshot', deviceId: `device_${group}`, deviceName: group, snapshotId: `snapshot_${group}_${index}`, ...(futureDates ? {createdAt: `2099-01-${String(index).padStart(2, '0')}T00:00:00Z`} : {}) }
     });
     let entered, release, metadata;
     const started = new Promise(resolve => { entered = resolve; }), gate = new Promise(resolve => { release = resolve; });
@@ -60,8 +60,15 @@ async function fixture(t, { resumable = false, outcome = 'normal' } = {}) {
             return complete(body.split('\r\n\r\n')[2].split('\r\n--')[0]);
         }
         if (init.method === 'PUT') return complete(init.body);
-        if (init.method === 'DELETE') { calls.deleted.push(url.split('/').at(-1)); return {}; }
-        if (url.startsWith('/files?')) { calls.lists++; return { json: async () => ({ files: clone(files) }) }; }
+        if (init.method === 'DELETE') { calls.order.push('delete'); calls.deleted.push(url.split('/').at(-1)); return {}; }
+        if (url.startsWith('/files?')) {
+            calls.lists++; const secondPage = new URL(url, 'https://synthetic.invalid').searchParams.get('pageToken');
+            calls.order.push(secondPage ? 'page2' : 'page1');
+            if (secondPage && failSecondPage) throw new Error('Synthetic second page unavailable');
+            return { json: async () => paginate
+                ? (secondPage ? {files: clone(files.slice(25))} : {files: clone(files.slice(0, 25)), nextPageToken: 'second'})
+                : ({files: clone(files)}) };
+        }
         throw Error(`Unexpected synthetic route: ${url}`);
     };
     return { first, second, calls, raw, files, started, release, draft: await first.createSnapshotDraft() };
@@ -115,4 +122,42 @@ test('explicit prune:false retains all snapshots without treating omitted acknow
     const h = await fixture(t, { outcome: 'missing-properties' });
     const pending = h.first.uploadSnapshotDraft(h.draft, { prune: false }); await h.started; h.release(); const result = await pending;
     assert.equal(result.pruneError, null); assert.equal(h.calls.lists, 0); assert.deepEqual(h.calls.deleted, []);
+});
+
+
+for (const resumable of [false, true]) test(`${resumable ? 'resumable' : 'multipart'} cleanup preserves the acknowledged upload and every old copy when prior metadata is future-dated`, async t => {
+    const h = await fixture(t, {resumable, futureDates: true, paginate: true});
+    const pending = h.first.uploadSnapshotDraft(h.draft); await h.started; h.release();
+    const result = await pending;
+    assert.equal(result.id, 'a_new'); assert.match(result.pruneError.message, /Cleanup was skipped/);
+    assert.deepEqual(h.calls.deleted, [], 'even an older file before the protected ID in the plan must not be deleted');
+    assert.deepEqual(h.calls.order, ['page1', 'page2'], 'collect all pages before deciding or deleting');
+    assert.equal(h.files.length, 43); assert.equal(h.calls.uploads.length, 1);
+    assert.match(result.state.lastError, /Backup created.*Cleanup was skipped/);
+});
+
+test('normal paginated cleanup waits for the complete list and keeps the newly uploaded file', async t => {
+    const h = await fixture(t, {paginate: true});
+    const pending = h.first.uploadSnapshotDraft(h.draft); await h.started; h.release();
+    const result = await pending;
+    assert.equal(result.id, 'a_new'); assert.equal(result.pruneError, null);
+    assert.deepEqual(h.calls.deleted, ['a_2', 'a_1']);
+    assert.deepEqual(h.calls.order, ['page1', 'page2', 'delete', 'delete']);
+});
+
+test('the protected ID is checked only against this computer group deletion plan', async t => {
+    const h = await fixture(t); const other = h.files.find(file => file.id === 'b_1');
+    await h.first.pruneSnapshotsForDevice('device_a', 20, {}, other.id);
+    assert.deepEqual(h.calls.deleted, ['a_1']);
+    assert.equal(h.calls.deleted.includes(other.id), false);
+});
+
+
+test('failed later list page keeps the successful upload and prevents all cleanup deletes', async t => {
+    const h = await fixture(t, {paginate: true, failSecondPage: true});
+    const pending = h.first.uploadSnapshotDraft(h.draft); await h.started; h.release();
+    const result = await pending;
+    assert.equal(result.id, 'a_new'); assert.match(result.pruneError.message, /second page unavailable/);
+    assert.deepEqual(h.calls.order, ['page1', 'page2']); assert.deepEqual(h.calls.deleted, []);
+    assert.equal(h.calls.uploads.length, 1);
 });

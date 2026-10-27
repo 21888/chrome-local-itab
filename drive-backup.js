@@ -483,7 +483,7 @@ class DriveBackupManager {
                         acknowledged.deviceId !== owner.deviceId || acknowledged.snapshotId !== owner.snapshotId) {
                         throw new Error('Snapshot ownership could not be verified; cleanup was not run and older snapshots were kept.');
                     }
-                    await this.pruneSnapshotsForDevice(owner.deviceId, this.retentionLimit, options);
+                    await this.pruneSnapshotsForDevice(owner.deviceId, this.retentionLimit, options, uploaded.id);
                 } catch (error) {
                     pruneError = error;
                     state = await this.saveState({
@@ -699,9 +699,16 @@ class DriveBackupManager {
             .slice(numericLimit);
     }
 
-    async pruneSnapshotsForDevice(deviceId, limit = this.retentionLimit, options = {}) {
+    async pruneSnapshotsForDevice(deviceId, limit = this.retentionLimit, options = {}, uploadedFileId = '') {
         const snapshots = await this.listSnapshots(options);
         const prunable = this.selectPrunableSnapshots(snapshots, deviceId, limit);
+        // Client-created timestamps can be ahead of this device's clock. Never
+        // acknowledge a successful backup and immediately delete that same file.
+        // Reject the whole plan before any deletion; do not substitute other copies.
+        if (uploadedFileId && prunable.some(snapshot => snapshot.id === uploadedFileId)) {
+            throw new Error(DriveBackupManager.getLocalizedMessage('driveRetentionCurrentSnapshot',
+                'Cleanup was skipped because the snapshot order would remove the backup just uploaded. All previous copies were kept.'));
+        }
         for (const snapshot of prunable) {
             await this.deleteSnapshot(snapshot.id, options);
         }

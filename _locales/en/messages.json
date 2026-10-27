@@ -2124,6 +2124,9 @@
   "driveSafetyBackupFailedConfirm": {
     "message": "Could not create a safety backup: $1\n\nContinue restore without a safety backup?"
   },
+  "driveRetentionCurrentSnapshot": {
+    "message": "Cleanup was skipped because the snapshot order would remove the backup just uploaded. All previous copies were kept."
+  },
   "driveStatePatchInvalid": {
     "message": "Drive status updates cannot replace computer profiles. No Drive settings were changed."
   },
