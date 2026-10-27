@@ -1026,3 +1026,89 @@ bounded('local prompt: selecting a different workspace in another tab keeps the 
     assert.equal(h.localStatus.textContent, h.messages.aiContextLocalCopied.message);
     assert.deepEqual(copies, [ticket.packed.prompt]); assert.equal(f.writes.length, writes); assert.deepEqual(f.providers, []);
 });
+
+for (const operation of ['trash', 'restore']) for (const boundary of ['bundle', 'registry']) for (const mode of ['reject', 'drop', 'commit-reject']) {
+    bounded(`${operation} ${boundary} ${mode} retains the original generation without rollback`, async () => {
+        const f = fixture(seeded()), { manager } = await selected(f), entry = await manager.create('Fault review');
+        const focus = Focus.initial(), start = Date.parse(NOW) - 60000;
+        focus.session = { id: 'fault_timer', phase: 'focus', status: 'running', remainingMs: 1500000, startedAt: start, deadline: start + 1500000 };
+        await manager.capture(entry.id).local.set({
+            [Focus.KEY]: focus,
+            [Scratchpad.KEY]: { ...Scratchpad.initial(), enabled: true, content: 'KEEP ORIGINAL 文本' }
+        });
+        if (operation === 'restore') await manager.trash(entry.id);
+        const registry = copy(f.raw[Workspaces.REGISTRY_KEY]);
+        const original = registry.workspaces.find(item => item.id === entry.id), key = Workspaces.bundleKey(original);
+        const originalBundle = copy(f.raw[key]), prior = copy(f.raw), writes = f.writes.length;
+        let injected = false;
+        f.hooks.set = (values, raw, apply) => {
+            const hit = boundary === 'registry' ? Object.hasOwn(values, Workspaces.REGISTRY_KEY)
+                : Object.keys(values).some(candidate => candidate.startsWith(Workspaces.PREFIX));
+            if (!injected && hit) {
+                injected = true;
+                if (mode === 'commit-reject') apply(values);
+                if (mode !== 'drop') throw Error('synthetic failure');
+                return undefined;
+            }
+            return DEFER;
+        };
+        await assert.rejects(manager[operation](entry.id), code(mode === 'drop' ? 'WORKSPACE_VERIFY' : 'WORKSPACE_WRITE'));
+        assert(injected, 'the intended write boundary must be reached');
+        assert.deepEqual(f.raw[key], originalBundle, 'old-generation original must remain exact');
+        for (const [storedKey, value] of Object.entries(prior)) {
+            if (storedKey !== Workspaces.REGISTRY_KEY) assert.deepEqual(f.raw[storedKey], value, `existing ${storedKey}`);
+        }
+        const current = f.raw[Workspaces.REGISTRY_KEY];
+        if (boundary === 'registry' && mode === 'commit-reject') {
+            assert.notDeepEqual(current, registry, 'a rejected acknowledgement does not undo the actual commit');
+            const currentEntry = current.workspaces.find(item => item.id === entry.id);
+            const currentBundle = f.raw[Workspaces.bundleKey(currentEntry)];
+            assert(currentBundle, 'committed registry points at a verified staged bundle');
+            assert.equal(currentEntry.deletedAt === null, operation === 'restore');
+            assert.equal(currentBundle.values[Scratchpad.KEY].content, 'KEEP ORIGINAL 文本');
+            assert.equal(currentBundle.values[Focus.KEY].session.status, 'paused');
+            assert.equal(currentBundle.values[Focus.KEY].session.remainingMs, 1440000);
+        } else assert.deepEqual(current, registry, 'uncommitted registry remains unchanged');
+        assert.equal(f.writes.length - writes, boundary === 'bundle' ? 1 : 2, 'no automatic retry or rollback');
+        assert.deepEqual(f.removals, []);
+        assert.deepEqual(f.providers, []);
+    });
+}
+
+bounded('public StorageManager startup stops when original-snapshot verification read rejects', async () => {
+    const original = seeded(), f = fixture(original), manager = f.manager();
+    const store = new StorageManager({ workspace: manager.capture('default') });
+    let saved = false, rejected = false;
+    f.hooks.set = (values, raw, apply) => {
+        if (Object.hasOwn(values, Workspaces.SNAPSHOT_KEY)) { saved = true; apply(values); return undefined; }
+        return DEFER;
+    };
+    f.hooks.get = keys => {
+        if (saved && !rejected && Array.isArray(keys) && keys.length === 1 && keys[0] === Workspaces.SNAPSHOT_KEY) {
+            rejected = true; throw Error('synthetic readback unavailable');
+        }
+        return DEFER;
+    };
+    await assert.rejects(store.getAll(), code('WORKSPACE_READ'));
+    assert(rejected, 'verification boundary reached through the public startup flow');
+    assert.equal(f.writes.length, 1);
+    assert.deepEqual(Object.keys(f.writes[0]), [Workspaces.SNAPSHOT_KEY]);
+    assert.deepEqual(f.raw[Workspaces.SNAPSHOT_KEY].values, original);
+    for (const [key, value] of Object.entries(original)) assert.deepEqual(f.raw[key], value);
+    assert(!Object.keys(f.raw).some(key => key.startsWith(Workspaces.PREFIX)));
+    for (const key of [Workspaces.STAGE_KEY, Workspaces.REGISTRY_KEY, Workspaces.ACTIVATION_KEY]) assert.equal(f.raw[key], undefined);
+    assert.deepEqual(f.removals, []);
+    assert.deepEqual(f.providers, []);
+    // A failed page remains fenced. A fresh capture can resume the retained snapshot.
+    const retained = copy(f.raw[Workspaces.SNAPSHOT_KEY]);
+    delete f.hooks.get; delete f.hooks.set;
+    await assert.rejects(store.getAll(), code('WORKSPACE_READ'));
+    assert.equal(f.writes.length, 1);
+    const freshStore = new StorageManager({ workspace: manager.capture('default') });
+    const loaded = await freshStore.getAll();
+    assert.equal(loaded.quote, original.quote);
+    assert.deepEqual(f.raw[Workspaces.SNAPSHOT_KEY], retained);
+    for (const [key, value] of Object.entries(original)) assert.deepEqual(f.raw[key], value);
+    assert.equal(f.writes.filter(value => Object.hasOwn(value, Workspaces.SNAPSHOT_KEY)).length, 1);
+    assert.deepEqual(f.providers, []);
+});

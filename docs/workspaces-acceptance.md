@@ -84,3 +84,46 @@ legacy cosmetic fields while retaining strict supplied-value/import validation.
 
 No native browser or user profile was used. The real-browser checks above,
 full release regression gate and packaging/release verification remain separate.
+
+## Failure-boundary regression addition — 2026-10-27
+
+This is a **test/documentation-only** addition to the existing implementation,
+not an incident fix. Thirteen new cases are integrated into
+`tests/workspaces-invariants.test.js`, reusing its per-test synthetic Chrome
+storage, exclusive/shared lock queue, clock and explicit Manager dependencies.
+No new global overrides or duplicated helper implementations are introduced.
+
+- **12 staged-write cases:** Trash and Restore, at the new bundle and registry
+  submission boundaries, each with reject-before-commit, silently dropped write,
+  and commit-then-rejected-acknowledgement. Every original-generation bundle and
+  other existing key remains exact (except an actually committed registry).
+  There are no removes, provider calls, automatic retries or compensating writes.
+  A registry commit with lost acknowledgement remains committed, points at the
+  verified new bundle, retains the note and pauses rather than restarts Focus.
+  Unactivated staged bundles may remain; this test does not add unsafe cleanup.
+- **One public startup case:** actual `StorageManager.getAll()` → captured
+  Session → Manager initialization, with successful original-snapshot write
+  followed by failed verification read. The error propagates after exactly one
+  snapshot write; no bundle/stage/registry/activation is submitted, and legacy
+  data is unchanged. The failed Session stays fenced. A fresh capture resumes
+  from the same snapshot without rewriting it or returning fallback defaults.
+
+Existing snapshot reject/false/drop/corruption and interrupted-activation tests
+are retained, not copied into a second suite. An initial local exploratory test
+incorrectly expected the **same failed Session** to resume after the read error.
+It failed with WORKSPACE_READ: `Session.ready()` caches that failure. The final
+regression asserts this fence and separately uses a fresh capture, matching the
+new-page recovery contract; production was not changed to satisfy the incorrect
+expectation. That exploratory failure log remains local.
+
+Final applicable run: complete `workspaces-invariants`,
+`workspace-bootstrap-storage`, `workspace-bootstrap-page-failure`,
+`workspace-lifecycle` and `workspaces-view` files, serial execution,
+**205/205 passed**, exit 0; `git diff --check` passed. This is not a new full-suite
+or native-browser result, and the thirteen cases are not retroactively added to
+older aggregate counts.
+
+Synthetic failures do not establish physical disk/crash durability, historical
+installed-version behavior, original profile contents or the earlier
+upgrade/import incident's cause. No user storage, file picker, pending import
+approval, cloud provider or browser was touched. Release/CWS gates remain separate.
