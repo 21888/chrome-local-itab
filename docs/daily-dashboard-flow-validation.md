@@ -430,3 +430,23 @@ A deliberately rejecting **in-memory clipboard adapter** captured a click on tha
 Final synthetic storage readback showed zero writes, unchanged links/layout/personal data/other workspace, and no external/provider attempts or errors. The synthetic unsaved input was explicitly cleared only after preservation evidence, for cleanup. The fixture reused the preceding valid category seed and its visible storage-proof label; no category action was taken in this second flow.
 
 This closes the native activation/readback gap left by the historical recent-copy model report; it does not test OS clipboard contents, real browser permission denial, assistive technology, every pending-copy race or IME sequence. Existing model results remain separately scoped. Neither flow establishes recovery from the historical data-loss incident or removes the store-release gate.
+
+## 2026-10-27: filtered completed-task reopening and historical long-text reading
+
+This second bounded batch closes two distinct native gaps, without production changes or repeating full green suites. It uses synthetic local backends, actual production components and native controls; no installed-extension, upgrade, system clipboard, account or provider acceptance is implied.
+
+### Filtered Completed → select one exact identity → cancel/confirm → reload (8823)
+
+The actual Tasks Store/Controller/View used seven valid synthetic records, including three completed tasks. Filtering by `相同` displayed two identical-text completed records and excluded the third. With an unsaved quick-entry draft present, the selector began with nothing selected. Selecting the first identity and reviewing its numbered complete original, then Cancel, left writes at zero and revision at one. Reopening the selector again began with nothing selected.
+
+Selecting only that first identity, reviewing and explicitly confirming produced one write, revision two and one additional receipt. Only the selected ID became active with a new version. The same-text sibling, hidden completed task and all other unselected records—six in total—remained exactly equal, as did pin, record order, original text and the prior receipt. The quick draft and filter remained; the filtered page showed one active and one completed row. After explicitly clearing the synthetic draft for cleanup, reload showed Active 3 / Completed 2 / Removed 2 and the same one-write state. No automatic reopening of all records, restored old pin, new Undo or persistence of an unsaved draft across reload is claimed. Six component source files were byte-identical to the current source; the only preliminary local check validated the synthetic seed, rather than rerunning prior batch suites.
+
+### Same-record historical versions → independent long-text reading (8824)
+
+A full Collection page used three legitimate saved histories generated through the real Store's add and reviewed revision operations. The first and third originals were identical 7,851-UTF-16-unit strings containing 160 numbered lines, tabs, Unicode, HTML-like literals, CRLF and a bare CR. The middle version differed only by converting CRLF to LF. Offline seed construction is separate from the page's zero-write read-only session.
+
+The dialog initially selected the latest two IDs and correctly reported that their originals were not exactly identical, although both displayed 7,692 units after line-ending normalization. Native selection of first versus third reported exact equality across distinct IDs; selecting the same ID on both sides produced the separate same-version label. The Current marker remained attached to the exact third version.
+
+At 1,165 CSS pixels, the two columns were side by side. Native Tab and End scrolled the left body to 3,250 pixels while the right remained at zero; Tab and PageDown then scrolled the right independently. Actual browser zoom narrowed the CSS viewport to 666 pixels, where the two bodies stacked. Keyboard Home on the first and Tab/End on the second kept both independently reachable: left zero, right 3,396 pixels (3,590 scroll height / 194 client height). The Close button remained reachable below the second body. Escape returned focus to the original history-reading entry, and browser zoom was restored before cleanup.
+
+Final readback showed zero page storage writes, exact equality of the entire saved collection library and no recorded errors. No history was restored, source URL opened, content copied or sent to a model. Native screenshots were inspected in-tool, not uploaded or committed. These checks do not establish screen-reader/IME behavior, every interruption or actual installation/update behavior. Both owned pages, servers and terminal tabs were normally closed, preserving the original browser tab.
