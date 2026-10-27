@@ -11,6 +11,7 @@
             controller.onChange = kind => { this.updateResultsMarkdown?.(); if (kind === 'dispose') { this.destroy(); return; } if (this.revisionContext && !this.revisionContext.current()) this.cancelRevision(); this.updateImportButton(); this.updateImport?.(); this.updateComparison?.(); this.updateHistoricalPrompt?.(); this.updateReuseDraft?.(); this.refreshCopyState(); if (kind === 'comparison') return; return kind === 'capture' ? this.renderCaptureStatus() : kind === 'prompts' ? this.updatePromptPanel() : kind === 'draft' ? this.updateEditor() : kind === 'list' ? this.renderList() : this.render(); };
             this.changeOwner = controller.onChange;
             this.pageHide = event => {
+                this.cancelJsonExport();
                 if (!event?.persisted) { this.destroy(); return; }
                 this.invalidateResultsMarkdown();
                 this.cancelRevision();
@@ -24,7 +25,7 @@
                 this.closeComparison?.();
             };
             this.pageShow = event => { if (event?.persisted && !this.destroyed && !controller.disposed) this.render(); };
-            this.visibilityChange = () => { this.updateResultsMarkdown(); if (this.doc.visibilityState === 'hidden') this.copyGeneration++; this.updateReuseDraft?.(); this.refreshCopyState(); };
+            this.visibilityChange = () => { if (this.doc.visibilityState === 'hidden') this.cancelJsonExport(); this.updateResultsMarkdown(); if (this.doc.visibilityState === 'hidden') this.copyGeneration++; this.updateReuseDraft?.(); this.refreshCopyState(); };
             this.doc.addEventListener('visibilitychange', this.visibilityChange);
             root.addEventListener?.('pagehide', this.pageHide);
             root.addEventListener?.('pageshow', this.pageShow);
@@ -33,6 +34,7 @@
         destroy() {
             if (this.destroyed) return;
             this.destroyed = true;
+            this.cancelJsonExport();
             this.invalidateResultsMarkdown();
             this.cancelRevision();
             this.answerReader?.destroy(); this.answerReader = null;
@@ -222,7 +224,7 @@
             this.renderCaptureStatus();
             const c = this.controller;
             this.updateImportButton();
-            this.renderList(); this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand); this.exportButton.disabled = !c.state || c.busy;
+            this.renderList(); this.newButton.disabled = !c.state || c.busy || Boolean(c.pendingCommand); this.updateJsonExportButton();
             this.status.replaceChildren(); this.status.classList.toggle('error', Boolean(c.error));
             if (c.error) this.status.append(this.el('span', '', ['replace', 'recover'].includes(c.error.scope) ? (c.pendingCommand ? this.t('ImportUncertain', 'The replacement may already have completed. New changes are paused. Check the saved outcome read-only; keep this tab open if no matching receipt can be verified. Any retry uses the same operation.') : this.t('ImportApplyFailed', 'Replacement was refused. Refresh saved data, then reopen Import / recover JSON and review again. No automatic retry.')) : this.errorText(c.pendingCommand ? 'OUTCOME_UNCERTAIN' : c.error.code)), ...(c.subscriptionError ? [] : [this.button('Refresh', 'Refresh saved data', () => c.refresh())]));
             else if (['replace', 'recover'].includes(c.notice)) this.status.textContent = this.t('ImportSaved', 'Global collection replacement was verified. Use Import / recover JSON to review and restore a retained snapshot.');
@@ -957,14 +959,54 @@
             overlay.append(box); this.doc.body.append(overlay); this.openDialog = true; this.closeImport = finish;
             cleanup = root.LocalItabDialog.open(overlay, cancel, finish);
         }
+        updateJsonExportButton() {
+            if (!this.exportButton) return;
+            this.exportButton.disabled = !this.controller.state || this.controller.busy;
+            // Keep the modal opener focusable while its read is pending. The
+            // operation owner, not the disabled DOM property, rejects re-entry.
+            this.exportButton.setAttribute('aria-disabled', String(this.exportButton.disabled || Boolean(this.jsonExport)));
+        }
+        cancelJsonExport() {
+            const context = this.jsonExport;
+            if (!context) return;
+            this.jsonExport = null;
+            context.closeDialog?.();
+            this.updateJsonExportButton();
+        }
         async exportFile() {
-            if (this.openDialog || this.controller.busy) return;
-            let omit = false;
-            if (!(await this.dialog({ title: this.t('Export', 'Export'), body: this.t('ContextSnapshotExportWarning', 'Saved question/source snapshots, when present, are included in full and may contain private text and endpoint URLs even if attribution source URLs are omitted.') + '\n\n' + this.t('ExportWarning', 'Download an unencrypted JSON copy of all saved and archived items, body history, annotations, prompt references and recovery snapshots. Unsaved drafts are excluded. Keep it somewhere private.'), accept: this.t('Download', 'Download JSON'), checkbox: value => { omit = value; } }))) return;
+            const c = this.controller, store = c.store, host = this.host, shell = this.shell, button = this.exportButton;
+            const sourceCurrent = () => !this.destroyed && !c.disposed && this.controller === c && c.store === store &&
+                c.onChange === this.changeOwner && this.host === host && this.shell === shell && host.isConnected &&
+                host.contains(shell) && shell.contains(button) && button.isConnected && !host.hidden && !shell.hidden &&
+                this.doc.visibilityState !== 'hidden' && !c.busy && !c.pendingCommand;
+            if (this.openDialog || this.jsonExport || button.disabled || !sourceCurrent()) return;
+            const context = { current: () => this.jsonExport === context && sourceCurrent() };
+            this.jsonExport = context; this.updateJsonExportButton();
+            let omit = false, url, anchor, submitted = false;
             try {
-                // Store.export() already serializes the backup; download those JSON bytes directly.
-                const data = await this.controller.store.export({ omitSourceUrls: omit }); const blob = new root.Blob([data], { type: 'application/json' }); const url = root.URL.createObjectURL(blob); const a = this.el('a'); a.href = url; a.download = 'local-itab-ai-collection.json'; this.doc.body.append(a); a.click(); a.remove(); root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
-            } catch (_) { this.status.textContent = this.t('ExportFailed', 'Export could not be created. Saved content is unchanged.'); }
+                const accepted = await this.dialog({ title: this.t('Export', 'Export'), body: this.t('ContextSnapshotExportWarning', 'Saved question/source snapshots, when present, are included in full and may contain private text and endpoint URLs even if attribution source URLs are omitted.') + '\n\n' + this.t('ExportWarning', 'Download an unencrypted JSON copy of all saved and archived items, body history, annotations, prompt references and recovery snapshots. Unsaved drafts are excluded. Keep it somewhere private.'), accept: this.t('Download', 'Download JSON'), checkbox: value => { omit = value; }, ownerContext: context });
+                if (!accepted || !context.current()) return;
+                // Store.export() returns the complete serialized backup. Do not
+                // submit a deferred file after this page or export owner retires.
+                const data = await store.export({ omitSourceUrls: omit });
+                if (!context.current()) return;
+                const blob = new root.Blob([data], { type: 'application/json' });
+                if (!context.current()) return;
+                url = root.URL.createObjectURL(blob);
+                if (!context.current()) return;
+                anchor = this.el('a'); anchor.href = url; anchor.download = 'local-itab-ai-collection.json'; this.doc.body.append(anchor);
+                if (!context.current()) return;
+                anchor.click(); submitted = true;
+            } catch (_) {
+                if (context.current()) this.status.textContent = this.t('ExportFailed', 'Export could not be created. Saved content is unchanged.');
+            } finally {
+                try { anchor?.remove(); } catch (_) { /* Best-effort DOM cleanup. */ }
+                if (url) {
+                    const revoke = () => { try { root.URL.revokeObjectURL(url); } catch (_) { /* No retry or new download. */ } };
+                    if (submitted) { try { root.setTimeout(revoke, 1000); } catch (_) { revoke(); } } else revoke();
+                }
+                if (this.jsonExport === context) this.cancelJsonExport();
+            }
         }
         resultsMarkdownReady() {
             const c = this.controller, button = this.resultMarkdownButton;
@@ -1075,8 +1117,9 @@
                 this.exportingMarkdown = false;
             }
         }
-        dialog({ title, body, accept, editor, onInput, comparison, checkbox, markdownPreview, sourceCheckbox, sourceValue, markdownCurrent, revisionContext }) {
+        dialog({ title, body, accept, editor, onInput, comparison, checkbox, markdownPreview, sourceCheckbox, sourceValue, markdownCurrent, revisionContext, ownerContext }) {
             if (this.openDialog) return Promise.resolve(false);
+            const context = revisionContext || ownerContext;
             return new Promise(resolve => {
                 const overlay = this.el('div', 'prompt-dialog-overlay'), box = this.el('section', `prompt-dialog${comparison || editor !== undefined ? ' collection-review-dialog' : ''}`); overlay.setAttribute('aria-hidden', 'true'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'collection-dialog-title'); box.setAttribute('aria-describedby', 'collection-dialog-body');
                 const heading = this.el('h2', '', title); heading.id = 'collection-dialog-title'; const content = this.el('p', '', body); content.id = 'collection-dialog-body'; box.append(heading, content);
@@ -1091,8 +1134,8 @@
                     label.append(input, this.el('span', '', this.t('MarkdownSource', 'Include the saved source URL (may reveal private conversation links). Text and notes may still contain private information.'))); box.append(label, source);
                 }
                 const actions = this.el('div', 'prompt-actions'); let close, closed = false;
-                const finish = answer => { if (closed) return; closed = true; this.openDialog = false; if (markdownPreview !== undefined) this.cancelMarkdownDialog = null; if (revisionContext) revisionContext.closeDialog = null; const current = !revisionContext || revisionContext.current(); close?.(current && (markdownPreview === undefined || !markdownCurrent || markdownCurrent())); overlay.remove(); resolve(answer && current); };
-                if (revisionContext) revisionContext.closeDialog = () => finish(false);
+                const finish = answer => { if (closed) return; closed = true; this.openDialog = false; if (markdownPreview !== undefined) this.cancelMarkdownDialog = null; if (context) context.closeDialog = null; const current = !context || context.current(); close?.(current && (markdownPreview === undefined || !markdownCurrent || markdownCurrent())); overlay.remove(); resolve(answer && current); };
+                if (context) context.closeDialog = () => finish(false);
                 if (markdownPreview !== undefined) this.cancelMarkdownDialog = () => finish(false);
                 const cancel = this.button('Cancel', 'Cancel', () => finish(false)), proceed = this.el('button', 'prompt-primary', accept); proceed.type = 'button'; proceed.addEventListener('click', () => finish(true)); actions.append(cancel, proceed); box.append(actions); overlay.append(box); this.doc.body.append(overlay); this.openDialog = true; // A long export review must open at its scope/privacy introduction.
                 // Keep the static heading out of the normal sequential Tab order.

@@ -1,0 +1,37 @@
+# Collection JSON export: retire deferred download ownership
+
+## Counterexample and scope
+
+The prior `View.exportFile()` obtained explicit JSON-download confirmation, awaited the real Store export, then created and clicked a download anchor without checking whether the original View still owned the operation. A controlled backend read, actual dialog acceptance and actual `pagehide` handler reproduced a late download after `destroyed === true`: one anchor submission, zero storage writes, original library unchanged. This is an export lifecycle defect, not proof of the historical data-loss incident or a storage corruption.
+
+The original failing log is retained locally under `evidence/collection-json-export-retirement/baseline.log`. An initial fixture attempt failed to exercise the read because model View and real Store used different JavaScript realms; its object-input rejection was diagnosed, not called a product failure. The corrected fixture uses the same explicit JSON options bridge as the existing collection UI tests. The production Store and its validation remain unchanged.
+
+## Ownership contract
+
+One export context captures the original Controller, Store, host, shell, export button and callback owner. Duplicate entry during its dialog/read is rejected. Successful confirmation and every deferred read must still belong to that context before Blob creation, object-URL creation and the final anchor submission. Current source disconnection, changed callback/Store, disposal, busy or uncertain writer state reject late submission.
+
+Page departure, including BFCache departure, and document visibility becoming hidden retire the context. An outstanding privacy dialog is closed without accepting it. Returning to the page does not revive the prior confirmation; an explicit new export is required. Old read resolution or rejection cannot submit a file, replace current status or unlock a newer export. This cancellation does not cancel an already-submitted browser download, undo a storage write or terminate the backend read itself.
+
+JSON serialization, complete saved/archived/history/recovery coverage, omission of attribution source URLs and the existing privacy warning are unchanged. This is still the original whole-library export, not a selection projection or a review-bound content snapshot. Filters and unsaved draft values are not silently substituted into it. No Store, import, recovery-write, permissions, provider or schema change is made. The guard does not claim detection of every arbitrary DOM/CSS detach-and-reattach mutation.
+
+Object URLs and temporary anchors are cleaned on both success and pre-submission retirement. A successful submission retains the existing delayed URL-revocation behavior. Current read failure keeps the original error and allows a new explicit attempt; a retired failure stays silent.
+
+## Verification
+
+Twenty-one new tests use the real Store/Controller, real View/dialog and event handlers with a synthetic DOM and memory-only download sink. They cover normal complete JSON, cancellation, departure/disposal/BFCache, hidden→visible, disconnected host, replacement callback/Store, duplicate entry, old settlement versus a newer export, read failure/retry and retirement during object-URL creation. The existing complete collection UI file—including exact JSON parsing and omit-URL/history/recovery expectations—passes unchanged alongside them: **124/124** (included in the broader related run below).
+
+The first focused iteration had three fixture API errors (document event dispatch and a resolve-only deferred helper used as rejectable); those logs are retained separately. They were corrected without weakening production or expected outcomes.
+
+The first implementation disabled the opener before opening the privacy dialog. Native Cancel exposed a new focus regression: focus returned to the page rather than Export. This was not accepted as final despite that implementation's 17,431/17,431 Node and 91/91 Python results. The corrected implementation uses `aria-disabled` while an export owns the operation, retains the original Controller-based native disabled state, and rejects repeated activation in the handler. Existing dialog focus restoration can therefore return to the opener; later read settlement performs no focus call. Added tests cover Cancel/confirmation return focus, newer user focus surviving success/failure, and no opener restoration during retirement. A local negative source probe retains the failed opener assertions.
+
+Final complete related files: **901/901**, including the new 21 cases and existing 103 collection UI cases. Final fixed-source all-Node suite: **17,436/17,436**, exit 0; Python: **91/91**, exit 0. Logs are retained locally as `final-related.log`, `final-full-node.log` and `final-python.log` in the same evidence directory.
+
+### Native scope and limitation
+
+The first bounded Chrome loopback run (8829) used actual production View/Store/Controller, native Web Locks, synthetic local storage and an in-memory anchor/Blob adapter. Normal confirmed export produced complete saved content with exact body/history/notes, both with attribution URLs omitted (36,923 bytes) and retained (36,957 bytes); Cancel made no additional file. Original raw storage remained identical with zero writes. It did not make a disk download, read user data, select an import file or call an external site/provider.
+
+Opening and closing owned away tabs did **not** cause this browser environment to emit a `visibilitychange` event: the fixture recorded only its initial visible state. Releasing the pending read therefore still downloaded into memory. This is neither a passing native hidden-retirement test nor evidence that the implemented event guard failed. No blur workaround or injected event was used to manufacture a native result. Hidden/BFCache/pagehide retirement is verified by the actual production handlers in the synthetic-DOM model; native visibility dispatch remains unverified.
+
+The corrected source was exercised separately on port 8830: Cancel restored focus to Export with no download; confirmation returned focus to the same opener while a real Store read was held. Actual Enter, Space and a pointer click did not reopen the dialog or create another file. Releasing that read created exactly one 36,923-byte omit-URL copy, preserving complete body/history/notes. Settlement kept the user's newer focus on the release control. A subsequent explicit export whose synthetic storage read rejected produced the existing error, no file and zero writes; another explicit privacy confirmation succeeded with one 36,957-byte URL-retaining copy and focus back on Export. The prior error text remains until the existing page status is next rendered; this change does not redesign success/error messaging. All original raw storage remained byte-equivalent and there were no unhandled errors.
+
+The final fixture's 138 production runtime files were compared byte-for-byte with the worktree; changed View SHA-256: `c1df89c85e443733bef86d36f39b2564f3f27e24aaf5977876a7a10d23e7d996`. Only its local Chrome-storage/read-fault and in-memory download adapters are synthetic. Evidence JSON and source proofs remain local under `evidence/collection-json-export-retirement/`; no screenshot, binary, credentials or user record is included in this commit. Owned fixture tabs and servers were closed normally. No release/version/CWS change is part of this fix.
